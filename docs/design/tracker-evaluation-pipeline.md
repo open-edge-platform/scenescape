@@ -63,10 +63,13 @@ flowchart LR
 
 ## Standard data formats:
 
-- Scene and camera configuration canonical format. Defined by JSON schema: tracker/schema/scene.schema.json
-- Input object detection canonical format. Defined by JSON schema: tracker/schema/camera-data.schema.json
-- Output track canonical format. Defined by JSON schema: tracker/schema/scene-data.schema.json
-- Tracker Evaluator input track format (MOTChallenge CSV format is assumed in Phase 1)
+The pipeline uses standardized data formats for component interoperability. Detailed specifications with examples are documented in [tools/tracker/evaluation/README.md - Canonical Data Formats](../../tools/tracker/evaluation/README.md#canonical-data-formats).
+
+**Format overview**:
+- Scene and camera configuration canonical format
+- Input object detection canonical format
+- Output track canonical format
+- Tracker Evaluator input track format
 
 ### Format Conversion Utilities
 
@@ -175,7 +178,7 @@ Implementation of the component class must implement the following functions.
   - on error: raises exception
 - GetSceneConfig
   - argument: none
-  - returns: scene and camera configuration in canonical format (tracker/schema/scene.schema.json)
+  - returns: scene and camera configuration in canonical Scene Configuration Format (see tools/tracker/evaluation/README.md#canonical-data-formats)
   - on error: raises exception
 - GetSceneConfigRaw
   - argument: none
@@ -187,7 +190,7 @@ Implementation of the component class must implement the following functions.
   - on error: raises exception
 - GetGroundTruth
   - argument: none
-  - returns: path to ground truth file in Tracker Evaluator input track format (e.g., MOTChallenge CSV)
+  - returns: path to ground truth file in Ground Truth Format (MOTChallenge 3D CSV) (see tools/tracker/evaluation/README.md#canonical-data-formats)
   - on error: raises exception
 - Reset: resets state to initial
   - argument: none

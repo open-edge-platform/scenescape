@@ -153,7 +153,8 @@ class MetricTestDataset(TrackingDataset):
     """Get scene configuration in canonical format.
 
     Returns:
-      Scene configuration matching tracker/schema/scene.schema.json
+      Scene configuration in canonical Scene Configuration Format
+      (see tools/tracker/evaluation/README.md#canonical-data-formats).
     """
     if self._scene_config is None:
       self._scene_config = self._load_scene_config()
@@ -179,8 +180,9 @@ class MetricTestDataset(TrackingDataset):
     Args:
       camera: Specific camera ID, or None for all configured cameras
 
-    Returns:
-      Iterator of camera data matching tracker/schema/camera-data.schema.json
+    Yields:
+      Camera detection data in canonical Input Detection Format
+      (see tools/tracker/evaluation/README.md#canonical-data-formats).
 
     Raises:
       ValueError: If camera not configured
@@ -206,10 +208,11 @@ class MetricTestDataset(TrackingDataset):
             yield data
 
   def get_ground_truth(self) -> str:
-    """Get ground truth in MOTChallenge 3D CSV format.
+    """Get ground truth in evaluator input format.
 
     Returns:
-      Path to generated CSV file with ground truth tracks
+      Path to CSV file with ground truth data in Ground Truth Format (MOTChallenge 3D CSV)
+      (see tools/tracker/evaluation/README.md#canonical-data-formats).
     """
     gt_file = self._dataset_path / "gtLoc.json"
     if not gt_file.exists():
@@ -237,7 +240,8 @@ class MetricTestDataset(TrackingDataset):
                 })
           frame_num += 1
 
-    # Convert to MOTChallenge 3D CSV format
+    # Convert to Ground Truth Format (MOTChallenge 3D CSV)
+    # See tools/tracker/evaluation/README.md#canonical-data-formats for format specification
     mapping = {
       "frame": {"pointer": "/frame"},
       "id": {"pointer": "/object_id"},

@@ -64,8 +64,8 @@ class TrackerEvaluator(ABC):
     """Process tracker outputs and ground-truth for evaluation.
 
     Args:
-      tracker_outputs: Iterator of tracker output dictionaries conforming to
-        tracker/schema/scene-data.schema.json.
+      tracker_outputs: Iterator of tracker output dictionaries in canonical Tracker Output Format
+        (see tools/tracker/evaluation/README.md#canonical-data-formats).
       ground_truth: Iterator of ground-truth tracks in evaluator-specific format.
 
     Returns:

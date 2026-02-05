@@ -25,7 +25,8 @@ class TrackerHarness(ABC):
     """Set scene and camera configuration.
 
     Args:
-      config: Scene configuration conforming to tracker/schema/scene.schema.json.
+      config: Scene configuration in canonical Scene Configuration Format
+        (see tools/tracker/evaluation/README.md#canonical-data-formats).
 
     Returns:
       Self for method chaining.
@@ -60,8 +61,8 @@ class TrackerHarness(ABC):
     """Set callback function to be called when tracker outputs are ready.
 
     Args:
-      callback: Function that receives an iterator of tracker outputs.
-        Each output conforms to tracker/schema/scene-data.schema.json.
+      callback: Function that receives an iterator of tracker outputs in canonical
+        Tracker Output Format (see tools/tracker/evaluation/README.md#canonical-data-formats).
 
     Returns:
       Self for method chaining.
@@ -88,8 +89,8 @@ class TrackerHarness(ABC):
     """Process input detections through the tracker.
 
     Args:
-      inputs: Iterator of detection dictionaries conforming to
-        tracker/schema/camera-data.schema.json.
+      inputs: Iterator of detection dictionaries in canonical Input Detection Format
+        (see tools/tracker/evaluation/README.md#canonical-data-formats).
 
     Returns:
       Self for method chaining.

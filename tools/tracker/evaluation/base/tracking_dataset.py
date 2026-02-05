@@ -108,7 +108,8 @@ class TrackingDataset(ABC):
     """Get scene and camera configuration in canonical format.
 
     Returns:
-      Dictionary conforming to tracker/schema/scene.schema.json.
+      Dictionary conforming to Scene Configuration Format
+      (see tools/tracker/evaluation/README.md#canonical-data-formats).
 
     Raises:
       RuntimeError: If configuration cannot be loaded or converted.
@@ -135,7 +136,8 @@ class TrackingDataset(ABC):
       camera: Camera identifier (optional). If None, returns inputs from all cameras.
 
     Yields:
-      Detection dictionaries conforming to tracker/schema/camera-data.schema.json.
+      Detection dictionaries conforming to Input Detection Format
+      (see tools/tracker/evaluation/README.md#canonical-data-formats).
 
     Raises:
       ValueError: If camera identifier is invalid.
@@ -148,7 +150,8 @@ class TrackingDataset(ABC):
     """Get ground-truth data in evaluator input format.
 
     Returns:
-      Path to ground-truth file in evaluator input format (e.g., MOTChallenge CSV).
+      Path to ground-truth file in Ground Truth Format (MOTChallenge 3D CSV)
+      (see tools/tracker/evaluation/README.md#canonical-data-formats).
 
     Raises:
       RuntimeError: If ground-truth cannot be loaded or converted.

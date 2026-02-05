@@ -90,9 +90,96 @@ evaluation/
 
 ## Canonical Data Formats
 
-- **Scene configuration**: `tracker/schema/scene.schema.json`
-- **Input detections**: `tracker/schema/camera-data.schema.json`
-- **Tracker outputs**: `tracker/schema/scene-data.schema.json`
+The pipeline uses standardized data formats defined by JSON schemas to enable interoperability between components. All implementations must conform to these canonical formats.
+
+### Scene Configuration Format
+
+**Schema**: `tracker/schema/scene.schema.json`
+
+**Purpose**: Describes scene and camera setup including camera intrinsics and extrinsics.
+
+**Structure**:
+```json
+{
+  "uid": "scene-unique-id",
+  "name": "Scene_Name",
+  "cameras": [
+    {
+      "uid": "camera-unique-id",
+      "name": "Camera_Name",
+      "intrinsics": {
+        "fx": 964.24,
+        "fy": 964.63,
+        "cx": 400.0,
+        "cy": 300.0
+      },
+      "distortion": {
+        "k1": 0.0,
+        "k2": 0.0
+      }
+    }
+  ]
+}
+```
+
+### Input Detection Format
+
+**Schema**: `tracker/schema/camera-data.schema.json`
+
+**Purpose**: Object detections from individual cameras (tracker input).
+
+**Structure**:
+```json
+{
+  "timestamp": 1234567890.123,
+  "id": "camera-unique-id",
+  "objects": [
+    {
+      "id": 1,
+      "label": "person",
+      "bbox2d": [x_min, y_min, x_max, y_max],
+      "confidence": 0.95
+    }
+  ]
+}
+```
+
+### Tracker Output Format
+
+**Schema**: `tracker/schema/scene-data.schema.json`
+
+**Purpose**: 3D tracking results from the tracker (evaluator input).
+
+**Structure**: See schema file for complete specification.
+
+### Ground Truth Format (MOTChallenge 3D CSV)
+
+**Purpose**: Ground-truth tracks for evaluation (evaluator reference data).
+
+**Format**: MOTChallenge 3D CSV with 8 columns:
+
+| Column | Name       | Description                    | Type  |
+|--------|------------|--------------------------------|-------|
+| 1      | frame      | Frame number (1-indexed)       | int   |
+| 2      | id         | Object/track ID                | int   |
+| 3      | x          | 3D position X coordinate       | float |
+| 4      | y          | 3D position Y coordinate       | float |
+| 5      | z          | 3D position Z coordinate       | float |
+| 6      | conf       | Confidence/detection score     | float |
+| 7      | class      | Object class (1 for person)    | int   |
+| 8      | visibility | Visibility flag (1 = visible)  | int   |
+
+**Example**:
+```csv
+1,1,5.2,3.1,0.0,1.0,1,1
+1,2,7.8,4.5,0.0,1.0,1,1
+2,1,5.3,3.2,0.0,1.0,1,1
+```
+
+**Notes**:
+- Frame numbers are 1-indexed (not 0-indexed)
+- Default class value is 1 (person) per TrackEval convention
+- Visibility 1 indicates fully visible object
 
 ## References
 
