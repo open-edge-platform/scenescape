@@ -391,6 +391,14 @@ run_basic_acceptance_tests: setup_tests
 	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
+.PHONY: run_stability_tests
+run_stability_tests: setup_tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running stability tests..."
+	$(eval HOURS ?= 24)
+	$(MAKE) --trace -C tests system-stability -j 1 SUPASS=$(SUPASS) HOURS=$(HOURS) SECRETSDIR=$(CURDIR)/manager/secrets || (echo "Stability tests failed" && exit 1)
+	@echo "DONE ==> Running stability tests"
+
 # Temp K8s BAT target
 .PHONY: run_basic_acceptance_tests_k8s
 run_basic_acceptance_tests_k8s: setup_tests
