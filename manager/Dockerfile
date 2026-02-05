@@ -220,14 +220,16 @@ Pin-Priority: 1000 \n\
     ; apt-get update && apt-get install -y --no-install-recommends firefox \
     ; rm -rf /var/lib/apt/lists/*
 # Install Python test dependencies
-COPY --chown=$WSUSER:$WSUSER ./manager/test/requirements-test.txt /tmp
-USER $WSUSER
+COPY ./manager/test/requirements-test.txt /tmp
+
 RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-test.txt
 
 ADD ./manager/test/geckodriver.tar.gz /usr/local/bin/
 
-COPY --chown=$WSUSER:$WSUSER ./manager/test/firefox-profile.tar /home/scenescape/.mozilla/
+COPY ./manager/test/firefox-profile.tar /home/scenescape/.mozilla/
 RUN : \
     ; eval WSHOME=~$WSUSER \
-    ; chown -R "$WSUSER.$WSUSER" "$WSHOME/.mozilla" \
+    ; chown -R "$WSUSER:$WSUSER" "$WSHOME/.mozilla" \
     ;
+
+USER $WSUSER
