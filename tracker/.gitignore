@@ -33,6 +33,3 @@ coverage/
 # Generated files
 *.log
 compile_commands.json
-
-# temporarily ignore documentation (to be removed later)
-docs/*
