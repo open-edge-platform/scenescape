@@ -120,17 +120,10 @@ void MessageHandler::start() {
         mqtt_client_->subscribe(topic);
     }
 
-    // Log consolidated subscription summary after queueing all subscriptions
-    std::ostringstream camera_list;
-    for (size_t i = 0; i < camera_ids.size(); ++i) {
-        if (i > 0)
-            camera_list << ", ";
-        camera_list << camera_ids[i];
-    }
-    LOG_INFO_ENTRY(
-        LogEntry("Subscribing to camera topics")
-            .component("mqtt")
-            .operation(std::to_string(camera_ids.size()) + " topics: " + camera_list.str()));
+    // Log subscription summary (individual topics logged at DEBUG in MqttClient)
+    LOG_INFO_ENTRY(LogEntry("Queued camera subscriptions")
+                       .component("mqtt")
+                       .operation(std::format("{} cameras", camera_ids.size())));
 }
 
 void MessageHandler::stop() {

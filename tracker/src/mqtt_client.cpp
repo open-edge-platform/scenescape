@@ -204,12 +204,11 @@ void MqttClient::subscribe(const std::string& topic) {
         return;
     }
 
-    LOG_DEBUG_ENTRY(LogEntry("MQTT subscribing")
-                        .component("mqtt")
-                        .mqtt({.topic = topic, .direction = "subscribe"}));
-
     try {
         client_->subscribe(topic, MQTT_QOS, nullptr, *this);
+        LOG_DEBUG_ENTRY(LogEntry("MQTT subscribe request queued")
+                            .component("mqtt")
+                            .mqtt({.topic = topic, .direction = "subscribe"}));
     } catch (const mqtt::exception& e) {
         LOG_ERROR("MQTT subscribe failed: {}", e.what());
         subscribed_ = false;
@@ -285,11 +284,11 @@ void MqttClient::connected(const std::string& cause) {
     {
         std::lock_guard<std::mutex> lock(subscriptions_mutex_);
         for (const auto& topic : pending_subscriptions_) {
-            LOG_DEBUG_ENTRY(LogEntry("MQTT subscribing")
-                                .component("mqtt")
-                                .mqtt({.topic = topic, .direction = "subscribe"}));
             try {
                 client_->subscribe(topic, MQTT_QOS, nullptr, *this);
+                LOG_DEBUG_ENTRY(LogEntry("MQTT subscribe request queued")
+                                    .component("mqtt")
+                                    .mqtt({.topic = topic, .direction = "subscribe"}));
             } catch (const mqtt::exception& e) {
                 LOG_ERROR("MQTT subscribe failed for {}: {}", topic, e.what());
             }
