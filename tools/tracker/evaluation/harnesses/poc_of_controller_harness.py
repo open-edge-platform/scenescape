@@ -17,6 +17,13 @@ from scene_common.geometry import Region, Tripwire
 # the ratio of effective object update rate to camera frame rate
 # equal to number of cameras that observe the detected objects at the same time
 CAMERA_OVERLAP_RATIO = 2
+TRACKER_PROCESSING_INTERVAL = 0.025  # 25 ms
+
+def _sleep_until_time(expected_time):
+  current_time = time.time()
+  sleep_time = expected_time - current_time
+  if sleep_time > 0:
+    time.sleep(sleep_time)
 
 def _dump_pred_data(pred_data):
   """! Dump prediction data and parameters to files.
@@ -39,7 +46,6 @@ def get_detections(tracked_data, scene, objects, jdata):
   @param    jdata         Json data which contains detection info
   @return   tracked_data  The filled list of tracked data
   """
-  scene.tracker.waitForComplete()
   obj_list = []
   for category in objects.keys():
     curr_objects = scene.tracker.currentObjects(category)
@@ -124,7 +130,8 @@ def track(params):
     scene.tracker.updateObjectClasses(params['assets'])
 
   camera_count = len(params["cameras"])
-  frame_interval = 1.0 / (ref_camera_fps * camera_count) if time_chunking_enabled else 0.025
+  # frame interval in seconds: how long we wait for processing thread before collecting detections
+  frame_interval = 1.0 / ref_camera_fps if time_chunking_enabled else TRACKER_PROCESSING_INTERVAL
   start_time = time.time()
   frame_count = 0
 
@@ -134,18 +141,16 @@ def track(params):
       break
     objects = cam_detect["objects"]
 
+    # this call is non-blocking, detections are put into queue and processed in separate thread
     scene.processCameraData(cam_detect)
 
     frame_count += 1
-    expected_time = start_time + (frame_count * frame_interval)
-    current_time = time.time()
-    sleep_time = expected_time - current_time
-    if sleep_time > 0:
-      time.sleep(sleep_time)
 
     if time_chunking_enabled:
-
+      # in time chunking mode, camera FPS is equal to time-chunking rate and we simulate real time processing
+      # before collecting detections from all cameras, wait until time-chunking interval elapses
       if frame_count % camera_count == 0:
+        _sleep_until_time(start_time + (frame_count * frame_interval))
         jdata = {
             "cam_id": "all_cameras",
             "frame": cam_detect["frame"],
@@ -154,6 +159,8 @@ def track(params):
         get_detections(tracked_data, scene, objects, jdata)
 
     else:
+      # before collecting detections from this camera, wait arbitrary interval to wait for tracker to process
+      _sleep_until_time(start_time + (frame_count * frame_interval))
       jdata = {
           "cam_id": cam_detect["id"],
           "frame": cam_detect["frame"],
@@ -165,9 +172,9 @@ def track(params):
   return tracked_data
 
 def main():
-  pred_data = track()
+  params = {"tracker_config" : "tracker-config-time-chunking.json", "cameras": ['Cam_x1_0.json','Cam_x2_0.json'], "camera_frame_rate": 30, "config": "config.json"}
+  pred_data = track(params)
   _dump_pred_data(pred_data)
 
 if __name__ == "__main__":
-  params = {"tracker_config" : "tracker-config.json", "cameras": ['Cam_x1_0.json','Cam_x2_0.json'], "camera_frame_rate": 30, "config": "config.json"}
-  exit(main(params) or 0)
+  exit(main() or 0)
