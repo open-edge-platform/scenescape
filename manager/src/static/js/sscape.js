@@ -1502,8 +1502,6 @@ function setupGenerateMesh() {
 
     if (!sceneId) return alert("Scene ID not found");
     if (!form) return alert("Form not found");
-    if (!mapInput || !mapInput.files?.length)
-      return alert("Please choose a map file first.");
 
     // Show loading state
     const spinner = document.getElementById("mesh_spinner");
