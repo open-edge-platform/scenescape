@@ -17,6 +17,10 @@ import pandas as pd
 from pathlib import Path
 
 
+# TODO: Consider using jsonpatch library instead of custom implementation.
+# The jsonpatch library provides RFC 6902 operations that can automatically
+# create intermediate objects. This would simplify the code and align with
+# standards. However, current implementation is sufficient for MVP.
 def _set_nested_value(data: Dict[str, Any], pointer: str, value: Any) -> None:
   """Set a value in nested dict using JSON pointer, creating intermediate dicts.
 
@@ -52,6 +56,11 @@ def convert_json_to_json(
 ) -> Dict[str, Any]:
   """Convert JSON to JSON using pointer-based mapping.
 
+  This function uses STRICT validation: all fields referenced in the mapping
+  must exist in the input data. Missing fields will raise a ValueError.
+  This behavior is intended for schema transformations where data completeness
+  is critical.
+
   Args:
     input_data: Input JSON as string, file path, or dictionary
     mapping: Dictionary mapping output JSON pointers to input JSON pointers
@@ -60,6 +69,9 @@ def convert_json_to_json(
 
   Returns:
     Converted JSON as dictionary
+
+  Raises:
+    ValueError: If any field referenced in mapping is missing from input
 
   Example:
     >>> mapping = {"/scene/name": "/sceneName", "/scene/id": "/sceneId"}
@@ -106,6 +118,15 @@ def convert_json_to_csv(
 ) -> pd.DataFrame:
   """Convert JSON to CSV using column mapping.
 
+  This function uses LENIENT validation: missing fields in the input data
+  are set to None (becomes NaN in pandas DataFrame). This behavior is intended
+  for data export where partial/incomplete data is common (e.g., tracker
+  outputs with missing confidence scores or occluded objects).
+
+  TODO: Consider adding optional 'strict' parameter to control behavior:
+    - strict=False (current default): missing fields → None/NaN
+    - strict=True: missing fields → raise ValueError
+
   Args:
     input_data: Input JSON as string, file path, dict, or list of dicts
     mapping: Dictionary mapping CSV column names to values or JSON pointers
@@ -117,7 +138,7 @@ def convert_json_to_csv(
     include_header: Whether to include header row (default: False)
 
   Returns:
-    DataFrame with converted data
+    DataFrame with converted data (missing fields contain NaN)
 
   Example:
     >>> mapping = {

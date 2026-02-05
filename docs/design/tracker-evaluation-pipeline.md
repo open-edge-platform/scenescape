@@ -68,6 +68,23 @@ flowchart LR
 - Output track canonical format. Defined by JSON schema: tracker/schema/scene-data.schema.json
 - Tracker Evaluator input track format (MOTChallenge CSV format is assumed in Phase 1)
 
+### Format Conversion Utilities
+
+Dataset implementations use format conversion utilities to transform data between canonical JSON formats and evaluator input formats. The utilities provide:
+
+- **JSON→JSON conversion**: Pointer-based mapping (RFC 6901) for schema transformations with **strict validation** (all fields must exist)
+- **JSON→CSV conversion**: Column mapping with **lenient validation** (missing fields become null/NaN)
+- **CSV→DataFrame reading**: Dask-based CSV parsing for efficiency
+
+**Libraries used**:
+- `python-rapidjson`: Fast JSON serialization/deserialization
+- `jsonpointer`: RFC 6901 JSON pointer support for nested field access
+- `dask`: Efficient CSV reading and writing, especially for large datasets
+
+**Validation behavior**:
+- Schema transformations (JSON→JSON): Strict - raises exception on missing fields
+- Data export (JSON→CSV): Lenient - sets missing fields to null to handle incomplete tracker outputs
+
 ### Tracker Evaluator Input Track Format (MOTChallenge 3D CSV)
 
 The canonical CSV format for ground-truth and tracker output data follows the MOTChallenge 3D format.
