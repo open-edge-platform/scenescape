@@ -66,7 +66,7 @@ public:
     static constexpr const char* TOPIC_CAMERA_PREFIX = "scenescape/data/camera/";
 
     /// Topic pattern for camera subscriptions (format with camera_id)
-    static constexpr const char* TOPIC_CAMERA_SUBSCRIBE_PATTERN = "scenescape/data/camera/{}/";
+    static constexpr const char* TOPIC_CAMERA_SUBSCRIBE_PATTERN = "scenescape/data/camera/{}";
 
     /// Topic pattern for scene output (format with scene_id and thing_type)
     static constexpr const char* TOPIC_SCENE_DATA_PATTERN = "scenescape/data/scene/{}/{}";
