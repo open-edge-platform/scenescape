@@ -116,6 +116,18 @@ class TrackingDataset(ABC):
     pass
 
   @abstractmethod
+  def get_scene_config_raw(self) -> Dict[str, Any]:
+    """Get raw scene configuration in dataset-specific format.
+
+    Returns:
+      Dictionary with raw scene configuration (format depends on implementation).
+
+    Raises:
+      RuntimeError: If configuration cannot be loaded.
+    """
+    pass
+
+  @abstractmethod
   def get_inputs(self, camera: Optional[str] = None) -> Iterator[Dict[str, Any]]:
     """Get input detections in canonical format.
 

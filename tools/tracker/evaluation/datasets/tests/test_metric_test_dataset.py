@@ -182,6 +182,35 @@ class TestSceneConfig:
     assert len(config["cameras"]) == 1
     assert config["cameras"][0]["uid"] == "Cam_x1_0"
 
+  def test_get_scene_config_raw(self, dataset):
+    """Test get_scene_config_raw returns valid raw config."""
+    raw_config = dataset.get_scene_config_raw()
+
+    # Verify it's a dictionary with expected top-level keys from config.json
+    assert isinstance(raw_config, dict)
+    assert "name" in raw_config
+    assert "sensors" in raw_config
+    assert "map" in raw_config
+    assert "scale" in raw_config
+
+    # Verify scene name
+    assert raw_config["name"] == "Retail_Demo"
+
+    # Verify sensors structure (dataset-specific format)
+    sensors = raw_config["sensors"]
+    assert isinstance(sensors, dict)
+    assert "Cam_x1_0" in sensors
+    assert "Cam_x2_0" in sensors
+
+    for camera_name in ["Cam_x1_0", "Cam_x2_0"]:
+      camera = sensors[camera_name]
+      assert "camera points" in camera
+      assert "map points" in camera
+      assert "intrinsics" in camera
+      assert "width" in camera
+      assert "height" in camera
+
+
 
 class TestGetInputs:
   """Test get_inputs method."""

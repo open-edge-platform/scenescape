@@ -173,6 +173,14 @@ Implementation of the component class must implement the following functions.
   - argument: config (dict)
   - returns: self
   - on error: raises exception
+- GetSceneConfig
+  - argument: none
+  - returns: scene and camera configuration in canonical format (tracker/schema/scene.schema.json)
+  - on error: raises exception
+- GetSceneConfigRaw
+  - argument: none
+  - returns: raw scene configuration as dict (dataset-specific format)
+  - on error: raises exception
 - GetInputs
   - argument: camera (optional)
   - returns: iterative list of inputs in canonical format

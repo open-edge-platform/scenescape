@@ -159,6 +159,20 @@ class MetricTestDataset(TrackingDataset):
       self._scene_config = self._load_scene_config()
     return self._scene_config
 
+  def get_scene_config_raw(self) -> Dict[str, Any]:
+    """Get raw scene configuration in dataset-specific format.
+
+    Returns:
+      Dictionary with raw config.json from dataset.
+
+    Raises:
+      RuntimeError: If configuration cannot be loaded.
+    """
+    config_file = self._dataset_path / "config.json"
+    if not config_file.exists():
+      raise RuntimeError(f"Config file not found: {config_file}")
+    return read_json(str(config_file))
+
   def get_inputs(self, camera: Optional[str] = None) -> Iterator[Dict[str, Any]]:
     """Get camera detection inputs in canonical format.
 
