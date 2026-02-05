@@ -81,7 +81,9 @@ class Scene(SceneModel):
     self.scene_data_validator = None
     self.scene_data_validator_no_format = None
     if ControllerMode.isAnalyticsOnly():
-      schema_path = Path(__file__).parent.parent.parent.parent / 'tracker' / 'schema' / 'scene-data.schema.json'
+      schema_filename = 'scene-data.schema.json'
+      schema_path = Path(os.environ.get('SCENESCAPE_HOME', '/home/scenescape/SceneScape')) / 'tracker' / 'schema' / schema_filename
+      
       if schema_path.exists():
         try:
           with schema_path.open() as schema_fd:
@@ -99,7 +101,7 @@ class Scene(SceneModel):
         except Exception as e:
           log.error(f"Failed to initialize schema validator: {e}")
       else:
-        log.warning(f"Schema file not found at: {schema_path}")
+        log.error(f"Schema file not found at: {schema_path}")
 
     # FIXME - only for backwards compatibility
     self.scale = scale
