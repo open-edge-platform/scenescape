@@ -29,9 +29,15 @@ Dataset adapters convert dataset-specific formats to SceneScape canonical format
 
 **Usage Example**:
 ```python
+import sys
+from pathlib import Path
+
+# Add parent directories to path
+sys.path.insert(0, str(Path(__file__).parent))
+
 from datasets.metric_test_dataset import MetricTestDataset
 
-dataset = MetricTestDataset("/path/to/tests/system/metric/test_data")
+dataset = MetricTestDataset("../../../tests/system/metric/test_data")
 
 # Configure dataset
 dataset.set_cameras(["x1", "x2"]).set_camera_fps(30)
