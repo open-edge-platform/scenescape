@@ -7,8 +7,8 @@ run-name: "[Update] DLStreamer Pipeline Server"
 
 on:
   schedule:
-    # Run every Wednesday at 9:00 AM UTC
-    - cron: "0 9 * * 3"
+    # Run every Thursday at 10:00 AM UTC
+    - cron: "0 10 * * 4"
 
 permissions:
   contents: read
@@ -32,8 +32,10 @@ jobs:
           STABLE_VERSION=$(echo "$LATEST_STABLE" | cut -d'|' -f2)
           STABLE_DATE=$(echo "$LATEST_STABLE" | cut -d'|' -f1)
 
-          # Get latest weekly version (format: weekly-YYYY.X-YYYYMMDD-ubuntu24) with timestamp
-          LATEST_WEEKLY=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^weekly-[0-9]{4}\\.[0-9]+-[0-9]{8}-ubuntu24$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
+          # Get latest weekly version (supports both old and new formats)
+          # New format: YYYY.X.X-YYYYMMDD-weekly-ubuntu24
+          # Old format: weekly-YYYY.X-YYYYMMDD-ubuntu24
+          LATEST_WEEKLY=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^(weekly-[0-9]{4}\\.[0-9]+-[0-9]{8}-ubuntu24|[0-9]{4}\\.[0-9]+\\.[0-9]+-[0-9]{8}-weekly-ubuntu24)$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
           WEEKLY_VERSION=$(echo "$LATEST_WEEKLY" | cut -d'|' -f2)
           WEEKLY_DATE=$(echo "$LATEST_WEEKLY" | cut -d'|' -f1)
 
