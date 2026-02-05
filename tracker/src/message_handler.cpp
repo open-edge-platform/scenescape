@@ -3,6 +3,7 @@
 
 #include "message_handler.hpp"
 #include "logger.hpp"
+#include "topic_utils.hpp"
 
 #include <chrono>
 #include <ctime>
@@ -103,8 +104,18 @@ void MessageHandler::start() {
         return;
     }
 
-    // Subscribe to all camera topics
+    // Subscribe to all camera topics (validate UIDs to prevent MQTT topic injection)
     for (const auto& camera_id : camera_ids) {
+        if (!isValidTopicSegment(camera_id)) {
+            LOG_ERROR_ENTRY(
+                LogEntry("Camera ID contains invalid characters for MQTT topic, skipping")
+                    .component("mqtt")
+                    .domain({.camera_id = camera_id})
+                    .error({.type = "validation_error",
+                            .message =
+                                "UID must contain only alphanumeric, hyphen, underscore, dot"}));
+            continue;
+        }
         std::string topic = std::string(TOPIC_CAMERA_PREFIX) + camera_id;
         mqtt_client_->subscribe(topic);
     }
@@ -126,9 +137,12 @@ void MessageHandler::stop() {
     LOG_INFO("MessageHandler stopping, received: {}, published: {}, rejected: {}",
              received_count_.load(), published_count_.load(), rejected_count_.load());
 
-    // Unsubscribe from all camera topics
+    // Unsubscribe from all camera topics (skip invalid UIDs - same validation as start())
     auto camera_ids = scene_registry_.get_all_camera_ids();
     for (const auto& camera_id : camera_ids) {
+        if (!isValidTopicSegment(camera_id)) {
+            continue; // Already logged at start(), no need to log again
+        }
         std::string topic = std::string(TOPIC_CAMERA_PREFIX) + camera_id;
         mqtt_client_->unsubscribe(topic);
     }

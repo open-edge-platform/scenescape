@@ -76,6 +76,7 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/message_handler.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene_registry.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/proxy_utils.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/topic_utils.cpp
 )
 
 add_executable(${PROJECT_NAME}
