@@ -33,6 +33,8 @@ build-image: $(BUILD_DIR) Dockerfile
 	        --build-arg no_proxy=$(no_proxy) \
 	        --build-arg CERTDOMAIN=$(CERTDOMAIN) \
 	        --build-arg FORCE_VAAPI=$(FORCE_VAAPI) \
+	        --build-arg USER_ID=$${UID:-1000} \
+	        --build-arg GROUP_ID=$${GID:-1000} \
 	        $(EXTRA_BUILD_ARGS) \
 	        --rm -t $(IMAGE):$(VERSION) \
 	        -f ./Dockerfile .. 2>&1 | tee $(LOG_FILE); \
