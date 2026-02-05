@@ -36,24 +36,24 @@ map_dir()
 
 eval WSHOME=~${WSUSER}
 MANAGERDIR="${WSHOME}/${MANAGERDIR}"
-MANAGERDIR_UID=$(find "${MANAGERDIR}" -exec stat -c '%u' {} + | sort -rn | head -1)
+# Use the actual running user's UID instead of detecting from MANAGERDIR
+# This prevents permission issues when volumes are created with different ownership
+CURRENT_UID=$(id -u)
+CURRENT_GID=$(id -g)
 
 if [ -d "${WORKSPACE}" ] ; then
     WSDIR=${HOSTDIR}
     if [ -z "${WSDIR}" ] ; then
             WSDIR=${WORKSPACE}
     fi
-    WSUID=$(stat -c '%u' "${WORKSPACE}"/* | sort -rn | head -1)
-    WSGID=$(stat -c '%g' "${WORKSPACE}"/* | sort -rn | head -1)
-    if ((${WSUID} == 0 || ${WSGID} == 0)) ; then
-            echo "Detected root ownership in workspace, using manager dir uid:${MANAGERDIR_UID}"
-            echo "Chowning workspace to ${MANAGERDIR_UID}"
-            echo "ls -la ${WORKSPACE}/ before chown:"
-            ls -la "${WORKSPACE}/"
-            chown -R ${MANAGERDIR_UID}:${MANAGERDIR_UID} "${WORKSPACE}/"
-            WSUID=${MANAGERDIR_UID}
-            WSGID=${MANAGERDIR_UID}
-            echo "Chown complete"
+    WSUID=$(stat -c '%u' "${WORKSPACE}"/* 2>/dev/null | sort -rn | head -1 || echo "${CURRENT_UID}")
+    WSGID=$(stat -c '%g' "${WORKSPACE}"/* 2>/dev/null | sort -rn | head -1 || echo "${CURRENT_GID}")
+    # Check for ownership mismatches and warn if detected
+    if ((${WSUID} == 0 || ${WSGID} == 0)) && [ "${CURRENT_UID}" != "0" ] ; then
+            echo "Warning: Workspace has root ownership but running as non-root user (UID ${CURRENT_UID})"
+            echo "Using current user UID:GID (${CURRENT_UID}:${CURRENT_GID}) - some operations may fail"
+            WSUID=${CURRENT_UID}
+            WSGID=${CURRENT_GID}
     fi
 
     # Create a bind mount to the same location of the host dir
