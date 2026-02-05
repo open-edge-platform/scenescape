@@ -164,10 +164,6 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                         .component("message_handler")
                         .domain({.camera_id = camera_id}));
 
-    LOG_DEBUG_ENTRY(LogEntry("Received detection")
-                        .component("message_handler")
-                        .domain({.camera_id = camera_id}));
-
     // Parse and optionally validate the camera message
     auto message = parseCameraMessage(payload);
     if (!message) {
