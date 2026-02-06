@@ -1,0 +1,108 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+# Tracker Harnesses
+
+This directory contains harness implementations for executing tracking systems in the evaluation pipeline.
+
+## Overview
+
+Each tracker harness implements the `TrackerHarness` abstract base class (see [../base/tracker_harness.py](../base/tracker_harness.py)) to:
+
+- Configure and execute a tracking system
+- Feed input detections to the tracker
+- Collect and return tracker outputs
+
+Harnesses handle tracker-specific deployment details (containers, processes, API calls) while providing a unified interface to the evaluation pipeline.
+
+## Available Harnesses
+
+### SceneControllerHarness
+
+**Purpose**: Execute tracker inside SceneScape scene controller Docker container.
+
+**Mode**: **Synchronous batch processing** - processes all inputs and returns outputs.
+
+**Key Features**:
+- Runs tracker in isolated Docker container
+- Accepts raw scene configuration format (not canonical)
+- Supports all scene controller tracker configurations
+
+**Prerequisites**:
+- Docker installed and running
+- Scene controller image available (e.g., `scenescape-controller:2026.0.0-dev`)
+- Tracker configuration file
+
+**Configuration**:
+```python
+import sys
+from pathlib import Path
+
+# Add parent directories to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+from harnesses.scene_controller_harness import SceneControllerHarness
+from datasets.metric_test_dataset import MetricTestDataset
+
+# Initialize dataset
+dataset = MetricTestDataset("path/to/test_data")
+dataset.set_cameras(["x1", "x2"]).set_camera_fps(30)
+
+# Initialize harness with container image
+harness = SceneControllerHarness(container_image='scenescape-controller:2026.0.0-dev')
+
+# Configure harness
+harness.set_scene_config(dataset.get_scene_config())  # Dataset-specific format
+harness.set_custom_config({
+    'tracker_config_path': '/path/to/tracker-config.json'
+})
+
+# Process inputs synchronously - returns outputs
+outputs = harness.process_inputs(dataset.get_inputs())
+
+# Use outputs
+for output in outputs:
+    print(output)
+```
+
+**Important Notes**:
+- Constructor requires scene controller Docker image
+- `set_scene_config()` accepts scene configuration in dataset-specific format (from `dataset.get_scene_config()`)
+- `set_custom_config()` only requires `tracker_config_path` - path to tracker configuration JSON file
+- All inputs are processed in a single container execution
+- Container is automatically removed after execution
+- Asynchronous mode (`process_inputs_async()`) is **not supported** - raises `NotImplementedError`
+
+**Implementation**: [scene_controller_harness/](scene_controller_harness/)
+
+## Adding New Harnesses
+
+To add support for a new tracker deployment method:
+
+1. **Create harness class**: Implement all abstract methods from `TrackerHarness` base class (see [../base/tracker_harness.py](../base/tracker_harness.py))
+2. **Handle configuration**: Implement `set_scene_config()` and `set_custom_config()` for your tracker's needs
+3. **Implement execution**:
+   - `process_inputs()` - synchronous mode (required): execute tracker and return outputs
+   - `process_inputs_async()` - asynchronous mode (optional): execute tracker and deliver results via callbacks
+4. **Support callbacks**: Implement callback setters for async mode (can be no-op if only sync supported)
+5. **Document requirements**: Update this README with prerequisites and configuration examples
+6. **Create tests**: Add tests validating harness behavior
+
+### Implementation Patterns
+
+**Synchronous batch processing** (required, like SceneControllerHarness):
+- Method: `process_inputs(inputs) -> Iterator[outputs]`
+- Consume all inputs and execute tracker on complete input set
+- Return all outputs as iterator
+- Use for batch processing, testing, simple evaluation pipelines
+
+**Asynchronous streaming processing** (optional, for future harnesses):
+- Method: `process_inputs_async(inputs) -> self`
+- Accept inputs incrementally, deliver outputs via `set_callback_outputs_ready()` callback
+- Support partial result collection as outputs become available
+- Use for streaming pipelines, async frameworks
+- Raise `NotImplementedError` if not supported by your harness
+
+## Design Documentation
+
+See [tracker-evaluation-pipeline.md](../../../../docs/design/tracker-evaluation-pipeline.md) for overall architecture and design decisions.

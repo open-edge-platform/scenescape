@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Tracker Evaluation Pipeline Dependencies
+
+# Core dependencies
+PyYAML>=6.0
+numpy>=1.21.0
+python-rapidjson>=1.10
+jsonpointer>=2.4
+dask[complete]>=2023.1.0
+jsonschema>=4.0.0
+python-on-whales>=0.70.0
+
+# Testing dependencies
+pytest>=7.4.0
+pytest-cov>=4.1.0
+# Evaluation toolkit
+# TrackEval will be added once we determine the best installation method
+# (pip install git+https://github.com/JonathonLuiten/TrackEval.git or local clone)
+
+# Optional: for future dataset support
+# huggingface_hub>=0.19.0

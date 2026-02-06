@@ -1,0 +1,355 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+"""Tests for MetricTestDataset implementation."""
+
+import pytest
+import sys
+import json
+from pathlib import Path
+import jsonschema
+
+# Add parent directories to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from datasets.metric_test_dataset import MetricTestDataset
+from utils.format_converters import read_csv_to_dataframe
+
+# Path to test dataset
+DATASET_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / \
+  "tests" / "system" / "metric" / "test_data"
+
+# Path to schemas
+SCHEMA_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / \
+  "tracker" / "schema"
+
+
+@pytest.fixture
+def dataset():
+  """Create MetricTestDataset instance."""
+  return MetricTestDataset(str(DATASET_PATH))
+
+
+@pytest.fixture
+def scene_schema():
+  """Load scene.schema.json."""
+  schema_file = SCHEMA_PATH / "scene.schema.json"
+  with open(schema_file, 'r') as f:
+    return json.load(f)
+
+
+@pytest.fixture
+def camera_data_schema():
+  """Load camera-data.schema.json."""
+  schema_file = SCHEMA_PATH / "camera-data.schema.json"
+  with open(schema_file, 'r') as f:
+    return json.load(f)
+
+
+class TestInitialization:
+  """Test dataset initialization."""
+
+  def test_init_valid_path(self):
+    """Test initialization with valid dataset path."""
+    ds = MetricTestDataset(str(DATASET_PATH))
+    assert ds._dataset_path == DATASET_PATH
+    assert ds._cameras == ["x1", "x2"]
+    assert ds._camera_fps == 30
+
+  def test_init_invalid_path(self):
+    """Test initialization with invalid path."""
+    with pytest.raises(ValueError, match="Dataset path does not exist"):
+      MetricTestDataset("/nonexistent/path")
+
+
+class TestConfiguration:
+  """Test dataset configuration methods."""
+
+  def test_set_scene_default(self, dataset):
+    """Test set_scene with default (None)."""
+    result = dataset.set_scene(None)
+    assert result is dataset  # Method chaining
+
+  def test_set_scene_retail_demo(self, dataset):
+    """Test set_scene with Retail_Demo."""
+    result = dataset.set_scene("Retail_Demo")
+    assert result is dataset
+
+  def test_set_scene_unsupported(self, dataset):
+    """Test set_scene with unsupported scene."""
+    with pytest.raises(NotImplementedError, match="Only 'Retail_Demo' scene"):
+      dataset.set_scene("UnknownScene")
+
+  def test_set_cameras_default(self, dataset):
+    """Test set_cameras with default (None)."""
+    dataset.set_cameras(["x1"])
+    result = dataset.set_cameras(None)
+    assert result is dataset
+    assert dataset._cameras == ["x1", "x2"]
+
+  def test_set_cameras_subset(self, dataset):
+    """Test set_cameras with valid subset."""
+    result = dataset.set_cameras(["x1"])
+    assert result is dataset
+    assert dataset._cameras == ["x1"]
+
+  def test_set_cameras_unsupported(self, dataset):
+    """Test set_cameras with unsupported camera."""
+    with pytest.raises(ValueError, match="Unsupported camera"):
+      dataset.set_cameras(["x3"])
+
+  def test_set_time_range_not_supported(self, dataset):
+    """Test set_time_range raises NotImplementedError."""
+    with pytest.raises(NotImplementedError, match="Time range filtering"):
+      dataset.set_time_range("2014-09-08T04:00:00.000Z", None)
+
+  def test_set_camera_fps_valid(self, dataset):
+    """Test set_camera_fps with valid FPS values."""
+    for fps in [1, 10, 30]:
+      result = dataset.set_camera_fps(fps)
+      assert result is dataset
+      assert dataset._camera_fps == fps
+
+  def test_set_camera_fps_invalid(self, dataset):
+    """Test set_camera_fps with invalid FPS."""
+    with pytest.raises(ValueError, match="Unsupported FPS"):
+      dataset.set_camera_fps(60)
+
+  def test_set_custom_config_not_supported(self, dataset):
+    """Test set_custom_config raises NotImplementedError."""
+    with pytest.raises(NotImplementedError, match="Custom configuration"):
+      dataset.set_custom_config({"key": "value"})
+
+  def test_reset(self, dataset):
+    """Test reset method."""
+    dataset.set_cameras(["x1"]).set_camera_fps(10)
+    result = dataset.reset()
+    assert result is dataset
+    assert dataset._cameras == ["x1", "x2"]
+    assert dataset._camera_fps == 30
+    assert dataset._scene_config is None
+
+
+class TestSceneConfig:
+  """Test get_scene_config method."""
+
+  def test_get_scene_config_structure(self, dataset):
+    """Test scene config has correct structure (raw format)."""
+    config = dataset.get_scene_config()
+
+    # Verify raw config.json structure
+    assert "name" in config
+    assert "sensors" in config
+    assert "map" in config
+    assert "scale" in config
+    assert config["name"] == "Retail_Demo"
+
+  @pytest.mark.xfail(reason="Scene config format not yet aligned with canonical schema")
+  def test_get_scene_config_matches_schema(self, dataset, scene_schema):
+    """Test scene config matches JSON schema.
+
+    This test is expected to fail because get_scene_config() currently returns
+    dataset-specific format (raw config.json) instead of canonical format.
+    """
+    config = dataset.get_scene_config()
+    jsonschema.validate(instance=config, schema=scene_schema)
+
+  def test_get_scene_config_sensors_structure(self, dataset):
+    """Test scene config sensors structure (raw format)."""
+    config = dataset.get_scene_config()
+
+    # Verify sensors structure (dataset-specific format)
+    sensors = config["sensors"]
+    assert isinstance(sensors, dict)
+    assert "Cam_x1_0" in sensors
+    assert "Cam_x2_0" in sensors
+
+    for camera_name in ["Cam_x1_0", "Cam_x2_0"]:
+      camera = sensors[camera_name]
+      assert "camera points" in camera
+      assert "map points" in camera
+      assert "intrinsics" in camera
+      assert "width" in camera
+      assert "height" in camera
+
+
+
+class TestGetInputs:
+  """Test get_inputs method."""
+
+  def test_get_inputs_30fps(self, dataset):
+    """Test get_inputs with default 30 FPS."""
+    dataset.set_camera_fps(30).set_cameras(["x1"])
+    inputs = list(dataset.get_inputs("x1"))
+
+    assert len(inputs) > 0
+    assert all("timestamp" in inp for inp in inputs)
+    assert all("id" in inp for inp in inputs)
+    assert all("objects" in inp for inp in inputs)
+
+  def test_get_inputs_1fps(self, dataset):
+    """Test get_inputs with 1 FPS."""
+    dataset.set_camera_fps(1).set_cameras(["x1"])
+    inputs = list(dataset.get_inputs("x1"))
+
+    assert len(inputs) > 0
+    # 1 FPS should have fewer frames
+    assert len(inputs) < 100  # Approximately 30-80 frames
+
+  def test_get_inputs_10fps(self, dataset):
+    """Test get_inputs with 10 FPS."""
+    dataset.set_camera_fps(10).set_cameras(["x1"])
+    inputs = list(dataset.get_inputs("x1"))
+
+    assert len(inputs) > 0
+
+  def test_get_inputs_matches_schema(self, dataset, camera_data_schema):
+    """Test inputs match camera-data schema."""
+    dataset.set_cameras(["x1"])
+    inputs = list(dataset.get_inputs("x1"))
+
+    # Validate first few inputs
+    for inp in inputs[:5]:
+      jsonschema.validate(instance=inp, schema=camera_data_schema)
+
+  def test_get_inputs_all_cameras(self, dataset):
+    """Test get_inputs without camera arg returns all."""
+    dataset.set_cameras(["x1", "x2"])
+    inputs = list(dataset.get_inputs())
+
+    # Should get inputs from both cameras
+    camera_ids = set(inp["id"] for inp in inputs)
+    assert "Cam_x1_0" in camera_ids
+    assert "Cam_x2_0" in camera_ids
+
+  def test_get_inputs_unconfigured_camera(self, dataset):
+    """Test get_inputs with unconfigured camera."""
+    dataset.set_cameras(["x1"])
+    with pytest.raises(ValueError, match="not in configured cameras"):
+      list(dataset.get_inputs("x2"))
+
+  def test_get_inputs_sorted_by_timestamp(self, dataset):
+    """Test get_inputs returns frames sorted by timestamp across all cameras."""
+    dataset.set_cameras(["x1", "x2"]).set_camera_fps(30)
+    inputs = list(dataset.get_inputs())
+
+    # Convert ISO timestamps to epoch floats for accurate comparison
+    # (copied from scene_common.timestamp.get_epoch_time to avoid dependency)
+    from datetime import datetime, timezone
+    DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
+
+    def get_epoch_time(timestamp: str) -> float:
+      utc_time = datetime.strptime(timestamp, f"{DATETIME_FORMAT}Z").replace(tzinfo=timezone.utc)
+      return utc_time.timestamp()
+
+    timestamps = [get_epoch_time(inp["timestamp"]) for inp in inputs]
+
+    assert all(a <= b for a, b in zip(timestamps, timestamps[1:])), \
+      "Frames are not sorted by timestamp"
+
+
+class TestGetGroundTruth:
+  """Test get_ground_truth method."""
+
+  def test_get_ground_truth_returns_path(self, dataset):
+    """Test get_ground_truth returns valid file path."""
+    gt_path = dataset.get_ground_truth()
+    assert isinstance(gt_path, str)
+    assert Path(gt_path).exists()
+    assert gt_path.endswith('.csv')
+
+  def test_get_ground_truth_csv_format(self, dataset):
+    """Test ground truth CSV has correct format."""
+    gt_path = dataset.get_ground_truth()
+
+    # Read CSV
+    df = read_csv_to_dataframe(
+      gt_path,
+      has_header=False,
+      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
+    )
+
+    # Check structure
+    assert len(df) > 0
+    assert list(df.columns) == ["frame", "id", "x", "y", "z", "conf", "class", "vis"]
+
+  def test_get_ground_truth_motchallenge_values(self, dataset):
+    """Test ground truth has valid MOTChallenge values."""
+    gt_path = dataset.get_ground_truth()
+
+    df = read_csv_to_dataframe(
+      gt_path,
+      has_header=False,
+      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
+    )
+
+    # Frames should be 1-indexed
+    assert df["frame"].min() >= 1
+
+    # Object IDs should be non-negative
+    assert df["id"].min() >= 0
+
+    # Confidence should be 1.0 (default)
+    assert df["conf"].unique()[0] == 1.0
+
+    # Class should be 1 (default)
+    assert df["class"].unique()[0] == 1
+
+    # Visibility should be 1 (default)
+    assert df["vis"].unique()[0] == 1
+
+  def test_get_ground_truth_coordinates(self, dataset):
+    """Test ground truth coordinates are reasonable."""
+    gt_path = dataset.get_ground_truth()
+
+    df = read_csv_to_dataframe(
+      gt_path,
+      has_header=False,
+      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
+    )
+
+    # Coordinates should be in reasonable range for Retail scene
+    # Based on config.json: map is roughly 0-10 meters in x/y
+    assert df["x"].min() >= -1.0
+    assert df["x"].max() <= 12.0
+    assert df["y"].min() >= -1.0
+    assert df["y"].max() <= 16.0
+    assert df["z"].min() == 0.0  # Ground plane
+
+
+class TestIntegration:
+  """Integration tests combining multiple operations."""
+
+  def test_full_workflow(self, dataset):
+    """Test complete dataset workflow."""
+    # Configure
+    dataset.set_cameras(["x1"]).set_camera_fps(10)
+
+    # Get scene config (raw format)
+    scene_config = dataset.get_scene_config()
+    assert "name" in scene_config
+    assert "sensors" in scene_config
+    assert scene_config["name"] == "Retail_Demo"
+
+    # Get inputs
+    inputs = list(dataset.get_inputs())
+    assert len(inputs) > 0
+
+    # Get ground truth
+    gt_path = dataset.get_ground_truth()
+    assert Path(gt_path).exists()
+
+    # Reset and verify
+    dataset.reset()
+    assert dataset._cameras == ["x1", "x2"]
+    assert dataset._camera_fps == 30
+
+  def test_method_chaining(self, dataset):
+    """Test method chaining works correctly."""
+    result = (dataset
+              .set_scene("Retail_Demo")
+              .set_cameras(["x1", "x2"])
+              .set_camera_fps(10)
+              .reset())
+
+    assert result is dataset
