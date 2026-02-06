@@ -8,7 +8,7 @@ This directory contains the SceneControllerHarness implementation for running th
 ## Files
 
 - **scene_controller_harness.py**: Main harness implementation
-- **tracking_script.py**: Script executed inside the container to run the tracker
+- **run_tracker.py**: Script executed inside the container to run the tracker
 - **__init__.py**: Module initialization
 
 ## Usage

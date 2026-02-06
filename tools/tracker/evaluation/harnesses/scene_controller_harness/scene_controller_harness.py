@@ -251,8 +251,8 @@ class SceneControllerHarness(TrackerHarness):
 
   def _copy_tracking_script(self) -> None:
     """Copy tracking script to temporary directory."""
-    script_source = Path(__file__).parent / "tracking_script.py"
-    script_dest = self._temp_dir / "tracking_script.py"
+    script_source = Path(__file__).parent / "run_tracker.py"
+    script_dest = self._temp_dir / "run_tracker.py"
     shutil.copy(script_source, script_dest)
     script_dest.chmod(0o755)
 
@@ -261,7 +261,7 @@ class SceneControllerHarness(TrackerHarness):
     try:
       output = docker.run(
         self._container_image,
-        ["/workspace/tracking_script.py"],
+        ["/workspace/run_tracker.py"],
         volumes=[
           (str(self._temp_dir.absolute()), "/workspace")
         ],
