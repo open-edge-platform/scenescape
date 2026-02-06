@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import json
 import socket
 import threading
 
@@ -85,15 +86,40 @@ class VDMSDatabase(ReIDDatabase):
         f"Failed to add the descriptor set to the database. Recieved response {response[0]}")
     return
 
-  def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name=SCHEMA_NAME):
+  def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name=SCHEMA_NAME, **metadata):
+    """
+    Add entries to database with visual embeddings and optional semantic metadata.
+    Implements schema-less metadata storage for flexible attribute evolution.
+
+    @param   uuid         Unique ID for the object
+    @param   rvid         ID of the object from the motion tracker
+    @param   object_type  Class of the object (Person, Vehicle, etc.)
+    @param   reid_vectors Re-ID embeddings produced by a detection model
+    @param   set_name     Name of the set to add the new entry to
+    @param   metadata     Optional semantic attributes (age, gender, color, etc.)
+    @return  None
+    """
+    # Build properties with standard fields
+    properties = {
+      "uuid": f"{uuid}",
+      "rvid": f"{rvid}",
+      "type": f"{object_type}"
+    }
+
+    # Add semantic metadata attributes (schema-less)
+    # Metadata can include: age, gender, color, make, model, confidence_scores, etc.
+    for key, value in metadata.items():
+      if isinstance(value, dict):
+        # Serialize dict as JSON string
+        properties[key] = json.dumps(value)
+      else:
+        # Store as string
+        properties[key] = str(value)
+
     query = {
       "AddDescriptor": {
         "set": f"{set_name}",
-        "properties": {
-          "uuid": f"{uuid}",
-          "rvid": f"{rvid}",
-          "type": f"{object_type}"
-        }
+        "properties": properties
       }
     }
     blob = [[np.array(reid_vector, dtype="float32").tobytes()] for reid_vector in reid_vectors]
@@ -118,13 +144,32 @@ class VDMSDatabase(ReIDDatabase):
     return False
 
   def findSimilarityScores(self, object_type, reid_vectors, set_name=SCHEMA_NAME,
-                           k_neighbors=K_NEIGHBORS):
+                           k_neighbors=K_NEIGHBORS, **constraints):
+    """
+    2-Tier Hybrid Search: TIER 1 (metadata filtering) + TIER 2 (vector similarity)
+
+    @param   object_type  Class of the source of the reid vector (Person, Vehicle, etc.)
+    @param   reid_vectors Re-ID embeddings produced by a detection model
+    @param   set_name     Name of the set to find similarity scores
+    @param   k_neighbors  Number of similar entries to return
+    @param   constraints  Optional metadata filters built as VDMS constraint expressions
+    @return  result       Entries with the closest similarity scores
+    """
+    # TIER 1: Build dynamic constraints for metadata filtering
+    # Object type is always filtered; additional constraints passed as kwargs
+    query_constraints = {
+      "type": ["==", f"{object_type}"]
+    }
+
+    # Add any additional metadata constraints (age, gender, color, make, model, etc.)
+    for key, value in constraints.items():
+      if value is not None:
+        query_constraints[key] = ["==", str(value)]
+
     find_query = {
       "FindDescriptor": {
         "set": f"{set_name}",
-        "constraints": {
-          "type": ["==", f"{object_type}"],
-        },
+        "constraints": query_constraints,
         "k_neighbors": k_neighbors,
         "results": {
           "list": [
@@ -136,9 +181,12 @@ class VDMSDatabase(ReIDDatabase):
         }
       }
     }
+
+    # TIER 2: Vector similarity search on filtered candidates
     blob = [[np.array(reid_vector, dtype="float32").tobytes()] for reid_vector in reid_vectors]
     query = [find_query] * len(reid_vectors)
     response, _ = self.sendQuery(query, blob)
+
     if response:
       result = [
         item.get('entities')

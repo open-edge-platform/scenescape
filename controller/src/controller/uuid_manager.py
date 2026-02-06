@@ -3,6 +3,7 @@
 
 import collections
 import concurrent.futures
+import json
 import threading
 
 from controller.vdms_adapter import VDMSDatabase
@@ -40,6 +41,40 @@ class UUIDManager:
   def connectDatabase(self):
     self.pool.submit(self.reid_database.connect)
 
+  def _extractSemanticMetadata(self, sscape_object):
+    """
+    Extract semantic metadata attributes from sscape_object.
+    Separates generic object properties (confidence, bbox, etc.) from semantic properties.
+    Supports flexible attribute evolution - any new attributes from analytics pipeline accepted.
+
+    Generic properties to exclude: category, confidence, center_of_mass, bounding_box_px, reid
+    All other properties are treated as semantic metadata.
+
+    @param   sscape_object  The Scenescape object with detection data
+    @return  metadata       Dictionary of semantic attributes for storage
+    """
+    if not hasattr(sscape_object, '__dict__'):
+      return {}
+
+    # Generic object properties that are not semantic metadata
+    generic_properties = {
+      'category', 'confidence', 'center_of_mass', 'bounding_box_px',
+      'rv_id', 'rvid', 'gid', 'uuid', 'reidVector', 'boundingBoxPixels',
+      'reid', '_distance', 'similarity'
+    }
+
+    metadata = {}
+    for key, value in sscape_object.__dict__.items():
+      # Skip generic properties and internal fields
+      if key.startswith('_') or key in generic_properties:
+        continue
+
+      # Include semantic attributes like age, gender, person_attributes, etc.
+      if value is not None:
+        metadata[key] = value
+
+    return metadata
+
   def pruneInactiveTracks(self, tracked_objects):
     """
     Removes inactive tracks from the active_ids dict and adds pending features to the database
@@ -71,7 +106,9 @@ class UUIDManager:
     Add the features when the track is no longer active to reduce the total number of
     queries sent to the database. Also only take a subset of the captured features to
     add to the database otherwise too many features will impede performance of the
-    similiarity search.
+    similarity search.
+
+    Features stored with full semantic metadata for flexible querying and future evolution.
     Note: Slice size should be relative to frame rate, but this will only be implemented
     when the tracker is refactored to take into account frame rate.
 
@@ -83,8 +120,12 @@ class UUIDManager:
       features['reid_vectors'] = features['reid_vectors'][::slice_size]
       log.debug(
         f"Adding {len(features['reid_vectors'])} features for track {track_id} to database")
+
+      # Extract semantic metadata from stored feature data
+      metadata = features.get('metadata', {})
+
       self.pool.submit(self.reid_database.addEntry, features['gid'], track_id,
-                       features['category'], features['reid_vectors'])
+                       features['category'], features['reid_vectors'], **metadata)
 
   def isNewTrackerID(self, sscape_object):
     """
@@ -121,6 +162,8 @@ class UUIDManager:
     Scenescape object in the active tracks dictionary. If one does exist, we set the gid and
     similarity of the object to the values in the dictionary. Otherwise, we keep the gid from
     the tracker.
+
+    Also stores semantic metadata for future database storage.
 
     @param  sscape_object  The current Scenescape object
     """
@@ -174,16 +217,27 @@ class UUIDManager:
 
   def sendSimilarityQuery(self, sscape_object, max_query_time=DEFAULT_MAX_QUERY_TIME):
     """
-    Sends a query to find similarity scores for a given sscape_object and stores the time it
-    takes for query completion. If the time is over a threshold, disables re-id queries.
+    Sends a 2-tier hybrid search query to the database:
+    - TIER 1: Filter by metadata constraints (exact-match on semantic attributes)
+    - TIER 2: Vector similarity search on filtered candidates
+
+    Stores the time taken for query completion. If exceeds threshold, disables re-id queries.
 
     @param   sscape_object  The sscape_object for which similarity scores are to be found
     @return  scores         The similarity scores for the given sscape_object
     """
     reid_vectors = self.quality_features.get(sscape_object.rv_id)
+
+    # Extract semantic metadata for TIER 1 filtering
+    metadata_constraints = self._extractSemanticMetadata(sscape_object)
+
     log.debug(f"Finding similarity scores for track {sscape_object.rv_id}")
+    log.debug(f"Metadata constraints: {metadata_constraints}")
+
     start_time = get_epoch_time()
-    scores = self.reid_database.findSimilarityScores(sscape_object.category, reid_vectors)
+    # Pass metadata as constraints for TIER 1 filtering in findSimilarityScores
+    scores = self.reid_database.findSimilarityScores(
+      sscape_object.category, reid_vectors, **metadata_constraints)
     query_time = get_epoch_time() - start_time
     log.debug(
       f"Similarity scores for track {sscape_object.rv_id} found in {query_time} seconds")
@@ -240,8 +294,8 @@ class UUIDManager:
   def updateActiveDict(self, sscape_object, database_id, similarity):
     """
     Updates the dictionary tracking the active tracker IDs and their corresponding database
-    IDs. Also adds creates an entry in the features_for_database dictionary to be added to the
-    database when the track leaves the scene.
+    IDs. Also creates an entry in the features_for_database dictionary with semantic metadata
+    to be added to the database when the track leaves the scene.
 
     @param  sscape_object  The current Scenescape object
     @param  database_id    The ID from the database
@@ -257,10 +311,12 @@ class UUIDManager:
       self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
       database_id = sscape_object.gid
 
+    # Store features with semantic metadata for TIER 1 filtering in future queries
     self.features_for_database[sscape_object.rv_id] = {
       'gid': database_id,
       'category': sscape_object.category,
-      'reid_vectors': self.quality_features[sscape_object.rv_id]
+      'reid_vectors': self.quality_features[sscape_object.rv_id],
+      'metadata': self._extractSemanticMetadata(sscape_object)
     }
     return
 
