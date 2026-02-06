@@ -36,11 +36,21 @@ def detection3DPolicy(pobj, item, fw, fh):
     print(f"Warning: No bounding box or rotation data found in item {item}")
   return
 
-def reidPolicy(pobj, item, fw, fh):
+def reidPolicy(pobj, item, fw, fh, _cache={}):
   detectionPolicy(pobj, item, fw, fh)
-  reid_vector = item['tensors'][1]['data']
-  v = struct.pack("256f",*reid_vector)
-  pobj['reid'] = base64.b64encode(v).decode('utf-8')
+
+  # Cache lookup on first call to avoid repeated iteration
+  if 'reid_index' not in _cache:
+    for idx, tensor in enumerate(item.get('tensors', [])):
+      if tensor.get('layer_name') == 'reid_embedding':
+        _cache['reid_index'] = idx
+        break
+
+  reid_idx = _cache.get('reid_index')
+  if reid_idx is not None and reid_idx < len(item.get('tensors', [])):
+    reid_vector = item['tensors'][reid_idx]['data']
+    v = struct.pack("256f", *reid_vector)
+    pobj['reid'] = base64.b64encode(v).decode('utf-8')
   return
 
 def classificationPolicy(pobj, item, fw, fh):
