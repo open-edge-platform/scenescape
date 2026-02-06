@@ -8,11 +8,14 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/logger.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/cli.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/config_loader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/scene_loader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_server.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_command.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/mqtt_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/message_handler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/scene_registry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/proxy_utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/topic_utils.cpp
 )
 
 add_executable(tracker_tests
@@ -23,6 +26,8 @@ add_executable(tracker_tests
     healthcheck_command_test.cpp
     mqtt_client_test.cpp
     message_handler_test.cpp
+    scene_registry_test.cpp
+    topic_utils_test.cpp
     ${TRACKER_LIB_SOURCES}
 )
 
