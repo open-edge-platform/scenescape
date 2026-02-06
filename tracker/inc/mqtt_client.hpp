@@ -242,11 +242,12 @@ private:
     std::mutex reconnect_mutex_;
     std::condition_variable reconnect_cv_;
     std::atomic<bool> reconnecting_{false};
-    int reconnect_attempt_{0};
+    std::atomic<int> reconnect_attempt_{0};
 
     // Callbacks
     MessageCallback message_callback_;
     std::mutex callback_mutex_;
+    std::atomic<int> callbacks_in_flight_{0}; // Track active Paho callbacks for safe shutdown
 };
 
 } // namespace tracker
