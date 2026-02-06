@@ -23,7 +23,7 @@ The simplest way to deploy with the Tracker service is using the `demo-tracker` 
 export SUPASS=<your-password>
 
 # Build all images (including tracker) and start demo
-make build-all demo-tracker
+make demo-tracker
 ```
 
 This command:
@@ -31,6 +31,10 @@ This command:
 2. Initializes sample data volumes
 3. Sets `CONTROLLER_ENABLE_ANALYTICS_ONLY=true` environment variable
 4. Starts services using Docker Compose with the `tracker` profile
+
+Note: demo-tracker uses build-all to ensure the tracker image (a non-core service)
+is built alongside core services. The tracker compose profile does not enable the
+experimental mapping or cluster_analytics services even though their images exist.
 
 ### Stop
 
