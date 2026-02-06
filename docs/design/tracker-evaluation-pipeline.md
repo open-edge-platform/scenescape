@@ -186,7 +186,7 @@ Implementation of the component class must implement the following functions.
   - on error: raises exception
 - GetInputs
   - argument: camera (optional)
-  - returns: iterative list of inputs in canonical format
+  - returns: iterative list of inputs in canonical format, sorted by timestamp in chronological order
   - on error: raises exception
 - GetGroundTruth
   - argument: none

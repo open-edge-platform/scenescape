@@ -174,7 +174,7 @@ def track(params):
   return tracked_data
 
 def main():
-  params = {"tracker_config" : "tracker-config-time-chunking.json", "cameras": ['Cam_x1_0.json','Cam_x2_0.json'], "camera_frame_rate": 30, "config": "config.json"}
+  params = {"tracker_config" : "tracker-config.json", "cameras": ['Cam_x1_0.json','Cam_x2_0.json'], "camera_frame_rate": 30, "config": "config.json"}
   pred_data = track(params)
   _dump_pred_data(pred_data)
 

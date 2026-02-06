@@ -266,6 +266,25 @@ class TestGetInputs:
     with pytest.raises(ValueError, match="not in configured cameras"):
       list(dataset.get_inputs("x2"))
 
+  def test_get_inputs_sorted_by_timestamp(self, dataset):
+    """Test get_inputs returns frames sorted by timestamp across all cameras."""
+    dataset.set_cameras(["x1", "x2"]).set_camera_fps(30)
+    inputs = list(dataset.get_inputs())
+
+    # Convert ISO timestamps to epoch floats for accurate comparison
+    # (copied from scene_common.timestamp.get_epoch_time to avoid dependency)
+    from datetime import datetime, timezone
+    DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
+
+    def get_epoch_time(timestamp: str) -> float:
+      utc_time = datetime.strptime(timestamp, f"{DATETIME_FORMAT}Z").replace(tzinfo=timezone.utc)
+      return utc_time.timestamp()
+
+    timestamps = [get_epoch_time(inp["timestamp"]) for inp in inputs]
+
+    assert all(a <= b for a, b in zip(timestamps, timestamps[1:])), \
+      "Frames are not sorted by timestamp"
+
 
 class TestGetGroundTruth:
   """Test get_ground_truth method."""

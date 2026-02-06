@@ -130,7 +130,7 @@ class TrackingDataset(ABC):
 
   @abstractmethod
   def get_inputs(self, camera: Optional[str] = None) -> Iterator[Dict[str, Any]]:
-    """Get input detections in canonical format.
+    """Get input detections in canonical format, sorted by timestamp.
 
     Args:
       camera: Camera identifier (optional). If None, returns inputs from all cameras.
@@ -138,6 +138,7 @@ class TrackingDataset(ABC):
     Yields:
       Detection dictionaries conforming to Input Detection Format
       (see tools/tracker/evaluation/README.md#canonical-data-formats).
+      Frames are yielded in chronological order (sorted by timestamp) across all cameras.
 
     Raises:
       ValueError: If camera identifier is invalid.

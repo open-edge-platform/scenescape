@@ -175,7 +175,7 @@ class MetricTestDataset(TrackingDataset):
     return read_json(str(config_file))
 
   def get_inputs(self, camera: Optional[str] = None) -> Iterator[Dict[str, Any]]:
-    """Get camera detection inputs in canonical format.
+    """Get camera detection inputs in canonical format, sorted by timestamp.
 
     Args:
       camera: Specific camera ID, or None for all configured cameras
@@ -183,29 +183,72 @@ class MetricTestDataset(TrackingDataset):
     Yields:
       Camera detection data in canonical Input Detection Format
       (see tools/tracker/evaluation/README.md#canonical-data-formats).
+      Frames are yielded in chronological order (sorted by timestamp) across all cameras.
 
     Raises:
       ValueError: If camera not configured
     """
     cameras_to_process = [camera] if camera else self._cameras
 
-    for cam_id in cameras_to_process:
+    # When processing single camera, no sorting needed - yield directly
+    if len(cameras_to_process) == 1:
+      cam_id = cameras_to_process[0]
       if cam_id not in self._cameras:
         raise ValueError(f"Camera {cam_id} not in configured cameras")
 
-      # Select appropriate file based on FPS
       fps_suffix = f"_{int(self._camera_fps)}fps" if self._camera_fps != 30 else ""
       input_file = self._dataset_path / f"Cam_{cam_id}_0{fps_suffix}.json"
 
       if not input_file.exists():
         raise FileNotFoundError(f"Input file not found: {input_file}")
 
-      # Read input file (newline-delimited JSON)
       with open(input_file, 'r') as f:
         for line in f:
           if line.strip():
             data = rapidjson.loads(line.strip())
             yield data
+      return
+
+    # Multi-camera: sort frames by timestamp
+    # Open all camera files and initialize buffers
+    file_handles = []
+    frame_buffer = []
+
+    for cam_id in cameras_to_process:
+      if cam_id not in self._cameras:
+        raise ValueError(f"Camera {cam_id} not in configured cameras")
+
+      fps_suffix = f"_{int(self._camera_fps)}fps" if self._camera_fps != 30 else ""
+      input_file = self._dataset_path / f"Cam_{cam_id}_0{fps_suffix}.json"
+
+      if not input_file.exists():
+        raise FileNotFoundError(f"Input file not found: {input_file}")
+
+      f = open(input_file, 'r')
+      file_handles.append(f)
+
+      # Read first frame
+      line = f.readline()
+      frame_buffer.append(rapidjson.loads(line.strip()) if line.strip() else None)
+
+    try:
+      # Yield frames in timestamp order
+      while any(frame is not None for frame in frame_buffer):
+        # Find frame with minimum timestamp (alphabetical comparison works for ISO 8601)
+        timestamps = [frame['timestamp'] if frame else 'Z' * 50 for frame in frame_buffer]
+        min_idx = min(range(len(timestamps)), key=lambda i: timestamps[i])
+
+        # Yield the frame with earliest timestamp
+        yield frame_buffer[min_idx]
+
+        # Read next frame from that camera
+        line = file_handles[min_idx].readline()
+        frame_buffer[min_idx] = rapidjson.loads(line.strip()) if line.strip() else None
+
+    finally:
+      # Clean up file handles
+      for f in file_handles:
+        f.close()
 
   def get_ground_truth(self) -> str:
     """Get ground truth in evaluator input format.
