@@ -21,8 +21,8 @@ class SceneControllerHarness(TrackerHarness):
   """Tracker harness for SceneScape Scene Controller.
 
   This harness executes the tracker by running it inside the scene controller
-  Docker container. It operates in **batch mode only** - all inputs must be
-  provided in a single process_inputs() call.
+  Docker container. It operates in **synchronous batch mode** - all inputs are
+  provided in a single process_inputs() call and outputs are returned.
 
   **Important**: The set_scene_config() method expects scene configuration in
   **raw dataset format** (not canonical format). For MetricTestDataset, this
@@ -35,6 +35,8 @@ class SceneControllerHarness(TrackerHarness):
   Prerequisites:
   - Docker installed and running on the host machine
   - Scene controller container image available locally
+
+  Note: Asynchronous processing (process_inputs_async) is not supported.
   """
 
   def __init__(self):
@@ -130,18 +132,18 @@ class SceneControllerHarness(TrackerHarness):
     self._callback_on_failure = callback
     return self
 
-  def process_inputs(self, inputs: Iterator[Dict[str, Any]]) -> 'SceneControllerHarness':
-    """Process input detections through the tracker in batch mode.
+  def process_inputs(self, inputs: Iterator[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
+    """Process input detections through the tracker synchronously.
 
-    **Batch mode**: All inputs are consumed and processed in a single container execution.
-    The tracker processes all frames sequentially and produces outputs at the end.
+    All inputs are consumed and processed in a single container execution.
+    The tracker processes all frames sequentially and returns outputs.
 
     Args:
       inputs: Iterator of detection dictionaries in canonical Input Detection Format
         (see tools/tracker/evaluation/README.md#canonical-data-formats).
 
     Returns:
-      Self for method chaining.
+      Iterator of tracker outputs in canonical Tracker Output Format.
 
     Raises:
       RuntimeError: If processing fails or configuration is incomplete.
@@ -177,27 +179,16 @@ class SceneControllerHarness(TrackerHarness):
       output_file = self._temp_dir / "output.json"
       self._run_container()
 
-      # Read and process outputs
+      # Read and return outputs
       if output_file.exists():
         with open(output_file, 'r') as f:
           outputs = json.load(f)
-
-        # Call callback with outputs
-        if self._callback_outputs_ready:
-          self._callback_outputs_ready(iter(outputs))
+        return iter(outputs)
       else:
-        error_msg = "Tracker execution completed but no output file generated"
-        if self._callback_on_failure:
-          self._callback_on_failure("", error_msg)
-        else:
-          raise RuntimeError(error_msg)
+        raise RuntimeError("Tracker execution completed but no output file generated")
 
     except Exception as e:
-      error_msg = f"Tracker processing failed: {str(e)}"
-      if self._callback_on_failure:
-        self._callback_on_failure("", error_msg)
-      else:
-        raise RuntimeError(error_msg) from e
+      raise RuntimeError(f"Tracker processing failed: {str(e)}") from e
 
     finally:
       # Clean up temporary directory
@@ -205,7 +196,25 @@ class SceneControllerHarness(TrackerHarness):
         shutil.rmtree(self._temp_dir)
         self._temp_dir = None
 
-    return self
+  def process_inputs_async(self, inputs: Iterator[Dict[str, Any]]) -> 'SceneControllerHarness':
+    """Process input detections asynchronously (not implemented).
+
+    SceneControllerHarness only supports synchronous batch processing.
+    Use process_inputs() instead.
+
+    Args:
+      inputs: Iterator of detection dictionaries.
+
+    Returns:
+      Self for method chaining.
+
+    Raises:
+      NotImplementedError: Always raised - async mode not supported.
+    """
+    raise NotImplementedError(
+      "SceneControllerHarness does not support async mode. "
+      "Use process_inputs() for synchronous batch processing."
+    )
 
   def reset(self) -> 'SceneControllerHarness':
     """Reset harness state to initial configuration.
@@ -261,10 +270,9 @@ class SceneControllerHarness(TrackerHarness):
         remove=True,
         stream=True
       )
-
       # Stream output to console in real-time
-      for line in output:
-        print(line, end='')
+      for stream_type, stream_content in output:
+        print(f"[{stream_type}] {stream_content.decode('utf-8')}", end='')
 
     except Exception as e:
       raise RuntimeError(f"Container execution failed: {str(e)}") from e

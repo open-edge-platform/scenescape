@@ -60,6 +60,8 @@ class TrackerHarness(ABC):
   ) -> 'TrackerHarness':
     """Set callback function to be called when tracker outputs are ready.
 
+    Note: Only used by process_inputs_async(). Not needed for process_inputs().
+
     Args:
       callback: Function that receives an iterator of tracker outputs in canonical
         Tracker Output Format (see tools/tracker/evaluation/README.md#canonical-data-formats).
@@ -76,6 +78,8 @@ class TrackerHarness(ABC):
   ) -> 'TrackerHarness':
     """Set callback function to be called when failure occurs.
 
+    Note: Only used by process_inputs_async(). Not needed for process_inputs().
+
     Args:
       callback: Function that receives (timestamp, error_message).
 
@@ -85,8 +89,35 @@ class TrackerHarness(ABC):
     pass
 
   @abstractmethod
-  def process_inputs(self, inputs: Iterator[Dict[str, Any]]) -> 'TrackerHarness':
-    """Process input detections through the tracker.
+  def process_inputs(self, inputs: Iterator[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
+    """Process input detections through the tracker synchronously.
+
+    This is the default (synchronous) mode. Processes all inputs and returns outputs.
+    Use this for batch processing, testing, and simple evaluation pipelines.
+
+    Args:
+      inputs: Iterator of detection dictionaries in canonical Input Detection Format
+        (see tools/tracker/evaluation/README.md#canonical-data-formats).
+
+    Returns:
+      Iterator of tracker outputs in canonical Tracker Output Format.
+
+    Raises:
+      RuntimeError: If processing fails.
+    """
+    pass
+
+  @abstractmethod
+  def process_inputs_async(self, inputs: Iterator[Dict[str, Any]]) -> 'TrackerHarness':
+    """Process input detections through the tracker asynchronously.
+
+    This is the asynchronous (non-blocking) mode. Results are delivered via callbacks
+    set with set_callback_outputs_ready(). Use this for streaming pipelines or
+    when integrating with async frameworks.
+
+    Callbacks must be set before calling this method:
+    - set_callback_outputs_ready() - required
+    - set_callback_on_failure() - optional
 
     Args:
       inputs: Iterator of detection dictionaries in canonical Input Detection Format
@@ -96,7 +127,8 @@ class TrackerHarness(ABC):
       Self for method chaining.
 
     Raises:
-      RuntimeError: If processing fails.
+      RuntimeError: If processing fails or callbacks not set.
+      NotImplementedError: If async mode not supported by this harness.
     """
     pass
 

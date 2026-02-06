@@ -187,7 +187,7 @@ class TestMethodChaining:
   """Test method chaining."""
 
   def test_method_chaining(self, harness, sample_scene_config, tracker_config_file):
-    """Test all methods support chaining."""
+    """Test configuration methods support chaining."""
     result = harness \
       .set_scene_config(sample_scene_config) \
       .set_custom_config({
@@ -198,6 +198,21 @@ class TestMethodChaining:
       .set_callback_on_failure(lambda x, y: None)
 
     assert result is harness
+
+
+class TestAsyncMode:
+  """Test asynchronous processing mode."""
+
+  def test_process_inputs_async_not_implemented(self, harness, sample_scene_config, tracker_config_file):
+    """Test that async mode raises NotImplementedError."""
+    harness.set_scene_config(sample_scene_config)
+    harness.set_custom_config({
+      "container_image": "test:latest",
+      "tracker_config_path": tracker_config_file
+    })
+
+    with pytest.raises(NotImplementedError, match="does not support async mode"):
+      harness.process_inputs_async(iter([]))
 
 
 class TestOutputValidation:
