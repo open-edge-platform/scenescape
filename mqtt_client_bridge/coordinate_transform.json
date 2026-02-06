@@ -1,0 +1,21 @@
+{
+  "source_frame": "scenescape",
+  "target_frame": "robot",
+  "description": "Transform from scenescape coordinate system to robot coordinate system",
+  "translation": {
+    "x": -5.075,
+    "y": -3.448,
+    "z": 0.0
+  },
+  "rotation": {
+    "x": 0.0,
+    "y": 0.0,
+    "z": 0.0,
+    "w": 1.0
+  },
+  "scale": {
+    "x": 1.0,
+    "y": 1.0,
+    "z": 1.0
+  }
+}
