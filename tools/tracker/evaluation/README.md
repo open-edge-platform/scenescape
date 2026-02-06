@@ -110,59 +110,17 @@ The pipeline uses standardized data formats defined by JSON schemas to enable in
 
 **Purpose**: Describes scene and camera setup including camera intrinsics and extrinsics.
 
-**Structure**:
-```json
-{
-  "uid": "scene-unique-id",
-  "name": "Scene_Name",
-  "cameras": [
-    {
-      "uid": "camera-unique-id",
-      "name": "Camera_Name",
-      "intrinsics": {
-        "fx": 964.24,
-        "fy": 964.63,
-        "cx": 400.0,
-        "cy": 300.0
-      },
-      "distortion": {
-        "k1": 0.0,
-        "k2": 0.0
-      }
-    }
-  ]
-}
-```
-
 ### Input Detection Format
 
 **Schema**: `tracker/schema/camera-data.schema.json`
 
 **Purpose**: Object detections from individual cameras (tracker input).
 
-**Structure**:
-```json
-{
-  "timestamp": 1234567890.123,
-  "id": "camera-unique-id",
-  "objects": [
-    {
-      "id": 1,
-      "label": "person",
-      "bbox2d": [x_min, y_min, x_max, y_max],
-      "confidence": 0.95
-    }
-  ]
-}
-```
-
 ### Tracker Output Format
 
 **Schema**: `tracker/schema/scene-data.schema.json`
 
 **Purpose**: 3D tracking results from the tracker (evaluator input).
-
-**Structure**: See schema file for complete specification.
 
 ### Ground Truth Format (MOTChallenge 3D CSV)
 
@@ -198,3 +156,88 @@ The pipeline uses standardized data formats defined by JSON schemas to enable in
 - [Design Document](../../../docs/design/tracker-evaluation-pipeline.md)
 - [ADR 9: Tracking Evaluation Strategy](../../../docs/adr/0009-tracking-evaluation.md)
 - [TrackEval Toolkit](https://github.com/JonathonLuiten/TrackEval)
+
+## Testing
+
+### Test Organization
+
+The evaluation pipeline has comprehensive test coverage:
+
+- **Unit Tests**: Fast tests without external dependencies, located in component-specific test directories
+  - `datasets/tests/test_*.py`: Datasets unit tests
+  - `harnesses/tests/test_*.py`: Harnesses unit tests
+  - `tests/test_format_converters.py`: Format converter unit tests
+
+- **Integration Tests**: Tests requiring Docker and real components, located in `tests/`
+  - `tests/test_scene_controller_harness_integration.py`: End-to-end harness tests with container
+
+### Running Tests
+
+**Simple test runner** (recommended):
+```bash
+cd tools/tracker/evaluation
+
+# Run all tests (including integration tests)
+./run_tests.sh
+
+# Run only unit tests (fast, no Docker required)
+./run_tests.sh unit
+
+# Run only integration tests (requires Docker)
+./run_tests.sh integration
+```
+
+**Using pytest directly**:
+
+**Run all tests** (including integration tests):
+```bash
+cd tools/tracker/evaluation
+pytest . -v
+```
+
+**Run only unit tests** (fast, no Docker required):
+```bash
+pytest . -v -m "not integration"
+```
+
+**Run only integration tests** (requires Docker):
+```bash
+pytest . -v -m integration
+```
+
+**Run tests from a specific directory**:
+```bash
+pytest tests/ -v                     # Integration tests
+pytest datasets/tests/ -v            # Dataset unit tests
+pytest harnesses/tests/ -v           # Harness unit tests
+```
+
+**Run tests from a specific file**:
+```bash
+pytest harnesses/tests/test_scene_controller_harness.py -v
+```
+
+**Run a specific test**:
+```bash
+pytest harnesses/tests/test_scene_controller_harness.py::TestSceneControllerHarness::test_initialization -v
+```
+
+### Prerequisites for Integration Tests
+
+Integration tests require:
+- Docker installed and running
+- SceneScape controller container image available (e.g., `scenescape-controller:latest`)
+
+Verify Docker setup:
+```bash
+docker --version
+docker images | grep scenescape-controller
+```
+
+### Expected Test Results
+
+- **Unit tests**: ~50 tests, complete in < 1 second
+- **Integration tests**: ~6 tests, complete in ~1 minute (processes 200 inputs per test)
+
+Some integration tests may be marked as `xfail` (expected to fail) to document known issues or format mismatches that are planned to be fixed in future work.
+
