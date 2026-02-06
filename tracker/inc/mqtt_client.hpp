@@ -197,6 +197,29 @@ public:
                                                       int max_delay_s = 30);
 
 private:
+    /**
+     * @brief RAII guard for Paho callbacks - tracks in-flight count and checks shutdown.
+     *
+     * Increments callbacks_in_flight_ on construction, decrements on destruction.
+     * Use shouldSkip() to check if callback should early-return due to shutdown.
+     */
+    class CallbackGuard {
+    public:
+        explicit CallbackGuard(MqttClient* client)
+            : counter_(client->callbacks_in_flight_), should_skip_(client->stop_requested_.load()) {
+            ++counter_;
+        }
+        ~CallbackGuard() { --counter_; }
+        [[nodiscard]] bool shouldSkip() const { return should_skip_; }
+
+        CallbackGuard(const CallbackGuard&) = delete;
+        CallbackGuard& operator=(const CallbackGuard&) = delete;
+
+    private:
+        std::atomic<int>& counter_;
+        bool should_skip_;
+    };
+
     // mqtt::callback interface
     void connected(const std::string& cause) override;
     void connection_lost(const std::string& cause) override;

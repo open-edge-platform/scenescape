@@ -283,15 +283,9 @@ bool MqttClient::isSubscribed() const {
 // mqtt::callback interface implementation
 
 void MqttClient::connected(const std::string& cause) {
-    ++callbacks_in_flight_;
-    auto guard = [this]() { --callbacks_in_flight_; };
-    struct ScopeGuard {
-        decltype(guard) fn;
-        ~ScopeGuard() { fn(); }
-    } scope_guard{guard};
-
-    if (stop_requested_) {
-        return; // Shutting down, ignore callback
+    CallbackGuard guard(this);
+    if (guard.shouldSkip()) {
+        return;
     }
 
     LOG_INFO_ENTRY(LogEntry("MQTT connected")
@@ -319,15 +313,9 @@ void MqttClient::connected(const std::string& cause) {
 }
 
 void MqttClient::connection_lost(const std::string& cause) {
-    ++callbacks_in_flight_;
-    auto guard = [this]() { --callbacks_in_flight_; };
-    struct ScopeGuard {
-        decltype(guard) fn;
-        ~ScopeGuard() { fn(); }
-    } scope_guard{guard};
-
-    if (stop_requested_) {
-        return; // Shutting down, ignore callback
+    CallbackGuard guard(this);
+    if (guard.shouldSkip()) {
+        return;
     }
 
     LOG_WARN("MQTT connection lost: {}", cause.empty() ? "unknown" : cause);
@@ -338,15 +326,9 @@ void MqttClient::connection_lost(const std::string& cause) {
 }
 
 void MqttClient::message_arrived(mqtt::const_message_ptr msg) {
-    ++callbacks_in_flight_;
-    auto guard = [this]() { --callbacks_in_flight_; };
-    struct ScopeGuard {
-        decltype(guard) fn;
-        ~ScopeGuard() { fn(); }
-    } scope_guard{guard};
-
-    if (stop_requested_) {
-        return; // Shutting down, ignore callback
+    CallbackGuard guard(this);
+    if (guard.shouldSkip()) {
+        return;
     }
 
     LOG_DEBUG_ENTRY(LogEntry("MQTT message received")
@@ -362,15 +344,9 @@ void MqttClient::message_arrived(mqtt::const_message_ptr msg) {
 // mqtt::iaction_listener interface implementation
 
 void MqttClient::on_success(const mqtt::token& tok) {
-    ++callbacks_in_flight_;
-    auto guard = [this]() { --callbacks_in_flight_; };
-    struct ScopeGuard {
-        decltype(guard) fn;
-        ~ScopeGuard() { fn(); }
-    } scope_guard{guard};
-
-    if (stop_requested_) {
-        return; // Shutting down, ignore callback
+    CallbackGuard guard(this);
+    if (guard.shouldSkip()) {
+        return;
     }
 
     if (tok.get_type() == mqtt::token::Type::CONNECT) {
@@ -393,15 +369,9 @@ void MqttClient::on_success(const mqtt::token& tok) {
 }
 
 void MqttClient::on_failure(const mqtt::token& tok) {
-    ++callbacks_in_flight_;
-    auto guard = [this]() { --callbacks_in_flight_; };
-    struct ScopeGuard {
-        decltype(guard) fn;
-        ~ScopeGuard() { fn(); }
-    } scope_guard{guard};
-
-    if (stop_requested_) {
-        return; // Shutting down, ignore callback
+    CallbackGuard guard(this);
+    if (guard.shouldSkip()) {
+        return;
     }
 
     int rc = tok.get_return_code(); // Use return_code, not reason_code (v5 only)
