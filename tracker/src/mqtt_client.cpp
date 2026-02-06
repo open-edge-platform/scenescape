@@ -86,9 +86,15 @@ MqttClient::MqttClient(const MqttConfig& config, int max_reconnect_delay_s)
     client_->set_callback(*this);
 
     // Build connection options
+    // NOTE: We handle reconnection manually (scheduleReconnect/reconnectWorker) for detailed
+    // logging of attempt counts and timing. Consider switching to Paho's built-in auto-reconnect
+    // to reduce complexity (~100 lines, several sync primitives), with trade-off of less
+    // visibility. See:
+    // https://github.com/eclipse-paho/paho.mqtt.cpp/blob/master/include/mqtt/connect_options.h
+    // (set_automatic_reconnect with min/max retry intervals)
     auto conn_opts_builder = mqtt::connect_options_builder()
                                  .clean_session(true)
-                                 .automatic_reconnect(false) // We handle reconnection ourselves
+                                 .automatic_reconnect(false)
                                  .keep_alive_interval(std::chrono::seconds(KEEPALIVE_SECONDS))
                                  .connect_timeout(std::chrono::seconds(CONNECT_TIMEOUT_SECONDS));
 
