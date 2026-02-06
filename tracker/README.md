@@ -24,6 +24,9 @@ make install-tools
 # Coverage tools (optional, for local coverage reports)
 pipx install gcovr
 sudo apt-get install -y lcov
+
+# MQTT client tools (optional, for manual testing)
+sudo apt-get install -y mosquitto-clients
 ```
 
 #### Build

@@ -5,3 +5,10 @@
 **/kubernetes/**/*.yaml
 **/.reuse/templates/template.jinja2
 .venv
+
+# Build directories (CMake/Conan generated)
+**/build/
+**/build-*/
+**/CMakeUserPresets.json
+**/CMakePresets.json
+**/CMakeFiles/

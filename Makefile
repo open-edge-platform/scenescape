@@ -391,6 +391,14 @@ run_basic_acceptance_tests: setup_tests
 	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
+.PHONY: run_stability_tests
+run_stability_tests: setup_tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running stability tests..."
+	$(eval HOURS ?= 24)
+	$(MAKE) --trace -C tests system-stability -j 1 SUPASS=$(SUPASS) HOURS=$(HOURS) SECRETSDIR=$(CURDIR)/manager/secrets || (echo "Stability tests failed" && exit 1)
+	@echo "DONE ==> Running stability tests"
+
 # Temp K8s BAT target
 .PHONY: run_basic_acceptance_tests_k8s
 run_basic_acceptance_tests_k8s: setup_tests
@@ -517,6 +525,14 @@ define start_demo
 		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
 		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
 		exit 1; \
+	fi
+	@if [ "$$BROKER_PORT" != "" ] && [ "$$BROKER_PORT" != "1883" ]; then \
+		echo "Updating docker-compose.yml with custom MQTT broker port: $$BROKER_PORT"; \
+		sed -i -E "s/[0-9]+:1883/$$BROKER_PORT:1883/g" docker-compose.yml; \
+	fi
+	@if [ "$$HTTPS_PORT" != "" ] && [ "$$HTTPS_PORT" != "443" ]; then \
+		echo "Updating docker-compose.yml with custom HTTPS port: $$HTTPS_PORT"; \
+		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
 	fi
 	docker compose $(1) up -d
 	@echo ""
