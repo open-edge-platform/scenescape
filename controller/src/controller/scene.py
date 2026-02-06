@@ -90,7 +90,7 @@ class Scene(SceneModel):
     self.scene_data_validator_no_format = None
     if ControllerMode.isAnalyticsOnly():
       schema_filename = 'scene-data.schema.json'
-      schema_path = Path(os.environ.get('SCENESCAPE_HOME', '/home/scenescape/SceneScape')) / 'tracker' / 'schema' / schema_filename
+      schema_path = Path(os.environ.get('SCENESCAPE_HOME')) / 'tracker' / 'schema' / schema_filename
       
       if schema_path.exists():
         try:
