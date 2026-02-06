@@ -154,100 +154,149 @@ Notes:
 
 ### Tracking Dataset
 
-Implementation of the component class must implement the following functions.
+Base class: `base.tracking_dataset.TrackingDataset`
 
-- SetScene
-  - argument: scene (optional)
-  - returns: self
-  - on error: raises exception
-- SetCameras
-  - argument: list of camera IDs (optional)
-  - returns: self
-  - on error: raises exception
-- SetTimeRange
-  - argument: start, end timestamp (optional)
-  - returns: self
-  - on error: raises exception
-- SetCameraFps
-  - argument: camera_fps (float)
-  - returns: self
-  - on error: raises exception
-- SetCustomConfig
-  - argument: config (dict)
-  - returns: self
-  - on error: raises exception
-- GetSceneConfig
-  - argument: none
-  - returns: scene and camera configuration in dataset-specific format (TODO: will be canonical format when schemas stabilize)
-  - on error: raises exception
-- GetInputs
-  - argument: camera (optional)
-  - returns: iterative list of inputs in canonical format, sorted by timestamp in chronological order
-  - on error: raises exception
-- GetGroundTruth
-  - argument: none
-  - returns: path to ground truth file in Ground Truth Format (MOTChallenge 3D CSV) (see tools/tracker/evaluation/README.md#canonical-data-formats)
-  - on error: raises exception
-- Reset: resets state to initial
-  - argument: none
-  - returns: self
+Implementation of the component class must implement the following abstract methods:
+
+- **set_scene**(scene: Optional[str] = None) -> TrackingDataset
+  - Set the scene to use from the dataset
+  - Args: scene identifier (optional, uses default/first scene if None)
+  - Returns: self for method chaining
+  - Raises: ValueError if scene invalid, RuntimeError on other errors
+
+- **set_cameras**(cameras: Optional[List[str]] = None) -> TrackingDataset
+  - Set the cameras to use from the scene
+  - Args: list of camera identifiers (optional, uses all available if None)
+  - Returns: self for method chaining
+  - Raises: ValueError if cameras invalid, RuntimeError on other errors
+
+- **set_time_range**(start: Optional[str] = None, end: Optional[str] = None) -> TrackingDataset
+  - Set the time range for input sequences
+  - Args: start/end timestamps (optional, format depends on implementation)
+  - Returns: self for method chaining
+  - Raises: ValueError if invalid or start > end, RuntimeError on other errors
+
+- **set_camera_fps**(camera_fps: float) -> TrackingDataset
+  - Set the camera frame rate for input sequences
+  - Args: camera frames per second
+  - Returns: self for method chaining
+  - Raises: ValueError if invalid or not supported, RuntimeError on other errors
+
+- **set_custom_config**(config: Dict[str, Any]) -> TrackingDataset
+  - Set custom dataset-specific configuration
+  - Args: custom configuration dictionary (format depends on implementation)
+  - Returns: self for method chaining
+  - Raises: ValueError if invalid, RuntimeError on other errors
+
+- **get_scene_config**() -> Dict[str, Any]
+  - Get scene and camera configuration in dataset-specific format
+  - Returns: scene configuration dictionary (dataset-specific format)
+  - Raises: RuntimeError if cannot be loaded
+  - Note: TODO - will return canonical format when schemas stabilize
+
+- **get_inputs**(camera: Optional[str] = None) -> Iterator[Dict[str, Any]]
+  - Get input detections in canonical format, sorted by timestamp
+  - Args: camera identifier (optional, returns all cameras if None)
+  - Yields: detection dictionaries in canonical Input Detection Format, chronologically sorted
+  - Raises: ValueError if camera invalid, RuntimeError on other errors
+
+- **get_ground_truth**() -> str
+  - Get ground-truth data in evaluator input format
+  - Returns: path to ground-truth file in Ground Truth Format (MOTChallenge 3D CSV)
+  - Raises: RuntimeError if cannot be loaded or converted
+
+- **reset**() -> TrackingDataset
+  - Reset dataset state to initial configuration
+  - Returns: self for method chaining
 
 Future extensions of the interface will be driven by the need of adopting specific datasets and tracking algorithms, e.g. the interface could support division into training and validation sets.
 
 ### Tracker Harness
 
-Implementation of the component class must implement the following functions.
+Base class: `base.tracker_harness.TrackerHarness`
 
-- SetSceneConfig
-  - argument: scene configuration dict in dataset-specific format
-  - returns: self
-  - on error: raises exception
-- SetCustomConfig
-  - argument: custom dict (tracker-specific configuration)
-  - returns: self
-  - on error: raises exception
-- SetCallbackOutputsReady
-  - argument: callback function that will be executed when outputs are ready
-    - argument: iterative list of tracker outputs in canonical format
-    - returns: nothing
-  - returns: self
-- SetCallbackOnFailure
-  - argument: callback function that will be executed when failure occurs
-    - argument: timestamp, error string
-    - returns: nothing
-- ProcessInputs
-  - argument: iterative list of inputs in canonical format
-  - returns: self
-  - on error: raises exception
-- Reset: resets state to initial
-  - argument: none
-  - returns: self
+Implementation of the component class must implement the following abstract methods:
+
+- **set_scene_config**(config: Dict[str, Any]) -> TrackerHarness
+  - Set scene and camera configuration
+  - Args: scene configuration in canonical Scene Configuration Format
+  - Returns: self for method chaining
+  - Raises: ValueError if invalid, RuntimeError on other errors
+  - Note: Currently accepts dataset-specific format until schemas stabilize
+
+- **set_custom_config**(config: Dict[str, Any]) -> TrackerHarness
+  - Set tracker-specific configuration
+  - Args: custom configuration dictionary (format depends on implementation)
+  - Returns: self for method chaining
+  - Raises: ValueError if invalid, RuntimeError on other errors
+
+- **set_callback_outputs_ready**(callback: Callable[[Iterator[Dict[str, Any]]], None]) -> TrackerHarness
+  - Set callback function to be called when tracker outputs are ready
+  - Args: callback function that receives iterator of tracker outputs in canonical format
+  - Returns: self for method chaining
+  - Note: Only used by process_inputs_async(), not needed for process_inputs()
+
+- **set_callback_on_failure**(callback: Callable[[str, str], None]) -> TrackerHarness
+  - Set callback function to be called when failure occurs
+  - Args: callback function that receives (timestamp, error_message)
+  - Returns: self for method chaining
+  - Note: Only used by process_inputs_async(), not needed for process_inputs()
+
+- **process_inputs**(inputs: Iterator[Dict[str, Any]]) -> Iterator[Dict[str, Any]]
+  - Process input detections through the tracker synchronously (default mode)
+  - Args: iterator of detection dictionaries in canonical Input Detection Format
+  - Returns: iterator of tracker outputs in canonical Tracker Output Format
+  - Raises: RuntimeError if processing fails
+  - Use for: batch processing, testing, simple evaluation pipelines
+
+- **process_inputs_async**(inputs: Iterator[Dict[str, Any]]) -> TrackerHarness
+  - Process input detections through the tracker asynchronously (non-blocking mode)
+  - Args: iterator of detection dictionaries in canonical Input Detection Format
+  - Returns: self for method chaining
+  - Raises: RuntimeError if fails or callbacks not set, NotImplementedError if not supported
+  - Note: Results delivered via set_callback_outputs_ready() callback
+  - Use for: streaming pipelines, async frameworks
+
+- **reset**() -> TrackerHarness
+  - Reset harness state to initial configuration
+  - Returns: self for method chaining
 
 Future extensions of the interface will be driven by the need of evaluating specific implementations, e.g. black-box tests of production service vs experimental tracker implementation.
 
 ### Tracker Evaluator
 
-Implementation of the component class must implement the following functions.
+Base class: `base.tracker_evaluator.TrackerEvaluator`
 
-- ConfigureMetrics
-  - argument: list of metrics to be evaluated
-  - returns: self
-  - on error: raises exception
-- SetResultFolder
-  - arguments: path to folder where results are to be stored
-  - returns: self
-- ProcessTrackerOutputs
-  - arguments:
-    - iterative list of tracker outputs in canonical format
-    - iterative list of inputs in Tracker Evaluator input track format
-  - returns: self
-  - on error: raises exception
-- EvaluateMetrics
-  - arguments: none
-  - returns: dict { <metric name>: <metric value> }
-- Reset: resets state to initial
-  - argument: none
-  - returns: self
+Implementation of the component class must implement the following abstract methods:
+
+- **configure_metrics**(metrics: List[str]) -> TrackerEvaluator
+  - Configure which metrics to evaluate
+  - Args: list of metric names to compute (e.g., ['HOTA', 'MOTA', 'IDF1'])
+  - Returns: self for method chaining
+  - Raises: ValueError if metric not supported, RuntimeError on other errors
+
+- **set_result_folder**(path: Path) -> TrackerEvaluator
+  - Set folder where evaluation results should be stored
+  - Args: path to results folder (will be created if doesn't exist)
+  - Returns: self for method chaining
+  - Raises: ValueError if path invalid, RuntimeError on other errors
+
+- **process_tracker_outputs**(tracker_outputs: Iterator[Dict[str, Any]], ground_truth: Iterator[Dict[str, Any]]) -> TrackerEvaluator
+  - Process tracker outputs and ground-truth for evaluation
+  - Args:
+    - tracker_outputs: iterator of tracker output dictionaries in canonical Tracker Output Format
+    - ground_truth: iterator of ground-truth tracks in evaluator-specific format
+  - Returns: self for method chaining
+  - Raises: RuntimeError if processing fails
+
+- **evaluate_metrics**() -> Dict[str, float]
+  - Evaluate configured metrics
+  - Returns: dictionary mapping metric names to computed values
+  - Raises: RuntimeError if evaluation fails or no data processed
+
+- **reset**() -> TrackerEvaluator
+  - Reset evaluator state to initial configuration
+  - Returns: self for method chaining
 
 ## Tracker Evaluation Pipeline Engine Module
 
