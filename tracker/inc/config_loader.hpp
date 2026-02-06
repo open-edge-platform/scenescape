@@ -3,9 +3,12 @@
 
 #pragma once
 
+#include "scene_loader.hpp"
+
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace tracker {
 
@@ -74,6 +77,7 @@ struct ObservabilityConfig {
 struct ServiceConfig {
     InfrastructureConfig infrastructure;
     ObservabilityConfig observability;
+    ScenesConfig scenes;
 };
 
 /// JSON Pointer paths (RFC6901) for extracting ServiceConfig values
@@ -93,6 +97,10 @@ constexpr char INFRASTRUCTURE_MQTT_TLS_CLIENT_CERT_PATH[] =
 constexpr char INFRASTRUCTURE_MQTT_TLS_CLIENT_KEY_PATH[] =
     "/infrastructure/mqtt/tls/client_key_path";
 constexpr char INFRASTRUCTURE_MQTT_TLS_VERIFY_SERVER[] = "/infrastructure/mqtt/tls/verify_server";
+
+// Scenes
+constexpr char SCENES_SOURCE[] = "/scenes/source";
+constexpr char SCENES_FILE_PATH[] = "/scenes/file_path";
 } // namespace json
 
 /**

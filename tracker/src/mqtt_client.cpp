@@ -30,6 +30,38 @@ std::string getHostname() {
     return "unknown";
 }
 
+/**
+ * @brief Clear proxy environment variables if they are set but empty.
+ *
+ * Paho MQTT library workaround: Paho reads proxy environment variables
+ * (http_proxy, https_proxy, etc.) but fails when they are set to empty
+ * strings - it attempts to use "" as a proxy URL, causing connection errors.
+ *
+ * This commonly occurs when:
+ *   - Docker containers set proxy vars to empty to override host values
+ *   - Makefile targets export empty proxy vars for local development
+ *
+ * Solution: Detect empty proxy vars and unset them entirely, while
+ * preserving real proxy URLs for production environments that need them.
+ */
+void clearEmptyProxyVars() {
+    const char* proxy_vars[] = {"http_proxy",  "HTTP_PROXY", "https_proxy",
+                                "HTTPS_PROXY", "no_proxy",   "NO_PROXY"};
+
+    bool cleared_any = false;
+    for (const char* var : proxy_vars) {
+        const char* value = std::getenv(var);
+        if (value != nullptr && value[0] == '\0') {
+            unsetenv(var);
+            cleared_any = true;
+        }
+    }
+
+    if (cleared_any) {
+        LOG_DEBUG("Cleared empty proxy environment variables");
+    }
+}
+
 } // namespace
 
 std::string MqttClient::generateClientId() {
@@ -172,10 +204,11 @@ void MqttClient::subscribe(const std::string& topic) {
         return;
     }
 
-    LOG_INFO("MQTT subscribing to: {} (QoS {})", topic, MQTT_QOS);
-
     try {
         client_->subscribe(topic, MQTT_QOS, nullptr, *this);
+        LOG_DEBUG_ENTRY(LogEntry("MQTT subscribe request queued")
+                            .component("mqtt")
+                            .mqtt({.topic = topic, .direction = "subscribe"}));
     } catch (const mqtt::exception& e) {
         LOG_ERROR("MQTT subscribe failed: {}", e.what());
         subscribed_ = false;
@@ -239,7 +272,9 @@ bool MqttClient::isSubscribed() const {
 // mqtt::callback interface implementation
 
 void MqttClient::connected(const std::string& cause) {
-    LOG_INFO("MQTT connected: {}", cause.empty() ? "initial connection" : cause);
+    LOG_INFO_ENTRY(LogEntry("MQTT connected")
+                       .component("mqtt")
+                       .operation(cause.empty() ? "initial connection" : cause));
     connected_ = true;
 
     // Wake up reconnect worker so it exits immediately
@@ -249,9 +284,11 @@ void MqttClient::connected(const std::string& cause) {
     {
         std::lock_guard<std::mutex> lock(subscriptions_mutex_);
         for (const auto& topic : pending_subscriptions_) {
-            LOG_INFO("MQTT subscribing to: {} (QoS {})", topic, MQTT_QOS);
             try {
                 client_->subscribe(topic, MQTT_QOS, nullptr, *this);
+                LOG_DEBUG_ENTRY(LogEntry("MQTT subscribe request queued")
+                                    .component("mqtt")
+                                    .mqtt({.topic = topic, .direction = "subscribe"}));
             } catch (const mqtt::exception& e) {
                 LOG_ERROR("MQTT subscribe failed for {}: {}", topic, e.what());
             }
@@ -270,8 +307,9 @@ void MqttClient::connection_lost(const std::string& cause) {
 }
 
 void MqttClient::message_arrived(mqtt::const_message_ptr msg) {
-    LOG_DEBUG("MQTT message received on: {} ({} bytes)", msg->get_topic(),
-              msg->get_payload().size());
+    LOG_DEBUG_ENTRY(LogEntry("MQTT message received")
+                        .component("mqtt")
+                        .mqtt({.topic = msg->get_topic(), .direction = "receive"}));
 
     std::lock_guard<std::mutex> lock(callback_mutex_);
     if (message_callback_) {
@@ -282,20 +320,26 @@ void MqttClient::message_arrived(mqtt::const_message_ptr msg) {
 // mqtt::iaction_listener interface implementation
 
 void MqttClient::on_success(const mqtt::token& tok) {
-    LOG_DEBUG("MQTT on_success: type={}", static_cast<int>(tok.get_type()));
-
     if (tok.get_type() == mqtt::token::Type::CONNECT) {
-        // Note: connected() callback is also called, but log here too
-        LOG_INFO("MQTT connect action successful");
+        // Note: connected() callback already logs, skip duplicate here
+        LOG_DEBUG("MQTT connect token completed");
     } else if (tok.get_type() == mqtt::token::Type::SUBSCRIBE) {
-        LOG_INFO("MQTT subscription successful");
+        // Get topics from token (Paho stores them on subscribe tokens)
+        auto topics = tok.get_topics();
+        if (topics && !topics->empty()) {
+            for (const auto& topic : *topics) {
+                LOG_INFO_ENTRY(LogEntry("MQTT subscription successful")
+                                   .component("mqtt")
+                                   .mqtt({.topic = topic, .direction = "subscribe"}));
+            }
+        } else {
+            LOG_INFO_ENTRY(LogEntry("MQTT subscription successful").component("mqtt"));
+        }
         subscribed_ = true;
     }
 }
 
 void MqttClient::on_failure(const mqtt::token& tok) {
-    LOG_ERROR("MQTT on_failure callback entered");
-
     int rc = tok.get_return_code(); // Use return_code, not reason_code (v5 only)
     int msg_id = tok.get_message_id();
     int token_type = static_cast<int>(tok.get_type());
