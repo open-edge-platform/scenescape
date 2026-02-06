@@ -23,7 +23,7 @@ SCHEMA_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / \
 @pytest.fixture
 def harness():
   """Create SceneControllerHarness instance."""
-  return SceneControllerHarness()
+  return SceneControllerHarness(container_image='scenescape-controller:test')
 
 
 @pytest.fixture
@@ -72,42 +72,31 @@ def scene_data_schema():
 class TestInitialization:
   """Test harness initialization."""
 
-  def test_init(self, harness):
-    """Test harness can be instantiated."""
-    assert harness is not None
+  def test_init(self):
+    """Test basic initialization with container image."""
+    harness = SceneControllerHarness(container_image='test:latest')
+    assert harness._container_image == 'test:latest'
     assert harness._scene_config is None
-    assert harness._container_image is None
     assert harness._tracker_config_path is None
 
 
 class TestConfiguration:
   """Test configuration methods."""
 
-  def test_set_scene_config_valid(self, harness, sample_scene_config):
-    """Test setting valid scene config."""
-    result = harness.set_scene_config(sample_scene_config)
+  def test_set_scene_config_not_implemented(self, harness):
+    """Test that set_scene_config raises NotImplementedError."""
+    with pytest.raises(NotImplementedError, match="does not yet support canonical scene config"):
+      harness.set_scene_config({})
+
+  def test_set_custom_config_valid(self, harness, sample_scene_config, tracker_config_file):
+    """Test setting valid custom configuration."""
+    result = harness.set_custom_config({
+      "custom_scene_config": sample_scene_config,
+      "tracker_config_path": tracker_config_file
+    })
+
     assert result is harness  # Method chaining
     assert harness._scene_config == sample_scene_config
-
-  def test_set_scene_config_invalid_type(self, harness):
-    """Test setting invalid scene config type."""
-    with pytest.raises(ValueError, match="must be a dictionary"):
-      harness.set_scene_config("not a dict")
-
-  def test_set_scene_config_missing_name(self, harness):
-    """Test setting scene config without name."""
-    with pytest.raises(ValueError, match="must contain 'name'"):
-      harness.set_scene_config({"sensors": {}})
-
-  def test_set_custom_config_valid(self, harness, tracker_config_file):
-    """Test setting valid custom config."""
-    config = {
-      "container_image": "scenescape-controller:test",
-      "tracker_config_path": tracker_config_file
-    }
-    result = harness.set_custom_config(config)
-    assert result is harness  # Method chaining
-    assert harness._container_image == "scenescape-controller:test"
     assert harness._tracker_config_path == tracker_config_file
 
   def test_set_custom_config_invalid_type(self, harness):
@@ -115,21 +104,37 @@ class TestConfiguration:
     with pytest.raises(ValueError, match="must be a dictionary"):
       harness.set_custom_config("not a dict")
 
-  def test_set_custom_config_missing_container_image(self, harness, tracker_config_file):
-    """Test setting custom config without container_image."""
-    with pytest.raises(ValueError, match="must contain 'container_image'"):
+  def test_set_custom_config_missing_scene_config(self, harness, tracker_config_file):
+    """Test setting custom config without custom_scene_config."""
+    with pytest.raises(ValueError, match="must contain 'custom_scene_config'"):
       harness.set_custom_config({"tracker_config_path": tracker_config_file})
 
-  def test_set_custom_config_missing_tracker_config(self, harness):
+  def test_set_custom_config_missing_tracker_config(self, harness, sample_scene_config):
     """Test setting custom config without tracker_config_path."""
     with pytest.raises(ValueError, match="must contain 'tracker_config_path'"):
-      harness.set_custom_config({"container_image": "test:latest"})
+      harness.set_custom_config({"custom_scene_config": sample_scene_config})
 
-  def test_set_custom_config_invalid_tracker_path(self, harness):
+  def test_set_custom_config_invalid_scene_config_type(self, harness, tracker_config_file):
+    """Test setting custom config with invalid scene config type."""
+    with pytest.raises(ValueError, match="custom_scene_config must be a dictionary"):
+      harness.set_custom_config({
+        "custom_scene_config": "not a dict",
+        "tracker_config_path": tracker_config_file
+      })
+
+  def test_set_custom_config_scene_config_missing_name(self, harness, tracker_config_file):
+    """Test setting custom config with scene config missing name."""
+    with pytest.raises(ValueError, match="custom_scene_config must contain 'name' field"):
+      harness.set_custom_config({
+        "custom_scene_config": {"map": "test.png"},
+        "tracker_config_path": tracker_config_file
+      })
+
+  def test_set_custom_config_invalid_tracker_path(self, harness, sample_scene_config):
     """Test setting custom config with non-existent tracker config."""
     with pytest.raises(ValueError, match="not found"):
       harness.set_custom_config({
-        "container_image": "test:latest",
+        "custom_scene_config": sample_scene_config,
         "tracker_config_path": "/nonexistent/path.json"
       })
 
@@ -154,9 +159,8 @@ class TestConfiguration:
   def test_reset(self, harness, sample_scene_config, tracker_config_file):
     """Test reset method."""
     # Configure harness
-    harness.set_scene_config(sample_scene_config)
     harness.set_custom_config({
-      "container_image": "test:latest",
+      "custom_scene_config": sample_scene_config,
       "tracker_config_path": tracker_config_file
     })
 
@@ -164,22 +168,22 @@ class TestConfiguration:
     result = harness.reset()
     assert result is harness  # Method chaining
     assert harness._scene_config is None
-    assert harness._container_image is None
     assert harness._tracker_config_path is None
 
 
 class TestProcessInputs:
   """Test process_inputs method."""
 
-  def test_process_inputs_without_scene_config(self, harness):
-    """Test process_inputs fails without scene config."""
+  def test_process_inputs_without_config(self, harness):
+    """Test process_inputs fails without configuration."""
     with pytest.raises(RuntimeError, match="Scene config not set"):
       harness.process_inputs(iter([]))
 
-  def test_process_inputs_without_custom_config(self, harness, sample_scene_config):
-    """Test process_inputs fails without custom config."""
-    harness.set_scene_config(sample_scene_config)
-    with pytest.raises(RuntimeError, match="Custom config not set"):
+  def test_process_inputs_without_tracker_config(self, harness, sample_scene_config):
+    """Test process_inputs fails without tracker config."""
+    # Only set scene config, not tracker config
+    harness._scene_config = sample_scene_config
+    with pytest.raises(RuntimeError, match="Tracker config not set"):
       harness.process_inputs(iter([]))
 
 
@@ -189,9 +193,8 @@ class TestMethodChaining:
   def test_method_chaining(self, harness, sample_scene_config, tracker_config_file):
     """Test configuration methods support chaining."""
     result = harness \
-      .set_scene_config(sample_scene_config) \
       .set_custom_config({
-        "container_image": "test:latest",
+        "custom_scene_config": sample_scene_config,
         "tracker_config_path": tracker_config_file
       }) \
       .set_callback_outputs_ready(lambda x: None) \
@@ -205,9 +208,8 @@ class TestAsyncMode:
 
   def test_process_inputs_async_not_implemented(self, harness, sample_scene_config, tracker_config_file):
     """Test that async mode raises NotImplementedError."""
-    harness.set_scene_config(sample_scene_config)
     harness.set_custom_config({
-      "container_image": "test:latest",
+      "custom_scene_config": sample_scene_config,
       "tracker_config_path": tracker_config_file
     })
 
@@ -248,6 +250,6 @@ class TestOutputValidation:
       "timestamp": "2026-01-20T10:05:01.590Z",
       "objects": []
     }
-    
+
     # Validate against schema
     jsonschema.validate(instance=sample_output, schema=scene_data_schema)
