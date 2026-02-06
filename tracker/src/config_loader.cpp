@@ -4,10 +4,10 @@
 #include "config_loader.hpp"
 
 #include "env_vars.hpp"
+#include "json_utils.hpp"
 
 #include <cstdlib>
 #include <fstream>
-#include <optional>
 #include <stdexcept>
 
 #include <rapidjson/document.h>
@@ -226,6 +226,30 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
     config.observability.logging.level =
         GetValueByPointerWithDefault(config_doc, json::OBSERVABILITY_LOGGING_LEVEL, "info")
             .GetString();
+
+    // Scenes configuration (required) - parse source and file_path only
+    // Actual scene loading is done via ISceneLoader in main
+    std::string source_str =
+        GetValueByPointerWithDefault(config_doc, json::SCENES_SOURCE, "file").GetString();
+
+    if (source_str == "file") {
+        config.scenes.source = SceneSource::File;
+    } else if (source_str == "api") {
+        config.scenes.source = SceneSource::Api;
+    } else {
+        throw std::runtime_error("Invalid scenes.source: " + source_str +
+                                 " (must be 'file' or 'api')");
+    }
+
+    if (config.scenes.source == SceneSource::File) {
+        // Get file path (validation that file exists is done by ISceneLoader)
+        if (auto* file_path_val = GetValueByPointer(config_doc, json::SCENES_FILE_PATH)) {
+            config.scenes.file_path = std::string(file_path_val->GetString());
+        } else {
+            throw std::runtime_error("Missing required config: scenes.file_path (required when "
+                                     "scenes.source='file')");
+        }
+    }
 
     // Apply environment variable overrides
     apply_env(config.observability.logging.level, tracker::env::LOG_LEVEL, parse_log_level);

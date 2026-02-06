@@ -15,5 +15,9 @@
     "logging": {
       "level": "info"
     }
+  },
+  "scenes": {
+    "source": "file",
+    "file_path": "scenes.json"
   }
 }
