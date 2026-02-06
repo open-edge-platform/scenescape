@@ -45,11 +45,7 @@ secrets:
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
 # - vdms: Enable the VDMS service
-# - tracker: Enable tracker service with controller in analytics-only mode
-#   Usage (via Makefile): make demo-tracker    # handles CONTROLLER_ENABLE_ANALYTICS_ONLY setup
-#   Usage (direct docker compose):
-#     export CONTROLLER_ENABLE_ANALYTICS_ONLY=true
-#     docker compose --profile tracker up
+# - tracker: Enable tracker service
 
 services:
   ntpserv:
