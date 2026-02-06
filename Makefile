@@ -550,6 +550,9 @@ demo: build-core init-sample-data
 demo-all: build-all init-sample-data
 	$(call start_demo,--profile experimental)
 
+# Note: demo-tracker uses build-all to ensure the tracker image (a non-core service)
+# is built alongside core services. The tracker compose profile does not enable the
+# experimental mapping or cluster_analytics services even though their images exist.
 .PHONY: demo-tracker
 demo-tracker: export CONTROLLER_ENABLE_ANALYTICS_ONLY=true
 demo-tracker: build-all init-sample-data
