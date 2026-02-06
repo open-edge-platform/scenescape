@@ -51,9 +51,9 @@ dataset.set_cameras(["x1", "x2"]).set_camera_fps(30)
 # Initialize harness with container image
 harness = SceneControllerHarness(container_image='scenescape-controller:2026.0.0-dev')
 
-# Configure with raw scene config and tracker config
+# Configure harness
+harness.set_scene_config(dataset.get_scene_config())  # Dataset-specific format
 harness.set_custom_config({
-    'custom_scene_config': dataset.get_scene_config_raw(),  # Raw format!
     'tracker_config_path': '/path/to/tracker-config.json'
 })
 
@@ -67,9 +67,8 @@ for output in outputs:
 
 **Important Notes**:
 - Constructor requires scene controller Docker image
-- `set_custom_config()` expects `custom_scene_config` in **raw dataset format**, not canonical
-- For MetricTestDataset, use `get_scene_config_raw()` for the custom_scene_config field
-- `set_scene_config()` (canonical format) is **not yet implemented** - raises `NotImplementedError`
+- `set_scene_config()` accepts scene configuration in dataset-specific format (from `dataset.get_scene_config()`)
+- `set_custom_config()` only requires `tracker_config_path` - path to tracker configuration JSON file
 - All inputs are processed in a single container execution
 - Container is automatically removed after execution
 - Asynchronous mode (`process_inputs_async()`) is **not supported** - raises `NotImplementedError`

@@ -178,11 +178,7 @@ Implementation of the component class must implement the following functions.
   - on error: raises exception
 - GetSceneConfig
   - argument: none
-  - returns: scene and camera configuration in canonical Scene Configuration Format (see tools/tracker/evaluation/README.md#canonical-data-formats)
-  - on error: raises exception
-- GetSceneConfigRaw
-  - argument: none
-  - returns: raw scene configuration as dict (dataset-specific format)
+  - returns: scene and camera configuration in dataset-specific format (TODO: will be canonical format when schemas stabilize)
   - on error: raises exception
 - GetInputs
   - argument: camera (optional)
@@ -202,8 +198,12 @@ Future extensions of the interface will be driven by the need of adopting specif
 
 Implementation of the component class must implement the following functions.
 
+- SetSceneConfig
+  - argument: scene configuration dict in dataset-specific format
+  - returns: self
+  - on error: raises exception
 - SetCustomConfig
-  - argument: custom dict
+  - argument: custom dict (tracker-specific configuration)
   - returns: self
   - on error: raises exception
 - SetCallbackOutputsReady

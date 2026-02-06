@@ -56,13 +56,14 @@ class TestSceneControllerHarnessIntegration:
   def test_configuration_successful(self, harness, dataset):
     """Test that harness can be configured successfully."""
     # Configure harness
-    result = harness.set_custom_config({
-      'custom_scene_config': dataset.get_scene_config_raw(),
+    result1 = harness.set_scene_config(dataset.get_scene_config())
+    result2 = harness.set_custom_config({
       'tracker_config_path': str(TRACKER_CONFIG_PATH)
     })
 
     # Verify configuration succeeded
-    assert result is harness  # Method chaining works
+    assert result1 is harness  # Method chaining works
+    assert result2 is harness
     assert harness._scene_config is not None
     assert 'name' in harness._scene_config
     assert harness._tracker_config_path == str(TRACKER_CONFIG_PATH)
@@ -70,8 +71,8 @@ class TestSceneControllerHarnessIntegration:
   def test_process_inputs_returns_outputs(self, harness, dataset):
     """Test that processing inputs returns valid outputs."""
     # Configure harness
+    harness.set_scene_config(dataset.get_scene_config())
     harness.set_custom_config({
-      'custom_scene_config': dataset.get_scene_config_raw(),
       'tracker_config_path': str(TRACKER_CONFIG_PATH)
     })
 
@@ -95,8 +96,8 @@ class TestSceneControllerHarnessIntegration:
   def test_output_structure(self, harness, dataset):
     """Test that outputs have expected structure."""
     # Configure harness
+    harness.set_scene_config(dataset.get_scene_config())
     harness.set_custom_config({
-      'custom_scene_config': dataset.get_scene_config_raw(),
       'tracker_config_path': str(TRACKER_CONFIG_PATH)
     })
 
@@ -129,8 +130,8 @@ class TestSceneControllerHarnessIntegration:
     - objects: Array of tracked objects with specific fields
     """
     # Configure harness
+    harness.set_scene_config(dataset.get_scene_config())
     harness.set_custom_config({
-      'custom_scene_config': dataset.get_scene_config_raw(),
       'tracker_config_path': str(TRACKER_CONFIG_PATH)
     })
 
@@ -156,8 +157,8 @@ class TestSceneControllerHarnessIntegration:
   def test_multiple_outputs(self, harness, dataset):
     """Test that multiple output frames are produced."""
     # Configure harness
+    harness.set_scene_config(dataset.get_scene_config())
     harness.set_custom_config({
-      'custom_scene_config': dataset.get_scene_config_raw(),
       'tracker_config_path': str(TRACKER_CONFIG_PATH)
     })
 
@@ -175,8 +176,8 @@ class TestSceneControllerHarnessIntegration:
   def test_objects_in_outputs(self, harness, dataset):
     """Test that outputs contain tracked objects."""
     # Configure harness
+    harness.set_scene_config(dataset.get_scene_config())
     harness.set_custom_config({
-      'custom_scene_config': dataset.get_scene_config_raw(),
       'tracker_config_path': str(TRACKER_CONFIG_PATH)
     })
 

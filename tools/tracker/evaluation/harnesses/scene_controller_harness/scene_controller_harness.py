@@ -26,17 +26,15 @@ class SceneControllerHarness(TrackerHarness):
 
   Each instance is tied to a specific scene controller container image version.
 
-  Custom configuration must include:
-  - custom_scene_config: Scene configuration in **raw dataset format**
-    (with 'sensors', 'map points', etc. - not canonical format)
-  - tracker_config_path: Path to tracker configuration JSON file
+  Configuration requires:
+  - set_scene_config(): Scene configuration in dataset-specific format
+  - set_custom_config(): tracker_config_path pointing to tracker configuration JSON
 
   Prerequisites:
   - Docker installed and running on the host machine
   - Scene controller container image available locally
 
   Note: Asynchronous processing (process_inputs_async) is not supported.
-  Note: Canonical scene config (set_scene_config) is not yet implemented.
   """
 
   def __init__(self, container_image: str):
@@ -53,33 +51,30 @@ class SceneControllerHarness(TrackerHarness):
     self._temp_dir: Optional[Path] = None
 
   def set_scene_config(self, config: Dict[str, Any]) -> 'SceneControllerHarness':
-    """Set scene and camera configuration (not implemented).
-
-    SceneControllerHarness currently only supports raw dataset format configuration
-    via set_custom_config(). Canonical scene configuration support may be added
-    in the future.
+    """Set scene and camera configuration in dataset-specific format.
 
     Args:
-      config: Scene configuration in canonical Scene Configuration Format.
+      config: Scene configuration in dataset-specific format (e.g., from dataset.get_scene_config()).
 
     Returns:
       Self for method chaining.
 
     Raises:
-      NotImplementedError: Always raised - canonical format not yet supported.
+      ValueError: If configuration is invalid.
     """
-    raise NotImplementedError(
-      "SceneControllerHarness does not yet support canonical scene config. "
-      "Use set_custom_config() with 'custom_scene_config' field instead."
-    )
+    if not isinstance(config, dict):
+      raise ValueError("Scene config must be a dictionary")
+    if 'name' not in config:
+      raise ValueError("Scene config must contain 'name' field")
+
+    self._scene_config = config
+    return self
 
   def set_custom_config(self, config: Dict[str, Any]) -> 'SceneControllerHarness':
     """Set tracker-specific configuration.
 
     Args:
-      config: Custom configuration dictionary with required keys:
-        - custom_scene_config (dict): Scene configuration in **raw dataset format**
-          (with 'sensors', 'map points', etc. - not canonical format)
+      config: Custom configuration dictionary with required key:
         - tracker_config_path (str): Path to tracker configuration JSON file
 
     Returns:
@@ -91,19 +86,9 @@ class SceneControllerHarness(TrackerHarness):
     if not isinstance(config, dict):
       raise ValueError("Custom config must be a dictionary")
 
-    if 'custom_scene_config' not in config:
-      raise ValueError("Custom config must contain 'custom_scene_config'")
     if 'tracker_config_path' not in config:
       raise ValueError("Custom config must contain 'tracker_config_path'")
 
-    # Validate scene config
-    scene_config = config['custom_scene_config']
-    if not isinstance(scene_config, dict):
-      raise ValueError("custom_scene_config must be a dictionary")
-    if 'name' not in scene_config:
-      raise ValueError("custom_scene_config must contain 'name' field")
-
-    self._scene_config = scene_config
     self._tracker_config_path = config['tracker_config_path']
 
     # Validate tracker config file exists

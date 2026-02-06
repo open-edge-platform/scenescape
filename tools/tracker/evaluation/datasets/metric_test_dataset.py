@@ -150,21 +150,10 @@ class MetricTestDataset(TrackingDataset):
     raise NotImplementedError("Custom configuration not supported")
 
   def get_scene_config(self) -> Dict[str, Any]:
-    """Get scene configuration in canonical format.
+    """Get scene configuration in dataset-specific format.
 
     Returns:
-      Scene configuration in canonical Scene Configuration Format
-      (see tools/tracker/evaluation/README.md#canonical-data-formats).
-    """
-    if self._scene_config is None:
-      self._scene_config = self._load_scene_config()
-    return self._scene_config
-
-  def get_scene_config_raw(self) -> Dict[str, Any]:
-    """Get raw scene configuration in dataset-specific format.
-
-    Returns:
-      Dictionary with raw config.json from dataset.
+      Dictionary with raw config.json from dataset (dataset-specific format).
 
     Raises:
       RuntimeError: If configuration cannot be loaded.
@@ -324,44 +313,3 @@ class MetricTestDataset(TrackingDataset):
     self._camera_fps = self.DEFAULT_FPS
     self._scene_config = None
     return self
-
-  def _load_scene_config(self) -> Dict[str, Any]:
-    """Load and convert scene configuration to canonical format.
-
-    Returns:
-      Scene configuration dict matching scene.schema.json
-    """
-    config_file = self._dataset_path / "config.json"
-    if not config_file.exists():
-      raise FileNotFoundError(f"Config file not found: {config_file}")
-
-    raw_config = read_json(str(config_file))
-
-    # Convert to canonical format
-    cameras = []
-    for cam_id in self._cameras:
-      sensor_key = f"Cam_{cam_id}_0"
-      if sensor_key not in raw_config.get("sensors", {}):
-        raise ValueError(f"Camera {cam_id} not found in config")
-
-      sensor = raw_config["sensors"][sensor_key]
-      intrinsics_list = sensor.get("intrinsics", [])
-
-      camera = {
-        "uid": sensor_key,
-        "name": sensor_key,
-        "intrinsics": {
-          "fx": intrinsics_list[0] if len(intrinsics_list) > 0 else 0.0,
-          "fy": intrinsics_list[1] if len(intrinsics_list) > 1 else 0.0,
-          "cx": intrinsics_list[2] if len(intrinsics_list) > 2 else 0.0,
-          "cy": intrinsics_list[3] if len(intrinsics_list) > 3 else 0.0
-        },
-        "distortion": {"k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0}
-      }
-      cameras.append(camera)
-
-    return {
-      "uid": "metric_test_scene",
-      "name": raw_config.get("name", self.SCENE_NAME),
-      "cameras": cameras
-    }

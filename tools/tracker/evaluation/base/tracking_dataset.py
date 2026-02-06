@@ -105,23 +105,14 @@ class TrackingDataset(ABC):
 
   @abstractmethod
   def get_scene_config(self) -> Dict[str, Any]:
-    """Get scene and camera configuration in canonical format.
+    """Get scene and camera configuration in dataset-specific format.
+
+    TODO: This currently returns dataset-specific format. In the future, when
+    scene configuration schemas are fully stabilized, this should return the
+    canonical Scene Configuration Format.
 
     Returns:
-      Dictionary conforming to Scene Configuration Format
-      (see tools/tracker/evaluation/README.md#canonical-data-formats).
-
-    Raises:
-      RuntimeError: If configuration cannot be loaded or converted.
-    """
-    pass
-
-  @abstractmethod
-  def get_scene_config_raw(self) -> Dict[str, Any]:
-    """Get raw scene configuration in dataset-specific format.
-
-    Returns:
-      Dictionary with raw scene configuration (format depends on implementation).
+      Dictionary with scene configuration (format depends on implementation).
 
     Raises:
       RuntimeError: If configuration cannot be loaded.
