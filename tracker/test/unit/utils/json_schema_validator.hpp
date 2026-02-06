@@ -77,13 +77,29 @@ private:
 };
 
 /**
+ * @brief Get path to the schema directory (configured by CMake).
+ * @return Absolute path to the tracker/schema directory
+ */
+inline std::filesystem::path get_schema_dir() {
+#ifndef TRACKER_SCHEMA_DIR
+    #error "TRACKER_SCHEMA_DIR must be defined by CMake"
+#endif
+    return std::filesystem::path(TRACKER_SCHEMA_DIR);
+}
+
+/**
  * @brief Get path to the log output JSON schema file (production schema).
  */
 inline std::filesystem::path get_log_schema_path() {
-    // Navigate from test/utils to tracker/schema
-    // Use weakly_canonical to resolve ".." in the path before navigating
-    auto utils_dir = std::filesystem::weakly_canonical(std::filesystem::path(__FILE__)).parent_path();
-    return utils_dir.parent_path().parent_path() / "schema" / "log.schema.json";
+    return get_schema_dir() / "log.schema.json";
+}
+
+/**
+ * @brief Get path to a schema file by name.
+ * @param schema_name The schema filename (e.g., "config.schema.json")
+ */
+inline std::filesystem::path get_schema_path(const std::string& schema_name) {
+    return get_schema_dir() / schema_name;
 }
 
 } // namespace test
