@@ -73,7 +73,7 @@ for output in outputs:
 - Container is automatically removed after execution
 - Asynchronous mode (`process_inputs_async()`) is **not supported** - raises `NotImplementedError`
 
-**Implementation**: [scene_controller_harness.py](scene_controller_harness.py)
+**Implementation**: [scene_controller_harness/](scene_controller_harness/)
 
 ## Adding New Harnesses
 
