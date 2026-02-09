@@ -44,6 +44,8 @@ spec:
           imagePullPolicy: {{ .Values.scene.pullPolicy }}
           name: {{ .Release.Name }}-scene
           env:
+          - name: CONTROLLER_ENABLE_ANALYTICS_ONLY
+            value: {{ .Values.scene.analyticsOnly | quote }}
           - name: VDMS_HOSTNAME
             value: vdms.{{ .Release.Namespace }}.svc.cluster.local
             {{ include "proxy_envs" . | indent 10 }}

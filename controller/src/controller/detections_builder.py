@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
@@ -91,7 +91,7 @@ def computeCameraBounds(scene, aobj, obj_dict):
   camera_bounds = {}
   for cameraID in obj_dict['visibility']:
     bounds = None
-    if aobj and hasattr(aobj.vectors[0].camera, 'cameraID') \
+    if aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID') \
           and cameraID == aobj.vectors[0].camera.cameraID:
       bounds = getattr(aobj, 'boundingBoxPixels', None)
     elif scene:
