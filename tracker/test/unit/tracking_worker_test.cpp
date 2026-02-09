@@ -8,6 +8,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <format>
 #include <mutex>
 #include <thread>
 
@@ -93,7 +94,7 @@ TEST_F(TrackingWorkerTest, QueueFull_DropsChunk) {
 
         DetectionBatch batch;
         batch.camera_id = "cam-1";
-        batch.timestamp_iso = "2026-01-27T12:00:0" + std::to_string(i) + ".000Z";
+        batch.timestamp_iso = std::format("2026-01-27T12:00:{:02d}.000Z", i);
         chunk.camera_batches.push_back(std::move(batch));
 
         worker.try_enqueue(std::move(chunk));
