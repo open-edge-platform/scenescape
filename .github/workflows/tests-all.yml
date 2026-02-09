@@ -280,10 +280,10 @@ jobs:
         if: always()
         uses: ./.github/actions/cleanup
 
-    upload-results:
+    generate_report:
       needs: [run_basic_acceptance_tests, run_functional_tests, run_non_functional_tests, run_metric_tests, run_ui_tests, run_unit_tests]
       runs-on: ubuntu-latest
-      name: "Upload Test Results"
+      name: "Generate Test Report"
       if: always()
       steps:
         - name: Checkout Repository
