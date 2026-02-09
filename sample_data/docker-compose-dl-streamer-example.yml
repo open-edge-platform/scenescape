@@ -194,12 +194,12 @@ services:
   scene:
     <<: *controller-base
     profiles:
-      - controller
-
-  analytics:
-    <<: *controller-base
+  controller-analytics:
+    image: scenescape-controller:${VERSION:-latest}
+    init: true
+    user: "${UID:-1000}:${GID:-1000}"
     profiles:
-      - analytics
+      - controller-analytics
     environment:
       CONTROLLER_ENABLE_ANALYTICS_ONLY: "true"
 
