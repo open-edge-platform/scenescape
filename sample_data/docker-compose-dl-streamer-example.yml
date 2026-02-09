@@ -45,6 +45,8 @@ secrets:
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
 # - vdms: Enable the VDMS service
+# - controller: Enable the Controller service in Default mode (analytics + tracking)
+# - analytics: Enable the Controller service in Analytics Only mode (without tracking)
 # - tracker: Enable tracker service
 
 services:
@@ -149,6 +151,8 @@ services:
     image: scenescape-controller:${VERSION:-latest}
     init: true
     user: "${UID:-1000}:${GID:-1000}"
+    profiles:
+      - controller
     networks:
       scenescape:
     depends_on:
@@ -165,7 +169,53 @@ services:
       - CONTROLLER_ENABLE_TRACING
       - CONTROLLER_TRACING_ENDPOINT
       - CONTROLLER_TRACING_SAMPLE_RATIO
-      - CONTROLLER_ENABLE_ANALYTICS_ONLY
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --ntp ntpserv
+    # mount the trackerconfig file to the container
+    configs:
+      - source: tracker-config
+        target: /home/scenescape/SceneScape/tracker-config.json
+    volumes:
+      - vol-media:/home/scenescape/SceneScape/media
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: vdms-client-key
+        target: certs/scenescape-vdms-c.key
+      - source: vdms-client-cert
+        target: certs/scenescape-vdms-c.crt
+      - django
+      - controller.auth
+    restart: always
+    pids_limit: 1000
+
+  analytics:
+    image: scenescape-controller:${VERSION:-latest}
+    init: true
+    user: "${UID:-1000}:${GID:-1000}"
+    profiles:
+      - analytics
+    networks:
+      scenescape:
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+    environment:
+      - CONTROLLER_ENABLE_METRICS
+      - CONTROLLER_METRICS_ENDPOINT
+      - CONTROLLER_METRICS_EXPORT_INTERVAL_S
+      - CONTROLLER_ENABLE_TRACING
+      - CONTROLLER_TRACING_ENDPOINT
+      - CONTROLLER_TRACING_SAMPLE_RATIO
+      - CONTROLLER_ENABLE_ANALYTICS_ONLY=true
     command: >
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
@@ -445,8 +495,6 @@ services:
     user: "10001:10001"
     depends_on:
       broker:
-        condition: service_started
-      scene:
         condition: service_started
     environment:
       - TRACKER_LOG_LEVEL=info

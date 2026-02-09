@@ -544,16 +544,11 @@ endef
 
 .PHONY: demo
 demo: build-core init-sample-data
-	$(call start_demo,)
+	$(call start_demo,--profile controller)
 
 .PHONY: demo-all
 demo-all: build-all init-sample-data
-	$(call start_demo,--profile experimental)
-
-.PHONY: demo-tracker
-demo-tracker: export CONTROLLER_ENABLE_ANALYTICS_ONLY=true
-demo-tracker: build-all init-sample-data
-	$(call start_demo,--profile tracker)
+	$(call start_demo,--profile analytics,--profile tracker,--profile experimental)
 
 .PHONY: demo-k8s
 demo-k8s:
