@@ -16,6 +16,8 @@
 #include "logger.hpp"
 #include "message_handler.hpp"
 #include "mqtt_client.hpp"
+#include "scene_loader.hpp"
+#include "scene_registry.hpp"
 
 #include <rv/tracking/TrackedObject.hpp>
 
@@ -68,7 +70,7 @@ int main(int argc, char* argv[]) {
 
     // Minimal RobotVision usage for image size comparison
     rv::tracking::TrackedObject obj;
-    LOG_INFO("RobotVision TrackedObject size: {}", sizeof(obj));
+    LOG_DEBUG("RobotVision TrackedObject size: {}", sizeof(obj));
 
     // Start healthcheck server
     tracker::HealthcheckServer health_server(config.infrastructure.tracker.healthcheck.port,
@@ -78,12 +80,39 @@ int main(int argc, char* argv[]) {
     // Mark service as live (process is running)
     g_liveness = true;
 
+    // Load scenes using appropriate loader based on config
+    std::vector<tracker::Scene> scenes;
+    try {
+        auto scene_loader =
+            tracker::create_scene_loader(config.scenes, cli_config.config_path.parent_path());
+        scenes = scene_loader->load();
+    } catch (const std::exception& e) {
+        LOG_ERROR("Failed to load scenes: {}", e.what());
+        return 1;
+    }
+
+    // Initialize scene registry from loaded scenes
+    tracker::SceneRegistry scene_registry;
+    if (!scenes.empty()) {
+        try {
+            scene_registry.register_scenes(scenes);
+            LOG_INFO("Loaded {} scenes with {} cameras", scene_registry.scene_count(),
+                     scene_registry.camera_count());
+        } catch (const tracker::DuplicateCameraError& e) {
+            LOG_ERROR("Scene configuration error: {}", e.what());
+            return 1;
+        } catch (const std::exception& e) {
+            LOG_ERROR("Failed to register scenes: {}", e.what());
+            return 1;
+        }
+    }
+
     // Initialize MQTT client
     g_mqtt_client = std::make_shared<tracker::MqttClient>(config.infrastructure.mqtt);
 
-    // Initialize message handler with schema validation config
+    // Initialize message handler with schema validation config and scene registry
     auto message_handler = std::make_unique<tracker::MessageHandler>(
-        g_mqtt_client, config.infrastructure.tracker.schema_validation,
+        g_mqtt_client, scene_registry, config.infrastructure.tracker.schema_validation,
         cli_config.schema_path.parent_path());
 
     // Connect to MQTT broker
