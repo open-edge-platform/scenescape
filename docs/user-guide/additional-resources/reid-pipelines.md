@@ -252,30 +252,31 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "47:e6:77:25:3b:f9",
-    "timestamp": "2026-02-06T10:55:31.749Z",
-    "debug_timestamp_end": "2026-02-06T10:55:34.172Z",
-    "debug_processing_time": 2.422764778137207,
-    "rate": 9.499186626193884,
+    "debug_mac": "8f:e9:3c:63:e8:f6",
+    "timestamp": "2026-02-09T14:09:14.862Z",
+    "debug_timestamp_end": "2026-02-09T14:09:17.585Z",
+    "debug_processing_time": 2.723006248474121,
+    "rate": 10.584537744588053,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.987617552280426,
+                "confidence": 0.9210688471794128,
                 "center_of_mass": {
-                    "x": 321,
-                    "y": 89,
-                    "width": 56.0,
-                    "height": 88.0
+                    "x": 27,
+                    "y": 95,
+                    "width": 27.666666666666668,
+                    "height": 67.25
                 },
                 "bounding_box_px": {
-                    "x": 265,
-                    "y": 2,
-                    "width": 168,
-                    "height": 351
+                    "x": 0,
+                    "y": 29,
+                    "width": 83,
+                    "height": 269
                 },
-                "age": "22",
-                "gender": "Female",
+                "age": "32",
+                "gender": "Male",
+                "gender_model_confidence": 0.7973728775978088,
                 "id": 1
             }
         ]
@@ -283,30 +284,31 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "47:e6:77:25:3b:f9",
-    "timestamp": "2026-02-06T10:55:31.849Z",
-    "debug_timestamp_end": "2026-02-06T10:55:34.272Z",
-    "debug_processing_time": 2.422588586807251,
-    "rate": 9.499186626193884,
+    "debug_mac": "8f:e9:3c:63:e8:f6",
+    "timestamp": "2026-02-09T14:09:15.162Z",
+    "debug_timestamp_end": "2026-02-09T14:09:17.685Z",
+    "debug_processing_time": 2.52290940284729,
+    "rate": 10.584537744588053,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9945145845413208,
+                "confidence": 0.7274594306945801,
                 "center_of_mass": {
-                    "x": 296,
-                    "y": 90,
-                    "width": 64.66666666666667,
-                    "height": 89.0
+                    "x": 17,
+                    "y": 153,
+                    "width": 16.0,
+                    "height": 40.0
                 },
                 "bounding_box_px": {
-                    "x": 232,
-                    "y": 1,
-                    "width": 195,
-                    "height": 356
+                    "x": 2,
+                    "y": 114,
+                    "width": 47,
+                    "height": 160
                 },
-                "age": "32",
+                "age": "48",
                 "gender": "Male",
+                "gender_model_confidence": 0.8721968531608582,
                 "id": 1
             }
         ]
@@ -334,29 +336,32 @@ Example raw output metadata:
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "09:91:b4:33:31:d0",
-    "timestamp": "2026-02-06T11:37:26.077Z",
-    "debug_timestamp_end": "2026-02-06T11:37:30.922Z",
-    "debug_processing_time": 4.845034122467041,
-    "rate": 13.856813149734855,
+    "debug_mac": "25:70:bf:d5:c0:da",
+    "timestamp": "2026-02-09T14:13:50.266Z",
+    "debug_timestamp_end": "2026-02-09T14:13:53.914Z",
+    "debug_processing_time": 3.648651599884033,
+    "rate": 5.0,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9881600141525269,
+                "confidence": 0.9919352531433105,
                 "center_of_mass": {
-                    "x": 569,
-                    "y": 85,
-                    "width": 67.33333333333333,
-                    "height": 81.25
+                    "x": 302,
+                    "y": 96,
+                    "width": 76.33333333333333,
+                    "height": 87.0
                 },
                 "bounding_box_px": {
-                    "x": 503,
-                    "y": 5,
-                    "width": 201,
-                    "height": 325
+                    "x": 227,
+                    "y": 10,
+                    "width": 228,
+                    "height": 348
                 },
-                "reid": "IfANPyX3rT7AypM+DyDSvuf0wztKUqg90RSIvnxWXL9ud2w/yI9+vnslYz87Hae+aM6gv4u2rT7Qw5Q+5XzWPmfHwr5MIYm8vvSSPsAFrz3/bsI/dN1Ov9dXlz4GEZ6+265Cv4Y5Az5yLFi+ur+9uweBez8pV8g+Ad01P4lZMD+JwI8+P8zzPulsNL+wh2W+OsBgv6XL7r3j+iY+eYojv9hPSb6hGAc/CDSgvjVTrL7XczM/lMXLN5EwgL+xg/y+0J8wvvUiwr7C99i+pWscv1xGgD4EvcE+xjGJPcS+Mr6JAhK/fxNOv1VTa7y1DLg+fwsqv5yafr5sDeu+pKRwPkaPA72ICLO+c9FPv4KtLL/QPQc/hL9bP9NSB7+atew+/ifuvV/fBj/ci9S9QsBXPxcsA7/6qYs+yBm3Pn0pDr/XqJ89OC00voTcvT43kvA9RmhEvyO2Az4PufI+vyVSP1HVHr/iICa/pfrGPs0Un74HxCg/mtRTP5SOyb1WDII95YYtvwDQGr/8OCY+HEsQP3VESb/5wwm+YjZWvZRc0r2kkwE/jQq1vqPlxj43cJe/aFSaP8lhjL2i8ek+NhgzP9K3Yj7I2CS/howSv/KgqL5AFZM/84r8vtiHrb1M0e8+QZFhPuN3o751mFW/ADA8v8+oMr7VHo6+XOQ4PO44Yz0l3I4/wFgfPy3DNb43Htq+zy3bPuTgVb9+rYu9wL/svYdy7L3P4Tc/EhUKv/ljwT4Ps5a+NFaDP6ELBz8Bx7i9JZlNvqFzfD2PLDy/i9hWv1Huh74g8AI/2Pu1PpNJk77VqcE96LYZPjz33D6kURq+NvuJP+Dwnr8+uBw982oAv8O0RL2Mugo+Wg1mvhPbvj4iOMQ+bcQGP2+CVz9V304/Ct7WvmfH4j6qjvW849NCPrZqHb/IYCk958wTP2bgsb1vwO++VaNavOZfIb+OM68+3JI5vyTpij2ylMA+z6yXPj1xF79OvM0+MwIiv1QEAj43Okk8aGMcvrNwAj5xHSi/9S9lvmCSQr87voq9Iuvfvirlbr9VbGO/IXqCvvXuED+pypO+CG2Hv3YxHL4MD1Q/O7XoPSQAG79OO1s+tyiwvk2dVz4YKFS/BexxPhYuFz2xqCC/lzeRPihWrb70Iz2+b40fPZXVxb6Tkdw98JB9PrnlmT51Bug+Yeg/v6OEs75zjia/xEsdP/ksWj+EX28+sTVPPvoEvL/fkQQ/8kvrPI5yv70LiOq+trQaPrl7jj81bDW/uy+9ve25Vz70//W+g7yDPjZCHT2Zhw6/Izs5v040NL6F4KS+M5yivo/Dl7yeYQu/vcyFPQaAhT2q25i9BBNWvgLY8L5H1Ou+URyqPQ==",
+                "age": "40",
+                "gender": "Male",
+                "gender_model_confidence": 0.9240210652351379,
+                "reid": "HJCnPpo7jj0JMUq/6PEUu4DTaj+igN6+Dx2TPjK8jr3Y1xG9+2bQvpeOD7/JBYG+kJSGvZBmAj8laRM/Hs/pvZpeab7j/jw/GHcJvmgx1z2ItDM/GjpMvIgjDr82c8s+CfHKvtUY6Ttp8MA+XqAIv7yX175u+Q8/1IqgvgrrSz/osH2/nrk2P4rVxD4KYF2/d+TUvsz2WD4+Qek+OnvWvmHR7z4aHlu+Y5wAv+tAJb5lS5G+EKIgPpsU3b2F3ke/0g8zvFPdDr8wfwc+Vd3PvnIxqL0+FwO/V3zFPrdUMD7EoPQ92IvvPk3vaz9LnNc9I+IMv9YoLD5g8ma+fCTvPqBaFj/Njy8+aPAvP+MGYz1U22E/5NUIP/RqhD5yxSG+Q46Pvevvgj7rn4u/yJiUvRl+CT80GEW+6vOVPaLIwr7xeI8/lqV4vg7Uzj7ilPW+PrJ9PwO1BD+iZQI/EUiXvkxS6j41PJ++DzQ1Pxj0fr91/0G93Vv0PSkcbT4+iQw+YLQMvryisT3xnbO+eMHmPlwtRj/Mmkc/gwc5PuhDcj4np6++9PwKP12+NT6quKq/AMAHv4Nsj77yIxS+1xPQvYsKsLqoaQK/6PSsPR6UKb+K0NY/qiYJv3J46r17gYM9/wK3PugSU7/gzQe/QchMv+dibL4mOV4/udozv5ho2TwLd6W9bOidvlqLDT9lRh+/Wu0iP9qUDT5YbAy/QrnVPmvqZT4/lTI+HwLhPkIllb4kVvA8SbAHP8IyWD/sPXQ+ZyJ1P08lPb8pL/w+Xo5jPai0P7+bYC6/sGdqP6SjG79iacE+9gFBP1sJFr69ppS+h8kkv5S3sT6utUW/flBWvmuus70kPia/i96Evk5Wxr7br8I+RxckPmycfD+4JZ2+7N85PvAMLz/w1Ta+gCijvrZOcj6Nh5W9WvbtvfolUT8Grai9rceHP9urHr5tgFu/z8v8viakOT+A3CO/P1k7vpIWWL+JyhA++BQwPR/mIT8eOv0+Ecwdv5OL3b7uXIO+IuwNP0n/p74NsRG/5A8YvaEThr4ARGq/TlMIP5YV3T5RwXK+v02Ev3FNib54cqw+w/udPkec5j0SfFi+IVUev1i3mr4MVtK+wFjZPbmwQj5s4gm/oAVZv9wNbT/EhZi+eeU0vwaKiL84wyA/MfgLP6UdFb4/UdU/obCdPze91b2MIzk+I8XRvroCGD9jva4+LdRrP/0PSL8tteQ8Awp0P1RjqT0kal4+lF5xP4Vq+j4NTW296WyyP6SJ+b1YZ+Y+xcjhO9mc9b61X8k9Bv11vuYuDb7lnYq+HznnvYPyjr1bt5Q9duARPc26ob46qNk9FN0bviAF5D6A4h8/J4Pdvg==",
                 "id": 1
             }
         ]
@@ -364,29 +369,32 @@ Example raw output metadata:
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "09:91:b4:33:31:d0",
-    "timestamp": "2026-02-06T11:37:26.093Z",
-    "debug_timestamp_end": "2026-02-06T11:37:31.008Z",
-    "debug_processing_time": 4.915539026260376,
-    "rate": 13.856813149734855,
+    "debug_mac": "25:70:bf:d5:c0:da",
+    "timestamp": "2026-02-09T14:13:50.268Z",
+    "debug_timestamp_end": "2026-02-09T14:13:54.015Z",
+    "debug_processing_time": 3.746978282928467,
+    "rate": 5.0,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9578379988670349,
+                "confidence": 0.9963571429252625,
                 "center_of_mass": {
-                    "x": 564,
-                    "y": 85,
-                    "width": 63.333333333333336,
-                    "height": 80.75
+                    "x": 268,
+                    "y": 93,
+                    "width": 72.0,
+                    "height": 88.0
                 },
                 "bounding_box_px": {
-                    "x": 501,
-                    "y": 6,
-                    "width": 190,
-                    "height": 322
+                    "x": 197,
+                    "y": 5,
+                    "width": 216,
+                    "height": 352
                 },
-                "reid": "W8YiPzGEqb7ENRi+gsSTPvcY0z7aAdi+Ie2yPnD90b7KP2E8yUlovz47k75zOBe/p5/8PYKzkjz4e5s+ysgePiunm76B8do+gCILvpqG/L3/oVQ/oNYgvxjUv77x6ic9G/PXvrOOt75Cn34+NGyyPqBUgz4PQRw+2C3UPqw6ez6qOXo/gA31Pq1cPr6cWSC/aT6rvgCsHb+SdCM//DVBParJRj8Cb+E9rVSivlSyz777LgM+Q7kBvSujVb8daG2+dfeCvuBgq74CHCk+QjRivzrERT7BA+K+Wh+TPTFMvb1nTqS9XggdPXiIkj80xCy+nC3svsXSjL2V7Jw+KC2SvXHIFb7IWCO+A//hvUCqmL3sJc4+6DoKP0uhsL4Ze5i+LI33PHXtlz086mU+4/Y8Pwxi+r67W9M+4YKmP9UQ9751Vw8/6fWAvkFQNT8FNjq+HhLIPtAMrD3eaWg+Cue5vtCCwr4yoYC/ahcjPeI0Yr45NI8+G9ymPtRIAr7Qgh0/mf2rPSfHJzwWI4M+koqMPq9soLwEcYQ+3qqfvqXY1L4bcQ0/hT44vkcN0r7E6HU+aWJQP/zFRr9ZRCS/soogPxusqL595kO/yMkBvGIHM7/dxfY+oeU1v4OJYr3cGCw/Zm8QPqSbF7/zIS+//zKWv6qEHb+jd16+XR8xPbIi/7x//BM/nCT0vYDey76+byI8xbNYP5V5dL+Urh2/vRAdvpzhkLxu79M+uwXlPv2cUD4Xgb2+M1JnP4ADOj9RPRo/g/UlPuUOF733x1u/ATlgv8C6OL8bwiq/8NGVvgQ3iz4lliE/yO+GPjwmRj+i+L68KHx7Ppz2cL9fLi+/dEOGvr8PFr/8IAa/AWVDviD2q713Xog/nfMhP5x9Ez9OM2c/vMmfPm/ixL2DOCS+W0OcPNaAmT5uqjQ/Yj1PP+ok3r57g3G+Ckkgvwxjnb6Ydrw+Z+57vmVp5T5Ew5m9cvfsPlqU9b6a4y8/gAjHvm2Qqz5qGju/h8F7vtC2oL7q9ri+ZHtRPh5DkL4Iab0+9znqvi8gEr+uWx+/INw6PmA5UD5V3wU+a/drvvnlEL/KiBY/a741PrnTVb77VCg/hR2vPUNLCz7le+e+WzJBvvSdyjy6oXk+wTZQv5s/zD5MeJQ+PVQSvWVZar/UW4k+5Y1fvl5HcL7BRSQ/G/HuvqDu3r573FK/JR4IPyR7Nb62kP69LyuGP1rK3bwtzBM/Bt6JvgzbID/Mlii+KJ4zP4pgMz8O3QK+OQM6v95gdj0Bf0i9a069v0TsBD07ezG++jLDvno5bL5CYC48ZndivrRPyL5LvGK+EBeIvgqqlL1SKtI86Q5IvnaQCz/fKhm/LQC6PQ==",
+                "age": "39",
+                "gender": "Male",
+                "gender_model_confidence": 0.8637242317199707,
+                "reid": "BI3iPlOK/z0YEW6/ezcivvBUjj+gvzi//5TgPutKpb4ArDe+YFbovh5b+r79RoM+Y2pgvovHpD4u4WA/5nsRvqTknTzu0Cw/XxnjvhOS8D4iMWc/lq04vlusAL9Y848+gYVqvsYIJ76sqdM87M8Ov6ZC277XTSk/aBMCvwn8iD+J2Se/XJQYPxes5z5n3Dq/PRMkv5a9xr4X0D4/mP8Hv68Ouj5YBKC+7fLGvpN5Gb5BMcS+EmqvPfh3tr5UYAy/Q35GvlmOO7/xoRo+kaHZvpeiGz7WDdu+XPahPsP/uTy24z8+T/TTPpAWkj/QKZE+IpRJvhd+Rr7hWMy+8DW2Pvl16j5Fj+M9qFjLPvcmrTzTlF0/37CpPqbmAT81uCS+JiC/vkjQ9j5P2W2/fasBvr4bgz5kQve+fHjiPVvJn77VJzg/SIacvj4YZT7YA6W8xjaAP2xBJz9FpBU/UlPcvYJT8D4x8w2/coLkPn5icr89lcG9uEZxvQ6cIz69KiE+7vRxvugIRT4+v529VAOQPpScTj+fLzo/ZJQiPnrKmj3ioLG+w/juPlss3b7qTXS/fv7Ovq0QLb4E86y9jIXwvsFtJz5OVje+Ym70PhW0TL9W0L8/t7LsvuwtQL7AAoE9K/DdPlDXF7//gtW+JXoBv72mKL7d1gw/Os75vnD7zD04w8g9K7Uwv8D0dD7gJAG/R9i1PuOk2T6UKSO/+k6aPdeUNz1y9VM+nheLP9e1Eb4HGyo9MgodPxOsUD+ERfA9v92IP88+QL8935U+wc47PmRZKL9sTai+OedMPy9+Gr8VWuI9PdfcPg4JDL5QY/q+Ei3GvtP28D6o/Si/BB5IvYqs7j2kLRm/WPUVv9/M0b67d+8+/sUpPq2MXz+nsuG+TG3NPZMFAj9fLSG+3vuNPFShIL54Tj8+q8DNPW19OT9aoIw+fG1HP2rVj71Nezy/TvG4vgAf5z6ymCa/pEoDvtqd/L6PDjQ/O60CPlZHVD8iUkk/8ZUUv9fLtr4J37a+bEwgP/5hfr6SfjK+QlikvBK+rr7gEFi/9wOHPkUb0D4d/kS+k1Z2v3c41L4FOq69VAKkPj5cHj5gnZM9gOKzvuHvhj3XJr+93334vPuWsD7h+Cy/VTpDv8X1Pj/MpgS/JrZov/Oefb/EeUo/U3s2PxLgf74qVLA/K6lCP6g/274M9Gw+Yng8vknrQD+na64+UEpvPz8aqr6zSTm+ivMmP9ju0D1i3Uq9ZIWLP/g4GT+SY+69gjOpPw/1Sb6Xc80+j3QmPlxTAL+rm089dM6BvlntlbxZAxC+VBi7PWdSsz2nram8yPu8PFbCv77CDN28Y92Ivv/2WT43CYg+5wp0vg==",
                 "id": 1
             }
         ]
@@ -688,30 +696,31 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "7d:f1:0e:d7:43:8f",
-    "timestamp": "2026-02-06T11:06:28.534Z",
-    "debug_timestamp_end": "2026-02-06T11:06:30.739Z",
-    "debug_processing_time": 2.2046027183532715,
-    "rate": 10.256629226842627,
+    "debug_mac": "9b:2e:b3:82:52:7b",
+    "timestamp": "2026-02-09T14:08:20.417Z",
+    "debug_timestamp_end": "2026-02-09T14:08:22.624Z",
+    "debug_processing_time": 2.207106590270996,
+    "rate": 9.947163685470464,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9453125,
+                "confidence": 0.99609375,
                 "center_of_mass": {
-                    "x": 355,
-                    "y": 87,
-                    "width": 49.333333333333336,
-                    "height": 87.75
+                    "x": 859,
+                    "y": 110,
+                    "width": 58.0,
+                    "height": 100.25
                 },
                 "bounding_box_px": {
-                    "x": 306,
-                    "y": 0,
-                    "width": 149,
-                    "height": 351
+                    "x": 802,
+                    "y": 11,
+                    "width": 174,
+                    "height": 400
                 },
-                "age": "21",
-                "gender": "Female",
+                "age": "20",
+                "gender": "Male",
+                "gender_model_confidence": 0.6650390625,
                 "id": 1
             }
         ]
@@ -719,30 +728,31 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "7d:f1:0e:d7:43:8f",
-    "timestamp": "2026-02-06T11:06:28.628Z",
-    "debug_timestamp_end": "2026-02-06T11:06:30.838Z",
-    "debug_processing_time": 2.210261583328247,
-    "rate": 10.256629226842627,
+    "debug_mac": "9b:2e:b3:82:52:7b",
+    "timestamp": "2026-02-09T14:08:20.508Z",
+    "debug_timestamp_end": "2026-02-09T14:08:22.724Z",
+    "debug_processing_time": 2.2153384685516357,
+    "rate": 9.947163685470464,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9853515625,
+                "confidence": 0.9951171875,
                 "center_of_mass": {
-                    "x": 321,
-                    "y": 90,
-                    "width": 55.666666666666664,
-                    "height": 87.5
+                    "x": 839,
+                    "y": 110,
+                    "width": 53.666666666666664,
+                    "height": 95.5
                 },
                 "bounding_box_px": {
-                    "x": 266,
-                    "y": 3,
-                    "width": 167,
-                    "height": 351
+                    "x": 786,
+                    "y": 16,
+                    "width": 162,
+                    "height": 382
                 },
-                "age": "21",
+                "age": "20",
                 "gender": "Female",
+                "gender_model_confidence": 0.62890625,
                 "id": 1
             }
         ]
@@ -770,29 +780,32 @@ Example raw output metadata:
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "2b:c5:9f:65:27:84",
-    "timestamp": "2026-02-06T11:31:12.820Z",
-    "debug_timestamp_end": "2026-02-06T11:31:16.124Z",
-    "debug_processing_time": 3.304636001586914,
-    "rate": 10.94028770022226,
+    "debug_mac": "55:a6:67:ba:98:e1",
+    "timestamp": "2026-02-09T14:12:55.645Z",
+    "debug_timestamp_end": "2026-02-09T14:12:58.949Z",
+    "debug_processing_time": 3.3045613765716553,
+    "rate": 10.419819775033613,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.998046875,
+                "confidence": 0.9912109375,
                 "center_of_mass": {
-                    "x": 700,
-                    "y": 81,
-                    "width": 61.333333333333336,
-                    "height": 80.25
+                    "x": 426,
+                    "y": 93,
+                    "width": 77.33333333333333,
+                    "height": 85.25
                 },
                 "bounding_box_px": {
-                    "x": 639,
-                    "y": 1,
-                    "width": 185,
-                    "height": 321
+                    "x": 350,
+                    "y": 8,
+                    "width": 232,
+                    "height": 341
                 },
-                "reid": "ogOvPvuQvr46r7G8wAQzPoQpKj/74+W+8FLfPn7cPbzJbzw/lLVlvxsc5r3YoRO/o+ewvjqCxj52nRw/sITPPRBL5b3pji0/uWlvvtTnbL53xiQ/58LBvnOBhb6Ilwk+Wo+av/k7Zr2McuQ9BINRPs+tOj/gjDs9HmPjPnKPID6iIC8/lzDiPgvMM74Pj2+/avXiPWW9lL7GS8M9ABy8u6sLFT+aA9I+VKpCv3z8qL78ypO8ItCIvtSGGL8k7hG/TZq/vq7skL1tygW7YvAcvzwcXT65Fy2/RqkavgAOkr50XkG+zcIxPlb+sT8RJdG+jt4Vv27tCb5jhOk+CDbwPUkN+L7qJkO+XehDvhamub704s0+HQsYP1F62b4B+8O+1issvfqAHL2MBis/1BmBP+bsHL90XlU+sDZ7P7YAyb7wtSQ/9uKPvsSTED/7w2Q+7ilwPoTN3T2KgTg/0fbjvhbrgr6VFVG/NCy3PvV2J76AuzQ8V8EUPzYke76YLvs+OPs2Pm3O8b322w8/zOvCPgewzLwibXI+mLDKPbEEjb6ksTw/SWIYv/bUrL516yq9AHAvPgTrhL+ir+W+wIvpPqsqF7/hczu/W2/2vjS0zb7lR5M+BRRKvy5tc72R1FM/iG1DPfck7r4TUSy/tU6fv9104r4B4AQ+Sx6pPT/4gj5/moC9rIrNPQtcGr7D/Km+xRg8P41Djb+/jMO++8Uuvshqiz1pFdY+oha0Pq4/+D1h6qK9LNAnP966pD+jo7w+2B+ePmIIQz3AnjK/Np88vwCjuL4qYVK/UUeDvgpZrbx9pN4+eqNpPooEwz7/puE+tbPfvTqZEL8sdDm/Db8ivgtEPb4Fvzq/TZiBvmV6oL1QAh0/dXFLPwT9OD/HvGw/hNINP84xfr0rygi/sJtvPJ8b/D7LZBg/kMAFP5u2Hr7FH1y+17KTvsI0Rz15gNW9RtiQvVpyrj7Ty8y+2c7HPhV+d77njpg+NkoUv9FYvj6g3r+9m82TveV0tr5JUI6+xvySPqX3A76/2Gs+AdapviS9Sb92pWi/QLB4PuRJQL3q7cA+SUhjvYgOxL5rNxc/1869Pjt57z3cewo/sZQYvmJ2jj5aOIy+RqZOPti9HD1Q6xE+EvE+uzBbgz32ULo+iraOvsmtTb9lK8c+fBFkPiIF173sjIw/gNj6PJBpZjyT9DS/mhboPmQTur1nTfG+IdwwP6FIQ7698EU/r5Hpu662GD+Bm9S+U61xP078BD88Egi+W5TeviRIV74I66Y9oKTFv+BsmTxGrK2+cY6rvpXjWb6HoEe84k4MvdRWzr48oD2//ERLPg9ZybyVnL29pmjuOuxK9j73N86+iiD9vA==",
+                "age": "43",
+                "gender": "Male",
+                "gender_model_confidence": 0.9111328125,
+                "reid": "5NcqPxrdw77DKYC+DenivdpKAz/daxq+5MIwPcqxMb3Z/2Q+8bv8vk88oz1SKQ2/DkjmPViZGb7haR0/vieSvipogr5nMPE+zH1FPT/tWb7HgYE/v1cXv9P6Ir6mu/s9k1mHv0/uIb45h44+gr74vc65Jz8/v5c+J9ZPPkTAxj54IHo/usjIPpZGsL7Ydfi+znGyvmBfNL9EJvU+tWe0Pog6gT/m2z69ZjrGvgJa3L5r5Vi+OZ/YPftqIr9pm4u++6xwvoYeEr+SwrK9vO88v+YVEj6WmLy+OFhoPuQSeb1gjRC/gBuDPEUmnz+2g2O+eHwgvzBMmD2oujI//4iEvubjpb7fPRW+4c4nvlJHhL760NU+frITPxwEML4HGou+8zDivP/5hb3RclM/9gNOP07mEL/4sDg+zDpZPybqLL/sCb0+AGp2PJKilT4fnYa9ofHCPlrLiT7YnOk+fpcUv6/S/L5axRS/sG6pPdXEe75Mdsq9irT0PhqsJj568hA/HmrBvY7UAT7PYpE+Ig3DvaxbNj0AkQk9lGV5PX9M374AdWA/TfPJvie8h75EPV49sFAXP7WHMr8Q0Si/TcYeP/4Gab4Ypw2/mITDvvMcJb9ijBk/9qovv261tb4uc48+FdGSvvzVKL+HZwO/ZjWWv5GjDr+8/M09c8uUPb1N1D6IzOk+lVpSPkexgL54CNE907nIPij9l7++4ge/5ocZvfhu2jyExPE9Nhl/PxtKBD7Sp7C+fW0UP3TsTT8+ovs+vRmPPk23RL4WH2q/7McYv8idTL9JRDG/yoJzvXgmaz2MvDM/dkOuPlKEED/qkIk+VoWQvfPmYr/ZC2y/YGhTvrsS9L5PMc2+cTYsvpFdob1kGA8/otJjPzafTT9mwJA/GcoPP+4yEb72F+y+VP97vnjXLj/b9rI+bNvbPsDUEjyvpx2/MCBHv+UDrL2K+K8+Y2k6vhCMLT/g3X2+Eye3PA40W7+J8Gc/U7sSv0myIz9R87u+MhDlvp5ctr7U/Ja+0pG2PlMn+b5Qux49WG4Pv4/AB7+uvB+/6ucrPmLMxT6QE/g9lrEivo5MKr/ZxwM/Ok6rPqVuLb5JGBU/dI4qviwJdTxbz3K+Yd82vuTBr72E9CQ+y95PvwBc0jmnOIA9+SrcvXbJQr/arGk+ycmnPXf+Jr1AE1s/YAhCPIAU87u9cF2/pOE+P1ig6r7gD+E8WlR5P4DiDb6hpf4+a89ovmSNZT//R729YtEfP5QkVz7GMNG9QdUjv1QQjb3YYgw+My2sv+CuNT3l7YK+sYPOvgvVTb5Q/SC+jG8huwNqpb6RPta+jbfbvhjIJjwQZRi+TgRgvnAl/j4MdSi/O6sUvQ==",
                 "id": 1
             }
         ]
@@ -800,29 +813,32 @@ Example raw output metadata:
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "2b:c5:9f:65:27:84",
-    "timestamp": "2026-02-06T11:31:12.919Z",
-    "debug_timestamp_end": "2026-02-06T11:31:16.220Z",
-    "debug_processing_time": 3.3012702465057373,
-    "rate": 10.94028770022226,
+    "debug_mac": "55:a6:67:ba:98:e1",
+    "timestamp": "2026-02-09T14:12:55.745Z",
+    "debug_timestamp_end": "2026-02-09T14:12:59.050Z",
+    "debug_processing_time": 3.3049228191375732,
+    "rate": 10.419819775033613,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.98388671875,
+                "confidence": 0.9384765625,
                 "center_of_mass": {
-                    "x": 696,
-                    "y": 80,
-                    "width": 56.666666666666664,
-                    "height": 80.0
+                    "x": 408,
+                    "y": 90,
+                    "width": 65.33333333333333,
+                    "height": 86.75
                 },
                 "bounding_box_px": {
-                    "x": 641,
-                    "y": 0,
-                    "width": 170,
-                    "height": 320
+                    "x": 343,
+                    "y": 5,
+                    "width": 196,
+                    "height": 346
                 },
-                "reid": "EirAPrr7Zr4TDJm+QMm9PSWJgT99wAK/XLjrPnYYzj28/SM/NUx8v2sDUb3YgOq+AFcqvhf/Jj98ceM+LqBkPtDZc74dkM8+ufc8vnQoH75SWCk/M7TIvkDhD7+cGx0+eFBwvwA2ij0sJaQ+X9+xvTKuLj+IGq08GnmIPhrpA70sRHg/3qLVPmnDor73ADm/8emmvV4P2r4ATT8+oLvrPfxaUj8TGLk+BSZbv0M4br6s1dA903WKviucSb+XmjW/A0UMv0h+074DDgG+Y/M8vzSltj4OUEC/HOYMPbEPFL4jO8+9+biePqVKvj+YSo6++Zkgv9yvoD0E0SI/SeqHvkYw4L6WwHi+ClMtvo4bib4TWck+njAeP6iW5b5D1fu+2TUhve8tWb5F7yo/opOJP0F6/L6MhFU+Vp2UP7GHv75RF2U/Z7KOvnsPCD8AtWY635G1PkZhgT42DDA/gDtDvzTl074B/0e/OOQCP0l09r3A1Xc8G8mQPmeWmb5g4vk+hEOpPey3Hr2nRZY+VBwcPzapKb66+sY+8ZqePQtol75Eunw/7BpCv8WXqr2Pa3W+4BG3Ptw3Zr+u7+C+WR0/P0pBk743BWS/9hfnvuprHb8WaOw+Fnk5v96Hub0lWCo/wJEGPFp2NL+aGC+/humZv4AOA78sWnA9o+FhvbQ/lj40zKU9TTyLPozQhL0H1yW+QE5RP10Itb9CWr6+Nf66voAqZT3KGpI+v//qPsQhpLy/EJO+1i1ZP16dqz9+VK8+hKBMPng6T70RsWO/uK0Xv9lIWr6wAkS/fx8nvRI6LT70ENs++ql2Poh45z6jnKo+eZ6pvBRQR7+Z8Rq//EMivkfmh74xJD2/bTxCvlgSAD1c/E4/gzh0P4+WHD/KsEI/bOuDPn1UOb5KkO++Eu/EvdiIFT8JjR4/i3jSPqgEm77Dflq+4ubvvk/sbT6q/vg9BAkLPXr3Ej8fYVS+sD3cPr6Mpr7MmBA/0tUjv3BWuD6Yop6+oisevnPNnr4h7bK+Ej2PPscICr3OJIU+6ynivv00ar/OvD2/tKuNPQ5E8D5oHoM+C7NmvjaAEL++gEE/Bg7zPqm4Wbyy/Qk/10pkvqmXXz4jE9u+4prUPu0n/z0IvFs+pLiZvkSzhD02faE+fbvovRveU7+0CRM/YNejPYBkRDxJop8/+nKlvhwOBz4wLjG/hreePkXAg74ZO/q9WqN5P0qurr6v3xM/mAarPLKfGj9xnYu+yrCCP2oszz6c6Ha+IaSpvksPrb7pZwc+ZpTav2bYWL3MWZe+BWG+vi0ijb75JO69VhENvpnXE7+VN0O/M/GvvQyLmj188xu+dThqvvpNLz/3P7y+8Ed5PA==",
+                "age": "38",
+                "gender": "Male",
+                "gender_model_confidence": 0.90283203125,
+                "reid": "UvocP2xr+b7gd889w6MrvVsx6z4/jAi9z1/ZPmq3pz0yuYo+bFNCv8GPjT5NrwC/Pzk5vk2kgb36s0c/pJKivmJwwr4ybC8/8ItDvhmKmbtK7IM/oGIVv2iRHb78c3o+KYSVv/ztqr0gAB8/saQDvaXxMT+CmrE+Dn6DPnpKLj4IcFs/LD+nPgnvE79fikK/ySjDvcoGTb4P69o+/CqwPiUgeT8ShAc+qe8bvyYI+75oXl09gxRSPlscHr8ERgW/Y3DfvreXNb6RKyi9NjRlv5jm9D1lBxa/6Bo3PjP/Hr6PId2+dRocPhrdqT+Xbcy+OgFGv1o6Gz7wbTE/TGQsvqjPZr7U/5K+UF2Lvr1rBL95UCU+cKwyP7Ker71Ma6q+GAxxPepOBb17V0c/MsFeP2MXO7+8+h4/z7Z4P91ESL/FHhs/gVelvnZGhj4A6So7dBIbP7iCYz5mvLc+bcoIv1Nxjb4h6k6/yKqJPmsdGL/2nui6dVc2P3zRrD0s1hA/ZRGpvTItA75ufHo+zKHZPWRWdL3AucY9Pj0lPjJH2b6FeSw/LSL8vihGrb72HhY+jOgkP1C2b78cyhS/1DFGP/VyBr8Pgza/NcUkv9ByJr+kAAk/hU09v2gN5L7wIL0+2Zs5vr9SbL+0zV+/BrKcv2sASr8o5jI+Ly+WvQxj+D7SG5E+YTShPjDqhL7298g9Xj0hPyggh7/4ieq+YeXDvXx8Wz5yR6k+wOFTP+HPoT1QP5a+Cj09P046kD+sK8c+TErHPuhpHb6Cx2y/EN0ov+6BTb9f30a/GGVnPrnF3r1OgyA/kpjFPjoujj7mPVM+k+xkvq/VV79I3Wi/lyr0vULuWb8JDBW/heWHvhd9/r2NTQE/RjSCP4reMz8j868/0YvKPnFkLr4v2y2/JArhvAmN+j4kJ2w+zvDwPtzrUr4/mju/P4NOvyripb3Zqa8+G58bvYsUFz+vqO2+P7+JPXlUMr9cbkE/G2ABv97LGz/sNoK+xTkdvu532r77ZGO+YEnQPH84874zHjg+9OGfvhnvP794dVC/EvdSPu4f1D7Egr89Fv4sPk2nP7+AYk8/8C77Po0Dlb4Czwk/b1mlvpYRwb03eNm+G/GovsjADT2q2aI+m/nUvuiLvD04HQg/RGs9vknfgL/utJg+ZE7+PIK8i77KUXQ/UE8RPQEdDD4mnjC/bLsEP+8l5b4AeGw5yO53P0a0lb6Elc8+QNVrPJzeZj9ohXY9IIFcP7qntD4DdIK+uhgSvxMxcL1QmDY9mWq7v6Q4Qj5W7qC+Z3vxvlDMo765TYw9RkEKvuf93L7YG5W+nWDHvsbVD71TdqK+xY9zvs4w7T4btSK/wOgtPA==",
                 "id": 1
             }
         ]
