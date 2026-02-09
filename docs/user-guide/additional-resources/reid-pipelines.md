@@ -1009,29 +1009,30 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "81:e0:ec:b0:ac:49",
-    "timestamp": "2026-02-06T11:43:15.722Z",
-    "debug_timestamp_end": "2026-02-06T11:43:18.745Z",
-    "debug_processing_time": 3.022975444793701,
-    "rate": 11.65819912160486,
+    "debug_mac": "a9:ab:26:a4:1a:30",
+    "timestamp": "2026-02-09T14:16:35.186Z",
+    "debug_timestamp_end": "2026-02-09T14:16:37.808Z",
+    "debug_processing_time": 2.622206687927246,
+    "rate": 10.748823196028948,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9578379988670349,
+                "confidence": 0.9888612627983093,
                 "center_of_mass": {
-                    "x": 564,
-                    "y": 85,
-                    "width": 63.333333333333336,
-                    "height": 80.75
+                    "x": 108,
+                    "y": 87,
+                    "width": 69.0,
+                    "height": 79.5
                 },
                 "bounding_box_px": {
-                    "x": 501,
-                    "y": 6,
-                    "width": 190,
-                    "height": 322
+                    "x": 40,
+                    "y": 8,
+                    "width": 206,
+                    "height": 319
                 },
-                "person-attributes": "F: has_bag has_longsleeves has_longpants has_longhair has_coat_jacket",
+                "person-attributes": "F: has_bag has_longsleeves has_longpants has_longhair",
+                "person-attributes_model_confidence": 0.965659499168396,
                 "id": 1
             }
         ]
@@ -1039,29 +1040,30 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "81:e0:ec:b0:ac:49",
-    "timestamp": "2026-02-06T11:43:15.822Z",
-    "debug_timestamp_end": "2026-02-06T11:43:18.846Z",
-    "debug_processing_time": 3.0240232944488525,
-    "rate": 11.65819912160486,
+    "debug_mac": "a9:ab:26:a4:1a:30",
+    "timestamp": "2026-02-09T14:16:35.286Z",
+    "debug_timestamp_end": "2026-02-09T14:16:37.908Z",
+    "debug_processing_time": 2.6223485469818115,
+    "rate": 10.560970853876366,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.971470296382904,
+                "confidence": 0.9806967377662659,
                 "center_of_mass": {
-                    "x": 533,
-                    "y": 81,
-                    "width": 42.333333333333336,
-                    "height": 77.25
+                    "x": 95,
+                    "y": 83,
+                    "width": 76.66666666666667,
+                    "height": 76.5
                 },
                 "bounding_box_px": {
-                    "x": 491,
-                    "y": 4,
-                    "width": 128,
-                    "height": 310
+                    "x": 19,
+                    "y": 8,
+                    "width": 230,
+                    "height": 305
                 },
-                "person-attributes": "F: has_bag has_longsleeves has_longpants has_longhair has_coat_jacket",
+                "person-attributes": "M: has_bag has_longsleeves has_longpants",
+                "person-attributes_model_confidence": 0.9729161858558655,
                 "id": 1
             }
         ]
@@ -1089,29 +1091,31 @@ Example raw output metadata:
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "c5:70:aa:ae:e4:03",
-    "timestamp": "2026-02-06T11:49:14.595Z",
-    "debug_timestamp_end": "2026-02-06T11:49:19.755Z",
-    "debug_processing_time": 5.160121202468872,
-    "rate": 13.881287541836151,
+    "debug_mac": "b9:ef:9a:d0:b5:9a",
+    "timestamp": "2026-02-09T14:18:29.287Z",
+    "debug_timestamp_end": "2026-02-09T14:18:32.812Z",
+    "debug_processing_time": 3.5257043838500977,
+    "rate": 8.86458507917628,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9784737229347229,
+                "confidence": 0.7940923571586609,
                 "center_of_mass": {
-                    "x": 516,
-                    "y": 84,
-                    "width": 40.0,
-                    "height": 77.75
+                    "x": 15,
+                    "y": 161,
+                    "width": 15.333333333333334,
+                    "height": 30.5
                 },
                 "bounding_box_px": {
-                    "x": 477,
-                    "y": 8,
-                    "width": 120,
-                    "height": 311
+                    "x": 0,
+                    "y": 131,
+                    "width": 46,
+                    "height": 122
                 },
-                "reid": "6qYjP8BEPr+saV2+Cc66PXjoCz+v0vG+t9oTP2Zo0b6OjAs/iFxdv5A1Sb6tb7m+eowJPzdIUD5Ay0A/lFUavZf5ub5J754+swtMvjx6ib7ZqBg/+Sgxv1gPTr4tBMs95WgAv6DPAz6jD1U++whYPvqU9D4f0hA+ErvDPeBRZz5gYIs/mIroPpGvp72czAu/gAQWvxnZer9Ou4s+GQ1TPupNIT+DrwU/ta0Nvhk6w74GGgK+PcCmOwwp/L4ThQY+eWIXv5bo5r50kAO9Ai9zv0xqU76W4WC/POH9PFJEj75KQfw9/OnKvbUzoT80coK8O6O2vq4lvr5wK88+5K+IPR9n2L6P3YS+hr1avq97tb54GrI+0f2xPkEzmr4yfpW9Vxn+PlF08r3KKQE/8/40P/PoDL/EUQs/+F2cPxRMAL+blQI/dv+Nvs1QkD5EbM6+hCLjPaHozj0aBq8+3GYvv5js+L7RGHG/4pSBPVauyr770gg+lziuPhSDkr40Lkw/e1lwvry0bT5JWJk+ErQzPmCRHD45V9A+TvHevaGJfj0+TTA/1h0hvtXizb6ltBU9VKsKP3yDL7/HNhC/PSdnP6A4UL6uf0C/3ObFvohm7r4QLNo+Jz4cv045j77ImG8+UGe4PcQP+76yiBy/9cGNv4YOOL8PXCC+iV9fvPVdhz5VCCI/l12MvqorcL6Sriw+YNRrP3I6jr9GpS+/IA6yPHK9LL26e4w+NgEiPxToIT4Wvom+MCxNP1s+IT8Vheg+OpG6Pvf4r775ZEi/hgiJv6XAw74/qom/m8jSvb+1v70bGCI/VUyjPrIe+D6URjU+sZqAPgeAcb82npC/xZk0vn71mr5jP7m+Cai9vruNtL5xSmo/zOrMPpVOGD8DBow/XADLPvQqIT7ClRG/+V/JvC0BFj5Qd8A+pIjdPoWVkL6fTzS+v3oOvzp8h77nvpA+ZK9+Pf/UCj9bD76+Ym/UPQXPKb+R55A/94Rpvugjsz4DC9G+U4jZvXyw/L749Wq+BJJCPCM217tqpwA/ZURkvulEcr8IwjK/MSNiPjFP1T10Z2k+B3cfvvMoL7+47ng+mBZHPhiUXb5/Jz0/bEaCvVM/U72K6uy+/JcmvnfNGD33UkG+gsdov5AZoT7H9HA9ZxvHvTBr3r7DvEI+leguvt1/eb5Gvh4/RfGDvpED/b7pdEK/C6QFP/DVA74BIU2+h+tcP49hxr24UZ8+kCervtAMMj+LHQ+/N1M7P4PBJT+Ggt2+7Gj2vjrVWL4zvS09C2yavzJ4UT54L2i+k8yivhNlI76dUls65t0TvhSLBL8WvBC/DKkjvzimjL0Ix80+IshDvDWVST8Lu2y/ZJjYvQ==",
+                "person-attributes": "M: has_bag has_longsleeves has_longpants",
+                "person-attributes_model_confidence": 0.9634445905685425,
+                "reid": "9jGVPypVAz7wNsC91o7+vjyl679s2Za/qqwfP2SLnD4hAgQ+6wigvoRYgD4zADO+lqoIP2IziD4aEJa75tUnvnKABb9qvB4/sBEIvt/oET4g+HC8HrSXvnK77LsjagG///Tdvp5c1b6Shx4/SHifPphZB78RuWU/G1kQPqr1nL7EDjm/nEh0P8agNj+gtci+Z+cdv05cXL+NYCw+xk5Xvr5CZz99Hru+cK7pPgPNar8k6Z6/e3EVPPJdub7xnCW+K6lxPtVOybzE8nm/arvMvlYhPb46fEy/Ob6uPjBOnT99eXe/TUM8PnQJBT3+1rg9VXK6vnshmL4hXJw/f5TAu0nyOz7QyMa/fNJRPoM0rL54dV67DzEuv+HSxD5bGdO+UY87v4an/j4J1fi+EPAjPXe2Jz+gXDy/VdcQPlaDcD4BcIg/PFcHv9X3mT7MSue+3Ywlv+w+rr7o2W2/dZUMP6/dNT98tNK9jdWgvRvnKL8K0ma9u50fv/p+Ir6D/qI+Lw3mPdn++D7lkbU9Yy6+PBu7gT8odyw/thhdvRNmxz7fdVW+qgOUvqOBrr47YYy9hWBTvp4MuL+tN1G/bQgyPcz1qL8+Lmu/RMkDvkwgnL60V1U/frw+P9J/dj6QDL2+ubLpvteXJD/7ypM8Szikv4jOv77pmYk/9P4uv4acwL5P9DM/Syc9PqTHWz8/Ys++RCtRP+PqB77K5Ke8mptvvqUfhj60BsY+rz6qPp+YZ77aIgc/KS5YPuHsnD61XsE+Yc2Ju8oWb79839E+VsyHvwBdl76x5Ru+g9qYPm69Jb/5Vxe+w40BP8ELsL5yX6w9/5ddvr6Ghz0I8VG/PU6dPpz2DD9jgRa+NTWIv+7gEL6lvBS+/qWTPangLT8pi40+/uKOP2Wb6j62S+++i4Asv9q3Ib5Otrg+5AuaPlRK+z00vRw+OUrqPQZBlr841p08a+c4viUopj55zUe/pU2dvjHeyr5ZLH2/ke8mP14lJb6LyYY+USeiviUGmT0MrLk9xmebPsnAbL6NdSo/1HqVv/GGCT9s4o2+FyltP4VLKz7CpiE+e9NOPlL0KD8+DIg+TVwQP32FYD8rmgG/QlnCvpZWDb8ek/Q+4RouPgemSb4HczY/2SqYv47yOj+5yso+3DGYvpS3FL+4Id0+1uJ/P2JD+72TPfE9MS1zP1ewHb/m5ry+HbbePlrHw726lrM+j5FeP+mpkL5ZKNq8Z69gvVmbdD16Mqe96iuVvjOdDz+gXd89e1u6PWoPGL6Nr06+m8UAv79Tz771Yww/i5myvf/jr71rCD0/F8fVvqle1b6NSCi/zNckvbSnhL3Rczi+uVz1vuv1rD4ZgIS8RWJpvw==",
                 "id": 1
             }
         ]
@@ -1119,29 +1123,31 @@ Example raw output metadata:
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "c5:70:aa:ae:e4:03",
-    "timestamp": "2026-02-06T11:49:14.601Z",
-    "debug_timestamp_end": "2026-02-06T11:49:19.828Z",
-    "debug_processing_time": 5.227355241775513,
-    "rate": 13.881287541836151,
+    "debug_mac": "b9:ef:9a:d0:b5:9a",
+    "timestamp": "2026-02-09T14:18:29.386Z",
+    "debug_timestamp_end": "2026-02-09T14:18:32.912Z",
+    "debug_processing_time": 3.5251872539520264,
+    "rate": 8.86458507917628,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9801545739173889,
+                "confidence": 0.5004321336746216,
                 "center_of_mass": {
-                    "x": 502,
-                    "y": 88,
-                    "width": 38.333333333333336,
-                    "height": 83.75
+                    "x": 11,
+                    "y": 178,
+                    "width": 11.333333333333334,
+                    "height": 24.5
                 },
                 "bounding_box_px": {
-                    "x": 465,
-                    "y": 6,
-                    "width": 115,
-                    "height": 334
+                    "x": 0,
+                    "y": 154,
+                    "width": 35,
+                    "height": 99
                 },
-                "reid": "vgCAP1OqR78lf/I9honDvqwrlL6cAQa/AaRIvtdKoT4cFPw6r9+2vqwFTz7qYIG/rYUVv4pVZb3G7LE9kBNHPgKGAr+5hlA//0VUvow/CrwyoJU/vsVCv72hhz56Pw6/rZBUv9ZcVb0JJjc+tAjEvO9ESD93cs0+DUXzPooLED4JJOw+F7szP/lYF79UaQG//6ZSv/Gw2L6ccQM/WilsvVy8lz9I2wM/3wmjvXpPAb9XuAA/0QCVPnH9Vb8h5oO9AmCGPrv9fL6Zlz6+eRnBvxBwnz76t4i+oixTvpEi1rzvVJW+/+MEvlNSPj+MmIm+GqwSv4QWWDx7Vtc9WYDuvY10Ar5CJHS+pInUvkn7G769OyU/0GEVP12T6L43Ev09hzypPsreEj3pmZ8+AhQJP6Q6FL92nd89bbw8P6H+K763VfM+WlW0vo1CHD8bO8a+774jPtsGgz3uCoc+JSjOPiR0NL/5ilG/kWKXPnIbiz6oCpk+UZr5Ps0e1L0cMzw8JkZOvi7xXz7r5Gs/lQZbPmCLB7/VEGA8ybMSvy/SQb1ZSdc+1d6Zvg0HRT9/kE2/XSpjP5BG974q5DS/lbUuP9ERDT6xyQm/Cnb2vnpyqr6ejp8/TzpgvsOxTr7WxiA/GqtgPkVFKT0GfBa/6Xxdv3Rkjb/drRq/v1SUvrRAC77nFzg/GEkFPzQtAT/Xah2+FIAHP7qiJ79Rr6C+nlDkPdsdkL7Ys2s+MdO/PvtcA7+hDL2+mSGvP+vBiT9MsqY+59UOvWPMML8G7Ly9THcxv9k+jb79EdG9Vx0Bv1h+xL2us90+R2eEPpvZlT4ePpW92LWrPpTDdr9lWt2+QGSBvqlBzLyd1uK+xEUcPqLIhD0rYT8/3ezzPkVqoz+b1PA+TqzgPZfSyz6OAf+9AQ7sPQIYbT5vWe8+2PGFP0NPo75FD+a+dyAEPzttw74QJuA+LRvzvZVKqD6V9aw+WyGHPoPeF782ueq8ywkNvjmQQj6Gnd2+EANuPqIWyz45tB+/nNTHvuiamb6DHS4+0A8Tv3BlW7+HWUq/hdBovvtJoT58+2Y+DeQzv5MKOD6ztZA+bvipvQzZUL/GAH4+uf2JPUnHZj28auC+KVtxPVD7cr5LjQM+1a4tv8EXHD6zO4s9/JdKvve1tr28EYg+VssavaNQoT7ZEuW+QLCOPixNdb/Xs0a/Iui0PNqNRT914/49iA9NP0PjhL4v9xE+saqQPKhbvj4z9wi/DGqEPntMHD+HWKa/pkGEvrqrEL42huK+rSuLvx101b5Fj7W+DW+LvpUj2b48odW+vIRIvuNNCb8Jmge/xIlCvhvImj5xkcw+onwhPgdSpj2ykEu+qFbpvQ==",
+                "person-attributes": "M: has_longpants",
+                "person-attributes_model_confidence": 0.7642964720726013,
+                "reid": "8445PzyYjD8w2b0+F1BWv1nU4r//cjc+cAyEP7E7WT+1j906Stu4vV4vQr+Fsbq+8TR8P4LT3r7gF6S/f6hUvkn/p7/OZQ4+WPOgP7a/cL4xzaI+3wGavvBcgT6zTpc9QQwCP92mrD71ylw8fYkkPhZtFb8OjAQ94rK+vT49qT49cDu/L80JvwudsD6L9je/ASiJPp1BxD7MHwi/MgsGP5oVjj/s4Rg+/0mOvbQRQ74pT5W/AV4Bv02xcb49Oyw/kXoBP2ddN7/2BVO/zQe6viQOvr0cPo2/aSEqPmd9hj+f4Jy8F2x3vyLAFb9YTec/u74IPdYA7D3PfMg+ZcnUPvn8zz6FBd2/dqBdvc0BSj6IGw6/ip2Ovvxv2L6UXd48HauYvD+wsT6icHI+JYKHveaehTtLR4u+hDl1vdCExb5+soA/W5alPkoqPb4yzcy+TpCivUw8sb250Ke/ZTgPP8SKdT4Ynxm/HhH0Po9AEj4xmNS/EuT3vh60Kz8fTZw+fu3zPr2ePz8Uq7S+kMA2v5icIT8SoQs/96gNP4NVvD+uyc0+KRuRv4KnP74iRBg/RtyVPSqFir8gdQa/BRvkPf4hzL/IzV49IorrvnRfnz/jthS/erZlPzeKDz//pMW9y0YFPg+wID/LcN+9Fu8av764rr8X/CU//eSCv8sws7zEfdc+uU3zPquinz8yW5y/+KoOP7udGb/Nb2Q/SbPMPwExAT9QSHe+zzrIPtorBz7G2qC9n5cGvybF3r4zMbA+5gimv9Ya1b5VTyu/2VPav1X7vD61S4Y+Puh7vtxt4b4waVY9XPu4PT4Lez9v2E8/eGeZvWTBML4kBFq/19Q7Py8CcD87WLS+vAXSPg61pT45rNi+C1YQv9Nd5j7KENG+VxCnvjBZyryBmaM9mNavvgcmGr/hHqw9l7kNP9ICrb73cRc/2OM3P2Mvsr+gpMc+Y1ecPmaD2T5iL06/QbgcPQ+5zj2epOy+ZA7sPbvpyjw2yJ29d2l6P8iwQb9moMq9TpoCPkWPwD4L78U+WcVQvysmkjuF4kC+JbSePwn28z0HIgM/M/IhPzxwrT0O+Ky+Fh2gvvdzjD9Hg1m+NiAdPlfWQ7+Mt7G9RQwGv/bD1DuIkzA/A+gNPaJLR77zfTE/fbPnPo9apLmmcze9rk+MPzON0r9kr8q+1o4aPa36BL/kOsa8u1YKP9lph7/AwXI/Hk8wvuiVor6FfBG/ljDovmQjFr/lwTq/dRSlv/LRoj5AXog8QOjkPkDcaL6h1AO/UWcBv4II1j5tWxW+kvZlPn8wZb7KX4G8f82QvlfKMz+CLu2+mcN2P/cB9T5QE9G+Kh5VPbscLz4IpPA90G75vg==",
                 "id": 1
             }
         ]
@@ -1318,29 +1324,30 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "17:cf:36:77:a4:e0",
-    "timestamp": "2026-02-06T11:43:56.882Z",
-    "debug_timestamp_end": "2026-02-06T11:43:59.188Z",
-    "debug_processing_time": 2.305920124053955,
-    "rate": 10.048692255989547,
+    "debug_mac": "a7:e9:dc:50:16:d9",
+    "timestamp": "2026-02-09T14:15:45.001Z",
+    "debug_timestamp_end": "2026-02-09T14:15:47.206Z",
+    "debug_processing_time": 2.205275297164917,
+    "rate": 10.063923088812928,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9453125,
+                "confidence": 0.9931640625,
                 "center_of_mass": {
-                    "x": 355,
+                    "x": 453,
                     "y": 87,
-                    "width": 49.333333333333336,
-                    "height": 87.75
+                    "width": 66.66666666666667,
+                    "height": 87.0
                 },
                 "bounding_box_px": {
-                    "x": 306,
-                    "y": 0,
-                    "width": 149,
-                    "height": 351
+                    "x": 387,
+                    "y": 1,
+                    "width": 200,
+                    "height": 347
                 },
-                "person-attributes": "F: has_bag has_longsleeves has_longpants has_longhair has_coat_jacket",
+                "person-attributes": "M: has_bag has_longpants",
+                "person-attributes_model_confidence": 0.9091796875,
                 "id": 1
             }
         ]
@@ -1348,29 +1355,30 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "17:cf:36:77:a4:e0",
-    "timestamp": "2026-02-06T11:43:56.978Z",
-    "debug_timestamp_end": "2026-02-06T11:43:59.286Z",
-    "debug_processing_time": 2.307368755340576,
-    "rate": 10.048692255989547,
+    "debug_mac": "a7:e9:dc:50:16:d9",
+    "timestamp": "2026-02-09T14:15:45.097Z",
+    "debug_timestamp_end": "2026-02-09T14:15:47.309Z",
+    "debug_processing_time": 2.2120001316070557,
+    "rate": 10.063923088812928,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.97900390625,
+                "confidence": 0.994140625,
                 "center_of_mass": {
-                    "x": 339,
-                    "y": 87,
-                    "width": 48.0,
-                    "height": 87.5
+                    "x": 437,
+                    "y": 94,
+                    "width": 75.66666666666667,
+                    "height": 85.75
                 },
                 "bounding_box_px": {
-                    "x": 291,
-                    "y": 0,
-                    "width": 144,
-                    "height": 350
+                    "x": 362,
+                    "y": 9,
+                    "width": 227,
+                    "height": 343
                 },
-                "person-attributes": "M: has_bag has_longsleeves has_longpants has_coat_jacket",
+                "person-attributes": "M: has_bag has_longpants",
+                "person-attributes_model_confidence": 0.85888671875,
                 "id": 1
             }
         ]
@@ -1398,29 +1406,31 @@ Example raw output metadata:
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "f5:1c:fa:de:fd:45",
-    "timestamp": "2026-02-06T11:52:25.263Z",
-    "debug_timestamp_end": "2026-02-06T11:52:28.572Z",
-    "debug_processing_time": 3.3082544803619385,
-    "rate": 10.743678940586664,
+    "debug_mac": "97:0d:05:e8:81:94",
+    "timestamp": "2026-02-09T14:20:08.184Z",
+    "debug_timestamp_end": "2026-02-09T14:20:11.488Z",
+    "debug_processing_time": 3.304837465286255,
+    "rate": 10.547318264418443,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.998046875,
+                "confidence": 0.986328125,
                 "center_of_mass": {
-                    "x": 700,
-                    "y": 81,
-                    "width": 61.333333333333336,
-                    "height": 80.25
+                    "x": 570,
+                    "y": 85,
+                    "width": 67.0,
+                    "height": 81.25
                 },
                 "bounding_box_px": {
-                    "x": 639,
-                    "y": 1,
-                    "width": 185,
-                    "height": 321
+                    "x": 503,
+                    "y": 4,
+                    "width": 201,
+                    "height": 325
                 },
-                "reid": "tuhvPmHL374wG3i9zF/JPh1Pej+FFRu/5oLLPtIbCb7XkEc/hsA2v7ikAL3pEUG/fiIzv65CyT7DihU/taOKPrhtgD3apg0/a4znvimIs72E+Sc/JsIEv/JEFb83IsS8Qcdrv61iE74YqdE9NipVPoKMYz9aJDy+Vl4dPx5B9T4JyzQ/R2npPv01hb4gg4O/tmugPTxSQL58ygK9A/FXvvy/Mj97cgA/RpNFvz38Pr7GM7s+0zwnv9qZ6b6LhzK/PzLWvr85ML5kbXe+DWdNv2aK+z5BE8O+tCrYPGdjtb6c87a9PrUdPlhkoz/2aym+Xd8vv1lKkb7A2RQ9YjofPm16kb54eES+NQhDvmke675HHY8+CA7cPpQGNb+KPS+/4i+AvoaU3brmTAM/+8eHP8M4Db/k6+w8El6rP1XCwb4S6FQ/waa1vvm80z4stFk+wCwGPbz2rD5kkkw/JRu7vjhtFz21rQy/XJCMPjJ3gz3c7rU+jswrP+9CHr8C+ck+LEvKPoLKD770LSA/qqj+PjyHCr7ksuU9nsGQPkyWLT6rt2M/1xS/vjFvsL42Z6O+ACnSOg6inL+mR4q+Xn3iPmO1uL6r5TO/Zx/3vhDbEr+mDfA+HRCGv0/6pr5wtJI/Hu2oPjEgFb5g2DS/LQXEv2Krp74GXrk97iAsPsS7ID44tYA9s4hHPvGEBD6yRMe+R9koP6jkkL9BXma+AbitvmgWZb0MtAQ/hpkXPZUtgj4gOWk9yb6OPxhRrz8WOog+/JTRPvn0ZT4cSSW/qN6Cv0xAlL79fIW/wSvhvuAO4ztWQKI+hXSwvFCa6D2HExM+MNQkvtBvNr+DETi/98w7vpqRsr1Kw+K+enJwvjQTjbw+YSA/wrR3P9SfWT/65wo/hX10Pi52zD1WTxW/lUi6vkuiST/1DCo/QpseP4JWIL4YbsC+zls9vtMqxb6CoM++ouU1PhjFuj5ODq++7CQAP3055r73gu89YhsQv6GilD5R6lS+WK+gPHZ6zL75PSi+ENAFPwmO9r2UnMw+vTXsvN7ncr/a8Rm/6LgAPlo2tD5Mlwo/wNVLPHd9yb6mRqs+w4GMPvqFCz0BoS0/XV6QvaGwmj6ptNG+q9EWP+5Trz6S/2U+j10JPmgr0D0FRzo+6XAavaVgP79eOS0/R0+kPvCaDT1o8UE/1g5dvefeET+LrUm/9OoOPgiveT6Uj+S+ccQyPzBdML8/WY8/8Jg3vrOFGj/XhAm/oR1MP/TMJT9LB4S+y1aivvjoJz7OOs69m22av95nQb7RudG+UHSqvuEsEL8isU89c2vhvgjVFb9G7gC/mKWuPgrnFT7CpoO9LNuCPkadXj5A7f69dME3Pg==",
+                "person-attributes": "F: has_bag has_longsleeves has_longpants has_coat_jacket",
+                "person-attributes_model_confidence": 0.86572265625,
+                "reid": "dJU0P8SVCb+uUEu+JHXDPlT9Dz/VX9q+e7toPigx+77c3mY9FGKAv0EIr77DNgK/ywoQPvs+hT5oLk0+3u17PlAxzr5egqk+7hLJvg+b0r4IJXw/doPvvsxfFb9xMKK8Y2fxvm08tb5G8ZE+UBjqPW6wkT5epxQ+eQTkPkyQ4T3kb1s/HlQnP7aIsb0Q8g2/HS8fvwphTr/98wE/0Gx3PYGEVz8aBVU+qG8Lv7a5275SI7o+ZrMyvhVHPb/2cqq+5sICv2eC6b4b7yU+vBiOv7JZzD7fwgu/5ajgvEFpy72Zg16+egiWPhqctT+RMXq+SCMlv/3RFr0Y/Jo+sVWfvMjkujzQS3u+ePB/vSuZor4UsOw+W+QVP8M/ub6Vnle+gigmvhjMZT06Bos+cik3P8OJC79LgZA+svC1P91VD7/tZDM/qVSlvv8YNj8pGKK+R1r2PtAEJz7QT9s+3VGHvrYRpL7YQ4O/OMVtPirEj70vSZ0+bMShPpRUmL5Mcy4/IHXCPfj4sT3ZDTM+l1WGPrcz072DshI+Yx6uvrOx4b5092g/5JQnvgg+6b4gNYc8bpNIP6IyUb9z2Oy+omwwP4WShb5fb3C/AfH7vZrnbb8rago/xKJxvw60Hr6GbVY/hHloPvrf6L6FxzG/vS24v4M3I78oVay+MiUFPnAmyL2Q88U+irWAPSS4Cb7tdIC9jlVVPwb9iL/nShi/hWSFvnS3gz239fk+zFiWPijUVT52xOS+JiyCP2Cjiz9lKv0+LEb0PQIrEz2e42W/a5ZsvxMaB78gTh2/fPJYvj5eyj7YfS8/AJYYPuRSKD/cAWI+uNyvPjaHi7+7f1G/PWFmvqD59741+9m+fDQCve6YRL7p4o8/5lhbPwBhNz+90D4/K8P4Puz9rbx8w7e+dGHWvSwDsT4PSmc/1AdDP9PVCr+FEne+8NvlvsKT4r5i8S4+NPa5ve+r2T7Umog87za7PiO7FL/WhRc/BswXv39ogD4pHRi/GoCTvgJUjr4p+4y+QJ9UPZPZXb7+r+Y+0ge+vmseS7+r8gi/HAX0PY4+sj4q46Y+rRPJvkuhNL+jJws/BSa0Pkot7r14lBo/2L1KPs8fbT4VfAO/wHP+PORN+r0eyoY9IuEsv1ruCD8pp8g+guElPmIyU7/dALk+n6eCvgBMMTtKyyM/IB7hvozZwL427nG/RU/gPhI+5b1krh2+sdqVP4OsAL2nd08/xplsvhwN+j5hpo6+OjAVP6OFQD8dGhS+RI49v1O8fz3DkCq+13jCv3iYj73q942+K6wPv2OYsL5PBHk9SYeHvsNMCr/VINS+czWfvjNWjL13FYK8r6OSvjALHD9z1Ca/ooRLPg==",
                 "id": 1
             }
         ]
@@ -1428,29 +1438,31 @@ Example raw output metadata:
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "f5:1c:fa:de:fd:45",
-    "timestamp": "2026-02-06T11:52:25.365Z",
-    "debug_timestamp_end": "2026-02-06T11:52:28.673Z",
-    "debug_processing_time": 3.3077921867370605,
-    "rate": 10.743678940586664,
+    "debug_mac": "97:0d:05:e8:81:94",
+    "timestamp": "2026-02-09T14:20:08.284Z",
+    "debug_timestamp_end": "2026-02-09T14:20:11.591Z",
+    "debug_processing_time": 3.3074374198913574,
+    "rate": 10.547318264418443,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.98388671875,
+                "confidence": 0.97705078125,
                 "center_of_mass": {
-                    "x": 696,
+                    "x": 531,
                     "y": 80,
-                    "width": 56.666666666666664,
-                    "height": 80.0
+                    "width": 41.666666666666664,
+                    "height": 77.25
                 },
                 "bounding_box_px": {
-                    "x": 641,
-                    "y": 0,
-                    "width": 170,
-                    "height": 320
+                    "x": 491,
+                    "y": 3,
+                    "width": 125,
+                    "height": 309
                 },
-                "reid": "zCHkPgW5fL4KUDG9FPxXPt7GVz8/IwW/XJbdPm9C3L2j7RA/wI1Zv1GD0r3lBQa+zhqcvToOGD+s98Y+jCHsPUYpQ74A8Lc+Go4mvutjgr7yzyE/b5HvvtKZRL9Uirk9rzhXv2xclL3qwYQ+1Zi1vS6f/T6J8dM95oOYPjSRGD24ZFk/IOKRPp7oS776c1m/ot4svv33Db/oG4A+0DBcPc1GbT/v+ps+B4CHv47pgr4gvio+gTwPvZBo+r5DeB2/OZkTv24OMr+jGTe+xGNsv8p4XD7SKTG/yg/GvYxgg74MWE2+nQquPf+Euj/c+IO++ZrhvthnID6pDAQ/aIKmvZJzK76pZKK+hvzSvq2vw72ppwE/7JX2PuoB6b50BYu+zKB8vs1OUL7L8hU/IsxoPzIHBL/ii8U982VxP7O00r4zHCU/yrq4vpWyyD4D3ka+EKLtPvBmdz6U6CA/dBPyvpmO0b6o21q/mrSdPu9H4r2G2ic+945cPp0Smr6O6c8+5qQvPgC7GTvkgWU+DdDEPrZ/lb6CJ30+J81CvauKRb67sz4/2H0jv+ZgxL5eLiC9QnS1PuibJb/mw/e+Qo9vP+vZRb7cpmq/BWjkvq91Fb9ogXU++bshvxDqAT1f3Tw/m8fyvcGlJr/ppSq/FbOGv5GR7b4exru9mpS+vWTa0D5+oXI+AFBAOsmVc74lZ+S+kiMgP7zDl7/Y6aS+C5SbvvarpD5KbrY+WPmgPu2jJT4Fi+e9zATtPsTWpj8YhQs/prUsPnmy2b33CW+/1CYEv149s77ddB+/xL8DvmqrLj7dAfc+KjwZvchD1z4sYfA95d31uwA/Tb+5ZUW/9o2/vt9Xhr5WiBC/o06TvadY8r22TFo/IQBoP4J5BT+ikT8/oOASPqTvTr1o9Ra/XxjBvHPTxT7GLDM/bhXrPihCn7531Z++f6OQvuSKsL6+kAo+ELfSPfHdCj+gqJ6+mWrmPsK6A7942iY/UJcjv4yb0z5Pw2G+yw4/voQutL6usBG+APx8O6AdaD1Ldzw/ryFSvjYUHr/QXGu/sFlfPowPPj78s3E+lGisvIXZB78u/7Y+PxsKP8bURz28FfA+LF+LvnCF0j3Kz4G+EgF2Pmjrkj17DhS9IXp+vsIykT4PS9k+AKt2PNMEKL/sKR0/oNWSvhLYdb2mp40/DlnhvtrDYz2lr+2+glgEP+z9ir0Bxbu+MPBpP2h5cb422U4/6DDfPJGCFD+lt0W+zK6JP063FD90s32+NlyKvuxVmr4Qet48Eo3Lv8CLfTzxfpG+9rjKvjOSjb648028cemmvoBkFr/KkRy/gpqYvrP1ET6kUuC8JHiQvpeuAj8DQQG/iK05PQ==",
+                "person-attributes": "F: has_bag has_longsleeves has_longpants has_longhair has_coat_jacket",
+                "person-attributes_model_confidence": 0.9560546875,
+                "reid": "TQ4LP2cM3b5EU9u+uHctPoK4Bj8PeFS+1icjP30h/L6ZpbU+gQQJv23K/Dx4z8G+grXePpy+Bb0WUuE+/FHgvXk0m76FTgs+IpFrvkhEBD4mDi8/djBVv/ixJr6LXgS8lyvovrVkCz53ms0+proKPpAI2T73G6c9NbPOPl4u0T6aD4M/uowKP0fc1roCHg2+A2rbvtOfab8kBw4/EBLAPVq0Dz+4JoU+j3EaPkOs8r44HKs8WX7wO2LKNr/A3Fc87T1bvWqtrr57ozq+7InsvsoOIz5EAjq/Fqg/PlWm277Am6k+ax3kvUxRoT+wC648eOe2PMDa1b2MmWO9+Uz7vS90ub56buq8ptZqvtyoHr6hsao+JJUWP3ju07477Qy+xuYFP1CrJD2zjsY+7WguPzy4E79i1Qs/u7J9PxFe4b69aH8+81JEvlbNAj8UpaC+QNPwPGBQ3jxqgVM+f7H0vjfrp76+yJC/IBPDPBlGtb4kOT8+nVmgPpdFx77mwhk/3FShvgA2RTy8elQ+kgmYPuyYrb3FONM+GtDTvYHN6L1o52E/F2Icvl4NF704VKC8Ig5UP537Ib9J7EG/ZwNCPx4WkL0FqBO/B7qnvrS/ib7ECYo+svICv484gL3CRZQ+y98kvgA08L6f1CW/gYB6vy/8+L6e5Wi+HuxGPf3KLz6T8Bs/dawrvhntmL65itI9nk9qP7SIZb8v80C/llZLPtm4Mr58/m4+nLgzP8qTwT5ago++EPQ4P5k/XT+yVQ0/GK3wPu9thr7vaF2/ublwv+HW3b5BRo+/qL44vaQuzLwgqSc/tdGkPhSzFT+uhhw+4Aa3Pd5E/b4+BV2/UN3IvmwsBr/w3dm+iHepvuxVwr7MkV0/3oQXP455jz6cXZQ/vgi1PoiqZD06+8+9mpQRvIiqyD4PpZw+/lQpP7uDKL2tBPa9WxMTv5fapb7nFIs+QIt0vfgayT61kLq+MgEOP7mZKr+v+Xs/OXWwvtpAoz7HuCy/GqTlvsgFwr4gq/m+TJJAPk+hgr5pjpc+imHbvuq+Wb9SXCe/vOQHPuBbrD3EB9Q9MkMHvZx+R78mX6M+YhKzPkiySr46tTI/Wavivtp+gjxHV3O+OLjePAxzpbvXZwu+foKAvzIedz7HCrU9G38Ivnu/Bb9jYYQ+D36Fvpu1qb6XEUk/RGv4voWBL74xv0e/2hYMP7rnT74vE2m+3swIP9xn+b2fdbo+cX+dvq9WIT9t3wm/9g9vP3vdjD/gtdq+Gccpv6cnQr6Ppvi9445vvwDM+zqhBMW9BJvTPSsbsL2bCJC98QytviT+pr1cIuS++goWvxj9Rz7UHns9Gp6gvZ5/KT+Vrg+/jnoKvg==",
                 "id": 1
             }
         ]
