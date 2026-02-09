@@ -9,6 +9,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from controller.scene_controller import SceneController
+from controller.controller_mode import ControllerMode
 from controller.observability import metrics, tracing
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -74,10 +75,16 @@ def build_argparser():
                       default="regulated")
   parser.add_argument("--healthcheck_port", type=int, default=0,
                       help="Port for HTTP health check endpoint (0 to disable)")
+  parser.add_argument("--analytics-only", action="store_true",
+                      default=os.getenv("CONTROLLER_ENABLE_ANALYTICS_ONLY") == "true",
+                      help="Enable analytics-only mode. Use this when running a separate Tracker service that publishes tracking data to MQTT.")
   return parser
 
 def main():
   args = build_argparser().parse_args()
+
+  ControllerMode.initialize(analytics_only=args.analytics_only)
+
   metrics.init()
   tracing.init()
   controller = SceneController(args.rewriteBadTime, args.rewriteAllTime,
