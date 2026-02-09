@@ -788,7 +788,8 @@ Example raw output metadata:
 
 </details>
 
-### Age, gender and clothing
+### Person attributes
+
 
 <details>
 <summary>CPU</summary>
@@ -1328,7 +1329,7 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 
 Example raw output metadata:
 
-[See JSON](./example_output/personattr_reid_gpu_raw.json)
+[See JSON](./example_output/)
 
 **Example SceneScape output metadata:**
 
@@ -1396,6 +1397,176 @@ Example raw output metadata:
 ```
 
 </details>
+
+### Person attributes, age gender with ReID
+
+Pipeline are based on OOB queuing scene.
+
+<details>
+<summary>CPU</summary>
+
+**Pipeline:**
+```bash
+multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin3 ! video/x-raw ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model_proc=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json device=CPU inference-region=0 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml model_proc=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.json device=CPU inference-region=1 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.xml model_proc=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.json device=CPU inference-region=1 ! queue ! gvainference scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml device=CPU inference-region=1 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! appsink sync=true
+```
+
+**Example raw output metadata:**
+
+[See JSON](./example_output/person_metadata_cpu_raw.json)
+
+**Example SceneScape output metadata:**
+
+```json
+{
+    "id": "atag-qcam1",
+    "debug_mac": "37:c1:b9:9b:3b:21",
+    "timestamp": "2026-02-09T10:41:29.842Z",
+    "debug_timestamp_end": "2026-02-09T10:41:35.369Z",
+    "debug_processing_time": 5.526679515838623,
+    "rate": 12.862335668949633,
+    "objects": {
+        "person": [
+            {
+                "category": "person",
+                "confidence": 0.9827247262001038,
+                "center_of_mass": {
+                    "x": 620,
+                    "y": 83,
+                    "width": 47.0,
+                    "height": 78.25
+                },
+                "bounding_box_px": {
+                    "x": 574,
+                    "y": 6,
+                    "width": 141,
+                    "height": 313
+                },
+                "reid": "OhHpPnHW9r4N00I9KivtPiv/zT6KQg6/K7SzPg9ksL4NXP0+fTd4v1vtVD3tSAG+XlKAvrA2Ib5TG88+0YyJPscPe746awQ/pum5vTbtBL5Hwlk/i/fbviVMxr5ISJE9QFMJv3m8hz6YUwY9dxxFPleNAz9U9zS9pyK4PklIFb7v8Ys/SCLlPl1YUr5L6wG/I8mwve1p4r75ZIM9cFaPPszEhT8jc3Q+2HJPv5xlwr77hhM+g4Y7Pkv3Nr92npO+l6jcvkoFub4lxgs+lqhfvzc5Rz46BkC//BKevRjePr6FTL6+zMKYPSLHqz+c3Ku+bA8Uv3z3ybfE+iE/kBiPvreon776laG9vnvjvq3+sL6B9+o+0kRBP0mcQr+zkZ++9dMBPguJtr6iVQ0/DcszP3eqHL+xmpw+K0h0P9AU/r4i048+/V2nvuhp0T59ibu905xZPq9ZmD5QvzA+SH4Iv8hYi76s2W+/3uUuP4C3+71fk8c+0Di4PpSHhb7+qzY/mxiuvTTUKL6mM8Q+U4zbPoOPhbrQbqY+3dLOvKA/pr6WjiE/+NA8v5wIpL6BeUE8EbMjP8uVSL8XhQC/DdwFP8KwkL4iUUK/rLpOvqdvzb7Zt3w+8vfmvhOLeL73hxI/B9XDvYavGb8B/ny/j7asv3lYGr+RGJq+c5tzvX9pmj5wCY8+I2OqPp/Cqr40pGY9hDMzP6cpgr+tjhy/2WZkvgoUHD43QdE+YWcQP1zbWj4Vdp++GjFXP3k/aT9+iXQ+CzetPaq79L0YGla/k76yvtXmFL8e1wm/233RvYpoQD5s0wo/cCywPumP8j55Dd683ZOgPry1T7/bRyq/gBWLvgpx+L7ngFG/Wo1bvoafjr2XNmI/FN3tPp58+T5dGlo/GctIPnmJMD5+dKy+SfSMPejcFz+wySE/MH80P/4Cg76yTb6+dXQ3v0fdBj6mtEM+OopWPhFVaT7BAYS+ONQ7P/cLp77rZu8+LaoIvgrg0z7X/HO+PR7qvpuoDr9gVcG9ovgvvVb9A75j6Bg/fliQvhzdIb8we26/QZf2vcUFRD6nv0g+1prOvbWB9L6CfD8/NlzbPliZhr0MUYw+2fGFvpXjlz1fQAW/04PIPY3LYDxavqw91+q/vskszz4gOKU+pmizvRfWT7/GAPc+s4E0voOcir17xGQ/UVBGvm29DT1s7ye/kL7kPkYf4b4ESqe+y/GRPypk676UnrU9WvSvPCvKQz+Vp8i+2nQnP9uODD8HcbW+5TvgvqeaC79rtQq+3gXZv8XDyT2a2+q+ej+Zvhv4Er7psYe9wYe3vnEMNr909nO/Ejvtvtmfqz47lFO+jVi8vtiq7j4n/ES+v2uzPg==",
+                "age": "39",
+                "gender": "Male",
+                "person-attributes": "F: has_bag has_longsleeves has_longpants has_longhair has_coat_jacket",
+                "id": 1
+            }
+        ]
+    }
+}
+{
+    "id": "atag-qcam1",
+    "debug_mac": "37:c1:b9:9b:3b:21",
+    "timestamp": "2026-02-09T10:41:29.845Z",
+    "debug_timestamp_end": "2026-02-09T10:41:35.463Z",
+    "debug_processing_time": 5.618271827697754,
+    "rate": 12.862335668949633,
+    "objects": {
+        "person": [
+            {
+                "category": "person",
+                "confidence": 0.9880949258804321,
+                "center_of_mass": {
+                    "x": 589,
+                    "y": 85,
+                    "width": 56.666666666666664,
+                    "height": 79.75
+                },
+                "bounding_box_px": {
+                    "x": 533,
+                    "y": 7,
+                    "width": 171,
+                    "height": 319
+                },
+                "reid": "DSNPPxADgb6lYj49nm0fv8yGpb0Nw9m++yyLvpWIwr4q5Bg+SJgIvy2/TT+36Je9UDuWvw+Ftb48jvK93prJPh9b8L448/Y+59dfPqLpNb5rbb0/QnXIvXEFQj6D+ce+nfMIv9/BFT9PO7i+xPVdvhraXD9dveq9+vODP1vU8T5IwQo/ehLSPvaiHL+TBdk9+ArkvmQIrb6Al3C+2ogBv0z1uD7BuC2+PShtPfffoL5DrgI/kHRVvKFbgb9pf8K+OaIPP48JDL/68pG+ackMv+/4n73zajo+gWG5vaK/nb7fKjm+YRwNv6b+kz76DRs/2mYhvjAy6r1QUvO+Z2DWPoiKHb6KEou+sd5PvztiP77vshk/vMTpPp62Zr9Oi8y+O9m/Pb3baD6Z6Qo9Jz0gPzVYNr8esgg/Uh6MPiFd77wl02e+P0xpvoV0nz6GgBu+uOm7vgBbYT6aXfM+ra4pP4ZcH79j6UG/a1dTP7YYGz9bZ1Q/CR7pPuGp87wDXaA+iAPWvsBY/75MWbE+2S70PgLpMr//rdK9ozsPvtr18L2vTwI/Pazjvqc/oD/7Wr2/erfCP7J/EL53pc89c8p+P1yvOj/DBDm/1QJAPOIZqb6q4J8/xu7JvQCIzD02zSI/id/gPCpoq7x/8fq+T+Rhv7r5Rr8NY0+8YEiJvmeSOj7Ayi0/uJCDPyF/3DxESqC+TJsgPrBZ9b6167K+P48iPiNZy7486rU+TipxvT6Wlz5Mjee+vf2LP/7hHz9GFeA+XjrDvM7pgr1BFQS/1zgYvyYLlrzkvXo+aletvmbm2D4o5+k+xg0mP26/pT7A6Mi+DHkhP8sigr+t6zS+2Zwfv4/+Bb41SXy+N+6XPchjXrxRy2E/uog9PxU1Vj8Kaow+Cv5OvxgbbD9JBpa8IQCEPtEhI775sT0+WuFRP+Cbmb681RW/nUYTP25Q974QTPU9obU6v1GIdb45TYQ+DZEHP3wFWL9Y7589vxJ5v0O4pbzdUtG+NdT0vsxLyT7tfkC/qKTRvnPnQL/OeI27o6IBvwYN/L6gIC6/Gl2cvoZWGD8fEoO+L0Ywv+0jfb6bfMU+Sq16vq+mFr+DTGi++XLovmeqDz+RHnC/4BbTPvhhoz5djxW+bq18vg2JKz2NVO6+H8krPcdeQ7+K7RU9TqnEvce1Rb6yKZS+bnmLvg3BjL6WnC6/p2A8P51HaD+a9l+90WKVPmhkpb9LlQo/tER4Plf6Fz/vlye/GlRcP0/AUT+gSBy/tvzWvqm6cL4ShhO/pRU2v17t7b2vGwe/HiGPvjpHEb6/brm+4eoxvz2gmr6780K/2AGQvpEaqj5JcQM9jbGOvnrzlb6Ahia/1cPcPA==",
+                "age": "43",
+                "gender": "Male",
+                "person-attributes": "F: has_bag has_longsleeves has_longpants has_longhair has_coat_jacket",
+                "id": 1
+            }
+        ]
+    }
+}
+```
+
+<details>
+<summary>GPU</summary>
+
+**Pipeline:**
+```bash
+multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin3 ! video/x-raw(memory:VAMemory) ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model_proc=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json device=GPU pre-process-backend=va-surface-sharing inference-region=0 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml model_proc=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.json device=GPU pre-process-backend=va-surface-sharing inference-region=1 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.xml model_proc=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.json device=GPU pre-process-backend=va-surface-sharing inference-region=1 ! queue ! gvainference scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml device=GPU pre-process-backend=va-surface-sharing inference-region=1 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! appsink sync=true
+```
+
+**Example raw output metadata:**
+
+[See JSON](./example_output/person_metadata_gpu_raw.json)
+
+**Example SceneScape output metadata:**
+
+```json
+{
+    "id": "atag-qcam1",
+    "debug_mac": "b5:81:08:db:7d:92",
+    "timestamp": "2026-02-09T10:45:53.971Z",
+    "debug_timestamp_end": "2026-02-09T10:45:58.180Z",
+    "debug_processing_time": 4.2091004848480225,
+    "rate": 10.875448085155073,
+    "objects": {
+        "person": [
+            {
+                "category": "person",
+                "confidence": 0.9970703125,
+                "center_of_mass": {
+                    "x": 703,
+                    "y": 84,
+                    "width": 61.0,
+                    "height": 81.25
+                },
+                "bounding_box_px": {
+                    "x": 643,
+                    "y": 4,
+                    "width": 183,
+                    "height": 325
+                },
+                "reid": "NKVwPn2Kc77hgqi+AomqPvLEzT6/NeK+LDOPPjQPIb6i0i4/EM41v1sSdb2kRI++n9OavrtDhj4szCs+dAPTPKaJ7L2Tv5s+Js2qvtLRmb6Qm1U/5BWRvh6crb46o2Y+dLGMv7roMb7fokI+1r6bPp6fnz4c9sY+1gbgPjKPeD7+Q4A/DXHxPoeHRb6IFha/f8YAvbxkpr50dEI+oCILPp3IWT+/oCQ/qiYKv97NCL9YWjY+KYo+vr97Fb/jh4q++ognvtLaO77yjXS9AyELv2IL4j7L7U6/pg2evTzKYr3a6be92uD2PSQEpT+GaGO+eHSJvvjzAj2hpwc/x79YvpzYN74+4iO+TwMQvj7hVr467yU+LrjDPo8cx769i8G+AFnFvSpmNj13WSE/xbEYPzcG370IwsY+FtlAP/McE78CaSk/04tHvkRs6j7Rp4o9uLChPrjz1z7JRTA/MNQtv+WemL7Pck+/0L5zPrDpir16gZQ9UB7KPkOgHr6+dQk/R8qCPj0jz7375ok+zYgkPtRiibxNxiE+pm09PYEOwb4vD1Y/stE8v+rLq74AVnY+DMyoPu6uTr8nKNq+XE9UP0WdJL+FGD+/vyO4vqptBL+o72K9dbgGv5NDWb63zjQ/wNlMPkerR780oEu/qBqQvxVNU756sAe+5fENP24Lxj6wqFw+wfxCPkneQr2uV8m9gOSkPsYcqr82YEu+P7sevkK5Oj6xWGs+N/IzP3LAsz3m82++gP5rP/tNhD+KPso+kKFvPm7wvL19VlK/qSfovhNwN79icym/ldpCvuWTuLv6fxU/WQWKPkas8j5AYnA+EhCSvbIwPr8NtCi/SkHPviEb/r5rkMK+OdCFvojlXD36MTo/wCxEP62NJz9OM28/fGT7PgiAjTwkT5e+Vp43vWW8+j5wof8+PlT7Pu96cL4oZMS+yz0nv8yxwL2HEUM9feV1vrzBoj73+MG+wqbrPYrj1b4wVh8/uVAQv8Aktz56RIq+alUIvk+Csr7Ynk2+gvM8Pkd5wb7OLQY/svvhvhmhQ7+11kW/CANLPTJArz64mLK8yPWUvfZtKL9p9Rg/RzofP3rSPD7+XPw+IW+2vgsFfz5OTAO/9PchPXLIwD1aVAM/AwdAvuD66T0NNbU+t/GCvqHja7/m8+U+zdhEPlpRjD4QAD0/tpaJvn4kbT6fYcy+pJcLP52ToL4EvRG+8kBXP5qmwb4ReRc/gCNoPMju0j5Dm1i+DeKBP2AM2z7myY29A0LUvnjjT70NuWw+NEnRv9AgMD1gM42+wOKJvowlEL+MDJC9oPNRvkTwmL7rIxW/HCcXvRUsDb6KAZy+tRWfvjsJqT6YeH2+vAErPg==",
+                "age": "39",
+                "gender": "Male",
+                "person-attributes": "M: has_longsleeves has_longpants has_coat_jacket",
+                "id": 1
+            }
+        ]
+    }
+}
+{
+    "id": "atag-qcam1",
+    "debug_mac": "b5:81:08:db:7d:92",
+    "timestamp": "2026-02-09T10:45:54.080Z",
+    "debug_timestamp_end": "2026-02-09T10:45:58.281Z",
+    "debug_processing_time": 4.201727867126465,
+    "rate": 10.875448085155073,
+    "objects": {
+        "person": [
+            {
+                "category": "person",
+                "confidence": 0.998046875,
+                "center_of_mass": {
+                    "x": 700,
+                    "y": 81,
+                    "width": 61.333333333333336,
+                    "height": 80.25
+                },
+                "bounding_box_px": {
+                    "x": 639,
+                    "y": 1,
+                    "width": 185,
+                    "height": 321
+                },
+                "reid": "ogOvPvuQvr46r7G8wAQzPoQpKj/74+W+8FLfPn7cPbzJbzw/lLVlvxsc5r3YoRO/o+ewvjqCxj52nRw/sITPPRBL5b3pji0/uWlvvtTnbL53xiQ/58LBvnOBhb6Ilwk+Wo+av/k7Zr2McuQ9BINRPs+tOj/gjDs9HmPjPnKPID6iIC8/lzDiPgvMM74Pj2+/avXiPWW9lL7GS8M9ABy8u6sLFT+aA9I+VKpCv3z8qL78ypO8ItCIvtSGGL8k7hG/TZq/vq7skL1tygW7YvAcvzwcXT65Fy2/RqkavgAOkr50XkG+zcIxPlb+sT8RJdG+jt4Vv27tCb5jhOk+CDbwPUkN+L7qJkO+XehDvhamub704s0+HQsYP1F62b4B+8O+1issvfqAHL2MBis/1BmBP+bsHL90XlU+sDZ7P7YAyb7wtSQ/9uKPvsSTED/7w2Q+7ilwPoTN3T2KgTg/0fbjvhbrgr6VFVG/NCy3PvV2J76AuzQ8V8EUPzYke76YLvs+OPs2Pm3O8b322w8/zOvCPgewzLwibXI+mLDKPbEEjb6ksTw/SWIYv/bUrL516yq9AHAvPgTrhL+ir+W+wIvpPqsqF7/hczu/W2/2vjS0zb7lR5M+BRRKvy5tc72R1FM/iG1DPfck7r4TUSy/tU6fv9104r4B4AQ+Sx6pPT/4gj5/moC9rIrNPQtcGr7D/Km+xRg8P41Djb+/jMO++8Uuvshqiz1pFdY+oha0Pq4/+D1h6qK9LNAnP966pD+jo7w+2B+ePmIIQz3AnjK/Np88vwCjuL4qYVK/UUeDvgpZrbx9pN4+eqNpPooEwz7/puE+tbPfvTqZEL8sdDm/Db8ivgtEPb4Fvzq/TZiBvmV6oL1QAh0/dXFLPwT9OD/HvGw/hNINP84xfr0rygi/sJtvPJ8b/D7LZBg/kMAFP5u2Hr7FH1y+17KTvsI0Rz15gNW9RtiQvVpyrj7Ty8y+2c7HPhV+d77njpg+NkoUv9FYvj6g3r+9m82TveV0tr5JUI6+xvySPqX3A76/2Gs+AdapviS9Sb92pWi/QLB4PuRJQL3q7cA+SUhjvYgOxL5rNxc/1869Pjt57z3cewo/sZQYvmJ2jj5aOIy+RqZOPti9HD1Q6xE+EvE+uzBbgz32ULo+iraOvsmtTb9lK8c+fBFkPiIF173sjIw/gNj6PJBpZjyT9DS/mhboPmQTur1nTfG+IdwwP6FIQ7698EU/r5Hpu662GD+Bm9S+U61xP078BD88Egi+W5TeviRIV74I66Y9oKTFv+BsmTxGrK2+cY6rvpXjWb6HoEe84k4MvdRWzr48oD2//ERLPg9ZybyVnL29pmjuOuxK9j73N86+iiD9vA==",
+                "age": "45",
+                "gender": "Male",
+                "person-attributes": "F: has_bag has_longsleeves has_longpants has_coat_jacket",
+                "id": 1
+            }
+        ]
+    }
+}
+```
 
 ## Vehicle attributes
 
