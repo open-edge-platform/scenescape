@@ -32,15 +32,15 @@ from utils.docker import (
 from utils.schema import validate_camera_input, validate_scene_output
 
 
-# Topic constants (match message_handler.hpp)
-TOPIC_CAMERA_INPUT = "scenescape/data/camera/test-camera"
-TOPIC_SCENE_OUTPUT = "scenescape/data/scene/dummy-scene/thing"
+# Topic constants (match config/tracker.json scene and camera)
+TOPIC_CAMERA_INPUT = "scenescape/data/camera/atag-qcam1"
+TOPIC_SCENE_OUTPUT = "scenescape/data/scene/302cf49a-97ec-402d-a324-c5077b280b7b/thing"
 
 
 def create_camera_detection_message():
   """Create a valid camera detection message matching camera-data.schema.json."""
   return {
-      "id": "test-camera",
+      "id": "atag-qcam1",
       "timestamp": "2026-01-27T10:30:00.000Z",
       "objects": {
           "thing": [

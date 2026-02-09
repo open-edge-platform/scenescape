@@ -4,7 +4,7 @@
   "title": "Tracker Service Configuration",
   "description": "Main configuration file for Tracker Service.",
   "type": "object",
-  "required": ["infrastructure"],
+  "required": ["infrastructure", "scenes"],
   "examples": [
     {
       "infrastructure": {
@@ -33,21 +33,8 @@
         }
       },
       "scenes": {
-        "source": "inline",
-        "data": [
-          {
-            "uid": "scene-001",
-            "name": "Test Scene",
-            "cameras": [
-              {
-                "uid": "camera-01",
-                "name": "Test Camera",
-                "intrinsics": { "fx": 500, "fy": 500, "cx": 320, "cy": 240 },
-                "distortion": { "k1": 0, "k2": 0, "p1": 0, "p2": 0 }
-              }
-            ]
-          }
-        ]
+        "source": "file",
+        "file_path": "scenes.json"
       }
     }
   ],
@@ -246,27 +233,24 @@
     },
     "scenes": {
       "type": "object",
-      "description": "Scene configuration source. Use 'api' to fetch scenes dynamically from Manager REST API (requires infrastructure.manager). Use 'inline' to embed scene definitions directly in this config file for testing or standalone deployments. If omitted, defaults to 'api'.",
+      "description": "Scene configuration source. Use 'file' to load scenes from an external JSON file (default). Use 'api' to fetch scenes dynamically from Manager REST API (requires infrastructure.manager, not yet implemented).",
       "properties": {
         "source": {
           "type": "string",
-          "description": "Configuration source: inline (in config) or api (from Manager)",
-          "enum": ["inline", "api"],
-          "default": "api"
+          "description": "Configuration source: file (from JSON file) or api (from Manager REST API)",
+          "enum": ["file", "api"],
+          "default": "file"
         },
-        "data": {
-          "type": "array",
-          "description": "Scene data (required if source=inline)",
-          "items": {
-            "$ref": "scene.schema.json"
-          }
+        "file_path": {
+          "type": "string",
+          "description": "Path to scene definitions JSON file (relative to config file directory or absolute). Required when source=file."
         }
       },
       "if": {
-        "properties": { "source": { "const": "inline" } }
+        "properties": { "source": { "const": "file" } }
       },
       "then": {
-        "required": ["data"]
+        "required": ["file_path"]
       }
     }
   },

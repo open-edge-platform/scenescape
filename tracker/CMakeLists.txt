@@ -14,13 +14,9 @@ string(STRIP "${VERSION_CONTENT}" SCENESCAPE_VERSION)
 # Extract major.minor.patch (strip any suffix like -dev)
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" VERSION_SEMVER "${SCENESCAPE_VERSION}")
 
-# Git commit hash: can be passed via -DGIT_COMMIT or GIT_COMMIT env var at build time
-set(GIT_COMMIT "" CACHE STRING "Git commit hash (optional at configure, can use GIT_COMMIT env var at build)")
-if(GIT_COMMIT)
-  message(STATUS "Tracker version: ${SCENESCAPE_VERSION} (${GIT_COMMIT})")
-else()
-  message(STATUS "Tracker version: ${SCENESCAPE_VERSION} (GIT_COMMIT will be read from env at build time)")
-endif()
+# Git commit hash: passed via -DGIT_COMMIT at configure time
+set(GIT_COMMIT "" CACHE STRING "Git commit hash")
+message(STATUS "Tracker version: ${SCENESCAPE_VERSION} (commit: ${GIT_COMMIT})")
 
 #####################################################################
 # Project
@@ -73,11 +69,14 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/logger.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/config_loader.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/scene_loader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_server.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_command.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/mqtt_client.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/message_handler.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/scene_registry.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/proxy_utils.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/topic_utils.cpp
 )
 
 add_executable(${PROJECT_NAME}
@@ -94,12 +93,11 @@ target_include_directories(${PROJECT_NAME}
 )
 
 # Inject version info as compile definitions
-# GIT_COMMIT: use CMake variable if set, otherwise read from environment at build time
 target_compile_definitions(${PROJECT_NAME}
   PRIVATE
     TRACKER_SERVICE_NAME="${PROJECT_NAME}"
     TRACKER_SERVICE_VERSION="${SCENESCAPE_VERSION}"
-    $<IF:$<BOOL:${GIT_COMMIT}>,TRACKER_GIT_COMMIT="${GIT_COMMIT}",TRACKER_GIT_COMMIT="$ENV{GIT_COMMIT}">
+    TRACKER_GIT_COMMIT="${GIT_COMMIT}"
 )
 
 target_link_libraries(${PROJECT_NAME}

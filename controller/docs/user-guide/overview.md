@@ -34,6 +34,8 @@ To deploy the scene controller service, refer to the [Get started](get-started.m
 
 `--visibility_topic`: Specifies the topic for publishing visibility information, which includes the visibility of objects in cameras. Options are `unregulated`, `regulated`, or `none`.
 
+`--analytics-only`: Enables analytics-only mode (experimental feature). In this mode, the Scene Controller consumes tracked objects from a separate Tracker service via MQTT instead of performing tracking internally. The tracker is not initialized, and camera/scene data processing is skipped. Child scenes are not supported. This mode can also be enabled via the `CONTROLLER_ENABLE_ANALYTICS_ONLY` environment variable set to `true`.
+
 ### Tracker Configuration
 
 For details on how to configure the tracker, see [How to configure tracker](./How-to-configure-tracker.md).
