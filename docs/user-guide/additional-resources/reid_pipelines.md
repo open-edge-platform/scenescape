@@ -15,6 +15,7 @@ This document provides example GStreamer pipelines for implementing person and v
 ## Overview
 
 Re-identification (ReID) enables tracking and matching objects across different camera views or time periods. This document covers:
+
 - **Person ReID**: Track individuals with optional age, gender, and attribute classification
 - **Vehicle ReID**: Track vehicles with color and type classification
 
@@ -31,12 +32,14 @@ All pipelines are based on Intel OpenVINO models and can be deployed on edge dev
 The pipelines use the following Intel OpenVINO models:
 
 **Person Detection & Classification:**
+
 - `person-detection-retail-0013`: Person detection
 - `age-gender-recognition-retail-0013`: Age and gender classification
 - `person-attributes-recognition-crossroad-0238`: Physical attributes (bag, clothing, etc.)
 - `person-reidentification-retail-0277`: ReID embeddings (256-dimensional vectors)
 
 **Vehicle Detection & Classification:**
+
 - `vehicle-detection-0200`: Vehicle detection
 - `vehicle-attributes-recognition-barrier-0042`: Color and type classification
 
@@ -52,13 +55,14 @@ These pipelines detect persons and classify their age and gender. They are based
 <summary>CPU</summary>
 
 **Pipeline:**
+
 ```bash
 multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin3 ! video/x-raw ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model_proc=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json device=CPU inference-region=0 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml model_proc=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.json device=CPU inference-region=1 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! appsink sync=true
 ```
 
 **Example raw output metadata:**
 
-```json
+```text
 {
     "objects": [
         {
@@ -245,7 +249,7 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 
 **Example SceneScape output metadata:**
 
-```json
+```text
 {
     "id": "atag-qcam1",
     "debug_mac": "47:e6:77:25:3b:f9",
@@ -316,19 +320,18 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 <summary>CPU with REID</summary>
 
 **Pipeline:**
+
 ```bash
 multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin3 ! video/x-raw ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model_proc=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json device=CPU inference-region=0 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml model_proc=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.json device=CPU inference-region=1 ! queue ! gvainference scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml device=CPU inference-region=1 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! appsink sync=true
 ```
 
-
 Example raw output metadata:
 
-[See JSON](./example_output/agegender_reid_cpu_raw.json)
-
+[See JSON](./example_output/agegender_reid_cpu_raw.jsonl)
 
 **Example SceneScape output metadata:**
 
-```json
+```text
 {
     "id": "atag-qcam1",
     "debug_mac": "09:91:b4:33:31:d0",
@@ -397,13 +400,14 @@ Example raw output metadata:
 <summary>GPU</summary>
 
 **Pipeline:**
+
 ```bash
 multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin3 ! video/x-raw(memory:VAMemory) ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model_proc=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json device=GPU pre-process-backend=va-surface-sharing inference-region=0 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml model_proc=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.json device=GPU pre-process-backend=va-surface-sharing inference-region=1 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! appsink sync=true
 ```
 
 **Example raw output metadata:**
 
-```json
+```text
 {
     "objects": [
         {
@@ -681,7 +685,7 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 
 **Example SceneScape output metadata:**
 
-```json
+```text
 {
     "id": "atag-qcam1",
     "debug_mac": "7d:f1:0e:d7:43:8f",
@@ -752,20 +756,18 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 <summary>GPU with REID</summary>
 
 **Pipeline:**
+
 ```bash
 multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin3 ! video/x-raw(memory:VAMemory) ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model_proc=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json device=GPU pre-process-backend=va-surface-sharing inference-region=0 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml model_proc=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.json device=GPU pre-process-backend=va-surface-sharing inference-region=1 ! queue ! gvainference scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml device=GPU pre-process-backend=va-surface-sharing inference-region=1 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! appsink sync=true
 ```
 
-
 Example raw output metadata:
 
-[See JSON](./example_output/agegender_reid_gpu_raw.json)
-
-
+[See JSON](./example_output/agegender_reid_gpu_raw.jsonl)
 
 **Example SceneScape output metadata:**
 
-```json
+```text
 {
     "id": "atag-qcam1",
     "debug_mac": "2b:c5:9f:65:27:84",
@@ -838,13 +840,14 @@ These pipelines detect persons and classify their physical attributes (bag, clot
 <summary>CPU</summary>
 
 **Pipeline:**
+
 ```bash
 multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin3 ! video/x-raw ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model_proc=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json device=CPU inference-region=0 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.xml model_proc=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.json device=CPU inference-region=1 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! appsink sync=true
 ```
 
 **Example raw output metadata:**
 
-```json
+```text
 {
     "objects": [
         {
@@ -987,7 +990,7 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 
 **Example SceneScape output metadata:**
 
-```json
+```text
 {
     "id": "atag-qcam1",
     "debug_mac": "81:e0:ec:b0:ac:49",
@@ -1056,19 +1059,18 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 <summary>CPU with REID</summary>
 
 **Pipeline:**
+
 ```bash
 multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin3 ! video/x-raw ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model_proc=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json device=CPU inference-region=0 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.xml model_proc=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.json device=CPU inference-region=1 ! queue ! gvainference scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml device=CPU inference-region=1 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! appsink sync=true
 ```
 
-
 Example raw output metadata:
 
-[See JSON](./example_output/personattr_reid_cpu_raw.json)
-
+[See JSON](./example_output/personattr_reid_cpu_raw.jsonl)
 
 **Example SceneScape output metadata:**
 
-```json
+```text
 {
     "id": "atag-qcam1",
     "debug_mac": "c5:70:aa:ae:e4:03",
@@ -1137,13 +1139,14 @@ Example raw output metadata:
 <summary>GPU</summary>
 
 **Pipeline:**
-```json
+
+```text
 multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin3 ! video/x-raw(memory:VAMemory) ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model_proc=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json device=GPU pre-process-backend=va-surface-sharing inference-region=0 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.xml model_proc=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.json device=GPU pre-process-backend=va-surface-sharing inference-region=1 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! appsink sync=true
 ```
 
 **Example raw output metadata:**
 
-```json
+```text
 {
     "objects": [
         {
@@ -1296,7 +1299,7 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 
 **Example SceneScape output metadata:**
 
-```json
+```text
 {
     "id": "atag-qcam1",
     "debug_mac": "17:cf:36:77:a4:e0",
@@ -1365,18 +1368,18 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 <summary>GPU with REID</summary>
 
 **Pipeline:**
+
 ```bash
 multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin3 ! video/x-raw(memory:VAMemory) ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model_proc=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json device=GPU pre-process-backend=va-surface-sharing inference-region=0 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.xml model_proc=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.json device=GPU pre-process-backend=va-surface-sharing inference-region=1 ! queue ! gvainference scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml device=GPU pre-process-backend=va-surface-sharing inference-region=1 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! appsink sync=true
 ```
 
-
 Example raw output metadata:
 
-[See JSON](./example_output/)
+[See JSON](./example_output/personattr_reid_gpu_raw.jsonl)
 
 **Example SceneScape output metadata:**
 
-```json
+```text
 {
     "id": "atag-qcam1",
     "debug_mac": "f5:1c:fa:de:fd:45",
@@ -1449,17 +1452,18 @@ These pipelines combine all person detection capabilities: age, gender, physical
 <summary>CPU</summary>
 
 **Pipeline:**
+
 ```bash
 multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin3 ! video/x-raw ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model_proc=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json device=CPU inference-region=0 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml model_proc=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.json device=CPU inference-region=1 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.xml model_proc=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.json device=CPU inference-region=1 ! queue ! gvainference scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml device=CPU inference-region=1 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! appsink sync=true
 ```
 
 **Example raw output metadata:**
 
-[See JSON](./example_output/person_metadata_cpu_raw.json)
+[See JSON](./example_output/person_metadata_cpu_raw.jsonl)
 
 **Example SceneScape output metadata:**
 
-```json
+```text
 {
     "id": "atag-qcam1",
     "debug_mac": "7f:88:8d:a9:ba:c1",
@@ -1538,17 +1542,18 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 <summary>GPU</summary>
 
 **Pipeline:**
+
 ```bash
 multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin3 ! video/x-raw(memory:VAMemory) ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model_proc=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.json device=GPU pre-process-backend=va-surface-sharing inference-region=0 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.xml model_proc=/home/pipeline-server/models/intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013.json device=GPU pre-process-backend=va-surface-sharing inference-region=1 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.xml model_proc=/home/pipeline-server/models/intel/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.json device=GPU pre-process-backend=va-surface-sharing inference-region=1 ! queue ! gvainference scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml device=GPU pre-process-backend=va-surface-sharing inference-region=1 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! appsink sync=true
 ```
 
 **Example raw output metadata:**
 
-[See JSON](./example_output/person_metadata_gpu_raw.json)
+[See JSON](./example_output/person_metadata_gpu_raw.jsonl)
 
 **Example SceneScape output metadata:**
 
-```json
+```text
 {
     "id": "atag-qcam1",
     "debug_mac": "57:9a:35:9c:22:dc",
@@ -1623,7 +1628,6 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 
 </details>
 
-
 ## Vehicle Re-Identification
 
 ### Vehicle Color and Type Classification
@@ -1642,7 +1646,7 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/fixed_ANPR_Cam1.ts 
 <details>
 <summary>Example raw output metadata:</summary>
 
-```json
+```text
 {
     "objects": [
         {
@@ -2025,7 +2029,7 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/fixed_ANPR_Cam1.ts 
 
 **Example SceneScape output metadata:**
 
-```json
+```text
 {
     "id": "car-reid",
     "debug_mac": "cf:4a:8f:83:6f:fd",
@@ -2096,6 +2100,7 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/fixed_ANPR_Cam1.ts 
 <summary>GPU</summary>
 
 **Pipeline:**
+
 ```bash
 multifilesrc loop=TRUE location=/home/pipeline-server/videos/fixed_ANPR_Cam1.ts name=source ! decodebin3 ! video/x-raw(memory:VAMemory) ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/vehicle-detection-0200/FP32/vehicle-detection-0200.xml model_proc=/home/pipeline-server/models/intel/vehicle-detection-0200/FP32/vehicle-detection-0200.json device=GPU pre-process-backend=va-surface-sharing inference-region=0 ! queue ! gvaclassify scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/intel/vehicle-attributes-recognition-barrier-0042/FP32/vehicle-attributes-recognition-barrier-0042.xml model_proc=/home/pipeline-server/models/intel/vehicle-attributes-recognition-barrier-0042/FP32/vehicle-attributes-recognition-barrier-0042.json device=GPU pre-process-backend=va-surface-sharing inference-region=1 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! appsink sync=true
 ```
@@ -2103,7 +2108,7 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/fixed_ANPR_Cam1.ts 
 <details>
 <summary>Example raw output metadata:</summary>
 
-```json
+```text
 {
     "objects": [
         {
@@ -2308,7 +2313,7 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/fixed_ANPR_Cam1.ts 
 
 **Example SceneScape output metadata:**
 
-```json
+```text
 {
     "id": "car-reid",
     "debug_mac": "1f:c2:b1:27:78:b5",
@@ -2382,6 +2387,7 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/fixed_ANPR_Cam1.ts 
 ### Modifying Video Sources
 
 Replace the video source location in any pipeline:
+
 ```bash
 multifilesrc loop=TRUE location=/path/to/your/video.ts
 ```
@@ -2398,6 +2404,7 @@ Key parameters you can adjust:
 - **`device`**: `CPU`, `GPU`, or `MULTI:CPU,GPU` for hybrid execution
 
 Example for processing every 5th frame:
+
 ```bash
 gvadetect ... inference-interval=5 ...
 ```
@@ -2405,6 +2412,7 @@ gvadetect ... inference-interval=5 ...
 ### Model Precision
 
 All examples use FP32 models. For better performance on supported hardware, use FP16 or INT8:
+
 ```bash
 model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP16/person-detection-retail-0013.xml
 ```
@@ -2416,17 +2424,20 @@ model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP16/perso
 ### Common Issues
 
 **Pipeline fails to start:**
+
 - Verify all model paths exist
 - Check that video source is accessible
 - Ensure device (CPU/GPU) is available
 
 **Low performance:**
+
 - Increase `inference-interval` to process fewer frames
 - Use FP16/INT8 models instead of FP32
 - Enable GPU acceleration for VA-API surface sharing
 - Reduce batch size or number of concurrent streams
 
 **Missing metadata fields:**
+
 - Ensure all classification models in the pipeline are running
 - Check that `gvametaconvert add-tensor-data=true` is present
 - Verify model_proc JSON files are correctly specified
