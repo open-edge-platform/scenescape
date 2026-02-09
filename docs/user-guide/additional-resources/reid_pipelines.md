@@ -1,10 +1,52 @@
-# DLSPS Pipelines for REID
+# DL Streamer Pipeline Server (DLSPS) Pipelines for Re-Identification (ReID)
 
-## Person attributes
+This document provides example GStreamer pipelines for implementing person and vehicle re-identification scenarios using Intel DL Streamer Pipeline Server. Each pipeline includes both CPU and GPU variants, along with raw metadata output and SceneScape-processed metadata examples.
 
-### Gender with age
+## Table of Contents
 
-Pipeline are based on OOB queuing scene.
+- [Overview](#overview)
+- [Person Re-Identification](#person-re-identification)
+  - [Gender and Age Classification](#gender-and-age-classification)
+  - [Person Attributes Classification](#person-attributes-classification)
+  - [Combined Person Metadata (Age, Gender, and Attributes with ReID)](#combined-person-metadata-age-gender-and-attributes-with-reid)
+- [Vehicle Re-Identification](#vehicle-re-identification)
+  - [Vehicle Color and Type Classification](#vehicle-color-and-type-classification)
+
+## Overview
+
+Re-identification (ReID) enables tracking and matching objects across different camera views or time periods. This document covers:
+- **Person ReID**: Track individuals with optional age, gender, and attribute classification
+- **Vehicle ReID**: Track vehicles with color and type classification
+
+All pipelines are based on Intel OpenVINO models and can be deployed on edge devices with CPU or GPU acceleration.
+
+### Key Features
+
+- **Multiple Acceleration Options**: All pipelines support both CPU and GPU (with VA-API surface sharing for optimal performance)
+- **Flexible Model Combinations**: Mix and match detection, classification, and re-identification models based on your use case
+- **Rich Metadata Output**: Raw GStreamer metadata and processed SceneScape format for easy integration
+
+### Model Information
+
+The pipelines use the following Intel OpenVINO models:
+
+**Person Detection & Classification:**
+- `person-detection-retail-0013`: Person detection
+- `age-gender-recognition-retail-0013`: Age and gender classification
+- `person-attributes-recognition-crossroad-0238`: Physical attributes (bag, clothing, etc.)
+- `person-reidentification-retail-0277`: ReID embeddings (256-dimensional vectors)
+
+**Vehicle Detection & Classification:**
+- `vehicle-detection-0200`: Vehicle detection
+- `vehicle-attributes-recognition-barrier-0042`: Color and type classification
+
+---
+
+## Person Re-Identification
+
+### Gender and Age Classification
+
+These pipelines detect persons and classify their age and gender. They are based on the out-of-box (OOB) queuing scene use case.
 
 <details>
 <summary>CPU</summary>
@@ -788,8 +830,9 @@ Example raw output metadata:
 
 </details>
 
-### Person attributes
+### Person Attributes Classification
 
+These pipelines detect persons and classify their physical attributes (bag, clothing, etc.) with a gender classification.
 
 <details>
 <summary>CPU</summary>
@@ -1398,9 +1441,9 @@ Example raw output metadata:
 
 </details>
 
-### Person attributes, age gender with ReID
+### Combined Person Metadata (Age, Gender, and Attributes with ReID)
 
-Pipeline are based on OOB queuing scene.
+These pipelines combine all person detection capabilities: age, gender, physical attributes, and re-identification embeddings. Based on the OOB queuing scene use case.
 
 <details>
 <summary>CPU</summary>
@@ -1576,11 +1619,15 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 }
 ```
 
-## Vehicle attributes
+</details>
 
-### Color and type
+---
 
-Input video `fixed_ANPR_Cam1`. Adjust as needed.
+## Vehicle Re-Identification
+
+### Vehicle Color and Type Classification
+
+These pipelines detect vehicles and classify their color and type. Uses the input video `fixed_ANPR_Cam1` (adjust as needed for your environment).
 
 <details>
 <summary>CPU</summary>
@@ -2326,3 +2373,123 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/fixed_ANPR_Cam1.ts 
 ```
 
 </details>
+
+---
+
+## Pipeline Customization Guide
+
+### Modifying Video Sources
+
+Replace the video source location in any pipeline:
+```bash
+multifilesrc loop=TRUE location=/path/to/your/video.ts
+```
+
+For live camera feeds, replace `multifilesrc` with appropriate source elements (e.g., `v4l2src`, `rtspsrc`).
+
+### Adjusting Inference Parameters
+
+Key parameters you can adjust:
+
+- **`batch-size`**: Number of frames processed together (default: 1)
+- **`inference-interval`**: Process every Nth frame (default: 1 for all frames)
+- **`scheduling-policy`**: Set to `latency` for real-time or `throughput` for batch processing
+- **`device`**: `CPU`, `GPU`, or `MULTI:CPU,GPU` for hybrid execution
+
+Example for processing every 5th frame:
+```bash
+gvadetect ... inference-interval=5 ...
+```
+
+### Model Precision
+
+All examples use FP32 models. For better performance on supported hardware, use FP16 or INT8:
+```bash
+model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP16/person-detection-retail-0013.xml
+```
+
+### GPU Optimization
+
+For GPU pipelines, ensure VA-API surface sharing is enabled:
+```bash
+pre-process-backend=va-surface-sharing
+```
+
+This eliminates memory copies between CPU and GPU, significantly improving performance.
+
+---
+
+## Performance Considerations
+
+### CPU vs GPU
+
+- **CPU**: Lower latency, suitable for single-stream or low-resolution scenarios
+- **GPU**: Higher throughput, ideal for multiple streams or high-resolution video
+
+### Memory Usage
+
+ReID embeddings are 256-dimensional float32 vectors (1KB per object). Monitor memory when tracking many objects over time.
+
+### Inference Interval
+
+For scenarios where real-time tracking isn't critical, increase `inference-interval` to reduce computational load:
+- `inference-interval=1`: Every frame (highest accuracy, highest cost)
+- `inference-interval=5`: Every 5th frame (balanced)
+- `inference-interval=10`: Every 10th frame (lowest cost)
+
+---
+
+## Metadata Format
+
+### Raw Metadata
+
+Raw metadata includes:
+- Detection bounding boxes and confidence scores
+- Classification results with labels and confidence
+- Tensor data for all inference outputs
+- ReID embeddings as base64-encoded vectors
+
+### SceneScape Metadata
+
+Processed metadata includes:
+- Object tracking IDs
+- Simplified classification results
+- Performance metrics (processing time, frame rate)
+- Optional model confidence scores (e.g., `age_model_confidence`, `gender_model_confidence`)
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Pipeline fails to start:**
+- Verify all model paths exist
+- Check that video source is accessible
+- Ensure device (CPU/GPU) is available
+
+**Low performance:**
+- Increase `inference-interval` to process fewer frames
+- Use FP16/INT8 models instead of FP32
+- Enable GPU acceleration for VA-API surface sharing
+- Reduce batch size or number of concurrent streams
+
+**Missing metadata fields:**
+- Ensure all classification models in the pipeline are running
+- Check that `gvametaconvert add-tensor-data=true` is present
+- Verify model_proc JSON files are correctly specified
+
+---
+
+## Additional Resources
+
+- [Intel DL Streamer Documentation](https://dlstreamer.github.io/)
+- [OpenVINO Model Zoo](https://github.com/openvinotoolkit/open_model_zoo)
+- [SceneScape User Guide](../README.md)
+- [GStreamer Pipeline Reference](https://gstreamer.freedesktop.org/documentation/)
+
+---
+
+## License
+
+These pipelines use Intel OpenVINO models and DL Streamer components. Refer to individual component licenses for usage terms.
