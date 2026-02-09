@@ -92,6 +92,7 @@ help:
 	@echo "  demo-all                    Start the SceneScape demo with all services using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Intel® SceneScape)"
+	@echo "  demo-tracker                Start the SceneScape demo with Tracker service + Controller in analytics only mode using Docker Compose"
 	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
