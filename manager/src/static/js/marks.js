@@ -88,6 +88,15 @@ function plot(
       mark = marks[o.id];
       if (show_trails) {
         trail = trails[o.id];
+        // Create trail group if it doesn't exist (e.g., show_trails was toggled on after mark creation)
+        if (!trail) {
+          trail = svgCanvas
+            .group()
+            .attr("id", "trail_" + o.id)
+            .addClass("trail")
+            .addClass(o.type);
+          trails[o.id] = trail;
+        }
       }
     }
 
