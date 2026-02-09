@@ -83,7 +83,7 @@ class Scene(SceneModel):
     if ControllerMode.isAnalyticsOnly():
       schema_filename = 'scene-data.schema.json'
       schema_path = Path(os.environ.get('SCENESCAPE_HOME')) / 'tracker' / 'schema' / schema_filename
-      
+
       if schema_path.exists():
         try:
           with schema_path.open() as schema_fd:
