@@ -38,7 +38,8 @@ path = [
   "version.txt",
   "third-party-programs.txt",
   "**/*_data.txt",
-  "**/*_json.txt"
+  "**/*_json.txt",
+  "**/*.jsonl"
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "(C) 2025 Intel Corporation"
