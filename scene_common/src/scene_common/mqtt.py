@@ -21,6 +21,7 @@ CHUNK_SIZE = 1024 * 1024
 class _Topic(Enum):
   CHANNEL = auto()
   CMD_CAMERA = auto()
+  CMD_CAMERA_DETECTION_LABELS = auto()
   CMD_DATABASE = auto()
   CMD_KUBECLIENT = auto()
   CMD_SCENE_UPDATE = auto()
@@ -48,6 +49,7 @@ class PubSub(_PubSubTopicBase):
   _TopicTemplates = {
     _Topic.CHANNEL: Template(TOPIC_BASE + "/channel/${channel}"),
     _Topic.CMD_CAMERA: Template(TOPIC_BASE + "/cmd/camera/${camera_id}"),
+    _Topic.CMD_CAMERA_DETECTION_LABELS: Template(TOPIC_BASE + "/cmd/camera/${camera_id}/detection_labels"),
     _Topic.CMD_DATABASE: Template(TOPIC_BASE + "/cmd/database"),
     _Topic.CMD_KUBECLIENT: Template(TOPIC_BASE + "/cmd/kubeclient"),
     _Topic.CMD_SCENE_UPDATE: Template(TOPIC_BASE + "/cmd/scene/update/${scene_id}"),

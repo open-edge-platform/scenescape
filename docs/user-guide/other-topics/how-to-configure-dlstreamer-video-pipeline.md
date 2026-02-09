@@ -115,6 +115,12 @@ pvb2000=GPU+reid=GPU
 #### Advanced Configuration
 
 - **Decode Device**: video decoding device settings (`AUTO`, `GPU` or `CPU`). It is highly recommended to use the `AUTO` or `GPU` (only on systems with GPU) setting, as the `CPU` setting forces the pipeline to use software codecs that have significantly lower performance than hardware accelerators. When `AUTO` is set, the pipeline will automatically choose GPU as the decode device if it is available on the system and fall back to CPU otherwise. If the user sets `GPU` on the system without GPU, the pipeline will not work.
+- **Detection Labels**: allows you to filter which object categories are processed and published by the video analytics pipeline. Enter one label per line in the text area. When specified, only detected objects matching the configured labels will be published to Intel® SceneScape. If left empty, all detected objects from the AI model will be published (default behavior). This feature is useful for focusing on specific object types and reducing data volume. For example, to track only cars and pedestrians, enter:
+  ```
+  car
+  pedestrian
+  ```
+  The detection labels are sent via MQTT to the video analytics pipeline using the dedicated topic `scenescape/cmd/camera/{camera_id}/detection_labels`. The configuration is retained, meaning the camera will automatically apply these filters when reconnecting or restarting.
 - **Model Config**: references a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. You can upload custom model configuration files or modify existing ones using the Models page. The Models page is accessible in the top menu of the Intel® SceneScape UI.
 - **Use Camera Pipeline**: when enabled, directly applies the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings on saving the camera configuration. When disabled (default), the system automatically generates the pipeline from other form fields.
 

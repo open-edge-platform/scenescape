@@ -95,6 +95,7 @@ class PostInferenceDataPublish:
     self.is_publish_calibration_image = False
     self.cam_auto_calibrate = False
     self.cam_auto_calibrate_intrinsics = None
+    self.detection_labels = []
     self.setupMQTT()
     self.metadatagenpolicy = metadatapolicies[metadatagenpolicy]
     self.frame_level_data = {'id': cameraid, 'debug_mac': getMACAddress()}
@@ -105,6 +106,8 @@ class PostInferenceDataPublish:
       print(f"Connected to MQTT Broker {self.broker}")
       self.client.subscribe(f"scenescape/cmd/camera/{self.cameraid}")
       print(f"Subscribed to topic: scenescape/cmd/camera/{self.cameraid}")
+      self.client.subscribe(f"scenescape/cmd/camera/{self.cameraid}/detection_labels")
+      print(f"Subscribed to topic: scenescape/cmd/camera/{self.cameraid}/detection_labels")
     else:
       print(f"Failed to connect, return code {rc}")
     return
@@ -122,6 +125,19 @@ class PostInferenceDataPublish:
 
   def handleCameraMessage(self, client, userdata, message):
     msg = message.payload.decode("utf-8")
+    
+    # Check if this is a detection_labels config message
+    if message.topic == f"scenescape/cmd/camera/{self.cameraid}/detection_labels":
+      try:
+        config = json.loads(msg)
+        if isinstance(config, dict) and 'detection_labels' in config:
+          self.detection_labels = config['detection_labels']
+          print(f"Updated detection_labels for camera {self.cameraid}: {self.detection_labels}")
+      except json.JSONDecodeError as e:
+        print(f"Error parsing detection_labels message: {e}")
+      return
+    
+    # Handle regular camera commands
     if msg == "getimage":
       self.is_publish_image = True
     elif msg == "getcalibrationimage":
@@ -213,6 +229,8 @@ class PostInferenceDataPublish:
       for det in gvadata['objects']:
         vaobj = {}
         self.metadatagenpolicy(vaobj, det, framewidth, frameheight)
+        if self.detection_labels and vaobj['category'] not in self.detection_labels:
+          continue
         otype = vaobj['category']
         vaobj['id'] = len(objects[otype]) + 1
         objects[otype].append(vaobj)

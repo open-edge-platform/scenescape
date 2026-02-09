@@ -4,12 +4,14 @@
 import json
 import os
 import random
+import socket
 import time
 import traceback
 import uuid
 from collections import namedtuple
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.admin.views.decorators import user_passes_test
 from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth import authenticate, login, logout
@@ -44,6 +46,7 @@ from manager.validators import add_form_error, validate_uuid
 from scene_common.options import *
 from scene_common.scene_model import SceneModel
 from scene_common.transform import applyChildTransform
+from scene_common.mqtt import PubSub
 from scene_common import log
 
 @receiver(user_login_failed)
@@ -589,6 +592,56 @@ def sign_out(request):
 def account_locked(request):
   return render(request, 'sscape/account_locked.html')
 
+def update_detection_labels(cam_inst, detection_labels: list[str]):
+  """Send detection labels configuration to MQTT topic for camera processing.
+  
+  Returns:
+    tuple: (success: bool, error_message: str or None)
+  """
+  broker = os.environ.get("BROKER")
+  auth = os.environ.get("BROKERAUTH")
+  rootcert = os.environ.get("BROKERROOTCERT")
+  if rootcert is None:
+    rootcert = "/run/secrets/certs/scenescape-ca.pem"
+  cert = os.environ.get("BROKERCERT")
+  
+  if broker is None:
+    log.warning(f"MQTT broker not configured. Cannot send detection labels for camera {cam_inst.sensor_id}")
+    return False, "MQTT broker not configured"
+  
+  try:
+    client = PubSub(auth, cert, rootcert, broker)
+    client.connect()
+    
+    topic = PubSub.formatTopic(PubSub.CMD_CAMERA_DETECTION_LABELS, camera_id=cam_inst.sensor_id)
+    
+    message = {
+      "timestamp": time.time(),
+      "camera_id": cam_inst.sensor_id,
+      "detection_labels": detection_labels
+    }
+    
+    # Publish with QoS 2 (exactly once) and retain flag
+    log.info(f"Publishing detection labels to topic {topic}: {detection_labels}")
+    msg = client.publish(topic, json.dumps(message), qos=2, retain=True)
+    
+    if not msg.is_published() and msg.rc == 0:
+      client.loopStart()
+      msg.wait_for_publish()
+      client.loopStop()
+      
+    log.info(f"Detection labels published successfully for camera {cam_inst.sensor_id}")
+    return True, None
+    
+  except socket.gaierror as e:
+    error_msg = f"Unable to connect to MQTT broker: {e}"
+    log.error(error_msg)
+    return False, error_msg
+  except Exception as e:
+    error_msg = f"Error publishing detection labels: {e}"
+    log.error(error_msg)
+    return False, error_msg
+
 @superuser_required
 def cameraCalibrate(request, sensor_id):
   cam_inst = get_object_or_404(Cam, pk=sensor_id)
@@ -599,6 +652,15 @@ def cameraCalibrate(request, sensor_id):
       log.info('Form received {}'.format(form.cleaned_data))
 
       if settings.KUBERNETES_SERVICE_HOST:
+        if 'detection_labels' in form.cleaned_data:
+          detection_labels = form.cleaned_data['detection_labels']
+        if detection_labels:
+          # Split by newlines and process each label
+          labels_list = [label.strip() for label in detection_labels.split('\n') if label.strip()]
+          log.info(f"Detection labels: {labels_list}")
+          success, error = update_detection_labels(cam_inst, labels_list)
+          if not success:
+            messages.warning(request, f"Detection labels saved to database, but failed to publish to MQTT: {error}")
         if cam_inst.use_camera_pipeline and not cam_inst.camera_pipeline:
           form.add_error(None, f"ERROR! Camera Pipeline field cannot be empty if 'Use Camera Pipeline' is enabled.")
 
