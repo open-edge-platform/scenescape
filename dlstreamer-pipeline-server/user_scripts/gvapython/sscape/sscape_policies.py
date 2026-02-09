@@ -60,6 +60,9 @@ def classificationPolicy(pobj, item, fw, fh):
     name = tensor.get('name','')
     if name and name != 'detection' and tensor.get('layer_name') != 'reid_embedding':
       categories[name] = tensor.get('label','')
+      confidence = tensor.get('confidence')
+      if confidence is not None:
+        categories[f'{name}_model_confidence'] = confidence
   pobj.update(categories)
   return
 
