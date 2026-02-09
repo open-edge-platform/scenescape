@@ -56,6 +56,7 @@ CONTROLLER_METRICS_EXPORT_INTERVAL_S ?= 60
 CONTROLLER_ENABLE_TRACING ?= false
 CONTROLLER_TRACING_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
 CONTROLLER_TRACING_SAMPLE_RATIO ?= 1.0
+CONTROLLER_ENABLE_ANALYTICS_ONLY ?= false
 
 # ========================= Default Target ===========================
 
@@ -391,6 +392,14 @@ run_basic_acceptance_tests: setup_tests
 	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
+.PHONY: run_stability_tests
+run_stability_tests: setup_tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running stability tests..."
+	$(eval HOURS ?= 24)
+	$(MAKE) --trace -C tests system-stability -j 1 SUPASS=$(SUPASS) HOURS=$(HOURS) SECRETSDIR=$(CURDIR)/manager/secrets || (echo "Stability tests failed" && exit 1)
+	@echo "DONE ==> Running stability tests"
+
 # Temp K8s BAT target
 .PHONY: run_basic_acceptance_tests_k8s
 run_basic_acceptance_tests_k8s: setup_tests
@@ -568,6 +577,7 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "CONTROLLER_ENABLE_TRACING=$(CONTROLLER_ENABLE_TRACING)" >> $@
 	@echo "CONTROLLER_TRACING_ENDPOINT=$(CONTROLLER_TRACING_ENDPOINT)" >> $@
 	@echo "CONTROLLER_TRACING_SAMPLE_RATIO=$(CONTROLLER_TRACING_SAMPLE_RATIO)" >> $@
+	@echo "CONTROLLER_ENABLE_ANALYTICS_ONLY=$(CONTROLLER_ENABLE_ANALYTICS_ONLY)" >> $@
 # ======================= Secrets Management =========================
 
 .PHONY: init-secrets

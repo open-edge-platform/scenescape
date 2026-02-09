@@ -1,0 +1,93 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Test environment for tracker service
+# Supports both TLS and non-TLS modes via environment variables:
+#   - TRACKER_MQTT_INSECURE=true (default): non-TLS on port 1883
+#   - TRACKER_MQTT_INSECURE=false: TLS on port 8883, requires cert secrets
+
+services:
+  broker:
+    image: eclipse-mosquitto:2.0.22
+    ports:
+      - "1883" # Dynamic host port for non-TLS
+      - "8883" # Dynamic host port for TLS
+    secrets:
+      - source: ca_cert
+        target: /mosquitto/certs/ca.crt
+      - source: server_cert
+        target: /mosquitto/certs/server.crt
+      - source: server_key
+        target: /mosquitto/certs/server.key
+        mode: 0400
+    configs:
+      - source: mosquitto-config
+        target: /mosquitto/config/mosquitto.conf
+    restart: no
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    configs:
+      - source: otel-config
+        target: /etc/otelcol-contrib/config.yaml
+    restart: no
+
+  tracker:
+    image: scenescape-tracker:${VERSION:-latest}
+    environment:
+      - TRACKER_LOG_LEVEL=${TRACKER_LOG_LEVEL:-debug}
+      - TRACKER_HEALTHCHECK_PORT=${TRACKER_HEALTHCHECK_PORT:-8080}
+      - TRACKER_MQTT_HOST=broker
+      - TRACKER_MQTT_PORT=${TRACKER_MQTT_PORT:-1883}
+      - TRACKER_MQTT_INSECURE=${TRACKER_MQTT_INSECURE:-true}
+      - TRACKER_MQTT_TLS_CA_CERT=${TRACKER_MQTT_TLS_CA_CERT:-}
+      - TRACKER_MQTT_TLS_CLIENT_CERT=${TRACKER_MQTT_TLS_CLIENT_CERT:-}
+      - TRACKER_MQTT_TLS_CLIENT_KEY=${TRACKER_MQTT_TLS_CLIENT_KEY:-}
+      # Override host proxy settings - Paho MQTT dont respect no_proxy var, so as a WA
+      # tracker code detects empty vars and unsets them (see mqtt_client.cpp clearEmptyProxyVars)
+      - http_proxy=
+      - https_proxy=
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+    secrets:
+      - source: ca_cert
+        target: /run/secrets/ca_cert
+      - source: client_cert
+        target: /run/secrets/client_cert
+      - source: client_key
+        target: /run/secrets/client_key
+        mode: 0400
+    configs:
+      - source: tracker-config
+        target: /scenescape/config/tracker.json
+    depends_on:
+      - broker
+      - otel-collector
+    healthcheck:
+      test: ["CMD", "/scenescape/tracker", "healthcheck"]
+      interval: 1s
+      timeout: 1s
+      retries: 10
+      start_period: 5s
+    stop_grace_period: 5s
+    restart: no
+
+secrets:
+  ca_cert:
+    file: ${TLS_CA_CERT_FILE:-/dev/null}
+  server_cert:
+    file: ${TLS_SERVER_CERT_FILE:-/dev/null}
+  server_key:
+    file: ${TLS_SERVER_KEY_FILE:-/dev/null}
+  client_cert:
+    file: ${TLS_CLIENT_CERT_FILE:-/dev/null}
+  client_key:
+    file: ${TLS_CLIENT_KEY_FILE:-/dev/null}
+
+configs:
+  mosquitto-config:
+    file: ./mosquitto.conf
+  otel-config:
+    file: ./otel-collector-config.yaml
+  tracker-config:
+    file: ../../config/tracker.json
