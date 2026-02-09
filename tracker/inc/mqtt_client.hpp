@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "callback_guard.hpp"
 #include "config_loader.hpp"
 
 #include <atomic>
@@ -198,27 +199,21 @@ public:
 
 private:
     /**
-     * @brief RAII guard for Paho callbacks - tracks in-flight count and checks shutdown.
+     * @brief Execute a callback body with shutdown guard.
      *
-     * Increments callbacks_in_flight_ on construction, decrements on destruction.
-     * Use shouldSkip() to check if callback should early-return due to shutdown.
+     * Creates a CallbackGuard, checks shouldSkip(), and invokes fn() only
+     * if shutdown has not been requested. Centralizes the guard pattern
+     * used by all Paho callback methods.
+     *
+     * @param fn Callable to invoke if not shutting down
      */
-    class CallbackGuard {
-    public:
-        explicit CallbackGuard(MqttClient* client)
-            : counter_(client->callbacks_in_flight_), should_skip_(client->stop_requested_.load()) {
-            ++counter_;
+    template <typename F>
+    void withGuard(F&& fn) {
+        CallbackGuard guard(callbacks_in_flight_, stop_requested_);
+        if (!guard.shouldSkip()) {
+            std::forward<F>(fn)();
         }
-        ~CallbackGuard() { --counter_; }
-        [[nodiscard]] bool shouldSkip() const { return should_skip_; }
-
-        CallbackGuard(const CallbackGuard&) = delete;
-        CallbackGuard& operator=(const CallbackGuard&) = delete;
-
-    private:
-        std::atomic<int>& counter_;
-        bool should_skip_;
-    };
+    }
 
     // mqtt::callback interface
     void connected(const std::string& cause) override;
