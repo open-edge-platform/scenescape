@@ -6,10 +6,9 @@
 #include "topic_utils.hpp"
 
 #include <chrono>
-#include <ctime>
+#include <cstdio>
 #include <format>
 #include <fstream>
-#include <iomanip>
 #include <string_view>
 
 #include <rapidjson/document.h>
@@ -394,34 +393,33 @@ bool MessageHandler::isMessageLagged(const std::string& timestamp_iso) const {
 std::optional<std::chrono::system_clock::time_point>
 MessageHandler::parseTimestamp(const std::string& timestamp_iso) {
     // Parse ISO 8601 format: "2026-01-20T10:05:01.482Z"
-    std::tm tm = {};
-    std::istringstream ss(timestamp_iso);
+    // Using sscanf for simple parsing, C++20 chrono for portable UTC handling
+    int year, month, day, hour, minute, second, millis = 0;
 
-    // Try parsing with milliseconds
-    ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S");
-    if (ss.fail()) {
+    // Try parsing with milliseconds (format: YYYY-MM-DDTHH:MM:SS.mmm)
+    int parsed = std::sscanf(timestamp_iso.c_str(), "%d-%d-%dT%d:%d:%d.%d", &year, &month, &day,
+                             &hour, &minute, &second, &millis);
+
+    if (parsed < 6) {
+        // Try with space separator instead of 'T'
+        parsed = std::sscanf(timestamp_iso.c_str(), "%d-%d-%d %d:%d:%d.%d", &year, &month, &day,
+                             &hour, &minute, &second, &millis);
+    }
+
+    if (parsed < 6) {
         return std::nullopt;
     }
 
-    // Convert to time_point (assuming UTC)
-    auto time_c = std::mktime(&tm);
-    if (time_c == -1) {
+    // Construct time_point using C++20 chrono calendar types (UTC, no timezone conversion)
+    using namespace std::chrono;
+    auto ymd =
+        year_month_day{std::chrono::year{year}, std::chrono::month{static_cast<unsigned>(month)},
+                       std::chrono::day{static_cast<unsigned>(day)}};
+    if (!ymd.ok())
         return std::nullopt;
-    }
 
-    // Adjust for timezone (mktime assumes local time, but we have UTC)
-    time_c = timegm(&tm);
-
-    auto tp = std::chrono::system_clock::from_time_t(time_c);
-
-    // Parse optional milliseconds
-    char dot;
-    int millis = 0;
-    if (ss >> dot && dot == '.') {
-        ss >> millis;
-        tp += std::chrono::milliseconds(millis);
-    }
-
+    auto tp =
+        sys_days{ymd} + hours{hour} + minutes{minute} + seconds{second} + milliseconds{millis};
     return tp;
 }
 
