@@ -289,110 +289,94 @@ bool MqttClient::isSubscribed() const {
 // mqtt::callback interface implementation
 
 void MqttClient::connected(const std::string& cause) {
-    CallbackGuard guard(this);
-    if (guard.shouldSkip()) {
-        return;
-    }
+    withGuard([&] {
+        LOG_INFO_ENTRY(LogEntry("MQTT connected")
+                           .component("mqtt")
+                           .operation(cause.empty() ? "initial connection" : cause));
+        connected_ = true;
 
-    LOG_INFO_ENTRY(LogEntry("MQTT connected")
-                       .component("mqtt")
-                       .operation(cause.empty() ? "initial connection" : cause));
-    connected_ = true;
+        // Wake up reconnect worker so it exits immediately
+        reconnect_cv_.notify_all();
 
-    // Wake up reconnect worker so it exits immediately
-    reconnect_cv_.notify_all();
-
-    // Re-subscribe to all pending subscriptions
-    {
-        std::lock_guard<std::mutex> lock(subscriptions_mutex_);
-        for (const auto& topic : pending_subscriptions_) {
-            try {
-                client_->subscribe(topic, MQTT_QOS, nullptr, *this);
-                LOG_DEBUG_ENTRY(LogEntry("MQTT subscribe request queued")
-                                    .component("mqtt")
-                                    .mqtt({.topic = topic, .direction = "subscribe"}));
-            } catch (const mqtt::exception& e) {
-                LOG_ERROR("MQTT subscribe failed for {}: {}", topic, e.what());
+        // Re-subscribe to all pending subscriptions
+        {
+            std::lock_guard<std::mutex> lock(subscriptions_mutex_);
+            for (const auto& topic : pending_subscriptions_) {
+                try {
+                    client_->subscribe(topic, MQTT_QOS, nullptr, *this);
+                    LOG_DEBUG_ENTRY(LogEntry("MQTT subscribe request queued")
+                                        .component("mqtt")
+                                        .mqtt({.topic = topic, .direction = "subscribe"}));
+                } catch (const mqtt::exception& e) {
+                    LOG_ERROR("MQTT subscribe failed for {}: {}", topic, e.what());
+                }
             }
         }
-    }
+    });
 }
 
 void MqttClient::connection_lost(const std::string& cause) {
-    CallbackGuard guard(this);
-    if (guard.shouldSkip()) {
-        return;
-    }
-
-    LOG_WARN("MQTT connection lost: {}", cause.empty() ? "unknown" : cause);
-    connected_ = false;
-    subscribed_ = false;
-
-    scheduleReconnect();
+    withGuard([&] {
+        LOG_WARN("MQTT connection lost: {}", cause.empty() ? "unknown" : cause);
+        connected_ = false;
+        subscribed_ = false;
+        scheduleReconnect();
+    });
 }
 
 void MqttClient::message_arrived(mqtt::const_message_ptr msg) {
-    CallbackGuard guard(this);
-    if (guard.shouldSkip()) {
-        return;
-    }
+    withGuard([&] {
+        LOG_DEBUG_ENTRY(LogEntry("MQTT message received")
+                            .component("mqtt")
+                            .mqtt({.topic = msg->get_topic(), .direction = "receive"}));
 
-    LOG_DEBUG_ENTRY(LogEntry("MQTT message received")
-                        .component("mqtt")
-                        .mqtt({.topic = msg->get_topic(), .direction = "receive"}));
-
-    std::lock_guard<std::mutex> lock(callback_mutex_);
-    if (message_callback_) {
-        message_callback_(msg->get_topic(), msg->get_payload_str());
-    }
+        std::lock_guard<std::mutex> lock(callback_mutex_);
+        if (message_callback_) {
+            message_callback_(msg->get_topic(), msg->get_payload_str());
+        }
+    });
 }
 
 // mqtt::iaction_listener interface implementation
 
 void MqttClient::on_success(const mqtt::token& tok) {
-    CallbackGuard guard(this);
-    if (guard.shouldSkip()) {
-        return;
-    }
-
-    if (tok.get_type() == mqtt::token::Type::CONNECT) {
-        // Note: connected() callback already logs, skip duplicate here
-        LOG_DEBUG("MQTT connect token completed");
-    } else if (tok.get_type() == mqtt::token::Type::SUBSCRIBE) {
-        // Get topics from token (Paho stores them on subscribe tokens)
-        auto topics = tok.get_topics();
-        if (topics && !topics->empty()) {
-            for (const auto& topic : *topics) {
-                LOG_INFO_ENTRY(LogEntry("MQTT subscription successful")
-                                   .component("mqtt")
-                                   .mqtt({.topic = topic, .direction = "subscribe"}));
+    withGuard([&] {
+        if (tok.get_type() == mqtt::token::Type::CONNECT) {
+            // Note: connected() callback already logs, skip duplicate here
+            LOG_DEBUG("MQTT connect token completed");
+        } else if (tok.get_type() == mqtt::token::Type::SUBSCRIBE) {
+            // Get topics from token (Paho stores them on subscribe tokens)
+            auto topics = tok.get_topics();
+            if (topics && !topics->empty()) {
+                for (const auto& topic : *topics) {
+                    LOG_INFO_ENTRY(LogEntry("MQTT subscription successful")
+                                       .component("mqtt")
+                                       .mqtt({.topic = topic, .direction = "subscribe"}));
+                }
+            } else {
+                LOG_INFO_ENTRY(LogEntry("MQTT subscription successful").component("mqtt"));
             }
-        } else {
-            LOG_INFO_ENTRY(LogEntry("MQTT subscription successful").component("mqtt"));
+            subscribed_ = true;
         }
-        subscribed_ = true;
-    }
+    });
 }
 
 void MqttClient::on_failure(const mqtt::token& tok) {
-    CallbackGuard guard(this);
-    if (guard.shouldSkip()) {
-        return;
-    }
+    withGuard([&] {
+        int rc = tok.get_return_code(); // Use return_code, not reason_code (v5 only)
+        int msg_id = tok.get_message_id();
+        int token_type = static_cast<int>(tok.get_type());
+        std::string err_msg = tok.get_error_message();
 
-    int rc = tok.get_return_code(); // Use return_code, not reason_code (v5 only)
-    int msg_id = tok.get_message_id();
-    int token_type = static_cast<int>(tok.get_type());
-    std::string err_msg = tok.get_error_message();
+        LOG_ERROR("MQTT action failed: type={}, rc={}, msg_id={}, error='{}'", token_type, rc,
+                  msg_id, err_msg);
 
-    LOG_ERROR("MQTT action failed: type={}, rc={}, msg_id={}, error='{}'", token_type, rc, msg_id,
-              err_msg);
-
-    if (tok.get_type() == mqtt::token::Type::CONNECT) {
-        scheduleReconnect();
-    } else if (tok.get_type() == mqtt::token::Type::SUBSCRIBE) {
-        subscribed_ = false;
-    }
+        if (tok.get_type() == mqtt::token::Type::CONNECT) {
+            scheduleReconnect();
+        } else if (tok.get_type() == mqtt::token::Type::SUBSCRIBE) {
+            subscribed_ = false;
+        }
+    });
 }
 
 void MqttClient::scheduleReconnect() {
