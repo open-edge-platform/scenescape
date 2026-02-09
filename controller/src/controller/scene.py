@@ -571,16 +571,27 @@ class Scene(SceneModel):
       tripwireObjects = tripwire.objects.get(detectionType, [])
       objects = []
       for obj in curObjects:
-        if obj.when is None:
-          continue
-        age = now - obj.when
-        if obj.frameCount > 3 \
-           and len(obj.chain_data.publishedLocations) > 1:
+        # In Analytics Only mode, skip objects without valid timestamp or insufficient location history
+        if ControllerMode.isAnalyticsOnly():
+          if obj.when is None or len(obj.chain_data.publishedLocations) < 2:
+            continue
           d = tripwire.lineCrosses(Line(obj.chain_data.publishedLocations[0].as2Dxy,
                                         obj.chain_data.publishedLocations[1].as2Dxy))
           if d != 0:
             event = TripwireEvent(obj, -d)
             objects.append(event)
+        else:
+          # Default mode: keep original implementation with frameCount check
+          if obj.when is None:
+            continue
+          age = now - obj.when
+          if obj.frameCount > 3 \
+             and len(obj.chain_data.publishedLocations) > 1:
+            d = tripwire.lineCrosses(Line(obj.chain_data.publishedLocations[0].as2Dxy,
+                                          obj.chain_data.publishedLocations[1].as2Dxy))
+            if d != 0:
+              event = TripwireEvent(obj, -d)
+              objects.append(event)
 
       if len(tripwireObjects) != len(objects) \
          and now - tripwire.when > DEBOUNCE_DELAY:
