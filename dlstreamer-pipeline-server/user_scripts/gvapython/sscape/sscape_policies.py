@@ -51,6 +51,15 @@ def reidPolicy(pobj, item, fw, fh, _cache={}):
     reid_vector = item['tensors'][reid_idx]['data']
     v = struct.pack("256f", *reid_vector)
     pobj['reid'] = base64.b64encode(v).decode('utf-8')
+
+  # Extract additional classification labels (similar to classificationPolicy)
+  categories = {}
+  for tensor in item.get('tensors', [{}]):
+    name = tensor.get('name','')
+    if name and name != 'detection' and tensor.get('layer_name') != 'reid_embedding':
+      categories[name] = tensor.get('label','')
+  pobj.update(categories)
+
   return
 
 def classificationPolicy(pobj, item, fw, fh):
