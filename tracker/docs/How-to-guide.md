@@ -25,6 +25,7 @@ docker compose --profile analytics --profile tracker up -d
 ```
 
 Notes:
+
 - The `analytics` profile sets `CONTROLLER_ENABLE_ANALYTICS_ONLY=true` in the compose file.
 - If you also need experimental services (mapping, cluster-analytics), add `--profile experimental`.
 
@@ -55,6 +56,7 @@ make demo-all
 ```
 
 What `demo-all` does:
+
 - Runs `make build-all` to build all images (core + experimental)
 - Runs `make init-sample-data` to prepare volumes and sample files
 - Invokes the compose helper with: `--profile analytics --profile tracker --profile experimental`

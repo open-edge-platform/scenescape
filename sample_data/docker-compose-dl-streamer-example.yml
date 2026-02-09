@@ -39,8 +39,7 @@ secrets:
   mapping-key:
     file: ${SECRETSDIR}/certs/scenescape-mapping.key
 
-x-controller-base:
-  &controller-base
+x-controller-base: &controller-base
   image: scenescape-controller:${VERSION:-latest}
   init: true
   user: "${UID:-1000}:${GID:-1000}"
