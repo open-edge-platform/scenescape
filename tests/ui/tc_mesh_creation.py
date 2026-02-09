@@ -35,6 +35,9 @@ def create_mesh_from_cameras(browser):
     alert_text = alert.text
     assert alert_text == 'Mesh generated successfully! The scene map has been updated.'
     alert.accept()
+    link = browser.find_element(By.CSS_SELECTOR, "#map_wrapper a")
+    href = link.get_attribute("href")
+    print(href)
   except TimeoutException:
     print("No alert appeared")
   return
@@ -47,6 +50,9 @@ def create_mesh_from_video(browser, video_file):
     alert_text = alert.text
     assert alert_text == 'Mesh generated successfully! The scene map has been updated.'
     alert.accept()
+    link = browser.find_element(By.CSS_SELECTOR, "#map_wrapper a")
+    href = link.get_attribute("href")
+    print(href)
   except TimeoutException:
     print("No alert appeared")
   return
