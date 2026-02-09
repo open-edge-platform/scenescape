@@ -135,14 +135,14 @@ TrackingWorker* TimeChunkScheduler::get_or_create_worker(const TrackingScope& sc
         return nullptr;
     }
 
-    // Look up scene name
-    std::string scene_name = scope.scene_id; // Default to ID if not found
+    // Look up scene display name (may fall back to scene_id if not found)
+    std::string scene_display_name = scope.scene_id;
     if (const auto* scene = registry_.find_scene_by_id(scope.scene_id)) {
-        scene_name = scene->name;
+        scene_display_name = scene->name;
     }
 
     // Create new worker
-    auto worker = std::make_unique<TrackingWorker>(scope, scene_name, kWorkerQueueCapacity,
+    auto worker = std::make_unique<TrackingWorker>(scope, scene_display_name, kWorkerQueueCapacity,
                                                    publish_callback_);
 
     LOG_INFO("Created TrackingWorker for scope {}/{} (total workers: {})", scope.scene_id,
