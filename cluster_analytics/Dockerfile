@@ -22,6 +22,9 @@ ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# Update and upgrade base OS packages
+RUN apt update && apt upgrade -y
+
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -33,9 +36,12 @@ RUN : \
     && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER \
     && usermod -a -G video,users $WSUSER
 
-COPY cluster_analytics/requirements-runtime.txt cluster_analytics/tools/webui/requirements-webui.txt /tmp/
+# Upgrade pip, wheel and setuptools to latest versions
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir \
+    && pip install --no-cache-dir --upgrade setuptools wheel
+
+COPY cluster_analytics/requirements-runtime.txt cluster_analytics/tools/webui/requirements-webui.txt /tmp/
+RUN pip install --no-cache-dir \
         -r /tmp/requirements-runtime.txt \
         -r /tmp/requirements-webui.txt \
     && rm -rf /tmp/*.txt

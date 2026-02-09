@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scenescape.intel.com/tracker/schema/config.schema.json",
+  "title": "Tracker Service Configuration",
+  "description": "Main configuration file for Tracker Service.",
+  "type": "object",
+  "required": ["infrastructure", "scenes"],
+  "examples": [
+    {
+      "infrastructure": {
+        "mqtt": {
+          "host": "manager.scenescape.intel.com",
+          "port": 8883,
+          "tls": {
+            "ca_cert_path": "/run/secrets/ca-cert",
+            "client_cert_path": "/run/secrets/client-cert",
+            "client_key_path": "/run/secrets/client-key"
+          }
+        },
+        "manager": {
+          "url": "https://manager.scenescape.intel.com",
+          "username_path": "/run/secrets/manager-username",
+          "password_path": "/run/secrets/manager-password"
+        }
+      }
+    },
+    {
+      "infrastructure": {
+        "mqtt": {
+          "host": "localhost",
+          "port": 1883,
+          "insecure": true
+        }
+      },
+      "scenes": {
+        "source": "file",
+        "file_path": "scenes.json"
+      }
+    }
+  ],
+  "properties": {
+    "infrastructure": {
+      "type": "object",
+      "description": "External service connections",
+      "required": ["mqtt"],
+      "properties": {
+        "mqtt": {
+          "type": "object",
+          "description": "MQTT broker connection settings",
+          "required": ["host", "port"],
+          "properties": {
+            "host": {
+              "type": "string",
+              "description": "Broker hostname or IP address"
+            },
+            "port": {
+              "type": "integer",
+              "description": "Broker port (typically 1883 for TCP, 8883 for TLS)"
+            },
+            "insecure": {
+              "type": "boolean",
+              "description": "Disable TLS for unencrypted connections (development only)",
+              "default": false
+            },
+            "tls": {
+              "type": "object",
+              "description": "TLS certificate settings for secure connections",
+              "properties": {
+                "ca_cert_path": {
+                  "type": "string",
+                  "description": "Path to CA certificate file"
+                },
+                "client_cert_path": {
+                  "type": "string",
+                  "description": "Path to client certificate file"
+                },
+                "client_key_path": {
+                  "type": "string",
+                  "description": "Path to client private key file"
+                },
+                "verify_server": {
+                  "type": "boolean",
+                  "description": "Verify server certificate",
+                  "default": true
+                }
+              }
+            }
+          }
+        },
+        "manager": {
+          "type": "object",
+          "description": "Manager REST API connection for fetching scene configurations. Required when scenes.source is 'api' or omitted.",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "Manager API base URL"
+            },
+            "username_path": {
+              "type": "string",
+              "description": "Path to file containing API username"
+            },
+            "password_path": {
+              "type": "string",
+              "description": "Path to file containing API password"
+            }
+          },
+          "required": ["url", "username_path", "password_path"]
+        },
+        "otlp": {
+          "type": "object",
+          "description": "OpenTelemetry collector connection (shared by metrics and tracing). Note: Secure (TLS) connections are not yet supported.",
+          "properties": {
+            "endpoint": {
+              "type": "string",
+              "description": "OTLP gRPC endpoint (e.g., localhost:4317)"
+            },
+            "insecure": {
+              "type": "boolean",
+              "description": "Use insecure (non-TLS) connection. Must be true (secure not yet supported).",
+              "default": true
+            }
+          },
+          "required": ["endpoint"]
+        },
+        "tracker": {
+          "type": "object",
+          "description": "Tracker service internal settings",
+          "properties": {
+            "healthcheck": {
+              "type": "object",
+              "description": "HTTP healthcheck server settings for Kubernetes probes",
+              "properties": {
+                "port": {
+                  "type": "integer",
+                  "description": "Port for healthcheck HTTP server (/healthz, /readyz endpoints)",
+                  "default": 8080,
+                  "minimum": 1024,
+                  "maximum": 65535
+                }
+              }
+            },
+            "schema_validation": {
+              "type": "boolean",
+              "description": "Enable JSON schema validation for incoming and outgoing MQTT messages. Disable for performance in production if profiling shows message parsing is a bottleneck.",
+              "default": true
+            }
+          }
+        }
+      }
+    },
+    "observability": {
+      "type": "object",
+      "description": "Logging and telemetry settings",
+      "properties": {
+        "logging": {
+          "type": "object",
+          "description": "Logging configuration",
+          "properties": {
+            "level": {
+              "type": "string",
+              "description": "Log level",
+              "enum": ["trace", "debug", "info", "warning", "error"],
+              "default": "info"
+            }
+          }
+        },
+        "metrics": {
+          "type": "object",
+          "description": "OpenTelemetry metrics export settings. Requires infrastructure.otlp to be configured.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable OpenTelemetry metrics export",
+              "default": false
+            },
+            "export_interval_s": {
+              "type": "integer",
+              "description": "Metrics export interval in seconds",
+              "default": 60,
+              "minimum": 1
+            }
+          }
+        },
+        "tracing": {
+          "type": "object",
+          "description": "OpenTelemetry distributed tracing settings. Requires infrastructure.otlp to be configured.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable OpenTelemetry distributed tracing",
+              "default": false
+            }
+          }
+        }
+      }
+    },
+    "tracking": {
+      "type": "object",
+      "description": "Tracking algorithm parameters",
+      "properties": {
+        "max_lag_s": {
+          "type": "number",
+          "description": "Maximum lag allowed for MQTT detection frames in seconds. Frames arriving with greater lag will be dropped.",
+          "default": 1.0,
+          "minimum": 0
+        },
+        "max_unreliable_time_s": {
+          "type": "number",
+          "description": "Time in seconds before a track becomes reliable and is published. Filters out spurious detections.",
+          "default": 1.0,
+          "minimum": 0
+        },
+        "non_measurement_time_dynamic_s": {
+          "type": "number",
+          "description": "Time in seconds before deleting a track for a dynamic (moving) object that stopped receiving measurements.",
+          "default": 0.8,
+          "minimum": 0
+        },
+        "non_measurement_time_static_s": {
+          "type": "number",
+          "description": "Time in seconds before deleting a track for a static object that stopped receiving measurements.",
+          "default": 1.6,
+          "minimum": 0
+        },
+        "time_chunking_rate_fps": {
+          "type": "integer",
+          "description": "Rate at which the tracker processes batched detections from all cameras. Higher values reduce latency but increase CPU usage.",
+          "default": 15,
+          "minimum": 1,
+          "maximum": 60
+        }
+      }
+    },
+    "scenes": {
+      "type": "object",
+      "description": "Scene configuration source. Use 'file' to load scenes from an external JSON file (default). Use 'api' to fetch scenes dynamically from Manager REST API (requires infrastructure.manager, not yet implemented).",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "Configuration source: file (from JSON file) or api (from Manager REST API)",
+          "enum": ["file", "api"],
+          "default": "file"
+        },
+        "file_path": {
+          "type": "string",
+          "description": "Path to scene definitions JSON file (relative to config file directory or absolute). Required when source=file."
+        }
+      },
+      "if": {
+        "properties": { "source": { "const": "file" } }
+      },
+      "then": {
+        "required": ["file_path"]
+      }
+    }
+  },
+  "additionalProperties": false
+}

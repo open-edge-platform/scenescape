@@ -1,0 +1,90 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Clean",
+            "type": "shell",
+            "command": "make",
+            "args": ["clean"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "silent"
+            }
+        },
+        {
+            "label": "Build Debug",
+            "type": "shell",
+            "command": "make",
+            "args": ["build-debug"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "reveal": "silent",
+                "revealProblems": "onProblem"
+            }
+        },
+        {
+            "label": "Generate Debug Env",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "source build-debug/conanrun.sh && echo \"LD_LIBRARY_PATH=build-debug/robot_vision:${LD_LIBRARY_PATH}\" > build-debug/debug.env"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "silent"
+            }
+        },
+        {
+            "label": "Prepare Native Debug",
+            "dependsOn": ["Clean", "Build Debug", "Generate Debug Env"],
+            "dependsOrder": "sequence",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build Debug Image",
+            "type": "shell",
+            "command": "make",
+            "args": ["build-image-debug"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always"
+            }
+        },
+        {
+            "label": "Start Debug Container",
+            "type": "shell",
+            "command": "make",
+            "args": ["run-image-debug"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always"
+            }
+        },
+        {
+            "label": "Prepare Container Debug",
+            "dependsOn": ["Clean", "Build Debug Image", "Start Debug Container"],
+            "dependsOrder": "sequence",
+            "problemMatcher": []
+        }
+    ]
+}
