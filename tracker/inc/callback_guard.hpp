@@ -21,34 +21,34 @@ namespace tracker {
  */
 class CallbackGuard {
 public:
-  /**
-   * @brief Construct guard, atomically incrementing in-flight counter.
-   *
-   * @param counter Atomic counter tracking active callbacks
-   * @param stop_flag Atomic flag indicating shutdown in progress
-   */
-  explicit CallbackGuard(std::atomic<int>& counter, const std::atomic<bool>& stop_flag)
-      : counter_(counter), should_skip_(stop_flag.load()) {
-    ++counter_;
-  }
+    /**
+     * @brief Construct guard, atomically incrementing in-flight counter.
+     *
+     * @param counter Atomic counter tracking active callbacks
+     * @param stop_flag Atomic flag indicating shutdown in progress
+     */
+    explicit CallbackGuard(std::atomic<int>& counter, const std::atomic<bool>& stop_flag)
+        : counter_(counter), should_skip_(stop_flag.load()) {
+        ++counter_;
+    }
 
-  ~CallbackGuard() { --counter_; }
+    ~CallbackGuard() { --counter_; }
 
-  /**
-   * @brief Check if the callback should early-return due to shutdown.
-   *
-   * Value is captured at construction time and does not change.
-   */
-  [[nodiscard]] bool shouldSkip() const { return should_skip_; }
+    /**
+     * @brief Check if the callback should early-return due to shutdown.
+     *
+     * Value is captured at construction time and does not change.
+     */
+    [[nodiscard]] bool shouldSkip() const { return should_skip_; }
 
-  CallbackGuard(const CallbackGuard&) = delete;
-  CallbackGuard& operator=(const CallbackGuard&) = delete;
-  CallbackGuard(CallbackGuard&&) = delete;
-  CallbackGuard& operator=(CallbackGuard&&) = delete;
+    CallbackGuard(const CallbackGuard&) = delete;
+    CallbackGuard& operator=(const CallbackGuard&) = delete;
+    CallbackGuard(CallbackGuard&&) = delete;
+    CallbackGuard& operator=(CallbackGuard&&) = delete;
 
 private:
-  std::atomic<int>& counter_;
-  bool should_skip_;
+    std::atomic<int>& counter_;
+    bool should_skip_;
 };
 
 } // namespace tracker
