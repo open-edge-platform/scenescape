@@ -108,19 +108,24 @@ struct TrackMessage {
     std::vector<Track> tracks;
 };
 
-// Type aliases for buffer structures
-using CameraMap = std::unordered_map<std::string, DetectionBatch>; ///< camera_id → batch
-using BufferMap = std::unordered_map<TrackingScope, CameraMap>;    ///< scope → cameras
-
-} // namespace tracker
-
-// Hash specialization for TrackingScope (required for unordered_map key)
-template <>
-struct std::hash<tracker::TrackingScope> {
-    auto operator()(const tracker::TrackingScope& s) const noexcept -> std::size_t {
+/**
+ * @brief Hash functor for TrackingScope.
+ *
+ * Defined as a custom functor in tracker namespace rather than specializing
+ * std::hash, which is safer and clearer per C++ coding guidelines.
+ */
+struct TrackingScopeHash {
+    auto operator()(const TrackingScope& s) const noexcept -> std::size_t {
         const auto h1 = std::hash<std::string>{}(s.scene_id);
         const auto h2 = std::hash<std::string>{}(s.category);
         // XOR-shift combine (matches implementation.md)
         return h1 ^ (h2 * 0x9e3779b97f4a7c15ULL + (h1 << 6) + (h1 >> 2));
     }
 };
+
+// Type aliases for buffer structures
+using CameraMap = std::unordered_map<std::string, DetectionBatch>; ///< camera_id → batch
+using BufferMap =
+    std::unordered_map<TrackingScope, CameraMap, TrackingScopeHash>; ///< scope → cameras
+
+} // namespace tracker

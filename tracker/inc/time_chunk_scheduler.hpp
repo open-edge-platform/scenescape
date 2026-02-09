@@ -133,7 +133,7 @@ private:
     std::condition_variable cv_;
 
     mutable std::mutex workers_mutex_;
-    std::unordered_map<TrackingScope, std::unique_ptr<TrackingWorker>> workers_;
+    std::unordered_map<TrackingScope, std::unique_ptr<TrackingWorker>, TrackingScopeHash> workers_;
 
     std::atomic<int> dispatched_count_{0};
     std::atomic<int> scope_limit_drops_{0};
