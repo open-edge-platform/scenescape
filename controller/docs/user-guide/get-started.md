@@ -5,7 +5,7 @@
 - The hardware platform must be at least a 10th Generation Intel® Core™ i5 Processor or Intel® Xeon® Scalable processor, with at least 8+GB of RAM and 64+GB of storage.
 - [How to build Scene Controller from source](How-to-build-source.md)
 
-## Running the service using Docker Compose
+## Running the service using Docker
 
 - **Navigate to the Directory**:
 
@@ -16,7 +16,7 @@
 - **Generate secrets**:
 
   ```bash
-  make build-secrets
+  make init-secrets
   ```
 
 - **Start the service**:
@@ -63,3 +63,55 @@
 - **Access scene controller output through MQTT**:
   - Refer to [scene-controller-api.yaml](api-docs/scene-controller-api.yaml) on how to access scene controller output
   - Refer to [scene controller sequence diagram](overview.md#sequence-diagram-scene-controller-workflow)
+
+## Running in Analytics-Only Mode
+
+Analytics-only mode allows the Scene Controller to consume tracked objects from a separate Tracker service via MQTT instead of performing tracking internally. This is useful for distributed deployments where tracking and analytics are handled by separate services.
+
+- **Enable analytics-only mode**:
+
+  Add the `--analytics-only` flag to the docker run command:
+
+  ```bash
+  docker run --rm \
+  --init \
+  --network scenescape \
+  -v scenescape_vol-media:/home/scenescape/SceneScape/media \
+  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
+  -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
+  -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
+  -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
+  --name scene \
+  scenescape-controller \
+  controller \
+  --broker broker.scenescape.intel.com \
+  --ntp ntpserv \
+  --analytics-only
+  ```
+
+  Alternatively, use the environment variable:
+
+  ```bash
+  docker run --rm \
+  --init \
+  --network scenescape \
+  -e CONTROLLER_ENABLE_ANALYTICS_ONLY=true \
+  -v scenescape_vol-media:/home/scenescape/SceneScape/media \
+  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
+  -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
+  -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
+  -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
+  --name scene \
+  scenescape-controller \
+  controller \
+  --broker broker.scenescape.intel.com \
+  --ntp ntpserv
+  ```
+
+- **Note**: In analytics-only mode (experimental feature):
+  - The tracker is not initialized
+  - Camera and scene detection data processing is skipped
+  - The controller subscribes to tracked object data from MQTT topics published by the Tracker service
+  - Analytics processing (regions, tripwires, sensors) continues to function normally
+  - Child scenes are not supported in analytics-only mode
+  - Sensors in Scene not supported and attribute persistence across moving objects not supported on data/scene MQTT topic (data avaliable on events topic).
