@@ -1532,6 +1532,8 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 }
 ```
 
+</details>
+
 <details>
 <summary>GPU</summary>
 
@@ -1621,7 +1623,6 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 
 </details>
 
----
 
 ## Vehicle Re-Identification
 
@@ -2407,55 +2408,6 @@ All examples use FP32 models. For better performance on supported hardware, use 
 ```bash
 model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP16/person-detection-retail-0013.xml
 ```
-
-### GPU Optimization
-
-For GPU pipelines, ensure VA-API surface sharing is enabled:
-```bash
-pre-process-backend=va-surface-sharing
-```
-
-This eliminates memory copies between CPU and GPU, significantly improving performance.
-
----
-
-## Performance Considerations
-
-### CPU vs GPU
-
-- **CPU**: Lower latency, suitable for single-stream or low-resolution scenarios
-- **GPU**: Higher throughput, ideal for multiple streams or high-resolution video
-
-### Memory Usage
-
-ReID embeddings are 256-dimensional float32 vectors (1KB per object). Monitor memory when tracking many objects over time.
-
-### Inference Interval
-
-For scenarios where real-time tracking isn't critical, increase `inference-interval` to reduce computational load:
-- `inference-interval=1`: Every frame (highest accuracy, highest cost)
-- `inference-interval=5`: Every 5th frame (balanced)
-- `inference-interval=10`: Every 10th frame (lowest cost)
-
----
-
-## Metadata Format
-
-### Raw Metadata
-
-Raw metadata includes:
-- Detection bounding boxes and confidence scores
-- Classification results with labels and confidence
-- Tensor data for all inference outputs
-- ReID embeddings as base64-encoded vectors
-
-### SceneScape Metadata
-
-Processed metadata includes:
-- Object tracking IDs
-- Simplified classification results
-- Performance metrics (processing time, frame rate)
-- Optional model confidence scores (e.g., `age_model_confidence`, `gender_model_confidence`)
 
 ---
 
