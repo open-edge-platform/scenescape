@@ -34,6 +34,10 @@ on:
     branches:
       - main
       - release-*
+  pull_request:
+    branches:
+      - main
+      - release-*
 
 # Only run at most 1 workflow concurrently per pushed commit
 concurrency:
@@ -76,7 +80,7 @@ jobs:
       - name: Run Basic Acceptance Tests
         run: |
           make clean-all
-          make run_basic_acceptance_tests
+          make run_basic_acceptance_tests > basic_acceptance_tests.log 2>&1
 
       - name: Upload Logs and Reports
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
@@ -114,7 +118,7 @@ jobs:
       - name: Run Functional Tests
         run: |
           make clean-all
-          make run_functional_tests
+          make run_functional_tests > functional_tests.log 2>&1
 
       - name: Upload Logs and Reports
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
@@ -152,7 +156,7 @@ jobs:
       - name: Run Non-Functional Tests
         run: |
           make clean-all
-          make run_non_functional_tests
+          make run_non_functional_tests > non_functional.log 2>&1
 
       - name: Upload Logs and Reports
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
@@ -190,7 +194,7 @@ jobs:
       - name: Run Metric Tests
         run: |
           make clean-all
-          make run_metric_tests
+          make run_metric_tests > metrics.log 2>&1
 
       - name: Upload Logs and Reports
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
@@ -228,7 +232,7 @@ jobs:
       - name: Run UI Tests
         run: |
           make clean-all
-          make run_ui_tests
+          make run_ui_tests > ui_tests.log 2>&1
 
       - name: Upload Logs and Reports
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
@@ -266,7 +270,7 @@ jobs:
       - name: Run Unit Tests
         run: |
           make clean-all
-          make run_unit_tests
+          make run_unit_tests > unit_tests.log 2>&1
 
       - name: Upload Logs and Reports
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
@@ -275,3 +279,34 @@ jobs:
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
+
+    upload-results:
+      needs: [run_basic_acceptance_tests, run_functional_tests, run_non_functional_tests, run_metric_tests, run_ui_tests, run_unit_tests]
+      runs-on: ubuntu-latest
+      name: "Upload Test Results"
+      if: always()
+      steps:
+        - name: Checkout Repository
+          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+          with:
+            fetch-depth: 0
+            persist-credentials: false
+            ref: ${{ inputs.ref }}
+        - name: Download All Test Artifacts
+          uses: actions/download-artifact@v5
+          path: all_test_artifacts
+        - name: Get all test cases from test files
+          id: get_test_cases
+          run: |
+            grep -rohP "(?<=# )NEX-T[^ ]*" tests/ | sort > all_test_cases.txt
+        - name: Get Tests results
+          id: get_test_results
+          shell: bash
+          run: |
+            touch test_results_summary.txt
+            log_files=("metrics.log" "non_functional.log" "functional_tests.log" "basic_acceptance_tests.log" "ui_tests.log" "unit_tests.log")
+            for log_file in "${log_files[@]}"; do
+              grep -Erh "NEX-T.*: (PASS|FAIL)" $log_file | sed 's/\(NEX-T[0-9]*\)[^:]*\(: .*\)/\1\2/' >> test_results_summary.txt
+            done
+            cat test_results_summary.txt | sort -u -o test_results_summary.txt
+            cat test_results_summary.txt
