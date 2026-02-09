@@ -223,7 +223,8 @@ class SceneController:
             aobj = msg_objects_lookup.get(obj['id'], None)
             if aobj is not None:
               computeCameraBounds(scene_obj, aobj, obj)
-          # In Analytics Only mode, camera bounds are already computed in buildDetectionsList
+          # In Analytics Only mode, camera_bounds is already set in buildDetectionsList;
+          # in other modes we may compute/adjust it above via computeCameraBounds.
           objects.append(obj)
       log.debug(f"Publishing regulated: scene={scene_uid}, objects_count={len(objects)}, types={list(scene['objects'].keys())}")
       new_jdata = {
