@@ -299,8 +299,12 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_RespectsMaxScopesLimit) {
 
     scheduler.start();
 
-    // Wait for some processing
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    // Wait until at least 2 callbacks (the allowed scopes) have fired
+    {
+        std::unique_lock lock(mtx);
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(5), [&] { return callback_count >= 2; }))
+            << "Timed out waiting for callbacks";
+    }
 
     // Should only have 2 workers (max_workers limit)
     EXPECT_LE(scheduler.worker_count(), 2u);
@@ -325,6 +329,7 @@ TEST_F(TimeChunkSchedulerTest, WorkerCount_StartsAtZero) {
 
     scheduler.start();
     // No data in buffer, so no workers should be created
+    // Brief wait with timeout to verify no workers spawn
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     EXPECT_EQ(scheduler.worker_count(), 0u);
 
