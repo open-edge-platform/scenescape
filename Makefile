@@ -547,7 +547,11 @@ demo: build-core init-sample-data
 
 .PHONY: demo-all
 demo-all: build-all init-sample-data
-	$(call start_demo,--profile analytics --profile tracker --profile experimental)
+	$(call start_demo,--profile experimental)
+
+.PHONY: demo-tracker
+demo-tracker: build-all init-sample-data
+	$(call start_demo,--profile analytics --profile tracker)
 
 .PHONY: demo-k8s
 demo-k8s:

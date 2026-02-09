@@ -36,41 +36,34 @@ Notes:
 docker compose --profile analytics --profile tracker down
 ```
 
-### Restart (no rebuild)
+## Start Tracker + Controller (analytics-only) demo with `demo-tracker`
 
-```bash
-export SUPASS=<your-password>
-docker compose --profile analytics --profile tracker up -d
-```
-
-## Start full demo with `demo-all`
-
-The repository `Makefile` provides a `demo-all` target which builds everything, initializes sample data and starts Docker Compose with the `analytics`, `tracker`, and `experimental` profiles.
+The repository `Makefile` provides a `demo-tracker` target which builds everything, initializes sample data and starts Docker Compose with the `analytics` and `tracker` profiles.
 
 Usage:
 
 ```bash
-# Set super-user password then run demo-all
+# Set super-user password then run demo-tracker
 export SUPASS=<your-password>
-make demo-all
+make demo-tracker
 ```
 
-What `demo-all` does:
+What `demo-tracker` does:
 
 - Runs `make build-all` to build all images (core + experimental)
 - Runs `make init-sample-data` to prepare volumes and sample files
-- Invokes the compose helper with: `--profile analytics --profile tracker --profile experimental`
+- Invokes the compose helper with: `--profile analytics --profile tracker`
 
-### Stop the full demo:
+### Stop Tracker + Controller (analytics-only) demo:
 
 ```bash
-docker compose --profile analytics --profile tracker --profile experimental down
+docker compose --profile analytics --profile tracker down
 ```
 
-### Restart the full demo:
+### Restart Tracker + Controller (analytics-only) demo:
 
 ```bash
-docker compose --profile analytics --profile tracker --profile experimental up -d
+docker compose --profile analytics --profile tracker up -d
 ```
 
 ## Related Documentation
