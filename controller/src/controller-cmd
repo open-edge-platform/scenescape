@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
 import os
 
 from controller.scene_controller import SceneController
+from controller.controller_mode import ControllerMode
 from controller.observability import metrics, tracing
 
 def build_argparser():
@@ -43,10 +44,16 @@ def build_argparser():
   parser.add_argument("--visibility_topic", help="Which topic to publish visibility on."
                       "Valid options are 'unregulated', 'regulated', or 'none'",
                       default="regulated")
+  parser.add_argument("--analytics-only", action="store_true",
+                      default=os.getenv("CONTROLLER_ENABLE_ANALYTICS_ONLY") == "true",
+                      help="Enable analytics-only mode. Use this when running a separate Tracker service that publishes tracking data to MQTT.")
   return parser
 
 def main():
   args = build_argparser().parse_args()
+
+  ControllerMode.initialize(analytics_only=args.analytics_only)
+
   metrics.init()
   tracing.init()
   controller = SceneController(args.rewriteBadTime, args.rewriteAllTime,
