@@ -1,12 +1,12 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import itertools
+from types import SimpleNamespace
 from typing import Optional
-
 import numpy as np
-
 import robot_vision as rv
+from controller.controller_mode import ControllerMode
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
@@ -46,7 +46,8 @@ class Scene(SceneModel):
                time_chunking_enabled = False,
                time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
-             non_measurement_time_dynamic, non_measurement_time_static)
+             non_measurement_time_dynamic, non_measurement_time_static,
+             "analytics_only=" + str(ControllerMode.isAnalyticsOnly()))
     super().__init__(name, map_file, scale)
     self.ref_camera_frame_rate = time_chunking_rate_fps if time_chunking_enabled else effective_object_update_rate
     self.max_unreliable_time = max_unreliable_time
@@ -56,9 +57,20 @@ class Scene(SceneModel):
     self.trackerType = None
     self.persist_attributes = {}
     self.time_chunking_rate_fps = time_chunking_rate_fps
-    self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
+
+    if not ControllerMode.isAnalyticsOnly():
+      self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
+    else:
+      log.info("Tracker initialization SKIPPED for scene: " + name)
+
     self._trs_xyz_to_lla = None
-    self.use_tracker = True
+    self.use_tracker = not ControllerMode.isAnalyticsOnly()
+
+    # Cache for tracked objects from MQTT (for analytics)
+    self.tracked_objects_cache = {}
+
+    # Cache for object history (publishedLocations, etc.) to maintain trails across frames
+    self.object_history_cache = {}
 
     # FIXME - only for backwards compatibility
     self.scale = scale
@@ -137,6 +149,9 @@ class Scene(SceneModel):
     return objects
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
+    if ControllerMode.isAnalyticsOnly():
+      return True
+
     camera_id = jdata['id']
     camera = None
 
@@ -155,6 +170,7 @@ class Scene(SceneModel):
     if not hasattr(camera, 'pose'):
       log.info("DISCARDING: camera has no pose")
       return True
+
     for detection_type, detections in jdata['objects'].items():
       if "intrinsics" not in jdata:
         self._convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
@@ -211,6 +227,11 @@ class Scene(SceneModel):
 
   def processSceneData(self, jdata, child, cameraPose,
                        detectionType, when=None):
+
+    if ControllerMode.isAnalyticsOnly():
+      log.debug(f"Analytics-only mode enabled, skipping scene data processing for child {child.name if hasattr(child, 'name') else 'unknown'}")
+      return True
+
     new = jdata['objects']
 
     objects = []
@@ -243,12 +264,13 @@ class Scene(SceneModel):
 
   def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     self._updateVisible(objects)
-    self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
-                              self.ref_camera_frame_rate,
-                              self.max_unreliable_time,
-                              self.non_measurement_time_dynamic,
-                              self.non_measurement_time_static,
-                              self.use_tracker)
+    if not ControllerMode.isAnalyticsOnly():
+      self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
+                                self.ref_camera_frame_rate,
+                                self.max_unreliable_time,
+                                self.non_measurement_time_dynamic,
+                                self.non_measurement_time_static,
+                                self.use_tracker)
     self._updateEvents(detectionType, when)
     return
 
@@ -293,10 +315,129 @@ class Scene(SceneModel):
 
     return True
 
-  def _updateEvents(self, detectionType, now):
+  def updateTrackedObjects(self, detection_type, objects):
+    """
+    Update the cache of tracked objects from MQTT.
+    This is used by Analytics to consume tracked objects published by the Tracker service.
+
+    Args:
+        detection_type: The type of detection (e.g., 'person', 'vehicle')
+        objects: List of tracked objects for this detection type
+    """
+    self.tracked_objects_cache[detection_type] = objects
+    return
+
+  def getTrackedObjects(self, detection_type):
+    """
+    Get tracked objects from cache (MQTT) or direct tracker call.
+
+    Args:
+        detection_type: The type of detection
+
+    Returns:
+        List of tracked objects (MovingObject instances or deserialized object-like structures)
+    """
+    # If analytics-only mode is enabled, only use MQTT cache (from separate Tracker service)
+    if ControllerMode.isAnalyticsOnly():
+      if detection_type in self.tracked_objects_cache:
+        cached_objects = self.tracked_objects_cache[detection_type]
+        return self._deserializeTrackedObjects(cached_objects)
+      return []
+
+    # If tracker is enabled, use direct tracker call (traditional mode)
+    if self.tracker is not None:
+      log.debug(f"Using direct tracker call for detection type: {detection_type}")
+      return self.tracker.currentObjects(detection_type)
+
+    return []
+
+  def _deserializeTrackedObjects(self, serialized_objects):
+    """
+    Convert serialized tracked objects to a format usable by Analytics.
+    This creates lightweight wrappers that mimic MovingObject interface.
+    If objects are already deserialized, returns them as-is.
+
+    Args:
+        serialized_objects: List of serialized object dictionaries or already deserialized objects
+
+    Returns:
+        List of object-like structures with necessary attributes
+    """
+
+    if not serialized_objects or not isinstance(serialized_objects, list):
+      return serialized_objects if serialized_objects else []
+
+    if len(serialized_objects) > 0 and not isinstance(serialized_objects[0], dict):
+      return serialized_objects
+
+    objects = []
+    for obj_data in serialized_objects:
+      if not isinstance(obj_data, dict):
+        continue
+      obj = SimpleNamespace()
+      obj.gid = obj_data.get('id')
+      obj.category = obj_data.get('type', obj_data.get('category'))
+      obj.sceneLoc = Point(obj_data.get('translation', [0, 0, 0]))
+      obj.velocity = Point(obj_data.get('velocity', [0, 0, 0])) if obj_data.get('velocity') else None
+      obj.size = obj_data.get('size')
+      obj.confidence = obj_data.get('confidence')
+      obj.frameCount = obj_data.get('frame_count', 0)
+      obj.rotation = obj_data.get('rotation')
+      obj.reidVector = obj_data.get('reid')
+      obj.similarity = obj_data.get('similarity')
+      obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
+      obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
+
+      if 'first_seen' in obj_data:
+        obj.when = get_epoch_time(obj_data.get('first_seen'))
+        obj.first_seen = obj.when
+      else:
+        obj.when = None
+        obj.first_seen = None
+        log.warning(f"Missing 'first_seen' for object id {obj_data.get('id')}; setting obj.when to None.")
+      obj.visibility = obj_data.get('visibility', [])
+
+      obj.info = {
+        'category': obj.category,
+        'confidence': obj.confidence,
+      }
+
+      if 'center_of_mass' in obj_data:
+        obj.info['center_of_mass'] = obj_data['center_of_mass']
+
+      if 'camera_bounds' in obj_data and obj_data['camera_bounds']:
+        obj._camera_bounds = obj_data['camera_bounds']
+      else:
+        obj._camera_bounds = None
+
+      obj.chain_data = SimpleNamespace()
+      obj.chain_data.regions = obj_data.get('regions', {})
+      obj.chain_data.sensors = obj_data.get('sensors', {})
+      obj.chain_data.persist = obj_data.get('persistent_data', {})
+
+      obj_id = obj.gid
+      if obj_id in self.object_history_cache:
+        obj.chain_data.publishedLocations = self.object_history_cache[obj_id].get('publishedLocations', [])
+      else:
+        obj.chain_data.publishedLocations = []
+        self.object_history_cache[obj_id] = {}
+
+      # Store current object data for next frame
+      self.object_history_cache[obj_id]['publishedLocations'] = obj.chain_data.publishedLocations
+      self.object_history_cache[obj_id]['last_seen'] = obj.sceneLoc
+
+      objects.append(obj)
+
+    return objects
+
+  def _updateEvents(self, detectionType, now, curObjects=None):
     self.events = {}
     now_str = get_iso_time(now)
-    curObjects = self.tracker.currentObjects(detectionType)
+    if curObjects is None:
+      if ControllerMode.isAnalyticsOnly():
+        curObjects = self.getTrackedObjects(detectionType)
+      else:
+        curObjects = self.tracker.currentObjects(detectionType) if self.tracker else []
     for obj in curObjects:
       obj.chain_data.publishedLocations.insert(0, obj.sceneLoc)
 
@@ -427,12 +568,13 @@ class Scene(SceneModel):
   @classmethod
   def deserialize(cls, data):
     tracker_config = data.get('tracker_config', [])
-    scene = cls(data['name'], data.get('map', None), data.get('scale', None),
+    scale_from_data = data.get('scale', None)
+    scene = cls(data['name'], data.get('map', None), scale_from_data,
                 *tracker_config)
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)
-    scene.use_tracker = data.get('use_tracker', True)
+    scene.use_tracker = data.get('use_tracker', True) and not ControllerMode.isAnalyticsOnly()
     scene.output_lla = data.get('output_lla', None)
     scene.map_corners_lla = data.get('map_corners_lla', None)
     scene.retrack = data.get('retrack', True)
