@@ -106,11 +106,22 @@ def computeCameraBounds(scene, aobj, obj_dict, camera_detections_cache=None, obj
     # If we have both cache and index, try to extract bounds
     if cache is not None and index is not None:
       detection_type = obj_dict.get('type', aobj.category if aobj else None)
-      for (cam_id, det_type), detections in cache.items():
-        if det_type == detection_type and index < len(detections):
-          detection = detections[index]
-          if 'bounding_box_px' in detection:
-            camera_bounds[cam_id] = detection['bounding_box_px']
+      # First, try efficient lookup limited to the object's visibility cameras
+      visibility_cameras = obj_dict.get('visibility')
+      if isinstance(visibility_cameras, list) and detection_type is not None:
+        for cam_id in visibility_cameras:
+          detections = cache.get((cam_id, detection_type))
+          if detections is not None and index < len(detections):
+            detection = detections[index]
+            if 'bounding_box_px' in detection:
+              camera_bounds[cam_id] = detection['bounding_box_px']
+      # If no bounds were found using visibility-based lookup, fall back to scanning the cache
+      if not camera_bounds and detection_type is not None:
+        for (cam_id, det_type), detections in cache.items():
+          if det_type == detection_type and index < len(detections):
+            detection = detections[index]
+            if 'bounding_box_px' in detection:
+              camera_bounds[cam_id] = detection['bounding_box_px']
       
       # If we found bounds from cache, use them and return
       if camera_bounds:
