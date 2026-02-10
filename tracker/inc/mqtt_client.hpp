@@ -86,10 +86,12 @@ public:
 };
 
 /**
- * @brief MQTT client wrapper with automatic reconnection and TLS support.
+ * @brief MQTT client wrapper with Paho auto-reconnect and TLS support.
  *
  * Provides a simplified interface for MQTT pub/sub with:
- * - Automatic reconnection with exponential backoff (1s → 30s max)
+ * - Paho built-in auto-reconnect with exponential backoff (1s → 30s max)
+ *   for connection loss after initial connect
+ * - Simple fixed-delay retry (5s) for initial connect failures
  * - TLS/mTLS connection support
  * - Thread-safe connection state queries
  * - QoS 1 for all publish/subscribe operations
@@ -183,20 +185,6 @@ public:
      */
     static std::string generateClientId();
 
-    /**
-     * @brief Calculate exponential backoff delay for reconnection.
-     *
-     * Pure function exposed for unit testing. Uses exponential backoff:
-     * 1s, 2s, 4s, 8s, 16s, then capped at max_delay_s.
-     *
-     * @param attempt Current reconnection attempt number (0-based)
-     * @param initial_ms Initial backoff delay in milliseconds (default: 1000)
-     * @param max_delay_s Maximum delay in seconds (default: 30)
-     * @return Delay in milliseconds
-     */
-    static std::chrono::milliseconds calculateBackoff(int attempt, int initial_ms = 1000,
-                                                      int max_delay_s = 30);
-
 private:
     /**
      * @brief Execute a callback body with shutdown guard.
@@ -230,14 +218,13 @@ private:
     mqtt::ssl_options buildTlsOptions() const;
 
     /**
-     * @brief Schedule reconnection with exponential backoff.
+     * @brief Schedule initial connect retry with fixed delay.
+     *
+     * Spawns a thread that retries connect() every 5s until connected
+     * or stop_requested. Only used for initial connection failures;
+     * Paho auto-reconnect handles post-connection loss.
      */
-    void scheduleReconnect();
-
-    /**
-     * @brief Reconnection worker thread function.
-     */
-    void reconnectWorker();
+    void scheduleInitialRetry();
 
     // Configuration
     MqttConfig config_;
@@ -255,12 +242,10 @@ private:
     std::atomic<bool> subscribed_{false};
     std::atomic<bool> stop_requested_{false};
 
-    // Reconnection
-    std::thread reconnect_thread_;
-    std::mutex reconnect_mutex_;
-    std::condition_variable reconnect_cv_;
-    std::atomic<bool> reconnecting_{false};
-    std::atomic<int> reconnect_attempt_{0};
+    // Initial connect retry
+    std::thread initial_retry_thread_;
+    std::mutex initial_retry_mutex_;
+    std::atomic<bool> retrying_initial_{false};
 
     // Callbacks
     MessageCallback message_callback_;

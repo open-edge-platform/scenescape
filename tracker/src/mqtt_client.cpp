@@ -14,12 +14,10 @@ namespace tracker {
 namespace {
 
 constexpr size_t HOSTNAME_BUFFER_SIZE = 256;
-constexpr int INITIAL_BACKOFF_MS = 1000;
-constexpr int MAX_BACKOFF_MULTIPLIER = 30; // 30s max with 1s initial
 constexpr int KEEPALIVE_SECONDS = 60;
 constexpr int CONNECT_TIMEOUT_SECONDS = 10;
 constexpr int DISCONNECT_WAIT_MS = 500;
-constexpr int RECONNECT_POST_CONNECT_DELAY_MS = 100;
+constexpr int INITIAL_RETRY_DELAY_SECONDS = 5;
 
 std::string getHostname() {
     char hostname[HOSTNAME_BUFFER_SIZE];
@@ -86,15 +84,14 @@ MqttClient::MqttClient(const MqttConfig& config, int max_reconnect_delay_s)
     client_->set_callback(*this);
 
     // Build connection options
-    // NOTE: We handle reconnection manually (scheduleReconnect/reconnectWorker) for detailed
-    // logging of attempt counts and timing. Consider switching to Paho's built-in auto-reconnect
-    // to reduce complexity (~100 lines, several sync primitives), with trade-off of less
-    // visibility. See:
-    // https://github.com/eclipse-paho/paho.mqtt.cpp/blob/master/include/mqtt/connect_options.h
-    // (set_automatic_reconnect with min/max retry intervals)
+    // Paho handles post-connection reconnection automatically with exponential backoff
+    // (1s min, 30s max). Our connected() callback re-subscribes topics on reconnect.
+    // Initial connect failures are handled by scheduleInitialRetry() since Paho
+    // auto-reconnect only activates after a successful connection is lost.
     auto conn_opts_builder = mqtt::connect_options_builder()
                                  .clean_session(true)
-                                 .automatic_reconnect(false)
+                                 .automatic_reconnect(std::chrono::seconds(1),
+                                                      std::chrono::seconds(max_reconnect_delay_s_))
                                  .keep_alive_interval(std::chrono::seconds(KEEPALIVE_SECONDS))
                                  .connect_timeout(std::chrono::seconds(CONNECT_TIMEOUT_SECONDS));
 
@@ -158,10 +155,10 @@ void MqttClient::connect() {
         LOG_DEBUG("MQTT connect initiated, token msg_id: {}", tok->get_message_id());
     } catch (const mqtt::exception& e) {
         LOG_ERROR("MQTT connect threw: {} (rc={})", e.what(), e.get_reason_code());
-        scheduleReconnect();
+        scheduleInitialRetry();
     } catch (const std::exception& e) {
         LOG_ERROR("MQTT connect threw std exception: {}", e.what());
-        scheduleReconnect();
+        scheduleInitialRetry();
     }
 }
 
@@ -174,10 +171,11 @@ void MqttClient::disconnect(std::chrono::milliseconds drain_timeout) {
 
     LOG_INFO("MQTT disconnecting (drain timeout: {}ms)", drain_timeout.count());
 
-    reconnect_cv_.notify_all();
-
-    if (reconnect_thread_.joinable()) {
-        reconnect_thread_.join();
+    {
+        std::lock_guard<std::mutex> lock(initial_retry_mutex_);
+        if (initial_retry_thread_.joinable()) {
+            initial_retry_thread_.join();
+        }
     }
 
     // Wait for any in-flight Paho callbacks to complete before disabling them.
@@ -295,9 +293,6 @@ void MqttClient::connected(const std::string& cause) {
                            .operation(cause.empty() ? "initial connection" : cause));
         connected_ = true;
 
-        // Wake up reconnect worker so it exits immediately
-        reconnect_cv_.notify_all();
-
         // Re-subscribe to all pending subscriptions
         {
             std::lock_guard<std::mutex> lock(subscriptions_mutex_);
@@ -320,7 +315,7 @@ void MqttClient::connection_lost(const std::string& cause) {
         LOG_WARN("MQTT connection lost: {}", cause.empty() ? "unknown" : cause);
         connected_ = false;
         subscribed_ = false;
-        scheduleReconnect();
+        LOG_INFO("Paho auto-reconnect will attempt to restore connection");
     });
 }
 
@@ -372,83 +367,48 @@ void MqttClient::on_failure(const mqtt::token& tok) {
                   msg_id, err_msg);
 
         if (tok.get_type() == mqtt::token::Type::CONNECT) {
-            scheduleReconnect();
+            scheduleInitialRetry();
         } else if (tok.get_type() == mqtt::token::Type::SUBSCRIBE) {
             subscribed_ = false;
         }
     });
 }
 
-void MqttClient::scheduleReconnect() {
-    // All checks must be inside the same critical section to prevent TOCTOU race.
-    // Without this, two threads could both pass the reconnecting_ check and both
-    // attempt to join/spawn threads, causing undefined behavior.
-    std::lock_guard<std::mutex> lock(reconnect_mutex_);
+void MqttClient::scheduleInitialRetry() {
+    std::lock_guard<std::mutex> lock(initial_retry_mutex_);
 
-    if (reconnecting_.load() || stop_requested_.load()) {
-        LOG_DEBUG("Reconnect skipped (already in progress or stopping)");
+    if (retrying_initial_.load() || stop_requested_.load()) {
+        LOG_DEBUG("Initial retry skipped (already in progress or stopping)");
         return;
     }
 
-    if (reconnect_thread_.joinable()) {
-        LOG_DEBUG("Joining completed reconnect thread");
-        reconnect_thread_.join();
+    if (initial_retry_thread_.joinable()) {
+        initial_retry_thread_.join();
     }
 
-    reconnect_thread_ = std::thread(&MqttClient::reconnectWorker, this);
-}
+    initial_retry_thread_ = std::thread([this] {
+        retrying_initial_ = true;
 
-void MqttClient::reconnectWorker() {
-    reconnecting_ = true;
+        while (!stop_requested_.load() && !connected_.load()) {
+            LOG_INFO("MQTT initial connect retry in {}s", INITIAL_RETRY_DELAY_SECONDS);
 
-    while (!stop_requested_ && !connected_) {
-        auto delay =
-            calculateBackoff(reconnect_attempt_, INITIAL_BACKOFF_MS, max_reconnect_delay_s_);
-        LOG_INFO("MQTT reconnecting in {}ms (attempt {})", delay.count(), reconnect_attempt_ + 1);
+            for (int i = 0; i < INITIAL_RETRY_DELAY_SECONDS * 10 && !stop_requested_.load(); ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
 
-        {
-            std::unique_lock<std::mutex> lock(reconnect_mutex_);
-            if (reconnect_cv_.wait_for(
-                    lock, delay, [this] { return stop_requested_.load() || connected_.load(); })) {
-                break; // Stop requested or connection succeeded
+            if (stop_requested_.load() || connected_.load()) {
+                break;
+            }
+
+            try {
+                client_->connect(conn_opts_, nullptr, *this);
+            } catch (const mqtt::exception& e) {
+                LOG_ERROR("MQTT initial connect retry failed: {}", e.what());
             }
         }
 
-        if (stop_requested_ || connected_) {
-            break;
-        }
-
-        reconnect_attempt_++;
-
-        try {
-            client_->connect(conn_opts_, nullptr, *this);
-            // Wait a bit for connection callback
-            std::this_thread::sleep_for(std::chrono::milliseconds(RECONNECT_POST_CONNECT_DELAY_MS));
-        } catch (const mqtt::exception& e) {
-            LOG_ERROR("MQTT reconnect attempt failed: {}", e.what());
-        }
-    }
-
-    // Reset counter here (owned exclusively by this thread)
-    reconnect_attempt_ = 0;
-    reconnecting_ = false;
-}
-
-std::chrono::milliseconds MqttClient::calculateBackoff(int attempt, int initial_ms,
-                                                       int max_delay_s) {
-    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, then capped at max_delay_s
-    int64_t cap_ms = static_cast<int64_t>(max_delay_s) * 1000;
-    int64_t delay_ms = static_cast<int64_t>(initial_ms);
-
-    for (int i = 0; i < attempt; ++i) {
-        delay_ms *= 2;
-        if (delay_ms >= cap_ms) {
-            delay_ms = cap_ms;
-            break;
-        }
-    }
-
-    return std::chrono::milliseconds(delay_ms);
+        retrying_initial_ = false;
+    });
 }
 
 } // namespace tracker
