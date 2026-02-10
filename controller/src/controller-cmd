@@ -5,10 +5,39 @@
 
 import argparse
 import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from controller.scene_controller import SceneController
 from controller.controller_mode import ControllerMode
 from controller.observability import metrics, tracing
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+
+  def do_GET(self):
+    if self.path == '/healthz' or self.path == '/health':
+      # Add logic to check if controller is healthy
+      # For now, just return 200 if running
+      self.send_response(200)
+      self.send_header('Content-type', 'text/plain')
+      self.end_headers()
+      self.wfile.write(b'OK')
+    else:
+      self.send_response(404)
+      self.end_headers()
+
+  def log_message(self, format, *args):
+    # Suppress logging of health check requests
+    pass
+
+def start_health_server(port):
+  handler = lambda *args, **kwargs: HealthCheckHandler(*args, **kwargs)
+  server = HTTPServer(('0.0.0.0', port), handler)
+  thread = threading.Thread(target=server.serve_forever, daemon=True)
+  thread.start()
+  return server
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -44,6 +73,8 @@ def build_argparser():
   parser.add_argument("--visibility_topic", help="Which topic to publish visibility on."
                       "Valid options are 'unregulated', 'regulated', or 'none'",
                       default="regulated")
+  parser.add_argument("--healthcheck_port", type=int, default=0,
+                      help="Port for HTTP health check endpoint (0 to disable)")
   parser.add_argument("--analytics-only", action="store_true",
                       default=os.getenv("CONTROLLER_ENABLE_ANALYTICS_ONLY") == "true",
                       help="Enable analytics-only mode. Use this when running a separate Tracker service that publishes tracking data to MQTT.")
@@ -62,6 +93,11 @@ def main():
                               args.restauth, args.cert,
                               args.rootcert, args.ntp, args.tracker_config_file, args.schema_file,
                               args.visibility_topic, args.data_source)
+
+  # Start health check server if port is specified
+  if args.healthcheck_port > 0:
+    start_health_server(args.healthcheck_port)
+
   controller.loopForever()
 
   return
