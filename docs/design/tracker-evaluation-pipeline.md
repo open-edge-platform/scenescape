@@ -51,14 +51,22 @@ The goal of this document is to explain how the [tracking evaluation strategy](.
 flowchart LR
     Dataset[Tracking Dataset]
     Harness[Tracker Harness]
-    Evaluator[Tracker Evaluator]
+    Evaluator1[Tracker Evaluator 1]
+    Evaluator2[Tracker Evaluator 2]
+    EvaluatorN[Tracker Evaluator N]
     Results[Evaluation Results]
 
     Dataset -->|scene & cameras config| Harness
     Dataset -->|inputs| Harness
-    Harness -->|tracker outputs| Evaluator
-    Dataset -->|ground-truth| Evaluator
-    Evaluator -->|metrics| Results
+    Harness -->|tracker outputs| Evaluator1
+    Harness -->|tracker outputs| Evaluator2
+    Harness -->|tracker outputs| EvaluatorN
+    Dataset -->|ground-truth| Evaluator1
+    Dataset -->|ground-truth| Evaluator2
+    Dataset -->|ground-truth| EvaluatorN
+    Evaluator1 -->|metrics| Results
+    Evaluator2 -->|metrics| Results
+    EvaluatorN -->|metrics| Results
 ```
 
 ## Standard data formats:
@@ -112,8 +120,9 @@ Notes:
    - Choice of time range for the input sequences
 5. Harness configuration
    - Tracker specific configuration, e.g. tracker container image and tag
-6. Evaluator
-   - Set of metrics
+6. Evaluators
+   - List of evaluators to run
+   - Set of metrics per evaluator
 
 ## Minimal Interfaces of Component Classes (as of Phase 1)
 

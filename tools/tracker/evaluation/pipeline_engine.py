@@ -95,7 +95,8 @@ class PipelineEngine:
     try:
       self._dataset = self._create_component('dataset')
       self._harness = self._create_component('harness')
-      self._evaluator = self._create_component('evaluator')
+      # Phase 1: Use first (and only) evaluator from list
+      self._evaluator = self._create_component('evaluators', index=0)
     except Exception as e:
       raise RuntimeError(f"Failed to create components: {e}") from e
 
@@ -191,30 +192,61 @@ class PipelineEngine:
     if not isinstance(self._config, dict):
       raise ValueError("Configuration must be a dictionary")
 
-    required_sections = ['dataset', 'harness', 'evaluator']
+    required_sections = ['dataset', 'harness', 'evaluators']
     for section in required_sections:
       if section not in self._config:
         raise ValueError(f"Configuration missing required section: {section}")
 
-      if 'class' not in self._config[section]:
-        raise ValueError(f"Section '{section}' missing 'class' field")
+      if section == 'evaluators':
+        # Evaluators is a list
+        if not isinstance(self._config[section], list):
+          raise ValueError(f"Section 'evaluators' must be a list")
+        if len(self._config[section]) == 0:
+          raise ValueError(f"Section 'evaluators' must contain at least one evaluator")
+        if len(self._config[section]) > 1:
+          raise ValueError(
+            f"Currently only a single evaluator is supported, but {len(self._config[section])} "
+            f"evaluators are configured. Multiple evaluators will be supported in future phases."
+          )
+        # Validate each evaluator entry
+        for evaluator_config in self._config[section]:
+          if 'class' not in evaluator_config:
+            raise ValueError(f"Evaluator configuration missing 'class' field")
+          if 'config' not in evaluator_config:
+            raise ValueError(f"Evaluator configuration missing 'config' field")
+      else:
+        # Dataset and harness sections
+        if 'class' not in self._config[section]:
+          raise ValueError(f"Section '{section}' missing 'class' field")
+        if 'config' not in self._config[section]:
+          raise ValueError(f"Section '{section}' missing 'config' field")
 
-      if 'config' not in self._config[section]:
-        raise ValueError(f"Section '{section}' missing 'config' field")
-
-  def _create_component(self, component_type: str):
+  def _create_component(self, component_type: str, index: Optional[int] = None):
     """Dynamically import and instantiate a component.
 
     Args:
-      component_type: Component type ('dataset', 'harness', or 'evaluator').
+      component_type: Component type ('dataset', 'harness', or 'evaluators').
+      index: For list-based components (evaluators), which index to use (default: None).
 
     Returns:
       Instantiated component object.
 
     Raises:
       ImportError: If module or class cannot be imported.
+      ValueError: If index not provided for evaluators component.
     """
-    class_path = self._config[component_type]['class']
+    # Handle list-based evaluators
+    if component_type == 'evaluators':
+      if index is None:
+        raise ValueError("Index required for evaluators component")
+      component_config_list = self._config[component_type]
+      component_config_entry = component_config_list[index]
+      class_path = component_config_entry['class']
+      component_config = component_config_entry['config']
+    else:
+      # Dataset and harness (non-list)
+      class_path = self._config[component_type]['class']
+      component_config = self._config[component_type]['config']
 
     # Split into module path and class name
     parts = class_path.split('.')
@@ -236,10 +268,6 @@ class PipelineEngine:
       )
 
     component_class = getattr(module, class_name)
-
-    # Instantiate component
-    # Check if constructor needs arguments
-    component_config = self._config[component_type]['config']
 
     # For harness, check if container_image is in config (constructor argument)
     if component_type == 'harness' and 'container_image' in component_config:
@@ -297,7 +325,8 @@ class PipelineEngine:
 
   def _configure_evaluator(self):
     """Configure evaluator component."""
-    config = self._config['evaluator']['config']
+    # Phase 1: Use first (and only) evaluator from list
+    config = self._config['evaluators'][0]['config']
 
     # Configure metrics if specified
     if 'metrics' in config:

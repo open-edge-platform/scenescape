@@ -20,15 +20,15 @@ harness:
   class: harnesses.scene_controller_harness.SceneControllerHarness
   config:
     # Docker container image for scene controller
-    container_image: scenescape-controller:latest
+    container_image: scenescape-controller:2026.0.0-dev
     # Path to tracker configuration file
     tracker_config_path: ../../../tests/system/metric/test_data/tracker-config-time-chunking.json
 
-# Evaluator configuration
-evaluator:
-  class: evaluators.trackeval_evaluator.TrackEvalEvaluator
-  config:
-    # Metrics to compute
-    metrics: [HOTA, MOTA, IDF1]
-    # Result folder for metrics output
-    result_folder: /tmp/tracker_evaluation_results
+# Evaluators configuration (currently a single evaluator is supported)
+evaluators:
+  - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
+    config:
+      # Metrics to compute
+      metrics: [HOTA, MOTA, IDF1]
+      # Result folder for metrics output
+      result_folder: /tmp/tracker_evaluation_results

@@ -34,13 +34,15 @@ def temp_config_file():
         'tracker_config_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'test_data' / 'tracker-config-time-chunking.json')
       }
     },
-    'evaluator': {
-      'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
-      'config': {
-        'metrics': ['HOTA', 'MOTA', 'IDF1'],
-        'result_folder': '/tmp/tracker_evaluation_results'
+    'evaluators': [
+      {
+        'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
+        'config': {
+          'metrics': ['HOTA', 'MOTA', 'IDF1'],
+          'result_folder': '/tmp/tracker_evaluation_results'
+        }
       }
-    }
+    ]
   }
 
   temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
@@ -109,7 +111,7 @@ class TestLoadConfiguration:
         'class': 'datasets.metric_test_dataset.MetricTestDataset',
         'config': {}
       }
-      # Missing harness and evaluator sections
+      # Missing harness and evaluators sections
     }
 
     temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
@@ -132,7 +134,36 @@ class TestLoadConfiguration:
         'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
         'config': {}
       },
-      'evaluator': {
+      'evaluators': [
+        {
+          'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
+          'config': {}
+        }
+      ]
+    }
+
+    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
+    yaml.dump(config, temp_file)
+    temp_file.close()
+
+    try:
+      with pytest.raises(ValueError, match="missing 'class' field"):
+        engine.load_configuration(temp_file.name)
+    finally:
+      Path(temp_file.name).unlink()
+
+  def test_load_configuration_evaluators_not_list(self, engine):
+    """Test configuration loading with evaluators not a list."""
+    config = {
+      'dataset': {
+        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'config': {}
+      },
+      'harness': {
+        'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
+        'config': {}
+      },
+      'evaluators': {
         'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
         'config': {}
       }
@@ -143,7 +174,64 @@ class TestLoadConfiguration:
     temp_file.close()
 
     try:
-      with pytest.raises(ValueError, match="missing 'class' field"):
+      with pytest.raises(ValueError, match="Section 'evaluators' must be a list"):
+        engine.load_configuration(temp_file.name)
+    finally:
+      Path(temp_file.name).unlink()
+
+  def test_load_configuration_evaluators_empty(self, engine):
+    """Test configuration loading with empty evaluators list."""
+    config = {
+      'dataset': {
+        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'config': {}
+      },
+      'harness': {
+        'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
+        'config': {}
+      },
+      'evaluators': []
+    }
+
+    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
+    yaml.dump(config, temp_file)
+    temp_file.close()
+
+    try:
+      with pytest.raises(ValueError, match="must contain at least one evaluator"):
+        engine.load_configuration(temp_file.name)
+    finally:
+      Path(temp_file.name).unlink()
+
+  def test_load_configuration_multiple_evaluators_fails(self, engine):
+    """Test that multiple evaluators fail in Phase 1."""
+    config = {
+      'dataset': {
+        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'config': {}
+      },
+      'harness': {
+        'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
+        'config': {}
+      },
+      'evaluators': [
+        {
+          'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
+          'config': {}
+        },
+        {
+          'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
+          'config': {}
+        }
+      ]
+    }
+
+    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
+    yaml.dump(config, temp_file)
+    temp_file.close()
+
+    try:
+      with pytest.raises(ValueError, match="only a single evaluator is supported"):
         engine.load_configuration(temp_file.name)
     finally:
       Path(temp_file.name).unlink()
