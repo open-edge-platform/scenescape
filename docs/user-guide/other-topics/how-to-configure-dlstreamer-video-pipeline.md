@@ -306,6 +306,13 @@ This section describes the metadata schema and the format that the payload needs
                 "publish_frame": {
                     "type": "boolean",
                     "description": "Publish frame to mqtt"
+                },
+                "detection_labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "List of detection labels to filter (e.g., [\"person\", \"car\"]). If empty or omitted, all labels are published."
                 }
             }
         }
@@ -328,6 +335,7 @@ This section describes the metadata schema and the format that the payload needs
     - `reidPolicy`: Metadata for re-identification.
     - `classificationPolicy`: Metadata for classification.
   - **publish_frame** (boolean): Indicates whether to publish the video frame to MQTT.
+  - **detection_labels** (array of strings): Optional list of detection labels to filter. When specified, only detected objects matching these labels will be published. If omitted or empty, all detected objects are published. Example: `["person", "car"]`.
 
 The payload section is the actual values for the specific pipeline being configured:
 
@@ -345,7 +353,8 @@ The payload section is the actual values for the specific pipeline being configu
         },
         "camera_config": {
             "cameraid": "atag-qcam1",
-            "metadatagenpolicy": "detectionPolicy"
+            "metadatagenpolicy": "detectionPolicy",
+            "detection_labels": ["person"]
         }
     }
 }

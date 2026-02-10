@@ -88,14 +88,14 @@ class PostDecodeTimestampCapture:
     return True
 
 class PostInferenceDataPublish:
-  def __init__(self, cameraid, metadatagenpolicy='detectionPolicy', publish_image=False):
+  def __init__(self, cameraid, metadatagenpolicy='detectionPolicy', detection_labels=[], publish_image=False):
     self.cameraid = cameraid
 
     self.is_publish_image = publish_image
     self.is_publish_calibration_image = False
     self.cam_auto_calibrate = False
     self.cam_auto_calibrate_intrinsics = None
-    self.detection_labels = []
+    self.detection_labels = detection_labels
     self.setupMQTT()
     self.metadatagenpolicy = metadatapolicies[metadatagenpolicy]
     self.frame_level_data = {'id': cameraid, 'debug_mac': getMACAddress()}
