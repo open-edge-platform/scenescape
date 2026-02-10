@@ -60,6 +60,7 @@ web:
 scene:
   image: intel/scenescape-controller
   pullPolicy: IfNotPresent
+  analyticsOnly: false
 
 autocalibration:
   image: intel/scenescape-autocalibration
