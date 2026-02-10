@@ -35,7 +35,7 @@ test_template = Template("""
 <body>
   <h1>Test Report - {{ run_name }}</h1>
   {{ pie_chart | safe }}
-  <table border='1' >
+  <table border='1' align='center'>
     <tr>
       <th>Test Case</th>
       <th>Test Name</th>

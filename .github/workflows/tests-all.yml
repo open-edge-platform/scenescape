@@ -302,6 +302,8 @@ jobs:
           ref: ${{ inputs.ref }}
       - name: Download All Test Artifacts
         uses: actions/download-artifact@v5
+        with:
+          merge-multiple: true
       - name: Get all test cases from test files
         id: get_test_cases
         run: |
@@ -324,13 +326,16 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r tools/test_report/requirements.txt
+      - name: Get current date
+        run:
+          echo "CURRENT_DATE=$(date +"%Y_%m_%d")" >> $GITHUB_ENV
       - name: Generate Test Results Report
         run: |
-          python3 tools/test_report/test_report.py all_test_cases.txt test_results_summary.txt all-tests
+          python3 tools/test_report/test_report.py all_test_cases.txt test_results_summary.txt $CURRENT_DATE
       - name: Upload Test Report
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: tests-report-html
           path: |
-            all-tests_test_report.html
+            ${{ env.CURRENT_DATE }}_test_report.html
