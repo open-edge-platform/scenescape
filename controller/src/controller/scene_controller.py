@@ -444,10 +444,11 @@ class SceneController:
 
         # If no detection types in the message, add empty arrays for all tracked types
         # This must be done BEFORE processCameraData so the tracker processes them
-        if not detection_types:
-          detection_types = list(scene.tracker.trackers.keys())
-          for dtype in detection_types:
-            jdata['objects'][dtype] = []
+        if not ControllerMode.isAnalyticsOnly():
+          if not detection_types:
+            detection_types = list(scene.tracker.trackers.keys())
+            for dtype in detection_types:
+              jdata['objects'][dtype] = []
 
         success = scene.processCameraData(jdata, when=msg_when)
 
