@@ -37,33 +37,76 @@ def detection3DPolicy(pobj, item, fw, fh):
   return
 
 def reidPolicy(pobj, item, fw, fh, _cache={}):
+  # First apply classification policy (handles detection + classification metadata)
   classificationPolicy(pobj, item, fw, fh)
 
-  # Cache lookup on first call to avoid repeated iteration
+  # Then add REID embedding to metadata
   if 'reid_index' not in _cache:
     for idx, tensor in enumerate(item.get('tensors', [])):
       if tensor.get('layer_name') == 'reid_embedding':
         _cache['reid_index'] = idx
         break
+    else:
+      # No REID tensor found - cache None to avoid repeated searches
+      _cache['reid_index'] = None
 
   reid_idx = _cache.get('reid_index')
-  if reid_idx is not None and reid_idx < len(item.get('tensors', [])):
-    reid_vector = item['tensors'][reid_idx]['data']
-    v = struct.pack("256f", *reid_vector)
-    pobj['reid'] = base64.b64encode(v).decode('utf-8')
+  if reid_idx is None:
+    return
+
+  tensors = item.get('tensors', [])
+  if reid_idx >= len(tensors):
+    return
+
+  reid_tensor = tensors[reid_idx]
+  reid_vector = reid_tensor.get('data', [])
+  if not reid_vector:
+    return
+
+  v = struct.pack(f"{len(reid_vector)}f", *reid_vector)
+
+  # Ensure metadata exists
+  if 'metadata' not in pobj:
+    pobj['metadata'] = {}
+
+  pobj['metadata']['reid'] = {
+    'embedding': base64.b64encode(v).decode('utf-8')
+  }
+
+  # Add model info if available
+  model_name = reid_tensor.get('model_name')
+  if model_name:
+    pobj['metadata']['reid']['model'] = model_name
+
   return
 
+
 def classificationPolicy(pobj, item, fw, fh):
+  """Extract detection and classification metadata from tensors."""
   detectionPolicy(pobj, item, fw, fh)
-  categories = {}
-  for tensor in item.get('tensors', [{}]):
-    name = tensor.get('name','')
-    if name and name != 'detection' and tensor.get('layer_name') != 'reid_embedding':
-      categories[name] = tensor.get('label','')
-      confidence = tensor.get('confidence')
-      if confidence is not None:
-        categories[f'{name}_model_confidence'] = confidence
-  pobj.update(categories)
+
+  metadata = {}
+
+  for tensor in item.get('tensors', []):
+    name = tensor.get('name', '')
+    if not name or name == 'detection' or tensor.get('layer_name') == 'reid_embedding':
+      continue
+
+    # Build metadata entry
+    meta_entry = {'label': tensor.get('label', '')}
+
+    confidence = tensor.get('confidence')
+    if confidence is not None:
+      meta_entry['confidence'] = confidence
+
+    model_name = tensor.get('model_name')
+    if model_name:
+      meta_entry['model'] = model_name
+    metadata[name] = meta_entry
+
+  if metadata:
+    pobj['metadata'] = metadata
+
   return
 
 def ocrPolicy(pobj, item, fw, fh):
