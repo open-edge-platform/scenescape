@@ -143,8 +143,8 @@ class VDMSDatabase(ReIDDatabase):
       return True
     return False
 
-  def findSimilarityScores(self, object_type, reid_vectors, set_name=SCHEMA_NAME,
-                           k_neighbors=K_NEIGHBORS, **constraints):
+  def findMatches(self, object_type, reid_vectors, set_name=SCHEMA_NAME,
+                   k_neighbors=K_NEIGHBORS, **constraints):
     """
     2-Tier Hybrid Search: TIER 1 (metadata filtering) + TIER 2 (vector similarity)
 

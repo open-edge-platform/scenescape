@@ -18,7 +18,7 @@ VDMS Query Flow:
     ↓
   Extract semantic attributes via _extractSemanticMetadata()
     ↓
-  sendSimilarityQuery() calls findSimilarityScores() with constraints
+  sendSimilarityQuery() calls findMatches() with constraints
     ↓
   TIER 1: VDMS applies metadata constraints (exact-match filtering)
     "Find entries where type='Person' AND gender='Female' AND age='22'"
@@ -71,21 +71,21 @@ sscape_object = {
 
 ### 2. TIER 1: Metadata Filtering
 
-In `sendSimilarityQuery()`, metadata constraints are passed to `findSimilarityScores()`:
+In `sendSimilarityQuery()`, metadata constraints are passed to `findMatches()`:
 
 ```python
 # Extract metadata from sscape_object
 metadata_constraints = self._extractSemanticMetadata(sscape_object)
 
 # Pass to database with query
-scores = self.reid_database.findSimilarityScores(
+scores = self.reid_database.findMatches(
   sscape_object.category,
   reid_vectors,
   **metadata_constraints  # TIER 1: Constraints for metadata filtering
 )
 ```
 
-In `vdms_adapter.findSimilarityScores()`, constraints are converted to VDMS query format:
+In `vdms_adapter.findMatches()`, constraints are converted to VDMS query format:
 
 ```python
 # Build dynamic constraints (TIER 1)
@@ -182,7 +182,7 @@ query = {
 ```python
 # Works even if some records have age/gender and others don't
 metadata_constraints = {"gender": "Female"}
-scores = self.reid_database.findSimilarityScores(
+scores = self.reid_database.findMatches(
   "Person", reid_vectors,
   **metadata_constraints  # Only filters by gender, ignores age
 )

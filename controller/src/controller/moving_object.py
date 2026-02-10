@@ -114,28 +114,65 @@ class MovingObject:
     return
 
   def _decodeReIDVector(self, reid):
+    """
+    Decode reid embedding from either the new dict format or legacy formats.
+    New format: dict with 'embedding_vector' (base64 or list) and 'model_name'
+    Legacy format: base64-encoded string or direct list of floats
+
+    @param  reid  The reid data in one of the supported formats
+    """
     try:
-      vector = base64.b64decode(reid)
-      self.reidVector = np.array(struct.unpack("256f", vector)).reshape(1, -1)
-      self.info.pop('reid')
-    except TypeError:
-      if type(reid) == list:
-        self.reidVector = reid
+      # Handle new format: dict with embedding_vector and model_name
+      if isinstance(reid, dict) and 'embedding_vector' in reid:
+        embedding_data = reid['embedding_vector']
+      else:
+        embedding_data = reid
+
+      # Process the embedding data
+      if isinstance(embedding_data, str):
+        # Base64-encoded string format
+        vector = base64.b64decode(embedding_data)
+        self.reidVector = np.array(struct.unpack("256f", vector)).reshape(1, -1)
+      elif isinstance(embedding_data, list):
+        # Direct list format
+        self.reidVector = embedding_data
+      else:
+        # Unknown format, leave as None
+        self.reidVector = None
+
+      # Clean up info dict
+      self.info.pop('reid', None)
+    except (TypeError, ValueError) as e:
+      self.reidVector = None
     return
 
   def setPersistentAttributes(self, info, persist_attributes):
+    """
+    Extract and store persistent attributes from the detection info.
+    Stores the complete metadata structure including value, model_name, and confidence.
+
+    @param  info                The object info dictionary containing attributes
+    @param  persist_attributes  List of attributes to persist (may include sub-attributes)
+    """
     if self.chain_data is None:
       self.chain_data = ChainData(regions={}, publishedLocations=[], sensors={}, persist={})
     for attribute in persist_attributes:
       attr, sub_attrs = (list(attribute.items())[0] if isinstance(attribute, dict) else (attribute, None))
       if attr in info:
-        result = info[attr][0] if isinstance(info[attr], list) and info[attr] else info[attr]
+        # Handle both new metadata format (dict) and legacy format (list/scalar)
+        if isinstance(info[attr], list) and info[attr]:
+          result = info[attr][0]
+        else:
+          result = info[attr]
+
         self.chain_data.persist.setdefault(attr, {})
         if sub_attrs:
+          # For sub-attributes, extract from the result dict if it has that structure
           for sub_attr in sub_attrs.split(','):
-            if sub_attr in result:
+            if isinstance(result, dict) and sub_attr in result:
               self.chain_data.persist[attr][sub_attr] = result[sub_attr]
         else:
+          # Store the entire result (which may be a dict with value, model_name, confidence)
           self.chain_data.persist[attr] = result
     return
 

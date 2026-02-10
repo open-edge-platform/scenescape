@@ -34,7 +34,7 @@ SPDX-License-Identifier: Apache-2.0
 └─────────────────────────────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│       vdms_adapter.findSimilarityScores(**constraints)         │
+│       vdms_adapter.findMatches(**constraints)         │
 │                                                                │
 │  TIER 1: Build constraints and filter at DB level            │
 │  constraints = {                                              │
@@ -105,7 +105,7 @@ sscape_object.gender = "Female"
 scores = uuid_manager.sendSimilarityQuery(sscape_object)
 ```
 
-### `vdms_adapter.findSimilarityScores(object_type, reid_vectors, **constraints)`
+### `vdms_adapter.findMatches(object_type, reid_vectors, **constraints)`
 
 **Purpose**: Execute 2-tier query at database level
 
@@ -191,15 +191,15 @@ metadata = {"gender": "Female"}  # Only gender filtered
 
 ```python
 # Single-tier: Only visual embedding used
-scores = self.reid_database.findSimilarityScores(object_type, reid_vectors)
+scores = self.reid_database.findMatches(object_type, reid_vectors)
 ```
 
 ### After Implementation (Fully Compatible)
 
 ```python
 # Still works! Metadata constraints optional
-scores = self.reid_database.findSimilarityScores(object_type, reid_vectors)
-# Same as: findSimilarityScores(object_type, reid_vectors, **{})
+scores = self.reid_database.findMatches(object_type, reid_vectors)
+# Same as: findMatches(object_type, reid_vectors, **{})
 # Empty constraints → No TIER 1 filtering → Same results
 ```
 

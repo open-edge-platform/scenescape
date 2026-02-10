@@ -37,19 +37,27 @@ def detection3DPolicy(pobj, item, fw, fh):
   return
 
 def reidPolicy(pobj, item, fw, fh):
-  detectionPolicy(pobj, item, fw, fh)
-  reid_vector = item['tensors'][1]['data']
-  v = struct.pack("256f",*reid_vector)
-  pobj['reid'] = base64.b64encode(v).decode('utf-8')
+  classificationPolicy(pobj, item, fw, fh)
+  for tensor in item.get('tensors', [{}]):
+    name = tensor.get('name','')
+    if name and ('reid' in name or 'embedding' in name):
+      reid_vector = tensor.get('data', [])
+      v = struct.pack("256f",*reid_vector)
+      pobj['reid'] = {'embedding_vector': base64.b64encode(v).decode('utf-8'),
+                      'model_name': tensor.get('model_name', '')}
+      break
   return
 
 def classificationPolicy(pobj, item, fw, fh):
+  """Extract detection and classification metadata from tensors and update pobj"""
   detectionPolicy(pobj, item, fw, fh)
   categories = {}
   for tensor in item.get('tensors', [{}]):
     name = tensor.get('name','')
-    if name and name != 'detection':
-      categories[name] = tensor.get('label','')
+    if name and name != 'detection' and ('reid' not in name and 'embedding' not in name):
+      categories[name] = {'label': tensor.get('label',''), 
+                          'confidence': tensor.get('confidence', 100.0),
+                          'model_name': tensor.get('model_name', '')}
   pobj.update(categories)
   return
 
