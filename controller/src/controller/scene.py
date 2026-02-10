@@ -10,8 +10,7 @@ from typing import Optional
 import numpy as np
 import robot_vision as rv
 from controller.controller_mode import ControllerMode
-from fastjsonschema import compile as compile_schema
-from jsonschema import FormatChecker
+from controller.analytics_only_schema import SceneDataValidator
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
@@ -86,30 +85,11 @@ class Scene(SceneModel):
     self.object_history_cache = {}
 
     # Initialize schema validator for analytics-only mode
-    self.scene_data_validator = None
-    self.scene_data_validator_no_format = None
+    self.schemaValidator = None
     if ControllerMode.isAnalyticsOnly():
-      schema_filename = 'scene-data.schema.json'
-      schema_path = Path(os.environ.get('SCENESCAPE_HOME')) / 'tracker' / 'schema' / schema_filename
-
-      if schema_path.exists():
-        try:
-          with schema_path.open() as schema_fd:
-            scene_data_schema = json.load(schema_fd)
-
-          checker = FormatChecker()
-          formats = {
-            key: checker.checkers[key][0]
-            for key in checker.checkers
-          }
-
-          self.scene_data_validator = compile_schema(scene_data_schema, formats=formats)
-          self.scene_data_validator_no_format = compile_schema(scene_data_schema)
-          log.info(f"Schema validator initialized for scene: {name}")
-        except Exception as e:
-          log.error(f"Failed to initialize schema validator: {e}")
-      else:
-        log.error(f"Schema file not found at: {schema_path}")
+      self.schemaValidator = SceneDataValidator()
+      if self.schemaValidator.isInitialized():
+        log.info(f"Schema validator initialized for scene: {name}")
 
     # FIXME - only for backwards compatibility
     self.scale = scale
@@ -377,18 +357,9 @@ class Scene(SceneModel):
         objects: List of tracked objects for this detection type
         scene_data: Complete scene data message to validate
     """
-    validator = None
-    if hasattr(self, 'scene_data_validator') and self.scene_data_validator is not None:
-      validator = self.scene_data_validator
-    elif hasattr(self, 'scene_data_validator_no_format') and self.scene_data_validator_no_format is not None:
-      validator = self.scene_data_validator_no_format
-
-    if scene_data is not None and validator is not None:
-      try:
-        validator(scene_data)
-        log.debug(f"Scene data validation passed for detection_type={detection_type}")
-      except Exception as e:
-        log.error(f"Scene data validation failed for detection_type={detection_type}: {e}")
+    # Validate scene data if validator is available
+    if scene_data is not None and hasattr(self, 'schemaValidator') and self.schemaValidator is not None:
+      if not self.schemaValidator.validate(scene_data):
         return
 
     self.tracked_objects_cache[detection_type] = objects
