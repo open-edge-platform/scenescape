@@ -67,7 +67,7 @@ evaluator:
 Run the pipeline:
 
 ```bash
-python -m evaluation.pipeline_engine config.yaml
+python -m pipeline_engine config.yaml
 ```
 
 ## Directory Structure

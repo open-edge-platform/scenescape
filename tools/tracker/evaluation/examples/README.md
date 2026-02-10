@@ -40,5 +40,5 @@ evaluator:
 ## Usage
 
 ```bash
-python -m evaluation.pipeline_engine examples/metric_test_evaluation.yaml
+python -m pipeline_engine examples/metric_test_evaluation.yaml
 ```

@@ -313,10 +313,10 @@ def main():
   """Main entry point for running pipeline from command line.
 
   Usage:
-    python -m pipeline_engine.pipeline_engine config.yaml
+    python -m pipeline_engine config.yaml
   """
   if len(sys.argv) != 2:
-    print("Usage: python -m pipeline_engine.pipeline_engine <config.yaml>")
+    print("Usage: python -m pipeline_engine <config.yaml>")
     sys.exit(1)
 
   config_path = sys.argv[1]
