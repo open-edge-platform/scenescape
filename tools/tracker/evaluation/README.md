@@ -44,7 +44,7 @@ pip install -r requirements.txt
 
 ### Usage
 
-Create a YAML configuration file (see `examples/` directory):
+Create a YAML configuration file (see `pipeline_configs/` directory):
 
 ```yaml
 dataset:
@@ -79,7 +79,7 @@ evaluation/
 ├── harnesses/            # Tracker harness implementations
 ├── evaluators/           # Evaluator implementations
 ├── utils/                # Shared utilities
-└── examples/             # Example configurations
+└── pipeline_configs/     # Example configurations
 ```
 
 ## Extending the Pipeline
