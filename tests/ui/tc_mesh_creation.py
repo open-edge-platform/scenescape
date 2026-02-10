@@ -9,6 +9,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException
+from urllib.parse import urlparse
+import os 
 
 MAX_ATTEMPTS = 10
 
@@ -33,26 +35,22 @@ def create_mesh_from_cameras(browser):
   try:
     alert = WebDriverWait(browser, 60).until(EC.alert_is_present())
     alert_text = alert.text
+    print(alert_text)
     assert alert_text == 'Mesh generated successfully! The scene map has been updated.'
     alert.accept()
-    link = browser.find_element(By.CSS_SELECTOR, "#map_wrapper a")
-    href = link.get_attribute("href")
-    print(href)
   except TimeoutException:
     print("No alert appeared")
   return
 
 def create_mesh_from_video(browser, video_file):
+  browser.refresh()
   browser.find_element(By.ID, "id_map").send_keys(video_file)
-  browser.find_element(By.ID, "generate_mesh").click()
+  click_generate_mesh(browser)
   try:
-    alert = WebDriverWait(browser, 60 * 5).until(EC.alert_is_present())
+    alert = WebDriverWait(browser, 60 * 10).until(EC.alert_is_present())
     alert_text = alert.text
     assert alert_text == 'Mesh generated successfully! The scene map has been updated.'
     alert.accept()
-    link = browser.find_element(By.CSS_SELECTOR, "#map_wrapper a")
-    href = link.get_attribute("href")
-    print(href)
   except TimeoutException:
     print("No alert appeared")
   return
