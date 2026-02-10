@@ -81,9 +81,11 @@ To enable SceneScape pipelines to run on a discrete GPU, follow these steps. The
 
 1. **List Available GPU Devices:**
    Use the following command to list available GPU devices on your system:
+
    ```sh
    ls /dev/dri
    ```
+
    Look for entries like `renderD128`, `renderD129`, etc. The specific device to use depends on your hardware configuration.
 
 2. **Verify Device Functionality:**
