@@ -594,7 +594,7 @@ def account_locked(request):
 
 def update_detection_labels(cam_inst, detection_labels: list[str]):
   """Send detection labels configuration to MQTT topic for camera processing.
-  
+
   Returns:
     tuple: (success: bool, error_message: str or None)
   """
