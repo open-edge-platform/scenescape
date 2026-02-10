@@ -327,8 +327,7 @@ jobs:
         run: |
           pip install -r tools/test_report/requirements.txt
       - name: Get current date
-        run:
-          echo "CURRENT_DATE=$(date +"%Y_%m_%d")" >> $GITHUB_ENV
+        run: echo "CURRENT_DATE=$(date +"%Y_%m_%d")" >> $GITHUB_ENV
       - name: Generate Test Results Report
         run: |
           python3 tools/test_report/test_report.py all_test_cases.txt test_results_summary.txt $CURRENT_DATE
