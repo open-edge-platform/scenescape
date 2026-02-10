@@ -20,11 +20,22 @@ test_template = Template("""
 <html>
 <head>
   <title>Test Report - {{ run_name }}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    td, th {
+      border: 1px solid #dddddd;
+      text-align: left;
+      padding: 10px;
+    }
+  </style>
 </head>
 <body>
   <h1>Test Report - {{ run_name }}</h1>
   {{ pie_chart | safe }}
-  <table border='1'>
+  <table border='1' >
     <tr>
       <th>Test Case</th>
       <th>Test Name</th>
@@ -35,11 +46,11 @@ test_template = Template("""
       <td>{{ test_result.test_case }}</td>
       <td>{{ test_result.test_name }}</td>
       {% if test_result.result == "PASS" %}
-      <td style='background-color:green; color:white; font-weight:bold'>{{ test_result.result }}</td>
+      <td style='background-color:green; color:white; font-weight:bold; text-align: center'>{{ test_result.result }}</td>
       {% elif test_result.result == "FAIL" %}
-      <td style='background-color:red; color:white; font-weight:bold'>{{ test_result.result }}</td>
+      <td style='background-color:red; color:white; font-weight:bold; text-align: center'>{{ test_result.result }}</td>
       {% elif test_result.result == "NOT EXECUTED" %}
-      <td style='background-color:grey; color:black; font-weight:bold'>{{ test_result.result }}</td>
+      <td style='background-color:grey; color:black; font-weight:bold; text-align: center'>{{ test_result.result }}</td>
       {% endif %}
     </tr>
     {% endfor %}
@@ -157,7 +168,6 @@ def create_pie_chart(pass_count: int, fail_count: int, not_executed_count: int, 
   fig.update_traces(textposition='inside', textinfo='label+percent',hovertemplate='%{label}: %{value} tests (%{percent})',
               marker=dict(line=dict(color='#000000', width=2)))
   fig.update_layout(uniformtext_minsize=12, uniformtext_mode='hide')
-  fig.show()
   return fig
 
 
