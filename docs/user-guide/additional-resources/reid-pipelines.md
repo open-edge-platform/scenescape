@@ -252,31 +252,39 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "8f:e9:3c:63:e8:f6",
-    "timestamp": "2026-02-09T14:09:14.862Z",
-    "debug_timestamp_end": "2026-02-09T14:09:17.585Z",
-    "debug_processing_time": 2.723006248474121,
-    "rate": 10.584537744588053,
+    "debug_mac": "3d:b5:63:bf:f3:43",
+    "timestamp": "2026-02-10T12:24:49.303Z",
+    "debug_timestamp_end": "2026-02-10T12:24:50.910Z",
+    "debug_processing_time": 1.6070775985717773,
+    "rate": 5.0,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9210688471794128,
+                "confidence": 0.9986047148704529,
                 "center_of_mass": {
-                    "x": 27,
-                    "y": 95,
-                    "width": 27.666666666666668,
-                    "height": 67.25
+                    "x": 719,
+                    "y": 228,
+                    "width": 71.33333333333333,
+                    "height": 124.75
                 },
                 "bounding_box_px": {
-                    "x": 0,
-                    "y": 29,
-                    "width": 83,
-                    "height": 269
+                    "x": 649,
+                    "y": 105,
+                    "width": 214,
+                    "height": 498
                 },
-                "age": "32",
-                "gender": "Male",
-                "gender_model_confidence": 0.7973728775978088,
+                "metadata": {
+                    "age": {
+                        "label": "47",
+                        "model": "age_gender"
+                    },
+                    "gender": {
+                        "label": "Male",
+                        "confidence": 0.7667971253395081,
+                        "model": "age_gender"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -284,31 +292,39 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "8f:e9:3c:63:e8:f6",
-    "timestamp": "2026-02-09T14:09:15.162Z",
-    "debug_timestamp_end": "2026-02-09T14:09:17.685Z",
-    "debug_processing_time": 2.52290940284729,
-    "rate": 10.584537744588053,
+    "debug_mac": "3d:b5:63:bf:f3:43",
+    "timestamp": "2026-02-10T12:24:49.304Z",
+    "debug_timestamp_end": "2026-02-10T12:24:51.011Z",
+    "debug_processing_time": 1.7062125205993652,
+    "rate": 5.0,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.7274594306945801,
+                "confidence": 0.9970062375068665,
                 "center_of_mass": {
-                    "x": 17,
-                    "y": 153,
-                    "width": 16.0,
-                    "height": 40.0
+                    "x": 703,
+                    "y": 209,
+                    "width": 69.66666666666667,
+                    "height": 126.5
                 },
                 "bounding_box_px": {
-                    "x": 2,
-                    "y": 114,
-                    "width": 47,
-                    "height": 160
+                    "x": 635,
+                    "y": 84,
+                    "width": 209,
+                    "height": 506
                 },
-                "age": "48",
-                "gender": "Male",
-                "gender_model_confidence": 0.8721968531608582,
+                "metadata": {
+                    "age": {
+                        "label": "45",
+                        "model": "age_gender"
+                    },
+                    "gender": {
+                        "label": "Male",
+                        "confidence": 0.8546144366264343,
+                        "model": "age_gender"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -336,32 +352,43 @@ Example raw output metadata:
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "25:70:bf:d5:c0:da",
-    "timestamp": "2026-02-09T14:13:50.266Z",
-    "debug_timestamp_end": "2026-02-09T14:13:53.914Z",
-    "debug_processing_time": 3.648651599884033,
+    "debug_mac": "97:0e:38:74:25:34",
+    "timestamp": "2026-02-10T12:28:49.398Z",
+    "debug_timestamp_end": "2026-02-10T12:28:50.735Z",
+    "debug_processing_time": 1.3373005390167236,
     "rate": 5.0,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9919352531433105,
+                "confidence": 0.9959391355514526,
                 "center_of_mass": {
-                    "x": 302,
-                    "y": 96,
-                    "width": 76.33333333333333,
-                    "height": 87.0
+                    "x": 1061,
+                    "y": 359,
+                    "width": 97.33333333333333,
+                    "height": 119.75
                 },
                 "bounding_box_px": {
-                    "x": 227,
-                    "y": 10,
-                    "width": 228,
-                    "height": 348
+                    "x": 965,
+                    "y": 240,
+                    "width": 292,
+                    "height": 479
                 },
-                "age": "40",
-                "gender": "Male",
-                "gender_model_confidence": 0.9240210652351379,
-                "reid": "HJCnPpo7jj0JMUq/6PEUu4DTaj+igN6+Dx2TPjK8jr3Y1xG9+2bQvpeOD7/JBYG+kJSGvZBmAj8laRM/Hs/pvZpeab7j/jw/GHcJvmgx1z2ItDM/GjpMvIgjDr82c8s+CfHKvtUY6Ttp8MA+XqAIv7yX175u+Q8/1IqgvgrrSz/osH2/nrk2P4rVxD4KYF2/d+TUvsz2WD4+Qek+OnvWvmHR7z4aHlu+Y5wAv+tAJb5lS5G+EKIgPpsU3b2F3ke/0g8zvFPdDr8wfwc+Vd3PvnIxqL0+FwO/V3zFPrdUMD7EoPQ92IvvPk3vaz9LnNc9I+IMv9YoLD5g8ma+fCTvPqBaFj/Njy8+aPAvP+MGYz1U22E/5NUIP/RqhD5yxSG+Q46Pvevvgj7rn4u/yJiUvRl+CT80GEW+6vOVPaLIwr7xeI8/lqV4vg7Uzj7ilPW+PrJ9PwO1BD+iZQI/EUiXvkxS6j41PJ++DzQ1Pxj0fr91/0G93Vv0PSkcbT4+iQw+YLQMvryisT3xnbO+eMHmPlwtRj/Mmkc/gwc5PuhDcj4np6++9PwKP12+NT6quKq/AMAHv4Nsj77yIxS+1xPQvYsKsLqoaQK/6PSsPR6UKb+K0NY/qiYJv3J46r17gYM9/wK3PugSU7/gzQe/QchMv+dibL4mOV4/udozv5ho2TwLd6W9bOidvlqLDT9lRh+/Wu0iP9qUDT5YbAy/QrnVPmvqZT4/lTI+HwLhPkIllb4kVvA8SbAHP8IyWD/sPXQ+ZyJ1P08lPb8pL/w+Xo5jPai0P7+bYC6/sGdqP6SjG79iacE+9gFBP1sJFr69ppS+h8kkv5S3sT6utUW/flBWvmuus70kPia/i96Evk5Wxr7br8I+RxckPmycfD+4JZ2+7N85PvAMLz/w1Ta+gCijvrZOcj6Nh5W9WvbtvfolUT8Grai9rceHP9urHr5tgFu/z8v8viakOT+A3CO/P1k7vpIWWL+JyhA++BQwPR/mIT8eOv0+Ecwdv5OL3b7uXIO+IuwNP0n/p74NsRG/5A8YvaEThr4ARGq/TlMIP5YV3T5RwXK+v02Ev3FNib54cqw+w/udPkec5j0SfFi+IVUev1i3mr4MVtK+wFjZPbmwQj5s4gm/oAVZv9wNbT/EhZi+eeU0vwaKiL84wyA/MfgLP6UdFb4/UdU/obCdPze91b2MIzk+I8XRvroCGD9jva4+LdRrP/0PSL8tteQ8Awp0P1RjqT0kal4+lF5xP4Vq+j4NTW296WyyP6SJ+b1YZ+Y+xcjhO9mc9b61X8k9Bv11vuYuDb7lnYq+HznnvYPyjr1bt5Q9duARPc26ob46qNk9FN0bviAF5D6A4h8/J4Pdvg==",
+                "metadata": {
+                    "age": {
+                        "label": "45",
+                        "model": "age_gender"
+                    },
+                    "gender": {
+                        "label": "Male",
+                        "confidence": 0.8176454901695251,
+                        "model": "age_gender"
+                    },
+                    "reid": {
+                        "embedding": "qnuzvi9EBz0SYwq/mFopv/bVTT7idXe9TZCrPVO4R74eCLO+A03JPti95r0RNYk+iY47v8daKb7Xfda+y9Anvywe5L6amoI+qZGXv7X2IL6JV9M+EP6dvtgMhb3QkDW/nIgJv7vZtj21XVi+6AP4vuVgND5Az4Q+YdZUvj/jRT+JsxS/E8skPN2VZj9Jwjq/x+iAvhG6oztjzMQ+SgPhvrx0g74gqtC+F0BHPih+ML783SE+4ytYv2PVjz6ik0y/7ZhevSm7mrxMAK8+UDQCPkjggL9q11++OptfPuUzg76XxKi+EywkPpRDND6kccI+cQ5fvtEDi75iBQW+rRdNvufQgD5LqA8+uwK/vQdh6Tu2dI0+wziJP22wUz+YE6C9pLUJPEh1Z70vmoG/BsPwvoUHGT8IUeu9viPsPnjKQL+tsWU+ShjKvj5fQz5tWqC+/pNkvjFT4j7akCg99fYtPg3lNb8qtSa/fEkYvkz/MD/u0rQ+VWC2vjOBLT49FJo9pI4Dv8IQ7b6ICgA/Bo2MPeUYQj9nOg6/Hd4aPhwZ474lGvi9GrqAPReW8r3HPJC/50gcPy52Tb4nDsm+0tAZvns9TT6h/2g+ZJiCvnH+qr6qKFY/zRcaPhFzqT73nxk9IL+kPteyS7/JIuW+uwXwvbjQ375fcZa+s/cnvmok6z08/II+eMMjvj+ERb9x7du8/2YZP5rzoD06utG9o++oPnpebD1T3m4+llgGPkwxVr4VwzO9yxroPT2UJz/63hm9FYDoPuzXcb6k8Ig+nBHUPmn8j75CUFy9kmwPPyVr3r7FUly/nqQevviByr7HjuA9mtLDPpTkPL9vCk6+UG+YPvIEFz+43UO/M6CCPc6hLr/1sIc8dpzlPQbbWj9CteG+X3hoPq8UML2Wqfk8ed2Jvqh8CD8tGGO+2bVqvrbjWT2y5i0/Xzqru18oD7/OEdy+RFNnPiNxaT8t+rg+2VehvdMxZT402Xg+vYLqPVTs8D7aAwU/+NOmvtun5rw3yqi+MV2lPMONeT7Muc0+zCM9PnoVWr+8QsA9XNpBP5GgUz/11BG+NjjWPVasxz7WBqK+0wdfPyoanD4cepU9yQbyvom9aD3t2NS9LhSjvjeCpT5R7SS/KBY4vjX7vj5fhUu+eFZ9v9sqCr9Y9hY/vTMhPuSem7xRlpY+EKyHvmlVgr2evNW+uFzJvjqyEr6ezyG+zPdIP4FNFr8AzIg+qPomP9iOHT0i+Zu9AlAYPwgamD5vy149GZwEP8QsQD6IbbY+g877PgUyKb/6mwG+ZnjNPgUB9L2cScK+pJJaPvTX7j2YRb8+FXB5Ph3yy74C+gw/uMARPhdSAT9VJEO+2BOOvg==",
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -369,32 +396,43 @@ Example raw output metadata:
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "25:70:bf:d5:c0:da",
-    "timestamp": "2026-02-09T14:13:50.268Z",
-    "debug_timestamp_end": "2026-02-09T14:13:54.015Z",
-    "debug_processing_time": 3.746978282928467,
+    "debug_mac": "97:0e:38:74:25:34",
+    "timestamp": "2026-02-10T12:28:49.402Z",
+    "debug_timestamp_end": "2026-02-10T12:28:50.835Z",
+    "debug_processing_time": 1.4329888820648193,
     "rate": 5.0,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9963571429252625,
+                "confidence": 0.9895775318145752,
                 "center_of_mass": {
-                    "x": 268,
-                    "y": 93,
-                    "width": 72.0,
-                    "height": 88.0
+                    "x": 1017,
+                    "y": 337,
+                    "width": 89.33333333333333,
+                    "height": 126.0
                 },
                 "bounding_box_px": {
-                    "x": 197,
-                    "y": 5,
-                    "width": 216,
-                    "height": 352
+                    "x": 929,
+                    "y": 211,
+                    "width": 268,
+                    "height": 505
                 },
-                "age": "39",
-                "gender": "Male",
-                "gender_model_confidence": 0.8637242317199707,
-                "reid": "BI3iPlOK/z0YEW6/ezcivvBUjj+gvzi//5TgPutKpb4ArDe+YFbovh5b+r79RoM+Y2pgvovHpD4u4WA/5nsRvqTknTzu0Cw/XxnjvhOS8D4iMWc/lq04vlusAL9Y848+gYVqvsYIJ76sqdM87M8Ov6ZC277XTSk/aBMCvwn8iD+J2Se/XJQYPxes5z5n3Dq/PRMkv5a9xr4X0D4/mP8Hv68Ouj5YBKC+7fLGvpN5Gb5BMcS+EmqvPfh3tr5UYAy/Q35GvlmOO7/xoRo+kaHZvpeiGz7WDdu+XPahPsP/uTy24z8+T/TTPpAWkj/QKZE+IpRJvhd+Rr7hWMy+8DW2Pvl16j5Fj+M9qFjLPvcmrTzTlF0/37CpPqbmAT81uCS+JiC/vkjQ9j5P2W2/fasBvr4bgz5kQve+fHjiPVvJn77VJzg/SIacvj4YZT7YA6W8xjaAP2xBJz9FpBU/UlPcvYJT8D4x8w2/coLkPn5icr89lcG9uEZxvQ6cIz69KiE+7vRxvugIRT4+v529VAOQPpScTj+fLzo/ZJQiPnrKmj3ioLG+w/juPlss3b7qTXS/fv7Ovq0QLb4E86y9jIXwvsFtJz5OVje+Ym70PhW0TL9W0L8/t7LsvuwtQL7AAoE9K/DdPlDXF7//gtW+JXoBv72mKL7d1gw/Os75vnD7zD04w8g9K7Uwv8D0dD7gJAG/R9i1PuOk2T6UKSO/+k6aPdeUNz1y9VM+nheLP9e1Eb4HGyo9MgodPxOsUD+ERfA9v92IP88+QL8935U+wc47PmRZKL9sTai+OedMPy9+Gr8VWuI9PdfcPg4JDL5QY/q+Ei3GvtP28D6o/Si/BB5IvYqs7j2kLRm/WPUVv9/M0b67d+8+/sUpPq2MXz+nsuG+TG3NPZMFAj9fLSG+3vuNPFShIL54Tj8+q8DNPW19OT9aoIw+fG1HP2rVj71Nezy/TvG4vgAf5z6ymCa/pEoDvtqd/L6PDjQ/O60CPlZHVD8iUkk/8ZUUv9fLtr4J37a+bEwgP/5hfr6SfjK+QlikvBK+rr7gEFi/9wOHPkUb0D4d/kS+k1Z2v3c41L4FOq69VAKkPj5cHj5gnZM9gOKzvuHvhj3XJr+93334vPuWsD7h+Cy/VTpDv8X1Pj/MpgS/JrZov/Oefb/EeUo/U3s2PxLgf74qVLA/K6lCP6g/274M9Gw+Yng8vknrQD+na64+UEpvPz8aqr6zSTm+ivMmP9ju0D1i3Uq9ZIWLP/g4GT+SY+69gjOpPw/1Sb6Xc80+j3QmPlxTAL+rm089dM6BvlntlbxZAxC+VBi7PWdSsz2nram8yPu8PFbCv77CDN28Y92Ivv/2WT43CYg+5wp0vg==",
+                "metadata": {
+                    "age": {
+                        "label": "48",
+                        "model": "age_gender"
+                    },
+                    "gender": {
+                        "label": "Male",
+                        "confidence": 0.7938673496246338,
+                        "model": "age_gender"
+                    },
+                    "reid": {
+                        "embedding": "CwUOvvSCDD76S2y+duF6PeHtvj2oOa2+OnivPhLqFT6DqOi+UGeLvPlfk77DjT0+EPe/vpMbdT5/4lK8cwfgvpQH5b0v4Bg/115jvxiDF714aqY+XDHZvhCp9r63t+m+UD8hv+9ajj6YSIq+/2ivvcgVJb5KnUQ/1FUKvue8Lz+bn+a+oL9UvbRPXz/A4YG/nhwgvzmomb4vSw8/9erBvjIpsL2xA+C+73OdvaiEIL8GEYK+byU0v5ONiz6D9Ua/qGBQvSlPnzwg2nu94lYEvk8gIL8vD6u+ZOWZPgQlKT3B0BO/9p0LPymbAT+vPog+aW2evgMrr75fwtK89RyvvCzyqD48tMm7CBhDvoZocT3S06s+NkIlP7zJNj+55Za+hWCKvnDL+r2/Ape/C5kGvz4J9D54Z2q+m+a2PrbA/L5IkOA+GY3QvmkElz6KJiq+HPidvstesD66Lxk+MrerPU/1kb6/m+6+Au5FPbX+fb0F8Vg+9qrOvgYK5TwXTnI9LAPwvlQB477skz4+GK/QPqLCUj8dAfi9Qt1oviI0Lr4HtbO+uGOiPmSn1b1gT3C/DNaXPhUB5L5k/ti+AGeSvckEaj4KBzq+FJmovWpnrb6t8HU/x00CvjhdLrvAwLk96WQkPqYtmb6obG++KSy2vvSisb6gPlo93/tOvh2p2b6FXbU9tT8Pv5ObeL9RvvS9HWAdP3GPsz59nf69vNFTPhxVer2aVxw/sbP2PlWKHz69J/y99BLSPlJ+IT9eFZM+skK1Pq90ur5q8RM/cWauPpWZdDzry4O+NBgkPzAwA79ZS2++hCyJPYuJ5r1LIzi8Z7pkPXqJoL0KRt6+IToiPkGw5T4/q0O/fWKCvnuC/772zcM8KgscPpRHNj/bwMa+zYTRPoGWPb335AO/qDdqvmKdbj4fKpc+RoORvMDrwztKLRc/nDaqPXaouL6vbri+pl17PvOWAT8E2e+9OfX/vaMSE76LyH4+9lgCPgCL5T5P/90+JO4Qv5PA87w8G8a+cOLjPfEIKr5AxBY+dIPauv9EKL/+8YK9MUv8PqGnKT//UZq9iPrTvWurkz4CV7a+9ygKP/6Y2z6mh8U9FxS/vvoDa76rQq6+7XDkvXBOFz7SrA6/D5UEv1CxMT8Nioy+UTlYv2VVDL+Rp2o/AlgAP4tkTj6W0PQ+OXr2Pgjis75WHCS/XHSfvXmZqj18khq8+WiFP4Id0r7SWoO+zousPrdUfz5BYLU+tutaP3DJiz1hIrA+Xq2aPvAfbT6gmaI+7UO7Prv6975zd+y9G6KnPSScGj0PN+E9fzqBPqmRX73atVY+ehu+PSHtyr6b49I+tuPPu0SVsT61JJi+pVEcvg==",
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -696,31 +734,39 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "9b:2e:b3:82:52:7b",
-    "timestamp": "2026-02-09T14:08:20.417Z",
-    "debug_timestamp_end": "2026-02-09T14:08:22.624Z",
-    "debug_processing_time": 2.207106590270996,
-    "rate": 9.947163685470464,
+    "debug_mac": "3d:b5:63:bf:f3:43",
+    "timestamp": "2026-02-10T12:25:00.688Z",
+    "debug_timestamp_end": "2026-02-10T12:25:03.112Z",
+    "debug_processing_time": 2.423408031463623,
+    "rate": 10.871774069612869,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.99609375,
+                "confidence": 0.9864488244056702,
                 "center_of_mass": {
-                    "x": 859,
-                    "y": 110,
-                    "width": 58.0,
-                    "height": 100.25
+                    "x": 651,
+                    "y": 82,
+                    "width": 35.0,
+                    "height": 77.0
                 },
                 "bounding_box_px": {
-                    "x": 802,
-                    "y": 11,
-                    "width": 174,
-                    "height": 400
+                    "x": 616,
+                    "y": 5,
+                    "width": 105,
+                    "height": 308
                 },
-                "age": "20",
-                "gender": "Male",
-                "gender_model_confidence": 0.6650390625,
+                "metadata": {
+                    "age": {
+                        "label": "38",
+                        "model": "age_gender"
+                    },
+                    "gender": {
+                        "label": "Male",
+                        "confidence": 0.9458864331245422,
+                        "model": "age_gender"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -728,31 +774,39 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "9b:2e:b3:82:52:7b",
-    "timestamp": "2026-02-09T14:08:20.508Z",
-    "debug_timestamp_end": "2026-02-09T14:08:22.724Z",
-    "debug_processing_time": 2.2153384685516357,
-    "rate": 9.947163685470464,
+    "debug_mac": "3d:b5:63:bf:f3:43",
+    "timestamp": "2026-02-10T12:25:00.788Z",
+    "debug_timestamp_end": "2026-02-10T12:25:03.210Z",
+    "debug_processing_time": 2.4226315021514893,
+    "rate": 10.871774069612869,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9951171875,
+                "confidence": 0.9827247262001038,
                 "center_of_mass": {
-                    "x": 839,
-                    "y": 110,
-                    "width": 53.666666666666664,
-                    "height": 95.5
+                    "x": 620,
+                    "y": 83,
+                    "width": 47.0,
+                    "height": 78.25
                 },
                 "bounding_box_px": {
-                    "x": 786,
-                    "y": 16,
-                    "width": 162,
-                    "height": 382
+                    "x": 574,
+                    "y": 6,
+                    "width": 141,
+                    "height": 313
                 },
-                "age": "20",
-                "gender": "Female",
-                "gender_model_confidence": 0.62890625,
+                "metadata": {
+                    "age": {
+                        "label": "39",
+                        "model": "age_gender"
+                    },
+                    "gender": {
+                        "label": "Male",
+                        "confidence": 0.9501286745071411,
+                        "model": "age_gender"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -780,32 +834,43 @@ Example raw output metadata:
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "55:a6:67:ba:98:e1",
-    "timestamp": "2026-02-09T14:12:55.645Z",
-    "debug_timestamp_end": "2026-02-09T14:12:58.949Z",
-    "debug_processing_time": 3.3045613765716553,
-    "rate": 10.419819775033613,
+    "debug_mac": "97:0e:38:74:25:34",
+    "timestamp": "2026-02-10T12:29:01.412Z",
+    "debug_timestamp_end": "2026-02-10T12:29:05.137Z",
+    "debug_processing_time": 3.7242965698242188,
+    "rate": 11.286951072899647,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9912109375,
+                "confidence": 0.9580399394035339,
                 "center_of_mass": {
-                    "x": 426,
-                    "y": 93,
-                    "width": 77.33333333333333,
-                    "height": 85.25
+                    "x": 410,
+                    "y": 90,
+                    "width": 69.0,
+                    "height": 86.75
                 },
                 "bounding_box_px": {
-                    "x": 350,
-                    "y": 8,
-                    "width": 232,
-                    "height": 341
+                    "x": 342,
+                    "y": 4,
+                    "width": 207,
+                    "height": 347
                 },
-                "age": "43",
-                "gender": "Male",
-                "gender_model_confidence": 0.9111328125,
-                "reid": "5NcqPxrdw77DKYC+DenivdpKAz/daxq+5MIwPcqxMb3Z/2Q+8bv8vk88oz1SKQ2/DkjmPViZGb7haR0/vieSvipogr5nMPE+zH1FPT/tWb7HgYE/v1cXv9P6Ir6mu/s9k1mHv0/uIb45h44+gr74vc65Jz8/v5c+J9ZPPkTAxj54IHo/usjIPpZGsL7Ydfi+znGyvmBfNL9EJvU+tWe0Pog6gT/m2z69ZjrGvgJa3L5r5Vi+OZ/YPftqIr9pm4u++6xwvoYeEr+SwrK9vO88v+YVEj6WmLy+OFhoPuQSeb1gjRC/gBuDPEUmnz+2g2O+eHwgvzBMmD2oujI//4iEvubjpb7fPRW+4c4nvlJHhL760NU+frITPxwEML4HGou+8zDivP/5hb3RclM/9gNOP07mEL/4sDg+zDpZPybqLL/sCb0+AGp2PJKilT4fnYa9ofHCPlrLiT7YnOk+fpcUv6/S/L5axRS/sG6pPdXEe75Mdsq9irT0PhqsJj568hA/HmrBvY7UAT7PYpE+Ig3DvaxbNj0AkQk9lGV5PX9M374AdWA/TfPJvie8h75EPV49sFAXP7WHMr8Q0Si/TcYeP/4Gab4Ypw2/mITDvvMcJb9ijBk/9qovv261tb4uc48+FdGSvvzVKL+HZwO/ZjWWv5GjDr+8/M09c8uUPb1N1D6IzOk+lVpSPkexgL54CNE907nIPij9l7++4ge/5ocZvfhu2jyExPE9Nhl/PxtKBD7Sp7C+fW0UP3TsTT8+ovs+vRmPPk23RL4WH2q/7McYv8idTL9JRDG/yoJzvXgmaz2MvDM/dkOuPlKEED/qkIk+VoWQvfPmYr/ZC2y/YGhTvrsS9L5PMc2+cTYsvpFdob1kGA8/otJjPzafTT9mwJA/GcoPP+4yEb72F+y+VP97vnjXLj/b9rI+bNvbPsDUEjyvpx2/MCBHv+UDrL2K+K8+Y2k6vhCMLT/g3X2+Eye3PA40W7+J8Gc/U7sSv0myIz9R87u+MhDlvp5ctr7U/Ja+0pG2PlMn+b5Qux49WG4Pv4/AB7+uvB+/6ucrPmLMxT6QE/g9lrEivo5MKr/ZxwM/Ok6rPqVuLb5JGBU/dI4qviwJdTxbz3K+Yd82vuTBr72E9CQ+y95PvwBc0jmnOIA9+SrcvXbJQr/arGk+ycmnPXf+Jr1AE1s/YAhCPIAU87u9cF2/pOE+P1ig6r7gD+E8WlR5P4DiDb6hpf4+a89ovmSNZT//R729YtEfP5QkVz7GMNG9QdUjv1QQjb3YYgw+My2sv+CuNT3l7YK+sYPOvgvVTb5Q/SC+jG8huwNqpb6RPta+jbfbvhjIJjwQZRi+TgRgvnAl/j4MdSi/O6sUvQ==",
+                "metadata": {
+                    "age": {
+                        "label": "28",
+                        "model": "age_gender"
+                    },
+                    "gender": {
+                        "label": "Male",
+                        "confidence": 0.8981321454048157,
+                        "model": "age_gender"
+                    },
+                    "reid": {
+                        "embedding": "mosdPx2a/r6BbHE+oq3jPBAhzz5uC6k9jHu0Pi9ThbkBD8o+qmRIvxYRUz7j6xC/kVKAvl5mAb4iYVI/RzOjvr5xvb4N6h4/PU+TvkMYXz144lY/Xi7lvq6dO77gl2k+xg2Kv0Qvsz1Q5As/oLELvQpZMz9oYmY+qVSBPn3FLz4+LmE/tLWKPoYx2L7UplC/gmx1vWZhdr4QIsE+xfi9Ppjdbz9ICQ8+lvP8vlQW6b6hqoi9A1MivaC89L79YNm+ixPrvr8YtL7PsLk9C7hTv3wIkD0mjRq/glo3Po2amL4eNNi+X3lcvZMLrD/dZKq+DyEhvwWKqT3doCc/Xf9hvavyLL5l3Ze+x5Wyvt6h5L5fpLE+O6gvP/pOC76MaL6+W5QnPlr2krxCbjs/pAZPP3M9P7+u4Ss/8vlUP58zX79CeRc/A7n6vpv6oz4Jv+c9zu3hPmiQRT5HnbY+pG/mvhSsuL5PLke/zc6jPiRb87513F29Dw8KP73B/T02jCM/voFqveX8Fr6LQnI+KO0hPuHhj7yFbYa8j8kePfgMn77Kcic/iXuYvsJq5r4vmQQ+kdQlPxJbXb+5OhO/cI09P2Xt8L6UHyu/yFwev+m3JL+VTQI/f9I6v2ep2b7xvr4+vpbovRXPZ796FlG/OdKZv0TNTL/IWjw+AU20vdPWxz4BVNo+DBpOPsXNpL5YVAM+JWMfPxGxdb/soPu+SSaNvfGoCD5qtIY+EpxPP8Px/z3WaK6+9I4bP1injj8pbqs+cZ2kPhBdtL4YZ1q/ykEYv+Mscb+exUu/gyclPrkGz71T8B0/2P+4PkmM6z7vLUQ+pbtlvpUcWr9TYlq/zAlsvY9ZQL/lTAe/MHJ2vXDDRr4/2xg/r0pVP/5sLD8awqw/jBrUPgSBZr5AL0W/x+QPvcFv5j5N01w+1LwaP1+ffb5DQUW/e3ZBv84BDL67ppo+6JDtvVpxFj9AO9S+l7DqPbiLEb+4RVs/2LLwvu+AEj8WyIu+NlzWvSTt4b4ZpTG+FTDmvWZj5r7oJCk+WMkBvkZePb8qiUe/Nm24PldosT7G+Aq8RxYfPoydHb9IoCk/eI6pPslgjL7H+K4+NYauvpOYbb0xENm+truRvrq+vLxGO48+C3akvqs4LT6Tp/A+0ZKDvhbZUb/wPoo+kGoDvV7llr5e/m0/wL/ivbM2eT3ZUDq/a8jzPtcC0L6ItyS9axNyP2vnh762hIc+A+qBvL7vWD+k4HE9yyEwP1zTQj6lYYe+tBYFv0LEEL3Rn969zhSuvw6uHD4MQLi+ImXVvq7Dv74wnOC8TPRbvm4Tyb6J+KC+s0a1vk491r1k1X++mzt0vrYJ7j591hi/GntJPQ==",
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -813,32 +878,43 @@ Example raw output metadata:
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "55:a6:67:ba:98:e1",
-    "timestamp": "2026-02-09T14:12:55.745Z",
-    "debug_timestamp_end": "2026-02-09T14:12:59.050Z",
-    "debug_processing_time": 3.3049228191375732,
-    "rate": 10.419819775033613,
+    "debug_mac": "97:0e:38:74:25:34",
+    "timestamp": "2026-02-10T12:29:01.512Z",
+    "debug_timestamp_end": "2026-02-10T12:29:05.236Z",
+    "debug_processing_time": 3.723491668701172,
+    "rate": 11.286951072899647,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9384765625,
+                "confidence": 0.9392824172973633,
                 "center_of_mass": {
-                    "x": 408,
-                    "y": 90,
-                    "width": 65.33333333333333,
-                    "height": 86.75
+                    "x": 399,
+                    "y": 94,
+                    "width": 69.33333333333333,
+                    "height": 82.75
                 },
                 "bounding_box_px": {
-                    "x": 343,
-                    "y": 5,
-                    "width": 196,
-                    "height": 346
+                    "x": 331,
+                    "y": 12,
+                    "width": 208,
+                    "height": 331
                 },
-                "age": "38",
-                "gender": "Male",
-                "gender_model_confidence": 0.90283203125,
-                "reid": "UvocP2xr+b7gd889w6MrvVsx6z4/jAi9z1/ZPmq3pz0yuYo+bFNCv8GPjT5NrwC/Pzk5vk2kgb36s0c/pJKivmJwwr4ybC8/8ItDvhmKmbtK7IM/oGIVv2iRHb78c3o+KYSVv/ztqr0gAB8/saQDvaXxMT+CmrE+Dn6DPnpKLj4IcFs/LD+nPgnvE79fikK/ySjDvcoGTb4P69o+/CqwPiUgeT8ShAc+qe8bvyYI+75oXl09gxRSPlscHr8ERgW/Y3DfvreXNb6RKyi9NjRlv5jm9D1lBxa/6Bo3PjP/Hr6PId2+dRocPhrdqT+Xbcy+OgFGv1o6Gz7wbTE/TGQsvqjPZr7U/5K+UF2Lvr1rBL95UCU+cKwyP7Ker71Ma6q+GAxxPepOBb17V0c/MsFeP2MXO7+8+h4/z7Z4P91ESL/FHhs/gVelvnZGhj4A6So7dBIbP7iCYz5mvLc+bcoIv1Nxjb4h6k6/yKqJPmsdGL/2nui6dVc2P3zRrD0s1hA/ZRGpvTItA75ufHo+zKHZPWRWdL3AucY9Pj0lPjJH2b6FeSw/LSL8vihGrb72HhY+jOgkP1C2b78cyhS/1DFGP/VyBr8Pgza/NcUkv9ByJr+kAAk/hU09v2gN5L7wIL0+2Zs5vr9SbL+0zV+/BrKcv2sASr8o5jI+Ly+WvQxj+D7SG5E+YTShPjDqhL7298g9Xj0hPyggh7/4ieq+YeXDvXx8Wz5yR6k+wOFTP+HPoT1QP5a+Cj09P046kD+sK8c+TErHPuhpHb6Cx2y/EN0ov+6BTb9f30a/GGVnPrnF3r1OgyA/kpjFPjoujj7mPVM+k+xkvq/VV79I3Wi/lyr0vULuWb8JDBW/heWHvhd9/r2NTQE/RjSCP4reMz8j868/0YvKPnFkLr4v2y2/JArhvAmN+j4kJ2w+zvDwPtzrUr4/mju/P4NOvyripb3Zqa8+G58bvYsUFz+vqO2+P7+JPXlUMr9cbkE/G2ABv97LGz/sNoK+xTkdvu532r77ZGO+YEnQPH84874zHjg+9OGfvhnvP794dVC/EvdSPu4f1D7Egr89Fv4sPk2nP7+AYk8/8C77Po0Dlb4Czwk/b1mlvpYRwb03eNm+G/GovsjADT2q2aI+m/nUvuiLvD04HQg/RGs9vknfgL/utJg+ZE7+PIK8i77KUXQ/UE8RPQEdDD4mnjC/bLsEP+8l5b4AeGw5yO53P0a0lb6Elc8+QNVrPJzeZj9ohXY9IIFcP7qntD4DdIK+uhgSvxMxcL1QmDY9mWq7v6Q4Qj5W7qC+Z3vxvlDMo765TYw9RkEKvuf93L7YG5W+nWDHvsbVD71TdqK+xY9zvs4w7T4btSK/wOgtPA==",
+                "metadata": {
+                    "age": {
+                        "label": "29",
+                        "model": "age_gender"
+                    },
+                    "gender": {
+                        "label": "Male",
+                        "confidence": 0.8766618371009827,
+                        "model": "age_gender"
+                    },
+                    "reid": {
+                        "embedding": "UQ4UP3nU8b6uM2s+fEbiPHP1sD7J3SO+PfvXPoAshT09MME+QPVcv3k1eD5Zywy/bw2IvSvlGjwlJw8//HrXvi8CVr4Zamg/okZ/vYLXpTzbZoI/VPMUvxT0j76lWpg+IsWLv1ovEb7UrCo/JPBpvWLPPj/Jo6c+cTsgPsEmUTzXW1M/wRKzPk/5C7+JGVm/UhmYPbifl72LXPQ+58i5PpLUkz9BFKU9WzVjvy8Ai74jbUi9VzLXPZ+QEL9tDdS+nF6tvhzncL7Mjyy+AguEv3+RPT1CUxS/CpfMPQn1sL67Goe+TGYoPm7+qT+R1am+l4ZVv5URjT0WfXA/HH9DvgPqg75bQ8e+3yS2vgugDr/qkQM+A8Y9P+9k1r3zwJ++4y3TO3sPL77NDCw/ZvhSP3uYSL+iHxE/8F6MPxpoYL9muA0/JQRjvh1heT43aIe95XLhPi67uT4kA+E9zSwhvzGF7L4pP0i/+5apPpyv1L7Vb8C9Rz4pPwtF7z30bRI/RWJsvP5X4r3xtoE+rmU5Pgt7p72QLB4+JPE2PuUZ5b4tB1M/hcIQv8EwAL+eJzk9zAILP6jabr+KOaO+j4o9P9IpC7/z6EG/rctFvzywCr9U/qo+KZBkv3Wpkb5cfAg/R2OLvvbgTL/wrly/RSyHvzzIb7+qRLk+/gcDvjhG3T7Oc4I9p7qzPracEr4ECCu+ZCgAP17hkL/TuAC/++m9vdfuxD5ovnM+hGVzP5vN7D1ukxK+9DQiP8/EhD+oO58+KAiNPvrQSb7SCW2/ZcgzvxJVIr9a5B6/SN+oPi6fmr1hsSw/AOCcPlLpMT63tko+53VYvtDOZr+A73+/hD8uvtCtHL9dHvy+UbLPvdCONL4DsSo/9l2RP9oLYD/GoZM/bEuZPsm0x70d2TK/cFPiOawC2T7cu64+bveePkgtuL0Ie0a/eTQ7v4UlJr2udUk+BYVFvqHIKj9C98y+MtoJvuNkOr91XWU/I0hivkWv+D4ZK9y9OWntuvVx7b5zma6+bRigu25P871hsho+bykVvkTvCr/FRDK/i/boPvOy5D4O/eW8X2TkPfahTb+lVVA/2tkHP6ptlr5xWqU+eCwxvjTjML7L49S+MJd5vgHywb0fPHM+YCguvoX7jT2pdhc/cHiJvSG6jL+646A+tquDPnm3lL4tsXU/nBkRujACkz3mfB6/LEYaP61Ge74/GGe+IZ6dP6bgnb4Sf5I+HpO7vW02aT9a1Og98H84P9E59T1FbIW+V0gyv+8wnr75AFS9OwLIv98IXT2LvFa+6F4Xvz9StL5aNiE9CD8ovUQkAL+9tta+JtXHvgQ/pr1iabK9WjyYvl+fGD9Q7gy/jSdFPA==",
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -1009,30 +1085,35 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "a9:ab:26:a4:1a:30",
-    "timestamp": "2026-02-09T14:16:35.186Z",
-    "debug_timestamp_end": "2026-02-09T14:16:37.808Z",
-    "debug_processing_time": 2.622206687927246,
-    "rate": 10.748823196028948,
+    "debug_mac": "33:81:ce:10:ac:d2",
+    "timestamp": "2026-02-10T12:21:30.718Z",
+    "debug_timestamp_end": "2026-02-10T12:21:33.440Z",
+    "debug_processing_time": 2.721823215484619,
+    "rate": 10.62079967995733,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9888612627983093,
+                "confidence": 0.9928065538406372,
                 "center_of_mass": {
-                    "x": 108,
-                    "y": 87,
-                    "width": 69.0,
-                    "height": 79.5
+                    "x": 39,
+                    "y": 79,
+                    "width": 37.666666666666664,
+                    "height": 71.5
                 },
                 "bounding_box_px": {
-                    "x": 40,
+                    "x": 2,
                     "y": 8,
-                    "width": 206,
-                    "height": 319
+                    "width": 114,
+                    "height": 286
                 },
-                "person-attributes": "F: has_bag has_longsleeves has_longpants has_longhair",
-                "person-attributes_model_confidence": 0.965659499168396,
+                "metadata": {
+                    "person-attributes": {
+                        "label": "M: has_bag has_longpants",
+                        "confidence": 0.9290622472763062,
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -1040,30 +1121,35 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "a9:ab:26:a4:1a:30",
-    "timestamp": "2026-02-09T14:16:35.286Z",
-    "debug_timestamp_end": "2026-02-09T14:16:37.908Z",
-    "debug_processing_time": 2.6223485469818115,
-    "rate": 10.560970853876366,
+    "debug_mac": "33:81:ce:10:ac:d2",
+    "timestamp": "2026-02-10T12:21:30.818Z",
+    "debug_timestamp_end": "2026-02-10T12:21:33.541Z",
+    "debug_processing_time": 2.723052978515625,
+    "rate": 10.62079967995733,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9806967377662659,
+                "confidence": 0.9210688471794128,
                 "center_of_mass": {
-                    "x": 95,
-                    "y": 83,
-                    "width": 76.66666666666667,
-                    "height": 76.5
+                    "x": 27,
+                    "y": 95,
+                    "width": 27.666666666666668,
+                    "height": 67.25
                 },
                 "bounding_box_px": {
-                    "x": 19,
-                    "y": 8,
-                    "width": 230,
-                    "height": 305
+                    "x": 0,
+                    "y": 29,
+                    "width": 83,
+                    "height": 269
                 },
-                "person-attributes": "M: has_bag has_longsleeves has_longpants",
-                "person-attributes_model_confidence": 0.9729161858558655,
+                "metadata": {
+                    "person-attributes": {
+                        "label": "M: has_bag has_longsleeves has_longpants",
+                        "confidence": 0.9899972677230835,
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -1091,31 +1177,39 @@ Example raw output metadata:
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "b9:ef:9a:d0:b5:9a",
-    "timestamp": "2026-02-09T14:18:29.287Z",
-    "debug_timestamp_end": "2026-02-09T14:18:32.812Z",
-    "debug_processing_time": 3.5257043838500977,
-    "rate": 8.86458507917628,
+    "debug_mac": "b3:2a:e2:c2:25:7a",
+    "timestamp": "2026-02-10T12:19:05.090Z",
+    "debug_timestamp_end": "2026-02-10T12:19:09.988Z",
+    "debug_processing_time": 4.897983551025391,
+    "rate": 14.464337542520422,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.7940923571586609,
+                "confidence": 0.9881600141525269,
                 "center_of_mass": {
-                    "x": 15,
-                    "y": 161,
-                    "width": 15.333333333333334,
-                    "height": 30.5
+                    "x": 569,
+                    "y": 85,
+                    "width": 67.33333333333333,
+                    "height": 81.25
                 },
                 "bounding_box_px": {
-                    "x": 0,
-                    "y": 131,
-                    "width": 46,
-                    "height": 122
+                    "x": 503,
+                    "y": 5,
+                    "width": 201,
+                    "height": 325
                 },
-                "person-attributes": "M: has_bag has_longsleeves has_longpants",
-                "person-attributes_model_confidence": 0.9634445905685425,
-                "reid": "9jGVPypVAz7wNsC91o7+vjyl679s2Za/qqwfP2SLnD4hAgQ+6wigvoRYgD4zADO+lqoIP2IziD4aEJa75tUnvnKABb9qvB4/sBEIvt/oET4g+HC8HrSXvnK77LsjagG///Tdvp5c1b6Shx4/SHifPphZB78RuWU/G1kQPqr1nL7EDjm/nEh0P8agNj+gtci+Z+cdv05cXL+NYCw+xk5Xvr5CZz99Hru+cK7pPgPNar8k6Z6/e3EVPPJdub7xnCW+K6lxPtVOybzE8nm/arvMvlYhPb46fEy/Ob6uPjBOnT99eXe/TUM8PnQJBT3+1rg9VXK6vnshmL4hXJw/f5TAu0nyOz7QyMa/fNJRPoM0rL54dV67DzEuv+HSxD5bGdO+UY87v4an/j4J1fi+EPAjPXe2Jz+gXDy/VdcQPlaDcD4BcIg/PFcHv9X3mT7MSue+3Ywlv+w+rr7o2W2/dZUMP6/dNT98tNK9jdWgvRvnKL8K0ma9u50fv/p+Ir6D/qI+Lw3mPdn++D7lkbU9Yy6+PBu7gT8odyw/thhdvRNmxz7fdVW+qgOUvqOBrr47YYy9hWBTvp4MuL+tN1G/bQgyPcz1qL8+Lmu/RMkDvkwgnL60V1U/frw+P9J/dj6QDL2+ubLpvteXJD/7ypM8Szikv4jOv77pmYk/9P4uv4acwL5P9DM/Syc9PqTHWz8/Ys++RCtRP+PqB77K5Ke8mptvvqUfhj60BsY+rz6qPp+YZ77aIgc/KS5YPuHsnD61XsE+Yc2Ju8oWb79839E+VsyHvwBdl76x5Ru+g9qYPm69Jb/5Vxe+w40BP8ELsL5yX6w9/5ddvr6Ghz0I8VG/PU6dPpz2DD9jgRa+NTWIv+7gEL6lvBS+/qWTPangLT8pi40+/uKOP2Wb6j62S+++i4Asv9q3Ib5Otrg+5AuaPlRK+z00vRw+OUrqPQZBlr841p08a+c4viUopj55zUe/pU2dvjHeyr5ZLH2/ke8mP14lJb6LyYY+USeiviUGmT0MrLk9xmebPsnAbL6NdSo/1HqVv/GGCT9s4o2+FyltP4VLKz7CpiE+e9NOPlL0KD8+DIg+TVwQP32FYD8rmgG/QlnCvpZWDb8ek/Q+4RouPgemSb4HczY/2SqYv47yOj+5yso+3DGYvpS3FL+4Id0+1uJ/P2JD+72TPfE9MS1zP1ewHb/m5ry+HbbePlrHw726lrM+j5FeP+mpkL5ZKNq8Z69gvVmbdD16Mqe96iuVvjOdDz+gXd89e1u6PWoPGL6Nr06+m8UAv79Tz771Yww/i5myvf/jr71rCD0/F8fVvqle1b6NSCi/zNckvbSnhL3Rczi+uVz1vuv1rD4ZgIS8RWJpvw==",
+                "metadata": {
+                    "person-attributes": {
+                        "label": "F: has_bag has_longsleeves has_longpants has_longhair has_coat_jacket",
+                        "confidence": 0.6650304794311523,
+                        "model": "torch-jit-export"
+                    },
+                    "reid": {
+                        "embedding": "IfANPyX3rT7AypM+DyDSvuf0wztKUqg90RSIvnxWXL9ud2w/yI9+vnslYz87Hae+aM6gv4u2rT7Qw5Q+5XzWPmfHwr5MIYm8vvSSPsAFrz3/bsI/dN1Ov9dXlz4GEZ6+265Cv4Y5Az5yLFi+ur+9uweBez8pV8g+Ad01P4lZMD+JwI8+P8zzPulsNL+wh2W+OsBgv6XL7r3j+iY+eYojv9hPSb6hGAc/CDSgvjVTrL7XczM/lMXLN5EwgL+xg/y+0J8wvvUiwr7C99i+pWscv1xGgD4EvcE+xjGJPcS+Mr6JAhK/fxNOv1VTa7y1DLg+fwsqv5yafr5sDeu+pKRwPkaPA72ICLO+c9FPv4KtLL/QPQc/hL9bP9NSB7+atew+/ifuvV/fBj/ci9S9QsBXPxcsA7/6qYs+yBm3Pn0pDr/XqJ89OC00voTcvT43kvA9RmhEvyO2Az4PufI+vyVSP1HVHr/iICa/pfrGPs0Un74HxCg/mtRTP5SOyb1WDII95YYtvwDQGr/8OCY+HEsQP3VESb/5wwm+YjZWvZRc0r2kkwE/jQq1vqPlxj43cJe/aFSaP8lhjL2i8ek+NhgzP9K3Yj7I2CS/howSv/KgqL5AFZM/84r8vtiHrb1M0e8+QZFhPuN3o751mFW/ADA8v8+oMr7VHo6+XOQ4PO44Yz0l3I4/wFgfPy3DNb43Htq+zy3bPuTgVb9+rYu9wL/svYdy7L3P4Tc/EhUKv/ljwT4Ps5a+NFaDP6ELBz8Bx7i9JZlNvqFzfD2PLDy/i9hWv1Huh74g8AI/2Pu1PpNJk77VqcE96LYZPjz33D6kURq+NvuJP+Dwnr8+uBw982oAv8O0RL2Mugo+Wg1mvhPbvj4iOMQ+bcQGP2+CVz9V304/Ct7WvmfH4j6qjvW849NCPrZqHb/IYCk958wTP2bgsb1vwO++VaNavOZfIb+OM68+3JI5vyTpij2ylMA+z6yXPj1xF79OvM0+MwIiv1QEAj43Okk8aGMcvrNwAj5xHSi/9S9lvmCSQr87voq9Iuvfvirlbr9VbGO/IXqCvvXuED+pypO+CG2Hv3YxHL4MD1Q/O7XoPSQAG79OO1s+tyiwvk2dVz4YKFS/BexxPhYuFz2xqCC/lzeRPihWrb70Iz2+b40fPZXVxb6Tkdw98JB9PrnlmT51Bug+Yeg/v6OEs75zjia/xEsdP/ksWj+EX28+sTVPPvoEvL/fkQQ/8kvrPI5yv70LiOq+trQaPrl7jj81bDW/uy+9ve25Vz70//W+g7yDPjZCHT2Zhw6/Izs5v040NL6F4KS+M5yivo/Dl7yeYQu/vcyFPQaAhT2q25i9BBNWvgLY8L5H1Ou+URyqPQ==",
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -1123,31 +1217,39 @@ Example raw output metadata:
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "b9:ef:9a:d0:b5:9a",
-    "timestamp": "2026-02-09T14:18:29.386Z",
-    "debug_timestamp_end": "2026-02-09T14:18:32.912Z",
-    "debug_processing_time": 3.5251872539520264,
-    "rate": 8.86458507917628,
+    "debug_mac": "b3:2a:e2:c2:25:7a",
+    "timestamp": "2026-02-10T12:19:05.107Z",
+    "debug_timestamp_end": "2026-02-10T12:19:10.101Z",
+    "debug_processing_time": 4.9934165477752686,
+    "rate": 14.464337542520422,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.5004321336746216,
+                "confidence": 0.9578379988670349,
                 "center_of_mass": {
-                    "x": 11,
-                    "y": 178,
-                    "width": 11.333333333333334,
-                    "height": 24.5
+                    "x": 564,
+                    "y": 85,
+                    "width": 63.333333333333336,
+                    "height": 80.75
                 },
                 "bounding_box_px": {
-                    "x": 0,
-                    "y": 154,
-                    "width": 35,
-                    "height": 99
+                    "x": 501,
+                    "y": 6,
+                    "width": 190,
+                    "height": 322
                 },
-                "person-attributes": "M: has_longpants",
-                "person-attributes_model_confidence": 0.7642964720726013,
-                "reid": "8445PzyYjD8w2b0+F1BWv1nU4r//cjc+cAyEP7E7WT+1j906Stu4vV4vQr+Fsbq+8TR8P4LT3r7gF6S/f6hUvkn/p7/OZQ4+WPOgP7a/cL4xzaI+3wGavvBcgT6zTpc9QQwCP92mrD71ylw8fYkkPhZtFb8OjAQ94rK+vT49qT49cDu/L80JvwudsD6L9je/ASiJPp1BxD7MHwi/MgsGP5oVjj/s4Rg+/0mOvbQRQ74pT5W/AV4Bv02xcb49Oyw/kXoBP2ddN7/2BVO/zQe6viQOvr0cPo2/aSEqPmd9hj+f4Jy8F2x3vyLAFb9YTec/u74IPdYA7D3PfMg+ZcnUPvn8zz6FBd2/dqBdvc0BSj6IGw6/ip2Ovvxv2L6UXd48HauYvD+wsT6icHI+JYKHveaehTtLR4u+hDl1vdCExb5+soA/W5alPkoqPb4yzcy+TpCivUw8sb250Ke/ZTgPP8SKdT4Ynxm/HhH0Po9AEj4xmNS/EuT3vh60Kz8fTZw+fu3zPr2ePz8Uq7S+kMA2v5icIT8SoQs/96gNP4NVvD+uyc0+KRuRv4KnP74iRBg/RtyVPSqFir8gdQa/BRvkPf4hzL/IzV49IorrvnRfnz/jthS/erZlPzeKDz//pMW9y0YFPg+wID/LcN+9Fu8av764rr8X/CU//eSCv8sws7zEfdc+uU3zPquinz8yW5y/+KoOP7udGb/Nb2Q/SbPMPwExAT9QSHe+zzrIPtorBz7G2qC9n5cGvybF3r4zMbA+5gimv9Ya1b5VTyu/2VPav1X7vD61S4Y+Puh7vtxt4b4waVY9XPu4PT4Lez9v2E8/eGeZvWTBML4kBFq/19Q7Py8CcD87WLS+vAXSPg61pT45rNi+C1YQv9Nd5j7KENG+VxCnvjBZyryBmaM9mNavvgcmGr/hHqw9l7kNP9ICrb73cRc/2OM3P2Mvsr+gpMc+Y1ecPmaD2T5iL06/QbgcPQ+5zj2epOy+ZA7sPbvpyjw2yJ29d2l6P8iwQb9moMq9TpoCPkWPwD4L78U+WcVQvysmkjuF4kC+JbSePwn28z0HIgM/M/IhPzxwrT0O+Ky+Fh2gvvdzjD9Hg1m+NiAdPlfWQ7+Mt7G9RQwGv/bD1DuIkzA/A+gNPaJLR77zfTE/fbPnPo9apLmmcze9rk+MPzON0r9kr8q+1o4aPa36BL/kOsa8u1YKP9lph7/AwXI/Hk8wvuiVor6FfBG/ljDovmQjFr/lwTq/dRSlv/LRoj5AXog8QOjkPkDcaL6h1AO/UWcBv4II1j5tWxW+kvZlPn8wZb7KX4G8f82QvlfKMz+CLu2+mcN2P/cB9T5QE9G+Kh5VPbscLz4IpPA90G75vg==",
+                "metadata": {
+                    "person-attributes": {
+                        "label": "F: has_bag has_longsleeves has_longpants has_longhair has_coat_jacket",
+                        "confidence": 0.9285990595817566,
+                        "model": "torch-jit-export"
+                    },
+                    "reid": {
+                        "embedding": "W8YiPzGEqb7ENRi+gsSTPvcY0z7aAdi+Ie2yPnD90b7KP2E8yUlovz47k75zOBe/p5/8PYKzkjz4e5s+ysgePiunm76B8do+gCILvpqG/L3/oVQ/oNYgvxjUv77x6ic9G/PXvrOOt75Cn34+NGyyPqBUgz4PQRw+2C3UPqw6ez6qOXo/gA31Pq1cPr6cWSC/aT6rvgCsHb+SdCM//DVBParJRj8Cb+E9rVSivlSyz777LgM+Q7kBvSujVb8daG2+dfeCvuBgq74CHCk+QjRivzrERT7BA+K+Wh+TPTFMvb1nTqS9XggdPXiIkj80xCy+nC3svsXSjL2V7Jw+KC2SvXHIFb7IWCO+A//hvUCqmL3sJc4+6DoKP0uhsL4Ze5i+LI33PHXtlz086mU+4/Y8Pwxi+r67W9M+4YKmP9UQ9751Vw8/6fWAvkFQNT8FNjq+HhLIPtAMrD3eaWg+Cue5vtCCwr4yoYC/ahcjPeI0Yr45NI8+G9ymPtRIAr7Qgh0/mf2rPSfHJzwWI4M+koqMPq9soLwEcYQ+3qqfvqXY1L4bcQ0/hT44vkcN0r7E6HU+aWJQP/zFRr9ZRCS/soogPxusqL595kO/yMkBvGIHM7/dxfY+oeU1v4OJYr3cGCw/Zm8QPqSbF7/zIS+//zKWv6qEHb+jd16+XR8xPbIi/7x//BM/nCT0vYDey76+byI8xbNYP5V5dL+Urh2/vRAdvpzhkLxu79M+uwXlPv2cUD4Xgb2+M1JnP4ADOj9RPRo/g/UlPuUOF733x1u/ATlgv8C6OL8bwiq/8NGVvgQ3iz4lliE/yO+GPjwmRj+i+L68KHx7Ppz2cL9fLi+/dEOGvr8PFr/8IAa/AWVDviD2q713Xog/nfMhP5x9Ez9OM2c/vMmfPm/ixL2DOCS+W0OcPNaAmT5uqjQ/Yj1PP+ok3r57g3G+Ckkgvwxjnb6Ydrw+Z+57vmVp5T5Ew5m9cvfsPlqU9b6a4y8/gAjHvm2Qqz5qGju/h8F7vtC2oL7q9ri+ZHtRPh5DkL4Iab0+9znqvi8gEr+uWx+/INw6PmA5UD5V3wU+a/drvvnlEL/KiBY/a741PrnTVb77VCg/hR2vPUNLCz7le+e+WzJBvvSdyjy6oXk+wTZQv5s/zD5MeJQ+PVQSvWVZar/UW4k+5Y1fvl5HcL7BRSQ/G/HuvqDu3r573FK/JR4IPyR7Nb62kP69LyuGP1rK3bwtzBM/Bt6JvgzbID/Mlii+KJ4zP4pgMz8O3QK+OQM6v95gdj0Bf0i9a069v0TsBD07ezG++jLDvno5bL5CYC48ZndivrRPyL5LvGK+EBeIvgqqlL1SKtI86Q5IvnaQCz/fKhm/LQC6PQ==",
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -1324,62 +1426,120 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "a7:e9:dc:50:16:d9",
-    "timestamp": "2026-02-09T14:15:45.001Z",
-    "debug_timestamp_end": "2026-02-09T14:15:47.206Z",
-    "debug_processing_time": 2.205275297164917,
-    "rate": 10.063923088812928,
+    "debug_mac": "33:81:ce:10:ac:d2",
+    "timestamp": "2026-02-10T12:21:40.718Z",
+    "debug_timestamp_end": "2026-02-10T12:21:43.640Z",
+    "debug_processing_time": 2.9222302436828613,
+    "rate": 10.409417580856887,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9931640625,
+                "confidence": 0.9832690954208374,
                 "center_of_mass": {
-                    "x": 453,
-                    "y": 87,
-                    "width": 66.66666666666667,
-                    "height": 87.0
+                    "x": 231,
+                    "y": 91,
+                    "width": 67.0,
+                    "height": 88.25
                 },
                 "bounding_box_px": {
-                    "x": 387,
-                    "y": 1,
-                    "width": 200,
-                    "height": 347
+                    "x": 164,
+                    "y": 4,
+                    "width": 201,
+                    "height": 352
                 },
-                "person-attributes": "M: has_bag has_longpants",
-                "person-attributes_model_confidence": 0.9091796875,
+                "metadata": {
+                    "person-attributes": {
+                        "label": "M: has_bag has_longsleeves has_longpants has_coat_jacket",
+                        "confidence": 0.9448522329330444,
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
+            },
+            {
+                "category": "person",
+                "confidence": 0.6787747740745544,
+                "center_of_mass": {
+                    "x": 1187,
+                    "y": 495,
+                    "width": 42.0,
+                    "height": 74.75
+                },
+                "bounding_box_px": {
+                    "x": 1145,
+                    "y": 422,
+                    "width": 126,
+                    "height": 298
+                },
+                "metadata": {
+                    "person-attributes": {
+                        "label": "F: has_longpants has_longhair",
+                        "confidence": 0.6425620913505554,
+                        "model": "torch-jit-export"
+                    }
+                },
+                "id": 2
             }
         ]
     }
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "a7:e9:dc:50:16:d9",
-    "timestamp": "2026-02-09T14:15:45.097Z",
-    "debug_timestamp_end": "2026-02-09T14:15:47.309Z",
-    "debug_processing_time": 2.2120001316070557,
-    "rate": 10.063923088812928,
+    "debug_mac": "33:81:ce:10:ac:d2",
+    "timestamp": "2026-02-10T12:21:40.818Z",
+    "debug_timestamp_end": "2026-02-10T12:21:43.740Z",
+    "debug_processing_time": 2.921823024749756,
+    "rate": 10.409417580856887,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.994140625,
+                "confidence": 0.9799434542655945,
                 "center_of_mass": {
-                    "x": 437,
-                    "y": 94,
-                    "width": 75.66666666666667,
-                    "height": 85.75
+                    "x": 197,
+                    "y": 98,
+                    "width": 54.666666666666664,
+                    "height": 96.25
                 },
                 "bounding_box_px": {
-                    "x": 362,
-                    "y": 9,
-                    "width": 227,
-                    "height": 343
+                    "x": 144,
+                    "y": 2,
+                    "width": 164,
+                    "height": 385
                 },
-                "person-attributes": "M: has_bag has_longpants",
-                "person-attributes_model_confidence": 0.85888671875,
+                "metadata": {
+                    "person-attributes": {
+                        "label": "M: has_bag has_longsleeves has_longpants has_coat_jacket",
+                        "confidence": 0.9935144186019897,
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
+            },
+            {
+                "category": "person",
+                "confidence": 0.5774734616279602,
+                "center_of_mass": {
+                    "x": 1196,
+                    "y": 450,
+                    "width": 37.0,
+                    "height": 89.75
+                },
+                "bounding_box_px": {
+                    "x": 1160,
+                    "y": 362,
+                    "width": 111,
+                    "height": 358
+                },
+                "metadata": {
+                    "person-attributes": {
+                        "label": "F: has_longhair",
+                        "confidence": 0.9247406125068665,
+                        "model": "torch-jit-export"
+                    }
+                },
+                "id": 2
             }
         ]
     }
@@ -1406,31 +1566,39 @@ Example raw output metadata:
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "97:0d:05:e8:81:94",
-    "timestamp": "2026-02-09T14:20:08.184Z",
-    "debug_timestamp_end": "2026-02-09T14:20:11.488Z",
-    "debug_processing_time": 3.304837465286255,
-    "rate": 10.547318264418443,
+    "debug_mac": "b3:2a:e2:c2:25:7a",
+    "timestamp": "2026-02-10T12:18:55.985Z",
+    "debug_timestamp_end": "2026-02-10T12:18:59.900Z",
+    "debug_processing_time": 3.9150524139404297,
+    "rate": 6.999297444698321,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.986328125,
+                "confidence": 0.9953031539916992,
                 "center_of_mass": {
-                    "x": 570,
-                    "y": 85,
-                    "width": 67.0,
-                    "height": 81.25
+                    "x": 199,
+                    "y": 92,
+                    "width": 83.33333333333333,
+                    "height": 92.0
                 },
                 "bounding_box_px": {
-                    "x": 503,
-                    "y": 4,
-                    "width": 201,
-                    "height": 325
+                    "x": 116,
+                    "y": 1,
+                    "width": 250,
+                    "height": 368
                 },
-                "person-attributes": "F: has_bag has_longsleeves has_longpants has_coat_jacket",
-                "person-attributes_model_confidence": 0.86572265625,
-                "reid": "dJU0P8SVCb+uUEu+JHXDPlT9Dz/VX9q+e7toPigx+77c3mY9FGKAv0EIr77DNgK/ywoQPvs+hT5oLk0+3u17PlAxzr5egqk+7hLJvg+b0r4IJXw/doPvvsxfFb9xMKK8Y2fxvm08tb5G8ZE+UBjqPW6wkT5epxQ+eQTkPkyQ4T3kb1s/HlQnP7aIsb0Q8g2/HS8fvwphTr/98wE/0Gx3PYGEVz8aBVU+qG8Lv7a5275SI7o+ZrMyvhVHPb/2cqq+5sICv2eC6b4b7yU+vBiOv7JZzD7fwgu/5ajgvEFpy72Zg16+egiWPhqctT+RMXq+SCMlv/3RFr0Y/Jo+sVWfvMjkujzQS3u+ePB/vSuZor4UsOw+W+QVP8M/ub6Vnle+gigmvhjMZT06Bos+cik3P8OJC79LgZA+svC1P91VD7/tZDM/qVSlvv8YNj8pGKK+R1r2PtAEJz7QT9s+3VGHvrYRpL7YQ4O/OMVtPirEj70vSZ0+bMShPpRUmL5Mcy4/IHXCPfj4sT3ZDTM+l1WGPrcz072DshI+Yx6uvrOx4b5092g/5JQnvgg+6b4gNYc8bpNIP6IyUb9z2Oy+omwwP4WShb5fb3C/AfH7vZrnbb8rago/xKJxvw60Hr6GbVY/hHloPvrf6L6FxzG/vS24v4M3I78oVay+MiUFPnAmyL2Q88U+irWAPSS4Cb7tdIC9jlVVPwb9iL/nShi/hWSFvnS3gz239fk+zFiWPijUVT52xOS+JiyCP2Cjiz9lKv0+LEb0PQIrEz2e42W/a5ZsvxMaB78gTh2/fPJYvj5eyj7YfS8/AJYYPuRSKD/cAWI+uNyvPjaHi7+7f1G/PWFmvqD59741+9m+fDQCve6YRL7p4o8/5lhbPwBhNz+90D4/K8P4Puz9rbx8w7e+dGHWvSwDsT4PSmc/1AdDP9PVCr+FEne+8NvlvsKT4r5i8S4+NPa5ve+r2T7Umog87za7PiO7FL/WhRc/BswXv39ogD4pHRi/GoCTvgJUjr4p+4y+QJ9UPZPZXb7+r+Y+0ge+vmseS7+r8gi/HAX0PY4+sj4q46Y+rRPJvkuhNL+jJws/BSa0Pkot7r14lBo/2L1KPs8fbT4VfAO/wHP+PORN+r0eyoY9IuEsv1ruCD8pp8g+guElPmIyU7/dALk+n6eCvgBMMTtKyyM/IB7hvozZwL427nG/RU/gPhI+5b1krh2+sdqVP4OsAL2nd08/xplsvhwN+j5hpo6+OjAVP6OFQD8dGhS+RI49v1O8fz3DkCq+13jCv3iYj73q942+K6wPv2OYsL5PBHk9SYeHvsNMCr/VINS+czWfvjNWjL13FYK8r6OSvjALHD9z1Ca/ooRLPg==",
+                "metadata": {
+                    "person-attributes": {
+                        "label": "M: has_bag has_longpants",
+                        "confidence": 0.9799158573150635,
+                        "model": "torch-jit-export"
+                    },
+                    "reid": {
+                        "embedding": "dhyGPmrSZzx77wi/gh6JvdMbaz+nYoK/ObbKPvnk5LxnAaC8u5UIvgoXGbyphDk+cj5jvwED5j4lUUg/4CrEPStDuj6AZSk/W3ubvgXtOj+stxw/5EedviHM+77Lxao9IT4Ovxafbj4avFU+1OJ4PU68sL7D3Sg/a5fEvhbBaj9ytBu/R5vXPgIN7j5sj3W/ymTtvtsBKL/Owkg/uKLtvqwnuD7jLLG+uNe2vs/CQL6Ph9e+nRnWPEAwWb+Iq6O+sPfZPbTft75ejC+9Y4byvsw2cL0uO7e+pnhcvaVd+L1LrgS/IrvdPtwJiT8uEhY/ySOhvi5rAr8sI/W+rMMhPkYM7D3HRB++u1pQPufhaL0eD1Q//PNaPuLHED8vHq6+z+fvvqju8z6qBoS/FhC4PHoTrD6IZ/2+gnvKvPHPtr5UMCY/h7bYvhZoqj4OPRI+/j8DP0S/lD4Igio/xl2OvGFYFz9zhKa+/CkPPxTSfr8HuTq9yJVZvtquiDwM7qi8P8bfPa+vOL6LvA8/rNymPtNekz+/2CQ/K5bzPrrRTL4+n1K+2+brPnIoNL65c5G/gtqLvvtMh75wyA2/cgD3vgvpIT2Y5D6+nbTKPkvjC7/nxb8//+auvuLSm7xz/Ig9JgTTPnrJM77zDLA9q1m3viFQWT2Wv34+F9xLv/eCID51Gco+IQaGv+fEYz6HFiS/8/BZPtujBz/vMBW//LUvPi9zqL5hKo0+1IOqPznqmr2kDSa+afcOP/BMMT/nlVA+Wht9P4M00r7olMs+ityjvVDhg77nSn++G50bP3TKOL+KLEE+8vKQPnWyw7shsY6+N2O9vsQg4j7e1TG/652GvExKOz5g9/u+sOdcv3b5wb62kEY+jVfRPvfnOz/iV/S+LJH/PudjKz+4bTM+J7yDvv22pr4uzp0+UNEaPy1aDj+cNdQ+sSbEPkh3B77M+hK/KP/FvvxWBD/LHba+VNYCv6MSar75ui0/uKnYPlUY/T4XxV0/FPpZv9ZFdL4Ggga/vD5pP+26PL0RmY4+QM96PlZCe78EWCq/u9wdP7kw6T6RF2C+sm0Tv3i8FL4kg/y+ByTTPvOG5z72zNo8AC+sPHRqVj7RnkG+bG5fvtlRCT9Ujge/v3x9v8j7Wj8ryyC/0KmMvwW3KL8tQCs/h5WIP80K1D6zUVY/0snkPqG4476I8Ue7CqslPh08hj4l7yM/hWmEP4OgF7/o2re+8FwDPwI2UTx6eHg9QQ6TP5bRwj5uTJS+SncrP9Lat75rrA8+UygoP8/IDb/jDZ095s8sv0m62L0ChU69Et4aPfy1pT6E5g2+sv2RvphyAL9R+b09geiovqQ0Kj7okBU+q+FLPg==",
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -1438,31 +1606,39 @@ Example raw output metadata:
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "97:0d:05:e8:81:94",
-    "timestamp": "2026-02-09T14:20:08.284Z",
-    "debug_timestamp_end": "2026-02-09T14:20:11.591Z",
-    "debug_processing_time": 3.3074374198913574,
-    "rate": 10.547318264418443,
+    "debug_mac": "b3:2a:e2:c2:25:7a",
+    "timestamp": "2026-02-10T12:18:55.987Z",
+    "debug_timestamp_end": "2026-02-10T12:18:59.999Z",
+    "debug_processing_time": 4.012442350387573,
+    "rate": 6.999297444698321,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.97705078125,
+                "confidence": 0.9960914254188538,
                 "center_of_mass": {
-                    "x": 531,
-                    "y": 80,
-                    "width": 41.666666666666664,
-                    "height": 77.25
+                    "x": 183,
+                    "y": 91,
+                    "width": 88.66666666666667,
+                    "height": 86.75
                 },
                 "bounding_box_px": {
-                    "x": 491,
-                    "y": 3,
-                    "width": 125,
-                    "height": 309
+                    "x": 96,
+                    "y": 5,
+                    "width": 265,
+                    "height": 348
                 },
-                "person-attributes": "F: has_bag has_longsleeves has_longpants has_longhair has_coat_jacket",
-                "person-attributes_model_confidence": 0.9560546875,
-                "reid": "TQ4LP2cM3b5EU9u+uHctPoK4Bj8PeFS+1icjP30h/L6ZpbU+gQQJv23K/Dx4z8G+grXePpy+Bb0WUuE+/FHgvXk0m76FTgs+IpFrvkhEBD4mDi8/djBVv/ixJr6LXgS8lyvovrVkCz53ms0+proKPpAI2T73G6c9NbPOPl4u0T6aD4M/uowKP0fc1roCHg2+A2rbvtOfab8kBw4/EBLAPVq0Dz+4JoU+j3EaPkOs8r44HKs8WX7wO2LKNr/A3Fc87T1bvWqtrr57ozq+7InsvsoOIz5EAjq/Fqg/PlWm277Am6k+ax3kvUxRoT+wC648eOe2PMDa1b2MmWO9+Uz7vS90ub56buq8ptZqvtyoHr6hsao+JJUWP3ju07477Qy+xuYFP1CrJD2zjsY+7WguPzy4E79i1Qs/u7J9PxFe4b69aH8+81JEvlbNAj8UpaC+QNPwPGBQ3jxqgVM+f7H0vjfrp76+yJC/IBPDPBlGtb4kOT8+nVmgPpdFx77mwhk/3FShvgA2RTy8elQ+kgmYPuyYrb3FONM+GtDTvYHN6L1o52E/F2Icvl4NF704VKC8Ig5UP537Ib9J7EG/ZwNCPx4WkL0FqBO/B7qnvrS/ib7ECYo+svICv484gL3CRZQ+y98kvgA08L6f1CW/gYB6vy/8+L6e5Wi+HuxGPf3KLz6T8Bs/dawrvhntmL65itI9nk9qP7SIZb8v80C/llZLPtm4Mr58/m4+nLgzP8qTwT5ago++EPQ4P5k/XT+yVQ0/GK3wPu9thr7vaF2/ublwv+HW3b5BRo+/qL44vaQuzLwgqSc/tdGkPhSzFT+uhhw+4Aa3Pd5E/b4+BV2/UN3IvmwsBr/w3dm+iHepvuxVwr7MkV0/3oQXP455jz6cXZQ/vgi1PoiqZD06+8+9mpQRvIiqyD4PpZw+/lQpP7uDKL2tBPa9WxMTv5fapb7nFIs+QIt0vfgayT61kLq+MgEOP7mZKr+v+Xs/OXWwvtpAoz7HuCy/GqTlvsgFwr4gq/m+TJJAPk+hgr5pjpc+imHbvuq+Wb9SXCe/vOQHPuBbrD3EB9Q9MkMHvZx+R78mX6M+YhKzPkiySr46tTI/Wavivtp+gjxHV3O+OLjePAxzpbvXZwu+foKAvzIedz7HCrU9G38Ivnu/Bb9jYYQ+D36Fvpu1qb6XEUk/RGv4voWBL74xv0e/2hYMP7rnT74vE2m+3swIP9xn+b2fdbo+cX+dvq9WIT9t3wm/9g9vP3vdjD/gtdq+Gccpv6cnQr6Ppvi9445vvwDM+zqhBMW9BJvTPSsbsL2bCJC98QytviT+pr1cIuS++goWvxj9Rz7UHns9Gp6gvZ5/KT+Vrg+/jnoKvg==",
+                "metadata": {
+                    "person-attributes": {
+                        "label": "M: has_longpants",
+                        "confidence": 0.9835643768310547,
+                        "model": "torch-jit-export"
+                    },
+                    "reid": {
+                        "embedding": "yZoqP457m70p2FG/vIiKO+8qjD8EUoa/zEH5PhPHlz10yR293L6uvftmS74XCJa8D25Kv1B6wz6IJGo/1XG+PSjFuD5YqFQ/dbTrvrDZEz/O7OM+/QSKvgQS2L5f9U+87xj0vqNnnj6ppZc8i5wqvoQp+r7euEM/zczaviXKOz+fOh+/g9TXPcKm0D5j2Wm/wTwNv+j9HL9PSmA/WosJv3W1/D7fwau+FZKWvR8aTb5sUAm/bW0tvjFuVr84LLK+ha/FvH6ZEL8FOOG9vqm7vtKSgb01eoC+Gn7ZPZsf272ClQ2/06t4PoTlhT/f6gY/WWBVvsJG575b4aC+/H1EPA50jD4mBrW+EjycPnTDYT1ACYw/uH/JPTZQ9D5xTSm+leLgviP0uD4mAny/h+xBvsudaj4Fzu2+rnqovUW3kL5Ks4A/JZvHvhzIkj7zcRw+X6IKPx+isj6CAbw+qRIwPJ/1Hz+Zsmy+xVApP5nFdL+cMf69D7C9vhcNVbx56AG+zcHBPXllh72i6Bs/A/tPPtVcgD99tnA/hZOVPowKQr4Ak8a9ezEfP+bshr7BUVm/iwiWvreWzL4Eg+u+dnbKvtcjGTzTIYC+F9ADPzJCFr+CD8k//O/gvjRHwj23zSM+auf6Pg40f74LLBA+tROdvl7FE713IWk+ROFqvzDhfT4tdN8+CJaNv+KCmD5fXwK/emiQPvznLz+qs/e+mL1pvUH07b6R6fI9ObW1P0MPmr4gUL2+6DUdP/9M5T6q0Bc+L01vP03KD78WB5E+oYGFva89nL6Lobs7b1YhPx0QVL8rgTs+MRKAPDrjcj4UReO+hqK5vjmazT5pWVm/R9CnvbVcPD62bwW/vPSNv2khBr86dww/Ult8PojkST+AM8C+TyinPsfcFT+CfRM+ZeOIvQWxP76dyys+FsgqP6rzFj+rR+s+qADhPhsYTr4CDxS/IlRgvhVsIj+qy/K+Bf0Svz1KFr1LzDA/MailPnY+IT8cJHA/pZk2v3IvZL5stge/d6c+P1ra/b1C1yI+mRVCPqniWb+TzES/opMCPwaIkD4ufLi9hmL6vrJEdb41lwm+FaJbPlFlcj6s+GE9kWNWPPdrGz7rBCe+Pe6+vTKdFT/KOWm+jtN3v5wwPT9XHCG/KUeDv9TeBL/5Gys/WxOSP/EVmT7jNzw/H0PBPtnvyb4KfQE92MjjPi0OAz8nYKQ+9fCUPzGE1774+VC+u5ICP3bBoL4hNy49jbmTP/25vj42Lx6+Ga4tPwBmuL7Fu4Q+H/wMPxMAFL+68m0+iCofv2kP+r5wMEG+vnzkvGkq4D6yLg++NcFvvszkTL/DAbm9nJO9vrg6uz6TciU+jTCNPg==",
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -1494,34 +1670,48 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "7f:88:8d:a9:ba:c1",
-    "timestamp": "2026-02-09T11:10:06.579Z",
-    "debug_timestamp_end": "2026-02-09T11:10:12.379Z",
-    "debug_processing_time": 5.799445152282715,
-    "rate": 15.777117409972615,
+    "debug_mac": "41:65:97:c3:5a:e0",
+    "timestamp": "2026-02-10T12:09:19.470Z",
+    "debug_timestamp_end": "2026-02-10T12:09:21.931Z",
+    "debug_processing_time": 2.460519552230835,
+    "rate": 6.604081651768196,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9881600141525269,
+                "confidence": 0.997582197189331,
                 "center_of_mass": {
-                    "x": 569,
-                    "y": 85,
-                    "width": 67.33333333333333,
-                    "height": 81.25
+                    "x": 527,
+                    "y": 125,
+                    "width": 67.0,
+                    "height": 106.75
                 },
                 "bounding_box_px": {
-                    "x": 503,
-                    "y": 5,
+                    "x": 460,
+                    "y": 20,
                     "width": 201,
-                    "height": 325
+                    "height": 427
                 },
-                "age": "50",
-                "gender": "Male",
-                "gender_model_confidence": 0.902121365070343,
-                "person-attributes": "F: has_bag has_longsleeves has_longpants has_longhair has_coat_jacket",
-                "person-attributes_model_confidence": 0.6650304794311523,
-                "reid": "IfANPyX3rT7AypM+DyDSvuf0wztKUqg90RSIvnxWXL9ud2w/yI9+vnslYz87Hae+aM6gv4u2rT7Qw5Q+5XzWPmfHwr5MIYm8vvSSPsAFrz3/bsI/dN1Ov9dXlz4GEZ6+265Cv4Y5Az5yLFi+ur+9uweBez8pV8g+Ad01P4lZMD+JwI8+P8zzPulsNL+wh2W+OsBgv6XL7r3j+iY+eYojv9hPSb6hGAc/CDSgvjVTrL7XczM/lMXLN5EwgL+xg/y+0J8wvvUiwr7C99i+pWscv1xGgD4EvcE+xjGJPcS+Mr6JAhK/fxNOv1VTa7y1DLg+fwsqv5yafr5sDeu+pKRwPkaPA72ICLO+c9FPv4KtLL/QPQc/hL9bP9NSB7+atew+/ifuvV/fBj/ci9S9QsBXPxcsA7/6qYs+yBm3Pn0pDr/XqJ89OC00voTcvT43kvA9RmhEvyO2Az4PufI+vyVSP1HVHr/iICa/pfrGPs0Un74HxCg/mtRTP5SOyb1WDII95YYtvwDQGr/8OCY+HEsQP3VESb/5wwm+YjZWvZRc0r2kkwE/jQq1vqPlxj43cJe/aFSaP8lhjL2i8ek+NhgzP9K3Yj7I2CS/howSv/KgqL5AFZM/84r8vtiHrb1M0e8+QZFhPuN3o751mFW/ADA8v8+oMr7VHo6+XOQ4PO44Yz0l3I4/wFgfPy3DNb43Htq+zy3bPuTgVb9+rYu9wL/svYdy7L3P4Tc/EhUKv/ljwT4Ps5a+NFaDP6ELBz8Bx7i9JZlNvqFzfD2PLDy/i9hWv1Huh74g8AI/2Pu1PpNJk77VqcE96LYZPjz33D6kURq+NvuJP+Dwnr8+uBw982oAv8O0RL2Mugo+Wg1mvhPbvj4iOMQ+bcQGP2+CVz9V304/Ct7WvmfH4j6qjvW849NCPrZqHb/IYCk958wTP2bgsb1vwO++VaNavOZfIb+OM68+3JI5vyTpij2ylMA+z6yXPj1xF79OvM0+MwIiv1QEAj43Okk8aGMcvrNwAj5xHSi/9S9lvmCSQr87voq9Iuvfvirlbr9VbGO/IXqCvvXuED+pypO+CG2Hv3YxHL4MD1Q/O7XoPSQAG79OO1s+tyiwvk2dVz4YKFS/BexxPhYuFz2xqCC/lzeRPihWrb70Iz2+b40fPZXVxb6Tkdw98JB9PrnlmT51Bug+Yeg/v6OEs75zjia/xEsdP/ksWj+EX28+sTVPPvoEvL/fkQQ/8kvrPI5yv70LiOq+trQaPrl7jj81bDW/uy+9ve25Vz70//W+g7yDPjZCHT2Zhw6/Izs5v040NL6F4KS+M5yivo/Dl7yeYQu/vcyFPQaAhT2q25i9BBNWvgLY8L5H1Ou+URyqPQ==",
+                "metadata": {
+                    "age": {
+                        "label": "35",
+                        "model": "age_gender"
+                    },
+                    "gender": {
+                        "label": "Male",
+                        "confidence": 0.9521394968032837,
+                        "model": "age_gender"
+                    },
+                    "person-attributes": {
+                        "label": "M: has_longpants",
+                        "confidence": 0.9166854619979858,
+                        "model": "torch-jit-export"
+                    },
+                    "reid": {
+                        "embedding": "VpGuPujDML4O5oa/UxDLvbXp1z7Cn06+Bg8/PsN7Fr6yQSS7Kzujvnvwwb0uRTs+Bc3pPYzbWT8RRxY/3+2XvhARqj5shhA/W9MUv71bcT19jYc+2/GBPkWnrL4aeoG9rN7svo5cuL0WfyY+EuLtvdEqCr8tdOY+R7XWvq4COD+cOTW/h0xdP96UcD/PmtC+BeIwvyDcR758tEc/3wqGvo71Dr34vZO+UlCePZHFWj4UO3G+/2unvoiuAz+uIhC/9D3yvGx8G7/JDvS8hx6aO4oRUrwZRXC+joaePnBdVr5gido9ofFxPpkqmD+7po0+F3+HvhWBLT64bJk+7lP3PujXFr6jaBc+IeQkP1JS3L78op0+wcg5P7Py4D6W4VK+6fXmvTAIjD70bEG/SKLavo2crz6CB6U9CJyuviDJXL52hw4/hao/vqY3AT4mYoS+YUT6PhPFIj97Q40+MJQ+PrmwBT+aioI+FBPuPlo4ur7Tr8s+oXI4vJ9BEz8NKzY96AHNvskO+DvzAcy+hv+RPh2/MT+HvhU/17XwPTYUF72MmYy+o2vzPk7NjD0eq8G/qiYOv/isZz42ML0+5HApvNnX0T3ElPm9FG+HPfl+Db/r658/fWMNv7C3hL4iSSa+Cr5NPshTHb8GWYq+Zsk7v1odor7rxKU+Z8lfv3S4xb5B0No+iNQVvrttmT7knNG+lv8bP9KA0j67fe6+SXDfPvaUpzwlP8g+GyrzPjudgby2McW91yJUPyMcND/lXgq/egFPP6h1JL8IMVE+AqOjPgvFz76q9ru+bYCnP8q8Yb2326s8eD8UP1ey27xY34i+Bdoxvvljrj0oKSa/h4HzvrbUhL0+AQy/+s3RvXJcEr/+/Tk/DEMtPxwkaD9NJy6+BzupPtwh0L5Yu1s9+1pRviCU377/CCE+FvhhPTVSGj2TqVo99bt5P8AlCL+tFSu/Y1h8vGnDKD/Cdpa9aMOhvvoMBr920J4+OF+Nvhw3IT+b6YI/Ve6vvrK6Nb/oYvG+ll9rPqUCSb+2kwW/7TEYPv/dur4DcPC+ttDbPrw+VD+cZ+O94bGavybpwb6VAii+GSkGPyFhzD3xAc89zlVwv6aGRj1kIiG/yl0mPr4/5LsGMzO+cpzRviFWQT/VBqa9q0Ycvzbwg78+Ois/NTprPhmUBz4OrXg/wz9FP8fThb4CnaA+T2EZv4JlpT6PtQQ/pY49P1UYQr8qThK+z3cpP/2Q5D02ga88HI+AP2T8lD46GO89eExoP8ED4T5wtDk+mt6Hvdwnir7q1aC+8BBuPA5rXr4lkPK+WhZZvYTQFz4uVrW+BZE5PHm8Zr53LhU+ahUCvg7N+j7aC66+9k3xvg==",
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -1529,34 +1719,48 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "7f:88:8d:a9:ba:c1",
-    "timestamp": "2026-02-09T11:10:06.588Z",
-    "debug_timestamp_end": "2026-02-09T11:10:12.487Z",
-    "debug_processing_time": 5.899734735488892,
-    "rate": 15.777117409972615,
+    "debug_mac": "41:65:97:c3:5a:e0",
+    "timestamp": "2026-02-10T12:09:19.494Z",
+    "debug_timestamp_end": "2026-02-10T12:09:22.040Z",
+    "debug_processing_time": 2.5467610359191895,
+    "rate": 6.604081651768196,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9578379988670349,
+                "confidence": 0.9993913173675537,
                 "center_of_mass": {
-                    "x": 564,
-                    "y": 85,
-                    "width": 63.333333333333336,
-                    "height": 80.75
+                    "x": 490,
+                    "y": 119,
+                    "width": 59.0,
+                    "height": 105.0
                 },
                 "bounding_box_px": {
-                    "x": 501,
-                    "y": 6,
-                    "width": 190,
-                    "height": 322
+                    "x": 432,
+                    "y": 15,
+                    "width": 176,
+                    "height": 420
                 },
-                "age": "25",
-                "gender": "Male",
-                "gender_model_confidence": 0.9393385648727417,
-                "person-attributes": "F: has_bag has_longsleeves has_longpants has_longhair has_coat_jacket",
-                "person-attributes_model_confidence": 0.9285990595817566,
-                "reid": "W8YiPzGEqb7ENRi+gsSTPvcY0z7aAdi+Ie2yPnD90b7KP2E8yUlovz47k75zOBe/p5/8PYKzkjz4e5s+ysgePiunm76B8do+gCILvpqG/L3/oVQ/oNYgvxjUv77x6ic9G/PXvrOOt75Cn34+NGyyPqBUgz4PQRw+2C3UPqw6ez6qOXo/gA31Pq1cPr6cWSC/aT6rvgCsHb+SdCM//DVBParJRj8Cb+E9rVSivlSyz777LgM+Q7kBvSujVb8daG2+dfeCvuBgq74CHCk+QjRivzrERT7BA+K+Wh+TPTFMvb1nTqS9XggdPXiIkj80xCy+nC3svsXSjL2V7Jw+KC2SvXHIFb7IWCO+A//hvUCqmL3sJc4+6DoKP0uhsL4Ze5i+LI33PHXtlz086mU+4/Y8Pwxi+r67W9M+4YKmP9UQ9751Vw8/6fWAvkFQNT8FNjq+HhLIPtAMrD3eaWg+Cue5vtCCwr4yoYC/ahcjPeI0Yr45NI8+G9ymPtRIAr7Qgh0/mf2rPSfHJzwWI4M+koqMPq9soLwEcYQ+3qqfvqXY1L4bcQ0/hT44vkcN0r7E6HU+aWJQP/zFRr9ZRCS/soogPxusqL595kO/yMkBvGIHM7/dxfY+oeU1v4OJYr3cGCw/Zm8QPqSbF7/zIS+//zKWv6qEHb+jd16+XR8xPbIi/7x//BM/nCT0vYDey76+byI8xbNYP5V5dL+Urh2/vRAdvpzhkLxu79M+uwXlPv2cUD4Xgb2+M1JnP4ADOj9RPRo/g/UlPuUOF733x1u/ATlgv8C6OL8bwiq/8NGVvgQ3iz4lliE/yO+GPjwmRj+i+L68KHx7Ppz2cL9fLi+/dEOGvr8PFr/8IAa/AWVDviD2q713Xog/nfMhP5x9Ez9OM2c/vMmfPm/ixL2DOCS+W0OcPNaAmT5uqjQ/Yj1PP+ok3r57g3G+Ckkgvwxjnb6Ydrw+Z+57vmVp5T5Ew5m9cvfsPlqU9b6a4y8/gAjHvm2Qqz5qGju/h8F7vtC2oL7q9ri+ZHtRPh5DkL4Iab0+9znqvi8gEr+uWx+/INw6PmA5UD5V3wU+a/drvvnlEL/KiBY/a741PrnTVb77VCg/hR2vPUNLCz7le+e+WzJBvvSdyjy6oXk+wTZQv5s/zD5MeJQ+PVQSvWVZar/UW4k+5Y1fvl5HcL7BRSQ/G/HuvqDu3r573FK/JR4IPyR7Nb62kP69LyuGP1rK3bwtzBM/Bt6JvgzbID/Mlii+KJ4zP4pgMz8O3QK+OQM6v95gdj0Bf0i9a069v0TsBD07ezG++jLDvno5bL5CYC48ZndivrRPyL5LvGK+EBeIvgqqlL1SKtI86Q5IvnaQCz/fKhm/LQC6PQ==",
+                "metadata": {
+                    "age": {
+                        "label": "29",
+                        "model": "age_gender"
+                    },
+                    "gender": {
+                        "label": "Male",
+                        "confidence": 0.881291389465332,
+                        "model": "age_gender"
+                    },
+                    "person-attributes": {
+                        "label": "M: has_bag has_longsleeves has_longpants",
+                        "confidence": 0.9961508512496948,
+                        "model": "torch-jit-export"
+                    },
+                    "reid": {
+                        "embedding": "FgHDPvThsD391oS/+TtsveKu2j585KK+3dYRPqOSNL4h2EE9+o6svn5EZr1URsk+CcbsvQ663j61EjE/qechvsg/VD69RwY/eLq0vtBftT61N6A+26QHvheQ175kZy2+C0jevuSr7Dxfq1w9ZCj/vn0Gib7ogts+PboKvwFfNj9RnzO/dYU+PywYVT8dHLG+CdQbv/47gr5bYj4/GbSTvrNSEj6K2UG+VP1zvWqoU77aB5q+JcZ0vY7Uwj5Z0i+/RlqTPoiQBb/HA2u9otNMPndTOr5BbwM+TQ7ZvVleML5aXgc/7RfAPkulbj+ASYE+qDgoPSc5QD0yvqI+Ewr9PsSFpj5qQrY+u74fPwHobL65xBM/HCEwP06Wjj5h4uy+TsqFvjRQ0z5SxEu/c5D0vtPSXD4hABs+sjF0vixLPr5Iyfo+5Gw7vhfXXL1OUJu+VYwDPrs7ID8MmQA+ygRdvt6jBT8KvK+99VgrPxIuXb8lCW8+hX32POc1MD8/V9683oqEvtiYsTyKg4a+GLtYPqvQSz8pfFY/dxylvVBimT42CoO+5OzxPlDQ0T2LvKC/Q1DavhYpC77PJ2A+BIQ4Pmj/Ub5QpLS9wHojvtaoAr8P2I4/BRgrvyybGL2ug9+98+ybPTMe+r5KVJm+NZwxvzVu4b4NRhM/VmaGv/xqlL76apE+HppfvRVnuz47cj6+NlVIPz94sj44dfC+xTumPvycID65Pbo+tGEDP6auQDz1r2m+og09P4WoXT+g+Gu+gKU9P3sqEb952oc+EK9dPvumHb+i/qi+aI6sP94DtL794TW9ikzlPlfNIr5WsIa+gvkruz8pVT5W1DO//qDMvpz/gT3T4Re/3iG2vnr2FL8PyoU/1XYuP1EDNz96F8W+fs2/vF8mTb7l1v88P1rNPIkBmL5H45Y+QOP4vfIjdz5w3XI88zoSP3FlDL/hXxa/sI14PukGyz5t3ZC+2CSbvflAEb+rEBI/KXZlvo7MLz/dwGY/+MtmvkghIb9H1i6/dkLhPlDDJL+NpIi+PTFEPgj2p76MxCG/KBjWPtyVET9cGkC+NzA/v0Eq2L7I30G+RzjfPpVm5z34bO69HUhav3PHhz46fRa/UTM/vJGNh72i5729XUxsvstjEj9+Wq6+Tk4xvwYOc78VEks/DLpEPjns9L3hmoY/Hb1SP+HxPz1o0Pg9IUE8vzRJID+O+XU+9iY2P1QXHb9DxRG+D/lIP7vSiTxKyUO9yuKQP05KBz/ZVp48ydN0P0smmD4zPhE+JMe+vOp7NL69zdK+haTgPW5HZL5HgC2+1fygvpghhT5p+F694u4EvkPYhL7sKwU8J3exPT1uFD8GW7m9PjQGvw==",
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -1584,34 +1788,48 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 ```text
 {
     "id": "atag-qcam1",
-    "debug_mac": "57:9a:35:9c:22:dc",
-    "timestamp": "2026-02-09T11:12:13.948Z",
-    "debug_timestamp_end": "2026-02-09T11:12:18.043Z",
-    "debug_processing_time": 4.094555139541626,
-    "rate": 10.283004713511401,
+    "debug_mac": "61:9d:fa:a8:fc:c1",
+    "timestamp": "2026-02-10T12:14:10.652Z",
+    "debug_timestamp_end": "2026-02-10T12:14:15.120Z",
+    "debug_processing_time": 4.468069553375244,
+    "rate": 10.723265157886189,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9951171875,
+                "confidence": 0.98388671875,
                 "center_of_mass": {
-                    "x": 829,
-                    "y": 112,
-                    "width": 50.0,
-                    "height": 97.0
+                    "x": 650,
+                    "y": 81,
+                    "width": 35.333333333333336,
+                    "height": 76.75
                 },
                 "bounding_box_px": {
-                    "x": 780,
-                    "y": 15,
-                    "width": 150,
-                    "height": 388
+                    "x": 616,
+                    "y": 6,
+                    "width": 106,
+                    "height": 307
                 },
-                "age": "20",
-                "gender": "Female",
-                "gender_model_confidence": 0.85546875,
-                "person-attributes": "M: has_bag has_longsleeves has_longpants has_coat_jacket",
-                "person-attributes_model_confidence": 0.96533203125,
-                "reid": "k0PJPqo4ST445W8+5BQcPqDHJj9BD8u+FMDXPnd7aL51APw+wmJUv2UhpL7WqpO+WrCfvqzywj7lAQU/I56JPDhw873x4QQ/U/AtvrTGfr4eHeo+uZiLvh0UAL+N8XQ+aaNiv6y9zT131po+gF0TPhRDVz/SKgE/Do+TPrC6ij6Q5Ig/5R7HPr3egL2zlQ+/9Ds3vdTZOr3wvgG9lkxOvTBYIz+7r4g+vesHv0dqDL/ooUM9PlAkPVzZbb7F0YW+Hl5CvwplBr/bpIi8QioNv53E9r4P+iC/qibkPOP2Hr7/aTi+oI+GPmmXjD/JriK/f3Mpv8Myd73YmkM/4KtlvbsNgL0dtpC+Yze/vUOsOrtPjq8+QasgPx2HRb6IP/E9pMiMPUJE8b2RW+k+l8Y7P1FQD7+a9a8+2TxfP35XF78r5cc+0TJXvlaIzj6x1YC9nWv1PhzQbj5m9o+8dMU8v28bEb9eUWi/MFCUPQTMND0qa7C9WMGlPmuThL6weeI+gownPt+ykb4gtrY9YAAVPKegJz6iD7U+lZr4PdATPj32qNY+F6kUvxuS/r7fXOo93rDmPhG+2L5pfU6/2G8FP57yGb9QNlC/x3itvpR9wb6HSry7fv/uvh3Ql77QXJo+pDiWPvWDg7+YX0+/6Kqkv5lP3L4cKG++ctyLPsq9MT7d+IE+gqy+vfup4j1OsBm9ZHdQP+WtSb8Llny+hqsVvQQw9j4njwg+ZkfKPuRgEj8yMzy+ZNS7PumNJD++quE+GnPMPpaGsbsG+Bu/xeKuvuyi4L5vJ9O+zcUSvj+y/by+8vw+CuYDPpQ9zT5sTew9ZEeqPSnlPb+d8XW/U+6yvmd7jL5CWSW/oFZkvqa0Jry2qj4/2KxwP7daIj9rH4Q/+FytPoAskb6AwoS+VTBIvvuRjz7kpsw+HV+bPsDFJTzOrYq+vQkdv2aCnT3ikgw/BEoUPqBTkD17ePO+VhwHPgpIqL7WLyE/ncMgvpq05T4kHps9UHqLvT1Gtb5Sa4a++P2KPcG3Wr5SD1E+uculvpv4Gb+JO0+/8eCiPtxQ1z5ZuYk+hBKHPnAdJ79ojUc/exUGP3ot27t1o+A+xCrsvtNzyr3qL8a+VAGqvfGTHD5jt4a9ZrvHvjb2O73afP0+1wmBvvhkBr+6hhM/Rp6QPuHQtb1SMFE/IMJ2PTyg4z2QxC++kuopPhqCaL4ZDwG/PpRDP7fT/77+XSE/CUnavfg5yT5wc6y+mv5SPzxz5j7ES42+mLuhvu0ai71D5lE+O/u9v8Irwz5ZAIS+VF3KPWyMFb7LVNO9r+VPvjUJ8r5OMQm/l5UUv9wjPL5Ko3M9r5aavg86Hj84cQC/DtNfvQ==",
+                "metadata": {
+                    "age": {
+                        "label": "40",
+                        "model": "age_gender"
+                    },
+                    "gender": {
+                        "label": "Male",
+                        "confidence": 0.95361328125,
+                        "model": "age_gender"
+                    },
+                    "person-attributes": {
+                        "label": "F: has_bag has_hat has_longsleeves has_longpants has_longhair has_coat_jacket",
+                        "confidence": 0.8408203125,
+                        "model": "torch-jit-export"
+                    },
+                    "reid": {
+                        "embedding": "G0WOPmNU076x1Zi+TMzCPpQFSj+1YEa/iOKXPpcwSb0fTVw/uL6Bvy1jDr7SUgi/d79dvmgyED7oAZ8+gy0yPpCxfr4Qrv8+VrCfvkjowL44Zz0/WHukvuAe5b7AcPY54Vtbv6EhPz5UJ00+nshePocpFD9vRNq8nCa5Pq1jj73saXI/H0PqPvfrwL68F/K+rpRmvVPhzb5Uat09IBjvPKd3VT9B3Ow+Kb5zvyVa8r5Cg04+6h9QPWMOEr8US+a+m7cHv2zX9L74Wok90JlSv9jWDj4VICO/304EvifYs74b5ZK+CjUAvLSlrT9aWJy+XSEfv1ZLtL2ZAbk+e6JwvpFSpr4rkV2+T+R/vuud4r7sZXw+F3k3P0EaHL/kp6q+pichvlWp0L6Cuys/JVc8P5/CO7/qCq4+iKiZP7dzAr9G2gc/6/6bvh3s4T4McVa+xn/gPij5Uj7s3aQ+0SQRv/aznb2bmXu/XumfPq4Sgj28g6E+X12ePu420r7oFww/6Dy8PeB9ur0qcMg+RO79PiDIjb6oIVI+65I/PXsEj75yY08/sxQtvxY72r44Ank9bFbYPo4bar9GqCC/bAMpP7q75b67RHG/SuCuvqaXDb8gzNI+Qltov/DYeb62HTI/C8sKvtXBLr/90EG/BoWiv9+yAr+pVZK+gdqOPk3uRD6vkIY+D4ZOPt3xe77o/tO8RxBVP9Iaqb9vGAm/+0uhvtjiVz5Q6pg+/ksdPy/vAz+7zEW+Dv1EPzLDlD/6nEM+mpxSPikpar7aIGO/spFIv1Xhtr6n9B2/JBBUvdSOFT62Kg8/hnNMPtMiDz8Eb2k8TPstPlmqU7/+Z0u/IvMlvrazjL7O/j+/GeNDvfIhlb2OJoY/NoxRP5WvKT8qL2M/2JWKPihjY73Ju9W+pwShvTxuHT+XuRM/AoKYPjBDzbw0cG++cTcov7K3Ez5S9vo9vLdCPg72eT70WcK+CHEIPw6C+L6eQxU/wTFkvvsJrz4UhMu+eU0kvj92Fr8U1Yq+bDRePu/zCb4SmSQ/TzejvmWkcr9yUDW/iILSPBgcbT5CbA8+PJR1vOjNFr9SzDI/XS69PpeusD38V80+ouPqvXXwND2ZKCC/IP6AO6CZED0yLow+zOy8vrBdFj5rUZw+1U+xvSkRVb/JIyw/rfoivVlnMb6B73k/OFhXvv4u+j0uRVS/g3DHPvLa8b5u0xa/keqNPz6Hz73HwVE+9dKTvcDPGj+Dd8u+WrxEP4qmjz4seZ6+WbaQvjK1mr6NVpY+XQjvv5i9Pz78lcO+54nyvi0C876aK8m9PeWIvnCwML+aZxy/Xmm9vgCuVD1a2U6+z03hvgUuBD8bHUC+Fc+VPg==",
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
             }
         ]
@@ -1619,34 +1837,48 @@ multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=sourc
 }
 {
     "id": "atag-qcam1",
-    "debug_mac": "57:9a:35:9c:22:dc",
-    "timestamp": "2026-02-09T11:12:13.951Z",
-    "debug_timestamp_end": "2026-02-09T11:12:18.146Z",
-    "debug_processing_time": 4.195011377334595,
-    "rate": 10.283004713511401,
+    "debug_mac": "61:9d:fa:a8:fc:c1",
+    "timestamp": "2026-02-10T12:14:10.653Z",
+    "debug_timestamp_end": "2026-02-10T12:14:15.225Z",
+    "debug_processing_time": 4.5717058181762695,
+    "rate": 10.723265157886189,
     "objects": {
         "person": [
             {
                 "category": "person",
-                "confidence": 0.9912109375,
+                "confidence": 0.984375,
                 "center_of_mass": {
-                    "x": 854,
-                    "y": 123,
-                    "width": 52.0,
-                    "height": 93.0
+                    "x": 621,
+                    "y": 83,
+                    "width": 45.666666666666664,
+                    "height": 78.0
                 },
                 "bounding_box_px": {
-                    "x": 803,
-                    "y": 30,
-                    "width": 156,
-                    "height": 372
+                    "x": 577,
+                    "y": 6,
+                    "width": 137,
+                    "height": 312
                 },
-                "age": "21",
-                "gender": "Male",
-                "gender_model_confidence": 0.5126953125,
-                "person-attributes": "F: has_bag has_longsleeves has_longpants has_coat_jacket",
-                "person-attributes_model_confidence": 0.93017578125,
-                "reid": "so6pPqC11z3otQI9vuScPo6oTz+wKeu+1oegPodGX77Gxxs/YIMhv1Yyxb7ri7a+KWCNvQ7d6D63yYA+jZJAPmdPWb1qQIw+bMWmvcZ0zb4Qfy8/ArSMvsKJDr9D45Y+3kZxv4MIRj0iRwa7hUeCPl437T5ETwQ/WuMrP7Km+T6fDKk/jI0lP2C/97vDUiq/BpGevt/XHr1ME6k84CgCPcp7Dz/ON7U+E0sTv1qp5L6va5A+wr0gvbaENL4Sz3O+6NA9v+OlCr+9zH++GNcAv1APHD7bOiW/GIDiPVJBvT14fN2+h0VnPq/7oz+v4jG/h1X8vj+wgb14EQ8/ucRdvsPxBj4lb5q+QrtAvtD7y70Caus+/OWSPuJrxj0qora+uRwYvnS1Jj2Ipzk+EP5ePx3Ojb6IT2U+4HZ3P/cdkL6bKyE/L5QavkJDBj+50ey9J45xPjDwPT4iNAg+1jQcv5+iIr8Rj2C/oAYXPtAXrjzAmui7/k3CPjPGzb4wQWY+5OOjPiZF2r3AyjU+BAOEPYQBnDyfl8E+aE0CPuA4fL3NJg4/rSfcvkJALL8PRyU+NJnGPhu2sb4vZWy/wSoIPxp8HL+wyCy/L58dvl0eMr9wPYi+lMcOv20MIb+ynuE+loCFPoFne797FzG/42Ogv6SUsb4kQi++i/TnPtyrkj7sOa8+5xzGvgCNIDxmfpm+HnMuPx8jeb+rjpm+W6fPvTQMzT48h7Y+kj3PPjlF2T7Mqo2+dlkNPyEXZj/HsdQ+GKDkPuZoCT7Aaxe/8DPnvh+KEb9t3he/0/QAvwiBhD0cBPo+2h8svoCwZD760o4+iNwqPdIgFL8hEzq/1j8IvwCDM7/ZJui+EoC3vn1uMb3m1WM/KT6WP/I+ID98s28/WLM2P4C/sr36Wqe+VXa6vSPEJz8JkNE+EK7kPuBjVr5Laqe9bolJv+Tto7urTdk+Oe2OPjRxFD7tzKS+a8+0PpAmr74iuaE+1BaRvd8sJz/HNwi+jTyIvl8M77430ji+lwm9PoC8W741JWQ+Y5Z7vqvRL79JMnW/h4NmvaStqT5U9cs92b4Wvb9Pa7+7mA0/Yc0wP1pDOz4lSSA/9vhWvlwYzDyi5w2/UI7+PeonND45q6G9SWzLvlLU/j2Bmsw+PbrFvW9DSr9bdxY/dVecPqK/Zj7Xk2Q/TwP3vWb75T3wiQW+TmL0PmWkt77gtsW+dC9sP6QDLr8rglE/hbi1vdismT4chZ++ILaNPwqpCT8gEt+91lsIv/z2OL6dMEC9w5bUv9y5rLyn9Nq9ijgKPvOiIr6kEQ4+OtmRvpv7Jr+6HBa/e9YOvxOQuL1ooVs9E6Rmvrwb8j4QgxW/u3bwvQ==",
+                "metadata": {
+                    "age": {
+                        "label": "39",
+                        "model": "age_gender"
+                    },
+                    "gender": {
+                        "label": "Male",
+                        "confidence": 0.93505859375,
+                        "model": "age_gender"
+                    },
+                    "person-attributes": {
+                        "label": "F: has_bag has_longsleeves has_longpants has_longhair has_coat_jacket",
+                        "confidence": 0.7646484375,
+                        "model": "torch-jit-export"
+                    },
+                    "reid": {
+                        "embedding": "9ifcPnAYB79AFMY78mC+Phcc5z7T1ja/SOapPsLEpr7e5gg/sKZev5CnvD13HoK9HqFuvpaWA74wl7M+kC+MPk1vmL6axww/8B5BvMZUo75V3To/PoS2vu2P1L59WcM9ewALv/niAT6E+co9qIBqPgBv6j7da3o9M8e7PnH6ML5DWYw/k+fJPtT2Gr50MLa+gW61vO9nB7+FeN490ENKPqjWgj98bi8+5AhRv5dsrr7Mc7k9YhiDPv09TL/+Ure+wpwEv+W5yb7Qjes96kp0v+wPCz4+bUi/Gi85vkW0dr5bqeW+u3lYPQyrqj8b166+4n4Tv2Cz6DyHrC0/6eWovgV/hL7jCuu91Qn4vlsaz77HJ8E+PfgtP56JNb/uJJS+bBVNPddKnr40UQc/4TQ5P7bcH7/2Fqw+0oVxP9d9w75eBMY+G1Dpvu9nxz6D1Lu90h+HPnQPbz6iD4A+vGP8vnOae76XnoS/Jj0aPyAjH75Fgak+3AXAPnLGg754KVE/NoUJvth4Fr79IbE+pwvJPm4jQL16CeE+hD2qPBWFsr5O3iA/2r5Qv6UZi74A6pA6FO0aP0HnPb8ht/e+E1oLP+avlL6jhj+/4K8qvnYi174cM0E+iTHkvjr1p75YH/c+RS+FvQ8sN7/ptYe/61K5vxaOIL/qzKS+49RbPRpWij6yh1k+YDNoPly0h76M5mU9qRUQP3LQhb/TUiS/w0hDvtQwYz7wD/E+JSwGP7lrOj6b3s++ZuZRP2mRfj+0CBk+gHvWPUQ+sb3FimS/WySxvgZEEr8ddgC/wrUMvhbzfj5WqhE/KIKKPuh12z4iCGA9qrCDPo1AS7+4gj6/MhyRvivY6b73dk6/ptGDvlsa3b2cH08/hj4LP5oJBD8fCmo/HYPAPmr+OT6Tj62+KACfPfKtLD/9QxM/mxwoP4rpjb5nEcC+DDE6vzY6FT1hwS8+eH12PgAMqz5SdpG+CVE8PxjPvb7yQNk+oYAVvjBA3z5OFQ++k30Kvz2QF78qFd695xpRvfcy/r0jJi0/7HfMvu5yL79st1+/ExF7vXbwHT5GDjo+eYPlvR+jDr+AyVo/DrLvPic1jb3tiE4+Ai58vmcq3j0+pRW/LOt8PSWlTT3MIeM90FPlvm3EvT7GYn0+x2m0vVPwQ79XvAU/KdebvmR0WbxRb4I/rSZovnh0Fj0Utii/OwPePjbA6L5JQ0K+yLiKPw/3+b7gqPo9IBiKO9icSz998+y+ZmAnPx5XCz9xScy+In7zvlT/E7/m5jq9rgbkv+iiGj7oz/K+pfaQvm1jpL3focW9ed27vsiuNb8kpmO/4AoJvw7bbz4sdXa+Cn3FvlQ05D5FnKW+RlKcPg==",
+                        "model": "torch-jit-export"
+                    }
+                },
                 "id": 1
             }
         ]
