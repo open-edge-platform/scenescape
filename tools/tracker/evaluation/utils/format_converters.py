@@ -255,3 +255,154 @@ def write_json(data: Any, file_path: str, indent: int = 2) -> None:
   """
   with open(file_path, 'w') as f:
     rapidjson.dump(data, f, indent=indent)
+
+
+def convert_canonical_to_motchallenge_csv(
+  tracker_outputs: Union[List[Dict[str, Any]], Any],
+  output_path: str,
+  camera_fps: float,
+  uuid_to_id_map: Dict[str, int] = None
+) -> Dict[str, int]:
+  """Convert canonical tracker output format to MOTChallenge 3D CSV format.
+
+  Converts from canonical JSON format (with UUID IDs and ISO timestamps) to
+  MOTChallenge CSV format (with integer IDs and 1-indexed frame numbers).
+
+  CSV format: frame,id,x,y,z,conf,class,visibility (no header)
+  - frame: 1-indexed frame number
+  - id: integer track ID (mapped from UUID)
+  - x,y,z: 3D position in meters
+  - conf: confidence score (1.0)
+  - class: object class (1 for pedestrian)
+  - visibility: visibility flag (1 for visible)
+
+  Args:
+    tracker_outputs: Iterator or list of tracker output dictionaries in canonical format
+    output_path: Path to write MOTChallenge CSV file
+    camera_fps: Camera frame rate (frames per second) for timestamp-to-frame conversion
+    uuid_to_id_map: Optional existing UUID-to-integer mapping (for consistency across calls)
+
+  Returns:
+    Dictionary mapping UUIDs to integer IDs (for reuse in ground truth conversion)
+
+  Example:
+    >>> outputs = [
+    ...   {"timestamp": "2026-01-20T10:05:01.000Z", "objects": [
+    ...     {"id": "uuid-1", "translation": [1.0, 2.0, 0.0]}
+    ...   ]},
+    ...   {"timestamp": "2026-01-20T10:05:01.033Z", "objects": [
+    ...     {"id": "uuid-1", "translation": [1.1, 2.1, 0.0]}
+    ...   ]}
+    ... ]
+    >>> mapping = convert_canonical_to_motchallenge_csv(outputs, "track.csv", 30.0)
+  """
+  from datetime import datetime
+  import configparser
+
+  # Convert to list if needed
+  if not isinstance(tracker_outputs, list):
+    tracker_outputs = list(tracker_outputs)
+
+  if not tracker_outputs:
+    # Write empty CSV
+    Path(output_path).write_text("")
+    return uuid_to_id_map or {}
+
+  # Initialize UUID to integer ID mapping
+  if uuid_to_id_map is None:
+    uuid_to_id_map = {}
+  next_id = max(uuid_to_id_map.values()) + 1 if uuid_to_id_map else 1
+
+  # Parse first timestamp as reference (frame 1)
+  first_timestamp = datetime.fromisoformat(
+    tracker_outputs[0]["timestamp"].replace("Z", "+00:00")
+  )
+  frame_duration_seconds = 1.0 / camera_fps
+
+  # Convert tracker outputs to CSV rows
+  rows = []
+  for scene_data in tracker_outputs:
+    # Calculate frame number from timestamp
+    timestamp = datetime.fromisoformat(
+      scene_data["timestamp"].replace("Z", "+00:00")
+    )
+    time_delta = (timestamp - first_timestamp).total_seconds()
+    frame = int(round(time_delta / frame_duration_seconds)) + 1  # 1-indexed
+
+    # Process each object detection
+    for obj in scene_data.get("objects", []):
+      # Map UUID to integer ID
+      uuid = obj["id"]
+      if uuid not in uuid_to_id_map:
+        uuid_to_id_map[uuid] = next_id
+        next_id += 1
+      track_id = uuid_to_id_map[uuid]
+
+      # Extract 3D position
+      translation = obj["translation"]
+      x, y, z = translation[0], translation[1], translation[2]
+
+      # Create CSV row: frame,id,x,y,z,conf,class,visibility
+      rows.append({
+        "frame": frame,
+        "id": track_id,
+        "x": x,
+        "y": y,
+        "z": z,
+        "conf": 1.0,  # Default confidence
+        "class": 1,   # Pedestrian class
+        "visibility": 1  # Fully visible
+      })
+
+  # Use convert_json_to_csv to write CSV (no header, lenient validation)
+  mapping = {
+    "frame": {"pointer": "/frame"},
+    "id": {"pointer": "/id"},
+    "x": {"pointer": "/x"},
+    "y": {"pointer": "/y"},
+    "z": {"pointer": "/z"},
+    "conf": {"pointer": "/conf"},
+    "class": {"pointer": "/class"},
+    "visibility": {"pointer": "/visibility"}
+  }
+  convert_json_to_csv(rows, mapping, output_path, include_header=False)
+
+  return uuid_to_id_map
+
+
+def create_motchallenge_seqinfo(
+  seq_name: str,
+  num_frames: int,
+  camera_fps: float,
+  output_folder: Union[str, Path]
+) -> None:
+  """Create MOTChallenge seqinfo.ini file for TrackEval.
+
+  Args:
+    seq_name: Sequence name
+    num_frames: Total number of frames in sequence
+    camera_fps: Camera frame rate (frames per second)
+    output_folder: Folder where seqinfo.ini will be created
+
+  Example:
+    >>> create_motchallenge_seqinfo("test_seq", 100, 30.0, "/tmp/seqs/test_seq")
+  """
+  import configparser
+
+  output_folder = Path(output_folder)
+  output_folder.mkdir(parents=True, exist_ok=True)
+
+  config = configparser.ConfigParser()
+  config['Sequence'] = {
+    'name': seq_name,
+    'imDir': 'img1',  # Required by TrackEval but not used for 3D point tracking
+    'frameRate': str(int(camera_fps)),
+    'seqLength': str(num_frames),
+    'imWidth': '1920',  # Placeholder values
+    'imHeight': '1080',
+    'imExt': '.jpg'
+  }
+
+  seqinfo_path = output_folder / 'seqinfo.ini'
+  with open(seqinfo_path, 'w') as f:
+    config.write(f)
