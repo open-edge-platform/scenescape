@@ -80,7 +80,7 @@ jobs:
       - name: Run Basic Acceptance Tests
         run: |
           make clean-all
-          make run_basic_acceptance_tests > basic_acceptance_tests.log 2>&1
+          make run_basic_acceptance_tests > test_data/basic_acceptance_tests.log 2>&1
 
       - name: Upload Logs and Reports
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
@@ -118,7 +118,7 @@ jobs:
       - name: Run Functional Tests
         run: |
           make clean-all
-          make run_functional_tests > functional_tests.log 2>&1
+          make run_functional_tests > test_data/functional_tests.log 2>&1
 
       - name: Upload Logs and Reports
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
@@ -156,7 +156,7 @@ jobs:
       - name: Run Non-Functional Tests
         run: |
           make clean-all
-          make run_non_functional_tests > non_functional.log 2>&1
+          make run_non_functional_tests > test_data/non_functional.log 2>&1
 
       - name: Upload Logs and Reports
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
@@ -194,7 +194,7 @@ jobs:
       - name: Run Metric Tests
         run: |
           make clean-all
-          make run_metric_tests > metrics.log 2>&1
+          make run_metric_tests > test_data/metrics.log 2>&1
 
       - name: Upload Logs and Reports
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
@@ -232,7 +232,7 @@ jobs:
       - name: Run UI Tests
         run: |
           make clean-all
-          make run_ui_tests > ui_tests.log 2>&1
+          make run_ui_tests > test_data/ui_tests.log 2>&1
 
       - name: Upload Logs and Reports
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
@@ -270,7 +270,7 @@ jobs:
       - name: Run Unit Tests
         run: |
           make clean-all
-          make run_unit_tests > unit_tests.log 2>&1
+          make run_unit_tests > test_data/unit_tests.log 2>&1
 
       - name: Upload Logs and Reports
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
@@ -304,6 +304,11 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           merge-multiple: true
+      - name: print dir structure
+        run: |
+          ls -al
+          echo "-------------------------"
+          ls -al test_data
       - name: Get all test cases from test files
         id: get_test_cases
         run: |
