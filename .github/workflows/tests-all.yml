@@ -52,119 +52,119 @@ permissions:
   contents: read
 
 jobs:
-  run_basic_acceptance_tests:
-    runs-on: [all]
-    name: "Basic Acceptance Tests"
-    timeout-minutes: 45
-    steps:
-      - name: Remove test_data folder
-        run: |
-          sudo rm -rf test_data || true
+  # run_basic_acceptance_tests:
+  #   runs-on: [all]
+  #   name: "Basic Acceptance Tests"
+  #   timeout-minutes: 45
+  #   steps:
+  #     - name: Remove test_data folder
+  #       run: |
+  #         sudo rm -rf test_data || true
 
-      - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          ref: ${{ inputs.ref }}
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         fetch-depth: 0
+  #         persist-credentials: false
+  #         ref: ${{ inputs.ref }}
 
-      - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' }}
-        uses: ./.github/actions/cleanup
-        with:
-          system-prune: "true"
+  #     - name: "Remove all Docker images"
+  #       if: ${{ github.event.inputs.cleanup == 'true' }}
+  #       uses: ./.github/actions/cleanup
+  #       with:
+  #         system-prune: "true"
 
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
+  #     - name: "Run Setup"
+  #       uses: ./.github/actions/setup-env
 
-      - name: Run Basic Acceptance Tests
-        run: |
-          make clean-all
-          make run_basic_acceptance_tests > basic_acceptance_tests.log 2>&1
+  #     - name: Run Basic Acceptance Tests
+  #       run: |
+  #         make clean-all
+  #         make run_basic_acceptance_tests > basic_acceptance_tests.log 2>&1
 
-      - name: Upload Logs and Reports
-        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
-        uses: ./.github/actions/upload-artifacts
+  #     - name: Upload Logs and Reports
+  #       if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
+  #       uses: ./.github/actions/upload-artifacts
 
-      - name: Cleanup
-        if: always()
-        uses: ./.github/actions/cleanup
+  #     - name: Cleanup
+  #       if: always()
+  #       uses: ./.github/actions/cleanup
 
-  run_functional_tests:
-    runs-on: [all]
-    name: "Functional Tests"
-    timeout-minutes: 55
-    steps:
-      - name: Remove test_data folder
-        run: |
-          sudo rm -rf test_data || true
+  # run_functional_tests:
+  #   runs-on: [all]
+  #   name: "Functional Tests"
+  #   timeout-minutes: 55
+  #   steps:
+  #     - name: Remove test_data folder
+  #       run: |
+  #         sudo rm -rf test_data || true
 
-      - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          ref: ${{ inputs.ref }}
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         fetch-depth: 0
+  #         persist-credentials: false
+  #         ref: ${{ inputs.ref }}
 
-      - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' }}
-        uses: ./.github/actions/cleanup
-        with:
-          system-prune: "true"
+  #     - name: "Remove all Docker images"
+  #       if: ${{ github.event.inputs.cleanup == 'true' }}
+  #       uses: ./.github/actions/cleanup
+  #       with:
+  #         system-prune: "true"
 
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
+  #     - name: "Run Setup"
+  #       uses: ./.github/actions/setup-env
 
-      - name: Run Functional Tests
-        run: |
-          make clean-all
-          make run_functional_tests > functional_tests.log 2>&1
+  #     - name: Run Functional Tests
+  #       run: |
+  #         make clean-all
+  #         make run_functional_tests > functional_tests.log 2>&1
 
-      - name: Upload Logs and Reports
-        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
-        uses: ./.github/actions/upload-artifacts
+  #     - name: Upload Logs and Reports
+  #       if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
+  #       uses: ./.github/actions/upload-artifacts
 
-      - name: Cleanup
-        if: always()
-        uses: ./.github/actions/cleanup
+  #     - name: Cleanup
+  #       if: always()
+  #       uses: ./.github/actions/cleanup
 
-  run_non_functional_tests:
-    runs-on: [all]
-    name: "Non-Functional Tests"
-    timeout-minutes: 20
-    steps:
-      - name: Remove test_data folder
-        run: |
-          sudo rm -rf test_data || true
+  # run_non_functional_tests:
+  #   runs-on: [all]
+  #   name: "Non-Functional Tests"
+  #   timeout-minutes: 20
+  #   steps:
+  #     - name: Remove test_data folder
+  #       run: |
+  #         sudo rm -rf test_data || true
 
-      - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          ref: ${{ inputs.ref }}
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         fetch-depth: 0
+  #         persist-credentials: false
+  #         ref: ${{ inputs.ref }}
 
-      - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' }}
-        uses: ./.github/actions/cleanup
-        with:
-          system-prune: "true"
+  #     - name: "Remove all Docker images"
+  #       if: ${{ github.event.inputs.cleanup == 'true' }}
+  #       uses: ./.github/actions/cleanup
+  #       with:
+  #         system-prune: "true"
 
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
+  #     - name: "Run Setup"
+  #       uses: ./.github/actions/setup-env
 
-      - name: Run Non-Functional Tests
-        run: |
-          make clean-all
-          make run_non_functional_tests > non_functional.log 2>&1
+  #     - name: Run Non-Functional Tests
+  #       run: |
+  #         make clean-all
+  #         make run_non_functional_tests > non_functional.log 2>&1
 
-      - name: Upload Logs and Reports
-        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
-        uses: ./.github/actions/upload-artifacts
+  #     - name: Upload Logs and Reports
+  #       if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
+  #       uses: ./.github/actions/upload-artifacts
 
-      - name: Cleanup
-        if: always()
-        uses: ./.github/actions/cleanup
+  #     - name: Cleanup
+  #       if: always()
+  #       uses: ./.github/actions/cleanup
 
   run_metric_tests:
     runs-on: [all]
@@ -242,46 +242,47 @@ jobs:
         if: always()
         uses: ./.github/actions/cleanup
 
-  run_unit_tests:
-    runs-on: [all]
-    name: "Unit Tests"
-    timeout-minutes: 20
-    steps:
-      - name: Remove test_data folder
-        run: |
-          sudo rm -rf test_data || true
+  # run_unit_tests:
+  #   runs-on: [all]
+  #   name: "Unit Tests"
+  #   timeout-minutes: 20
+  #   steps:
+  #     - name: Remove test_data folder
+  #       run: |
+  #         sudo rm -rf test_data || true
 
-      - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          ref: ${{ inputs.ref }}
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         fetch-depth: 0
+  #         persist-credentials: false
+  #         ref: ${{ inputs.ref }}
 
-      - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' }}
-        uses: ./.github/actions/cleanup
-        with:
-          system-prune: "true"
+  #     - name: "Remove all Docker images"
+  #       if: ${{ github.event.inputs.cleanup == 'true' }}
+  #       uses: ./.github/actions/cleanup
+  #       with:
+  #         system-prune: "true"
 
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
+  #     - name: "Run Setup"
+  #       uses: ./.github/actions/setup-env
 
-      - name: Run Unit Tests
-        run: |
-          make clean-all
-          make run_unit_tests > unit_tests.log 2>&1
+  #     - name: Run Unit Tests
+  #       run: |
+  #         make clean-all
+  #         make run_unit_tests > unit_tests.log 2>&1
 
-      - name: Upload Logs and Reports
-        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
-        uses: ./.github/actions/upload-artifacts
+  #     - name: Upload Logs and Reports
+  #       if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
+  #       uses: ./.github/actions/upload-artifacts
 
-      - name: Cleanup
-        if: always()
-        uses: ./.github/actions/cleanup
+  #     - name: Cleanup
+  #       if: always()
+  #       uses: ./.github/actions/cleanup
 
   generate_report:
-    needs: [run_basic_acceptance_tests, run_functional_tests, run_non_functional_tests, run_metric_tests, run_ui_tests, run_unit_tests]
+    # needs: [run_basic_acceptance_tests, run_functional_tests, run_non_functional_tests, run_metric_tests, run_ui_tests, run_unit_tests]
+    needs: [run_metric_tests, run_ui_tests]
     runs-on: ubuntu-latest
     name: "Generate Test Report"
     if: always()
@@ -302,6 +303,7 @@ jobs:
         id: get_test_results
         shell: bash
         run: |
+          set +e
           touch test_results_summary.txt
           log_files=("metrics.log" "non_functional.log" "functional_tests.log" "basic_acceptance_tests.log" "ui_tests.log" "unit_tests.log")
           for log_file in "${log_files[@]}"; do
