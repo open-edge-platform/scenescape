@@ -170,6 +170,19 @@ services:
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
       --ntp ntpserv
+      --healthcheck_port 8080
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz').read()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     # mount the trackerconfig file to the container
     configs:
       - source: tracker-config
