@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 #!/usr/bin/env python3
 from pathlib import Path
 from typing import Dict, List
@@ -36,7 +39,7 @@ test_template = Template("""
       {% elif test_result.result == "FAIL" %}
       <td style='background-color:red; color:white; font-weight:bold'>{{ test_result.result }}</td>
       {% elif test_result.result == "NOT EXECUTED" %}
-      <td style='background-color:yellow; color:black; font-weight:bold'>{{ test_result.result }}</td>
+      <td style='background-color:grey; color:black; font-weight:bold'>{{ test_result.result }}</td>
       {% endif %}
     </tr>
     {% endfor %}
@@ -142,15 +145,19 @@ def create_pie_chart(pass_count: int, fail_count: int, not_executed_count: int, 
   df['Percentage'] = (df['Count'] / total * 100).round(1)
 
   # Create pie chart with numbers
-  fig = px.pie(df, values='Count', names='Result',
+  fig = px.pie(df, values='Count', names='Result',labels='Result',
               color='Result',
               color_discrete_map={
                   'PASS': 'green',      # Green
                   'FAIL': 'red',      # Red
-                  'NOT_EXECUTED': 'yellow'  # Yellow
-              }
+                  'NOT_EXECUTED': 'grey'  # grey
+              },
+              hole=.15
               )
-  fig.update_traces(textposition='inside', textinfo='percent+label')
+  fig.update_traces(textposition='inside', textinfo='label+percent',hovertemplate='%{label}: %{value} tests (%{percent})',
+              marker=dict(line=dict(color='#000000', width=2)))
+  fig.update_layout(uniformtext_minsize=12, uniformtext_mode='hide')
+  fig.show()
   return fig
 
 
@@ -163,11 +170,5 @@ if __name__ == "__main__":
 
   test_cases = read_test_cases(args.test_cases_file)
   results = read_test_results(args.results_file)
-  print("\nList items:")
-  print(json.dumps(test_cases, indent=2))
-  print("\nMapping:")
-  print(json.dumps(results, indent=2))
   all_results = prepare_results(test_cases, results)
-  print("\nFinal Results:")
-  print(json.dumps(all_results, indent=2))
   generate_html_report(all_results, args.run_name, f"{args.run_name}_test_report.html")
