@@ -144,7 +144,10 @@ function checkMqttConnection(url) {
         console.warn(`Connection to ${url} closed.`);
       });
     } catch (err) {
-      console.error(`Error during MQTT WebSocket connection test for ${url}:`, err);
+      console.error(
+        `Error during MQTT WebSocket connection test for ${url}:`,
+        err,
+      );
       reject(null);
     }
   });
