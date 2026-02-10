@@ -13,7 +13,6 @@
 #include <mutex>
 #include <set>
 #include <string>
-#include <thread>
 
 #include <mqtt/async_client.h>
 
@@ -91,7 +90,8 @@ public:
  * Provides a simplified interface for MQTT pub/sub with:
  * - Paho built-in auto-reconnect with exponential backoff (1s → 30s max)
  *   for connection loss after initial connect
- * - Simple fixed-delay retry (5s) for initial connect failures
+ * - Initial connect failures cause process exit; container orchestrator
+ *   (Docker restart: always, K8s) handles restart
  * - TLS/mTLS connection support
  * - Thread-safe connection state queries
  * - QoS 1 for all publish/subscribe operations
@@ -217,15 +217,6 @@ private:
      */
     mqtt::ssl_options buildTlsOptions() const;
 
-    /**
-     * @brief Schedule initial connect retry with fixed delay.
-     *
-     * Spawns a thread that retries connect() every 5s until connected
-     * or stop_requested. Only used for initial connection failures;
-     * Paho auto-reconnect handles post-connection loss.
-     */
-    void scheduleInitialRetry();
-
     // Configuration
     MqttConfig config_;
     int max_reconnect_delay_s_;
@@ -241,11 +232,6 @@ private:
     std::atomic<bool> connected_{false};
     std::atomic<bool> subscribed_{false};
     std::atomic<bool> stop_requested_{false};
-
-    // Initial connect retry
-    std::thread initial_retry_thread_;
-    std::mutex initial_retry_mutex_;
-    std::atomic<bool> retrying_initial_{false};
 
     // Callbacks
     MessageCallback message_callback_;

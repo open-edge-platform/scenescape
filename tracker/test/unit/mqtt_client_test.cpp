@@ -14,8 +14,9 @@
  *   - generateClientId(): Client ID format validation
  *   - MQTT_QOS constant: At-least-once delivery semantics
  *
- * Reconnection after initial connect uses a simple fixed-delay retry thread.
- * Post-connection loss reconnection is handled by Paho's built-in auto-reconnect.
+ * Reconnection strategy:
+ * - Initial connect failure: process exits, container orchestrator restarts it
+ * - Post-connection loss: Paho's built-in auto-reconnect (1s-30s backoff)
  * Thread-safety mechanisms (CallbackGuard) are tested in callback_guard_test.cpp.
  *
  * Full integration testing of MqttClient (connection, pub/sub, reconnection, TLS)

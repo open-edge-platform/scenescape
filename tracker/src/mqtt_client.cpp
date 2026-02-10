@@ -17,7 +17,6 @@ constexpr size_t HOSTNAME_BUFFER_SIZE = 256;
 constexpr int KEEPALIVE_SECONDS = 60;
 constexpr int CONNECT_TIMEOUT_SECONDS = 10;
 constexpr int DISCONNECT_WAIT_MS = 500;
-constexpr int INITIAL_RETRY_DELAY_SECONDS = 5;
 
 std::string getHostname() {
     char hostname[HOSTNAME_BUFFER_SIZE];
@@ -85,9 +84,10 @@ MqttClient::MqttClient(const MqttConfig& config, int max_reconnect_delay_s)
 
     // Build connection options
     // Paho handles post-connection reconnection automatically with exponential backoff
-    // (1s min, 30s max). Our connected() callback re-subscribes topics on reconnect.
-    // Initial connect failures are handled by scheduleInitialRetry() since Paho
-    // auto-reconnect only activates after a successful connection is lost.
+    // (1s min, max_reconnect_delay_s max). Our connected() callback re-subscribes
+    // topics on reconnect. Initial connect failures cause the process to exit;
+    // the container orchestrator (Docker restart: always, K8s) handles restart.
+    // This works because docker-compose depends_on ensures broker starts first.
     auto conn_opts_builder = mqtt::connect_options_builder()
                                  .clean_session(true)
                                  .automatic_reconnect(std::chrono::seconds(1),
@@ -154,11 +154,11 @@ void MqttClient::connect() {
         auto tok = client_->connect(conn_opts_, nullptr, *this);
         LOG_DEBUG("MQTT connect initiated, token msg_id: {}", tok->get_message_id());
     } catch (const mqtt::exception& e) {
-        LOG_ERROR("MQTT connect threw: {} (rc={})", e.what(), e.get_reason_code());
-        scheduleInitialRetry();
+        LOG_ERROR("MQTT connect failed: {} (rc={})", e.what(), e.get_reason_code());
+        throw;
     } catch (const std::exception& e) {
-        LOG_ERROR("MQTT connect threw std exception: {}", e.what());
-        scheduleInitialRetry();
+        LOG_ERROR("MQTT connect failed: {}", e.what());
+        throw;
     }
 }
 
@@ -170,13 +170,6 @@ void MqttClient::disconnect(std::chrono::milliseconds drain_timeout) {
     }
 
     LOG_INFO("MQTT disconnecting (drain timeout: {}ms)", drain_timeout.count());
-
-    {
-        std::lock_guard<std::mutex> lock(initial_retry_mutex_);
-        if (initial_retry_thread_.joinable()) {
-            initial_retry_thread_.join();
-        }
-    }
 
     // Wait for any in-flight Paho callbacks to complete before disabling them.
     // This prevents use-after-free if a callback is mid-execution when we destroy members.
@@ -367,47 +360,10 @@ void MqttClient::on_failure(const mqtt::token& tok) {
                   msg_id, err_msg);
 
         if (tok.get_type() == mqtt::token::Type::CONNECT) {
-            scheduleInitialRetry();
+            LOG_ERROR("MQTT initial connect failed — process will exit for orchestrator restart");
         } else if (tok.get_type() == mqtt::token::Type::SUBSCRIBE) {
             subscribed_ = false;
         }
-    });
-}
-
-void MqttClient::scheduleInitialRetry() {
-    std::lock_guard<std::mutex> lock(initial_retry_mutex_);
-
-    if (retrying_initial_.load() || stop_requested_.load()) {
-        LOG_DEBUG("Initial retry skipped (already in progress or stopping)");
-        return;
-    }
-
-    if (initial_retry_thread_.joinable()) {
-        initial_retry_thread_.join();
-    }
-
-    initial_retry_thread_ = std::thread([this] {
-        retrying_initial_ = true;
-
-        while (!stop_requested_.load() && !connected_.load()) {
-            LOG_INFO("MQTT initial connect retry in {}s", INITIAL_RETRY_DELAY_SECONDS);
-
-            for (int i = 0; i < INITIAL_RETRY_DELAY_SECONDS * 10 && !stop_requested_.load(); ++i) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            }
-
-            if (stop_requested_.load() || connected_.load()) {
-                break;
-            }
-
-            try {
-                client_->connect(conn_opts_, nullptr, *this);
-            } catch (const mqtt::exception& e) {
-                LOG_ERROR("MQTT initial connect retry failed: {}", e.what());
-            }
-        }
-
-        retrying_initial_ = false;
     });
 }
 

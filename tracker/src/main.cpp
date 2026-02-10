@@ -116,7 +116,16 @@ int main(int argc, char* argv[]) {
         cli_config.schema_path.parent_path());
 
     // Connect to MQTT broker
-    g_mqtt_client->connect();
+    // If broker is unavailable, connect() throws and the process exits.
+    // Container orchestrator (Docker restart: always, K8s) handles restart.
+    // docker-compose depends_on ensures broker starts before tracker.
+    try {
+        g_mqtt_client->connect();
+    } catch (const std::exception& e) {
+        LOG_ERROR("MQTT initial connection failed: {} — exiting for orchestrator restart",
+                  e.what());
+        return 1;
+    }
 
     // Start message handler (subscribes to topics)
     message_handler->start();
