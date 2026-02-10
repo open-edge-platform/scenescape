@@ -321,3 +321,10 @@ jobs:
       - name: Generate Test Results Report
         run: |
           python3 tools/test_report/test_report.py all_test_cases.txt test_results_summary.txt all-tests
+      - name: Upload Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tests-report-html
+          path: |
+            all-tests_test_report.html
