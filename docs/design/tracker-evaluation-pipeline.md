@@ -309,42 +309,19 @@ Returns: dict { <metric name>: <metric value> }
 
 ## Open Questions
 
-### Component Implementation Approach
+### What mechanisms to use for experiment reproducibility?
 
-**Question**: Whether to use SimpleNamespaces, class inheritance or other Python mechanisms to implement component interfaces.
+By experiment reproducibility we mean that based on the experiment outputs:
+1. We are able to verify whether two experiments were executed with the same or different configuration.
+2. We are able to verify whether two experiments were executed with the same or different environment.
+3. We are able to identify any significant difference between two experiments in configuration or environment.
+4. We are able to reproduce a given experiment reliably.
 
-**Decision**: Use **Abstract Base Classes (ABC)** with inheritance.
-
-**Justification**:
-
-- **Type safety**: ABC enforces interface contracts at instantiation time, preventing runtime errors from missing method implementations
-- **IDE support**: Provides better autocomplete, type checking, and refactoring capabilities
-- **Self-documenting**: Abstract methods clearly define the contract that implementations must fulfill
-- **Consistency**: Aligns with existing SceneScape codebase patterns (e.g., modules in `scene_common`)
-- **Extensibility**: Allows adding default implementations and shared utility methods in base classes
-- **Best practice**: Industry-standard approach for plugin architectures in Python
-
-**Implementation pattern**:
-
-```python
-from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
-
-class TrackingDataset(ABC):
-  """Base class for tracking dataset implementations."""
-
-  @abstractmethod
-  def set_scene(self, scene: Optional[str] = None) -> 'TrackingDataset':
-    """Set the scene to use from the dataset.
-
-    Args:
-      scene: Scene identifier (optional)
-
-    Returns:
-      Self for method chaining
-
-    Raises:
-      Exception on error
-    """
-    pass
-```
+Methods to be considered (not exhaustive list):
+- add methods returning configuration signature to component base interfaces (configuration signature could be a map of `{<resource>:<unique ID>}` that allows to compare component configurations in two experiments, e.g. input file checksum, container image checksum)
+- dump configuration along with its signature map for each component in the pipeline
+- dump configuration of the pipeline
+- dump repository commit SHA
+- dump dependencies versions / checksums
+- dump HW information
+- dump system information: CPU and memory load, machine ID, kernel, Python version etc.
