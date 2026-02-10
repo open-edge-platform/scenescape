@@ -79,7 +79,7 @@ evaluation/
 ├── harnesses/            # Tracker harness implementations
 ├── evaluators/           # Evaluator implementations
 ├── utils/                # Shared utilities
-└── pipeline_configs/     # Example configurations
+└── pipeline_configs/     # Pipeline configurations
 ```
 
 ## Extending the Pipeline
