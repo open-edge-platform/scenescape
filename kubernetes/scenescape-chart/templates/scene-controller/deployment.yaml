@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 ---
@@ -40,6 +40,7 @@ spec:
           - https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1
           - --ntp
           - ntpserv.{{ .Release.Namespace }}.svc.cluster.local
+          - --healthcheck_port=8080
           image: {{ .Values.repository }}/{{ .Values.scene.image }}:{{ .Chart.AppVersion }}
           imagePullPolicy: {{ .Values.scene.pullPolicy }}
           name: {{ .Release.Name }}-scene
@@ -49,12 +50,20 @@ spec:
           - name: VDMS_HOSTNAME
             value: vdms.{{ .Release.Namespace }}.svc.cluster.local
             {{ include "proxy_envs" . | indent 10 }}
+          ports:
+          - containerPort: 8080
+            name: health
+            protocol: TCP
           readinessProbe:
-            exec:
-              command:
-              - "true"
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
             initialDelaySeconds: 5
-            periodSeconds: 1
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
           securityContext:
             readOnlyRootFilesystem: true
           resources: {}
