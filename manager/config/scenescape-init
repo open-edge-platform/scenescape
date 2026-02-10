@@ -45,7 +45,7 @@ if [ -d "${WORKSPACE}" ] ; then
     fi
     WSUID=$(stat -c '%u' "${WORKSPACE}"/* | sort -rn | head -1)
     WSGID=$(stat -c '%g' "${WORKSPACE}"/* | sort -rn | head -1)
-    if ((${WSUID} == 0 || ${WSGID} == 0)) ; then
+    if [ -n "${HOSTDIR}" ] && ((${WSUID} == 0 || ${WSGID} == 0)); then
             echo "Detected root ownership in workspace, using manager dir uid:${MANAGERDIR_UID}"
             echo "Chowning workspace to ${MANAGERDIR_UID}"
             echo "ls -la ${WORKSPACE}/ before chown:"
@@ -56,14 +56,65 @@ if [ -d "${WORKSPACE}" ] ; then
             echo "Chown complete"
     fi
 
-    # Create a bind mount to the same location of the host dir
+    # --- Align WSUSER uid/gid with workspace so bind-mounted files are writable ---
+    if [ "$(id -u)" -eq 0 ] && [ -n "${HOSTDIR}" ]; then
+        echo "Workspace ownership: ${WSUID}:${WSGID}"
+
+        if id "${WSUSER}" >/dev/null 2>&1; then
+            echo "Before: ${WSUSER} -> $(id -u ${WSUSER}):$(id -g ${WSUSER})"
+
+            # Ensure a group with the target GID exists
+            if ! getent group "${WSGID}" >/dev/null 2>&1; then
+                groupadd -g "${WSGID}" hostgrp 2>/dev/null || true
+            fi
+
+            # Set primary group then uid
+            usermod -g "${WSGID}" "${WSUSER}" 2>/dev/null || true
+            usermod -u "${WSUID}" "${WSUSER}" 2>/dev/null || true
+
+            # Fix ownership of WSUSER home to avoid sudo -H issues
+            WSHOME=$(eval echo ~${WSUSER})
+            chown -R "${WSUID}:${WSGID}" "${WSHOME}" 2>/dev/null || true
+
+            echo "After:  ${WSUSER} -> $(id -u ${WSUSER}):$(id -g ${WSUSER})"
+        else
+            echo "WARN: user ${WSUSER} not found; cannot align uid/gid"
+        fi
+    fi
+
     if [ -n "${HOSTDIR}" ] ; then
+        if [ "$(id -u)" -ne 0 ]; then
+            echo "ERROR: HOSTDIR bind-mount requires root. Current UID=$(id -u)."
+            echo "Hint: run container as root (docker run -u root) or enable super-shell."
+            exit 1
+        fi
+
         mkdir -p "${HOSTDIR}"
         mount --bind "${WORKSPACE}" "${HOSTDIR}"
+
+        # # Optional: ensure the bind-mounted path is accessible for WSUSER after we drop privileges
+        # if [ -n "${WSUSER}" ]; then
+        #     WSHOME=$(eval echo ~${WSUSER} 2>/dev/null || true)
+        #     # If WSUSER doesn't exist or homedir isn't resolvable, skip
+        #     if [ -n "${WSHOME}" ]; then
+        #         chown -R ${WSUID}:${WSGID} "$(dirname "${HOSTDIR}")" 2>/dev/null || true
+        #     fi
+        # fi
+
         cd "${HOSTDIR}"
-    else
-        cd "${WORKSPACE}"
+        echo "After mount: PWD=$(pwd)"
+
+        echo "After mount: id=$(id)"
+        if [ -d "${HOSTDIR}/tests/reports" ]; then
+        stat -c "dir=%n uid=%u gid=%g perms=%A" "${HOSTDIR}/tests/reports"
+        else
+        echo "WARN: ${HOSTDIR}/tests/reports does not exist yet"
     fi
+
+else
+    cd "${WORKSPACE}"
+fi
+
 else
     cd "${MANAGERDIR}"
 fi
