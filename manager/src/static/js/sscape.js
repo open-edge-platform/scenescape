@@ -16,7 +16,7 @@ import {
 import {
   metersToPixels,
   pixelsToMeters,
-  checkWebSocketConnection,
+  checkMqttConnection,
   updateElements,
 } from "/static/js/utils.js";
 import { plot } from "/static/js/marks.js";
@@ -98,7 +98,7 @@ async function checkBrokerConnections() {
   const urlSecure = "wss://" + window.location.host + "/mqtt";
 
   try {
-    await checkWebSocketConnection(urlSecure);
+    await checkMqttConnection(urlSecure);
   } catch (error) {
     console.error("MQTT port not available:", error);
     return;
