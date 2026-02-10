@@ -73,6 +73,51 @@ To facilitate GPU acceleration, sample configuration files are provided for the 
      file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
    ```
 
+## Running on Discrete GPU
+
+To enable SceneScape pipelines to run on a discrete GPU, follow these steps. These instructions are similar to the "Running on GPU" section, with the key difference being the selection of a specific device (e.g., `renderD129`).
+
+### Determine the Appropriate Device
+
+1. **List Available GPU Devices:**
+   Use the following command to list available GPU devices on your system:
+   ```sh
+   ls /dev/dri
+   ```
+   Look for entries like `renderD128`, `renderD129`, etc. The specific device to use depends on your hardware configuration.
+
+2. **Verify Device Functionality:**
+   To ensure the selected device is functional, you can use tools like `vainfo` (for VA-API support) or `intel_gpu_top` (for Intel GPUs).
+
+### Configuration
+
+1. **Update the `docker-compose.yml` file:**
+   - Uncomment the `devices` section and specify the appropriate GPU device. For example:
+     ```yaml
+     devices:
+       - "/dev/dri/renderD129:/dev/dri/renderD129"
+     ```
+
+2. **Modify the environment variables:**
+   - Update the `DETECTION_DEVICE` and `CLASSIFICATION_DEVICE` to `GPU` in the `environment` section:
+     ```yaml
+     environment:
+       - DETECTION_DEVICE=GPU
+       - CLASSIFICATION_DEVICE=GPU
+     ```
+
+3. **Use GPU-specific configuration files:**
+   - Replace the default configuration files with GPU-optimized versions:
+     ```yaml
+     configs:
+       retail-config:
+         file: ./dlstreamer-pipeline-server/retail-config-gpu.json
+       queuing-config:
+         file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
+     ```
+
+By following these steps, the SceneScape pipelines will leverage the discrete GPU for optimal performance. Ensure that the correct device (e.g., `renderD129`) is specified in the `docker-compose.yml` file.
+
 ## Enable Reidentification
 
 Following are the step-by-step instructions for enabling person reidentification for the out-of-box **Queuing** scene.
