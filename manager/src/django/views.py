@@ -604,35 +604,35 @@ def update_detection_labels(cam_inst, detection_labels: list[str]):
   if rootcert is None:
     rootcert = "/run/secrets/certs/scenescape-ca.pem"
   cert = os.environ.get("BROKERCERT")
-  
+
   if broker is None:
     log.warning(f"MQTT broker not configured. Cannot send detection labels for camera {cam_inst.sensor_id}")
     return False, "MQTT broker not configured"
-  
+
   try:
     client = PubSub(auth, cert, rootcert, broker)
     client.connect()
-    
+
     topic = PubSub.formatTopic(PubSub.CMD_CAMERA_DETECTION_LABELS, camera_id=cam_inst.sensor_id)
-    
+
     message = {
       "timestamp": time.time(),
       "camera_id": cam_inst.sensor_id,
       "detection_labels": detection_labels
     }
-    
+
     # Publish with QoS 2 (exactly once) and retain flag
     log.info(f"Publishing detection labels to topic {topic}: {detection_labels}")
     msg = client.publish(topic, json.dumps(message), qos=2, retain=True)
-    
+
     if not msg.is_published() and msg.rc == 0:
       client.loopStart()
       msg.wait_for_publish()
       client.loopStop()
-      
+
     log.info(f"Detection labels published successfully for camera {cam_inst.sensor_id}")
     return True, None
-    
+
   except socket.gaierror as e:
     error_msg = f"Unable to connect to MQTT broker: {e}"
     log.error(error_msg)

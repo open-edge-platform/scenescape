@@ -125,7 +125,7 @@ class PostInferenceDataPublish:
 
   def handleCameraMessage(self, client, userdata, message):
     msg = message.payload.decode("utf-8")
-    
+
     # Check if this is a detection_labels config message
     if message.topic == f"scenescape/cmd/camera/{self.cameraid}/detection_labels":
       try:
@@ -136,7 +136,7 @@ class PostInferenceDataPublish:
       except json.JSONDecodeError as e:
         print(f"Error parsing detection_labels message: {e}")
       return
-    
+
     # Handle regular camera commands
     if msg == "getimage":
       self.is_publish_image = True
