@@ -56,6 +56,7 @@ CONTROLLER_METRICS_EXPORT_INTERVAL_S ?= 60
 CONTROLLER_ENABLE_TRACING ?= false
 CONTROLLER_TRACING_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
 CONTROLLER_TRACING_SAMPLE_RATIO ?= 1.0
+CONTROLLER_ENABLE_ANALYTICS_ONLY ?= false
 
 # ========================= Default Target ===========================
 
@@ -91,6 +92,7 @@ help:
 	@echo "  demo-all                    Start the SceneScape demo with all services using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Intel® SceneScape)"
+	@echo "  demo-tracker                Start the SceneScape demo with Tracker service + Controller in analytics only mode using Docker Compose"
 	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
@@ -542,11 +544,15 @@ endef
 
 .PHONY: demo
 demo: build-core init-sample-data
-	$(call start_demo,)
+	$(call start_demo,--profile controller)
 
 .PHONY: demo-all
 demo-all: build-all init-sample-data
-	$(call start_demo,--profile experimental)
+	$(call start_demo,--profile controller --profile experimental)
+
+.PHONY: demo-tracker
+demo-tracker: build-all init-sample-data
+	$(call start_demo,--profile analytics --profile tracker)
 
 .PHONY: demo-k8s
 demo-k8s:
@@ -576,6 +582,7 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "CONTROLLER_ENABLE_TRACING=$(CONTROLLER_ENABLE_TRACING)" >> $@
 	@echo "CONTROLLER_TRACING_ENDPOINT=$(CONTROLLER_TRACING_ENDPOINT)" >> $@
 	@echo "CONTROLLER_TRACING_SAMPLE_RATIO=$(CONTROLLER_TRACING_SAMPLE_RATIO)" >> $@
+	@echo "CONTROLLER_ENABLE_ANALYTICS_ONLY=$(CONTROLLER_ENABLE_ANALYTICS_ONLY)" >> $@
 # ======================= Secrets Management =========================
 
 .PHONY: init-secrets
