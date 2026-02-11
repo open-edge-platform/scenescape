@@ -12,6 +12,8 @@ import numpy as np
 repo_root=Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(repo_root))
 
+from controller.controller_mode import ControllerMode
+
 def pytest_addoption(parser):
   parser.addoption("--user", required=True, help="user to log into REST server")
   parser.addoption("--password", required=True, help="password to log into REST server")
@@ -28,6 +30,17 @@ def pytest_addoption(parser):
                    help="URL of REST server")
   parser.addoption("--scene_name", default="Demo",
                    help="name of scene to test against")
+  parser.addoption("--analytics-only", action="store_true",
+                   help="Enable analytics-only mode for tests")
+
+@pytest.fixture(scope='session', autouse=True)
+def initialize_controller_mode(request):
+  """Initialize ControllerMode before any tests run."""
+  analytics_only = request.config.getoption('--analytics-only', default=False)
+  ControllerMode.initialize(analytics_only=analytics_only)
+  yield
+  # Clean up after all tests
+  ControllerMode.reset()
 
 @pytest.fixture
 def params(request):
