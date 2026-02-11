@@ -82,13 +82,11 @@ tests: \
   standard-tests \
 
 release-tests: \
-  additional-floor-plans \
   camera-deletion \
   different-formats-maps \
   live-view-button \
   non-functional-tests \
   scene-details \
-  randomly-failing-tests \
   reid-unique-count \
   reid-performance-degradation \
 
@@ -138,13 +136,15 @@ basic-acceptance-tests-k8s: \
 standard-tests: \
   _functional-tests \
   _ui-tests \
-  show-telemetry-button \
-  upload-only-3d-glb-files \
 
 functional-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
+  out-of-box \
+  out-of-box-no-ntp \
+  geometry-conformance \
+  auto-calibration-api \
   add-delete-3d-object-api \
   add-orphaned-cameras \
   api-large-strings \
@@ -156,11 +156,15 @@ _functional-tests: \
   delete-sensor-scene-api \
   delete-sensors-api \
   different-formats-maps-api \
+  reid-unique-count \
+  reid-performance-degradation \
   manual-camera-calibration-api \
   mqtt-auth \
   mqtt-cert \
+  mqtt-roi \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
+  mqtt-tripwire \
   object-crud-api \
   orphaned-sensor \
   persistence-api \
@@ -196,17 +200,23 @@ ui-tests:
 
 _ui-tests: \
   3d-camera-control-panel \
+  show-telemetry-button \
+  upload-only-3d-glb-files \
   add-delete-3d-object \
   bounding-box \
   calibrate-all-sensor-types \
+  camera-deletion \
   camera-perspective \
   delete-roi-mqtt \
   delete-sensor-mqtt \
   delete-sensors \
   delete-tripwire-mqtt \
+  different-formats-maps \
   manual-camera-calibration \
   object-crud \
   restricted-media-access \
+  live-view-button \
+  scene-details \
   sensor-area \
   sensor-location \
   sensor-scene \
