@@ -8,11 +8,10 @@ import pytest
 import sys
 from pathlib import Path
 import numpy as np
+from controller.controller_mode import ControllerMode
 
 repo_root=Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(repo_root))
-
-from controller.controller_mode import ControllerMode
 
 def pytest_addoption(parser):
   parser.addoption("--user", required=True, help="user to log into REST server")
@@ -39,7 +38,6 @@ def initialize_controller_mode(request):
   analytics_only = request.config.getoption('--analytics-only', default=False)
   ControllerMode.initialize(analytics_only=analytics_only)
   yield
-  # Clean up after all tests
   ControllerMode.reset()
 
 @pytest.fixture

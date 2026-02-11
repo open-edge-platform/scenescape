@@ -18,10 +18,8 @@ TEST_NAME = "NEX-T10451"
 @pytest.fixture(scope='session', autouse=True)
 def initialize_controller_mode():
   """Initialize ControllerMode before any tests run."""
-  # Default to non-analytics mode for scene tests since they need tracking
   ControllerMode.initialize(analytics_only=False)
   yield
-  # Clean up after all tests
   ControllerMode.reset()
 
 def pytest_sessionstart():

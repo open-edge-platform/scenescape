@@ -11,10 +11,8 @@ from controller.controller_mode import ControllerMode
 @pytest.fixture(scope='session', autouse=True)
 def initialize_controller_mode():
   """Initialize ControllerMode before any tests run."""
-  # Default to non-analytics mode for metric tests since they need tracking
   ControllerMode.initialize(analytics_only=False)
   yield
-  # Clean up after all tests
   ControllerMode.reset()
 
 def pytest_addoption(parser):
