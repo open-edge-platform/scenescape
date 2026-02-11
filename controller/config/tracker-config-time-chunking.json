@@ -3,5 +3,6 @@
   "non_measurement_time_dynamic_s": 0.8,
   "non_measurement_time_static_s": 1.6,
   "time_chunking_enabled": true,
-  "time_chunking_rate_fps": 10
+  "time_chunking_rate_fps": 10,
+  "suspended_track_timeout_secs": 60.0
 }
