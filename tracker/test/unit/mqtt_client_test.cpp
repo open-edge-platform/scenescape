@@ -4,6 +4,7 @@
 /**
  * @file mqtt_client_test.cpp
  * @brief Unit tests for MqttClient pure/static functions.
+ *        CallbackGuard thread-safety is tested in callback_guard_test.cpp.
  *
  * Coverage Strategy:
  * ------------------
@@ -13,6 +14,9 @@
  *   - generateClientId(): Client ID format validation
  *   - calculateBackoff(): Exponential backoff algorithm
  *   - MQTT_QOS constant: At-least-once delivery semantics
+ *
+ * Thread-safety mechanisms (CallbackGuard, scheduleReconnect TOCTOU fix) are
+ * tested in callback_guard_test.cpp and verified by service tests respectively.
  *
  * Full integration testing of MqttClient (connection, pub/sub, reconnection, TLS)
  * is performed in test/service/test_mqtt_client_service.cpp which uses a real

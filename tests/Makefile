@@ -107,8 +107,6 @@ broken-tests: \
   scenes-summary-api \
 
 randomly-failing-tests:
-	out-of-box \
-	out-of-box-no-ntp \
 	camera-status \
 	delete-sensor-scene \
 	persistence \
@@ -120,6 +118,8 @@ randomly-failing-tests:
 basic-acceptance-tests: \
   geometry-conformance \
   metric-tests \
+	out-of-box \
+	out-of-box-no-ntp \
 	bounding-box \
   mqtt-roi \
   mqtt-tripwire \
