@@ -358,7 +358,7 @@ class Scene(SceneModel):
 
     return True
 
-  def updateTrackedObjects(self, detection_type, objects):
+  def updateTrackedObjects(self, detection_type, objects, timestamp=None):
     """
     Update the cache of tracked objects from MQTT.
     This is used by Analytics to consume tracked objects published by the Tracker service.
@@ -366,11 +366,12 @@ class Scene(SceneModel):
     Args:
         detection_type: The type of detection (e.g., 'person', 'vehicle')
         objects: List of tracked objects for this detection type
+        timestamp: Optional ISO timestamp string from the scene data message
     """
     self.tracked_objects_cache[detection_type] = objects
     # Store timestamp for first_seen tracking
-    if scene_data and 'timestamp' in scene_data:
-      self.tracked_objects_timestamp = get_epoch_time(scene_data['timestamp'])
+    if timestamp:
+      self.tracked_objects_timestamp = get_epoch_time(timestamp)
     return
 
   def getTrackedObjects(self, detection_type):
