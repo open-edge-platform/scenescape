@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from io import BytesIO
+from contextlib import ExitStack
 import json
 import time
 import base64
@@ -152,7 +153,13 @@ class MappingServiceClient:
     if self.rootcert is None:
       self.rootcert = "/run/secrets/certs/scenescape-ca.pem"
 
-  def startReconstructMesh(self, images: Dict[str, Dict], camera_order: List[str], mesh_type='mesh', uploaded_map=None):
+  def startReconstructMesh(
+    self,
+    images: Dict[str, Dict],
+    camera_order: List[str],
+    mesh_type: str = "mesh",
+    uploaded_map=None,
+  ):
     """
     Call mapping service to reconstruct 3D mesh from images.
 
@@ -165,61 +172,74 @@ class MappingServiceClient:
       dict: Response from mapping service
     """
 
-    # Prepare request data - ensure images are ordered by camera_order to maintain
-    # correct association between input images and output poses
-    files = []
-    open_handles = []
-
-    # Iterate in the specified camera order
-    for camera_id in camera_order:
-      if camera_id in images:
-        img_bytes = base64.b64decode(images[camera_id]['data'])
-        # Add to files list as tuple: (field_name, (filename, file_data, content_type))
-        files.append(('images', (images[camera_id]['filename'], BytesIO(img_bytes), 'image/jpeg')))
-        files.append(("camera_ids", (None, camera_id)))
-      else:
-        log.warning(f"Camera {camera_id} in camera_order but not in images dict")
-
-    if uploaded_map:
-      p = Path(uploaded_map)
-      if not p.exists():
-        raise FileNotFoundError(f"Video not found: {uploaded_map}")
-      if not p.is_file():
-        raise FileNotFoundError(f"Video path is not a file: {uploaded_map}")
-
-      mime_type, _ = mimetypes.guess_type(p.name)
-      mime_type = mime_type or "application/octet-stream"
-
-      f = p.open("rb")
-      open_handles.append(f)
-      files.append(("video", (p.name, f, mime_type)))
-
     # Form data parameters
     data = {
-      'output_format': 'glb',
-      'mesh_type': mesh_type
+        "output_format": "glb",
+        "mesh_type": mesh_type,
     }
 
     log.info(f"Sending {len(images)} images to mapping service for reconstruction")
 
+    files = []
+
     try:
-      response = requests.post(
-        f"{self.base_url}/reconstruction",
-        data=data,
-        files=files,
-        timeout=int(os.getenv("GUNICORN_TIMEOUT", "300")),
-        verify=self.rootcert
-      )
+      # ExitStack lets us use context managers for an arbitrary number of files
+      # and guarantees they remain open until after requests.post completes.
+      with ExitStack() as stack:
+        # Iterate in the specified camera order
+        for camera_id in camera_order:
+          if camera_id in images:
+            img_bytes = base64.b64decode(images[camera_id]["data"])
+            files.append(
+                (
+                    "images",
+                    (
+                        images[camera_id]["filename"],
+                        BytesIO(img_bytes),
+                        "image/jpeg",
+                    ),
+                )
+            )
+            files.append(("camera_ids", (None, camera_id)))
+          else:
+            log.warning(
+                f"Camera {camera_id} in camera_order but not in images dict"
+            )
+
+        if uploaded_map:
+          p = Path(uploaded_map)
+          if not p.exists():
+            raise FileNotFoundError(f"Video not found: {uploaded_map}")
+          if not p.is_file():
+            raise FileNotFoundError(f"Video path is not a file: {uploaded_map}")
+
+          mime_type, _ = mimetypes.guess_type(p.name)
+          mime_type = mime_type or "application/octet-stream"
+
+          # Keep file handle open for the duration of the request
+          f = stack.enter_context(p.open("rb"))
+          files.append(("video", (p.name, f, mime_type)))
+
+        response = requests.post(
+          f"{self.base_url}/reconstruction",
+          data=data,
+          files=files,
+          timeout=int(os.getenv("GUNICORN_TIMEOUT", "300")),
+          verify=self.rootcert,
+        )
+      # After we exit the `with ExitStack()` block, all file handles are closed.
 
       if response.status_code == 200:
         result = response.json()
-        log.info(f"Mapping service completed successfully in {result.get('processing_time', 0):.2f}s")
+        log.info(
+            f"Mapping service completed successfully in {result.get('processing_time', 0):.2f}s"
+        )
         return result
-      else:
-        error_data = response.json() if response.content else {}
-        error_msg = error_data.get('error', f'HTTP {response.status_code}')
-        log.error(f"Mapping service error: {error_msg}")
-        raise Exception(f"Mapping service error: {error_msg}")
+
+      error_data = response.json() if response.content else {}
+      error_msg = error_data.get("error", f"HTTP {response.status_code}")
+      log.error(f"Mapping service error: {error_msg}")
+      raise Exception(f"Mapping service error: {error_msg}")
 
     except requests.exceptions.Timeout:
       raise Exception("Mapping service request timed out")
@@ -228,9 +248,6 @@ class MappingServiceClient:
     except Exception as e:
       log.error(f"Mapping service request failed: {e}")
       raise
-    finally:
-      for h in open_handles:
-        h.close()
 
   def getReconstructionStatus(self, request_id: str):
     url = f"{self.base_url}/reconstruction/status/{request_id}"
@@ -334,6 +351,9 @@ class MeshGenerator:
     if not self.isValidVideo(uploaded_file):
       raise ValueError("Uploaded file does not look like a valid video")
 
+    filename = getattr(uploaded_file, "name", "") or ""
+    suffix = Path(filename).suffix
+
     try:
       path = uploaded_file.temporary_file_path()
       return path, False
@@ -432,12 +452,11 @@ class MeshGenerator:
 
     if mapping_result.get("success"):
       self._updateSceneCamerasWithMappingResult(mapping_result, cameras)
-
-    if mapping_result.get("success") and mapping_result.get("glb_data"):
-      mesh_transform = self._saveMeshToScene(scene, mapping_result["glb_data"])
-      if mesh_transform is not None:
-        self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
-      return {"success": True}
+      if mapping_result.get("glb_data"):
+        mesh_transform = self._saveMeshToScene(scene, mapping_result["glb_data"])
+        if mesh_transform is not None:
+          self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
+        return {"success": True}
 
     return {"success": False, "error": "Mapping service did not return GLB data"}
 

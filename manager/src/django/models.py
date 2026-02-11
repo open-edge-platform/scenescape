@@ -114,7 +114,8 @@ class Scene(models.Model):
   map_type = models.CharField("Map Type", max_length=20, choices=MAP_TYPE_CHOICES, default='map_upload', null=True)
   thumbnail = models.ImageField(default=None, null=True, editable=False)
   map = models.FileField("Scene map as .glb or .ply or image or .zip or video", default=None, null=True, blank=True,
-                            validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip","ply", "mp4"]),
+                            validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip","ply","mp4",
+                            "mov", "mkv", "webm", "avi"]),
                                         validate_map_file])
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
                             validators=[MinValueValidator(np.nextafter(0, 1))])
