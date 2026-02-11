@@ -2,6 +2,8 @@
 
 This document guides users and developers on configuring the tracker for specific use cases during Intel® SceneScape deployment.
 
+**Note:** Tracker configuration is not needed when running the Scene Controller in analytics-only mode (`--analytics-only` flag or `CONTROLLER_ENABLE_ANALYTICS_ONLY=true`), as tracking is performed by a separate Tracker service.
+
 ## Tracker Configuration with Time-Based Parameters
 
 ### Enabling Time-Based Parameters
@@ -174,7 +176,8 @@ For example, to convert this frame-based configuration with time-chunking:
   "non_measurement_frames_dynamic": 8,
   "non_measurement_frames_static": 16,
   "time_chunking_enabled": true,
-  "time_chunking_interval_milliseconds": 100
+  "time_chunking_interval_milliseconds": 100,
+  "suspended_track_timeout_secs": 60.0
 }
 ```
 
@@ -186,6 +189,17 @@ The converted time-based configuration would be:
   "non_measurement_time_dynamic_s": 0.8,
   "non_measurement_time_static_s": 1.6,
   "time_chunking_enabled": true,
-  "time_chunking_rate_fps": 10
+  "time_chunking_rate_fps": 10,
+  "suspended_track_timeout_secs": 60.0
 }
 ```
+
+## Suspended Track Timeout
+
+The tracker may accumulate suspended tracks for some time for re-tracking purposes (tracks that have been temporarily suspended rather than deleted). To avoid unbounded memory growth, suspended tracks are deleted after a configurable period. You can set an upper bound on how long suspended tracks are retained.
+
+- **Parameter:** `suspended_track_timeout_secs`
+- **Meaning:** Maximum age in seconds for suspended tracks before they are cleaned up. Default: `60.0` seconds.
+- **How to set it:**
+  - Add `"suspended_track_timeout_secs": <value>` to `controller/config/tracker-config.json` (or `tracker-config-time-chunking.json` for time-chunked mode).
+  - The parameter follows the same configuration flow as other tracker parameters like `max_unreliable_time_s` and `non_measurement_time_dynamic_s`.

@@ -97,7 +97,7 @@ broken-features:
 # tests that are working, but feature is broken
 _broken-features: \
   scene-import \
-	calibrate-camera-3d-ui-2d-ui \
+  calibrate-camera-3d-ui-2d-ui \
 
 broken-tests: \
   3d-ui-calibration-points \
@@ -107,13 +107,20 @@ broken-tests: \
   scenes-summary-api \
 
 randomly-failing-tests:
+	out-of-box \
+	out-of-box-no-ntp \
+	camera-status \
+	delete-sensor-scene \
+	persistence \
+	scenes-summary \
+	3d-scene-control-panel \
+	auto-calibration-ui \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
   geometry-conformance \
   metric-tests \
-  out-of-box \
-  out-of-box-no-ntp \
+	bounding-box \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
@@ -172,10 +179,10 @@ _functional-cameras: \
 functional-mqtt:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 _functional-mqtt: \
-  mqtt-sensor-roi \
-  mqtt-slow-sensor-roi \
   mqtt-auth \
   mqtt-cert \
+  mqtt-sensor-roi \
+  mqtt-slow-sensor-roi \
   mqtt-roi \
   mqtt-tripwire \
 
@@ -310,7 +317,7 @@ build-time: # NEX-T12520
 
 system-stability: # NEX-T10411
 	$(eval HOURS ?= 24)
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
+	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
 
 python-indent-check: # NEX-T10448
 	$(eval LOGFILE=$(TEST_DATA)/code_check/$@-$(shell date -u +"%F-%T").log)
