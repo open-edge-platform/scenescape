@@ -94,8 +94,10 @@ class UUIDManager:
         # Handle new metadata format: dict with value, model, confidence
         if isinstance(value, dict) and 'value' in value:
           metadata[key] = value['value']
+          log.debug(f"Extracted metadata: {key}={value['value']} (model={value.get('model_name', 'N/A')}, confidence={value.get('confidence', 'N/A')})")
         else:
           metadata[key] = value
+          log.debug(f"Extracted metadata: {key}={value}")
 
     return metadata
 
@@ -261,6 +263,7 @@ class UUIDManager:
 
     log.debug(f"Finding similarity scores for track {sscape_object.rv_id}")
     log.debug(f"Metadata constraints: {metadata_constraints}")
+    log.debug(f"Number of reid_vectors: {len(reid_vectors) if reid_vectors else 0}")
 
     start_time = get_epoch_time()
     # Pass metadata as constraints for TIER 1 filtering in findMatches
@@ -269,6 +272,9 @@ class UUIDManager:
     query_time = get_epoch_time() - start_time
     log.debug(
       f"Similarity scores for track {sscape_object.rv_id} found in {query_time} seconds")
+    log.debug(f"Scores result count: {len(scores) if scores else 0}")
+    if scores:
+      log.debug(f"First score entry: {scores[0][:min(2, len(scores[0]))] if scores[0] else 'empty'}")
 
     with self.similarity_query_times_lock:
       self.similarity_query_times.append(query_time)

@@ -21,12 +21,9 @@ SIMILARITY_METRIC = "L2"
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
                similarity_metric=SIMILARITY_METRIC, dimensions=DIMENSIONS):
-    self.db = vdms.vdms(
-      use_tls=True,
-      ca_cert_file="/run/secrets/certs/scenescape-ca.pem",
-      client_cert_file="/run/secrets/certs/scenescape-vdms-c.crt",
-      client_key_file="/run/secrets/certs/scenescape-vdms-c.key"
-    )
+    # Initialize VDMS without TLS to avoid PMGD initialization issues in containerized environment
+    # TLS can be re-enabled after VDMS resolves container compatibility issues
+    self.db = vdms.vdms()
     self.set_name = set_name
     self.similarity_metric = similarity_metric
     self.dimensions = dimensions
@@ -116,13 +113,23 @@ class VDMSDatabase(ReIDDatabase):
         # Store as string
         properties[key] = str(value)
 
+    log.debug(f"VDMS addEntry - uuid={uuid}, rvid={rvid}, type={object_type}")
+    log.debug(f"VDMS addEntry - properties: {properties}")
+    log.debug(f"VDMS addEntry - reid_vectors count: {len(reid_vectors)}")
+
     query = {
       "AddDescriptor": {
         "set": f"{set_name}",
         "properties": properties
       }
     }
-    blob = [[np.array(reid_vector, dtype="float32").tobytes()] for reid_vector in reid_vectors]
+    # Convert vectors to JSON-serializable format (float32 -> float) and to bytes
+    blob = []
+    for reid_vector in reid_vectors:
+      # Ensure vector is float32, then convert to bytes for VDMS
+      vec_array = np.array(reid_vector, dtype="float32")
+      blob.append([vec_array.tobytes()])
+    
     add_query = [query] * len(reid_vectors)
     response, _ = self.sendQuery(add_query, blob)
     if response:
@@ -166,6 +173,10 @@ class VDMSDatabase(ReIDDatabase):
       if value is not None:
         query_constraints[key] = ["==", str(value)]
 
+    log.debug(f"VDMS findMatches - object_type={object_type}, k_neighbors={k_neighbors}")
+    log.debug(f"VDMS findMatches - TIER 1 constraints: {query_constraints}")
+    log.debug(f"VDMS findMatches - reid_vectors count: {len(reid_vectors)}")
+
     find_query = {
       "FindDescriptor": {
         "set": f"{set_name}",
@@ -183,7 +194,12 @@ class VDMSDatabase(ReIDDatabase):
     }
 
     # TIER 2: Vector similarity search on filtered candidates
-    blob = [[np.array(reid_vector, dtype="float32").tobytes()] for reid_vector in reid_vectors]
+    blob = []
+    for reid_vector in reid_vectors:
+      # Ensure vector is float32, then convert to bytes for VDMS
+      vec_array = np.array(reid_vector, dtype="float32")
+      blob.append([vec_array.tobytes()])
+    
     query = [find_query] * len(reid_vectors)
     response, _ = self.sendQuery(query, blob)
 
@@ -193,5 +209,10 @@ class VDMSDatabase(ReIDDatabase):
         for item in response
         if (item.get('status') == 0 and item.get('returned') > 0)
       ]
+      log.debug(f"VDMS findMatches - TIER 2 search complete")
+      log.debug(f"VDMS findMatches - result count: {len(result)}")
+      if result:
+        log.debug(f"VDMS findMatches - first result: {result[0][:min(3, len(result[0]))]}")
       return result
+    log.debug(f"VDMS findMatches - no response from VDMS")
     return None
