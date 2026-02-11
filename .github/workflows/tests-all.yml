@@ -311,7 +311,8 @@ jobs:
         run: |
           make clean-all
           mkdir test_data
-          make run_release_tests > test_data/release_tests.log 2>&1
+          make setup_tests
+          make -C tests release-tests > test_data/release_tests.log 2>&1
 
       - name: Upload Logs and Reports
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
