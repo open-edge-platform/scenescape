@@ -27,6 +27,7 @@ add_executable(tracker_tests
     mqtt_client_test.cpp
     message_handler_test.cpp
     scene_registry_test.cpp
+    callback_guard_test.cpp
     topic_utils_test.cpp
     ${TRACKER_LIB_SOURCES}
 )
