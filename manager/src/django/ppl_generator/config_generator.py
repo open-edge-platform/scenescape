@@ -4,6 +4,7 @@
 import copy
 import json
 import os
+import re
 from pathlib import Path
 import cv2
 import numpy as np
@@ -138,7 +139,8 @@ class PipelineConfigGenerator:
 
     # Add detection_labels if provided in camera_settings
     if 'detection_labels' in camera_settings and camera_settings['detection_labels']:
-      labels_list = [label.strip() for label in camera_settings['detection_labels'].split('\n') if label.strip()]
+      # Split by newlines, commas, and spaces; filter out empty strings
+      labels_list = [label for label in re.split(r'[\n,\s]+', camera_settings['detection_labels']) if label]
       pipeline_cfg["payload"]["parameters"]["camera_config"]["detection_labels"] = labels_list
 
   def generate_undistort_config_xml(self,
