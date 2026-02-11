@@ -163,7 +163,8 @@ class SceneController:
     return last is None or now - last >= max_delay
 
   def publishSceneDetections(self, scene, objects, otype, jdata):
-    jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated')
+    # Full rate output (30fps): exclude sensor data for performance
+    jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=False)
     olen = len(jdata['objects'])
     cid = scene.name + "/" + otype
     if olen > 0 or cid not in scene.lastPubCount or scene.lastPubCount[cid] > 0:
@@ -174,14 +175,22 @@ class SceneController:
       new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
                                      thing_type=otype)
       self.pubsub.publish(new_topic, jstr)
-      self.publishExternalDetections(scene, otype, jstr)
+      # External detections need sensor data, so pass objects to rebuild
+      self.publishExternalDetections(scene, otype, objects, jdata)
       scene.lastPubCount[cid] = olen
     return
 
-  def publishExternalDetections(self, scene, otype, jstr):
+  def publishExternalDetections(self, scene, otype, objects, jdata_base):
+    # External rate output (0.5fps): include sensor data
     now = get_epoch_time()
     if self.shouldPublish(scene.last_published_detection[otype], now, 1/scene.external_update_rate):
       scene.last_published_detection[otype] = get_epoch_time()
+      
+      # Rebuild detections list with sensor data included
+      jdata = jdata_base.copy()
+      jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=True)
+      jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
+      
       scene_hierarchy_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL, scene_id=scene.uid,
                                                  thing_type=otype)
       self.pubsub.publish(scene_hierarchy_topic, jstr)
@@ -198,9 +207,8 @@ class SceneController:
         'last': None
       }
     scene = self.regulate_cache[scene_uid]
-
-    scene['objects'][otype] = buildDetectionsList(msg_objects, scene_obj, self.visibility_topic == 'unregulated')
-
+    # Regulated rate output (5fps): include sensor data
+    scene['objects'][otype] = buildDetectionsList(msg_objects, scene_obj, self.visibility_topic == 'unregulated', include_sensors=True)
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
     elif ControllerMode.isAnalyticsOnly() and 'rate' in jdata:
@@ -255,7 +263,8 @@ class SceneController:
       for obj in objects:
         if rname in obj.chain_data.regions:
           robjects.append(obj)
-      jdata['objects'] = buildDetectionsList(robjects, scene)
+      # Region-specific detections: include sensor data
+      jdata['objects'] = buildDetectionsList(robjects, scene, False, include_sensors=True)
       olen = len(jdata['objects'])
       rid = scene.name + "/" + rname + "/" + otype
       if olen > 0 or rid not in scene.lastPubCount or scene.lastPubCount[rid] > 0:
@@ -336,7 +345,8 @@ class SceneController:
       for exited_obj, dwell in exited_list:
         exited_dict[exited_obj.gid] = dwell
         exited_objs.extend([exited_obj])
-      exited_objs = buildDetectionsList(exited_objs, scene)
+      # Exit events: include sensor data (environmental exposure, attribute events)
+      exited_objs = buildDetectionsList(exited_objs, scene, False, include_sensors=True)
       exited_data = [{'object': exited_obj, 'dwell': exited_dict[exited_obj['id']]} for exited_obj in exited_objs]
       event_data['exited'].extend(exited_data)
     return
@@ -349,8 +359,9 @@ class SceneController:
           for detectionType in region.exited:
             for exit_data in region.exited[detectionType]:
               obj = exit_data[0]
-              if region.singleton_type == "environmental":
-                obj.chain_data.sensors.pop(region_name, None)
+              # Cleanup is now handled in _updateRegionEvents
+              # Environmental sensor state is already removed
+              # Attribute sensor events are intentionally preserved
         region.exited = {}
         region.entered = {}
     return

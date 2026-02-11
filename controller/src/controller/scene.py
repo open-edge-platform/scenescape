@@ -277,28 +277,13 @@ class Scene(SceneModel):
     self._updateEvents(detectionType, when)
     return
 
-  def _updateSensorObjects(self, name, sensor, objects=None):
-    if not hasattr(sensor, 'value'):
-      return
-
-    if objects is None:
-      objects = itertools.chain.from_iterable(sensor.objects.values())
-
-    for obj in objects:
-      if name not in obj.chain_data.sensors:
-        obj.chain_data.sensors[name] = []
-      ts_str = get_iso_time(sensor.lastWhen)
-      existing = [x[0] for x in obj.chain_data.sensors[name]]
-      if ts_str not in existing:
-        obj.chain_data.sensors[name].append((ts_str, sensor.value))
-    return
-
   def processSensorData(self, jdata, when):
     sensor_id = jdata['id']
     sensor = None
 
     if sensor_id in self.sensors:
       sensor = self.sensors[sensor_id]
+      log.info("SENSOR DATA RECEIVED", sensor_id, jdata.get('value'), "type:", getattr(sensor, 'singleton_type', 'NONE'))
     else:
       log.error("Unknown sensor", sensor_id, self.sensors)
       return False
@@ -314,7 +299,82 @@ class Scene(SceneModel):
     sensor.value = cur_value
     sensor.lastValue = old_value
     sensor.lastWhen = when
-    self._updateSensorObjects(sensor_id, sensor)
+    
+    timestamp_str = get_iso_time(when)
+    timestamp_epoch = when
+    
+    # Find all objects currently in the sensor region across ALL detection types
+    objects_in_sensor = []
+    for detectionType in self.tracker.trackers.keys():
+      for obj in self.tracker.currentObjects(detectionType):
+        if (obj.frameCount > 3 or not self.use_tracker) and sensor.isPointWithin(obj.sceneLoc):
+          objects_in_sensor.append(obj)
+          # Ensure active_sensors is updated (handles scene-wide sensors or objects existing before sensor creation)
+          obj.chain_data.active_sensors.add(sensor_id)
+    
+    log.info("SENSOR OBJECTS FOUND", sensor_id, len(objects_in_sensor), "type:", sensor.singleton_type)
+    
+    # Update sensor data on objects based on sensor type
+    if objects_in_sensor:
+      if sensor.singleton_type == "environmental":
+        # Incremental exposure tracking with value-change detection
+        for obj in objects_in_sensor:
+          if sensor_id in obj.chain_data.env_sensor_state:
+            # Update exposure incrementally
+            state = obj.chain_data.env_sensor_state[sensor_id]
+            last_time = state['exposure']['last_time']
+            last_value = state['exposure']['last_value']
+            
+            if last_value is not None:
+              dt = timestamp_epoch - last_time
+              avg_value = (last_value + float(cur_value)) / 2.0
+              state['exposure']['total'] += avg_value * dt
+            
+            state['exposure']['last_time'] = timestamp_epoch
+            state['exposure']['last_value'] = float(cur_value)
+            
+            # Update readings array: append if value changed, update timestamp if same
+            if 'readings' not in state:
+              state['readings'] = []
+            if state['readings'] and state['readings'][-1][1] == cur_value:
+              # Value unchanged - update timestamp
+              state['readings'][-1] = (timestamp_str, cur_value)
+            else:
+              # Value changed - append new reading
+              state['readings'].append((timestamp_str, cur_value))
+          else:
+            # First reading - initialize from entry time (or first_seen for scene-wide sensors)
+            entry_str = obj.chain_data.regions.get(sensor_id, {}).get('entered')
+            if not entry_str:
+              # No entry time (scene-wide sensor or pre-existing object) - use first_seen
+              entry_str = get_iso_time(obj.first_seen)
+            
+            entry_epoch = get_epoch_time(entry_str)
+            dt = timestamp_epoch - entry_epoch
+            initial_exposure = float(cur_value) * dt
+            
+            obj.chain_data.env_sensor_state[sensor_id] = {
+              'readings': [(timestamp_str, cur_value)],
+              'exposure': {
+                'total': initial_exposure,
+                'last_time': timestamp_epoch,
+                'last_value': float(cur_value)
+              }
+            }
+      
+      elif sensor.singleton_type == "attribute":
+        # Event history tracking - append discrete events (or update timestamp if value unchanged)
+        for obj in objects_in_sensor:
+          if sensor_id not in obj.chain_data.attr_sensor_events:
+            obj.chain_data.attr_sensor_events[sensor_id] = []
+          
+          events = obj.chain_data.attr_sensor_events[sensor_id]
+          if events and events[-1][1] == cur_value:
+            # Value unchanged - update timestamp of last event instead of appending
+            events[-1] = (timestamp_str, cur_value)
+          else:
+            # Value changed - append new event
+            events.append((timestamp_str, cur_value))
 
     return True
 
@@ -508,16 +568,60 @@ class Scene(SceneModel):
       new = cur - prev
       old = prev - cur
       newObjects = [x for x in objects if x.gid in new]
+      
+      # Entry initialization for new objects
       for obj in newObjects:
         if key not in obj.chain_data.regions:
           obj.chain_data.regions[key] = {'entered': now_str}
           updated.add(key)
 
-      # For sensors add the current sensor value to any new objects
-      if hasattr(region, 'value') and region.singleton_type=="environmental":
+      # For all singleton sensors, handle entry tracking
+      if region.singleton_type is not None:
+        # Store objects by detection type (processSensorData will check all types when MQTT arrives)
+        region.objects[detectionType] = objects
+        
+        # Mark sensor as active for new objects
         for obj in newObjects:
-          obj.chain_data.sensors[key] = []
-        self._updateSensorObjects(key, region, newObjects)
+          obj.chain_data.active_sensors.add(key)
+          
+          # Initialize sensor state based on type
+          if region.singleton_type == "environmental":
+            # Initialize with entry time and cached value if available
+            entry_epoch = get_epoch_time(now_str)
+            
+            if hasattr(region, 'value') and hasattr(region, 'lastWhen'):
+              # Sensor has cached value - initialize with it
+              ts_str = get_iso_time(region.lastWhen)
+              last_value = float(region.value) if region.value is not None else None
+              
+              # Calculate initial exposure from entry to now (same value throughout)
+              dt = now - entry_epoch
+              initial_exposure = last_value * dt if last_value is not None else 0.0
+              
+              obj.chain_data.env_sensor_state[key] = {
+                'readings': [(ts_str, region.value)],
+                'exposure': {
+                  'total': initial_exposure,
+                  'last_time': now,
+                  'last_value': last_value
+                }
+              }
+            else:
+              # No cached value yet
+              obj.chain_data.env_sensor_state[key] = {
+                'readings': [],
+                'exposure': {
+                  'total': 0.0,
+                  'last_time': entry_epoch,
+                  'last_value': None
+                }
+              }
+          
+          elif region.singleton_type == "attribute":
+            # Attribute sensors only tag objects present when MQTT arrives
+            # Do NOT initialize with cached values (those belong to other objects)
+            if key not in obj.chain_data.attr_sensor_events:
+              obj.chain_data.attr_sensor_events[key] = []
 
       if (len(new) or len(old)) and now - region.when > DEBOUNCE_DELAY:
         log.debug("REGION EVENT", key, now_str, regionObjects, len(objects))
@@ -536,7 +640,7 @@ class Scene(SceneModel):
               entered = get_epoch_time(obj.chain_data.regions[key]['entered'])
               dwell = now - entered
               exited.append((obj, dwell))
-            obj.chain_data.regions.pop(key, None)
+        
         if not hasattr(region, 'exited'):
           region.exited = {}
         region.exited[detectionType] = exited
@@ -551,6 +655,22 @@ class Scene(SceneModel):
           if 'count' not in self.events:
             self.events['count'] = []
           self.events['count'].append((key, region))
+      
+      # Always clean up exited objects, even if debounce prevented event emission
+      for obj in regionObjects:
+        if obj.gid in old:
+          obj.chain_data.regions.pop(key, None)
+          
+          # Clean up sensor tracking on exit
+          if region.singleton_type is not None:
+            obj.chain_data.active_sensors.discard(key)
+            
+            # Environmental sensors: clear state on exit (data doesn't persist)
+            if region.singleton_type == "environmental":
+              obj.chain_data.env_sensor_state.pop(key, None)
+            
+            # Attribute sensors: keep event history (data persists after exit)
+            # attr_sensor_events[key] intentionally not removed
 
     return updated
 
@@ -647,7 +767,11 @@ class Scene(SceneModel):
         existingRegions[region_uuid].updateVolumetricInfo(regionData)
         existingRegions[region_uuid].name = region_name
       else:
-        existingRegions[region_uuid] = Region(region_uuid, region_name, regionData)
+        region = Region(region_uuid, region_name, regionData)
+        existingRegions[region_uuid] = region
+        # Log sensor configuration for debugging
+        if hasattr(region, 'singleton_type') and region.singleton_type:
+          log.info("SENSOR LOADED", region_name, "area:", region.area, "singleton_type:", region.singleton_type)
     deleted = old - new
     for region_uuid in deleted:
       existingRegions.pop(region_uuid)
