@@ -347,14 +347,9 @@ jobs:
           persist-credentials: false
           ref: ${{ inputs.ref }}
       - name: Download All Test Artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           merge-multiple: true
-      - name: print dir structure
-        run: |
-          ls -al
-          echo "-------------------------"
-          ls -al test_data
       - name: Get all test cases from test files
         id: get_test_cases
         run: |
@@ -387,5 +382,6 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: report-html
+          overwrite: true
           path: |
             ${{ env.CURRENT_DATE }}_test_report.html
