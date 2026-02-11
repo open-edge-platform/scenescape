@@ -396,8 +396,20 @@ class MeshGenerator:
       log.info(f"Starting mesh generation for scene {scene.name}")
       images = self.image_collector.collectImagesForScene(cameras, mqtt_client)
 
-      if suffix in ALLOWED_VIDEO_EXTENSIONS:
-        uploaded_map_path, temp_created = self.materializeUploadedVideo(uploaded_map)
+      if uploaded_map:
+        if suffix not in ALLOWED_VIDEO_EXTENSIONS:
+          return {
+              "success": False,
+              "error": "Unsupported video file type.",
+          }
+
+        try:
+          uploaded_map_path, temp_created = self.materializeUploadedVideo(uploaded_map)
+        except ValueError as e:
+          return {
+              "success": False,
+              "error": str(e),
+          }
 
       log.info(f"Collected {len(images)} images, calling mapping service")
       # Call mapping service to generate mesh
