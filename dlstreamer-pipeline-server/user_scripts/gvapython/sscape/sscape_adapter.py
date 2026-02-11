@@ -127,15 +127,15 @@ class PostInferenceDataPublish:
     msg = message.payload.decode("utf-8")
 
     # Check if this is a detection_labels config message
-    if message.topic == f"scenescape/cmd/camera/{self.cameraid}/detection_labels":
-      try:
-        config = json.loads(msg)
-        if isinstance(config, dict) and 'detection_labels' in config:
-          self.detection_labels = config['detection_labels']
-          print(f"Updated detection_labels for camera {self.cameraid}: {self.detection_labels}")
-      except json.JSONDecodeError as e:
-        print(f"Error parsing detection_labels message: {e}")
-      return
+    # if message.topic == f"scenescape/cmd/camera/{self.cameraid}/detection_labels":
+    #   try:
+    #     config = json.loads(msg)
+    #     if isinstance(config, dict) and 'detection_labels' in config:
+    #       self.detection_labels = config['detection_labels']
+    #       print(f"Updated detection_labels for camera {self.cameraid}: {self.detection_labels}")
+    #   except json.JSONDecodeError as e:
+    #     print(f"Error parsing detection_labels message: {e}")
+    #   return
 
     # Handle regular camera commands
     if msg == "getimage":
