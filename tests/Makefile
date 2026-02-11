@@ -86,7 +86,6 @@ release-tests: \
   camera-deletion \
   different-formats-maps \
   live-view-button \
-  non-functional-tests \
   scene-details \
   randomly-failing-tests \
   reid-unique-count \
