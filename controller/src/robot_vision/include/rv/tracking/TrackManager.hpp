@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: 2017 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -30,6 +30,8 @@ struct TrackManagerConfig
   double mDefaultMeasurementNoise{1e-2};
   double mInitStateCovariance{1.};
 
+  double mSuspendedTrackMaxAgeSecs{60.0};
+
   std::vector<MotionModel> mMotionModels{MotionModel::CV, MotionModel::CA, MotionModel::CTRV};
 
   std::string toString() const
@@ -60,7 +62,7 @@ struct TrackManagerConfig
       + std::to_string(mMaxUnreliableTime) + ", reactivation_frames:" + std::to_string(mReactivationFrames)
       + ", default_process_noise:" + std::to_string(mDefaultProcessNoise) + ", default_measurement_noise:"
       + std::to_string(mDefaultMeasurementNoise) + ", init_state_covariance:"
-      + std::to_string(mInitStateCovariance) + motionModelsText + ")";
+      + std::to_string(mInitStateCovariance) + ", suspended_track_max_age_secs:" + std::to_string(mSuspendedTrackMaxAgeSecs) + motionModelsText + ")";
   }
 };
 
@@ -112,6 +114,13 @@ public:
    *
    */
   void predict(double deltaT);
+
+  /**
+   * @brief Remove old suspended tracks to prevent unbounded accumulation
+   *
+   * @param maxAgeSecs Maximum age in seconds for suspended tracks before removal
+   */
+  void cleanupOldSuspendedTracks(double maxAgeSecs);
 
   /**
    * @brief Assign a measurement to an KalmanEstimator.
@@ -198,6 +207,7 @@ private:
   std::unordered_map<Id, TrackedObject> mMeasurementMap;
   std::unordered_map<Id, uint32_t> mNonMeasurementFrames;
   std::unordered_map<Id, uint32_t> mNumberOfTrackedFrames;
+  std::unordered_map<Id, std::chrono::steady_clock::time_point> mSuspensionTimes;
 
   Id mCurrentId = 0;
 
