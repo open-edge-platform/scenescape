@@ -353,3 +353,66 @@ class TestIntegration:
               .reset())
 
     assert result is dataset
+
+
+class TestTimestampIntervals:
+  """Test timestamp intervals match configured FPS."""
+
+  def _get_epoch_time(self, timestamp: str) -> float:
+    """Convert ISO timestamp to epoch seconds."""
+    from datetime import datetime, timezone
+    DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
+    utc_time = datetime.strptime(timestamp, f"{DATETIME_FORMAT}Z").replace(tzinfo=timezone.utc)
+    return utc_time.timestamp()
+
+  def _verify_fps_intervals(self, dataset, camera: str, fps: float):
+    """Verify timestamp intervals match expected FPS with ~5% tolerance."""
+    # Configure dataset
+    dataset.set_cameras([camera]).set_camera_fps(fps)
+
+    # Get inputs for the camera
+    inputs = list(dataset.get_inputs(camera))
+
+    # Need at least 2 frames to calculate intervals
+    assert len(inputs) >= 2, f"Need at least 2 frames for {camera} at {fps} FPS"
+
+    # Extract timestamps and convert to epoch seconds
+    timestamps = [self._get_epoch_time(inp["timestamp"]) for inp in inputs]
+
+    # Calculate intervals between consecutive frames
+    intervals = [timestamps[i+1] - timestamps[i] for i in range(len(timestamps) - 1)]
+
+    # Expected interval in seconds
+    expected_interval = 1.0 / fps
+
+    # Verify all intervals are within 5% of expected
+    for i, interval in enumerate(intervals):
+      relative_error = abs(interval - expected_interval) / expected_interval
+      assert relative_error <= 0.05, \
+        f"Frame {i} to {i+1}: interval={interval:.6f}s, expected={expected_interval:.6f}s, " \
+        f"relative_error={relative_error*100:.2f}% (max 5%)"
+
+  def test_camera_x1_fps_1(self, dataset):
+    """Test camera x1 at 1 FPS has correct timestamp intervals."""
+    self._verify_fps_intervals(dataset, "x1", 1)
+
+  def test_camera_x1_fps_10(self, dataset):
+    """Test camera x1 at 10 FPS has correct timestamp intervals."""
+    self._verify_fps_intervals(dataset, "x1", 10)
+
+  def test_camera_x1_fps_30(self, dataset):
+    """Test camera x1 at 30 FPS has correct timestamp intervals."""
+    self._verify_fps_intervals(dataset, "x1", 30)
+
+  def test_camera_x2_fps_1(self, dataset):
+    """Test camera x2 at 1 FPS has correct timestamp intervals."""
+    self._verify_fps_intervals(dataset, "x2", 1)
+
+  def test_camera_x2_fps_10(self, dataset):
+    """Test camera x2 at 10 FPS has correct timestamp intervals."""
+    self._verify_fps_intervals(dataset, "x2", 10)
+
+  def test_camera_x2_fps_30(self, dataset):
+    """Test camera x2 at 30 FPS has correct timestamp intervals."""
+    self._verify_fps_intervals(dataset, "x2", 30)
+
