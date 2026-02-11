@@ -77,11 +77,9 @@ class Scene(SceneModel):
     self.tracked_objects_cache = {}
 
     # Cache for camera detections (for analytics) - stores confidence and other detection metadata
-    # Key: (camera_id, detection_type), Value: list of detections sorted by detection id
     self.camera_detections_cache = {}
 
     # Cache for camera rates (for analytics) - stores the FPS rate from each camera
-    # Key: camera_id, Value: rate (FPS)
     self.camera_rates = {}
 
     # Cache for object history (publishedLocations, etc.) to maintain trails across frames
@@ -194,15 +192,12 @@ class Scene(SceneModel):
       log.error("Unknown camera", camera_id, self.cameras)
       return False
 
-    # In Analytics Only mode, cache camera detections for confidence correlation and visibility
     if ControllerMode.isAnalyticsOnly():
       # Cache camera rate
       if 'rate' in jdata:
         self.camera_rates[camera_id] = jdata['rate']
-      
+
       for detection_type, detections in jdata['objects'].items():
-        # Store detections sorted by detection id for lookup by tracked object index
-        # Detection id=1 corresponds to tracked object at index 0
         cache_key = (camera_id, detection_type)
         self.camera_detections_cache[cache_key] = sorted(
           detections,
@@ -369,7 +364,7 @@ class Scene(SceneModel):
         timestamp: Optional ISO timestamp string from the scene data message
     """
     self.tracked_objects_cache[detection_type] = objects
-    # Store timestamp for first_seen tracking
+
     if timestamp:
       self.tracked_objects_timestamp = get_epoch_time(timestamp)
     return
@@ -433,50 +428,39 @@ class Scene(SceneModel):
       obj.sceneLoc = Point(obj_data.get('translation', [0, 0, 0]))
       obj.velocity = Point(obj_data.get('velocity', [0, 0, 0])) if obj_data.get('velocity') else None
       obj.size = obj_data.get('size')
-      
-      # Try to get confidence from camera detections cache
-      # Detection id=N corresponds to tracked object at index N-1
-      # So object at index obj_idx corresponds to detection id=(obj_idx+1)
+
       obj.confidence = obj_data.get('confidence')
       if obj.confidence is None:
-        # Try to find confidence from any camera that saw this object
         detection_type = obj.category
         for (cam_id, det_type), detections in self.camera_detections_cache.items():
           if det_type == detection_type and obj_idx < len(detections):
-            # Get detection by index (detection id - 1)
             detection = detections[obj_idx]
             if 'confidence' in detection:
               obj.confidence = detection['confidence']
-              break  # Use first camera's confidence
-      
+              break
+
       obj.frameCount = obj_data.get('frame_count', 0)
       obj.rotation = obj_data.get('rotation')
       obj.reidVector = obj_data.get('reid')
       obj.similarity = obj_data.get('similarity')
       obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
       obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
-      
-      # Store the object index for camera_detections_cache lookup in computeCameraBounds
+
       obj._camera_detections_index = obj_idx
 
-      # Build visibility list from cameras that detected this object (if not provided or in Analytics Only mode)
       obj.visibility = obj_data.get('visibility', [])
       if ControllerMode.isAnalyticsOnly():
-        # Find all cameras that have a detection at this index
         detected_cameras = set()
         detection_type = obj.category
         for (cam_id, det_type), detections in self.camera_detections_cache.items():
           if det_type == detection_type and obj_idx < len(detections):
             detected_cameras.add(cam_id)
-        
-        # If visibility is empty, use detected cameras; otherwise merge
+
         if not obj.visibility:
           obj.visibility = list(detected_cameras)
         else:
-          # Merge provided visibility with detected cameras (union)
           obj.visibility = list(set(obj.visibility) | detected_cameras)
 
-      # Handle first_seen timestamp
       obj_id = obj.gid
       if 'first_seen' in obj_data:
         obj.when = get_epoch_time(obj_data.get('first_seen'))
@@ -509,7 +493,6 @@ class Scene(SceneModel):
       obj.chain_data.sensors = obj_data.get('sensors', {})
       obj.chain_data.persist = obj_data.get('persistent_data', {})
 
-      # Initialize or retrieve object history
       if obj_id in self.object_history_cache:
         obj.chain_data.publishedLocations = self.object_history_cache[obj_id].get('publishedLocations', [])
       else:
@@ -548,7 +531,6 @@ class Scene(SceneModel):
       tripwireObjects = tripwire.objects.get(detectionType, [])
       objects = []
       for obj in curObjects:
-        # In Analytics Only mode, skip objects without valid timestamp or insufficient location history
         if ControllerMode.isAnalyticsOnly():
           if obj.when is None or len(obj.chain_data.publishedLocations) < 2:
             continue
@@ -558,7 +540,6 @@ class Scene(SceneModel):
             event = TripwireEvent(obj, -d)
             objects.append(event)
         else:
-          # Default mode: keep original implementation with frameCount check
           if obj.when is None:
             continue
           age = now - obj.when
