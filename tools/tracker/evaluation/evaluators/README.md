@@ -88,7 +88,7 @@ print(f"IDF1: {metrics['IDF1']:.3f}")
 - No parallel processing support
 - Limited configuration options for TrackEval parameters
 
-**Implementation**: [trackeval_evaluator/](trackeval_evaluator/)
+**Implementation**: [trackeval_evaluator.py](trackeval_evaluator.py)
 
 **Tests**: See [tests/test_trackeval_evaluator.py](tests/test_trackeval_evaluator.py) for comprehensive test suite with 16 test cases covering configuration, processing, evaluation, and integration workflows.
 
