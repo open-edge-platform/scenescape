@@ -2,12 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import itertools
+import json
 from types import SimpleNamespace
 from typing import Optional
 import numpy as np
 import robot_vision as rv
 from controller.controller_mode import ControllerMode
-from controller.analytics_only_schema import SceneDataValidator
+from pathlib import Path
+import os
+from fastjsonschema import compile as compile_schema
+from jsonschema import FormatChecker
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
@@ -79,9 +83,26 @@ class Scene(SceneModel):
     # Initialize schema validator for analytics-only mode
     self.schemaValidator = None
     if ControllerMode.isAnalyticsOnly():
-      self.schemaValidator = SceneDataValidator()
-      if self.schemaValidator.isInitialized():
-        log.info(f"Schema validator initialized for scene: {name}")
+      schemaFilename = 'scene-data.schema.json'
+      schemaPath = Path(os.environ.get('SCENESCAPE_HOME')) / 'tracker' / 'schema' / schemaFilename
+      if schemaPath.exists():
+        try:
+          log.info(f"Loading scene-data schema from: {schemaPath}")
+          with schemaPath.open() as schemaFd:
+            sceneDataSchema = json.load(schemaFd)
+
+          checker = FormatChecker()
+          formats = {
+            key: checker.checkers[key][0]
+            for key in checker.checkers
+          }
+
+          self.schemaValidator = compile_schema(sceneDataSchema, formats=formats)
+          log.info(f"Scene-data schema validator initialized for scene: {name}")
+        except Exception as e:
+          log.error(f"Failed to initialize schema validator from {schemaPath}: {e}")
+      else:
+        log.error(f"Schema file not found at: {schemaPath}")
 
     # FIXME - only for backwards compatibility
     self.scale = scale
@@ -337,8 +358,12 @@ class Scene(SceneModel):
         scene_data: Complete scene data message to validate
     """
     # Validate scene data if validator is available
-    if scene_data is not None and hasattr(self, 'schemaValidator') and self.schemaValidator is not None:
-      if not self.schemaValidator.validate(scene_data):
+    if scene_data is not None and self.schemaValidator is not None:
+      try:
+        self.schemaValidator(scene_data)
+        log.debug(f"Scene data validation passed for detection_type={detection_type}")
+      except Exception as e:
+        log.error(f"Scene data validation failed for detection_type={detection_type}: {e}")
         return
 
     self.tracked_objects_cache[detection_type] = objects
