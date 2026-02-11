@@ -220,6 +220,8 @@ class PipelineEngine:
     if 'path' not in self._config['pipeline']['output']:
       raise ValueError("Configuration missing required field: pipeline.output.path")
 
+    # Validate component sections
+    for section in ['dataset', 'harness', 'evaluators']:
       if section == 'evaluators':
         # Evaluators is a list
         if not isinstance(self._config[section], list):

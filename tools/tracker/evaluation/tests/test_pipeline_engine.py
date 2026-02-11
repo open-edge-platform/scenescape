@@ -7,6 +7,7 @@ import pytest
 import sys
 import yaml
 import tempfile
+import shutil
 from pathlib import Path
 
 # Add parent directory to path
@@ -16,12 +17,21 @@ from pipeline_engine import PipelineEngine
 
 
 @pytest.fixture
-def temp_config_file():
+def temp_output_dir():
+  """Create temporary directory for pipeline outputs."""
+  temp_dir = tempfile.mkdtemp(prefix='test_pipeline_')
+  yield temp_dir
+  # Cleanup
+  shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@pytest.fixture
+def temp_config_file(temp_output_dir):
   """Create temporary YAML configuration file."""
   config = {
     'pipeline': {
       'output': {
-        'path': '/tmp/tracker-evaluation'
+        'path': temp_output_dir
       }
     },
     'dataset': {
@@ -108,12 +118,12 @@ class TestLoadConfiguration:
     finally:
       Path(temp_file.name).unlink()
 
-  def test_load_configuration_missing_section(self, engine):
+  def test_load_configuration_missing_section(self, engine, temp_output_dir):
     """Test configuration loading with missing section."""
     config = {
       'pipeline': {
         'output': {
-          'path': '/tmp/tracker-evaluation'
+          'path': temp_output_dir
         }
       },
       'dataset': {
@@ -195,12 +205,12 @@ class TestLoadConfiguration:
     finally:
       Path(temp_file.name).unlink()
 
-  def test_load_configuration_missing_class(self, engine):
+  def test_load_configuration_missing_class(self, engine, temp_output_dir):
     """Test configuration loading with missing class field."""
     config = {
       'pipeline': {
         'output': {
-          'path': '/tmp/tracker-evaluation'
+          'path': temp_output_dir
         }
       },
       'dataset': {
@@ -228,12 +238,12 @@ class TestLoadConfiguration:
     finally:
       Path(temp_file.name).unlink()
 
-  def test_load_configuration_evaluators_not_list(self, engine):
+  def test_load_configuration_evaluators_not_list(self, engine, temp_output_dir):
     """Test configuration loading with evaluators not a list."""
     config = {
       'pipeline': {
         'output': {
-          'path': '/tmp/tracker-evaluation'
+          'path': temp_output_dir
         }
       },
       'dataset': {
@@ -260,12 +270,12 @@ class TestLoadConfiguration:
     finally:
       Path(temp_file.name).unlink()
 
-  def test_load_configuration_evaluators_empty(self, engine):
+  def test_load_configuration_evaluators_empty(self, engine, temp_output_dir):
     """Test configuration loading with empty evaluators list."""
     config = {
       'pipeline': {
         'output': {
-          'path': '/tmp/tracker-evaluation'
+          'path': temp_output_dir
         }
       },
       'dataset': {
@@ -289,12 +299,12 @@ class TestLoadConfiguration:
     finally:
       Path(temp_file.name).unlink()
 
-  def test_load_configuration_multiple_evaluators_fails(self, engine):
+  def test_load_configuration_multiple_evaluators_fails(self, engine, temp_output_dir):
     """Test that multiple evaluators fail in Phase 1."""
     config = {
       'pipeline': {
         'output': {
-          'path': '/tmp/tracker-evaluation'
+          'path': temp_output_dir
         }
       },
       'dataset': {
