@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2017 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2017 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include "rv/Utils.hpp"
@@ -40,6 +40,7 @@ void TrackManager::deleteTrack(const Id &id)
 void TrackManager::suspendTrack(const Id &id)
 {
   mSuspendedKalmanEstimators[id] = std::move(mKalmanEstimators.at(id));
+  mSuspensionTimes[id] = std::chrono::steady_clock::now();
   mKalmanEstimators.erase(id);
   mNonMeasurementFrames.erase(id);
 }
@@ -53,10 +54,34 @@ void TrackManager::reactivateTrack(const Id &id)
   mNumberOfTrackedFrames[id] = mConfig.mMaxNumberOfUnreliableFrames - mConfig.mReactivationFrames;
 
   mSuspendedKalmanEstimators.erase(id);
+  mSuspensionTimes.erase(id);
+}
+
+void TrackManager::cleanupOldSuspendedTracks(double maxAgeSecs)
+{
+  auto now = std::chrono::steady_clock::now();
+  std::vector<Id> toDelete;
+
+  for (const auto& [id, suspensionTime] : mSuspensionTimes)
+  {
+    double ageSeconds = std::chrono::duration<double>(now - suspensionTime).count();
+    if (ageSeconds > maxAgeSecs)
+    {
+      toDelete.push_back(id);
+    }
+  }
+
+  for (const auto& id : toDelete)
+  {
+    mSuspendedKalmanEstimators.erase(id);
+    mSuspensionTimes.erase(id);
+  }
 }
 
 void TrackManager::predict(const std::chrono::system_clock::time_point &timestamp)
 {
+  cleanupOldSuspendedTracks(mConfig.mSuspendedTrackMaxAgeSecs);
+
   // Convert map to vector for parallel iteration
   std::vector<std::reference_wrapper<MultiModelKalmanEstimator>> estimators;
   estimators.reserve(mKalmanEstimators.size());
@@ -78,6 +103,8 @@ void TrackManager::predict(const std::chrono::system_clock::time_point &timestam
 
 void TrackManager::predict(double deltaT)
 {
+  cleanupOldSuspendedTracks(mConfig.mSuspendedTrackMaxAgeSecs);
+
   // Convert map to vector for parallel iteration
   std::vector<std::reference_wrapper<MultiModelKalmanEstimator>> estimators;
   estimators.reserve(mKalmanEstimators.size());

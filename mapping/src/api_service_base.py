@@ -51,7 +51,6 @@ def prune_status(max_age_seconds=3600):
     for rid in to_delete:
       del RECON_STATUS[rid]
 
-
 # Helper functions for request validation
 def validateReconstructionRequest(data):
   """Validate reconstruction request data (supports images OR video)"""

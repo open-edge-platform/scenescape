@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "callback_guard.hpp"
 #include "config_loader.hpp"
 
 #include <atomic>
@@ -197,6 +198,23 @@ public:
                                                       int max_delay_s = 30);
 
 private:
+    /**
+     * @brief Execute a callback body with shutdown guard.
+     *
+     * Creates a CallbackGuard, checks shouldSkip(), and invokes fn() only
+     * if shutdown has not been requested. Centralizes the guard pattern
+     * used by all Paho callback methods.
+     *
+     * @param fn Callable to invoke if not shutting down
+     */
+    template <typename F>
+    void withGuard(F&& fn) {
+        CallbackGuard guard(callbacks_in_flight_, stop_requested_);
+        if (!guard.shouldSkip()) {
+            std::forward<F>(fn)();
+        }
+    }
+
     // mqtt::callback interface
     void connected(const std::string& cause) override;
     void connection_lost(const std::string& cause) override;
@@ -242,11 +260,12 @@ private:
     std::mutex reconnect_mutex_;
     std::condition_variable reconnect_cv_;
     std::atomic<bool> reconnecting_{false};
-    int reconnect_attempt_{0};
+    std::atomic<int> reconnect_attempt_{0};
 
     // Callbacks
     MessageCallback message_callback_;
     std::mutex callback_mutex_;
+    std::atomic<int> callbacks_in_flight_{0}; // Track active Paho callbacks for safe shutdown
 };
 
 } // namespace tracker
