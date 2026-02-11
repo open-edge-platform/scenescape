@@ -89,5 +89,6 @@ Building a Scene <building-a-scene/index.md>
 calibrating Cameras <calibrating-cameras/index.md>
 Other Topics <other-topics/index.md>
 Additional Resources <additional-resources/index.md>
+Autocalibration <autocalibration/index.md>
 :::
 hide_directive-->
