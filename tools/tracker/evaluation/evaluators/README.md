@@ -20,15 +20,25 @@ Evaluators handle metric-library-specific details (TrackEval, py-motmetrics, etc
 
 ### TrackEvalEvaluator
 
-**Purpose**: Compute tracking quality metrics using the TrackEval library.
+**Purpose**: Compute tracking quality metrics using the TrackEval library with custom 3D point tracking support.
 
-**Status**: **MOCK IMPLEMENTATION** - Returns placeholder values until TrackEval integration is completed.
+**Status**: **FULLY IMPLEMENTED** - Computes real metrics from tracker outputs using TrackEval library with custom MotChallenge3DPoint dataset class.
 
-**Supported Metrics** (planned):
-- **HOTA family**: HOTA, DetA, AssA, DetRe, DetPr, AssRe, AssPr, LocA
-- **CLEAR MOT**: MOTA, MOTP, MODA, CLR_Re, CLR_Pr, MTR, PTR, MLR, sMOTA
-- **Identity**: IDF1, IDR, IDP, IDTP, IDFN, IDFP
-- **Count**: CLR_TP, CLR_FN, CLR_FP, IDSW, MT, PT, ML, Frag
+**Supported Metrics**:
+- **HOTA metrics**: HOTA, DetA, AssA, LocA, DetPr, DetRe, AssPr, AssRe
+- **CLEAR MOT metrics**: MOTA, MOTP, MT, ML, Frag
+- **Identity metrics**: IDF1, IDP, IDR
+
+For full metric list, refer to the TrackEval documentation: https://pypi.org/project/trackeval/.
+
+**Key Features**:
+- **3D Point Tracking**: Custom `MotChallenge3DPoint` class extends TrackEval's `MotChallenge2DBox` with:
+  - Euclidean distance similarity (instead of IoU)
+  - 3D position extraction (x, y, z from translation field)
+  - Configurable distance threshold (default: 2.0 meters for 0.5 similarity)
+- **Format Conversion**: Automatic conversion from canonical JSON format to MOTChallenge CSV
+- **UUID Mapping**: Consistent UUID-to-integer ID mapping for track identity preservation
+- **Timestamp Handling**: Frame synchronization via FPS-based timestamp-to-frame conversion
 
 **Usage Example**:
 ```python
@@ -72,27 +82,22 @@ print(f"MOTA: {metrics['MOTA']:.3f}")
 print(f"IDF1: {metrics['IDF1']:.3f}")
 ```
 
-**Current Limitations** (mock implementation):
-- Returns placeholder values for all metrics (not computed from actual data)
-- Does not generate plots or detailed result files
-- Does not use TrackEval library
-
-**TODO** (for real implementation):
-- Integrate with TrackEval library for real metric computation
-- Add support for different dataset formats (MOT, KITTI, etc.)
-- Implement plot generation and detailed result export
-- Add configuration options for TrackEval parameters
+**Current Limitations**:
+- Fixed class name ("pedestrian") for all objects
+- Single-sequence evaluation only
+- No parallel processing support
+- Limited configuration options for TrackEval parameters
 
 **Implementation**: [trackeval_evaluator/](trackeval_evaluator/)
 
-**Tests**: See [tests/test_trackeval_evaluator.py](tests/test_trackeval_evaluator.py) for comprehensive test suite (tests marked `@pytest.mark.xfail` until real implementation).
+**Tests**: See [tests/test_trackeval_evaluator.py](tests/test_trackeval_evaluator.py) for comprehensive test suite with 16 test cases covering configuration, processing, evaluation, and integration workflows.
 
 ## Adding New Evaluators
 
 To add support for a new metric computation library:
 
 1. **Create evaluator class**: Implement all abstract methods from `TrackerEvaluator` base class (see [../base/tracker_evaluator.py](../base/tracker_evaluator.py))
-2. **Integrate metric library**: Wrap the external library (TrackEval, py-motmetrics, etc.) to compute metrics
+2. **Integrate metric library**: Wrap the external library (TrackEval, py-motmetrics, etc.) or implement custom code to compute metrics
 3. **Handle formats**: Convert canonical tracker outputs and ground-truth to library-specific formats
 4. **Support configuration**:
    - `configure_metrics()` - specify which metrics to compute
@@ -120,8 +125,7 @@ metrics = (evaluator
 ```
 
 **Ground-truth format**:
-Evaluators receive ground-truth in **evaluator-specific format** (not canonical format). For TrackEval, this is typically:
-- **MOTChallenge 3D CSV format**: See [Canonical Data Formats](../README.md#canonical-data-formats)
+Evaluators receive ground-truth in **MOTChallenge 3D CSV format**: See [Canonical Data Formats](../README.md#canonical-data-formats)
 - Provided by dataset's `get_ground_truth()` method
 
 ## Design Documentation

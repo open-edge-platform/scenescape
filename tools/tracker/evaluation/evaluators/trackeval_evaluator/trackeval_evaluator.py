@@ -362,6 +362,15 @@ class TrackEvalEvaluator(TrackerEvaluator):
       self._ground_truth_csv_path = gt_folder / "gt.txt"
       shutil.copy(gt_file_path, self._ground_truth_csv_path)
 
+      # Determine actual number of frames from both tracker and ground truth
+      # Read max frame from ground truth CSV
+      import pandas as pd
+      gt_df = pd.read_csv(self._ground_truth_csv_path, header=None, names=['frame', 'id', 'x', 'y', 'z', 'conf', 'class', 'vis'])
+      max_gt_frame = int(gt_df['frame'].max()) if not gt_df.empty else self._num_frames
+
+      # Use maximum of tracker frames and ground truth frames
+      self._num_frames = max(self._num_frames, max_gt_frame)
+
       # Create seqinfo.ini
       create_motchallenge_seqinfo(
         self._seq_name,
