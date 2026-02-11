@@ -461,7 +461,7 @@ class Scene(SceneModel):
 
       # Build visibility list from cameras that detected this object (if not provided or in Analytics Only mode)
       obj.visibility = obj_data.get('visibility', [])
-      if ControllerMode.isAnalyticsOnly() and hasattr(self, 'camera_detections_cache'):
+      if ControllerMode.isAnalyticsOnly():
         # Find all cameras that have a detection at this index
         detected_cameras = set()
         detection_type = obj.category
