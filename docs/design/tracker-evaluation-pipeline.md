@@ -51,19 +51,19 @@ The goal of this document is to explain how the [tracking evaluation strategy](.
 flowchart LR
     Dataset[Tracking Dataset]
     Harness[Tracker Harness]
-    Evaluator1[Tracker Evaluator 1]
-    Evaluator2[Tracker Evaluator 2]
-    EvaluatorN[Tracker Evaluator N]
     Results[Evaluation Results]
 
     Dataset -->|scene & cameras config| Harness
     Dataset -->|inputs| Harness
-    Harness -->|tracker outputs| Evaluator1
-    Harness -->|tracker outputs| Evaluator2
-    Harness -->|tracker outputs| EvaluatorN
-    Dataset -->|ground-truth| Evaluator1
-    Dataset -->|ground-truth| Evaluator2
-    Dataset -->|ground-truth| EvaluatorN
+
+    subgraph Evaluators[" "]
+        Evaluator1[Tracker Evaluator 1]
+        Evaluator2[Tracker Evaluator 2]
+        EvaluatorN[Tracker Evaluator N]
+    end
+
+    Harness -->|tracker outputs| Evaluators
+    Dataset -->|ground-truth| Evaluators
     Evaluator1 -->|metrics| Results
     Evaluator2 -->|metrics| Results
     EvaluatorN -->|metrics| Results
@@ -306,6 +306,14 @@ Evaluates metrics based on the dataset ground-truth.
 No input arguments.
 Raises exception on error.
 Returns: dict { <metric name>: <metric value> }
+
+## TrackEval Library Adoption
+
+The pipeline adopts [TrackEval](https://github.com/JonathonLuiten/TrackEval) as the primary evaluation toolkit for Phase 1. TrackEval is the reference implementation for HOTA (Higher Order Tracking Accuracy) and supports a comprehensive suite of tracking metrics including DetA, AssA, LocA, IDF1, MOTA, and MOTP.
+
+TrackEval does not provide native support for 3D ground-truth evaluation. To address this limitation, the implementation includes a custom dataset adapter (`MotChallenge3DPoint`) that extends TrackEval's base dataset class to handle 3D point tracking. This adapter uses Euclidean distance for similarity computation in world coordinates and formats ground-truth and tracker outputs to conform to TrackEval's expected data structures.
+
+The integration maps canonical pipeline formats (JSON-based detection and track outputs) to TrackEval's MOTChallenge-style CSV format through format conversion utilities, enabling seamless evaluation of SceneScape's 3D tracking outputs against industry-standard metrics.
 
 ## Open Questions
 
