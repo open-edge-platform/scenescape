@@ -49,17 +49,24 @@ permissions:
 jobs:
   run_functional_tests:
     runs-on: [all]
-    name: 'Functional Tests (${{ fromJSON(''{"functional-scenes":"Scenes",
-      "functional-sensors":"Sensors","functional-cameras":"Cameras",
-      "functional-mqtt":"MQTT","functional-objects":"Objects",
-      "functional-generic":"Generic"}'')[matrix.group] }})'
+    name: "Functional Tests (${{ matrix.label }})"
     timeout-minutes: 55
     strategy:
       fail-fast: false
       matrix:
-        group:
-          ${{ fromJSON('["functional-scenes","functional-sensors","functional-cameras",
-          "functional-mqtt","functional-objects","functional-generic"]') }}
+        include:
+          - group: functional-scenes
+            label: Scenes
+          - group: functional-sensors
+            label: Sensors
+          - group: functional-cameras
+            label: Cameras
+          - group: functional-mqtt
+            label: MQTT
+          - group: functional-objects
+            label: Objects
+          - group: functional-generic
+            label: Generic
     steps:
       - name: Remove test_data folder
         run: sudo rm -rf test_data || true
