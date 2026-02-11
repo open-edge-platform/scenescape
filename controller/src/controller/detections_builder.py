@@ -90,23 +90,18 @@ def prepareObjDict(scene, obj, update_visibility):
 
 def computeCameraBounds(scene, aobj, obj_dict, camera_detections_cache=None, obj_idx=None):
   camera_bounds = {}
-  
-  # In Analytics Only mode, first try to get bounds from camera detections cache
-  # Cache can be passed explicitly or retrieved from the scene object
+
   if ControllerMode.isAnalyticsOnly():
     cache = camera_detections_cache
     index = obj_idx
-    
-    # If not provided explicitly, try to get from scene and aobj
+
     if cache is None and scene and hasattr(scene, 'camera_detections_cache'):
       cache = scene.camera_detections_cache
     if index is None and aobj and hasattr(aobj, '_camera_detections_index'):
       index = aobj._camera_detections_index
-    
-    # If we have both cache and index, try to extract bounds
+
     if cache is not None and index is not None:
       detection_type = obj_dict.get('type', aobj.category if aobj else None)
-      # First, try efficient lookup limited to the object's visibility cameras
       visibility_cameras = obj_dict.get('visibility')
       if isinstance(visibility_cameras, list) and detection_type is not None:
         for cam_id in visibility_cameras:
@@ -115,20 +110,17 @@ def computeCameraBounds(scene, aobj, obj_dict, camera_detections_cache=None, obj
             detection = detections[index]
             if 'bounding_box_px' in detection:
               camera_bounds[cam_id] = detection['bounding_box_px']
-      # If no bounds were found using visibility-based lookup, fall back to scanning the cache
       if not camera_bounds and detection_type is not None:
         for (cam_id, det_type), detections in cache.items():
           if det_type == detection_type and index < len(detections):
             detection = detections[index]
             if 'bounding_box_px' in detection:
               camera_bounds[cam_id] = detection['bounding_box_px']
-      
-      # If we found bounds from cache, use them and return
+
       if camera_bounds:
         obj_dict['camera_bounds'] = camera_bounds
         return
-  
-  # Standard mode or fallback: compute bounds from object vectors or project from 3D
+
   for cameraID in obj_dict['visibility']:
     bounds = None
     if aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID') \
