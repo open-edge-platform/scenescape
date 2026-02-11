@@ -438,7 +438,7 @@ class Scene(SceneModel):
       # Detection id=N corresponds to tracked object at index N-1
       # So object at index obj_idx corresponds to detection id=(obj_idx+1)
       obj.confidence = obj_data.get('confidence')
-      if obj.confidence is None and hasattr(self, 'camera_detections_cache'):
+      if obj.confidence is None:
         # Try to find confidence from any camera that saw this object
         detection_type = obj.category
         for (cam_id, det_type), detections in self.camera_detections_cache.items():
