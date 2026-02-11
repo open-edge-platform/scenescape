@@ -1,6 +1,7 @@
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import uuid
 from datetime import datetime
 
@@ -11,7 +12,9 @@ from controller.moving_object import (DEFAULT_EDGE_LENGTH,
                                       DEFAULT_TRACKING_RADIUS)
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
-                                 NON_MEASUREMENT_TIME_STATIC, Tracking)
+                                 NON_MEASUREMENT_TIME_STATIC,
+                                 DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
+                                 Tracking)
 from scene_common import log
 from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time
@@ -19,7 +22,7 @@ from scene_common.timestamp import get_epoch_time
 
 class IntelLabsTracking(Tracking):
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, effective_object_update_rate, name=None):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, effective_object_update_rate, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, name=None):
     """Initialize the tracker with tracker configuration parameters"""
     super().__init__()
     self.name = name if name is not None else "IntelLabsTracking"
@@ -44,6 +47,8 @@ class IntelLabsTracking(Tracking):
       tracker_config.max_unreliable_time = MAX_UNRELIABLE_TIME
       tracker_config.non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC
       tracker_config.non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC
+
+    tracker_config.suspended_track_timeout_secs = suspended_track_timeout_secs
 
     self.tracker = rv.tracking.MultipleObjectTracker(tracker_config)
     log.info(f"Multiple Object Tracker {self.__str__()} initialized")
