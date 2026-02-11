@@ -126,24 +126,6 @@ class TestConfiguration:
         "tracker_config_path": "/nonexistent/path.json"
       })
 
-  def test_set_callback_outputs_ready(self, harness):
-    """Test setting outputs callback."""
-    def callback(outputs):
-      pass
-
-    result = harness.set_callback_outputs_ready(callback)
-    assert result is harness  # Method chaining
-    assert harness._callback_outputs_ready is callback
-
-  def test_set_callback_on_failure(self, harness):
-    """Test setting failure callback."""
-    def callback(timestamp, error):
-      pass
-
-    result = harness.set_callback_on_failure(callback)
-    assert result is harness  # Method chaining
-    assert harness._callback_on_failure is callback
-
   def test_reset(self, harness, sample_scene_config, tracker_config_file):
     """Test reset method."""
     # Configure harness
@@ -184,22 +166,7 @@ class TestMethodChaining:
       .set_scene_config(sample_scene_config) \
       .set_custom_config({
         "tracker_config_path": tracker_config_file
-      }) \
-      .set_callback_outputs_ready(lambda x: None) \
-      .set_callback_on_failure(lambda x, y: None)
+      })
 
     assert result is harness
 
-
-class TestAsyncMode:
-  """Test asynchronous processing mode."""
-
-  def test_process_inputs_async_not_implemented(self, harness, sample_scene_config, tracker_config_file):
-    """Test that async mode raises NotImplementedError."""
-    harness.set_scene_config(sample_scene_config)
-    harness.set_custom_config({
-      "tracker_config_path": tracker_config_file
-    })
-
-    with pytest.raises(NotImplementedError, match="does not support async mode"):
-      harness.process_inputs_async(iter([]))

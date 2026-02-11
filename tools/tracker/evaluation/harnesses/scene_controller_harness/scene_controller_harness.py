@@ -7,7 +7,7 @@ import json
 import tempfile
 import shutil
 from pathlib import Path
-from typing import Iterator, Dict, Any, Callable, Optional
+from typing import Iterator, Dict, Any, Optional
 from python_on_whales import docker
 import sys
 
@@ -33,8 +33,6 @@ class SceneControllerHarness(TrackerHarness):
   Prerequisites:
   - Docker installed and running on the host machine
   - Scene controller container image available locally
-
-  Note: Asynchronous processing (process_inputs_async) is not supported.
   """
 
   def __init__(self, container_image: str):
@@ -46,8 +44,6 @@ class SceneControllerHarness(TrackerHarness):
     self._container_image = container_image
     self._scene_config: Optional[Dict[str, Any]] = None
     self._tracker_config_path: Optional[str] = None
-    self._callback_outputs_ready: Optional[Callable[[Iterator[Dict[str, Any]]], None]] = None
-    self._callback_on_failure: Optional[Callable[[str, str], None]] = None
     self._temp_dir: Optional[Path] = None
 
   def set_scene_config(self, config: Dict[str, Any]) -> 'SceneControllerHarness':
@@ -95,37 +91,6 @@ class SceneControllerHarness(TrackerHarness):
     if not Path(self._tracker_config_path).exists():
       raise ValueError(f"Tracker config file not found: {self._tracker_config_path}")
 
-    return self
-
-  def set_callback_outputs_ready(
-    self,
-    callback: Callable[[Iterator[Dict[str, Any]]], None]
-  ) -> 'SceneControllerHarness':
-    """Set callback function to be called when tracker outputs are ready.
-
-    Args:
-      callback: Function that receives an iterator of tracker outputs in canonical
-        Tracker Output Format (see tools/tracker/evaluation/README.md#canonical-data-formats).
-
-    Returns:
-      Self for method chaining.
-    """
-    self._callback_outputs_ready = callback
-    return self
-
-  def set_callback_on_failure(
-    self,
-    callback: Callable[[str, str], None]
-  ) -> 'SceneControllerHarness':
-    """Set callback function to be called when failure occurs.
-
-    Args:
-      callback: Function that receives (timestamp, error_message).
-
-    Returns:
-      Self for method chaining.
-    """
-    self._callback_on_failure = callback
     return self
 
   def process_inputs(self, inputs: Iterator[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
@@ -192,26 +157,6 @@ class SceneControllerHarness(TrackerHarness):
         shutil.rmtree(self._temp_dir)
         self._temp_dir = None
 
-  def process_inputs_async(self, inputs: Iterator[Dict[str, Any]]) -> 'SceneControllerHarness':
-    """Process input detections asynchronously (not implemented).
-
-    SceneControllerHarness only supports synchronous batch processing.
-    Use process_inputs() instead.
-
-    Args:
-      inputs: Iterator of detection dictionaries.
-
-    Returns:
-      Self for method chaining.
-
-    Raises:
-      NotImplementedError: Always raised - async mode not supported.
-    """
-    raise NotImplementedError(
-      "SceneControllerHarness does not support async mode. "
-      "Use process_inputs() for synchronous batch processing."
-    )
-
   def reset(self) -> 'SceneControllerHarness':
     """Reset harness state to initial configuration.
 
@@ -220,8 +165,6 @@ class SceneControllerHarness(TrackerHarness):
     """
     self._scene_config = None
     self._tracker_config_path = None
-    self._callback_outputs_ready = None
-    self._callback_on_failure = None
 
     # Clean up any remaining temp directory
     if self._temp_dir and self._temp_dir.exists():

@@ -98,12 +98,8 @@ Dataset implementations use format conversion utilities to transform data betwee
 
 ## Modes of operation:
 
-Default mode (the only one supported in Phase 1):
+Default mode (the only one supported):
 - Offline (Batch) - default: whole data sequence is processed at once by each component and stored as a complete list in memory or filesystem
-
-Future modes:
-- Streaming - for large datasets: data is streamed between components (only part of data sequence is kept in storage while running the evaluation pipeline)
-- Real-time - for benchmarking in production or time-based tracker algorithms (e.g. time-chunking)
 
 Notes:
 1. A specific harness / dataset implementation may support only a subset of models
@@ -204,32 +200,12 @@ Implementation of the component class must implement the following abstract meth
   - Returns: self for method chaining
   - Raises: ValueError if invalid, RuntimeError on other errors
 
-- **set_callback_outputs_ready**(callback: Callable[[Iterator[Dict[str, Any]]], None]) -> TrackerHarness
-  - Set callback function to be called when tracker outputs are ready
-  - Args: callback function that receives iterator of tracker outputs in canonical format
-  - Returns: self for method chaining
-  - Note: Only used by process_inputs_async(), not needed for process_inputs()
-
-- **set_callback_on_failure**(callback: Callable[[str, str], None]) -> TrackerHarness
-  - Set callback function to be called when failure occurs
-  - Args: callback function that receives (timestamp, error_message)
-  - Returns: self for method chaining
-  - Note: Only used by process_inputs_async(), not needed for process_inputs()
-
 - **process_inputs**(inputs: Iterator[Dict[str, Any]]) -> Iterator[Dict[str, Any]]
   - Process input detections through the tracker synchronously (default mode)
   - Args: iterator of detection dictionaries in canonical Input Detection Format
   - Returns: iterator of tracker outputs in canonical Tracker Output Format
   - Raises: RuntimeError if processing fails
   - Use for: batch processing, testing, simple evaluation pipelines
-
-- **process_inputs_async**(inputs: Iterator[Dict[str, Any]]) -> TrackerHarness
-  - Process input detections through the tracker asynchronously (non-blocking mode)
-  - Args: iterator of detection dictionaries in canonical Input Detection Format
-  - Returns: self for method chaining
-  - Raises: RuntimeError if fails or callbacks not set, NotImplementedError if not supported
-  - Note: Results delivered via set_callback_outputs_ready() callback
-  - Use for: streaming pipelines, async frameworks
 
 - **reset**() -> TrackerHarness
   - Reset harness state to initial configuration
