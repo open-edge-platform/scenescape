@@ -347,7 +347,7 @@ class Scene(SceneModel):
 
     return True
 
-  def updateTrackedObjects(self, detection_type, objects, scene_data=None):
+  def updateTrackedObjects(self, detection_type, objects):
     """
     Update the cache of tracked objects from MQTT.
     This is used by Analytics to consume tracked objects published by the Tracker service.
@@ -355,17 +355,7 @@ class Scene(SceneModel):
     Args:
         detection_type: The type of detection (e.g., 'person', 'vehicle')
         objects: List of tracked objects for this detection type
-        scene_data: Complete scene data message to validate
     """
-    # Validate scene data if validator is available
-    if scene_data is not None and self.schemaValidator is not None:
-      try:
-        self.schemaValidator(scene_data)
-        log.debug(f"Scene data validation passed for detection_type={detection_type}")
-      except Exception as e:
-        log.error(f"Scene data validation failed for detection_type={detection_type}: {e}")
-        return
-
     self.tracked_objects_cache[detection_type] = objects
     return
 
