@@ -71,14 +71,11 @@ def track():
   loader = SceneLoader("config.json")
   scene_config = loader.config
 
-  # Determine camera frame rate from tracker config or use default
-  ref_camera_fps = trackerConfigData.get("ref_camera_frame_rate", 30)
-
   if time_chunking_enabled:
-    time_chunking_rate_fps = ref_camera_fps
+    ref_camera_fps = time_chunking_rate_fps
     print(f"Time chunking ENABLED with rate: {time_chunking_rate_fps} FPS")
   else:
-    effective_object_update_rate = ref_camera_fps * CAMERA_OVERLAP_RATIO
+    ref_camera_fps = effective_object_update_rate
     print("Time chunking DISABLED")
 
   # Create scene
