@@ -167,16 +167,24 @@ jobs:
 
   run_ui_tests:
     runs-on: [all]
-    name: 'UI Tests (${{ fromJSON(''{"ui-scenes":"Scenes",
-      "ui-sensors":"Sensors","ui-cameras":"Cameras",
-      "ui-mqtt":"MQTT","ui-objects":"Objects",
-      "ui-generic":"Generic"}'')[matrix.group] }})'
+    name: "UI Tests (${{ matrix.label }})"
     timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
-        group: ${{ fromJSON('["ui-scenes","ui-sensors","ui-cameras",
-          "ui-mqtt","ui-objects","ui-generic"]') }}
+        include:
+          - group: ui-scenes
+            label: Scenes
+          - group: ui-sensors
+            label: Sensors
+          - group: ui-cameras
+            label: Cameras
+          - group: ui-mqtt
+            label: MQTT
+          - group: ui-objects
+            label: Objects
+          - group: ui-generic
+            label: Generic
     steps:
       - name: Remove test_data folder
         run: sudo rm -rf test_data || true
