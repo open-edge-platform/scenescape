@@ -490,9 +490,18 @@ class SceneController:
       log.warning(f"Scene not found for tracked objects, ignoring scene_id={scene_id}")
       return
 
+    # Validate scene data if validator is available
+    if ControllerMode.isAnalyticsOnly() and scene.schemaValidator is not None:
+      try:
+        scene.schemaValidator(jdata)
+        log.debug(f"Scene data validation passed for scene={scene_id}, type={detection_type}")
+      except Exception as e:
+        log.error(f"Scene data validation failed for scene={scene_id}, type={detection_type}: {e}")
+        return
+
     tracked_objects = jdata.get('objects', [])
 
-    scene.updateTrackedObjects(detection_type, tracked_objects, jdata)
+    scene.updateTrackedObjects(detection_type, tracked_objects)
 
     if ControllerMode.isAnalyticsOnly():
       analytics_objects = scene.getTrackedObjects(detection_type)
