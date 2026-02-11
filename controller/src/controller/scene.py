@@ -10,13 +10,12 @@ import robot_vision as rv
 from controller.controller_mode import ControllerMode
 from pathlib import Path
 import os
-from fastjsonschema import compile as compile_schema
-from jsonschema import FormatChecker
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
 from scene_common.geometry import Line, Point, Region, Tripwire
 from scene_common.scene_model import SceneModel
+from scene_common.schema import SchemaValidation
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
@@ -96,16 +95,7 @@ class Scene(SceneModel):
       if schemaPath.exists():
         try:
           log.info(f"Loading scene-data schema from: {schemaPath}")
-          with schemaPath.open() as schemaFd:
-            sceneDataSchema = json.load(schemaFd)
-
-          checker = FormatChecker()
-          formats = {
-            key: checker.checkers[key][0]
-            for key in checker.checkers
-          }
-
-          self.schemaValidator = compile_schema(sceneDataSchema, formats=formats)
+          self.schemaValidator = SchemaValidation(str(schemaPath))
           log.info(f"Scene-data schema validator initialized for scene: {name}")
         except Exception as e:
           log.error(f"Failed to initialize schema validator from {schemaPath}: {e}")
