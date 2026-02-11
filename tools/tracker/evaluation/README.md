@@ -47,21 +47,27 @@ pip install -r requirements.txt
 Create a YAML configuration file (see `pipeline_configs/` directory):
 
 ```yaml
+pipeline:
+  output:
+    path: /tmp/tracker-evaluation  # Base output directory
+
 dataset:
   class: datasets.metric_test_dataset.MetricTestDataset
   config:
     data_path: /path/to/test_data
+    cameras: [x1, x2]
+    camera_fps: 30
 
 harness:
   class: harnesses.scene_controller_harness.SceneControllerHarness
   config:
-    tracker_config: /path/to/tracker-config.json
+    container_image: scenescape-controller:latest
+    tracker_config_path: /path/to/tracker-config.json
 
-evaluator:
-  class: evaluators.trackeval_evaluator.TrackEvalEvaluator
-  config:
-    metrics: [HOTA, MOTA, IDF1]
-    result_folder: /path/to/results
+evaluators:
+  - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
+    config:
+      metrics: [HOTA, MOTA, IDF1]
 ```
 
 Run the pipeline:
@@ -69,6 +75,16 @@ Run the pipeline:
 ```bash
 python -m pipeline_engine config.yaml
 ```
+
+**Output Structure**: Each pipeline run creates a unique timestamped directory:
+```
+<pipeline.output.path>/
+  └── <run-ID>/                    # Format: YYYYMMDD_HHMMSS
+      └── <evaluator-class-name>/
+          └── results/              # Evaluation results and metrics
+```
+
+Example: `/tmp/tracker-evaluation/20260211_142530/TrackEvalEvaluator/results/`
 
 ## Directory Structure
 

@@ -19,6 +19,11 @@ from pipeline_engine import PipelineEngine
 def temp_config_file():
   """Create temporary YAML configuration file."""
   config = {
+    'pipeline': {
+      'output': {
+        'path': '/tmp/tracker-evaluation'
+      }
+    },
     'dataset': {
       'class': 'datasets.metric_test_dataset.MetricTestDataset',
       'config': {
@@ -38,8 +43,7 @@ def temp_config_file():
       {
         'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
         'config': {
-          'metrics': ['HOTA', 'MOTA', 'IDF1'],
-          'result_folder': '/tmp/tracker_evaluation_results'
+          'metrics': ['HOTA', 'MOTA', 'IDF1']
         }
       }
     ]
@@ -107,6 +111,11 @@ class TestLoadConfiguration:
   def test_load_configuration_missing_section(self, engine):
     """Test configuration loading with missing section."""
     config = {
+      'pipeline': {
+        'output': {
+          'path': '/tmp/tracker-evaluation'
+        }
+      },
       'dataset': {
         'class': 'datasets.metric_test_dataset.MetricTestDataset',
         'config': {}
@@ -124,9 +133,76 @@ class TestLoadConfiguration:
     finally:
       Path(temp_file.name).unlink()
 
+  def test_load_configuration_missing_pipeline_section(self, engine):
+    """Test configuration loading with missing pipeline section."""
+    config = {
+      'dataset': {
+        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'config': {}
+      },
+      'harness': {
+        'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
+        'config': {}
+      },
+      'evaluators': [
+        {
+          'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
+          'config': {}
+        }
+      ]
+      # Missing pipeline section
+    }
+
+    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
+    yaml.dump(config, temp_file)
+    temp_file.close()
+
+    try:
+      with pytest.raises(ValueError, match="missing required section: pipeline"):
+        engine.load_configuration(temp_file.name)
+    finally:
+      Path(temp_file.name).unlink()
+
+  def test_load_configuration_missing_output_path(self, engine):
+    """Test configuration loading with missing pipeline.output.path."""
+    config = {
+      'pipeline': {
+        'output': {}  # Missing 'path'
+      },
+      'dataset': {
+        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'config': {}
+      },
+      'harness': {
+        'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
+        'config': {}
+      },
+      'evaluators': [
+        {
+          'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
+          'config': {}
+        }
+      ]
+    }
+
+    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
+    yaml.dump(config, temp_file)
+    temp_file.close()
+
+    try:
+      with pytest.raises(ValueError, match="missing required field: pipeline.output.path"):
+        engine.load_configuration(temp_file.name)
+    finally:
+      Path(temp_file.name).unlink()
+
   def test_load_configuration_missing_class(self, engine):
     """Test configuration loading with missing class field."""
     config = {
+      'pipeline': {
+        'output': {
+          'path': '/tmp/tracker-evaluation'
+        }
+      },
       'dataset': {
         'config': {}  # Missing 'class' field
       },
@@ -155,6 +231,11 @@ class TestLoadConfiguration:
   def test_load_configuration_evaluators_not_list(self, engine):
     """Test configuration loading with evaluators not a list."""
     config = {
+      'pipeline': {
+        'output': {
+          'path': '/tmp/tracker-evaluation'
+        }
+      },
       'dataset': {
         'class': 'datasets.metric_test_dataset.MetricTestDataset',
         'config': {}
@@ -182,6 +263,11 @@ class TestLoadConfiguration:
   def test_load_configuration_evaluators_empty(self, engine):
     """Test configuration loading with empty evaluators list."""
     config = {
+      'pipeline': {
+        'output': {
+          'path': '/tmp/tracker-evaluation'
+        }
+      },
       'dataset': {
         'class': 'datasets.metric_test_dataset.MetricTestDataset',
         'config': {}
@@ -206,6 +292,11 @@ class TestLoadConfiguration:
   def test_load_configuration_multiple_evaluators_fails(self, engine):
     """Test that multiple evaluators fail in Phase 1."""
     config = {
+      'pipeline': {
+        'output': {
+          'path': '/tmp/tracker-evaluation'
+        }
+      },
       'dataset': {
         'class': 'datasets.metric_test_dataset.MetricTestDataset',
         'config': {}

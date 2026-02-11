@@ -9,6 +9,7 @@ tracker evaluation workflow:
 2. Instantiate and configure dataset, harness, and evaluator components
 3. Run tracker on dataset inputs
 4. Evaluate tracking quality metrics
+5. Save results to unique run-specific output directory
 """
 
 import sys
@@ -16,6 +17,7 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any, Optional
 import importlib
+from datetime import datetime
 
 
 class PipelineEngine:
@@ -28,6 +30,10 @@ class PipelineEngine:
   - Running tracker and computing metrics
 
   Configuration File Format:
+    pipeline:
+      output:
+        path: /tmp/tracker-evaluation
+
     dataset:
       class: datasets.metric_test_dataset.MetricTestDataset
       config:
@@ -41,11 +47,17 @@ class PipelineEngine:
         container_image: scenescape-controller:latest
         tracker_config_path: /path/to/tracker-config.json
 
-    evaluator:
-      class: evaluators.trackeval_evaluator.TrackEvalEvaluator
-      config:
-        metrics: [HOTA, MOTA, IDF1]
-        result_folder: /path/to/results
+    evaluators:
+      - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
+        config:
+          metrics: [HOTA, MOTA, IDF1]
+
+  The pipeline creates a unique output directory for each run:
+    <pipeline.output.path>/<run-ID>/
+  where <run-ID> is a timestamp in format YYYYMMDD_HHMMSS.
+
+  Evaluator results are saved to:
+    <pipeline.output.path>/<run-ID>/<evaluator-class-name>/results/
   """
 
   def __init__(self):
@@ -55,6 +67,8 @@ class PipelineEngine:
     self._harness = None
     self._evaluator = None
     self._tracker_outputs = None
+    self._run_id: Optional[str] = None
+    self._output_path: Optional[Path] = None
 
   def load_configuration(self, config_path: str) -> 'PipelineEngine':
     """Load and parse YAML configuration file.
@@ -90,6 +104,9 @@ class PipelineEngine:
 
     # Validate configuration structure
     self._validate_configuration()
+
+    # Create unique run ID and output directory
+    self._create_run_output_directory()
 
     # Import and instantiate components
     try:
@@ -192,10 +209,16 @@ class PipelineEngine:
     if not isinstance(self._config, dict):
       raise ValueError("Configuration must be a dictionary")
 
-    required_sections = ['dataset', 'harness', 'evaluators']
+    required_sections = ['pipeline', 'dataset', 'harness', 'evaluators']
     for section in required_sections:
       if section not in self._config:
         raise ValueError(f"Configuration missing required section: {section}")
+
+    # Validate pipeline section
+    if 'output' not in self._config['pipeline']:
+      raise ValueError("Configuration missing required section: pipeline.output")
+    if 'path' not in self._config['pipeline']['output']:
+      raise ValueError("Configuration missing required field: pipeline.output.path")
 
       if section == 'evaluators':
         # Evaluators is a list
@@ -323,19 +346,42 @@ class PipelineEngine:
     if custom_config:
       self._harness.set_custom_config(custom_config)
 
+  def _create_run_output_directory(self):
+    """Create unique output directory for this pipeline run.
+
+    Creates directory structure:
+      <pipeline.output.path>/<run-ID>/
+
+    where <run-ID> is a timestamp in format YYYYMMDD_HHMMSS.
+    This format ensures alphabetical order matches chronological order.
+    """
+    # Generate unique run ID from current local time
+    self._run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Get base output path from config
+    base_output_path = Path(self._config['pipeline']['output']['path'])
+
+    # Create run-specific output directory
+    self._output_path = base_output_path / self._run_id
+    self._output_path.mkdir(parents=True, exist_ok=True)
+
   def _configure_evaluator(self):
-    """Configure evaluator component."""
+    """Configure evaluator component.
+
+    Sets evaluator result folder to:
+      <pipeline.output.path>/<run-ID>/<evaluator-class-name>/results/
+    """
     # Phase 1: Use first (and only) evaluator from list
     config = self._config['evaluators'][0]['config']
+    evaluator_class_name = self._config['evaluators'][0]['class'].split('.')[-1]
 
     # Configure metrics if specified
     if 'metrics' in config:
       self._evaluator.configure_metrics(config['metrics'])
 
-    # Configure result folder if specified
-    if 'result_folder' in config:
-      result_folder = Path(config['result_folder'])
-      self._evaluator.set_result_folder(result_folder)
+    # Set result folder to run-specific path
+    evaluator_output_path = self._output_path / evaluator_class_name / 'results'
+    self._evaluator.set_result_folder(evaluator_output_path)
 
 
 def main():
@@ -370,6 +416,9 @@ def main():
     print("\n=== Evaluation Results ===")
     for metric_name, metric_value in metrics.items():
       print(f"{metric_name}: {metric_value:.4f}")
+
+    # Print output location
+    print(f"\nResults saved to: {engine._output_path}")
 
   except Exception as e:
     print(f"Error: {e}", file=sys.stderr)
