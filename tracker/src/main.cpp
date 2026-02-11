@@ -115,16 +115,14 @@ int main(int argc, char* argv[]) {
         g_mqtt_client, scene_registry, config.infrastructure.tracker.schema_validation,
         cli_config.schema_path.parent_path());
 
-    // Connect to MQTT broker
-    // If broker is unavailable, connect() throws and the process exits.
-    // Container orchestrator (Docker restart: always, K8s) handles restart.
-    // docker-compose depends_on ensures broker starts before tracker.
+    // Connect to MQTT broker.
+    // Sync failures (broker unreachable) throw immediately.
+    // Async failures (auth, protocol) set exitCode() and are caught in the main loop.
     try {
         g_mqtt_client->connect();
     } catch (const std::exception& e) {
-        LOG_ERROR("MQTT initial connection failed: {} — exiting for orchestrator restart",
-                  e.what());
-        return 1;
+        LOG_ERROR("MQTT connection failed: {}", e.what());
+        return g_mqtt_client->exitCode();
     }
 
     // Start message handler (subscribes to topics)
@@ -133,12 +131,19 @@ int main(int argc, char* argv[]) {
     LOG_INFO("Tracker service running, waiting for messages...");
 
     // Main loop - update readiness based on MQTT state
-    while (!g_shutdown_requested) {
+    while (!g_shutdown_requested && g_mqtt_client->exitCode() < 0) {
         update_readiness();
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    LOG_INFO("Tracker service shutting down gracefully");
+    // Determine exit code: async connect failure or graceful shutdown
+    int exit_code = 0;
+    if (g_mqtt_client->exitCode() >= 0) {
+        exit_code = g_mqtt_client->exitCode();
+        LOG_ERROR("MQTT connect failure — exiting with code {}", exit_code);
+    } else {
+        LOG_INFO("Tracker service shutting down gracefully");
+    }
 
     // Stop accepting new messages
     g_readiness = false;
@@ -156,5 +161,5 @@ int main(int argc, char* argv[]) {
 
     // Shutdown logger last
     tracker::Logger::shutdown();
-    return 0;
+    return exit_code;
 }

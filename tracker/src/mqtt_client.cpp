@@ -65,6 +65,19 @@ std::string MqttClient::generateClientId() {
     return "tracker-" + getHostname() + "-" + std::to_string(getpid());
 }
 
+bool MqttClient::isRetryableConnectError(int rc) {
+    // MQTT v3.1.1 CONNACK return codes that indicate permanent failures
+    switch (rc) {
+        case 1: // Unacceptable protocol version
+        case 2: // Identifier rejected
+        case 4: // Bad user name or password
+        case 5: // Not authorized
+            return false;
+        default:
+            return true; // 0=success, 3=server unavailable, negatives=transient
+    }
+}
+
 MqttClient::MqttClient(const MqttConfig& config, int max_reconnect_delay_s)
     : config_(config), max_reconnect_delay_s_(max_reconnect_delay_s),
       client_id_(generateClientId()) {
@@ -155,9 +168,11 @@ void MqttClient::connect() {
         LOG_DEBUG("MQTT connect initiated, token msg_id: {}", tok->get_message_id());
     } catch (const mqtt::exception& e) {
         LOG_ERROR("MQTT connect failed: {} (rc={})", e.what(), e.get_reason_code());
+        exit_code_ = 1; // Sync failures are network errors — always retryable
         throw;
     } catch (const std::exception& e) {
         LOG_ERROR("MQTT connect failed: {}", e.what());
+        exit_code_ = 1;
         throw;
     }
 }
@@ -360,7 +375,10 @@ void MqttClient::on_failure(const mqtt::token& tok) {
                   msg_id, err_msg);
 
         if (tok.get_type() == mqtt::token::Type::CONNECT) {
-            LOG_ERROR("MQTT initial connect failed — process will exit for orchestrator restart");
+            bool retryable = isRetryableConnectError(rc);
+            exit_code_ = retryable ? 1 : 0;
+            LOG_ERROR("MQTT connect failed (rc={}) — {} — process will exit with code {}", rc,
+                      retryable ? "retryable" : "non-retryable (auth/protocol)", exit_code_.load());
         } else if (tok.get_type() == mqtt::token::Type::SUBSCRIBE) {
             subscribed_ = false;
         }

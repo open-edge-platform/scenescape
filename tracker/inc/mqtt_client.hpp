@@ -90,8 +90,9 @@ public:
  * Provides a simplified interface for MQTT pub/sub with:
  * - Paho built-in auto-reconnect with exponential backoff (1s → 30s max)
  *   for connection loss after initial connect
- * - Initial connect failures cause process exit; container orchestrator
- *   (Docker restart: always, K8s) handles restart
+ * - Connect failures cause process exit; container orchestrator
+ *   (Docker restart: on-failure, K8s) handles restart for retryable errors.
+ *   Non-retryable errors (auth, bad protocol) exit with code 0 to prevent restart.
  * - TLS/mTLS connection support
  * - Thread-safe connection state queries
  * - QoS 1 for all publish/subscribe operations
@@ -185,6 +186,27 @@ public:
      */
     static std::string generateClientId();
 
+    /**
+     * @brief Classify MQTT CONNACK return code as retryable or permanent.
+     *
+     * Non-retryable: 1 (bad protocol), 2 (identifier rejected),
+     * 4 (bad credentials), 5 (not authorized).
+     * Everything else (including 3=server unavailable) is retryable.
+     *
+     * @param rc CONNACK return code from broker
+     * @return true if the error is transient and worth retrying
+     */
+    static bool isRetryableConnectError(int rc);
+
+    /**
+     * @brief Get requested exit code after a connect failure.
+     *
+     * Returns -1 while running normally. After a connect failure,
+     * returns 0 (non-retryable, don't restart) or 1 (retryable, restart).
+     * Polled by the main loop to trigger process exit.
+     */
+    [[nodiscard]] int exitCode() const { return exit_code_.load(); }
+
 private:
     /**
      * @brief Execute a callback body with shutdown guard.
@@ -232,6 +254,7 @@ private:
     std::atomic<bool> connected_{false};
     std::atomic<bool> subscribed_{false};
     std::atomic<bool> stop_requested_{false};
+    std::atomic<int> exit_code_{-1}; // -1=running, 0=exit no-restart, 1=exit for restart
 
     // Callbacks
     MessageCallback message_callback_;

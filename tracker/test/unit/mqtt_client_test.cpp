@@ -12,10 +12,11 @@
  * library requires a valid broker endpoint and causes segfaults in isolated test
  * environments. Only pure/static functions are tested here:
  *   - generateClientId(): Client ID format validation
+ *   - isRetryableConnectError(): CONNACK error classification
  *   - MQTT_QOS constant: At-least-once delivery semantics
  *
  * Reconnection strategy:
- * - Initial connect failure: process exits, container orchestrator restarts it
+ * - Initial connect failure: process exits with code 0 (non-retryable) or 1 (retryable)
  * - Post-connection loss: Paho's built-in auto-reconnect (1s-30s backoff)
  * Thread-safety mechanisms (CallbackGuard) are tested in callback_guard_test.cpp.
  *
@@ -81,6 +82,27 @@ TEST_F(MqttClientTest, GenerateClientId_IsConsistent) {
 
     // Same process should generate same ID
     EXPECT_EQ(id1, id2);
+}
+
+// =============================================================================
+// isRetryableConnectError() tests - CONNACK error classification
+// =============================================================================
+
+TEST_F(MqttClientTest, IsRetryableConnectError_NonRetryableCodes) {
+    // Permanent failures that should NOT trigger orchestrator restart
+    EXPECT_FALSE(MqttClient::isRetryableConnectError(1)); // Unacceptable protocol version
+    EXPECT_FALSE(MqttClient::isRetryableConnectError(2)); // Identifier rejected
+    EXPECT_FALSE(MqttClient::isRetryableConnectError(4)); // Bad user name or password
+    EXPECT_FALSE(MqttClient::isRetryableConnectError(5)); // Not authorized
+}
+
+TEST_F(MqttClientTest, IsRetryableConnectError_RetryableCodes) {
+    // Transient failures worth retrying
+    EXPECT_TRUE(MqttClient::isRetryableConnectError(0));  // Success (edge case)
+    EXPECT_TRUE(MqttClient::isRetryableConnectError(3));  // Server unavailable
+    EXPECT_TRUE(MqttClient::isRetryableConnectError(-1)); // Generic Paho failure
+    EXPECT_TRUE(MqttClient::isRetryableConnectError(-3)); // Disconnected
+    EXPECT_TRUE(MqttClient::isRetryableConnectError(99)); // Unknown code
 }
 
 // =============================================================================
