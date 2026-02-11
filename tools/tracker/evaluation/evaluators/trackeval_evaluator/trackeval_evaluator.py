@@ -53,19 +53,21 @@ class MotChallenge3DPoint(MotChallenge2DBox):
     [tracker_ids, tracker_classes, tracker_confidences] : list (for each timestep) of 1D NDArrays (for each det).
     [tracker_dets]: list (for each timestep) of lists of detections.
     """
+    import os
+
     # File location
     if self.data_is_zipped:
       if is_gt:
-        zip_file = self.gt_fol / 'data.zip'
+        zip_file = os.path.join(self.gt_fol, 'data.zip')
       else:
-        zip_file = self.tracker_fol / tracker / (self.tracker_sub_fol + '.zip')
+        zip_file = os.path.join(self.tracker_fol, tracker, self.tracker_sub_fol + '.zip')
       file = seq + '.txt'
     else:
       zip_file = None
       if is_gt:
         file = self.config["GT_LOC_FORMAT"].format(gt_folder=self.gt_fol, seq=seq)
       else:
-        file = self.tracker_fol / tracker / self.tracker_sub_fol / (seq + '.txt')
+        file = os.path.join(self.tracker_fol, tracker, self.tracker_sub_fol, seq + '.txt')
 
     # Load raw data from text file
     read_data, ignore_data = self._load_simple_text_file(
@@ -218,6 +220,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
     self._tracker_csv_path: Path = None
     self._ground_truth_csv_path: Path = None
     self._seq_name: str = "evaluation_seq"
+    self._class_name: str = "pedestrian"  # Class name used in MOTChallenge format
     self._num_frames: int = 0
     self._camera_fps: float = 30.0
     self._uuid_to_id_map: Dict[str, int] = {}
@@ -471,29 +474,38 @@ class TrackEvalEvaluator(TrackerEvaluator):
 
       # Extract requested metrics from results
       results = {}
-      # TrackEval output structure: output_res[dataset_name][tracker_name][class_name][metric_name]
+      # TrackEval output structure: output_res[dataset_name][tracker_name][seq_name][metric_name]
       dataset_name = dataset.get_name()
       tracker_name = 'tracker_eval'
-      class_name = 'pedestrian'
 
       if (dataset_name in output_res and
           tracker_name in output_res[dataset_name] and
-          class_name in output_res[dataset_name][tracker_name]):
+          self._seq_name in output_res[dataset_name][tracker_name]):
 
-        class_results = output_res[dataset_name][tracker_name][class_name]
+        seq_results = output_res[dataset_name][tracker_name][self._seq_name]
 
-        for metric_name in self._metrics:
-          if metric_name in class_results:
-            value = class_results[metric_name]
-            # Handle array results (e.g., HOTA at different thresholds)
-            if isinstance(value, np.ndarray):
-              # Use mean value across thresholds
-              results[metric_name] = float(np.mean(value))
-            else:
-              results[metric_name] = float(value)
-          else:
-            # Metric not found in results
-            results[metric_name] = 0.0
+        # Results are nested under class name, then metric class
+        if self._class_name in seq_results:
+          class_results = seq_results[self._class_name]
+
+          for metric_name in self._metrics:
+            # Search for metric in all metric class results
+            found = False
+            for metric_class_name, metric_class_results in class_results.items():
+              if isinstance(metric_class_results, dict) and metric_name in metric_class_results:
+                value = metric_class_results[metric_name]
+                # Handle array results (e.g., HOTA at different thresholds)
+                if isinstance(value, np.ndarray):
+                  # Use mean value across thresholds
+                  results[metric_name] = float(np.mean(value))
+                else:
+                  results[metric_name] = float(value)
+                found = True
+                break
+
+            if not found:
+              # Metric not found in results
+              results[metric_name] = 0.0
 
       return results
 

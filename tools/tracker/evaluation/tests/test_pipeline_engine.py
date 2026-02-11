@@ -268,7 +268,6 @@ class TestEvaluate:
       engine.evaluate()
 
   @pytest.mark.integration
-  @pytest.mark.xfail(reason="Mock evaluator returns placeholder values")
   def test_evaluate_success(self, engine, temp_config_file):
     """Test successful metric evaluation."""
     engine.load_configuration(temp_config_file)
@@ -286,7 +285,6 @@ class TestMethodChaining:
   """Test method chaining."""
 
   @pytest.mark.integration
-  @pytest.mark.xfail(reason="Mock evaluator returns placeholder values")
   def test_method_chaining(self, engine, temp_config_file):
     """Test that methods support chaining."""
     metrics = (engine
@@ -301,7 +299,6 @@ class TestIntegration:
   """Integration tests."""
 
   @pytest.mark.integration
-  @pytest.mark.xfail(reason="Mock evaluator returns placeholder values")
   def test_full_pipeline(self, engine, temp_config_file):
     """Test complete pipeline workflow."""
     # Load configuration
