@@ -36,7 +36,7 @@ def pytest_addoption(parser):
 @pytest.fixture(scope='session', autouse=True)
 def initialize_controller_mode(request):
   """Initialize ControllerMode before any tests run."""
-  analytics_only = request.config.getoption('--analytics-only', default=False)
+  analytics_only = request.config.getoption('analytics_only', default=False)
   ControllerMode.initialize(analytics_only=analytics_only)
   yield
   ControllerMode.reset()
