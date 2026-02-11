@@ -183,19 +183,15 @@ class SceneController:
       }
     scene = self.regulate_cache[scene_uid]
 
-    # In Analytics Only mode, always compute camera bounds from cache (even for regulated mode)
-    # because we have the camera detections cache available
     update_visibility = self.visibility_topic == 'unregulated' or ControllerMode.isAnalyticsOnly()
     scene['objects'][otype] = buildDetectionsList(msg_objects, scene_obj, update_visibility)
 
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
     elif ControllerMode.isAnalyticsOnly():
-      # Use cached camera rates from camera detection messages
       if hasattr(scene_obj, 'camera_rates') and scene_obj.camera_rates:
         for cam_id, rate in scene_obj.camera_rates.items():
           scene['rate'][cam_id] = rate
-      # Fallback to scene_rate if provided but no cached camera rates
       elif 'rate' in jdata:
         camera_ids = set()
         for obj in jdata.get('objects', []):
@@ -224,8 +220,6 @@ class SceneController:
             aobj = msg_objects_lookup.get(obj['id'], None)
             if aobj is not None:
               computeCameraBounds(scene_obj, aobj, obj)
-          # In Analytics Only mode, camera_bounds is already set in buildDetectionsList;
-          # in other modes we may compute/adjust it above via computeCameraBounds.
           objects.append(obj)
       log.debug(f"Publishing regulated: scene={scene_uid}, objects_count={len(objects)}, types={list(scene['objects'].keys())}")
       new_jdata = {
@@ -678,10 +672,8 @@ class SceneController:
           need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
                               self.handleMovingObjectMessage))
       else:
-        # Analytics Only Mode: Subscribe to both scene data (tracked objects) and camera data (detections)
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
                             self.handleSceneDataMessage))
-        # Subscribe to camera data to extract confidence and other detection metadata
         for camera in scene.cameras:
           need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
                               self.handleMovingObjectMessage))
