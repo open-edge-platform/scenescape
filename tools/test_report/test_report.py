@@ -112,6 +112,9 @@ def prepare_results(test_cases: Dict[str, str], results: Dict[str, str]):
   all_results: List[TestResult] = []
   for test_case in test_cases:
     all_results.append(TestResult(test_name=test_cases[test_case], test_case=test_case, result=results.get(test_case, "NOT EXECUTED")))
+  for result in results:
+    if result not in all_results.keys():
+      all_results.append(TestResult(test_name="", test_case=result, result=results[result]))
   return all_results
 
 def get_pass_rate(results: List[TestResult]) -> float:

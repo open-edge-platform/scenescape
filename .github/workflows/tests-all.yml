@@ -346,6 +346,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: tests-report-html
+          name: report-html
           path: |
             ${{ env.CURRENT_DATE }}_test_report.html
