@@ -4,14 +4,12 @@
 import json
 import os
 import random
-import socket
 import time
 import traceback
 import uuid
 from collections import namedtuple
 
 from django.conf import settings
-from django.contrib import messages
 from django.contrib.admin.views.decorators import user_passes_test
 from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth import authenticate, login, logout
@@ -46,7 +44,6 @@ from manager.validators import add_form_error, validate_uuid
 from scene_common.options import *
 from scene_common.scene_model import SceneModel
 from scene_common.transform import applyChildTransform
-from scene_common.mqtt import PubSub
 from scene_common import log
 
 @receiver(user_login_failed)
@@ -592,7 +589,6 @@ def sign_out(request):
 def account_locked(request):
   return render(request, 'sscape/account_locked.html')
 
-def update_detection_labels(cam_inst, detection_labels: list[str]):
   """Send detection labels configuration to MQTT topic for camera processing.
 
   Returns:
@@ -652,17 +648,6 @@ def cameraCalibrate(request, sensor_id):
       log.info('Form received {}'.format(form.cleaned_data))
 
       if settings.KUBERNETES_SERVICE_HOST:
-        if 'detection_labels' in form.cleaned_data:
-          detection_labels = form.cleaned_data['detection_labels']
-        if detection_labels:
-          # Split by newlines and process each label
-          labels_list = [label.strip() for label in detection_labels.split('\n') if label.strip()]
-          log.info(f"Detection labels: {labels_list}")
-          # success, error = update_detection_labels(cam_inst, labels_list)
-          success = True
-          error = None
-          if not success:
-            messages.warning(request, f"Detection labels saved to database, but failed to publish to MQTT: {error}")
         if cam_inst.use_camera_pipeline and not cam_inst.camera_pipeline:
           form.add_error(None, f"ERROR! Camera Pipeline field cannot be empty if 'Use Camera Pipeline' is enabled.")
 

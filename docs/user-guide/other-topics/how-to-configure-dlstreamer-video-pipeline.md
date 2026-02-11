@@ -120,7 +120,6 @@ pvb2000=GPU+reid=GPU
   car
   pedestrian
   ```
-  The detection labels are sent via MQTT to the video analytics pipeline using the dedicated topic `scenescape/cmd/camera/{camera_id}/detection_labels`. The configuration is retained, meaning the camera will automatically apply these filters when reconnecting or restarting.
 - **Model Config**: references a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. You can upload custom model configuration files or modify existing ones using the Models page. The Models page is accessible in the top menu of the Intel® SceneScape UI.
 - **Use Camera Pipeline**: when enabled, directly applies the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings on saving the camera configuration. When disabled (default), the system automatically generates the pipeline from other form fields.
 

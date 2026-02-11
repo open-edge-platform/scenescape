@@ -106,8 +106,6 @@ class PostInferenceDataPublish:
       print(f"Connected to MQTT Broker {self.broker}")
       self.client.subscribe(f"scenescape/cmd/camera/{self.cameraid}")
       print(f"Subscribed to topic: scenescape/cmd/camera/{self.cameraid}")
-      self.client.subscribe(f"scenescape/cmd/camera/{self.cameraid}/detection_labels")
-      print(f"Subscribed to topic: scenescape/cmd/camera/{self.cameraid}/detection_labels")
     else:
       print(f"Failed to connect, return code {rc}")
     return
@@ -126,16 +124,6 @@ class PostInferenceDataPublish:
   def handleCameraMessage(self, client, userdata, message):
     msg = message.payload.decode("utf-8")
 
-    # Check if this is a detection_labels config message
-    # if message.topic == f"scenescape/cmd/camera/{self.cameraid}/detection_labels":
-    #   try:
-    #     config = json.loads(msg)
-    #     if isinstance(config, dict) and 'detection_labels' in config:
-    #       self.detection_labels = config['detection_labels']
-    #       print(f"Updated detection_labels for camera {self.cameraid}: {self.detection_labels}")
-    #   except json.JSONDecodeError as e:
-    #     print(f"Error parsing detection_labels message: {e}")
-    #   return
 
     # Handle regular camera commands
     if msg == "getimage":
