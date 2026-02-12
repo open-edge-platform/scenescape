@@ -136,8 +136,15 @@ int main(int argc, char* argv[]) {
         g_mqtt_client, scene_registry, chunk_buffer, config.tracking,
         config.infrastructure.tracker.schema_validation, cli_config.schema_path.parent_path());
 
-    // Connect to MQTT broker
-    g_mqtt_client->connect();
+    // Connect to MQTT broker.
+    // Sync failures (broker unreachable) throw immediately.
+    // Async failures (auth, protocol) set exitCode() and are caught in the main loop.
+    try {
+        g_mqtt_client->connect();
+    } catch (const std::exception& e) {
+        LOG_ERROR("MQTT connection failed: {}", e.what());
+        return g_mqtt_client->exitCode();
+    }
 
     // Start scheduler before message handler (ready to receive)
     scheduler->start();
@@ -149,12 +156,19 @@ int main(int argc, char* argv[]) {
              config.tracking.time_chunking_rate_fps, config.tracking.max_workers);
 
     // Main loop - update readiness based on MQTT state
-    while (!g_shutdown_requested) {
+    while (!g_shutdown_requested && g_mqtt_client->exitCode() < 0) {
         update_readiness();
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    LOG_INFO("Tracker service shutting down gracefully");
+    // Determine exit code: async connect failure or graceful shutdown
+    int exit_code = 0;
+    if (g_mqtt_client->exitCode() >= 0) {
+        exit_code = g_mqtt_client->exitCode();
+        LOG_ERROR("MQTT connect failure — exiting with code {}", exit_code);
+    } else {
+        LOG_INFO("Tracker service shutting down gracefully");
+    }
 
     // Flush logs to ensure shutdown message is visible
     if (auto* logger = tracker::Logger::get()) {
@@ -190,5 +204,5 @@ int main(int argc, char* argv[]) {
 
     // Shutdown logger last
     tracker::Logger::shutdown();
-    return 0;
+    return exit_code;
 }
