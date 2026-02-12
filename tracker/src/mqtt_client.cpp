@@ -14,12 +14,9 @@ namespace tracker {
 namespace {
 
 constexpr size_t HOSTNAME_BUFFER_SIZE = 256;
-constexpr int INITIAL_BACKOFF_MS = 1000;
-constexpr int MAX_BACKOFF_MULTIPLIER = 30; // 30s max with 1s initial
 constexpr int KEEPALIVE_SECONDS = 60;
 constexpr int CONNECT_TIMEOUT_SECONDS = 10;
 constexpr int DISCONNECT_WAIT_MS = 500;
-constexpr int RECONNECT_POST_CONNECT_DELAY_MS = 100;
 
 std::string getHostname() {
     char hostname[HOSTNAME_BUFFER_SIZE];
@@ -68,6 +65,19 @@ std::string MqttClient::generateClientId() {
     return "tracker-" + getHostname() + "-" + std::to_string(getpid());
 }
 
+bool MqttClient::isRetryableConnectError(int rc) {
+    // MQTT v3.1.1 CONNACK return codes that indicate permanent failures
+    switch (rc) {
+        case 1: // Unacceptable protocol version
+        case 2: // Identifier rejected
+        case 4: // Bad user name or password
+        case 5: // Not authorized
+            return false;
+        default:
+            return true; // 0=success, 3=server unavailable, negatives=transient
+    }
+}
+
 MqttClient::MqttClient(const MqttConfig& config, int max_reconnect_delay_s)
     : config_(config), max_reconnect_delay_s_(max_reconnect_delay_s),
       client_id_(generateClientId()) {
@@ -86,9 +96,15 @@ MqttClient::MqttClient(const MqttConfig& config, int max_reconnect_delay_s)
     client_->set_callback(*this);
 
     // Build connection options
+    // Paho handles post-connection reconnection automatically with exponential backoff
+    // (1s min, max_reconnect_delay_s max). Our connected() callback re-subscribes
+    // topics on reconnect. Initial connect failures cause the process to exit;
+    // the container orchestrator (Docker restart: always, K8s) handles restart.
+    // This works because docker-compose depends_on ensures broker starts first.
     auto conn_opts_builder = mqtt::connect_options_builder()
                                  .clean_session(true)
-                                 .automatic_reconnect(false) // We handle reconnection ourselves
+                                 .automatic_reconnect(std::chrono::seconds(1),
+                                                      std::chrono::seconds(max_reconnect_delay_s_))
                                  .keep_alive_interval(std::chrono::seconds(KEEPALIVE_SECONDS))
                                  .connect_timeout(std::chrono::seconds(CONNECT_TIMEOUT_SECONDS));
 
@@ -151,11 +167,13 @@ void MqttClient::connect() {
         auto tok = client_->connect(conn_opts_, nullptr, *this);
         LOG_DEBUG("MQTT connect initiated, token msg_id: {}", tok->get_message_id());
     } catch (const mqtt::exception& e) {
-        LOG_ERROR("MQTT connect threw: {} (rc={})", e.what(), e.get_reason_code());
-        scheduleReconnect();
+        LOG_ERROR("MQTT connect failed: {} (rc={})", e.what(), e.get_reason_code());
+        exit_code_ = 1; // Sync failures are network errors — always retryable
+        throw;
     } catch (const std::exception& e) {
-        LOG_ERROR("MQTT connect threw std exception: {}", e.what());
-        scheduleReconnect();
+        LOG_ERROR("MQTT connect failed: {}", e.what());
+        exit_code_ = 1;
+        throw;
     }
 }
 
@@ -168,13 +186,18 @@ void MqttClient::disconnect(std::chrono::milliseconds drain_timeout) {
 
     LOG_INFO("MQTT disconnecting (drain timeout: {}ms)", drain_timeout.count());
 
-    reconnect_cv_.notify_all();
-
-    if (reconnect_thread_.joinable()) {
-        reconnect_thread_.join();
+    // Wait for any in-flight Paho callbacks to complete before disabling them.
+    // This prevents use-after-free if a callback is mid-execution when we destroy members.
+    while (callbacks_in_flight_.load() > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
     if (client_) {
+        // Disable callbacks to prevent Paho from invoking them after we're destroyed.
+        // This is critical because Paho may invoke connection_lost or other callbacks
+        // on internal threads even after disconnect() completes.
+        client_->disable_callbacks();
+
         try {
             if (client_->is_connected()) {
                 // Synchronous disconnect with short timeout
@@ -272,159 +295,94 @@ bool MqttClient::isSubscribed() const {
 // mqtt::callback interface implementation
 
 void MqttClient::connected(const std::string& cause) {
-    LOG_INFO_ENTRY(LogEntry("MQTT connected")
-                       .component("mqtt")
-                       .operation(cause.empty() ? "initial connection" : cause));
-    connected_ = true;
+    withGuard([&] {
+        LOG_INFO_ENTRY(LogEntry("MQTT connected")
+                           .component("mqtt")
+                           .operation(cause.empty() ? "initial connection" : cause));
+        connected_ = true;
 
-    // Wake up reconnect worker so it exits immediately
-    reconnect_cv_.notify_all();
-
-    // Re-subscribe to all pending subscriptions
-    {
-        std::lock_guard<std::mutex> lock(subscriptions_mutex_);
-        for (const auto& topic : pending_subscriptions_) {
-            try {
-                client_->subscribe(topic, MQTT_QOS, nullptr, *this);
-                LOG_DEBUG_ENTRY(LogEntry("MQTT subscribe request queued")
-                                    .component("mqtt")
-                                    .mqtt({.topic = topic, .direction = "subscribe"}));
-            } catch (const mqtt::exception& e) {
-                LOG_ERROR("MQTT subscribe failed for {}: {}", topic, e.what());
+        // Re-subscribe to all pending subscriptions
+        {
+            std::lock_guard<std::mutex> lock(subscriptions_mutex_);
+            for (const auto& topic : pending_subscriptions_) {
+                try {
+                    client_->subscribe(topic, MQTT_QOS, nullptr, *this);
+                    LOG_DEBUG_ENTRY(LogEntry("MQTT subscribe request queued")
+                                        .component("mqtt")
+                                        .mqtt({.topic = topic, .direction = "subscribe"}));
+                } catch (const mqtt::exception& e) {
+                    LOG_ERROR("MQTT subscribe failed for {}: {}", topic, e.what());
+                }
             }
         }
-    }
+    });
 }
 
 void MqttClient::connection_lost(const std::string& cause) {
-    LOG_WARN("MQTT connection lost: {}", cause.empty() ? "unknown" : cause);
-    connected_ = false;
-    subscribed_ = false;
-
-    if (!stop_requested_) {
-        scheduleReconnect();
-    }
+    withGuard([&] {
+        LOG_WARN("MQTT connection lost: {}", cause.empty() ? "unknown" : cause);
+        connected_ = false;
+        subscribed_ = false;
+        LOG_INFO("Paho auto-reconnect will attempt to restore connection");
+    });
 }
 
 void MqttClient::message_arrived(mqtt::const_message_ptr msg) {
-    LOG_DEBUG_ENTRY(LogEntry("MQTT message received")
-                        .component("mqtt")
-                        .mqtt({.topic = msg->get_topic(), .direction = "receive"}));
+    withGuard([&] {
+        LOG_DEBUG_ENTRY(LogEntry("MQTT message received")
+                            .component("mqtt")
+                            .mqtt({.topic = msg->get_topic(), .direction = "receive"}));
 
-    std::lock_guard<std::mutex> lock(callback_mutex_);
-    if (message_callback_) {
-        message_callback_(msg->get_topic(), msg->get_payload_str());
-    }
+        std::lock_guard<std::mutex> lock(callback_mutex_);
+        if (message_callback_) {
+            message_callback_(msg->get_topic(), msg->get_payload_str());
+        }
+    });
 }
 
 // mqtt::iaction_listener interface implementation
 
 void MqttClient::on_success(const mqtt::token& tok) {
-    if (tok.get_type() == mqtt::token::Type::CONNECT) {
-        // Note: connected() callback already logs, skip duplicate here
-        LOG_DEBUG("MQTT connect token completed");
-    } else if (tok.get_type() == mqtt::token::Type::SUBSCRIBE) {
-        // Get topics from token (Paho stores them on subscribe tokens)
-        auto topics = tok.get_topics();
-        if (topics && !topics->empty()) {
-            for (const auto& topic : *topics) {
-                LOG_INFO_ENTRY(LogEntry("MQTT subscription successful")
-                                   .component("mqtt")
-                                   .mqtt({.topic = topic, .direction = "subscribe"}));
+    withGuard([&] {
+        if (tok.get_type() == mqtt::token::Type::CONNECT) {
+            // Note: connected() callback already logs, skip duplicate here
+            LOG_DEBUG("MQTT connect token completed");
+        } else if (tok.get_type() == mqtt::token::Type::SUBSCRIBE) {
+            // Get topics from token (Paho stores them on subscribe tokens)
+            auto topics = tok.get_topics();
+            if (topics && !topics->empty()) {
+                for (const auto& topic : *topics) {
+                    LOG_INFO_ENTRY(LogEntry("MQTT subscription successful")
+                                       .component("mqtt")
+                                       .mqtt({.topic = topic, .direction = "subscribe"}));
+                }
+            } else {
+                LOG_INFO_ENTRY(LogEntry("MQTT subscription successful").component("mqtt"));
             }
-        } else {
-            LOG_INFO_ENTRY(LogEntry("MQTT subscription successful").component("mqtt"));
+            subscribed_ = true;
         }
-        subscribed_ = true;
-    }
+    });
 }
 
 void MqttClient::on_failure(const mqtt::token& tok) {
-    int rc = tok.get_return_code(); // Use return_code, not reason_code (v5 only)
-    int msg_id = tok.get_message_id();
-    int token_type = static_cast<int>(tok.get_type());
-    std::string err_msg = tok.get_error_message();
+    withGuard([&] {
+        int rc = tok.get_return_code(); // Use return_code, not reason_code (v5 only)
+        int msg_id = tok.get_message_id();
+        int token_type = static_cast<int>(tok.get_type());
+        std::string err_msg = tok.get_error_message();
 
-    LOG_ERROR("MQTT action failed: type={}, rc={}, msg_id={}, error='{}'", token_type, rc, msg_id,
-              err_msg);
+        LOG_ERROR("MQTT action failed: type={}, rc={}, msg_id={}, error='{}'", token_type, rc,
+                  msg_id, err_msg);
 
-    if (tok.get_type() == mqtt::token::Type::CONNECT) {
-        if (!stop_requested_) {
-            scheduleReconnect();
+        if (tok.get_type() == mqtt::token::Type::CONNECT) {
+            bool retryable = isRetryableConnectError(rc);
+            exit_code_ = retryable ? 1 : 0;
+            LOG_ERROR("MQTT connect failed (rc={}) — {} — process will exit with code {}", rc,
+                      retryable ? "retryable" : "non-retryable (auth/protocol)", exit_code_.load());
+        } else if (tok.get_type() == mqtt::token::Type::SUBSCRIBE) {
+            subscribed_ = false;
         }
-    } else if (tok.get_type() == mqtt::token::Type::SUBSCRIBE) {
-        subscribed_ = false;
-    }
-}
-
-void MqttClient::scheduleReconnect() {
-    // Check if already reconnecting (atomic, no lock needed for read)
-    if (reconnecting_.load()) {
-        LOG_DEBUG("Reconnect already in progress");
-        return;
-    }
-
-    // Join any completed thread (must be outside lock to avoid deadlock)
-    if (reconnect_thread_.joinable()) {
-        LOG_DEBUG("Joining completed reconnect thread");
-        reconnect_thread_.join();
-    }
-
-    std::lock_guard<std::mutex> lock(reconnect_mutex_);
-    reconnect_thread_ = std::thread(&MqttClient::reconnectWorker, this);
-}
-
-void MqttClient::reconnectWorker() {
-    reconnecting_ = true;
-
-    while (!stop_requested_ && !connected_) {
-        auto delay =
-            calculateBackoff(reconnect_attempt_, INITIAL_BACKOFF_MS, max_reconnect_delay_s_);
-        LOG_INFO("MQTT reconnecting in {}ms (attempt {})", delay.count(), reconnect_attempt_ + 1);
-
-        {
-            std::unique_lock<std::mutex> lock(reconnect_mutex_);
-            if (reconnect_cv_.wait_for(
-                    lock, delay, [this] { return stop_requested_.load() || connected_.load(); })) {
-                break; // Stop requested or connection succeeded
-            }
-        }
-
-        if (stop_requested_ || connected_) {
-            break;
-        }
-
-        reconnect_attempt_++;
-
-        try {
-            client_->connect(conn_opts_, nullptr, *this);
-            // Wait a bit for connection callback
-            std::this_thread::sleep_for(std::chrono::milliseconds(RECONNECT_POST_CONNECT_DELAY_MS));
-        } catch (const mqtt::exception& e) {
-            LOG_ERROR("MQTT reconnect attempt failed: {}", e.what());
-        }
-    }
-
-    // Reset counter here (owned exclusively by this thread)
-    reconnect_attempt_ = 0;
-    reconnecting_ = false;
-}
-
-std::chrono::milliseconds MqttClient::calculateBackoff(int attempt, int initial_ms,
-                                                       int max_delay_s) {
-    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, then capped at max_delay_s
-    int64_t cap_ms = static_cast<int64_t>(max_delay_s) * 1000;
-    int64_t delay_ms = static_cast<int64_t>(initial_ms);
-
-    for (int i = 0; i < attempt; ++i) {
-        delay_ms *= 2;
-        if (delay_ms >= cap_ms) {
-            delay_ms = cap_ms;
-            break;
-        }
-    }
-
-    return std::chrono::milliseconds(delay_ms);
+    });
 }
 
 } // namespace tracker
