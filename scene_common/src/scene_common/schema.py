@@ -71,8 +71,4 @@ class SchemaValidation:
     return result
 
   def validate(self, msg, check_format=False):
-    """Validate a message against the schema
-    @param msg            The message to validate
-    @param check_format    Whether to check the format of the message for ex: uuid, date-time etc.
-    """
     return self.validateMessage(None, msg, check_format=check_format)
