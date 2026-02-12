@@ -68,7 +68,8 @@ def track(params):
   non_measurement_time_static = trackerConfigData["non_measurement_frames_static"]/trackerConfigData["baseline_frame_rate"]
   time_chunking_enabled = trackerConfigData["time_chunking_enabled"]
   time_chunking_interval_ms = trackerConfigData["time_chunking_interval_milliseconds"]
-
+  suspended_track_timeout_secs = trackerConfigData["suspended_track_timeout_secs"]
+  
   camera_fps = []
   for input_file in params["input"]:
     cam = cv2.VideoCapture(input_file.removesuffix('.json')+'.mp4')
@@ -96,7 +97,8 @@ def track(params):
     non_measurement_time_dynamic=non_measurement_time_dynamic,
     non_measurement_time_static=non_measurement_time_static,
     time_chunking_enabled=time_chunking_enabled,
-    time_chunking_interval_milliseconds=time_chunking_interval_ms
+    time_chunking_interval_milliseconds=time_chunking_interval_ms,
+    suspended_track_timeout_secs=suspended_track_timeout_secs
   )
 
   if 'sensors' in scene_config:

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import orjson
@@ -68,6 +68,7 @@ class SceneController:
       self.tracker_config_data["max_unreliable_time"] = tracker_config["max_unreliable_frames"]/tracker_config["baseline_frame_rate"]
       self.tracker_config_data["non_measurement_time_dynamic"] = tracker_config["non_measurement_frames_dynamic"]/tracker_config["baseline_frame_rate"]
       self.tracker_config_data["non_measurement_time_static"] = tracker_config["non_measurement_frames_static"]/tracker_config["baseline_frame_rate"]
+      self.tracker_config_data["suspended_track_timeout_secs"] = tracker_config.get("suspended_track_timeout_secs", DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
       self._extractTimeChunkingEnabled(tracker_config)
       self._extractTimeChunkingInterval(tracker_config)
 
