@@ -53,7 +53,7 @@ class SceneController:
     self.ntp_client = ntplib.NTPClient()
     self.time_offset = 0
 
-    self.schema_val = SchemaValidation(schema_file)
+    self.schema_val = SchemaValidation(schema_file, is_multi_message=True)
 
     self.pubsub = PubSub(mqtt_auth, client_cert, root_cert, mqtt_broker, keepalive=60)
     self.pubsub.onConnect = self.onConnect
@@ -474,11 +474,10 @@ class SceneController:
       log.warning(f"Scene not found for tracked objects, ignoring scene_id={scene_id}")
       return
 
-    if ControllerMode.isAnalyticsOnly() and scene.schemaValidator is not None:
-      if not scene.schemaValidator.validateStandalone(jdata, check_format=True):
+    if ControllerMode.isAnalyticsOnly() and scene.schema_validator is not None:
+      if not scene.schema_validator.validate(jdata, check_format=True):
         log.error(f"Scene data validation failed for scene={scene_id}, type={detection_type}")
         return
-      log.debug(f"Scene data validation passed for scene={scene_id}, type={detection_type}")
 
     tracked_objects = jdata.get('objects', [])
 
