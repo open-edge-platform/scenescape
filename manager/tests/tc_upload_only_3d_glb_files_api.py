@@ -1,51 +1,39 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
 from tests.functional import FunctionalTest
 from http import HTTPStatus
 from scene_common.rest_client import RESTClient
+from tests.common_test_utils import record_test_result
 
 TEST_NAME = "NEX-T10433-API"
 
-class OnlyUploadGLBSceneMapTest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
-    self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
-    assert self.rest.authenticate(self.params['user'], self.params['password'])
+def test_only_upload_glb_main_api(params, record_xml_attribute):
+    record_xml_attribute("name", TEST_NAME)
+    exit_code = 1
 
-    # Get scene UID by name
-    self.scene_name = self.params['scene']
-    scenes = self.rest.getScenes({'name': self.scene_name})['results']
-    assert scenes and len(scenes) > 0, f"Scene '{self.scene_name}' not found"
-    self.scene_uid = scenes[0]['uid']
+    rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
+    assert rest.authenticate(params['user'], params['password'])
 
-  def runTest(self):
-    invalid_files = [
-      "box_invalid.glb",
-      "box.gltf",
-      "box.obj",
-      "good_data.txt"
-    ]
-    media_path = os.path.join("tests", "ui", "test_media")
+    scenes = rest.getScenes({'name': params['scene_name']})['results']
+    assert scenes, f"Scene '{params['scene_name']}' not found"
+    scene_uid = scenes[0]['uid']
 
-    for file_name in invalid_files:
-      file_path = os.path.join(media_path, file_name)
-      print(f"Trying to upload invalid file: {file_name}")
-      with open(file_path, "rb") as f:
-        update_data = {"map": f}
-        res = self.rest.updateScene(self.scene_uid, update_data)
+    invalid_files = ["box_invalid.glb", "box.gltf", "box.obj", "good_data.txt"]
 
-        # Expecting failure: either 4xx or error message
-        assert res.statusCode not in (HTTPStatus.OK, HTTPStatus.CREATED), f"Failed to create scene with .glb: {res.errors}"
-        print(f"Correctly rejected file: {file_name}")
+    try:
+        for f in invalid_files:
+            print(f"Trying to upload invalid file: {f}")
+            path = os.path.join("tests", "ui", "test_media", f)
+            with open(path, "rb") as fp:
+                res = rest.updateScene(scene_uid, {"map": fp})
+            assert res.statusCode not in (200, 201)
+            print(f"Correctly rejected file: {f}")
 
-    print("All invalid files were correctly rejected.")
-    return True
-
-def test_only_upload_glb_main_api(request, record_xml_attribute):
-  test = OnlyUploadGLBSceneMapTest(TEST_NAME, request, record_xml_attribute)
-  assert test.runTest()
-  return
+        print("All invalid files were correctly rejected.")
+        exit_code = 0
+    finally:
+        record_test_result(TEST_NAME, exit_code)

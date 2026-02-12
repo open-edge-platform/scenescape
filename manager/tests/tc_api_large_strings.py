@@ -1,74 +1,76 @@
 #!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from tests.functional import FunctionalTest
-from scene_common.rest_client import RESTClient
 import os
 import random
 import string
+from scene_common.rest_client import RESTClient
+from tests.common_test_utils import record_test_result
 
-TEST_NAME = 'NEX-T10583'
+TEST_NAME = "NEX-T10583"
 
-class APIStrings(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
-    self.sceneName = self.params['scene']
-    self.sceneID = None
-    self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
-    res = self.rest.authenticate(self.params['user'], self.params['password'])
-    assert res, (res.errors)
-    return
 
-  def generate_string(self, length=256):
+def _generate_string(length: int = 256) -> str:
+    # Generate a random string of specified length to trigger max-length validation.
     characters = string.ascii_letters + string.digits + string.punctuation
-    return ''.join(random.choice(characters) for _ in range(length))
+    return "".join(random.choice(characters) for _ in range(length))
 
-  def runApiStrings(self):
-    self.exitCode = 1
-    self.getScene()
-    random_string = self.generate_string()
-    res = self.rest.authenticate(self.params['user'], random_string)
-    assert res.errors['password'] == ['Ensure this field has no more than 150 characters.']
-    res = self.rest.authenticate(random_string, self.params['user'])
-    # Removed print statement to avoid exposing sensitive information.
-    assert res.errors['username'] == ['Ensure this field has no more than 150 characters.']
-    res = self.rest.authenticate('admin123', 'admin123')
-    print(res.errors['non_field_errors'])
-    assert res.errors['non_field_errors'] == ['Incorrect Username/Password. ']
-    assert res.statusCode == 400
-    res = self.rest.authenticate(self.params['user'], self.params['password'])
-    res = self.rest.createTripwire({"name": random_string, "scene": self.sceneID})
-    print(res.errors['name'])
-    assert res.errors['name'] == ['Ensure this field has no more than 150 characters.']
-    res = self.rest.createRegion({"name": random_string, "scene": self.sceneID})
-    print(res.errors['name'])
-    assert res.errors['name'] == ['Ensure this field has no more than 150 characters.']
-    res = self.rest.createSensor({"name": random_string, "scene": self.sceneID})
-    print(res.errors['name'])
-    assert res.errors['name'] == ['Ensure this field has no more than 150 characters.']
-    res = self.rest.createCamera({"name": random_string, "scene": self.sceneID})
-    print(res.errors['name'])
-    assert res.errors['name'] == ['Ensure this field has no more than 150 characters.']
-    res = self.rest.createScene({"name": random_string})
-    print(res.errors['name'])
-    assert res.errors['name'] == ['Ensure this field has no more than 150 characters.']
-    res = self.rest.createSensor({"sensor_id": random_string, "scene": self.sceneID})
-    print(res.errors['sensor_id'])
-    assert res.errors['sensor_id'] == ['Ensure this field has no more than 20 characters.']
-    self.exitCode = 0
-    self.recordTestResult()
-    return
+def test_api_strings(params, record_xml_attribute):
+    record_xml_attribute("name", TEST_NAME)
+    exit_code = 1
 
-def test_api_strings(request, record_xml_attribute):
-  test = APIStrings(TEST_NAME, request, record_xml_attribute)
-  test.runApiStrings()
-  assert test.exitCode == 0
-  return
+    rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
+    assert rest.authenticate(params["user"], params["password"]), "Initial authentication failed"
 
-def main():
-  return test_api_strings(None, None)
+    scenes = rest.getScenes({'name': params['scene_name']})['results']
+    assert scenes, f"Scene '{params['scene_name']}' not found"
+    scene_uid = scenes[0]['uid']
+    random_string = _generate_string(256)
 
-if __name__ == '__main__':
-  os._exit(main() or 0)
+    try:
+        # Authentication length validations
+        res = rest.authenticate(params["user"], random_string)
+        assert res.errors["password"] == ["Ensure this field has no more than 150 characters."]
+
+        res = rest.authenticate(random_string, params["user"])
+        assert res.errors["username"] == ["Ensure this field has no more than 150 characters."]
+
+        # Negative auth with bad creds
+        res = rest.authenticate("admin123", "admin123")
+        print(res.errors["non_field_errors"])
+        assert res.errors["non_field_errors"] == ["Incorrect Username/Password. "]
+        assert res.statusCode == 400
+
+        # Re-auth with valid creds for subsequent API calls
+        assert rest.authenticate(params["user"], params["password"]), "Re-authentication failed"
+
+        # Overlong name validation across entities
+        res = rest.createTripwire({"name": random_string, "scene": scene_uid})
+        print(res.errors["name"])
+        assert res.errors["name"] == ["Ensure this field has no more than 150 characters."]
+
+        res = rest.createRegion({"name": random_string, "scene": scene_uid})
+        print(res.errors["name"])
+        assert res.errors["name"] == ["Ensure this field has no more than 150 characters."]
+
+        res = rest.createSensor({"name": random_string, "scene": scene_uid})
+        print(res.errors["name"])
+        assert res.errors["name"] == ["Ensure this field has no more than 150 characters."]
+
+        res = rest.createCamera({"name": random_string, "scene": scene_uid})
+        print(res.errors["name"])
+        assert res.errors["name"] == ["Ensure this field has no more than 150 characters."]
+
+        res = rest.createScene({"name": random_string})
+        print(res.errors["name"])
+        assert res.errors["name"] == ["Ensure this field has no more than 150 characters."]
+
+        # Overlong sensor_id validation
+        res = rest.createSensor({"sensor_id": random_string, "scene": scene_uid})
+        print(res.errors["sensor_id"])
+        assert res.errors["sensor_id"] == ["Ensure this field has no more than 20 characters."]
+
+        exit_code = 0
+    finally:
+        record_test_result(TEST_NAME, exit_code)
