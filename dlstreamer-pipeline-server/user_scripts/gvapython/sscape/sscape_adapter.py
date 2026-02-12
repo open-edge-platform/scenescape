@@ -123,9 +123,6 @@ class PostInferenceDataPublish:
 
   def handleCameraMessage(self, client, userdata, message):
     msg = message.payload.decode("utf-8")
-
-
-    # Handle regular camera commands
     if msg == "getimage":
       self.is_publish_image = True
     elif msg == "getcalibrationimage":
