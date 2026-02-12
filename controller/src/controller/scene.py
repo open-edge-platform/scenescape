@@ -86,19 +86,19 @@ class Scene(SceneModel):
     self.object_history_cache = {}
 
     # Initialize schema validator for analytics-only mode
-    self.schemaValidator = None
+    self.schema_validator = None
     if ControllerMode.isAnalyticsOnly():
-      schemaFilename = 'scene-data.schema.json'
-      schemaPath = Path(os.environ.get('SCENESCAPE_HOME')) / 'tracker' / 'schema' / schemaFilename
-      if schemaPath.exists():
+      schema_filename = 'scene-data.schema.json'
+      schema_path = Path(os.environ.get('SCENESCAPE_HOME')) / 'tracker' / 'schema' / schema_filename
+      if schema_path.exists():
         try:
-          log.info(f"Loading scene-data schema from: {schemaPath}")
-          self.schemaValidator = SchemaValidation(str(schemaPath))
+          log.info(f"Loading scene-data schema from: {schema_path}")
+          self.schema_validator = SchemaValidation(str(schema_path), is_multi_message=False)
           log.info(f"Scene-data schema validator initialized for scene: {name}")
         except Exception as e:
-          log.error(f"Failed to initialize schema validator from {schemaPath}: {e}")
+          log.error(f"Failed to initialize schema validator from {schema_path}: {e}")
       else:
-        log.error(f"Schema file not found at: {schemaPath}")
+        log.error(f"Schema file not found at: {schema_path}")
 
     # FIXME - only for backwards compatibility
     self.scale = scale
