@@ -69,7 +69,7 @@ def track(params):
   time_chunking_enabled = trackerConfigData["time_chunking_enabled"]
   time_chunking_interval_ms = trackerConfigData["time_chunking_interval_milliseconds"]
   suspended_track_timeout_secs = trackerConfigData["suspended_track_timeout_secs"]
-  
+
   camera_fps = []
   for input_file in params["input"]:
     cam = cv2.VideoCapture(input_file.removesuffix('.json')+'.mp4')
