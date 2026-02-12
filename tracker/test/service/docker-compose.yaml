@@ -70,7 +70,7 @@ services:
       retries: 10
       start_period: 5s
     stop_grace_period: 5s
-    restart: no
+    restart: on-failure
 
 secrets:
   ca_cert:
