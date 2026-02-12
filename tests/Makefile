@@ -95,7 +95,6 @@ broken-features:
 
 # tests that are working, but feature is broken
 _broken-features: \
-  scene-import \
   calibrate-camera-3d-ui-2d-ui \
 
 broken-tests: \
@@ -217,6 +216,7 @@ _ui-tests: \
   restricted-media-access \
   live-view-button \
   scene-details \
+  scene-import \
   sensor-area \
   sensor-location \
   sensor-scene \
