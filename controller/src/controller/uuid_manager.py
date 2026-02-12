@@ -50,13 +50,13 @@ class UUIDManager:
     @param   sscape_object  The Scenescape object with detection data
     @return  embedding      The embedding vector, or None if not available
     """
-    if not hasattr(sscape_object, 'reid') or sscape_object.reid is None:
+    if not hasattr(sscape_object, 'reidVector') or sscape_object.reidVector is None:
       return None
 
-    if isinstance(sscape_object.reid, dict) and 'embedding_vector' in sscape_object.reid:
-      return sscape_object.reid['embedding_vector']
+    if isinstance(sscape_object.reidVector, dict) and 'embedding_vector' in sscape_object.reidVector:
+      return sscape_object.reidVector['embedding_vector']
     else:
-      return sscape_object.reid
+      return sscape_object.reidVector
 
   def _extractSemanticMetadata(self, sscape_object):
     """
@@ -64,14 +64,17 @@ class UUIDManager:
     Separates generic object properties (confidence, bbox, etc.) from semantic properties.
     Supports flexible attribute evolution - any new attributes from analytics pipeline accepted.
 
-    Metadata items are dicts with structure: {value: <actual_value>, model_name: <model_name>, confidence: <score>}
-    Only the 'value' field is extracted for storage and filtering.
+    Metadata is passed as-is to preserve full structure:
+    - New format: {value: <actual_value>, model_name: <model_name>, confidence: <score>}
+    - Legacy format: plain values (string, int, float, etc.)
+
+    The constraint building logic in vdms_adapter handles extraction of value and confidence.
 
     Generic properties to exclude: category, confidence, center_of_mass, bounding_box_px, reid
     All other properties are treated as semantic metadata.
 
     @param   sscape_object  The Scenescape object with detection data
-    @return  metadata       Dictionary of semantic attributes for storage
+    @return  metadata       Dictionary of semantic attributes with full metadata structure
     """
     if not hasattr(sscape_object, '__dict__'):
       return {}
@@ -91,13 +94,9 @@ class UUIDManager:
 
       # Include semantic attributes like age, gender, person_attributes, etc.
       if value is not None:
-        # Handle new metadata format: dict with value, model, confidence
-        if isinstance(value, dict) and 'value' in value:
-          metadata[key] = value['value']
-          log.debug(f"Extracted metadata: {key}={value['value']} (model={value.get('model_name', 'N/A')}, confidence={value.get('confidence', 'N/A')})")
-        else:
-          metadata[key] = value
-          log.debug(f"Extracted metadata: {key}={value}")
+        # Pass metadata as-is to preserve full structure (value, model_name, confidence)
+        # vdms_adapter._build_query_constraints() handles extraction and routing
+        metadata[key] = value
 
     return metadata
 
@@ -177,7 +176,8 @@ class UUIDManager:
     reid_embedding = self._extractReidEmbedding(sscape_object)
 
     if reid_embedding is not None and self.reid_enabled:
-      if sscape_object.boundingBoxPixels.area > minimum_bbox_area:
+      bbox_area = sscape_object.boundingBoxPixels.area if hasattr(sscape_object, 'boundingBoxPixels') else 0
+      if bbox_area > minimum_bbox_area:
         if sscape_object.rv_id in self.quality_features:
           self.quality_features[sscape_object.rv_id].append(reid_embedding)
         else:
@@ -261,20 +261,11 @@ class UUIDManager:
     # Extract semantic metadata for TIER 1 filtering
     metadata_constraints = self._extractSemanticMetadata(sscape_object)
 
-    log.debug(f"Finding similarity scores for track {sscape_object.rv_id}")
-    log.debug(f"Metadata constraints: {metadata_constraints}")
-    log.debug(f"Number of reid_vectors: {len(reid_vectors) if reid_vectors else 0}")
-
     start_time = get_epoch_time()
     # Pass metadata as constraints for TIER 1 filtering in findMatches
     scores = self.reid_database.findMatches(
       sscape_object.category, reid_vectors, **metadata_constraints)
     query_time = get_epoch_time() - start_time
-    log.debug(
-      f"Similarity scores for track {sscape_object.rv_id} found in {query_time} seconds")
-    log.debug(f"Scores result count: {len(scores) if scores else 0}")
-    if scores:
-      log.debug(f"First score entry: {scores[0][:min(2, len(scores[0]))] if scores[0] else 'empty'}")
 
     with self.similarity_query_times_lock:
       self.similarity_query_times.append(query_time)
@@ -338,7 +329,7 @@ class UUIDManager:
     # MATCH FOUND - YES + DB ID ALREADY IN DICT - NO
     if database_id and self.isNewID(database_id):
       self.active_ids[sscape_object.rv_id] = [database_id, similarity]
-      log.debug(
+      log.info(
         f"Match found for {sscape_object.rv_id}: {database_id},{similarity}")
     # MATCH FOUND - NO / DB ID ALREADY IN DICT - YES
     else:

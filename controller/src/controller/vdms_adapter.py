@@ -113,10 +113,6 @@ class VDMSDatabase(ReIDDatabase):
         # Store as string
         properties[key] = str(value)
 
-    log.debug(f"VDMS addEntry - uuid={uuid}, rvid={rvid}, type={object_type}")
-    log.debug(f"VDMS addEntry - properties: {properties}")
-    log.debug(f"VDMS addEntry - reid_vectors count: {len(reid_vectors)}")
-
     query = {
       "AddDescriptor": {
         "set": f"{set_name}",
@@ -129,7 +125,7 @@ class VDMSDatabase(ReIDDatabase):
       # Ensure vector is float32, then convert to bytes for VDMS
       vec_array = np.array(reid_vector, dtype="float32")
       blob.append([vec_array.tobytes()])
-    
+
     add_query = [query] * len(reid_vectors)
     response, _ = self.sendQuery(add_query, blob)
     if response:
@@ -150,6 +146,81 @@ class VDMSDatabase(ReIDDatabase):
       return True
     return False
 
+  def _build_query_constraints(self, object_type, **constraints):
+    """
+    Build query constraints for TIER 1 metadata filtering.
+
+    Constraint routing logic:
+    - Object type is always AND constraint (required field)
+    - If value is dict with 'confidence' key (new metadata format):
+      - confidence >= 0.8: AND constraints (all must match - strict)
+      - confidence < 0.8: OR constraints (at least one must match - flexible)
+      - Extract 'value' field for VDMS query
+    - If value is non-dict or dict without confidence (legacy format):
+      - OR constraints (at least one must match - flexible)
+    - Non-numeric values: OR constraints (default to flexible)
+
+    @param   object_type  Class of the object (Person, Vehicle, etc.)
+    @param   constraints  Optional metadata filters (key-value pairs, may be dicts with value/confidence)
+    @return  query_constraints  Dictionary with "type", optional AND fields, and optional "or" array
+    """
+    # TIER 1: Build dynamic constraints for metadata filtering
+    # Object type is always filtered (AND constraint - required)
+    query_constraints = {
+      "type": ["==", f"{object_type}"]
+    }
+
+    # Separate constraints by confidence level
+    and_constraints = {}
+    or_constraints = []
+
+    if constraints:
+      for key, value in constraints.items():
+        if value is not None:
+          # Extract actual value and confidence from metadata dict
+          actual_value = value
+          confidence = None
+
+          # Handle new metadata format: {value: <data>, model_name: <model>, confidence: <score>}
+          if isinstance(value, dict) and 'value' in value:
+            actual_value = value['value']
+            confidence = value.get('confidence')
+
+          # Determine constraint type based on confidence
+          try:
+            # Use extracted confidence if available
+            if confidence is not None:
+              conf_value = float(confidence)
+              # If confidence >= 0.8, treat as AND constraint (strict matching)
+              if conf_value >= 0.8:
+                and_constraints[key] = ["==", str(actual_value)]
+              # If confidence < 0.8, treat as OR constraint (flexible matching)
+              else:
+                or_constraints.append({key: ["==", str(actual_value)]})
+            else:
+              # No confidence available, check if actual_value itself is numeric
+              try:
+                conf_value = float(actual_value) if isinstance(actual_value, (int, float, str)) else None
+                if conf_value is not None and conf_value >= 0.8:
+                  and_constraints[key] = ["==", str(actual_value)]
+                else:
+                  or_constraints.append({key: ["==", str(actual_value)]})
+              except (ValueError, TypeError):
+                # Not numeric, treat as OR constraint (flexible)
+                or_constraints.append({key: ["==", str(actual_value)]})
+          except (ValueError, TypeError):
+            # Confidence value not convertible to float, treat as OR constraint
+            or_constraints.append({key: ["==", str(actual_value)]})
+
+      # Add AND constraints directly to query_constraints
+      query_constraints.update(and_constraints)
+
+      # Add OR constraints if any exist
+      if or_constraints:
+        query_constraints["or"] = or_constraints
+
+    return query_constraints
+
   def findMatches(self, object_type, reid_vectors, set_name=SCHEMA_NAME,
                    k_neighbors=K_NEIGHBORS, **constraints):
     """
@@ -163,19 +234,7 @@ class VDMSDatabase(ReIDDatabase):
     @return  result       Entries with the closest similarity scores
     """
     # TIER 1: Build dynamic constraints for metadata filtering
-    # Object type is always filtered; additional constraints passed as kwargs
-    query_constraints = {
-      "type": ["==", f"{object_type}"]
-    }
-
-    # Add any additional metadata constraints (age, gender, color, make, model, etc.)
-    for key, value in constraints.items():
-      if value is not None:
-        query_constraints[key] = ["==", str(value)]
-
-    log.debug(f"VDMS findMatches - object_type={object_type}, k_neighbors={k_neighbors}")
-    log.debug(f"VDMS findMatches - TIER 1 constraints: {query_constraints}")
-    log.debug(f"VDMS findMatches - reid_vectors count: {len(reid_vectors)}")
+    query_constraints = self._build_query_constraints(object_type, **constraints)
 
     find_query = {
       "FindDescriptor": {
@@ -199,7 +258,7 @@ class VDMSDatabase(ReIDDatabase):
       # Ensure vector is float32, then convert to bytes for VDMS
       vec_array = np.array(reid_vector, dtype="float32")
       blob.append([vec_array.tobytes()])
-    
+
     query = [find_query] * len(reid_vectors)
     response, _ = self.sendQuery(query, blob)
 
@@ -209,10 +268,5 @@ class VDMSDatabase(ReIDDatabase):
         for item in response
         if (item.get('status') == 0 and item.get('returned') > 0)
       ]
-      log.debug(f"VDMS findMatches - TIER 2 search complete")
-      log.debug(f"VDMS findMatches - result count: {len(result)}")
-      if result:
-        log.debug(f"VDMS findMatches - first result: {result[0][:min(3, len(result[0]))]}")
       return result
-    log.debug(f"VDMS findMatches - no response from VDMS")
     return None

@@ -156,6 +156,7 @@ class Tracking(Thread):
       objects, when, already_tracked_objects, mode = queue_item
 
       if objects is None:
+        log.info("tracking.Tracking: Received shutdown signal, exiting thread")
         self.queue.task_done()
         break
 
@@ -180,7 +181,6 @@ class Tracking(Thread):
         self.curObjects = (self.all_tracker_objects).copy()
         self.queue.task_done()
 
-    log.debug(f"Tracker thread {self.__str__()} exiting. Queue size: {self.queue.qsize()}")
     return
 
   def waitForComplete(self):

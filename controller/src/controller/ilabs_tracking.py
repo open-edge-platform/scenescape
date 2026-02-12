@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 import uuid
 from datetime import datetime
 

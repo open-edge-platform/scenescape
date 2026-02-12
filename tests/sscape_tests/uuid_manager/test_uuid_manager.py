@@ -80,7 +80,7 @@ class TestExtractReidEmbedding:
     
     # Create object with new reid format
     obj = MagicMock()
-    obj.reid = {
+    obj.reidVector = {
       "embedding_vector": np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist(),
       "model_name": "reid_model_v3"
     }
@@ -100,7 +100,7 @@ class TestExtractReidEmbedding:
     
     # Create object with legacy reid format (direct vector)
     obj = MagicMock()
-    obj.reid = np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist()
+    obj.reidVector = np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist()
     
     embedding = manager._extractReidEmbedding(obj)
     
@@ -115,28 +115,28 @@ class TestExtractReidEmbedding:
     
     manager = UUIDManager()
     
-    # Create object without reid field
-    obj = MagicMock(spec=[])
+    # Create object without reidVector field using spec
+    obj = Mock(spec=['rv_id'])
     
     embedding = manager._extractReidEmbedding(obj)
     
-    assert embedding is None, "Should return None when reid is missing"
+    assert embedding is None, "Should return None when reidVector is missing"
 
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_extract_reid_returns_none_when_none_value(self, mock_vdms_class):
-    """Verify None is returned when reid value is None."""
+    """Verify None is returned when reidVector value is None."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
     
     manager = UUIDManager()
     
-    # Create object with reid=None
+    # Create object with reidVector=None
     obj = MagicMock()
-    obj.reid = None
+    obj.reidVector = None
     
     embedding = manager._extractReidEmbedding(obj)
     
-    assert embedding is None, "Should return None when reid value is None"
+    assert embedding is None, "Should return None when reidVector value is None"
 
 
 class TestExtractSemanticMetadata:
@@ -158,11 +158,13 @@ class TestExtractSemanticMetadata:
     
     metadata = manager._extractSemanticMetadata(obj)
     
-    # Should extract semantic attributes
+    # Should extract semantic attributes as-is (full dict structure)
     assert "gender" in metadata, "Should extract gender metadata"
-    assert metadata["gender"] == "Female", "Should extract value from metadata dict"
+    assert metadata["gender"] == {"value": "Female", "model_name": "gender_v2", "confidence": 0.95}, \
+      "Should preserve full metadata dict with value, model_name, and confidence"
     assert "age" in metadata, "Should extract age metadata"
-    assert metadata["age"] == 28, "Should extract numeric value"
+    assert metadata["age"] == {"value": 28, "model_name": "age_estimator", "confidence": 0.87}, \
+      "Should preserve full metadata dict for age"
     
     # Should skip generic properties
     assert "category" not in metadata, "Should not include generic properties"
@@ -191,9 +193,9 @@ class TestExtractSemanticMetadata:
     assert "bounding_box_px" not in metadata
     assert "reid" not in metadata
     
-    # Custom semantic attributes should be included
+    # Custom semantic attributes should be included (as-is, full structure)
     assert "custom_attribute" in metadata
-    assert metadata["custom_attribute"] == "test"
+    assert metadata["custom_attribute"] == {"value": "test", "model_name": "test_model", "confidence": 0.9}
 
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_extract_semantic_metadata_skips_internal_fields(self, mock_vdms_class):
@@ -256,10 +258,11 @@ class TestExtractSemanticMetadata:
     
     metadata = manager._extractSemanticMetadata(obj)
     
-    assert isinstance(metadata["string_attr"], str)
-    assert isinstance(metadata["int_attr"], int)
-    assert isinstance(metadata["float_attr"], float)
-    assert isinstance(metadata["bool_attr"], bool)
+    # Metadata is passed as-is (full dict structure), so check the dict values
+    assert metadata["string_attr"] == {"value": "text", "model_name": "model", "confidence": 0.9}
+    assert metadata["int_attr"] == {"value": 42, "model_name": "model", "confidence": 0.9}
+    assert metadata["float_attr"] == {"value": 3.14, "model_name": "model", "confidence": 0.9}
+    assert metadata["bool_attr"] == {"value": True, "model_name": "model", "confidence": 0.9}
 
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_extract_semantic_metadata_handles_legacy_format(self, mock_vdms_class):
@@ -277,12 +280,12 @@ class TestExtractSemanticMetadata:
     
     metadata = manager._extractSemanticMetadata(obj)
     
-    # Legacy format values should be preserved
+    # Legacy format values should be preserved as-is
     assert metadata.get("color") == "red"
     assert metadata.get("clothing") == "jacket"
     
-    # Modern format should also work
-    assert metadata.get("modern_attr") == "new format"
+    # Modern format should also work (as-is, full dict structure)
+    assert metadata.get("modern_attr") == {"value": "new format", "model_name": "model", "confidence": 0.9}
 
 
 class TestIsNewTrackerID:
@@ -379,8 +382,9 @@ class TestDataTypes:
     
     metadata = manager._extractSemanticMetadata(obj)
     
-    assert metadata["person_name"] == "José García"
-    assert metadata["location"] == "北京"
+    # Metadata is passed as-is (full dict structure)
+    assert metadata["person_name"] == {"value": "José García", "model_name": "name_detector", "confidence": 0.9}
+    assert metadata["location"] == {"value": "北京", "model_name": "location_detector", "confidence": 0.85}
 
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_metadata_with_special_characters(self, mock_vdms_class):
@@ -399,4 +403,9 @@ class TestDataTypes:
     
     metadata = manager._extractSemanticMetadata(obj)
     
-    assert metadata["description"] == 'Test "quoted" and \'apostrophe\' & symbols'
+    # Metadata is passed as-is (full dict structure)
+    assert metadata["description"] == {
+      "value": 'Test "quoted" and \'apostrophe\' & symbols',
+      "model_name": "desc",
+      "confidence": 0.9
+    }

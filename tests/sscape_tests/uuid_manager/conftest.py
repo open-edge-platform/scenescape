@@ -42,18 +42,3 @@ def mock_log():
   mock_logger.error = Mock()
   mock_logger.critical = Mock()
   return mock_logger
-
-
-@pytest.fixture
-def mock_milvus_adapter():
-  """
-  Provides a mocked Milvus adapter instance (optional dependency).
-  
-  Returns:
-    MagicMock: Mock Milvus adapter with standard methods.
-  """
-  mock_instance = MagicMock()
-  mock_instance.connect = Mock(return_value=True)
-  mock_instance.addEntry = Mock(return_value=True)
-  mock_instance.findMatches = Mock(return_value=[])
-  return mock_instance
