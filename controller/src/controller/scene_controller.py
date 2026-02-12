@@ -478,7 +478,6 @@ class SceneController:
       if not scene.schemaValidator.validateStandalone(jdata, check_format=True):
         log.error(f"Scene data validation failed for scene={scene_id}, type={detection_type}")
         return
-      log.debug(f"Scene data validation passed for scene={scene_id}, type={detection_type}")
 
     tracked_objects = jdata.get('objects', [])
 
