@@ -99,18 +99,11 @@ _broken-features: \
 
 broken-tests: \
   3d-ui-calibration-points \
-  distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
   scenes-summary-api \
 
 randomly-failing-tests:
-	camera-status \
-	delete-sensor-scene \
-	persistence \
-	scenes-summary \
-	3d-scene-control-panel \
-	auto-calibration-ui \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
@@ -179,6 +172,7 @@ _functional-tests: \
   upload-3d-glb-file-api \
   upload-only-3d-glb-files-api \
   vdms-similarity-search \
+  3d-scene-control-panel \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
@@ -190,6 +184,7 @@ metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _metric-tests: \
+  distance-msoce \
   idc-error-metric \
   velocity-metric \
   msoce-metric \
@@ -202,21 +197,26 @@ _ui-tests: \
   show-telemetry-button \
   upload-only-3d-glb-files \
   add-delete-3d-object \
+  auto-calibration-ui \
   bounding-box \
   calibrate-all-sensor-types \
   camera-deletion \
   camera-perspective \
   delete-roi-mqtt \
   delete-sensor-mqtt \
+  delete-sensor-scene \
   delete-sensors \
+  camera-status \
   delete-tripwire-mqtt \
   different-formats-maps \
   manual-camera-calibration \
   object-crud \
   restricted-media-access \
+  persistence \
   live-view-button \
   scene-details \
   scene-import \
+  scenes-summary \
   sensor-area \
   sensor-location \
   sensor-scene \
