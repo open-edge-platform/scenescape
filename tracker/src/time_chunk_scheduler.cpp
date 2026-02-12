@@ -5,6 +5,7 @@
 #include "logger.hpp"
 
 #include <algorithm>
+#include <stdexcept>
 
 namespace tracker {
 
@@ -13,6 +14,12 @@ TimeChunkScheduler::TimeChunkScheduler(TimeChunkBuffer& buffer, const SceneRegis
                                        PublishCallback publish_callback)
     : buffer_(buffer), registry_(registry), config_(config),
       publish_callback_(std::move(publish_callback)) {
+    // Defense-in-depth: schema and config loader validate this upstream,
+    // but guard here to prevent undefined behavior if bypassed.
+    if (config_.time_chunking_rate_fps <= 0) {
+        throw std::runtime_error("time_chunking_rate_fps must be >= 1, got: " +
+                                 std::to_string(config_.time_chunking_rate_fps));
+    }
     // Calculate interval from FPS (e.g., 15 FPS = 66.7ms)
     int interval_ms = 1000 / config_.time_chunking_rate_fps;
     interval_ = std::chrono::milliseconds(interval_ms);

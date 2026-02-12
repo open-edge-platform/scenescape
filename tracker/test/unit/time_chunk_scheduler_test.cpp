@@ -474,5 +474,15 @@ TEST_F(TimeChunkSchedulerTest, Destructor_StopsRunningScheduler) {
     SUCCEED();
 }
 
+TEST_F(TimeChunkSchedulerTest, ConstructorRejectsZeroFps) {
+    TimeChunkBuffer buffer;
+    SceneRegistry registry;
+    auto config = createConfig(0);
+    PublishCallback callback = [](const std::string&, const std::string&, const std::string&,
+                                  const std::string&, const std::vector<Track>&) {};
+
+    EXPECT_THROW(TimeChunkScheduler(buffer, registry, config, callback), std::runtime_error);
+}
+
 } // namespace
 } // namespace tracker
