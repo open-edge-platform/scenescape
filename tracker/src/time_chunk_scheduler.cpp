@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "time_chunk_scheduler.hpp"
-
 #include "logger.hpp"
 
 #include <algorithm>
