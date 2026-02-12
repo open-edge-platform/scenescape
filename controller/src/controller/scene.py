@@ -21,7 +21,8 @@ from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNK
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC,
-                                 EFFECTIVE_OBJECT_UPDATE_RATE)
+                                 EFFECTIVE_OBJECT_UPDATE_RATE,
+                                 DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
 
 DEBOUNCE_DELAY = 0.5
 
@@ -44,7 +45,8 @@ class Scene(SceneModel):
                non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC,
                effective_object_update_rate = EFFECTIVE_OBJECT_UPDATE_RATE,
                time_chunking_enabled = False,
-               time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS):
+               time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS,
+               suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static,
              "analytics_only=" + str(ControllerMode.isAnalyticsOnly()))
@@ -53,6 +55,7 @@ class Scene(SceneModel):
     self.max_unreliable_time = max_unreliable_time
     self.non_measurement_time_dynamic = non_measurement_time_dynamic
     self.non_measurement_time_static = non_measurement_time_static
+    self.suspended_track_timeout_secs = suspended_track_timeout_secs
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
@@ -88,9 +91,9 @@ class Scene(SceneModel):
             self.non_measurement_time_dynamic,
             self.non_measurement_time_static)
     if trackerType == "intel_labs":
-      args += (self.ref_camera_frame_rate,)
+      args += (self.ref_camera_frame_rate, self.suspended_track_timeout_secs)
     elif trackerType == "time_chunked_intel_labs":
-      args += (self.time_chunking_rate_fps,)
+      args += (self.time_chunking_rate_fps, self.suspended_track_timeout_secs)
     self.tracker = self.available_trackers[self.trackerType](*args)
     return
 
