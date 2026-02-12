@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
@@ -42,7 +42,7 @@ from typing import Any, List
 
 from scene_common import log
 from controller.ilabs_tracking import IntelLabsTracking
-from controller.tracking import BATCHED_MODE, STREAMING_MODE
+from controller.tracking import BATCHED_MODE, STREAMING_MODE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 from controller.observability import metrics
 
 DEFAULT_CHUNKING_INTERVAL_MS = 50  # Default interval in milliseconds
@@ -145,9 +145,9 @@ class TimeChunkProcessor(threading.Thread):
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   """Time-chunked version of IntelLabsTracking."""
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_interval_milliseconds):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_interval_milliseconds, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS):
     # Call parent constructor to initialize IntelLabsTracking
-    super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
+    super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, suspended_track_timeout_secs)
     self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
     log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking interval: {self.time_chunking_interval_milliseconds} ms")
 
@@ -192,7 +192,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     # delegate tracking to IntelLabsTracking
     for category in categories:
       if category not in self.trackers:
-        tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
+        tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, self.suspended_track_timeout_secs)
         self.trackers[category] = tracker
         tracker.start()
         log.info(f"Started IntelLabs tracker {tracker.__str__()} thread for category {category}")

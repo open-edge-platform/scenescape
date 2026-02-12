@@ -26,7 +26,8 @@ The default content of the `tracker-config.json` file is shown below. It is reco
   "non_measurement_frames_dynamic": 8,
   "non_measurement_frames_static": 16,
   "baseline_frame_rate": 30,
-  "time_chunking_enabled": false
+  "time_chunking_enabled": false,
+  "suspended_track_timeout_secs": 60.0
 }
 ```
 
@@ -99,7 +100,8 @@ The content of the `tracker-config-time-chunking.json` file is shown below.
   "non_measurement_frames_static": 8,
   "baseline_frame_rate": 30,
   "time_chunking_enabled": true,
-  "time_chunking_interval_milliseconds": 66
+  "time_chunking_interval_milliseconds": 66,
+  "suspended_track_timeout_secs": 60.0
 }
 ```
 
@@ -119,3 +121,13 @@ The time-chunking interval may be further increased beyond the recommended value
 The mechanism of time-based parameters described above still applies when time-chunking is enabled. What may change with time-chunking enabled is the track refresh rate, which is the rate at which a track is updated with new detections. When time-chunking is disabled, each track is refreshed at a rate equal to the cumulative FPS of cameras observing the object. With time-chunking enabled, each track is refreshed at the tracker processing rate, which is `1000 / time_chunking_interval_milliseconds` Hz.
 
 This means that if all cameras use comparable FPS and time-chunking is enabled with the interval set as recommended above, the time-based parameters may need adjustment depending on camera overlap. For example, if most of the scene is covered by two cameras, the track refresh rate may drop by a factor of two after enabling time-chunking. To compensate, the time-based parameters (`max_unreliable_frames`, `non_measurement_frames_dynamic`, `non_measurement_frames_static`) may need to be reduced by a factor of 2. However, it should always be experimentally verified which parameters work best for a given use case.
+
+## Suspended Track Timeout
+
+The tracker may accumulate suspended tracks for some time for re-tracking purposes (tracks that have been temporarily suspended rather than deleted). To avoid unbounded memory growth, suspended tracks are deleted after a configurable period. You can set an upper bound on how long suspended tracks are retained.
+
+- **Parameter:** `suspended_track_timeout_secs`
+- **Meaning:** Maximum age in seconds for suspended tracks before they are cleaned up. Default: `60.0` seconds.
+- **How to set it:**
+  - Add `"suspended_track_timeout_secs": <value>` to `controller/config/tracker-config.json` (or `tracker-config-time-chunking.json` for time-chunked mode).
+  - The parameter follows the same configuration flow as other tracker parameters like `max_unreliable_time_s` and `non_measurement_time_dynamic_s`.

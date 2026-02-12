@@ -21,6 +21,7 @@ from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
 from controller.observability import metrics
 from controller.time_chunking import DEFAULT_CHUNKING_INTERVAL_MS
+from controller.tracking import DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 AVG_FRAMES = 100
 
 class SceneController:

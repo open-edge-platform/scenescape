@@ -20,7 +20,8 @@ from controller.ilabs_tracking import IntelLabsTracking
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_INTERVAL_MS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
-                                 NON_MEASUREMENT_TIME_STATIC)
+                                 NON_MEASUREMENT_TIME_STATIC,
+                                 DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
 
 DEBOUNCE_DELAY = 0.5
 
@@ -42,7 +43,8 @@ class Scene(SceneModel):
                non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC,
                non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC,
                time_chunking_enabled = False,
-               time_chunking_interval_milliseconds = DEFAULT_CHUNKING_INTERVAL_MS):
+               time_chunking_interval_milliseconds = DEFAULT_CHUNKING_INTERVAL_MS,
+               suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static)
     super().__init__(name, map_file, scale)
@@ -50,6 +52,7 @@ class Scene(SceneModel):
     self.max_unreliable_time = max_unreliable_time
     self.non_measurement_time_dynamic = non_measurement_time_dynamic
     self.non_measurement_time_static = non_measurement_time_static
+    self.suspended_track_timeout_secs = suspended_track_timeout_secs
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
@@ -75,6 +78,7 @@ class Scene(SceneModel):
             self.non_measurement_time_static)
     if trackerType == "time_chunked_intel_labs":
       args += (self.time_chunking_interval_milliseconds,)
+    args += (self.suspended_track_timeout_secs,)
     self.tracker = self.available_trackers[self.trackerType](*args)
     return
 

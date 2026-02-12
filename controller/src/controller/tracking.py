@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from queue import Queue
@@ -21,6 +21,7 @@ object_classes = {
 MAX_UNRELIABLE_TIME = 0.3333
 NON_MEASUREMENT_TIME_DYNAMIC = 0.2666
 NON_MEASUREMENT_TIME_STATIC = 0.5333
+DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS = 60.0
 
 # Queue mode constants for tracking operation
 STREAMING_MODE = False  # (DEFAULT) Objects from one source (camera) at a time are put into the queue
