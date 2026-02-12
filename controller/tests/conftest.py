@@ -9,8 +9,9 @@ import sys
 from pathlib import Path
 import numpy as np
 
-repo_root=Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(repo_root))
+# Add controller/src to path so controller module can be imported
+controller_src = Path(__file__).resolve().parents[1] / 'src'
+sys.path.insert(0, str(controller_src))
 
 from controller.controller_mode import ControllerMode
 
