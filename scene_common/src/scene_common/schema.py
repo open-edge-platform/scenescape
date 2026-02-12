@@ -6,13 +6,11 @@ from jsonschema import FormatChecker
 from fastjsonschema import compile
 
 class SchemaValidation:
-  def __init__(self, schema_path):
+  def __init__(self, schema_path, is_multi_message=False):
     self.mqtt_schema = None
     self.validator = {}
     self.validator_no_format = {}
-    self.standalone_validator = None
-    self.standalone_validator_no_format = None
-    self.is_standalone = False
+    self.is_multi_message = is_multi_message
     self.loadSchema(schema_path)
     self.compileValidators()
     return
@@ -28,28 +26,19 @@ class SchemaValidation:
     if not self.mqtt_schema:
       raise Exception("Schema not available")
 
-    # Check if this is a standalone schema or multi-message schema
-    has_properties_with_refs = (
-      "properties" in self.mqtt_schema and
-      any("$ref" in v for v in self.mqtt_schema["properties"].values() if isinstance(v, dict))
-    )
-
-    if has_properties_with_refs:
-      # Multi-message schema (e.g., metadata.schema.json)
-      self.is_standalone = False
+    if self.is_multi_message:
       for key, value in self.mqtt_schema["properties"].items():
         if "$ref" in value:
+          defs_key = "$defs" if "$defs" in self.mqtt_schema else "definitions"
           sub_schema = {
             "$ref": value["$ref"],
-            "definitions": self.mqtt_schema["definitions"]
+            defs_key: self.mqtt_schema[defs_key]
           }
           self.validator[key] = compile(sub_schema, formats=formats)
           self.validator_no_format[key] = compile(sub_schema)
     else:
-      # Standalone schema (e.g., scene-data.schema.json)
-      self.is_standalone = True
-      self.standalone_validator = compile(self.mqtt_schema, formats=formats)
-      self.standalone_validator_no_format = compile(self.mqtt_schema)
+      self.validator[None] = compile(self.mqtt_schema, formats=formats)
+      self.validator_no_format[None] = compile(self.mqtt_schema)
     return
 
   def loadSchema(self, schema_path):
@@ -65,7 +54,7 @@ class SchemaValidation:
   def validateMessage(self, msg_type, msg, check_format=False):
     """Validate a message against the schema
     @param msg_type        The type of message to validate
-    @param msg            The message to validate
+    @param msg             The message to validate
     @param check_format    Whether to check the format of the message for ex: uuid, date-time etc.
     """
     result = False
@@ -81,24 +70,9 @@ class SchemaValidation:
 
     return result
 
-  def validateStandalone(self, msg, check_format=False):
-    """Validate a message against a standalone schema
+  def validate(self, msg, check_format=False):
+    """Validate a message against the schema
     @param msg            The message to validate
     @param check_format    Whether to check the format of the message for ex: uuid, date-time etc.
     """
-    result = False
-    if not self.is_standalone:
-      print("Error: validateStandalone called on multi-message schema. Use validateMessage instead.")
-      return result
-
-    if self.mqtt_schema is not None:
-      try:
-        if check_format:
-          self.standalone_validator(msg)
-        else:
-          self.standalone_validator_no_format(msg)
-        result = True
-      except Exception as e:
-        print(f"Message failed validation: {e}")
-
-    return result
+    return self.validateMessage(None, msg, check_format=check_format)

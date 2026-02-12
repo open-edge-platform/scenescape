@@ -87,7 +87,7 @@ class Scene(SceneModel):
       if schema_path.exists():
         try:
           log.info(f"Loading scene-data schema from: {schema_path}")
-          self.schema_validator = SchemaValidation(str(schema_path))
+          self.schema_validator = SchemaValidation(str(schema_path), is_multi_message=False)
           log.info(f"Scene-data schema validator initialized for scene: {name}")
         except Exception as e:
           log.error(f"Failed to initialize schema validator from {schema_path}: {e}")
