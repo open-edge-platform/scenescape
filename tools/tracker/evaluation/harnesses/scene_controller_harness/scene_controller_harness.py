@@ -15,6 +15,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from base.tracker_harness import TrackerHarness
+from utils.format_converters import write_jsonl
 
 
 class SceneControllerHarness(TrackerHarness):
@@ -183,9 +184,7 @@ class SceneControllerHarness(TrackerHarness):
       inputs: Iterator of input detection frames
     """
     output_file = self._temp_dir / "inputs.json"
-    with open(output_file, 'w') as f:
-      for inp in inputs:
-        f.write(json.dumps(inp) + '\n')
+    write_jsonl(inputs, str(output_file))
 
   def _copy_tracking_script(self) -> None:
     """Copy tracking script to temporary directory."""
