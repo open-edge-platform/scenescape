@@ -41,8 +41,11 @@ jobs:
 
       - name: "Detect changed languages"
         id: detect-langs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
             echo "Manual dispatch: always run analysis."
             echo "run-analysis=true" >> $GITHUB_OUTPUT
             exit 0
@@ -54,7 +57,7 @@ jobs:
           fi
 
           # For push events to main, compare commit to its parent
-          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+          if [ "$EVENT_NAME" == "push" ] && [ "$REF_NAME" == "refs/heads/main" ]; then
             echo "Push to main: comparing $GITHUB_SHA to its parent"
             changed_files=$(git diff --name-only $GITHUB_SHA^..$GITHUB_SHA -- '*.h' '*.hpp' '*.c' '*.cpp')
           else
