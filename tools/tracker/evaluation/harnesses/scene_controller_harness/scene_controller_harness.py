@@ -129,7 +129,7 @@ class SceneControllerHarness(TrackerHarness):
     """
     # Validate configuration
     if self._scene_config is None:
-      raise RuntimeError("Scene config not set. Call set_custom_config() first.")
+      raise RuntimeError("Scene config not set. Call set_scene_config() first.")
     if self._tracker_config_path is None:
       raise RuntimeError("Tracker config not set. Call set_custom_config() first.")
 

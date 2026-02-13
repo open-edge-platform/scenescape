@@ -7,6 +7,7 @@ from typing import List, Dict, Any, Optional, Iterator
 from pathlib import Path
 import sys
 import orjson
+from contextlib import ExitStack
 
 # Add parent directories to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -217,19 +218,19 @@ class MetricTestDataset(TrackingDataset):
 
     # Multi-camera: sort frames by timestamp
     # Open all camera files and initialize buffers
-    file_handles = []
-    frame_buffer = []
+    with ExitStack() as stack:
+      file_handles = []
+      frame_buffer = []
 
-    for cam_id in cameras_to_process:
-      input_file = self._get_input_filename(cam_id)
+      for cam_id in cameras_to_process:
+        input_file = self._get_input_filename(cam_id)
 
-      f = open(input_file, 'rb', buffering=1024 * 1024)
-      file_handles.append(f)
+        f = stack.enter_context(open(input_file, 'rb', buffering=1024 * 1024))
+        file_handles.append(f)
 
-      # Read first frame within range
-      frame_buffer.append(self._read_next_frame_within_range(f))
+        # Read first frame within range
+        frame_buffer.append(self._read_next_frame_within_range(f))
 
-    try:
       # Yield frames in timestamp order
       while any(frame is not None for frame in frame_buffer):
         # Find frame with minimum timestamp (alphabetical comparison works for ISO 8601)
@@ -243,11 +244,6 @@ class MetricTestDataset(TrackingDataset):
         frame_buffer[min_idx] = self._read_next_frame_within_range(
           file_handles[min_idx]
         )
-
-    finally:
-      # Clean up file handles
-      for f in file_handles:
-        f.close()
 
   def get_ground_truth(self) -> str:
     """Get ground truth in evaluator input format.

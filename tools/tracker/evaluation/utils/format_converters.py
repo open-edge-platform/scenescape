@@ -12,7 +12,7 @@ This module provides utilities for converting between JSON and CSV formats using
 from typing import Any, Dict, Iterable, List, Union
 import json
 import orjson
-from jsonpointer import JsonPointer
+from jsonpointer import JsonPointer, JsonPointerException
 import dask.dataframe as dd
 import pandas as pd
 from pathlib import Path
@@ -98,10 +98,13 @@ def convert_json_to_json(
 
       # Set value in output using custom nested setter
       _set_nested_value(output, output_pointer, value)
-    except Exception as e:
+    except (JsonPointerException, KeyError) as e:
       raise ValueError(
         f"Error mapping {input_pointer} -> {output_pointer}: {e}"
-      )
+      ) from e
+    except Exception:
+      # Bubble up unexpected errors with original traceback
+      raise
 
   # Write output if path provided
   if output_path:
@@ -318,7 +321,6 @@ def convert_canonical_to_motchallenge_csv(
     >>> mapping = convert_canonical_to_motchallenge_csv(outputs, "track.csv", 30.0)
   """
   from datetime import datetime
-  import configparser
 
   # Convert to list if needed
   if not isinstance(tracker_outputs, list):

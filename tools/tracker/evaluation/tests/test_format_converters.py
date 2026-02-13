@@ -3,7 +3,6 @@
 
 """Tests for format conversion utilities."""
 
-import pytest
 import sys
 import tempfile
 from pathlib import Path

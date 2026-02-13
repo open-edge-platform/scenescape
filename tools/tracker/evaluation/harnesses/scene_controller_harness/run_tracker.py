@@ -19,7 +19,6 @@ from scene_common.scenescape import SceneLoader
 from scene_common.camera import Camera
 from scene_common.geometry import Region, Tripwire
 
-CAMERA_OVERLAP_RATIO = 2
 TRACKER_PROCESSING_INTERVAL = 0.025  # 25 ms
 
 
@@ -174,12 +173,17 @@ def track():
 def main():
   """Main entry point."""
   print("Starting tracking script...")
-  pred_data = track()
+  try:
+    pred_data = track()
 
-  # Write output
-  with open("output.json", "w") as f:
-    json.dump(pred_data, f, indent=2)
-  print(f"Wrote {len(pred_data)} outputs to output.json")
+    # Write output
+    with open("output.json", "w") as f:
+      json.dump(pred_data, f, indent=2)
+    print(f"Wrote {len(pred_data)} outputs to output.json")
+    return 0
+  except Exception as exc:
+    print(f"Tracking run failed: {exc}")
+    return 1
 
 
 if __name__ == "__main__":
