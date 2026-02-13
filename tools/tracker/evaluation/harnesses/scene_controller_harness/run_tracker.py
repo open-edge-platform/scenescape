@@ -14,6 +14,7 @@ import time
 
 from controller.detections_builder import buildDetectionsList
 from controller.scene import Scene
+from controller.controller_mode import ControllerMode
 from scene_common.scenescape import SceneLoader
 from scene_common.camera import Camera
 from scene_common.geometry import Region, Tripwire
@@ -70,6 +71,7 @@ def track():
   # Load scene configuration
   loader = SceneLoader("config.json")
   scene_config = loader.config
+  ControllerMode.initialize(analytics_only=False)
 
   if time_chunking_enabled:
     ref_camera_fps = time_chunking_rate_fps
