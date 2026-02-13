@@ -25,6 +25,7 @@ Evaluators handle metric-library-specific details (TrackEval, py-motmetrics, etc
 **Status**: **FULLY IMPLEMENTED** - Computes real metrics from tracker outputs using TrackEval library with custom MotChallenge3DPoint dataset class.
 
 **Supported Metrics**:
+
 - **HOTA metrics**: HOTA, DetA, AssA, LocA, DetPr, DetRe, AssPr, AssRe
 - **CLEAR MOT metrics**: MOTA, MOTP, MT, ML, Frag
 - **Identity metrics**: IDF1, IDP, IDR
@@ -32,6 +33,7 @@ Evaluators handle metric-library-specific details (TrackEval, py-motmetrics, etc
 For full metric list, refer to the TrackEval documentation: https://pypi.org/project/trackeval/.
 
 **Key Features**:
+
 - **3D Point Tracking**: Custom `MotChallenge3DPoint` class extends TrackEval's `MotChallenge2DBox` with:
   - Euclidean distance similarity (instead of IoU)
   - 3D position extraction (x, y, z from translation field)
@@ -41,6 +43,7 @@ For full metric list, refer to the TrackEval documentation: https://pypi.org/pro
 - **Timestamp Handling**: Frame synchronization via FPS-based timestamp-to-frame conversion
 
 **Usage Example**:
+
 ```python
 import sys
 from pathlib import Path
@@ -83,6 +86,7 @@ print(f"IDF1: {metrics['IDF1']:.3f}")
 ```
 
 **Current Limitations**:
+
 - Fixed class name ("pedestrian") for all objects
 - Single-sequence evaluation only
 - No parallel processing support
@@ -101,13 +105,16 @@ To add support for a new metric computation library:
 3. **Handle formats**: Convert canonical tracker outputs and ground-truth to library-specific formats
 4. **Support configuration**:
    - `configure_metrics()` - specify which metrics to compute
-  - `set_output_folder()` - where to save results and plots
+
+- `set_output_folder()` - where to save results and plots
+
 5. **Document requirements**: Update this README with supported metrics and configuration options
 6. **Create tests**: Add tests validating metric computation and result export
 
 ### Implementation Patterns
 
 **Metric computation workflow**:
+
 1. Configure metrics via `configure_metrics(['HOTA', 'MOTA', ...])`
 2. Set result output folder via `set_output_folder(Path('/results'))`
 3. Process data via `process_tracker_outputs(tracker_outputs, ground_truth)`
@@ -116,6 +123,7 @@ To add support for a new metric computation library:
 
 **Method chaining**:
 All configuration methods return `self` for fluent API:
+
 ```python
 metrics = (evaluator
            .configure_metrics(['HOTA', 'MOTA'])
@@ -126,6 +134,7 @@ metrics = (evaluator
 
 **Ground-truth format**:
 Evaluators receive ground-truth in **MOTChallenge 3D CSV format**: See [Canonical Data Formats](../README.md#canonical-data-formats)
+
 - Provided by dataset's `get_ground_truth()` method
 
 ## Design Documentation

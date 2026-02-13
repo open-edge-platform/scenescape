@@ -24,16 +24,19 @@ Harnesses handle tracker-specific deployment details (containers, processes, API
 **Mode**: **Synchronous batch processing** - processes all inputs and returns outputs.
 
 **Key Features**:
+
 - Runs tracker in isolated Docker container
 - Accepts raw scene configuration format (not canonical)
 - Supports all scene controller tracker configurations
 
 **Prerequisites**:
+
 - Docker installed and running
 - Scene controller image available (e.g., `scenescape-controller:2026.0.0-dev`)
 - Tracker configuration file
 
 **Configuration**:
+
 ```python
 import sys
 from pathlib import Path
@@ -66,6 +69,7 @@ for output in outputs:
 ```
 
 **Important Notes**:
+
 - Constructor requires scene controller Docker image
 - `set_scene_config()` accepts scene configuration in dataset-specific format (from `dataset.get_scene_config()`)
 - `set_custom_config()` only requires `tracker_config_path` - path to tracker configuration JSON file
@@ -75,21 +79,24 @@ for output in outputs:
 **Implementation**: [scene_controller_harness/](scene_controller_harness/)
 
 **Files**:
+
 - **scene_controller_harness.py**: Main harness implementation
 - **run_tracker.py**: Script executed inside the container to run the tracker
-- **__init__.py**: Module initialization
+- ****init**.py**: Module initialization
 
 **SceneScape API Usage**:
 
 The `run_tracker.py` script executes inside the container and calls the following SceneScape modules:
 
-*From `scene_common`:*
+_From `scene_common`:_
+
 - `scene_common.scenescape.SceneLoader`: Load scene configuration from JSON
 - `scene_common.camera.Camera`: Create camera objects with intrinsics and extrinsics
 - `scene_common.geometry.Region`: Create region objects for spatial zones
 - `scene_common.geometry.Tripwire`: Create tripwire objects for crossing detection
 
-*From `controller`:*
+_From `controller`:_
+
 - `controller.scene.Scene`: Core scene and tracker management
   - `Scene.__init__()`: Initialize scene with tracker configuration parameters
   - `scene.processCameraData()`: Feed detection data to tracker
@@ -100,6 +107,7 @@ The `run_tracker.py` script executes inside the container and calls the followin
 - `controller.detections_builder.buildDetectionsList`: Format tracked objects into detection lists
 
 The tracker runs with configurable timing modes:
+
 - **Time chunking enabled**: Processes detections at configured FPS rate with synchronized output
 - **Time chunking disabled**: Processes detections with fixed 25ms intervals to speed up execution
 
@@ -116,6 +124,7 @@ To add support for a new tracker deployment method:
 ### Implementation Patterns
 
 **Synchronous batch processing** (required):
+
 - Method: `process_inputs(inputs) -> Iterator[outputs]`
 - Consume all inputs and execute tracker on complete input set
 - Return all outputs as iterator

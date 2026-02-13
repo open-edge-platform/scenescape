@@ -26,10 +26,12 @@ These components communicate using canonical data formats defined by JSON schema
 ### Prerequisites
 
 **System requirements**:
+
 - Docker installed and running on the host machine
 - SceneScape scene controller container image available locally (e.g., `scenescape-controller:2026.0.0-dev`)
 
 To verify Docker is available:
+
 ```bash
 docker --version
 docker images | grep scenescape-controller
@@ -51,7 +53,7 @@ Create a YAML configuration file (see `pipeline_configs/` directory):
 ```yaml
 pipeline:
   output:
-    path: /tmp/tracker-evaluation  # Base output directory
+    path: /tmp/tracker-evaluation # Base output directory
 
 dataset:
   class: datasets.metric_test_dataset.MetricTestDataset
@@ -79,6 +81,7 @@ python -m pipeline_engine config.yaml
 ```
 
 **Output Structure**: Each pipeline run creates a unique timestamped directory:
+
 ```
 <pipeline.output.path>/
   └── <run-ID>/                        # Format: YYYYMMDD_HHMMSS
@@ -148,18 +151,19 @@ The pipeline uses standardized data formats defined by JSON schemas to enable in
 
 **Format**: MOTChallenge 3D CSV with 8 columns:
 
-| Column | Name       | Description                    | Type  |
-|--------|------------|--------------------------------|-------|
-| 1      | frame      | Frame number (1-indexed)       | int   |
-| 2      | id         | Object/track ID                | int   |
-| 3      | x          | 3D position X coordinate       | float |
-| 4      | y          | 3D position Y coordinate       | float |
-| 5      | z          | 3D position Z coordinate       | float |
-| 6      | conf       | Confidence/detection score     | float |
-| 7      | class      | Object class (1 for person)    | int   |
-| 8      | visibility | Visibility flag (1 = visible)  | int   |
+| Column | Name       | Description                   | Type  |
+| ------ | ---------- | ----------------------------- | ----- |
+| 1      | frame      | Frame number (1-indexed)      | int   |
+| 2      | id         | Object/track ID               | int   |
+| 3      | x          | 3D position X coordinate      | float |
+| 4      | y          | 3D position Y coordinate      | float |
+| 5      | z          | 3D position Z coordinate      | float |
+| 6      | conf       | Confidence/detection score    | float |
+| 7      | class      | Object class (1 for person)   | int   |
+| 8      | visibility | Visibility flag (1 = visible) | int   |
 
 **Example**:
+
 ```csv
 1,1,5.2,3.1,0.0,1.0,1,1
 1,2,7.8,4.5,0.0,1.0,1,1
@@ -167,6 +171,7 @@ The pipeline uses standardized data formats defined by JSON schemas to enable in
 ```
 
 **Notes**:
+
 - Frame numbers are 1-indexed (not 0-indexed)
 - Default class value is 1 (person) per TrackEval convention
 - Visibility 1 indicates fully visible object
@@ -198,6 +203,7 @@ The evaluation pipeline has comprehensive test coverage:
 ### Running Tests
 
 **Simple test runner** (recommended):
+
 ```bash
 cd tools/tracker/evaluation
 
@@ -214,22 +220,26 @@ cd tools/tracker/evaluation
 **Using pytest directly**:
 
 **Run all tests** (including integration tests):
+
 ```bash
 cd tools/tracker/evaluation
 pytest . -v
 ```
 
 **Run only unit tests** (fast, no Docker required):
+
 ```bash
 pytest . -v -m "not integration"
 ```
 
 **Run only integration tests** (requires Docker):
+
 ```bash
 pytest . -v -m integration
 ```
 
 **Run tests from a specific directory**:
+
 ```bash
 pytest tests/ -v                     # Integration tests
 pytest datasets/tests/ -v            # Dataset unit tests
@@ -238,11 +248,13 @@ pytest evaluators/tests/ -v           # Evaluators unit tests
 ```
 
 **Run tests from a specific file**:
+
 ```bash
 pytest harnesses/tests/test_scene_controller_harness.py -v
 ```
 
 **Run a specific test**:
+
 ```bash
 pytest harnesses/tests/test_scene_controller_harness.py::TestSceneControllerHarness::test_initialization -v
 ```
@@ -250,10 +262,12 @@ pytest harnesses/tests/test_scene_controller_harness.py::TestSceneControllerHarn
 ### Prerequisites for Integration Tests
 
 Integration tests require:
+
 - Docker installed and running
 - SceneScape controller container image available (e.g., `scenescape-controller:latest`)
 
 Verify Docker setup:
+
 ```bash
 docker --version
 docker images | grep scenescape-controller
