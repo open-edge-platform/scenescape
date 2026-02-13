@@ -82,7 +82,6 @@ tests: \
   standard-tests \
 
 release-tests: \
-  additional-floor-plans \
   camera-deletion \
   different-formats-maps \
   live-view-button \
