@@ -138,7 +138,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: "Run Bandit scan on tracker Python code"
+      - name: "Run Bandit scan on Tracker Python code (CHANGED)"
         if: github.event_name == 'pull_request'
         uses: open-edge-platform/orch-ci/.github/actions/security/bandit@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
         with:
@@ -148,7 +148,7 @@ jobs:
           config_file: ".github/resources/bandit.config"
           fail-on-findings: "true"
 
-      - name: "Run Bandit scan on tracker Python code"
+      - name: "Run Bandit scan on Tracker Python code (ALL)"
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
         uses: open-edge-platform/orch-ci/.github/actions/security/bandit@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
         with:
