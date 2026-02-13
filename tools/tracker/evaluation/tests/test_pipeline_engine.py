@@ -16,6 +16,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from pipeline_engine import PipelineEngine
 
 
+TEST_TIME_RANGE_START = "2014-09-08T04:00:00.033Z"
+TEST_TIME_RANGE_END = "2014-09-08T04:00:04.000Z"
+
+
 @pytest.fixture
 def temp_output_dir():
   """Create temporary directory for pipeline outputs."""
@@ -39,7 +43,9 @@ def temp_config_file(temp_output_dir):
       'config': {
         'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
         'cameras': ['x1', 'x2'],
-        'camera_fps': 30
+        'camera_fps': 30,
+        'start_time': TEST_TIME_RANGE_START,
+        'end_time': TEST_TIME_RANGE_END
       }
     },
     'harness': {

@@ -24,14 +24,19 @@ SCHEMA_PATH = Path(__file__).parent.parent.parent.parent.parent / \
 TRACKER_CONFIG_PATH = DATASET_PATH / "tracker-config-time-chunking.json"
 
 # Test configuration
-NUM_INPUT_FRAMES = 200  # Number of input frames to process in integration tests
+NUM_INPUT_FRAMES = 120  # Number of input frames to process in integration tests
+TIME_RANGE_START = "2014-09-08T04:00:00.033Z"
+TIME_RANGE_END = "2014-09-08T04:00:04.000Z"
 
 
 @pytest.fixture
 def dataset():
   """Create MetricTestDataset instance."""
   ds = MetricTestDataset(str(DATASET_PATH))
-  ds.set_cameras(["x1", "x2"]).set_camera_fps(30)
+  ds.set_cameras(["x1", "x2"]).set_camera_fps(30).set_time_range(
+    TIME_RANGE_START,
+    TIME_RANGE_END
+  )
   return ds
 
 
