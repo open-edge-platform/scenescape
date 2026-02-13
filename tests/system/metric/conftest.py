@@ -37,21 +37,21 @@ def params(request):
   @returns params                    Dict of parameters
   """
   dir = os.path.dirname(os.path.abspath(__file__))
-  input_cam_1 = os.path.join(dir, "test_data/Cam_x1_0.json")
-  input_cam_2 = os.path.join(dir, "test_data/Cam_x2_0.json")
+  input_cam_1 = os.path.join(dir, "dataset/Cam_x1_0.json")
+  input_cam_2 = os.path.join(dir, "dataset/Cam_x2_0.json")
   params = {}
   params["metric"] = request.config.getoption("--metric")
   params["threshold"] = request.config.getoption("--threshold")
   params["camera_frame_rate"] = request.config.getoption("--camera_frame_rate")
   params["default_camera_frame_rate"] = 30
   params["input"] = [input_cam_1, input_cam_2]
-  params["config"] = os.path.join(dir, "test_data/config.json")
-  params["ground_truth"] = os.path.join(dir, "test_data/gtLoc.json")
+  params["config"] = os.path.join(dir, "dataset/config.json")
+  params["ground_truth"] = os.path.join(dir, "dataset/gtLoc.json")
   params["rootca"] = "/run/secrets/certs/scenescape-ca.pem"
   params["auth"] = "/run/secrets/controller.auth"
   params["mqtt_broker"] = "broker.scenescape.intel.com"
   params["mqtt_port"] = 1883
-  params["trackerconfig"] = os.path.join(dir, "test_data", request.param)
+  params["trackerconfig"] = os.path.join(dir, "dataset", request.param)
 
   if "time-chunking" in request.param:
     params["trackerconfig_name"] = "time-chunking"
