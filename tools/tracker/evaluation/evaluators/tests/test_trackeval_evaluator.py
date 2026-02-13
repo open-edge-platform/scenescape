@@ -80,7 +80,7 @@ class TestInitialization:
     """Test basic initialization."""
     evaluator = TrackEvalEvaluator()
     assert evaluator._metrics == []
-    assert evaluator._result_folder is None
+    assert evaluator._output_folder is None
     assert evaluator._processed is False
 
 
@@ -106,28 +106,28 @@ class TestConfiguration:
     assert result is evaluator
     assert evaluator._metrics == []
 
-  def test_set_result_folder_path(self, evaluator, temp_result_folder):
-    """Test setting result folder with Path object."""
-    result = evaluator.set_result_folder(temp_result_folder)
+  def test_set_output_folder_path(self, evaluator, temp_result_folder):
+    """Test setting output folder with Path object."""
+    result = evaluator.set_output_folder(temp_result_folder)
 
     assert result is evaluator  # Method chaining
-    assert evaluator._result_folder == temp_result_folder
+    assert evaluator._output_folder == temp_result_folder
     assert temp_result_folder.exists()
 
-  def test_set_result_folder_string(self, evaluator, temp_result_folder):
-    """Test setting result folder with string path."""
-    result = evaluator.set_result_folder(str(temp_result_folder))
+  def test_set_output_folder_string(self, evaluator, temp_result_folder):
+    """Test setting output folder with string path."""
+    result = evaluator.set_output_folder(str(temp_result_folder))
 
     assert result is evaluator
-    assert evaluator._result_folder == temp_result_folder
+    assert evaluator._output_folder == temp_result_folder
     assert temp_result_folder.exists()
 
-  def test_set_result_folder_creates_directory(self, evaluator, temp_result_folder):
-    """Test that set_result_folder creates directory if it doesn't exist."""
+  def test_set_output_folder_creates_directory(self, evaluator, temp_result_folder):
+    """Test that set_output_folder creates directory if it doesn't exist."""
     new_folder = temp_result_folder / "new_subfolder"
     assert not new_folder.exists()
 
-    evaluator.set_result_folder(new_folder)
+    evaluator.set_output_folder(new_folder)
 
     assert new_folder.exists()
 
@@ -211,7 +211,7 @@ class TestReset:
     """Test reset method."""
     # Configure and process
     evaluator.configure_metrics(['HOTA', 'MOTA'])
-    evaluator.set_result_folder(temp_result_folder)
+    evaluator.set_output_folder(temp_result_folder)
     evaluator.process_tracker_outputs(iter(mock_tracker_outputs), mock_ground_truth_file)
 
     # Reset
@@ -219,7 +219,7 @@ class TestReset:
 
     assert result is evaluator  # Method chaining
     assert evaluator._metrics == []
-    assert evaluator._result_folder is None
+    assert evaluator._output_folder is None
     assert evaluator._processed is False
     assert evaluator._temp_dir is None
 
@@ -231,7 +231,7 @@ class TestMethodChaining:
     """Test that all configuration methods support chaining."""
     result = (evaluator
               .configure_metrics(['HOTA', 'MOTA'])
-              .set_result_folder(temp_result_folder)
+              .set_output_folder(temp_result_folder)
               .process_tracker_outputs(iter(mock_tracker_outputs), mock_ground_truth_file))
 
     assert result is evaluator
@@ -244,7 +244,7 @@ class TestIntegration:
     """Test complete evaluation workflow."""
     # Configure
     evaluator.configure_metrics(['HOTA', 'MOTA', 'IDF1'])
-    evaluator.set_result_folder(temp_result_folder)
+    evaluator.set_output_folder(temp_result_folder)
 
     # Process
     evaluator.process_tracker_outputs(iter(mock_tracker_outputs), mock_ground_truth_file)

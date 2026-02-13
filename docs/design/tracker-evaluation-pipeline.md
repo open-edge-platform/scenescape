@@ -158,6 +158,12 @@ Implementation of the component class must implement the following abstract meth
   - Returns: self for method chaining
   - Raises: ValueError if invalid, RuntimeError on other errors
 
+- **set_output_folder**(path: Path) -> TrackingDataset
+  - Set folder where dataset-specific outputs or cached artifacts should be stored
+  - Args: path to output folder (created if it does not exist)
+  - Returns: self for method chaining
+  - Raises: ValueError if path invalid, RuntimeError on other errors
+
 - **get_scene_config**() -> Dict[str, Any]
   - Get scene and camera configuration in dataset-specific format
   - Returns: scene configuration dictionary (dataset-specific format)
@@ -200,6 +206,12 @@ Implementation of the component class must implement the following abstract meth
   - Returns: self for method chaining
   - Raises: ValueError if invalid, RuntimeError on other errors
 
+- **set_output_folder**(path: Path) -> TrackerHarness
+  - Set folder where harness-generated outputs or logs should be stored
+  - Args: path to output folder (created if it does not exist)
+  - Returns: self for method chaining
+  - Raises: ValueError if path invalid, RuntimeError on other errors
+
 - **process_inputs**(inputs: Iterator[Dict[str, Any]]) -> Iterator[Dict[str, Any]]
   - Process input detections through the tracker synchronously (default mode)
   - Args: iterator of detection dictionaries in canonical Input Detection Format
@@ -225,7 +237,7 @@ Implementation of the component class must implement the following abstract meth
   - Returns: self for method chaining
   - Raises: ValueError if metric not supported, RuntimeError on other errors
 
-- **set_result_folder**(path: Path) -> TrackerEvaluator
+- **set_output_folder**(path: Path) -> TrackerEvaluator
   - Set folder where evaluation results should be stored
   - Args: path to results folder (will be created if doesn't exist)
   - Returns: self for method chaining

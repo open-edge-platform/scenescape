@@ -79,12 +79,14 @@ python -m pipeline_engine config.yaml
 **Output Structure**: Each pipeline run creates a unique timestamped directory:
 ```
 <pipeline.output.path>/
-  └── <run-ID>/                    # Format: YYYYMMDD_HHMMSS
-      └── <evaluator-class-name>/
-          └── results/              # Evaluation results and metrics
+  └── <run-ID>/                        # Format: YYYYMMDD_HHMMSS
+      ├── dataset/                     # Dataset-specific caches or exports
+      ├── harness/                     # Harness logs or artifacts
+      └── evaluators/
+          └── <evaluator-class-name>/  # Evaluated metrics
 ```
 
-Example: `/tmp/tracker-evaluation/20260211_142530/TrackEvalEvaluator/results/`
+Example: `/tmp/tracker-evaluation/20260211_142530/evaluators/TrackEvalEvaluator/`
 
 ## Directory Structure
 

@@ -40,8 +40,8 @@ class TrackerEvaluator(ABC):
     pass
 
   @abstractmethod
-  def set_result_folder(self, path: Path) -> 'TrackerEvaluator':
-    """Set folder where evaluation results should be stored.
+  def set_output_folder(self, path: Path) -> 'TrackerEvaluator':
+    """Set folder where evaluation outputs should be stored.
 
     Args:
       path: Path to results folder. Will be created if it doesn't exist.

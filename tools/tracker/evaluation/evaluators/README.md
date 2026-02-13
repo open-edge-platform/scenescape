@@ -67,7 +67,7 @@ evaluator = TrackEvalEvaluator()
 
 # Configure metrics
 evaluator.configure_metrics(['HOTA', 'MOTA', 'IDF1'])
-evaluator.set_result_folder(Path('/path/to/results'))
+evaluator.set_output_folder(Path('/path/to/results'))
 
 # Process and evaluate
 evaluator.process_tracker_outputs(
@@ -101,7 +101,7 @@ To add support for a new metric computation library:
 3. **Handle formats**: Convert canonical tracker outputs and ground-truth to library-specific formats
 4. **Support configuration**:
    - `configure_metrics()` - specify which metrics to compute
-   - `set_result_folder()` - where to save results and plots
+  - `set_output_folder()` - where to save results and plots
 5. **Document requirements**: Update this README with supported metrics and configuration options
 6. **Create tests**: Add tests validating metric computation and result export
 
@@ -109,7 +109,7 @@ To add support for a new metric computation library:
 
 **Metric computation workflow**:
 1. Configure metrics via `configure_metrics(['HOTA', 'MOTA', ...])`
-2. Set result output folder via `set_result_folder(Path('/results'))`
+2. Set result output folder via `set_output_folder(Path('/results'))`
 3. Process data via `process_tracker_outputs(tracker_outputs, ground_truth)`
 4. Compute metrics via `evaluate_metrics()` → returns `Dict[str, float]`
 5. Reset state via `reset()` to evaluate another tracker
@@ -119,7 +119,7 @@ All configuration methods return `self` for fluent API:
 ```python
 metrics = (evaluator
            .configure_metrics(['HOTA', 'MOTA'])
-           .set_result_folder(Path('/results'))
+           .set_output_folder(Path('/results'))
            .process_tracker_outputs(outputs, gt)
            .evaluate_metrics())
 ```

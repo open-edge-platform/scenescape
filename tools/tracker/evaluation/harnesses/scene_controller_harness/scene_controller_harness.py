@@ -46,6 +46,7 @@ class SceneControllerHarness(TrackerHarness):
     self._scene_config: Optional[Dict[str, Any]] = None
     self._tracker_config_path: Optional[str] = None
     self._temp_dir: Optional[Path] = None
+    self._output_folder: Optional[Path] = None
 
   def set_scene_config(self, config: Dict[str, Any]) -> 'SceneControllerHarness':
     """Set scene and camera configuration in dataset-specific format.
@@ -92,6 +93,22 @@ class SceneControllerHarness(TrackerHarness):
     if not Path(self._tracker_config_path).exists():
       raise ValueError(f"Tracker config file not found: {self._tracker_config_path}")
 
+    return self
+
+  def set_output_folder(self, path: Path) -> 'SceneControllerHarness':
+    """Set harness output folder for optional artifacts.
+
+    Args:
+      path: Destination directory for harness outputs.
+
+    Returns:
+      Self for method chaining.
+    """
+    if not isinstance(path, Path):
+      path = Path(path)
+
+    path.mkdir(parents=True, exist_ok=True)
+    self._output_folder = path
     return self
 
   def process_inputs(self, inputs: Iterator[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
@@ -171,6 +188,8 @@ class SceneControllerHarness(TrackerHarness):
     if self._temp_dir and self._temp_dir.exists():
       shutil.rmtree(self._temp_dir)
       self._temp_dir = None
+
+    self._output_folder = None
 
     return self
 

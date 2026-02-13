@@ -5,6 +5,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Iterator, Dict, Any
+from pathlib import Path
 
 
 class TrackerHarness(ABC):
@@ -49,6 +50,22 @@ class TrackerHarness(ABC):
 
     Raises:
       ValueError: If configuration is invalid.
+      RuntimeError: On other errors.
+    """
+    pass
+
+  @abstractmethod
+  def set_output_folder(self, path: Path) -> 'TrackerHarness':
+    """Set folder where harness-specific outputs should be stored.
+
+    Args:
+      path: Path to output folder. Will be created if it doesn't exist.
+
+    Returns:
+      Self for method chaining.
+
+    Raises:
+      ValueError: If path is invalid.
       RuntimeError: On other errors.
     """
     pass

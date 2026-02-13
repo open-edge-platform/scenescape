@@ -309,6 +309,10 @@ class PipelineEngine:
     """Configure dataset component."""
     config = self._config['dataset']['config']
 
+    # Ensure dataset gets a dedicated output directory under pipeline output path
+    dataset_output_path = self._output_path / 'dataset'
+    self._dataset.set_output_folder(dataset_output_path)
+
     # Configure cameras if specified
     if 'cameras' in config:
       self._dataset.set_cameras(config['cameras'])
@@ -334,6 +338,10 @@ class PipelineEngine:
   def _configure_harness(self):
     """Configure harness component."""
     config = self._config['harness']['config']
+
+    # Provide harness with output directory for optional artifacts
+    harness_output_path = self._output_path / 'harness'
+    self._harness.set_output_folder(harness_output_path)
 
     # Set tracker config path (required for SceneControllerHarness)
     custom_config = {}
@@ -382,9 +390,8 @@ class PipelineEngine:
       self._evaluator.configure_metrics(config['metrics'])
 
     # Set result folder to run-specific path
-    evaluator_output_path = self._output_path / evaluator_class_name / 'results'
-    self._evaluator.set_result_folder(evaluator_output_path)
-
+    evaluator_output_path = self._output_path / 'evaluators' / evaluator_class_name
+    self._evaluator.set_output_folder(evaluator_output_path)
 
 def main():
   """Main entry point for running pipeline from command line.

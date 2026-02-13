@@ -5,6 +5,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Iterator, List, Dict, Any, Optional
+from pathlib import Path
 
 
 class TrackingDataset(ABC):
@@ -99,6 +100,22 @@ class TrackingDataset(ABC):
 
     Raises:
       ValueError: If configuration is invalid.
+      RuntimeError: On other errors.
+    """
+    pass
+
+  @abstractmethod
+  def set_output_folder(self, path: Path) -> 'TrackingDataset':
+    """Set folder where dataset-specific outputs should be stored.
+
+    Args:
+      path: Path to output folder. Will be created if it doesn't exist.
+
+    Returns:
+      Self for method chaining.
+
+    Raises:
+      ValueError: If path is invalid.
       RuntimeError: On other errors.
     """
     pass

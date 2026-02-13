@@ -212,7 +212,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
   def __init__(self):
     """Initialize TrackEvalEvaluator."""
     self._metrics: List[str] = []
-    self._result_folder: Path = None
+    self._output_folder: Path = None
     self._processed: bool = False
 
     # Temporary storage for tracker outputs and ground truth
@@ -248,8 +248,8 @@ class TrackEvalEvaluator(TrackerEvaluator):
     self._metrics = metrics
     return self
 
-  def set_result_folder(self, path: Path) -> 'TrackEvalEvaluator':
-    """Set folder where evaluation results should be stored.
+  def set_output_folder(self, path: Path) -> 'TrackEvalEvaluator':
+    """Set folder where evaluation outputs should be stored.
 
     Args:
       path: Path to results folder. Will be created if it doesn't exist.
@@ -266,7 +266,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
     # Create folder if it doesn't exist
     path.mkdir(parents=True, exist_ok=True)
 
-    self._result_folder = path
+    self._output_folder = path
     return self
 
   def process_tracker_outputs(
@@ -413,7 +413,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
       dataset_config = {
         'GT_FOLDER': str(temp_path / "gt"),
         'TRACKERS_FOLDER': str(temp_path / "trackers"),
-        'OUTPUT_FOLDER': str(self._result_folder) if self._result_folder else str(temp_path / "results"),
+        'OUTPUT_FOLDER': str(self._output_folder) if self._output_folder else str(temp_path / "results"),
         'TRACKERS_TO_EVAL': ['tracker_eval'],
         'CLASSES_TO_EVAL': ['pedestrian'],
         'BENCHMARK': 'MOT17',  # Use MOT17 format (generic)
@@ -528,7 +528,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
       Self for method chaining.
     """
     self._metrics = []
-    self._result_folder = None
+    self._output_folder = None
     self._processed = False
 
     # Clean up temporary directory

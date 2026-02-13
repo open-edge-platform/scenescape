@@ -49,6 +49,7 @@ class MetricTestDataset(TrackingDataset):
     self._scene_config: Optional[Dict[str, Any]] = None
     self._time_start: Optional[str] = None
     self._time_end: Optional[str] = None
+    self._output_folder: Optional[Path] = None
 
   def set_scene(self, scene: Optional[str] = None) -> 'MetricTestDataset':
     """Set scene (not supported - only Retail_Demo available).
@@ -152,6 +153,22 @@ class MetricTestDataset(TrackingDataset):
       NotImplementedError: Custom configuration not supported
     """
     raise NotImplementedError("Custom configuration not supported")
+
+  def set_output_folder(self, path: Path) -> 'MetricTestDataset':
+    """Set dataset output folder for optional exports.
+
+    Args:
+      path: Destination directory for dataset artifacts.
+
+    Returns:
+      Self for method chaining
+    """
+    if not isinstance(path, Path):
+      path = Path(path)
+
+    path.mkdir(parents=True, exist_ok=True)
+    self._output_folder = path
+    return self
 
   def get_scene_config(self) -> Dict[str, Any]:
     """Get scene configuration in dataset-specific format.
@@ -305,6 +322,7 @@ class MetricTestDataset(TrackingDataset):
     self._scene_config = None
     self._time_start = None
     self._time_end = None
+    self._output_folder = None
     return self
 
   def _read_next_frame_within_range(self, file_handle) -> Optional[Dict[str, Any]]:
