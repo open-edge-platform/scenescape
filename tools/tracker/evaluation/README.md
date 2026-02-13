@@ -39,6 +39,8 @@ docker images | grep scenescape-controller
 
 ```bash
 cd tools/tracker/evaluation
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 

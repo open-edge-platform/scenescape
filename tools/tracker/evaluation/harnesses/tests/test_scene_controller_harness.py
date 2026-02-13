@@ -86,7 +86,7 @@ class TestConfiguration:
   def test_set_scene_config_valid(self, harness, sample_scene_config):
     """Test setting valid scene configuration."""
     result = harness.set_scene_config(sample_scene_config)
-    
+
     assert result is harness  # Method chaining
     assert harness._scene_config == sample_scene_config
 
@@ -169,4 +169,3 @@ class TestMethodChaining:
       })
 
     assert result is harness
-
