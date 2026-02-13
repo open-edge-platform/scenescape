@@ -118,7 +118,7 @@ jobs:
 
       - name: "Scan for secrets in tracker directory"
         run: |
-          gitleaks dir tracker/ -v -c ci/.gitleaks.toml --baseline-path ci/gitleaks_baselines/gitleaks.json -r gitleaks.json
+          gitleaks dir tracker/ -v -c ci/.gitleaks.toml -r gitleaks.json
 
       - name: "Upload Gitleaks Report"
         if: always()
