@@ -13,9 +13,9 @@ The Tracker Service is a high-performance C++ microservice that aggregates detec
 
 The service uses a multi-threaded pipeline: `MqttClient` receives detections → `TimeChunkBuffer` aggregates by time window → `TrackingManager` runs per-scope tracking workers → `TrackPublisher` emits tracked objects. Time-chunk processing aggregates detections into fixed intervals (default 66.7ms / 15 FPS) before tracking.
 
-**For detailed architecture, see**: [docs/design/tracker-service/](../docs/design/tracker-service/)
+**For detailed architecture, see**: [Design Document](../docs/design/tracker-service.md) | [Implementation Guide](docs/implementation.md)
 
-**Related ADRs**: ADR-0003 (C++ Implementation), ADR-0007 (Time Chunking), ADR-0008 (Horizontal Scaling)
+**Related ADRs**: [ADR-0003](../docs/adr/0003-scaling-controller-performance.md) (C++ Implementation), [ADR-0007](../docs/adr/0007-tracker-service.md) (Time Chunking), [ADR-0008](../docs/adr/0008-tracker-service-horizontal-scaling.md) (Horizontal Scaling)
 
 ## Build System
 
@@ -48,7 +48,7 @@ All configuration and message formats have JSON schemas in `tracker/schema/`:
 | `scene-data.schema.json` | Output track message format      |
 | `log.schema.json`        | Structured logging format        |
 
-**CRITICAL**: All config and message format changes MUST validate against schemas. Schema modifications require updating BOTH the schema file AND design documentation in `docs/design/tracker-service/`.
+**CRITICAL**: All config and message format changes MUST validate against schemas. Schema modifications require updating BOTH the schema file AND design documentation in `docs/`.
 
 ## Environment Variable Overrides
 
@@ -142,8 +142,8 @@ tracker/
 │   ├── time_chunk_*.cpp  # Time-chunk processing
 │   ├── tracking_*.cpp    # Tracking logic
 │   └── healthcheck_*.cpp # HTTP health endpoints
-├── include/              # C++ headers
-└── tests/                # pytest integration tests
+├── inc/                  # C++ headers
+└── test/                 # pytest integration tests
 ```
 
 ## Common Tasks
@@ -153,7 +153,7 @@ tracker/
 1. Create/update schema in `schema/`
 2. Update message handling in `src/mqtt_dispatcher.cpp`
 3. Add unit tests maintaining coverage thresholds
-4. Update design docs in `docs/design/tracker-service/`
+4. Update design docs in `docs/`
 
 ### Performance Analysis
 
@@ -175,9 +175,9 @@ Before submitting changes:
 
 ## Related Documentation
 
-- [Tracker Service Design](../docs/design/tracker-service/design.md)
-- [Implementation Guide](../docs/design/tracker-service/implementation.md)
+- [Tracker Service Design](../docs/design/tracker-service.md) — High-level design document
+- [Implementation Guide](docs/implementation.md)
 - [Controller Agents.md](../controller/Agents.md) — Scene Controller integration
-- [ADR-0003](../docs/adr/0003-tracker-cpp.md) — C++ Implementation Decision
-- [ADR-0007](../docs/adr/0007-time-chunking.md) — Time Chunking Design
-- [ADR-0008](../docs/adr/0008-horizontal-scaling.md) — Horizontal Scaling Strategy
+- [ADR-0003](../docs/adr/0003-scaling-controller-performance.md) — C++ Implementation Decision
+- [ADR-0007](../docs/adr/0007-tracker-service.md) — Tracker Service Design
+- [ADR-0008](../docs/adr/0008-tracker-service-horizontal-scaling.md) — Horizontal Scaling Strategy
