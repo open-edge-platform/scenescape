@@ -38,11 +38,14 @@ SPDX-License-Identifier: Apache-2.0
 ## Datasets
 
 - **MetricTestDataset**: `datasets/metric_test_dataset.py`
-  The only supported dataset is Metric Test Dataset located in folder: `../../../tests/system/metric/dataset/`. It contains:
-  - ground-truth file
-  - tracker configurations
-  - JSONL files with camera detections for 1, 10 and 30 FPS
-  - camera videos (currently unused)
+  - dataset location in the repository: `../../../tests/system/metric/dataset/`
+    It contains:
+    - ground-truth file
+    - scene configuration in non-canonical format (however accepted by SceneControllerHarness implementation)
+    - JSONL files with camera detections for 1, 10 and 30 FPS in canonical format
+    - input camera videos (currently unused)
+
+Check `datasets/README.md` for more details
 
 ## Harnesses
 
@@ -51,9 +54,14 @@ SPDX-License-Identifier: Apache-2.0
   - Dependent on internal implementation: loads configuration file and calls API of SceneScape classes from scene_common and controller modules.
   - Uses separate frame ingestion logic depending on enabling time-chunking in the configuration.
 
+Check `harnesses/README.md` for more details
+
 ## Evaluators
 
 - **TrackEvalEvaluator**: `evaluators/trackeval_evaluator.py`
+  Wraps TrackEval library, provides tracker output format conversion and delivers state of the art tracking metrics.
+
+Check `evaluators/README.md` for more details
 
 ## Code Entry Points
 - **Pipeline orchestration**: [pipeline_engine.py](pipeline_engine.py) (methods `load_configuration()`, `run()`, `evaluate()`, CLI via `python -m pipeline_engine <config>`).
