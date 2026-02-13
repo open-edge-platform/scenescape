@@ -53,7 +53,23 @@ class SceneController:
     self.ntp_client = ntplib.NTPClient()
     self.time_offset = 0
 
-    self.schema_val = SchemaValidation(schema_file)
+    self.schema_val = SchemaValidation(schema_file, is_multi_message=True)
+
+    # Initialize scene-data schema validator for analytics-only mode
+    self.scene_data_schema_validator = None
+    if ControllerMode.isAnalyticsOnly():
+      from pathlib import Path
+      schema_filename = 'scene-data.schema.json'
+      schema_path = Path(os.environ.get('SCENESCAPE_HOME')) / 'tracker' / 'schema' / schema_filename
+      if schema_path.exists():
+        try:
+          log.info(f"Loading scene-data schema from: {schema_path}")
+          self.scene_data_schema_validator = SchemaValidation(str(schema_path), is_multi_message=False)
+          log.info("Scene-data schema validator initialized")
+        except Exception as e:
+          log.error(f"Failed to initialize scene-data schema validator from {schema_path}: {e}")
+      else:
+        log.error(f"Scene-data schema file not found at: {schema_path}")
 
     self.pubsub = PubSub(mqtt_auth, client_cert, root_cert, mqtt_broker, keepalive=60)
     self.pubsub.onConnect = self.onConnect
@@ -473,6 +489,11 @@ class SceneController:
     if scene is None:
       log.warning(f"Scene not found for tracked objects, ignoring scene_id={scene_id}")
       return
+
+    if ControllerMode.isAnalyticsOnly() and self.scene_data_schema_validator is not None:
+      if not self.scene_data_schema_validator.validate(jdata, check_format=True):
+        log.error(f"Scene data validation failed for scene={scene_id}, type={detection_type}")
+        return
 
     tracked_objects = jdata.get('objects', [])
 
