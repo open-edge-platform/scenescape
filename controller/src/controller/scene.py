@@ -8,14 +8,11 @@ from typing import Optional
 import numpy as np
 import robot_vision as rv
 from controller.controller_mode import ControllerMode
-from pathlib import Path
-import os
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
 from scene_common.geometry import Line, Point, Region, Tripwire
 from scene_common.scene_model import SceneModel
-from scene_common.schema import SchemaValidation
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
@@ -78,21 +75,6 @@ class Scene(SceneModel):
 
     # Cache for object history (publishedLocations, etc.) to maintain trails across frames
     self.object_history_cache = {}
-
-    # Initialize schema validator for analytics-only mode
-    self.schema_validator = None
-    if ControllerMode.isAnalyticsOnly():
-      schema_filename = 'scene-data.schema.json'
-      schema_path = Path(os.environ.get('SCENESCAPE_HOME')) / 'tracker' / 'schema' / schema_filename
-      if schema_path.exists():
-        try:
-          log.info(f"Loading scene-data schema from: {schema_path}")
-          self.schema_validator = SchemaValidation(str(schema_path), is_multi_message=False)
-          log.info(f"Scene-data schema validator initialized for scene: {name}")
-        except Exception as e:
-          log.error(f"Failed to initialize schema validator from {schema_path}: {e}")
-      else:
-        log.error(f"Schema file not found at: {schema_path}")
 
     # FIXME - only for backwards compatibility
     self.scale = scale
