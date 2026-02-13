@@ -179,7 +179,7 @@ The pipeline uses standardized data formats defined by JSON schemas to enable in
 
 ## Limitations
 
-- **TrackEval timestamp deduplication**: TrackEval requires unique frame indices while the production tracker can emit multiple frames with identical timestamps when time-chunking is disabled. To bridge this mismatch, [evaluators/trackeval_evaluator.py](evaluators/trackeval_evaluator.py) temporarily filters duplicate timestamps inside `TrackEvalEvaluator.process_tracker_outputs()` and keeps only the first frame per timestamp before metrics are computed. This prevents TrackEval from double-counting frames until tracker-side chunking aligns with TrackEval's expectations.
+- **TrackEval timestamp deduplication**: TrackEval requires unique frame indices while the production tracker can emit multiple frames with identical timestamps when time-chunking is disabled. To bridge this mismatch, [evaluators/trackeval_evaluator.py](evaluators/trackeval_evaluator.py) filters duplicate timestamps inside `TrackEvalEvaluator.process_tracker_outputs()` and keeps only the first frame per timestamp before metrics are computed. This prevents TrackEval from double-counting frames until tracker-side chunking aligns with TrackEval's expectations. The impact on metrics is not significant, since frames with duplicated timestamps in most cases contain almost the same object coordinates.
 
 ## Testing
 
@@ -234,6 +234,7 @@ pytest . -v -m integration
 pytest tests/ -v                     # Integration tests
 pytest datasets/tests/ -v            # Dataset unit tests
 pytest harnesses/tests/ -v           # Harness unit tests
+pytest evaluators/tests/ -v           # Evaluators unit tests
 ```
 
 **Run tests from a specific file**:
@@ -260,8 +261,4 @@ docker images | grep scenescape-controller
 
 ### Expected Test Results
 
-- **Unit tests**: ~50 tests, complete in < 1 second
-- **Integration tests**: ~6 tests, complete in ~1 minute (processes 200 inputs per test)
-
 Some integration tests may be marked as `xfail` (expected to fail) to document known issues or format mismatches that are planned to be fixed in future work.
-
