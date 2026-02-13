@@ -16,7 +16,9 @@ from utils.format_converters import (
   convert_json_to_csv,
   read_csv_to_dataframe,
   read_json,
-  write_json
+  write_json,
+  write_jsonl,
+  stream_jsonl
 )
 
 
@@ -193,3 +195,35 @@ class TestJSONIO:
       loaded = read_json(str(json_path))
 
       assert loaded == data
+
+
+class TestJSONL:
+  """Tests for newline-delimited JSON helpers."""
+
+  def test_write_and_stream_jsonl(self):
+    """Test round-trip for JSONL write and streaming read."""
+    objects = [
+      {"id": 1, "value": "a"},
+      {"id": 2, "value": "b"}
+    ]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+      jsonl_path = Path(tmpdir) / "data.jsonl"
+      write_jsonl(objects, str(jsonl_path))
+
+      streamed = list(stream_jsonl(str(jsonl_path)))
+      assert streamed == objects
+
+  def test_stream_jsonl_generator_consumption(self):
+    """Test streaming JSONL lazily yields items in order."""
+    objects = [{"index": i} for i in range(5)]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+      jsonl_path = Path(tmpdir) / "lazy.jsonl"
+      write_jsonl(objects, str(jsonl_path))
+
+      generator = stream_jsonl(str(jsonl_path))
+      first = next(generator)
+      assert first == objects[0]
+      remaining = list(generator)
+      assert remaining == objects[1:]

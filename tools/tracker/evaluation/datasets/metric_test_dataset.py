@@ -6,14 +6,14 @@
 from typing import List, Dict, Any, Optional, Iterator
 from pathlib import Path
 import sys
-import rapidjson
+import orjson
 import tempfile
 
 # Add parent directories to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from base.tracking_dataset import TrackingDataset
-from utils.format_converters import read_json, convert_json_to_csv
+from utils.format_converters import read_json, convert_json_to_csv, stream_jsonl
 
 
 class MetricTestDataset(TrackingDataset):
@@ -195,19 +195,15 @@ class MetricTestDataset(TrackingDataset):
       if not input_file.exists():
         raise FileNotFoundError(f"Input file not found: {input_file}")
 
-      with open(input_file, 'r') as f:
-        for line in f:
-          if not line.strip():
-            continue
-          data = rapidjson.loads(line.strip())
-          timestamp = data.get('timestamp')
-          if timestamp is None:
-            continue
-          if self._time_end is not None and timestamp > self._time_end:
-            break
-          if self._time_start is not None and timestamp < self._time_start:
-            continue
-          yield data
+      for data in stream_jsonl(str(input_file)):
+        timestamp = data.get('timestamp')
+        if timestamp is None:
+          continue
+        if self._time_end is not None and timestamp > self._time_end:
+          break
+        if self._time_start is not None and timestamp < self._time_start:
+          continue
+        yield data
       return
 
     # Multi-camera: sort frames by timestamp
@@ -225,7 +221,7 @@ class MetricTestDataset(TrackingDataset):
       if not input_file.exists():
         raise FileNotFoundError(f"Input file not found: {input_file}")
 
-      f = open(input_file, 'r')
+      f = open(input_file, 'rb', buffering=1024 * 1024)
       file_handles.append(f)
 
       # Read first frame within range
@@ -265,24 +261,19 @@ class MetricTestDataset(TrackingDataset):
     # Read ground truth (newline-delimited JSON)
     gt_data = []
     frame_num = 1
-    with open(gt_file, 'r') as f:
-      for line in f:
-        if line.strip():
-          entry = rapidjson.loads(line.strip())
-
-          # Extract all objects from all categories
-          if "objects" in entry:
-            for category, objects in entry["objects"].items():
-              for obj in objects:
-                gt_data.append({
-                  "frame": frame_num,
-                  "object_id": obj["id"],
-                  "x": obj["translation"][0],
-                  "y": obj["translation"][1],
-                  "z": obj["translation"][2],
-                  "category": obj.get("category", category)
-                })
-          frame_num += 1
+    for entry in stream_jsonl(str(gt_file)):
+      if "objects" in entry:
+        for category, objects in entry["objects"].items():
+          for obj in objects:
+            gt_data.append({
+              "frame": frame_num,
+              "object_id": obj["id"],
+              "x": obj["translation"][0],
+              "y": obj["translation"][1],
+              "z": obj["translation"][2],
+              "category": obj.get("category", category)
+            })
+      frame_num += 1
 
     # Convert to Ground Truth Format (MOTChallenge 3D CSV)
     # See tools/tracker/evaluation/README.md#canonical-data-formats for format specification
@@ -335,11 +326,11 @@ class MetricTestDataset(TrackingDataset):
       if not line:
         return None
 
-      line = line.strip()
-      if not line:
+      chunk = line.strip()
+      if not chunk:
         continue
 
-      data = rapidjson.loads(line)
+      data = orjson.loads(chunk)
       timestamp = data.get('timestamp')
 
       if timestamp is None:

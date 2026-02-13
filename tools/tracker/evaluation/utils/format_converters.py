@@ -4,13 +4,14 @@
 """Format conversion utilities for tracker evaluation pipeline.
 
 This module provides utilities for converting between JSON and CSV formats using:
-- python-rapidjson for fast JSON serialization/deserialization
+- orjson for fast JSON serialization/deserialization
 - jsonpointer (RFC 6901) for accessing nested JSON data
 - Dask for efficient CSV reading and writing
 """
 
-from typing import Any, Dict, List, Union
-import rapidjson
+from typing import Any, Dict, Iterable, List, Union
+import json
+import orjson
 from jsonpointer import JsonPointer
 import dask.dataframe as dd
 import pandas as pd
@@ -79,11 +80,11 @@ def convert_json_to_json(
   """
   # Load input data
   if isinstance(input_data, str):
-    if Path(input_data).exists():
-      with open(input_data, 'r') as f:
-        data = rapidjson.load(f)
+    path_candidate = Path(input_data)
+    if path_candidate.exists():
+      data = read_json(str(path_candidate))
     else:
-      data = rapidjson.loads(input_data)
+      data = orjson.loads(input_data)
   else:
     data = input_data
 
@@ -104,8 +105,7 @@ def convert_json_to_json(
 
   # Write output if path provided
   if output_path:
-    with open(output_path, 'w') as f:
-      rapidjson.dump(output, f, indent=2)
+    write_json(output, output_path, indent=2)
 
   return output
 
@@ -151,11 +151,11 @@ def convert_json_to_csv(
   """
   # Load input data
   if isinstance(input_data, str):
-    if Path(input_data).exists():
-      with open(input_data, 'r') as f:
-        data = rapidjson.load(f)
+    path_candidate = Path(input_data)
+    if path_candidate.exists():
+      data = read_json(str(path_candidate))
     else:
-      data = rapidjson.loads(input_data)
+      data = orjson.loads(input_data)
   else:
     data = input_data
 
@@ -233,28 +233,49 @@ def read_csv_to_dataframe(
 
 
 def read_json(file_path: str) -> Any:
-  """Read JSON file using rapidjson.
-
-  Args:
-    file_path: Path to JSON file
-
-  Returns:
-    Parsed JSON data
-  """
-  with open(file_path, 'r') as f:
-    return rapidjson.load(f)
+  """Read JSON file using orjson."""
+  with open(file_path, 'rb') as f:
+    return orjson.loads(f.read())
 
 
 def write_json(data: Any, file_path: str, indent: int = 2) -> None:
-  """Write data to JSON file using rapidjson.
+  """Write data to JSON file using orjson."""
+  serialized: bytes
+  if indent in (None, 0):
+    serialized = orjson.dumps(data)
+  elif indent == 2:
+    serialized = orjson.dumps(data, option=orjson.OPT_INDENT_2)
+  else:
+    serialized = json.dumps(data, indent=indent).encode('utf-8')
 
-  Args:
-    data: Data to serialize
-    file_path: Output file path
-    indent: Indentation level (default: 2)
-  """
-  with open(file_path, 'w') as f:
-    rapidjson.dump(data, f, indent=indent)
+  with open(file_path, 'wb') as f:
+    f.write(serialized)
+    f.write(b"\n")
+
+
+def write_jsonl(
+  data_iterable: Iterable[Any],
+  file_path: str,
+  buffer_size: int = 1024 * 1024
+) -> None:
+  """Write iterable of JSON objects to newline-delimited JSON."""
+  with open(file_path, 'wb', buffering=buffer_size) as f:
+    for obj in data_iterable:
+      f.write(orjson.dumps(obj))
+      f.write(b"\n")
+
+
+def stream_jsonl(
+  file_path: str,
+  buffer_size: int = 1024 * 1024
+):
+  """Stream newline-delimited JSON objects from disk."""
+  with open(file_path, 'rb', buffering=buffer_size) as f:
+    for line in f:
+      chunk = line.strip()
+      if not chunk:
+        continue
+      yield orjson.loads(chunk)
 
 
 def convert_canonical_to_motchallenge_csv(

@@ -6,7 +6,7 @@
 # Core dependencies
 PyYAML>=6.0
 numpy>=1.21.0
-python-rapidjson>=1.10
+orjson>=3.9.15
 jsonpointer>=2.4
 dask[complete]>=2023.1.0
 jsonschema>=4.0.0
