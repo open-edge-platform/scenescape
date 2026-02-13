@@ -45,7 +45,7 @@ from harnesses.scene_controller_harness import SceneControllerHarness
 from datasets.metric_test_dataset import MetricTestDataset
 
 # Initialize dataset
-dataset = MetricTestDataset("path/to/test_data")
+dataset = MetricTestDataset("path/to/dataset")
 dataset.set_cameras(["x1", "x2"]).set_camera_fps(30)
 
 # Initialize harness with container image

@@ -18,7 +18,7 @@ from datasets.metric_test_dataset import MetricTestDataset
 
 # Path to test data and schemas
 DATASET_PATH = Path(__file__).parent.parent.parent.parent.parent / \
-  "tests" / "system" / "metric" / "test_data"
+  "tests" / "system" / "metric" / "dataset"
 SCHEMA_PATH = Path(__file__).parent.parent.parent.parent.parent / \
   "tracker" / "schema"
 TRACKER_CONFIG_PATH = DATASET_PATH / "tracker-config-time-chunking.json"

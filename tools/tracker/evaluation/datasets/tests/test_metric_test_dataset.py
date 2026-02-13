@@ -17,7 +17,7 @@ from utils.format_converters import read_csv_to_dataframe
 
 # Path to test dataset
 DATASET_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / \
-  "tests" / "system" / "metric" / "test_data"
+  "tests" / "system" / "metric" / "dataset"
 
 # Path to schemas
 SCHEMA_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / \

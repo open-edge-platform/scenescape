@@ -37,7 +37,7 @@ def temp_config_file(temp_output_dir):
     'dataset': {
       'class': 'datasets.metric_test_dataset.MetricTestDataset',
       'config': {
-        'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'test_data'),
+        'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
         'cameras': ['x1', 'x2'],
         'camera_fps': 30
       }
@@ -46,7 +46,7 @@ def temp_config_file(temp_output_dir):
       'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
       'config': {
         'container_image': 'scenescape-controller:latest',
-        'tracker_config_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'test_data' / 'tracker-config-time-chunking.json')
+        'tracker_config_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset' / 'tracker-config-time-chunking.json')
       }
     },
     'evaluators': [

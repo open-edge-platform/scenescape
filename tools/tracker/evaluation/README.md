@@ -54,7 +54,7 @@ pipeline:
 dataset:
   class: datasets.metric_test_dataset.MetricTestDataset
   config:
-    data_path: /path/to/test_data
+    data_path: /path/to/dataset
     cameras: [x1, x2]
     camera_fps: 30
 

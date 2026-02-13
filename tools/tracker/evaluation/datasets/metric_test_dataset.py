@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""MetricTestDataset implementation for tests/system/metric/test_data dataset."""
+"""MetricTestDataset implementation for tests/system/metric/dataset dataset."""
 
 from typing import List, Dict, Any, Optional, Iterator
 from pathlib import Path
@@ -17,7 +17,7 @@ from utils.format_converters import read_json, convert_json_to_csv
 
 
 class MetricTestDataset(TrackingDataset):
-  """Dataset adapter for tests/system/metric/test_data.
+  """Dataset adapter for tests/system/metric/dataset.
 
   This dataset contains:
   - Scene: Retail_Demo (single built-in scene)
@@ -37,7 +37,7 @@ class MetricTestDataset(TrackingDataset):
     """Initialize MetricTestDataset.
 
     Args:
-      dataset_path: Path to tests/system/metric/test_data directory
+      dataset_path: Path to tests/system/metric/dataset directory
     """
     self._dataset_path = Path(dataset_path)
     if not self._dataset_path.exists():
