@@ -18,6 +18,12 @@ import torch
 from PIL import Image
 import torchvision.transforms as tvf
 
+import tempfile
+import numpy as np
+import trimesh
+import shutil
+from scene_common.mesh_util import image_mesh
+
 from scene_common import log
 
 from model_interface import ReconstructionModel
@@ -228,13 +234,6 @@ class VGGTModel(ReconstructionModel):
     Returns:
       trimesh.Scene: Processed 3D scene
     """
-    import tempfile
-    import numpy as np
-    import trimesh
-    import shutil
-    from visual_util import predictions_to_glb
-    from scene_common.mesh_util import image_mesh
-
     if output_format is None:
       output_format = self.getNativeOutput()
 
@@ -385,6 +384,7 @@ class VGGTModel(ReconstructionModel):
     log.info("Using VGGT point cloud export as fallback")
     temp_dir = tempfile.mkdtemp(prefix="vggt_glb_")
     try:
+      from visual_util import predictions_to_glb
       glb_scene = predictions_to_glb(
         predictions,
         conf_thres=50.0,
