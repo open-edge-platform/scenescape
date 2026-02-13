@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import itertools
-import json
 from types import SimpleNamespace
 from typing import Optional
 import numpy as np
