@@ -287,7 +287,6 @@ class VGGTModel(ReconstructionModel):
         stride = int(os.getenv("VGGT_MESH_STRIDE", "2"))  # 1=full res, 2=4x faster, 3=9x faster
         conf_th = float(os.getenv("VGGT_DEPTH_CONF_TH", "0.30"))
         merge_frames = os.getenv("VGGT_MESH_MERGE_FRAMES", "0") == "1"
-
         scene = trimesh.Scene()
 
         merged_vertices = []
@@ -335,6 +334,22 @@ class VGGTModel(ReconstructionModel):
             return_indices=False,
           )
           vertices = vertices * np.array([1, -1, 1], dtype=np.float32)
+
+          # ---- FAST BAD-TRIANGLE FILTER (key fix) ----
+          max_edge = float(os.getenv("VGGT_MAX_EDGE_M", "0.06"))  # 6cm start; tune 0.03–0.12
+
+          v0 = vertices[faces[:, 0]]
+          v1 = vertices[faces[:, 1]]
+          v2 = vertices[faces[:, 2]]
+
+          e01 = np.linalg.norm(v0 - v1, axis=1)
+          e12 = np.linalg.norm(v1 - v2, axis=1)
+          e20 = np.linalg.norm(v2 - v0, axis=1)
+
+          good = (e01 < max_edge) & (e12 < max_edge) & (e20 < max_edge)
+          faces = faces[good]
+          vertex_colors = vertex_colors  # unchanged
+          # -------------------------------------------
           vc_uint8 = (vertex_colors * 255).astype(np.uint8)
 
           if merge_frames:
