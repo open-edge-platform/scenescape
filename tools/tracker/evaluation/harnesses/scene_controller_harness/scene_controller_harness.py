@@ -231,7 +231,7 @@ class SceneControllerHarness(TrackerHarness):
       )
       # Stream output to console in real-time
       for stream_type, stream_content in output:
-        print(f"[{stream_type}] {stream_content.decode('utf-8')}", end='')
+        print(f"[tracker {stream_type}] {stream_content.decode('utf-8')}", end='')
 
     except Exception as e:
       raise RuntimeError(f"Container execution failed: {str(e)}") from e
