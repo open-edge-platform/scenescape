@@ -397,13 +397,13 @@ MessageHandler::parseTimestamp(const std::string& timestamp_iso) {
     int year, month, day, hour, minute, second, millis = 0;
 
     // Try parsing with milliseconds (format: YYYY-MM-DDTHH:MM:SS.mmm)
-    int parsed = std::sscanf(timestamp_iso.c_str(), "%d-%d-%dT%d:%d:%d.%d", &year, &month, &day,
-                             &hour, &minute, &second, &millis);
+    int parsed = std::sscanf(timestamp_iso.c_str(), "%4d-%2d-%2dT%2d:%2d:%2d.%d", &year, &month,
+                             &day, &hour, &minute, &second, &millis);
 
     if (parsed < 6) {
         // Try with space separator instead of 'T'
-        parsed = std::sscanf(timestamp_iso.c_str(), "%d-%d-%d %d:%d:%d.%d", &year, &month, &day,
-                             &hour, &minute, &second, &millis);
+        parsed = std::sscanf(timestamp_iso.c_str(), "%4d-%2d-%2d %2d:%2d:%2d.%d", &year, &month,
+                             &day, &hour, &minute, &second, &millis);
     }
 
     if (parsed < 6) {
