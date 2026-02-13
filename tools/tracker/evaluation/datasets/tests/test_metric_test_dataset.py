@@ -7,13 +7,14 @@ import pytest
 import sys
 import json
 from pathlib import Path
+from typing import Optional
 import jsonschema
 
 # Add parent directories to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from datasets.metric_test_dataset import MetricTestDataset
-from utils.format_converters import read_csv_to_dataframe
+from utils.format_converters import read_csv_to_dataframe, stream_jsonl
 
 # Path to test dataset
 DATASET_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / \
@@ -22,6 +23,50 @@ DATASET_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / \
 # Path to schemas
 SCHEMA_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / \
   "tracker" / "schema"
+
+
+def _collect_expected_gt_entries(
+  start: Optional[str] = None,
+  end: Optional[str] = None,
+  camera_fps: float = MetricTestDataset.DEFAULT_FPS
+):
+  """Collect raw ground-truth frames honoring time range and FPS stride."""
+  gt_file = DATASET_PATH / "gtLoc.json"
+  if camera_fps <= 0:
+    raise ValueError("camera_fps must be positive")
+
+  stride_ratio = MetricTestDataset.DEFAULT_FPS / camera_fps
+  stride = int(round(stride_ratio))
+
+  if stride <= 0 or abs(stride - stride_ratio) > 1e-6:
+    raise ValueError("Ground truth FPS (30) must be divisible by camera FPS")
+
+  entries = []
+  for frame_idx, entry in enumerate(stream_jsonl(str(gt_file))):
+    timestamp = entry.get("timestamp")
+    if timestamp is None:
+      continue
+
+    if end is not None and timestamp > end:
+      break
+    if start is not None and timestamp < start:
+      continue
+    if frame_idx % stride != 0:
+      continue
+
+    entries.append(entry)
+
+  return entries
+
+
+def _count_objects(entries):
+  """Return total number of objects across the provided GT entries."""
+  total = 0
+  for entry in entries:
+    objects = entry.get("objects", {})
+    for category_objects in objects.values():
+      total += len(category_objects)
+  return total
 
 
 @pytest.fixture
@@ -376,6 +421,45 @@ class TestGetGroundTruth:
     assert df["y"].min() >= -1.0
     assert df["y"].max() <= 16.0
     assert df["z"].min() == 0.0  # Ground plane
+
+  def test_get_ground_truth_respects_time_range(self, dataset):
+    """Ground truth should only include frames inside configured time range."""
+    start = "2014-09-08T04:00:00.033Z"
+    end = "2014-09-08T04:00:00.330Z"
+    dataset.set_time_range(start, end)
+
+    gt_path = dataset.get_ground_truth()
+    df = read_csv_to_dataframe(
+      gt_path,
+      has_header=False,
+      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
+    )
+
+    expected_entries = _collect_expected_gt_entries(start=start, end=end)
+    expected_frames = list(range(1, len(expected_entries) + 1))
+
+    unique_frames = sorted(df["frame"].unique().tolist())
+    assert unique_frames == expected_frames
+    assert len(df) == _count_objects(expected_entries)
+
+  def test_get_ground_truth_respects_camera_fps_sampling(self, dataset):
+    """Ground truth should be downsampled to match configured camera FPS."""
+    end = "2014-09-08T04:00:00.330Z"
+    dataset.set_camera_fps(10).set_time_range(None, end)
+
+    gt_path = dataset.get_ground_truth()
+    df = read_csv_to_dataframe(
+      gt_path,
+      has_header=False,
+      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
+    )
+
+    expected_entries = _collect_expected_gt_entries(end=end, camera_fps=10)
+    expected_frames = list(range(1, len(expected_entries) + 1))
+
+    unique_frames = sorted(df["frame"].unique().tolist())
+    assert unique_frames == expected_frames
+    assert len(df) == _count_objects(expected_entries)
 
 
 class TestIntegration:

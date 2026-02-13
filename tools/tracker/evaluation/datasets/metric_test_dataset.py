@@ -260,14 +260,36 @@ class MetricTestDataset(TrackingDataset):
     if not gt_file.exists():
       raise FileNotFoundError(f"Ground truth file not found: {gt_file}")
 
-    # Read ground truth (newline-delimited JSON)
+    if self._output_folder is None:
+      raise RuntimeError(
+        "Dataset output folder not configured. Call set_output_folder() before get_ground_truth()."
+      )
+
+    sampling_stride = self._get_sampling_stride()
+
     gt_data = []
-    frame_num = 1
-    for entry in stream_jsonl(str(gt_file)):
+    filtered_frame_num = 0
+
+    for base_frame_idx, entry in enumerate(stream_jsonl(str(gt_file))):
+      timestamp = entry.get("timestamp")
+      if timestamp is None:
+        continue
+
+      if self._time_end is not None and timestamp > self._time_end:
+        break
+
+      if self._time_start is not None and timestamp < self._time_start:
+        continue
+
+      if base_frame_idx % sampling_stride != 0:
+        continue
+
+      filtered_frame_num += 1
+
       objects = entry.get("objects", {})
       gt_data.extend([
         {
-          "frame": frame_num,
+          "frame": filtered_frame_num,
           "object_id": obj["id"],
           "x": obj["translation"][0],
           "y": obj["translation"][1],
@@ -277,8 +299,6 @@ class MetricTestDataset(TrackingDataset):
         for category, category_objects in objects.items()
         for obj in category_objects
       ])
-      frame_num += 1
-
     # Convert to Ground Truth Format (MOTChallenge 3D CSV)
     # See tools/tracker/evaluation/README.md#canonical-data-formats for format specification
     mapping = {
@@ -291,11 +311,6 @@ class MetricTestDataset(TrackingDataset):
       "class": {"value": 1},
       "visibility": {"value": 1}
     }
-
-    if self._output_folder is None:
-      raise RuntimeError(
-        "Dataset output folder not configured. Call set_output_folder() before get_ground_truth()."
-      )
 
     output_file = self._output_folder / "ground_truth_motchallenge.csv"
 
@@ -321,6 +336,24 @@ class MetricTestDataset(TrackingDataset):
     self._time_end = None
     self._output_folder = None
     return self
+
+  def _get_sampling_stride(self) -> int:
+    """Return how many base (30 FPS) frames correspond to one configured frame."""
+    if self._camera_fps <= 0:
+      raise RuntimeError("Camera FPS must be positive to sample ground truth")
+
+    ratio = self.DEFAULT_FPS / self._camera_fps
+    stride = int(round(ratio))
+
+    if stride <= 0:
+      raise RuntimeError("Invalid sampling stride computed for ground truth")
+
+    if abs(stride - ratio) > 1e-6:
+      raise RuntimeError(
+        f"Ground truth base FPS ({self.DEFAULT_FPS}) is not divisible by configured FPS ({self._camera_fps})"
+      )
+
+    return stride
 
   def _read_next_frame_within_range(self, file_handle) -> Optional[Dict[str, Any]]:
     """Read next frame from file handle, applying time range constraints."""
