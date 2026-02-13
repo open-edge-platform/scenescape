@@ -66,7 +66,7 @@ class SchemaValidation:
           self.validator_no_format[msg_type](msg)
         result = True
       except Exception as e:
-        print(f"Failed message validation {msg_type}", e)
+        print(f"Failed message validation", e)
 
     return result
 
