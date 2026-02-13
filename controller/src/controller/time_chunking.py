@@ -149,6 +149,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     # Call parent constructor to initialize IntelLabsTracking
     super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, suspended_track_timeout_secs)
     self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
+    self.suspended_track_timeout_secs = suspended_track_timeout_secs
     log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking interval: {self.time_chunking_interval_milliseconds} ms")
 
   def trackObjects(self, objects, already_tracked_objects, when, categories,
