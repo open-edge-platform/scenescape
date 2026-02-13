@@ -116,7 +116,7 @@ void TrackingWorker::process_chunk(const Chunk& chunk) {
         return;
     }
 
-    const auto& timestamp_iso = chunk.camera_batches.front().timestamp_iso;
+    const auto& timestamp_iso = chunk.camera_batches.back().timestamp_iso;
     publish_callback_(scope_.scene_id, scene_name_, scope_.category, timestamp_iso, tracks);
     processed_count_.fetch_add(1);
 }
