@@ -309,6 +309,17 @@ class TrackEvalEvaluator(TrackerEvaluator):
       if not tracker_output_list:
         raise RuntimeError("No tracker outputs provided")
 
+      # TEMP: drop duplicated timestamps when production tracker runs metrics dataset without time-chunking
+      seen_timestamps = set()
+      filtered_outputs = []
+      for data in tracker_output_list:
+        timestamp = data.get("timestamp")
+        if timestamp in seen_timestamps:
+          continue
+        seen_timestamps.add(timestamp)
+        filtered_outputs.append(data)
+      tracker_output_list = filtered_outputs
+
       # Calculate number of frames and FPS from timestamps
       from datetime import datetime
       timestamps = [
