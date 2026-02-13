@@ -38,46 +38,23 @@ Uses dedicated Makefile with Conan 2.x + CMake + Ninja. All builds run inside Do
 
 ## Schema Validation
 
-All configuration and message formats have JSON schemas in `tracker/schema/`:
-
-| Schema                   | Purpose                          |
-| ------------------------ | -------------------------------- |
-| `config.schema.json`     | Service configuration validation |
-| `scenes.schema.json`     | Scene definition validation      |
-| `detection.schema.json`  | Input detection message format   |
-| `scene-data.schema.json` | Output track message format      |
-| `log.schema.json`        | Structured logging format        |
+All configuration and message formats have JSON schemas in `schema/` — inspect that directory for current schemas.
 
 **CRITICAL**: All config and message format changes MUST validate against schemas. Schema modifications require updating BOTH the schema file AND design documentation in `docs/`.
 
 ## Environment Variable Overrides
 
-**CRITICAL**: Any new config option MUST have a corresponding environment variable override. There is no library handling this automatically—manual implementation in `src/config_loader.cpp` is required.
+**CRITICAL**: Any new config option MUST have a corresponding environment variable override. There is no library handling this automatically — manual implementation in `src/config_loader.cpp` is required.
 
-| Variable                         | Description                            |
-| -------------------------------- | -------------------------------------- |
-| `TRACKER_LOG_LEVEL`              | trace/debug/info/warn/error            |
-| `TRACKER_HEALTHCHECK_PORT`       | HTTP health endpoint port (1024-65535) |
-| `TRACKER_MQTT_HOST`              | MQTT broker hostname                   |
-| `TRACKER_MQTT_PORT`              | MQTT broker port                       |
-| `TRACKER_MQTT_INSECURE`          | Disable TLS (true/false)               |
-| `TRACKER_MQTT_TLS_CA_CERT`       | CA certificate path                    |
-| `TRACKER_MQTT_TLS_CLIENT_CERT`   | Client certificate path                |
-| `TRACKER_MQTT_TLS_CLIENT_KEY`    | Client key path                        |
-| `TRACKER_MQTT_TLS_VERIFY_SERVER` | Server cert verification               |
-| `TRACKER_MQTT_SCHEMA_VALIDATION` | Enable/disable schema validation       |
-| `TRACKER_MAX_LAG_S`              | Max detection frame lag                |
-| `TRACKER_TIME_CHUNKING_RATE_FPS` | Processing rate (1-60 FPS)             |
-| `TRACKER_MAX_WORKERS`            | Worker thread limit                    |
-| `TRACKER_SCENES_SOURCE`          | "file" or "api"                        |
-| `TRACKER_SCENES_FILE_PATH`       | Scenes JSON path (file mode)           |
+All `TRACKER_*` environment variables are defined in `inc/env_vars.hpp` — inspect that file for the current list. The config schema (`schema/config.schema.json`) documents valid values and ranges.
 
 ### Adding New Config Options
 
-1. Add field to `config/config.schema.json`
-2. Add default in `config/tracker.json`
-3. Add env var parsing in `src/config_loader.cpp` `applyEnvironmentOverrides()`
-4. Update this table and design docs
+1. Add field to `schema/config.schema.json`
+2. Add default in `config/tracker.json` and `TrackingConfig` struct in `inc/config_loader.hpp`
+3. Add env var constant in `inc/env_vars.hpp`
+4. Add env var parsing in `src/config_loader.cpp`
+5. Update design docs
 
 ## Coverage Requirements (Enforced)
 
@@ -127,24 +104,16 @@ Use `make build-image-debug` for debuggable container images.
 
 ```
 tracker/
-├── Makefile              # Build orchestration (Conan + CMake)
-├── CMakeLists.txt        # CMake configuration
-├── conanfile.txt         # C++ dependencies
-├── config/
-│   ├── tracker.json      # Default service config
-│   └── scenes.json       # Example scene definitions
-├── schema/               # JSON schemas for validation
-├── src/                  # C++ source files
-│   ├── main.cpp          # Entry point, signal handling
-│   ├── cli.cpp           # CLI argument parsing
-│   ├── config_loader.cpp # Config + env var loading
-│   ├── mqtt_client.cpp   # MQTT integration
-│   ├── time_chunk_*.cpp  # Time-chunk processing
-│   ├── tracking_*.cpp    # Tracking logic
-│   └── healthcheck_*.cpp # HTTP health endpoints
-├── inc/                  # C++ headers
-└── test/                 # pytest integration tests
+├── Makefile          # Build orchestration (Conan + CMake)
+├── CMakeLists.txt    # CMake configuration
+├── config/           # Default config files
+├── schema/           # JSON schemas for validation
+├── src/              # C++ source files
+├── inc/              # C++ headers
+└── test/             # Unit tests and integration tests
 ```
+
+Key entry points: `src/main.cpp` (service startup), `src/config_loader.cpp` (config + env vars), `inc/env_vars.hpp` (environment variable definitions).
 
 ## Common Tasks
 
