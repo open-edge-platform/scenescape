@@ -208,7 +208,7 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
 
     // Push detections to buffer for each category
     auto receive_time = std::chrono::steady_clock::now();
-    for (const auto& [category, detections] : message->objects) {
+    for (auto& [category, detections] : message->objects) {
         // Validate category on first use (cached to avoid per-frame overhead)
         // Minimal critical section: only lock during cache access, not during publish
         {
@@ -233,14 +233,7 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         batch.camera_id = camera_id;
         batch.receive_time = receive_time;
         batch.timestamp_iso = message->timestamp;
-        batch.detections.reserve(detections.size());
-
-        for (const auto& det : detections) {
-            tracker::Detection tracking_det;
-            tracking_det.id = det.id;
-            tracking_det.bounding_box_px = det.bounding_box_px;
-            batch.detections.push_back(std::move(tracking_det));
-        }
+        batch.detections = std::move(detections);
 
         buffer_.add(scope, camera_id, std::move(batch));
         buffered_count_++;
