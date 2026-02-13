@@ -72,10 +72,15 @@ struct ObservabilityConfig {
 /**
  * @brief Tracking algorithm parameters.
  */
+constexpr double kDefaultMaxLagS = 1.0;
+constexpr int kDefaultTimeChunkingRateFps = 15;
+constexpr int kDefaultMaxWorkers = 50;
+
 struct TrackingConfig {
-    double max_lag_s = 1.0;          ///< Max lag for detection frames (seconds)
-    int time_chunking_rate_fps = 15; ///< Chunk dispatch rate (frames per second)
-    int max_workers = 50;            ///< DoS protection: max worker threads (scene+category)
+    double max_lag_s = kDefaultMaxLagS; ///< Max lag for detection frames (seconds)
+    int time_chunking_rate_fps =
+        kDefaultTimeChunkingRateFps;      ///< Chunk dispatch rate (frames per second)
+    int max_workers = kDefaultMaxWorkers; ///< DoS protection: max worker threads (scene+category)
 };
 
 /**

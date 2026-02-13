@@ -236,14 +236,17 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
         }
     }
 
-    // Tracking configuration (optional - defaults in TrackingConfig struct)
+    // Tracking configuration (optional - defaults from constants in config_loader.hpp)
     config.tracking.max_lag_s =
-        GetValueByPointerWithDefault(config_doc, json::TRACKING_MAX_LAG_S, 1.0).GetDouble();
+        GetValueByPointerWithDefault(config_doc, json::TRACKING_MAX_LAG_S, kDefaultMaxLagS)
+            .GetDouble();
     config.tracking.time_chunking_rate_fps =
-        GetValueByPointerWithDefault(config_doc, json::TRACKING_TIME_CHUNKING_RATE_FPS, 15)
+        GetValueByPointerWithDefault(config_doc, json::TRACKING_TIME_CHUNKING_RATE_FPS,
+                                     kDefaultTimeChunkingRateFps)
             .GetInt();
     config.tracking.max_workers =
-        GetValueByPointerWithDefault(config_doc, json::TRACKING_MAX_WORKERS, 50).GetInt();
+        GetValueByPointerWithDefault(config_doc, json::TRACKING_MAX_WORKERS, kDefaultMaxWorkers)
+            .GetInt();
 
     // Apply environment variable overrides
     apply_env(config.observability.logging.level, tracker::env::LOG_LEVEL, parse_log_level);
