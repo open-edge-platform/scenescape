@@ -186,14 +186,7 @@ class MetricTestDataset(TrackingDataset):
     # When processing single camera, no sorting needed - yield directly
     if len(cameras_to_process) == 1:
       cam_id = cameras_to_process[0]
-      if cam_id not in self._cameras:
-        raise ValueError(f"Camera {cam_id} not in configured cameras")
-
-      fps_suffix = f"_{int(self._camera_fps)}fps" if self._camera_fps != 30 else ""
-      input_file = self._dataset_path / f"Cam_{cam_id}_0{fps_suffix}.json"
-
-      if not input_file.exists():
-        raise FileNotFoundError(f"Input file not found: {input_file}")
+      input_file = self._get_input_filename(cam_id)
 
       for data in stream_jsonl(str(input_file)):
         timestamp = data.get('timestamp')
@@ -212,14 +205,7 @@ class MetricTestDataset(TrackingDataset):
     frame_buffer = []
 
     for cam_id in cameras_to_process:
-      if cam_id not in self._cameras:
-        raise ValueError(f"Camera {cam_id} not in configured cameras")
-
-      fps_suffix = f"_{int(self._camera_fps)}fps" if self._camera_fps != 30 else ""
-      input_file = self._dataset_path / f"Cam_{cam_id}_0{fps_suffix}.json"
-
-      if not input_file.exists():
-        raise FileNotFoundError(f"Input file not found: {input_file}")
+      input_file = self._get_input_filename(cam_id)
 
       f = open(input_file, 'rb', buffering=1024 * 1024)
       file_handles.append(f)
@@ -262,17 +248,19 @@ class MetricTestDataset(TrackingDataset):
     gt_data = []
     frame_num = 1
     for entry in stream_jsonl(str(gt_file)):
-      if "objects" in entry:
-        for category, objects in entry["objects"].items():
-          for obj in objects:
-            gt_data.append({
-              "frame": frame_num,
-              "object_id": obj["id"],
-              "x": obj["translation"][0],
-              "y": obj["translation"][1],
-              "z": obj["translation"][2],
-              "category": obj.get("category", category)
-            })
+      objects = entry.get("objects", {})
+      gt_data.extend([
+        {
+          "frame": frame_num,
+          "object_id": obj["id"],
+          "x": obj["translation"][0],
+          "y": obj["translation"][1],
+          "z": obj["translation"][2],
+          "category": obj.get("category", category)
+        }
+        for category, category_objects in objects.items()
+        for obj in category_objects
+      ])
       frame_num += 1
 
     # Convert to Ground Truth Format (MOTChallenge 3D CSV)
@@ -343,3 +331,16 @@ class MetricTestDataset(TrackingDataset):
         continue
 
       return data
+
+  def _get_input_filename(self, cam_id: str) -> Path:
+    """Build absolute path to the camera JSONL input file."""
+    if cam_id not in self._cameras:
+      raise ValueError(f"Camera {cam_id} not in configured cameras")
+
+    fps_suffix = f"_{int(self._camera_fps)}fps" if self._camera_fps != 30 else ""
+    input_file = self._dataset_path / f"Cam_{cam_id}_0{fps_suffix}.json"
+
+    if not input_file.exists():
+      raise FileNotFoundError(f"Input file not found: {input_file}")
+
+    return input_file
