@@ -175,6 +175,10 @@ The pipeline uses standardized data formats defined by JSON schemas to enable in
 - [ADR 9: Tracking Evaluation Strategy](../../../docs/adr/0009-tracking-evaluation.md)
 - [TrackEval Toolkit](https://github.com/JonathonLuiten/TrackEval)
 
+## Limitations
+
+- **TrackEval timestamp deduplication**: TrackEval requires unique frame indices while the production tracker can emit multiple frames with identical timestamps when time-chunking is disabled. To bridge this mismatch, [evaluators/trackeval_evaluator.py](evaluators/trackeval_evaluator.py) temporarily filters duplicate timestamps inside `TrackEvalEvaluator.process_tracker_outputs()` and keeps only the first frame per timestamp before metrics are computed. This prevents TrackEval from double-counting frames until tracker-side chunking aligns with TrackEval's expectations.
+
 ## Testing
 
 ### Test Organization
