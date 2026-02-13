@@ -30,9 +30,10 @@ TIME_RANGE_END = "2014-09-08T04:00:04.000Z"
 
 
 @pytest.fixture
-def dataset():
+def dataset(tmp_path):
   """Create MetricTestDataset instance."""
   ds = MetricTestDataset(str(DATASET_PATH))
+  ds.set_output_folder(tmp_path / "dataset_outputs")
   ds.set_cameras(["x1", "x2"]).set_camera_fps(30).set_time_range(
     TIME_RANGE_START,
     TIME_RANGE_END

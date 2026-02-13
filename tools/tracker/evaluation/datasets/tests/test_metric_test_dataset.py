@@ -25,9 +25,11 @@ SCHEMA_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / \
 
 
 @pytest.fixture
-def dataset():
-  """Create MetricTestDataset instance."""
-  return MetricTestDataset(str(DATASET_PATH))
+def dataset(tmp_path):
+  """Create MetricTestDataset instance with output folder configured."""
+  ds = MetricTestDataset(str(DATASET_PATH))
+  ds.set_output_folder(tmp_path / "dataset_outputs")
+  return ds
 
 
 @pytest.fixture
@@ -184,6 +186,7 @@ class TestConfiguration:
     assert dataset._scene_config is None
     assert dataset._time_start is None
     assert dataset._time_end is None
+    assert dataset._output_folder is None
 
 
 class TestSceneConfig:
@@ -313,6 +316,8 @@ class TestGetGroundTruth:
     assert isinstance(gt_path, str)
     assert Path(gt_path).exists()
     assert gt_path.endswith('.csv')
+    expected_path = dataset._output_folder / "ground_truth_motchallenge.csv"
+    assert Path(gt_path) == expected_path
 
   def test_get_ground_truth_csv_format(self, dataset):
     """Test ground truth CSV has correct format."""
@@ -393,6 +398,8 @@ class TestIntegration:
 
     # Get ground truth
     gt_path = dataset.get_ground_truth()
+    expected_path = dataset._output_folder / "ground_truth_motchallenge.csv"
+    assert Path(gt_path) == expected_path
     assert Path(gt_path).exists()
 
     # Reset and verify

@@ -147,6 +147,20 @@ class TestProcessing:
     assert evaluator._tracker_csv_path is not None
     assert evaluator._ground_truth_csv_path is not None
 
+  def test_tracker_csv_copied_to_output_folder(
+    self,
+    evaluator,
+    mock_tracker_outputs,
+    mock_ground_truth_file,
+    temp_result_folder
+  ):
+    """Test tracker CSV is mirrored to configured output folder."""
+    evaluator.set_output_folder(temp_result_folder)
+    evaluator.process_tracker_outputs(iter(mock_tracker_outputs), mock_ground_truth_file)
+
+    expected_csv = temp_result_folder / f"{evaluator._seq_name}.txt"
+    assert expected_csv.exists()
+
   def test_process_tracker_outputs_empty(self, evaluator, mock_ground_truth_file):
     """Test processing empty tracker outputs raises error."""
     with pytest.raises(RuntimeError, match="No tracker outputs provided"):

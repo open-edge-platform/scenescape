@@ -12,6 +12,7 @@ from pathlib import Path
 import sys
 import tempfile
 import numpy as np
+import shutil
 
 # Add parent directories to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -342,6 +343,10 @@ class TrackEvalEvaluator(TrackerEvaluator):
         self._camera_fps
       )
 
+      if self._output_folder:
+        mirrored_tracker_csv = self._output_folder / self._tracker_csv_path.name
+        shutil.copy(self._tracker_csv_path, mirrored_tracker_csv)
+
       # Handle ground truth - it should be a file path string
       # but comes as iterator due to base class signature
       if isinstance(ground_truth, str):
@@ -358,7 +363,6 @@ class TrackEvalEvaluator(TrackerEvaluator):
           )
 
       # Copy ground truth to expected location
-      import shutil
       self._ground_truth_csv_path = gt_folder / "gt.txt"
       shutil.copy(gt_file_path, self._ground_truth_csv_path)
 

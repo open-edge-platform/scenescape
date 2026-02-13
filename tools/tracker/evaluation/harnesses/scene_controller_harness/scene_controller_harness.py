@@ -141,6 +141,8 @@ class SceneControllerHarness(TrackerHarness):
       # Write all inputs to single file for data exchange with container
       # (newline-delimited JSON format)
       self._write_input_file(inputs)
+      input_file = self._temp_dir / "inputs.json"
+      self._persist_artifact(input_file, "inputs.json")
 
       # Write scene configuration
       scene_config_file = self._temp_dir / "config.json"
@@ -160,6 +162,7 @@ class SceneControllerHarness(TrackerHarness):
 
       # Read and return outputs
       if output_file.exists():
+        self._persist_artifact(output_file, "outputs.json")
         with open(output_file, 'r') as f:
           outputs = json.load(f)
         return iter(outputs)
@@ -232,3 +235,11 @@ class SceneControllerHarness(TrackerHarness):
 
     except Exception as e:
       raise RuntimeError(f"Container execution failed: {str(e)}") from e
+
+  def _persist_artifact(self, source: Path, filename: str) -> None:
+    """Persist artifact to configured output folder if available."""
+    if not self._output_folder or not source.exists():
+      return
+
+    destination = self._output_folder / filename
+    shutil.copy(source, destination)

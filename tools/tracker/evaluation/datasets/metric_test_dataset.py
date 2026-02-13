@@ -7,7 +7,6 @@ from typing import List, Dict, Any, Optional, Iterator
 from pathlib import Path
 import sys
 import orjson
-import tempfile
 
 # Add parent directories to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -293,23 +292,21 @@ class MetricTestDataset(TrackingDataset):
       "visibility": {"value": 1}
     }
 
-    # Create temporary file for CSV output
-    temp_file = tempfile.NamedTemporaryFile(
-      mode='w',
-      suffix='.csv',
-      delete=False,
-      prefix='gt_motchallenge_'
-    )
-    temp_file.close()
+    if self._output_folder is None:
+      raise RuntimeError(
+        "Dataset output folder not configured. Call set_output_folder() before get_ground_truth()."
+      )
+
+    output_file = self._output_folder / "ground_truth_motchallenge.csv"
 
     convert_json_to_csv(
       gt_data,
       mapping,
-      temp_file.name,
+      str(output_file),
       include_header=False
     )
 
-    return temp_file.name
+    return str(output_file)
 
   def reset(self) -> 'MetricTestDataset':
     """Reset dataset to initial state.
