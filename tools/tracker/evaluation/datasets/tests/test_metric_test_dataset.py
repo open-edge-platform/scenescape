@@ -98,10 +98,61 @@ class TestConfiguration:
     with pytest.raises(ValueError, match="Unsupported camera"):
       dataset.set_cameras(["x3"])
 
-  def test_set_time_range_not_supported(self, dataset):
-    """Test set_time_range raises NotImplementedError."""
-    with pytest.raises(NotImplementedError, match="Time range filtering"):
-      dataset.set_time_range("2014-09-08T04:00:00.000Z", None)
+  def test_set_time_range_filters_single_camera(self, dataset):
+    """Test set_time_range filters frames inclusively for a camera."""
+    start = "2014-09-08T04:00:00.264Z"
+    end = "2014-09-08T04:00:00.561Z"
+
+    dataset.set_cameras(["x1"]).set_time_range(start, end)
+    inputs = list(dataset.get_inputs("x1"))
+
+    assert inputs
+    timestamps = [frame["timestamp"] for frame in inputs]
+    assert all(start <= ts <= end for ts in timestamps)
+    assert start in timestamps
+    assert end in timestamps
+
+  def test_set_time_range_open_start(self, dataset):
+    """Test set_time_range handles None start (earliest timestamp)."""
+    end = "2014-09-08T04:00:00.198Z"
+    dataset.set_cameras(["x1"]).set_time_range(None, end)
+
+    inputs = list(dataset.get_inputs("x1"))
+    assert inputs
+    assert inputs[-1]["timestamp"] == end
+
+  def test_set_time_range_open_end(self, dataset):
+    """Test set_time_range handles None end (latest timestamp)."""
+    start = "2014-09-08T04:00:00.990Z"
+    dataset.set_cameras(["x1"]).set_time_range(start, None)
+
+    inputs = list(dataset.get_inputs("x1"))
+    assert inputs
+    assert inputs[0]["timestamp"] == start
+
+  def test_set_time_range_invalid_order(self, dataset):
+    """Test set_time_range validates start <= end when both provided."""
+    with pytest.raises(ValueError, match="Invalid time range"):
+      dataset.set_time_range(
+        "2014-09-08T04:00:01.000Z",
+        "2014-09-08T04:00:00.500Z"
+      )
+
+  def test_set_time_range_reset_restores_full_sequence(self, dataset):
+    """Test reset clears time range filters for subsequent reads."""
+    dataset.set_cameras(["x1"])
+    full_inputs = list(dataset.get_inputs("x1"))
+
+    dataset.set_time_range(
+      "2014-09-08T04:00:00.264Z",
+      "2014-09-08T04:00:00.561Z"
+    )
+    filtered_inputs = list(dataset.get_inputs("x1"))
+    assert len(filtered_inputs) < len(full_inputs)
+
+    dataset.reset().set_cameras(["x1"])
+    reset_inputs = list(dataset.get_inputs("x1"))
+    assert len(reset_inputs) == len(full_inputs)
 
   def test_set_camera_fps_valid(self, dataset):
     """Test set_camera_fps with valid FPS values."""
@@ -122,12 +173,17 @@ class TestConfiguration:
 
   def test_reset(self, dataset):
     """Test reset method."""
-    dataset.set_cameras(["x1"]).set_camera_fps(10)
+    dataset.set_cameras(["x1"]).set_camera_fps(10).set_time_range(
+      "2014-09-08T04:00:00.033Z",
+      "2014-09-08T04:00:00.165Z"
+    )
     result = dataset.reset()
     assert result is dataset
     assert dataset._cameras == ["x1", "x2"]
     assert dataset._camera_fps == 30
     assert dataset._scene_config is None
+    assert dataset._time_start is None
+    assert dataset._time_end is None
 
 
 class TestSceneConfig:

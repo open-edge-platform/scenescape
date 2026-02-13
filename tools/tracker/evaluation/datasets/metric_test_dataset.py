@@ -47,6 +47,8 @@ class MetricTestDataset(TrackingDataset):
     self._cameras: List[str] = self.SUPPORTED_CAMERAS.copy()
     self._camera_fps: float = self.DEFAULT_FPS
     self._scene_config: Optional[Dict[str, Any]] = None
+    self._time_start: Optional[str] = None
+    self._time_end: Optional[str] = None
 
   def set_scene(self, scene: Optional[str] = None) -> 'MetricTestDataset':
     """Set scene (not supported - only Retail_Demo available).
@@ -96,23 +98,25 @@ class MetricTestDataset(TrackingDataset):
     start: Optional[str] = None,
     end: Optional[str] = None
   ) -> 'MetricTestDataset':
-    """Set time range (not supported - only full sequence available).
+    """Set inclusive time range for dataset filtering.
 
     Args:
-      start: Start timestamp
-      end: End timestamp
+      start: Start timestamp (inclusive). If None, uses earliest available timestamp.
+      end: End timestamp (inclusive). If None, uses latest available timestamp.
 
     Returns:
       Self for method chaining
 
     Raises:
-      NotImplementedError: Time range filtering not supported
+      ValueError: If start and end are provided but start > end.
     """
-    if start is not None or end is not None:
-      raise NotImplementedError(
-        "Time range filtering not supported. "
-        "Only full sequence available."
+    if start is not None and end is not None and start > end:
+      raise ValueError(
+        "Invalid time range: start timestamp is later than end timestamp"
       )
+
+    self._time_start = start
+    self._time_end = end
     return self
 
   def set_camera_fps(self, camera_fps: float) -> 'MetricTestDataset':
@@ -193,9 +197,17 @@ class MetricTestDataset(TrackingDataset):
 
       with open(input_file, 'r') as f:
         for line in f:
-          if line.strip():
-            data = rapidjson.loads(line.strip())
-            yield data
+          if not line.strip():
+            continue
+          data = rapidjson.loads(line.strip())
+          timestamp = data.get('timestamp')
+          if timestamp is None:
+            continue
+          if self._time_end is not None and timestamp > self._time_end:
+            break
+          if self._time_start is not None and timestamp < self._time_start:
+            continue
+          yield data
       return
 
     # Multi-camera: sort frames by timestamp
@@ -216,9 +228,8 @@ class MetricTestDataset(TrackingDataset):
       f = open(input_file, 'r')
       file_handles.append(f)
 
-      # Read first frame
-      line = f.readline()
-      frame_buffer.append(rapidjson.loads(line.strip()) if line.strip() else None)
+      # Read first frame within range
+      frame_buffer.append(self._read_next_frame_within_range(f))
 
     try:
       # Yield frames in timestamp order
@@ -230,9 +241,10 @@ class MetricTestDataset(TrackingDataset):
         # Yield the frame with earliest timestamp
         yield frame_buffer[min_idx]
 
-        # Read next frame from that camera
-        line = file_handles[min_idx].readline()
-        frame_buffer[min_idx] = rapidjson.loads(line.strip()) if line.strip() else None
+        # Read next frame from that camera respecting range
+        frame_buffer[min_idx] = self._read_next_frame_within_range(
+          file_handles[min_idx]
+        )
 
     finally:
       # Clean up file handles
@@ -312,4 +324,31 @@ class MetricTestDataset(TrackingDataset):
     self._cameras = self.SUPPORTED_CAMERAS.copy()
     self._camera_fps = self.DEFAULT_FPS
     self._scene_config = None
+    self._time_start = None
+    self._time_end = None
     return self
+
+  def _read_next_frame_within_range(self, file_handle) -> Optional[Dict[str, Any]]:
+    """Read next frame from file handle, applying time range constraints."""
+    while True:
+      line = file_handle.readline()
+      if not line:
+        return None
+
+      line = line.strip()
+      if not line:
+        continue
+
+      data = rapidjson.loads(line)
+      timestamp = data.get('timestamp')
+
+      if timestamp is None:
+        continue
+
+      if self._time_end is not None and timestamp > self._time_end:
+        return None
+
+      if self._time_start is not None and timestamp < self._time_start:
+        continue
+
+      return data
