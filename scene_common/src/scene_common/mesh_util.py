@@ -4,6 +4,7 @@
 import os
 import math
 
+from typing import Tuple
 import numpy as np
 import open3d as o3d
 import trimesh
@@ -420,3 +421,133 @@ def createObjectMesh(obj):
     raise ValueError(f"Failed to translate mesh to sceneLoc: {e}")
   obj.mesh = mesh.compute_vertex_normals()
   return
+
+def triangulate(
+  faces: np.ndarray, vertices: np.ndarray = None, backslash: np.ndarray = None
+  ) -> np.ndarray:
+  """
+  Triangulate a polygonal mesh.
+
+  Args:
+      faces (np.ndarray): [L, P] polygonal faces
+      vertices (np.ndarray, optional): [N, 3] 3-dimensional vertices.
+          If given, the triangulation is performed according to the distance
+          between vertices. Defaults to None.
+      backslash (np.ndarray, optional): [L] boolean array indicating
+          how to triangulate the quad faces. Defaults to None.
+
+  Returns:
+      (np.ndarray): [L * (P - 2), 3] triangular faces
+  """
+  if faces.shape[-1] == 3:
+    return faces
+  P = faces.shape[-1]
+  if vertices is not None:
+    assert faces.shape[-1] == 4, "now only support quad mesh"
+    if backslash is None:
+      backslash = np.linalg.norm(
+          vertices[faces[:, 0]] - vertices[faces[:, 2]], axis=-1
+      ) < np.linalg.norm(vertices[faces[:, 1]] - vertices[faces[:, 3]], axis=-1)
+  if backslash is None:
+    loop_indice = np.stack(
+        [
+            np.zeros(P - 2, dtype=int),
+            np.arange(1, P - 1, 1, dtype=int),
+            np.arange(2, P, 1, dtype=int),
+        ],
+        axis=1,
+    )
+    return faces[:, loop_indice].reshape((-1, 3))
+  else:
+    assert faces.shape[-1] == 4, "now only support quad mesh"
+    faces = np.where(
+        backslash[:, None],
+        faces[:, [0, 1, 2, 0, 2, 3]],
+        faces[:, [0, 1, 3, 3, 1, 2]],
+    ).reshape((-1, 3))
+    return faces
+
+def remove_unreferenced_vertices(
+  faces: np.ndarray, *vertice_attrs, return_indices: bool = False
+  ) -> Tuple[np.ndarray, ...]:
+  """
+  Remove unreferenced vertices of a mesh.
+  Unreferenced vertices are removed, and the face indices are updated accordingly.
+
+  Args:
+      faces (np.ndarray): [T, P] face indices
+      *vertice_attrs: vertex attributes
+
+  Returns:
+      faces (np.ndarray): [T, P] face indices
+      *vertice_attrs: vertex attributes
+      indices (np.ndarray, optional): [N] indices of vertices that are kept. Defaults to None.
+  """
+  P = faces.shape[-1]
+  fewer_indices, inv_map = np.unique(faces, return_inverse=True)
+  faces = inv_map.astype(np.int32).reshape(-1, P)
+  ret = [faces]
+  for attr in vertice_attrs:
+    ret.append(attr[fewer_indices])
+  if return_indices:
+    ret.append(fewer_indices)
+  return tuple(ret)
+
+def image_mesh(
+  *image_attrs: np.ndarray,
+  mask: np.ndarray = None,
+  tri: bool = False,
+  return_indices: bool = False,
+  ) -> Tuple[np.ndarray, ...]:
+  """
+  Get a mesh regarding image pixel uv coordinates as vertices and image grid as faces.
+
+  Args:
+      *image_attrs (np.ndarray): image attributes in shape (height, width, [channels])
+      mask (np.ndarray, optional): binary mask of shape (height, width), dtype=bool. Defaults to None.
+
+  Returns:
+      faces (np.ndarray): faces connecting neighboring pixels. shape (T, 4) if tri is False, else (T, 3)
+      *vertex_attrs (np.ndarray): vertex attributes in corresponding order with input image_attrs
+      indices (np.ndarray, optional): indices of vertices in the original mesh
+  """
+  assert (len(image_attrs) > 0) or (mask is not None), (
+      "At least one of image_attrs or mask should be provided"
+  )
+  height, width = next(image_attrs).shape[:2] if mask is None else mask.shape
+  assert all(img.shape[:2] == (height, width) for img in image_attrs), (
+      "All image_attrs should have the same shape"
+  )
+
+  row_faces = np.stack(
+      [
+          np.arange(0, width - 1, dtype=np.int32),
+          np.arange(width, 2 * width - 1, dtype=np.int32),
+          np.arange(1 + width, 2 * width, dtype=np.int32),
+          np.arange(1, width, dtype=np.int32),
+      ],
+      axis=1,
+  )
+  faces = (
+      np.arange(0, (height - 1) * width, width, dtype=np.int32)[:, None, None]
+      + row_faces[None, :, :]
+  ).reshape((-1, 4))
+  if mask is None:
+    if tri:
+      faces = triangulate(faces)
+    ret = [faces, *(img.reshape(-1, *img.shape[2:]) for img in image_attrs)]
+    if return_indices:
+      ret.append(np.arange(height * width, dtype=np.int32))
+    return tuple(ret)
+  else:
+    quad_mask = (
+        mask[:-1, :-1] & mask[1:, :-1] & mask[1:, 1:] & mask[:-1, 1:]
+    ).ravel()
+    faces = faces[quad_mask]
+    if tri:
+      faces = triangulate(faces)
+    return remove_unreferenced_vertices(
+        faces,
+        *(x.reshape(-1, *x.shape[2:]) for x in image_attrs),
+        return_indices=return_indices,
+    )
