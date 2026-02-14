@@ -6,6 +6,14 @@
 import pytest
 import os
 from scene_common.options import TYPE_2
+from controller.controller_mode import ControllerMode
+
+@pytest.fixture(scope='session', autouse=True)
+def initialize_controller_mode():
+  """Initialize ControllerMode before any tests run."""
+  ControllerMode.initialize(analytics_only=False)
+  yield
+  ControllerMode.reset()
 
 def pytest_addoption(parser):
   """! Function to add command line arguments for test
