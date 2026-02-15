@@ -232,7 +232,7 @@ class Scene(SceneModel):
                        detectionType, when=None):
 
     if ControllerMode.isAnalyticsOnly():
-      log.debug(f"Analytics-only mode enabled, skipping scene data processing for child {child.name if hasattr(child, 'name') else 'unknown'}")
+      log.info(f"Analytics-only mode enabled, skipping scene data processing for child {child.name if hasattr(child, 'name') else 'unknown'}")
       return True
 
     new = jdata['objects']
@@ -255,7 +255,7 @@ class Scene(SceneModel):
         info.pop('reid')
 
       mobj = self.tracker.createObject(detectionType, info, when, child, self.persist_attributes.get(detectionType, {}))
-      log.debug("RX SCENE OBJECT",
+      log.info("RX SCENE OBJECT",
               "id=%s" % (mobj.oid), mobj.sceneLoc)
       if child.retrack:
         objects.append(mobj)
@@ -349,7 +349,7 @@ class Scene(SceneModel):
 
     # If tracker is enabled, use direct tracker call (traditional mode)
     if self.tracker is not None:
-      log.debug(f"Using direct tracker call for detection type: {detection_type}")
+      log.info(f"Using direct tracker call for detection type: {detection_type}")
       return self.tracker.currentObjects(detection_type)
 
     return []
@@ -386,7 +386,9 @@ class Scene(SceneModel):
       obj.confidence = obj_data.get('confidence')
       obj.frameCount = obj_data.get('frame_count', 0)
       obj.rotation = obj_data.get('rotation')
-      obj.reidVector = obj_data.get('reid')
+      # Extract reid from metadata if present
+      metadata = obj_data.get('metadata', {})
+      obj.reid = metadata.get('reid') if metadata else None
       obj.similarity = obj_data.get('similarity')
       obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
       obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
@@ -467,7 +469,7 @@ class Scene(SceneModel):
 
       if len(tripwireObjects) != len(objects) \
          and now - tripwire.when > DEBOUNCE_DELAY:
-        log.debug("TRIPWIRE EVENT", tripwireObjects, len(objects))
+        log.info("TRIPWIRE EVENT", tripwireObjects, len(objects))
         tripwire.objects[detectionType] = objects
         tripwire.when = now
         if 'objects' not in self.events:
@@ -505,7 +507,7 @@ class Scene(SceneModel):
         self._updateSensorObjects(key, region, newObjects)
 
       if (len(new) or len(old)) and now - region.when > DEBOUNCE_DELAY:
-        log.debug("REGION EVENT", key, now_str, regionObjects, len(objects))
+        log.info("REGION EVENT", key, now_str, regionObjects, len(objects))
         entered = []
         for obj in objects:
           if obj.gid in new and key in obj.chain_data.regions:

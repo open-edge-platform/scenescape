@@ -175,6 +175,7 @@ class VDMSDatabase(ReIDDatabase):
     or_constraints = []
 
     if constraints:
+      log.info(f"_build_query_constraints: Processing {len(constraints)} constraints")
       for key, value in constraints.items():
         if value is not None:
           # Extract actual value and confidence from metadata dict
@@ -185,6 +186,7 @@ class VDMSDatabase(ReIDDatabase):
           if isinstance(value, dict) and 'value' in value:
             actual_value = value['value']
             confidence = value.get('confidence')
+            log.info(f"_build_query_constraints: {key} is dict format: value={actual_value}, confidence={confidence}")
 
           # Determine constraint type based on confidence
           try:
@@ -194,17 +196,21 @@ class VDMSDatabase(ReIDDatabase):
               # If confidence >= 0.8, treat as AND constraint (strict matching)
               if conf_value >= 0.8:
                 and_constraints[key] = ["==", str(actual_value)]
+                log.info(f"_build_query_constraints: {key} -> AND constraint (confidence={conf_value})")
               # If confidence < 0.8, treat as OR constraint (flexible matching)
               else:
                 or_constraints.append({key: ["==", str(actual_value)]})
+                log.info(f"_build_query_constraints: {key} -> OR constraint (confidence={conf_value})")
             else:
               # No confidence available, check if actual_value itself is numeric
               try:
                 conf_value = float(actual_value) if isinstance(actual_value, (int, float, str)) else None
                 if conf_value is not None and conf_value >= 0.8:
                   and_constraints[key] = ["==", str(actual_value)]
+                  log.info(f"_build_query_constraints: {key} -> AND constraint (numeric value={conf_value})")
                 else:
                   or_constraints.append({key: ["==", str(actual_value)]})
+                  log.info(f"_build_query_constraints: {key} -> OR constraint (non-numeric or low value={conf_value})")
               except (ValueError, TypeError):
                 # Not numeric, treat as OR constraint (flexible)
                 or_constraints.append({key: ["==", str(actual_value)]})
@@ -235,6 +241,9 @@ class VDMSDatabase(ReIDDatabase):
     """
     # TIER 1: Build dynamic constraints for metadata filtering
     query_constraints = self._build_query_constraints(object_type, **constraints)
+    
+    log.info(f"findMatches: object_type={object_type}, num_vectors={len(reid_vectors)}, constraints_keys={list(constraints.keys())}")
+    log.info(f"findMatches: query_constraints={query_constraints}")
 
     find_query = {
       "FindDescriptor": {
@@ -261,6 +270,10 @@ class VDMSDatabase(ReIDDatabase):
 
     query = [find_query] * len(reid_vectors)
     response, _ = self.sendQuery(query, blob)
+    
+    if response:
+      valid_count = sum(1 for item in response if (item.get('status') == 0 and item.get('returned') > 0))
+      log.info(f"findMatches: received {len(response)} responses, {valid_count} with valid results")
 
     if response:
       result = [

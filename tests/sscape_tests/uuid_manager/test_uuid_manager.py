@@ -80,7 +80,7 @@ class TestExtractReidEmbedding:
     
     # Create object with new reid format
     obj = MagicMock()
-    obj.reidVector = {
+    obj.reid = {
       "embedding_vector": np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist(),
       "model_name": "reid_model_v3"
     }
@@ -100,7 +100,7 @@ class TestExtractReidEmbedding:
     
     # Create object with legacy reid format (direct vector)
     obj = MagicMock()
-    obj.reidVector = np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist()
+    obj.reid = np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist()
     
     embedding = manager._extractReidEmbedding(obj)
     
@@ -115,28 +115,28 @@ class TestExtractReidEmbedding:
     
     manager = UUIDManager()
     
-    # Create object without reidVector field using spec
+    # Create object without reid field using spec
     obj = Mock(spec=['rv_id'])
     
     embedding = manager._extractReidEmbedding(obj)
     
-    assert embedding is None, "Should return None when reidVector is missing"
+    assert embedding is None, "Should return None when reid is missing"
 
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_extract_reid_returns_none_when_none_value(self, mock_vdms_class):
-    """Verify None is returned when reidVector value is None."""
+    """Verify None is returned when reid value is None."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
     
     manager = UUIDManager()
     
-    # Create object with reidVector=None
+    # Create object with reid=None
     obj = MagicMock()
-    obj.reidVector = None
+    obj.reid = None
     
     embedding = manager._extractReidEmbedding(obj)
     
-    assert embedding is None, "Should return None when reidVector value is None"
+    assert embedding is None, "Should return None when reid value is None"
 
 
 class TestExtractSemanticMetadata:
@@ -144,21 +144,23 @@ class TestExtractSemanticMetadata:
 
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_extract_semantic_metadata_new_format(self, mock_vdms_class):
-    """Verify extraction from new metadata format: {value, model_name, confidence}."""
+    """Verify extraction from new metadata format: metadata attribute."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
     
     manager = UUIDManager()
     
-    # Create object with new metadata format
+    # Create object with metadata attribute (new structure)
     obj = MagicMock()
-    obj.category = "Person"  # Generic property (should be skipped)
-    obj.gender = {"value": "Female", "model_name": "gender_v2", "confidence": 0.95}
-    obj.age = {"value": 28, "model_name": "age_estimator", "confidence": 0.87}
+    obj.category = "Person"  # Generic property (stays as-is, not in metadata)
+    obj.metadata = {
+      "gender": {"value": "Female", "model_name": "gender_v2", "confidence": 0.95},
+      "age": {"value": 28, "model_name": "age_estimator", "confidence": 0.87}
+    }
     
     metadata = manager._extractSemanticMetadata(obj)
     
-    # Should extract semantic attributes as-is (full dict structure)
+    # Should extract metadata attribute directly
     assert "gender" in metadata, "Should extract gender metadata"
     assert metadata["gender"] == {"value": "Female", "model_name": "gender_v2", "confidence": 0.95}, \
       "Should preserve full metadata dict with value, model_name, and confidence"
@@ -166,40 +168,40 @@ class TestExtractSemanticMetadata:
     assert metadata["age"] == {"value": 28, "model_name": "age_estimator", "confidence": 0.87}, \
       "Should preserve full metadata dict for age"
     
-    # Should skip generic properties
+    # Generic properties should not be in metadata
     assert "category" not in metadata, "Should not include generic properties"
 
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_extract_semantic_metadata_skips_generic_properties(self, mock_vdms_class):
-    """Verify generic properties are excluded from metadata."""
+    """Verify generic properties are excluded from metadata extraction."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
     
     manager = UUIDManager()
     
-    # Create object with generic properties
+    # Create object with metadata attribute (new structure)
     obj = MagicMock()
     obj.category = "Person"
     obj.confidence = 0.95
     obj.bounding_box_px = {"x": 0, "y": 0}
-    obj.reid = [0.1, 0.2, 0.3, 0.4]
-    obj.custom_attribute = {"value": "test", "model_name": "test_model", "confidence": 0.9}
+    obj.metadata = {
+      "custom_attribute": {"value": "test", "model_name": "test_model", "confidence": 0.9}
+    }
     
     metadata = manager._extractSemanticMetadata(obj)
     
-    # Generic properties should be excluded
+    # Only metadata attribute should be extracted
     assert "category" not in metadata
     assert "confidence" not in metadata
     assert "bounding_box_px" not in metadata
-    assert "reid" not in metadata
     
-    # Custom semantic attributes should be included (as-is, full structure)
+    # Metadata attributes should be included
     assert "custom_attribute" in metadata
     assert metadata["custom_attribute"] == {"value": "test", "model_name": "test_model", "confidence": 0.9}
 
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_extract_semantic_metadata_skips_internal_fields(self, mock_vdms_class):
-    """Verify internal fields (starting with _) are excluded."""
+    """Verify only metadata attribute is extracted, not internal fields."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
     
@@ -209,56 +211,56 @@ class TestExtractSemanticMetadata:
     obj = MagicMock()
     obj._internal_field = "should_be_skipped"
     obj._private = "hidden"
-    obj.public_attribute = {"value": "visible", "model_name": "model", "confidence": 0.9}
+    obj.metadata = {
+      "public_attribute": {"value": "visible", "model_name": "model", "confidence": 0.9}
+    }
     
     metadata = manager._extractSemanticMetadata(obj)
     
-    # Internal fields should be skipped
+    # Internal fields should not be extracted (only metadata attribute is)
     assert "_internal_field" not in metadata
     assert "_private" not in metadata
     
-    # Public attributes should be included
+    # Metadata contents should be extracted
     assert "public_attribute" in metadata
 
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_extract_semantic_metadata_handles_none_values(self, mock_vdms_class):
-    """Verify None values are skipped."""
+    """Verify None metadata is handled gracefully."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
     
     manager = UUIDManager()
     
-    # Create object with None values
+    # Create object with None metadata
     obj = MagicMock()
-    obj.nullable_attribute = None
-    obj.valid_attribute = {"value": "something", "model_name": "model", "confidence": 0.9}
+    obj.metadata = None
     
     metadata = manager._extractSemanticMetadata(obj)
     
-    # None values should be skipped
-    assert "nullable_attribute" not in metadata
-    
-    # Valid attributes should be included
-    assert "valid_attribute" in metadata
+    # Should return empty dict when metadata is None
+    assert metadata == {}
 
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_extract_semantic_metadata_preserves_value_types(self, mock_vdms_class):
-    """Verify extracted values preserve their data types."""
+    """Verify extracted metadata preserves data types."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
     
     manager = UUIDManager()
     
-    # Create object with various value types
+    # Create object with various value types in metadata
     obj = MagicMock()
-    obj.string_attr = {"value": "text", "model_name": "model", "confidence": 0.9}
-    obj.int_attr = {"value": 42, "model_name": "model", "confidence": 0.9}
-    obj.float_attr = {"value": 3.14, "model_name": "model", "confidence": 0.9}
-    obj.bool_attr = {"value": True, "model_name": "model", "confidence": 0.9}
+    obj.metadata = {
+      "string_attr": {"value": "text", "model_name": "model", "confidence": 0.9},
+      "int_attr": {"value": 42, "model_name": "model", "confidence": 0.9},
+      "float_attr": {"value": 3.14, "model_name": "model", "confidence": 0.9},
+      "bool_attr": {"value": True, "model_name": "model", "confidence": 0.9}
+    }
     
     metadata = manager._extractSemanticMetadata(obj)
     
-    # Metadata is passed as-is (full dict structure), so check the dict values
+    # Verify all types are preserved
     assert metadata["string_attr"] == {"value": "text", "model_name": "model", "confidence": 0.9}
     assert metadata["int_attr"] == {"value": 42, "model_name": "model", "confidence": 0.9}
     assert metadata["float_attr"] == {"value": 3.14, "model_name": "model", "confidence": 0.9}
@@ -266,26 +268,24 @@ class TestExtractSemanticMetadata:
 
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_extract_semantic_metadata_handles_legacy_format(self, mock_vdms_class):
-    """Verify legacy format (plain values) are also extracted."""
+    """Verify no metadata attribute returns empty dict (legacy objects)."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
     
     manager = UUIDManager()
     
-    # Create object with legacy format (plain values)
-    obj = MagicMock()
-    obj.color = "red"  # Legacy: plain value
-    obj.clothing = "jacket"  # Legacy: plain value
-    obj.modern_attr = {"value": "new format", "model_name": "model", "confidence": 0.9}
+    # Create a real object without metadata attribute (not MagicMock which creates attrs dynamically)
+    class LegacyObject:
+      def __init__(self):
+        self.color = "red"
+        self.clothing = "jacket"
+    
+    obj = LegacyObject()
     
     metadata = manager._extractSemanticMetadata(obj)
     
-    # Legacy format values should be preserved as-is
-    assert metadata.get("color") == "red"
-    assert metadata.get("clothing") == "jacket"
-    
-    # Modern format should also work (as-is, full dict structure)
-    assert metadata.get("modern_attr") == {"value": "new format", "model_name": "model", "confidence": 0.9}
+    # Should return empty dict for objects without metadata attribute
+    assert metadata == {}
 
 
 class TestIsNewTrackerID:
@@ -301,7 +301,7 @@ class TestIsNewTrackerID:
     
     obj = MagicMock()
     obj.rv_id = "tracker_123"
-    obj.reidVector = np.array([0.1, 0.2, 0.3, 0.4])
+    obj.reid = {"embedding_vector": np.array([0.1, 0.2, 0.3, 0.4])}
     
     result = manager.isNewTrackerID(obj)
     
@@ -320,7 +320,7 @@ class TestIsNewTrackerID:
     
     obj = MagicMock()
     obj.rv_id = "tracker_123"
-    obj.reidVector = np.array([0.1, 0.2, 0.3, 0.4])
+    obj.reid = {"embedding_vector": np.array([0.1, 0.2, 0.3, 0.4])}
     
     result = manager.isNewTrackerID(obj)
     
@@ -337,7 +337,7 @@ class TestIsNewTrackerID:
     
     obj = MagicMock()
     obj.rv_id = "tracker_no_reid"
-    obj.reidVector = None
+    obj.reid = None
     
     result = manager.isNewTrackerID(obj)
     
@@ -377,12 +377,14 @@ class TestDataTypes:
     manager = UUIDManager()
     
     obj = MagicMock()
-    obj.person_name = {"value": "José García", "model_name": "name_detector", "confidence": 0.9}
-    obj.location = {"value": "北京", "model_name": "location_detector", "confidence": 0.85}
+    obj.metadata = {
+      "person_name": {"value": "José García", "model_name": "name_detector", "confidence": 0.9},
+      "location": {"value": "北京", "model_name": "location_detector", "confidence": 0.85}
+    }
     
     metadata = manager._extractSemanticMetadata(obj)
     
-    # Metadata is passed as-is (full dict structure)
+    # Metadata is passed as-is
     assert metadata["person_name"] == {"value": "José García", "model_name": "name_detector", "confidence": 0.9}
     assert metadata["location"] == {"value": "北京", "model_name": "location_detector", "confidence": 0.85}
 
@@ -395,15 +397,17 @@ class TestDataTypes:
     manager = UUIDManager()
     
     obj = MagicMock()
-    obj.description = {
-      "value": 'Test "quoted" and \'apostrophe\' & symbols',
-      "model_name": "desc",
-      "confidence": 0.9
+    obj.metadata = {
+      "description": {
+        "value": 'Test "quoted" and \'apostrophe\' & symbols',
+        "model_name": "desc",
+        "confidence": 0.9
+      }
     }
     
     metadata = manager._extractSemanticMetadata(obj)
     
-    # Metadata is passed as-is (full dict structure)
+    # Metadata is passed as-is
     assert metadata["description"] == {
       "value": 'Test "quoted" and \'apostrophe\' & symbols',
       "model_name": "desc",

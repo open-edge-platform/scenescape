@@ -43,14 +43,24 @@ def reidPolicy(pobj, item, fw, fh):
     if name and ('reid' in name or 'embedding' in name):
       reid_vector = tensor.get('data', [])
       v = struct.pack("256f",*reid_vector)
-      pobj['reid'] = {'embedding_vector': base64.b64encode(v).decode('utf-8'),
-                      'model_name': tensor.get('model_name', '')}
+      # Move reid under metadata key
+      if 'metadata' not in pobj:
+        pobj['metadata'] = {}
+      pobj['metadata']['reid'] = {
+        'embedding_vector': base64.b64encode(v).decode('utf-8'),
+        'model_name': tensor.get('model_name', '')
+      }
       break
   return
 
 def classificationPolicy(pobj, item, fw, fh):
   """Extract detection and classification metadata from tensors and update pobj"""
   detectionPolicy(pobj, item, fw, fh)
+  
+  # Initialize metadata dict if it doesn't exist
+  if 'metadata' not in pobj:
+    pobj['metadata'] = {}
+  
   categories = {}
   for tensor in item.get('tensors', [{}]):
     name = tensor.get('name','')
@@ -58,7 +68,9 @@ def classificationPolicy(pobj, item, fw, fh):
       categories[name] = {'label': tensor.get('label',''), 
                           'confidence': tensor.get('confidence', 100.0),
                           'model_name': tensor.get('model_name', '')}
-  pobj.update(categories)
+  
+  # Move all semantic metadata under metadata key
+  pobj['metadata'].update(categories)
   return
 
 def ocrPolicy(pobj, item, fw, fh):

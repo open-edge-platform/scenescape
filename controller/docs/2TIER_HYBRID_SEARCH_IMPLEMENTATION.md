@@ -38,7 +38,7 @@ Automatically extracts semantic attributes from sscape_object by filtering out g
 **Generic properties excluded**:
 
 - `category`, `confidence`, `center_of_mass`, `bounding_box_px` (object properties)
-- `rv_id`, `gid`, `uuid`, `reidVector` (system fields)
+- `rv_id`, `gid`, `uuid` (system fields)
 - `reid` (the visual embedding itself)
 - Any field starting with `_` (internal fields)
 

@@ -185,18 +185,18 @@ class Tracking(Thread):
 
   def waitForComplete(self):
     if hasattr(self, 'queue'):
-      log.debug(f"Waiting for tracker {self.__str__()} queue to complete. Queue size: {self.queue.qsize()}")
+      log.info(f"Waiting for tracker {self.__str__()} queue to complete. Queue size: {self.queue.qsize()}")
       self.queue.join()
     return
 
   def join(self):
-    log.debug("Joining tracker threads. Trackers count: ", len(self.trackers))
+    log.info("Joining tracker threads. Trackers count: ", len(self.trackers))
     for category in self.trackers:
       tracker = self.trackers[category]
       tracker.queue.put((None, None, None, STREAMING_MODE))
-      log.debug(f"Waiting for tracker thread category {category} to complete")
+      log.info(f"Waiting for tracker thread category {category} to complete")
       tracker.waitForComplete()
-      log.debug(f"Joining tracker thread category {category}")
+      log.info(f"Joining tracker thread category {category}")
       tracker.join()
     return
 

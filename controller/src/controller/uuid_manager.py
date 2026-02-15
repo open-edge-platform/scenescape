@@ -50,55 +50,31 @@ class UUIDManager:
     @param   sscape_object  The Scenescape object with detection data
     @return  embedding      The embedding vector, or None if not available
     """
-    if not hasattr(sscape_object, 'reidVector') or sscape_object.reidVector is None:
+    if not hasattr(sscape_object, 'reid') or sscape_object.reid is None:
       return None
 
-    if isinstance(sscape_object.reidVector, dict) and 'embedding_vector' in sscape_object.reidVector:
-      return sscape_object.reidVector['embedding_vector']
+    if isinstance(sscape_object.reid, dict) and 'embedding_vector' in sscape_object.reid:
+      return sscape_object.reid['embedding_vector']
     else:
-      return sscape_object.reidVector
+      return sscape_object.reid
 
   def _extractSemanticMetadata(self, sscape_object):
     """
     Extract semantic metadata attributes from sscape_object.
     Separates generic object properties (confidence, bbox, etc.) from semantic properties.
-    Supports flexible attribute evolution - any new attributes from analytics pipeline accepted.
-
-    Metadata is passed as-is to preserve full structure:
-    - New format: {value: <actual_value>, model_name: <model_name>, confidence: <score>}
-    - Legacy format: plain values (string, int, float, etc.)
-
-    The constraint building logic in vdms_adapter handles extraction of value and confidence.
-
-    Generic properties to exclude: category, confidence, center_of_mass, bounding_box_px, reid
-    All other properties are treated as semantic metadata.
+    Semantic metadata is now organized under a dedicated "metadata" key in the object.
+    This includes all semantic attributes describing what an object is (age, gender, 
+    clothing, embedding vectors, etc), separate from internal tracker state.
 
     @param   sscape_object  The Scenescape object with detection data
-    @return  metadata       Dictionary of semantic attributes with full metadata structure
+    @return  metadata       Dictionary of semantic attributes
     """
-    if not hasattr(sscape_object, '__dict__'):
+    if hasattr(sscape_object, 'metadata') and sscape_object.metadata:
+      log.info(f"_extractSemanticMetadata: Found {len(sscape_object.metadata)} semantic attributes: {list(sscape_object.metadata.keys())}")
+      return sscape_object.metadata
+    else:
+      log.info(f"_extractSemanticMetadata: No semantic metadata")
       return {}
-
-    # Generic object properties that are not semantic metadata
-    generic_properties = {
-      'category', 'confidence', 'center_of_mass', 'bounding_box_px',
-      'rv_id', 'rvid', 'gid', 'uuid', 'reidVector', 'boundingBoxPixels',
-      'reid', '_distance', 'similarity'
-    }
-
-    metadata = {}
-    for key, value in sscape_object.__dict__.items():
-      # Skip generic properties and internal fields
-      if key.startswith('_') or key in generic_properties:
-        continue
-
-      # Include semantic attributes like age, gender, person_attributes, etc.
-      if value is not None:
-        # Pass metadata as-is to preserve full structure (value, model_name, confidence)
-        # vdms_adapter._build_query_constraints() handles extraction and routing
-        metadata[key] = value
-
-    return metadata
 
   def pruneInactiveTracks(self, tracked_objects):
     """
@@ -143,7 +119,7 @@ class UUIDManager:
     features = self.features_for_database.pop(track_id, None)
     if features:
       features['reid_vectors'] = features['reid_vectors'][::slice_size]
-      log.debug(
+      log.info(
         f"Adding {len(features['reid_vectors'])} features for track {track_id} to database")
 
       # Extract semantic metadata from stored feature data
@@ -160,7 +136,7 @@ class UUIDManager:
     """
     result = self.active_ids.get(sscape_object.rv_id, None)
     # Case for incrementing the counter when there is no re-id vector
-    if sscape_object.reidVector is None and result is None:
+    if sscape_object.reid is None and result is None:
       self.unique_id_count += 1
     return result is None or result[0] is None
 
@@ -177,11 +153,14 @@ class UUIDManager:
 
     if reid_embedding is not None and self.reid_enabled:
       bbox_area = sscape_object.boundingBoxPixels.area if hasattr(sscape_object, 'boundingBoxPixels') else 0
+      log.info(f"gatherQualityVisualFeatures: Object {sscape_object.rv_id} bbox_area={bbox_area}, minimum={minimum_bbox_area}")
       if bbox_area > minimum_bbox_area:
         if sscape_object.rv_id in self.quality_features:
           self.quality_features[sscape_object.rv_id].append(reid_embedding)
+          log.info(f"gatherQualityVisualFeatures: Added reid to existing features for {sscape_object.rv_id}, total count: {len(self.quality_features[sscape_object.rv_id])}")
         else:
           self.quality_features[sscape_object.rv_id] = [reid_embedding]
+          log.info(f"gatherQualityVisualFeatures: Started feature collection for {sscape_object.rv_id}")
     return
 
   def pickBestID(self, sscape_object):
@@ -260,6 +239,8 @@ class UUIDManager:
 
     # Extract semantic metadata for TIER 1 filtering
     metadata_constraints = self._extractSemanticMetadata(sscape_object)
+    
+    log.info(f"findSimilarityScores: tracker_id={sscape_object.rv_id}, category={sscape_object.category}, metadata_constraints={list(metadata_constraints.keys())}")
 
     start_time = get_epoch_time()
     # Pass metadata as constraints for TIER 1 filtering in findMatches

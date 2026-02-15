@@ -61,7 +61,7 @@ class Vector:
 class MovingObject:
   ## Fields that are specific to a single detection:
   # 'tracking_radius', 'camera', 'boundingBox', 'boundingBoxPixels',
-  # 'confidence', 'oid', 'reidVector', 'visibility'
+  # 'confidence', 'oid', 'reid', 'visibility'
 
   ## Fields that really are shared across the chain:
   # 'gid', 'frameCount', 'velocity', 'intersected',
@@ -107,10 +107,14 @@ class MovingObject:
     self.location = None
     self.rotation = np.array([0, 0, 0, 1]).tolist()
     self.intersected = False
-    self.reidVector = None
-    reid = self.info.get('reid', None)
-    if reid is not None:
-      self._decodeReIDVector(reid)
+    self.reid = {}  # Initialize reid as empty dict
+    # Extract reid from metadata if present
+    metadata = self.info.get('metadata', {})
+    if metadata and isinstance(metadata, dict):
+      reid = metadata.get('reid', None)
+      if reid is not None:
+        self._decodeReIDVector(reid)
+        self.info.pop('metadata', None)  # Remove metadata from info after extracting
     return
 
   def _decodeReIDVector(self, reid):
@@ -125,6 +129,8 @@ class MovingObject:
       # Handle new format: dict with embedding_vector and model_name
       if isinstance(reid, dict) and 'embedding_vector' in reid:
         embedding_data = reid['embedding_vector']
+        if 'model_name' in reid:
+          self.reid['model_name'] = reid['model_name']
       else:
         embedding_data = reid
 
@@ -132,18 +138,18 @@ class MovingObject:
       if isinstance(embedding_data, str):
         # Base64-encoded string format
         vector = base64.b64decode(embedding_data)
-        self.reidVector = np.array(struct.unpack("256f", vector)).reshape(1, -1)
+        self.reid['embedding_vector'] = np.array(struct.unpack("256f", vector)).reshape(1, -1)
       elif isinstance(embedding_data, list):
         # Direct list format
-        self.reidVector = embedding_data
+        self.reid['embedding_vector'] = embedding_data
       else:
         # Unknown format, leave as None
-        self.reidVector = None
+        self.reid['embedding_vector'] = None
 
       # Clean up info dict
       self.info.pop('reid', None)
     except (TypeError, ValueError) as e:
-      self.reidVector = None
+      self.reid['embedding_vector'] = None
     return
 
   def setPersistentAttributes(self, info, persist_attributes):
@@ -184,7 +190,7 @@ class MovingObject:
     return
 
   def setPrevious(self, otherObj):
-    # log.debug("MATCHED", self.__class__.__name__,
+    # log.info("MATCHED", self.__class__.__name__,
     #     "id=%i/%i:%i" % (otherObj.gid, otherObj.oid, self.oid),
     #     otherObj.sceneLoc, self.sceneLoc)
     self.location = [self.location[0]] + otherObj.location[:LOCATION_LIMIT - 1]
@@ -350,7 +356,7 @@ class MovingObject:
       'bounding_box': self.boundingBox.asDict,
       'gid': self.gid,
       'frame_count': self.frameCount,
-      'reid': self.reidVector,
+      'reid': self.reid,
       'first_seen': self.first_seen,
       'location': [{'point': (v.point.x, v.point.y, v.point.z),
                     'timestamp': v.when,
@@ -376,10 +382,10 @@ class MovingObject:
     self.boundingBox = Rectangle(info['bounding_box'])
     self.gid = info['gid']
     self.frameCount = info['frame_count']
-    self.reidVector = info['reid']
-    if self.reidVector is not None:
-      vector = base64.b64decode(self.reidVector)
-      self.reidVector = np.array(struct.unpack("256f", vector)).reshape(1, -1)
+    self.reid = info['reid']
+    if self.reid is not None and 'embedding_vector' in self.reid:
+      vector = base64.b64decode(self.reid['embedding_vector'])
+      self.reid['embedding_vector'] = np.array(struct.unpack("256f", vector)).reshape(1, -1)
     self.first_seen = info['first_seen']
     self.location = [Chronoloc(Point(v['point']), v['timestamp'], Rectangle(v['bounding_box']))
                      for v in info['location']]

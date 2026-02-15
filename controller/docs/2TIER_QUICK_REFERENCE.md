@@ -81,7 +81,7 @@ metadata = uuid_manager._extractSemanticMetadata(sscape_object)
 - ✅ Custom attributes: age, gender, color, make, model, person-attributes, etc.
 - ✅ Any new field added to sscape_object by analytics pipeline
 - ❌ Generic properties: category, confidence, center_of_mass, bounding_box_px
-- ❌ System fields: rv_id, gid, uuid, reidVector, reid
+- ❌ System fields: rv_id, gid, uuid, reid
 - ❌ Internal fields: anything starting with `_`
 
 ### `uuid_manager.sendSimilarityQuery(sscape_object)`
