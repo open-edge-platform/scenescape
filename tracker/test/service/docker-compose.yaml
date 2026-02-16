@@ -69,6 +69,11 @@ services:
       timeout: 1s
       retries: 10
       start_period: 5s
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     stop_grace_period: 5s
     restart: on-failure
 

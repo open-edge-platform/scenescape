@@ -45,6 +45,12 @@ find_package(RapidJSON REQUIRED)
 find_package(PahoMqttCpp REQUIRED)
 
 #####################################################################
+# System-provided packages
+#####################################################################
+
+find_package(OpenMP REQUIRED)
+
+#####################################################################
 # RobotVision integration
 #####################################################################
 
@@ -70,6 +76,7 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/config_loader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene_loader.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/coordinate_transformer.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_server.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_command.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/mqtt_client.cpp
@@ -80,6 +87,7 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/tracking_worker.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/track_publisher.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/proxy_utils.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/time_utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/topic_utils.cpp
 )
 
@@ -108,6 +116,7 @@ target_link_libraries(${PROJECT_NAME}
   PRIVATE
     scenescape::security_options
     RobotVision
+    OpenMP::OpenMP_CXX
     quill::quill
     CLI11::CLI11
     httplib::httplib

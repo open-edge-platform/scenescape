@@ -176,18 +176,34 @@ build-relwithdebinfo: dependencies-relwithdebinfo
 TRACKER_SCHEMA_PATH ?= $(CURDIR)/schema/config.schema.json
 TRACKER_CONFIG_PATH ?= $(CURDIR)/config/tracker.json
 
-# MQTT broker connection (auto-detect from test broker, fallback to 1883)
-export TRACKER_MQTT_HOST ?= localhost
-export TRACKER_MQTT_PORT ?= $(shell cd test/service && docker compose port broker 1883 2>/dev/null | cut -d: -f2 || echo 1883)
+# MQTT broker connection - preconfigured for SceneScape demo (docker compose up)
+# These variables are exported only in run/run-debug targets to avoid polluting test environment
+TRACKER_MQTT_HOST ?= localhost
+TRACKER_MQTT_PORT ?= $(shell cd test/service && docker compose port broker 1883 2>/dev/null | cut -d: -f2 || echo 1883)
+TRACKER_MQTT_INSECURE ?= false
 
-# Export empty proxy vars - Paho MQTT library fails with proxy env vars,
+# TLS CA certificate path (host path for native runs, container path set in tracker.json)
+TRACKER_TLS_CA_CERT_HOST ?= $(CURDIR)/../manager/secrets/certs/scenescape-ca.pem
+TRACKER_MQTT_TLS_CA_CERT ?= $(TRACKER_TLS_CA_CERT_HOST)
+
+# For insecure test broker: make run TRACKER_MQTT_INSECURE=true
+
+# Export MQTT env vars and empty proxy vars - Paho MQTT library fails with proxy env vars,
 # tracker code detects empty vars and unsets them (see mqtt_client.cpp)
 run: build
-	export http_proxy= https_proxy= HTTP_PROXY= HTTPS_PROXY= && \
+	export TRACKER_MQTT_HOST="$(TRACKER_MQTT_HOST)" \
+		TRACKER_MQTT_PORT="$(TRACKER_MQTT_PORT)" \
+		TRACKER_MQTT_INSECURE="$(TRACKER_MQTT_INSECURE)" \
+		TRACKER_MQTT_TLS_CA_CERT="$(TRACKER_MQTT_TLS_CA_CERT)" \
+		http_proxy= https_proxy= HTTP_PROXY= HTTPS_PROXY= && \
 		. build/conanrun.sh && ./build/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
 
 run-debug: build-debug
-	export http_proxy= https_proxy= HTTP_PROXY= HTTPS_PROXY= && \
+	export TRACKER_MQTT_HOST="$(TRACKER_MQTT_HOST)" \
+		TRACKER_MQTT_PORT="$(TRACKER_MQTT_PORT)" \
+		TRACKER_MQTT_INSECURE="$(TRACKER_MQTT_INSECURE)" \
+		TRACKER_MQTT_TLS_CA_CERT="$(TRACKER_MQTT_TLS_CA_CERT)" \
+		http_proxy= https_proxy= HTTP_PROXY= HTTPS_PROXY= && \
 		. build-debug/conanrun.sh && ./build-debug/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
 
 # Profile with perf using optimized build with debug symbols.
@@ -319,8 +335,9 @@ test-service: build-image
 	@test/service/.venv/bin/pip install -q --upgrade pip
 	@test/service/.venv/bin/pip install -q -r test/service/requirements.txt
 	@echo "Running service tests..."
-	unset TRACKER_MQTT_PORT TRACKER_MQTT_HOST TRACKER_MQTT_INSECURE && \
-		cd test/service && .venv/bin/pytest -v --tb=short
+	cd test/service && \
+		unset TRACKER_MQTT_HOST TRACKER_MQTT_PORT TRACKER_MQTT_INSECURE TRACKER_MQTT_TLS_CA_CERT && \
+		.venv/bin/pytest -v --tb=short
 
 #####################################################################
 # Docker build targets
@@ -339,10 +356,12 @@ build-image-debug:
 build-image-relwithdebinfo:
 	$(MAKE) build-image TARGET=runtime BUILD_TYPE=RelWithDebInfo IMAGE=scenescape-tracker-relwithdebinfo
 
-# Use host network to reach broker on localhost; empty proxy vars for Paho workaround
+# Use host network to reach broker; empty proxy vars for Paho workaround
+# Container uses secure defaults from tracker.json (TLS to broker.scenescape.intel.com)
 run-image: build-image
 	docker run --rm -it --network=host \
 		-e http_proxy= -e https_proxy= -e HTTP_PROXY= -e HTTPS_PROXY= \
+		-v $(TRACKER_TLS_CA_CERT_HOST):/run/secrets/certs/scenescape-ca.pem:ro \
 		$(IMAGE):$(VERSION)
 
 run-image-debug: build-image-debug
@@ -350,6 +369,8 @@ run-image-debug: build-image-debug
 	-docker rm tracker-debug 2>/dev/null || true
 	docker run --rm -d --name tracker-debug --init -p 2345:2345 \
 		--cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
+		-e http_proxy= -e https_proxy= -e HTTP_PROXY= -e HTTPS_PROXY= \
+		-v $(TRACKER_TLS_CA_CERT_HOST):/run/secrets/certs/scenescape-ca.pem:ro \
 		scenescape-tracker-debug:$(VERSION)
 	@echo "Debug container started. Attach debugger to localhost:2345"
 

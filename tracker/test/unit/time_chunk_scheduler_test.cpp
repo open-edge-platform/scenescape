@@ -39,6 +39,8 @@ protected:
         Camera cam1;
         cam1.uid = "cam-1";
         cam1.name = "Camera 1";
+        cam1.intrinsics = {
+            905.0, 905.0, 640.0, 360.0, {0.0, 0.0, 0.0, 0.0}}; // fx, fy, cx, cy, distortion
         scene1.cameras.push_back(cam1);
 
         Scene scene2;
@@ -47,6 +49,8 @@ protected:
         Camera cam2;
         cam2.uid = "cam-2";
         cam2.name = "Camera 2";
+        cam2.intrinsics = {
+            905.0, 905.0, 640.0, 360.0, {0.0, 0.0, 0.0, 0.0}}; // fx, fy, cx, cy, distortion
         scene2.cameras.push_back(cam2);
 
         registry.register_scenes({scene1, scene2});
@@ -362,18 +366,19 @@ TEST_F(TimeChunkSchedulerTest, BuildChunk_SortsBatchesByTimestamp) {
     TrackingScope scope{"scene-1", "person"};
 
     // Add batches with different timestamps (out of order)
+    // Note: Use the same camera (cam-1) for all batches since camera must be registered
     auto batch1 = createBatch("cam-1", "2026-01-27T12:00:02.000Z");
     batch1.receive_time = std::chrono::steady_clock::now() + std::chrono::milliseconds(200);
 
-    auto batch2 = createBatch("cam-2", "2026-01-27T12:00:01.000Z");
+    auto batch2 = createBatch("cam-1", "2026-01-27T12:00:01.000Z");
     batch2.receive_time = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
 
-    auto batch3 = createBatch("cam-3", "2026-01-27T12:00:00.000Z");
+    auto batch3 = createBatch("cam-1", "2026-01-27T12:00:00.000Z");
     batch3.receive_time = std::chrono::steady_clock::now();
 
     buffer.add(scope, "cam-1", std::move(batch1));
-    buffer.add(scope, "cam-2", std::move(batch2));
-    buffer.add(scope, "cam-3", std::move(batch3));
+    buffer.add(scope, "cam-1", std::move(batch2));
+    buffer.add(scope, "cam-1", std::move(batch3));
 
     scheduler.start();
 

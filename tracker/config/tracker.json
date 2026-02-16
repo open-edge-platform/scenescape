@@ -1,9 +1,13 @@
 {
   "infrastructure": {
     "mqtt": {
-      "host": "localhost",
+      "host": "broker.scenescape.intel.com",
       "port": 1883,
-      "insecure": true
+      "insecure": false,
+      "tls": {
+        "ca_cert_path": "/run/secrets/certs/scenescape-ca.pem",
+        "verify_server": true
+      }
     },
     "tracker": {
       "healthcheck": {
@@ -15,6 +19,14 @@
     "logging": {
       "level": "info"
     }
+  },
+  "tracking": {
+    "max_lag_s": 1.0,
+    "time_chunking_rate_fps": 15,
+    "max_workers": 50,
+    "max_unreliable_time_s": 1.0,
+    "non_measurement_time_dynamic_s": 0.8,
+    "non_measurement_time_static_s": 1.6
   },
   "scenes": {
     "source": "file",

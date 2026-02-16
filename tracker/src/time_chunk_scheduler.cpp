@@ -141,18 +141,24 @@ TrackingWorker* TimeChunkScheduler::get_or_create_worker(const TrackingScope& sc
         return nullptr;
     }
 
-    // Look up scene display name (may fall back to scene_id if not found)
-    std::string scene_display_name = scope.scene_id;
+    // Look up scene display name and build camera map
+    std::string scene_display_name = scope.scene_id; // Default to ID if not found
+    std::unordered_map<std::string, Camera> cameras;
+
     if (const auto* scene = registry_.find_scene_by_id(scope.scene_id)) {
         scene_display_name = scene->name;
+        // Build camera map for this scene
+        for (const auto& camera : scene->cameras) {
+            cameras[camera.uid] = camera;
+        }
     }
 
-    // Create new worker
+    // Create new worker with tracking config and cameras
     auto worker = std::make_unique<TrackingWorker>(scope, scene_display_name, kWorkerQueueCapacity,
-                                                   publish_callback_);
+                                                   publish_callback_, config_, cameras);
 
-    LOG_INFO("Created TrackingWorker for scope {}/{} (total workers: {})", scope.scene_id,
-             scope.category, workers_.size() + 1);
+    LOG_INFO("Created TrackingWorker for scope {}/{} (total workers: {}, cameras: {})",
+             scope.scene_id, scope.category, workers_.size() + 1, cameras.size());
 
     auto* ptr = worker.get();
     workers_[scope] = std::move(worker);

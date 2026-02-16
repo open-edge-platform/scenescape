@@ -44,12 +44,36 @@ make build-relwithdebinfo
 
 #### Run
 
+The run targets are preconfigured to work with SceneScape demo. Start SceneScape first:
+
 ```bash
-# Run with default settings
+# From repository root
+docker compose up -d
+```
+
+Then run the tracker:
+
+```bash
+# Run release build
 make run
 
-# Debug build
+# Run debug build
 make run-debug
+```
+
+**Environment overrides:** The following variables can be overridden:
+
+| Variable                   | Default                                      | Description                   |
+| -------------------------- | -------------------------------------------- | ----------------------------- |
+| `TRACKER_MQTT_HOST`        | `localhost`                                  | MQTT broker hostname          |
+| `TRACKER_MQTT_PORT`        | `1883`                                       | MQTT broker port              |
+| `TRACKER_MQTT_INSECURE`    | `false`                                      | Disable TLS (for test broker) |
+| `TRACKER_MQTT_TLS_CA_CERT` | `../manager/secrets/certs/scenescape-ca.pem` | CA certificate path           |
+
+Example with insecure test broker:
+
+```bash
+make run TRACKER_MQTT_INSECURE=true
 ```
 
 **Manual execution:** If not using Make targets, you must source the Conan environment

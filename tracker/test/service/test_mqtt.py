@@ -38,22 +38,53 @@ TOPIC_CAMERA_INPUT = "scenescape/data/camera/atag-qcam1"
 TOPIC_SCENE_OUTPUT = "scenescape/data/scene/302cf49a-97ec-402d-a324-c5077b280b7b/thing"
 
 
-def create_camera_detection_message():
+def create_camera_detection_message(timestamp=None, object_id=1, bbox=None):
   """Create a valid camera detection message matching camera-data.schema.json."""
   # Use current timestamp to avoid lag detection dropping the message
-  current_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+  if timestamp is None:
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+  if bbox is None:
+    bbox = {"x": 100, "y": 50, "width": 80, "height": 200}
   return {
       "id": "atag-qcam1",
-      "timestamp": current_timestamp,
+      "timestamp": timestamp,
       "objects": {
           "thing": [
               {
-                  "id": 1,
-                  "bounding_box_px": {"x": 100, "y": 50, "width": 80, "height": 200}
+                  "id": object_id,
+                  "bounding_box_px": bbox
               }
           ]
       }
   }
+
+
+def send_detection_sequence(client, count=5, interval_ms=67):
+  """
+  Send a sequence of detections to build tracker confidence.
+
+  RobotVision requires multiple consistent detections before a track
+  becomes "reliable". This sends detections at the configured FPS rate.
+
+  Args:
+      client: Connected MQTT client
+      count: Number of detections to send (default 5)
+      interval_ms: Milliseconds between detections (default 67ms = ~15 FPS)
+
+  Returns:
+      List of timestamps sent
+  """
+  import time
+  timestamps = []
+  for i in range(count):
+    detection = create_camera_detection_message(object_id=1)
+    validate_camera_input(detection)
+    result = client.publish(TOPIC_CAMERA_INPUT, json.dumps(detection), qos=1)
+    result.wait_for_publish()
+    timestamps.append(detection["timestamp"])
+    if i < count - 1:
+      time.sleep(interval_ms / 1000.0)
+  return timestamps
 
 
 @pytest.fixture(scope="function")
@@ -84,6 +115,7 @@ def tls_tracker_service(tls_certs):
   docker = DockerClient(
       compose_files=[compose_path],
       compose_project_name=project_name,
+      compose_project_directory=str(service_dir),
       compose_env_files=[str(env_file)],
   )
 
@@ -183,10 +215,8 @@ def test_mqtt_message_flow(tls_tracker_service):
   try:
     client.subscribe(TOPIC_SCENE_OUTPUT, qos=1)
 
-    detection = create_camera_detection_message()
-    validate_camera_input(detection)  # Validate input against schema
-    result = client.publish(TOPIC_CAMERA_INPUT, json.dumps(detection), qos=1)
-    result.wait_for_publish()
+    # Send multiple detections to ensure message flow (tracking needs repeated detections)
+    send_detection_sequence(client, count=5, interval_ms=67)
 
     wait(
         lambda: len(received_messages) > 0,
@@ -201,3 +231,96 @@ def test_mqtt_message_flow(tls_tracker_service):
     client.disconnect()
 
   print("\nAll mTLS phases passed")
+
+
+def test_tracking_produces_reliable_tracks(tls_tracker_service):
+  """
+  Test RobotVision tracking produces reliable tracks after multiple detections.
+
+  RobotVision's Kalman filter requires multiple consistent detections before
+  a track becomes "reliable". This test sends a sequence of detections and
+  validates the output track format.
+
+  Validates:
+  - Track id is a UUID string (mapped from RobotVision integer ID)
+  - Track has required fields: translation, velocity, size, rotation
+  - Output passes schema validation (UUID string id enforced)
+  """
+  docker = tls_tracker_service["docker"]
+  certs = tls_tracker_service["certs"]
+  host, port = get_broker_host(docker, port=8883)
+
+  assert is_tracker_ready(docker), "Tracker should be ready"
+  print("\nTracker ready, starting tracking test")
+
+  received_messages = []
+
+  def on_message(client, userdata, msg):
+    received_messages.append(json.loads(msg.payload.decode()))
+
+  client = mqtt.Client(
+      callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+      client_id=f"test-tracking-{uuid.uuid4().hex[:8]}"
+  )
+  client.tls_set(
+      ca_certs=str(certs.ca.cert_path),
+      certfile=str(certs.client.cert_path),
+      keyfile=str(certs.client.key_path),
+  )
+  client.on_message = on_message
+  client.connect(host, port, keepalive=60)
+  client.loop_start()
+
+  try:
+    client.subscribe(TOPIC_SCENE_OUTPUT, qos=1)
+
+    # Send detection sequence to build tracker confidence
+    # With max_unreliable_time_s=1.0 at 15fps, tracks need 15+ frames to become reliable.
+    # 20 detections at 67ms = ~1.3s, producing ~20 frames which exceeds the threshold.
+    print("Sending detection sequence...")
+    send_detection_sequence(client, count=20, interval_ms=67)
+
+    # Wait for messages with tracks (may take a few chunks for reliability)
+    def has_tracks():
+      for msg in received_messages:
+        if msg.get("objects") and len(msg["objects"]) > 0:
+          return True
+      return False
+
+    wait(
+        has_tracks,
+        timeout_seconds=10,
+        sleep_seconds=POLL_INTERVAL
+    )
+
+    # Find a message with tracks
+    track_message = None
+    for msg in received_messages:
+      if msg.get("objects") and len(msg["objects"]) > 0:
+        track_message = msg
+        break
+
+    assert track_message is not None, "Should have received message with tracks"
+    print(f"Received {len(received_messages)} messages, found tracks")
+
+    # Validate against schema (enforces UUID string id)
+    validate_scene_output(track_message)
+    print("Schema validation passed")
+
+    # Additional type assertions
+    track = track_message["objects"][0]
+    assert isinstance(track["id"], str), f"Track id should be str, got {type(track['id'])}"
+    parsed_uuid = uuid.UUID(track["id"])  # Raises ValueError if not valid UUID
+    assert parsed_uuid.version == 4, f"Track id should be UUID v4, got version {parsed_uuid.version}"
+    assert track["category"] == "thing", f"Category should be 'thing', got {track['category']}"
+    assert len(track["translation"]) == 3, "Translation should have 3 elements"
+    assert len(track["velocity"]) == 3, "Velocity should have 3 elements"
+    assert len(track["size"]) == 3, "Size should have 3 elements"
+    assert len(track["rotation"]) == 4, "Rotation should have 4 elements (quaternion)"
+
+    print(f"Track validated: id={track['id']}, position={track['translation']}")
+    print("\nTracking test passed")
+
+  finally:
+    client.loop_stop()
+    client.disconnect()

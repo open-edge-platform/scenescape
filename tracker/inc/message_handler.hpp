@@ -133,19 +133,10 @@ private:
     /**
      * @brief Check if message timestamp is too old (lagged).
      *
-     * @param timestamp_iso ISO 8601 timestamp from message
+     * @param msg_time Parsed UTC timestamp from message
      * @return true if message should be dropped due to lag
      */
-    bool isMessageLagged(const std::string& timestamp_iso) const;
-
-    /**
-     * @brief Parse ISO 8601 timestamp to time_point.
-     *
-     * @param timestamp_iso ISO 8601 timestamp string
-     * @return Parsed time_point or nullopt if parsing fails
-     */
-    static std::optional<std::chrono::system_clock::time_point>
-    parseTimestamp(const std::string& timestamp_iso);
+    bool isMessageLagged(std::chrono::system_clock::time_point msg_time) const;
 
     /**
      * @brief Validate JSON against a schema.
