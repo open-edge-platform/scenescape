@@ -305,7 +305,7 @@ TEST_F(TrackingWorkerTest, EmptyChunk_FlowsThroughTracker) {
     TrackingScope scope{"scene-1", "person"};
     TrackingWorker worker(scope, "Test Scene", 2, callback, tracking_config_, cameras_);
 
-    // Create chunk with empty camera_batches — still flows through tracker
+    // Create chunk with empty camera_batches — tracker still advances time for aging
     Chunk chunk;
     chunk.scene_id = "scene-1";
     chunk.category = "person";

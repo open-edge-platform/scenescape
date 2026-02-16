@@ -179,10 +179,12 @@ std::vector<Track> TrackingWorker::run_tracking(const Chunk& chunk) {
 
     // Feed all cameras as a batch — MOT performs Hungarian matching across cameras,
     // deduplicates objects seen by multiple cameras, and runs Kalman filter update.
-    if (!chunk.camera_batches.empty()) {
-        tracker_.track(std::move(objects_per_camera), chunk.camera_batches.back().timestamp,
-                       rv::tracking::DistanceType::Euclidean, 5.0);
-    }
+    // When no detections are present, track() still advances the Kalman filter and
+    // increments non-measurement counters so tracks can age and expire.
+    auto track_timestamp = chunk.camera_batches.empty() ? std::chrono::system_clock::now()
+                                                        : chunk.camera_batches.back().timestamp;
+    tracker_.track(std::move(objects_per_camera), track_timestamp,
+                   rv::tracking::DistanceType::Euclidean, 5.0);
 
     // Get reliable tracks and map RobotVision int IDs to UUID strings.
     auto rv_tracks = tracker_.getReliableTracks();
