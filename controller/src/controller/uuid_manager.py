@@ -72,10 +72,10 @@ class UUIDManager:
     @return  metadata       Dictionary of semantic attributes
     """
     if hasattr(sscape_object, 'metadata') and sscape_object.metadata:
-      log.info(f"_extractSemanticMetadata: Found {len(sscape_object.metadata)} semantic attributes: {list(sscape_object.metadata.keys())}")
+      log.debug(f"_extractSemanticMetadata: Found {len(sscape_object.metadata)} semantic attributes: {list(sscape_object.metadata.keys())}")
       return sscape_object.metadata
     else:
-      log.info(f"_extractSemanticMetadata: No semantic metadata")
+      log.debug(f"_extractSemanticMetadata: No semantic metadata")
       return {}
 
   def pruneInactiveTracks(self, tracked_objects):
@@ -87,7 +87,6 @@ class UUIDManager:
     @param  tracked_objects  The objects currently tracked by the tracker
     """
     active_tracks = [tracked_object.id for tracked_object in tracked_objects]
-    log.info(f"pruneInactiveTracks: {len(active_tracks)} active, {len(self.active_ids)} in dict, {len(self.features_for_database)} pending features")
     
     # Check for stale pending features (timeout-based fallback)
     current_time = time.time()
@@ -97,7 +96,6 @@ class UUIDManager:
         stale_features.append(track_id)
     
     if stale_features:
-      log.info(f"pruneInactiveTracks: Flushing {len(stale_features)} stale pending features (timeout): {stale_features}")
       for track_id in stale_features:
         self._addNewFeaturesToDatabase(track_id)
         self.features_for_database_timestamps.pop(track_id, None)
@@ -120,9 +118,6 @@ class UUIDManager:
           inactive_tracks.append((k, v))
       self.active_ids = new_active_ids
 
-    if inactive_tracks:
-      log.info(f"pruneInactiveTracks: Found {len(inactive_tracks)} inactive tracks: {[t[0] for t in inactive_tracks]}")
-    
     for track_id, data in inactive_tracks:
       self.active_query.pop(track_id, None)
       self.quality_features.pop(track_id, None)
@@ -147,12 +142,10 @@ class UUIDManager:
     @param  track_id    The ID of the track with features to add to the database
     @param  slice_size  The size of the slice to use to reduce the size of the feature list
     """
-    log.info(f"_addNewFeaturesToDatabase: Called for track {track_id}, features_for_database has entry: {track_id in self.features_for_database}")
     features = self.features_for_database.pop(track_id, None)
     if features:
-      log.info(f"_addNewFeaturesToDatabase: Track {track_id} has {len(features.get('reid_vectors', []))} reid vectors before slicing")
       features['reid_vectors'] = features['reid_vectors'][::slice_size]
-      log.info(
+      log.debug(
         f"Adding {len(features['reid_vectors'])} features for track {track_id} to database")
 
       # Extract semantic metadata from stored feature data
@@ -186,14 +179,14 @@ class UUIDManager:
 
     if reid_embedding is not None and self.reid_enabled:
       bbox_area = sscape_object.boundingBoxPixels.area if hasattr(sscape_object, 'boundingBoxPixels') else 0
-      log.info(f"gatherQualityVisualFeatures: Object {sscape_object.rv_id} bbox_area={bbox_area}, minimum={minimum_bbox_area}")
+      log.debug(f"gatherQualityVisualFeatures: Object {sscape_object.rv_id} bbox_area={bbox_area}, minimum={minimum_bbox_area}")
       if bbox_area > minimum_bbox_area:
         if sscape_object.rv_id in self.quality_features:
           self.quality_features[sscape_object.rv_id].append(reid_embedding)
-          log.info(f"gatherQualityVisualFeatures: Added reid to existing features for {sscape_object.rv_id}, total count: {len(self.quality_features[sscape_object.rv_id])}")
+          log.debug(f"gatherQualityVisualFeatures: Added reid to existing features for {sscape_object.rv_id}, total count: {len(self.quality_features[sscape_object.rv_id])}")
         else:
           self.quality_features[sscape_object.rv_id] = [reid_embedding]
-          log.info(f"gatherQualityVisualFeatures: Started feature collection for {sscape_object.rv_id}")
+          log.debug(f"gatherQualityVisualFeatures: Started feature collection for {sscape_object.rv_id}")
     return
 
   def pickBestID(self, sscape_object):
@@ -245,16 +238,14 @@ class UUIDManager:
 
     @param  sscape_object  The current Scenescape object
     """
-    log.info(f"querySimilarity: Starting for track {sscape_object.rv_id}")
     similarity_scores = self.sendSimilarityQuery(sscape_object)
     database_id, similarity = self.parseQueryResults(similarity_scores)
-    log.info(f"querySimilarity: Track {sscape_object.rv_id} query complete, db_id={database_id}, similarity={similarity}")
+    log.debug(f"querySimilarity: Track {sscape_object.rv_id} query complete, db_id={database_id}, similarity={similarity}")
     with self.active_ids_lock:
       # Make sure object is still in active_ids before updating since there is a chance
       # that the similiarity search does not complete until after the object leaves
-      log.info(f"querySimilarity: Checking if track {sscape_object.rv_id} still in active_ids: {sscape_object.rv_id in self.active_ids}")
       if sscape_object.rv_id in self.active_ids:
-        log.info(f"querySimilarity: Calling updateActiveDict for track {sscape_object.rv_id}")
+        log.debug(f"querySimilarity: Calling updateActiveDict for track {sscape_object.rv_id}")
         self.updateActiveDict(sscape_object, database_id, similarity)
       else:
         log.warning(
@@ -277,7 +268,7 @@ class UUIDManager:
     # Extract semantic metadata for TIER 1 filtering
     metadata_constraints = self._extractSemanticMetadata(sscape_object)
     
-    log.info(f"findSimilarityScores: tracker_id={sscape_object.rv_id}, category={sscape_object.category}, metadata_constraints={list(metadata_constraints.keys())}")
+    log.debug(f"findSimilarityScores: tracker_id={sscape_object.rv_id}, category={sscape_object.category}, metadata_constraints={list(metadata_constraints.keys())}")
 
     start_time = get_epoch_time()
     # Pass metadata as constraints for TIER 1 filtering in findMatches
@@ -344,21 +335,20 @@ class UUIDManager:
     @param  database_id    The ID from the database
     @param  similarity     The similarity score from the database
     """
-    log.info(f"updateActiveDict: Called for track {sscape_object.rv_id}, db_id={database_id}, gid={sscape_object.gid}")
     # MATCH FOUND - YES + DB ID ALREADY IN DICT - NO
     if database_id and self.isNewID(database_id):
       self.active_ids[sscape_object.rv_id] = [database_id, similarity]
-      log.info(
+      log.debug(
         f"Match found for {sscape_object.rv_id}: {database_id},{similarity}")
     # MATCH FOUND - NO / DB ID ALREADY IN DICT - YES
     else:
       self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
       database_id = sscape_object.gid
-      log.info(f"updateActiveDict: No match, using gid={database_id} for track {sscape_object.rv_id}")
+      log.debug(f"updateActiveDict: No match, using gid={database_id} for track {sscape_object.rv_id}")
 
     # Store features with semantic metadata for TIER 1 filtering in future queries
     num_features = len(self.quality_features.get(sscape_object.rv_id, []))
-    log.info(f"updateActiveDict: Storing {num_features} features for track {sscape_object.rv_id} to features_for_database")
+    log.debug(f"updateActiveDict: Storing {num_features} features for track {sscape_object.rv_id} to features_for_database")
     self.features_for_database[sscape_object.rv_id] = {
       'gid': database_id,
       'category': sscape_object.category,
@@ -366,7 +356,6 @@ class UUIDManager:
       'metadata': self._extractSemanticMetadata(sscape_object)
     }
     self.features_for_database_timestamps[sscape_object.rv_id] = time.time()  # Record when added
-    log.info(f"updateActiveDict: features_for_database now has {len(self.features_for_database)} entries")
     return
 
   def isNewID(self, database_id):

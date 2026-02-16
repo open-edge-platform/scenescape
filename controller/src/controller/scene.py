@@ -232,7 +232,7 @@ class Scene(SceneModel):
                        detectionType, when=None):
 
     if ControllerMode.isAnalyticsOnly():
-      log.info(f"Analytics-only mode enabled, skipping scene data processing for child {child.name if hasattr(child, 'name') else 'unknown'}")
+      log.debug(f"Analytics-only mode enabled, skipping scene data processing for child {child.name if hasattr(child, 'name') else 'unknown'}")
       return True
 
     new = jdata['objects']
@@ -255,7 +255,7 @@ class Scene(SceneModel):
         info.pop('reid')
 
       mobj = self.tracker.createObject(detectionType, info, when, child, self.persist_attributes.get(detectionType, {}))
-      log.info("RX SCENE OBJECT",
+      log.debug("RX SCENE OBJECT",
               "id=%s" % (mobj.oid), mobj.sceneLoc)
       if child.retrack:
         objects.append(mobj)
@@ -349,7 +349,7 @@ class Scene(SceneModel):
 
     # If tracker is enabled, use direct tracker call (traditional mode)
     if self.tracker is not None:
-      log.info(f"Using direct tracker call for detection type: {detection_type}")
+      log.debug(f"Using direct tracker call for detection type: {detection_type}")
       return self.tracker.currentObjects(detection_type)
 
     return []
@@ -469,7 +469,7 @@ class Scene(SceneModel):
 
       if len(tripwireObjects) != len(objects) \
          and now - tripwire.when > DEBOUNCE_DELAY:
-        log.info("TRIPWIRE EVENT", tripwireObjects, len(objects))
+        log.debug("TRIPWIRE EVENT", tripwireObjects, len(objects))
         tripwire.objects[detectionType] = objects
         tripwire.when = now
         if 'objects' not in self.events:
@@ -507,7 +507,7 @@ class Scene(SceneModel):
         self._updateSensorObjects(key, region, newObjects)
 
       if (len(new) or len(old)) and now - region.when > DEBOUNCE_DELAY:
-        log.info("REGION EVENT", key, now_str, regionObjects, len(objects))
+        log.debug("REGION EVENT", key, now_str, regionObjects, len(objects))
         entered = []
         for obj in objects:
           if obj.gid in new and key in obj.chain_data.regions:

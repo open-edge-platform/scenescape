@@ -156,7 +156,7 @@ class Tracking(Thread):
       objects, when, already_tracked_objects, mode = queue_item
 
       if objects is None:
-        log.info("tracking.Tracking: Received shutdown signal, exiting thread")
+        log.debug("tracking.Tracking: Received shutdown signal, exiting thread")
         self.queue.task_done()
         break
 
@@ -185,18 +185,18 @@ class Tracking(Thread):
 
   def waitForComplete(self):
     if hasattr(self, 'queue'):
-      log.info(f"Waiting for tracker {self.__str__()} queue to complete. Queue size: {self.queue.qsize()}")
+      log.debug(f"Waiting for tracker {self.__str__()} queue to complete. Queue size: {self.queue.qsize()}")
       self.queue.join()
     return
 
   def join(self):
-    log.info("Joining tracker threads. Trackers count: ", len(self.trackers))
+    log.debug("Joining tracker threads. Trackers count: ", len(self.trackers))
     for category in self.trackers:
       tracker = self.trackers[category]
       tracker.queue.put((None, None, None, STREAMING_MODE))
-      log.info(f"Waiting for tracker thread category {category} to complete")
+      log.debug(f"Waiting for tracker thread category {category} to complete")
       tracker.waitForComplete()
-      log.info(f"Joining tracker thread category {category}")
+      log.debug(f"Joining tracker thread category {category}")
       tracker.join()
     return
 

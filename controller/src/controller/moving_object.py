@@ -190,7 +190,7 @@ class MovingObject:
     return
 
   def setPrevious(self, otherObj):
-    # log.info("MATCHED", self.__class__.__name__,
+    # log.debug("MATCHED", self.__class__.__name__,
     #     "id=%i/%i:%i" % (otherObj.gid, otherObj.oid, self.oid),
     #     otherObj.sceneLoc, self.sceneLoc)
     self.location = [self.location[0]] + otherObj.location[:LOCATION_LIMIT - 1]
