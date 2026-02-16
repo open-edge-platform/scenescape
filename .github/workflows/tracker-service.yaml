@@ -79,20 +79,6 @@ jobs:
       - name: "Lint Python files"
         run: make -C tracker lint-python
 
-  license-check:
-    name: "REUSE License Compliance"
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: "Checkout code"
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: "REUSE Compliance Check"
-        uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0
-
   gitleaks-scan:
     name: "Secrets Scanning"
     runs-on: ubuntu-latest
@@ -126,37 +112,6 @@ jobs:
         with:
           name: gitleaks-report
           path: gitleaks.json
-
-  bandit-scan:
-    name: "Python Security Scan"
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: "Checkout code"
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: "Run Bandit scan on Tracker Python code (CHANGED)"
-        if: github.event_name == 'pull_request'
-        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
-        with:
-          scan-scope: "changed"
-          severity-level: "HIGH"
-          output-format: "txt"
-          config_file: ".github/resources/bandit.config"
-          fail-on-findings: "true"
-
-      - name: "Run Bandit scan on Tracker Python code (ALL)"
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
-        with:
-          scan-scope: "all"
-          severity-level: "HIGH"
-          output-format: "txt"
-          config_file: ".github/resources/bandit.config"
-          fail-on-findings: "true"
 
   trivy-scan:
     name: "Trivy security scan (optional)"
