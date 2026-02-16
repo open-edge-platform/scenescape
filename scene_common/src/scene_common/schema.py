@@ -41,7 +41,6 @@ class SchemaValidation:
       formatType = checker.checkers[key][0]
       if key not in formats:
         formats[key] = _adaptJsonschemaChecker(formatType)
-
     formats['uuid'] = _validateUuidFormat
 
     if not self.mqtt_schema:
