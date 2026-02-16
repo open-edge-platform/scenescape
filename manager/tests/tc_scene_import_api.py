@@ -9,6 +9,7 @@ import re
 import zipfile
 import pytest
 from scene_common.rest_client import RESTClient
+from tests.common_test_utils import record_test_result
 from tests.functional import FunctionalTest
 
 TEST_NAME = "NEX-T13967"
@@ -276,7 +277,15 @@ class SceneImportAPITest(FunctionalTest):
   ],
 )
 def test_scene_import_api(request, record_xml_attribute, zipFile, expected):
+  record_xml_attribute("name", TEST_NAME)
   test = SceneImportAPITest(
     TEST_NAME, request, record_xml_attribute, zipFile, expected
   )
-  assert test.runTest()
+  record_xml_attribute("name", TEST_NAME)
+  exit_code = 1
+  try:
+      ok = test.runTest()
+      exit_code = 0 if ok else 1
+      assert ok
+  finally:
+      record_test_result(TEST_NAME, exit_code)
