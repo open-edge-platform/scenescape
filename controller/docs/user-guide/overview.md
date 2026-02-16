@@ -58,3 +58,4 @@ _Figure 2: Scene Controller Sequence diagram_
 
 - [Get Started Guide](get-started.md)
 - [API Reference](api-reference.md)
+- [Extended Re-ID](Extended-ReID.md)

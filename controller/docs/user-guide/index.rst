@@ -19,4 +19,5 @@
 .. toctree::
    :caption: References
 
+   Extended-ReID
    api-reference
