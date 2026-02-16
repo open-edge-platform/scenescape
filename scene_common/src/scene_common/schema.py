@@ -6,6 +6,16 @@ import uuid
 from jsonschema import FormatChecker
 from fastjsonschema import compile
 
+
+def _validate_uuid_format(instance):
+  """Validate UUID format (accepts UUIDv1-v5)"""
+  try:
+    uuid.UUID(instance)
+    return True
+  except (ValueError, AttributeError, TypeError):
+    raise ValueError(f"Invalid UUID format: {instance}")
+
+
 class SchemaValidation:
   def __init__(self, schema_path, is_multi_message=False):
     self.mqtt_schema = None
@@ -17,16 +27,8 @@ class SchemaValidation:
     return
 
   def compileValidators(self):
-    def validate_uuid(instance):
-      """Validate UUID format (accepts UUIDv1-v5)"""
-      try:
-        uuid.UUID(instance)
-        return True
-      except (ValueError, AttributeError, TypeError):
-        raise ValueError(f"Invalid UUID format: {instance}")
-
     formats = {
-      'uuid': validate_uuid,
+      'uuid': _validate_uuid_format,
     }
 
     if not self.mqtt_schema:
@@ -48,11 +50,13 @@ class SchemaValidation:
     return
 
   def loadSchema(self, schema_path):
+    print("Loading schema file..")
     try:
       with open(schema_path) as schema_fd:
         self.mqtt_schema = json.load(schema_fd)
-    except Exception as e:
-      print(f"Invalid schema file / could not open {schema_path}: {e}")
+      print("Schema file loaded - {}".format(schema_path))
+    except:
+      print("Invalid schema file / could not open {}".format(schema_path))
     return
 
   def validateMessage(self, msg_type, msg, check_format=False):
