@@ -117,134 +117,56 @@
       },
       "required": ["x", "y", "width", "height"]
     },
+    "semantic_metadata_attribute": {
+      "type": "object",
+      "title": "Semantic Metadata Attribute",
+      "description": "A semantic attribute detected by an analytics model with label, confidence, and model source.",
+      "additionalProperties": true,
+      "properties": {
+        "label": {
+          "title": "Label",
+          "description": "The detected value or label for this attribute (e.g., 'Female' for gender, 'blue' for color, true/false for boolean attributes)."
+        },
+        "confidence": {
+          "title": "Confidence",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence score of the detected attribute (0.0 to 1.0)."
+        },
+        "model_name": {
+          "title": "Model Name",
+          "type": "string",
+          "description": "Name or identifier of the model that generated this attribute (e.g., 'age-gender-recognition-retail-0013')."
+        }
+      },
+      "required": ["label", "confidence", "model_name"]
+    },
     "semantic_metadata": {
       "type": "object",
       "title": "Semantic Metadata",
-      "description": "Semantic attributes describing what an object is (age, gender, clothing, embedding vectors, etc). Contains the extensible set of all semantic properties detected by analytics models.",
-      "additionalProperties": true,
-      "meta:extensible": true,
-      "properties": {
-        "reid": {
-          "title": "Re-identification",
-          "type": "object",
-          "description": "Embedding vector from re-identification or feature extraction model.",
-          "properties": {
-            "embedding_vector": {
-              "title": "Embedding Vector Data",
-              "type": "string",
-              "description": "Base64-encoded embedding vector."
-            },
-            "model_name": {
-              "title": "Model Name",
-              "type": "string",
-              "description": "Name or identifier of the model that generated this embedding."
-            }
+      "description": "Semantic attributes describing what an object is. Contains the extensible set of all semantic properties detected by analytics models. Each attribute follows the structure: {label, confidence, model_name}.",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "$ref": "#/definitions/semantic_metadata_attribute"
           },
-          "required": ["embedding_vector", "model_name"]
-        },
-        "age": {
-          "title": "Age",
-          "type": "object",
-          "description": "The age in years of a detection, such as the result of a DL-based age detector.",
-          "additionalProperties": true,
-          "properties": {
-            "label": {
-              "type": "string"
+          {
+            "type": "object",
+            "properties": {
+              "embedding_vector": {
+                "type": "string"
+              },
+              "model_name": {
+                "type": "string"
+              }
             },
-            "confidence": {
-              "type": "number"
-            },
-            "model_name": {
-              "type": "string"
-            }
+            "required": ["embedding_vector", "model_name"],
+            "description": "Special case for reid embedding vectors"
           }
-        },
-        "gender": {
-          "title": "Gender",
-          "type": "object",
-          "description": "The gender of the detected object, such as the result of a DL-based gender detector.",
-          "additionalProperties": true,
-          "properties": {
-            "label": {
-              "type": "string"
-            },
-            "confidence": {
-              "type": "number"
-            },
-            "model_name": {
-              "type": "string"
-            }
-          }
-        },
-        "color": {
-          "title": "Color",
-          "type": "object",
-          "description": "The color of the detected object, such as the color of a vehicle or product.",
-          "additionalProperties": true,
-          "properties": {
-            "label": {
-              "type": "string"
-            },
-            "confidence": {
-              "type": "number"
-            },
-            "model_name": {
-              "type": "string"
-            }
-          }
-        },
-        "facemask": {
-          "title": "Facemask",
-          "type": "object",
-          "description": "Was a facemask detected?",
-          "additionalProperties": true,
-          "properties": {
-            "label": {
-              "type": "boolean"
-            },
-            "confidence": {
-              "type": "number"
-            },
-            "model_name": {
-              "type": "string"
-            }
-          }
-        },
-        "hat": {
-          "title": "Hat",
-          "type": "object",
-          "description": "Was a hat detected?",
-          "additionalProperties": true,
-          "properties": {
-            "label": {
-              "type": "boolean"
-            },
-            "confidence": {
-              "type": "number"
-            },
-            "model_name": {
-              "type": "string"
-            }
-          }
-        },
-        "subtype": {
-          "title": "Object Subtype",
-          "type": "object",
-          "description": "A subtype of a parent category or class.",
-          "additionalProperties": true,
-          "properties": {
-            "label": {
-              "type": "string"
-            },
-            "confidence": {
-              "type": "number"
-            },
-            "model_name": {
-              "type": "string"
-            }
-          }
-        }
-      }
+        ]
+      },
+      "meta:extensible": true
     },
     "detection": {
       "type": "object",

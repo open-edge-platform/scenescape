@@ -66,7 +66,7 @@ def classificationPolicy(pobj, item, fw, fh):
     name = tensor.get('name','')
     if name and name != 'detection' and ('reid' not in name and 'embedding' not in name):
       categories[name] = {'label': tensor.get('label',''), 
-                          'confidence': tensor.get('confidence', 100.0),
+                          'confidence': tensor.get('confidence', 1.0),
                           'model_name': tensor.get('model_name', '')}
   
   # Move all semantic metadata under metadata key
