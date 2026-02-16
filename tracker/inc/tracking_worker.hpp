@@ -121,16 +121,34 @@ private:
     void process_chunk(const Chunk& chunk);
 
     /**
-     * @brief Run RobotVision tracking on chunk detections.
-     *
-     * Transforms pixel coordinates to world coordinates using CoordinateTransformer,
-     * then feeds all cameras as a batch to MultipleObjectTracker which performs
-     * Hungarian-matching association and Kalman filter tracking.
+     * @brief Run full tracking pipeline: transform, track, convert.
      *
      * @param chunk Input chunk with detections
+     * @param timestamp Canonical timestamp for tracker time advancement
      * @return Vector of reliable tracks in world coordinates
      */
-    std::vector<Track> run_tracking(const Chunk& chunk);
+    std::vector<Track> run_tracking(const Chunk& chunk,
+                                    std::chrono::system_clock::time_point timestamp);
+
+    /**
+     * @brief Transform pixel detections to world coordinates per camera.
+     *
+     * @param chunk Input chunk with per-camera detection batches
+     * @return Per-camera vectors of TrackedObjects in world coordinates
+     */
+    std::vector<std::vector<rv::tracking::TrackedObject>> transform_detections(const Chunk& chunk);
+
+    /**
+     * @brief Convert RobotVision tracks to output Track structs.
+     *
+     * Manages the int-to-UUID ID map and maps fields from TrackedObject.
+     *
+     * @param rv_tracks Reliable tracks from RobotVision
+     * @param category Object category for the output tracks
+     * @return Vector of Track structs ready for publishing
+     */
+    std::vector<Track> convert_tracks(const std::vector<rv::tracking::TrackedObject>& rv_tracks,
+                                      const std::string& category);
 
     TrackingScope scope_;
     std::string scene_name_;
