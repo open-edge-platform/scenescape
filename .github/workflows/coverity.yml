@@ -6,16 +6,11 @@ name: "[Code Analysis] Coverity (C/C++)"
 run-name: "[Code Analysis] Coverity (C/C++)"
 
 on:
-  workflow_call: {}
   workflow_dispatch: {}
   push:
     branches:
       - main
       - release-*
-
-  # Trigger workflow when enqueued to a merge group
-  # (must be under 'on')
-  merge_group: {}
 
 permissions: {}
 
@@ -31,54 +26,29 @@ jobs:
     permissions:
       contents: read
     outputs:
-      run-analysis: ${{ steps.detect-langs.outputs.run-analysis }}
+      run-analysis: ${{ steps.changes.outputs.cpp }}
     steps:
       - name: "Checkout code"
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #6.0.2
         with:
           persist-credentials: false
           fetch-depth: 0 # Fetch all history for accurate diff
-
-      - name: "Detect changed languages"
-        id: detect-langs
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "Manual dispatch: always run analysis."
-            echo "run-analysis=true" >> $GITHUB_OUTPUT
-            exit 0
-          else
-            if [ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then
-              git fetch origin main:main
-              echo "Fetched main branch"
-            fi
-              if [ -z "$GITHUB_SHA" ]; then
-                echo "Error: GITHUB_SHA is not set or empty."
-                exit 1
-              fi
-              changed_files=$(git diff --name-only main...$GITHUB_SHA -- '*.h' '*.hpp' '*.c' '*.cpp')
-              if [ $? -ne 0 ]; then
-                echo "Error: git diff command failed."
-                exit 1
-              fi
-              echo "Performed git diff"
-            if [ -z "$changed_files" ]; then
-              echo "No relevant changed files detected."
-              echo "run-analysis=false" >> $GITHUB_OUTPUT
-              exit 0
-            else
-              run_analysis=true
-            fi
-            echo "Changed files:"
-            echo "$changed_files"
-            echo "Run analysis:"
-            echo "$run_analysis"
-            echo "run-analysis=$run_analysis" >> $GITHUB_OUTPUT
-          fi
+          ref: 4b2b119568189314f3e9a21015725f765ae49026
+      - name: Detect C/C++ changes
+        id: changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        with:
+          filters: |
+            cpp:
+              - '**/*.cpp'
+              - '**/*.c'
+              - '**/*.h'
+              - '**/*.hpp'
 
   coverity-scan:
     name: "Coverity Scan"
     needs: detect-languages
-    if: ${{ needs.detect-languages.outputs.run-analysis == 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-languages.outputs.run-analysis == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -95,6 +65,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends cmake curl g++ git libeigen3-dev libgtest-dev make \
           pkg-config python3-dev pybind11-dev python3-pip python3-scipy python-is-python3 libopencv-dev python3-venv
           pip3 install --use-pep517 -r .github/resources/coverity-requirements.txt
+          sudo make -C tracker install-deps
+          make -C tracker install-tools
+          conan profile detect --force
 
       - name: "Download Coverity Scan Tool"
         run: |
