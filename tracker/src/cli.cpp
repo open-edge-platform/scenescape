@@ -9,7 +9,6 @@
 
 namespace tracker {
 
-
 CliConfig parse_cli_args(int argc, char* argv[]) {
     CliConfig config;
 

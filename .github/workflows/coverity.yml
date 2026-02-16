@@ -6,16 +6,11 @@ name: "[Code Analysis] Coverity (C/C++)"
 run-name: "[Code Analysis] Coverity (C/C++)"
 
 on:
-  workflow_call: {}
   workflow_dispatch: {}
   push:
     branches:
       - main
       - release-*
-
-  # Trigger workflow when enqueued to a merge group
-  # (must be under 'on')
-  merge_group: {}
 
 permissions: {}
 
@@ -53,7 +48,7 @@ jobs:
   coverity-scan:
     name: "Coverity Scan"
     needs: detect-languages
-    if: ${{ needs.detect-languages.outputs.run-analysis == 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-languages.outputs.run-analysis == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -104,19 +99,19 @@ jobs:
           echo "Coverity results:"
           cat cov-int/build-log.txt
 
-      # - name: Upload to Coverity Scan
-      #   env:
-      #     GIT_BRANCH: ${{ github.ref_name }}
-      #   run: |
-      #     curl --form token=${{ secrets.COVERITY_TOKEN }} \
-      #          --form email=${{ secrets.COVERITY_EMAIL }} \
-      #          --form file=@scenescape-coverity.tgz \
-      #          --form version="$GIT_BRANCH-`date +%Y%m%d%H%M%S`" \
-      #          --form description="GitHub Action upload" \
-      #          https://scan.coverity.com/builds?project=${{ secrets.COVERITY_PROJECT }}
+      - name: Upload to Coverity Scan
+        env:
+          GIT_BRANCH: ${{ github.ref_name }}
+        run: |
+          curl --form token=${{ secrets.COVERITY_TOKEN }} \
+               --form email=${{ secrets.COVERITY_EMAIL }} \
+               --form file=@scenescape-coverity.tgz \
+               --form version="$GIT_BRANCH-`date +%Y%m%d%H%M%S`" \
+               --form description="GitHub Action upload" \
+               https://scan.coverity.com/builds?project=${{ secrets.COVERITY_PROJECT }}
 
-      # - name: Upload coverity results
-      #   uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-      #   with:
-      #     name: coverity-results-${{ github.run_id }}
-      #     path: ./scenescape-coverity.tgz
+      - name: Upload coverity results
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: coverity-results-${{ github.run_id }}
+          path: ./scenescape-coverity.tgz
