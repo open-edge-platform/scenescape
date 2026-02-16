@@ -35,7 +35,6 @@ class SchemaValidation:
     return
 
   def compileValidators(self):
-    # Extract standard format validators from jsonschema and adapt them
     checker = FormatChecker()
     formats = {}
     for key in checker.checkers:
@@ -43,7 +42,6 @@ class SchemaValidation:
       if key not in formats:
         formats[key] = _adaptJsonschemaChecker(formatType)
 
-    # Add our custom UUID validator
     formats['uuid'] = _validateUuidFormat
 
     if not self.mqtt_schema:
