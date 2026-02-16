@@ -516,6 +516,210 @@ TEST(ConfigLoaderTest, SchemaValidationEnvOverride) {
 }
 
 //
+// Tracking environment variable override tests
+//
+
+TEST(ConfigLoaderTest, TrackingMaxLagEnvOverride) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Valid override
+    {
+        ScopedEnv env(tracker::env::MAX_LAG_S, "2.5");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_DOUBLE_EQ(config.tracking.max_lag_s, 2.5);
+    }
+
+    // Zero is valid
+    {
+        ScopedEnv env(tracker::env::MAX_LAG_S, "0");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_DOUBLE_EQ(config.tracking.max_lag_s, 0.0);
+    }
+}
+
+TEST(ConfigLoaderTest, TrackingMaxLagEnvOverride_InvalidValues) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Negative value
+    {
+        ScopedEnv env(tracker::env::MAX_LAG_S, "-1.0");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+
+    // Non-numeric
+    {
+        ScopedEnv env(tracker::env::MAX_LAG_S, "not_a_number");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+}
+
+TEST(ConfigLoaderTest, TrackingChunkingRateEnvOverride) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Valid override
+    {
+        ScopedEnv env(tracker::env::TIME_CHUNKING_RATE_FPS, "30");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.tracking.time_chunking_rate_fps, 30);
+    }
+
+    // Boundary: minimum (1)
+    {
+        ScopedEnv env(tracker::env::TIME_CHUNKING_RATE_FPS, "1");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.tracking.time_chunking_rate_fps, 1);
+    }
+
+    // Boundary: maximum (60)
+    {
+        ScopedEnv env(tracker::env::TIME_CHUNKING_RATE_FPS, "60");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.tracking.time_chunking_rate_fps, 60);
+    }
+}
+
+TEST(ConfigLoaderTest, TrackingChunkingRateEnvOverride_InvalidValues) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Below minimum
+    {
+        ScopedEnv env(tracker::env::TIME_CHUNKING_RATE_FPS, "0");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+
+    // Above maximum
+    {
+        ScopedEnv env(tracker::env::TIME_CHUNKING_RATE_FPS, "61");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+
+    // Non-numeric
+    {
+        ScopedEnv env(tracker::env::TIME_CHUNKING_RATE_FPS, "fast");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+}
+
+TEST(ConfigLoaderTest, TrackingMaxWorkersEnvOverride) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Valid override
+    {
+        ScopedEnv env(tracker::env::MAX_WORKERS, "25");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.tracking.max_workers, 25);
+    }
+
+    // Boundary: minimum (1)
+    {
+        ScopedEnv env(tracker::env::MAX_WORKERS, "1");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.tracking.max_workers, 1);
+    }
+}
+
+TEST(ConfigLoaderTest, TrackingMaxWorkersEnvOverride_InvalidValues) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Below minimum
+    {
+        ScopedEnv env(tracker::env::MAX_WORKERS, "0");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+
+    // Negative
+    {
+        ScopedEnv env(tracker::env::MAX_WORKERS, "-5");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+
+    // Non-numeric
+    {
+        ScopedEnv env(tracker::env::MAX_WORKERS, "many");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+}
+
+//
+// Scenes environment variable override tests
+//
+
+TEST(ConfigLoaderTest, ScenesSourceEnvOverride) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Override to file (same as default, but explicit)
+    {
+        ScopedEnv env(tracker::env::SCENES_SOURCE, "file");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.scenes.source, SceneSource::File);
+    }
+
+    // Override to api
+    {
+        ScopedEnv env(tracker::env::SCENES_SOURCE, "api");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.scenes.source, SceneSource::Api);
+    }
+}
+
+TEST(ConfigLoaderTest, ScenesSourceEnvOverride_InvalidValue) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    ScopedEnv env(tracker::env::SCENES_SOURCE, "invalid");
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, ScenesFilePathEnvOverride) {
+    // Create a custom scenes file
+    TempSceneFile custom_scenes("[]");
+    TempFile config_file(MINIMAL_CONFIG());
+
+    std::string custom_path = custom_scenes.path().string();
+    ScopedEnv env(tracker::env::SCENES_FILE_PATH, custom_path.c_str());
+    auto config = load_config(config_file.path(), get_schema_path());
+    EXPECT_EQ(config.scenes.file_path.value(), custom_path);
+}
+
+TEST(ConfigLoaderTest, TrackingEnvOverrides_EmptyTreatedAsUnset) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Empty MAX_LAG_S should use default
+    {
+        ScopedEnv env(tracker::env::MAX_LAG_S, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_DOUBLE_EQ(config.tracking.max_lag_s, 1.0); // Default
+    }
+
+    // Empty TIME_CHUNKING_RATE_FPS should use default
+    {
+        ScopedEnv env(tracker::env::TIME_CHUNKING_RATE_FPS, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.tracking.time_chunking_rate_fps, 15); // Default
+    }
+
+    // Empty MAX_WORKERS should use default
+    {
+        ScopedEnv env(tracker::env::MAX_WORKERS, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.tracking.max_workers, 50); // Default
+    }
+
+    // Empty SCENES_SOURCE should use config file value
+    {
+        ScopedEnv env(tracker::env::SCENES_SOURCE, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.scenes.source, SceneSource::File); // From config
+    }
+
+    // Empty SCENES_FILE_PATH should use config file value
+    {
+        ScopedEnv env(tracker::env::SCENES_FILE_PATH, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.scenes.file_path.value(), empty_scenes_path()); // From config
+    }
+}
+
+//
 // TLS config from JSON file tests (covers lines 193-210)
 //
 
