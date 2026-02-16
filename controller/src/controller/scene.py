@@ -446,34 +446,29 @@ class Scene(SceneModel):
       obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
       obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
 
-      obj._camera_detections_index = obj_idx
-
-      obj.visibility = obj_data.get('visibility', [])
-      if ControllerMode.isAnalyticsOnly():
-        detected_cameras = set()
-        detection_type = obj.category
-        for (cam_id, det_type), detections in self.camera_detections_cache.items():
-          if det_type == detection_type and obj_idx < len(detections):
-            detected_cameras.add(cam_id)
-
-        if not obj.visibility:
-          obj.visibility = list(detected_cameras)
-        else:
-          obj.visibility = list(set(obj.visibility) | detected_cameras)
-
       obj_id = obj.gid
       if 'first_seen' in obj_data:
         obj.when = get_epoch_time(obj_data.get('first_seen'))
         obj.first_seen = obj.when
-      elif obj_id and obj_id in self.object_history_cache and 'first_seen' in self.object_history_cache[obj_id]:
-        obj.first_seen = self.object_history_cache[obj_id]['first_seen']
-        obj.when = obj.first_seen
-      elif current_timestamp is not None:
-        obj.first_seen = current_timestamp
-        obj.when = current_timestamp
+        # Cache the first_seen from MQTT data
+        if obj_id not in self.object_history_cache:
+          self.object_history_cache[obj_id] = {}
+        self.object_history_cache[obj_id]['first_seen'] = obj.when
       else:
-        obj.when = get_epoch_time()
-        obj.first_seen = obj.when
+        # Check if we have a cached first_seen timestamp
+        if obj_id in self.object_history_cache and 'first_seen' in self.object_history_cache[obj_id]:
+          obj.when = self.object_history_cache[obj_id]['first_seen']
+          obj.first_seen = obj.when
+        else:
+          # First time seeing this object, record current time
+          current_time = get_epoch_time()
+          obj.when = current_time
+          obj.first_seen = current_time
+          if obj_id not in self.object_history_cache:
+            self.object_history_cache[obj_id] = {}
+          self.object_history_cache[obj_id]['first_seen'] = current_time
+          log.debug(f"First time seeing object id {obj_data.get('id')} from MQTT; setting first_seen to current time: {current_time}")
+      obj.visibility = obj_data.get('visibility', [])
 
       obj.info = {
         'category': obj.category,
