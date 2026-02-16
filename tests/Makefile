@@ -91,6 +91,7 @@ release-tests: \
   randomly-failing-tests \
   reid-unique-count \
   reid-performance-degradation \
+  reid-semantic-unique-count \
 
 broken-features:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
