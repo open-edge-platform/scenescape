@@ -3,11 +3,10 @@
 # SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from tests.functional import FunctionalTest
+import time
 from http import HTTPStatus
 from scene_common.rest_client import RESTClient
 from tests.common_test_utils import record_test_result
-import time
 
 TEST_NAME = "NEX-T10457-API"
 
