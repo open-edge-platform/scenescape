@@ -17,24 +17,17 @@ class SchemaValidation:
     return
 
   def compileValidators(self):
-    checker = FormatChecker()
-
-    @checker.checks('uuid', raises=ValueError)
-    def checkUuid(instance):
+    def validate_uuid(instance):
       """Validate UUID format (accepts UUIDv1-v5)"""
-      if not isinstance(instance, str):
-        return False
       try:
         uuid.UUID(instance)
         return True
-      except (ValueError, AttributeError):
-        return False
+      except (ValueError, AttributeError, TypeError):
+        raise ValueError(f"Invalid UUID format: {instance}")
 
-    formats = {}
-    for key in checker.checkers:
-      formatType = checker.checkers[key][0]
-      if key not in formats:
-        formats[key] = formatType
+    formats = {
+      'uuid': validate_uuid,
+    }
 
     if not self.mqtt_schema:
       raise Exception("Schema not available")
@@ -48,20 +41,18 @@ class SchemaValidation:
             defs_key: self.mqtt_schema[defs_key]
           }
           self.validator[key] = compile(sub_schema, formats=formats)
-          self.validator_no_format[key] = compile(sub_schema)
+          self.validator_no_format[key] = compile(sub_schema, formats=formats, use_formats=False)
     else:
       self.validator[None] = compile(self.mqtt_schema, formats=formats)
-      self.validator_no_format[None] = compile(self.mqtt_schema)
+      self.validator_no_format[None] = compile(self.mqtt_schema, formats=formats, use_formats=False)
     return
 
   def loadSchema(self, schema_path):
-    print("Loading schema file..")
     try:
       with open(schema_path) as schema_fd:
         self.mqtt_schema = json.load(schema_fd)
-      print("Schema file loaded - {}".format(schema_path))
-    except:
-      print("Invalid schema file / could not open {}".format(schema_path))
+    except Exception as e:
+      print(f"Invalid schema file / could not open {schema_path}: {e}")
     return
 
   def validateMessage(self, msg_type, msg, check_format=False):
