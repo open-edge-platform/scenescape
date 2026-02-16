@@ -14,6 +14,7 @@ Tests tracker's MQTT functionality including:
 
 import json
 import uuid
+from datetime import datetime, timezone
 
 import paho.mqtt.client as mqtt
 import pytest
@@ -39,9 +40,11 @@ TOPIC_SCENE_OUTPUT = "scenescape/data/scene/302cf49a-97ec-402d-a324-c5077b280b7b
 
 def create_camera_detection_message():
   """Create a valid camera detection message matching camera-data.schema.json."""
+  # Use current timestamp to avoid lag detection dropping the message
+  current_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
   return {
       "id": "atag-qcam1",
-      "timestamp": "2026-01-27T10:30:00.000Z",
+      "timestamp": current_timestamp,
       "objects": {
           "thing": [
               {
