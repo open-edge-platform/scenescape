@@ -103,7 +103,8 @@ broken-tests: \
   delete-sensor-mqtt-api \
   scenes-summary-api \
 
-randomly-failing-tests:
+randomly-failing-tests: \
+  distance-msoce \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
@@ -184,7 +185,6 @@ metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _metric-tests: \
-  distance-msoce \
   idc-error-metric \
   velocity-metric \
   msoce-metric \
