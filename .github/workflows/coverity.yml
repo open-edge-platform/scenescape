@@ -64,42 +64,45 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      # - name: "Setup dependencies"
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y --no-install-recommends cmake curl g++ git libeigen3-dev libgtest-dev make \
-      #     pkg-config python3-dev pybind11-dev python3-pip python3-scipy python-is-python3 libopencv-dev python3-venv
-      #     pip3 install --use-pep517 -r .github/resources/coverity-requirements.txt
+      - name: "Setup dependencies"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake curl g++ git libeigen3-dev libgtest-dev make \
+          pkg-config python3-dev pybind11-dev python3-pip python3-scipy python-is-python3 libopencv-dev python3-venv
+          pip3 install --use-pep517 -r .github/resources/coverity-requirements.txt
+          sudo make -C tracker install-deps
+          make -C tracker install-tools
+          conan profile detect --force
 
-      # - name: "Download Coverity Scan Tool"
-      #   run: |
-      #     wget --quiet https://scan.coverity.com/download/linux64 \
-      #     --post-data "token=${{ secrets.COVERITY_TOKEN }}&project=${{ secrets.COVERITY_PROJECT }}" \
-      #     -O coverity_tool.tgz
-      #     mkdir coverity
-      #     tar xzf coverity_tool.tgz --strip-components=1 -C coverity
+      - name: "Download Coverity Scan Tool"
+        run: |
+          wget --quiet https://scan.coverity.com/download/linux64 \
+          --post-data "token=${{ secrets.COVERITY_TOKEN }}&project=${{ secrets.COVERITY_PROJECT }}" \
+          -O coverity_tool.tgz
+          mkdir coverity
+          tar xzf coverity_tool.tgz --strip-components=1 -C coverity
 
-      # - name: "Add Coverity to PATH"
-      #   run: |
-      #     echo "$PWD/coverity/bin" >> $GITHUB_PATH
+      - name: "Add Coverity to PATH"
+        run: |
+          echo "$PWD/coverity/bin" >> $GITHUB_PATH
 
-      # - name: "Show Coverity version"
-      #   run: |
-      #     coverity --version
+      - name: "Show Coverity version"
+        run: |
+          coverity --version
 
-      # - name: "Run Coverity build"
-      #   run: |
-      #     cov-build --dir cov-int make build-coverity
+      - name: "Run Coverity build"
+        run: |
+          cov-build --dir cov-int make build-coverity
 
-      # - name: "Create Coverity results tarball"
-      #   run: |
-      #     tar czvf scenescape-coverity.tgz cov-int
+      - name: "Create Coverity results tarball"
+        run: |
+          tar czvf scenescape-coverity.tgz cov-int
 
-      # - name: "Print Coverity build log"
-      #   if: always()
-      #   run: |
-      #     echo "Coverity results:"
-      #     cat cov-int/build-log.txt
+      - name: "Print Coverity build log"
+        if: always()
+        run: |
+          echo "Coverity results:"
+          cat cov-int/build-log.txt
 
       # - name: Upload to Coverity Scan
       #   env:
