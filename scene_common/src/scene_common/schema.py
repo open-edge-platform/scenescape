@@ -7,7 +7,7 @@ from jsonschema import FormatChecker
 from fastjsonschema import compile
 
 
-def _validate_uuid_format(instance):
+def _validateUuidFormat(instance):
   """Validate UUID format (accepts UUIDv1-v5)"""
   try:
     uuid.UUID(instance)
@@ -15,6 +15,17 @@ def _validate_uuid_format(instance):
   except (ValueError, AttributeError, TypeError):
     raise ValueError(f"Invalid UUID format: {instance}")
 
+def _adaptJsonschemaChecker(checker_func):
+  """Adapt jsonschema format checker to work with fastjsonschema"""
+  def wrapper(instance):
+    try:
+      result = checker_func(instance)
+      if result:
+        return True
+      raise ValueError("Format validation failed")
+    except Exception as e:
+      raise ValueError(f"Format validation failed: {e}")
+  return wrapper
 
 class SchemaValidation:
   def __init__(self, schema_path, is_multi_message=False):
@@ -27,9 +38,16 @@ class SchemaValidation:
     return
 
   def compileValidators(self):
-    formats = {
-      'uuid': _validate_uuid_format,
-    }
+    # Extract standard format validators from jsonschema and adapt them
+    checker = FormatChecker()
+    formats = {}
+    for key in checker.checkers:
+      formatType = checker.checkers[key][0]
+      if key not in formats:
+        formats[key] = _adaptJsonschemaChecker(formatType)
+
+    # Add our custom UUID validator
+    formats['uuid'] = _validateUuidFormat
 
     if not self.mqtt_schema:
       raise Exception("Schema not available")
