@@ -92,6 +92,7 @@ class IntelLabsTracking(Tracking):
 
   def update_tracks(self, objects, timestamp):
     rv_objects = [self.to_rv_object(sscape_object) for sscape_object in objects]
+    log.info(f"update_tracks: {len(rv_objects)} objects at timestamp {timestamp}")
     tracking_radius = DEFAULT_TRACKING_RADIUS
     if len(objects):
       tracking_radius = sum([x.tracking_radius for x in objects]) / len(objects)

@@ -51,6 +51,12 @@ class VDMSDatabase(ReIDDatabase):
         query_response = self.db.query(query)
     if query_response and query_response != "NOT CONNECTED":
       response_blob = query_response[1]
+      # Check for transaction-level failure
+      if (len(query_response[0]) == 1
+          and isinstance(query_response[0][0], dict)
+          and 'FailedCommand' in query_response[0][0]):
+        log.warning(f"VDMS transaction failed: {query_response[0][0]}")
+        return responses, response_blob
       for (item, response) in zip(query, query_response[0]):
         query_type = next(iter(item))
         response_data = response.get(query_type, {})
@@ -64,7 +70,6 @@ class VDMSDatabase(ReIDDatabase):
       self.db.connect(hostname)
       if not self.findSchema(self.set_name):
         self.addSchema(self.set_name, self.similarity_metric, self.dimensions)
-      log.info(f"VDMS connection ready")
     except socket.error as e:
       log.warning(f"Failed to connect to VDMS container: {e}")
     return
@@ -120,14 +125,23 @@ class VDMSDatabase(ReIDDatabase):
       }
     }
     # Convert vectors to JSON-serializable format (float32 -> float) and to bytes
-    blob = []
+    # VDMS API expects: query([q1, q2, ...], [blob1, blob2, ...])
+    # Blobs are consumed sequentially, one per AddDescriptor query (flat list)
+    descriptor_blobs = []
+    add_query = []
     for reid_vector in reid_vectors:
       # Ensure vector is float32, then convert to bytes for VDMS
       vec_array = np.array(reid_vector, dtype="float32")
-      blob.append([vec_array.tobytes()])
+      descriptor_blobs.append(vec_array.tobytes())
+      # Create query dict for each vector
+      add_query.append({
+        "AddDescriptor": {
+          "set": f"{set_name}",
+          "properties": properties.copy()
+        }
+      })
 
-    add_query = [query] * len(reid_vectors)
-    response, _ = self.sendQuery(add_query, blob)
+    response, _ = self.sendQuery(add_query, descriptor_blobs)  # Flat list of blobs
     if response:
       for item in response:
         if item.get('status') != 0:
@@ -175,7 +189,6 @@ class VDMSDatabase(ReIDDatabase):
     or_constraints = []
 
     if constraints:
-      log.info(f"_build_query_constraints: Processing {len(constraints)} constraints")
       for key, value in constraints.items():
         if value is not None:
           # Extract actual value and confidence from metadata dict
@@ -186,7 +199,6 @@ class VDMSDatabase(ReIDDatabase):
           if isinstance(value, dict) and 'value' in value:
             actual_value = value['value']
             confidence = value.get('confidence')
-            log.info(f"_build_query_constraints: {key} is dict format: value={actual_value}, confidence={confidence}")
 
           # Determine constraint type based on confidence
           try:
@@ -196,21 +208,17 @@ class VDMSDatabase(ReIDDatabase):
               # If confidence >= 0.8, treat as AND constraint (strict matching)
               if conf_value >= 0.8:
                 and_constraints[key] = ["==", str(actual_value)]
-                log.info(f"_build_query_constraints: {key} -> AND constraint (confidence={conf_value})")
               # If confidence < 0.8, treat as OR constraint (flexible matching)
               else:
                 or_constraints.append({key: ["==", str(actual_value)]})
-                log.info(f"_build_query_constraints: {key} -> OR constraint (confidence={conf_value})")
             else:
               # No confidence available, check if actual_value itself is numeric
               try:
                 conf_value = float(actual_value) if isinstance(actual_value, (int, float, str)) else None
                 if conf_value is not None and conf_value >= 0.8:
                   and_constraints[key] = ["==", str(actual_value)]
-                  log.info(f"_build_query_constraints: {key} -> AND constraint (numeric value={conf_value})")
                 else:
                   or_constraints.append({key: ["==", str(actual_value)]})
-                  log.info(f"_build_query_constraints: {key} -> OR constraint (non-numeric or low value={conf_value})")
               except (ValueError, TypeError):
                 # Not numeric, treat as OR constraint (flexible)
                 or_constraints.append({key: ["==", str(actual_value)]})
@@ -241,9 +249,6 @@ class VDMSDatabase(ReIDDatabase):
     """
     # TIER 1: Build dynamic constraints for metadata filtering
     query_constraints = self._build_query_constraints(object_type, **constraints)
-    
-    log.info(f"findMatches: object_type={object_type}, num_vectors={len(reid_vectors)}, constraints_keys={list(constraints.keys())}")
-    log.info(f"findMatches: query_constraints={query_constraints}")
 
     find_query = {
       "FindDescriptor": {
@@ -266,14 +271,10 @@ class VDMSDatabase(ReIDDatabase):
     for reid_vector in reid_vectors:
       # Ensure vector is float32, then convert to bytes for VDMS
       vec_array = np.array(reid_vector, dtype="float32")
-      blob.append([vec_array.tobytes()])
+      blob.append(vec_array.tobytes())  # Flat list of blobs
 
     query = [find_query] * len(reid_vectors)
     response, _ = self.sendQuery(query, blob)
-    
-    if response:
-      valid_count = sum(1 for item in response if (item.get('status') == 0 and item.get('returned') > 0))
-      log.info(f"findMatches: received {len(response)} responses, {valid_count} with valid results")
 
     if response:
       result = [

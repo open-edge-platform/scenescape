@@ -5,6 +5,7 @@ import collections
 import concurrent.futures
 import json
 import threading
+import time
 
 from controller.vdms_adapter import VDMSDatabase
 from scene_common import log
@@ -28,6 +29,7 @@ class UUIDManager:
     self.active_ids_lock = threading.Lock()
     self.active_query = {}
     self.features_for_database = {}
+    self.features_for_database_timestamps = {}  # Track when features were added
     self.quality_features = {}
     self.unique_id_count = 0
     self.reid_database = available_databases[database]()
@@ -78,11 +80,36 @@ class UUIDManager:
 
   def pruneInactiveTracks(self, tracked_objects):
     """
-    Removes inactive tracks from the active_ids dict and adds pending features to the database
+    Removes inactive tracks from the active_ids dict and adds pending features to the database.
+    Also flushes features_for_database entries that have been pending for > 5 seconds,
+    which handles cases where tracks never become "inactive" in the tracker (e.g., test environments).
 
     @param  tracked_objects  The objects currently tracked by the tracker
     """
     active_tracks = [tracked_object.id for tracked_object in tracked_objects]
+    log.info(f"pruneInactiveTracks: {len(active_tracks)} active, {len(self.active_ids)} in dict, {len(self.features_for_database)} pending features")
+    
+    # Check for stale pending features (timeout-based fallback)
+    current_time = time.time()
+    stale_features = []
+    for track_id, timestamp in self.features_for_database_timestamps.items():
+      if current_time - timestamp > 5.0:  # 5 second timeout
+        stale_features.append(track_id)
+    
+    if stale_features:
+      log.info(f"pruneInactiveTracks: Flushing {len(stale_features)} stale pending features (timeout): {stale_features}")
+      for track_id in stale_features:
+        self._addNewFeaturesToDatabase(track_id)
+        self.features_for_database_timestamps.pop(track_id, None)
+        # Also remove from active_ids since we're flushing
+        with self.active_ids_lock:
+          if track_id in self.active_ids and self.active_ids[track_id][1] is None:
+            self.unique_id_count += 1
+          self.active_ids.pop(track_id, None)
+        self.active_query.pop(track_id, None)
+        self.quality_features.pop(track_id, None)
+    
+    # Normal pruning based on tracker's active tracks
     inactive_tracks = []
     new_active_ids = {}
     with self.active_ids_lock:
@@ -93,9 +120,13 @@ class UUIDManager:
           inactive_tracks.append((k, v))
       self.active_ids = new_active_ids
 
+    if inactive_tracks:
+      log.info(f"pruneInactiveTracks: Found {len(inactive_tracks)} inactive tracks: {[t[0] for t in inactive_tracks]}")
+    
     for track_id, data in inactive_tracks:
       self.active_query.pop(track_id, None)
       self.quality_features.pop(track_id, None)
+      self.features_for_database_timestamps.pop(track_id, None)
       # Increment the unique id counter for tracks where no match was found (similiarity=None)
       if data[1] is None:
         self.unique_id_count += 1
@@ -116,8 +147,10 @@ class UUIDManager:
     @param  track_id    The ID of the track with features to add to the database
     @param  slice_size  The size of the slice to use to reduce the size of the feature list
     """
+    log.info(f"_addNewFeaturesToDatabase: Called for track {track_id}, features_for_database has entry: {track_id in self.features_for_database}")
     features = self.features_for_database.pop(track_id, None)
     if features:
+      log.info(f"_addNewFeaturesToDatabase: Track {track_id} has {len(features.get('reid_vectors', []))} reid vectors before slicing")
       features['reid_vectors'] = features['reid_vectors'][::slice_size]
       log.info(
         f"Adding {len(features['reid_vectors'])} features for track {track_id} to database")
@@ -212,12 +245,16 @@ class UUIDManager:
 
     @param  sscape_object  The current Scenescape object
     """
+    log.info(f"querySimilarity: Starting for track {sscape_object.rv_id}")
     similarity_scores = self.sendSimilarityQuery(sscape_object)
     database_id, similarity = self.parseQueryResults(similarity_scores)
+    log.info(f"querySimilarity: Track {sscape_object.rv_id} query complete, db_id={database_id}, similarity={similarity}")
     with self.active_ids_lock:
       # Make sure object is still in active_ids before updating since there is a chance
       # that the similiarity search does not complete until after the object leaves
+      log.info(f"querySimilarity: Checking if track {sscape_object.rv_id} still in active_ids: {sscape_object.rv_id in self.active_ids}")
       if sscape_object.rv_id in self.active_ids:
+        log.info(f"querySimilarity: Calling updateActiveDict for track {sscape_object.rv_id}")
         self.updateActiveDict(sscape_object, database_id, similarity)
       else:
         log.warning(
@@ -307,6 +344,7 @@ class UUIDManager:
     @param  database_id    The ID from the database
     @param  similarity     The similarity score from the database
     """
+    log.info(f"updateActiveDict: Called for track {sscape_object.rv_id}, db_id={database_id}, gid={sscape_object.gid}")
     # MATCH FOUND - YES + DB ID ALREADY IN DICT - NO
     if database_id and self.isNewID(database_id):
       self.active_ids[sscape_object.rv_id] = [database_id, similarity]
@@ -316,14 +354,19 @@ class UUIDManager:
     else:
       self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
       database_id = sscape_object.gid
+      log.info(f"updateActiveDict: No match, using gid={database_id} for track {sscape_object.rv_id}")
 
     # Store features with semantic metadata for TIER 1 filtering in future queries
+    num_features = len(self.quality_features.get(sscape_object.rv_id, []))
+    log.info(f"updateActiveDict: Storing {num_features} features for track {sscape_object.rv_id} to features_for_database")
     self.features_for_database[sscape_object.rv_id] = {
       'gid': database_id,
       'category': sscape_object.category,
       'reid_vectors': self.quality_features[sscape_object.rv_id],
       'metadata': self._extractSemanticMetadata(sscape_object)
     }
+    self.features_for_database_timestamps[sscape_object.rv_id] = time.time()  # Record when added
+    log.info(f"updateActiveDict: features_for_database now has {len(self.features_for_database)} entries")
     return
 
   def isNewID(self, database_id):

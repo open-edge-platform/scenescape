@@ -390,8 +390,11 @@ class SceneController:
     }
     metrics.inc_messages(metric_attributes)
     with metrics.time_mqtt_handler(metric_attributes):
-      if 'camera_id' in topic and not self.schema_val.validateMessage("detector", jdata):
-        return
+      if 'camera_id' in topic:
+        log.info(f"Processing detector message from camera: {topic['camera_id']}")
+        if not self.schema_val.validateMessage("detector", jdata):
+          log.warning(f"Schema validation failed for camera {topic['camera_id']}")
+          return
 
       now = get_epoch_time()
       self.time_offset, self.last_time_sync = adjust_time(now, self.ntp_server, self.ntp_client,

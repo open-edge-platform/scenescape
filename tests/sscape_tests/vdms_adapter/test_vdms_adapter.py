@@ -176,10 +176,9 @@ class TestAddEntry:
     assert blob is not None
     assert len(blob) == len(test_vectors), "Blob should have one entry per vector"
     
-    # Verify blob items are bytes
+    # Verify blob items are bytes (flat list format for VDMS API)
     for blob_item in blob:
-      assert isinstance(blob_item, list), "Blob item should be a list"
-      assert isinstance(blob_item[0], bytes), "Blob item should contain bytes"
+      assert isinstance(blob_item, bytes), "Blob item should be bytes"
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_add_entry_handles_multiple_vectors(self, mock_vdms_class):
@@ -312,10 +311,9 @@ class TestFindMatches:
     assert blob is not None, "TIER 2 requires blob with query vectors"
     assert len(blob) == len(test_vectors), "Blob should have one entry per query vector"
     
-    # Verify blob items are bytes for vector similarity
+    # Verify blob items are bytes for vector similarity (flat list format)
     for blob_item in blob:
-      assert isinstance(blob_item, list)
-      assert isinstance(blob_item[0], bytes), "TIER 2 requires vectors as bytes"
+      assert isinstance(blob_item, bytes), "TIER 2 requires vectors as bytes"
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_returns_matched_entities(self, mock_vdms_class):

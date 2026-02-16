@@ -17,12 +17,12 @@ detection_count = {
   "3bc091c7-e449-46a0-9540-29c499bca18c": {
     "error": False,
     "current": 0,
-    "maximum": 120
+    "maximum": 40
   },
   "302cf49a-97ec-402d-a324-c5077b280b7b": {
     "error": False,
     "current": 0,
-    "maximum": 60
+    "maximum": 20
   }
 }
 
