@@ -399,7 +399,7 @@ class Scene(SceneModel):
     Convert serialized tracked objects to a format usable by Analytics.
     This creates lightweight wrappers that mimic MovingObject interface.
     If objects are already deserialized, returns them as-is.
-    
+
     Mimics default tracker behavior by tracking first_seen timestamp:
     - New object IDs get current timestamp as first_seen
     - Existing object IDs preserve their original first_seen
