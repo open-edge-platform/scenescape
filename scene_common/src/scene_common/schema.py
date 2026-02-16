@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import uuid
 from jsonschema import FormatChecker
 from fastjsonschema import compile
 
@@ -17,6 +18,18 @@ class SchemaValidation:
 
   def compileValidators(self):
     checker = FormatChecker()
+
+    @checker.checks('uuid', raises=ValueError)
+    def checkUuid(instance):
+      """Validate UUID format (accepts UUIDv1-v5)"""
+      if not isinstance(instance, str):
+        return False
+      try:
+        uuid.UUID(instance)
+        return True
+      except (ValueError, AttributeError):
+        return False
+
     formats = {}
     for key in checker.checkers:
       formatType = checker.checkers[key][0]
