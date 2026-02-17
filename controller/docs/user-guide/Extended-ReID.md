@@ -98,10 +98,33 @@ Logic: "Find strong age-gender matches, OR any Male wearing glasses"
 - Add timestamp: `{"timestamp": "2026-02-06T11:37:26.093Z"}`
 - Spatial radius queries via application-level post-processing
 
-**Environment variables** (existing):
+**Environment variables**:
 
 - `VDMS_HOSTNAME`: VDMS server hostname (default: `vdms.scenescape.intel.com`)
 - `REID_DATABASE`: Vector database backend (default: `VDMS`)
+- `VDMS_CONFIDENCE_THRESHOLD`: Confidence threshold for AND/OR constraint routing (default: `0.8`)
+  - Values ≥ threshold: AND constraints (strict matching, all must match)
+  - Values < threshold: OR constraints (flexible matching, at least one must match)
+  - Valid range: 0.0 to 1.0
+  - Example: Set to `0.7` for more flexible matching, `0.9` for stricter matching
+
+### Configuring Confidence Threshold
+
+The confidence threshold determines how metadata constraints are applied in TIER 1 filtering. Confidence threshold can be configured using:
+
+```bash
+# In the controller service environment in docker-compose.yml or .env file
+VDMS_CONFIDENCE_THRESHOLD=0.85
+
+# Launch controller with custom threshold
+docker compose up -d
+```
+
+**Example Threshold Selection Guide**:
+
+- `0.7`: More matches, higher recall (recommended for exploratory queries)
+- `0.8`: **Default balanced approach** (recommended for most use cases)
+- `0.9`: Fewer but highly accurate matches (recommended when precision is critical)
 
 ## Testing
 
@@ -118,3 +141,7 @@ Tests should verify:
 
 - ADR-0010: Re-ID Metadata Storage Architecture (https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0010-reid-metadata-storage-architecture.md)
 - VDMS Documentation: https://github.com/IntelLabs/vdms
+
+```
+
+```

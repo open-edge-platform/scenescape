@@ -13,6 +13,7 @@ from controller.reid import ReIDDatabase
 from scene_common import log
 
 DEFAULT_HOSTNAME = os.getenv("VDMS_HOSTNAME", "vdms.scenescape.intel.com")
+DEFAULT_CONFIDENCE_THRESHOLD = float(os.getenv("VDMS_CONFIDENCE_THRESHOLD", "0.8"))
 DIMENSIONS = 256
 K_NEIGHBORS = 1
 SCHEMA_NAME = "reid_vector"
@@ -20,13 +21,15 @@ SIMILARITY_METRIC = "L2"
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
-               similarity_metric=SIMILARITY_METRIC, dimensions=DIMENSIONS):
+               similarity_metric=SIMILARITY_METRIC, dimensions=DIMENSIONS,
+               confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD):
     # Initialize VDMS without TLS to avoid PMGD initialization issues in containerized environment
     # TLS can be re-enabled after VDMS resolves container compatibility issues
     self.db = vdms.vdms()
     self.set_name = set_name
     self.similarity_metric = similarity_metric
     self.dimensions = dimensions
+    self.confidence_threshold = confidence_threshold
     self.lock = threading.Lock()
     return
 
@@ -205,17 +208,17 @@ class VDMSDatabase(ReIDDatabase):
             # Use extracted confidence if available
             if confidence is not None:
               conf_value = float(confidence)
-              # If confidence >= 0.8, treat as AND constraint (strict matching)
-              if conf_value >= 0.8:
+              # If confidence >= threshold, treat as AND constraint (strict matching)
+              if conf_value >= self.confidence_threshold:
                 and_constraints[key] = ["==", str(actual_value)]
-              # If confidence < 0.8, treat as OR constraint (flexible matching)
+              # If confidence < threshold, treat as OR constraint (flexible matching)
               else:
                 or_constraints.append({key: ["==", str(actual_value)]})
             else:
               # No confidence available, check if actual_value itself is numeric
               try:
                 conf_value = float(actual_value) if isinstance(actual_value, (int, float, str)) else None
-                if conf_value is not None and conf_value >= 0.8:
+                if conf_value is not None and conf_value >= self.confidence_threshold:
                   and_constraints[key] = ["==", str(actual_value)]
                 else:
                   or_constraints.append({key: ["==", str(actual_value)]})
