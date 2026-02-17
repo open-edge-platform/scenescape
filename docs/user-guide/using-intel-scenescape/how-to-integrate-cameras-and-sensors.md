@@ -26,7 +26,7 @@ All sensors, from cameras to microphones to environmental sensors like temperatu
 
 A sensor system must acquire data, provide a timestamp, attach a sensor ID, and then publish this data to Intel® SceneScape in a recognized format. It must also know where to publish each message. This flow is shown in the top box of Figure 1.
 
-![Intel® SceneScape Basic Data Flow](../images/scenescape-basic.png)
+![Intel® SceneScape Basic Data Flow](../_assets/scenescape-basic.png)
 
 **Figure 1:** Intel® SceneScape basic data flow
 
@@ -41,7 +41,7 @@ Intel® SceneScape scene controller then picks up this data, utilizes informatio
 
 Figure 2 is a flow chart of how camera-based metadata is generated and published.
 
-![SceneScape Video Pipeline](../images/pipeline.png)
+![SceneScape Video Pipeline](../_assets/pipeline.png)
 
 **Figure 2:** Intel® SceneScape video pipeline
 
@@ -125,7 +125,7 @@ All sensor and camera messages share two properties: timestamp and ID.
    }
    ```
 
-   > **Note:** Bounding boxes are in normalized image space. For more information on how to transform pixel-based bounding boxes, see [convert-object-detections-to-normalized-image-space.md](convert-object-detections-to-normalized-image-space.md).
+   > **Note:** Bounding boxes are in normalized image space. For more information on how to transform pixel-based bounding boxes, see [convert-object-detections-to-normalized-image-space.md](../additional-resources/convert-object-detections-to-normalized-image-space.md).
 
 2. **3D Detections from Cameras and Other Sensors**
    Sometimes sensors and AI models provide 3D detections instead of 2D detections. 3D detections may be directly measured by sensors (e.g. GPS), inferred from 2D data (e.g. monocular images), and/or inferred from 3D data (e.g. point clouds). In those cases a 3D bounding box (i.e. cuboid) can be provided like in the example below:
