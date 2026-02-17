@@ -1,11 +1,10 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
 import json
 import re
 import requests
-import sys
 from http import HTTPStatus
 from urllib.parse import urljoin
 
@@ -16,12 +15,23 @@ class RESTResult(dict):
     self.errors = errors
     return
 
+  @property
+  def status_code(self):
+    return self.statusCode
+
+  def json(self):
+    return dict(self)
+
+  @property
+  def text(self):
+    return json.dumps(dict(self))
+
 class RESTClient:  
   def __init__(self, base_url=None, token=None, auth=None, 
              rootcert=None, verify_ssl=False, timeout=10):
     self.base_url = base_url
     
-    if not self.base_url.endswith("/"):
+    if self.base_url and not self.base_url.endswith("/"):
       self.base_url = self.base_url + "/"
     
     # Handle SSL verification (support both bool and path)
@@ -80,15 +90,7 @@ class RESTClient:
 
   def request(self, method, path, **kwargs):
     """    
-    Returns raw requests.Response object for compatibility with API tests.
-    
-    Args:
-        method: HTTP method (GET, POST, PUT, DELETE, etc.)
-        path: API path (with or without leading slash)
-        **kwargs: Additional arguments passed to requests
-        
-    Returns:
-      requests.Response object
+    Returns raw requests.Response object for compatibility with API tests
     """
     # Ensure path starts with /
     if not path.startswith('/'):
@@ -185,7 +187,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    full_path = urljoin(self.url, endpoint)
+    full_path = urljoin(self.base_url, endpoint)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
@@ -201,7 +203,7 @@ class RESTClient:
     @return                     RESTResult with decoded object(s) on success,
                                 empty with `errors` set on failure
     """
-    full_path = urljoin(self.url, endpoint)
+    full_path = urljoin(self.base_url, endpoint)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.get(full_path, params=parameters, headers=headers,
                              verify=self.verify_ssl)
@@ -217,7 +219,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    full_path = urljoin(self.url, endpoint)
+    full_path = urljoin(self.base_url, endpoint)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
@@ -231,7 +233,7 @@ class RESTClient:
     @return                     RESTResult with deleted object's uid on success,
                                 empty with `errors` set on failure
     """
-    full_path = urljoin(self.url, endpoint)
+    full_path = urljoin(self.base_url, endpoint)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.delete(full_path, headers=headers, verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.OK)
@@ -680,3 +682,4 @@ class RESTClient:
     with open(zip_file_path, "rb") as f:
       files = {"zipFile": (os.path.basename(zip_file_path), f)}
       return self._create(endpoint, data={}, files=files)
+    
