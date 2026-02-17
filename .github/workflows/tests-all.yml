@@ -13,6 +13,11 @@ on:
         required: false
         default: false
         type: boolean
+      ref:
+        description: "SceneScape ref to test against"
+        required: false
+        default: ""
+        type: string
   workflow_call:
     inputs:
       ref:
