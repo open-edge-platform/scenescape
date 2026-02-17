@@ -122,7 +122,7 @@ class UUIDManager:
       self.active_query.pop(track_id, None)
       self.quality_features.pop(track_id, None)
       self.features_for_database_timestamps.pop(track_id, None)
-      # Increment the unique id counter for tracks where no match was found (similiarity=None)
+      # Increment the unique id counter for tracks where no match was found (similarity=None)
       if data[1] is None:
         self.unique_id_count += 1
       self._addNewFeaturesToDatabase(track_id)

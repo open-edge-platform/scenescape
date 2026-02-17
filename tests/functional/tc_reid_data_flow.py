@@ -385,8 +385,7 @@ def test_reid_data_flow_end_to_end(params, record_xml_attribute):
     #         → Stop publishing → Wait for tracks to timeout (max_unreliable_time=1.0s)
     #         → Send trigger message → Tracker prunes inactive tracks
     #         → UUID Manager stores reid to VDMS
-    log.info("Waiting for similarity query to complete...")
-    time.sleep(2)  # Wait for similarity query to finish
+
 
     # IMPORTANT: Tracker uses FRAME COUNT not time for reliability
     # non_measurement_frames_dynamic = ceil(10 FPS * 0.8s) = 8 frames

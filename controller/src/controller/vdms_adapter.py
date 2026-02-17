@@ -85,7 +85,7 @@ class VDMSDatabase(ReIDDatabase):
     response, _ = self.sendQuery(query)
     if response and response[0].get('status') != 0:
       log.warning(
-        f"Failed to add the descriptor set to the database. Recieved response {response[0]}")
+        f"Failed to add the descriptor set to the database. Received response {response[0]}")
     return
 
   def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name=SCHEMA_NAME, **metadata):
