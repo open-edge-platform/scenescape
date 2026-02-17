@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 """
 conftest.py - Custom pytest configuration for clean XML output
 This generates Robot Framework-style minimal XML directly from pytest
