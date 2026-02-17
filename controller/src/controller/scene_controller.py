@@ -298,7 +298,7 @@ class SceneController:
           etype + '_name': region.name,
         }
         detections_dict, num_objects = self._buildAllRegionObjsList(scene, region, event_data)
-        self._buildEnteredObjsList(region, event_data, detections_dict)
+        self._buildEnteredObjsList(scene, region, event_data, detections_dict)
         self._buildExitedObjsList(scene, region, event_data)
 
         log.debug("EVENT DATA", event_data)
@@ -310,6 +310,10 @@ class SceneController:
                                            region_type=etype, event_type=event_type,
                                            scene_id=scene.uid, region_id=region.uuid)
           self.pubsub.publish(event_topic, orjson.dumps(event_data, option=orjson.OPT_SERIALIZE_NUMPY))
+
+    # Clear objects and count events after publishing (but preserve 'value' events for sensors)
+    scene.events.pop('objects', None)
+    scene.events.pop('count', None)
 
     self._clearSensorValuesOnExit(scene)
 
@@ -328,13 +332,22 @@ class SceneController:
     event_data['objects'] = list(detections_dict.values())
     return detections_dict, num_objects
 
-  def _buildEnteredObjsList(self, region, event_data, detections_dict):
+  def _buildEnteredObjsList(self, scene, region, event_data, detections_dict):
     entered = getattr(region, 'entered', {})
     event_data['entered'] = []
+    missing_objs = []
     for entered_list in entered.values():
       for item in entered_list:
-        entered_obj = detections_dict[item.gid]
-        event_data['entered'].extend([entered_obj])
+        # For sensor value events, objects may not be in detections_dict
+        if item.gid in detections_dict:
+          event_data['entered'].append(detections_dict[item.gid])
+        else:
+          missing_objs.append(item)
+    
+    # Build any objects not in detections_dict (e.g., from sensor events)
+    if missing_objs:
+      entered_objs = buildDetectionsList(missing_objs, scene, False, include_sensors=True)
+      event_data['entered'].extend(entered_objs)
 
   def _buildExitedObjsList(self, scene, region, event_data):
     exited = getattr(region, 'exited', {})
@@ -403,6 +416,7 @@ class SceneController:
     jdata['scene_id'] = scene.uid
     jdata['scene_name'] = scene.name
 
+    scene.when = ts  # Set current frame time for exposure calculation
     self.publishEvents(scene, jdata['timestamp'])
     return
 
@@ -478,6 +492,7 @@ class SceneController:
       jdata['name'] = scene.name
       for detection_type in detection_types:
         jdata['unique_detection_count'] = scene.tracker.getUniqueIDCount(detection_type)
+        scene.when = msg_when  # Set current frame time for exposure calculation
         self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
                               msg_when, detection_type, jdata, camera_id)
         self.publishEvents(scene, jdata['timestamp'])
@@ -515,6 +530,7 @@ class SceneController:
       log.debug(f"Analytics-only mode - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
 
       msg_when = get_epoch_time(jdata.get('timestamp'))
+      scene.when = msg_when  # Set current frame time for exposure calculation
 
       scene._updateEvents(detection_type, msg_when, analytics_objects)
 

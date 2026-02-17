@@ -292,10 +292,13 @@ class Scene(SceneModel):
       log.info("DISCARDING PAST DATA", sensor_id, when)
       return True
 
-    self.events = {}
+    # Initialize events dict if needed, but don't clear existing events
+    if not hasattr(self, 'events') or self.events is None:
+      self.events = {}
+    
     old_value = getattr(sensor, 'value', None)
     cur_value = jdata['value']
-    self.events['value'] = [(sensor_id, sensor)]
+    # Don't create 'value' event - sensor data is included in object entry/exit events
     sensor.value = cur_value
     sensor.lastValue = old_value
     sensor.lastWhen = when
@@ -305,12 +308,17 @@ class Scene(SceneModel):
     
     # Find all objects currently in the sensor region across ALL detection types
     objects_in_sensor = []
+    objects_by_type = {}
     for detectionType in self.tracker.trackers.keys():
+      type_objects = []
       for obj in self.tracker.currentObjects(detectionType):
         if (obj.frameCount > 3 or not self.use_tracker) and sensor.isPointWithin(obj.sceneLoc):
           objects_in_sensor.append(obj)
+          type_objects.append(obj)
           # Ensure active_sensors is updated (handles scene-wide sensors or objects existing before sensor creation)
           obj.chain_data.active_sensors.add(sensor_id)
+      if type_objects:
+        objects_by_type[detectionType] = type_objects
     
     log.info("SENSOR OBJECTS FOUND", sensor_id, len(objects_in_sensor), "type:", sensor.singleton_type)
     
@@ -509,7 +517,9 @@ class Scene(SceneModel):
     return objects
 
   def _updateEvents(self, detectionType, now, curObjects=None):
-    self.events = {}
+    # Preserve existing events (e.g., sensor 'value' events) instead of clearing
+    if not hasattr(self, 'events') or self.events is None:
+      self.events = {}
     now_str = get_iso_time(now)
     if curObjects is None:
       if ControllerMode.isAnalyticsOnly():
@@ -586,22 +596,19 @@ class Scene(SceneModel):
           
           # Initialize sensor state based on type
           if region.singleton_type == "environmental":
-            # Initialize with entry time and cached value if available
-            entry_epoch = get_epoch_time(now_str)
+            # Use 'now' directly (already epoch time) to avoid precision loss from string conversion
             
             if hasattr(region, 'value') and hasattr(region, 'lastWhen'):
               # Sensor has cached value - initialize with it
               ts_str = get_iso_time(region.lastWhen)
               last_value = float(region.value) if region.value is not None else None
               
-              # Calculate initial exposure from entry to now (same value throughout)
-              dt = now - entry_epoch
-              initial_exposure = last_value * dt if last_value is not None else 0.0
-              
+              # Start exposure accumulation from entry time, not sensor reading time
+              # Exposure = value * (now - entry_time)
               obj.chain_data.env_sensor_state[key] = {
                 'readings': [(ts_str, region.value)],
                 'exposure': {
-                  'total': initial_exposure,
+                  'total': 0.0,
                   'last_time': now,
                   'last_value': last_value
                 }
@@ -612,7 +619,7 @@ class Scene(SceneModel):
                 'readings': [],
                 'exposure': {
                   'total': 0.0,
-                  'last_time': entry_epoch,
+                  'last_time': now,
                   'last_value': None
                 }
               }
@@ -762,10 +769,37 @@ class Scene(SceneModel):
       region_uuid = regionData['uid']
       region_name = regionData['name']
       if region_uuid in existingRegions:
-        existingRegions[region_uuid].updatePoints(regionData)
-        existingRegions[region_uuid].updateSingletonType(regionData)
-        existingRegions[region_uuid].updateVolumetricInfo(regionData)
-        existingRegions[region_uuid].name = region_name
+        region = existingRegions[region_uuid]
+        
+        # Preserve sensor cache, event state, and region state before geometry updates
+        cached_value = getattr(region, 'value', None)
+        cached_last_value = getattr(region, 'lastValue', None)
+        cached_last_when = getattr(region, 'lastWhen', None)
+        cached_entered = getattr(region, 'entered', None)
+        cached_exited = getattr(region, 'exited', None)
+        cached_objects = getattr(region, 'objects', None)
+        cached_when = getattr(region, 'when', None)
+        
+        region.updatePoints(regionData)
+        region.updateSingletonType(regionData)
+        region.updateVolumetricInfo(regionData)
+        region.name = region_name
+        
+        # Restore sensor cache, event state, and region state after geometry updates
+        if cached_value is not None:
+          region.value = cached_value
+        if cached_last_value is not None:
+          region.lastValue = cached_last_value
+        if cached_last_when is not None:
+          region.lastWhen = cached_last_when
+        if cached_entered is not None:
+          region.entered = cached_entered
+        if cached_exited is not None:
+          region.exited = cached_exited
+        if cached_objects is not None:
+          region.objects = cached_objects
+        if cached_when is not None:
+          region.when = cached_when
       else:
         region = Region(region_uuid, region_name, regionData)
         existingRegions[region_uuid] = region

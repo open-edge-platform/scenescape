@@ -60,7 +60,22 @@ class CacheManager:
 
       uid = scene_data['uid']
       if uid not in self.cached_scenes_by_uid:
+        # Creating new scene - check if there was an old scene with sensor cache
+        old_scene = self._old_scene_cache.get(uid) if hasattr(self, '_old_scene_cache') and self._old_scene_cache else None
         scene = Scene.deserialize(scene_data)
+        
+        # Restore sensor cache from old scene if it existed
+        if old_scene and hasattr(old_scene, 'sensors'):
+          for sensor_id, old_sensor in old_scene.sensors.items():
+            if sensor_id in scene.sensors:
+              new_sensor = scene.sensors[sensor_id]
+              # Preserve sensor cache values
+              if hasattr(old_sensor, 'value'):
+                new_sensor.value = old_sensor.value
+              if hasattr(old_sensor, 'lastValue'):
+                new_sensor.lastValue = old_sensor.lastValue
+              if hasattr(old_sensor, 'lastWhen'):
+                new_sensor.lastWhen = old_sensor.lastWhen
       else:
         scene = self.cached_scenes_by_uid[uid]
         scene.updateScene(scene_data)
@@ -70,6 +85,11 @@ class CacheManager:
       for sensorID in scene.sensors.keys():
         self._cached_scenes_by_sensorID[sensorID] = scene
       self.cached_scenes_by_uid[scene.uid] = scene
+    
+    # Clear old scene cache after processing all scenes
+    if hasattr(self, '_old_scene_cache'):
+      self._old_scene_cache = None
+    
     self._cache_refreshed = get_epoch_time()
     return
 
@@ -185,6 +205,8 @@ class CacheManager:
     return self.cached_child_transforms_by_uid.get(childID, None)
 
   def invalidate(self):
+    # Preserve old scene cache for sensor value restoration
+    self._old_scene_cache = self.cached_scenes_by_uid if hasattr(self, 'cached_scenes_by_uid') else {}
     self.cached_scenes_by_uid = None
     if not hasattr(self, 'cached_child_transforms_by_uid') or self.cached_child_transforms_by_uid is None:
       self.cached_child_transforms_by_uid = {}
