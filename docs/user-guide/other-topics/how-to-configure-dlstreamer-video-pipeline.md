@@ -50,14 +50,14 @@ By default, only a limited number of models is downloaded during helm chart inst
 
 Use the following short names to refer to each model in the chain:
 
-| Category              | Full Model Name                              | Short Name  | Description                               |
-| --------------------- | -------------------------------------------- | ----------- | ----------------------------------------- |
-| **Person Detection**  | person-detection-retail-0013                 | retail      | General person detection                  |
-|                       | person-vehicle-bike-detection-crossroad-1016 | pvbcross16  | Crossroad multi-class detection           |
-| **Person Analysis**   | person-reidentification-retail-0277          | reid        | Person re-identification                  |
-|                       | person-attributes-recognition-crossroad-0238 | personattr  | Person attributes (age, gender, clothing) |
-|                       | age-gender-recognition-retail-0013           | agegender   | Age and gender classification             |
-| **Vehicle Analysis**  | vehicle-attributes-recognition-barrier-0042  | vehattr     | Vehicle attributes (color, type)          |
+| Category             | Full Model Name                              | Short Name | Description                               |
+| -------------------- | -------------------------------------------- | ---------- | ----------------------------------------- |
+| **Person Detection** | person-detection-retail-0013                 | retail     | General person detection                  |
+|                      | person-vehicle-bike-detection-crossroad-1016 | pvbcross16 | Crossroad multi-class detection           |
+| **Person Analysis**  | person-reidentification-retail-0277          | reid       | Person re-identification                  |
+|                      | person-attributes-recognition-crossroad-0238 | personattr | Person attributes (age, gender, clothing) |
+|                      | age-gender-recognition-retail-0013           | agegender  | Age and gender classification             |
+| **Vehicle Analysis** | vehicle-attributes-recognition-barrier-0042  | vehattr    | Vehicle attributes (color, type)          |
 
 ##### Common Chaining Patterns
 
