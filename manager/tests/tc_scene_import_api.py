@@ -281,7 +281,6 @@ def test_scene_import_api(request, record_xml_attribute, zipFile, expected):
   test = SceneImportAPITest(
     TEST_NAME, request, record_xml_attribute, zipFile, expected
   )
-  record_xml_attribute("name", TEST_NAME)
   exit_code = 1
   try:
     ok = test.runTest()
