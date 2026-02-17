@@ -154,18 +154,18 @@ class TestExtractSemanticMetadata:
     obj = MagicMock()
     obj.category = "Person"  # Generic property (stays as-is, not in metadata)
     obj.metadata = {
-      "gender": {"value": "Female", "model_name": "gender_v2", "confidence": 0.95},
-      "age": {"value": 28, "model_name": "age_estimator", "confidence": 0.87}
+      "gender": {"label": "Female", "model_name": "gender_v2", "confidence": 0.95},
+      "age": {"label": 28, "model_name": "age_estimator", "confidence": 0.87}
     }
 
     metadata = manager._extractSemanticMetadata(obj)
 
     # Should extract metadata attribute directly
     assert "gender" in metadata, "Should extract gender metadata"
-    assert metadata["gender"] == {"value": "Female", "model_name": "gender_v2", "confidence": 0.95}, \
-      "Should preserve full metadata dict with value, model_name, and confidence"
+    assert metadata["gender"] == {"label": "Female", "model_name": "gender_v2", "confidence": 0.95}, \
+      "Should preserve full metadata dict with label, model_name, and confidence"
     assert "age" in metadata, "Should extract age metadata"
-    assert metadata["age"] == {"value": 28, "model_name": "age_estimator", "confidence": 0.87}, \
+    assert metadata["age"] == {"label": 28, "model_name": "age_estimator", "confidence": 0.87}, \
       "Should preserve full metadata dict for age"
 
     # Generic properties should not be in metadata
@@ -185,7 +185,7 @@ class TestExtractSemanticMetadata:
     obj.confidence = 0.95
     obj.bounding_box_px = {"x": 0, "y": 0}
     obj.metadata = {
-      "custom_attribute": {"value": "test", "model_name": "test_model", "confidence": 0.9}
+      "custom_attribute": {"label": "test", "model_name": "test_model", "confidence": 0.9}
     }
 
     metadata = manager._extractSemanticMetadata(obj)
@@ -197,7 +197,7 @@ class TestExtractSemanticMetadata:
 
     # Metadata attributes should be included
     assert "custom_attribute" in metadata
-    assert metadata["custom_attribute"] == {"value": "test", "model_name": "test_model", "confidence": 0.9}
+    assert metadata["custom_attribute"] == {"label": "test", "model_name": "test_model", "confidence": 0.9}
 
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_extract_semantic_metadata_skips_internal_fields(self, mock_vdms_class):
@@ -212,7 +212,7 @@ class TestExtractSemanticMetadata:
     obj._internal_field = "should_be_skipped"
     obj._private = "hidden"
     obj.metadata = {
-      "public_attribute": {"value": "visible", "model_name": "model", "confidence": 0.9}
+      "public_attribute": {"label": "visible", "model_name": "model", "confidence": 0.9}
     }
 
     metadata = manager._extractSemanticMetadata(obj)
@@ -252,19 +252,19 @@ class TestExtractSemanticMetadata:
     # Create object with various value types in metadata
     obj = MagicMock()
     obj.metadata = {
-      "string_attr": {"value": "text", "model_name": "model", "confidence": 0.9},
-      "int_attr": {"value": 42, "model_name": "model", "confidence": 0.9},
-      "float_attr": {"value": 3.14, "model_name": "model", "confidence": 0.9},
-      "bool_attr": {"value": True, "model_name": "model", "confidence": 0.9}
+      "string_attr": {"label": "text", "model_name": "model", "confidence": 0.9},
+      "int_attr": {"label": 42, "model_name": "model", "confidence": 0.9},
+      "float_attr": {"label": 3.14, "model_name": "model", "confidence": 0.9},
+      "bool_attr": {"label": True, "model_name": "model", "confidence": 0.9}
     }
 
     metadata = manager._extractSemanticMetadata(obj)
 
     # Verify all types are preserved
-    assert metadata["string_attr"] == {"value": "text", "model_name": "model", "confidence": 0.9}
-    assert metadata["int_attr"] == {"value": 42, "model_name": "model", "confidence": 0.9}
-    assert metadata["float_attr"] == {"value": 3.14, "model_name": "model", "confidence": 0.9}
-    assert metadata["bool_attr"] == {"value": True, "model_name": "model", "confidence": 0.9}
+    assert metadata["string_attr"] == {"label": "text", "model_name": "model", "confidence": 0.9}
+    assert metadata["int_attr"] == {"label": 42, "model_name": "model", "confidence": 0.9}
+    assert metadata["float_attr"] == {"label": 3.14, "model_name": "model", "confidence": 0.9}
+    assert metadata["bool_attr"] == {"label": True, "model_name": "model", "confidence": 0.9}
 
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_extract_semantic_metadata_handles_legacy_format(self, mock_vdms_class):
@@ -378,15 +378,15 @@ class TestDataTypes:
 
     obj = MagicMock()
     obj.metadata = {
-      "person_name": {"value": "José García", "model_name": "name_detector", "confidence": 0.9},
-      "location": {"value": "北京", "model_name": "location_detector", "confidence": 0.85}
+      "emotion": {"label": "Happy", "model_name": "emotion-recognition-retail-0003", "confidence": 0.9},
+      "clothing_color": {"label": "Blue", "model_name": "clothing-attributes-recognition", "confidence": 0.85}
     }
 
     metadata = manager._extractSemanticMetadata(obj)
 
     # Metadata is passed as-is
-    assert metadata["person_name"] == {"value": "José García", "model_name": "name_detector", "confidence": 0.9}
-    assert metadata["location"] == {"value": "北京", "model_name": "location_detector", "confidence": 0.85}
+    assert metadata["emotion"] == {"label": "Happy", "model_name": "emotion-recognition-retail-0003", "confidence": 0.9}
+    assert metadata["clothing_color"] == {"label": "Blue", "model_name": "clothing-attributes-recognition", "confidence": 0.85}
 
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_metadata_with_special_characters(self, mock_vdms_class):
@@ -399,7 +399,7 @@ class TestDataTypes:
     obj = MagicMock()
     obj.metadata = {
       "description": {
-        "value": 'Test "quoted" and \'apostrophe\' & symbols',
+        "label": 'Test "quoted" and \'apostrophe\' & symbols',
         "model_name": "desc",
         "confidence": 0.9
       }
@@ -409,7 +409,7 @@ class TestDataTypes:
 
     # Metadata is passed as-is
     assert metadata["description"] == {
-      "value": 'Test "quoted" and \'apostrophe\' & symbols',
+      "label": 'Test "quoted" and \'apostrophe\' & symbols',
       "model_name": "desc",
       "confidence": 0.9
     }
