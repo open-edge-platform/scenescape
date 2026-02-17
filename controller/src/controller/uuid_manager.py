@@ -46,19 +46,30 @@ class UUIDManager:
   def _extractReidEmbedding(self, sscape_object):
     """
     Extract embedding vector from sscape_object's reid field.
-    Handles new reid format: dict with 'embedding_vector' and 'model_name' keys,
-    as well as legacy format where reid is the vector directly.
+    Handles both formats:
+    1. New format: metadata.reid dict with 'embedding_vector' and 'model_name' keys
+    2. Legacy format: top-level reid field (dict or direct vector)
 
     @param   sscape_object  The Scenescape object with detection data
     @return  embedding      The embedding vector, or None if not available
     """
-    if not hasattr(sscape_object, 'reid') or sscape_object.reid is None:
-      return None
+    # Check for reid in metadata (new format)
+    if hasattr(sscape_object, 'metadata') and sscape_object.metadata:
+      reid_data = sscape_object.metadata.get('reid')
+      if reid_data:
+        if isinstance(reid_data, dict) and 'embedding_vector' in reid_data:
+          return reid_data['embedding_vector']
+        else:
+          return reid_data
 
-    if isinstance(sscape_object.reid, dict) and 'embedding_vector' in sscape_object.reid:
-      return sscape_object.reid['embedding_vector']
-    else:
-      return sscape_object.reid
+    # Check for reid at top level (legacy format)
+    if hasattr(sscape_object, 'reid') and sscape_object.reid is not None:
+      if isinstance(sscape_object.reid, dict) and 'embedding_vector' in sscape_object.reid:
+        return sscape_object.reid['embedding_vector']
+      else:
+        return sscape_object.reid
+
+    return None
 
   def _extractSemanticMetadata(self, sscape_object):
     """
