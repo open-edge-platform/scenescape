@@ -1,0 +1,221 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base"
+  ],
+  "description": "Renovate configuration for Tracker Service Conan C++ dependencies",
+  "labels": [
+    "dependencies",
+    "renovate",
+    "tracker"
+  ],
+  "schedule": [
+    "before 10am on the first day of the month"
+  ],
+  "timezone": "UTC",
+  "reviewers": [
+    "saratpoluri",
+    "dmytroye",
+    "tdorauintc"
+  ],
+  "packageRules": [
+    {
+      "description": "Conan dependencies - group patch updates",
+      "matchManagers": [
+        "conan"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "groupName": "tracker conan patch updates",
+      "automerge": false
+    },
+    {
+      "description": "Conan dependencies - group minor updates",
+      "matchManagers": [
+        "conan"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "groupName": "tracker conan minor updates"
+    },
+    {
+      "description": "Conan dependencies - handle major updates individually",
+      "matchManagers": [
+        "conan"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "groupName": null,
+      "labels": [
+        "dependencies",
+        "major-update",
+        "tracker"
+      ]
+    },
+    {
+      "description": "OpenCV updates - needs careful testing",
+      "matchPackageNames": [
+        "opencv"
+      ],
+      "matchManagers": [
+        "conan"
+      ],
+      "labels": [
+        "dependencies",
+        "opencv",
+        "needs-testing",
+        "tracker"
+      ],
+      "prPriority": 10,
+      "commitMessagePrefix": "Tracker:",
+      "commitMessageTopic": "OpenCV"
+    },
+    {
+      "description": "Testing libraries - GTest",
+      "matchPackageNames": [
+        "gtest"
+      ],
+      "matchManagers": [
+        "conan"
+      ],
+      "labels": [
+        "dependencies",
+        "testing",
+        "tracker"
+      ],
+      "commitMessagePrefix": "Tracker:",
+      "commitMessageTopic": "GTest"
+    },
+    {
+      "description": "Logging libraries - Quill",
+      "matchPackageNames": [
+        "quill"
+      ],
+      "matchManagers": [
+        "conan"
+      ],
+      "labels": [
+        "dependencies",
+        "logging",
+        "tracker"
+      ],
+      "commitMessagePrefix": "Tracker:",
+      "commitMessageTopic": "Quill"
+    },
+    {
+      "description": "MQTT libraries - Paho MQTT",
+      "matchPackageNames": [
+        "paho-mqtt-cpp"
+      ],
+      "matchManagers": [
+        "conan"
+      ],
+      "labels": [
+        "dependencies",
+        "mqtt",
+        "tracker"
+      ],
+      "commitMessagePrefix": "Tracker:",
+      "commitMessageTopic": "Paho MQTT"
+    },
+    {
+      "description": "CLI libraries - CLI11",
+      "matchPackageNames": [
+        "cli11"
+      ],
+      "matchManagers": [
+        "conan"
+      ],
+      "labels": [
+        "dependencies",
+        "cli",
+        "tracker"
+      ],
+      "commitMessagePrefix": "Tracker:",
+      "commitMessageTopic": "CLI11"
+    },
+    {
+      "description": "HTTP libraries - cpp-httplib",
+      "matchPackageNames": [
+        "cpp-httplib"
+      ],
+      "matchManagers": [
+        "conan"
+      ],
+      "labels": [
+        "dependencies",
+        "http",
+        "tracker"
+      ],
+      "commitMessagePrefix": "Tracker:",
+      "commitMessageTopic": "cpp-httplib"
+    },
+    {
+      "description": "JSON libraries - RapidJSON",
+      "matchPackageNames": [
+        "rapidjson"
+      ],
+      "matchManagers": [
+        "conan"
+      ],
+      "labels": [
+        "dependencies",
+        "json",
+        "tracker"
+      ],
+      "commitMessagePrefix": "Tracker:",
+      "commitMessageTopic": "RapidJSON"
+    },
+    {
+      "description": "Math libraries - Eigen",
+      "matchPackageNames": [
+        "eigen"
+      ],
+      "matchManagers": [
+        "conan"
+      ],
+      "labels": [
+        "dependencies",
+        "math",
+        "tracker"
+      ],
+      "commitMessagePrefix": "Tracker:",
+      "commitMessageTopic": "Eigen"
+    },
+    {
+      "description": "Disable managers already handled by Dependabot",
+      "matchManagers": [
+        "github-actions",
+        "dockerfile",
+        "helm-values",
+        "helmfile"
+      ],
+      "enabled": false
+    }
+  ],
+  "conan": {
+    "enabled": true,
+    "fileMatch": [
+      "tracker/conanfile.txt$"
+    ]
+  },
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "commitMessagePrefix": "Tracker Conan:",
+  "semanticCommits": "enabled",
+  "platformAutomerge": false,
+  "rebaseWhen": "behind-base-branch",
+  "separateMajorMinor": true,
+  "separateMinorPatch": false,
+  "rangeStrategy": "pin",
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": [
+      "security",
+      "tracker"
+    ]
+  }
+}
