@@ -166,9 +166,9 @@ Configuration changes require service restart. This simplifies implementation (n
 
 #### Static Mode
 
-Scenes defined inline in config file:
+Scenes defined in external file:
 
-- Set `scenes.source: "inline"` and provide `scenes.data` array
+- Set `scenes.source: "file"` and provide `scenes.file_path`
 - Self-contained deployment with no external dependencies
 - Enables horizontal scaling via static scene partitioning (see [Horizontal Scaling](#horizontal-scaling))
 - Suitable for development and production deployments with pre-defined scene assignments
