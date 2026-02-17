@@ -3,34 +3,34 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from tests.functional import FunctionalTest
 from http import HTTPStatus
 from scene_common.rest_client import RESTClient
+from tests.common_test_utils import record_test_result
 
 TEST_NAME = "NEX-T10396-API"
 
-class SensorSceneAreaTest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
-    self.rest = RESTClient(self.params["resturl"], rootcert=self.params["rootcert"])
-    assert self.rest.authenticate(self.params["user"], self.params["password"])
+def test_sensor_scene_api(params, record_xml_attribute):
+  record_xml_attribute("name", TEST_NAME)
+  exit_code = 1
 
-    self.scene_name = self.params["scene"]
-    scenes = self.rest.getScenes({"name": self.scene_name})["results"]
-    assert scenes and len(scenes) > 0, f"Scene '{self.scene_name}' not found"
-    self.scene_uid = scenes[0]["uid"]
+  rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
+  assert rest.authenticate(params['user'], params['password'])
 
-  def runTest(self):
-    sensor_id = "test_sensor"
-    sensor_name = "Sensor_0"
+  scenes = rest.getScenes({'name': params['scene_name']})['results']
+  assert scenes, f"Scene '{params['scene_name']}' not found"
+  scene_uid = scenes[0]['uid']
 
+  sensor_id = "test_sensor"
+  sensor_name = "Sensor_0"
+
+  try:
     # Attempt to create sensor with area='scene' but missing 'scene' field (should succeed)
     sensor_data_missing_scene = {
       "sensor_id": sensor_id,
       "name": sensor_name,
       "area": "scene",
     }
-    res = self.rest.createSensor(sensor_data_missing_scene)
+    res = rest.createSensor(sensor_data_missing_scene)
     assert res.statusCode in (
       HTTPStatus.OK,
       HTTPStatus.CREATED,
@@ -42,7 +42,7 @@ class SensorSceneAreaTest(FunctionalTest):
     )
 
     # Verify sensor details
-    res = self.rest.getSensor(sensor_uid)
+    res = rest.getSensor(sensor_uid)
     assert (
       res.statusCode == HTTPStatus.OK
     ), f"Failed to retrieve sensor: {res.errors}"
@@ -55,13 +55,10 @@ class SensorSceneAreaTest(FunctionalTest):
     print("Sensor area verified and confirmed as orphaned (no scene linkage).")
 
     # Cleanup
-    res = self.rest.deleteSensor(sensor_uid)
+    res = rest.deleteSensor(sensor_uid)
     assert res.statusCode == HTTPStatus.OK, f"Failed to delete sensor: {res.errors}"
     print("Sensor deleted successfully.")
 
-    return True
-
-def test_sensor_scene_area_api(request, record_xml_attribute):
-  test = SensorSceneAreaTest(TEST_NAME, request, record_xml_attribute)
-  assert test.runTest()
-  return
+    exit_code = 0
+  finally:
+    record_test_result(TEST_NAME, exit_code)

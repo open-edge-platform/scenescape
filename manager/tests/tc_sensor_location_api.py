@@ -1,41 +1,39 @@
 #!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import random
-from tests.functional import FunctionalTest
 from http import HTTPStatus
 from scene_common.rest_client import RESTClient
-import tests.common_test_utils as common
+from tests.common_test_utils import record_test_result
 
 TEST_NAME = "NEX-T10400-API"
 
-class SensorLocationTest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
-    self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
-    assert self.rest.authenticate(self.params['user'], self.params['password'])
+def test_sensor_location_api(params, record_xml_attribute):
+  record_xml_attribute("name", TEST_NAME)
+  exit_code = 1
 
-    self.sceneName = self.params['scene']
-    scenes = self.rest.getScenes({'name': self.sceneName})['results']
-    assert scenes and len(scenes) > 0, f"Scene '{self.sceneName}' not found"
-    self.scene_uid = scenes[0]['uid']
-    self.sensor_name = "Sensor_Circle"
+  rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
+  assert rest.authenticate(params['user'], params['password'])
 
-  def runTest(self):
+  scenes = rest.getScenes({'name': params['scene_name']})['results']
+  assert scenes, f"Scene '{params['scene_name']}' not found"
+  scene_uid = scenes[0]['uid']
+
+  try:
+    sensor_name = "Sensor_Circle"
     # Create a polygon sensor
     poly_sensor_name = "Sensor_Poly"
     initial_points = ((-0.5, 0.5), (0.5, 0.5), (0.5, -0.5), (-0.5, -0.5))
     poly_sensor_data = {
       "name": poly_sensor_name,
-      "scene": self.scene_uid,
+      "scene": scene_uid,
       "sensor_id": poly_sensor_name,
       "area": "poly",
       "points": initial_points
     }
     print("\nCreate polygon payload:", poly_sensor_data)
-    res = self.rest.createSensor(poly_sensor_data)
+    res = rest.createSensor(poly_sensor_data)
     assert res, (res.statusCode, res.errors)
     poly_sensor_uid = res['uid']
     assert poly_sensor_uid, "Polygon sensor UID not returned"
@@ -47,12 +45,12 @@ class SensorLocationTest(FunctionalTest):
       "points": updated_points
     }
     print("Update polygon payload:", update_poly_data)
-    res = self.rest.updateSensor(poly_sensor_uid, update_poly_data)
+    res = rest.updateSensor(poly_sensor_uid, update_poly_data)
     assert res.statusCode == HTTPStatus.OK, f"Failed to update polygon sensor: {res.errors}"
     print("Polygon sensor points updated.")
 
     # Verify polygon update
-    res = self.rest.getSensor(poly_sensor_uid)
+    res = rest.getSensor(poly_sensor_uid)
     assert res.statusCode == HTTPStatus.OK, f"Failed to retrieve polygon sensor: {res.errors}"
     points = res['points']
     assert points == updated_points, \
@@ -60,7 +58,7 @@ class SensorLocationTest(FunctionalTest):
     print("Polygon sensor points change verified.")
 
     # Delete the polygon sensor
-    res = self.rest.deleteSensor(poly_sensor_uid)
+    res = rest.deleteSensor(poly_sensor_uid)
     assert res.statusCode == HTTPStatus.OK, f"Failed to delete polygon sensor: {res.errors}"
     print("Polygon sensor deleted successfully.")
 
@@ -70,14 +68,14 @@ class SensorLocationTest(FunctionalTest):
     radius = 1
     circle_sensor_data = {
       "name": circle_sensor_name,
-      "scene": self.scene_uid,
+      "scene": scene_uid,
       "sensor_id": circle_sensor_name,
       "area": "circle",
       "center": initial_center,
       "radius": radius
     }
     print("Create payload:", circle_sensor_data)
-    res = self.rest.createSensor(circle_sensor_data)
+    res = rest.createSensor(circle_sensor_data)
     assert res, (res.statusCode, res.errors)
     circle_sensor_uid = res['uid']
     assert circle_sensor_uid, "Sensor UID not returned"
@@ -92,11 +90,11 @@ class SensorLocationTest(FunctionalTest):
       "radius": radius
     }
     print("Update payload:", update_circle_data)
-    res = self.rest.updateSensor(circle_sensor_uid, update_circle_data)
+    res = rest.updateSensor(circle_sensor_uid, update_circle_data)
     assert res.statusCode == HTTPStatus.OK, f"Failed to update sensor center: {res.errors}"
 
     # Verify if circle location has been updated
-    res = self.rest.getSensor(circle_sensor_uid)
+    res = rest.getSensor(circle_sensor_uid)
     assert res.statusCode == HTTPStatus.OK, f"Failed to retrieve sensor: {res.errors}"
     center = res['center']
     assert center == updated_center, \
@@ -104,13 +102,9 @@ class SensorLocationTest(FunctionalTest):
     print("Sensor center change verified.")
 
     # Delete the circle sensor
-    res = self.rest.deleteSensor(circle_sensor_uid)
+    res = rest.deleteSensor(circle_sensor_uid)
     assert res.statusCode == HTTPStatus.OK, f"Failed to delete sensor: {res.errors}"
     print("Circle sensor deleted successfully.")
-
-    return True
-
-def test_sensor_location_main_api(request, record_xml_attribute):
-  test = SensorLocationTest(TEST_NAME, request, record_xml_attribute)
-  assert test.runTest()
-  return
+    exit_code = 0
+  finally:
+    record_test_result(TEST_NAME, exit_code)

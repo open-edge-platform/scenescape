@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from http import HTTPStatus
 from scene_common.rest_client import RESTClient
 from tests.common_test_utils import record_test_result
 
