@@ -65,7 +65,7 @@ class UUIDManager:
     Extract semantic metadata attributes from sscape_object.
     Separates generic object properties (confidence, bbox, etc.) from semantic properties.
     Semantic metadata is now organized under a dedicated "metadata" key in the object.
-    This includes all semantic attributes describing what an object is (age, gender, 
+    This includes all semantic attributes describing what an object is (age, gender,
     clothing, embedding vectors, etc), separate from internal tracker state.
 
     @param   sscape_object  The Scenescape object with detection data
@@ -87,14 +87,14 @@ class UUIDManager:
     @param  tracked_objects  The objects currently tracked by the tracker
     """
     active_tracks = [tracked_object.id for tracked_object in tracked_objects]
-    
+
     # Check for stale pending features (timeout-based fallback)
     current_time = time.time()
     stale_features = []
     for track_id, timestamp in self.features_for_database_timestamps.items():
       if current_time - timestamp > 5.0:  # 5 second timeout
         stale_features.append(track_id)
-    
+
     if stale_features:
       for track_id in stale_features:
         self._addNewFeaturesToDatabase(track_id)
@@ -106,7 +106,7 @@ class UUIDManager:
           self.active_ids.pop(track_id, None)
         self.active_query.pop(track_id, None)
         self.quality_features.pop(track_id, None)
-    
+
     # Normal pruning based on tracker's active tracks
     inactive_tracks = []
     new_active_ids = {}
@@ -267,7 +267,7 @@ class UUIDManager:
 
     # Extract semantic metadata for TIER 1 filtering
     metadata_constraints = self._extractSemanticMetadata(sscape_object)
-    
+
     log.debug(f"findSimilarityScores: tracker_id={sscape_object.rv_id}, category={sscape_object.category}, metadata_constraints={list(metadata_constraints.keys())}")
 
     start_time = get_epoch_time()

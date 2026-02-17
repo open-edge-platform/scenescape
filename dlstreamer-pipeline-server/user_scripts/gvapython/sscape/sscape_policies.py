@@ -56,19 +56,19 @@ def reidPolicy(pobj, item, fw, fh):
 def classificationPolicy(pobj, item, fw, fh):
   """Extract detection and classification metadata from tensors and update pobj"""
   detectionPolicy(pobj, item, fw, fh)
-  
+
   # Initialize metadata dict if it doesn't exist
   if 'metadata' not in pobj:
     pobj['metadata'] = {}
-  
+
   categories = {}
   for tensor in item.get('tensors', [{}]):
     name = tensor.get('name','')
     if name and name != 'detection' and ('reid' not in name and 'embedding' not in name):
-      categories[name] = {'label': tensor.get('label',''), 
+      categories[name] = {'label': tensor.get('label',''),
                           'confidence': tensor.get('confidence', 1.0),
                           'model_name': tensor.get('model_name', '')}
-  
+
   # Move all semantic metadata under metadata key
   pobj['metadata'].update(categories)
   return

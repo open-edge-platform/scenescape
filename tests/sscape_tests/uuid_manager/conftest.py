@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, Mock
 def mock_vdms():
   """
   Provides a mocked VDMS database instance.
-  
+
   Returns:
     MagicMock: Mock VDMS instance with all methods available.
   """
@@ -31,7 +31,7 @@ def mock_vdms():
 def mock_log():
   """
   Provides a mocked logger instance.
-  
+
   Returns:
     MagicMock: Mock logger with all standard logging methods.
   """
