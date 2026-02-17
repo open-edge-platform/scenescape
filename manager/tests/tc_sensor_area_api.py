@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 # SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
@@ -101,4 +102,4 @@ def test_sensor_area_api(params, record_xml_attribute):
 
     exit_code = 0
   finally:
-      record_test_result(TEST_NAME, exit_code)
+    record_test_result(TEST_NAME, exit_code)

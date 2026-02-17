@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from http import HTTPStatus
@@ -18,7 +18,6 @@ def test_sensor_scene_api(params, record_xml_attribute):
 
   scenes = rest.getScenes({'name': params['scene_name']})['results']
   assert scenes, f"Scene '{params['scene_name']}' not found"
-  scene_uid = scenes[0]['uid']
 
   sensor_id = "test_sensor"
   sensor_name = "Sensor_0"

@@ -23,15 +23,15 @@ def test_only_upload_glb_main_api(params, record_xml_attribute):
   invalid_files = ["box_invalid.glb", "box.gltf", "box.obj", "good_data.txt"]
 
   try:
-      for f in invalid_files:
-          print(f"Trying to upload invalid file: {f}")
-          path = os.path.join("tests", "ui", "test_media", f)
-          with open(path, "rb") as fp:
-              res = rest.updateScene(scene_uid, {"map": fp})
-          assert res.statusCode not in (200, 201)
-          print(f"Correctly rejected file: {f}")
+    for f in invalid_files:
+      print(f"Trying to upload invalid file: {f}")
+      path = os.path.join("tests", "ui", "test_media", f)
+      with open(path, "rb") as fp:
+        res = rest.updateScene(scene_uid, {"map": fp})
+      assert res.statusCode not in (200, 201)
+      print(f"Correctly rejected file: {f}")
 
-      print("All invalid files were correctly rejected.")
-      exit_code = 0
+    print("All invalid files were correctly rejected.")
+    exit_code = 0
   finally:
-      record_test_result(TEST_NAME, exit_code)
+    record_test_result(TEST_NAME, exit_code)

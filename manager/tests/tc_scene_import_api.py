@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -284,8 +284,8 @@ def test_scene_import_api(request, record_xml_attribute, zipFile, expected):
   record_xml_attribute("name", TEST_NAME)
   exit_code = 1
   try:
-      ok = test.runTest()
-      exit_code = 0 if ok else 1
-      assert ok
+    ok = test.runTest()
+    exit_code = 0 if ok else 1
+    assert ok
   finally:
-      record_test_result(TEST_NAME, exit_code)
+    record_test_result(TEST_NAME, exit_code)
