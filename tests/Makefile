@@ -83,13 +83,11 @@ tests: \
   standard-tests \
 
 release-tests: \
-  additional-floor-plans \
   camera-deletion \
   different-formats-maps \
   live-view-button \
   non-functional-tests \
   scene-details \
-  randomly-failing-tests \
   reid-unique-count \
   reid-performance-degradation \
 
@@ -98,23 +96,16 @@ broken-features:
 
 # tests that are working, but feature is broken
 _broken-features: \
-  scene-import \
   calibrate-camera-3d-ui-2d-ui \
 
 broken-tests: \
   3d-ui-calibration-points \
-  distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
   scenes-summary-api \
 
-randomly-failing-tests:
-	camera-status \
-	delete-sensor-scene \
-	persistence \
-	scenes-summary \
-	3d-scene-control-panel \
-	auto-calibration-ui \
+randomly-failing-tests: \
+  distance-msoce \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
@@ -139,13 +130,15 @@ basic-acceptance-tests-k8s: \
 standard-tests: \
   _functional-tests \
   _ui-tests \
-  show-telemetry-button \
-  upload-only-3d-glb-files \
 
 functional-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
+  out-of-box \
+  out-of-box-no-ntp \
+  geometry-conformance \
+  auto-calibration-api \
   add-delete-3d-object-api \
   add-orphaned-cameras \
   api-large-strings \
@@ -157,11 +150,15 @@ _functional-tests: \
   delete-sensor-scene-api \
   delete-sensors-api \
   different-formats-maps-api \
+  reid-unique-count \
+  reid-performance-degradation \
   manual-camera-calibration-api \
   mqtt-auth \
   mqtt-cert \
+  mqtt-roi \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
+  mqtt-tripwire \
   object-crud-api \
   orphaned-sensor \
   persistence-api \
@@ -178,6 +175,7 @@ _functional-tests: \
   upload-only-3d-glb-files-api \
   vdms-similarity-search \
   visibility \
+  3d-scene-control-panel \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
@@ -198,17 +196,29 @@ ui-tests:
 
 _ui-tests: \
   3d-camera-control-panel \
+  show-telemetry-button \
+  upload-only-3d-glb-files \
   add-delete-3d-object \
+  auto-calibration-ui \
   bounding-box \
   calibrate-all-sensor-types \
+  camera-deletion \
   camera-perspective \
   delete-roi-mqtt \
   delete-sensor-mqtt \
+  delete-sensor-scene \
   delete-sensors \
+  camera-status \
   delete-tripwire-mqtt \
+  different-formats-maps \
   manual-camera-calibration \
   object-crud \
   restricted-media-access \
+  persistence \
+  live-view-button \
+  scene-details \
+  scene-import \
+  scenes-summary \
   sensor-area \
   sensor-location \
   sensor-scene \
