@@ -4,7 +4,7 @@
 
 # Dependencies Management Workflow
 #
-# This workflow automates the dependence management based on self-hosted Renovate
+# This workflow automates the dependency management based on self-hosted Renovate
 # ensure the project's dependencies remains up-to-date and security fixes are delivered regularly.
 #
 # Key Features:
