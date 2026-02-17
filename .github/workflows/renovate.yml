@@ -5,7 +5,7 @@
 # Dependencies Management Workflow
 #
 # This workflow automates the dependency management for Tracker Service C++ dependencies
-# using self-hosted Renovate to ensure dependencies remain up-to-date and security 
+# using self-hosted Renovate to ensure dependencies remain up-to-date and security
 # fixes are delivered regularly.
 #
 # Key Features:
