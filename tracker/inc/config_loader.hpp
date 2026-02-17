@@ -70,6 +70,20 @@ struct ObservabilityConfig {
 };
 
 /**
+ * @brief Tracking algorithm parameters.
+ */
+constexpr double kDefaultMaxLagS = 1.0;
+constexpr int kDefaultTimeChunkingRateFps = 15;
+constexpr int kDefaultMaxWorkers = 50;
+
+struct TrackingConfig {
+    double max_lag_s = kDefaultMaxLagS; ///< Max lag for detection frames (seconds)
+    int time_chunking_rate_fps =
+        kDefaultTimeChunkingRateFps;      ///< Chunk dispatch rate (frames per second)
+    int max_workers = kDefaultMaxWorkers; ///< DoS protection: max worker threads (scene+category)
+};
+
+/**
  * @brief Service configuration loaded from JSON config file.
  *
  * Values can be overridden by environment variables with TRACKER_ prefix.
@@ -77,6 +91,7 @@ struct ObservabilityConfig {
 struct ServiceConfig {
     InfrastructureConfig infrastructure;
     ObservabilityConfig observability;
+    TrackingConfig tracking;
     ScenesConfig scenes;
 };
 
@@ -97,6 +112,11 @@ constexpr char INFRASTRUCTURE_MQTT_TLS_CLIENT_CERT_PATH[] =
 constexpr char INFRASTRUCTURE_MQTT_TLS_CLIENT_KEY_PATH[] =
     "/infrastructure/mqtt/tls/client_key_path";
 constexpr char INFRASTRUCTURE_MQTT_TLS_VERIFY_SERVER[] = "/infrastructure/mqtt/tls/verify_server";
+
+// Tracking
+constexpr char TRACKING_MAX_LAG_S[] = "/tracking/max_lag_s";
+constexpr char TRACKING_TIME_CHUNKING_RATE_FPS[] = "/tracking/time_chunking_rate_fps";
+constexpr char TRACKING_MAX_WORKERS[] = "/tracking/max_workers";
 
 // Scenes
 constexpr char SCENES_SOURCE[] = "/scenes/source";

@@ -143,7 +143,7 @@ sequenceDiagram
     participant PUB as Publisher
 
     MQTT->>MH: on_message(topic, payload)
-    Note over MH: Parse (simdjson), validate, route
+    Note over MH: Parse, validate, route
     MH->>TCB: add(scene_id, category, camera_id, detections)
 
     loop Every 66.7ms
@@ -171,9 +171,9 @@ Allocations occur at format boundaries (JSON parse, RobotVision conversion, JSON
 **Optimization**: Use `reserve()` to avoid reallocations during parsing and conversion:
 
 ```cpp
-// simdjson provides array count before iteration
-auto objects_array = doc["objects"][category].get_array();
-detections.reserve(objects_array.count_elements());
+// Reserve capacity before iteration to avoid reallocations
+const auto& objects_array = doc["objects"][category].GetArray();
+detections.reserve(objects_array.Size());
 
 rv_objects.reserve(chunk.total_detections());
 ```
@@ -248,7 +248,8 @@ All detections from a single camera frame. This is the unit stored in `TimeChunk
 ```cpp
 struct DetectionBatch {
     std::string camera_id;
-    std::chrono::steady_clock::time_point timestamp;
+    std::chrono::steady_clock::time_point receive_time;
+    std::string timestamp_iso;  // Original ISO 8601 timestamp from message
     std::vector<Detection> detections;
     ObservabilityContext obs_ctx;
 };
