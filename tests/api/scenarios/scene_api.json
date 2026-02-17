@@ -1,0 +1,615 @@
+[
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/01: Create scene with only required properties",
+    "test_steps": [
+      {
+        "step_name": "Create Scene",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Scene1",
+            "use_tracker": true,
+            "output_lla": false
+          }
+        },
+        "expected": {
+          "status_code": 201
+        },
+        "save": {
+          "SCENE_UID": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/02: Create scene with full valid payload",
+    "test_steps": [
+      {
+        "step_name": "Create Scene",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Scene2",
+            "use_tracker": true,
+            "output_lla": false,
+            "mesh_translation": [
+              12.2,
+              248,
+              12
+            ],
+            "mesh_rotation": [
+              12.2,
+              248,
+              12
+            ],
+            "mesh_scale": [
+              1,
+              1,
+              1
+            ],
+            "tracker_config": [
+              1,
+              1,
+              1
+            ]
+          }
+        },
+        "expected": {
+          "status_code": 201
+        },
+        "save": {
+          "SCENE_UID_FULL": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/03: Create scene with missing required name property",
+    "test_steps": [
+      {
+        "step_name": "Create Scene",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "use_tracker": true,
+            "output_lla": false
+          }
+        },
+        "expected": {
+          "status_code": 400
+        },
+        "save": {
+          "SCENE_WITHOUT_NAME": "uid"
+        }
+      },
+      {
+        "step_name": "Verify scene was not created",
+        "api": "scene",
+        "method": "getScene",
+        "request": {
+          "UID": "${SCENE_WITHOUT_NAME}"
+        },
+        "expected": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/04: Create scene with mesh_translation below min length",
+    "test_steps": [
+      {
+        "step_name": "Create Scene",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Scene_MeshTranslation_Invalid",
+            "use_tracker": true,
+            "output_lla": false,
+            "mesh_translation": [
+              1.0,
+              2.0
+            ]
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/05: Create scene with mesh_rotation below min length",
+    "test_steps": [
+      {
+        "step_name": "Create Scene",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Scene_MeshRotation_Invalid",
+            "use_tracker": true,
+            "output_lla": false,
+            "mesh_rotation": [
+              12.2,
+              248
+            ]
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/06: Create scene with mesh_scale below min length",
+    "test_steps": [
+      {
+        "step_name": "Create Scene",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Scene_MeshScale_Invalid",
+            "use_tracker": true,
+            "output_lla": false,
+            "mesh_scale": [
+              1.0,
+              1.0
+            ]
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/07: Create scene with tracker_config below min length",
+    "test_steps": [
+      {
+        "step_name": "Create Scene",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Scene_TrackerConfig_Invalid",
+            "use_tracker": true,
+            "output_lla": false,
+            "tracker_config": []
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/08: Update scene with minimal valid payload",
+    "test_steps": [
+      {
+        "step_name": "Update Scene",
+        "api": "scene",
+        "method": "updateScene",
+        "request": {
+          "UID": "${SCENE_UID}",
+          "body": {
+            "name": "Scene1_Updated",
+            "use_tracker": false,
+            "output_lla": true
+          }
+        },
+        "expected": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify resource was updated",
+        "api": "scene",
+        "method": "getScene",
+        "request": {
+          "UID": "${SCENE_UID}"
+        },
+        "expected": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Scene1_Updated",
+          "use_tracker": false,
+          "output_lla": true
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/09: Update scene with full valid payload",
+    "test_steps": [
+      {
+        "step_name": "Update Scene",
+        "api": "scene",
+        "method": "updateScene",
+        "request": {
+          "UID": "${SCENE_UID}",
+          "body": {
+            "name": "Scene1_Updated_Full",
+            "use_tracker": true,
+            "output_lla": true,
+            "mesh_translation": [
+              12.2,
+              248,
+              12.0
+            ],
+            "mesh_rotation": [
+              12.2,
+              248,
+              12.0
+            ],
+            "mesh_scale": [
+              2.0,
+              2.0,
+              2.0
+            ]
+          }
+        },
+        "expected": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify resource was updated",
+        "api": "scene",
+        "method": "getScene",
+        "request": {
+          "UID": "${SCENE_UID}"
+        },
+        "expected": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Scene1_Updated_Full",
+          "use_tracker": true,
+          "output_lla": true,
+          "mesh_translation": [
+            12.2,
+            248,
+            12.0
+          ],
+          "mesh_rotation": [
+            12.2,
+            248,
+            12.0
+          ],
+          "mesh_scale": [
+            2.0,
+            2.0,
+            2.0
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/10: Update scene with missing required body",
+    "test_steps": [
+      {
+        "step_name": "Update Scene",
+        "api": "scene",
+        "method": "updateScene",
+        "request": {
+          "UID": "${SCENE_UID}",
+          "body": {}
+        },
+        "expected": {
+          "status_code": 400
+        }
+      },
+      {
+        "step_name": "Verify resource was updated",
+        "api": "scene",
+        "method": "getScene",
+        "request": {
+          "UID": "${SCENE_UID}"
+        },
+        "expected": {
+          "status_code": 200
+        },
+        "validate": {
+          "use_tracker": true,
+          "output_lla": false
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/11: Update scene with mesh_translation below min length",
+    "test_steps": [
+      {
+        "step_name": "Update Scene",
+        "api": "scene",
+        "method": "updateScene",
+        "request": {
+          "UID": "${SCENE_UID}",
+          "body": {
+            "name": "Scene_Update_MeshTranslation_Invalid",
+            "use_tracker": true,
+            "output_lla": false,
+            "mesh_translation": [
+              1.0
+            ]
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      },
+      {
+        "step_name": "Verify resource was updated",
+        "api": "scene",
+        "method": "getScene",
+        "request": {
+          "UID": "${SCENE_UID}"
+        },
+        "expected": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Scene1_Updated_Full"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/12: Update scene with mesh_rotation below min length",
+    "test_steps": [
+      {
+        "step_name": "Update Scene",
+        "api": "scene",
+        "method": "updateScene",
+        "request": {
+          "UID": "${SCENE_UID}",
+          "body": {
+            "name": "Scene_Update_MeshRotation_Invalid",
+            "use_tracker": true,
+            "output_lla": false,
+            "mesh_rotation": [
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      },
+      {
+        "step_name": "Verify resource was updated",
+        "api": "scene",
+        "method": "getScene",
+        "request": {
+          "UID": "${SCENE_UID}"
+        },
+        "expected": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Scene1_Updated_Full"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/13: Update scene with mesh_scale below min length",
+    "test_steps": [
+      {
+        "step_name": "Update Scene",
+        "api": "scene",
+        "method": "updateScene",
+        "request": {
+          "UID": "${SCENE_UID}",
+          "body": {
+            "name": "Scene_Update_MeshScale_Invalid",
+            "use_tracker": true,
+            "output_lla": false,
+            "mesh_scale": [
+              1.0
+            ]
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      },
+      {
+        "step_name": "Verify resource was updated",
+        "api": "scene",
+        "method": "getScene",
+        "request": {
+          "UID": "${SCENE_UID}"
+        },
+        "expected": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Scene1_Updated_Full"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/14: Update scene with tracker_config below min length",
+    "test_steps": [
+      {
+        "step_name": "Update Scene",
+        "api": "scene",
+        "method": "updateScene",
+        "request": {
+          "UID": "${SCENE_UID}",
+          "body": {
+            "name": "Scene_Update_TrackerConfig_Invalid",
+            "use_tracker": true,
+            "output_lla": false,
+            "tracker_config": []
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      },
+      {
+        "step_name": "Verify resource was updated",
+        "api": "scene",
+        "method": "getScene",
+        "request": {
+          "UID": "${SCENE_UID}"
+        },
+        "expected": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Scene1_Updated_Full"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/15: Update scene with read only uid property in body",
+    "test_steps": [
+      {
+        "step_name": "Update Scene",
+        "api": "scene",
+        "method": "updateScene",
+        "request": {
+          "UID": "${SCENE_UID}",
+          "body": {
+            "name": "Scene_Invalid_UID",
+            "use_tracker": true,
+            "output_lla": false,
+            "uid": "invalid"
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/16: Get scene by UID",
+    "test_steps": [
+      {
+        "step_name": "Get Scene",
+        "api": "scene",
+        "method": "getScene",
+        "request": {
+          "UID": "${SCENE_UID}"
+        },
+        "expected": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Scene1_Updated_Full"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/17: Get non existent scene",
+    "test_steps": [
+      {
+        "step_name": "Get Scene",
+        "api": "scene",
+        "method": "getScene",
+        "request": {
+          "UID": "123"
+        },
+        "expected": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/18: GET all scenes",
+    "test_steps": [
+      {
+        "step_name": "Get Scene",
+        "api": "scene",
+        "method": "getScenes",
+        "request": {},
+        "expected": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/19: Get child scenes",
+    "test_steps": [
+      {
+        "step_name": "Get Scene",
+        "api": "child",
+        "method": "getChildScene",
+        "request": {},
+        "expected": {
+          "status_code": 200
+        },
+        "validate": {
+          "count": 0,
+          "next": null,
+          "previous": null,
+          "results": []
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/20: Delete scene by UID",
+    "test_steps": [
+      {
+        "step_name": "Delete Scene",
+        "api": "scene",
+        "method": "deleteScene",
+        "request": {
+          "UID": "${SCENE_UID}"
+        },
+        "expected": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify resource is deleted",
+        "api": "scene",
+        "method": "getScene",
+        "request": {
+          "UID": "${SCENE_UID}"
+        },
+        "expected": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/21: Delete non existent scene",
+    "test_steps": [
+      {
+        "step_name": "Delete Scene",
+        "api": "scene",
+        "method": "deleteScene",
+        "request": {
+          "UID": "123"
+        },
+        "expected": {
+          "status_code": 404
+        }
+      }
+    ]
+  }
+]
