@@ -170,15 +170,15 @@ class VDMSDatabase(ReIDDatabase):
     Constraint routing logic:
     - Object type is always AND constraint (required field)
     - If value is dict with 'confidence' key (new metadata format):
-      - confidence >= 0.8: AND constraints (all must match - strict)
-      - confidence < 0.8: OR constraints (at least one must match - flexible)
-      - Extract 'value' field for VDMS query
+      - confidence >= threshold: AND constraints (all must match - strict)
+      - confidence < threshold: OR constraints (at least one must match - flexible)
+      - Extract 'label' field for VDMS query
     - If value is non-dict or dict without confidence (legacy format):
       - OR constraints (at least one must match - flexible)
     - Non-numeric values: OR constraints (default to flexible)
 
     @param   object_type  Class of the object (Person, Vehicle, etc.)
-    @param   constraints  Optional metadata filters (key-value pairs, may be dicts with value/confidence)
+    @param   constraints  Optional metadata filters (key-value pairs, may be dicts with label/confidence)
     @return  query_constraints  Dictionary with "type", optional AND fields, and optional "or" array
     """
     # TIER 1: Build dynamic constraints for metadata filtering
@@ -198,10 +198,10 @@ class VDMSDatabase(ReIDDatabase):
           actual_value = value
           confidence = None
 
-          # Handle new metadata format: {value: <data>, model_name: <model>, confidence: <score>}
-          if isinstance(value, dict) and 'value' in value:
-            actual_value = value['value']
-            confidence = value.get('confidence')
+          # Handle new metadata format: {label: <data>, model_name: <model>, confidence: <score>}
+          if isinstance(value, dict) and 'label' in value:
+            actual_value = value['label']
+            confidence = value.get('confidence', None)
 
           # Determine constraint type based on confidence
           try:
@@ -215,16 +215,8 @@ class VDMSDatabase(ReIDDatabase):
               else:
                 or_constraints.append({key: ["==", str(actual_value)]})
             else:
-              # No confidence available, check if actual_value itself is numeric
-              try:
-                conf_value = float(actual_value) if isinstance(actual_value, (int, float, str)) else None
-                if conf_value is not None and conf_value >= self.confidence_threshold:
-                  and_constraints[key] = ["==", str(actual_value)]
-                else:
-                  or_constraints.append({key: ["==", str(actual_value)]})
-              except (ValueError, TypeError):
-                # Not numeric, treat as OR constraint (flexible)
-                or_constraints.append({key: ["==", str(actual_value)]})
+              # No confidence available, set it as an OR constraint by default (flexible matching)
+              or_constraints.append({key: ["==", str(actual_value)]})
           except (ValueError, TypeError):
             # Confidence value not convertible to float, treat as OR constraint
             or_constraints.append({key: ["==", str(actual_value)]})

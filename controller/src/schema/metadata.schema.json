@@ -139,7 +139,7 @@
           "description": "Name or identifier of the model that generated this attribute (e.g., 'age-gender-recognition-retail-0013')."
         }
       },
-      "required": ["label", "confidence", "model_name"]
+      "required": ["label", "model_name"]
     },
     "semantic_metadata": {
       "type": "object",

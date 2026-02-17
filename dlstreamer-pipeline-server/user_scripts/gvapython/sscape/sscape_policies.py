@@ -65,9 +65,13 @@ def classificationPolicy(pobj, item, fw, fh):
   for tensor in item.get('tensors', [{}]):
     name = tensor.get('name','')
     if name and name != 'detection' and ('reid' not in name and 'embedding' not in name):
-      categories[name] = {'label': tensor.get('label',''),
-                          'confidence': tensor.get('confidence', 1.0),
-                          'model_name': tensor.get('model_name', '')}
+      metadata_dict = {
+        'label': tensor.get('label', ''),
+        'model_name': tensor.get('model_name', '')
+      }
+      if 'confidence' in tensor:
+        metadata_dict['confidence'] = tensor.get('confidence')
+      categories[name] = metadata_dict
 
   # Move all semantic metadata under metadata key
   pobj['metadata'].update(categories)

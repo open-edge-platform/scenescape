@@ -108,7 +108,7 @@ class TestAddEntry:
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_add_entry_handles_new_metadata_format(self, mock_vdms_class):
-    """Verify addEntry serializes new metadata format (dict with value/model_name/confidence)."""
+    """Verify addEntry serializes new metadata format (dict with label/model_name/confidence)."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
@@ -122,8 +122,8 @@ class TestAddEntry:
 
     # New metadata format with model_name and confidence
     metadata = {
-      "gender": {"value": "Female", "model_name": "gender_v2", "confidence": 0.95},
-      "age": {"value": 28, "model_name": "age_estimator", "confidence": 0.87}
+      "gender": {"label": "Female", "model_name": "gender_v2", "confidence": 0.95},
+      "age": {"label": 28, "model_name": "age_estimator", "confidence": 0.87}
     }
 
     db.addEntry(test_uuid, test_rvid, test_type, test_vectors, **metadata)
@@ -140,12 +140,12 @@ class TestAddEntry:
 
     # Verify it's a JSON string (not a dict)
     gender_data = json.loads(properties['gender'])
-    assert gender_data['value'] == "Female"
+    assert gender_data['label'] == "Female"
     assert gender_data['model_name'] == "gender_v2"
     assert gender_data['confidence'] == 0.95
 
     age_data = json.loads(properties['age'])
-    assert age_data['value'] == 28
+    assert age_data['label'] == 28
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_add_entry_converts_vectors_to_bytes(self, mock_vdms_class):
@@ -400,7 +400,7 @@ class TestConstraintBuilding:
     # Dict metadata with high confidence
     constraints = {
       "gender": {
-        "value": "Female",
+        "label": "Female",
         "model_name": "gender_v2",
         "confidence": 0.95
       }
@@ -424,7 +424,7 @@ class TestConstraintBuilding:
     # Dict metadata with low confidence
     constraints = {
       "age": {
-        "value": 25,
+        "label": 25,
         "model_name": "age_estimator",
         "confidence": 0.65
       }
@@ -452,7 +452,7 @@ class TestConstraintBuilding:
     # Mix of dict metadata and plain values
     constraints = {
       "gender": {
-        "value": "Male",
+        "label": "Male",
         "model_name": "gender_v2",
         "confidence": 0.92
       },
@@ -481,7 +481,7 @@ class TestConstraintBuilding:
     # Dict without confidence field (legacy or partial format)
     constraints = {
       "descriptor": {
-        "value": "some_description"
+        "label": "some_description"
       }
     }
 
@@ -494,17 +494,17 @@ class TestConstraintBuilding:
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_build_constraints_dict_value_extraction(self, mock_vdms_class):
-    """Verify 'value' field is properly extracted from dict metadata."""
+    """Verify 'label' field is properly extracted from dict metadata."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
 
-    # Dict with various value types
+    # Dict with various label types
     constraints = {
-      "age": {"value": 28, "model_name": "age", "confidence": 0.88},
-      "height": {"value": 5.8, "model_name": "height", "confidence": 0.75},
-      "name": {"value": "John", "model_name": "name", "confidence": 0.99}
+      "age": {"label": 28, "model_name": "age", "confidence": 0.88},
+      "height": {"label": 5.8, "model_name": "height", "confidence": 0.75},
+      "name": {"label": "John", "model_name": "name", "confidence": 0.99}
     }
 
     result = db._build_query_constraints("Person", **constraints)
@@ -544,9 +544,9 @@ class TestConstraintBuilding:
 
     # High confidence values that should become AND constraints
     high_confidence_constraints = {
-      "gender": 0.95,      # >= 0.8
-      "age_range": 0.87,   # >= 0.8
-      "color": 0.8         # Exactly 0.8
+      "gender": {"label": "Female", "model_name": "gender_v2", "confidence": 0.95},
+      "age_range": {"label": "25-30", "model_name": "age_v2", "confidence": 0.87},
+      "color": {"label": "blue", "model_name": "color_v1", "confidence": 0.8}
     }
 
     constraints = db._build_query_constraints("Person", **high_confidence_constraints)
@@ -557,9 +557,9 @@ class TestConstraintBuilding:
     assert "color" in constraints, "Exactly 0.8 should be treated as AND constraint"
 
     # Verify they are AND format (not in "or" array)
-    assert constraints["gender"] == ["==", "0.95"]
-    assert constraints["age_range"] == ["==", "0.87"]
-    assert constraints["color"] == ["==", "0.8"]
+    assert constraints["gender"] == ["==", "Female"]
+    assert constraints["age_range"] == ["==", "25-30"]
+    assert constraints["color"] == ["==", "blue"]
 
     # Verify "or" is not present or is empty
     assert "or" not in constraints or len(constraints.get("or", [])) == 0, \
@@ -641,19 +641,19 @@ class TestConstraintBuilding:
 
     # Mix of high confidence (AND), low confidence (OR), and non-numeric (OR)
     mixed_constraints = {
-      "gender": 0.95,              # High confidence -> AND
-      "age_range": 0.75,           # Low confidence -> OR
-      "clothing_color": "red",     # Non-numeric -> OR
-      "age": 0.87                  # High confidence -> AND
+      "gender": {"label": "Male", "model_name": "gender_v2", "confidence": 0.95},
+      "age_range": {"label": "18-25", "model_name": "age_v2", "confidence": 0.75},
+      "clothing_color": "red",     # Plain string -> OR
+      "age": {"label": 28, "model_name": "age_v2", "confidence": 0.87}
     }
 
     constraints = db._build_query_constraints("Person", **mixed_constraints)
 
     # Verify AND constraints (high confidence)
     assert "gender" in constraints
-    assert constraints["gender"] == ["==", "0.95"]
+    assert constraints["gender"] == ["==", "Male"]
     assert "age" in constraints
-    assert constraints["age"] == ["==", "0.87"]
+    assert constraints["age"] == ["==", "28"]
 
     # Verify OR constraints (low confidence and non-numeric)
     assert "or" in constraints
@@ -689,7 +689,7 @@ class TestConstraintBuilding:
     db = VDMSDatabase()
 
     constraints_with_none = {
-      "gender": 0.95,
+      "gender": {"label": "Female", "model_name": "gender_v2", "confidence": 0.95},
       "age": None,              # Should be ignored
       "color": "blue"
     }
@@ -699,9 +699,9 @@ class TestConstraintBuilding:
     # Verify None value is not in constraints
     assert "age" not in constraints, "None values should be ignored"
 
-    # Verify high-confidence numeric constraint (gender 0.95) is direct AND
+    # Verify high-confidence metadata constraint (gender 0.95) is direct AND
     assert "gender" in constraints
-    assert constraints["gender"] == ["==", "0.95"]
+    assert constraints["gender"] == ["==", "Female"]
 
     # Verify non-numeric string constraint is in OR array
     assert "or" in constraints
@@ -716,23 +716,23 @@ class TestConstraintBuilding:
 
     db = VDMSDatabase()
 
-    # Numeric strings should be converted to float for evaluation
+    # Test metadata with string confidence values
     numeric_string_constraints = {
-      "confidence_1": "0.95",     # String, but numeric -> convert to float -> AND
-      "confidence_2": "0.75"      # String, but numeric -> convert to float -> OR
+      "attribute_1": {"label": "value1", "model_name": "model1", "confidence": "0.95"},
+      "attribute_2": {"label": "value2", "model_name": "model2", "confidence": "0.75"}
     }
 
     constraints = db._build_query_constraints("Person", **numeric_string_constraints)
 
     # Verify high confidence string is AND constraint
-    assert "confidence_1" in constraints
-    assert constraints["confidence_1"] == ["==", "0.95"]
+    assert "attribute_1" in constraints
+    assert constraints["attribute_1"] == ["==", "value1"]
 
     # Verify low confidence string is OR constraint
     assert "or" in constraints
     or_constraints = constraints["or"]
     or_keys = [list(oc.keys())[0] for oc in or_constraints]
-    assert "confidence_2" in or_keys
+    assert "attribute_2" in or_keys
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_build_constraints_boundary_confidence_0_8(self, mock_vdms_class):
@@ -743,18 +743,18 @@ class TestConstraintBuilding:
     db = VDMSDatabase()
 
     boundary_constraints = {
-      "confidence_exact": 0.8        # Exactly 0.8 -> AND (inclusive boundary)
+      "attribute_exact": {"label": "test_value", "model_name": "model", "confidence": 0.8}
     }
 
     constraints = db._build_query_constraints("Person", **boundary_constraints)
 
     # Verify exactly 0.8 is treated as AND constraint
-    assert "confidence_exact" in constraints
-    assert constraints["confidence_exact"] == ["==", "0.8"]
+    assert "attribute_exact" in constraints
+    assert constraints["attribute_exact"] == ["==", "test_value"]
 
     # Should not be in OR constraints
     assert "or" not in constraints or \
-           not any("confidence_exact" in list(oc.keys()) for oc in constraints.get("or", []))
+           not any("attribute_exact" in list(oc.keys()) for oc in constraints.get("or", []))
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_build_constraints_just_below_boundary(self, mock_vdms_class):
@@ -798,7 +798,7 @@ class TestFindMatchesIntegration:
     test_vectors = [np.random.randn(256).astype(np.float32)]
 
     # Call findMatches with high-confidence constraint
-    db.findMatches("Person", test_vectors, gender=0.95)
+    db.findMatches("Person", test_vectors, gender={"label": "Female", "model_name": "gender_v2", "confidence": 0.95})
 
     # Extract the query
     call_args = db.sendQuery.call_args
@@ -808,7 +808,7 @@ class TestFindMatchesIntegration:
 
     # Verify high-confidence constraint is AND (direct in constraints)
     assert "gender" in query_constraints
-    assert query_constraints["gender"] == ["==", "0.95"]
+    assert query_constraints["gender"] == ["==", "Female"]
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_or_constraints_in_vdms_format(self, mock_vdms_class):
