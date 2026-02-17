@@ -4,7 +4,7 @@
 
 name: Documentation Check
 
-on:  # yamllint disable-line rule:truthy
+on: # yamllint disable-line rule:truthy
   pull_request:
     branches:
       - main
@@ -16,7 +16,7 @@ permissions: {}
 jobs:
   filter:
     permissions:
-      contents: read          # needed for actions/checkout
+      contents: read # needed for actions/checkout
     runs-on: ubuntu-latest
     outputs:
       scenescape_documentation_changed: ${{ steps.filter.outputs.scenescape_documentation }}
@@ -34,7 +34,7 @@ jobs:
 
   build-scenescape-documentation:
     permissions:
-      contents: read          # needed for actions/checkout
+      contents: read # needed for actions/checkout
     needs: filter
     if: ${{ needs.filter.outputs.scenescape_documentation_changed == 'true' }}
     uses: ./.github/workflows/docs-reusable-workflow.yaml
