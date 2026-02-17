@@ -6,8 +6,11 @@
 #include "config_loader.hpp"
 #include "mqtt_client.hpp"
 #include "scene_registry.hpp"
+#include "time_chunk_buffer.hpp"
+#include "tracking_types.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -21,24 +24,6 @@
 #include <rapidjson/schema.h>
 
 namespace tracker {
-
-/**
- * @brief Bounding box in pixel coordinates.
- */
-struct BoundingBox {
-    double x;
-    double y;
-    double width;
-    double height;
-};
-
-/**
- * @brief Single detection from camera message.
- */
-struct Detection {
-    std::optional<int> id;
-    BoundingBox bounding_box_px;
-};
 
 /**
  * @brief Parsed camera detection message.
@@ -76,15 +61,18 @@ public:
     static constexpr const char* DEFAULT_THING_TYPE = "thing";
 
     /**
-     * @brief Construct message handler with MQTT client and scene registry.
+     * @brief Construct message handler with MQTT client, scene registry, and buffer.
      *
      * @param mqtt_client Shared pointer to MQTT client interface
      * @param scene_registry Reference to scene registry for camera-to-scene lookup
+     * @param buffer Reference to time chunk buffer for async processing
+     * @param tracking_config Tracking configuration for lag detection
      * @param schema_validation Enable JSON schema validation for messages
      * @param schema_dir Directory containing schema files (for validation)
      */
     explicit MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
-                            const SceneRegistry& scene_registry, bool schema_validation = true,
+                            const SceneRegistry& scene_registry, TimeChunkBuffer& buffer,
+                            const TrackingConfig& tracking_config, bool schema_validation = true,
                             const std::filesystem::path& schema_dir = "/scenescape/schema");
 
     /**
@@ -103,14 +91,19 @@ public:
     [[nodiscard]] int getReceivedCount() const { return received_count_; }
 
     /**
-     * @brief Get count of messages published.
+     * @brief Get count of messages buffered for processing.
      */
-    [[nodiscard]] int getPublishedCount() const { return published_count_; }
+    [[nodiscard]] int getBufferedCount() const { return buffered_count_; }
 
     /**
      * @brief Get count of invalid messages rejected.
      */
     [[nodiscard]] int getRejectedCount() const { return rejected_count_; }
+
+    /**
+     * @brief Get count of messages dropped due to lag.
+     */
+    [[nodiscard]] int getLaggedCount() const { return lagged_count_; }
 
 private:
     /**
@@ -138,13 +131,21 @@ private:
     std::optional<CameraMessage> parseCameraMessage(const std::string& payload);
 
     /**
-     * @brief Build dummy scene output message using rapidjson.
+     * @brief Check if message timestamp is too old (lagged).
      *
-     * @param scene Scene configuration
-     * @param timestamp ISO 8601 timestamp from input message
-     * @return JSON string conforming to scene-data.schema.json
+     * @param timestamp_iso ISO 8601 timestamp from message
+     * @return true if message should be dropped due to lag
      */
-    std::string buildDummySceneMessage(const Scene& scene, const std::string& timestamp);
+    bool isMessageLagged(const std::string& timestamp_iso) const;
+
+    /**
+     * @brief Parse ISO 8601 timestamp to time_point.
+     *
+     * @param timestamp_iso ISO 8601 timestamp string
+     * @return Parsed time_point or nullopt if parsing fails
+     */
+    static std::optional<std::chrono::system_clock::time_point>
+    parseTimestamp(const std::string& timestamp_iso);
 
     /**
      * @brief Validate JSON against a schema.
@@ -167,13 +168,16 @@ private:
 
     std::shared_ptr<IMqttClient> mqtt_client_;
     const SceneRegistry& scene_registry_;
+    TimeChunkBuffer& buffer_;
+    TrackingConfig tracking_config_;
     bool schema_validation_;
     std::unique_ptr<rapidjson::SchemaDocument> camera_schema_;
     std::unique_ptr<rapidjson::SchemaDocument> scene_schema_;
 
     std::atomic<int> received_count_{0};
-    std::atomic<int> published_count_{0};
+    std::atomic<int> buffered_count_{0};
     std::atomic<int> rejected_count_{0};
+    std::atomic<int> lagged_count_{0};
 
     /// Cache of validated category names (validated once on first use)
     /// Protected by categories_mutex_ for thread-safe access from MQTT callback
