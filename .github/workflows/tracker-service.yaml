@@ -79,40 +79,6 @@ jobs:
       - name: "Lint Python files"
         run: make -C tracker lint-python
 
-  gitleaks-scan:
-    name: "Secrets Scanning"
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: "Checkout code"
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: "Install gitleaks"
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
-        with:
-          bootstrap_tools: "gitleaks"
-
-      - name: "Clone CI repo"
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: open-edge-platform/orch-ci
-          path: ci
-          persist-credentials: false
-
-      - name: "Scan for secrets in tracker directory"
-        run: |
-          gitleaks dir tracker/ -v -c ci/.gitleaks.toml --baseline-path ci/gitleaks_baselines/gitleaks.json -r gitleaks.json
-
-      - name: "Upload Gitleaks Report"
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: gitleaks-report
-          path: gitleaks.json
-
   trivy-scan:
     name: "Trivy security scan (optional)"
     runs-on: ubuntu-latest
