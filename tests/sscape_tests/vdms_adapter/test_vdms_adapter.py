@@ -518,6 +518,9 @@ class TestConstraintBuilding:
     or_items = result["or"]
     height_constraint = next((item for item in or_items if "height" in item), {})
     assert height_constraint.get("height") == ["==", "5.8"]
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_build_constraints_object_type_always_and(self, mock_vdms_class):
     """Verify object_type is always an AND constraint (required field)."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
