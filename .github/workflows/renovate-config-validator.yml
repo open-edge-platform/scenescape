@@ -14,7 +14,7 @@
 # - Pull requests to .github/renovate.json5.
 #
 
-name: Validate Renovate configuration
+name: "[Updates] Validate Renovate configuration"
 
 on:
   pull_request:
@@ -33,12 +33,12 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Checkout configuration
+      - name: "Checkout configuration"
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
-      - name: Validate configuration
+      - name: "Validate configuration"
         run: |
           # renovate: datasource=docker
           export RENOVATE_IMAGE=ghcr.io/renovatebot/renovate:40.11

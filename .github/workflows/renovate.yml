@@ -39,7 +39,7 @@
 #
 # Note: Renovate maintains and updates Dependency dashboard that is available in GitHub issues.
 
-name: Renovate
+name: "[Updates] Renovate (Tracker Service)"
 on:
   schedule:
     # daily
@@ -63,19 +63,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: "Checkout code"
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
-      - name: Get token
+      - name: "Get token"
         id: get-github-app-token
         uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
         with:
           app-id: ${{ secrets.RENOVATE_APP_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PEM }}
 
-      - name: Self-hosted Renovate
+      - name: "Self-hosted Renovate"
         uses: renovatebot/github-action@8b7941943a108b2cc2150730963164aa8baeab8c # v44.2.2
         with:
           configurationFile: .github/renovate.json5
