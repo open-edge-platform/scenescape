@@ -88,6 +88,7 @@ class TestAPIService:
 
   def test_reconstruction_success(self, client):
     """Test successful reconstruction request"""
+    import time
     # Create test images as file-like objects
     img_bytes = base64.b64decode(self.create_test_image_base64())
 
@@ -110,14 +111,33 @@ class TestAPIService:
     assert response.status_code == 200
     data = json.loads(response.data)
     assert data['success'] is True
-    assert 'camera_poses' in data
-    assert 'intrinsics' in data
-    assert 'processing_time' in data
+    assert 'request_id' in data
+    assert data['state'] == 'processing'
+
+    # Poll status endpoint until completion
+    request_id = data['request_id']
+    max_retries = 50
+    for _ in range(max_retries):
+      time.sleep(0.1)
+      status_response = client.get(f'/reconstruction/status/{request_id}')
+      assert status_response.status_code == 200
+      status_data = json.loads(status_response.data)
+
+      if status_data.get('state') == 'complete':
+        assert 'result' in status_data
+        result = status_data['result']
+        assert 'camera_poses' in result
+        assert 'intrinsics' in result
+        assert 'processing_time' in result
+        break
+    else:
+      pytest.fail("Reconstruction did not complete within timeout")
 
   def test_reconstruction_with_glb_output(self, client):
     """Test reconstruction with GLB output format"""
     import trimesh
     import tempfile
+    import time
 
     # Create a mock scene that can be exported
     mock_scene = Mock(spec=trimesh.Scene)
@@ -159,7 +179,26 @@ class TestAPIService:
 
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert 'glb_data' in data
+        assert data['success'] is True
+        assert 'request_id' in data
+        assert data['state'] == 'processing'
+
+        # Poll status endpoint until completion
+        request_id = data['request_id']
+        max_retries = 50
+        for _ in range(max_retries):
+          time.sleep(0.1)
+          status_response = client.get(f'/reconstruction/status/{request_id}')
+          assert status_response.status_code == 200
+          status_data = json.loads(status_response.data)
+
+          if status_data.get('state') == 'complete':
+            assert 'result' in status_data
+            result = status_data['result']
+            assert 'glb_data' in result
+            break
+        else:
+          pytest.fail("Reconstruction did not complete within timeout")
 
   def test_reconstruction_missing_images(self, client):
     """Test reconstruction with missing images field"""

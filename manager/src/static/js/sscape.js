@@ -1466,86 +1466,156 @@ function setupSceneRotationTranslationFields(event = null) {
 
 function setupGenerateMesh() {
   const generateMeshButton = document.getElementById("generate_mesh");
+  const saveButton = document.getElementById("save");
+  const mapInput = document.getElementById("id_map");
+
+  saveButton?.addEventListener("click", async (e) => {
+    const allowedExtensions = ["mp4", "mov", "avi", "webm", "mkv"];
+
+    const file = mapInput?.files?.[0];
+    if (!file) {
+      // No file selected; nothing to validate here.
+      return;
+    }
+    const extension = file.name.split(".").pop().toLowerCase();
+
+    const isVideoMime = file.type.startsWith("video/");
+    const isVideoExt = allowedExtensions.includes(extension);
+
+    if (isVideoMime && isVideoExt) {
+      e.preventDefault();
+      alert("Please click generate mesh when uploading video file.");
+      return;
+    }
+  });
+
   if (!generateMeshButton) return;
 
   // Start monitoring mapping service status
   startMappingServiceStatusMonitoring();
 
-  generateMeshButton.addEventListener("click", async function () {
+  generateMeshButton?.addEventListener("click", async (e) => {
+    e.preventDefault();
+
     const sceneId = document.getElementById("sceneUID")?.value;
-    if (!sceneId) {
-      alert("Scene ID not found");
-      return;
-    }
+    const form = document.getElementById("scene_update_form");
+
+    if (!sceneId) return alert("Scene ID not found");
+    if (!form) return alert("Form not found");
 
     // Show loading state
     const spinner = document.getElementById("mesh_spinner");
-    spinner.classList.remove("d-none");
+
+    spinner?.classList.remove("d-none");
+    generateMeshButton.dataset.meshRunning = "1";
     generateMeshButton.disabled = true;
 
     try {
-      await generateMeshFromCameras(sceneId);
-    } catch (error) {
-      console.error("Mesh generation failed:", error);
-      alert("Mesh generation failed: " + error.message);
-    } finally {
-      // Hide loading state
-      spinner.classList.add("d-none");
-      generateMeshButton.disabled = false;
-    }
-  });
-}
+      const startResult = await generateMeshFromCameras(sceneId, form);
 
-async function generateMeshFromCameras(sceneId) {
-  const tokenElement = document.getElementById("auth-token");
-  if (!tokenElement) {
-    throw new Error("Authentication token not found");
-  }
+      const requestId = startResult.request_id;
+      if (!requestId) {
+        throw new Error("Backend did not return request_id");
+      }
 
-  const authToken = `Token ${tokenElement.value}`;
-  try {
-    const response = await fetch(`/scene/generate-mesh/${sceneId}/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authToken,
-        "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]")
-          ?.value,
-      },
-      body: JSON.stringify({
-        mesh_type: "mesh",
-      }),
-    });
+      await pollMeshStatus(sceneId, requestId);
 
-    // Log response for debugging
-    console.log("Response status:", response.status);
-    console.log("Response headers:", response.headers);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.log("Error response text:", errorText);
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
-    }
-
-    const result = await response.json();
-
-    if (result.success) {
       alert("Mesh generated successfully! The scene map has been updated.");
-      // Optionally reload the page to show the updated map
-      // window.location.reload();
-      // Set rotation and translation fields to zero
+
       $("#id_rotation_x").val(0);
       $("#id_rotation_y").val(0);
       $("#id_rotation_z").val(0);
       $("#id_translation_x").val(0);
       $("#id_translation_y").val(0);
       $("#id_translation_z").val(0);
-    } else {
-      throw new Error(result.message || "Mesh generation failed");
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert("Mesh generation failed: " + (err?.message ?? String(err)));
+    } finally {
+      // Hide loading state
+      spinner?.classList.add("d-none");
+      generateMeshButton.dataset.meshRunning = "0";
+      generateMeshButton.disabled = false;
     }
-  } catch (error) {
-    throw error;
+  });
+}
+
+async function pollMeshStatus(sceneId, requestId) {
+  const timeout = 10 * 60 * 1000; // 10 minutes
+  const start = Date.now();
+
+  while (true) {
+    if (Date.now() - start > timeout) {
+      throw new Error("Timed out waiting for mesh generation.");
+    }
+
+    const resp = await fetch(
+      `/scene/generate-mesh-status/${sceneId}/?request_id=${encodeURIComponent(requestId)}`,
+    );
+
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      throw new Error(data?.error || "Status check failed");
+    }
+
+    if (data.success === false) {
+      throw new Error(data?.error || "Mesh generation failed");
+    }
+
+    if (data.state === "complete") {
+      return data;
+    }
+
+    if (data.state === "failed") {
+      throw new Error(data.error || "Mesh generation failed");
+    }
+
+    // Wait before next poll
+    await new Promise((r) => setTimeout(r, 1500));
   }
+}
+
+async function generateMeshFromCameras(sceneId, form) {
+  const url = `/scene/generate-mesh/${sceneId}/`;
+
+  const formData = new FormData(form);
+
+  // Make sure CSRF is sent (Django)
+  const csrfToken =
+    document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+    getCookie("csrftoken");
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "X-CSRFToken": csrfToken,
+      Accept: "application/json",
+    },
+    body: formData,
+  });
+
+  const data = await resp.json().catch(() => ({}));
+
+  if (!resp.ok || data.success === false) {
+    throw new Error(
+      data?.error || `Generate mesh failed (HTTP ${resp.status})`,
+    );
+  }
+
+  // expects { success: true, request_id: "..." }
+  if (!data.request_id) {
+    throw new Error("Generate mesh response missing request_id");
+  }
+
+  return data;
+}
+
+// Optional cookie helper if you don't already have one:
+function getCookie(name) {
+  const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+  return match ? decodeURIComponent(match[2]) : null;
 }
 
 async function checkMappingServiceStatus() {
@@ -1577,7 +1647,10 @@ async function checkMappingServiceStatus() {
       if (status.available) {
         // Service is available, show the button
         generateMeshButton.style.display = "inline-block";
-        generateMeshButton.disabled = false;
+        const running = generateMeshButton.dataset.meshRunning === "1";
+        if (!running) {
+          generateMeshButton.disabled = false;
+        }
         generateMeshButton.title =
           "Generate 3D mesh from camera images using mapping service";
 
