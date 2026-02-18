@@ -112,15 +112,16 @@ Scenarios are JSON files containing an array of test cases. Each test case has o
 
 ### Step fields
 
-| Field        | Required | Description                                                  |
-|--------------|----------|--------------------------------------------------------------|
-| `step_name`  | No       | Human-readable label shown in logs and failure messages      |
-| `api`        | Yes      | API group: `camera`, `scene`, `sensor`, `region`, `tripwire`, `user`, `asset`, `child` |
-| `method`     | Yes      | RESTClient method name (e.g. `createCamera`, `getScene`)     |
-| `request`    | No       | Arguments passed to the method (see key mapping below)       |
-| `expected`   | No       | Assertions on the response (currently `status_code`)         |
-| `save`       | No       | Variables to extract from the response for later steps       |
-| `validate`   | No       | Response body field assertions using dot-notation            |
+| Field               | Required | Description                                                                            |
+|---------------------|----------|----------------------------------------------------------------------------------------|
+| `step_name`         | No       | Human-readable label shown in logs and failure messages                                |
+| `api`               | Yes      | API group: `camera`, `scene`, `sensor`, `region`, `tripwire`, `user`, `asset`, `child` |
+| `method`            | Yes      | RESTClient method name (e.g. `createCamera`, `getScene`)                               |
+| `request`           | No       | Arguments passed to the method (see key mapping below)                                 |
+| `expected_status`   | No       | Assertions on the response (currently `status_code`)                                   |
+| `save`              | No       | Variables to extract from the response for later steps                                 |
+| `validate`          | No       | Response body field assertions using dot-notation (partial match)                      |
+| `expected_body`     | No       | Full response body structure validation (exact match)                                      |
 
 ### Request key mapping
 
@@ -153,7 +154,7 @@ List methods (e.g. `getCameras`, `getScenes`) automatically receive `filter=None
             "output_lla": false
           }
         },
-        "expected": {
+        "expected_status": {
           "status_code": 201
         },
         "save": {
@@ -177,7 +178,7 @@ List methods (e.g. `getCameras`, `getScenes`) automatically receive `filter=None
             "output_lla": true
           }
         },
-        "expected": {
+        "expected_status": {
           "status_code": 200
         }
       },
@@ -188,13 +189,47 @@ List methods (e.g. `getCameras`, `getScenes`) automatically receive `filter=None
         "request": {
           "UID": "${SCENE_UID}"
         },
-        "expected": {
+        "expected_status": {
           "status_code": 200
         },
-        "validate": {
+        "expected_body": {
+          "uid": "${SCENE_UID}",
           "name": "Scene1_Updated",
+          "map_type": "map_upload",
           "use_tracker": false,
-          "output_lla": true
+          "output_lla": true,
+          "mesh_translation": [
+            0,
+            0,
+            0
+          ],
+          "mesh_rotation": [
+            0,
+            0,
+            0
+          ],
+          "mesh_scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "regulated_rate": 30.0,
+          "external_update_rate": 30.0,
+          "camera_calibration": "Manual",
+          "apriltag_size": 0.162,
+          "number_of_localizations": 50,
+          "global_feature": "netvlad",
+          "local_feature": {
+            "sift": {}
+          },
+          "matcher": {
+            "NN-ratio": {}
+          },
+          "minimum_number_of_matches": 20,
+          "inlier_threshold": 0.5,
+          "geospatial_provider": "google",
+          "map_zoom": 15.0,
+          "map_bearing": 0.0
         }
       }
     ]
@@ -232,7 +267,7 @@ Variable substitution works recursively in any nested `request` object.
 ### Status code assertion
 Always checked if `expected.status_code` is set:
 ```json
-"expected": {
+"expected_status": {
   "status_code": 201
 }
 ```
@@ -284,7 +319,7 @@ All methods live in `RESTClient`:
 
 1. Create or open a JSON file in `scenarios/`
 2. Add a new object to the array following the schema above
-3. Use `test_name` in the format `Visio_AI/SSCAPE/Endpoint/NN: METHOD /path description` for consistency
+3. Use `test_name` in the format `Visio_AI/SSCAPE/Endpoint/TestCase_No: Test case title` for consistency
 4. Run with `--test_case` to verify before committing
 
 No Python changes requdired.

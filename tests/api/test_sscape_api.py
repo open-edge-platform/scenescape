@@ -93,9 +93,70 @@ def substitute_variables(obj):
     return obj
 
 
+def compare_expected_json_body(actual, expected, path="root"):
+    """
+    Deep comparison of two JSON structures with detailed error reporting.
+    
+    Args:
+        actual: Actual response data
+        expected: Expected response data
+        path: Current path in the structure (for error messages)
+        
+    Returns:
+        tuple: (success: bool, errors: list)
+    """
+    errors = []
+    
+    # Type mismatch
+    if type(actual) != type(expected):
+        errors.append(f"{path}: type mismatch - expected {type(expected).__name__}, got {type(actual).__name__}")
+        return False, errors
+    
+    # Dict comparison
+    if isinstance(expected, dict):
+        # Check for missing keys
+        for key in expected:
+            if key not in actual:
+                errors.append(f"{path}.{key}: missing in actual response")
+        
+        # Check for extra keys
+        for key in actual:
+            if key not in expected:
+                errors.append(f"{path}.{key}: unexpected key in actual response")
+        
+        # Recursively compare matching keys
+        for key in expected:
+            if key in actual:
+                success, sub_errors = compare_expected_json_body(actual[key], expected[key], f"{path}.{key}")
+                errors.extend(sub_errors)
+    
+    # List comparison
+    elif isinstance(expected, list):
+        if len(actual) != len(expected):
+            errors.append(f"{path}: list length mismatch - expected {len(expected)}, got {len(actual)}")
+        else:
+            for i, (actual_item, expected_item) in enumerate(zip(actual, expected)):
+                success, sub_errors = compare_expected_json_body(actual_item, expected_item, f"{path}[{i}]")
+                errors.extend(sub_errors)
+    
+    # Primitive comparison
+    else:
+        if actual != expected:
+            errors.append(f"{path}: expected '{expected}', got '{actual}'")
+    
+    return len(errors) == 0, errors
+
+
 def validate_response(response_body, validation_rules):
     """
     Validate response body against expected values
+    
+    Args:
+        response_body: The actual response (dict or object)
+        validation_rules: Dict of field:expected_value pairs
+        
+    Returns:
+        tuple: (success: bool, errors: list)
     """
     errors = []
     
@@ -121,9 +182,10 @@ def execute_step(step, step_number, total_steps):
     api_name = step["api"]
     method_name = step["method"]
     request_data = substitute_variables(step.get("request", {}))
-    expected = step.get("expected", {})
+    expected_status = step.get("expected_status", {})
     save_vars = step.get("save", {})
     validate_rules = step.get("validate", {})
+    expected_body = step.get("expected_body")
     
     logger.debug(f"  [{step_number}/{total_steps}] {step_name}")
     logger.debug(f"    API: {api_name}, Method: {method_name}")
@@ -166,9 +228,18 @@ def execute_step(step, step_number, total_steps):
     logger.debug(f"    Response Body: {json.dumps(response_body, indent=2) if isinstance(response_body, dict) else response_body}")
     
     # Check status code
-    expected_status = expected.get("status_code", 200)
+    expected_status = expected_status.get("status_code", 200)
     if response.status_code != expected_status:
         return False, response, f"Expected status {expected_status}, got {response.status_code}"
+    
+    # Validate entire response body if expected_body is provided
+    if expected_body is not None:
+        logger.debug(f"    Validating entire response body against expected structure")
+        expected_body = substitute_variables(expected_body)
+        success, errors = compare_expected_json_body(response_body, expected_body)
+        if not success:
+            error_msg = "Response body validation failed: " + "".join(f"  - {e}" for e in errors)
+            return False, response, error_msg
     
     # Save variables
     for var_name, path in save_vars.items():
