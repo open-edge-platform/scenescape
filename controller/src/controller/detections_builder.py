@@ -76,8 +76,13 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
   if include_sensors:
     sensors_output = {}
 
+    # Copy sensor data while holding lock, then release
+    with chain_data._lock:
+      env_state_copy = dict(chain_data.env_sensor_state)
+      attr_events_copy = dict(chain_data.attr_sensor_events)
+
     # Environmental sensors: readings + exposure as structured object
-    for sensor_id, state in chain_data.env_sensor_state.items():
+    for sensor_id, state in env_state_copy.items():
       values = state['readings'] if 'readings' in state and state['readings'] else []
 
       # Calculate total exposure (including current value if present)
@@ -94,7 +99,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
       }
 
     # Attribute sensors: events as structured object
-    for sensor_id, events in chain_data.attr_sensor_events.items():
+    for sensor_id, events in attr_events_copy.items():
       if events:
         sensors_output[sensor_id] = {
           'values': events

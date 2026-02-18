@@ -339,11 +339,12 @@ class Scene(SceneModel):
         # instead of appending, but frequent value changes can still cause unbounded growth.
         cur_value_float = float(cur_value)
         for obj in objects_in_sensor:
-          if sensor_id in obj.chain_data.env_sensor_state:
-            # Update exposure incrementally
-            state = obj.chain_data.env_sensor_state[sensor_id]
-            last_time = state['exposure']['last_time']
-            last_value = state['exposure']['last_value']
+          with obj.chain_data._lock:
+            if sensor_id in obj.chain_data.env_sensor_state:
+              # Update exposure incrementally
+              state = obj.chain_data.env_sensor_state[sensor_id]
+              last_time = state['exposure']['last_time']
+              last_value = state['exposure']['last_value']
 
             if last_value is not None:
               dt = timestamp_epoch - last_time
@@ -352,38 +353,38 @@ class Scene(SceneModel):
                 avg_value = (last_value + cur_value_float) / 2.0
                 state['exposure']['total'] += avg_value * dt
 
-            state['exposure']['last_time'] = timestamp_epoch
-            state['exposure']['last_value'] = cur_value_float
+              state['exposure']['last_time'] = timestamp_epoch
+              state['exposure']['last_value'] = cur_value_float
 
-            # Update readings array: append if value changed, update timestamp if same
-            if 'readings' not in state:
-              state['readings'] = []
-            if state['readings'] and state['readings'][-1][1] == cur_value_float:
-              # Value unchanged - update timestamp
-              state['readings'][-1] = (timestamp_str, cur_value_float)
+              # Update readings array: append if value changed, update timestamp if same
+              if 'readings' not in state:
+                state['readings'] = []
+              if state['readings'] and state['readings'][-1][1] == cur_value_float:
+                # Value unchanged - update timestamp
+                state['readings'][-1] = (timestamp_str, cur_value_float)
+              else:
+                # Value changed - append new reading
+                state['readings'].append((timestamp_str, cur_value_float))
             else:
-              # Value changed - append new reading
-              state['readings'].append((timestamp_str, cur_value_float))
-          else:
-            # First reading - initialize from entry time (or first_seen for scene-wide sensors)
-            entry_str = obj.chain_data.regions.get(sensor_id, {}).get('entered')
-            if not entry_str:
-              # No entry time (scene-wide sensor or pre-existing object) - use first_seen
-              entry_str = get_iso_time(obj.first_seen)
+              # First reading - initialize from entry time (or first_seen for scene-wide sensors)
+              entry_str = obj.chain_data.regions.get(sensor_id, {}).get('entered')
+              if not entry_str:
+                # No entry time (scene-wide sensor or pre-existing object) - use first_seen
+                entry_str = get_iso_time(obj.first_seen)
 
-            entry_epoch = get_epoch_time(entry_str)
-            dt = timestamp_epoch - entry_epoch
-            # Only calculate initial exposure if time moved forward
-            initial_exposure = cur_value_float * dt if dt > 0 else 0.0
+              entry_epoch = get_epoch_time(entry_str)
+              dt = timestamp_epoch - entry_epoch
+              # Only calculate initial exposure if time moved forward
+              initial_exposure = cur_value_float * dt if dt > 0 else 0.0
 
-            obj.chain_data.env_sensor_state[sensor_id] = {
-              'readings': [(timestamp_str, cur_value_float)],
-              'exposure': {
-                'total': initial_exposure,
-                'last_time': timestamp_epoch,
-                'last_value': cur_value_float
+              obj.chain_data.env_sensor_state[sensor_id] = {
+                'readings': [(timestamp_str, cur_value_float)],
+                'exposure': {
+                  'total': initial_exposure,
+                  'last_time': timestamp_epoch,
+                  'last_value': cur_value_float
+                }
               }
-            }
 
       elif sensor.singleton_type == "attribute":
         # Event history tracking - append discrete events (or update timestamp if value unchanged)
@@ -392,16 +393,17 @@ class Scene(SceneModel):
         # Convert to string for consistent type comparison (attributes can be non-numeric)
         cur_value_str = str(cur_value)
         for obj in objects_in_sensor:
-          if sensor_id not in obj.chain_data.attr_sensor_events:
-            obj.chain_data.attr_sensor_events[sensor_id] = []
+          with obj.chain_data._lock:
+            if sensor_id not in obj.chain_data.attr_sensor_events:
+              obj.chain_data.attr_sensor_events[sensor_id] = []
 
-          events = obj.chain_data.attr_sensor_events[sensor_id]
-          if events and events[-1][1] == cur_value_str:
-            # Value unchanged - update timestamp of last event instead of appending
-            events[-1] = (timestamp_str, cur_value_str)
-          else:
-            # Value changed - append new event
-            events.append((timestamp_str, cur_value_str))
+            events = obj.chain_data.attr_sensor_events[sensor_id]
+            if events and events[-1][1] == cur_value_str:
+              # Value unchanged - update timestamp of last event instead of appending
+              events[-1] = (timestamp_str, cur_value_str)
+            else:
+              # Value changed - append new event
+              events.append((timestamp_str, cur_value_str))
 
     return True
 
@@ -617,37 +619,39 @@ class Scene(SceneModel):
           if region.singleton_type == "environmental":
             # Use 'now' directly (already epoch time) to avoid precision loss from string conversion
 
-            if hasattr(region, 'value') and hasattr(region, 'lastWhen'):
-              # Sensor has cached value - initialize with it
-              ts_str = get_iso_time(region.lastWhen)
-              last_value = float(region.value) if region.value is not None else None
+            with obj.chain_data._lock:
+              if hasattr(region, 'value') and hasattr(region, 'lastWhen'):
+                # Sensor has cached value - initialize with it
+                ts_str = get_iso_time(region.lastWhen)
+                last_value = float(region.value) if region.value is not None else None
 
-              # Start exposure accumulation from entry time, not sensor reading time
-              # Exposure = value * (now - entry_time)
-              obj.chain_data.env_sensor_state[key] = {
-                'readings': [(ts_str, region.value)],
-                'exposure': {
-                  'total': 0.0,
-                  'last_time': now,
-                  'last_value': last_value
+                # Start exposure accumulation from entry time, not sensor reading time
+                # Exposure = value * (now - entry_time)
+                obj.chain_data.env_sensor_state[key] = {
+                  'readings': [(ts_str, region.value)],
+                  'exposure': {
+                    'total': 0.0,
+                    'last_time': now,
+                    'last_value': last_value
+                  }
                 }
-              }
-            else:
-              # No cached value yet
-              obj.chain_data.env_sensor_state[key] = {
-                'readings': [],
-                'exposure': {
-                  'total': 0.0,
-                  'last_time': now,
-                  'last_value': None
+              else:
+                # No cached value yet
+                obj.chain_data.env_sensor_state[key] = {
+                  'readings': [],
+                  'exposure': {
+                    'total': 0.0,
+                    'last_time': now,
+                    'last_value': None
+                  }
                 }
-              }
 
           elif region.singleton_type == "attribute":
             # Attribute sensors only tag objects present when MQTT arrives
             # Do NOT initialize with cached values (those belong to other objects)
-            if key not in obj.chain_data.attr_sensor_events:
-              obj.chain_data.attr_sensor_events[key] = []
+            with obj.chain_data._lock:
+              if key not in obj.chain_data.attr_sensor_events:
+                obj.chain_data.attr_sensor_events[key] = []
 
       if (len(new) or len(old)) and now - region.when > DEBOUNCE_DELAY:
         log.debug("REGION EVENT", key, now_str, regionObjects, len(objects))
@@ -685,18 +689,19 @@ class Scene(SceneModel):
       # Always clean up exited objects, even if debounce prevented event emission
       for obj in regionObjects:
         if obj.gid in old:
-          obj.chain_data.regions.pop(key, None)
+          with obj.chain_data._lock:
+            obj.chain_data.regions.pop(key, None)
 
-          # Clean up sensor tracking on exit
-          if region.singleton_type is not None:
-            obj.chain_data.active_sensors.discard(key)
+            # Clean up sensor tracking on exit
+            if region.singleton_type is not None:
+              obj.chain_data.active_sensors.discard(key)
 
-            # Environmental sensors: clear state on exit (data doesn't persist)
-            if region.singleton_type == "environmental":
-              obj.chain_data.env_sensor_state.pop(key, None)
+              # Environmental sensors: clear state on exit (data doesn't persist)
+              if region.singleton_type == "environmental":
+                obj.chain_data.env_sensor_state.pop(key, None)
 
-            # Attribute sensors: keep event history (data persists after exit)
-            # attr_sensor_events[key] intentionally not removed
+              # Attribute sensors: keep event history (data persists after exit)
+              # attr_sensor_events[key] intentionally not removed
 
     return updated
 
