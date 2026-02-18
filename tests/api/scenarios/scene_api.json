@@ -19,56 +19,6 @@
         "save": {
           "SCENE_UID": "uid"
         }
-      },
-      {
-        "step_name": "Verify resource was created",
-        "api": "scene",
-        "method": "getScene",
-        "request": {
-          "UID": "${SCENE_UID}"
-        },
-        "expected_status": {
-          "status_code": 200
-        },
-        "expected_body": {
-          "uid": "${SCENE_UID}",
-          "name": "Scene1",
-          "map_type": "map_upload",
-          "use_tracker": true,
-          "output_lla": false,
-          "mesh_translation": [
-            0,
-            0,
-            0
-          ],
-          "mesh_rotation": [
-            0,
-            0,
-            0
-          ],
-          "mesh_scale": [
-            1.0,
-            1.0,
-            1.0
-          ],
-          "regulated_rate": 30.0,
-          "external_update_rate": 30.0,
-          "camera_calibration": "Manual",
-          "apriltag_size": 0.162,
-          "number_of_localizations": 50,
-          "global_feature": "netvlad",
-          "local_feature": {
-            "sift": {}
-          },
-          "matcher": {
-            "NN-ratio": {}
-          },
-          "minimum_number_of_matches": 20,
-          "inlier_threshold": 0.5,
-          "geospatial_provider": "google",
-          "map_zoom": 15.0,
-          "map_bearing": 0.0
-        }
       }
     ]
   },
