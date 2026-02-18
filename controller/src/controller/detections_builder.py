@@ -83,9 +83,10 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
       # Calculate total exposure (including current value if present)
       exposure_total = state['exposure']['total']
       if state['exposure']['last_value'] is not None and hasattr(scene, 'when'):
-        # Add exposure from last reading to now
+        # Add exposure from last reading to now; clamp negative intervals to zero
         dt = scene.when - state['exposure']['last_time']
-        exposure_total += state['exposure']['last_value'] * dt
+        if dt > 0:
+          exposure_total += state['exposure']['last_value'] * dt
       
       sensors_output[sensor_id] = {
         'values': values,

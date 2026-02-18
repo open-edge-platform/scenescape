@@ -365,7 +365,12 @@ class SceneController:
     return
 
   def _clearSensorValuesOnExit(self, scene):
-    """Clears the environmental sensor values accumulated by the exiting object"""
+    """
+    Clears region entered/exited arrays after events have been published.
+    Note: Sensor state cleanup (environmental sensor exposure, etc.) is handled
+    in _updateRegionEvents before this method is called. This method only clears
+    the event arrays to prevent stale data from being published in subsequent frames.
+    """
     for event_type in scene.events:
       for region_name, region in scene.events[event_type]:
         if hasattr(region, 'exited'):

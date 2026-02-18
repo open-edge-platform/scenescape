@@ -44,11 +44,12 @@ class Region:
 
     # Check explicit area type first - respect explicit configuration over inferred types
     if 'area' in info and info['area'] == "circle":
-      if not hasattr(self, 'center') or self.center is None:
+      if 'center' not in info or info['center'] is None:
         raise ValueError(f"Circle region '{self.name}' requires 'center' in info")
+      if not hasattr(self, 'center') or self.center is None:
+        raise ValueError(f"Circle region '{self.name}' has invalid center value")
       self.area = Region.REGION_CIRCLE
       self.radius = info['radius']
-      # Rectangle is created using Point, Point constructor.
       self.boundingBox = Rectangle(self.center - (self.radius, self.radius),
                                    self.center + (self.radius, self.radius))
     elif 'area' in info and info['area'] == "scene":

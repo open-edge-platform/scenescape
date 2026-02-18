@@ -75,6 +75,9 @@ class Scene(SceneModel):
     # Cache for object history (publishedLocations, etc.) to maintain trails across frames
     self.object_history_cache = {}
 
+    # Timestamp of current frame being processed (set by scene controller)
+    self.when = None
+
     # FIXME - only for backwards compatibility
     self.scale = scale
 
@@ -306,19 +309,22 @@ class Scene(SceneModel):
     timestamp_str = get_iso_time(when)
     timestamp_epoch = when
     
+    # Skip processing if no tracker (analytics-only mode)
+    if self.tracker is None:
+      return True
+    
     # Find all objects currently in the sensor region across ALL detection types
+    # Optimization: check if scene-wide to avoid redundant isPointWithin calls
+    # TODO: Further optimize for scenes with many objects: spatial indexing (R-tree),
+    # bounding box pre-filtering, or tracking only recently-moved objects
+    is_scene_wide = sensor.area == Region.REGION_SCENE
     objects_in_sensor = []
-    objects_by_type = {}
     for detectionType in self.tracker.trackers.keys():
-      type_objects = []
       for obj in self.tracker.currentObjects(detectionType):
-        if (obj.frameCount > 3 or not self.use_tracker) and sensor.isPointWithin(obj.sceneLoc):
+        if (obj.frameCount > 3 or not self.use_tracker) and (is_scene_wide or sensor.isPointWithin(obj.sceneLoc)):
           objects_in_sensor.append(obj)
-          type_objects.append(obj)
           # Ensure active_sensors is updated (handles scene-wide sensors or objects existing before sensor creation)
           obj.chain_data.active_sensors.add(sensor_id)
-      if type_objects:
-        objects_by_type[detectionType] = type_objects
     
     log.info("SENSOR OBJECTS FOUND", sensor_id, len(objects_in_sensor), "type:", sensor.singleton_type)
     
@@ -326,6 +332,10 @@ class Scene(SceneModel):
     if objects_in_sensor:
       if sensor.singleton_type == "environmental":
         # Incremental exposure tracking with value-change detection
+        # TODO: Implement bounded cache for readings arrays to prevent memory exhaustion
+        # in long-running scenarios. Consider: max size with FIFO eviction, time-based
+        # cleanup, or periodic consolidation. Currently, unchanged values update timestamps
+        # instead of appending, but frequent value changes can still cause unbounded growth.
         cur_value_float = float(cur_value)
         for obj in objects_in_sensor:
           if sensor_id in obj.chain_data.env_sensor_state:
@@ -336,8 +346,10 @@ class Scene(SceneModel):
             
             if last_value is not None:
               dt = timestamp_epoch - last_time
-              avg_value = (last_value + cur_value_float) / 2.0
-              state['exposure']['total'] += avg_value * dt
+              # Only add exposure if time moved forward (guard against out-of-order messages)
+              if dt > 0:
+                avg_value = (last_value + cur_value_float) / 2.0
+                state['exposure']['total'] += avg_value * dt
             
             state['exposure']['last_time'] = timestamp_epoch
             state['exposure']['last_value'] = cur_value_float
@@ -360,7 +372,8 @@ class Scene(SceneModel):
             
             entry_epoch = get_epoch_time(entry_str)
             dt = timestamp_epoch - entry_epoch
-            initial_exposure = cur_value_float * dt
+            # Only calculate initial exposure if time moved forward
+            initial_exposure = cur_value_float * dt if dt > 0 else 0.0
             
             obj.chain_data.env_sensor_state[sensor_id] = {
               'readings': [(timestamp_str, cur_value_float)],
@@ -373,17 +386,21 @@ class Scene(SceneModel):
       
       elif sensor.singleton_type == "attribute":
         # Event history tracking - append discrete events (or update timestamp if value unchanged)
+        # TODO: Implement bounded cache for attr_sensor_events to prevent memory exhaustion
+        # in long-running scenarios with frequent attribute changes.
+        # Convert to string for consistent type comparison (attributes can be non-numeric)
+        cur_value_str = str(cur_value)
         for obj in objects_in_sensor:
           if sensor_id not in obj.chain_data.attr_sensor_events:
             obj.chain_data.attr_sensor_events[sensor_id] = []
           
           events = obj.chain_data.attr_sensor_events[sensor_id]
-          if events and events[-1][1] == cur_value:
+          if events and events[-1][1] == cur_value_str:
             # Value unchanged - update timestamp of last event instead of appending
-            events[-1] = (timestamp_str, cur_value)
+            events[-1] = (timestamp_str, cur_value_str)
           else:
             # Value changed - append new event
-            events.append((timestamp_str, cur_value))
+            events.append((timestamp_str, cur_value_str))
 
     return True
 
@@ -764,6 +781,9 @@ class Scene(SceneModel):
     return
 
   def _updateRegions(self, existingRegions, newRegions):
+    # Sentinel value to distinguish "attribute doesn't exist" from "attribute is None"
+    _NOTSET = object()
+    
     old = set(existingRegions.keys())
     new = set([x['uid'] for x in newRegions])
     for regionData in newRegions:
@@ -773,13 +793,14 @@ class Scene(SceneModel):
         region = existingRegions[region_uuid]
         
         # Preserve sensor cache, event state, and region state before geometry updates
-        cached_value = getattr(region, 'value', None)
-        cached_last_value = getattr(region, 'lastValue', None)
-        cached_last_when = getattr(region, 'lastWhen', None)
-        cached_entered = getattr(region, 'entered', None)
-        cached_exited = getattr(region, 'exited', None)
-        cached_objects = getattr(region, 'objects', None)
-        cached_when = getattr(region, 'when', None)
+        # Use sentinel to distinguish missing attributes from None values
+        cached_value = getattr(region, 'value', _NOTSET)
+        cached_last_value = getattr(region, 'lastValue', _NOTSET)
+        cached_last_when = getattr(region, 'lastWhen', _NOTSET)
+        cached_entered = getattr(region, 'entered', _NOTSET)
+        cached_exited = getattr(region, 'exited', _NOTSET)
+        cached_objects = getattr(region, 'objects', _NOTSET)
+        cached_when = getattr(region, 'when', _NOTSET)
         
         region.updatePoints(regionData)
         region.updateSingletonType(regionData)
@@ -787,19 +808,20 @@ class Scene(SceneModel):
         region.name = region_name
         
         # Restore sensor cache, event state, and region state after geometry updates
-        if cached_value is not None:
+        # Only restore if attribute existed before (even if value was None)
+        if cached_value is not _NOTSET:
           region.value = cached_value
-        if cached_last_value is not None:
+        if cached_last_value is not _NOTSET:
           region.lastValue = cached_last_value
-        if cached_last_when is not None:
+        if cached_last_when is not _NOTSET:
           region.lastWhen = cached_last_when
-        if cached_entered is not None:
+        if cached_entered is not _NOTSET:
           region.entered = cached_entered
-        if cached_exited is not None:
+        if cached_exited is not _NOTSET:
           region.exited = cached_exited
-        if cached_objects is not None:
+        if cached_objects is not _NOTSET:
           region.objects = cached_objects
-        if cached_when is not None:
+        if cached_when is not _NOTSET:
           region.when = cached_when
       else:
         region = Region(region_uuid, region_name, regionData)

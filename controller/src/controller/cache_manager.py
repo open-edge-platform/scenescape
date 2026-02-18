@@ -64,18 +64,29 @@ class CacheManager:
         old_scene = self._old_scene_cache.get(uid) if hasattr(self, '_old_scene_cache') and self._old_scene_cache else None
         scene = Scene.deserialize(scene_data)
         
-        # Restore sensor cache from old scene if it existed
+        # Restore sensor cache from old scene if it existed (after scene invalidation/recreation)
+        # Note: Sensors without cached values (never received data) will naturally skip restoration
+        # since hasattr checks will return False
         if old_scene and hasattr(old_scene, 'sensors'):
+          restored_count = 0
           for sensor_id, old_sensor in old_scene.sensors.items():
             if sensor_id in scene.sensors:
               new_sensor = scene.sensors[sensor_id]
-              # Preserve sensor cache values
+              # Preserve sensor cache values if they exist
+              restored = False
               if hasattr(old_sensor, 'value'):
                 new_sensor.value = old_sensor.value
+                restored = True
               if hasattr(old_sensor, 'lastValue'):
                 new_sensor.lastValue = old_sensor.lastValue
+                restored = True
               if hasattr(old_sensor, 'lastWhen'):
                 new_sensor.lastWhen = old_sensor.lastWhen
+                restored = True
+              if restored:
+                restored_count += 1
+          if restored_count > 0:
+            log.debug(f"Restored sensor cache for {restored_count} sensor(s) in scene {uid}")
       else:
         scene = self.cached_scenes_by_uid[uid]
         scene.updateScene(scene_data)
