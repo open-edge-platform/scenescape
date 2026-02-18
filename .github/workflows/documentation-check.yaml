@@ -39,4 +39,4 @@ jobs:
     if: ${{ needs.filter.outputs.scenescape_documentation_changed == 'true' }}
     uses: ./.github/workflows/docs-reusable-workflow.yaml
     with:
-      docs_directory: docs/user-guide
+      docs_directory: .
