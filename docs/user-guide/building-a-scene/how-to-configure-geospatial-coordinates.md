@@ -71,7 +71,7 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
     ```
   - The expected order of the four map corners is counterclockwise starting in the lower left as depicted in the figure below:
 
-    ![Map corners convention](../images/geospatial-corners-convention.png)
+    ![Map corners convention](../_assets/geospatial-corners-convention.png)
 
 ## Verify Successful Geospatial Coordinate Configuration
 
