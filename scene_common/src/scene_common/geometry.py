@@ -38,14 +38,12 @@ class Region:
 
   def updatePoints(self, info):
     # Set center if provided (needed for circles and other centered regions)
-    if 'center' in info:
+    if 'center' in info and info['center'] is not None:
       pt = info['center']
       self.center = pt if isinstance(pt, Point) else Point(pt)
 
     # Check explicit area type first - respect explicit configuration over inferred types
     if 'area' in info and info['area'] == "circle":
-      if 'center' not in info or info['center'] is None:
-        raise ValueError(f"Circle region '{self.name}' requires 'center' in info")
       if not hasattr(self, 'center') or self.center is None:
         raise ValueError(f"Circle region '{self.name}' has invalid center value")
       self.area = Region.REGION_CIRCLE
