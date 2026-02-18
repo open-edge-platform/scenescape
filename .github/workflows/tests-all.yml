@@ -291,7 +291,6 @@ jobs:
   generate_report:
     needs:
       [
-        run_basic_acceptance_tests,
         run_functional_tests,
         run_non_functional_tests,
         run_metric_tests,
@@ -323,7 +322,7 @@ jobs:
         run: |
           set +e
           touch test_results_summary.txt
-          log_files=("test_data/metrics.log" "test_data/non_functional.log" "test_data/functional_tests.log" "test_data/basic_acceptance_tests.log" "test_data/ui_tests.log" "test_data/unit_tests.log" "test_data/release_tests.log")
+          log_files=("test_data/metrics.log" "test_data/non_functional.log" "test_data/functional_tests.log" "test_data/ui_tests.log" "test_data/unit_tests.log" "test_data/release_tests.log")
           for log_file in "${log_files[@]}"; do
             grep -Erh "NEX-T.*: (PASS|FAIL)" $log_file | sed 's/\(NEX-T[0-9]*\)[^:]*\(: .*\)/\1\2/' >> test_results_summary.txt
           done
