@@ -32,7 +32,7 @@ class ChainData:
   publishedLocations: List[Point]
   persist: Dict
   active_sensors: set = field(default_factory=set)
-  env_sensor_state: Dict = field(default_factory=dict)  # {'sensor_id': {'last_reading': (ts, val), 'exposure': {...}}}
+  env_sensor_state: Dict = field(default_factory=dict)  # {'sensor_id': {'readings': [(ts, val), ...]}}
   attr_sensor_events: Dict = field(default_factory=dict)  # {'sensor_id': [(ts, val), ...]}
   _lock: Lock = field(default_factory=Lock)
 

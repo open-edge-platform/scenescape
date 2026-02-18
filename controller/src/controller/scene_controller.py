@@ -358,7 +358,7 @@ class SceneController:
       for exited_obj, dwell in exited_list:
         exited_dict[exited_obj.gid] = dwell
         exited_objs.extend([exited_obj])
-      # Exit events: include sensor data (environmental exposure, attribute events)
+      # Exit events: include sensor data (timestamped readings and attribute events)
       exited_objs = buildDetectionsList(exited_objs, scene, False, include_sensors=True)
       exited_data = [{'object': exited_obj, 'dwell': exited_dict[exited_obj['id']]} for exited_obj in exited_objs]
       event_data['exited'].extend(exited_data)
@@ -367,7 +367,7 @@ class SceneController:
   def _clearSensorValuesOnExit(self, scene):
     """
     Clears region entered/exited arrays after events have been published.
-    Note: Sensor state cleanup (environmental sensor exposure, etc.) is handled
+    Note: Sensor state cleanup (readings arrays, etc.) is handled
     in _updateRegionEvents before this method is called. This method only clears
     the event arrays to prevent stale data from being published in subsequent frames.
     """
@@ -421,7 +421,6 @@ class SceneController:
     jdata['scene_id'] = scene.uid
     jdata['scene_name'] = scene.name
 
-    scene.when = ts  # Set current frame time for exposure calculation
     self.publishEvents(scene, jdata['timestamp'])
     return
 
@@ -497,7 +496,6 @@ class SceneController:
       jdata['name'] = scene.name
       for detection_type in detection_types:
         jdata['unique_detection_count'] = scene.tracker.getUniqueIDCount(detection_type)
-        scene.when = msg_when  # Set current frame time for exposure calculation
         self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
                               msg_when, detection_type, jdata, camera_id)
         self.publishEvents(scene, jdata['timestamp'])
@@ -535,7 +533,6 @@ class SceneController:
       log.debug(f"Analytics-only mode - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
 
       msg_when = get_epoch_time(jdata.get('timestamp'))
-      scene.when = msg_when  # Set current frame time for exposure calculation
 
       scene._updateEvents(detection_type, msg_when, analytics_objects)
 

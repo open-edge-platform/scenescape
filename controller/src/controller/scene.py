@@ -75,9 +75,6 @@ class Scene(SceneModel):
     # Cache for object history (publishedLocations, etc.) to maintain trails across frames
     self.object_history_cache = {}
 
-    # Timestamp of current frame being processed (set by scene controller)
-    self.when = None
-
     # FIXME - only for backwards compatibility
     self.scale = scale
 
@@ -332,7 +329,7 @@ class Scene(SceneModel):
     # Update sensor data on objects based on sensor type
     if objects_in_sensor:
       if sensor.singleton_type == "environmental":
-        # Incremental exposure tracking with value-change detection
+        # Environmental sensors: track timestamped readings with value-change detection
         # TODO: Implement bounded cache for readings arrays to prevent memory exhaustion
         # in long-running scenarios. Consider: max size with FIFO eviction, time-based
         # cleanup, or periodic consolidation. Currently, unchanged values update timestamps
@@ -341,20 +338,7 @@ class Scene(SceneModel):
         for obj in objects_in_sensor:
           with obj.chain_data._lock:
             if sensor_id in obj.chain_data.env_sensor_state:
-              # Update exposure incrementally
               state = obj.chain_data.env_sensor_state[sensor_id]
-              last_time = state['exposure']['last_time']
-              last_value = state['exposure']['last_value']
-
-            if last_value is not None:
-              dt = timestamp_epoch - last_time
-              # Only add exposure if time moved forward (guard against out-of-order messages)
-              if dt > 0:
-                avg_value = (last_value + cur_value_float) / 2.0
-                state['exposure']['total'] += avg_value * dt
-
-              state['exposure']['last_time'] = timestamp_epoch
-              state['exposure']['last_value'] = cur_value_float
 
               # Update readings array: append if value changed, update timestamp if same
               if 'readings' not in state:
@@ -366,24 +350,9 @@ class Scene(SceneModel):
                 # Value changed - append new reading
                 state['readings'].append((timestamp_str, cur_value_float))
             else:
-              # First reading - initialize from entry time (or first_seen for scene-wide sensors)
-              entry_str = obj.chain_data.regions.get(sensor_id, {}).get('entered')
-              if not entry_str:
-                # No entry time (scene-wide sensor or pre-existing object) - use first_seen
-                entry_str = get_iso_time(obj.first_seen)
-
-              entry_epoch = get_epoch_time(entry_str)
-              dt = timestamp_epoch - entry_epoch
-              # Only calculate initial exposure if time moved forward
-              initial_exposure = cur_value_float * dt if dt > 0 else 0.0
-
+              # First reading - initialize readings array
               obj.chain_data.env_sensor_state[sensor_id] = {
-                'readings': [(timestamp_str, cur_value_float)],
-                'exposure': {
-                  'total': initial_exposure,
-                  'last_time': timestamp_epoch,
-                  'last_value': cur_value_float
-                }
+                'readings': [(timestamp_str, cur_value_float)]
               }
 
       elif sensor.singleton_type == "attribute":
@@ -623,27 +592,13 @@ class Scene(SceneModel):
               if hasattr(region, 'value') and hasattr(region, 'lastWhen'):
                 # Sensor has cached value - initialize with it
                 ts_str = get_iso_time(region.lastWhen)
-                last_value = float(region.value) if region.value is not None else None
-
-                # Start exposure accumulation from entry time, not sensor reading time
-                # Exposure = value * (now - entry_time)
                 obj.chain_data.env_sensor_state[key] = {
-                  'readings': [(ts_str, region.value)],
-                  'exposure': {
-                    'total': 0.0,
-                    'last_time': now,
-                    'last_value': last_value
-                  }
+                  'readings': [(ts_str, region.value)]
                 }
               else:
                 # No cached value yet
                 obj.chain_data.env_sensor_state[key] = {
-                  'readings': [],
-                  'exposure': {
-                    'total': 0.0,
-                    'last_time': now,
-                    'last_value': None
-                  }
+                  'readings': []
                 }
 
           elif region.singleton_type == "attribute":

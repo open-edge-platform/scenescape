@@ -81,21 +81,11 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
       env_state_copy = dict(chain_data.env_sensor_state)
       attr_events_copy = dict(chain_data.attr_sensor_events)
 
-    # Environmental sensors: readings + exposure as structured object
+    # Environmental sensors: timestamped readings
     for sensor_id, state in env_state_copy.items():
       values = state['readings'] if 'readings' in state and state['readings'] else []
-
-      # Calculate total exposure (including current value if present)
-      exposure_total = state['exposure']['total']
-      if state['exposure']['last_value'] is not None and hasattr(scene, 'when'):
-        # Add exposure from last reading to now; clamp negative intervals to zero
-        dt = scene.when - state['exposure']['last_time']
-        if dt > 0:
-          exposure_total += state['exposure']['last_value'] * dt
-
       sensors_output[sensor_id] = {
-        'values': values,
-        'exposure': exposure_total
+        'values': values
       }
 
     # Attribute sensors: events as structured object
