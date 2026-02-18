@@ -1,0 +1,23 @@
+{
+  "infrastructure": {
+    "mqtt": {
+      "host": "localhost",
+      "port": 1883,
+      "insecure": true
+    },
+    "tracker": {
+      "healthcheck": {
+        "port": 8080
+      }
+    }
+  },
+  "observability": {
+    "logging": {
+      "level": "info"
+    }
+  },
+  "scenes": {
+    "source": "file",
+    "file_path": "scenes.json"
+  }
+}

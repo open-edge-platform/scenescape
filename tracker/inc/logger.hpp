@@ -30,25 +30,11 @@
 #include <string>
 #include <string_view>
 
-namespace tracker {
-
 // Service metadata (compile-time constants)
-// All values are injected by CMake via compile definitions
-#ifndef TRACKER_SERVICE_NAME
-    #define TRACKER_SERVICE_NAME "tracker"
-#endif
+// All values come from version.hpp (injected by CMake via compile definitions)
+#include "version.hpp"
 
-#ifndef TRACKER_SERVICE_VERSION
-    #define TRACKER_SERVICE_VERSION "dev"
-#endif
-
-#ifndef TRACKER_GIT_COMMIT
-    #define TRACKER_GIT_COMMIT "unknown"
-#endif
-
-constexpr const char* SERVICE_NAME = TRACKER_SERVICE_NAME;
-constexpr const char* SERVICE_VERSION = TRACKER_SERVICE_VERSION;
-constexpr const char* GIT_COMMIT = TRACKER_GIT_COMMIT;
+namespace tracker {
 
 // -----------------------------------------------------------------------------
 // Context structures for structured logging
@@ -219,6 +205,9 @@ public:
     static void log_info(const LogEntry& entry);
     static void log_warn(const LogEntry& entry);
     static void log_error(const LogEntry& entry);
+
+    // Check if debug logging is enabled (for conditional expensive computations)
+    [[nodiscard]] static bool should_log_debug();
 
 private:
     Logger() = default;

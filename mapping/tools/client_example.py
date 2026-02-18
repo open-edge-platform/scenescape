@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import List
 import argparse
 import urllib3
+import os
+import time
 
 # Disable SSL warnings when using --insecure flag
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -30,6 +32,8 @@ def encodeImageToBase64(image_path: str) -> str:
 def sendReconstructionRequest(
   api_url: str,
   image_paths: List[str],
+  video_path: str,
+  use_keyframes: bool = True,
   output_format: str = "glb",
   mesh_type: str = "mesh",
   verify_ssl: bool = True
@@ -37,26 +41,36 @@ def sendReconstructionRequest(
   """Send reconstruction request to the API"""
 
   # Prepare image data
-  images = []
-  for img_path in image_paths:
-    if not Path(img_path).exists():
-      raise FileNotFoundError(f"Image not found: {img_path}")
-
-    encoded_data = encodeImageToBase64(img_path)
-    images.append({
-      "data": encoded_data,
-      "filename": Path(img_path).name
-    })
+  files = []
 
   # Prepare request payload
   payload = {
-    "images": images,
     "output_format": output_format,
-    "mesh_type": mesh_type
+    "mesh_type": mesh_type,
+    "use_keyframes": use_keyframes
   }
 
+  if image_paths:
+    for img_path in image_paths:
+      p = Path(img_path)
+      if not p.exists():
+        raise FileNotFoundError(f"Image not found: {img_path}")
+      files.append(("images", (p.name, p.open("rb"), "image/jpeg")))
+
+  if video_path:
+    p = Path(video_path)
+    if not p.exists():
+      raise FileNotFoundError(f"Video not found: {video_path}")
+    files.append(("video", (p.name, p.open("rb"), "video/mp4")))
+
   print(f"Sending request to {api_url}/reconstruction")
-  print(f"- Images: {len(images)}")
+  if image_paths and video_path:
+    print(f"- Images: {len([f for f in files if f[0] == 'images'])}")
+    print(f"- Video: {video_path}")
+  elif image_paths:
+    print(f"- Images: {len(files)}")
+  else:
+    print(f"- Video: {video_path}")
   print(f"- Output format: {output_format}")
   print(f"- Mesh type: {mesh_type}")
 
@@ -64,17 +78,36 @@ def sendReconstructionRequest(
     # Send POST request
     response = requests.post(
       f"{api_url}/reconstruction",
-      json=payload,
-      headers={"Content-Type": "application/json"},
-      timeout=300,  # 5 minute timeout
+      data=payload,
+      files=files,
+      timeout=int(os.getenv("GUNICORN_TIMEOUT", "300")), # 5 minute timeout
       verify=verify_ssl
     )
 
-    if response.status_code == 200:
-      result = response.json()
-      model_used = result.get('model', 'unknown')
-      print(f"✅ Success! Model: {model_used}, Processing time: {result['processing_time']:.2f}s")
-      return result
+    if response.status_code in (200, 202):
+      started = response.json()
+
+      if "processing_time" in started and started.get("success"):
+        model_used = started.get("model", "unknown")
+        print(f"✅ Success! Model: {model_used}, Processing time: {started['processing_time']:.2f}s")
+        return started
+
+      rid = started.get("request_id")
+      if not rid:
+        print(f"❌ Unexpected response (no request_id): {started}")
+        return None
+
+      print(f"✅ Accepted. request_id={rid}. Polling for completion...")
+      final = wait_for_result(api_url, rid, verify_ssl=verify_ssl, timeout_s=int(os.getenv("GUNICORN_TIMEOUT", "300")) + 120)
+
+      model_used = final.get("model", "unknown")
+      pt = final.get("processing_time", None)
+      if pt is not None:
+        print(f"✅ Complete! Model: {model_used}, Processing time: {pt:.2f}s")
+      else:
+        print(f"✅ Complete! Model: {model_used}")
+      return final
+
     else:
       print(f"❌ Error {response.status_code}: {response.text}")
       return None
@@ -133,11 +166,41 @@ def checkAPIHealth(api_url: str, verify_ssl: bool = True):
     print(f"❌ Failed to connect to API: {e}")
     return False
 
+def wait_for_result(api_url: str, request_id: str, verify_ssl: bool, timeout_s: int = 600, poll_s: float = 2.0):
+  """Poll /reconstruction/status/<id> until complete/failed or timeout."""
+  deadline = time.time() + timeout_s
+  status_url = f"{api_url}/reconstruction/status/{request_id}"
+
+  while time.time() < deadline:
+    r = requests.get(status_url, timeout=10, verify=verify_ssl)
+    if not r.ok:
+      raise RuntimeError(f"Status check failed {r.status_code}: {r.text}")
+
+    st = r.json()
+    state = st.get("state")
+    msg = st.get("message") or ""
+    err = st.get("error")
+
+    print(f"state={state} {('- ' + msg) if msg else ''}")
+
+    if state == "complete":
+      result = (st.get("result") or {})
+      if not result.get("success", True):
+        raise RuntimeError(result.get("error", "Reconstruction failed"))
+      return result
+
+    if state == "failed":
+      raise RuntimeError(err or "Reconstruction failed")
+
+    time.sleep(poll_s)
+
 def main():
   parser = argparse.ArgumentParser(description="3D Mapping Models API Client")
   parser.add_argument("--api-url", default="https://localhost:8444",
              help="API server URL (default: https://localhost:8444)")
-  parser.add_argument("--images", nargs="+", required=False,
+  parser.add_argument("--video",
+             help="Path to input video file")
+  parser.add_argument("--images", nargs="+",
              help="Paths to input images")
   parser.add_argument("--output", default="reconstruction.glb",
              help="Output GLB file path (default: reconstruction.glb)")
@@ -145,11 +208,12 @@ def main():
              help="Output format (default: glb)")
   parser.add_argument("--mesh-type", choices=["mesh", "pointcloud"], default="mesh",
              help="Output type: mesh (watertight) or pointcloud")
+  parser.add_argument("--all-frames", dest="use_keyframes", action="store_false",
+            help="Process all frames when processing a video")
   parser.add_argument("--health-check", action="store_true",
              help="Only check API health and model information")
   parser.add_argument("--insecure", action="store_true",
              help="Disable SSL certificate verification (for self-signed certificates)")
-
   args = parser.parse_args()
 
   # Determine SSL verification setting
@@ -162,14 +226,17 @@ def main():
   if args.health_check:
     return 0
 
-  if not args.images:
-    print("❌ Please provide image paths with --images")
+  # Validate that at least one input is provided
+  if not args.images and not args.video:
+    print("❌ Error: At least one of --images or --video must be provided")
     return 1
 
   # Send reconstruction request
   result = sendReconstructionRequest(
     args.api_url,
     args.images,
+    args.video,
+    args.use_keyframes,
     args.format,
     args.mesh_type,
     verify_ssl=verify_ssl

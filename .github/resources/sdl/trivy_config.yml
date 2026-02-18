@@ -2,16 +2,27 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+exit-code: 1
 format: "table"
 ignorefile: ".github/resources/sdl/.trivyignore.yaml"
-scan:
-  skip-files:
-    - "scene_common/Dockerfile"
-    - "tests/security/fuzzing/Dockerfile"
-  skip-dirs:
-    - ".github"
+list-all-pkgs: true
 misconfiguration:
   helm:
     set:
       - supass=demo
       - pgserver.password=demo
+scan:
+  scanners:
+    - vuln
+    - misconfig
+    - secret
+  skip-files:
+    - "scene_common/Dockerfile"
+    - "tests/security/fuzzing/Dockerfile"
+  skip-dirs:
+    - ".github"
+severity:
+  - CRITICAL
+  - HIGH
+vulnerability:
+  ignore-unfixed: true

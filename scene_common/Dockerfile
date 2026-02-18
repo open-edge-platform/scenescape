@@ -10,6 +10,9 @@ USER root
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# Update and upgrade base OS packages
+RUN apt update && apt upgrade -y
+
 # install common build dependencies
 RUN : \
     && apt-get update \
@@ -28,6 +31,9 @@ RUN : \
         # needed by fast_geometry
         python3-scipy \
     && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and setuptools to latest versions
+RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel
 
 # install common dependencies
 COPY ./scene_common/src /tmp/scene_common

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -113,8 +113,9 @@ class Scene(models.Model):
   name = models.CharField(max_length=200, unique=True)
   map_type = models.CharField("Map Type", max_length=20, choices=MAP_TYPE_CHOICES, default='map_upload', null=True)
   thumbnail = models.ImageField(default=None, null=True, editable=False)
-  map = models.FileField("Scene map as .glb or .ply or image or .zip", default=None, null=True, blank=True,
-                            validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip","ply"]),
+  map = models.FileField("Scene map as .glb or .ply or image or .zip or video", default=None, null=True, blank=True,
+                            validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip","ply","mp4",
+                            "mov", "mkv", "webm", "avi"]),
                                         validate_map_file])
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
                             validators=[MinValueValidator(np.nextafter(0, 1))])
@@ -709,6 +710,9 @@ class Cam(Sensor):
                                             help_text="Enable to directly apply the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings.")
   camera_pipeline = models.TextField(max_length=5000, null=True, blank=True,
                                      help_text="The camera pipeline string in gst-launch-1.0 syntax which will be applied in camera VA pipeline once 'Use Camera Pipeline' is enabled and 'Save Camera' button is clicked. Please review and/or adjust it before applying.")
+  detection_labels = models.TextField(max_length=2000, null=True, blank=True,
+                                   verbose_name="Detection Labels",
+                                   help_text="Detection labels to use, one per line")
 
   @property
   def transformation(self):
@@ -791,6 +795,7 @@ class Cam(Sensor):
       'use_camera_pipeline': self.use_camera_pipeline,
       'camera_pipeline': self.camera_pipeline,
       'undistort': self.undistort,
+      'detection_labels': self.detection_labels,
     }
     return camera_data
 

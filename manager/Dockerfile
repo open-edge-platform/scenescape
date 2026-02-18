@@ -57,6 +57,9 @@ ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
 ARG FORCE_VAAPI
 
+# Update and upgrade base OS packages
+RUN apt update && apt upgrade -y
+
 RUN : \
 && apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -77,6 +80,10 @@ RUN : \
         sudo \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and setuptools to latest versions
+RUN pip3 install --no-cache-dir --upgrade pip \
+    && pip3 install --no-cache-dir --upgrade setuptools wheel
 
 # Runtime dependencies
 COPY ./manager/requirements-runtime.txt /tmp

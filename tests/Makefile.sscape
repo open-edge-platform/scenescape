@@ -55,6 +55,20 @@ geospatial-unit: # NEX-T17406
 markerless-unit: # NEX-T10497
 	$(call unit-docker-compose-recipe, markerless, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/web.yml:$(COMPOSE)/autocalibration.yml, $(IMAGE)-autocalibration-test)
 
+mapping-unit:
+	$(eval LOGFILE=$(TEST_DATA)/unit/$@-$(shell date -u +"%F-%T").log)
+	@set -exo pipefail \
+	  ; echo RUNNING TEST $@ \
+	  ; cd .. \
+	  ; mkdir -p $(shell dirname $(LOGFILE)) \
+	  ; docker run --rm \
+	      --entrypoint pytest \
+	      -w /home/scenescape/SceneScape/tests \
+	      $(IMAGE)-mapping-test:$(VERSION) \
+	      -v $(GENERATE_JUNITXML_UNITTEST) 2>&1 | tee -i $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+	  ; echo END TEST $@
+
 mesh-util-unit:
 	$(call unit-recipe, mesh_util, $(IMAGE)-controller-test)
 

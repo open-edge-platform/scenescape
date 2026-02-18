@@ -5,6 +5,9 @@ FROM ubuntu:24.04
 
 USER root
 
+# Update and upgrade base OS packages
+RUN apt update && apt upgrade -y
+
 RUN apt-get update && apt-get install -y --no-install-recommends wget python3 python3-pip && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user

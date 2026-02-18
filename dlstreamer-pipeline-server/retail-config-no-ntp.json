@@ -31,6 +31,13 @@
                 "publish_frame": {
                   "type": "boolean",
                   "description": "Publish frame to mqtt"
+                },
+                "detection_labels": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "List of detection labels to filter (e.g., [\"person\", \"car\"]). If empty, all labels are published."
                 }
               }
             }
@@ -40,7 +47,8 @@
           "parameters": {
             "camera_config": {
               "cameraid": "camera1",
-              "metadatagenpolicy": "detectionPolicy"
+              "metadatagenpolicy": "detectionPolicy",
+              "detection_labels": ["person"]
             }
           }
         }
@@ -71,6 +79,13 @@
                 "publish_frame": {
                   "type": "boolean",
                   "description": "Publish frame to mqtt"
+                },
+                "detection_labels": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "List of detection labels to filter (e.g., [\"person\", \"car\"]). If empty, all labels are published."
                 }
               }
             }
@@ -80,7 +95,8 @@
           "parameters": {
             "camera_config": {
               "cameraid": "camera2",
-              "metadatagenpolicy": "detectionPolicy"
+              "metadatagenpolicy": "detectionPolicy",
+              "detection_labels": ["person"]
             }
           }
         }
