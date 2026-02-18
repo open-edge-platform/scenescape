@@ -355,7 +355,7 @@ jobs:
       - name: Get all test cases from test files
         id: get_test_cases
         run: |
-          grep -rh "# NEX-T" tests/ | sed -n 's/^\([^:]*\):.*# \(NEX-T[^ ]*\).*/\2 \1/p' | sort > all_test_cases.txt
+          grep -rh "# NEX-T" tests/ | sed -n 's/^\([^:]*\):.*# \(NEX-T[0-9]*\).*/\2 \1/p' | sort > all_test_cases.txt
       - name: Get Tests results
         id: get_test_results
         shell: bash
