@@ -9,7 +9,7 @@
   labels: ["dependencies", "renovate", "tracker"],
   schedule: ["before 10am on the first day of the month"],
   timezone: "UTC",
-  reviewers: ["saratpoluri", "dmytroye", "tdorauintc"],
+  reviewers: ["saratpoluri", "dmytroye", "tdorauintc", "ltalarcz"],
   packageRules: [
     {
       description: "Conan dependencies - group patch updates (including security fixes)",
