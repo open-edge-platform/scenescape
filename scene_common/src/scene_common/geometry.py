@@ -46,8 +46,16 @@ class Region:
     if 'area' in info and info['area'] == "circle":
       if not hasattr(self, 'center') or self.center is None:
         raise ValueError(f"Circle region '{self.name}' has invalid center value")
+      if 'radius' not in info or info['radius'] is None:
+        raise ValueError(f"Circle region '{self.name}' requires a positive 'radius' value")
+      try:
+        radius = float(info['radius'])
+      except (TypeError, ValueError):
+        raise ValueError(f"Circle region '{self.name}' requires a numeric 'radius' value")
+      if radius <= 0:
+        raise ValueError(f"Circle region '{self.name}' requires a positive 'radius' value")
       self.area = Region.REGION_CIRCLE
-      self.radius = info['radius']
+      self.radius = radius
       self.boundingBox = Rectangle(self.center - (self.radius, self.radius),
                                    self.center + (self.radius, self.radius))
     elif 'area' in info and info['area'] == "scene":
