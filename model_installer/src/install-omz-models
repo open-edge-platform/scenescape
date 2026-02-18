@@ -12,15 +12,11 @@ from argparse import ArgumentParser
 from generate_model_config import generate_model_config
 
 TIMEOUT = 600
-NUM_RETRIES = "6"
-OMZ_DIR = "/usr/local/lib/open_model_zoo"
 MODEL_DIR = os.environ.get("MODEL_DIR") if "MODEL_DIR" in os.environ else "/workspace/models"
 OVMS_MODEL_DIR = os.path.join(MODEL_DIR, "ovms")
 MODEL_CACHE_DIR = os.path.join(OVMS_MODEL_DIR, "cache")
 OVMS_CONFIGFILE = f"{MODEL_DIR}/ovms-config.json"
 OMZ_BASE_URL = "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1"
-# Special case: some public models may have a different base URL
-MODEL_BASE_URLS = {}
 MODEL_PROC_FOLDER_URL = "https://raw.githubusercontent.com/open-edge-platform/edge-ai-libraries/refs/heads/release-2025.2.0/libraries/dl-streamer/samples/gstreamer/model_proc/intel/"
 
 _DEFAULT_MODELS = [
@@ -32,20 +28,8 @@ _DEFAULT_MODELS = [
   'vehicle-attributes-recognition-barrier-0042',
 ]
 
-_OCR_MODELS = _DEFAULT_MODELS
-
-_ALL_MODELS = _DEFAULT_MODELS
-
-# TODO: use download_public_models.sh for downloading supported models
-# see: https://github.com/open-edge-platform/edge-ai-libraries/tree/main/libraries/dl-streamer/samples
-_PUBLIC_MODELS = [
-]
-
 def _build_argparser():
   parser = ArgumentParser()
-  parser.add_argument("--default", action="store_true", help="Download default models")
-  parser.add_argument("--ocr", action="store_true", help="Download OCR models")
-  parser.add_argument("--all", action="store_true", help="Download all models")
   parser.add_argument("--precisions", help="Donwload models with specific precisions."
                       "Comma separated value, with no extra spaces.",
                       type=str, default="FP32")
@@ -84,7 +68,7 @@ def _download_model(model, precisions, model_subdir, download_proc):
   exit_code = 0
   for prec in precisions.split(","):
     prec = prec.strip()
-    model_url_dir = MODEL_BASE_URLS.get(model, f"{OMZ_BASE_URL}/{model}/{prec}")
+    model_url_dir = f"{OMZ_BASE_URL}/{model}/{prec}"
     dest_dir = os.path.join(MODEL_DIR, model_subdir, model, prec)
     _make_dir(dest_dir)
     try:
@@ -132,12 +116,7 @@ def _copy_files(source, destination):
 
 def main():
   args = _build_argparser().parse_args()
-  if args.all:
-    models = _ALL_MODELS
-  elif args.ocr:
-    models = _OCR_MODELS
-  else:
-    models = _DEFAULT_MODELS
+  models = _DEFAULT_MODELS
 
   precisions = args.precisions
   proc_files = args.model_proc
@@ -153,7 +132,7 @@ def main():
   ovms_config_len = len(ovms_config["model_config_list"])
 
   for model in models:
-    model_subdir = "public" if model in _PUBLIC_MODELS else "intel"
+    model_subdir = "intel"
     if not os.path.isdir(os.path.join(MODEL_DIR, model_subdir, model)):
       # Download model
       _download_model(model, precisions, model_subdir, proc_files)
