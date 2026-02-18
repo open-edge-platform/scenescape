@@ -8,6 +8,7 @@ import requests
 from http import HTTPStatus
 from urllib.parse import urljoin
 
+
 class RESTResult(dict):
   def __init__(self, statusCode, errors=None):
     super().__init__()
@@ -26,22 +27,23 @@ class RESTResult(dict):
   def text(self):
     return json.dumps(dict(self))
 
-class RESTClient:  
-  def __init__(self, base_url=None, token=None, auth=None, 
-             rootcert=None, verify_ssl=False, timeout=10):
+
+class RESTClient:
+  def __init__(self, base_url=None, token=None, auth=None,
+               rootcert=None, verify_ssl=False, timeout=10):
     self.base_url = base_url
-    
+
     if self.base_url and not self.base_url.endswith("/"):
       self.base_url = self.base_url + "/"
-    
+
     # Handle SSL verification (support both bool and path)
     self.verify_ssl = verify_ssl if verify_ssl is not False else False
     if rootcert:
       self.verify_ssl = rootcert
-    
+
     self.timeout = timeout
     self.session = requests.session()
-    
+
     # If token provided directly, use it (skip authentication)
     if token:
       self.token = token
@@ -68,10 +70,10 @@ class RESTClient:
     res = self.authenticate(user, pw)
     if not res:
       error_message = (
-        f"Failed to authenticate\n"
-        f"  URL: {self.base_url}\n"
-        f"  status: {res.statusCode}\n"
-        f"  errors: {res.errors}"
+          f"Failed to authenticate\n"
+          f"  URL: {self.base_url}\n"
+          f"  status: {res.statusCode}\n"
+          f"  errors: {res.errors}"
       )
       raise RuntimeError(error_message)
     return
@@ -85,24 +87,24 @@ class RESTClient:
         "Content-Type": "application/json"
     }
     if hasattr(self, 'token') and self.token:
-        headers["Authorization"] = f"Token {self.token}"
+      headers["Authorization"] = f"Token {self.token}"
     return headers
 
   def request(self, method, path, **kwargs):
-    """    
+    """
     Returns raw requests.Response object for compatibility with API tests
     """
     # Ensure path starts with /
     if not path.startswith('/'):
-        path = '/' + path
-    
+      path = '/' + path
+
     url = f"{self.base_url}{path}"
-    
+
     # Merge headers
     headers = self._headers()
     if 'headers' in kwargs:
-        headers.update(kwargs.pop('headers'))
-    
+      headers.update(kwargs.pop('headers'))
+
     return self.session.request(
         method=method,
         url=url,
@@ -123,10 +125,11 @@ class RESTClient:
         content = reply.content
     else:
       content = {
-        'data': reply.content,
+          'data': reply.content,
       }
       if 'Content-Disposition' in reply.headers:
-        fname = re.findall("filename=(.+)", reply.headers['Content-Disposition'])[0]
+        fname = re.findall("filename=(.+)",
+                           reply.headers['Content-Disposition'])[0]
         content['filename'] = fname
       decoded = True
 
@@ -155,9 +158,13 @@ class RESTClient:
       reply = self.session.post(auth_url, data={'username': user, 'password': password},
                                 verify=self.verify_ssl)
     except requests.exceptions.ConnectionError as err:
-      result = RESTResult("ConnectionError", errors=("Connection error", str(err)))
+      result = RESTResult(
+          "ConnectionError", errors=(
+              "Connection error", str(err)))
     else:
-      result = self.decodeReply(reply, HTTPStatus.OK, successContent={'authenticated': True})
+      result = self.decodeReply(
+          reply, HTTPStatus.OK, successContent={
+              'authenticated': True})
       if reply.status_code == HTTPStatus.OK:
         data = json.loads(reply.content)
         self.token = data['token']
@@ -174,7 +181,8 @@ class RESTClient:
     if not files:
       data_args = {'json': data}
     elif self.dataIsNested(data):
-      raise ValueError("requests library can't combine files and nested dictionaries")
+      raise ValueError(
+          "requests library can't combine files and nested dictionaries")
     return data_args
 
   def _create(self, endpoint, data, files=None):
@@ -235,7 +243,10 @@ class RESTClient:
     """
     full_path = urljoin(self.base_url, endpoint)
     headers = {'Authorization': f"Token {self.token}"}
-    reply = self.session.delete(full_path, headers=headers, verify=self.verify_ssl)
+    reply = self.session.delete(
+        full_path,
+        headers=headers,
+        verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.OK)
 
   def _separateFiles(self, data, fields):
@@ -682,4 +693,3 @@ class RESTClient:
     with open(zip_file_path, "rb") as f:
       files = {"zipFile": (os.path.basename(zip_file_path), f)}
       return self._create(endpoint, data={}, files=files)
-    
