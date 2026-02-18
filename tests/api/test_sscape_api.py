@@ -249,7 +249,7 @@ def execute_step(step, step_number, total_steps):
     success, errors = compare_expected_json_body(response_body, expected_body)
     if not success:
       error_msg = "Response body validation failed: " + \
-          "".join(f"  - {e}" for e in errors)
+          "\n".join(f"  - {e}" for e in errors)
       return False, response, error_msg
 
   # Save variables
