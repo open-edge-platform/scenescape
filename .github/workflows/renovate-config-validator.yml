@@ -2,18 +2,6 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# Renovate configuration validator
-#
-# This workflow validates changes proposed into Renovate configuration file
-# (.github/renovate.json5) and prevents invalid configuration to be used by Renovate.
-#
-# Required Secrets:
-# - None
-#
-# Automatically triggered on:
-# - Pull requests to .github/renovate.json5.
-#
-
 name: "[Updates] Validate Renovate configuration"
 
 on:
@@ -41,7 +29,7 @@ jobs:
       - name: "Validate configuration"
         run: |
           # renovate: datasource=docker
-          export RENOVATE_IMAGE=ghcr.io/renovatebot/renovate:43.24
+          export RENOVATE_IMAGE=renovate/renovate:43.24
           docker run --rm --entrypoint "renovate-config-validator" \
           -v "${{ github.workspace }}/.github/renovate.json5":"/renovate.json5" \
           ${RENOVATE_IMAGE} "/renovate.json5"
