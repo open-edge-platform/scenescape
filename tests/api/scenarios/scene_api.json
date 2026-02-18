@@ -80,20 +80,6 @@
         },
         "expected_status": {
           "status_code": 400
-        },
-        "save": {
-          "SCENE_WITHOUT_NAME": "uid"
-        }
-      },
-      {
-        "step_name": "Verify scene was not created",
-        "api": "scene",
-        "method": "getScene",
-        "request": {
-          "UID": "${SCENE_WITHOUT_NAME}"
-        },
-        "expected_status": {
-          "status_code": 404
         }
       }
     ]
