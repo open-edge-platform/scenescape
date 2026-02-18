@@ -29,12 +29,12 @@ class RESTResult(dict):
 
 
 class RESTClient:
-  def __init__(self, base_url=None, token=None, auth=None,
+  def __init__(self, url=None, token=None, auth=None,
                rootcert=None, verify_ssl=False, timeout=10):
-    self.base_url = base_url
+    self.url = url
 
-    if self.base_url and not self.base_url.endswith("/"):
-      self.base_url = self.base_url + "/"
+    if self.url and not self.url.endswith("/"):
+      self.url = self.url + "/"
 
     # Handle SSL verification (support both bool and path)
     self.verify_ssl = verify_ssl if verify_ssl is not False else False
@@ -71,7 +71,7 @@ class RESTClient:
     if not res:
       error_message = (
           f"Failed to authenticate\n"
-          f"  URL: {self.base_url}\n"
+          f"  URL: {self.url}\n"
           f"  status: {res.statusCode}\n"
           f"  errors: {res.errors}"
       )
@@ -98,7 +98,7 @@ class RESTClient:
     if not path.startswith('/'):
       path = '/' + path
 
-    url = f"{self.base_url}{path}"
+    url = f"{self.url}{path}"
 
     # Merge headers
     headers = self._headers()
@@ -153,7 +153,7 @@ class RESTClient:
     @return                     RESTResult with 'authenticated': True upon success,
                                 or empty with `errors` set.
     """
-    auth_url = urljoin(self.base_url, "auth")
+    auth_url = urljoin(self.url, "auth")
     try:
       reply = self.session.post(auth_url, data={'username': user, 'password': password},
                                 verify=self.verify_ssl)
@@ -195,7 +195,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    full_path = urljoin(self.base_url, endpoint)
+    full_path = urljoin(self.url, endpoint)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
@@ -211,7 +211,7 @@ class RESTClient:
     @return                     RESTResult with decoded object(s) on success,
                                 empty with `errors` set on failure
     """
-    full_path = urljoin(self.base_url, endpoint)
+    full_path = urljoin(self.url, endpoint)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.get(full_path, params=parameters, headers=headers,
                              verify=self.verify_ssl)
@@ -227,7 +227,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    full_path = urljoin(self.base_url, endpoint)
+    full_path = urljoin(self.url, endpoint)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
@@ -241,7 +241,7 @@ class RESTClient:
     @return                     RESTResult with deleted object's uid on success,
                                 empty with `errors` set on failure
     """
-    full_path = urljoin(self.base_url, endpoint)
+    full_path = urljoin(self.url, endpoint)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.delete(
         full_path,

@@ -35,7 +35,7 @@ logger.info(
 API_TOKEN = os.environ.get("API_TOKEN")
 BASE_URL = os.environ.get("API_BASE_URL", "https://localhost/api/v1")
 
-http_client = RESTClient(base_url=BASE_URL, token=API_TOKEN, verify_ssl=False)
+http_client = RESTClient(url=BASE_URL, token=API_TOKEN, verify_ssl=False)
 
 saved_vars = {}
 
