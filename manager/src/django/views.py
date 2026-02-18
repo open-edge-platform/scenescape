@@ -8,6 +8,9 @@ import time
 import traceback
 import uuid
 from collections import namedtuple
+import tempfile
+import subprocess
+from pathlib import Path
 
 from django.conf import settings
 from django.contrib.admin.views.decorators import user_passes_test
@@ -19,7 +22,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth import user_logged_in, user_login_failed
 from django.contrib.sessions.models import Session
 from rest_framework.authtoken.models import Token
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.dispatch.dispatcher import receiver
 from django.http import FileResponse, HttpResponse, HttpResponseNotFound, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -891,6 +894,57 @@ def generate_camera_pipeline(request, sensor_id):
     return JsonResponse({"error": "Error generating pipeline"}, status=500)
 
 @superuser_required
+def generate_mesh_status(request, pk):
+  scene = get_object_or_404(Scene, pk=pk)
+  request_id = request.GET.get("request_id")
+  if not request_id:
+    return JsonResponse({"success": False, "error": "missing request_id"}, status=400)
+
+  try:
+    from .mesh_generator import MeshGenerator
+    mesh_generator = MeshGenerator()
+
+    status_data = mesh_generator.mapping_client.getReconstructionStatus(request_id)
+
+    # If mapping service couldn't find it / errored, just return it
+    if not status_data.get("success"):
+      return JsonResponse(status_data, status=200)
+
+    state = status_data.get("state")
+
+    if state != "complete":
+      return JsonResponse(status_data, status=200)
+
+    with transaction.atomic():
+      scene = Scene.objects.select_for_update().get(pk=scene.pk)
+
+      if hasattr(scene, "mesh_state") and scene.mesh_state == "complete":
+        status_data["finalized"] = True
+        return JsonResponse(status_data, status=200)
+      finalize_result = mesh_generator.finalizeMeshFromStatus(scene, request_id)
+
+      if not finalize_result.get("success"):
+        if hasattr(scene, "mesh_state"):
+          scene.mesh_state = "failed"
+          scene.save(update_fields=["mesh_state"])
+        return JsonResponse(finalize_result, status=500)
+
+      if hasattr(scene, "mesh_state"):
+        scene.mesh_state = "complete"
+        scene.save(update_fields=["mesh_state"])
+
+    status_data["finalized"] = True
+    return JsonResponse(status_data, status=200)
+
+  except Exception as e:
+    log.error(f"Mesh status error: {e}")
+    log.error(f"Traceback: {traceback.format_exc()}")
+    return JsonResponse({
+      "success": False,
+      "error": "An internal error occurred while getting mesh status",
+    }, status=500)
+
+@superuser_required
 def generate_mesh(request, pk):
   """Generate 3D mesh from scene cameras using mapping service."""
   if request.method != 'POST':
@@ -899,31 +953,29 @@ def generate_mesh(request, pk):
   try:
     from .mesh_generator import MeshGenerator
 
-    # Get request parameters
-    request_data = json.loads(request.body.decode('utf-8'))
-    mesh_type = request_data.get('mesh_type', 'mesh')
-
     # Get scene object
     scene = get_object_or_404(Scene, pk=pk)
 
     # Initialize mesh generator
+    mesh_type = request.POST.get("mesh_type", "mesh")
+    uploaded_map = request.FILES.get("map", None)
     mesh_generator = MeshGenerator()
 
     # Generate mesh
-    result = mesh_generator.generateMeshFromScene(scene, mesh_type)
-
-    if result['success']:
+    result = mesh_generator.startMeshGeneration(scene, mesh_type, uploaded_map=uploaded_map)
+    if result.get("success"):
       return JsonResponse({
         "success": True,
         "message": "Mesh generated successfully",
-        "processing_time": result.get('processing_time', 0)
+        "request_id": result["request_id"],
+        "processing_time": result.get("processing_time", 0),
       })
-    else:
-      return JsonResponse({
-        "success": False,
-        "error": result.get('error', 'Unknown error occurred while generating mesh'),
-        "processing_time": result.get('processing_time', 0)
-      }, status=400)
+
+    return JsonResponse({
+      "success": False,
+      "error": result.get("error", "Unknown error occurred while generating mesh"),
+      "processing_time": result.get("processing_time", 0),
+    }, status=400)
 
   except Exception as e:
     log.error(f"Mesh generation error: {e}")
@@ -931,7 +983,7 @@ def generate_mesh(request, pk):
     log.error(f"Traceback: {traceback.format_exc()}")
     return JsonResponse({
       "success": False,
-      "error": f"An internal error occurred while generating mesh"
+      "error": "An internal error occurred while generating mesh",
     }, status=500)
 
 @superuser_required
