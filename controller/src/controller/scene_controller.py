@@ -185,12 +185,12 @@ class SceneController:
     now = get_epoch_time()
     if self.shouldPublish(scene.last_published_detection[otype], now, 1/scene.external_update_rate):
       scene.last_published_detection[otype] = get_epoch_time()
-      
+
       # Rebuild detections list with sensor data included
       jdata = jdata_base.copy()
       jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=True)
       jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
-      
+
       scene_hierarchy_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL, scene_id=scene.uid,
                                                  thing_type=otype)
       self.pubsub.publish(scene_hierarchy_topic, jstr)
@@ -343,7 +343,7 @@ class SceneController:
           event_data['entered'].append(detections_dict[item.gid])
         else:
           missing_objs.append(item)
-    
+
     # Build any objects not in detections_dict (e.g., from sensor events)
     if missing_objs:
       entered_objs = buildDetectionsList(missing_objs, scene, False, include_sensors=True)

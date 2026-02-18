@@ -63,7 +63,7 @@ class CacheManager:
         # Creating new scene - check if there was an old scene with sensor cache
         old_scene = self._old_scene_cache.get(uid) if hasattr(self, '_old_scene_cache') and self._old_scene_cache else None
         scene = Scene.deserialize(scene_data)
-        
+
         # Restore sensor cache from old scene if it existed (after scene invalidation/recreation)
         # Note: Sensors without cached values (never received data) will naturally skip restoration
         # since hasattr checks will return False
@@ -96,11 +96,11 @@ class CacheManager:
       for sensorID in scene.sensors.keys():
         self._cached_scenes_by_sensorID[sensorID] = scene
       self.cached_scenes_by_uid[scene.uid] = scene
-    
+
     # Clear old scene cache after processing all scenes
     if hasattr(self, '_old_scene_cache'):
       self._old_scene_cache = None
-    
+
     self._cache_refreshed = get_epoch_time()
     return
 

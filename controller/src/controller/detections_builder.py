@@ -71,15 +71,15 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
   chain_data = aobj.chain_data
   if len(chain_data.regions):
     obj_dict['regions'] = chain_data.regions
-  
+
   # Build sensor output from new structure (only if include_sensors is True)
   if include_sensors:
     sensors_output = {}
-    
+
     # Environmental sensors: readings + exposure as structured object
     for sensor_id, state in chain_data.env_sensor_state.items():
       values = state['readings'] if 'readings' in state and state['readings'] else []
-      
+
       # Calculate total exposure (including current value if present)
       exposure_total = state['exposure']['total']
       if state['exposure']['last_value'] is not None and hasattr(scene, 'when'):
@@ -87,22 +87,22 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
         dt = scene.when - state['exposure']['last_time']
         if dt > 0:
           exposure_total += state['exposure']['last_value'] * dt
-      
+
       sensors_output[sensor_id] = {
         'values': values,
         'exposure': exposure_total
       }
-    
+
     # Attribute sensors: events as structured object
     for sensor_id, events in chain_data.attr_sensor_events.items():
       if events:
         sensors_output[sensor_id] = {
           'values': events
         }
-    
+
     if sensors_output:
       obj_dict['sensors'] = sensors_output
-  
+
   if hasattr(aobj, 'confidence'):
     obj_dict['confidence'] = aobj.confidence
   if hasattr(aobj, 'similarity'):
