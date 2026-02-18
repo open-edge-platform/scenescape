@@ -326,6 +326,7 @@ class Scene(SceneModel):
     if objects_in_sensor:
       if sensor.singleton_type == "environmental":
         # Incremental exposure tracking with value-change detection
+        cur_value_float = float(cur_value)
         for obj in objects_in_sensor:
           if sensor_id in obj.chain_data.env_sensor_state:
             # Update exposure incrementally
@@ -335,21 +336,21 @@ class Scene(SceneModel):
             
             if last_value is not None:
               dt = timestamp_epoch - last_time
-              avg_value = (last_value + float(cur_value)) / 2.0
+              avg_value = (last_value + cur_value_float) / 2.0
               state['exposure']['total'] += avg_value * dt
             
             state['exposure']['last_time'] = timestamp_epoch
-            state['exposure']['last_value'] = float(cur_value)
+            state['exposure']['last_value'] = cur_value_float
             
             # Update readings array: append if value changed, update timestamp if same
             if 'readings' not in state:
               state['readings'] = []
-            if state['readings'] and state['readings'][-1][1] == cur_value:
+            if state['readings'] and state['readings'][-1][1] == cur_value_float:
               # Value unchanged - update timestamp
-              state['readings'][-1] = (timestamp_str, cur_value)
+              state['readings'][-1] = (timestamp_str, cur_value_float)
             else:
               # Value changed - append new reading
-              state['readings'].append((timestamp_str, cur_value))
+              state['readings'].append((timestamp_str, cur_value_float))
           else:
             # First reading - initialize from entry time (or first_seen for scene-wide sensors)
             entry_str = obj.chain_data.regions.get(sensor_id, {}).get('entered')
@@ -359,14 +360,14 @@ class Scene(SceneModel):
             
             entry_epoch = get_epoch_time(entry_str)
             dt = timestamp_epoch - entry_epoch
-            initial_exposure = float(cur_value) * dt
+            initial_exposure = cur_value_float * dt
             
             obj.chain_data.env_sensor_state[sensor_id] = {
-              'readings': [(timestamp_str, cur_value)],
+              'readings': [(timestamp_str, cur_value_float)],
               'exposure': {
                 'total': initial_exposure,
                 'last_time': timestamp_epoch,
-                'last_value': float(cur_value)
+                'last_value': cur_value_float
               }
             }
       
