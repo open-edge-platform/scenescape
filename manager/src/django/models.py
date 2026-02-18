@@ -14,9 +14,8 @@ import numpy as np
 import paho.mqtt.client as mqtt
 from PIL import Image
 
-from django.contrib.postgres.fields import ArrayField
 from django.core.files.base import ContentFile
-from django.core.validators import FileExtensionValidator, MinValueValidator
+from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 from django.db import models, transaction
 from django.conf import settings
 from django.contrib.sessions.models import Session
@@ -995,9 +994,7 @@ class Asset3D(models.Model):
   project_to_map = models.BooleanField(choices=BOOLEAN_CHOICES, default=False, null=True)
 
   # Physics properties
-  geometric_center = ArrayField(
-    models.FloatField(),
-    size=3,
+  geometric_center = ListField(
     default=default_geometric_center,
     null=True,
     blank=True,
@@ -1005,9 +1002,7 @@ class Asset3D(models.Model):
   )
   mass = models.FloatField("Mass (kg)", default=1.0, null=True, blank=True,
                           validators=[MinValueValidator(0.0)])
-  center_of_mass = ArrayField(
-    models.FloatField(),
-    size=3,
+  center_of_mass = ListField(
     default=default_center_of_mass,
     null=True,
     blank=True,
@@ -1019,17 +1014,15 @@ class Asset3D(models.Model):
                          validators=[MinValueValidator(0.0)],
                          help_text="Time to live for track expiration (0 = infinite)")
   linear_damping = models.FloatField("Linear Damping", default=0.05, null=True, blank=True,
-                                    validators=[MinValueValidator(0.0)],
+                                    validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
                                     help_text="Resistance to linear motion (0.0 - 1.0)")
   angular_damping = models.FloatField("Angular Damping", default=0.05, null=True, blank=True,
-                                     validators=[MinValueValidator(0.0)],
+                                     validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
                                      help_text="Resistance to angular motion (0.0 - 1.0)")
   coefficient_of_restitution = models.FloatField("Coefficient of Restitution", default=0.5, null=True, blank=True,
-                                                validators=[MinValueValidator(0.0)],
+                                                validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
                                                 help_text="Bounciness for collisions (0.0 - 1.0)")
-  friction_coefficients = ArrayField(
-    models.FloatField(),
-    size=2,
+  friction_coefficients = ListField(
     default=default_friction_coefficients,
     null=True,
     blank=True,
