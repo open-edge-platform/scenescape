@@ -30,7 +30,7 @@ Model chaining allows you to combine multiple AI models in a single pipeline to 
 
 ##### Prerequisites
 
-By default, only a limited number of models is downloaded during helm chart installation, which limits the possibilities of model chaining. To enable all models supported by SceneScape model installer:
+By default, only a limited number of models is downloaded during helm chart installation, which limits the possibilities of model chaining. To enable all models:
 
 1. Configure desired model precisions (e.g., `initModels.modelPrecisions=FP16`) in `kubernetes/scenescape-chart/values.yaml`.
 2. (Re)deploy Intel® SceneScape to download the supported models.
