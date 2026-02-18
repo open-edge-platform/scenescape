@@ -98,7 +98,7 @@ class RESTClient:
     if not path.startswith('/'):
       path = '/' + path
 
-    url = f"{self.url}{path}"
+    url = urljoin(self.url, path.lstrip('/'))
 
     # Merge headers
     headers = self._headers()
