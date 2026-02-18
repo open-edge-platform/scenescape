@@ -254,7 +254,7 @@ def execute_step(step, step_number, total_steps):
 
   # Save variables
   for var_name, path in save_vars.items():
-    val = response.json() if hasattr(response, "json") else response
+    val = response_body if isinstance(response_body, (dict, list)) else response
 
     for key in path.split("."):
       if isinstance(val, dict):
