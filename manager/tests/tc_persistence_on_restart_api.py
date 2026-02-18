@@ -3,19 +3,12 @@
 # SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from scene_common.rest_client import RESTClient
-from tests.common_test_utils import record_test_result
+import logging
 
 TEST_NAME = "NEX-T10393-RESTART-API"
 CAMERA_NAME = "camtest1"
 
-def test_persistence_on_restart_api(params, record_xml_attribute):
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
-
-  rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
-  assert rest.authenticate(params["user"], params["password"])
-
+def test_persistence_on_restart_api(params, rest, result_recorder):
   sceneName = params["scene"]
 
   def _cleanup_test_artifacts(scene_uid):
@@ -34,41 +27,39 @@ def test_persistence_on_restart_api(params, record_xml_attribute):
     except Exception:
       pass
 
-  try:
-    # After restart, the scene created in the first test should still exist
-    scenes = rest.getScenes({"name": sceneName}).get("results", [])
-    assert scenes, f"Scene '{sceneName}' not found after restart"
-    assert len(scenes) == 1, \
-      f"Expected exactly one scene named '{sceneName}', found {len(scenes)}"
-    scene = scenes[0]
+  # After restart, the scene created in the first test should still exist
+  scenes = rest.getScenes({"name": sceneName}).get("results", [])
+  assert scenes, f"Scene '{sceneName}' not found after restart"
+  assert len(scenes) == 1, \
+    f"Expected exactly one scene named '{sceneName}', found {len(scenes)}"
+  scene = scenes[0]
 
-    assert scene["name"] == sceneName
-    assert scene["scale"] in (1000, 100.0), \
-      f"Expected scale 1000 or 100.0, got {scene['scale']}"
-    assert "map" in scene
+  assert scene["name"] == sceneName
+  assert scene["scale"] in (1000, 100.0), \
+    f"Expected scale 1000 or 100.0, got {scene['scale']}"
+  assert "map" in scene
 
-    scene_uid = scene["uid"]
+  scene_uid = scene["uid"]
 
-    # Validate that the camera created in the first test also survives restart.
-    cameras = rest.getCameras({"name": CAMERA_NAME}).get("results", [])
-    assert cameras, (
-      f"Expected at least one camera named '{CAMERA_NAME}' "
-      f"for scene '{sceneName}' after restart"
-    )
-    cam = cameras[0]
-    assert cam.get("name") == CAMERA_NAME, \
-      f"Camera name mismatch after restart: expected '{CAMERA_NAME}', got '{cam.get('name')}'"
-    if "scene" in cam:
-      assert cam["scene"] == scene_uid, \
-        f"Camera '{CAMERA_NAME}' is not linked to scene '{sceneName}' after restart"
+  # Validate that the camera created in the first test also survives restart.
+  cameras = rest.getCameras({"name": CAMERA_NAME}).get("results", [])
+  assert cameras, (
+    f"Expected at least one camera named '{CAMERA_NAME}' "
+    f"for scene '{sceneName}' after restart"
+  )
+  cam = cameras[0]
+  assert cam.get("name") == CAMERA_NAME, \
+    f"Camera name mismatch after restart: expected '{CAMERA_NAME}', got '{cam.get('name')}'"
+  if "scene" in cam:
+    assert cam["scene"] == scene_uid, \
+      f"Camera '{CAMERA_NAME}' is not linked to scene '{sceneName}' after restart"
 
-    print(
-      "Scene and camera persist after restart: "
-      f"scene='{sceneName}', camera name='{CAMERA_NAME}'"
-    )
+  print(
+    "Scene and camera persist after restart: "
+    f"scene='{sceneName}', camera name='{CAMERA_NAME}'"
+  )
 
-    # Cleanup so subsequent runs start clean
-    _cleanup_test_artifacts(scene_uid)
-    exit_code = 0
-  finally:
-    record_test_result(TEST_NAME, exit_code)
+  # Cleanup so subsequent runs start clean
+  _cleanup_test_artifacts(scene_uid)
+
+  result_recorder.success()
