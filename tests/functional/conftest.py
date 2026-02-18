@@ -24,6 +24,8 @@ def pytest_addoption(parser):
                    help="URL of REST server")
   parser.addoption("--scene_name", default="Demo",
                    help="name of scene to test against")
+  parser.addoption("--visibility_topic", default="regulated",
+                   help="Visibility policy: regulated, unregulated, none")
 
 @pytest.fixture
 def params(request):
