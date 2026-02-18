@@ -319,7 +319,7 @@ All methods live in `RESTClient`:
 
 1. Create or open a JSON file in `scenarios/`
 2. Add a new object to the array following the schema above
-3. Use `test_name` in the format `Visio_AI/SSCAPE/Endpoint/TestCase_No: Test case title` for consistency
+3. Use `test_name` in the format `Vision_AI/SSCAPE/Endpoint/TestCase_No: Test case title` for consistency
 4. Run with `--test_case` to verify before committing
 
-No Python changes requdired.
+No Python changes required.
