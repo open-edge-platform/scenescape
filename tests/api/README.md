@@ -98,8 +98,8 @@ Scenarios are JSON files containing an array of test cases. Each test case has o
 ### Top-level structure
 ```json
 [
-  { ...test_case_1 },
-  { ...test_case_2 }
+  { "test_name": "test_case_1" },
+  { "test_name": "test_case_2" }
 ]
 ```
 
