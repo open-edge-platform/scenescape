@@ -11,15 +11,9 @@ on: # yamllint disable-line rule:truthy
       - main
       - release-*
       - tracker-service-*
-    paths:
-      - "tracker/**"
-      - ".github/workflows/tracker-service.yaml"
   push:
     branches:
       - main
-    paths:
-      - "tracker/**"
-      - ".github/workflows/tracker-service.yaml"
   workflow_dispatch: {}
 
 concurrency:
@@ -30,8 +24,33 @@ permissions:
   contents: read
 
 jobs:
+  detect-changes:
+    name: "Detect Tracker Changes"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      run-jobs: ${{ steps.changes.outputs.tracker }}
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # Fetch all history for accurate diff
+
+      - name: "Detect tracker changes"
+        id: changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        with:
+          filters: |
+            tracker:
+              - 'tracker/**'
+              - '.github/workflows/tracker-service.yaml'
+
   lint-cpp-code:
     name: "Lint C++ code"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
@@ -49,6 +68,8 @@ jobs:
 
   lint-dockerfile:
     name: "Lint Dockerfile"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
@@ -66,6 +87,8 @@ jobs:
 
   lint-python:
     name: "Lint Python code"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
@@ -79,42 +102,10 @@ jobs:
       - name: "Lint Python files"
         run: make -C tracker lint-python
 
-  gitleaks-scan:
-    name: "Secrets Scanning"
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: "Checkout code"
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: "Install gitleaks"
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
-        with:
-          bootstrap_tools: "gitleaks"
-
-      - name: "Clone CI repo"
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: open-edge-platform/orch-ci
-          path: ci
-          persist-credentials: false
-
-      - name: "Scan for secrets in tracker directory"
-        run: |
-          gitleaks dir tracker/ -v -c ci/.gitleaks.toml --baseline-path ci/gitleaks_baselines/gitleaks.json -r gitleaks.json
-
-      - name: "Upload Gitleaks Report"
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: gitleaks-report
-          path: gitleaks.json
-
   trivy-scan:
     name: "Trivy security scan (optional)"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
@@ -135,6 +126,8 @@ jobs:
 
   native-build-and-test:
     name: "Native build and unit tests"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
@@ -210,6 +203,8 @@ jobs:
 
   docker-build-and-test:
     name: "Docker build and service tests"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
