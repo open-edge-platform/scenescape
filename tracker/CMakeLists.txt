@@ -75,6 +75,10 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/mqtt_client.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/message_handler.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene_registry.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/time_chunk_buffer.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/time_chunk_scheduler.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/tracking_worker.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/track_publisher.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/proxy_utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/topic_utils.cpp
 )

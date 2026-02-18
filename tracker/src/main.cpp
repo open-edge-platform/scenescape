@@ -18,6 +18,9 @@
 #include "mqtt_client.hpp"
 #include "scene_loader.hpp"
 #include "scene_registry.hpp"
+#include "time_chunk_buffer.hpp"
+#include "time_chunk_scheduler.hpp"
+#include "track_publisher.hpp"
 
 #include <rv/tracking/TrackedObject.hpp>
 
@@ -110,10 +113,28 @@ int main(int argc, char* argv[]) {
     // Initialize MQTT client
     g_mqtt_client = std::make_shared<tracker::MqttClient>(config.infrastructure.mqtt);
 
-    // Initialize message handler with schema validation config and scene registry
+    // Initialize time chunk buffer and tracking pipeline
+    tracker::TimeChunkBuffer chunk_buffer;
+
+    // Initialize track publisher
+    auto track_publisher = std::make_shared<tracker::TrackPublisher>(g_mqtt_client);
+
+    // Create publish callback for workers
+    tracker::PublishCallback publish_callback =
+        [track_publisher](const std::string& scene_id, const std::string& scene_name,
+                          const std::string& category, const std::string& timestamp,
+                          const std::vector<tracker::Track>& tracks) {
+            track_publisher->publish(scene_id, scene_name, category, timestamp, tracks);
+        };
+
+    // Initialize time chunk scheduler with workers
+    auto scheduler = std::make_unique<tracker::TimeChunkScheduler>(
+        chunk_buffer, scene_registry, config.tracking, publish_callback);
+
+    // Initialize message handler with buffer integration
     auto message_handler = std::make_unique<tracker::MessageHandler>(
-        g_mqtt_client, scene_registry, config.infrastructure.tracker.schema_validation,
-        cli_config.schema_path.parent_path());
+        g_mqtt_client, scene_registry, chunk_buffer, config.tracking,
+        config.infrastructure.tracker.schema_validation, cli_config.schema_path.parent_path());
 
     // Connect to MQTT broker.
     // Sync failures (broker unreachable) throw immediately.
@@ -125,10 +146,14 @@ int main(int argc, char* argv[]) {
         return g_mqtt_client->exitCode();
     }
 
+    // Start scheduler before message handler (ready to receive)
+    scheduler->start();
+
     // Start message handler (subscribes to topics)
     message_handler->start();
 
-    LOG_INFO("Tracker service running, waiting for messages...");
+    LOG_INFO("Tracker service running (chunking @ {}fps, max_workers={})",
+             config.tracking.time_chunking_rate_fps, config.tracking.max_workers);
 
     // Main loop - update readiness based on MQTT state
     while (!g_shutdown_requested && g_mqtt_client->exitCode() < 0) {
@@ -145,12 +170,30 @@ int main(int argc, char* argv[]) {
         LOG_INFO("Tracker service shutting down gracefully");
     }
 
+    // Flush logs to ensure shutdown message is visible
+    if (auto* logger = tracker::Logger::get()) {
+        logger->flush_log();
+    }
+
     // Stop accepting new messages
     g_readiness = false;
 
-    // Stop message handler first (uses MQTT client)
+    // Stop message handler first (stops pushing to buffer)
     message_handler->stop();
     message_handler.reset();
+
+    // Stop scheduler (sends sentinels to workers, waits for them to finish)
+    scheduler->stop();
+    scheduler.reset();
+
+    // Clear the publish callback to release its captured shared_ptr to track_publisher
+    // This is necessary because std::function captures by value
+    publish_callback = nullptr;
+
+    // Reset track publisher to release its reference to MQTT client
+    // This must happen BEFORE g_mqtt_client.reset() and Logger::shutdown()
+    // to ensure MqttClient::disconnect() logging works correctly
+    track_publisher.reset();
 
     // Reset MQTT client BEFORE logger shutdown to ensure disconnect logs work
     g_mqtt_client.reset();

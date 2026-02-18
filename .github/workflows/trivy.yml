@@ -62,7 +62,7 @@ jobs:
         run: |
           echo "SCENESCAPE_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
           make build-all
-          docker image ls | awk '{print $1 ":" $2}' | grep $(cat version.txt) | grep -v "\-test" > images.txt
+          docker image ls | awk '{print $1}' | grep $(cat version.txt) | grep -v "\-test" > images.txt
       - name: "Run Trivy Image Scan"
         if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
         run: |
