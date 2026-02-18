@@ -39,16 +39,16 @@ A key goal of Intel® SceneScape is to make writing applications and business lo
 
 Intel® SceneScape is built on a collection of containerized services that work together to deliver comprehensive functionality, ensuring seamless integration and operation.
 
-![SceneScape architecture diagram](images/architecture.png)
+![SceneScape architecture diagram](./_assets/architecture.png)
 Figure 1: Architecture Diagram
 
 ### **Scene Controller**
 
-Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/controller/README.md)
+Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](https://github.com/open-edge-platform/scenescape/blob/main/controller/README.md).
 
 ### **Deep Learning Streamer Pipeline Server**
 
-Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python-based, interoperable containerized microservice for easy development and deployment of video analytics pipelines. For more information, refer to [Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide)
+Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python-based, interoperable containerized microservice for easy development and deployment of video analytics pipelines. For more information, refer to [Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide).
 
 ### **Auto Camera Calibration**
 
@@ -72,22 +72,22 @@ PostgreSQL database server which stores static information used by the web UI an
 
 ## Supporting Resources
 
-- [Getting Started Guide](getting-started-guide.md)
-- [API Reference](api-reference.md)
-- [Camera normalization](additional-resources/convert-object-detections-to-normalized-image-space.md)
+- [Get Started](./get-started.md)
+- [API Reference](./api-reference.md)
+- [Camera normalization](./additional-resources/convert-object-detections-to-normalized-image-space.md)
 
 <!--hide_directive
 :::{toctree}
 :hidden:
 
-system-requirements
-getting-started-guide
-support
-api-reference
+get-started
 Using Intel® SceneScape <using-intel-scenescape/index.md>
 Building a Scene <building-a-scene/index.md>
-calibrating Cameras <calibrating-cameras/index.md>
+Calibrating Cameras <calibrating-cameras/index.md>
 Other Topics <other-topics/index.md>
 Additional Resources <additional-resources/index.md>
+api-reference
+troubleshooting
+
 :::
 hide_directive-->

@@ -14,6 +14,10 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/mqtt_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/message_handler.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/scene_registry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/time_chunk_buffer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/time_chunk_scheduler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/tracking_worker.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/track_publisher.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/proxy_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/topic_utils.cpp
 )
@@ -27,6 +31,11 @@ add_executable(tracker_tests
     mqtt_client_test.cpp
     message_handler_test.cpp
     scene_registry_test.cpp
+    time_chunk_buffer_test.cpp
+    tracking_worker_test.cpp
+    proxy_utils_test.cpp
+    track_publisher_test.cpp
+    time_chunk_scheduler_test.cpp
     callback_guard_test.cpp
     topic_utils_test.cpp
     ${TRACKER_LIB_SOURCES}
@@ -45,6 +54,9 @@ target_compile_definitions(tracker_tests
         TRACKER_TEST_DIR="${PROJECT_SOURCE_DIR}/test/unit"
         TRACKER_CONFIG_DIR="${PROJECT_SOURCE_DIR}/config"
 )
+
+# Use C++20 standard (required for tracking_types.hpp)
+target_compile_features(tracker_tests PRIVATE cxx_std_20)
 
 target_link_libraries(tracker_tests
     PRIVATE

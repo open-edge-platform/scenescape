@@ -391,13 +391,28 @@ class Scene(SceneModel):
       obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
       obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
 
+      obj_id = obj.gid
       if 'first_seen' in obj_data:
         obj.when = get_epoch_time(obj_data.get('first_seen'))
         obj.first_seen = obj.when
+        # Cache the first_seen from MQTT data
+        if obj_id not in self.object_history_cache:
+          self.object_history_cache[obj_id] = {}
+        self.object_history_cache[obj_id]['first_seen'] = obj.when
       else:
-        obj.when = None
-        obj.first_seen = None
-        log.warning(f"Missing 'first_seen' for object id {obj_data.get('id')}; setting obj.when to None.")
+        # Check if we have a cached first_seen timestamp
+        if obj_id in self.object_history_cache and 'first_seen' in self.object_history_cache[obj_id]:
+          obj.when = self.object_history_cache[obj_id]['first_seen']
+          obj.first_seen = obj.when
+        else:
+          # First time seeing this object, record current time
+          current_time = get_epoch_time()
+          obj.when = current_time
+          obj.first_seen = current_time
+          if obj_id not in self.object_history_cache:
+            self.object_history_cache[obj_id] = {}
+          self.object_history_cache[obj_id]['first_seen'] = current_time
+          log.debug(f"First time seeing object id {obj_data.get('id')} from MQTT; setting first_seen to current time: {current_time}")
       obj.visibility = obj_data.get('visibility', [])
 
       obj.info = {

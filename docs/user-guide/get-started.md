@@ -6,7 +6,7 @@
 
 ### Prerequisites
 
-Check [System Requirements](system-requirements.md) before proceeding with rest of the steps in this documentation.
+Check [System Requirements](./get-started/system-requirements.md) before proceeding with rest of the steps in this documentation.
 
 ### Step 1: Install Prerequisites
 
@@ -147,7 +147,7 @@ docker compose up -d
 ## Summary
 
 Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system. Using the web user interface, Intel® SceneScape provides two scenes by default that can be explored running from stored video data.
-![SceneScape WebUI Homepage](images/ui/homepage.png)
+![SceneScape WebUI Homepage](./_assets/ui/homepage.png)
 
 > **Note:** The “Documentation” menu option allows you to view Intel® SceneScape HTML version of the documentation in the browser.
 
@@ -207,10 +207,19 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 - [How to upgrade Intel® SceneScape](./additional-resources/how-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
 
-- [Converting Pixel-Based Bounding Boxes to Normalized Image Space](./convert-object-detections-to-normalized-image-space.md)
+- [Converting Pixel-Based Bounding Boxes to Normalized Image Space](./additional-resources/convert-object-detections-to-normalized-image-space.md)
 
 - [Hardening Guide for Custom TLS](./additional-resources/hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation
 
 - [Release Notes](./additional-resources/release-notes.md)
 
 - [How Intel® SceneScape converts Pixel-Based Bounding Boxes to Normalized Image Space](./additional-resources/convert-object-detections-to-normalized-image-space.md)
+
+<!--hide_directive
+:::{toctree}
+:hidden:
+
+get-started/system-requirements
+
+:::
+hide_directive-->
