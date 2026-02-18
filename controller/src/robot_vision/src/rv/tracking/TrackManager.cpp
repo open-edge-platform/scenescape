@@ -59,6 +59,10 @@ void TrackManager::reactivateTrack(const Id &id)
 
 void TrackManager::cleanupOldSuspendedTracks(double maxAgeSecs)
 {
+  if (maxAgeSecs <= 0) { // Noop if max age is not positive
+    return;
+  }
+
   auto now = std::chrono::steady_clock::now();
   std::vector<Id> toDelete;
 

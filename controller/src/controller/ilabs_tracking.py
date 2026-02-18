@@ -47,7 +47,13 @@ class IntelLabsTracking(Tracking):
       tracker_config.non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC
       tracker_config.non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC
 
-    tracker_config.suspended_track_timeout_secs = suspended_track_timeout_secs
+    if suspended_track_timeout_secs is not None and suspended_track_timeout_secs > 0:
+      tracker_config.suspended_track_timeout_secs = suspended_track_timeout_secs
+    else:
+      log.error("The suspended_track_timeout_secs parameter needs to be positive and less than 3600 seconds. \
+                 Initiating the tracker with the default value.")
+      tracker_config.suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
+
     self.tracker = rv.tracking.MultipleObjectTracker(tracker_config)
     log.info(f"Multiple Object Tracker {self.__str__()} initialized")
     log.info("Tracker config: {}".format(tracker_config))
@@ -61,7 +67,6 @@ class IntelLabsTracking(Tracking):
       if all((value > 0) and (value < 10) for value in param_list):
         return True
     return False
-
 
   def rv_classification(self, confidence=None):
     confidence = 1.0 if confidence is None else confidence
