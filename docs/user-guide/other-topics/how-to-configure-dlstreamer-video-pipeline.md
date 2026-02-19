@@ -115,6 +115,26 @@ pvb2000=GPU+reid=GPU
 #### Advanced Configuration
 
 - **Decode Device**: video decoding device settings (`AUTO`, `GPU` or `CPU`). It is highly recommended to use the `AUTO` or `GPU` (only on systems with GPU) setting, as the `CPU` setting forces the pipeline to use software codecs that have significantly lower performance than hardware accelerators. When `AUTO` is set, the pipeline will automatically choose GPU as the decode device if it is available on the system and fall back to CPU otherwise. If the user sets `GPU` on the system without GPU, the pipeline will not work.
+- **Detection Labels**: allows you to filter which object categories are processed and published by the video analytics pipeline. When specified, only detected objects matching the configured labels will be published to Intel® SceneScape. If left empty, all detected objects from the AI model will be published (default behavior). This feature is useful for focusing on specific object types and reducing data volume.
+
+  **Supported formats:**
+  - One label per line (newline-separated):
+    ```
+    car
+    pedestrian
+    trolley
+    ```
+  - Space-separated labels:
+    ```
+    car pedestrian trolley
+    ```
+  - Comma-separated labels:
+    ```
+    car, pedestrian, trolley
+    ```
+
+  All three formats will produce the same result. Choose the format that best suits your workflow.
+
 - **Model Config**: references a model configuration file. Model configuration files are managed in the Models page and stored in the folder `Models/models/model_configs`. You can upload custom model configuration files or modify existing ones using the Models page. The Models page is accessible in the top menu of the Intel® SceneScape UI.
 - **Use Camera Pipeline**: when enabled, directly applies the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings on saving the camera configuration. When disabled (default), the system automatically generates the pipeline from other form fields.
 
@@ -300,6 +320,13 @@ This section describes the metadata schema and the format that the payload needs
                 "publish_frame": {
                     "type": "boolean",
                     "description": "Publish frame to mqtt"
+                },
+                "detection_labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "List of detection labels to filter (e.g., [\"person\", \"car\"]). If empty or omitted, all labels are published."
                 }
             }
         }
@@ -322,6 +349,7 @@ This section describes the metadata schema and the format that the payload needs
     - `reidPolicy`: Metadata for re-identification.
     - `classificationPolicy`: Metadata for classification.
   - **publish_frame** (boolean): Indicates whether to publish the video frame to MQTT.
+  - **detection_labels** (array of strings): Optional list of detection labels to filter. When specified, only detected objects matching these labels will be published. If omitted or empty, all detected objects are published. In the UI, labels can be provided as newline-separated, space-separated, or comma-separated values. In JSON configuration, provide as an array. Example: `["person", "car"]`.
 
 The payload section is the actual values for the specific pipeline being configured:
 
@@ -339,7 +367,8 @@ The payload section is the actual values for the specific pipeline being configu
         },
         "camera_config": {
             "cameraid": "atag-qcam1",
-            "metadatagenpolicy": "detectionPolicy"
+            "metadatagenpolicy": "detectionPolicy",
+            "detection_labels": ["person"]
         }
     }
 }

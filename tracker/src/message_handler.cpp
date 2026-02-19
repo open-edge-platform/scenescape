@@ -6,10 +6,9 @@
 #include "topic_utils.hpp"
 
 #include <chrono>
-#include <ctime>
+#include <cstdio>
 #include <format>
 #include <fstream>
-#include <iomanip>
 #include <string_view>
 
 #include <rapidjson/document.h>
@@ -41,10 +40,11 @@ static const rapidjson::Pointer PTR_BBOX_HEIGHT("/bounding_box_px/height");
 } // namespace
 
 MessageHandler::MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
-                               const SceneRegistry& scene_registry, bool schema_validation,
+                               const SceneRegistry& scene_registry, TimeChunkBuffer& buffer,
+                               const TrackingConfig& tracking_config, bool schema_validation,
                                const std::filesystem::path& schema_dir)
-    : mqtt_client_(std::move(mqtt_client)), scene_registry_(scene_registry),
-      schema_validation_(schema_validation) {
+    : mqtt_client_(std::move(mqtt_client)), scene_registry_(scene_registry), buffer_(buffer),
+      tracking_config_(tracking_config), schema_validation_(schema_validation) {
     if (schema_validation_) {
         auto camera_schema_path = schema_dir / CAMERA_SCHEMA_FILE;
         auto scene_schema_path = schema_dir / SCENE_SCHEMA_FILE;
@@ -127,8 +127,9 @@ void MessageHandler::start() {
 }
 
 void MessageHandler::stop() {
-    LOG_INFO("MessageHandler stopping, received: {}, published: {}, rejected: {}",
-             received_count_.load(), published_count_.load(), rejected_count_.load());
+    LOG_INFO("MessageHandler stopping (received: {}, buffered: {}, rejected: {}, lagged: {})",
+             received_count_.load(), buffered_count_.load(), rejected_count_.load(),
+             lagged_count_.load());
 
     // Unsubscribe from all camera topics (skip invalid UIDs - same validation as start())
     auto camera_ids = scene_registry_.get_all_camera_ids();
@@ -189,13 +190,25 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
             LogEntry("Unknown camera not registered to any scene, dropping message")
                 .component("message_handler")
                 .domain({.camera_id = camera_id})
-                .error({.type = "routing_error", .message = "Camera not in scene registry"}));
+                .error({.type = "unknown_camera", .message = "Camera not in scene registry"}));
         rejected_count_++;
         return;
     }
 
-    // Build and publish scene message for each category
-    for (const auto& [category, detections] : message->objects) {
+    // Check for lag
+    if (isMessageLagged(message->timestamp)) {
+        LOG_WARN_ENTRY(
+            LogEntry("Dropping lagged message")
+                .component("message_handler")
+                .domain({.camera_id = camera_id, .scene_id = scene->uid})
+                .error({.type = "fell_behind", .message = "Message timestamp exceeds max_lag_s"}));
+        lagged_count_++;
+        return;
+    }
+
+    // Push detections to buffer for each category
+    auto receive_time = std::chrono::steady_clock::now();
+    for (auto& [category, detections] : message->objects) {
         // Validate category on first use (cached to avoid per-frame overhead)
         // Minimal critical section: only lock during cache access, not during publish
         {
@@ -214,18 +227,22 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
             }
         } // Lock released before expensive operations
 
-        std::string scene_message = buildDummySceneMessage(*scene, message->timestamp);
+        TrackingScope scope{scene->uid, category};
 
-        // Format output topic: scenescape/data/scene/{scene_id}/{category}
-        auto output_topic = std::format(TOPIC_SCENE_DATA_PATTERN, scene->uid, category);
+        DetectionBatch batch;
+        batch.camera_id = camera_id;
+        batch.receive_time = receive_time;
+        batch.timestamp_iso = message->timestamp;
+        batch.detections = std::move(detections);
 
-        mqtt_client_->publish(output_topic, scene_message);
-        published_count_++;
+        buffer_.add(scope, camera_id, std::move(batch));
+        buffered_count_++;
 
-        LOG_DEBUG_ENTRY(LogEntry("Published track")
-                            .component("message_handler")
-                            .mqtt({.topic = output_topic, .direction = "publish"})
-                            .domain({.scene_id = scene->uid, .object_category = category}));
+        LOG_DEBUG_ENTRY(
+            LogEntry("Buffered detections")
+                .component("message_handler")
+                .domain(
+                    {.camera_id = camera_id, .scene_id = scene->uid, .object_category = category}));
     }
 }
 
@@ -352,65 +369,51 @@ bool MessageHandler::validateJson(const rapidjson::Document& doc,
     return true;
 }
 
-std::string MessageHandler::buildDummySceneMessage(const Scene& scene,
-                                                   const std::string& timestamp) {
-    // Build JSON using rapidjson for type safety and schema compliance
-    rapidjson::Document doc;
-    doc.SetObject();
-    auto& allocator = doc.GetAllocator();
+bool MessageHandler::isMessageLagged(const std::string& timestamp_iso) const {
+    auto msg_time = parseTimestamp(timestamp_iso);
+    if (!msg_time) {
+        // If we can't parse the timestamp, don't drop based on lag
+        LOG_DEBUG("Could not parse timestamp for lag check: {}", timestamp_iso);
+        return false;
+    }
 
-    // Add top-level fields
-    doc.AddMember("id", rapidjson::Value(scene.uid.c_str(), allocator), allocator);
-    doc.AddMember("name", rapidjson::Value(scene.name.c_str(), allocator), allocator);
-    doc.AddMember("timestamp", rapidjson::Value(timestamp.c_str(), allocator), allocator);
+    auto now = std::chrono::system_clock::now();
+    auto lag = std::chrono::duration<double>(now - *msg_time).count();
 
-    // Build objects array with a single dummy track
-    rapidjson::Value objects(rapidjson::kArrayType);
+    return lag > tracking_config_.max_lag_s;
+}
 
-    rapidjson::Value track(rapidjson::kObjectType);
-    track.AddMember("id", "dummy-track-001", allocator);
-    track.AddMember("category", rapidjson::Value(DEFAULT_THING_TYPE, allocator), allocator);
+std::optional<std::chrono::system_clock::time_point>
+MessageHandler::parseTimestamp(const std::string& timestamp_iso) {
+    // Parse ISO 8601 format: "2026-01-20T10:05:01.482Z"
+    // Using sscanf for simple parsing, C++20 chrono for portable UTC handling
+    int year, month, day, hour, minute, second, millis = 0;
 
-    // Translation [x, y, z]
-    rapidjson::Value translation(rapidjson::kArrayType);
-    translation.PushBack(1.0, allocator);
-    translation.PushBack(2.0, allocator);
-    translation.PushBack(0.0, allocator);
-    track.AddMember("translation", translation, allocator);
+    // Try parsing with milliseconds (format: YYYY-MM-DDTHH:MM:SS.mmm)
+    int parsed = std::sscanf(timestamp_iso.c_str(), "%4d-%2d-%2dT%2d:%2d:%2d.%d", &year, &month,
+                             &day, &hour, &minute, &second, &millis);
 
-    // Velocity [vx, vy, vz]
-    rapidjson::Value velocity(rapidjson::kArrayType);
-    velocity.PushBack(0.1, allocator);
-    velocity.PushBack(0.2, allocator);
-    velocity.PushBack(0.0, allocator);
-    track.AddMember("velocity", velocity, allocator);
+    if (parsed < 6) {
+        // Try with space separator instead of 'T'
+        parsed = std::sscanf(timestamp_iso.c_str(), "%4d-%2d-%2d %2d:%2d:%2d.%d", &year, &month,
+                             &day, &hour, &minute, &second, &millis);
+    }
 
-    // Size [length, width, height]
-    rapidjson::Value size(rapidjson::kArrayType);
-    size.PushBack(0.5, allocator);
-    size.PushBack(0.5, allocator);
-    size.PushBack(1.8, allocator);
-    track.AddMember("size", size, allocator);
+    if (parsed < 6) {
+        return std::nullopt;
+    }
 
-    // Rotation quaternion [x, y, z, w]
-    rapidjson::Value rotation(rapidjson::kArrayType);
-    rotation.PushBack(0, allocator);
-    rotation.PushBack(0, allocator);
-    rotation.PushBack(0, allocator);
-    rotation.PushBack(1, allocator);
-    track.AddMember("rotation", rotation, allocator);
+    // Construct time_point using C++20 chrono calendar types (UTC, no timezone conversion)
+    using namespace std::chrono;
+    auto ymd =
+        year_month_day{std::chrono::year{year}, std::chrono::month{static_cast<unsigned>(month)},
+                       std::chrono::day{static_cast<unsigned>(day)}};
+    if (!ymd.ok())
+        return std::nullopt;
 
-    objects.PushBack(track, allocator);
-    doc.AddMember("objects", objects, allocator);
-
-    // Note: Output schema validation is done in unit tests, not at runtime
-
-    // Serialize to string
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    doc.Accept(writer);
-
-    return buffer.GetString();
+    auto tp =
+        sys_days{ymd} + hours{hour} + minutes{minute} + seconds{second} + milliseconds{millis};
+    return tp;
 }
 
 } // namespace tracker

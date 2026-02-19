@@ -1,9 +1,10 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
 import json
 import os
+import re
 from pathlib import Path
 import cv2
 import numpy as np
@@ -83,6 +84,13 @@ class PipelineConfigGenerator:
                   "publish_frame": {
                     "type": "boolean",
                     "description": "Publish frame to mqtt"
+                  },
+                  "detection_labels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of detection labels to filter (e.g., [\"person\", \"car\"]). If empty or omitted, all labels are published."
                   }
                 }
               }
@@ -93,7 +101,8 @@ class PipelineConfigGenerator:
               "undistort_config": "",
               "camera_config": {
                 "cameraid": "",
-                "metadatagenpolicy": ""
+                "metadatagenpolicy": "",
+                "detection_labels": []
               }
             }
           }
@@ -127,6 +136,12 @@ class PipelineConfigGenerator:
 
     pipeline_cfg["payload"]["parameters"]["camera_config"]["cameraid"] = self.camera_id
     pipeline_cfg["payload"]["parameters"]["camera_config"]["metadatagenpolicy"] = self.metadata_policy
+
+    # Add detection_labels if provided in camera_settings
+    if 'detection_labels' in camera_settings and camera_settings['detection_labels']:
+      # Split by newlines, commas, and spaces; filter out empty strings
+      labels_list = [label for label in re.split(r'[\n,\s]+', camera_settings['detection_labels']) if label]
+      pipeline_cfg["payload"]["parameters"]["camera_config"]["detection_labels"] = labels_list
 
   def generate_undistort_config_xml(self,
                    camera_intrinsics: list[list[float]],

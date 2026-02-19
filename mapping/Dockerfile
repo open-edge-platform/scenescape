@@ -104,12 +104,12 @@ RUN pip install --no-cache-dir --upgrade pip \
 RUN pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
         cd /workspace/map-anything && \
-        pip install --no-cache-dir -e . && \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_mapanything.txt; \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_mapanything.txt && \
+        pip install --no-cache-dir -e .; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_vggt.txt && \
         cd /workspace/vggt && \
         pip install --no-cache-dir -e . && \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_vggt.txt && \
         pip install --no-cache-dir -r requirements.txt -r requirements_demo.txt; \
     fi && \
     rm -rf /usr/local/lib/python3.11/site-packages/torch/test \

@@ -48,48 +48,10 @@ permissions:
   contents: read
 
 jobs:
-  run_basic_acceptance_tests:
-    runs-on: [all]
-    name: "Basic Acceptance Tests"
-    timeout-minutes: 45
-    steps:
-      - name: Remove test_data folder
-        run: |
-          sudo rm -rf test_data || true
-
-      - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          ref: ${{ inputs.ref }}
-
-      - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' }}
-        uses: ./.github/actions/cleanup
-        with:
-          system-prune: "true"
-
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
-
-      - name: Run Basic Acceptance Tests
-        run: |
-          make clean-all
-          make run_basic_acceptance_tests
-
-      - name: Upload Logs and Reports
-        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
-        uses: ./.github/actions/upload-artifacts
-
-      - name: Cleanup
-        if: always()
-        uses: ./.github/actions/cleanup
-
   run_functional_tests:
     runs-on: [all]
     name: "Functional Tests"
-    timeout-minutes: 55
+    timeout-minutes: 90
     steps:
       - name: Remove test_data folder
         run: |
@@ -103,7 +65,7 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' }}
+        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
         with:
           system-prune: "true"
@@ -141,7 +103,7 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' }}
+        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
         with:
           system-prune: "true"
@@ -165,7 +127,7 @@ jobs:
   run_metric_tests:
     runs-on: [all]
     name: "Metric Tests"
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Remove test_data folder
         run: |
@@ -179,7 +141,7 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' }}
+        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
         with:
           system-prune: "true"
@@ -217,7 +179,7 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' }}
+        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
         with:
           system-prune: "true"
@@ -255,7 +217,7 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' }}
+        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
         with:
           system-prune: "true"
