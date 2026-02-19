@@ -394,12 +394,13 @@ function main() {
           sensorManager.sceneSensors[sensorId]
         ) {
           const sensor = sensorManager.sceneSensors[sensorId];
+          const sensorArea = sensor.region && sensor.region.area;
 
           // Only control lighting for sensors with area set to "scene"
           // Don't control lighting for localized sensors ("circle", "poly") or any other value
-          if (sensor.area !== "scene") {
+          if (sensorArea !== "scene") {
             console.log(
-              `Light sensor (${sensorId}): area="${sensor.area}" - not controlling scene lighting (only "scene" area sensors affect ambient light)`,
+              `Light sensor (${sensorId}): area="${sensorArea}" - not controlling scene lighting (only "scene" area sensors affect ambient light)`,
             );
             return;
           }
