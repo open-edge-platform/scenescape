@@ -21,7 +21,8 @@ from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNK
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC,
-                                 EFFECTIVE_OBJECT_UPDATE_RATE)
+                                 EFFECTIVE_OBJECT_UPDATE_RATE,
+                                 DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
 
 DEBOUNCE_DELAY = 0.5
 
@@ -44,7 +45,8 @@ class Scene(SceneModel):
                non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC,
                effective_object_update_rate = EFFECTIVE_OBJECT_UPDATE_RATE,
                time_chunking_enabled = False,
-               time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS):
+               time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS,
+               suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static,
              "analytics_only=" + str(ControllerMode.isAnalyticsOnly()))
@@ -53,6 +55,7 @@ class Scene(SceneModel):
     self.max_unreliable_time = max_unreliable_time
     self.non_measurement_time_dynamic = non_measurement_time_dynamic
     self.non_measurement_time_static = non_measurement_time_static
+    self.suspended_track_timeout_secs = suspended_track_timeout_secs
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
@@ -88,9 +91,9 @@ class Scene(SceneModel):
             self.non_measurement_time_dynamic,
             self.non_measurement_time_static)
     if trackerType == "intel_labs":
-      args += (self.ref_camera_frame_rate,)
+      args += (self.ref_camera_frame_rate, self.suspended_track_timeout_secs)
     elif trackerType == "time_chunked_intel_labs":
-      args += (self.time_chunking_rate_fps,)
+      args += (self.time_chunking_rate_fps, self.suspended_track_timeout_secs)
     self.tracker = self.available_trackers[self.trackerType](*args)
     return
 
@@ -388,13 +391,28 @@ class Scene(SceneModel):
       obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
       obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
 
+      obj_id = obj.gid
       if 'first_seen' in obj_data:
         obj.when = get_epoch_time(obj_data.get('first_seen'))
         obj.first_seen = obj.when
+        # Cache the first_seen from MQTT data
+        if obj_id not in self.object_history_cache:
+          self.object_history_cache[obj_id] = {}
+        self.object_history_cache[obj_id]['first_seen'] = obj.when
       else:
-        obj.when = None
-        obj.first_seen = None
-        log.warning(f"Missing 'first_seen' for object id {obj_data.get('id')}; setting obj.when to None.")
+        # Check if we have a cached first_seen timestamp
+        if obj_id in self.object_history_cache and 'first_seen' in self.object_history_cache[obj_id]:
+          obj.when = self.object_history_cache[obj_id]['first_seen']
+          obj.first_seen = obj.when
+        else:
+          # First time seeing this object, record current time
+          current_time = get_epoch_time()
+          obj.when = current_time
+          obj.first_seen = current_time
+          if obj_id not in self.object_history_cache:
+            self.object_history_cache[obj_id] = {}
+          self.object_history_cache[obj_id]['first_seen'] = current_time
+          log.debug(f"First time seeing object id {obj_data.get('id')} from MQTT; setting first_seen to current time: {current_time}")
       obj.visibility = obj_data.get('visibility', [])
 
       obj.info = {

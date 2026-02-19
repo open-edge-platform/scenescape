@@ -92,6 +92,7 @@ help:
 	@echo "  demo-all                    Start the SceneScape demo with all services using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Intel® SceneScape)"
+	@echo "  demo-tracker                Start the SceneScape demo with Tracker service + Controller in analytics only mode using Docker Compose"
 	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
@@ -492,6 +493,7 @@ add-licensing:
 build-coverity:
 	$(MAKE) -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
 	@export OpenCV_DIR=$${OpenCV_DIR:-$$(pkg-config --variable=pc_path opencv4 | cut -d':' -f1)} && cd controller/src/robot_vision && python3 setup.py bdist_wheel || (echo "robot vision build failed" && exit 1)
+	$(MAKE) -C tracker build || (echo "tracker build failed" && exit 1)
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: convert-dls-videos
@@ -543,11 +545,15 @@ endef
 
 .PHONY: demo
 demo: build-core init-sample-data
-	$(call start_demo,)
+	$(call start_demo,--profile controller)
 
 .PHONY: demo-all
 demo-all: build-all init-sample-data
-	$(call start_demo,--profile experimental)
+	$(call start_demo,--profile controller --profile experimental)
+
+.PHONY: demo-tracker
+demo-tracker: build-all init-sample-data
+	$(call start_demo,--profile analytics --profile tracker)
 
 .PHONY: demo-k8s
 demo-k8s:

@@ -12,11 +12,17 @@ This model is instantiated directly by the vggt-service container.
 
 import os
 import sys
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 import numpy as np
 import torch
 from PIL import Image
 import torchvision.transforms as tvf
+
+import tempfile
+import numpy as np
+import trimesh
+import shutil
+from scene_common.mesh_util import image_mesh
 
 from scene_common import log
 
@@ -204,28 +210,30 @@ class VGGTModel(ReconstructionModel):
 
     return scaled_intrinsics
 
-  def createOutput(self, result: Dict[str, Any], output_format: str = None, voxel_size: float = 0.01, floor_margin: float = 0.02) -> 'trimesh.Scene':
+  def createOutput(
+    self,
+    result: Dict[str, Any],
+    output_format: str = None,
+    voxel_size: float = 0.01,
+    floor_margin: float = 0.02,
+  ) -> "trimesh.Scene":
     """
     Create 3D output scene from VGGT results.
+
+    - Fast path (mesh): MapAnything-style image-grid triangulation (image_mesh) using
+      world_points_from_depth + images (+ optional depth_conf mask). This avoids Poisson
+      and is much faster.
+    - Fallback: original VGGT GLB export via predictions_to_glb.
 
     Args:
       result: Result dictionary from runInference containing predictions
       output_format: Desired output format ('pointcloud' or 'mesh'). If None, uses native format.
-      voxel_size: Optional voxel downsampling helps clean noisy point clouds.
-      floor_margin: Floor flattening added to smooth floor plane.
+      voxel_size: Kept for backward compat; not used in fast mesh path.
+      floor_margin: Floor flattening margin (meters) for fast mesh path.
 
     Returns:
       trimesh.Scene: Processed 3D scene
     """
-
-    import tempfile
-    import numpy as np
-    import open3d as o3d
-    import trimesh
-    from scene_common.mesh_util import extractMeshFromPointCloud
-    import shutil
-    from visual_util import predictions_to_glb
-
     if output_format is None:
       output_format = self.getNativeOutput()
 
@@ -240,86 +248,143 @@ class VGGTModel(ReconstructionModel):
 
     if output_format == "mesh":
       try:
-        world_points = predictions.get("world_points_from_depth")
-        images = predictions.get("images", predictions.get("image", None))
-        extrinsics = predictions.get("camera_extrinsics", predictions.get("extrinsic", None))
-
+        # Prefer VGGT-generated world points from depth (already in world coords)
+        world_points = predictions.get("world_points_from_depth", None)
         if world_points is None:
-          world_points = predictions.get("world_points")
+          world_points = predictions.get("world_points", None)
 
-        if world_points is not None:
-          transformed_points = []
-          transformed_colors = []
+        images = predictions.get("images", predictions.get("image", None))
 
-          # Check if points are already in world coordinates
-          already_world = "world_points_from_depth" in predictions
-          log.info(f"Already in world coordinates: {already_world}")
+        if world_points is None or images is None:
+          raise RuntimeError("Missing world_points/world_points_from_depth and/or images for mesh creation.")
 
-          for i in range(world_points.shape[0]):
-            pts = world_points[i].reshape(-1, 3)
+        # Expected shapes:
+        # world_points: (V, H, W, 3)
+        # images: (V, 3, H, W) or (V, H, W, 3)
+        if world_points.ndim != 4 or world_points.shape[-1] != 3:
+          raise RuntimeError(f"world_points must be (V,H,W,3). Got {world_points.shape}")
 
-            # Only apply extrinsics if points are local (not already world)
-            if not already_world and extrinsics is not None:
-              ones = np.ones((pts.shape[0], 1))
-              pts_h = np.concatenate([pts, ones], axis=1)
-              world_pts = (extrinsics[i] @ pts_h.T).T[:, :3]
-            else:
-              world_pts = pts
+        V, H, W, _ = world_points.shape
 
-            transformed_points.append(world_pts)
-
-            # Handle image colors if available
-            if images is not None:
-              img = images[i]
-              # Ensure channel order is (H, W, 3)
-              if img.shape[0] == 3:
-                img = np.moveaxis(img, 0, -1)
-              colors = img.reshape(-1, 3)
-              if colors.max() > 1.0:
-                colors = colors / 255.0
-              transformed_colors.append(colors)
-
-          # Combine all camera points
-          points_flat = np.concatenate(transformed_points, axis=0)
-          colors_flat = np.concatenate(transformed_colors, axis=0) if transformed_colors else None
-
-          # Floor flattening (optional)
-          z_min = points_flat[:, 2].min()
-          floor_idx = points_flat[:, 2] <= z_min + floor_margin
-          points_flat[floor_idx, 2] = z_min
-
-          # Create point cloud
-          pcd = o3d.geometry.PointCloud()
-          pcd.points = o3d.utility.Vector3dVector(points_flat)
-          if colors_flat is not None:
-            pcd.colors = o3d.utility.Vector3dVector(colors_flat)
-
-          # Downsample to clean noise
-          pcd_down = pcd.voxel_down_sample(voxel_size=voxel_size)
-          down_pts = np.asarray(pcd_down.points)
-          down_colors = np.asarray(pcd_down.colors) if pcd_down.has_colors() else None
-
-          # Run Poisson reconstruction
-          mesh = extractMeshFromPointCloud(down_pts, colors=down_colors, voxel_size=voxel_size, depth=16)
-          scene = trimesh.Scene([mesh])
-          # Rotate mesh by 180 degrees along the Z-axis
-          rotation_matrix = trimesh.transformations.rotation_matrix(
-            np.pi, [0, 0, 1], mesh.centroid
-          )
-          mesh.apply_transform(rotation_matrix)
-
-          log.info(f"Watertight mesh created: {len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
-          return scene
-
+        # Convert images to NHWC float [0,1]
+        if images.ndim == 4 and images.shape[1] == 3 and images.shape[2] == H and images.shape[3] == W:
+          images_nhwc = np.transpose(images, (0, 2, 3, 1))
+        elif images.ndim == 4 and images.shape[1] == H and images.shape[2] == W and images.shape[3] == 3:
+          images_nhwc = images
         else:
-          log.warning("No world_points found, falling back to original VGGT export")
+          raise RuntimeError(f"Unexpected images shape {images.shape}; expected (V,3,H,W) or (V,H,W,3)")
+
+        images_nhwc = images_nhwc.astype(np.float32)
+        if images_nhwc.max() > 1.0:
+          images_nhwc /= 255.0
+
+        # Optional depth/confidence (VGGT provides these)
+        depth = predictions.get("depth", None)            # (V,H,W) likely
+        depth_conf = predictions.get("depth_conf", None)  # (V,H,W) likely
+
+        # Tuning knobs
+        stride = int(os.getenv("VGGT_MESH_STRIDE", "2"))  # 1=full res, 2=4x faster, 3=9x faster
+        conf_th = float(os.getenv("VGGT_DEPTH_CONF_TH", "0.30"))
+        merge_frames = os.getenv("VGGT_MESH_MERGE_FRAMES", "0") == "1"
+        scene = trimesh.Scene()
+
+        merged_vertices = []
+        merged_faces = []
+        merged_colors = []
+        vert_offset = 0
+
+        for i in range(V):
+          pts = world_points[i]    # (H,W,3)
+          img = images_nhwc[i]     # (H,W,3)
+
+          # Validity mask (approx MapAnything final_masks)
+          mask = np.isfinite(pts).all(axis=-1)
+
+          if depth is not None and isinstance(depth, np.ndarray) and depth.ndim == 3:
+            mask &= (depth[i] > 0)
+
+          if depth_conf is not None and isinstance(depth_conf, np.ndarray) and depth_conf.ndim == 3:
+            mask &= (depth_conf[i] >= conf_th)
+
+          # Optional floor flattening (only on valid points)
+          if floor_margin is not None and floor_margin > 0:
+            z = pts[..., 2]
+            z_valid = z[mask]
+            if z_valid.size > 0:
+              z_min = float(z_valid.min())
+              floor_idx = (z <= z_min + floor_margin) & mask
+              # copy only if we actually modify
+              if floor_idx.any():
+                pts = pts.copy()
+                pts[..., 2][floor_idx] = z_min
+
+          # Downsample grid for speed (stride)
+          if stride > 1:
+            pts = pts[::stride, ::stride]
+            img = img[::stride, ::stride]
+            mask = mask[::stride, ::stride]
+
+          # Build mesh by triangulating the image grid
+          faces, vertices, vertex_colors = image_mesh(
+            pts * np.array([1, -1, 1], dtype=np.float32),  # match MapAnything convention
+            img,
+            mask=mask,
+            tri=True,
+            return_indices=False,
+          )
+          vertices = vertices * np.array([1, -1, 1], dtype=np.float32)
+
+          # ---- FAST BAD-TRIANGLE FILTER (key fix) ----
+          max_edge = float(os.getenv("VGGT_MAX_EDGE_M", "0.06"))  # 6cm start; tune 0.03–0.12
+
+          v0 = vertices[faces[:, 0]]
+          v1 = vertices[faces[:, 1]]
+          v2 = vertices[faces[:, 2]]
+
+          e01 = np.linalg.norm(v0 - v1, axis=1)
+          e12 = np.linalg.norm(v1 - v2, axis=1)
+          e20 = np.linalg.norm(v2 - v0, axis=1)
+
+          good = (e01 < max_edge) & (e12 < max_edge) & (e20 < max_edge)
+          faces = faces[good]
+          vertex_colors = vertex_colors  # unchanged
+          # -------------------------------------------
+          vc_uint8 = (vertex_colors * 255).astype(np.uint8)
+
+          if merge_frames:
+            merged_vertices.append(vertices)
+            merged_faces.append(faces + vert_offset)
+            merged_colors.append(vc_uint8)
+            vert_offset += vertices.shape[0]
+          else:
+            mesh = trimesh.Trimesh(
+              vertices=vertices,
+              faces=faces,
+              vertex_colors=vc_uint8,
+              process=False,
+            )
+            scene.add_geometry(mesh)
+
+        if merge_frames and merged_vertices:
+          Vv = np.vstack(merged_vertices)
+          Ff = np.vstack(merged_faces)
+          Cc = np.vstack(merged_colors)
+          mesh = trimesh.Trimesh(vertices=Vv, faces=Ff, vertex_colors=Cc, process=False)
+          scene.add_geometry(mesh)
+
+        # Orientation fix (same as MapAnything predictions_to_glb)
+        scene.apply_transform(trimesh.transformations.rotation_matrix(np.pi, [1, 0, 0]))
+
+        log.info("Fast mesh created using MapAnything image_mesh triangulation")
+        return scene
 
       except Exception as e:
-        log.warning(f"Mesh reconstruction failed: {e}, using original VGGT export")
+        log.warning(f"Fast mesh path failed: {e}. Falling back to VGGT point cloud export.")
 
     log.info("Using VGGT point cloud export as fallback")
     temp_dir = tempfile.mkdtemp(prefix="vggt_glb_")
     try:
+      from visual_util import predictions_to_glb
       glb_scene = predictions_to_glb(
         predictions,
         conf_thres=50.0,

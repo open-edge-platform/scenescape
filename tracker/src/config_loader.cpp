@@ -20,9 +20,6 @@ namespace tracker {
 
 namespace {
 
-/**
- * @brief Load and parse JSON schema from file.
- */
 rapidjson::SchemaDocument load_schema(const std::filesystem::path& schema_path) {
     std::ifstream ifs(schema_path);
     if (!ifs.is_open()) {
@@ -41,9 +38,6 @@ rapidjson::SchemaDocument load_schema(const std::filesystem::path& schema_path) 
     return rapidjson::SchemaDocument(schema_doc);
 }
 
-/**
- * @brief Validate JSON document against schema.
- */
 void validate_against_schema(const rapidjson::Document& doc,
                              const rapidjson::SchemaDocument& schema,
                              const std::filesystem::path& config_path) {
@@ -57,10 +51,7 @@ void validate_against_schema(const rapidjson::Document& doc,
     }
 }
 
-/**
- * @brief Get optional environment variable value.
- * @note Empty strings are treated as unset
- */
+/// @note Empty strings are treated as unset
 std::optional<std::string> get_env(const char* name) {
     const char* value = std::getenv(name);
     if (value != nullptr && value[0] != '\0') {
@@ -69,10 +60,7 @@ std::optional<std::string> get_env(const char* name) {
     return std::nullopt;
 }
 
-/**
- * @brief Parse and validate log level from string.
- * @throws std::runtime_error if invalid log level
- */
+/// @throws std::runtime_error if invalid log level
 std::string parse_log_level(const std::string& level, const std::string& source) {
     if (level == "trace" || level == "debug" || level == "info" || level == "warn" ||
         level == "error") {
@@ -107,10 +95,7 @@ int parse_port(const std::string& port_str, const std::string& source, int min_p
     }
 }
 
-/**
- * @brief Parse and validate boolean from string.
- * @throws std::runtime_error if invalid boolean value
- */
+/// @throws std::runtime_error if invalid boolean value
 bool parse_bool(const std::string& value, const std::string& source) {
     if (value == "true" || value == "1" || value == "yes") {
         return true;
@@ -251,6 +236,18 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
         }
     }
 
+    // Tracking configuration (optional - defaults from constants in config_loader.hpp)
+    config.tracking.max_lag_s =
+        GetValueByPointerWithDefault(config_doc, json::TRACKING_MAX_LAG_S, kDefaultMaxLagS)
+            .GetDouble();
+    config.tracking.time_chunking_rate_fps =
+        GetValueByPointerWithDefault(config_doc, json::TRACKING_TIME_CHUNKING_RATE_FPS,
+                                     kDefaultTimeChunkingRateFps)
+            .GetInt();
+    config.tracking.max_workers =
+        GetValueByPointerWithDefault(config_doc, json::TRACKING_MAX_WORKERS, kDefaultMaxWorkers)
+            .GetInt();
+
     // Apply environment variable overrides
     apply_env(config.observability.logging.level, tracker::env::LOG_LEVEL, parse_log_level);
     apply_env(config.infrastructure.tracker.healthcheck.port, tracker::env::HEALTHCHECK_PORT,
@@ -265,6 +262,59 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
     // Tracker overrides
     apply_env(config.infrastructure.tracker.schema_validation, tracker::env::MQTT_SCHEMA_VALIDATION,
               parse_bool);
+
+    // Tracking overrides
+    apply_env(config.tracking.max_lag_s, tracker::env::MAX_LAG_S,
+              [](const std::string& v, const std::string& s) {
+                  try {
+                      double val = std::stod(v);
+                      if (val < 0) {
+                          throw std::runtime_error(s + " must be >= 0: " + v);
+                      }
+                      return val;
+                  } catch (const std::invalid_argument&) {
+                      throw std::runtime_error("Invalid " + s + ": " + v);
+                  }
+              });
+    apply_env(config.tracking.time_chunking_rate_fps, tracker::env::TIME_CHUNKING_RATE_FPS,
+              [](const std::string& v, const std::string& s) {
+                  try {
+                      int val = std::stoi(v);
+                      if (val < 1 || val > 60) {
+                          throw std::runtime_error(s + " out of range: " + v + " (must be 1-60)");
+                      }
+                      return val;
+                  } catch (const std::invalid_argument&) {
+                      throw std::runtime_error("Invalid " + s + ": " + v);
+                  }
+              });
+    apply_env(config.tracking.max_workers, tracker::env::MAX_WORKERS,
+              [](const std::string& v, const std::string& s) {
+                  try {
+                      int val = std::stoi(v);
+                      if (val < 1) {
+                          throw std::runtime_error(s + " must be >= 1: " + v);
+                      }
+                      return val;
+                  } catch (const std::invalid_argument&) {
+                      throw std::runtime_error("Invalid " + s + ": " + v);
+                  }
+              });
+
+    // Scenes overrides
+    if (auto val = get_env(tracker::env::SCENES_SOURCE); val.has_value()) {
+        if (val.value() == "file") {
+            config.scenes.source = SceneSource::File;
+        } else if (val.value() == "api") {
+            config.scenes.source = SceneSource::Api;
+        } else {
+            throw std::runtime_error("Invalid " + std::string(tracker::env::SCENES_SOURCE) + ": " +
+                                     val.value() + " (must be 'file' or 'api')");
+        }
+    }
+    if (auto val = get_env(tracker::env::SCENES_FILE_PATH); val.has_value()) {
+        config.scenes.file_path = val.value();
+    }
 
     // TLS overrides - create tls config if any TLS env var is set
     auto env_tls_ca = get_env(tracker::env::MQTT_TLS_CA_CERT);
