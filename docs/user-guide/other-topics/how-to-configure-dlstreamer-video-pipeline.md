@@ -30,11 +30,10 @@ Model chaining allows you to combine multiple AI models in a single pipeline to 
 
 ##### Prerequisites
 
-By default, only a limited number of models is downloaded during helm chart installation, which limits the possibilities of model chaining. To enable the full set of models:
+By default, only a limited number of models is downloaded during helm chart installation, which limits the possibilities of model chaining. To enable all models:
 
-1. Set `initModels.modelType=all` in `kubernetes/scenescape-chart/values.yaml`.
-2. Configure desired model precisions (e.g., `initModels.modelPrecisions=FP16`) in `kubernetes/scenescape-chart/values.yaml`.
-3. (Re)deploy Intel® SceneScape to download the additional models.
+1. Configure desired model precisions (e.g., `initModels.modelPrecisions=FP16`) in `kubernetes/scenescape-chart/values.yaml`.
+2. (Re)deploy Intel® SceneScape to download the supported models.
 
 ##### Chaining Syntax
 
@@ -50,28 +49,14 @@ By default, only a limited number of models is downloaded during helm chart inst
 
 Use the following short names to refer to each model in the chain:
 
-| Category              | Full Model Name                              | Short Name  | Description                               |
-| --------------------- | -------------------------------------------- | ----------- | ----------------------------------------- |
-| **Person Detection**  | person-detection-retail-0013                 | retail      | General person detection                  |
-|                       | pedestrian-and-vehicle-detector-adas-0001    | pedveh      | Pedestrian and vehicle detection          |
-| **Person Analysis**   | person-reidentification-retail-0277          | reid        | Person re-identification                  |
-|                       | person-attributes-recognition-crossroad-0238 | personattr  | Person attributes (age, gender, clothing) |
-|                       | age-gender-recognition-retail-0013           | agegender   | Age and gender classification             |
-|                       | human-pose-estimation-0001                   | pose        | Human pose estimation                     |
-| **Vehicle Detection** | vehicle-detection-0200                       | veh0200     | Vehicle detection (newer model)           |
-|                       | vehicle-detection-0201                       | veh0201     | Vehicle detection (alternative)           |
-|                       | vehicle-detection-0202                       | veh0202     | Vehicle detection (alternative)           |
-|                       | vehicle-detection-adas-0002                  | vehadas     | ADAS vehicle detection                    |
-|                       | person-vehicle-bike-detection-2000           | pvb2000     | Multi-class detection                     |
-|                       | person-vehicle-bike-detection-2001           | pvb2001     | Multi-class detection (v2)                |
-|                       | person-vehicle-bike-detection-2002           | pvb2002     | Multi-class detection (v3)                |
-|                       | person-vehicle-bike-detection-crossroad-0078 | pvbcross78  | Crossroad detection                       |
-|                       | person-vehicle-bike-detection-crossroad-1016 | pvbcross16  | Crossroad detection (v2)                  |
-| **Vehicle Analysis**  | vehicle-attributes-recognition-barrier-0042  | vehattr     | Vehicle attributes (color, type)          |
-|                       | vehicle-license-plate-detection-barrier-0106 | platedetect | License plate detection                   |
-| **Text Analysis**     | horizontal-text-detection-0001               | textdetect  | Text detection                            |
-|                       | text-recognition-0012                        | textrec     | Text recognition                          |
-|                       | text-recognition-resnet-fc                   | textresnet  | ResNet-based text recognition             |
+| Category             | Full Model Name                              | Short Name | Description                               |
+| -------------------- | -------------------------------------------- | ---------- | ----------------------------------------- |
+| **Person Detection** | person-detection-retail-0013                 | retail     | General person detection                  |
+|                      | person-vehicle-bike-detection-crossroad-1016 | pvbcross16 | Crossroad multi-class detection           |
+| **Person Analysis**  | person-reidentification-retail-0277          | reid       | Person re-identification                  |
+|                      | person-attributes-recognition-crossroad-0238 | personattr | Person attributes (age, gender, clothing) |
+|                      | age-gender-recognition-retail-0013           | agegender  | Age and gender classification             |
+| **Vehicle Analysis** | vehicle-attributes-recognition-barrier-0042  | vehattr    | Vehicle attributes (color, type)          |
 
 ##### Common Chaining Patterns
 
@@ -93,23 +78,20 @@ retail=GPU+agegender=GPU
 
 ```
 # Vehicle detection with re-identification
-veh0200=GPU+reid=GPU
+pvbcross16=GPU+reid=GPU
 
 # Vehicle detection with attributes
-veh0200+vehattr
-
-# Vehicle detection with license plate detection
-veh0200+platedetect
+pvbcross16+vehattr
 ```
 
 **Multi-Class Detection:**
 
 ```
 # Detect people, vehicles, and bikes
-pvb2000=GPU
+pvbcross16=GPU
 
 # Multi-class detection with re-identification
-pvb2000=GPU+reid=GPU
+pvbcross16=GPU+reid=GPU
 ```
 
 #### Advanced Configuration
