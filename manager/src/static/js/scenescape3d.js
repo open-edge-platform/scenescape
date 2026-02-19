@@ -48,6 +48,8 @@ function main() {
     alpha: true,
     antialias: true,
   });
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; // Enable tone mapping
+  renderer.toneMappingExposure = 1.0; // Default exposure for renderer
   const appName = "scenescape";
   let toast = Toast();
 
@@ -83,10 +85,17 @@ function main() {
   const gltfLoader = new GLTFLoader();
 
   let showTrackedObjects = true;
+
+  // Light intensity control constants
+  const MIN_LIGHT_INTENSITY = 0.1;
+  const MAX_LIGHT_INTENSITY = 3.0;
+  let lightIntensity = 1.0; // Default light intensity
+
   //Setup control panel
   const panel = new GUI({ width: 310 });
   const panelSettings = {
     "show tracked objects": showTrackedObjects,
+    "light intensity": lightIntensity,
   };
   panel.domElement.id = "panel-3d-controls";
   panel
@@ -95,6 +104,24 @@ function main() {
       showTrackedObjects = visibility;
       assetManager.hideMarks();
     }).$widget.id = "tracked-objects-button";
+
+  // Add light intensity control
+  panel
+    .add(
+      panelSettings,
+      "light intensity",
+      MIN_LIGHT_INTENSITY,
+      MAX_LIGHT_INTENSITY,
+      0.01,
+    )
+    .onChange(function (intensity) {
+      lightIntensity = intensity;
+      if (ambientLight) {
+        ambientLight.intensity = intensity;
+      }
+      // Also adjust renderer exposure for more uniform effect on all surfaces
+      renderer.toneMappingExposure = intensity;
+    }).$widget.id = "light-intensity-slider";
 
   const orbitControls = new OrbitControls(
     perspectiveCamera,
@@ -155,6 +182,9 @@ function main() {
   const ambientColor = 0xa0a0a0; // Brighter ambient for more vibrant colors
   const ambientLight = new THREE.AmbientLight(ambientColor);
   scene.add(ambientLight);
+
+  // Set initial intensity for light sensor control
+  ambientLight.intensity = lightIntensity;
 
   const sceneBoundingBox = new THREE.Box3();
 
@@ -291,6 +321,18 @@ function main() {
           "Subscribed to " + (appName + CONSTANTS.DATA_CAMERA + "+/+"),
         );
 
+        // Subscribe to singleton sensor data - only for sensors in this scene
+        const sensorManager = sceneThingManagers["things"]["sensor"]["obj"];
+        if (sensorManager && sensorManager.sceneSensors) {
+          for (const sensorId in sensorManager.sceneSensors) {
+            if (sensorId !== "undefined") {
+              const topic = appName + "/data/sensor/" + sensorId;
+              client.subscribe(topic);
+              console.log("Subscribed to sensor: " + topic);
+            }
+          }
+        }
+
         if (sceneThing.isParent) {
           console.log(
             "Subscribed to " +
@@ -324,6 +366,83 @@ function main() {
     enableLiveView();
   }
 
+  // Handle singleton sensor data (temperature, light, humidity, etc.)
+  function handleSingletonSensorData(msg, topic) {
+    try {
+      // Extract sensor ID from topic: scenescape/data/sensor/{sensor_id}
+      const sensorId = topic.split("/").pop();
+      const subtype = msg.subtype || "unknown";
+      const rawValue = msg.value;
+      const value =
+        typeof rawValue === "number" ? rawValue : parseFloat(rawValue);
+
+      // Check if this is a light sensor for scene illumination control
+      if (subtype === "light" || sensorId.toLowerCase().includes("_light")) {
+        if (!Number.isFinite(value)) {
+          console.warn(
+            `Light sensor (${sensorId}): invalid value "${rawValue}" - not controlling scene lighting`,
+          );
+          return;
+        }
+        // Get sensor manager to check sensor configuration
+        const sensorManager = sceneThingManagers["things"]["sensor"]["obj"];
+
+        // Only control scene lighting if sensor area is set to "scene" (whole scene)
+        if (
+          sensorManager &&
+          sensorManager.sceneSensors &&
+          sensorManager.sceneSensors[sensorId]
+        ) {
+          const sensor = sensorManager.sceneSensors[sensorId];
+
+          // Only control lighting for sensors with area set to "scene"
+          // Don't control lighting for localized sensors ("circle", "poly") or any other value
+          if (sensor.area !== "scene") {
+            console.log(
+              `Light sensor (${sensorId}): area="${sensor.area}" - not controlling scene lighting (only "scene" area sensors affect ambient light)`,
+            );
+            return;
+          }
+        } else {
+          // If sensor not found in manager, log warning but don't control lighting
+          console.warn(
+            `Light sensor (${sensorId}): sensor not found in SensorManager - not controlling scene lighting`,
+          );
+          return;
+        }
+
+        // Convert lux to intensity: 500 lux = 1.0 intensity, 1500 lux = 3.0 intensity
+        // Sensor should report values in lux (SI unit for illuminance)
+        let intensity = value / 500;
+
+        // Clamp to configured range
+        intensity = Math.max(
+          MIN_LIGHT_INTENSITY,
+          Math.min(MAX_LIGHT_INTENSITY, intensity),
+        );
+
+        // Update ambient light and renderer exposure
+        lightIntensity = intensity;
+        ambientLight.intensity = intensity;
+        renderer.toneMappingExposure = intensity;
+        panelSettings["light intensity"] = intensity;
+
+        // Update GUI display
+        panel.controllersRecursive().forEach((controller) => {
+          if (controller.property === "light intensity") {
+            controller.updateDisplay();
+          }
+        });
+
+        console.log(
+          `Light sensor (${sensorId}): value=${value} -> intensity=${intensity.toFixed(3)}`,
+        );
+      }
+    } catch (error) {
+      console.error("Error processing singleton sensor data:", error);
+    }
+  }
+
   async function autoCalibrationSetup() {
     if (document.getElementById("camera_calib_strategy").value == "Manual") {
       for (const key in cameraManager.sceneCameras) {
@@ -354,6 +473,12 @@ function main() {
       msg = JSON.parse(data);
     } catch (error) {
       msg = String(data);
+    }
+
+    // Handle singleton sensor data (e.g., light sensors)
+    if (topic.includes("/data/sensor/")) {
+      handleSingletonSensorData(msg, topic);
+      return;
     }
 
     if (topic.includes(CONSTANTS.DATA_REGULATED)) {
