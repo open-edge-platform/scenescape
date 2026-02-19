@@ -80,6 +80,7 @@ COPY tracker/schema/ ./schema/
 COPY tracker/config/ ./config/
 
 ENV LD_LIBRARY_PATH=/scenescape/lib
+ENV HEALTHCHECK_PORT=8080
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
     CMD ["/scenescape/tracker", "healthcheck"]
