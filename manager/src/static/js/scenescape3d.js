@@ -85,12 +85,12 @@ function main() {
   const gltfLoader = new GLTFLoader();
 
   let showTrackedObjects = true;
-  
+
   // Light intensity control constants
   const MIN_LIGHT_INTENSITY = 0.1;
   const MAX_LIGHT_INTENSITY = 3.0;
   let lightIntensity = 1.0; // Default light intensity
-  
+
   //Setup control panel
   const panel = new GUI({ width: 310 });
   const panelSettings = {
@@ -107,7 +107,13 @@ function main() {
 
   // Add light intensity control
   panel
-    .add(panelSettings, "light intensity", MIN_LIGHT_INTENSITY, MAX_LIGHT_INTENSITY, 0.01)
+    .add(
+      panelSettings,
+      "light intensity",
+      MIN_LIGHT_INTENSITY,
+      MAX_LIGHT_INTENSITY,
+      0.01,
+    )
     .onChange(function (intensity) {
       lightIntensity = intensity;
       ambientLight.intensity = intensity;
@@ -365,52 +371,69 @@ function main() {
       const sensorId = topic.split("/").pop();
       const subtype = msg.subtype || "unknown";
       const value = parseFloat(msg.value);
-      
+
       // Check if this is a light sensor for scene illumination control
       if (subtype === "light" || sensorId.includes("light")) {
         // Get sensor manager to check sensor configuration
         const sensorManager = sceneThingManagers["things"]["sensor"]["obj"];
-        
+
         // Only control scene lighting if sensor area is set to "scene" (whole scene)
-        if (sensorManager && sensorManager.sceneSensors && sensorManager.sceneSensors[sensorId]) {
+        if (
+          sensorManager &&
+          sensorManager.sceneSensors &&
+          sensorManager.sceneSensors[sensorId]
+        ) {
           const sensor = sensorManager.sceneSensors[sensorId];
-          
+
           // Check if sensor area is "scene" or "undefined" (undefined defaults to scene)
           // Don't control lighting for localized sensors ("circle" or "polygon")
-          if (sensor.area !== "scene" && sensor.area !== "undefined" && sensor.area !== undefined) {
-            console.log(`Light sensor (${sensorId}): area="${sensor.area}" - not controlling scene lighting (only "scene" area sensors affect ambient light)`);
+          if (
+            sensor.area !== "scene" &&
+            sensor.area !== "undefined" &&
+            sensor.area !== undefined
+          ) {
+            console.log(
+              `Light sensor (${sensorId}): area="${sensor.area}" - not controlling scene lighting (only "scene" area sensors affect ambient light)`,
+            );
             return;
           }
         } else {
           // If sensor not found in manager, log warning but don't control lighting
-          console.warn(`Light sensor (${sensorId}): sensor not found in SensorManager - not controlling scene lighting`);
+          console.warn(
+            `Light sensor (${sensorId}): sensor not found in SensorManager - not controlling scene lighting`,
+          );
           return;
         }
-        
+
         // Convert sensor value to light intensity (0.0 to 3.0 range)
         // Sensor should report values in lux (SI unit for illuminance)
         let intensity = value;
-        
+
         // Convert lux to intensity: 500 lux = 1.0 intensity, 1500 lux = 3.0 intensity
         intensity = value / 500;
-        
+
         // Clamp to configured range
-        intensity = Math.max(MIN_LIGHT_INTENSITY, Math.min(MAX_LIGHT_INTENSITY, intensity));
-        
+        intensity = Math.max(
+          MIN_LIGHT_INTENSITY,
+          Math.min(MAX_LIGHT_INTENSITY, intensity),
+        );
+
         // Update ambient light and renderer exposure
         lightIntensity = intensity;
         ambientLight.intensity = intensity;
         renderer.toneMappingExposure = intensity;
         panelSettings["light intensity"] = intensity;
-        
+
         // Update GUI display
-        panel.controllersRecursive().forEach(controller => {
+        panel.controllersRecursive().forEach((controller) => {
           if (controller.property === "light intensity") {
             controller.updateDisplay();
           }
         });
-        
-        console.log(`Light sensor (${sensorId}): value=${value} -> intensity=${intensity.toFixed(3)}`);
+
+        console.log(
+          `Light sensor (${sensorId}): value=${value} -> intensity=${intensity.toFixed(3)}`,
+        );
       }
     } catch (error) {
       console.error("Error processing singleton sensor data:", error);

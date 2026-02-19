@@ -55,12 +55,12 @@ The 3D viewer includes a GUI slider for manual light control:
 
 **Typical lux values:**
 
-| Lux | Environment | Intensity |
-| --- | ----------- | --------- |
-| 100 | Dim room | 0.2 |
-| 400 | Indoor | 0.8 |
-| 500 | Office | 1.0 |
-| 1000 | Bright | 2.0 |
+| Lux  | Environment | Intensity |
+| ---- | ----------- | --------- |
+| 100  | Dim room    | 0.2       |
+| 400  | Indoor      | 0.8       |
+| 500  | Office      | 1.0       |
+| 1000 | Bright      | 2.0       |
 
 ## Troubleshooting
 
