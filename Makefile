@@ -11,10 +11,6 @@ COMMON_FOLDER := scene_common
 CORE_IMAGE_FOLDERS := autocalibration controller manager model_installer
 IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker
 
-# Build flags
-EXTRA_BUILD_FLAGS :=
-REBUILDFLAGS :=
-
 # Image variables
 IMAGE_PREFIX := scenescape
 SOURCES_IMAGE := $(IMAGE_PREFIX)-sources
@@ -60,6 +56,7 @@ CONTROLLER_METRICS_EXPORT_INTERVAL_S ?= 60
 CONTROLLER_ENABLE_TRACING ?= false
 CONTROLLER_TRACING_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
 CONTROLLER_TRACING_SAMPLE_RATIO ?= 1.0
+CONTROLLER_ENABLE_ANALYTICS_ONLY ?= false
 
 # ========================= Default Target ===========================
 
@@ -95,6 +92,7 @@ help:
 	@echo "  demo-all                    Start the SceneScape demo with all services using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Intel® SceneScape)"
+	@echo "  demo-tracker                Start the SceneScape demo with Tracker service + Controller in analytics only mode using Docker Compose"
 	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
@@ -121,7 +119,6 @@ help:
 	@echo "  run_tests                   Run all tests"
 	@echo "  run_basic_acceptance_tests  Run basic acceptance tests"
 	@echo "  run_performance_tests       Run performance tests"
-	@echo "  run_stability_tests         Run stability tests"
 	@echo ""
 	@echo "  lint-all                    Lint entire code base"
 	@echo "  lint-python                 Lint python files"
@@ -150,28 +147,6 @@ help:
 	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
 	@echo ""
 
-# ========================== CI specific =============================
-
-ifneq (,$(filter DAILY TAG,$(BUILD_TYPE)))
-  EXTRA_BUILD_FLAGS := rebuild
-endif
-
-ifneq (,$(filter rc beta-rc,$(TARGET_BRANCH)))
-  EXTRA_BUILD_FLAGS := rebuild
-endif
-
-.PHONY: check-tag
-check-tag:
-ifeq ($(BUILD_TYPE),TAG)
-	@echo "Checking if tag matches version.txt..."
-	@if grep --quiet "$(BRANCH_NAME)" version.txt; then \
-		echo "Perfect - Tag and Version is matching"; \
-	else \
-		echo "There is some mismatch between Tag and Version"; \
-		exit 1; \
-	fi
-endif
-
 # ========================= Build Images =============================
 
 $(BUILD_DIR):
@@ -181,14 +156,14 @@ $(BUILD_DIR):
 .PHONY: build-common
 build-common:
 	@echo "==> Building common base image..."
-	@$(MAKE) -C $(COMMON_FOLDER) http_proxy=$(http_proxy) $(EXTRA_BUILD_FLAGS)
+	@$(MAKE) -C $(COMMON_FOLDER) http_proxy=$(http_proxy)
 	@echo "DONE ==> Building common base image"
 
 # Build targets for each service folder
 .PHONY: $(IMAGE_FOLDERS)
 $(IMAGE_FOLDERS):
 	@echo "====> Building folder $@..."
-	@$(MAKE) -C $@ BUILD_DIR=$(BUILD_DIR) http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy) $(EXTRA_BUILD_FLAGS)
+	@$(MAKE) -C $@ BUILD_DIR=$(BUILD_DIR) http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy)
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
@@ -369,17 +344,6 @@ run_performance_tests: setup_tests
 	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
 	@echo "DONE ==> Running performance tests"
 
-.PHONY: run_stability_tests
-run_stability_tests: setup_tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
-	@echo "Running stability tests..."
-ifeq ($(BUILD_TYPE),DAILY)
-	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS) HOURS=4
-else
-	@$(MAKE) -C tests system-stability SUPASS=$(SUPASS)
-endif
-	@echo "DONE ==> Running stability tests"
-
 .PHONY: run_standard_tests
 run_standard_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
@@ -428,6 +392,14 @@ run_basic_acceptance_tests: setup_tests
 	@echo "Running basic acceptance tests..."
 	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
+
+.PHONY: run_stability_tests
+run_stability_tests: setup_tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running stability tests..."
+	$(eval HOURS ?= 24)
+	$(MAKE) --trace -C tests system-stability -j 1 SUPASS=$(SUPASS) HOURS=$(HOURS) SECRETSDIR=$(CURDIR)/manager/secrets || (echo "Stability tests failed" && exit 1)
+	@echo "DONE ==> Running stability tests"
 
 # Temp K8s BAT target
 .PHONY: run_basic_acceptance_tests_k8s
@@ -521,6 +493,7 @@ add-licensing:
 build-coverity:
 	$(MAKE) -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
 	@export OpenCV_DIR=$${OpenCV_DIR:-$$(pkg-config --variable=pc_path opencv4 | cut -d':' -f1)} && cd controller/src/robot_vision && python3 setup.py bdist_wheel || (echo "robot vision build failed" && exit 1)
+	$(MAKE) -C tracker build || (echo "tracker build failed" && exit 1)
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: convert-dls-videos
@@ -556,6 +529,14 @@ define start_demo
 		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
 		exit 1; \
 	fi
+	@if [ "$$BROKER_PORT" != "" ] && [ "$$BROKER_PORT" != "1883" ]; then \
+		echo "Updating docker-compose.yml with custom MQTT broker port: $$BROKER_PORT"; \
+		sed -i -E "s/[0-9]+:1883/$$BROKER_PORT:1883/g" docker-compose.yml; \
+	fi
+	@if [ "$$HTTPS_PORT" != "" ] && [ "$$HTTPS_PORT" != "443" ]; then \
+		echo "Updating docker-compose.yml with custom HTTPS port: $$HTTPS_PORT"; \
+		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
+	fi
 	docker compose $(1) up -d
 	@echo ""
 	@echo "To stop SceneScape, type:"
@@ -564,11 +545,15 @@ endef
 
 .PHONY: demo
 demo: build-core init-sample-data
-	$(call start_demo,)
+	$(call start_demo,--profile controller)
 
 .PHONY: demo-all
 demo-all: build-all init-sample-data
-	$(call start_demo,--profile experimental)
+	$(call start_demo,--profile controller --profile experimental)
+
+.PHONY: demo-tracker
+demo-tracker: build-all init-sample-data
+	$(call start_demo,--profile analytics --profile tracker)
 
 .PHONY: demo-k8s
 demo-k8s:
@@ -598,6 +583,7 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "CONTROLLER_ENABLE_TRACING=$(CONTROLLER_ENABLE_TRACING)" >> $@
 	@echo "CONTROLLER_TRACING_ENDPOINT=$(CONTROLLER_TRACING_ENDPOINT)" >> $@
 	@echo "CONTROLLER_TRACING_SAMPLE_RATIO=$(CONTROLLER_TRACING_SAMPLE_RATIO)" >> $@
+	@echo "CONTROLLER_ENABLE_ANALYTICS_ONLY=$(CONTROLLER_ENABLE_ANALYTICS_ONLY)" >> $@
 # ======================= Secrets Management =========================
 
 .PHONY: init-secrets

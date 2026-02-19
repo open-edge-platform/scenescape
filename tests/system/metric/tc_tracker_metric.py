@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -73,6 +73,7 @@ def track(params):
   effective_object_update_rate = trackerConfigData.get("effective_object_update_rate")
   time_chunking_enabled = trackerConfigData["time_chunking_enabled"]
   time_chunking_rate_fps = trackerConfigData.get("time_chunking_rate_fps")
+  suspended_track_timeout_secs = trackerConfigData["suspended_track_timeout_secs"]
 
   camera_fps = []
   for input_file in params["input"]:
@@ -103,7 +104,8 @@ def track(params):
     non_measurement_time_static=non_measurement_time_static,
     effective_object_update_rate=effective_object_update_rate,
     time_chunking_enabled=time_chunking_enabled,
-    time_chunking_rate_fps=time_chunking_rate_fps
+    time_chunking_rate_fps=time_chunking_rate_fps,
+    suspended_track_timeout_secs=suspended_track_timeout_secs
   )
 
   if 'sensors' in scene_config:

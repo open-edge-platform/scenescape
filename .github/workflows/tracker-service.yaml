@@ -11,15 +11,9 @@ on: # yamllint disable-line rule:truthy
       - main
       - release-*
       - tracker-service-*
-    paths:
-      - "tracker/**"
-      - ".github/workflows/tracker-service.yaml"
   push:
     branches:
       - main
-    paths:
-      - "tracker/**"
-      - ".github/workflows/tracker-service.yaml"
   workflow_dispatch: {}
 
 concurrency:
@@ -30,12 +24,37 @@ permissions:
   contents: read
 
 jobs:
+  detect-changes:
+    name: "Detect Tracker Changes"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      run-jobs: ${{ steps.changes.outputs.tracker }}
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # Fetch all history for accurate diff
+
+      - name: "Detect tracker changes"
+        id: changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        with:
+          filters: |
+            tracker:
+              - 'tracker/**'
+              - '.github/workflows/tracker-service.yaml'
+
   lint-cpp-code:
     name: "Lint C++ code"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -49,10 +68,12 @@ jobs:
 
   lint-dockerfile:
     name: "Lint Dockerfile"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -66,10 +87,12 @@ jobs:
 
   lint-python:
     name: "Lint Python code"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -81,10 +104,12 @@ jobs:
 
   trivy-scan:
     name: "Trivy security scan (optional)"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -101,10 +126,12 @@ jobs:
 
   native-build-and-test:
     name: "Native build and unit tests"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -127,7 +154,7 @@ jobs:
           conan profile detect --force
 
       - name: "Cache Conan packages"
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ~/.conan2
           key: conan-${{ runner.os }}-${{ hashFiles('tracker/conanfile.txt') }}
@@ -135,7 +162,7 @@ jobs:
             conan-${{ runner.os }}-
 
       - name: "Build release"
-        run: make -C tracker build-release
+        run: make -C tracker build
 
       - name: "Build debug with tests"
         run: make -C tracker build-debug
@@ -176,18 +203,20 @@ jobs:
 
   docker-build-and-test:
     name: "Docker build and service tests"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
       - name: "Set up Docker Buildx"
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: "Build Docker image"
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
           file: tracker/Dockerfile

@@ -31,7 +31,6 @@ quill::LogLevel to_quill_level(std::string_view level_str) {
     return quill::LogLevel::Info; // Default
 }
 
-// Escape string for JSON
 std::string json_escape(std::string_view str) {
     std::string result;
     result.reserve(str.size());
@@ -153,6 +152,11 @@ void Logger::log_error(const LogEntry& entry) {
     if (auto* l = instance().logger_) {
         QUILL_LOG_ERROR(l, "{}", entry.build());
     }
+}
+
+bool Logger::should_log_debug() {
+    auto* l = instance().logger_;
+    return l && l->get_log_level() <= quill::LogLevel::Debug;
 }
 
 // --------------------------------------------------------------------------

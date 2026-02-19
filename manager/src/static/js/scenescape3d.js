@@ -25,7 +25,7 @@ import {
 import {
   initializeOpencv,
   resizeRendererToDisplaySize,
-  checkWebSocketConnection,
+  checkMqttConnection,
 } from "/static/js/utils.js";
 import * as CONSTANTS from "/static/js/constants.js";
 function main() {
@@ -291,7 +291,7 @@ function main() {
       const urlSecure = "wss://" + window.location.host + "/mqtt";
 
       try {
-        await checkWebSocketConnection(urlSecure);
+        await checkMqttConnection(urlSecure);
       } catch (error) {
         console.error("MQTT port not available:", error);
         return;

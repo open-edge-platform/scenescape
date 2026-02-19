@@ -24,6 +24,7 @@ GENERATE_JUNITXML_UNITTEST=-o junit_logging=all --junitxml tests/reports/test_re
 NPROCS?=$(shell echo $(shell grep -c ^processor /proc/cpuinfo)/3 | bc)
 COMPOSE=tests/compose
 EXAMPLEDB=tests/testdb.tar.bz2
+VISIBILITY_TOPIC := regulated unregulated none
 
 ifeq ($(KUBERNETES),1)
     RUNTEST=tests/kubernetes/runtest
@@ -82,13 +83,11 @@ tests: \
   standard-tests \
 
 release-tests: \
-  additional-floor-plans \
   camera-deletion \
   different-formats-maps \
   live-view-button \
   non-functional-tests \
   scene-details \
-  randomly-failing-tests \
   reid-unique-count \
   reid-performance-degradation \
 
@@ -97,23 +96,24 @@ broken-features:
 
 # tests that are working, but feature is broken
 _broken-features: \
-  scene-import \
+  calibrate-camera-3d-ui-2d-ui \
 
 broken-tests: \
   3d-ui-calibration-points \
-  distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
   scenes-summary-api \
 
-randomly-failing-tests:
+randomly-failing-tests: \
+  distance-msoce \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
   geometry-conformance \
   metric-tests \
-  out-of-box \
-  out-of-box-no-ntp \
+	out-of-box \
+	out-of-box-no-ntp \
+	bounding-box \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
@@ -130,13 +130,15 @@ basic-acceptance-tests-k8s: \
 standard-tests: \
   _functional-tests \
   _ui-tests \
-  show-telemetry-button \
-  upload-only-3d-glb-files \
 
 functional-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
+  out-of-box \
+  out-of-box-no-ntp \
+  geometry-conformance \
+  auto-calibration-api \
   add-delete-3d-object-api \
   add-orphaned-cameras \
   api-large-strings \
@@ -148,12 +150,15 @@ _functional-tests: \
   delete-sensor-scene-api \
   delete-sensors-api \
   different-formats-maps-api \
+  reid-unique-count \
+  reid-performance-degradation \
   manual-camera-calibration-api \
-  calibrate-camera-3d-ui-2d-ui \
   mqtt-auth \
   mqtt-cert \
+  mqtt-roi \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
+  mqtt-tripwire \
   object-crud-api \
   orphaned-sensor \
   persistence-api \
@@ -169,6 +174,8 @@ _functional-tests: \
   upload-3d-glb-file-api \
   upload-only-3d-glb-files-api \
   vdms-similarity-search \
+  visibility \
+  3d-scene-control-panel \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
@@ -189,22 +196,28 @@ ui-tests:
 
 _ui-tests: \
   3d-camera-control-panel \
-  3d-scene-control-panel \
+  show-telemetry-button \
+  upload-only-3d-glb-files \
   add-delete-3d-object \
-	auto-calibration-ui \
+  auto-calibration-ui \
   bounding-box \
   calibrate-all-sensor-types \
+  camera-deletion \
   camera-perspective \
-  camera-status \
   delete-roi-mqtt \
-  delete-sensor-scene \
   delete-sensor-mqtt \
+  delete-sensor-scene \
   delete-sensors \
+  camera-status \
   delete-tripwire-mqtt \
+  different-formats-maps \
   manual-camera-calibration \
   object-crud \
-  persistence \
   restricted-media-access \
+  persistence \
+  live-view-button \
+  scene-details \
+  scene-import \
   scenes-summary \
   sensor-area \
   sensor-location \
@@ -222,6 +235,7 @@ _unit-tests: \
   cam-unit \
   geometry-unit \
   geospatial-unit \
+  mapping-unit \
   markerless-unit \
   robot-vision-unit \
   scene-unit \
@@ -261,7 +275,7 @@ build-time: # NEX-T12520
 
 system-stability: # NEX-T10411
 	$(eval HOURS ?= 24)
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
+	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
 
 python-indent-check: # NEX-T10448
 	$(eval LOGFILE=$(TEST_DATA)/code_check/$@-$(shell date -u +"%F-%T").log)
