@@ -34,26 +34,10 @@
             "name": "Scene2",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_translation": [
-              12.2,
-              248,
-              12
-            ],
-            "mesh_rotation": [
-              12.2,
-              248,
-              12
-            ],
-            "mesh_scale": [
-              1,
-              1,
-              1
-            ],
-            "tracker_config": [
-              1,
-              1,
-              1
-            ]
+            "mesh_translation": [12.2, 248, 12],
+            "mesh_rotation": [12.2, 248, 12],
+            "mesh_scale": [1, 1, 1],
+            "tracker_config": [1, 1, 1]
           }
         },
         "expected_status": {
@@ -96,10 +80,7 @@
             "name": "Scene_MeshTranslation_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_translation": [
-              1.0,
-              2.0
-            ]
+            "mesh_translation": [1.0, 2.0]
           }
         },
         "expected_status": {
@@ -120,10 +101,7 @@
             "name": "Scene_MeshRotation_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_rotation": [
-              12.2,
-              248
-            ]
+            "mesh_rotation": [12.2, 248]
           }
         },
         "expected_status": {
@@ -144,10 +122,7 @@
             "name": "Scene_MeshScale_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_scale": [
-              1.0,
-              1.0
-            ]
+            "mesh_scale": [1.0, 1.0]
           }
         },
         "expected_status": {
@@ -212,21 +187,9 @@
           "map_type": "map_upload",
           "use_tracker": false,
           "output_lla": true,
-          "mesh_translation": [
-            0,
-            0,
-            0
-          ],
-          "mesh_rotation": [
-            0,
-            0,
-            0
-          ],
-          "mesh_scale": [
-            1.0,
-            1.0,
-            1.0
-          ],
+          "mesh_translation": [0, 0, 0],
+          "mesh_rotation": [0, 0, 0],
+          "mesh_scale": [1.0, 1.0, 1.0],
           "regulated_rate": 30.0,
           "external_update_rate": 30.0,
           "camera_calibration": "Manual",
@@ -261,21 +224,9 @@
             "name": "Scene1_Updated_Full",
             "use_tracker": true,
             "output_lla": true,
-            "mesh_translation": [
-              12.2,
-              248,
-              12.0
-            ],
-            "mesh_rotation": [
-              12.2,
-              248,
-              12.0
-            ],
-            "mesh_scale": [
-              2.0,
-              2.0,
-              2.0
-            ]
+            "mesh_translation": [12.2, 248, 12.0],
+            "mesh_rotation": [12.2, 248, 12.0],
+            "mesh_scale": [2.0, 2.0, 2.0]
           }
         },
         "expected_status": {
@@ -298,21 +249,9 @@
           "map_type": "map_upload",
           "use_tracker": true,
           "output_lla": true,
-          "mesh_translation": [
-            12.2,
-            248.0,
-            12.0
-          ],
-          "mesh_rotation": [
-            12.2,
-            248.0,
-            12.0
-          ],
-          "mesh_scale": [
-            2.0,
-            2.0,
-            2.0
-          ],
+          "mesh_translation": [12.2, 248.0, 12.0],
+          "mesh_rotation": [12.2, 248.0, 12.0],
+          "mesh_scale": [2.0, 2.0, 2.0],
           "regulated_rate": 30.0,
           "external_update_rate": 30.0,
           "camera_calibration": "Manual",
@@ -378,9 +317,7 @@
             "name": "Scene_Update_MeshTranslation_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_translation": [
-              1.0
-            ]
+            "mesh_translation": [1.0]
           }
         },
         "expected_status": {
@@ -416,10 +353,7 @@
             "name": "Scene_Update_MeshRotation_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_rotation": [
-              0.0,
-              0.0
-            ]
+            "mesh_rotation": [0.0, 0.0]
           }
         },
         "expected_status": {
@@ -455,9 +389,7 @@
             "name": "Scene_Update_MeshScale_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_scale": [
-              1.0
-            ]
+            "mesh_scale": [1.0]
           }
         },
         "expected_status": {
@@ -557,21 +489,9 @@
           "map_type": "map_upload",
           "use_tracker": true,
           "output_lla": true,
-          "mesh_translation": [
-            12.2,
-            248.0,
-            12.0
-          ],
-          "mesh_rotation": [
-            12.2,
-            248.0,
-            12.0
-          ],
-          "mesh_scale": [
-            2.0,
-            2.0,
-            2.0
-          ],
+          "mesh_translation": [12.2, 248.0, 12.0],
+          "mesh_rotation": [12.2, 248.0, 12.0],
+          "mesh_scale": [2.0, 2.0, 2.0],
           "regulated_rate": 30.0,
           "external_update_rate": 30.0,
           "camera_calibration": "Manual",
@@ -644,22 +564,8 @@
                   },
                   "transform_type": "3d-2d point correspondence",
                   "transforms": [
-                    278.0,
-                    61.0,
-                    621.0,
-                    132.0,
-                    559.0,
-                    460.0,
-                    66.0,
-                    289.0,
-                    0.1,
-                    5.38,
-                    3.04,
-                    5.35,
-                    3.05,
-                    2.42,
-                    0.1,
-                    2.45
+                    278.0, 61.0, 621.0, 132.0, 559.0, 460.0, 66.0, 289.0, 0.1,
+                    5.38, 3.04, 5.35, 3.05, 2.42, 0.1, 2.45
                   ],
                   "distortion": {
                     "k1": 0.0,
@@ -669,24 +575,14 @@
                     "k3": 0.0
                   },
                   "translation": [
-                    2.6651330996559883,
-                    1.0075648853123316,
-                    2.603863333755973
+                    2.6651330996559883, 1.0075648853123316, 2.603863333755973
                   ],
                   "rotation": [
-                    -137.85924651441334,
-                    -19.441505783168942,
+                    -137.85924651441334, -19.441505783168942,
                     -15.384890268257454
                   ],
-                  "scale": [
-                    1.0000000000000007,
-                    1.0,
-                    1.0
-                  ],
-                  "resolution": [
-                    640,
-                    480
-                  ],
+                  "scale": [1.0000000000000007, 1.0, 1.0],
+                  "resolution": [640, 480],
                   "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
                 },
                 {
@@ -700,22 +596,8 @@
                   },
                   "transform_type": "3d-2d point correspondence",
                   "transforms": [
-                    31.0,
-                    228.0,
-                    423.0,
-                    266.0,
-                    537.0,
-                    385.0,
-                    79.0,
-                    343.0,
-                    1.06,
-                    5.34,
-                    4.0,
-                    5.38,
-                    4.98,
-                    4.39,
-                    2.04,
-                    4.38
+                    31.0, 228.0, 423.0, 266.0, 537.0, 385.0, 79.0, 343.0, 1.06,
+                    5.34, 4.0, 5.38, 4.98, 4.39, 2.04, 4.38
                   ],
                   "distortion": {
                     "k1": 0.0,
@@ -725,42 +607,19 @@
                     "k3": 0.0
                   },
                   "translation": [
-                    4.034863921795162,
-                    2.277766310708989,
-                    2.955114373391866
+                    4.034863921795162, 2.277766310708989, 2.955114373391866
                   ],
                   "rotation": [
-                    -132.15360745910087,
-                    -8.172752500708558,
-                    -5.298590495090165
+                    -132.15360745910087, -8.172752500708558, -5.298590495090165
                   ],
-                  "scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                  ],
-                  "resolution": [
-                    640,
-                    480
-                  ],
+                  "scale": [1.0, 1.0, 1.0],
+                  "resolution": [640, 480],
                   "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
                 }
               ],
-              "mesh_translation": [
-                0,
-                0,
-                0
-              ],
-              "mesh_rotation": [
-                0,
-                0,
-                0
-              ],
-              "mesh_scale": [
-                1.0,
-                1.0,
-                1.0
-              ],
+              "mesh_translation": [0, 0, 0],
+              "mesh_rotation": [0, 0, 0],
+              "mesh_scale": [1.0, 1.0, 1.0],
               "scale": 100.0,
               "regulated_rate": 30.0,
               "external_update_rate": 30.0,
@@ -800,22 +659,8 @@
                   },
                   "transform_type": "3d-2d point correspondence",
                   "transforms": [
-                    119.0,
-                    622.0,
-                    257.0,
-                    561.0,
-                    978.0,
-                    580.0,
-                    628.0,
-                    312.0,
-                    1.685,
-                    2.533,
-                    2.188,
-                    2.578,
-                    4.449,
-                    1.412,
-                    3.94,
-                    3.228
+                    119.0, 622.0, 257.0, 561.0, 978.0, 580.0, 628.0, 312.0,
+                    1.685, 2.533, 2.188, 2.578, 4.449, 1.412, 3.94, 3.228
                   ],
                   "distortion": {
                     "k1": 0.0,
@@ -825,24 +670,13 @@
                     "k3": 0.0
                   },
                   "translation": [
-                    2.985857104493509,
-                    0.20540788984425282,
-                    2.7150546825598902
+                    2.985857104493509, 0.20540788984425282, 2.7150546825598902
                   ],
                   "rotation": [
-                    -135.08718965001765,
-                    12.682032394455133,
-                    19.24508172546946
+                    -135.08718965001765, 12.682032394455133, 19.24508172546946
                   ],
-                  "scale": [
-                    0.9999999999999999,
-                    1.0,
-                    1.0
-                  ],
-                  "resolution": [
-                    1280,
-                    720
-                  ],
+                  "scale": [0.9999999999999999, 1.0, 1.0],
+                  "resolution": [1280, 720],
                   "scene": "302cf49a-97ec-402d-a324-c5077b280b7b"
                 },
                 {
@@ -856,22 +690,8 @@
                   },
                   "transform_type": "3d-2d point correspondence",
                   "transforms": [
-                    1012.0,
-                    307.0,
-                    956.0,
-                    613.0,
-                    1121.0,
-                    505.0,
-                    585.0,
-                    316.0,
-                    3.596,
-                    2.96,
-                    1.583,
-                    2.794,
-                    2.36,
-                    2.266,
-                    2.577,
-                    4.903
+                    1012.0, 307.0, 956.0, 613.0, 1121.0, 505.0, 585.0, 316.0,
+                    3.596, 2.96, 1.583, 2.794, 2.36, 2.266, 2.577, 4.903
                   ],
                   "distortion": {
                     "k1": 0.0,
@@ -881,24 +701,13 @@
                     "k3": 0.0
                   },
                   "translation": [
-                    -0.6544951215349523,
-                    2.8628274940885503,
-                    2.894955006060443
+                    -0.6544951215349523, 2.8628274940885503, 2.894955006060443
                   ],
                   "rotation": [
-                    -150.5988934259539,
-                    42.35138027480063,
-                    52.29263795544898
+                    -150.5988934259539, 42.35138027480063, 52.29263795544898
                   ],
-                  "scale": [
-                    1.0,
-                    1.0000000000000002,
-                    1.0
-                  ],
-                  "resolution": [
-                    1280,
-                    720
-                  ],
+                  "scale": [1.0, 1.0000000000000002, 1.0],
+                  "resolution": [1280, 720],
                   "scene": "302cf49a-97ec-402d-a324-c5077b280b7b"
                 }
               ],
@@ -910,33 +719,14 @@
                   "name": "sensor_full",
                   "area": "circle",
                   "radius": 2.5,
-                  "center": [
-                    3.81,
-                    4.59
-                  ],
-                  "translation": [
-                    3.81,
-                    4.59,
-                    0.0
-                  ],
+                  "center": [3.81, 4.59],
+                  "translation": [3.81, 4.59, 0.0],
                   "singleton_type": "attribute"
                 }
               ],
-              "mesh_translation": [
-                0,
-                0,
-                0
-              ],
-              "mesh_rotation": [
-                0,
-                0,
-                0
-              ],
-              "mesh_scale": [
-                1.0,
-                1.0,
-                1.0
-              ],
+              "mesh_translation": [0, 0, 0],
+              "mesh_rotation": [0, 0, 0],
+              "mesh_scale": [1.0, 1.0, 1.0],
               "scale": 157.0,
               "regulated_rate": 30.0,
               "external_update_rate": 30.0,
@@ -963,21 +753,9 @@
               "map_type": "map_upload",
               "use_tracker": true,
               "output_lla": true,
-              "mesh_translation": [
-                12.2,
-                248.0,
-                12.0
-              ],
-              "mesh_rotation": [
-                12.2,
-                248.0,
-                12.0
-              ],
-              "mesh_scale": [
-                2.0,
-                2.0,
-                2.0
-              ],
+              "mesh_translation": [12.2, 248.0, 12.0],
+              "mesh_rotation": [12.2, 248.0, 12.0],
+              "mesh_scale": [2.0, 2.0, 2.0],
               "regulated_rate": 30.0,
               "external_update_rate": 30.0,
               "camera_calibration": "Manual",
