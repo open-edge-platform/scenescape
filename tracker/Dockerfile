@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # --- Build stage ---
-FROM debian:13-slim@sha256:77ba0164de17b88dd0bf6cdc8f65569e6e5fa6cd256562998b62553134a00ef0 AS builder
+FROM debian:13-slim@sha256:f6e2cfac5cf956ea044b4bd75e6397b4372ad88fe00908045e9a0d21712ae3ba AS builder
 
 WORKDIR /scenescape
 
@@ -69,7 +69,7 @@ RUN mkdir -p /scenescape/runtime-libs \
 WORKDIR /scenescape
 
 # --- Runtime stage ---
-FROM gcr.io/distroless/cc-debian13@sha256:d7ac2f9af248f31fe6270002755722afdf6875e0e49cd52b9150208e6a23875c AS runtime
+FROM gcr.io/distroless/cc-debian13@sha256:22fd4bd55e5f0ef1929985f111816ba1e43c00a0ddeb001c0fdfb2724b4e3cc2 AS runtime
 
 USER 10001
 WORKDIR /scenescape
@@ -80,6 +80,7 @@ COPY tracker/schema/ ./schema/
 COPY tracker/config/ ./config/
 
 ENV LD_LIBRARY_PATH=/scenescape/lib
+ENV HEALTHCHECK_PORT=8080
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
     CMD ["/scenescape/tracker", "healthcheck"]
@@ -87,7 +88,7 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
 CMD ["/scenescape/tracker", "--config", "/scenescape/config/tracker.json", "--schema", "/scenescape/schema/config.schema.json"]
 
 # --- Debug stage (for development with gdbserver) ---
-FROM debian:13-slim@sha256:77ba0164de17b88dd0bf6cdc8f65569e6e5fa6cd256562998b62553134a00ef0 AS debug
+FROM debian:13-slim@sha256:f6e2cfac5cf956ea044b4bd75e6397b4372ad88fe00908045e9a0d21712ae3ba AS debug
 
 # hadolint ignore=DL3008
 RUN apt-get update -qq \
