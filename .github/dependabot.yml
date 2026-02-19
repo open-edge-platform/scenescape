@@ -47,6 +47,7 @@ updates:
       - "/cluster_analytics"
       - "/controller/src/robot_vision"
       - "/mapping"
+      - "/tracker"
     schedule:
       interval: "monthly"
     commit-message:
@@ -64,6 +65,7 @@ updates:
       - "/tests/compose/dlstreamer"
       - "/tests/perf_tests/compose"
       - "/tools/ppl_runner"
+      - "/tracker/test/service"
     schedule:
       interval: "monthly"
     commit-message:
@@ -87,6 +89,7 @@ updates:
       - "/cluster_analytics"
       - "/mapping"
       - "/mapping/tests"
+      - "/tracker/test/service"
     schedule:
       interval: "monthly"
     commit-message:
