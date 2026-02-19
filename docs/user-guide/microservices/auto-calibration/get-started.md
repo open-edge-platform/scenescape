@@ -1,11 +1,11 @@
-# Get Started with Auto Camera Calibration
+# Get Started
 
 ## Prerequisites
 
 - The hardware platform must be at least a 10th Generation Intel® Core™ i5 Processor or Intel® Xeon® Scalable processor, with at least 8+GB of RAM and 64+GB of storage.
-- [How to build Auto Camera Calibration from source](how-to-build-source.md)
+- [Build Auto Camera Calibration from source](./get-started/build-from-source.md).
 
-## Running the service using Docker Compose
+## Run the service using Docker Compose
 
 - **Navigate to the Directory**:
 
@@ -61,5 +61,15 @@
   ```
 
 - **Access autocalibration output through MQTT**:
-  - Refer to [autocalibration-api.yaml](api-docs/autocalibration-api.yaml) on how to access auto calibration output
-  - Refer to [Auto Calibration Sequence Diagram](overview.md#sequence-diagram-auto-camera-calibration-workflow)
+  - Refer to [autocalibration-api.yaml](./_assets/autocalibration-api.yaml) on how to access
+    auto calibration output.
+  - Refer to [Auto Calibration Sequence Diagram](./auto-calibration.md#sequence-diagram-auto-camera-calibration-workflow)
+
+<!--hide_directive
+:::{toctree}
+:hidden:
+
+get-started/build-from-source
+
+:::
+hide_directive-->
