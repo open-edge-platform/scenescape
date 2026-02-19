@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -433,7 +433,9 @@ class SingletonSensorUpdateView(SuperUserCheck, UpdateView):
 # 3D Asset CRUD
 class AssetCreateView(SuperUserCheck, CreateView):
   model = Asset3D
-  fields = ['name', 'x_size', 'y_size', 'z_size', 'mark_color', 'model_3d', 'scale', 'tracking_radius', 'shift_type']
+  fields = ['name', 'x_size', 'y_size', 'z_size', 'mark_color', 'model_3d', 'scale', 'tracking_radius', 'shift_type',
+            'geometric_center', 'mass', 'center_of_mass', 'is_static', 'ttl',
+            'linear_damping', 'angular_damping', 'coefficient_of_restitution', 'friction_coefficients']
   template_name = "asset/asset_create.html"
   success_url = reverse_lazy('asset_list')
 
@@ -457,7 +459,9 @@ class AssetUpdateView(SuperUserCheck, UpdateView):
     'x_buffer_size', 'y_buffer_size', 'z_buffer_size',  \
     'rotation_x', 'rotation_y', 'rotation_z', \
     'translation_x', 'translation_y', 'translation_z', \
-    'tracking_radius', 'shift_type', 'project_to_map', 'rotation_from_velocity']
+    'tracking_radius', 'shift_type', 'project_to_map', 'rotation_from_velocity', \
+    'geometric_center', 'mass', 'center_of_mass', 'is_static', 'ttl', \
+    'linear_damping', 'angular_damping', 'coefficient_of_restitution', 'friction_coefficients']
   template_name = "asset/asset_update.html"
   success_url = reverse_lazy('asset_list')
 
