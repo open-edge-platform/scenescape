@@ -1,20 +1,26 @@
 # Auto Camera Calibration Service
 
-Auto camera calibration service computes camera parameters automatically instead of complicated manual calibration methods.
+Auto camera calibration service computes camera parameters automatically instead of
+complicated manual calibration methods.
 
-## Overview
-
-The calibration process begins with the client sending a heartbeat command to verify if the calibration service is active. Upon receiving this, the service responds with its current status, such as "running" or "alive." If the status confirms that the service is running, the client issues a command to initiate camera localization. The calibration service then processes this request and returns the resulting camera pose data.
+The calibration process begins with the client sending a heartbeat command to verify if the
+calibration service is active. Upon receiving this, the service responds with its current
+status, such as "running" or "alive." If the status confirms that the service is running, the
+client issues a command to initiate camera localization. The calibration service then processes
+this request and returns the resulting camera pose data.
 
 The auto calibration services supports two types of camera calibration methods:
 
-- **AprilTag Calibration**: This method uses fiducial markers called AprilTags placed within the scene. By detecting these markers in the camera's view, the service calculates the camera's position, enhancing calibration accuracy and efficiency.
+- **AprilTag Calibration**: This method uses fiducial markers called AprilTags placed within
+  the scene. By detecting these markers in the camera's view, the service calculates the
+  camera's position, enhancing calibration accuracy and efficiency. Check out the detailed guide
+  on how to [Use AprilTag Camera Calibration](../../calibrating-cameras/how-to-autocalibrate-cameras-using-apriltags.md).
 
-- **Markerless Calibration**: This approach leverages raw RGBD data from a [Polycam](https://poly.cam/) scan to estimate the camera's pose in the scene, eliminating the need for physical markers.
+- **Markerless Calibration**: This approach leverages raw RGBD data from a [Polycam](https://poly.cam/) scan to estimate the camera's position in the scene, eliminating the need for physical markers. Check out the detailed guide on how to [Autocalibrate Cameras Using Visual Features](../../calibrating-cameras/how-to-autocalibrate-cameras-using-visual-features.md).
 
-To deploy the auto calibration service, refer to the [Get started](get-started.md) guide. The service supports configuration through specific arguments and flags, which default to predefined values unless explicitly modified.
+To deploy the auto calibration service, refer to the [Get Started](./get-started.md) guide. The service supports configuration through specific arguments and flags ([listed below](#configurable-arguments-and-flags)), which default to predefined values unless explicitly modified.
 
-### Configurable Arguments and Flags
+## Configurable Arguments and Flags
 
 `--resturl`: Specifies the URL of the REST server used to provide scene configuration details through the REST API.
 
@@ -32,11 +38,11 @@ To deploy the auto calibration service, refer to the [Get started](get-started.m
 
 ## Architecture
 
-![Intel® SceneScape architecture diagram](images/architecture.png)
+![Intel® SceneScape architecture diagram](./_assets/architecture.png)
 
 _Figure 1: Architecture Diagram_
 
-## Sequence Diagram: Auto Camera Calibration Workflow
+### Sequence Diagram: Auto Camera Calibration Workflow
 
 The workflow below illustrates the Auto Camera Calibration process. Camera pose is determined through two main steps: **scene registration** and **localization**.
 
@@ -52,11 +58,21 @@ The workflow below illustrates the Auto Camera Calibration process. Camera pose 
    - The Client subscribes to real-time calibration results via WebSocket notifications (recommended approach).
    - Alternatively, the Client can poll the calibration status and results using GET on `/v1/cameras/{cameraId}/calibration` endpoint.
 
-![Intel® SceneScape auto calibration sequence diagram](images/autocalibration-sequence-diagram.png)
+![Intel® SceneScape auto calibration sequence diagram](./_assets/autocalibration-sequence-diagram.png)
 
 _Figure 2: Auto Calibration Sequence diagram_
 
 ## Supporting Resources
 
-- [Get Started Guide](get-started.md)
-- [API Reference](api-reference.md)
+- [Get Started Guide](./get-started.md)
+- [API Reference](./api-reference.md)
+
+<!--hide_directive
+:::{toctree}
+:hidden:
+
+get-started
+api-reference
+
+:::
+hide_directive-->
