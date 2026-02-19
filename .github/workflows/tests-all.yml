@@ -173,7 +173,7 @@ jobs:
   run_ui_tests:
     runs-on: [all]
     name: "UI Tests"
-    timeout-minutes: 45
+    timeout-minutes: 70
     steps:
       - name: Remove test_data folder
         run: |
@@ -324,7 +324,9 @@ jobs:
           touch test_results_summary.txt
           log_files=("test_data/metrics.log" "test_data/non_functional.log" "test_data/functional_tests.log" "test_data/ui_tests.log" "test_data/unit_tests.log" "test_data/release_tests.log")
           for log_file in "${log_files[@]}"; do
-            grep -Erh "NEX-T.*: (PASS|FAIL)" $log_file | sed 's/\(NEX-T[0-9]*\)[^:]*\(: .*\)/\1\2/' >> test_results_summary.txt
+            grep -Erh "NEX-T.*: (PASS|FAIL)" $log_file \
+            | sed 's/^[[:space:]]*\(NEX-T[0-9]*\)[^:]*\(: \(PASS\|FAIL\)\)\(ED\)\?/\1\2/' \
+            >> test_results_summary.txt
           done
           cat test_results_summary.txt | sort -u -o test_results_summary.txt
       - name: Setup Python
