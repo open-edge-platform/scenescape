@@ -69,7 +69,7 @@ RUN mkdir -p /scenescape/runtime-libs \
 WORKDIR /scenescape
 
 # --- Runtime stage ---
-FROM gcr.io/distroless/cc-debian13@sha256:d7ac2f9af248f31fe6270002755722afdf6875e0e49cd52b9150208e6a23875c AS runtime
+FROM gcr.io/distroless/cc-debian13@sha256:22fd4bd55e5f0ef1929985f111816ba1e43c00a0ddeb001c0fdfb2724b4e3cc2 AS runtime
 
 USER 10001
 WORKDIR /scenescape
@@ -80,6 +80,7 @@ COPY tracker/schema/ ./schema/
 COPY tracker/config/ ./config/
 
 ENV LD_LIBRARY_PATH=/scenescape/lib
+ENV HEALTHCHECK_PORT=8080
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
     CMD ["/scenescape/tracker", "healthcheck"]
