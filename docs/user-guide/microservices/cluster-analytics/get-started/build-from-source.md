@@ -1,4 +1,4 @@
-# How to Build Auto Calibration from Source
+# How to Build Cluster Analytics from Source
 
 ## Prerequisites
 
@@ -13,7 +13,7 @@
   git clone https://github.com/open-edge-platform/scenescape.git
   ```
 
-  Note: Adjust the repo link appropriately in case of forked repo.
+> **Note:** Adjust the repo link appropriately in case of forked repo.
 
 - **Navigate to the Directory**:
 
@@ -21,7 +21,11 @@
   cd scenescape
   ```
 
-- **Build autocalibration**:
+- **Build cluster_analytics**:
   ```bash
-  make autocalibration
+  make cluster_analytics
   ```
+
+## Next Steps
+
+Proceed to [Run the service using Docker Compose](../get-started.md#run-the-service-using-docker-compose).

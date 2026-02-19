@@ -1,4 +1,4 @@
-# Auto Camera Calibration API Reference
+# API Reference
 
 **Version: v1.0.0**
 
@@ -40,5 +40,5 @@ For full schema details and example payloads, see the OpenAPI YAML file below.
 ---
 
 ```{eval-rst}
-.. swagger-plugin:: api-docs/autocalibration-api.yaml
+.. swagger-plugin:: ./_assets/autocalibration-api.yaml
 ```
