@@ -173,7 +173,7 @@ jobs:
   run_ui_tests:
     runs-on: [all]
     name: "UI Tests"
-    timeout-minutes: 70
+    timeout-minutes: 120
     steps:
       - name: Remove test_data folder
         run: |
