@@ -10,11 +10,11 @@ In the SceneScape UI, create a new sensor with:
 
 - **Sensor ID**: Must match your publisher config (e.g., `warehouse_01_light`)
 - **Type**: Environmental
-- **Area**: **Scene** (required - [text](../../../../milvus_sandbox)see note below)
+- **Area**: **scene** (required; see note below)
 
-**Important:** Only sensors with Area="Scene" control scene lighting. Circle/Polygon sensors tag objects but don't affect ambient illumination.
+**Important:** Only sensors with area="scene" control scene lighting. Localized sensors (area="circle" or "poly") tag objects but don't affect ambient illumination.
 
-**Sensor identification:** The 3D viewer identifies light sensors by checking if the sensor ID contains "light" (e.g., `warehouse_01_light`) or if the message has `subtype: "light"`.
+**Sensor identification:** The 3D viewer identifies light sensors by `subtype: "light"` in the message payload, or by the sensor ID ending with `_light` (e.g., `warehouse_01_light`).
 
 ### Configure Your Sensor Publisher
 
@@ -25,7 +25,7 @@ Publish to: `scenescape/data/sensor/{sensor_id}`
 ```json
 {
   "id": "warehouse_01_light",
-  "timestamp": "2026-01-16T10:30:45.123Z",
+  "timestamp": "<ISO 8601 UTC timestamp>",
   "value": 425,
   "subtype": "light"
 }
@@ -66,7 +66,7 @@ The 3D viewer includes a GUI slider for manual light control:
 
 **Scene not changing:**
 
-- Verify sensor Area="Scene" in SceneScape UI
+- Verify sensor area="scene" in SceneScape UI
 - Check sensor ID matches publisher exactly (case-sensitive)
 - View browser console (F12) for error messages
 
@@ -78,6 +78,6 @@ The 3D viewer includes a GUI slider for manual light control:
 
 **Multiple sensors:**
 
-- Scene sensors (Area="Scene") control ambient lighting
-- Localized sensors (Area="Circle"/"Polygon") tag objects only
+- Scene sensors (area="scene") control ambient lighting
+- Localized sensors (area="circle"/"poly") tag objects only
 - Most recent scene sensor value is applied

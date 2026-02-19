@@ -116,7 +116,9 @@ function main() {
     )
     .onChange(function (intensity) {
       lightIntensity = intensity;
-      ambientLight.intensity = intensity;
+      if (ambientLight) {
+        ambientLight.intensity = intensity;
+      }
       // Also adjust renderer exposure for more uniform effect on all surfaces
       renderer.toneMappingExposure = intensity;
     }).$widget.id = "light-intensity-slider";
@@ -370,10 +372,18 @@ function main() {
       // Extract sensor ID from topic: scenescape/data/sensor/{sensor_id}
       const sensorId = topic.split("/").pop();
       const subtype = msg.subtype || "unknown";
-      const value = parseFloat(msg.value);
+      const rawValue = msg.value;
+      const value =
+        typeof rawValue === "number" ? rawValue : parseFloat(rawValue);
 
       // Check if this is a light sensor for scene illumination control
-      if (subtype === "light" || sensorId.includes("light")) {
+      if (subtype === "light" || sensorId.toLowerCase().includes("_light")) {
+        if (!Number.isFinite(value)) {
+          console.warn(
+            `Light sensor (${sensorId}): invalid value "${rawValue}" - not controlling scene lighting`,
+          );
+          return;
+        }
         // Get sensor manager to check sensor configuration
         const sensorManager = sceneThingManagers["things"]["sensor"]["obj"];
 
@@ -385,13 +395,9 @@ function main() {
         ) {
           const sensor = sensorManager.sceneSensors[sensorId];
 
-          // Check if sensor area is "scene" or "undefined" (undefined defaults to scene)
-          // Don't control lighting for localized sensors ("circle" or "polygon")
-          if (
-            sensor.area !== "scene" &&
-            sensor.area !== "undefined" &&
-            sensor.area !== undefined
-          ) {
+          // Only control lighting for sensors with area set to "scene"
+          // Don't control lighting for localized sensors ("circle", "poly") or any other value
+          if (sensor.area !== "scene") {
             console.log(
               `Light sensor (${sensorId}): area="${sensor.area}" - not controlling scene lighting (only "scene" area sensors affect ambient light)`,
             );
@@ -405,12 +411,9 @@ function main() {
           return;
         }
 
-        // Convert sensor value to light intensity (0.0 to 3.0 range)
-        // Sensor should report values in lux (SI unit for illuminance)
-        let intensity = value;
-
         // Convert lux to intensity: 500 lux = 1.0 intensity, 1500 lux = 3.0 intensity
-        intensity = value / 500;
+        // Sensor should report values in lux (SI unit for illuminance)
+        let intensity = value / 500;
 
         // Clamp to configured range
         intensity = Math.max(
