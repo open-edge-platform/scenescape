@@ -86,6 +86,7 @@ class SceneControllerImportJSON(FunctionalTest):
 
     finally:
       self.pubsub.loopStop()
+      self.recordTestResult()
 
     return self.exitCode
 

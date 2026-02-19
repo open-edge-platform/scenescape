@@ -7,7 +7,6 @@ import os
 import pytest
 import sys
 from pathlib import Path
-import numpy as np
 
 # Add controller/src to path FIRST so controller module imports work correctly
 controller_src = Path(__file__).resolve().parents[1] / 'src'
@@ -18,6 +17,11 @@ repo_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(repo_root))
 
 from controller.controller_mode import ControllerMode
+
+def pytest_report_teststatus(report, config):
+  if report.when == "call":
+    # Disable default "PASSED"
+    return report.outcome, "", ""
 
 def pytest_addoption(parser):
   parser.addoption("--user", required=True, help="user to log into REST server")
