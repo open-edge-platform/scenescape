@@ -16,7 +16,7 @@ Building Intel® SceneScape will perform all the above steps and additionally bu
 The commands below will perform all the above steps and additionally build all images (adjust environment variables if needed):
 
 ```
-make MODELS=all PRECISIONS=FP32
+make install-models PRECISIONS=FP32
 make init-sample-data
 ```
 

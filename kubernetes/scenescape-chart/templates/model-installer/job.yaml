@@ -2,9 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 {{- if .Values.hooks.enabled }}
-{{- if not (has .Values.initModels.modelType (list "default" "ocr" "all")) }}
-{{- fail "initModels.modelType must be one of: default, ocr, all" }}
-{{- end }}
 {{- if not (kindIs "bool" .Values.initModels.modelProc) }}
 {{- fail "initModels.modelProc must be a boolean (true or false)" }}
 {{- end }}
@@ -45,8 +42,6 @@ spec:
         imagePullPolicy: {{ .Values.initModels.image.pullPolicy }}
         name: {{ .Release.Name }}-init-models-container
         env:
-          - name: MODEL_TYPE
-            value: "{{ .Values.initModels.modelType }}"
           - name: MODEL_PRECISIONS
             value: "{{ .Values.initModels.modelPrecisions }}"
           - name: MODEL_PROC
