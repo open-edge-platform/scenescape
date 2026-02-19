@@ -1,4 +1,4 @@
-# Cluster Analytics Service - Intel® SceneScape
+# Cluster Analytics Service
 
 The Cluster Analytics service provides advanced object clustering and movement analysis capabilities for Intel® SceneScape using DBSCAN (Density-Based Spatial Clustering of Applications with Noise) algorithm combined with geometric shape detection and velocity pattern classification.
 
@@ -11,9 +11,7 @@ This service processes real-time object detection data from Intel® SceneScape s
 
 ## Deployment
 
-### Docker Deployment
-
-#### Using Docker Compose (Recommended)
+### Docker Deployment (Recommended)
 
 The cluster analytics service is included in the extended Intel® SceneScape demo docker-compose stack:
 
@@ -22,7 +20,13 @@ SUPASS=admin123 make
 SUPASS=admin123 make demo-all
 ```
 
+### Build from Source
+
+Alternatively, see how to [Build from Source](./get-started/build-from-source.md).
+
 ## Architecture
+
+> **Note:** Diagrams are currently best viewed in light color mode.
 
 ### Data Flow Diagram
 
@@ -48,7 +52,7 @@ sequenceDiagram
     MQTT->>APP:
 ```
 
-### 🔍 **DBSCAN Clustering Configuration**
+### **DBSCAN Clustering Configuration**
 
 #### User-Configurable Parameters
 
@@ -111,7 +115,7 @@ The service uses a `config.json` file located in the `config/` directory:
   - `truck` - Large vehicle spacing requirements
   - `bus` - Bus stops, depot formations
 
-### 📐 Shape Detection & Analysis
+### Shape Detection and Analysis
 
 - **ML-based Shape Classification**: Detects geometric patterns using feature extraction
 - **Size Calculations**: Provides precise measurements for each detected shape type
@@ -129,7 +133,7 @@ flowchart TD
     B -->|< 3 points| C[Insufficient Points]
     B -->|≥ 3 points| D[Calculate Features]
 
-    D --> E[Extract Distance & Angle Features]
+    D --> E[Extract Distance and Angle Features]
     E --> F[Calculate Centroid]
     F --> G[Measure Distance Variance]
 
@@ -163,7 +167,7 @@ flowchart TD
     V --> V1[Calculate: bounding box, point spread]
 ```
 
-### 🏃 Velocity Analysis & Movement Patterns
+### Velocity Analysis and Movement Patterns
 
 - **Movement Classification**: 6 distinct movement patterns
 - **Velocity Statistics**: Comprehensive speed and direction analysis
@@ -189,7 +193,7 @@ graph TD
     F -->|Mixed| I[Chaotic]
 ```
 
-## 🎯 Category-Specific Clustering
+## Category-Specific Clustering
 
 The serviceoptimizes DBSCAN parameters based on object categories, providing more accurate clustering for different object types:
 
@@ -285,14 +289,14 @@ longevity_bonus = min(frames_detected / 100, 0.2)
 confidence = clamp(base_confidence - miss_penalty + longevity_bonus, 0.0, 1.0)
 ```
 
-## 🖥️ **WebUI Features & Real-time Visualization**
+## **WebUI Features and Real-time Visualization**
 
 The integrated WebUI provides a comprehensive interface for cluster analysis monitoring and configuration:
 
 ### **Interactive Visualization**
 
 - **Real-time Canvas**: Live updating visualization of objects and clusters
-- **Pan & Zoom**: Navigate through scene data with mouse controls
+- **Pan and Zoom**: Navigate through scene data with mouse controls
 - **Object Display**: Individual objects colored by cluster assignment
 - **Cluster Shapes**: Visual representation of detected cluster geometries
 - **Movement Vectors**: Optional display of cluster movement with adjustable scaling
@@ -326,7 +330,7 @@ The integrated WebUI provides a comprehensive interface for cluster analysis mon
 - **Clear Messaging**: Visual indication when clustering is not possible
 - **Dynamic Thresholds**: Uses user-configured min_samples rather than global defaults
 
-## MQTT Topics & Data Flow
+## MQTT Topics and Data Flow
 
 ### Input Topics
 
@@ -681,7 +685,7 @@ client.subscribe("scenescape/analytics/clusters/+")
 client.loop_forever()
 ```
 
-## 🔍 **Cluster Tracking Algorithm**
+## **Cluster Tracking Algorithm**
 
 ### Overview
 
@@ -921,3 +925,12 @@ When contributing to the Cluster Analytics service:
 ## License
 
 This project is licensed under the Apache 2.0 License. See the LICENSE file for details.
+
+<!--hide_directive
+:::{toctree}
+:hidden:
+
+get-started.md
+
+:::
+hide_directive-->
