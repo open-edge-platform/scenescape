@@ -26,6 +26,8 @@ Alternatively, see how to [Build from Source](./get-started/build-from-source.md
 
 ## Architecture
 
+> **Note:** Diagrams are currently best viewed in light color mode.
+
 ### Data Flow Diagram
 
 ```mermaid
