@@ -406,35 +406,33 @@ class VGGTModel(ReconstructionModel):
     Returns:
       Tuple of (processed_tensor, model_size)
     """
-    processed_images = []
-    target_size = 518
+    target = 518
+    n = len(pil_images)
 
-    for pil_image in pil_images:
-      # Apply VGGT preprocessing (similar to load_and_preprocess_images)
-      width, height = pil_image.size
+    # Preallocate on CPU, then move once
+    batch = torch.empty((n, 3, target, target), dtype=torch.float32)
 
-      # Set width to target_size, calculate height maintaining aspect ratio
-      new_width = target_size
-      new_height = round(height * (new_width / width) / 14) * 14  # Divisible by 14
+    for i, im in enumerate(pil_images):
+      w, h = im.size
+      new_w = target
+      new_h = round(h * (new_w / w) / 14) * 14
+      new_h = max(14, new_h)
 
-      # Resize image
-      img_resized = pil_image.resize((new_width, new_height), Image.Resampling.BICUBIC)
+      im = im.resize((new_w, new_h), Image.Resampling.BICUBIC)
 
-      # Convert to tensor
-      img_tensor = tvf.ToTensor()(img_resized)  # Shape: (3, H, W), values [0, 1]
+      if new_h > target:
+        top = (new_h - target) // 2
+        im = im.crop((0, top, target, top + target))
+      elif new_h < target:
+        pad_top = (target - new_h) // 2
+        canvas = Image.new(im.mode, (target, target))
+        canvas.paste(im, (0, pad_top))
+        im = canvas
 
-      # Center crop height if larger than target_size
-      if new_height > target_size:
-        start_y = (new_height - target_size) // 2
-        img_tensor = img_tensor[:, start_y:start_y + target_size, :]
+      batch[i] = tvf.ToTensor()(im)
 
-      processed_images.append(img_tensor)
-
-    # Stack all images and move to device
-    images_tensor = torch.stack(processed_images).to(self.device)  # Shape: (N, 3, H, W)
-    model_size = images_tensor.shape[-2:]  # (height, width)
-
-    return images_tensor, model_size
+    images_tensor = batch.to(self.device, non_blocking=True)
+    return images_tensor, (target, target)
 
   def _runModelInference(self, images_tensor: torch.Tensor) -> Dict[str, Any]:
     """
