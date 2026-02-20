@@ -1,14 +1,20 @@
 # How to Configure the Tracker
 
-This document guides users and developers on configuring the tracker for specific use cases during Intel® SceneScape deployment.
+This document guides users and developers on configuring the tracker for specific use cases
+during Intel® SceneScape deployment.
 
-**Note:** Tracker configuration is not needed when running the Scene Controller in analytics-only mode (`--analytics-only` flag or `CONTROLLER_ENABLE_ANALYTICS_ONLY=true`), as tracking is performed by a separate Tracker service.
+> **Note:** Tracker configuration is not needed when running the Scene Controller in
+> analytics-only mode (`--analytics-only` flag or `CONTROLLER_ENABLE_ANALYTICS_ONLY=true`), as
+> tracking is performed by a separate Tracker service.
 
 ## Tracker Configuration with Time-Based Parameters
 
 ### Enabling Time-Based Parameters
 
-A `tracker-config.json` file is pre-stored in the `controller` directory. The only change required is to mount this file to the Docker container in the `scene` service. The `scene` service in the `docker-compose.yml` file should look as follows. Note the `configs` section.
+A `tracker-config.json` file is pre-stored in the [`config` directory](https://github.com/open-edge-platform/scenescape/tree/main/controller/config) in the repository.
+The only change required is to mount this file to the Docker container in the `scene` service.
+The `scene` service in the `docker-compose.yml` file should look as follows. Note the `configs`
+section.
 
 ```yaml
 scene:
@@ -20,7 +26,8 @@ scene:
       target: /home/scenescape/SceneScape/tracker-config.json
 ```
 
-The default content of the `tracker-config.json` file is shown below. It is recommended to keep the default values of these parameters unchanged.
+The default content of the `tracker-config.json` file is shown below. It is recommended to
+keep the default values of these parameters unchanged.
 
 ```json
 {
@@ -34,52 +41,79 @@ The default content of the `tracker-config.json` file is shown below. It is reco
 
 Here is a brief description of each configuration parameter:
 
-- `max_unreliable_time_s`: Defines the time (in seconds) the tracker will wait before publishing a tracked object to the web interface. Expects a positive number.
+- `max_unreliable_time_s`: Defines the time (in seconds) the tracker will wait before
+  publishing a tracked object to the web interface. Expects a positive number.
 
-- `non_measurement_time_dynamic_s`: Defines the time (in seconds) the tracker will wait before deleting a dead tracked object if the object was dynamic (i.e., had non-zero velocity). Expects a positive number.
+- `non_measurement_time_dynamic_s`: Defines the time (in seconds) the tracker will wait before
+  deleting a dead tracked object if the object was dynamic (i.e., had non-zero velocity).
+  Expects a positive number.
 
-- `non_measurement_time_static_s`: Defines the time (in seconds) the tracker will wait before deleting a dead tracked object if the object was static (i.e., had zero velocity). Expects a positive number.
+- `non_measurement_time_static_s`: Defines the time (in seconds) the tracker will wait before
+  deleting a dead tracked object if the object was static (i.e., had zero velocity). Expects a
+  positive number.
 
-- `effective_object_update_rate`: The effective rate at which a tracked object is observed by the tracker, derived from camera FPS and multi-camera overlap. This is not the FPS of any individual camera. **Note:** This parameter is used when `time_chunking_enabled` is `false`. If time chunking is enabled, this parameter is ignored and may be omitted.
+- `effective_object_update_rate`: The effective rate at which a tracked object is observed by
+  the tracker, derived from camera FPS and multi-camera overlap. This is not the FPS of any
+  individual camera. **Note:** This parameter is used when `time_chunking_enabled` is `false`.
+  If time chunking is enabled, this parameter is ignored and may be omitted.
 
-- `time_chunking_enabled`: Enables or disables the time-chunking feature. Set to `false` for standard tracking mode.
+- `time_chunking_enabled`: Enables or disables the time-chunking feature. Set to `false` for
+  standard tracking mode.
 
 ### How Time-Based Parameters Work
 
-Time-based tracker parameters use time durations (in seconds) instead of frame counts, providing consistent tracking behavior regardless of camera frame rates. The three time-based parameters are:
+Time-based tracker parameters use time durations (in seconds) instead of frame counts,
+providing consistent tracking behavior regardless of camera frame rates. The three time-based
+parameters are:
 
 - `max_unreliable_time_s`: Time to wait before publishing a tracked object
 - `non_measurement_time_dynamic_s`: Time to wait before deleting a dynamic dead track
 - `non_measurement_time_static_s`: Time to wait before deleting a static dead track
 
-These parameters define absolute time durations, ensuring predictable tracking behavior across different camera configurations and frame rates.
+These parameters define absolute time durations, ensuring predictable tracking behavior across
+different camera configurations and frame rates.
 
 ### Setting effective_object_update_rate
 
-The `effective_object_update_rate` parameter should be adjusted based on individual camera FPS and camera overlap to match the object refresh rate from the tracker's perspective—the effective temporal sampling rate of object observations as seen by the tracker.
+The `effective_object_update_rate` parameter should be adjusted based on individual camera FPS
+and camera overlap to match the object refresh rate from the tracker's perspective—the
+effective temporal sampling rate of object observations as seen by the tracker.
 
 For example:
 
 - If cameras run at 10 FPS and there is **no camera overlap**, set `effective_object_update_rate = 10`
 - If cameras run at 10 FPS and there is an **average overlap of two cameras** covering the area, set `effective_object_update_rate = 20`
 
-This ensures that the tracker's internal timing parameters are calibrated correctly for your specific deployment scenario.
+This ensures that the tracker's internal timing parameters are calibrated correctly for your
+specific deployment scenario.
 
 ## Time-Chunking Configuration
 
-If time-chunking is disabled, the tracker processes each camera frame individually, meaning it processes data at a rate equal to the cumulative camera FPS (frames per second). Cumulative camera FPS is the sum of FPS for all cameras.
+If time-chunking is disabled, the tracker processes each camera frame individually, meaning it
+processes data at a rate equal to the cumulative camera FPS (frames per second). Cumulative
+camera FPS is the sum of FPS for all cameras.
 
-Enabling time-chunking changes how the tracker processes input data: instead of processing each frame individually, the tracker processes data at a constant rate defined by `time_chunking_rate_fps`. Detections from different cameras are grouped into chunks based on a time window of `1 / time_chunking_rate_fps` seconds. If a single camera produces multiple frames within a time chunk, only the most recent frame from that camera is processed.
+Enabling time-chunking changes how the tracker processes input data: instead of processing each
+frame individually, the tracker processes data at a constant rate defined by
+`time_chunking_rate_fps`. Detections from different cameras are grouped into chunks based on
+a time window of `1 / time_chunking_rate_fps` seconds. If a single camera produces multiple
+frames within a time chunk, only the most recent frame from that camera is processed.
 
 ### When to Use Time-Chunking
 
-Time-chunking should be used to reduce the load on the tracker when high cumulative camera FPS prevents the tracker from processing new detections within the given time budget, effectively causing input data to be dropped. This manifests as `Tracker work queue is not empty` warnings in controller logs. This typically occurs when the number of cameras is high, even if individual camera FPS is at the minimum acceptable level.
+Time-chunking should be used to reduce the load on the tracker when high cumulative camera
+FPS prevents the tracker from processing new detections within the given time budget,
+effectively causing input data to be dropped. This manifests as `Tracker work queue is not empty`
+warnings in controller logs. This typically occurs when the number of cameras is high, even if
+individual camera FPS is at the minimum acceptable level.
 
-If high FPS from individual cameras is causing pressure on the tracker, it is recommended to first reconfigure the cameras to use the lowest acceptable FPS for the use case.
+If high FPS from individual cameras is causing pressure on the tracker, it is recommended to
+first reconfigure the cameras to use the lowest acceptable FPS for the use case.
 
 ### Enabling Time-Chunking
 
-In the `configs` section of your `docker-compose.yml`, change the `tracker-config` to point to `controller/config/tracker-config-time-chunking.json`:
+In the `configs` section of your `docker-compose.yml`, change the `tracker-config` to point
+to `controller/config/tracker-config-time-chunking.json`:
 
 ```yaml
 configs:
@@ -104,7 +138,10 @@ The content of the `tracker-config-time-chunking.json` file is shown below.
 Here is a brief description of the time-chunking-specific configuration parameters:
 
 - `time_chunking_enabled`: Enables or disables the time-chunking feature. Set to `true` to enable.
-- `time_chunking_rate_fps`: Defines the tracker processing rate in frames per second (valid range: 1–100). The tracker processes data in chunks at intervals of `1 / time_chunking_rate_fps` seconds. For example, if `time_chunking_rate_fps` is 10, the time chunking interval is 0.1 seconds (100 ms). **Note:** This parameter is required when `time_chunking_enabled` is `true`. If time chunking is disabled, this parameter is ignored and may be omitted.
+- `time_chunking_rate_fps`: Defines the tracker processing rate in frames per second (valid
+  range: 1–100). The tracker processes data in chunks at intervals of `1 / time_chunking_rate_fps`
+  seconds. For example, if `time_chunking_rate_fps` is 10, the time chunking interval is 0.1 seconds (100 ms). **Note:** This parameter is required when `time_chunking_enabled` is `true`. If time
+  chunking is disabled, this parameter is ignored and may be omitted.
 
 ### How to Set Time-Chunking Interval
 
