@@ -102,7 +102,6 @@ void CoordinateTransformer::batchPixelToWorld(const std::vector<cv::Point2f>& pi
             // Ray points downward — intersect with ground plane (z=0)
             const double t = -start_z / ray_z;
             world[i] = cv::Point2d(start_x + t * ray_x, start_y + t * ray_y);
-            valid[i] = 1;
         } else {
             // Horizon culling
             const double xy_len = std::sqrt(ray_x * ray_x + ray_y * ray_y);
@@ -112,8 +111,8 @@ void CoordinateTransformer::batchPixelToWorld(const std::vector<cv::Point2f>& pi
             } else {
                 world[i] = cv::Point2d(start_x, start_y);
             }
-            valid[i] = 1;
         }
+        valid[i] = 1;
     }
 }
 
