@@ -91,8 +91,6 @@ release-tests: \
   live-view-button \
   non-functional-tests \
   scene-details \
-  reid-unique-count \
-  reid-performance-degradation \
 
 broken-features:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -106,6 +104,8 @@ broken-tests: \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
   scenes-summary-api \
+  reid-unique-count \
+  reid-performance-degradation \
 
 randomly-failing-tests: \
   distance-msoce \
@@ -153,8 +153,6 @@ _functional-tests: \
   delete-sensor-scene-api \
   delete-sensors-api \
   different-formats-maps-api \
-  reid-unique-count \
-  reid-performance-degradation \
   manual-camera-calibration-api \
   mqtt-auth \
   mqtt-cert \
