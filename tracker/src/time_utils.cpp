@@ -42,7 +42,7 @@ parseTimestamp(const std::string& timestamp_iso) {
         if (digits == 0)
             return std::nullopt;
         // Scale to milliseconds based on digits parsed (up to 3)
-        for (int i = digits; i < 3 && i < 3; ++i)
+        for (int i = digits; i < 3; ++i)
             frac *= 10;
         millis = frac;
     }
