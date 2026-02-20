@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstdio>
 #include <format>
+#include <string_view>
 
 namespace tracker {
 
@@ -26,18 +27,19 @@ parseTimestamp(const std::string& timestamp_iso) {
     }
 
     // Parse optional fractional seconds, then require trailing 'Z'
-    const char* rest = timestamp_iso.c_str() + n;
+    std::string_view sv(timestamp_iso);
+    size_t pos = static_cast<size_t>(n);
     int millis = 0;
-    if (*rest == '.') {
-        ++rest;
+    if (pos < sv.size() && sv[pos] == '.') {
+        ++pos;
         int digits = 0;
         int frac = 0;
-        while (*rest >= '0' && *rest <= '9') {
+        while (pos < sv.size() && sv[pos] >= '0' && sv[pos] <= '9') {
             if (digits < 3) {
-                frac = frac * 10 + (*rest - '0');
+                frac = frac * 10 + (sv[pos] - '0');
             }
             ++digits;
-            ++rest;
+            ++pos;
         }
         if (digits == 0)
             return std::nullopt;
@@ -47,7 +49,7 @@ parseTimestamp(const std::string& timestamp_iso) {
         millis = frac;
     }
 
-    if (*rest != 'Z' || *(rest + 1) != '\0') {
+    if (pos >= sv.size() || sv[pos] != 'Z' || pos + 1 != sv.size()) {
         return std::nullopt;
     }
 
