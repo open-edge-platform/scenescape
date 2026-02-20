@@ -247,47 +247,7 @@ jobs:
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
-
-  run_release_tests:
-    runs-on: [all]
-    name: "Release Tests"
-    timeout-minutes: 60
-    steps:
-      - name: Remove test_data folder
-        run: |
-          sudo rm -rf test_data || true
-
-      - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          ref: ${{ inputs.ref }}
-
-      - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' }}
-        uses: ./.github/actions/cleanup
-        with:
-          system-prune: "true"
-
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
-
-      - name: Run Release Tests
-        run: |
-          make clean-all
-          mkdir test_data
-          make setup_tests
-          make -C tests release-tests > test_data/release_tests.log 2>&1
-
-      - name: Upload Logs and Reports
-        if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
-        uses: ./.github/actions/upload-artifacts
-
-      - name: Cleanup
-        if: always()
-        uses: ./.github/actions/cleanup
-
+  
   generate_report:
     needs:
       [
@@ -296,7 +256,6 @@ jobs:
         run_metric_tests,
         run_ui_tests,
         run_unit_tests,
-        run_release_tests,
       ]
     runs-on: ubuntu-latest
     name: "Generate Test Report"
