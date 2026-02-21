@@ -82,7 +82,7 @@ for output in outputs:
 
 - **scene_controller_harness.py**: Main harness implementation
 - **run_tracker.py**: Script executed inside the container to run the tracker
-- ****init**.py**: Module initialization
+- \***\*init**.py\*\*: Module initialization
 
 **SceneScape API Usage**:
 
