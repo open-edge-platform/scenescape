@@ -7,7 +7,7 @@ The goal of this document is to explain how the [tracking evaluation strategy](.
 - Enable user to evaluate different tracker implementations using state-of-the-art industry-standard datasets and evaluation toolkits with minimal effort.
 - Enable easy automation of evaluation and consuming metrics, including feedback loops for model training in future
 - Enable quick adoption of new datasets
-- PEnable performance optimizations for huge datasets
+- Enable performance optimizations for huge datasets
 - Extensibility
 - Experiment reproducibility
 
@@ -273,7 +273,7 @@ PipelineEngine class exposes the following methods:
 
 The only argument for the function should be the path to configuration file.
 
-What is does:
+What it does:
   1. Loads and parses a single YAML configuration file
   2. Imports Dataset, Harness and Evaluator modules from paths provided in the configuration file.
   3. Creates instances of the imported Component Classes.
