@@ -17,6 +17,7 @@ from typing import List
 import argparse
 import urllib3
 import os
+import time
 
 # Disable SSL warnings when using --insecure flag
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -83,11 +84,30 @@ def sendReconstructionRequest(
       verify=verify_ssl
     )
 
-    if response.status_code == 200:
-      result = response.json()
-      model_used = result.get('model', 'unknown')
-      print(f"✅ Success! Model: {model_used}, Processing time: {result['processing_time']:.2f}s")
-      return result
+    if response.status_code in (200, 202):
+      started = response.json()
+
+      if "processing_time" in started and started.get("success"):
+        model_used = started.get("model", "unknown")
+        print(f"✅ Success! Model: {model_used}, Processing time: {started['processing_time']:.2f}s")
+        return started
+
+      rid = started.get("request_id")
+      if not rid:
+        print(f"❌ Unexpected response (no request_id): {started}")
+        return None
+
+      print(f"✅ Accepted. request_id={rid}. Polling for completion...")
+      final = wait_for_result(api_url, rid, verify_ssl=verify_ssl, timeout_s=int(os.getenv("GUNICORN_TIMEOUT", "300")) + 120)
+
+      model_used = final.get("model", "unknown")
+      pt = final.get("processing_time", None)
+      if pt is not None:
+        print(f"✅ Complete! Model: {model_used}, Processing time: {pt:.2f}s")
+      else:
+        print(f"✅ Complete! Model: {model_used}")
+      return final
+
     else:
       print(f"❌ Error {response.status_code}: {response.text}")
       return None
@@ -145,6 +165,34 @@ def checkAPIHealth(api_url: str, verify_ssl: bool = True):
   except Exception as e:
     print(f"❌ Failed to connect to API: {e}")
     return False
+
+def wait_for_result(api_url: str, request_id: str, verify_ssl: bool, timeout_s: int = 600, poll_s: float = 2.0):
+  """Poll /reconstruction/status/<id> until complete/failed or timeout."""
+  deadline = time.time() + timeout_s
+  status_url = f"{api_url}/reconstruction/status/{request_id}"
+
+  while time.time() < deadline:
+    r = requests.get(status_url, timeout=10, verify=verify_ssl)
+    if not r.ok:
+      raise RuntimeError(f"Status check failed {r.status_code}: {r.text}")
+
+    st = r.json()
+    state = st.get("state")
+    msg = st.get("message") or ""
+    err = st.get("error")
+
+    print(f"state={state} {('- ' + msg) if msg else ''}")
+
+    if state == "complete":
+      result = (st.get("result") or {})
+      if not result.get("success", True):
+        raise RuntimeError(result.get("error", "Reconstruction failed"))
+      return result
+
+    if state == "failed":
+      raise RuntimeError(err or "Reconstruction failed")
+
+    time.sleep(poll_s)
 
 def main():
   parser = argparse.ArgumentParser(description="3D Mapping Models API Client")

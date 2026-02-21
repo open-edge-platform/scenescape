@@ -36,7 +36,10 @@ endef
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 3d-scene-control-panel: # NEX-T10474
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_scene_control_panel.py, 'pgserver')
+  $(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 3d-ui-calibration-points: # NEX-T10473
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
@@ -164,7 +167,10 @@ scene-details: # NEX-T10395
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_scene_details.py, '$(SERVICES)')
 
 scenes-summary: # NEX-T10394
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_scenes_summary.py, 'pgserver')
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 sensor-area: # NEX-T10401
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))

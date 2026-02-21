@@ -12,3 +12,5 @@
 **/CMakeUserPresets.json
 **/CMakePresets.json
 **/CMakeFiles/
+
+**/tests/api/README.md
