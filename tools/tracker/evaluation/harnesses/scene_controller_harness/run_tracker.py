@@ -135,7 +135,10 @@ def track():
   camera_ids = set(frame['id'] for frame in input_frames)
   camera_count = len(camera_ids)
 
-  frame_interval = 1.0 / (ref_camera_fps * camera_count) if time_chunking_enabled else TRACKER_PROCESSING_INTERVAL
+  if time_chunking_enabled and ref_camera_fps and camera_count:
+    frame_interval = 1.0 / (ref_camera_fps * camera_count)
+  else:
+    frame_interval = TRACKER_PROCESSING_INTERVAL
   start_time = time.time()
   frame_count = 0
 

@@ -22,7 +22,7 @@ SPDX-License-Identifier: Apache-2.0
 - Architecture & flow: [docs/design/tracker-evaluation-pipeline.md](../../docs/design/tracker-evaluation-pipeline.md)
 - Main tracker evaluation README (canonical formats, usage, CLI): [README.md](README.md)
 - ADR context: [docs/adr/0009-tracking-evaluation.md](../../docs/adr/0009-tracking-evaluation.md)
-- Example configuration: [examples/metric_test_evaluation.yaml](examples/metric_test_evaluation.yaml)
+- Example configuration: [pipeline_configs/metric_test_evaluation.yaml](pipeline_configs/metric_test_evaluation.yaml)
 
 ## Folders structure
 
