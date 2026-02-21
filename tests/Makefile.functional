@@ -305,7 +305,7 @@ visibility-unregulated: # NEX-T19788
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 visibility-none: export VISIBILITY_TOPIC := none
-visibility-none: # NEX-T19788
+visibility-none: # NEX-T19789
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web_default.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/cams.yml)
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
