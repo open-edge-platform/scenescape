@@ -22,7 +22,7 @@ The goal of this document is to explain how the [tracking evaluation strategy](.
 
 ## List of base component classes:
 
-1. Tracking Dataset - data that consist of:
+1. Tracking Dataset - data that consists of:
    - static scene and cameras configuration
    - inputs: videos and / or sequences of object detections from multiple cameras
    - ground-truth: sequences of each object location
@@ -283,7 +283,7 @@ The only argument for the script should be the path to configuration file.
 
 PipelineEngine class exposes the following methods:
 
-### LoadConfiguration
+### Load Configuration
 
 The only argument for the function should be the path to configuration file.
 
