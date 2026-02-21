@@ -498,7 +498,7 @@ services:
       - vol-mapping-torch-cache:/workspace/.cache/torch
       - vol-mapping-hf-cache:/workspace/.cache/huggingface
     environment:
-      - MAPANYTHING_CPU_SEC_PER_FRAME=10
+      - MAPPING_CPU_SEC_PER_FRAME=10
       - GUNICORN_TIMEOUT=300
       - PYTHONDONTWRITEBYTECODE=1
       - http_proxy=${http_proxy}
