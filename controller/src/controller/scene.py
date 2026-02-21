@@ -593,7 +593,7 @@ class Scene(SceneModel):
                 # Sensor has cached value - initialize with it
                 ts_str = get_iso_time(region.lastWhen)
                 obj.chain_data.env_sensor_state[key] = {
-                  'readings': [(ts_str, region.value)]
+                  'readings': [(ts_str, float(region.value))]
                 }
               else:
                 # No cached value yet
