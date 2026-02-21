@@ -26,7 +26,7 @@ class TestCacheManagerInitialization:
     """Test initialization with file-based data source (mocked)."""
     mock_data_source = Mock(spec=FileSceneDataSource)
     mock_data_source.getScenes.return_value = {'results': []}
-    
+
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr._cached_scenes_by_cameraID = {}
@@ -34,7 +34,7 @@ class TestCacheManagerInitialization:
     cache_mgr.camera_parameters = {}
     cache_mgr.tracker_config_data = {}
     cache_mgr.data_source = mock_data_source
-    
+
     assert cache_mgr is not None
     assert hasattr(cache_mgr, 'cached_scenes_by_uid')
     assert hasattr(cache_mgr, 'camera_parameters')
@@ -48,7 +48,7 @@ class TestCacheManagerInitialization:
       cache_mgr._cached_scenes_by_sensorID = {}
       cache_mgr.tracker_config_data = {}
       cache_mgr.data_source = mock_rest_client
-    
+
     assert cache_mgr is not None
 
   def test_init_with_no_data_source_raises_error(self):
@@ -68,17 +68,17 @@ class TestCacheManagerInitialization:
       'suspended_track_timeout_secs': 60,
       'persist_attributes': {'test_attr': 'value'}
     }
-    
+
     mock_data_source = Mock()
     mock_data_source.getScenes.return_value = {'results': []}
-    
+
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
     cache_mgr.tracker_config_data = tracker_config
     cache_mgr.data_source = mock_data_source
-    
+
     assert cache_mgr.tracker_config_data == tracker_config
 
 
@@ -89,16 +89,16 @@ class TestCacheManagerRefreshScenes:
     """Test that refreshScenes handles empty results gracefully."""
     mock_data_source = Mock()
     mock_data_source.getScenes.return_value = {'results': []}
-    
+
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
     cache_mgr.tracker_config_data = {}
     cache_mgr.data_source = mock_data_source
-    
+
     cache_mgr.refreshScenes()
-    
+
     assert len(cache_mgr.cached_scenes_by_uid) == 0
 
   def test_refresh_scenes_handles_failed_request(self):
@@ -108,33 +108,33 @@ class TestCacheManagerRefreshScenes:
     mock_response.statusCode = 500
     mock_response.__contains__ = Mock(return_value=False)
     mock_data_source.getScenes.return_value = mock_response
-    
+
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
     cache_mgr.tracker_config_data = {}
     cache_mgr.data_source = mock_data_source
-    
+
     # Should not raise, just return without updating cache
     cache_mgr.refreshScenes()
-    
+
     assert len(cache_mgr.cached_scenes_by_uid) == 0
 
   def test_refresh_scenes_sets_cache_timestamp(self):
     """Test that refreshScenes sets the cache refresh timestamp."""
     mock_data_source = Mock()
     mock_data_source.getScenes.return_value = {'results': []}
-    
+
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
     cache_mgr.tracker_config_data = {}
     cache_mgr.data_source = mock_data_source
-    
+
     cache_mgr.refreshScenes()
-    
+
     assert hasattr(cache_mgr, '_cache_refreshed')
     assert cache_mgr._cache_refreshed > 0
 
@@ -146,14 +146,14 @@ class TestCacheManagerCameraParameters:
     """Test detecting intrinsics parameter changes."""
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.camera_parameters = {}
-    
+
     message = {
       'id': 'cam-1',
       'intrinsics': {'cx': 320, 'cy': 240, 'fx': 500, 'fy': 500}
     }
-    
+
     result = cache_mgr.cameraParametersChanged(message, 'intrinsics')
-    
+
     # Should detect change on first call
     assert result is True
     assert cache_mgr.camera_parameters['cam-1']['intrinsics'] == message['intrinsics']
@@ -162,14 +162,14 @@ class TestCacheManagerCameraParameters:
     """Test detecting distortion parameter changes."""
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.camera_parameters = {}
-    
+
     message = {
       'id': 'cam-1',
       'distortion': {'k1': 0.1, 'k2': 0.01, 'p1': 0.001, 'p2': 0.001, 'k3': 0.0}
     }
-    
+
     result = cache_mgr.cameraParametersChanged(message, 'distortion')
-    
+
     assert result is True
     assert cache_mgr.camera_parameters['cam-1']['distortion'] == message['distortion']
 
@@ -177,16 +177,16 @@ class TestCacheManagerCameraParameters:
     """Test that duplicate parameters are not considered changed."""
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.camera_parameters = {}
-    
+
     message = {
       'id': 'cam-1',
       'intrinsics': {'cx': 320, 'cy': 240}
     }
-    
+
     # First call should detect change
     result1 = cache_mgr.cameraParametersChanged(message, 'intrinsics')
     assert result1 is True
-    
+
     # Second call with same data should not detect change
     result2 = cache_mgr.cameraParametersChanged(message, 'intrinsics')
     assert result2 is False
@@ -195,11 +195,11 @@ class TestCacheManagerCameraParameters:
     """Test handling when message has no parameters."""
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.camera_parameters = {}
-    
+
     message = {'id': 'cam-1'}
-    
+
     result = cache_mgr.cameraParametersChanged(message, 'intrinsics')
-    
+
     assert result is False
 
 
@@ -215,9 +215,9 @@ class TestCacheManagerQueryMethods:
     cache_mgr.data_source = Mock()
     cache_mgr.data_source.getScenes.return_value = {'results': []}
     cache_mgr._cache_refreshed = 0
-    
+
     scenes = list(cache_mgr.allScenes())
-    
+
     assert len(scenes) == 2
 
   def test_scene_with_id(self):
@@ -229,9 +229,9 @@ class TestCacheManagerQueryMethods:
     cache_mgr.data_source = Mock()
     cache_mgr.data_source.getScenes.return_value = {'results': []}
     cache_mgr._cache_refreshed = 0
-    
+
     scene = cache_mgr.sceneWithID('scene-1')
-    
+
     assert scene is not None
     assert scene.uid == 'scene-1'
 
@@ -242,9 +242,9 @@ class TestCacheManagerQueryMethods:
     cache_mgr._cache_refreshed = 0
     cache_mgr.data_source = Mock()
     cache_mgr.data_source.getScenes.return_value = {'results': []}
-    
+
     scene = cache_mgr.sceneWithID('invalid-uid')
-    
+
     assert scene is None
 
   def test_scene_with_camera_id(self):
@@ -257,9 +257,9 @@ class TestCacheManagerQueryMethods:
     cache_mgr.data_source = Mock()
     cache_mgr.data_source.getScenes.return_value = {'results': []}
     cache_mgr._cache_refreshed = 0
-    
+
     scene = cache_mgr.sceneWithCameraID('cam-1')
-    
+
     assert scene is not None
     assert scene.uid == 'scene-1'
 
@@ -270,9 +270,9 @@ class TestCacheManagerQueryMethods:
     cache_mgr._cache_refreshed = 0
     cache_mgr.data_source = Mock()
     cache_mgr.data_source.getScenes.return_value = {'results': []}
-    
+
     scene = cache_mgr.sceneWithCameraID('invalid-cam-id')
-    
+
     assert scene is None
 
   def test_scene_with_sensor_id(self):
@@ -285,9 +285,9 @@ class TestCacheManagerQueryMethods:
     cache_mgr.data_source = Mock()
     cache_mgr.data_source.getScenes.return_value = {'results': []}
     cache_mgr._cache_refreshed = 0
-    
+
     scene = cache_mgr.sceneWithSensorID('sensor-1')
-    
+
     assert scene is not None
     assert scene.uid == 'scene-1'
 
@@ -298,9 +298,9 @@ class TestCacheManagerQueryMethods:
     cache_mgr._cache_refreshed = 0
     cache_mgr.data_source = Mock()
     cache_mgr.data_source.getScenes.return_value = {'results': []}
-    
+
     scene = cache_mgr.sceneWithSensorID('invalid-sensor-id')
-    
+
     assert scene is None
 
 
@@ -313,9 +313,9 @@ class TestCacheManagerInvalidation:
     mock_scene = Mock(spec=Scene)
     cache_mgr.cached_scenes_by_uid = {'scene-1': mock_scene}
     cache_mgr.cached_child_transforms_by_uid = {}
-    
+
     cache_mgr.invalidate()
-    
+
     assert cache_mgr.cached_scenes_by_uid is None
 
   def test_invalidate_preserves_old_cache(self):
@@ -325,9 +325,9 @@ class TestCacheManagerInvalidation:
     original_cache = {'scene-1': mock_scene}
     cache_mgr.cached_scenes_by_uid = original_cache.copy()
     cache_mgr.cached_child_transforms_by_uid = {}
-    
+
     cache_mgr.invalidate()
-    
+
     # Old cache should be preserved
     assert hasattr(cache_mgr, '_old_scene_cache')
     assert cache_mgr._old_scene_cache is not None
@@ -336,16 +336,16 @@ class TestCacheManagerInvalidation:
     """Test that checkRefresh recreates cache when None."""
     mock_data_source = Mock()
     mock_data_source.getScenes.return_value = {'results': []}
-    
+
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.cached_scenes_by_uid = None
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
     cache_mgr.tracker_config_data = {}
     cache_mgr.data_source = mock_data_source
-    
+
     cache_mgr.checkRefresh()
-    
+
     assert cache_mgr.cached_scenes_by_uid is not None
 
 
@@ -355,26 +355,26 @@ class TestCacheManagerSensorRestoration:
   def test_restore_sensor_cache_copies_values(self):
     """Test that sensor cache values are properly restored."""
     cache_mgr = CacheManager.__new__(CacheManager)
-    
+
     # Create mock old and new sensors
     old_sensor = Mock()
     old_sensor.value = 42
     old_sensor.lastValue = 41
     old_sensor.lastWhen = 1234567890
-    
+
     new_sensor = Mock()
     new_sensor.value = None
     new_sensor.lastValue = None
     new_sensor.lastWhen = None
-    
+
     old_scene = Mock()
     old_scene.sensors = {'sensor-1': old_sensor}
-    
+
     new_scene = Mock()
     new_scene.sensors = {'sensor-1': new_sensor}
-    
+
     cache_mgr._restoreSensorCache('scene-uid', old_scene, new_scene)
-    
+
     assert new_sensor.value == 42
     assert new_sensor.lastValue == 41
     assert new_sensor.lastWhen == 1234567890
@@ -382,23 +382,23 @@ class TestCacheManagerSensorRestoration:
   def test_sensor_needs_restoring_returns_none_when_no_cache(self):
     """Test that sensorNeedsRestoring returns None when no old cache."""
     cache_mgr = CacheManager.__new__(CacheManager)
-    
+
     if hasattr(cache_mgr, '_old_scene_cache'):
       delattr(cache_mgr, '_old_scene_cache')
-    
+
     result = cache_mgr._sensorNeedsRestoring('scene-uid')
-    
+
     assert result is None
 
   def test_sensor_needs_restoring_returns_old_scene(self):
     """Test that sensorNeedsRestoring returns old scene when available."""
     cache_mgr = CacheManager.__new__(CacheManager)
-    
+
     old_scene = Mock()
     cache_mgr._old_scene_cache = {'scene-uid': old_scene}
-    
+
     result = cache_mgr._sensorNeedsRestoring('scene-uid')
-    
+
     assert result == old_scene
 
 
@@ -410,7 +410,7 @@ class TestCacheManagerRefreshCameras:
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.data_source = Mock()
     cache_mgr.camera_parameters = {}
-    
+
     scene_data = {
       'cameras': [
         {
@@ -420,9 +420,9 @@ class TestCacheManagerRefreshCameras:
         }
       ]
     }
-    
+
     cache_mgr._refreshCameras(scene_data)
-    
+
     # Should not raise any errors
 
   def test_refresh_cameras_with_no_cameras(self):
@@ -430,23 +430,23 @@ class TestCacheManagerRefreshCameras:
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.data_source = Mock()
     cache_mgr.camera_parameters = {}
-    
+
     scene_data = {'cameras': []}
-    
+
     cache_mgr._refreshCameras(scene_data)
-    
+
     # Should not raise any errors
 
   def test_refresh_scenes_for_cam_params(self):
     """Test refreshScenesForCamParams updates camera parameters."""
     cache_mgr = CacheManager.__new__(CacheManager)
-    
+
     mock_scene = Mock(spec=Scene)
     mock_camera = Mock()
     mock_camera.cameraID = 'cam-1'
     mock_camera.pose = Mock()
     mock_camera.pose.resolution = [640, 480]
-    
+
     mock_scene.cameras = {'cam-1': mock_camera}
     cache_mgr.cached_scenes_by_uid = {'scene-1': mock_scene}
     cache_mgr.camera_parameters = {}
@@ -455,14 +455,14 @@ class TestCacheManagerRefreshCameras:
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
     cache_mgr.tracker_config_data = {}
-    
+
     jdata = {
       'id': 'cam-1',
       'intrinsics': {'cx': 320, 'cy': 240, 'fx': 500, 'fy': 500}
     }
-    
+
     cache_mgr.refreshScenesForCamParams(jdata)
-    
+
     # Should not raise any errors
 
 
@@ -473,36 +473,36 @@ class TestCacheManagerEdgeCases:
     """Test that multiple refresh calls don't cause issues."""
     mock_data_source = Mock()
     mock_data_source.getScenes.return_value = {'results': []}
-    
+
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
     cache_mgr.tracker_config_data = {}
     cache_mgr.data_source = mock_data_source
-    
+
     cache_mgr.refreshScenes()
     count_before = len(cache_mgr.cached_scenes_by_uid)
-    
+
     cache_mgr.refreshScenes()
     count_after = len(cache_mgr.cached_scenes_by_uid)
-    
+
     assert count_before == count_after
 
   def test_cache_access_without_initialization(self):
     """Test cache access methods handle uninitialized state."""
     mock_data_source = Mock()
     mock_data_source.getScenes.return_value = {'results': []}
-    
+
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.cached_scenes_by_uid = None
     cache_mgr._cached_scenes_by_cameraID = {}
     cache_mgr._cached_scenes_by_sensorID = {}
     cache_mgr.data_source = mock_data_source
-    
+
     # Should handle gracefully
     scenes = list(cache_mgr.allScenes())
-    
+
     assert len(scenes) == 0
 
   def test_concurrent_cache_access(self):
@@ -513,9 +513,9 @@ class TestCacheManagerEdgeCases:
     cache_mgr._cache_refreshed = 0
     cache_mgr.data_source = Mock()
     cache_mgr.data_source.getScenes.return_value = {'results': []}
-    
+
     # Simulate concurrent access
     scenes1 = list(cache_mgr.allScenes())
     scenes2 = list(cache_mgr.allScenes())
-    
+
     assert len(scenes1) == len(scenes2)

@@ -53,5 +53,5 @@ def mock_rest_client():
   }
   mock_client.updateCamera.return_value = True
   mock_client.getCamera.return_value = {'uid': 'cam-1'}
-  
+
   return mock_client
