@@ -11,8 +11,6 @@ from scene_common.mqtt import PubSub
 from scene_common import log
 
 
-TEST_NAME = ""
-
 test_wait_time = 20  # seconds
 check_interval = 1   # seconds
 

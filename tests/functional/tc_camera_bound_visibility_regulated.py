@@ -22,9 +22,7 @@ class CameraBoundVisibility(CameraBounds):
                 "PASS: camera_bounds for the tracked objects are published only into regulated topic")
             return
         else:
-          raise ValueError(
-              f"Unknown visibility_topic: {
-                  self.visibility_topic}")
+          raise ValueError(f"Unknown visibility_topic: {self.visibility_topic}")
 
       log.info(
           f"Waiting for validation "

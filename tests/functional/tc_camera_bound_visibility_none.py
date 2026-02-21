@@ -23,9 +23,7 @@ class CameraBoundVisibility(CameraBounds):
             return
 
         else:
-          raise ValueError(
-              f"Unknown visibility_topic: {
-                  self.visibility_topic}")
+          raise ValueError(f"Unknown visibility_topic: {self.visibility_topic}")
 
       log.info(
           f"Waiting for validation "
