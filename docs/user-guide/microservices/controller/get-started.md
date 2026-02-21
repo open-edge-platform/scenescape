@@ -3,9 +3,9 @@
 ## Prerequisites
 
 - The hardware platform must be at least a 10th Generation Intel® Core™ i5 Processor or Intel® Xeon® Scalable processor, with at least 8+GB of RAM and 64+GB of storage.
-- [How to build Scene Controller from source](How-to-build-source.md)
+- [How to build Scene Controller from source](./get-started/build-from-source.md)
 
-## Running the service using Docker
+## Run the service using Docker
 
 - **Navigate to the Directory**:
 
@@ -61,8 +61,8 @@
   ```
 
 - **Access scene controller output through MQTT**:
-  - Refer to [scene-controller-api.yaml](api-docs/scene-controller-api.yaml) on how to access scene controller output
-  - Refer to [scene controller sequence diagram](overview.md#sequence-diagram-scene-controller-workflow)
+  - Refer to [scene-controller-api.yaml](./_assets/scene-controller-api.yaml) on how to access scene controller output
+  - Refer to [scene controller sequence diagram](./controller.md#sequence-diagram-scene-controller-workflow)
 
 ## Running in Analytics-Only Mode
 
@@ -115,3 +115,12 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   - Analytics processing (regions, tripwires, sensors) continues to function normally
   - Child scenes are not supported in analytics-only mode
   - Sensors in Scene not supported and attribute persistence across moving objects not supported on data/scene MQTT topic (data avaliable on events topic).
+
+<!--hide_directive
+:::{toctree}
+:hidden:
+
+get-started/build-from-source.md
+
+:::
+hide_directive-->
