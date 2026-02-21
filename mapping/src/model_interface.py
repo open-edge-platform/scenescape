@@ -299,8 +299,8 @@ class ReconstructionModel(ABC):
     overhead: float,
   ) -> int:
 
-    cpu_sec_per_frame = float(os.getenv("MAPANYTHING_CPU_SEC_PER_FRAME", "10"))
-    cuda_sec_per_frame = float(os.getenv("MAPANYTHING_CUDA_SEC_PER_FRAME", "0.8"))
+    cpu_sec_per_frame = float(os.getenv("MAPPING_CPU_SEC_PER_FRAME", "10"))
+    cuda_sec_per_frame = float(os.getenv("MAPPING_CUDA_SEC_PER_FRAME", "0.8"))
     sec_per_frame = cpu_sec_per_frame
     if self.device.startswith("cuda") and cuda_sec_per_frame:
       sec_per_frame = cuda_sec_per_frame
