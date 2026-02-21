@@ -64,40 +64,47 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
       obj_dict['reid'] = reid
 
   if hasattr(aobj, 'visibility'):
-    obj_dict['visibility'] = aobj.visibility
-    if update_visibility:
-      computeCameraBounds(scene, aobj, obj_dict)
+    # In analytics-only mode, chain_data may be a SimpleNamespace without
+    # locking or sensor state attributes. Guard this path to avoid
+    # AttributeError when those fields are absent.
+    if not (hasattr(chain_data, '_lock') and
+            hasattr(chain_data, 'env_sensor_state') and
+            hasattr(chain_data, 'attr_sensor_events')):
+      pass
+    else:
+      sensors_output = {}
 
-  chain_data = aobj.chain_data
-  if len(chain_data.regions):
-    obj_dict['regions'] = chain_data.regions
+      # Copy sensor data while holding lock, then release
+      with chain_data._lock:
+        env_state_copy = dict(chain_data.env_sensor_state)
+        attr_events_copy = dict(chain_data.attr_sensor_events)
 
-  # Build sensor output from new structure (only if include_sensors is True)
-  if include_sensors:
-    sensors_output = {}
+      # Environmental sensors: readings + exposure as structured object
+      for sensor_id, state in env_state_copy.items():
+        values = state['readings'] if 'readings' in state and state['readings'] else []
 
-    # Copy sensor data while holding lock, then release
-    with chain_data._lock:
-      env_state_copy = dict(chain_data.env_sensor_state)
-      attr_events_copy = dict(chain_data.attr_sensor_events)
+        # Calculate total exposure (including current value if present)
+        exposure_total = state['exposure']['total']
+        if state['exposure']['last_value'] is not None and hasattr(scene, 'when'):
+          # Add exposure from last reading to now; clamp negative intervals to zero
+          dt = scene.when - state['exposure']['last_time']
+          if dt > 0:
+            exposure_total += state['exposure']['last_value'] * dt
 
-    # Environmental sensors: timestamped readings
-    for sensor_id, state in env_state_copy.items():
-      values = state['readings'] if 'readings' in state and state['readings'] else []
-      sensors_output[sensor_id] = {
-        'values': values
-      }
-
-    # Attribute sensors: events as structured object
-    for sensor_id, events in attr_events_copy.items():
-      if events:
         sensors_output[sensor_id] = {
-          'values': events
+          'values': values,
+          'exposure': exposure_total
         }
 
-    if sensors_output:
-      obj_dict['sensors'] = sensors_output
+      # Attribute sensors: events as structured object
+      for sensor_id, events in attr_events_copy.items():
+        if events:
+          sensors_output[sensor_id] = {
+            'values': events
+          }
 
+      if sensors_output:
+        obj_dict['sensors'] = sensors_output
   if hasattr(aobj, 'confidence'):
     obj_dict['confidence'] = aobj.confidence
   if hasattr(aobj, 'similarity'):
