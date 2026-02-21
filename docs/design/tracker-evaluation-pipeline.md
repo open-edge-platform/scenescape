@@ -114,15 +114,12 @@ Default mode (the only one supported):
 
 - Offline (Batch) - default: whole data sequence is processed at once by each component and stored as a complete list in memory or filesystem
 
-Notes:
-
-1. A specific harness / dataset implementation may support only a subset of models
-2. For now it is assumed that Tracker Evaluator supports only offline mode.
+Notes: A specific harness / dataset implementation may support only a subset of models
 
 ## Pipeline configurability:
 
 1. Declarative: user declares desired pipeline state: components implementation, mode of operation, configuration for each component in YAML file
-2. User declares components implementation to be used as a path to Python class implementing base component interface, which is a single entry-point for using the component
+2. User declares specific implementation to be used as a path to Python class implementing base component interface, which is a single entry-point for using it
 3. Mode of operation
 4. Dataset configuration
    - Choice of scene
