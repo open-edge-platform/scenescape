@@ -54,6 +54,7 @@ def tracker_service(tls_certs):
       f"TLS_SERVER_KEY_FILE={tls_certs.server.key_path}\n"
       f"TLS_CLIENT_CERT_FILE={tls_certs.client.cert_path}\n"
       f"TLS_CLIENT_KEY_FILE={tls_certs.client.key_path}\n"
+      f"TRACKER_MQTT_INSECURE=true\n"
   )
 
   docker = DockerClient(
@@ -98,6 +99,7 @@ def tracker_service_delayed_broker(tls_certs):
       f"TLS_SERVER_KEY_FILE={tls_certs.server.key_path}\n"
       f"TLS_CLIENT_CERT_FILE={tls_certs.client.cert_path}\n"
       f"TLS_CLIENT_KEY_FILE={tls_certs.client.key_path}\n"
+      f"TRACKER_MQTT_INSECURE=true\n"
   )
 
   docker = DockerClient(
