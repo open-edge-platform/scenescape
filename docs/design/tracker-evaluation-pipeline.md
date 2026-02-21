@@ -1,4 +1,13 @@
-# Tracker Evaluation Pipeline
+# Design Document: Tracker Evaluation Pipeline
+
+- **Author(s)**: [Tomasz Dorau](https://github.com/tdorauintc)
+- **Date**: 2026-02-21
+- **Version**: 0.1
+- **Status**: `Accepted`
+
+---
+
+## Overview
 
 The goal of this document is to explain how the [tracking evaluation strategy](../adr/0009-tracking-evaluation.md) is going to be realized.
 
@@ -74,6 +83,7 @@ flowchart LR
 The pipeline uses standardized data formats for component interoperability. Detailed specifications with examples are documented in [tools/tracker/evaluation/README.md - Canonical Data Formats](../../tools/tracker/evaluation/README.md#canonical-data-formats).
 
 **Format overview**:
+
 - Scene and camera configuration canonical format
 - Input object detection canonical format
 - Output track canonical format
@@ -88,20 +98,24 @@ Dataset implementations use format conversion utilities to transform data betwee
 - **CSV→DataFrame reading**: Dask-based CSV parsing for efficiency
 
 **Libraries used**:
+
 - `python-rapidjson`: Fast JSON serialization/deserialization
 - `jsonpointer`: RFC 6901 JSON pointer support for nested field access
 - `dask`: Efficient CSV reading and writing, especially for large datasets
 
 **Validation behavior**:
+
 - Schema transformations (JSON→JSON): Strict - raises exception on missing fields
 - Data export (JSON→CSV): Lenient - sets missing fields to null to handle incomplete tracker outputs
 
 ## Modes of operation:
 
 Default mode (the only one supported):
+
 - Offline (Batch) - default: whole data sequence is processed at once by each component and stored as a complete list in memory or filesystem
 
 Notes:
+
 1. A specific harness / dataset implementation may support only a subset of models
 2. For now it is assumed that Tracker Evaluator supports only offline mode.
 
@@ -274,11 +288,12 @@ PipelineEngine class exposes the following methods:
 The only argument for the function should be the path to configuration file.
 
 What it does:
-  1. Loads and parses a single YAML configuration file
-  2. Imports Dataset, Harness and Evaluator modules from paths provided in the configuration file.
-  3. Creates instances of the imported Component Classes.
-  4. Configures each of the instances with the component parameters provided in the configuration file.
-  5. Performs capability discovery for each of the component instances, if necessary for proper pipeline configuration.
+
+1. Loads and parses a single YAML configuration file
+2. Imports Dataset, Harness and Evaluator modules from paths provided in the configuration file.
+3. Creates instances of the imported Component Classes.
+4. Configures each of the instances with the component parameters provided in the configuration file.
+5. Performs capability discovery for each of the component instances, if necessary for proper pipeline configuration.
 
 Raises exception on error.
 
@@ -308,12 +323,14 @@ The integration maps canonical pipeline formats (JSON-based detection and track 
 ### What mechanisms to use for experiment reproducibility?
 
 By experiment reproducibility we mean that based on the experiment outputs:
+
 1. We are able to verify whether two experiments were executed with the same or different configuration.
 2. We are able to verify whether two experiments were executed with the same or different environment.
 3. We are able to identify any significant difference between two experiments in configuration or environment.
 4. We are able to reproduce a given experiment reliably.
 
 Methods to be considered (not exhaustive list):
+
 - add methods returning configuration signature to component base interfaces (configuration signature could be a map of `{<resource>:<unique ID>}` that allows to compare component configurations in two experiments, e.g. input file checksum, container image checksum)
 - dump configuration along with its signature map for each component in the pipeline
 - dump configuration of the pipeline
