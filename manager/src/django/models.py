@@ -14,9 +14,8 @@ import numpy as np
 import paho.mqtt.client as mqtt
 from PIL import Image
 
-from django.contrib.postgres.fields import ArrayField
 from django.core.files.base import ContentFile
-from django.core.validators import FileExtensionValidator, MinValueValidator
+from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 from django.db import models, transaction
 from django.conf import settings
 from django.contrib.sessions.models import Session
@@ -958,6 +957,16 @@ class Event(models.Model):
   region = models.ForeignKey(Region, on_delete=models.CASCADE, related_name="events")
   timestamp = models.FloatField(db_index=True)
 
+# Default functions for Asset3D array fields
+def default_geometric_center():
+  return [0.0, 0.0, 0.0]
+
+def default_center_of_mass():
+  return [0.0, 0.0, 0.0]
+
+def default_friction_coefficients():
+  return [0.5, 0.4]
+
 class Asset3D(models.Model):
   name = models.CharField("Class Name", max_length=200, unique=True)
   x_size = models.FloatField("Object size in x-axis", default=1.0, validators=[MinValueValidator(0.0)])
@@ -983,6 +992,42 @@ class Asset3D(models.Model):
   tracking_radius = models.FloatField("Tracking radius (meters)", default=2.0)
   shift_type = models.IntegerField(choices=SHIFT_TYPE, default=1, null=True)
   project_to_map = models.BooleanField(choices=BOOLEAN_CHOICES, default=False, null=True)
+
+  # Physics properties
+  geometric_center = ListField(
+    default=default_geometric_center,
+    null=True,
+    blank=True,
+    help_text="Geometric center offset [x, y, z] in meters from bottom center"
+  )
+  mass = models.FloatField("Mass (kg)", default=1.0, null=True, blank=True,
+                          validators=[MinValueValidator(0.0)])
+  center_of_mass = ListField(
+    default=default_center_of_mass,
+    null=True,
+    blank=True,
+    help_text="Center of mass offset [x, y, z] in meters from geometric center"
+  )
+  is_static = models.BooleanField("Is Static", choices=BOOLEAN_CHOICES, default=False, null=True, blank=True,
+                                 help_text="Whether object can move on its own")
+  ttl = models.FloatField("Time to Live (seconds)", default=0.0, null=True, blank=True,
+                         validators=[MinValueValidator(0.0)],
+                         help_text="Time to live for track expiration (0 = infinite)")
+  linear_damping = models.FloatField("Linear Damping", default=0.05, null=True, blank=True,
+                                    validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+                                    help_text="Resistance to linear motion (0.0 - 1.0)")
+  angular_damping = models.FloatField("Angular Damping", default=0.05, null=True, blank=True,
+                                     validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+                                     help_text="Resistance to angular motion (0.0 - 1.0)")
+  coefficient_of_restitution = models.FloatField("Coefficient of Restitution", default=0.5, null=True, blank=True,
+                                                validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+                                                help_text="Bounciness for collisions (0.0 - 1.0)")
+  friction_coefficients = ListField(
+    default=default_friction_coefficients,
+    null=True,
+    blank=True,
+    help_text="Friction coefficients [static, dynamic]"
+  )
 
   def __str__(self):
     return self.name

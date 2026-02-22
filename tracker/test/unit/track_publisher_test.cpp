@@ -46,7 +46,8 @@ TEST_F(TrackPublisherTest, Publish_CallsMqttWithCorrectTopic) {
     EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(true));
     EXPECT_CALL(*mock_client, publish("scenescape/data/scene/scene-123/person", _)).Times(1);
 
-    std::vector<Track> tracks = {createSampleTrack("track-1", "person")};
+    std::vector<Track> tracks = {
+        createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person")};
     publisher.publish("scene-123", "Test Scene", "person", "2026-01-27T12:00:00.000Z", tracks);
 }
 
@@ -57,7 +58,8 @@ TEST_F(TrackPublisherTest, Publish_IncrementsPublishedCount) {
     EXPECT_CALL(*mock_client, isConnected()).WillRepeatedly(Return(true));
     EXPECT_CALL(*mock_client, publish(_, _)).Times(3);
 
-    std::vector<Track> tracks = {createSampleTrack("track-1", "person")};
+    std::vector<Track> tracks = {
+        createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person")};
 
     publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", tracks);
     publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:01.000Z", tracks);
@@ -73,7 +75,8 @@ TEST_F(TrackPublisherTest, Publish_DoesNothingWhenDisconnected) {
     EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(false));
     EXPECT_CALL(*mock_client, publish(_, _)).Times(0);
 
-    std::vector<Track> tracks = {createSampleTrack("track-1", "person")};
+    std::vector<Track> tracks = {
+        createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person")};
     publisher.publish("scene-123", "Test Scene", "person", "2026-01-27T12:00:00.000Z", tracks);
 
     EXPECT_EQ(publisher.published_count(), 0);
@@ -83,7 +86,8 @@ TEST_F(TrackPublisherTest, Publish_DoesNothingWithNullClient) {
     TrackPublisher publisher(nullptr);
 
     // Should not crash and should not publish
-    std::vector<Track> tracks = {createSampleTrack("track-1", "person")};
+    std::vector<Track> tracks = {
+        createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person")};
     publisher.publish("scene-123", "Test Scene", "person", "2026-01-27T12:00:00.000Z", tracks);
 
     EXPECT_EQ(publisher.published_count(), 0);
@@ -104,7 +108,8 @@ TEST_F(TrackPublisherTest, Serialize_ProducesValidJsonStructure) {
             captured_payload = payload;
         });
 
-    std::vector<Track> tracks = {createSampleTrack("track-1", "person")};
+    std::vector<Track> tracks = {
+        createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person")};
     publisher.publish("scene-123", "Test Scene", "person", "2026-01-27T12:00:00.000Z", tracks);
 
     // Parse and validate JSON structure
@@ -137,7 +142,7 @@ TEST_F(TrackPublisherTest, Serialize_TrackHasCorrectFields) {
         });
 
     Track track;
-    track.id = "uuid-abc";
+    track.id = "8cce2bc7-51fc-4a6e-8c5d-a73ac72d3eb2";
     track.category = "vehicle";
     track.translation = {10.5, 20.3, 0.0};
     track.velocity = {1.0, 2.0, 0.0};
@@ -150,7 +155,8 @@ TEST_F(TrackPublisherTest, Serialize_TrackHasCorrectFields) {
     ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
 
     const auto& obj = doc["objects"][0];
-    EXPECT_STREQ(obj["id"].GetString(), "uuid-abc");
+    EXPECT_TRUE(obj["id"].IsString());
+    EXPECT_STREQ(obj["id"].GetString(), "8cce2bc7-51fc-4a6e-8c5d-a73ac72d3eb2");
     EXPECT_STREQ(obj["category"].GetString(), "vehicle");
 
     // Translation [x, y, z]
@@ -212,18 +218,18 @@ TEST_F(TrackPublisherTest, Serialize_HandlesMultipleTracks) {
         });
 
     std::vector<Track> tracks = {
-        createSampleTrack("track-1", "person"),
-        createSampleTrack("track-2", "person"),
-        createSampleTrack("track-3", "person"),
+        createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person"),
+        createSampleTrack("b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e", "person"),
+        createSampleTrack("c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f", "person"),
     };
     publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", tracks);
 
     rapidjson::Document doc;
     ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
     EXPECT_EQ(doc["objects"].Size(), 3u);
-    EXPECT_STREQ(doc["objects"][0]["id"].GetString(), "track-1");
-    EXPECT_STREQ(doc["objects"][1]["id"].GetString(), "track-2");
-    EXPECT_STREQ(doc["objects"][2]["id"].GetString(), "track-3");
+    EXPECT_STREQ(doc["objects"][0]["id"].GetString(), "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d");
+    EXPECT_STREQ(doc["objects"][1]["id"].GetString(), "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e");
+    EXPECT_STREQ(doc["objects"][2]["id"].GetString(), "c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f");
 }
 
 // =============================================================================
@@ -240,10 +246,11 @@ TEST_F(TrackPublisherTest, BuildTopic_FormatsCorrectly) {
     EXPECT_CALL(*mock_client, publish("scenescape/data/scene/abc-123/person", _)).Times(1);
     EXPECT_CALL(*mock_client, publish("scenescape/data/scene/xyz-789/vehicle", _)).Times(1);
 
-    std::vector<Track> tracks = {createSampleTrack("t1", "person")};
+    std::vector<Track> tracks = {
+        createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person")};
     publisher.publish("abc-123", "Scene A", "person", "2026-01-27T12:00:00.000Z", tracks);
 
-    tracks = {createSampleTrack("t2", "vehicle")};
+    tracks = {createSampleTrack("d4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f7a", "vehicle")};
     publisher.publish("xyz-789", "Scene B", "vehicle", "2026-01-27T12:00:00.000Z", tracks);
 }
 

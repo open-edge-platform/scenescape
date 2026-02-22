@@ -74,16 +74,18 @@ def process_detection(self, detection_data):
 ### Models
 
 - Import from `scene_common` for shared geometry/camera classes
-- Use `ArrayField` for PostgreSQL array storage
+- Use `ListField` (from `manager.fields`) for list/array storage - provides database portability (PostgreSQL and non-PostgreSQL) and robust handling of edge cases
 - Implement `__str__` for admin interface readability
 
 ```python
 from django.db import models
 from scene_common.geometry import Region as ScenescapeRegion
+from manager.fields import ListField
 
 class Scene(models.Model):
     name = models.CharField(max_length=255)
     map = models.FileField(upload_to='maps/')
+    coordinates = ListField(default=list)  # Works with PostgreSQL and SQLite
 
     def __str__(self):
         return self.name

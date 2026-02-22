@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: (C) 2025 Intel Corporation -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Intel® SceneScape Overview and Architecture
+# Intel® SceneScape
 
 <!--hide_directive
 <div class="component_card_widget">
@@ -13,10 +13,6 @@
   </a>
 </div>
 hide_directive-->
-
-Scene-based AI software framework.
-
-## Overview
 
 Intel® SceneScape is a software framework that enables spatial awareness by integrating data from cameras and other sensors into scenes. It simplifies application development by providing near-real-time, actionable data about the state of the scene, including what, when, and where objects are present, along with their sensed attributes and environment. This scene-based approach makes it easy to incorporate and fuse sensor inputs, enabling analysis of past events, monitoring of current activities, and prediction of future outcomes from scene data.
 
@@ -52,7 +48,7 @@ Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python
 
 ### **Auto Camera Calibration**
 
-Computes camera parameters utilizing known priors and camera feed. For more information, refer to [Auto Camera Calibration](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/autocalibration/README.md)
+Computes camera parameters utilizing known priors and camera feed. For more information, refer to [Auto Camera Calibration](./microservices/auto-calibration/auto-calibration.md).
 
 ### **MQTT Broker**
 
@@ -82,10 +78,11 @@ PostgreSQL database server which stores static information used by the web UI an
 
 get-started
 Using Intel® SceneScape <using-intel-scenescape/index.md>
-Building a Scene <building-a-scene/index.md>
 Calibrating Cameras <calibrating-cameras/index.md>
+Building a Scene <building-a-scene/index.md>
 Other Topics <other-topics/index.md>
 Additional Resources <additional-resources/index.md>
+Microservices <./microservices/microservices.md>
 api-reference
 troubleshooting
 

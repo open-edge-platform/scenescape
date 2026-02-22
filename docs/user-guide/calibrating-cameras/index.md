@@ -1,10 +1,10 @@
-# calibrating Cameras
+# Calibrating Cameras
 
 These articles will teach you various ways of calibrating cameras for Intel® SceneScape.
 
-- [Manual Camera Callibration](./how-to-manually-calibrate-cameras.md)
-- [Automatic Camera Callibration - Visual Features](./how-to-autocalibrate-cameras-using-visual-features.md)
-- [Automatic Camera Callibration - April Tags](./how-to-autocalibrate-cameras-using-apriltags.md)
+- [Manual Camera Calibration](./how-to-manually-calibrate-cameras.md)
+- [Automatic Camera Calibration - Visual Features](./how-to-autocalibrate-cameras-using-visual-features.md)
+- [Automatic Camera Calibration - April Tags](./how-to-autocalibrate-cameras-using-apriltags.md)
 
 <!--hide_directive
 :::{toctree}

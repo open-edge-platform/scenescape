@@ -110,7 +110,7 @@ RUN pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
         pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_vggt.txt && \
         cd /workspace/vggt && \
         pip install --no-cache-dir -e . && \
-        pip install --no-cache-dir -r requirements.txt -r requirements_demo.txt; \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt -r requirements_demo.txt; \
     fi && \
     rm -rf /usr/local/lib/python3.11/site-packages/torch/test \
            /usr/local/lib/python3.11/site-packages/torch/share \
