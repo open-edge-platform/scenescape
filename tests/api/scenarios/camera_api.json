@@ -1,0 +1,402 @@
+[
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/01: Create camera with only required properties",
+    "test_steps": [
+      {
+        "step_name": "Create camera with minimal payload",
+        "api": "camera",
+        "method": "createCamera",
+        "request": {
+          "body": {
+            "name": "Camera_Minimal",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "intrinsics": {
+              "fx": 905,
+              "fy": 905,
+              "cx": 640,
+              "cy": 360
+            }
+          }
+        },
+        "expected": {
+          "status_code": 201
+        },
+        "save": {
+          "CAMERA_UID_MINIMAL": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/02: Create camera full valid payload",
+    "test_steps": [
+      {
+        "step_name": "Create camera with full payload",
+        "api": "camera",
+        "method": "createCamera",
+        "request": {
+          "body": {
+            "name": "Camera_Full",
+            "intrinsics": {
+              "fx": 905,
+              "fy": 905,
+              "cx": 640,
+              "cy": 360
+            },
+            "resolution": [1280, 720],
+            "command": "../../../../../sample_data/apriltag-cam1.mp4",
+            "camerachain": "retail",
+            "mac": "02:42:ac:12:00:04",
+            "distortion": {
+              "k1": 0,
+              "k2": 0,
+              "p1": 0,
+              "p2": 0,
+              "k3": 0
+            },
+            "translation": [1, 1, 1],
+            "rotation": [1, 1, 1],
+            "scale": [1, 1, 1],
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "uid": "3bc091c7-e449-46a0-9540-29c499bca18c"
+          }
+        },
+        "expected": {
+          "status_code": 201
+        },
+        "save": {
+          "CAMERA_UID_FULL": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/03: Create camera with missing required field name",
+    "test_steps": [
+      {
+        "step_name": "Attempt to create camera without name",
+        "api": "camera",
+        "method": "createCamera",
+        "request": {
+          "body": {
+            "intrinsics": [1000.0, 1000.0, 960.0, 540.0],
+            "resolution": [1920, 1080]
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/04: Create camera with missing required field intrinsics",
+    "test_steps": [
+      {
+        "step_name": "Attempt to create camera without intrinsics",
+        "api": "camera",
+        "method": "createCamera",
+        "request": {
+          "body": {
+            "name": "Camera_No_Intrinsics",
+            "resolution": [1920, 1080]
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/05: Create camera with missing required field resolution",
+    "test_steps": [
+      {
+        "step_name": "Attempt to create camera without resolution",
+        "api": "camera",
+        "method": "createCamera",
+        "request": {
+          "body": {
+            "name": "Camera_No_Resolution",
+            "intrinsics": [1000.0, 1000.0, 960.0, 540.0]
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/06: Update camera with minimal valid payload",
+    "test_steps": [
+      {
+        "step_name": "Update camera with minimal payload",
+        "api": "camera",
+        "method": "updateCamera",
+        "request": {
+          "UID": "${CAMERA_UID_MINIMAL}",
+          "body": {
+            "name": "Camera_Minimal_Updated",
+            "intrinsics": [1100.0, 1100.0, 960.0, 540.0],
+            "resolution": [1920, 1080]
+          }
+        },
+        "expected": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify camera was updated",
+        "api": "camera",
+        "method": "getCamera",
+        "request": {
+          "UID": "${CAMERA_UID_MINIMAL}"
+        },
+        "expected": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Camera_Minimal_Updated"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/07: Update camera with full valid payload",
+    "test_steps": [
+      {
+        "step_name": "Update camera with full payload",
+        "api": "camera",
+        "method": "updateCamera",
+        "request": {
+          "UID": "${CAMERA_UID_FULL}",
+          "body": {
+            "name": "Camera_Full_Updated",
+            "intrinsics": [1200.0, 1200.0, 960.0, 540.0],
+            "resolution": [1920, 1080],
+            "distortion": [0.1, 0.1, 0.0, 0.0, 0.0]
+          }
+        },
+        "expected": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify camera was updated",
+        "api": "camera",
+        "method": "getCamera",
+        "request": {
+          "UID": "${CAMERA_UID_FULL}"
+        },
+        "expected": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Camera_Full_Updated"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/08: Update camera with missing required field name",
+    "test_steps": [
+      {
+        "step_name": "Attempt to update camera without name",
+        "api": "camera",
+        "method": "updateCamera",
+        "request": {
+          "UID": "${CAMERA_UID_MINIMAL}",
+          "body": {
+            "intrinsics": [1000.0, 1000.0, 960.0, 540.0],
+            "resolution": [1920, 1080]
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/09: Update camera with missing required field intrinsics",
+    "test_steps": [
+      {
+        "step_name": "Attempt to update camera without intrinsics",
+        "api": "camera",
+        "method": "updateCamera",
+        "request": {
+          "UID": "${CAMERA_UID_MINIMAL}",
+          "body": {
+            "name": "Should_Fail",
+            "resolution": [1920, 1080]
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/10: Update camera missing required field resolution",
+    "test_steps": [
+      {
+        "step_name": "Attempt to update camera without resolution",
+        "api": "camera",
+        "method": "updateCamera",
+        "request": {
+          "UID": "${CAMERA_UID_MINIMAL}",
+          "body": {
+            "name": "Should_Fail",
+            "intrinsics": [1000.0, 1000.0, 960.0, 540.0]
+          }
+        },
+        "expected": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/11: Update non existent camera",
+    "test_steps": [
+      {
+        "step_name": "Attempt to update camera with numeric UID",
+        "api": "camera",
+        "method": "updateCamera",
+        "request": {
+          "UID": "123",
+          "body": {
+            "name": "Should_Fail",
+            "intrinsics": [1000.0, 1000.0, 960.0, 540.0],
+            "resolution": [1920, 1080]
+          }
+        },
+        "expected": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/12: Get camera by UID",
+    "test_steps": [
+      {
+        "step_name": "Setup: Create test camera",
+        "api": "camera",
+        "method": "createCamera",
+        "request": {
+          "body": {
+            "name": "Camera_Get_Test",
+            "intrinsics": [1000.0, 1000.0, 960.0, 540.0],
+            "resolution": [1920, 1080]
+          }
+        },
+        "expected": {
+          "status_code": 201
+        },
+        "save": {
+          "CAMERA_UID_Get": "uid"
+        }
+      },
+      {
+        "step_name": "Test: Get camera by UID",
+        "api": "camera",
+        "method": "getCamera",
+        "request": {
+          "UID": "${CAMERA_UID_Get}"
+        },
+        "expected": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Camera_Get_Test"
+        }
+      },
+      {
+        "step_name": "Cleanup: Delete test camera",
+        "api": "camera",
+        "method": "deleteCamera",
+        "request": {
+          "UID": "${CAMERA_UID_Get}"
+        },
+        "expected": {
+          "status_code": 204
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/13: Get camera with invalid UID",
+    "test_steps": [
+      {
+        "step_name": "Attempt to get camera with invalid UID",
+        "api": "camera",
+        "method": "getCamera",
+        "request": {
+          "UID": "123"
+        },
+        "expected": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/14: Get all cameras",
+    "test_steps": [
+      {
+        "step_name": "Attempt to get camera with invalid UID",
+        "api": "camera",
+        "method": "getAllCameras",
+        "expected": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/15: Delete camera by UID",
+    "test_steps": [
+      {
+        "step_name": "Delete camera",
+        "api": "camera",
+        "method": "deleteCamera",
+        "request": {
+          "UID": "${CAMERA_UID_MINIMAL}"
+        },
+        "expected": {
+          "status_code": 204
+        }
+      },
+      {
+        "step_name": "Verify camera is deleted",
+        "api": "camera",
+        "method": "getCamera",
+        "request": {
+          "UID": "${CAMERA_UID_MINIMAL}"
+        },
+        "expected": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/16: Delete non existent camera",
+    "test_steps": [
+      {
+        "step_name": "Attempt to delete camera with invalid UID",
+        "api": "camera",
+        "method": "deleteCamera",
+        "request": {
+          "UID": "123"
+        },
+        "expected": {
+          "status_code": 404
+        }
+      }
+    ]
+  }
+]
