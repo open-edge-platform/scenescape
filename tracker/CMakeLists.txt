@@ -43,6 +43,13 @@ find_package(CLI11 REQUIRED)
 find_package(httplib REQUIRED)
 find_package(RapidJSON REQUIRED)
 find_package(PahoMqttCpp REQUIRED)
+find_package(OpenSSL REQUIRED)
+
+#####################################################################
+# System-provided packages
+#####################################################################
+
+find_package(OpenMP REQUIRED)
 
 #####################################################################
 # System-provided packages
@@ -76,6 +83,8 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/config_loader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene_loader.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/api_scene_loader.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/manager_rest_client.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/coordinate_transformer.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_server.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_command.cpp
@@ -122,6 +131,8 @@ target_link_libraries(${PROJECT_NAME}
     httplib::httplib
     rapidjson
     PahoMqttCpp::paho-mqttpp3-static
+    OpenSSL::SSL
+    OpenSSL::Crypto
 )
 
 #####################################################################

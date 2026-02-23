@@ -80,8 +80,9 @@ int main(int argc, char* argv[]) {
     // Load scenes using appropriate loader based on config
     std::vector<tracker::Scene> scenes;
     try {
-        auto scene_loader =
-            tracker::create_scene_loader(config.scenes, cli_config.config_path.parent_path());
+        auto scene_loader = tracker::create_scene_loader(
+            config.scenes, cli_config.config_path.parent_path(), config.infrastructure.manager,
+            cli_config.schema_path.parent_path());
         scenes = scene_loader->load();
     } catch (const std::exception& e) {
         LOG_ERROR("Failed to load scenes: {}", e.what());
