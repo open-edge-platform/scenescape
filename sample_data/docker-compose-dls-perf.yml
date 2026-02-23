@@ -163,6 +163,8 @@ services:
     configs:
       - source: tracker-config
         target: /home/scenescape/SceneScape/tracker-config.json
+      - source: reid-config
+        target: /home/scenescape/SceneScape/reid-config.json
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
       - vol-sample-data:/home/scenescape/SceneScape/sample_data
@@ -375,6 +377,8 @@ configs:
     file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
   tracker-config:
     file: ./controller/config/tracker-config.json
+  reid-config:
+    file: ./controller/config/reid-config.json
   perf-config:
     file: ./dlstreamer-pipeline-server/perf-config.json
 

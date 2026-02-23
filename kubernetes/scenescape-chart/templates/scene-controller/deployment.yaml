@@ -93,6 +93,9 @@ spec:
           - mountPath: /home/scenescape/SceneScape/tracker-config.json
             name: tracker-config
             subPath: tracker-config.json
+          - mountPath: /home/scenescape/SceneScape/reid-config.json
+            name: reid-config
+            subPath: reid-config.json
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -110,6 +113,9 @@ spec:
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-media-pvc
       - name: tracker-config
+        configMap:
+          name: {{ .Release.Name }}-tracker-config
+      - name: reid-config
         configMap:
           name: {{ .Release.Name }}-tracker-config
 status: {}

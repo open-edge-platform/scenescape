@@ -29,13 +29,14 @@ STREAMING_MODE = False  # (DEFAULT) Objects from one source (camera) at a time a
 BATCHED_MODE = True     # Objects from multiple sources are aggregated together and put into the queue
 
 class Tracking(Thread):
-  def __init__(self):
+  def __init__(self, reid_config_data=None):
     super().__init__()
     self.trackers = {}
     self.all_tracker_objects = self.curObjects = []
     self.already_tracked_objects = []
     self.queue = Queue()
-    self.uuid_manager = UUIDManager()
+    self.reid_config_data = reid_config_data if reid_config_data else {}
+    self.uuid_manager = UUIDManager(reid_config_data=self.reid_config_data)
     return
 
   def getUniqueIDCount(self, category):

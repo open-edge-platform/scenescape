@@ -28,6 +28,7 @@
   --network scenescape \
   -v scenescape_vol-media:/home/scenescape/SceneScape/media \
   -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
+  -v $(pwd)/controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
   -v $(pwd)/manager/secrets/certs/scenescape-vdms-c.key:/run/secrets/certs/scenescape-vdms-c.key:ro \
   -v $(pwd)/manager/secrets/certs/scenescape-vdms-c.crt:/run/secrets/certs/scenescape-vdms-c.crt:ro \
@@ -37,6 +38,8 @@
   scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
+  --tracker_config_file /home/scenescape/SceneScape/tracker-config.json \
+  --reid_config_file /home/scenescape/SceneScape/reid-config.json \
   --ntp ntpserv
   ```
 

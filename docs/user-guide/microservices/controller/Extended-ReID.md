@@ -114,7 +114,7 @@ Result: "Find strong age-gender matches, refined by vector similarity"
   - Valid range: 0.0 to 1.0
   - Example: Set to `0.7` to include more metadata filters, `0.9` for stricter filtering
 
-### Configuring Confidence Threshold
+## Configuring Confidence Threshold
 
 The confidence threshold determines which metadata constraints are applied in TIER 1 filtering. Only constraints meeting or exceeding the threshold are used. Constraints below the threshold are skipped, allowing vector similarity in TIER 2 to handle the matching:
 
@@ -132,6 +132,80 @@ docker compose up -d
 - `0.8`: **Default balanced approach** (recommended for most use cases)
 - `0.9`: Only highest-confidence metadata filters applied, rely more on TIER 2 vector similarity (highest recall)
 
+## REID Configuration File
+
+The Scene Controller now supports a dedicated `reid-config.json` configuration file for managing Re-ID specific settings. This file provides separation of concerns between tracker configuration (motion models, timing parameters) and Re-ID behavior (feature accumulation, database flushing, similarity thresholds).
+
+### Configuration File Location
+
+Place `reid-config.json` in the controller config directory:
+
+```
+controller/config/reid-config.json
+```
+
+### Sample Configuration
+
+```json
+{
+  "stale_feature_timeout_secs": 5.0,
+  "feature_accumulation_threshold": 12,
+  "feature_slice_size": 10,
+  "similarity_threshold": 60
+}
+```
+
+### Configuration Parameters
+
+| Parameter                        | Type  | Default | Description                                                                                                                                                           |
+| -------------------------------- | ----- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stale_feature_timeout_secs`     | float | 5.0     | How long (seconds) to accumulate features in memory before flushing to VDMS. Features older than this threshold are persisted to the database for long-term storage.  |
+| `feature_accumulation_threshold` | int   | 12      | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.     |
+| `feature_slice_size`             | int   | 10      | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector. |
+| `similarity_threshold`           | int   | 60      | Minimum similarity score (0-100) for a match to be considered valid. Higher values = stricter matching.                                                               |
+
+### Using the Configuration File
+
+Pass the reid-config file path to the Scene Controller:
+
+```bash
+python scene_controller.py \
+  --tracker_config_file controller/config/tracker_config.json \
+  --reid_config_file controller/config/reid-config.json \
+  --broker mqtt.example.com \
+  --resturl http://rest.example.com
+```
+
+**Current Implementation Note**:
+
+- `stale_feature_timeout_secs`, `feature_accumulation_threshold`, `feature_slice_size`, and `similarity_threshold` are fully implemented
+- All semantic metadata attributes are currently used for TIER 1 filtering. Selective metadata filtering is planned for Phase 2.
+
+### Tuning Recommendations
+
+**For Higher Recall (more matches found)**:
+
+- Decrease `stale_feature_timeout_secs`: 3.0 (flush features sooner, capture recent appearances)
+- Decrease `feature_accumulation_threshold`: 8 (query sooner with fewer features)
+- Decrease `similarity_threshold`: 50 (accept less-perfect matches)
+- Increase `feature_slice_size`: 20 (store more diverse samples)
+
+**For Higher Precision (only confident matches)**:
+
+- Increase `stale_feature_timeout_secs`: 8.0 (accumulate more features before persisting)
+- Increase `feature_accumulation_threshold`: 16 (require more samples for statistical confidence)
+- Increase `similarity_threshold`: 75 (stricter matching)
+- Decrease `feature_slice_size`: 5 (store every 5th feature for better coverage)
+
+### Future Extensibility
+
+The `reid-config.json` design is extensible for future REID enhancements:
+
+- **Phase 2**: Confidence score thresholds per attribute type
+- **Phase 3**: Model-specific configuration (reid model name, version)
+- **Phase 4**: Spatio-temporal constraints (spatial radius, time window)
+- **Phase 5**: Custom feature aggregation strategies
+
 ## Testing
 
 Tests should verify:
@@ -142,6 +216,8 @@ Tests should verify:
 4. ✅ Backward compatibility (queries work with/without metadata)
 5. ✅ Schema flexibility (new metadata fields accepted without code changes)
 6. ✅ Storage and retrieval of metadata with reid vectors
+7. ✅ Stale feature flushing respects configured timeout
+8. ✅ Configuration file loading and parameter application
 
 ## References
 

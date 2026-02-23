@@ -18,13 +18,14 @@ DEFAULT_MINIMUM_FEATURE_COUNT = 12
 DEFAULT_FEATURE_SLICE_SIZE = 10
 DEFAULT_MAX_QUERY_TIME = 4
 DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED = 10
+DEFAULT_STALE_FEATURE_TIMEOUT_SECS = 5.0
 
 available_databases = {
   "VDMS": VDMSDatabase,
 }
 
 class UUIDManager:
-  def __init__(self, database=DEFAULT_DATABASE):
+  def __init__(self, database=DEFAULT_DATABASE, reid_config_data=None):
     self.active_ids = {}
     self.active_ids_lock = threading.Lock()
     self.active_query = {}
@@ -38,6 +39,10 @@ class UUIDManager:
       maxlen=DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED)
     self.similarity_query_times_lock = threading.Lock()
     self.reid_enabled = True
+    # Extract stale feature timeout from reid config, use default if not provided
+    if reid_config_data is None:
+      reid_config_data = {}
+    self.stale_feature_timeout_secs = reid_config_data.get('stale_feature_timeout_secs', DEFAULT_STALE_FEATURE_TIMEOUT_SECS)
     self.stale_feature_timer = None
     self._start_stale_feature_timer()
     return
@@ -57,7 +62,7 @@ class UUIDManager:
     self.stale_feature_timer.start()
 
   def _flush_stale_features(self):
-    """Check for features older than 5 seconds and flush them to VDMS"""
+    """Check for features older than the configured timeout (from reid-config.json) and flush them to VDMS"""
     if not self.features_for_database_timestamps:
       return
 
@@ -66,7 +71,7 @@ class UUIDManager:
 
     for track_id, timestamp in list(self.features_for_database_timestamps.items()):
       age = current_time - timestamp
-      if age > 5.0:
+      if age > self.stale_feature_timeout_secs:
         stale_track_ids.append(track_id)
 
     if stale_track_ids:

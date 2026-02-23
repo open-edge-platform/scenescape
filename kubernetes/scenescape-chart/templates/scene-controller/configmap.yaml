@@ -12,3 +12,5 @@ metadata:
 data:
   tracker-config.json: |-
 {{ .Files.Get "files/model-installer/tracker-config.json" | indent 4 }}
+  reid-config.json: |-
+{{ .Files.Get "files/model-installer/reid-config.json" | indent 4 }}
