@@ -600,11 +600,11 @@ class TestMetadataStorageQueryConsistency:
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_metadata_stored_matches_constraint_query(self, mock_vdms_class):
     """Ensure metadata stored in addEntry matches constraint values in findMatches.
-    
+
     This prevents the bug where metadata was stored as JSON strings but queried
     as plain strings, causing TIER 1 filtering to fail.
-    
-    The contract: 
+
+    The contract:
       - addEntry: Extract 'label' from dict metadata, store as plain string
       - findMatches: Use 'label' in constraint, query as plain string
       - Result: Stored value == queried value (they match!)

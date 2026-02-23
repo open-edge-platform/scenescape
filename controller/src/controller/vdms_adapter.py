@@ -199,7 +199,7 @@ class VDMSDatabase(ReIDDatabase):
     - Non-numeric values: IGNORED (relies on TIER 2 vector similarity)
 
     Note: Low-confidence and unspecified constraints are intentionally omitted from TIER 1
-    filtering, allowing TIER 2 vector similarity search to provide flexible, 
+    filtering, allowing TIER 2 vector similarity search to provide flexible,
     confidence-aware matching. This simplification avoids VDMS limitations with complex
     OR constraint expressions across multiple properties.
 
@@ -272,7 +272,7 @@ class VDMSDatabase(ReIDDatabase):
     """
     log.debug(f"[VDMS] findMatches called: object_type={object_type}, k_neighbors={k_neighbors}")
     log.debug(f"[VDMS] findMatches constraints received: {constraints}")
-    
+
     # TIER 1: Build dynamic constraints for metadata filtering
     query_constraints = self._build_query_constraints(object_type, **constraints)
 

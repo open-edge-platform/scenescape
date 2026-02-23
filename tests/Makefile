@@ -88,6 +88,7 @@ release-tests: \
   live-view-button \
   non-functional-tests \
   scene-details \
+  reid-data-flow \
   reid-unique-count \
   reid-performance-degradation \
   reid-semantic-unique-count \
@@ -104,7 +105,6 @@ broken-tests: \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
   scenes-summary-api \
-  reid-unique-count \
   reid-performance-degradation \
   auto-calibration-ui \
 

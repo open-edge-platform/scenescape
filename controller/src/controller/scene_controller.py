@@ -49,7 +49,7 @@ class SceneController:
       self.extractTrackerConfigData(tracker_config_file)
     elif ControllerMode.isAnalyticsOnly():
       log.info("Analytics-only mode: Skipping tracker configuration file loading")
-    
+
     if reid_config_file is not None and not ControllerMode.isAnalyticsOnly():
       self.extractReidConfigData(reid_config_file)
     elif ControllerMode.isAnalyticsOnly():

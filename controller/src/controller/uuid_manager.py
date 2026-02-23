@@ -97,10 +97,10 @@ class UUIDManager:
       reid = sscape_object.reid
     except AttributeError:
       return None
-    
+
     if reid is None:
       return None
-    
+
     # New format: dict with 'embedding_vector' key
     if isinstance(reid, dict):
       embedding = reid.get('embedding_vector', None)
@@ -108,12 +108,12 @@ class UUIDManager:
       if embedding is not None and not isinstance(embedding, str):
         return embedding
       return None
-    
+
     # Legacy format: direct vector (list or numpy array)
     # Return if it's not a dict and not a string
     if not isinstance(reid, str) and not isinstance(reid, dict):
       return reid
-    
+
     return None
 
   def _extractSemanticMetadata(self, sscape_object):
