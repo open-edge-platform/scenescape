@@ -99,11 +99,18 @@ target_link_libraries(tracker_tests
 
 # In-memory metric exporter static libs for testing.
 # The Conan component marks these as header-only (LIBS empty),
-# but the .a archives exist in the package lib dir which is
-# already on the linker search path via the umbrella target.
+# but the .a archives exist in the package lib dir.
+find_library(OTEL_EXPORTER_IN_MEMORY_LIB
+    NAMES opentelemetry_exporter_in_memory
+    REQUIRED
+)
+find_library(OTEL_EXPORTER_IN_MEMORY_METRIC_LIB
+    NAMES opentelemetry_exporter_in_memory_metric
+    REQUIRED
+)
 target_link_libraries(tracker_tests PRIVATE
-    -lopentelemetry_exporter_in_memory
-    -lopentelemetry_exporter_in_memory_metric
+    ${OTEL_EXPORTER_IN_MEMORY_LIB}
+    ${OTEL_EXPORTER_IN_MEMORY_METRIC_LIB}
 )
 
 set_property(TARGET tracker_tests PROPERTY CXX_STANDARD ${TRACKER_CXX_STANDARD})

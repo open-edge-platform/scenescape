@@ -21,6 +21,9 @@ void ObservabilityContext::finalize() const {
 }
 
 void ObservabilityContext::abort(const char* reason) const {
+    if (!receive_time.has_value()) {
+        return;
+    }
     Metrics::inc_dropped(
         {{kAttrReason, reason}, {kAttrCameraId, camera_id}, {kAttrScene, scene_id}});
 }
