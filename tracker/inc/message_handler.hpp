@@ -12,6 +12,7 @@
 #include <atomic>
 #include <chrono>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -57,8 +58,14 @@ public:
     /// Topic pattern for scene output (format with scene_id and thing_type)
     static constexpr const char* TOPIC_SCENE_DATA_PATTERN = "scenescape/data/scene/{}/{}";
 
+    /// Topic for database update notifications (dynamic mode)
+    static constexpr const char* TOPIC_DATABASE_UPDATE = "scenescape/cmd/database";
+
     /// Default thing type for output (category from detection)
     static constexpr const char* DEFAULT_THING_TYPE = "thing";
+
+    /// Callback type for requesting service shutdown (dynamic scene reload)
+    using ShutdownCallback = std::function<void()>;
 
     /**
      * @brief Construct message handler with MQTT client, scene registry, and buffer.
@@ -74,6 +81,18 @@ public:
                             const SceneRegistry& scene_registry, TimeChunkBuffer& buffer,
                             const TrackingConfig& tracking_config, bool schema_validation = true,
                             const std::filesystem::path& schema_dir = "/scenescape/schema");
+
+    /**
+     * @brief Enable dynamic mode for database update notifications.
+     *
+     * In dynamic mode (scenes.source=api), the handler subscribes to
+     * scenescape/cmd/database. On receiving an update (scene create, update,
+     * delete, camera change, etc.), it invokes the shutdown callback to
+     * trigger a graceful restart.
+     *
+     * @param callback Function to call when database update is received
+     */
+    void enableDynamicMode(ShutdownCallback callback);
 
     /**
      * @brief Start message handling (subscribe to topics).
@@ -113,6 +132,17 @@ private:
      * @param payload JSON message payload
      */
     void handleCameraMessage(const std::string& topic, const std::string& payload);
+
+    /**
+     * @brief Handle database update notification (dynamic mode).
+     *
+     * Logs the change and triggers graceful shutdown via shutdown callback.
+     * Fires on any database change: scene create/update/delete, camera changes, etc.
+     *
+     * @param topic MQTT topic (scenescape/cmd/database)
+     * @param payload Message payload (content is logged but not parsed)
+     */
+    void handleDatabaseUpdateMessage(const std::string& topic, const std::string& payload);
 
     /**
      * @brief Extract camera_id from topic.
@@ -157,11 +187,22 @@ private:
     static std::unique_ptr<rapidjson::SchemaDocument>
     loadSchema(const std::filesystem::path& schema_path);
 
+    /**
+     * @brief Route incoming MQTT message to the appropriate handler.
+     *
+     * Routes by topic:
+     * - scenescape/cmd/database -> handleDatabaseUpdateMessage
+     * - scenescape/data/camera/ -> handleCameraMessage (default)
+     */
+    void routeMessage(const std::string& topic, const std::string& payload);
+
     std::shared_ptr<IMqttClient> mqtt_client_;
     const SceneRegistry& scene_registry_;
     TimeChunkBuffer& buffer_;
     TrackingConfig tracking_config_;
     bool schema_validation_;
+    bool dynamic_mode_{false};
+    ShutdownCallback shutdown_callback_;
     std::unique_ptr<rapidjson::SchemaDocument> camera_schema_;
     std::unique_ptr<rapidjson::SchemaDocument> scene_schema_;
 

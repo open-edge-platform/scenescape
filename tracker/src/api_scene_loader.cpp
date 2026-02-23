@@ -104,8 +104,8 @@ std::pair<std::string, std::string> read_auth_file(const std::string& path) {
     return {doc["user"].GetString(), doc["password"].GetString()};
 }
 
-void validate_scenes(const rapidjson::Document& scenes_doc,
-                     const std::filesystem::path& schema_path) {
+rapidjson::Document validate_scenes(const rapidjson::Document& scenes_doc,
+                                    const std::filesystem::path& schema_path) {
     if (!scenes_doc.IsArray()) {
         throw std::runtime_error("validate_scenes: input must be a JSON array");
     }
@@ -124,6 +124,10 @@ void validate_scenes(const rapidjson::Document& scenes_doc,
 
     rapidjson::SchemaDocument schema(schema_doc);
 
+    rapidjson::Document valid_scenes;
+    valid_scenes.SetArray();
+    auto& alloc = valid_scenes.GetAllocator();
+
     int scene_index = 0;
     for (const auto& scene_val : scenes_doc.GetArray()) {
         rapidjson::SchemaValidator validator(schema);
@@ -136,12 +140,16 @@ void validate_scenes(const rapidjson::Document& scenes_doc,
                 scene_id = "'" + std::string(scene_val["name"].GetString()) + "'";
             }
 
-            throw std::runtime_error("Scene " + scene_id +
-                                     " validation failed at: " + sb.GetString() +
-                                     ", keyword: " + validator.GetInvalidSchemaKeyword());
+            LOG_WARN("Skipping scene {} — validation failed at: {}, keyword: {}", scene_id,
+                     sb.GetString(), validator.GetInvalidSchemaKeyword());
+        } else {
+            rapidjson::Value scene_copy(scene_val, alloc);
+            valid_scenes.PushBack(scene_copy, alloc);
         }
         ++scene_index;
     }
+
+    return valid_scenes;
 }
 
 } // namespace detail
@@ -189,13 +197,13 @@ public:
         // Transform flat API format -> nested schema format
         detail::transform_api_scenes(scenes_doc);
 
-        // Validate each scene against scene.schema.json
+        // Validate each scene against scene.schema.json (skips invalid scenes with warning)
         auto scene_schema_path = schema_dir_ / "scene.schema.json";
-        detail::validate_scenes(scenes_doc, scene_schema_path);
+        auto valid_scenes = detail::validate_scenes(scenes_doc, scene_schema_path);
 
         // Parse validated scenes into structs
         std::vector<Scene> scenes;
-        for (const auto& scene_val : scenes_doc.GetArray()) {
+        for (const auto& scene_val : valid_scenes.GetArray()) {
             scenes.push_back(detail::parse_scene(scene_val));
         }
 
