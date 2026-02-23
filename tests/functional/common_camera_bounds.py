@@ -86,11 +86,6 @@ class CameraBounds:
       if topic in self.unregulated_topics:
         self.unregulated_has_camera_bounds = True
 
-  def check_camera_bound_visibility(self):
-    """
-    Validate camera_bounds publishing based on visibility_topic policy.
-    """
-
   def run(self, params, visibility_topic, test_name):
     self.visibility_topic = visibility_topic.lower()
     log.info(f"Test parameter visibility_topic: {self.visibility_topic}")
