@@ -9,16 +9,16 @@ The models and configuration files are downloaded into a models volume that is a
 
 ## Configuration
 
-Model installer can be configured to download a specific set of models using the following parameters:
+Model installer downloads the supported model set defined in `install-omz-models` (`_DEFAULT_MODELS`) and can be configured with the following parameters:
 
-| Parameter    | Allowed Values          | Format               | Description                                                                                                                                                                                                                       |
-| ------------ | ----------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `models`     | `default`, `ocr`, `all` | Single value         | Specifies which set of models to download. `default` includes person detection, re-identification, and pose estimation models. `ocr` includes text detection and recognition models. `all` downloads both default and OCR models. |
-| `precisions` | `FP32`, `FP16`, `INT8`  | Comma-separated list | Model precision formats to download. Multiple precisions can be specified for the same model (e.g., `FP16,FP32`). The first one will be used as preferred when generating `model-config.json`                                     |
+| Parameter    | Allowed Values         | Format               | Description                                                                                                                                                                                   |
+| ------------ | ---------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `precisions` | `FP32`, `FP16`, `INT8` | Comma-separated list | Model precision formats to download. Multiple precisions can be specified for the same model (e.g., `FP16,FP32`). The first one will be used as preferred when generating `model-config.json` |
+| `model_proc` | `true`, `false`        | Single value         | When enabled, attempts to download model-proc JSON files for each supported model and precision.                                                                                              |
 
-For Kubernetes deployment refer to the `initModels` section in [Helm chart values](../../kubernetes/scenescape-chart/values.yaml), for example use `--set initModels.modelType=all --set initModels.modelPrecisions=FP16,FP32` when installing the Helm chart.
+For Kubernetes deployment refer to the `initModels` section in [Helm chart values](../../kubernetes/scenescape-chart/values.yaml), for example use `--set initModels.modelPrecisions=FP16,FP32 --set initModels.modelProc=true` when installing the Helm chart.
 
-For Docker deployment use `MODELS` and `PRECISIONS` environment variables when building, e.g.: `make install-models MODELS=all` or `make install-models MODELS=all PRECISIONS="FP16,FP8"`.
+For Docker deployment use `PRECISIONS` environment variable when building, e.g.: `make install-models` or `make install-models PRECISIONS="FP16,FP32"`.
 
 ## Models Volume Folder Structure
 
