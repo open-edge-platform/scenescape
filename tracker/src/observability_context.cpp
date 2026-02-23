@@ -17,7 +17,7 @@ void ObservabilityContext::finalize() const {
     double latency_ms =
         std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(elapsed).count();
 
-    Metrics::record_latency(latency_ms, {{kAttrScene, scene_id}, {kAttrCameraId, camera_id}});
+    Metrics::record_latency(latency_ms, {{kAttrScene, scene_id}, {kAttrCategory, category}});
 }
 
 void ObservabilityContext::abort(const char* reason) const {

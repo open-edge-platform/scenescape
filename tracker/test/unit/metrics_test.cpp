@@ -184,7 +184,7 @@ TEST_F(MetricsTest, RecordLatency) {
 TEST_F(MetricsTest, FinalizeRecordsEndToEndLatency) {
     ObservabilityContext ctx;
     ctx.scene_id = "scene1";
-    ctx.camera_id = "cam1";
+    ctx.category = "person";
     ctx.receive_time = std::chrono::steady_clock::now();
     // Simulate 50ms end-to-end
     ctx.publish_time = *ctx.receive_time + std::chrono::milliseconds(50);

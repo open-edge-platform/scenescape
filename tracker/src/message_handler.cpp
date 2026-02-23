@@ -257,15 +257,6 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         return;
     }
 
-    // Parse timestamp once (reused for lag check and batch storage)
-    auto msg_time = parseTimestamp(message->timestamp);
-    if (!msg_time) {
-        LOG_WARN("Failed to parse timestamp '{}' from camera '{}', dropping", message->timestamp,
-                 camera_id);
-        rejected_count_++;
-        return;
-    }
-
     // Check for lag
     if (isMessageLagged(*msg_time)) {
         LOG_WARN_ENTRY(
