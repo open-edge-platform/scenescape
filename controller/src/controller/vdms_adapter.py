@@ -213,14 +213,14 @@ class VDMSDatabase(ReIDDatabase):
       "type": ["==", f"{object_type}"]
     }
 
-    log.info(f"[VDMS] Building constraints for object_type={object_type}, threshold={self.confidence_threshold}")
-    log.info(f"[VDMS] Input constraints: {constraints}")
+    log.debug(f"[VDMS] Building constraints for object_type={object_type}, threshold={self.confidence_threshold}")
+    log.debug(f"[VDMS] Input constraints: {constraints}")
 
     # Apply only high-confidence constraints
     if constraints:
       for key, value in constraints.items():
         if value is None:
-          log.info(f"[VDMS] Skipping {key}: value is None")
+          log.debug(f"[VDMS] Skipping {key}: value is None")
           continue
 
         # Extract actual value and confidence from metadata dict
@@ -231,9 +231,9 @@ class VDMSDatabase(ReIDDatabase):
         if isinstance(value, dict) and 'label' in value:
           actual_value = value['label']
           confidence = value.get('confidence', None)
-          log.info(f"[VDMS] {key}: dict format - label={actual_value}, confidence={confidence}")
+          log.debug(f"[VDMS] {key}: dict format - label={actual_value}, confidence={confidence}")
         else:
-          log.info(f"[VDMS] {key}: non-dict or no label - value={value}, type={type(value)}")
+          log.debug(f"[VDMS] {key}: non-dict or no label - value={value}, type={type(value)}")
 
         # Only apply high-confidence constraints (>= 0.8)
         try:
@@ -243,19 +243,19 @@ class VDMSDatabase(ReIDDatabase):
             # If confidence >= threshold, treat as AND constraint (strict matching)
             if conf_value >= self.confidence_threshold:
               query_constraints[key] = ["==", str(actual_value)]
-              log.info(f"[VDMS] ✓ ADDED: {key}={actual_value} (confidence={conf_value} >= {self.confidence_threshold})")
+              log.debug(f"[VDMS] ✓ ADDED: {key}={actual_value} (confidence={conf_value} >= {self.confidence_threshold})")
             else:
               # If confidence < threshold, ignore (rely on TIER 2 vector similarity)
-              log.info(f"[VDMS] ✗ IGNORED: {key} (confidence={conf_value} < {self.confidence_threshold}, will use TIER 2)")
+              log.debug(f"[VDMS] ✗ IGNORED: {key} (confidence={conf_value} < {self.confidence_threshold}, will use TIER 2)")
           else:
             # No confidence available - skip this constraint, rely on TIER 2
-            log.info(f"[VDMS] ✗ IGNORED: {key} (no confidence available, will use TIER 2)")
+            log.debug(f"[VDMS] ✗ IGNORED: {key} (no confidence available, will use TIER 2)")
         except (ValueError, TypeError):
           # Confidence value not convertible to float, ignore
-          log.info(f"[VDMS] ✗ IGNORED: {key} (confidence not convertible to float)")
+          log.debug(f"[VDMS] ✗ IGNORED: {key} (confidence not convertible to float)")
           pass
 
-    log.info(f"[VDMS] Final TIER 1 query_constraints: {query_constraints}")
+    log.debug(f"[VDMS] Final TIER 1 query_constraints: {query_constraints}")
     return query_constraints
 
   def findMatches(self, object_type, reid_vectors, set_name=SCHEMA_NAME,
@@ -270,8 +270,8 @@ class VDMSDatabase(ReIDDatabase):
     @param   constraints  Optional metadata filters built as VDMS constraint expressions
     @return  result       Entries with the closest similarity scores
     """
-    log.info(f"[VDMS] findMatches called: object_type={object_type}, k_neighbors={k_neighbors}")
-    log.info(f"[VDMS] findMatches constraints received: {constraints}")
+    log.debug(f"[VDMS] findMatches called: object_type={object_type}, k_neighbors={k_neighbors}")
+    log.debug(f"[VDMS] findMatches constraints received: {constraints}")
     
     # TIER 1: Build dynamic constraints for metadata filtering
     query_constraints = self._build_query_constraints(object_type, **constraints)
@@ -292,7 +292,7 @@ class VDMSDatabase(ReIDDatabase):
       }
     }
 
-    log.info(f"[VDMS] Executing TIER 1 find with constraints: {query_constraints}")
+    log.debug(f"[VDMS] Executing TIER 1 find with constraints: {query_constraints}")
 
     # TIER 2: Vector similarity search on filtered candidates
     blob = []
@@ -304,7 +304,7 @@ class VDMSDatabase(ReIDDatabase):
     query = [find_query] * len(reid_vectors)
     response, _ = self.sendQuery(query, blob)
 
-    log.info(f"[VDMS] Raw VDMS response (truncated): status={response[0].get('status') if response else 'None'}, returned={response[0].get('returned') if response else 'None'}")
+    log.debug(f"[VDMS] Raw VDMS response (truncated): status={response[0].get('status') if response else 'None'}, returned={response[0].get('returned') if response else 'None'}")
     if response and len(response) > 0:
       log.debug(f"[VDMS] Full first response: {response[0]}")
 
@@ -314,10 +314,10 @@ class VDMSDatabase(ReIDDatabase):
         for item in response
         if (item.get('status') == 0 and item.get('returned') > 0)
       ]
-      log.info(f"[VDMS] findMatches returned {len(result)} result(s) from {len(reid_vectors)} vector(s)")
+      log.debug(f"[VDMS] findMatches returned {len(result)} result(s) from {len(reid_vectors)} vector(s)")
       for idx, entities in enumerate(result):
         if entities:
-          log.info(f"[VDMS] Vector {idx}: found {len(entities)} matches")
+          log.debug(f"[VDMS] Vector {idx}: found {len(entities)} matches")
           # Log distance scores for debugging
           for match_idx, entity in enumerate(entities[:3]):  # Show first 3 matches
             distance = entity.get('_distance', 'unknown')
@@ -325,5 +325,5 @@ class VDMSDatabase(ReIDDatabase):
             rvid = entity.get('rvid', 'unknown')
             log.debug(f"[VDMS]   Match {match_idx}: uuid={uuid}, rvid={rvid}, distance={distance}")
       return result
-    log.info("[VDMS] findMatches returned None (no response from VDMS)")
+    log.debug("[VDMS] findMatches returned None (no response from VDMS)")
     return None
