@@ -85,8 +85,10 @@ void Telemetry::init(const ServiceConfig& config,
             auto provider = metrics_sdk::MeterProviderFactory::Create(
                 metrics_sdk::ViewRegistryFactory::Create(), build_resource());
 
-            auto* sdk_provider = static_cast<metrics_sdk::MeterProvider*>(provider.get());
-            sdk_provider->AddMetricReader(std::move(reader));
+            auto* sdk_provider = dynamic_cast<metrics_sdk::MeterProvider*>(provider.get());
+            if (sdk_provider) {
+                sdk_provider->AddMetricReader(std::move(reader));
+            }
 
             metrics_api::Provider::SetMeterProvider(
                 opentelemetry::nostd::shared_ptr<metrics_api::MeterProvider>(provider.release()));
@@ -145,9 +147,11 @@ void Telemetry::shutdown() {
     if (metrics_initialized_) {
         auto provider = metrics_api::Provider::GetMeterProvider();
         if (provider) {
-            auto* sdk_provider = static_cast<metrics_sdk::MeterProvider*>(provider.get());
-            sdk_provider->ForceFlush();
-            sdk_provider->Shutdown();
+            auto* sdk_provider = dynamic_cast<metrics_sdk::MeterProvider*>(provider.get());
+            if (sdk_provider) {
+                sdk_provider->ForceFlush();
+                sdk_provider->Shutdown();
+            }
         }
         // Reset to no-op provider
         metrics_api::Provider::SetMeterProvider(
@@ -160,9 +164,11 @@ void Telemetry::shutdown() {
     if (tracing_initialized_) {
         auto provider = trace_api::Provider::GetTracerProvider();
         if (provider) {
-            auto* sdk_provider = static_cast<trace_sdk::TracerProvider*>(provider.get());
-            sdk_provider->ForceFlush();
-            sdk_provider->Shutdown();
+            auto* sdk_provider = dynamic_cast<trace_sdk::TracerProvider*>(provider.get());
+            if (sdk_provider) {
+                sdk_provider->ForceFlush();
+                sdk_provider->Shutdown();
+            }
         }
         // Reset to no-op provider
         trace_api::Provider::SetTracerProvider(
