@@ -474,6 +474,11 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     restart: always
     mem_limit: ${TRACKER_MEM_LIMIT:-512m}
     # Scale: ~1 CPU per 100 tracked objects. Increase TRACKER_CPUS for larger deployments.
