@@ -16,11 +16,11 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
+#include <chrono>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -59,6 +59,21 @@ SceneRegistry createTestRegistry() {
     SceneRegistry registry;
     registry.register_scenes({scene});
     return registry;
+}
+
+/**
+ * @brief Generate ISO 8601 timestamp for a time in the past.
+ *
+ * Creates a UTC timestamp string (e.g., "2026-02-09T10:30:00.000Z") offset
+ * from the current time. Useful for testing lag detection without hardcoded dates.
+ *
+ * @param offset Duration to subtract from current time
+ * @return ISO 8601 formatted timestamp string
+ */
+std::string generate_past_iso_timestamp(std::chrono::seconds offset) {
+    auto past_time =
+        std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now() - offset);
+    return std::format("{:%Y-%m-%dT%H:%M:%S}.000Z", past_time);
 }
 
 /**
@@ -385,6 +400,35 @@ TEST_F(MessageHandlerTest, Stop_CanBeCalled) {
     SUCCEED();
 }
 
+// Test that lagged messages are dropped (timestamp older than max_lag_s)
+TEST_F(MessageHandlerTest, HandleMessage_DropsLaggedMessages) {
+    // Use very small max_lag (1ms) - any timestamp more than 1ms old is considered lagged
+    TrackingConfig lag_config{.max_lag_s = 0.001, .time_chunking_rate_fps = 15, .max_workers = 100};
+
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, lag_config, false);
+    handler.start();
+
+    EXPECT_EQ(handler.getLaggedCount(), 0);
+
+    // Generate timestamp 1 hour in the past - guaranteed to exceed 1ms max_lag threshold
+    std::string past_timestamp = generate_past_iso_timestamp(std::chrono::hours(1));
+    std::string payload = std::format(R"({{
+        "id": "cam1",
+        "timestamp": "{}",
+        "objects": {{
+            "person": [{{"id": 1, "bounding_box_px": {{"x": 10, "y": 20, "width": 50, "height": 100}}}}]
+        }}
+    }})",
+                                      past_timestamp);
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getLaggedCount(), 1);
+    EXPECT_EQ(handler.getBufferedCount(), 0); // Message dropped, not buffered
+    EXPECT_EQ(handler.getRejectedCount(), 0); // Not rejected, just lagged
+}
+
 // Test that unknown camera messages are rejected
 TEST_F(MessageHandlerTest, HandleMessage_RejectsUnknownCamera) {
     MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
@@ -495,6 +539,7 @@ TEST_F(MessageHandlerTest, BufferKeepsLatest_WhenSameCameraSendsMultiple) {
 struct MalformedDetectionTestCase {
     std::string name;
     std::string payload;
+    bool expect_buffered; // true if empty batch should still be buffered
 };
 
 void PrintTo(const MalformedDetectionTestCase& tc, std::ostream* os) {
@@ -514,8 +559,19 @@ TEST_P(MalformedDetectionTest, SkipsMalformedDetectionAndNoPublish) {
     // Message is received and processed (malformed detections skipped)
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 0); // Message not rejected
-    // With per-category publishing, nothing is published if all detections are malformed
-    EXPECT_EQ(handler.getBufferedCount(), 0);
+
+    if (tc.expect_buffered) {
+        // Category exists but all detections were malformed -> empty batch buffered
+        // (tracker still needs the heartbeat for track aging)
+        EXPECT_EQ(handler.getBufferedCount(), 1);
+        auto buffer_data = test_buffer_.pop_all();
+        TrackingScope scope{"test-scene-001", "person"};
+        ASSERT_TRUE(buffer_data.count(scope));
+        EXPECT_TRUE(buffer_data.at(scope).at("cam1").detections.empty());
+    } else {
+        // Category itself was invalid (not an array) -> nothing buffered
+        EXPECT_EQ(handler.getBufferedCount(), 0);
+    }
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -523,22 +579,28 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(
         MalformedDetectionTestCase{
             "MissingBoundingBoxHeight",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50}}]}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50}}]}})",
+            true},
         MalformedDetectionTestCase{
             "NoBoundingBox",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1}]}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1}]}})",
+            true},
         MalformedDetectionTestCase{
             "BoundingBoxIsString",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": "not_an_object"}]}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": "not_an_object"}]}})",
+            true},
         MalformedDetectionTestCase{
             "BoundingBoxIsArray",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": [10, 20, 50, 100]}]}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": [10, 20, 50, 100]}]}})",
+            true},
         MalformedDetectionTestCase{
             "CategoryIsNotArray",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": "not_an_array"}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": "not_an_array"}})",
+            false},
         MalformedDetectionTestCase{
             "DetectionIsNotObject",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": ["not_an_object", 123, null]}})"}),
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": ["not_an_object", 123, null]}})",
+            true}),
     [](const ::testing::TestParamInfo<MalformedDetectionTestCase>& info) {
         return info.param.name;
     });

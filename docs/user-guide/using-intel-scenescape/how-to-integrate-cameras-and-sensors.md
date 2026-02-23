@@ -280,6 +280,8 @@ optional arguments:
 
 "Singleton" sensors publish a given value that varies in time. This could be a temperature reading, a light sensor, whatever. Currently, Intel® SceneScape tags a given object track with any singleton data received when the object is within the singleton measurement area.
 
+> **Note:** For a complete guide on using light sensors to control 3D scene lighting in real-time, see [Controlling Scene Lighting with Physical Light Sensors](../other-topics/light-sensor-integration.md).
+
 Suppose a temperature sensor is configured to apply to an entire scene. Intel® SceneScape tags each object track in the scene with the latest temperature value and any changes to that temperature value that occurred while that object is tracked. The same thing applies when the measurement area is configured as a smaller portion of the scene (currently a circle or polygon area), except that objects are only tagged with the value if they are within the measurement area.
 
 At minimum, a singleton should publish a "value" property to this topic:
