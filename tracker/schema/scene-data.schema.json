@@ -59,7 +59,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Persistent track ID (UUID, stable across frames while tracked)"
+          "format": "uuid",
+          "description": "Persistent track ID (UUID v4, stable across frames while tracked)"
         },
         "category": {
           "type": "string",

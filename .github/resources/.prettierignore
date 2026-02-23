@@ -14,3 +14,4 @@
 **/CMakeFiles/
 
 **/tests/api/README.md
+**/tests/system/metric/dataset/*.json
