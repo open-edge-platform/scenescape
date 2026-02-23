@@ -10,7 +10,7 @@ from scene_common import log
 from tests.functional.common_camera_bounds import CameraBounds, test_wait_time, check_interval
 
 
-class CameraBoundVisibility(CameraBounds):
+class CameraBoundVisibilityUnregulated(CameraBounds):
   def check_camera_bound_visibility(self):
     start_time = time.time()
 
@@ -42,7 +42,7 @@ def test_camera_bound_visibility(
   record_xml_attribute("name", test_name)
 
   visibility_topic = pytestconfig.getoption("visibility_topic")
-  test = CameraBoundVisibility()
+  test = CameraBoundVisibilityUnregulated()
   exit_code = test.run(params, visibility_topic, test_name)
 
   assert exit_code == 0
