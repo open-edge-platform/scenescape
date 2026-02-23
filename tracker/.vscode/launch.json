@@ -21,7 +21,14 @@
             ],
             "sourceFileMap": {
                 "/scenescape/tracker": "${workspaceFolder}"
-            }
+            },
+            "environment": [
+                {"name": "http_proxy", "value": ""},
+                {"name": "https_proxy", "value": ""},
+                {"name": "HTTP_PROXY", "value": ""},
+                {"name": "HTTPS_PROXY", "value": ""},
+                {"name": "TRACKER_LOG_LEVEL", "value": "debug"}
+            ]
         },
         {
             "name": "Tracker: Debug native",
@@ -35,6 +42,16 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/build-debug/debug.env",
+            "environment": [
+                {"name": "http_proxy", "value": ""},
+                {"name": "https_proxy", "value": ""},
+                {"name": "HTTP_PROXY", "value": ""},
+                {"name": "HTTPS_PROXY", "value": ""},
+                {"name": "TRACKER_LOG_LEVEL", "value": "debug"},
+                {"name": "TRACKER_MQTT_INSECURE", "value": "false"},
+                {"name": "TRACKER_MQTT_TLS_CA_CERT", "value": "${workspaceFolder}/../manager/secrets/certs/scenescape-ca.pem"},
+                {"name": "TRACKER_MQTT_TLS_VERIFY_SERVER", "value": "true"}
+            ],
             "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",

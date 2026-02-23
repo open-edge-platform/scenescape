@@ -1,6 +1,7 @@
-# Scene Controller Microservice
+# Scene Controller Service
 
-Scene Controller Microservice fuses multimodal sensor data to enable spatial analytics at the edge for multiple use cases.
+Scene Controller Microservice fuses multimodal sensor data to enable spatial analytics at the
+edge for multiple use cases.
 
 ## Overview
 
@@ -8,7 +9,7 @@ The Scene Controller Microservice answers the fundamental question of `What, Whe
 
 The Scene Controller's output provides various insights for the tracked objects in a scene, including location, object visibility across cameras, velocity, rotation, center of mass. Additionally, base analytics like regions of interest, tripwires, and sensor regions are supported out of the box to enable developers to build their applications quickly and realize business goals.
 
-To deploy the scene controller service, refer to the [Get started](get-started.md) guide. The service supports configuration through specific arguments and flags, which default to predefined values unless explicitly modified.
+To deploy the scene controller service, refer to the [Get Started](./get-started.md) guide. The service supports configuration through specific arguments and flags, which default to predefined values unless explicitly modified.
 
 ### Configurable Arguments and Flags
 
@@ -30,7 +31,7 @@ To deploy the scene controller service, refer to the [Get started](get-started.m
 
 `--tracker_config_file`: Path to the JSON file containing the tracker configuration. This file is used to enable and manage time-based parameters for the tracker.
 
-`--schema_file`: Specifies the path to the JSON file that contains the metadata schema. By default, it uses [metadata.schema.json](../../schema/metadata.schema.json). This schema outlines the structure and format of the messages processed by the service.
+`--schema_file`: Specifies the path to the JSON file that contains the metadata schema. By default, it uses [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json). This schema outlines the structure and format of the messages processed by the service.
 
 `--visibility_topic`: Specifies the topic for publishing visibility information, which includes the visibility of objects in cameras. Options are `unregulated`, `regulated`, or `none`.
 
@@ -38,11 +39,11 @@ To deploy the scene controller service, refer to the [Get started](get-started.m
 
 ### Tracker Configuration
 
-For details on how to configure the tracker, see [How to configure tracker](./How-to-configure-tracker.md).
+For details see [How to Configure the Tracker](./how-to-configure-tracker.md).
 
 ## Architecture
 
-![SceneScape architecture diagram](images/architecture.png)
+![SceneScape architecture diagram](./_assets/architecture.png)
 
 Figure 1: Architecture Diagram
 
@@ -50,11 +51,23 @@ Figure 1: Architecture Diagram
 
 The Client receives regulated scene detections via MQTT, which are the result of processing and filtering raw detections. The pipeline begins when the Scene Controller Microservice receives detections from the camera. It processes these to track moving objects, then publishes scene detections and events through MQTT. These messages may include both regulated (filtered and formatted) and unregulated (raw) scene detections. A Multi Object Tracker Loop is involved in managing detections within MQTT.
 
-![Scene controller sequence diagram](images/scene-controller-sequence-diagram.png)
+![Scene controller sequence diagram](./_assets/scene-controller-sequence-diagram.png)
 
 _Figure 2: Scene Controller Sequence diagram_
 
 ## Supporting Resources
 
-- [Get Started Guide](get-started.md)
-- [API Reference](api-reference.md)
+- [Get Started Guide](./get-started.md)
+- [How to Configure the Tracker](./how-to-configure-tracker.md)
+- [API Reference](./api-reference.md)
+
+<!--hide_directive
+:::{toctree}
+:hidden:
+
+get-started.md
+how-to-configure-tracker.md
+api-reference.md
+
+:::
+hide_directive-->
