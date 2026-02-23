@@ -1,0 +1,57 @@
+
+=====================================
+TODO list for tracking evaluation
+=====================================
+
+Cleanup:
+
+Simplify output folder structure of TrackEvalEvaluator.
+Move create_motchallenge_seqinfo to evaluator or keep it utilities?
+
+-------------------
+
+Refactor:
+
+Modify the base class interfaces:
+- TrackerHarness.process_inputs should return path to output file with detected tracks in Output track canonical format, instead of returning them as iterator.
+- Modify SceneControllerHarness accordingly
+- TrackerEvaluator.process_tracker_outputs should take paths to input files as arguments instead of iterators
+- Modify TrackEvalEvaluator accordingly
+- Update design document, comments and doc strings and README files accordingly
+- Update pipeline engine, so that it stores tracker output and ground-truth files in folder pipeline.output.path / tracker
+
+----------------
+
+Adjust design doc to the template
+
+----------------
+
+remove **set_camera_fps**(camera_fps: float) method and make camera_fps an optional argument of set_cameras method
+
+----------------
+
+Update PipelineEngine method names in design doc
+
+----------------
+
+SceneControllerHarness writes newline-delimited JSON via write_jsonl() but names the file inputs.json and persists it as inputs.json.
+Consider renaming files in such usages to *.jsonl to reflect the actual format.
+
+----------------
+
+There is a lot of manual validation code. Consider using jsonschema for validation of pipeline configuration.
+See the suggestion: https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2812244426
+
+-----------------
+
+Comments from CoPilot:
+
+1. PipelineEngine stores tracker outputs as an iterator (process_inputs returns an iterator). TrackEvalEvaluator consumes that iterator into a list, so subsequent calls to evaluate() (or any reuse) will see an exhausted iterator. Consider materializing outputs once (e.g., store a list) or otherwise ensuring the stored value is re-iterable
+https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2805832164
+
+2. In MotChallenge3DPoint._load_raw_file, tracker_confidences and gt_extras['zero_marked'] are taken from column 6, but per the documented CSV layout conf is column 5 and column 6 is class. This will overwrite confidences with class IDs and can change CLEAR/HOTA scoring once real confidences/classes are used. Update the parsing to pull confidence/zero_marked from the correct column(s).
+https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2805832131
+
+3. MotChallenge3DPoint._load_raw_file documents an 8-column format (frame,id,x,y,z,conf,class,visibility) but parses classes from column 7 (visibility). This will mislabel classes as visibility and can corrupt metric results when class/visibility differ. Adjust the column indices (and/or the written CSV format) so class is read from the intended column.
+https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2805832105
+
