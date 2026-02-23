@@ -363,6 +363,9 @@ TEST(TransformApiScenesTest, SceneWithNoCamerasIsSkipped) {
 
 class ValidateScenesTest : public ::testing::Test {
 protected:
+    void SetUp() override { Logger::init("warn"); }
+    void TearDown() override { Logger::shutdown(); }
+
     std::filesystem::path schema_path_ =
         std::filesystem::path(TRACKER_SCHEMA_DIR) / "scene.schema.json";
 };
@@ -387,44 +390,55 @@ TEST_F(ValidateScenesTest, ValidScenePasses) {
     rapidjson::Document doc;
     doc.Parse(json);
 
-    EXPECT_NO_THROW(detail::validate_scenes(doc, schema_path_));
+    auto result = detail::validate_scenes(doc, schema_path_);
+    EXPECT_EQ(result.GetArray().Size(), 1);
 }
 
-TEST_F(ValidateScenesTest, InvalidSceneThrows) {
-    // Missing required "uid" field
+TEST_F(ValidateScenesTest, InvalidSceneSkipped) {
+    // Missing required "uid" field — scene should be skipped, not throw
     const char* json = R"([{"name": "Bad Scene", "cameras": []}])";
     rapidjson::Document doc;
     doc.Parse(json);
 
-    EXPECT_THROW(detail::validate_scenes(doc, schema_path_), std::runtime_error);
+    auto result = detail::validate_scenes(doc, schema_path_);
+    EXPECT_EQ(result.GetArray().Size(), 0);
 }
 
-TEST_F(ValidateScenesTest, InvalidSceneThrowsWithName) {
-    // Missing uid but has name — error message should include scene name
-    const char* json = R"([{"name": "My Scene", "cameras": []}])";
+TEST_F(ValidateScenesTest, MixOfValidAndInvalidScenes) {
+    // First scene is invalid (missing uid), second is valid
+    const char* json = R"([
+        {"name": "Bad Scene"},
+        {
+            "uid": "valid-uid",
+            "name": "Good Scene",
+            "cameras": [{
+                "uid": "cam1", "name": "cam1",
+                "intrinsics": {
+                    "fx": 571.26, "fy": 571.26, "cx": 320.0, "cy": 240.0,
+                    "distortion": {"k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0}
+                },
+                "extrinsics": {
+                    "translation": [2.665, 1.008, 2.604],
+                    "rotation": [-137.859, -19.441, -15.385],
+                    "scale": [1.0, 1.0, 1.0]
+                }
+            }]
+        }
+    ])";
     rapidjson::Document doc;
     doc.Parse(json);
 
-    try {
-        detail::validate_scenes(doc, schema_path_);
-        FAIL() << "Expected std::runtime_error";
-    } catch (const std::runtime_error& e) {
-        EXPECT_THAT(e.what(), ::testing::HasSubstr("My Scene"));
-    }
+    auto result = detail::validate_scenes(doc, schema_path_);
+    EXPECT_EQ(result.GetArray().Size(), 1);
+    EXPECT_STREQ(result[0]["name"].GetString(), "Good Scene");
 }
 
-TEST_F(ValidateScenesTest, InvalidSceneThrowsWithIndex) {
-    // Missing uid and name — error should use index
-    const char* json = R"([{"cameras": []}])";
+TEST_F(ValidateScenesTest, EmptyArrayReturnsEmpty) {
     rapidjson::Document doc;
-    doc.Parse(json);
+    doc.SetArray();
 
-    try {
-        detail::validate_scenes(doc, schema_path_);
-        FAIL() << "Expected std::runtime_error";
-    } catch (const std::runtime_error& e) {
-        EXPECT_THAT(e.what(), ::testing::HasSubstr("index 0"));
-    }
+    auto result = detail::validate_scenes(doc, schema_path_);
+    EXPECT_EQ(result.GetArray().Size(), 0);
 }
 
 TEST(ValidateScenesTest_NoFixture, MissingSchemaFileThrows) {
@@ -610,9 +624,9 @@ TEST_F(ApiSceneLoaderPipelineTest, EmptyResultsReturnsNoScenes) {
     EXPECT_TRUE(scenes.empty());
 }
 
-TEST_F(ApiSceneLoaderPipelineTest, SchemaValidationFailureThrows) {
+TEST_F(ApiSceneLoaderPipelineTest, SchemaValidationFailureSkipsInvalidScenes) {
     TempFile auth_file(R"({"user": "admin", "password": "pass"})");
-    // Scene missing required "uid" field
+    // Scene missing required "uid" field — should be skipped, not throw
     std::string response = R"({"results": [{"name": "Bad", "cameras": []}]})";
 
     ManagerConfig mgr;
@@ -622,7 +636,8 @@ TEST_F(ApiSceneLoaderPipelineTest, SchemaValidationFailureThrows) {
     auto factory = make_mock_factory(response);
     auto loader = create_api_scene_loader(mgr, schema_dir_, factory);
 
-    EXPECT_THROW(loader->load(), std::runtime_error);
+    auto scenes = loader->load();
+    EXPECT_TRUE(scenes.empty());
 }
 
 // ---------------------------------------------------------------------------

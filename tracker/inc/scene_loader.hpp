@@ -169,8 +169,10 @@ void transform_api_scenes(rapidjson::Document& doc);
 std::pair<std::string, std::string> read_auth_file(const std::string& path);
 
 /// Validate each scene in the array against a JSON schema file.
-void validate_scenes(const rapidjson::Document& scenes_doc,
-                     const std::filesystem::path& schema_path);
+/// Returns a new document containing only the scenes that passed validation.
+/// Invalid scenes are logged with a warning and skipped.
+rapidjson::Document validate_scenes(const rapidjson::Document& scenes_doc,
+                                    const std::filesystem::path& schema_path);
 
 } // namespace detail
 

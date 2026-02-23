@@ -489,7 +489,10 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    restart: always
+    # Exit 0: graceful stop or non-retryable error (bad auth) — stay stopped
+    # Exit 1: retryable error (broker unavailable) — restart
+    # Exit 99: scene update received — restart to reload config
+    restart: on-failure
     mem_limit: ${TRACKER_MEM_LIMIT:-512m}
     # Scale: ~1 CPU per 100 tracked objects. Increase TRACKER_CPUS for larger deployments.
     cpus: ${TRACKER_CPUS:-2.0}
