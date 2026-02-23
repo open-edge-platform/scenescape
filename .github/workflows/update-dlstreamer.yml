@@ -75,6 +75,10 @@ jobs:
 
           echo "Selected: ${SELECTED_TYPE} build (newest)"
 
+          if [[ -z "$SELECTED_VERSION" ]]; then
+            echo "Error: No valid DLStreamer tag found from DockerHub; aborting update." >&2
+            exit 1
+          fi
           echo "latest_version=${SELECTED_VERSION}" >> $GITHUB_OUTPUT
           echo "selected_type=${SELECTED_TYPE}" >> $GITHUB_OUTPUT
 
