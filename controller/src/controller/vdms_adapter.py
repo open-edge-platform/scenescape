@@ -115,8 +115,16 @@ class VDMSDatabase(ReIDDatabase):
     # Metadata can include: age, gender, color, make, model, confidence_scores, etc.
     for key, value in metadata.items():
       if isinstance(value, dict):
-        # Serialize dict as JSON string
-        properties[key] = json.dumps(value)
+        # For metadata dicts with 'label' and optional confidence, store ONLY the label
+        # This ensures VDMS constraints can match properly (e.g., gender=['==', 'Male'])
+        # Example: {'label': 'Male', 'confidence': 0.95} → store 'Male'
+        if 'label' in value:
+          properties[key] = str(value['label'])
+          log.debug(f"[VDMS] addEntry: Extracted label '{value['label']}' from {key} metadata dict")
+        else:
+          # If no label, serialize as JSON
+          properties[key] = json.dumps(value)
+          log.debug(f"[VDMS] addEntry: Serialized {key} as JSON (no label field)")
       else:
         # Store as string
         properties[key] = str(value)
@@ -176,19 +184,28 @@ class VDMSDatabase(ReIDDatabase):
     """
     Build query constraints for TIER 1 metadata filtering.
 
+    VDMS constraint model: Only supports AND operations between property constraints.
+    Constraint format for each property: [operator, value] for single constraint,
+    or [op1, val1, op2, val2] for range constraint (e.g. ">=5" AND "<=10").
+
     Constraint routing logic:
     - Object type is always AND constraint (required field)
     - If value is dict with 'confidence' key (new metadata format):
-      - confidence >= threshold: AND constraints (all must match - strict)
-      - confidence < threshold: OR constraints (at least one must match - flexible)
-      - Extract 'label' field for VDMS query
+      - confidence >= threshold (0.8): AND constraints (strict filtering in TIER 1)
+      - confidence < threshold (0.8): IGNORED (relies on TIER 2 vector similarity for flexible matching)
+      - Extract 'label' field for VDMS query value
     - If value is non-dict or dict without confidence (legacy format):
-      - OR constraints (at least one must match - flexible)
-    - Non-numeric values: OR constraints (default to flexible)
+      - IGNORED (relies on TIER 2 vector similarity for matching)
+    - Non-numeric values: IGNORED (relies on TIER 2 vector similarity)
+
+    Note: Low-confidence and unspecified constraints are intentionally omitted from TIER 1
+    filtering, allowing TIER 2 vector similarity search to provide flexible, 
+    confidence-aware matching. This simplification avoids VDMS limitations with complex
+    OR constraint expressions across multiple properties.
 
     @param   object_type  Class of the object (Person, Vehicle, etc.)
     @param   constraints  Optional metadata filters (key-value pairs, may be dicts with label/confidence)
-    @return  query_constraints  Dictionary with "type", optional AND fields, and optional "or" array
+    @return  query_constraints  Dictionary with "type" and optional high-confidence AND fields
     """
     # TIER 1: Build dynamic constraints for metadata filtering
     # Object type is always filtered (AND constraint - required)
@@ -196,47 +213,49 @@ class VDMSDatabase(ReIDDatabase):
       "type": ["==", f"{object_type}"]
     }
 
-    # Separate constraints by confidence level
-    and_constraints = {}
-    or_constraints = []
+    log.info(f"[VDMS] Building constraints for object_type={object_type}, threshold={self.confidence_threshold}")
+    log.info(f"[VDMS] Input constraints: {constraints}")
 
+    # Apply only high-confidence constraints
     if constraints:
       for key, value in constraints.items():
-        if value is not None:
-          # Extract actual value and confidence from metadata dict
-          actual_value = value
-          confidence = None
+        if value is None:
+          log.info(f"[VDMS] Skipping {key}: value is None")
+          continue
 
-          # Handle new metadata format: {label: <data>, model_name: <model>, confidence: <score>}
-          if isinstance(value, dict) and 'label' in value:
-            actual_value = value['label']
-            confidence = value.get('confidence', None)
+        # Extract actual value and confidence from metadata dict
+        actual_value = value
+        confidence = None
 
-          # Determine constraint type based on confidence
-          try:
-            # Use extracted confidence if available
-            if confidence is not None:
-              conf_value = float(confidence)
-              # If confidence >= threshold, treat as AND constraint (strict matching)
-              if conf_value >= self.confidence_threshold:
-                and_constraints[key] = ["==", str(actual_value)]
-              # If confidence < threshold, treat as OR constraint (flexible matching)
-              else:
-                or_constraints.append({key: ["==", str(actual_value)]})
+        # Handle new metadata format: {label: <data>, model_name: <model>, confidence: <score>}
+        if isinstance(value, dict) and 'label' in value:
+          actual_value = value['label']
+          confidence = value.get('confidence', None)
+          log.info(f"[VDMS] {key}: dict format - label={actual_value}, confidence={confidence}")
+        else:
+          log.info(f"[VDMS] {key}: non-dict or no label - value={value}, type={type(value)}")
+
+        # Only apply high-confidence constraints (>= 0.8)
+        try:
+          # If confidence is available, check if it meets threshold
+          if confidence is not None:
+            conf_value = float(confidence)
+            # If confidence >= threshold, treat as AND constraint (strict matching)
+            if conf_value >= self.confidence_threshold:
+              query_constraints[key] = ["==", str(actual_value)]
+              log.info(f"[VDMS] ✓ ADDED: {key}={actual_value} (confidence={conf_value} >= {self.confidence_threshold})")
             else:
-              # No confidence available, set it as an OR constraint by default (flexible matching)
-              or_constraints.append({key: ["==", str(actual_value)]})
-          except (ValueError, TypeError):
-            # Confidence value not convertible to float, treat as OR constraint
-            or_constraints.append({key: ["==", str(actual_value)]})
+              # If confidence < threshold, ignore (rely on TIER 2 vector similarity)
+              log.info(f"[VDMS] ✗ IGNORED: {key} (confidence={conf_value} < {self.confidence_threshold}, will use TIER 2)")
+          else:
+            # No confidence available - skip this constraint, rely on TIER 2
+            log.info(f"[VDMS] ✗ IGNORED: {key} (no confidence available, will use TIER 2)")
+        except (ValueError, TypeError):
+          # Confidence value not convertible to float, ignore
+          log.info(f"[VDMS] ✗ IGNORED: {key} (confidence not convertible to float)")
+          pass
 
-      # Add AND constraints directly to query_constraints
-      query_constraints.update(and_constraints)
-
-      # Add OR constraints if any exist
-      if or_constraints:
-        query_constraints["or"] = or_constraints
-
+    log.info(f"[VDMS] Final TIER 1 query_constraints: {query_constraints}")
     return query_constraints
 
   def findMatches(self, object_type, reid_vectors, set_name=SCHEMA_NAME,
@@ -251,6 +270,9 @@ class VDMSDatabase(ReIDDatabase):
     @param   constraints  Optional metadata filters built as VDMS constraint expressions
     @return  result       Entries with the closest similarity scores
     """
+    log.info(f"[VDMS] findMatches called: object_type={object_type}, k_neighbors={k_neighbors}")
+    log.info(f"[VDMS] findMatches constraints received: {constraints}")
+    
     # TIER 1: Build dynamic constraints for metadata filtering
     query_constraints = self._build_query_constraints(object_type, **constraints)
 
@@ -270,6 +292,8 @@ class VDMSDatabase(ReIDDatabase):
       }
     }
 
+    log.info(f"[VDMS] Executing TIER 1 find with constraints: {query_constraints}")
+
     # TIER 2: Vector similarity search on filtered candidates
     blob = []
     for reid_vector in reid_vectors:
@@ -280,11 +304,26 @@ class VDMSDatabase(ReIDDatabase):
     query = [find_query] * len(reid_vectors)
     response, _ = self.sendQuery(query, blob)
 
+    log.info(f"[VDMS] Raw VDMS response (truncated): status={response[0].get('status') if response else 'None'}, returned={response[0].get('returned') if response else 'None'}")
+    if response and len(response) > 0:
+      log.debug(f"[VDMS] Full first response: {response[0]}")
+
     if response:
       result = [
         item.get('entities')
         for item in response
         if (item.get('status') == 0 and item.get('returned') > 0)
       ]
+      log.info(f"[VDMS] findMatches returned {len(result)} result(s) from {len(reid_vectors)} vector(s)")
+      for idx, entities in enumerate(result):
+        if entities:
+          log.info(f"[VDMS] Vector {idx}: found {len(entities)} matches")
+          # Log distance scores for debugging
+          for match_idx, entity in enumerate(entities[:3]):  # Show first 3 matches
+            distance = entity.get('_distance', 'unknown')
+            uuid = entity.get('uuid', 'unknown')
+            rvid = entity.get('rvid', 'unknown')
+            log.debug(f"[VDMS]   Match {match_idx}: uuid={uuid}, rvid={rvid}, distance={distance}")
       return result
+    log.info("[VDMS] findMatches returned None (no response from VDMS)")
     return None

@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Unit tests for VDMSDatabase adapter.
-Tests the interface contract without relying on implementation details.
+Simplified Unit tests for VDMSDatabase adapter.
+Tests the interface contract with AND-only constraint support (>= 0.8 confidence).
 These tests can be run inside the controller container where all dependencies are available.
 """
 
@@ -26,7 +26,6 @@ class TestVDMSDatabaseInterface:
 
   def test_required_methods_exist(self):
     """Verify all required ReIDDatabase methods are implemented."""
-    # Methods that must be implemented for ReIDDatabase interface
     required_methods = ['addSchema', 'addEntry', 'findSchema', 'findMatches']
 
     with patch('controller.vdms_adapter.vdms.vdms'):
@@ -47,7 +46,6 @@ class TestVDMSDatabaseInitialization:
 
     db = VDMSDatabase()
 
-    # Verify database was instantiated
     assert db.db is not None
     mock_vdms.assert_called()
 
@@ -94,12 +92,10 @@ class TestAddEntry:
 
     db.addEntry(test_uuid, test_rvid, test_type, test_vectors)
 
-    # Extract the query - sendQuery receives a list of queries
     call_args = db.sendQuery.call_args
     query_list = call_args[0][0]
     query = query_list[0]
 
-    # Verify required fields are in properties
     assert 'AddDescriptor' in query
     properties = query['AddDescriptor']['properties']
     assert properties['uuid'] == test_uuid
@@ -108,7 +104,7 @@ class TestAddEntry:
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_add_entry_handles_new_metadata_format(self, mock_vdms_class):
-    """Verify addEntry serializes new metadata format (dict with label/model_name/confidence)."""
+    """Verify addEntry extracts label from metadata dict for VDMS constraint matching."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
@@ -120,7 +116,6 @@ class TestAddEntry:
     test_type = "Person"
     test_vectors = [np.random.randn(256).astype(np.float32)]
 
-    # New metadata format with model_name and confidence
     metadata = {
       "gender": {"label": "Female", "model_name": "gender_v2", "confidence": 0.95},
       "age": {"label": 28, "model_name": "age_estimator", "confidence": 0.87}
@@ -128,24 +123,18 @@ class TestAddEntry:
 
     db.addEntry(test_uuid, test_rvid, test_type, test_vectors, **metadata)
 
-    # Extract the query - sendQuery receives a list of queries
     call_args = db.sendQuery.call_args
     query_list = call_args[0][0]
     query = query_list[0]
     properties = query['AddDescriptor']['properties']
 
-    # Verify metadata is serialized to JSON
     assert 'gender' in properties
     assert 'age' in properties
 
-    # Verify it's a JSON string (not a dict)
-    gender_data = json.loads(properties['gender'])
-    assert gender_data['label'] == "Female"
-    assert gender_data['model_name'] == "gender_v2"
-    assert gender_data['confidence'] == 0.95
-
-    age_data = json.loads(properties['age'])
-    assert age_data['label'] == 28
+    # Now properties should store only the label values (not JSON)
+    # This allows VDMS constraints like gender=['==', 'Female'] to match
+    assert properties['gender'] == "Female"
+    assert properties['age'] == "28"
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_add_entry_converts_vectors_to_bytes(self, mock_vdms_class):
@@ -160,7 +149,6 @@ class TestAddEntry:
     test_rvid = "rvid"
     test_type = "Person"
 
-    # Create test vectors
     test_vectors = [
       np.random.randn(256).astype(np.float32),
       np.random.randn(256).astype(np.float32)
@@ -168,15 +156,12 @@ class TestAddEntry:
 
     db.addEntry(test_uuid, test_rvid, test_type, test_vectors)
 
-    # Extract the blob
     call_args = db.sendQuery.call_args
     blob = call_args[0][1]
 
-    # Verify blob is created for each vector
     assert blob is not None
     assert len(blob) == len(test_vectors), "Blob should have one entry per vector"
 
-    # Verify blob items are bytes (flat list format for VDMS API)
     for blob_item in blob:
       assert isinstance(blob_item, bytes), "Blob item should be bytes"
 
@@ -193,7 +178,6 @@ class TestAddEntry:
     test_rvid = "rvid"
     test_type = "Person"
 
-    # Multiple vectors from different detection models
     test_vectors = [
       np.random.randn(256).astype(np.float32),
       np.random.randn(256).astype(np.float32),
@@ -202,7 +186,6 @@ class TestAddEntry:
 
     db.addEntry(test_uuid, test_rvid, test_type, test_vectors)
 
-    # Verify sendQuery was called with multiple queries (one per vector)
     call_args = db.sendQuery.call_args
     query_list = call_args[0][0]
     assert len(query_list) == 3, "Should have one query per vector"
@@ -229,20 +212,18 @@ class TestFindMatches:
 
     db.findMatches(test_type, test_vectors)
 
-    # Extract the query - sendQuery receives a list of queries
     call_args = db.sendQuery.call_args
     query_list = call_args[0][0]
     query = query_list[0]
 
-    # Verify TIER 1: constraints include object_type filter
     assert 'FindDescriptor' in query
     constraints = query['FindDescriptor']['constraints']
     assert 'type' in constraints, "TIER 1 must filter by object type"
     assert constraints['type'] == ["==", test_type]
 
   @patch('controller.vdms_adapter.vdms.vdms')
-  def test_find_matches_tier1_applies_additional_constraints(self, mock_vdms_class):
-    """Verify findMatches applies additional metadata filters (TIER 1: metadata filtering)."""
+  def test_find_matches_tier1_applies_high_confidence_constraints(self, mock_vdms_class):
+    """Verify findMatches applies only high-confidence metadata filters (TIER 1: metadata filtering)."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
@@ -256,30 +237,22 @@ class TestFindMatches:
     test_vectors = [np.random.randn(256).astype(np.float32)]
     test_type = "Person"
 
-    # Additional constraints for semantic metadata (non-numeric strings go to OR array)
+    # High-confidence metadata constraints (>= 0.8)
     constraints = {
-      'gender': 'Female',
-      'age_range': 'adult'
+      'gender': {'label': 'Female', 'model_name': 'gender_v2', 'confidence': 0.95},
+      'age_range': {'label': 'adult', 'model_name': 'age_v2', 'confidence': 0.88}
     }
 
     db.findMatches(test_type, test_vectors, **constraints)
 
-    # Extract the query - sendQuery receives a list of queries
     call_args = db.sendQuery.call_args
     query_list = call_args[0][0]
     query = query_list[0]
     query_constraints = query['FindDescriptor']['constraints']
 
-    # Verify TIER 1 constraints are applied
-    # Type is always AND constraint
     assert query_constraints['type'] == ["==", test_type]
-
-    # Non-numeric string constraints go to OR array (flexible matching)
-    assert 'or' in query_constraints, "String constraints should be in OR array"
-    or_array = query_constraints['or']
-    or_keys = [list(item.keys())[0] for item in or_array]
-    assert 'gender' in or_keys, "gender should be in OR array"
-    assert 'age_range' in or_keys, "age_range should be in OR array"
+    assert query_constraints['gender'] == ["==", "Female"], "High-confidence gender should be AND constraint"
+    assert query_constraints['age_range'] == ["==", "adult"], "High-confidence age_range should be AND constraint"
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_tier2_vector_similarity_search(self, mock_vdms_class):
@@ -303,15 +276,12 @@ class TestFindMatches:
 
     db.findMatches("Person", test_vectors)
 
-    # Extract the blob (used for TIER 2)
     call_args = db.sendQuery.call_args
     blob = call_args[0][1]
 
-    # Verify TIER 2: blob is created for each vector (for similarity search)
     assert blob is not None, "TIER 2 requires blob with query vectors"
     assert len(blob) == len(test_vectors), "Blob should have one entry per query vector"
 
-    # Verify blob items are bytes for vector similarity (flat list format)
     for blob_item in blob:
       assert isinstance(blob_item, bytes), "TIER 2 requires vectors as bytes"
 
@@ -336,7 +306,6 @@ class TestFindMatches:
     test_vectors = [np.random.randn(256).astype(np.float32)]
     result = db.findMatches("Person", test_vectors)
 
-    # Verify result contains the entities
     assert result is not None, "findMatches should return results when matches found"
     assert len(result) == 1
     assert result[0] == expected_entities
@@ -356,7 +325,6 @@ class TestFindMatches:
     test_vectors = [np.random.randn(256).astype(np.float32)]
     result = db.findMatches("Person", test_vectors)
 
-    # Should handle gracefully when no results
     assert result is None or (isinstance(result, list) and len(result) == 0)
 
   @patch('controller.vdms_adapter.vdms.vdms')
@@ -376,18 +344,15 @@ class TestFindMatches:
 
     db.findMatches("Person", test_vectors, k_neighbors=custom_k)
 
-    # Extract the query - sendQuery receives a list of queries
     call_args = db.sendQuery.call_args
     query_list = call_args[0][0]
     query = query_list[0]
 
-    # Verify k_neighbors is set correctly
-    assert query['FindDescriptor']['k_neighbors'] == custom_k, \
-      "k_neighbors parameter should control number of results returned"
+    assert query['FindDescriptor']['k_neighbors'] == custom_k
 
 
 class TestConstraintBuilding:
-  """Test constraint building logic for AND/OR routing."""
+  """Test constraint building logic for AND-only support."""
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_build_constraints_dict_metadata_high_confidence(self, mock_vdms_class):
@@ -397,7 +362,6 @@ class TestConstraintBuilding:
 
     db = VDMSDatabase()
 
-    # Dict metadata with high confidence
     constraints = {
       "gender": {
         "label": "Female",
@@ -408,20 +372,17 @@ class TestConstraintBuilding:
 
     result = db._build_query_constraints("Person", **constraints)
 
-    # Verify dict is extracted and high-confidence becomes AND
     assert "gender" in result
     assert result["gender"] == ["==", "Female"]
-    assert "or" not in result or len(result.get("or", [])) == 0
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_build_constraints_dict_metadata_low_confidence(self, mock_vdms_class):
-    """Verify dict metadata with low confidence (< 0.8) becomes OR constraint."""
+    """Verify dict metadata with low confidence (< 0.8) is ignored (TIER 2 vector similarity)."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
 
-    # Dict metadata with low confidence
     constraints = {
       "age": {
         "label": 25,
@@ -432,53 +393,40 @@ class TestConstraintBuilding:
 
     result = db._build_query_constraints("Person", **constraints)
 
-    # Verify dict is extracted and low-confidence becomes OR
-    assert "or" in result
-    or_keys = [list(item.keys())[0] for item in result["or"]]
-    assert "age" in or_keys
-
-    # Verify value is extracted correctly
-    age_constraint = next((item for item in result["or"] if "age" in item), {})
-    assert age_constraint.get("age") == ["==", "25"]
+    assert result == {"type": ["==", "Person"]}, "Low-confidence constraints should be ignored"
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_build_constraints_mixed_dict_and_plain_values(self, mock_vdms_class):
-    """Verify mixed dict and plain values are handled correctly."""
+    """Verify mixed dict and plain values - only high-confidence dict values are used."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
 
-    # Mix of dict metadata and plain values
     constraints = {
       "gender": {
         "label": "Male",
         "model_name": "gender_v2",
         "confidence": 0.92
       },
-      "color": "blue"  # Plain string
+      "color": "blue"
     }
 
     result = db._build_query_constraints("Person", **constraints)
 
-    # Dict with high confidence should be AND
     assert "gender" in result
     assert result["gender"] == ["==", "Male"]
 
-    # Plain string should be OR
-    assert "or" in result
-    or_keys = [list(item.keys())[0] for item in result["or"]]
-    assert "color" in or_keys
+    assert "color" not in result, "Plain string values are ignored"
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_build_constraints_dict_without_confidence(self, mock_vdms_class):
-    """Verify dict metadata without confidence field is treated as OR."""
+    """Verify dict metadata without confidence field is ignored (TIER 2 vector similarity)."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
 
-    # Dict without confidence field (legacy or partial format)
     constraints = {
       "descriptor": {
         "label": "some_description"
@@ -487,10 +435,7 @@ class TestConstraintBuilding:
 
     result = db._build_query_constraints("Person", **constraints)
 
-    # Dict without confidence should be OR (flexible matching)
-    assert "or" in result
-    or_keys = [list(item.keys())[0] for item in result["or"]]
-    assert "descriptor" in or_keys
+    assert result == {"type": ["==", "Person"]}, "Dict without confidence should be ignored"
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_build_constraints_dict_value_extraction(self, mock_vdms_class):
@@ -500,7 +445,6 @@ class TestConstraintBuilding:
 
     db = VDMSDatabase()
 
-    # Dict with various label types
     constraints = {
       "age": {"label": 28, "model_name": "age", "confidence": 0.88},
       "height": {"label": 5.8, "model_name": "height", "confidence": 0.75},
@@ -509,15 +453,10 @@ class TestConstraintBuilding:
 
     result = db._build_query_constraints("Person", **constraints)
 
-    # Verify values are extracted correctly
-    assert result["age"] == ["==", "28"]  # High confidence AND
-    assert result["name"] == ["==", "John"]  # High confidence AND
+    assert result["age"] == ["==", "28"], "High confidence (0.88 >= 0.8) should be AND"
+    assert result["name"] == ["==", "John"], "High confidence (0.99 >= 0.8) should be AND"
 
-    # Low confidence in OR
-    assert "or" in result
-    or_items = result["or"]
-    height_constraint = next((item for item in or_items if "height" in item), {})
-    assert height_constraint.get("height") == ["==", "5.8"]
+    assert "height" not in result, "Low confidence (0.75 < 0.8) should be ignored"
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_build_constraints_object_type_always_and(self, mock_vdms_class):
@@ -530,7 +469,6 @@ class TestConstraintBuilding:
     test_type = "Person"
     constraints = db._build_query_constraints(test_type)
 
-    # Verify type is always present and is AND constraint
     assert "type" in constraints, "Object type must always be present"
     assert constraints["type"] == ["==", test_type], "Object type must be AND constraint format"
 
@@ -542,7 +480,6 @@ class TestConstraintBuilding:
 
     db = VDMSDatabase()
 
-    # High confidence values that should become AND constraints
     high_confidence_constraints = {
       "gender": {"label": "Female", "model_name": "gender_v2", "confidence": 0.95},
       "age_range": {"label": "25-30", "model_name": "age_v2", "confidence": 0.87},
@@ -551,120 +488,31 @@ class TestConstraintBuilding:
 
     constraints = db._build_query_constraints("Person", **high_confidence_constraints)
 
-    # Verify high-confidence values are direct AND constraints
-    assert "gender" in constraints, "High-confidence gender should be in constraints"
-    assert "age_range" in constraints, "High-confidence age_range should be in constraints"
-    assert "color" in constraints, "Exactly 0.8 should be treated as AND constraint"
+    assert "gender" in constraints
+    assert "age_range" in constraints
+    assert "color" in constraints
 
-    # Verify they are AND format (not in "or" array)
     assert constraints["gender"] == ["==", "Female"]
     assert constraints["age_range"] == ["==", "25-30"]
     assert constraints["color"] == ["==", "blue"]
 
-    # Verify "or" is not present or is empty
-    assert "or" not in constraints or len(constraints.get("or", [])) == 0, \
-      "No OR constraints should exist for high-confidence values"
-
   @patch('controller.vdms_adapter.vdms.vdms')
-  def test_build_constraints_low_confidence_to_or(self, mock_vdms_class):
-    """Verify low-confidence constraints (< 0.8) become OR constraints."""
+  def test_build_constraints_low_confidence_ignored(self, mock_vdms_class):
+    """Verify low-confidence constraints (< 0.8) are ignored."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
 
-    # Low confidence values that should become OR constraints
     low_confidence_constraints = {
-      "gender": 0.75,      # < 0.8
-      "age_range": 0.5,    # < 0.8
-      "color": 0.01        # < 0.8
+      "gender": {"label": "Female", "model_name": "gender", "confidence": 0.75},
+      "age_range": {"label": "18-25", "model_name": "age", "confidence": 0.5},
+      "color": {"label": "blue", "model_name": "color", "confidence": 0.01}
     }
 
     constraints = db._build_query_constraints("Person", **low_confidence_constraints)
 
-    # Verify type is AND constraint
-    assert constraints["type"] == ["==", "Person"]
-
-    # Verify low-confidence values are NOT direct AND constraints
-    assert "gender" not in constraints or constraints["gender"] == ["==", "0.75"]  # Might be duplicated
-    assert "age_range" not in constraints or constraints["age_range"] == ["==", "0.5"]
-
-    # Verify "or" constraints exist
-    assert "or" in constraints, "OR constraints should exist for low-confidence values"
-
-    or_constraints = constraints["or"]
-    assert len(or_constraints) >= 3, "Should have at least 3 OR constraints"
-
-    # Verify each low-confidence value is in or array
-    or_keys = [list(oc.keys())[0] for oc in or_constraints]
-    assert "gender" in or_keys
-    assert "age_range" in or_keys
-    assert "color" in or_keys
-
-  @patch('controller.vdms_adapter.vdms.vdms')
-  def test_build_constraints_string_values_to_or(self, mock_vdms_class):
-    """Verify non-numeric (string) values become OR constraints."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
-
-    db = VDMSDatabase()
-
-    # String (non-numeric) values should become OR constraints
-    string_constraints = {
-      "gender": "Female",
-      "clothing_color": "red",
-      "vehicle_make": "Toyota"
-    }
-
-    constraints = db._build_query_constraints("Person", **string_constraints)
-
-    # Verify type is AND constraint
-    assert constraints["type"] == ["==", "Person"]
-
-    # Verify string values are in "or" constraints
-    assert "or" in constraints, "OR constraints should exist for non-numeric values"
-
-    or_constraints = constraints["or"]
-    or_keys = [list(oc.keys())[0] for oc in or_constraints]
-
-    assert "gender" in or_keys
-    assert "clothing_color" in or_keys
-    assert "vehicle_make" in or_keys
-
-  @patch('controller.vdms_adapter.vdms.vdms')
-  def test_build_constraints_mixed_confidence_levels(self, mock_vdms_class):
-    """Verify mixed high and low confidence constraints are properly separated."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
-
-    db = VDMSDatabase()
-
-    # Mix of high confidence (AND), low confidence (OR), and non-numeric (OR)
-    mixed_constraints = {
-      "gender": {"label": "Male", "model_name": "gender_v2", "confidence": 0.95},
-      "age_range": {"label": "18-25", "model_name": "age_v2", "confidence": 0.75},
-      "clothing_color": "red",     # Plain string -> OR
-      "age": {"label": 28, "model_name": "age_v2", "confidence": 0.87}
-    }
-
-    constraints = db._build_query_constraints("Person", **mixed_constraints)
-
-    # Verify AND constraints (high confidence)
-    assert "gender" in constraints
-    assert constraints["gender"] == ["==", "Male"]
-    assert "age" in constraints
-    assert constraints["age"] == ["==", "28"]
-
-    # Verify OR constraints (low confidence and non-numeric)
-    assert "or" in constraints
-    or_constraints = constraints["or"]
-    or_keys = [list(oc.keys())[0] for oc in or_constraints]
-
-    assert "age_range" in or_keys
-    assert "clothing_color" in or_keys
-
-    # Verify low confidence is not in direct AND constraints
-    assert "age_range" not in constraints or constraints["age_range"] == ["==", "0.75"]
+    assert constraints == {"type": ["==", "Person"]}, "Low-confidence constraints should all be ignored"
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_build_constraints_empty_constraints(self, mock_vdms_class):
@@ -676,7 +524,6 @@ class TestConstraintBuilding:
 
     constraints = db._build_query_constraints("Vehicle")
 
-    # Verify only type constraint exists
     assert constraints == {"type": ["==", "Vehicle"]}, \
       "Empty constraints should only have type constraint"
 
@@ -690,49 +537,16 @@ class TestConstraintBuilding:
 
     constraints_with_none = {
       "gender": {"label": "Female", "model_name": "gender_v2", "confidence": 0.95},
-      "age": None,              # Should be ignored
+      "age": None,
       "color": "blue"
     }
 
     constraints = db._build_query_constraints("Person", **constraints_with_none)
 
-    # Verify None value is not in constraints
     assert "age" not in constraints, "None values should be ignored"
-
-    # Verify high-confidence metadata constraint (gender 0.95) is direct AND
     assert "gender" in constraints
     assert constraints["gender"] == ["==", "Female"]
-
-    # Verify non-numeric string constraint is in OR array
-    assert "or" in constraints
-    or_keys = [list(item.keys())[0] for item in constraints["or"]]
-    assert "color" in or_keys, "Non-numeric string should be in OR array"
-
-  @patch('controller.vdms_adapter.vdms.vdms')
-  def test_build_constraints_numeric_string_to_confidence(self, mock_vdms_class):
-    """Verify numeric strings are converted to float for confidence evaluation."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
-
-    db = VDMSDatabase()
-
-    # Test metadata with string confidence values
-    numeric_string_constraints = {
-      "attribute_1": {"label": "value1", "model_name": "model1", "confidence": "0.95"},
-      "attribute_2": {"label": "value2", "model_name": "model2", "confidence": "0.75"}
-    }
-
-    constraints = db._build_query_constraints("Person", **numeric_string_constraints)
-
-    # Verify high confidence string is AND constraint
-    assert "attribute_1" in constraints
-    assert constraints["attribute_1"] == ["==", "value1"]
-
-    # Verify low confidence string is OR constraint
-    assert "or" in constraints
-    or_constraints = constraints["or"]
-    or_keys = [list(oc.keys())[0] for oc in or_constraints]
-    assert "attribute_2" in or_keys
+    assert "color" not in constraints, "Plain string values should be ignored"
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_build_constraints_boundary_confidence_0_8(self, mock_vdms_class):
@@ -748,36 +562,8 @@ class TestConstraintBuilding:
 
     constraints = db._build_query_constraints("Person", **boundary_constraints)
 
-    # Verify exactly 0.8 is treated as AND constraint
     assert "attribute_exact" in constraints
     assert constraints["attribute_exact"] == ["==", "test_value"]
-
-    # Should not be in OR constraints
-    assert "or" not in constraints or \
-           not any("attribute_exact" in list(oc.keys()) for oc in constraints.get("or", []))
-
-  @patch('controller.vdms_adapter.vdms.vdms')
-  def test_build_constraints_just_below_boundary(self, mock_vdms_class):
-    """Verify confidence just below 0.8 is treated as OR constraint."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
-
-    db = VDMSDatabase()
-
-    near_boundary_constraints = {
-      "confidence_below": 0.79        # Just below 0.8 -> OR
-    }
-
-    constraints = db._build_query_constraints("Person", **near_boundary_constraints)
-
-    # Should not be in direct AND constraints (except type)
-    and_keys = [k for k in constraints.keys() if k != "type" and k != "or"]
-    assert "confidence_below" not in and_keys or constraints.get("confidence_below") == ["==", "0.79"]
-
-    # Should be in OR constraints
-    assert "or" in constraints
-    or_keys = [list(oc.keys())[0] for oc in constraints["or"]]
-    assert "confidence_below" in or_keys
 
 
 class TestFindMatchesIntegration:
@@ -797,48 +583,132 @@ class TestFindMatchesIntegration:
 
     test_vectors = [np.random.randn(256).astype(np.float32)]
 
-    # Call findMatches with high-confidence constraint
     db.findMatches("Person", test_vectors, gender={"label": "Female", "model_name": "gender_v2", "confidence": 0.95})
 
-    # Extract the query
     call_args = db.sendQuery.call_args
     query_list = call_args[0][0]
     query = query_list[0]
     query_constraints = query['FindDescriptor']['constraints']
 
-    # Verify high-confidence constraint is AND (direct in constraints)
     assert "gender" in query_constraints
     assert query_constraints["gender"] == ["==", "Female"]
 
+
+class TestMetadataStorageQueryConsistency:
+  """Test that stored metadata matches what is queried (no storage/query mismatch)."""
+
   @patch('controller.vdms_adapter.vdms.vdms')
-  def test_find_matches_or_constraints_in_vdms_format(self, mock_vdms_class):
-    """Verify findMatches formats OR constraints correctly for VDMS."""
+  def test_metadata_stored_matches_constraint_query(self, mock_vdms_class):
+    """Ensure metadata stored in addEntry matches constraint values in findMatches.
+    
+    This prevents the bug where metadata was stored as JSON strings but queried
+    as plain strings, causing TIER 1 filtering to fail.
+    
+    The contract: 
+      - addEntry: Extract 'label' from dict metadata, store as plain string
+      - findMatches: Use 'label' in constraint, query as plain string
+      - Result: Stored value == queried value (they match!)
+    """
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
-    db.sendQuery = Mock(return_value=([{
-      'status': 0,
-      'returned': 0
-    }], []))
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
+    test_uuid = "test-uuid"
+    test_rvid = "rvid"
+    test_type = "Person"
     test_vectors = [np.random.randn(256).astype(np.float32)]
 
-    # Call findMatches with low-confidence constraint
-    db.findMatches("Person", test_vectors, color=0.75, clothing="red")
+    # Metadata as it comes from tracker
+    metadata_dict = {
+      "gender": {"label": "Female", "model_name": "gender_v2", "confidence": 0.95},
+      "age": {"label": 28, "model_name": "age_estimator", "confidence": 0.87}
+    }
 
-    # Extract the query
-    call_args = db.sendQuery.call_args
-    query_list = call_args[0][0]
-    query = query_list[0]
-    query_constraints = query['FindDescriptor']['constraints']
+    # STEP 1: Store metadata via addEntry
+    db.addEntry(test_uuid, test_rvid, test_type, test_vectors, **metadata_dict)
 
-    # Verify OR constraints exist and are in correct format
-    assert "or" in query_constraints, "OR constraints should be present for low-confidence values"
-    or_array = query_constraints["or"]
+    call_args_add = db.sendQuery.call_args
+    query_list_add = call_args_add[0][0]
+    properties_stored = query_list_add[0]['AddDescriptor']['properties']
 
-    # Each OR item should be a dict with single key
-    assert isinstance(or_array, list)
-    for or_item in or_array:
-      assert isinstance(or_item, dict)
-      assert len(or_item) == 1, "Each OR item should have single key-value pair"
+    # Verify: Labels extracted and stored as plain strings
+    assert properties_stored['gender'] == "Female", "Gender label should be stored as plain string"
+    assert properties_stored['age'] == "28", "Age label should be stored as plain string"
+
+    # STEP 2: Query with same metadata via findMatches
+    db.sendQuery.reset_mock()
+    db.sendQuery.return_value = ([{'status': 0, 'returned': 0}], [])
+
+    query_vectors = [np.random.randn(256).astype(np.float32)]
+    db.findMatches(test_type, query_vectors, **metadata_dict)
+
+    call_args_find = db.sendQuery.call_args
+    query_list_find = call_args_find[0][0]
+    query_constraints = query_list_find[0]['FindDescriptor']['constraints']
+
+    # Verify: Constraints use plain string values (matching what was stored)
+    assert query_constraints['gender'] == ["==", "Female"], \
+      "Query constraint should use plain string 'Female', matching stored value"
+    assert query_constraints['age'] == ["==", "28"], \
+      "Query constraint should use plain string '28', matching stored value"
+
+    # CRITICAL ASSERTION: Storage format == Query format
+    # This ensures VDMS can match: stored 'Female' matches constraint gender='Female'
+    assert properties_stored['gender'] == query_constraints['gender'][1], \
+      f"MISMATCH: Stored '{properties_stored['gender']}' != Queried '{query_constraints['gender'][1]}'"
+    assert properties_stored['age'] == query_constraints['age'][1], \
+      f"MISMATCH: Stored '{properties_stored['age']}' != Queried '{query_constraints['age'][1]}'"
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_metadata_consistency_multiple_types(self, mock_vdms_class):
+    """Verify storage/query consistency across different metadata types."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    # Test various data types in metadata labels
+    test_cases = [
+      ("gender", "Male", "Male"),
+      ("age", 42, "42"),
+      ("height", 5.9, "5.9"),
+      ("color", "blue", "blue"),
+      ("count", 100, "100"),
+    ]
+
+    for attr_name, label_value, expected_stored in test_cases:
+      db.sendQuery.reset_mock()
+      db.sendQuery.return_value = ([{'status': 0}], [])
+
+      metadata = {
+        attr_name: {"label": label_value, "model_name": "model", "confidence": 0.9}
+      }
+
+      # Store via addEntry
+      test_vectors = [np.random.randn(256).astype(np.float32)]
+      db.addEntry("uuid", "rvid", "Person", test_vectors, **metadata)
+
+      call_args_add = db.sendQuery.call_args
+      properties = call_args_add[0][0][0]['AddDescriptor']['properties']
+
+      # Query via findMatches
+      db.sendQuery.reset_mock()
+      db.sendQuery.return_value = ([{'status': 0, 'returned': 0}], [])
+      db.findMatches("Person", test_vectors, **metadata)
+
+      call_args_find = db.sendQuery.call_args
+      constraints = call_args_find[0][0][0]['FindDescriptor']['constraints']
+
+      # Verify consistency for each type
+      stored_value = properties[attr_name]
+      queried_value = constraints[attr_name][1]
+
+      assert stored_value == expected_stored, \
+        f"{attr_name}: Expected stored '{expected_stored}' but got '{stored_value}'"
+      assert queried_value == expected_stored, \
+        f"{attr_name}: Expected constraint '{expected_stored}' but got '{queried_value}'"
+      assert stored_value == queried_value, \
+        f"{attr_name}: Storage/Query mismatch - stored='{stored_value}' vs queried='{queried_value}'"

@@ -31,43 +31,49 @@ VDMS Query Flow:
 
 ## Key Concepts
 
-### Confidence-Based Constraint Routing
+### Confidence-Based Constraint Filtering (AND-Only)
 
-The 2-tier implementation uses metadata confidence scores to intelligently route constraints as AND or OR:
+The 2-tier implementation uses metadata confidence scores to determine which constraints are applied in TIER 1 filtering. **Only high-confidence (≥ 0.8) constraints are used for strict AND filtering**. Low-confidence constraints are skipped in TIER 1, allowing TIER 2 vector similarity to handle flexible matching:
 
 ```
 High Confidence (≥ 0.8)        Low Confidence (< 0.8)
         ↓                                ↓
-    AND Constraint              OR Constraint
+    AND Constraint          IGNORED (rely on TIER 2)
         ↓                                ↓
-   age = 22                    clothing = blue
-   AND gender = Female         OR color = red
-        ↓                                ↓
-   Strict: All must match      Flexible: At least one
+   age = 22                       Skip
+   AND gender = Female            ↓
+        ↓                    Vector similarity
+   TIER 1: Strict            finds matches
+   metadata filter           based on embeddings
 ```
 
-**Why AND for high confidence (≥ 0.8)?**
+**Why AND for high confidence only (≥ 0.8)?**
 
 - Age + gender from same model (age-gender-recognition-retail-0013) typically both ~0.85-0.95 confidence
 - Combining multiple high-confidence attributes = very reliable (significantly fewer false positives)
 - Query: "Find Person where age=22 AND gender=Female" is specific and highly accurate
 - Reduces false matches by requiring ALL high-confidence attributes to align
 
-**Why OR for low confidence (< 0.8)?**
+**Why ignore low confidence (< 0.8)?**
 
-- Low-confidence attributes alone risk missing actual matches
-- Offering alternatives with OR increases recall at acceptable cost
-- Query: "Find Person where clothing=blue OR color=red" casts wider net
-- Balances precision loss with gains in recall
+- VDMS limitations: OR constraints across multiple properties are not well-supported
+- Simplified design: Skip low-confidence filtering in TIER 1 entirely
+- TIER 2 vector similarity provides flexible matching instead
+- Query: "Find similar Persons" via vector embedding (ignores low-confidence metadata)
+- Better approach: Rely on embedding distance rather than unreliable metadata
 
-**Mixed Confidence Example**:
+**Example**:
 
 ```
-Query: Person with age=25 (conf 0.92) AND gender=Male (conf 0.90)
-                  OR eyewear=glasses (conf 0.55)
+Query: Person with age=25 (conf 0.92), gender=Male (conf 0.90), eyewear=glasses (conf 0.55)
 
-Logic: "Find strong age-gender matches, OR any Male wearing glasses"
-       (If age/gender match is unavailable, relax to eyewear match)
+TIER 1 Filtering: age=25 AND gender=Male (high confidence applied)
+                  eyewear=glasses IGNORED (low confidence - below 0.8 threshold)
+
+TIER 2 Matching: Vector similarity finds closest matches among TIER 1 filtered candidates
+                 The embedding distance handles eyewear and other low-confidence attributes
+
+Result: "Find strong age-gender matches, refined by vector similarity"
 ```
 
 ## Backward Compatibility
@@ -102,15 +108,15 @@ Logic: "Find strong age-gender matches, OR any Male wearing glasses"
 
 - `VDMS_HOSTNAME`: VDMS server hostname (default: `vdms.scenescape.intel.com`)
 - `REID_DATABASE`: Vector database backend (default: `VDMS`)
-- `VDMS_CONFIDENCE_THRESHOLD`: Confidence threshold for AND/OR constraint routing (default: `0.8`)
-  - Values ≥ threshold: AND constraints (strict matching, all must match)
-  - Values < threshold: OR constraints (flexible matching, at least one must match)
+- `VDMS_CONFIDENCE_THRESHOLD`: Minimum confidence for applying constraints in TIER 1 (default: `0.8`)
+  - Values ≥ threshold: Included in AND constraints (strict metadata filtering)
+  - Values < threshold: Ignored (rely on TIER 2 vector similarity for flexible matching)
   - Valid range: 0.0 to 1.0
-  - Example: Set to `0.7` for more flexible matching, `0.9` for stricter matching
+  - Example: Set to `0.7` to include more metadata filters, `0.9` for stricter filtering
 
 ### Configuring Confidence Threshold
 
-The confidence threshold determines how metadata constraints are applied in TIER 1 filtering. Confidence threshold can be configured using:
+The confidence threshold determines which metadata constraints are applied in TIER 1 filtering. Only constraints meeting or exceeding the threshold are used. Constraints below the threshold are skipped, allowing vector similarity in TIER 2 to handle the matching:
 
 ```bash
 # In the controller service environment in docker-compose.yml or .env file
@@ -122,9 +128,9 @@ docker compose up -d
 
 **Example Threshold Selection Guide**:
 
-- `0.7`: More matches, higher recall (recommended for exploratory queries)
+- `0.7`: More metadata constraints applied, higher specificity in TIER 1 (may miss matches due to strict filtering)
 - `0.8`: **Default balanced approach** (recommended for most use cases)
-- `0.9`: Fewer but highly accurate matches (recommended when precision is critical)
+- `0.9`: Only highest-confidence metadata filters applied, rely more on TIER 2 vector similarity (highest recall)
 
 ## Testing
 

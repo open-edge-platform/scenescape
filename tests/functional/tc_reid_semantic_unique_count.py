@@ -10,14 +10,14 @@ from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
 from scene_common import log
 
-TEST_WAIT_TIME = 5 * 60  # 5 minutes in seconds
+TEST_WAIT_TIME = 150
 
 connected = False
 detection_count = {
   "302cf49a-97ec-402d-a324-c5077b280b7b": {
     "error": False,
     "current": 0,
-    "maximum": 20
+    "maximum": 10
   }
 }
 
