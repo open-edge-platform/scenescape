@@ -105,6 +105,7 @@ broken-tests: \
   reid-performance-degradation \
   auto-calibration-ui \
   3d-scene-control-panel \
+	3d-camera-control-panel \
 
 randomly-failing-tests: \
   distance-msoce \
@@ -192,7 +193,6 @@ ui-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _ui-tests: \
-  3d-camera-control-panel \
   show-telemetry-button \
   upload-only-3d-glb-files \
   add-delete-3d-object \
