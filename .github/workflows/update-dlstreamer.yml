@@ -179,6 +179,7 @@ jobs:
 
             ---
             *This PR was automatically created by the DLStreamer update workflow.*
+          base: ${{ github.ref_name }}
           branch: dlstreamer-update-${{ steps.dockerhub.outputs.latest_version }}
           delete-branch: true
           labels: |
