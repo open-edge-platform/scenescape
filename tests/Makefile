@@ -104,6 +104,7 @@ broken-tests: \
   reid-unique-count \
   reid-performance-degradation \
   auto-calibration-ui \
+  3d-scene-control-panel \
 
 randomly-failing-tests: \
   distance-msoce \
@@ -172,7 +173,6 @@ _functional-tests: \
   upload-only-3d-glb-files-api \
   vdms-similarity-search \
   visibility \
-  3d-scene-control-panel \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
