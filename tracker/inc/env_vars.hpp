@@ -49,6 +49,15 @@ constexpr const char* TIME_CHUNKING_RATE_FPS = "TRACKER_TIME_CHUNKING_RATE_FPS";
 /// >= 1
 constexpr const char* MAX_WORKERS = "TRACKER_MAX_WORKERS";
 
+/// seconds, >= 0 - RobotVision tracker parameter
+constexpr const char* MAX_UNRELIABLE_TIME_S = "TRACKER_MAX_UNRELIABLE_TIME_S";
+
+/// seconds, >= 0 - RobotVision tracker parameter
+constexpr const char* NON_MEASUREMENT_TIME_DYNAMIC_S = "TRACKER_NON_MEASUREMENT_TIME_DYNAMIC_S";
+
+/// seconds, >= 0 - RobotVision tracker parameter
+constexpr const char* NON_MEASUREMENT_TIME_STATIC_S = "TRACKER_NON_MEASUREMENT_TIME_STATIC_S";
+
 // Scenes overrides
 
 /// "file"|"api"
