@@ -4,6 +4,7 @@
 #include "tracking_worker.hpp"
 
 #include "logger.hpp"
+#include "metrics.hpp"
 #include "time_utils.hpp"
 
 #include <rv/tracking/ObjectMatching.hpp>
@@ -136,14 +137,14 @@ void TrackingWorker::run() {
             break;
         }
 
-        process_chunk(chunk);
+        process_chunk(std::move(chunk));
     }
 
     LOG_INFO("TrackingWorker stopped for scope {}/{} (processed={}, dropped={})", scope_.scene_id,
              scope_.category, processed_count_.load(), dropped_count_.load());
 }
 
-void TrackingWorker::process_chunk(const Chunk& chunk) {
+void TrackingWorker::process_chunk(Chunk chunk) {
     // Compute canonical timestamp once: prefer newest batch, fall back to now.
     auto now = std::chrono::system_clock::now();
     auto track_timestamp =
@@ -155,10 +156,19 @@ void TrackingWorker::process_chunk(const Chunk& chunk) {
     // Run RobotVision tracking (empty batches still advance tracker time for track aging)
     auto tracks = run_tracking(chunk, track_timestamp);
 
+    chunk.obs_ctx.track_time = std::chrono::steady_clock::now();
+
+    // Update active tracks gauge for this scope
+    Metrics::set_active_tracks(scope_.scene_id, scope_.category,
+                               static_cast<int64_t>(tracks.size()));
+
     // Always publish (even with empty tracks — downstream needs heartbeats)
     if (publish_callback_) {
         publish_callback_(scope_.scene_id, scene_name_, scope_.category, timestamp_iso, tracks);
     }
+
+    chunk.obs_ctx.publish_time = std::chrono::steady_clock::now();
+    chunk.obs_ctx.finalize();
 
     processed_count_.fetch_add(1);
 }

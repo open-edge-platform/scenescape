@@ -31,12 +31,12 @@ See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationa
 
 SLIs are measured under load: 4 cameras × 15 fps, up to 300 objects per message.
 
-| SLI                  | Target     | Metric                                      | Description                               |
-| -------------------- | ---------- | ------------------------------------------- | ----------------------------------------- |
-| **Latency (p50)**    | < 30ms     | `scenescape_tracker_latency_seconds`        | Median processing time (50% headroom)     |
-| **Latency (p99)**    | < 50ms     | `scenescape_tracker_latency_seconds`        | 99th percentile (25% headroom for jitter) |
-| **Throughput**       | 60 msg/sec | `scenescape_tracker_messages_total`         | Sustained message rate                    |
-| **Dropped Messages** | < 0.1%     | `scenescape_tracker_messages_dropped_total` | Ratio of dropped to total messages        |
+| SLI                  | Target     | Metric                  | Description                               |
+| -------------------- | ---------- | ----------------------- | ----------------------------------------- |
+| **Latency (p50)**    | < 30ms     | `tracker.mqtt.latency`  | Median processing time (50% headroom)     |
+| **Latency (p99)**    | < 50ms     | `tracker.mqtt.latency`  | 99th percentile (25% headroom for jitter) |
+| **Throughput**       | 60 msg/sec | `tracker.mqtt.messages` | Sustained message rate                    |
+| **Dropped Messages** | < 0.1%     | `tracker.mqtt.dropped`  | Ratio of dropped to total messages        |
 
 ## Non-Goals
 
@@ -196,12 +196,12 @@ This correlation enables jumping from a latency spike in metrics → trace → l
 
 #### Metrics
 
-| Metric                                      | Type      | Labels                  | Description                      |
-| ------------------------------------------- | --------- | ----------------------- | -------------------------------- |
-| `scenescape_tracker_latency_seconds`        | histogram | scene, category         | Processing latency (p50/p95/p99) |
-| `scenescape_tracker_messages_total`         | counter   | scene, category         | Messages processed               |
-| `scenescape_tracker_messages_dropped_total` | counter   | scene, category, reason | Messages dropped                 |
-| `scenescape_tracker_tracks_active`          | gauge     | scene, category         | Currently active tracks          |
+| Metric                  | Type      | Labels                  | Description                      |
+| ----------------------- | --------- | ----------------------- | -------------------------------- |
+| `tracker.mqtt.latency`  | histogram | scene, category         | Processing latency (p50/p95/p99) |
+| `tracker.mqtt.messages` | counter   | scene, category         | Messages processed               |
+| `tracker.mqtt.dropped`  | counter   | scene, category, reason | Messages dropped                 |
+| `tracker.tracks.active` | gauge     | scene, category         | Currently active tracks          |
 
 #### Distributed Tracing
 

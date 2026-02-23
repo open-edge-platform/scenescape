@@ -28,6 +28,8 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/time_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/topic_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/telemetry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/metrics.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/observability_context.cpp
 )
 
 add_executable(tracker_tests
@@ -53,6 +55,7 @@ add_executable(tracker_tests
     api_scene_loader_test.cpp
     manager_rest_client_test.cpp
     telemetry_test.cpp
+    metrics_test.cpp
     ${TRACKER_LIB_SOURCES}
 )
 
@@ -90,7 +93,17 @@ target_link_libraries(tracker_tests
         OpenSSL::Crypto
         stduuid::stduuid
         opentelemetry-cpp::opentelemetry-cpp
+        opentelemetry-cpp::opentelemetry_exporter_in_memory
         grpc::grpc
+)
+
+# In-memory metric exporter static libs for testing.
+# The Conan component marks these as header-only (LIBS empty),
+# but the .a archives exist in the package lib dir which is
+# already on the linker search path via the umbrella target.
+target_link_libraries(tracker_tests PRIVATE
+    -lopentelemetry_exporter_in_memory
+    -lopentelemetry_exporter_in_memory_metric
 )
 
 set_property(TARGET tracker_tests PROPERTY CXX_STANDARD ${TRACKER_CXX_STANDARD})

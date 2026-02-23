@@ -118,7 +118,7 @@ private:
      *
      * @param chunk Chunk to process
      */
-    void process_chunk(const Chunk& chunk);
+    void process_chunk(Chunk chunk);
 
     /**
      * @brief Run full tracking pipeline: transform, track, convert.

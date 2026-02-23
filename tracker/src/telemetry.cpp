@@ -49,7 +49,8 @@ resource::Resource build_resource() {
 std::atomic<bool> Telemetry::metrics_initialized_{false};
 std::atomic<bool> Telemetry::tracing_initialized_{false};
 
-void Telemetry::init(const ServiceConfig& config) {
+void Telemetry::init(const ServiceConfig& config,
+                     std::unique_ptr<opentelemetry::sdk::metrics::PushMetricExporter> exporter) {
     // Guard against double initialization — init() must only be called once from main()
     if (metrics_initialized_ || tracing_initialized_) {
         throw std::runtime_error("Telemetry::init() called more than once");
@@ -60,14 +61,17 @@ void Telemetry::init(const ServiceConfig& config) {
 
     // Metrics initialization
     if (obs.metrics.enabled) {
-        if (!otlp_config.has_value()) {
+        // When a custom exporter is injected (testing), use it directly.
+        // Otherwise, require OTLP config and create the gRPC exporter.
+        if (!exporter && !otlp_config.has_value()) {
             LOG_WARN("Metrics enabled but infrastructure.otlp not configured — metrics disabled");
         } else {
-            otlp::OtlpGrpcMetricExporterOptions exporter_opts;
-            exporter_opts.endpoint = otlp_config->endpoint;
-            exporter_opts.use_ssl_credentials = !otlp_config->insecure;
-
-            auto exporter = otlp::OtlpGrpcMetricExporterFactory::Create(exporter_opts);
+            if (!exporter) {
+                otlp::OtlpGrpcMetricExporterOptions exporter_opts;
+                exporter_opts.endpoint = otlp_config->endpoint;
+                exporter_opts.use_ssl_credentials = !otlp_config->insecure;
+                exporter = otlp::OtlpGrpcMetricExporterFactory::Create(exporter_opts);
+            }
 
             metrics_sdk::PeriodicExportingMetricReaderOptions reader_opts;
             reader_opts.export_interval_millis =
@@ -88,8 +92,13 @@ void Telemetry::init(const ServiceConfig& config) {
                 opentelemetry::nostd::shared_ptr<metrics_api::MeterProvider>(provider.release()));
             metrics_initialized_ = true;
 
-            LOG_INFO("OpenTelemetry metrics initialized (endpoint={}, interval={}s)",
-                     otlp_config->endpoint, obs.metrics.export_interval_s);
+            if (otlp_config.has_value()) {
+                LOG_INFO("OpenTelemetry metrics initialized (endpoint={}, interval={}s)",
+                         otlp_config->endpoint, obs.metrics.export_interval_s);
+            } else {
+                LOG_INFO("OpenTelemetry metrics initialized (custom exporter, interval={}s)",
+                         obs.metrics.export_interval_s);
+            }
         }
     }
 

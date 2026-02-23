@@ -95,6 +95,8 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/time_utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/topic_utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/telemetry.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/metrics.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/observability_context.cpp
 )
 
 add_executable(${PROJECT_NAME}

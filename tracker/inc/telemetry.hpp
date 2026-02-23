@@ -6,6 +6,9 @@
 #include "config_loader.hpp"
 
 #include <atomic>
+#include <memory>
+
+#include <opentelemetry/sdk/metrics/push_metric_exporter.h>
 
 namespace tracker {
 
@@ -16,10 +19,8 @@ namespace tracker {
  * When disabled, leaves the default no-op providers in place so all OTel API
  * calls throughout the codebase become zero-cost no-ops.
  *
- * Threading: init() and shutdown() are NOT thread-safe and must be called
- * from a single thread (the main thread). After init() completes, the global
- * providers and the query methods (metrics_enabled(), tracing_enabled()) are
- * safe to use from any thread.
+ * Thread-safe: init() and shutdown() must be called from the main thread.
+ * Once initialized, the global providers are safe to use from any thread.
  */
 class Telemetry {
 public:
@@ -33,9 +34,13 @@ public:
      * - If neither enabled: no-op (default providers remain).
      *
      * @param config Service configuration containing observability and OTLP settings.
-     * @throws std::runtime_error if init() has already been called.
+     * @param exporter Optional custom metric exporter (for testing). When null, creates
+     *                 the default OtlpGrpcMetricExporter. When provided, uses the injected
+     *                 exporter instead, enabling in-memory testing of the metrics pipeline.
      */
-    static void init(const ServiceConfig& config);
+    static void
+    init(const ServiceConfig& config,
+         std::unique_ptr<opentelemetry::sdk::metrics::PushMetricExporter> exporter = nullptr);
 
     /**
      * @brief Gracefully shut down OpenTelemetry SDK.
