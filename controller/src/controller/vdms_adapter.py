@@ -133,8 +133,12 @@ class VDMSDatabase(ReIDDatabase):
     descriptor_blobs = []
     add_query = []
     for reid_vector in reid_vectors:
-      # Ensure vector is float32, then convert to bytes for VDMS
-      vec_array = np.array(reid_vector, dtype="float32")
+      # Ensure vector is properly formatted as 1D array of float32
+      # reid_vector might be shape (1, 256) from moving_object, need to flatten to (256,)
+      vec_array = np.asarray(reid_vector, dtype="float32").flatten()
+      if vec_array.shape[0] != 256:
+        log.warning(f"addEntry: Expected vector shape (256,) but got {vec_array.shape}, skipping this vector")
+        continue
       descriptor_blobs.append(vec_array.tobytes())
       # Create query dict for each vector
       add_query.append({
@@ -146,10 +150,15 @@ class VDMSDatabase(ReIDDatabase):
 
     response, _ = self.sendQuery(add_query, descriptor_blobs)  # Flat list of blobs
     if response:
+      success_count = 0
       for item in response:
-        if item.get('status') != 0:
+        if item.get('status') == 0:
+          success_count += 1
+        else:
           log.warning(
             f"Failed to add the descriptor to the database. Received response {item}")
+    else:
+      log.error(f"addEntry: No response from VDMS when adding {len(add_query)} vectors")
     return
 
   def findSchema(self, set_name):

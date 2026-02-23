@@ -17,6 +17,7 @@ from scipy.spatial.transform import Rotation
 from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2
 from scene_common.transform import normalize, rotationToTarget
+from scene_common import log
 
 warnings.simplefilter('ignore', np.RankWarning)
 
@@ -108,13 +109,17 @@ class MovingObject:
     self.rotation = np.array([0, 0, 0, 1]).tolist()
     self.intersected = False
     self.reid = {}  # Initialize reid as empty dict
-    # Extract reid from metadata if present
-    metadata = self.info.get('metadata', {})
-    if metadata and isinstance(metadata, dict):
-      reid = metadata.get('reid', None)
+    self.metadata = {}  # Initialize metadata as empty dict
+    # Extract reid from metadata if present and preserve metadata attribute
+    metadata_from_info = self.info.get('metadata', {})
+    if metadata_from_info and isinstance(metadata_from_info, dict):
+      self.metadata = metadata_from_info  # Store metadata on the object
+      reid = metadata_from_info.get('reid', None)
       if reid is not None:
         self._decodeReIDVector(reid)
-        self.info.pop('metadata', None)  # Remove metadata from info after extracting
+      self.info.pop('metadata', None)  # Remove metadata from info to avoid duplication
+    else:
+      log.debug(f"MovingObject.__init__: No metadata in info dict")
     return
 
   def _decodeReIDVector(self, reid):

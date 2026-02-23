@@ -38,7 +38,41 @@ class UUIDManager:
       maxlen=DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED)
     self.similarity_query_times_lock = threading.Lock()
     self.reid_enabled = True
+    self.stale_feature_timer = None
+    self._start_stale_feature_timer()
     return
+
+  def _start_stale_feature_timer(self):
+    """Start a background timer to periodically check for and flush stale features"""
+    def check_stale_features():
+      """Timer callback: check for features older than timeout and flush them"""
+      self._flush_stale_features()
+      # Reschedule the timer
+      self.stale_feature_timer = threading.Timer(1.0, check_stale_features)
+      self.stale_feature_timer.daemon = True
+      self.stale_feature_timer.start()
+
+    self.stale_feature_timer = threading.Timer(1.0, check_stale_features)
+    self.stale_feature_timer.daemon = True
+    self.stale_feature_timer.start()
+
+  def _flush_stale_features(self):
+    """Check for features older than 5 seconds and flush them to VDMS"""
+    if not self.features_for_database_timestamps:
+      return
+
+    current_time = get_epoch_time()
+    stale_track_ids = []
+
+    for track_id, timestamp in list(self.features_for_database_timestamps.items()):
+      age = current_time - timestamp
+      if age > 5.0:
+        stale_track_ids.append(track_id)
+
+    if stale_track_ids:
+      for track_id in stale_track_ids:
+        self.features_for_database_timestamps.pop(track_id, None)
+        self._addNewFeaturesToDatabase(track_id)
 
   def connectDatabase(self):
     self.pool.submit(self.reid_database.connect)
@@ -46,29 +80,35 @@ class UUIDManager:
   def _extractReidEmbedding(self, sscape_object):
     """
     Extract embedding vector from sscape_object's reid field.
+    Returns the decoded embedding vector (numpy array or list), not the base64 string.
     Handles both formats:
-    1. New format: metadata.reid dict with 'embedding_vector' and 'model_name' keys
-    2. Legacy format: top-level reid field (dict or direct vector)
+    1. New format: dict with 'embedding_vector' and 'model_name' keys
+    2. Legacy format: direct vector (list or numpy array)
 
     @param   sscape_object  The Scenescape object with detection data
-    @return  embedding      The embedding vector, or None if not available
+    @return  embedding      The decoded embedding vector (numpy array or list), or None if not available
     """
-    # Check for reid in metadata (new format)
-    if hasattr(sscape_object, 'metadata') and sscape_object.metadata:
-      reid_data = sscape_object.metadata.get('reid')
-      if reid_data:
-        if isinstance(reid_data, dict) and 'embedding_vector' in reid_data:
-          return reid_data['embedding_vector']
-        else:
-          return reid_data
-
-    # Check for reid at top level (legacy format)
-    if hasattr(sscape_object, 'reid') and sscape_object.reid is not None:
-      if isinstance(sscape_object.reid, dict) and 'embedding_vector' in sscape_object.reid:
-        return sscape_object.reid['embedding_vector']
-      else:
-        return sscape_object.reid
-
+    try:
+      reid = sscape_object.reid
+    except AttributeError:
+      return None
+    
+    if reid is None:
+      return None
+    
+    # New format: dict with 'embedding_vector' key
+    if isinstance(reid, dict):
+      embedding = reid.get('embedding_vector', None)
+      # Only return if it's already decoded (numpy array or list, not a string)
+      if embedding is not None and not isinstance(embedding, str):
+        return embedding
+      return None
+    
+    # Legacy format: direct vector (list or numpy array)
+    # Return if it's not a dict and not a string
+    if not isinstance(reid, str) and not isinstance(reid, dict):
+      return reid
+    
     return None
 
   def _extractSemanticMetadata(self, sscape_object):
@@ -77,46 +117,31 @@ class UUIDManager:
     Separates generic object properties (confidence, bbox, etc.) from semantic properties.
     Semantic metadata is now organized under a dedicated "metadata" key in the object.
     This includes all semantic attributes describing what an object is (age, gender,
-    clothing, embedding vectors, etc), separate from internal tracker state.
+    clothing, etc), separate from internal tracker state.
 
-    @param   sscape_object  The Scenescape object with detection data
-    @return  metadata       Dictionary of semantic attributes
+    Note: Excludes 'reid' key since reid embeddings are used for vector search, not metadata filtering.
+
+    @param   sscape_object  The Scapescape object with detection data
+    @return  metadata       Dictionary of semantic attributes (excluding reid)
     """
     if hasattr(sscape_object, 'metadata') and sscape_object.metadata:
-      log.debug(f"_extractSemanticMetadata: Found {len(sscape_object.metadata)} semantic attributes: {list(sscape_object.metadata.keys())}")
-      return sscape_object.metadata
+      # Filter out 'reid' since it's the embedding vector, not a semantic filter attribute
+      metadata = {k: v for k, v in sscape_object.metadata.items() if k != 'reid'}
+      log.debug(f"_extractSemanticMetadata: Found {len(metadata)} semantic attributes (excluding reid): {list(metadata.keys())}")
+      return metadata
     else:
       log.debug(f"_extractSemanticMetadata: No semantic metadata")
       return {}
 
   def pruneInactiveTracks(self, tracked_objects):
     """
-    Removes inactive tracks from the active_ids dict and adds pending features to the database.
-    Also flushes features_for_database entries that have been pending for > 5 seconds,
-    which handles cases where tracks never become "inactive" in the tracker (e.g., test environments).
+    Removes inactive tracks from the active_ids dict.
+    Note: Stale feature flushing is now handled by a background timer in _flush_stale_features()
+    that runs every 1 second and flushes features older than 5 seconds.
 
     @param  tracked_objects  The objects currently tracked by the tracker
     """
     active_tracks = [tracked_object.id for tracked_object in tracked_objects]
-
-    # Check for stale pending features (timeout-based fallback)
-    current_time = time.time()
-    stale_features = []
-    for track_id, timestamp in self.features_for_database_timestamps.items():
-      if current_time - timestamp > 5.0:  # 5 second timeout
-        stale_features.append(track_id)
-
-    if stale_features:
-      for track_id in stale_features:
-        self._addNewFeaturesToDatabase(track_id)
-        self.features_for_database_timestamps.pop(track_id, None)
-        # Also remove from active_ids since we're flushing
-        with self.active_ids_lock:
-          if track_id in self.active_ids and self.active_ids[track_id][1] is None:
-            self.unique_id_count += 1
-          self.active_ids.pop(track_id, None)
-        self.active_query.pop(track_id, None)
-        self.quality_features.pop(track_id, None)
 
     # Normal pruning based on tracker's active tracks
     inactive_tracks = []
@@ -157,7 +182,7 @@ class UUIDManager:
     if features:
       features['reid_vectors'] = features['reid_vectors'][::slice_size]
       log.debug(
-        f"Adding {len(features['reid_vectors'])} features for track {track_id} to database")
+        f"_addNewFeaturesToDatabase: Adding {len(features['reid_vectors'])} features for track {track_id} to database (gid={features['gid']}, category={features['category']})")
 
       # Extract semantic metadata from stored feature data
       metadata = features.get('metadata', {})
@@ -175,7 +200,8 @@ class UUIDManager:
     # Case for incrementing the counter when there is no re-id vector
     if sscape_object.reid is None and result is None:
       self.unique_id_count += 1
-    return result is None or result[0] is None
+    # Track is new only if not yet in active_ids dictionary
+    return result is None
 
   def gatherQualityVisualFeatures(self, sscape_object,
                                   minimum_bbox_area=DEFAULT_MINIMUM_BBOX_AREA):
@@ -190,14 +216,13 @@ class UUIDManager:
 
     if reid_embedding is not None and self.reid_enabled:
       bbox_area = sscape_object.boundingBoxPixels.area if hasattr(sscape_object, 'boundingBoxPixels') else 0
-      log.debug(f"gatherQualityVisualFeatures: Object {sscape_object.rv_id} bbox_area={bbox_area}, minimum={minimum_bbox_area}")
       if bbox_area > minimum_bbox_area:
         if sscape_object.rv_id in self.quality_features:
           self.quality_features[sscape_object.rv_id].append(reid_embedding)
-          log.debug(f"gatherQualityVisualFeatures: Added reid to existing features for {sscape_object.rv_id}, total count: {len(self.quality_features[sscape_object.rv_id])}")
         else:
           self.quality_features[sscape_object.rv_id] = [reid_embedding]
-          log.debug(f"gatherQualityVisualFeatures: Started feature collection for {sscape_object.rv_id}")
+      else:
+        log.debug(f"gatherQualityVisualFeatures: Bbox too small for rv_id={sscape_object.rv_id} (area={bbox_area} <= {minimum_bbox_area})")
     return
 
   def pickBestID(self, sscape_object):
@@ -251,12 +276,10 @@ class UUIDManager:
     """
     similarity_scores = self.sendSimilarityQuery(sscape_object)
     database_id, similarity = self.parseQueryResults(similarity_scores)
-    log.debug(f"querySimilarity: Track {sscape_object.rv_id} query complete, db_id={database_id}, similarity={similarity}")
     with self.active_ids_lock:
       # Make sure object is still in active_ids before updating since there is a chance
       # that the similiarity search does not complete until after the object leaves
       if sscape_object.rv_id in self.active_ids:
-        log.debug(f"querySimilarity: Calling updateActiveDict for track {sscape_object.rv_id}")
         self.updateActiveDict(sscape_object, database_id, similarity)
       else:
         log.warning(
@@ -279,13 +302,20 @@ class UUIDManager:
     # Extract semantic metadata for TIER 1 filtering
     metadata_constraints = self._extractSemanticMetadata(sscape_object)
 
-    log.debug(f"findSimilarityScores: tracker_id={sscape_object.rv_id}, category={sscape_object.category}, metadata_constraints={list(metadata_constraints.keys())}")
+    log.debug(f"sendSimilarityQuery: tracker_id={sscape_object.rv_id}, category={sscape_object.category}, num_vectors={len(reid_vectors) if reid_vectors else 0}, metadata_constraints={list(metadata_constraints.keys())}")
 
     start_time = get_epoch_time()
     # Pass metadata as constraints for TIER 1 filtering in findMatches
-    scores = self.reid_database.findMatches(
-      sscape_object.category, reid_vectors, **metadata_constraints)
-    query_time = get_epoch_time() - start_time
+    log.debug(f"sendSimilarityQuery: Calling reid_database.findMatches for track {sscape_object.rv_id}")
+    try:
+      scores = self.reid_database.findMatches(
+        sscape_object.category, reid_vectors, **metadata_constraints)
+      query_time = get_epoch_time() - start_time
+      log.debug(f"sendSimilarityQuery: Query completed for track {sscape_object.rv_id} in {query_time:.3f}s, scores={scores}")
+    except Exception as e:
+      query_time = get_epoch_time() - start_time
+      log.error(f"sendSimilarityQuery: Query failed for track {sscape_object.rv_id} after {query_time:.3f}s: {e}")
+      scores = []
 
     with self.similarity_query_times_lock:
       self.similarity_query_times.append(query_time)
@@ -350,7 +380,7 @@ class UUIDManager:
     if database_id and self.isNewID(database_id):
       self.active_ids[sscape_object.rv_id] = [database_id, similarity]
       log.debug(
-        f"Match found for {sscape_object.rv_id}: {database_id},{similarity}")
+        f"updateActiveDict: Match found for {sscape_object.rv_id}: {database_id},{similarity}")
     # MATCH FOUND - NO / DB ID ALREADY IN DICT - YES
     else:
       self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
@@ -383,18 +413,27 @@ class UUIDManager:
     """
     Assigns a unique ID to the Scenescape object
 
-    @param  sscape_object  The current Scenescape object
+    @param  sscape_object  The current Scapescape object
     """
-    if self.isNewTrackerID(sscape_object):
+    is_new = self.isNewTrackerID(sscape_object)
+
+    # Initialize tracking entry for new tracks
+    if is_new:
       with self.active_ids_lock:
         self.active_ids.setdefault(sscape_object.rv_id, [None, None])
+
+    # Continue gathering features until we have enough or query is already submitted
+    if sscape_object.rv_id not in self.active_query and self.reid_enabled:
       self.gatherQualityVisualFeatures(sscape_object)
-      self.pickBestID(sscape_object)
-      if self.haveSufficientVisualFeatures(sscape_object) and self.reid_enabled:
-        # Only do the query for similarity if it hasn't been run before
-        if sscape_object.rv_id not in self.active_query:
-          self.active_query[sscape_object.rv_id] = True
-          self.pool.submit(self.querySimilarity, sscape_object)
-    else:
-      self.pickBestID(sscape_object)
+      sufficient_features = self.haveSufficientVisualFeatures(sscape_object)
+      log.debug(f"assignID: rv_id={sscape_object.rv_id}, sufficient_features={sufficient_features}")
+
+      # Submit query once we have enough features
+      if sufficient_features:
+        log.debug(f"assignID: Submitting similarity query for rv_id={sscape_object.rv_id}")
+        self.active_query[sscape_object.rv_id] = True
+        self.pool.submit(self.querySimilarity, sscape_object)
+
+    # Always pick best ID for the current frame
+    self.pickBestID(sscape_object)
     return
