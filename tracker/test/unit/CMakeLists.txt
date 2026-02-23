@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 find_package(GTest REQUIRED)
+find_package(gRPC REQUIRED)
 find_package(stduuid REQUIRED)
 find_package(OpenSSL REQUIRED)
 
@@ -26,6 +27,7 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/proxy_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/time_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/topic_utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/telemetry.cpp
 )
 
 add_executable(tracker_tests
@@ -50,6 +52,7 @@ add_executable(tracker_tests
     id_map_test.cpp
     api_scene_loader_test.cpp
     manager_rest_client_test.cpp
+    telemetry_test.cpp
     ${TRACKER_LIB_SOURCES}
 )
 
@@ -86,6 +89,8 @@ target_link_libraries(tracker_tests
         OpenSSL::SSL
         OpenSSL::Crypto
         stduuid::stduuid
+        opentelemetry-cpp::opentelemetry-cpp
+        grpc::grpc
 )
 
 set_property(TARGET tracker_tests PROPERTY CXX_STANDARD ${TRACKER_CXX_STANDARD})

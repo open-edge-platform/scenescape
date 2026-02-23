@@ -44,6 +44,8 @@ find_package(httplib REQUIRED)
 find_package(RapidJSON REQUIRED)
 find_package(PahoMqttCpp REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(opentelemetry-cpp REQUIRED)
+find_package(gRPC REQUIRED)
 
 #####################################################################
 # System-provided packages
@@ -92,6 +94,7 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/proxy_utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/time_utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/topic_utils.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/telemetry.cpp
 )
 
 add_executable(${PROJECT_NAME}
@@ -127,6 +130,8 @@ target_link_libraries(${PROJECT_NAME}
     PahoMqttCpp::paho-mqttpp3-static
     OpenSSL::SSL
     OpenSSL::Crypto
+    opentelemetry-cpp::opentelemetry-cpp
+    grpc::grpc
 )
 
 #####################################################################
