@@ -1,4 +1,4 @@
-# 3D Mapping Models REST API Service
+# Mapping Service
 
 This Docker container provides a Flask REST API interface for 3D reconstruction with build-time
 model selection, enabling generation of meshes and camera parameters from captured frames.
@@ -21,6 +21,8 @@ Each container is built with one of two state-of-the-art models:
 
 The following diagram shows the dataflow between the Intel® SceneScape Web UI, database, MQTT
 broker, and the Mapping Service.
+
+> **Note:** The diagram is currently best viewed in light color mode.
 
 ```mermaid
 sequenceDiagram
@@ -269,6 +271,7 @@ To add support for additional models:
 
 ## Supporting Resources
 
+- [Build from Source](./build-from-source.md): Build the service from source and run it.
 - [API Reference](./api-docs/mapping-api.yaml): Comprehensive reference for the Mapping service
   REST API endpoints.
 
