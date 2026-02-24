@@ -122,6 +122,7 @@ basic-acceptance-tests: \
   mqtt-tripwire \
   unit-tests \
   auto-calibration-api \
+	openapi-validation \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
@@ -182,6 +183,7 @@ non-functional-tests:
 
 _non-functional-tests: \
   build-time \
+	openapi-validation \
 
 metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
@@ -285,3 +287,8 @@ python-indent-check: # NEX-T10448
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; tests/scripts/checkIndent 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
+
+openapi-validation: # NEX-T10572
+	@cd ../docs/user-guide/api-docs/ \
+	; npm install --save-dev swagger-cli@2.0.0 \
+	; npx swagger-cli validate api.yaml
