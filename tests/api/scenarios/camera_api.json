@@ -37,28 +37,16 @@
         "request": {
           "body": {
             "name": "Camera_Full",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "intrinsics": {
               "fx": 905,
               "fy": 905,
               "cx": 640,
               "cy": 360
             },
-            "resolution": [1280, 720],
-            "command": "../../../../../sample_data/apriltag-cam1.mp4",
-            "camerachain": "retail",
-            "mac": "02:42:ac:12:00:04",
-            "distortion": {
-              "k1": 0,
-              "k2": 0,
-              "p1": 0,
-              "p2": 0,
-              "k3": 0
-            },
             "translation": [1, 1, 1],
             "rotation": [1, 1, 1],
-            "scale": [1, 1, 1],
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
-            "uid": "3bc091c7-e449-46a0-9540-29c499bca18c"
+            "scale": [1, 1, 1]
           }
         },
         "expected_status": {
@@ -78,14 +66,14 @@
         "api": "camera",
         "method": "createCamera",
         "request": {
-          "body": {
+          "body": {            
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "intrinsics": {
               "fx": 1000.0,
               "fy": 1000.0,
               "cx": 960.0,
               "cy": 540.0
-            },
-            "resolution": [1920, 1080]
+            }
           }
         },
         "expected_status": {
@@ -104,7 +92,7 @@
         "request": {
           "body": {
             "name": "Camera_No_Intrinsics",
-            "resolution": [1920, 1080]
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
           }
         },
         "expected_status": {
@@ -123,6 +111,7 @@
         "request": {
           "body": {
             "name": "Camera_No_Resolution",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "intrinsics": {
               "fx": 1000.0,
               "fy": 1000.0,
@@ -148,13 +137,13 @@
           "UID": "${CAMERA_UID_MINIMAL}",
           "body": {
             "name": "Camera_Minimal_Updated",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "intrinsics": {
               "fx": 1100.0,
               "fy": 1100.0,
               "cx": 960.0,
               "cy": 540.0
-            },
-            "resolution": [1920, 1080]
+            }
           }
         },
         "expected_status": {
@@ -188,13 +177,13 @@
           "UID": "${CAMERA_UID_FULL}",
           "body": {
             "name": "Camera_Full_Updated",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "intrinsics": {
               "fx": 1200.0,
               "fy": 1200.0,
               "cx": 960.0,
               "cy": 540.0
             },
-            "resolution": [1920, 1080],
             "distortion": {
               "k1": 0.1,
               "k2": 0.1,
@@ -233,14 +222,14 @@
         "method": "updateCamera",
         "request": {
           "UID": "${CAMERA_UID_MINIMAL}",
-          "body": {
+          "body": {            
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "intrinsics": {
               "fx": 1000.0,
               "fy": 1000.0,
               "cx": 960.0,
               "cy": 540.0
-            },
-            "resolution": [1920, 1080]
+            }
           }
         },
         "expected_status": {
@@ -260,7 +249,7 @@
           "UID": "${CAMERA_UID_MINIMAL}",
           "body": {
             "name": "Should_Fail",
-            "resolution": [1920, 1080]
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
           }
         },
         "expected_status": {
@@ -280,6 +269,7 @@
           "UID": "${CAMERA_UID_MINIMAL}",
           "body": {
             "name": "Should_Fail",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "intrinsics": {
               "fx": 1000.0,
               "fy": 1000.0,
@@ -305,6 +295,7 @@
           "UID": "123",
           "body": {
             "name": "Should_Fail",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "intrinsics": {
               "fx": 1000.0,
               "fy": 1000.0,
