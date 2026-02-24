@@ -24,7 +24,6 @@ GENERATE_JUNITXML_UNITTEST=-o junit_logging=all --junitxml tests/reports/test_re
 NPROCS?=$(shell echo $(shell grep -c ^processor /proc/cpuinfo)/3 | bc)
 COMPOSE=tests/compose
 EXAMPLEDB=tests/testdb.tar.bz2
-VISIBILITY_TOPIC := regulated unregulated none
 
 ifeq ($(KUBERNETES),1)
     RUNTEST=tests/kubernetes/runtest
@@ -95,6 +94,7 @@ broken-features:
 # tests that are working, but feature is broken
 _broken-features: \
   calibrate-camera-3d-ui-2d-ui \
+  visibility-regulated \
 
 broken-tests: \
   3d-ui-calibration-points \
@@ -105,7 +105,7 @@ broken-tests: \
   reid-performance-degradation \
   auto-calibration-ui \
   3d-scene-control-panel \
-	3d-camera-control-panel \
+  3d-camera-control-panel \
 
 randomly-failing-tests: \
   distance-msoce \
@@ -121,6 +121,7 @@ basic-acceptance-tests: \
   mqtt-tripwire \
   unit-tests \
   auto-calibration-api \
+	openapi-validation \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
@@ -173,12 +174,15 @@ _functional-tests: \
   upload-3d-glb-file-api \
   upload-only-3d-glb-files-api \
   vdms-similarity-search \
+  visibility-unregulated \
+  visibility-none \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
 
 _non-functional-tests: \
   build-time \
+	openapi-validation \
 
 metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
@@ -279,3 +283,8 @@ python-indent-check: # NEX-T10448
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; tests/scripts/checkIndent 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
+
+openapi-validation: # NEX-T10572
+	@cd ../docs/user-guide/api-docs/ \
+	; npm install --save-dev swagger-cli@2.0.0 \
+	; npx swagger-cli validate api.yaml
