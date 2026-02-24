@@ -7,9 +7,12 @@ import base64
 ## Policies to post process data
 
 def detectionPolicy(pobj, item, fw, fh):
+  detection = item['detection']
+  # If label is missing use label_id to avoid KeyError exception.
+  category = detection.get('label') or str(detection['label_id'])
   pobj.update({
-    'category': item['detection']['label'],
-    'confidence': item['detection']['confidence']
+    'category': category,
+    'confidence': detection['confidence']
   })
   computeObjBoundingBoxParams(pobj, fw, fh, item['x'], item['y'], item['w'],item['h'],
                               item['detection']['bounding_box']['x_min'],
