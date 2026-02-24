@@ -103,6 +103,7 @@ broken-tests: \
   reid-unique-count \
   reid-performance-degradation \
   auto-calibration-ui \
+  visibility-regulated \
 
 randomly-failing-tests: \
   distance-msoce \
@@ -170,7 +171,6 @@ _functional-tests: \
   upload-3d-glb-file-api \
   upload-only-3d-glb-files-api \
   vdms-similarity-search \
-  visibility-regulated \
   visibility-unregulated \
   visibility-none \
   3d-scene-control-panel \
