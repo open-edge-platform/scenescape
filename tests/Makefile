@@ -24,7 +24,6 @@ GENERATE_JUNITXML_UNITTEST=-o junit_logging=all --junitxml tests/reports/test_re
 NPROCS?=$(shell echo $(shell grep -c ^processor /proc/cpuinfo)/3 | bc)
 COMPOSE=tests/compose
 EXAMPLEDB=tests/testdb.tar.bz2
-VISIBILITY_TOPIC := regulated unregulated none
 
 ifeq ($(KUBERNETES),1)
     RUNTEST=tests/kubernetes/runtest
@@ -104,6 +103,7 @@ broken-tests: \
   reid-unique-count \
   reid-performance-degradation \
   auto-calibration-ui \
+  visibility-regulated \
 
 randomly-failing-tests: \
   distance-msoce \
@@ -171,7 +171,8 @@ _functional-tests: \
   upload-3d-glb-file-api \
   upload-only-3d-glb-files-api \
   vdms-similarity-search \
-  visibility \
+  visibility-unregulated \
+  visibility-none \
   3d-scene-control-panel \
 
 non-functional-tests:
