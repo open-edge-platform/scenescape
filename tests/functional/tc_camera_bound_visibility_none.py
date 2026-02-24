@@ -42,7 +42,7 @@ def test_camera_bound_visibility(
   record_xml_attribute("name", test_name)
 
   visibility_topic = pytestconfig.getoption("visibility_topic")
-  test = CameraBoundVisibilityNone()           # use the subclass, not the base
+  test = CameraBoundVisibilityNone()
   exit_code = test.run(params, visibility_topic, test_name)
 
   assert exit_code == 0
