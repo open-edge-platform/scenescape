@@ -80,7 +80,7 @@
           "status_code": 200
         },
         "validate": {
-          "name": "Asset_Minimal_Updated_3"
+          "name": "Asset_Minimal_Updated"
         }
       }
     ]
