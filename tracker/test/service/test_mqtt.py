@@ -110,6 +110,7 @@ def tls_tracker_service(tls_certs):
       f"TRACKER_MQTT_TLS_CA_CERT=/run/secrets/ca_cert\n"
       f"TRACKER_MQTT_TLS_CLIENT_CERT=/run/secrets/client_cert\n"
       f"TRACKER_MQTT_TLS_CLIENT_KEY=/run/secrets/client_key\n"
+      f"TRACKER_SCENES_SOURCE=file\n"
   )
 
   docker = DockerClient(
