@@ -106,7 +106,6 @@ broken-tests: \
   auto-calibration-ui \
   3d-scene-control-panel \
   3d-camera-control-panel \
-  visibility-regulated \
 
 randomly-failing-tests: \
   distance-msoce \
