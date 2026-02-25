@@ -6,7 +6,9 @@
 
 import pytest
 from unittest.mock import MagicMock
+import tests.common_test_utils as common
 
+TEST_NAME = "NEX-T10482"
 
 @pytest.fixture
 def mock_vdms():
@@ -15,8 +17,16 @@ def mock_vdms():
   return mock
 
 
-@pytest.fixture
-def mock_log():
-  """Provide a mocked logger."""
-  mock = MagicMock()
-  return mock
+def pytest_sessionstart():
+  """! Executes at the beginning of the session. """
+
+  print(f"Executing: {TEST_NAME}")
+
+  return
+
+
+def pytest_sessionfinish(exitstatus):
+  """! Executes at the end of the session. """
+
+  common.record_test_result(TEST_NAME, exitstatus)
+  return

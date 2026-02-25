@@ -78,10 +78,10 @@ robot-vision-unit:
 scene-unit: # NEX-T10451
 	$(call unit-recipe, scene_pytest, $(IMAGE)-controller-test)
 
-uuid-manager-unit:
+uuid-manager-unit: # NEX-T19884
 	$(call unit-recipe, uuid_manager, $(IMAGE)-controller-test)
 
-vdms-adapter-unit:
+vdms-adapter-unit: # NEX-T19885
 	$(call unit-recipe, vdms_adapter, $(IMAGE)-controller-test)
 
 scenescape-unit: # NEX-T10450

@@ -262,7 +262,7 @@ reid-unique-count: # NEX-T10539
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 	$(eval override BASE_IMAGE := $(IMAGE_OLD))
 
-reid-data-flow:
+reid-data-flow: # NEX-T19883
 	$(eval SERVICES := $(strip broker ntpserv pgserver vdms web scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web_default.yml:$(COMPOSE)/cams.yml)
 	$(eval override IMAGE_OLD := $(BASE_IMAGE))
@@ -273,7 +273,7 @@ reid-data-flow:
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 	$(eval override BASE_IMAGE := $(IMAGE_OLD))
 
-reid-semantic-unique-count: # NEX-T10540
+reid-semantic-unique-count: # NEX-T19882
 	$(eval SERVICES := $(strip pgserver web queuing-video scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/dlstreamer/queuing_video_reid_semantic.yml:$(COMPOSE)/scene_reid.yml:$(COMPOSE)/web_default.yml:$(COMPOSE)/cams.yml)
 	$(eval override IMAGE_OLD := $(BASE_IMAGE))

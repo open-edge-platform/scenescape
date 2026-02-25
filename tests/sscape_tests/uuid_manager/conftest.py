@@ -9,7 +9,9 @@ Provides mock objects and test utilities.
 
 import pytest
 from unittest.mock import MagicMock, Mock
+import tests.common_test_utils as common
 
+TEST_NAME = "NEX-T19884"
 
 @pytest.fixture
 def mock_vdms():
@@ -27,18 +29,16 @@ def mock_vdms():
   return mock_instance
 
 
-@pytest.fixture
-def mock_log():
-  """
-  Provides a mocked logger instance.
+def pytest_sessionstart():
+  """! Executes at the beginning of the session. """
 
-  Returns:
-    MagicMock: Mock logger with all standard logging methods.
-  """
-  mock_logger = MagicMock()
-  mock_logger.debug = Mock()
-  mock_logger.info = Mock()
-  mock_logger.warning = Mock()
-  mock_logger.error = Mock()
-  mock_logger.critical = Mock()
-  return mock_logger
+  print(f"Executing: {TEST_NAME}")
+
+  return
+
+
+def pytest_sessionfinish(exitstatus):
+  """! Executes at the end of the session. """
+
+  common.record_test_result(TEST_NAME, exitstatus)
+  return

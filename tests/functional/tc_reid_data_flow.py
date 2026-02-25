@@ -173,7 +173,7 @@ def test_reid_data_flow_end_to_end(params, record_xml_attribute):
   @param params  Test parameters from pytest fixture
   @param record_xml_attribute  Pytest fixture for recording test metadata
   """
-  TEST_NAME = "NEX-T10540"
+  TEST_NAME = "NEX-T19883"
   record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   log.info("Test Reid data flow through 2-tier architecture")

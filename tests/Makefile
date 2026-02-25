@@ -87,10 +87,7 @@ release-tests: \
   live-view-button \
   non-functional-tests \
   scene-details \
-  reid-data-flow \
-  reid-unique-count \
   reid-performance-degradation \
-  reid-semantic-unique-count \
 
 broken-features:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -163,6 +160,9 @@ _functional-tests: \
   object-crud-api \
   orphaned-sensor \
   persistence-api \
+  reid-data-flow \
+  reid-unique-count \
+  reid-semantic-unique-count \
   rest-test \
   scene-details-api \
   scene-import-api \
