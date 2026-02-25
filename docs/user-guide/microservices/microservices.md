@@ -8,7 +8,8 @@ various aspects of the tool's capabilites.
 - [Cluster Analytics Service](./cluster-analytics/cluster-analytics.md) - advanced object
   clustering and movement analysis.
 - [Scene Controller Service](./controller/controller.md) - multimodal sensor data fusing for spatial analytics.
-- Mapping Microservice
+- [Mapping Service](./mapping-service/mapping-service.md) - generate meshes and camera
+  parameters from camera-captured frames.
 
 <!--hide_directive
 :::{toctree}
@@ -17,6 +18,7 @@ various aspects of the tool's capabilites.
 Auto Camera Calibration <./auto-calibration/auto-calibration.md>
 Cluster Analytics <./cluster-analytics/cluster-analytics.md>
 Scene Controller <./controller/controller.md>
+Mapping Service <./mapping-service/mapping-service.md>
 
 :::
 hide_directive-->

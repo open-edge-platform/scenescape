@@ -40,7 +40,7 @@ Figure 1: Architecture Diagram
 
 ### **Scene Controller**
 
-Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](https://github.com/open-edge-platform/scenescape/blob/main/controller/README.md).
+Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](./microservices/controller/controller.md).
 
 ### **Deep Learning Streamer Pipeline Server**
 
