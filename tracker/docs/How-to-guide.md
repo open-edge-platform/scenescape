@@ -70,5 +70,5 @@ docker compose --profile analytics --profile tracker up -d
 
 - [Tracker Service Documentation](../README.md)
 - [Tracker Service Architecture](../../docs/design/tracker-service.md)
-- [Controller User Guide](../../controller/docs/user-guide/overview.md)
-- [Controller Analytics-Only Mode](../../controller/docs/user-guide/get-started.md#running-in-analytics-only-mode)
+- [Controller User Guide](../../docs/user-guide/microservices/controller/controller.md)
+- [Controller Analytics-Only Mode](../../docs/user-guide/microservices/controller/get-started.md#running-in-analytics-only-mode)
