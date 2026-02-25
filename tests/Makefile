@@ -34,6 +34,9 @@ endif
 RANDPASS:=$(shell openssl rand -base64 12)
 export SUPASS?=$(RANDPASS)
 
+SECRETSDIR ?= $(PWD)/manager/secrets
+export SECRETSDIR
+
 define common-recipe =
 	$(eval YML=$1)
 	$(eval TEST_SCRIPT=$2)
