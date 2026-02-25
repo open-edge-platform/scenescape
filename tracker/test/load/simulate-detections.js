@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 /*
 
 This is a k6 test script that simulates SceneScape detection messages over MQTT.
