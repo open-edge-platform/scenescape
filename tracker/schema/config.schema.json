@@ -19,8 +19,7 @@
         },
         "manager": {
           "url": "https://manager.scenescape.intel.com",
-          "username_path": "/run/secrets/manager-username",
-          "password_path": "/run/secrets/manager-password"
+          "auth_path": "/run/secrets/manager.auth"
         }
       }
     },
@@ -89,22 +88,22 @@
         },
         "manager": {
           "type": "object",
-          "description": "Manager REST API connection for fetching scene configurations. Required when scenes.source is 'api' or omitted.",
+          "description": "Manager REST API connection for fetching scene configurations. Required when scenes.source is 'api'.",
           "properties": {
             "url": {
               "type": "string",
               "description": "Manager API base URL"
             },
-            "username_path": {
+            "auth_path": {
               "type": "string",
-              "description": "Path to file containing API username"
+              "description": "Path to JSON auth file containing user and password keys"
             },
-            "password_path": {
+            "ca_cert_path": {
               "type": "string",
-              "description": "Path to file containing API password"
+              "description": "Path to CA certificate for HTTPS verification."
             }
           },
-          "required": ["url", "username_path", "password_path"]
+          "required": ["url", "auth_path"]
         },
         "otlp": {
           "type": "object",
@@ -239,13 +238,13 @@
     },
     "scenes": {
       "type": "object",
-      "description": "Scene configuration source. Use 'file' to load scenes from an external JSON file (default). Use 'api' to fetch scenes dynamically from Manager REST API (requires infrastructure.manager, not yet implemented).",
+      "description": "Scene configuration source. Use 'api' (default) to fetch scenes dynamically from Manager REST API (requires infrastructure.manager). Use 'file' to load scenes from an external JSON file.",
       "properties": {
         "source": {
           "type": "string",
           "description": "Configuration source: file (from JSON file) or api (from Manager REST API)",
           "enum": ["file", "api"],
-          "default": "file"
+          "default": "api"
         },
         "file_path": {
           "type": "string",
