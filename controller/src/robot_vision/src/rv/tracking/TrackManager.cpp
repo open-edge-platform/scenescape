@@ -3,7 +3,6 @@
 
 #include "rv/Utils.hpp"
 #include "rv/tracking/TrackManager.hpp"
-#include <iostream>
 #include <omp.h>
 
 namespace rv {
@@ -354,10 +353,6 @@ void TrackManager::updateTrackerConfig(int camera_frame_rate)
   mConfig.mMaxNumberOfUnreliableFrames = std::ceil(camera_frame_rate*mConfig.mMaxUnreliableTime);
   mConfig.mNonMeasurementFramesDynamic = std::ceil(camera_frame_rate*mConfig.mNonMeasurementTimeDynamic);
   mConfig.mNonMeasurementFramesStatic = std::ceil(camera_frame_rate*mConfig.mNonMeasurementTimeStatic);
-  std::cout << "Updated parameters for reference camera frame rate = " << camera_frame_rate << "fps" << std::endl;
-  std::cout << "max_unreliable_frames = " << mConfig.mMaxNumberOfUnreliableFrames << std::endl;
-  std::cout << "non_measurement_frames_dynamic = " << mConfig.mNonMeasurementFramesDynamic << std::endl;
-  std::cout << "non_measurement_frames_static = " << mConfig.mNonMeasurementFramesStatic << std::endl;
 }
 
 } // namespace tracking
