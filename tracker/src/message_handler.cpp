@@ -90,10 +90,17 @@ MessageHandler::loadSchema(const std::filesystem::path& schema_path) {
     return std::make_unique<rapidjson::SchemaDocument>(schema_doc);
 }
 
+void MessageHandler::enableDynamicMode(ShutdownCallback callback) {
+    dynamic_mode_ = true;
+    shutdown_callback_ = std::move(callback);
+    LOG_INFO_ENTRY(LogEntry("Dynamic mode enabled - will subscribe to database update topic")
+                       .component("mqtt"));
+}
+
 void MessageHandler::start() {
-    // Set up message callback
+    // Set up message callback with topic-based routing
     mqtt_client_->setMessageCallback([this](const std::string& topic, const std::string& payload) {
-        handleCameraMessage(topic, payload);
+        routeMessage(topic, payload);
     });
 
     // Subscribe to each registered camera's topic
@@ -124,6 +131,14 @@ void MessageHandler::start() {
     LOG_INFO_ENTRY(LogEntry("Queued camera subscriptions")
                        .component("mqtt")
                        .operation(std::format("{} cameras", camera_ids.size())));
+
+    // In dynamic mode, subscribe to database update topic for config change notifications
+    if (dynamic_mode_) {
+        mqtt_client_->subscribe(TOPIC_DATABASE_UPDATE);
+        LOG_INFO_ENTRY(LogEntry("Queued database update subscription")
+                           .component("mqtt")
+                           .operation(TOPIC_DATABASE_UPDATE));
+    }
 }
 
 void MessageHandler::stop() {
@@ -140,7 +155,34 @@ void MessageHandler::stop() {
         auto topic = std::format(TOPIC_CAMERA_SUBSCRIBE_PATTERN, camera_id);
         mqtt_client_->unsubscribe(topic);
     }
+
+    // Unsubscribe from database update topic (dynamic mode)
+    if (dynamic_mode_) {
+        mqtt_client_->unsubscribe(TOPIC_DATABASE_UPDATE);
+    }
+
     mqtt_client_->setMessageCallback(nullptr);
+}
+
+void MessageHandler::routeMessage(const std::string& topic, const std::string& payload) {
+    if (dynamic_mode_ && topic == TOPIC_DATABASE_UPDATE) {
+        handleDatabaseUpdateMessage(topic, payload);
+    } else {
+        handleCameraMessage(topic, payload);
+    }
+}
+
+void MessageHandler::handleDatabaseUpdateMessage(const std::string& topic,
+                                                 const std::string& payload) {
+    LOG_INFO_ENTRY(LogEntry("Database update received, triggering restart")
+                       .component("message_handler")
+                       .mqtt({.topic = topic, .direction = "subscribe"}));
+
+    if (shutdown_callback_) {
+        shutdown_callback_();
+    } else {
+        LOG_WARN("Database update received but no shutdown callback registered");
+    }
 }
 
 void MessageHandler::handleCameraMessage(const std::string& topic, const std::string& payload) {

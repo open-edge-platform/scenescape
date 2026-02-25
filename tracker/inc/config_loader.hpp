@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "scene_loader.hpp"
+#include "scenes_config.hpp"
 
 #include <filesystem>
 #include <optional>
@@ -48,11 +48,21 @@ struct TrackerConfig {
 };
 
 /**
+ * @brief Manager REST API connection settings.
+ */
+struct ManagerConfig {
+    std::string url;                         ///< Manager API base URL
+    std::string auth_path;                   ///< Path to JSON auth file {user, password}
+    std::optional<std::string> ca_cert_path; ///< CA cert for HTTPS verification
+};
+
+/**
  * @brief External service connections.
  */
 struct InfrastructureConfig {
     MqttConfig mqtt;
     TrackerConfig tracker;
+    std::optional<ManagerConfig> manager; ///< Required when scenes.source='api'
 };
 
 /**
@@ -133,6 +143,12 @@ constexpr char TRACKING_MAX_UNRELIABLE_TIME_S[] = "/tracking/max_unreliable_time
 constexpr char TRACKING_NON_MEASUREMENT_TIME_DYNAMIC_S[] =
     "/tracking/non_measurement_time_dynamic_s";
 constexpr char TRACKING_NON_MEASUREMENT_TIME_STATIC_S[] = "/tracking/non_measurement_time_static_s";
+
+// Manager
+constexpr char INFRASTRUCTURE_MANAGER[] = "/infrastructure/manager";
+constexpr char INFRASTRUCTURE_MANAGER_URL[] = "/infrastructure/manager/url";
+constexpr char INFRASTRUCTURE_MANAGER_AUTH_PATH[] = "/infrastructure/manager/auth_path";
+constexpr char INFRASTRUCTURE_MANAGER_CA_CERT_PATH[] = "/infrastructure/manager/ca_cert_path";
 
 // Scenes
 constexpr char SCENES_SOURCE[] = "/scenes/source";
