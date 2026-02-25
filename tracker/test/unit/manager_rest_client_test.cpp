@@ -122,6 +122,11 @@ TEST_F(ManagerRestClientTest, AuthenticateInvalidUrlBadScheme) {
     EXPECT_THROW(client.authenticate("u", "p"), std::runtime_error);
 }
 
+TEST_F(ManagerRestClientTest, AuthenticateInvalidUrlEmpty) {
+    ManagerRestClient client("");
+    EXPECT_THROW(client.authenticate("u", "p"), std::runtime_error);
+}
+
 TEST_F(ManagerRestClientTest, AuthenticateConnectionRefused) {
     // Bind to an ephemeral port, then close it to guarantee connection refusal
     httplib::Server tmp_server;
