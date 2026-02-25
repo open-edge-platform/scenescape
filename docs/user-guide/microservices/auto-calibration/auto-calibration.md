@@ -1,3 +1,17 @@
+<!--hide_directive
+<div class="component_card_widget">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/autocalibration">
+     GitHub project
+  </a>
+  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/README.md">
+     Readme
+  </a>
+  <a class="icon_download" href="https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/microservices/auto-calibration/get-started/build-from-source.md">
+     Installation guide
+  </a>
+</div>
+hide_directive-->
+
 # Auto Camera Calibration Service
 
 Auto camera calibration service computes camera parameters automatically instead of
