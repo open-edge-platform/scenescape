@@ -654,9 +654,11 @@ TEST(ConfigLoaderTest, ScenesSourceEnvOverride) {
         EXPECT_EQ(config.scenes.source, SceneSource::File);
     }
 
-    // Override to api
+    // Override to api (also requires manager config)
     {
-        ScopedEnv env(tracker::env::SCENES_SOURCE, "api");
+        ScopedEnv env_src(tracker::env::SCENES_SOURCE, "api");
+        ScopedEnv env_mgr(tracker::env::MANAGER_URL, "https://manager.test");
+        ScopedEnv env_auth(tracker::env::MANAGER_AUTH_PATH, "/auth");
         auto config = load_config(config_file.path(), get_schema_path());
         EXPECT_EQ(config.scenes.source, SceneSource::Api);
     }
@@ -1193,6 +1195,173 @@ TEST(ConfigLoaderTest, CameraNotObjectThrows) {
 
     auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
     EXPECT_THROW(scene_loader->load(), std::runtime_error);
+}
+
+//
+// API scenes source with Manager config from JSON file (lines 222-262)
+//
+
+/// Helper to create config with api source and manager section
+std::string config_with_api_source() {
+    return R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true},
+        "manager": {
+          "url": "https://manager.example.com",
+          "auth_path": "/tmp/auth.json",
+          "ca_cert_path": "/tmp/ca.pem"
+        }
+      },
+      "scenes": {
+        "source": "api"
+      }
+    })";
+}
+
+TEST(ConfigLoaderTest, LoadApiSourceConfig) {
+    TempFile config_file(config_with_api_source());
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_EQ(config.scenes.source, SceneSource::Api);
+    ASSERT_TRUE(config.infrastructure.manager.has_value());
+    EXPECT_EQ(config.infrastructure.manager->url, "https://manager.example.com");
+    EXPECT_EQ(config.infrastructure.manager->auth_path, "/tmp/auth.json");
+    ASSERT_TRUE(config.infrastructure.manager->ca_cert_path.has_value());
+    EXPECT_EQ(config.infrastructure.manager->ca_cert_path.value(), "/tmp/ca.pem");
+}
+
+TEST(ConfigLoaderTest, LoadApiSourceWithoutCaCert) {
+    std::string json = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true},
+        "manager": {
+          "url": "https://manager.example.com",
+          "auth_path": "/tmp/auth.json"
+        }
+      },
+      "scenes": {
+        "source": "api"
+      }
+    })";
+    TempFile config_file(json);
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.manager.has_value());
+    EXPECT_FALSE(config.infrastructure.manager->ca_cert_path.has_value());
+}
+
+TEST(ConfigLoaderTest, ApiSourceWithoutManagerThrows) {
+    std::string json = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "scenes": {
+        "source": "api"
+      }
+    })";
+    TempFile config_file(json);
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, ApiSourceMissingManagerUrlThrows) {
+    std::string json = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true},
+        "manager": {
+          "auth_path": "/tmp/auth.json"
+        }
+      },
+      "scenes": {
+        "source": "api"
+      }
+    })";
+    TempFile config_file(json);
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, ApiSourceMissingManagerAuthPathThrows) {
+    std::string json = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true},
+        "manager": {
+          "url": "https://manager.example.com"
+        }
+      },
+      "scenes": {
+        "source": "api"
+      }
+    })";
+    TempFile config_file(json);
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, InvalidScenesSourceInConfigThrows) {
+    std::string json = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "scenes": {
+        "source": "database"
+      }
+    })";
+    TempFile config_file(json);
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+//
+// Manager env var override tests (lines 385-398)
+//
+
+TEST(ConfigLoaderTest, ManagerEnvVarOverrides_AllFields) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    ScopedEnv env_src(tracker::env::SCENES_SOURCE, "api");
+    ScopedEnv env_url(tracker::env::MANAGER_URL, "https://env-manager.test");
+    ScopedEnv env_auth(tracker::env::MANAGER_AUTH_PATH, "/env/auth.json");
+    ScopedEnv env_ca(tracker::env::MANAGER_CA_CERT_PATH, "/env/ca.pem");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+    ASSERT_TRUE(config.infrastructure.manager.has_value());
+    EXPECT_EQ(config.infrastructure.manager->url, "https://env-manager.test");
+    EXPECT_EQ(config.infrastructure.manager->auth_path, "/env/auth.json");
+    ASSERT_TRUE(config.infrastructure.manager->ca_cert_path.has_value());
+    EXPECT_EQ(config.infrastructure.manager->ca_cert_path.value(), "/env/ca.pem");
+}
+
+TEST(ConfigLoaderTest, ManagerEnvVarOverrides_UrlOnlyCreatesManagerConfig) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    ScopedEnv env_url(tracker::env::MANAGER_URL, "https://env-only.test");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+    ASSERT_TRUE(config.infrastructure.manager.has_value());
+    EXPECT_EQ(config.infrastructure.manager->url, "https://env-only.test");
+}
+
+TEST(ConfigLoaderTest, ManagerEnvVarOverrides_OverridesExisting) {
+    TempFile config_file(config_with_api_source());
+
+    ScopedEnv env_url(tracker::env::MANAGER_URL, "https://overridden.test");
+    ScopedEnv env_auth(tracker::env::MANAGER_AUTH_PATH, "/overridden/auth.json");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+    ASSERT_TRUE(config.infrastructure.manager.has_value());
+    EXPECT_EQ(config.infrastructure.manager->url, "https://overridden.test");
+    EXPECT_EQ(config.infrastructure.manager->auth_path, "/overridden/auth.json");
+}
+
+//
+// parse_positive_double out_of_range path (line 353)
+//
+
+TEST(ConfigLoaderTest, PositiveDoubleEnvOverride_OutOfRange) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Use a value that causes std::stod to throw std::out_of_range
+    std::string huge_value = "1e99999";
+    ScopedEnv env(tracker::env::MAX_UNRELIABLE_TIME_S, huge_value.c_str());
+
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
 }
 
 } // namespace

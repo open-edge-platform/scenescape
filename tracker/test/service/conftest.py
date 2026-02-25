@@ -14,7 +14,7 @@ from python_on_whales import DockerClient
 from waiting import wait
 
 from utils.certs import generate_test_certificates
-from utils.docker import is_tracker_ready
+from utils.docker import is_tracker_ready, get_container_logs, wait_for_readiness
 
 
 @pytest.fixture(scope="function")
@@ -55,6 +55,7 @@ def tracker_service(tls_certs):
       f"TLS_CLIENT_CERT_FILE={tls_certs.client.cert_path}\n"
       f"TLS_CLIENT_KEY_FILE={tls_certs.client.key_path}\n"
       f"TRACKER_MQTT_INSECURE=true\n"
+      f"TRACKER_SCENES_SOURCE=file\n"
   )
 
   docker = DockerClient(
@@ -100,6 +101,7 @@ def tracker_service_delayed_broker(tls_certs):
       f"TLS_CLIENT_CERT_FILE={tls_certs.client.cert_path}\n"
       f"TLS_CLIENT_KEY_FILE={tls_certs.client.key_path}\n"
       f"TRACKER_MQTT_INSECURE=true\n"
+      f"TRACKER_SCENES_SOURCE=file\n"
   )
 
   docker = DockerClient(
@@ -125,6 +127,66 @@ def tracker_service_delayed_broker(tls_certs):
     wait(tracker_container_exists, timeout_seconds=10, sleep_seconds=0.2)
     print("Stopping broker to simulate delayed availability...")
     docker.compose.stop(services=["broker"])
+
+    yield {"docker": docker}
+
+  finally:
+    print(f"\nCleaning up: {project_name}")
+    docker.compose.down(remove_orphans=True, volumes=True)
+
+
+@pytest.fixture(scope="function")
+def tracker_service_api(tls_certs):
+  """
+  Fixture that starts tracker with mock Manager API for dynamic scene loading.
+
+  Uses the 'api' compose profile to activate mock-manager service and
+  env var overrides to reconfigure tracker for API source mode.
+  Tests the full API loading path:
+  auth file -> POST /api/v1/auth -> GET /api/v1/scenes -> transform -> validate -> parse.
+
+  Yields:
+      dict: Contains 'docker' client
+  """
+  service_dir = Path(__file__).parent
+  compose_file = service_dir / "docker-compose.yaml"
+
+  project_name = f"tracker-api-{uuid.uuid4().hex[:8]}"
+
+  env_file = tls_certs.temp_dir / ".env"
+  env_file.write_text(
+      f"TLS_CA_CERT_FILE={tls_certs.ca.cert_path}\n"
+      f"TLS_SERVER_CERT_FILE={tls_certs.server.cert_path}\n"
+      f"TLS_SERVER_KEY_FILE={tls_certs.server.key_path}\n"
+      f"TLS_CLIENT_CERT_FILE={tls_certs.client.cert_path}\n"
+      f"TLS_CLIENT_KEY_FILE={tls_certs.client.key_path}\n"
+      f"TRACKER_SCENES_SOURCE=api\n"
+      f"TRACKER_MANAGER_URL=http://mock-manager:8000\n"
+      f"TRACKER_MANAGER_AUTH_PATH=/run/secrets/mock-auth\n"
+  )
+
+  docker = DockerClient(
+      compose_files=[compose_file],
+      compose_project_name=project_name,
+      compose_project_directory=str(service_dir),
+      compose_env_files=[str(env_file)],
+      compose_profiles=["api"],
+  )
+
+  try:
+    print(f"\nStarting API test environment: {project_name}")
+    docker.compose.up(services=["mock-manager"], detach=True, wait=True)
+    docker.compose.up(detach=True, wait=False)
+
+    try:
+      wait_for_readiness(docker, timeout=30)
+    except Exception:
+      print("\nTracker failed to become ready in API mode. Logs:")
+      print("--- Tracker logs ---")
+      print(get_container_logs(docker, "tracker"))
+      print("--- Mock Manager logs ---")
+      print(get_container_logs(docker, "mock-manager"))
+      raise
 
     yield {"docker": docker}
 

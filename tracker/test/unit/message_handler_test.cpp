@@ -763,6 +763,160 @@ TEST_F(MessageHandlerTest, SchemaValidation_GracefulFallbackOnErrors) {
 }
 
 //
+// Dynamic mode (database update) tests
+//
+
+// Test that dynamic mode subscribes to database update topic on start
+TEST_F(MessageHandlerTest, DynamicMode_SubscribesToDatabaseUpdateTopic) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+
+    bool callback_called = false;
+    handler.enableDynamicMode([&callback_called]() { callback_called = true; });
+
+    // Expect subscription to both camera and database update topics
+    EXPECT_CALL(*mock_client_, subscribe(std::format(MessageHandler::TOPIC_CAMERA_SUBSCRIBE_PATTERN,
+                                                     TEST_CAMERA_ID)))
+        .Times(1);
+    EXPECT_CALL(*mock_client_, subscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(1);
+
+    handler.start();
+}
+
+// Test that static mode does NOT subscribe to database update topic
+TEST_F(MessageHandlerTest, StaticMode_NoDatabaseUpdateSubscription) {
+    // Only camera subscription expected, no database update subscription
+    EXPECT_CALL(*mock_client_, subscribe(std::format(MessageHandler::TOPIC_CAMERA_SUBSCRIBE_PATTERN,
+                                                     TEST_CAMERA_ID)))
+        .Times(1);
+    EXPECT_CALL(*mock_client_, subscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(0);
+
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+}
+
+// Test dynamic mode with multiple scenes still subscribes to single database update topic
+TEST_F(MessageHandlerTest, DynamicMode_SingleDatabaseSubscriptionForMultipleScenes) {
+    Camera cam1, cam2;
+    cam1.uid = "cam-a";
+    cam1.name = "Camera A";
+    cam2.uid = "cam-b";
+    cam2.name = "Camera B";
+
+    Scene scene1;
+    scene1.uid = "scene-alpha";
+    scene1.name = "Scene Alpha";
+    scene1.cameras = {cam1};
+
+    Scene scene2;
+    scene2.uid = "scene-beta";
+    scene2.name = "Scene Beta";
+    scene2.cameras = {cam2};
+
+    SceneRegistry multi_registry;
+    multi_registry.register_scenes({scene1, scene2});
+
+    // Allow camera topic subscriptions
+    EXPECT_CALL(*mock_client_, subscribe(::testing::_)).Times(::testing::AnyNumber());
+    // Exactly one database update subscription regardless of scene count
+    EXPECT_CALL(*mock_client_, subscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(1);
+
+    MessageHandler handler(mock_client_, multi_registry, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([]() {});
+    handler.start();
+}
+
+// Test that receiving a database update message triggers the shutdown callback
+TEST_F(MessageHandlerTest, DynamicMode_DatabaseUpdateTriggersShutdown) {
+    bool callback_called = false;
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([&callback_called]() { callback_called = true; });
+    handler.start();
+
+    EXPECT_FALSE(callback_called);
+
+    mock_client_->simulateMessage(MessageHandler::TOPIC_DATABASE_UPDATE, "update");
+
+    EXPECT_TRUE(callback_called);
+}
+
+// Test that database update messages don't increment camera message counters
+TEST_F(MessageHandlerTest, DynamicMode_DatabaseUpdateDoesNotIncrementCounters) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([]() {});
+    handler.start();
+
+    mock_client_->simulateMessage(MessageHandler::TOPIC_DATABASE_UPDATE, "update");
+
+    EXPECT_EQ(handler.getReceivedCount(), 0);
+    EXPECT_EQ(handler.getRejectedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 0);
+}
+
+// Test that camera messages still work normally in dynamic mode
+TEST_F(MessageHandlerTest, DynamicMode_CameraMessagesStillWork) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([]() {});
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getRejectedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 1);
+}
+
+// Test that stop() unsubscribes from database update topic in dynamic mode
+TEST_F(MessageHandlerTest, DynamicMode_StopUnsubscribesFromDatabaseUpdateTopic) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([]() {});
+    handler.start();
+
+    // Allow camera topic unsubscriptions (catch-all must precede specific expectation)
+    EXPECT_CALL(*mock_client_, unsubscribe(::testing::_)).Times(::testing::AnyNumber());
+    EXPECT_CALL(*mock_client_, unsubscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(1);
+
+    handler.stop();
+}
+
+// Test that stop() in static mode does NOT unsubscribe from database update topic
+TEST_F(MessageHandlerTest, StaticMode_StopDoesNotUnsubscribeDatabaseUpdate) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    // Allow camera topic unsubscriptions (catch-all must precede specific expectation)
+    EXPECT_CALL(*mock_client_, unsubscribe(::testing::_)).Times(::testing::AnyNumber());
+    EXPECT_CALL(*mock_client_, unsubscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(0);
+
+    handler.stop();
+}
+
+// Test that database update in static mode is treated as camera message (rejected)
+TEST_F(MessageHandlerTest, StaticMode_DatabaseUpdateTreatedAsCameraMessage) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    // In static mode, database update topic is routed to handleCameraMessage
+    // which rejects it because it doesn't match camera topic format
+    mock_client_->simulateMessage(MessageHandler::TOPIC_DATABASE_UPDATE, "update");
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getRejectedCount(), 1);
+}
+
+//
 // Schema file edge case test with temp directory
 //
 

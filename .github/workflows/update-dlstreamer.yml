@@ -9,6 +9,7 @@ on:
   schedule:
     # Run every Thursday at 10:00 AM UTC
     - cron: "0 10 * * 4"
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -39,25 +40,45 @@ jobs:
           WEEKLY_VERSION=$(echo "$LATEST_WEEKLY" | cut -d'|' -f2)
           WEEKLY_DATE=$(echo "$LATEST_WEEKLY" | cut -d'|' -f1)
 
+          # Get latest RC version (format: YYYY.X.X-ubuntu24-rcX)
+          LATEST_RC=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^[0-9]{4}\\.[0-9]+\\.[0-9]+-ubuntu24-rc[0-9]+$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
+          RC_VERSION=$(echo "$LATEST_RC" | cut -d'|' -f2)
+          RC_DATE=$(echo "$LATEST_RC" | cut -d'|' -f1)
+
           echo "latest_stable=${STABLE_VERSION}" >> $GITHUB_OUTPUT
           echo "latest_weekly=${WEEKLY_VERSION}" >> $GITHUB_OUTPUT
+          echo "latest_rc=${RC_VERSION}" >> $GITHUB_OUTPUT
           echo "stable_date=${STABLE_DATE}" >> $GITHUB_OUTPUT
           echo "weekly_date=${WEEKLY_DATE}" >> $GITHUB_OUTPUT
+          echo "rc_date=${RC_DATE}" >> $GITHUB_OUTPUT
 
           echo "Latest stable version: ${STABLE_VERSION} (published: ${STABLE_DATE})"
           echo "Latest weekly version: ${WEEKLY_VERSION} (published: ${WEEKLY_DATE})"
+          echo "Latest RC version:     ${RC_VERSION} (published: ${RC_DATE})"
 
-          # Compare dates and choose the newer one
-          if [[ "$WEEKLY_DATE" > "$STABLE_DATE" ]]; then
+          # Compare dates and choose the newest among stable, weekly, and RC
+          SELECTED_VERSION="$STABLE_VERSION"
+          SELECTED_TYPE="stable"
+          SELECTED_DATE="$STABLE_DATE"
+
+          if [[ -n "$WEEKLY_VERSION" && "$WEEKLY_DATE" > "$SELECTED_DATE" ]]; then
             SELECTED_VERSION="$WEEKLY_VERSION"
             SELECTED_TYPE="weekly"
-            echo "Selected: Weekly build (newer)"
-          else
-            SELECTED_VERSION="$STABLE_VERSION"
-            SELECTED_TYPE="stable"
-            echo "Selected: Stable release (newer or same age)"
+            SELECTED_DATE="$WEEKLY_DATE"
           fi
 
+          if [[ -n "$RC_VERSION" && "$RC_DATE" > "$SELECTED_DATE" ]]; then
+            SELECTED_VERSION="$RC_VERSION"
+            SELECTED_TYPE="rc"
+            SELECTED_DATE="$RC_DATE"
+          fi
+
+          echo "Selected: ${SELECTED_TYPE} build (newest)"
+
+          if [[ -z "$SELECTED_VERSION" ]]; then
+            echo "Error: No valid DLStreamer tag found from DockerHub; aborting update." >&2
+            exit 1
+          fi
           echo "latest_version=${SELECTED_VERSION}" >> $GITHUB_OUTPUT
           echo "selected_type=${SELECTED_TYPE}" >> $GITHUB_OUTPUT
 
@@ -138,6 +159,7 @@ jobs:
             ### Available Versions
             - **Latest Stable**: `${{ steps.dockerhub.outputs.latest_stable }}` (published: `${{ steps.dockerhub.outputs.stable_date }}`)
             - **Latest Weekly**: `${{ steps.dockerhub.outputs.latest_weekly }}` (published: `${{ steps.dockerhub.outputs.weekly_date }}`)
+            - **Latest RC**: `${{ steps.dockerhub.outputs.latest_rc }}` (published: `${{ steps.dockerhub.outputs.rc_date }}`)
             - **Selected**: `${{ steps.dockerhub.outputs.latest_version }}` (${{ steps.dockerhub.outputs.selected_type }} - chosen as the newest available)
 
             ### Changes
@@ -157,6 +179,7 @@ jobs:
 
             ---
             *This PR was automatically created by the DLStreamer update workflow.*
+          base: ${{ github.ref_name }}
           branch: dlstreamer-update-${{ steps.dockerhub.outputs.latest_version }}
           delete-branch: true
           labels: |
