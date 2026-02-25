@@ -257,11 +257,6 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
         config.infrastructure.manager = manager_config;
     }
 
-    if (config.scenes.source == SceneSource::Api && !config.infrastructure.manager.has_value()) {
-        throw std::runtime_error("Missing required config: infrastructure.manager (required when "
-                                 "scenes.source='api')");
-    }
-
     // Tracking configuration (optional - defaults from constants in config_loader.hpp)
     config.tracking.max_lag_s =
         GetValueByPointerWithDefault(config_doc, json::TRACKING_MAX_LAG_S, kDefaultMaxLagS)
