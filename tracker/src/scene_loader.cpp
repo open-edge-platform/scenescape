@@ -21,9 +21,6 @@ using Pointer = rapidjson::Pointer;
 using detail::get_value;
 using detail::require_value;
 
-/**
- * @brief Get required JSON array by pointer.
- */
 const rapidjson::Value::ConstArray require_array(const rapidjson::Value& doc, const char* pointer,
                                                  const std::string& context) {
     if (auto* val = Pointer(pointer).Get(doc)) {
@@ -34,9 +31,6 @@ const rapidjson::Value::ConstArray require_array(const rapidjson::Value& doc, co
     throw std::runtime_error("Missing required " + context + " array: " + pointer);
 }
 
-/**
- * @brief Get required 3-element array from JSON.
- */
 std::array<double, 3> require_array3(const rapidjson::Value& doc, const char* pointer,
                                      const std::string& context) {
     if (auto* val = Pointer(pointer).Get(doc)) {
@@ -55,9 +49,6 @@ std::array<double, 3> require_array3(const rapidjson::Value& doc, const char* po
     throw std::runtime_error("Missing required " + context + " array: " + pointer);
 }
 
-/**
- * @brief Scene loader that reads from a JSON file.
- */
 class FileSceneLoader : public ISceneLoader {
 public:
     explicit FileSceneLoader(std::filesystem::path file_path) : file_path_(std::move(file_path)) {}
@@ -141,9 +132,6 @@ private:
     std::filesystem::path file_path_;
 };
 
-/**
- * @brief Scene loader that fetches from Manager REST API.
- */
 class ApiSceneLoader : public ISceneLoader {
 public:
     std::vector<Scene> load() override {

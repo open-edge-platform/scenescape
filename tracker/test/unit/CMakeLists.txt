@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 find_package(GTest REQUIRED)
+find_package(stduuid REQUIRED)
 
 # Tracker library sources for testing (exclude main.cpp)
 set(TRACKER_LIB_SOURCES
@@ -9,12 +10,18 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/cli.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/config_loader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/scene_loader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/coordinate_transformer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_server.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_command.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/mqtt_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/message_handler.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/scene_registry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/time_chunk_buffer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/time_chunk_scheduler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/tracking_worker.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/track_publisher.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/proxy_utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/time_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/topic_utils.cpp
 )
 
@@ -22,12 +29,22 @@ add_executable(tracker_tests
     logger_test.cpp
     cli_test.cpp
     config_loader_test.cpp
+    coordinate_transformer_test.cpp
     healthcheck_server_test.cpp
     healthcheck_command_test.cpp
     mqtt_client_test.cpp
     message_handler_test.cpp
     scene_registry_test.cpp
+    time_chunk_buffer_test.cpp
+    tracking_worker_test.cpp
+    proxy_utils_test.cpp
+    track_publisher_test.cpp
+    time_chunk_scheduler_test.cpp
+    callback_guard_test.cpp
     topic_utils_test.cpp
+    time_utils_test.cpp
+    uuid_test.cpp
+    id_map_test.cpp
     ${TRACKER_LIB_SOURCES}
 )
 
@@ -45,6 +62,9 @@ target_compile_definitions(tracker_tests
         TRACKER_CONFIG_DIR="${PROJECT_SOURCE_DIR}/config"
 )
 
+# Use C++20 standard (required for tracking_types.hpp)
+target_compile_features(tracker_tests PRIVATE cxx_std_20)
+
 target_link_libraries(tracker_tests
     PRIVATE
         GTest::gtest
@@ -55,8 +75,10 @@ target_link_libraries(tracker_tests
         httplib::httplib
         rapidjson
         RobotVision
+        OpenMP::OpenMP_CXX
         scenescape::security_options
         PahoMqttCpp::paho-mqttpp3-static
+        stduuid::stduuid
 )
 
 set_property(TARGET tracker_tests PROPERTY CXX_STANDARD ${TRACKER_CXX_STANDARD})

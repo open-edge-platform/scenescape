@@ -9,6 +9,7 @@ These articles describe all topics concerning Intel® SceneScape, that were not 
 - [Model configuration file format](./model-configuration-file-format.md)
 - [Running License Plate Recognition with 3D Object Detection](./how-to-run-LPR-with-3D-object-detection.md)
 - [Managing Files in Volumes](./how-to-manage-files-in-volumes.md)
+- [Controlling Scene Lighting with Physical Light Sensors](./light-sensor-integration.md)
 
 <!--hide_directive
 :::{toctree}
@@ -22,5 +23,6 @@ Configuring DLStreamer Video Pipeline <how-to-configure-dlstreamer-video-pipelin
 Model configuration file format <model-configuration-file-format.md>
 Running License Plate Recognition with 3D Object Detection <how-to-run-LPR-with-3D-object-detection.md>
 Managing Files in Volumes <how-to-manage-files-in-volumes.md>
+Controlling Scene Lighting with Physical Light Sensors <light-sensor-integration.md>
 :::
 hide_directive-->

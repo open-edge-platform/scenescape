@@ -18,6 +18,8 @@ import tempfile
 import time
 from typing import Dict, Any
 from werkzeug.utils import secure_filename
+import uuid
+import threading
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -25,6 +27,29 @@ from flask_cors import CORS
 from scene_common import log
 
 from mesh_utils import getMeshInfo
+
+RECON_STATUS = {}
+RECON_LOCK = threading.Lock()
+
+def set_status(request_id: str, **fields):
+  with RECON_LOCK:
+    cur = RECON_STATUS.get(request_id, {})
+    cur.update(fields)
+    RECON_STATUS[request_id] = cur
+
+def get_status(request_id: str):
+  with RECON_LOCK:
+    return RECON_STATUS.get(request_id)
+
+def prune_status(max_age_seconds=3600):
+  now = time.time()
+  with RECON_LOCK:
+    to_delete = [
+      rid for rid, st in RECON_STATUS.items()
+      if (now - st.get("updated_at", st.get("created_at", now))) > max_age_seconds
+    ]
+    for rid in to_delete:
+      del RECON_STATUS[rid]
 
 # Helper functions for request validation
 def validateReconstructionRequest(data):
@@ -170,113 +195,134 @@ def reconstruct3D():
   """
   global loaded_model, model_name
 
+  request_id = uuid.uuid4().hex
   start_time = time.time()
-  glb_path = None
+
+  # Create initial status
+  set_status(
+    request_id,
+    state="processing",
+    message="queued",
+    model=model_name,
+    created_at=time.time(),
+    updated_at=time.time(),
+  )
+
+  output_format = request.form.get("output_format", "glb")
+  mesh_type = request.form.get("mesh_type", "mesh")
+  use_keyframes = request.form.get("use_keyframes", True)
+
+  image_files = request.files.getlist("images")
+  video_file = request.files.get("video")
+  camera_ids = request.form.getlist("camera_ids")
+
+  if (not image_files) and (video_file is None):
+    set_status(request_id, state="failed", updated_at=time.time(), error="Provide images and/or video")
+    return jsonify({"success": False, "request_id": request_id, "error": "Provide images and/or video"}), 400
+
+  if loaded_model is None:
+    set_status(request_id, state="failed", updated_at=time.time(), error=f"Model {model_name} not available")
+    return jsonify({"success": False, "request_id": request_id, "error": f"Model {model_name} not available"}), 503
+
+  # Build images payload (base64) in-request
+  images = None
+  if image_files:
+    images = []
+    pairs = zip(image_files, camera_ids) if camera_ids else [(f, None) for f in image_files]
+    for f, cam_id in pairs:
+      if not f or not f.filename:
+        continue
+      raw = f.read()
+      if not raw:
+        continue
+      images.append({
+        "filename": secure_filename(f.filename),
+        "camera_id": cam_id,
+        "data": base64.b64encode(raw).decode("utf-8"),
+      })
+
+    if not images:
+      set_status(request_id, state="failed", updated_at=time.time(), error="No valid images uploaded")
+      return jsonify({"success": False, "request_id": request_id, "error": "No valid images uploaded"}), 400
+
+  # Save video to disk so worker can access it later
   video_path = None
+  if video_file:
+    uploads_dir = os.getenv("UPLOADS_DIR", "/tmp/uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+    filename = secure_filename(video_file.filename or "video.mp4")
+    video_path = os.path.join(uploads_dir, f"{request_id}_{filename}")
+    video_file.save(video_path)
+
+  inference_payload = {
+    "output_format": output_format,
+    "mesh_type": mesh_type,
+    "images": images,
+    "use_keyframes": use_keyframes,
+    "video": video_path,
+    "_start_time": start_time,
+  }
 
   try:
-    output_format = request.form.get("output_format", "glb")
-    mesh_type = request.form.get("mesh_type", "mesh")
-    use_keyframes = request.form.get("use_keyframes", True)
+    validateReconstructionRequest(inference_payload)
+  except ValueError as e:
+    # Log detailed validation error on the server, but do not expose it to the client
+    log(f"Reconstruction request validation failed for {request_id}: {e}")
+    generic_error = "Invalid reconstruction request"
+    set_status(request_id, state="failed", updated_at=time.time(), error=generic_error)
+    return jsonify({"success": False, "request_id": request_id, "error": generic_error}), 400
 
-    image_files = request.files.getlist("images")
-    video_file = request.files.get("video")
-
-    if (not image_files) and (video_file is None):
-      return jsonify({"error": "Provide images and/or video"}), 400
-
-    # Validate model availability
-    if loaded_model is None:
-      log.error(f"Model {model_name} not available")
-      return jsonify({"error": f"Model {model_name} not available"}), 503
-
-    # Run inference
-    images = None
-
-    if image_files:
-      images = []
-      for f in image_files:
-        if not f or not f.filename:
-          continue
-        raw = f.read()
-        if not raw:
-          continue
-        images.append({
-          "filename": secure_filename(f.filename),
-          "data": base64.b64encode(raw).decode("utf-8"),
-        })
-
-      if not images:
-        return jsonify({"error": "No valid images uploaded"}), 400
-
-      log.info(f"Received reconstruction request: model={model_name}, images={len(images)}, format={output_format}")
-
-    if video_file:
-      # Video path: save to a temp file and pass the path (recommended for video)
-      uploads_dir = os.getenv("UPLOADS_DIR", "/tmp/uploads")
-      os.makedirs(uploads_dir, exist_ok=True)
-
-      filename = secure_filename(video_file.filename or "video.mp4")
-      video_path = os.path.join(uploads_dir, filename)
-      video_file.save(video_path)
-      log.info(f"Received reconstruction request: model={model_name}, video={filename}, format={output_format}")
-
-    inference_payload = {
-      "output_format": output_format,
-      "mesh_type": mesh_type,
-      "images": images,
-      "use_keyframes": use_keyframes,
-      "video": video_path,
-    }
-
+  # --- Background worker does the heavy work ---
+  def worker():
+    glb_path = None
     try:
-      validateReconstructionRequest(inference_payload)
-    except ValueError as e:
-      log.error(f"Request validation failed: {e}")
-      return jsonify({"error": "Request validation failed"}), 400
+      set_status(request_id, state="processing", updated_at=time.time(), message="running inference")
+      result = runModelInference(inference_payload)
 
-    log.info(f"Starting {model_name} inference...")
-    result = runModelInference(inference_payload)
+      glb_data = None
+      if output_format == "glb":
+        set_status(request_id, state="processing", updated_at=time.time(), message="generating glb")
+        glb_path = createGlbFile(result, mesh_type)
+        with open(glb_path, "rb") as f:
+          glb_data = base64.b64encode(f.read()).decode("utf-8")
 
-    # Generate GLB file if requested
-    glb_data = None
-    if output_format == "glb":
-      log.info("Generating GLB file...")
-      glb_path = createGlbFile(result, mesh_type)
+      processing_time = time.time() - inference_payload["_start_time"]
 
-      # Read GLB file and encode as base64
-      with open(glb_path, "rb") as f:
-        glb_bytes = f.read()
-        glb_data = base64.b64encode(glb_bytes).decode('utf-8')
+      final = {
+        "success": True,
+        "request_id": request_id,
+        "model": model_name,
+        "glb_data": glb_data,
+        "camera_poses": result["camera_poses"],
+        "intrinsics": result["intrinsics"],
+        "processing_time": processing_time,
+        "message": "complete",
+      }
 
-      log.info(f"GLB file generated successfully ({len(glb_bytes)} bytes)")
+      set_status(
+        request_id,
+        state="complete",
+        updated_at=time.time(),
+        message="complete",
+        processing_time=processing_time,
+        result=final,
+      )
 
-    processing_time = time.time() - start_time
-    log.info(f"Request completed successfully in {processing_time:.2f} seconds")
+    except Exception as e:
+      set_status(request_id, state="failed", updated_at=time.time(), message="failed", error=str(e))
+    finally:
+      if glb_path and os.path.exists(glb_path):
+        try: os.unlink(glb_path)
+        except Exception: pass
+      if video_path and os.path.exists(video_path):
+        try: os.unlink(video_path)
+        except Exception: pass
 
-    # Build message based on what was provided
-    parts = []
-    if isinstance(images, list) and images:
-      parts.append(f"{len(images)} images")
-    if video_path:
-      parts.append("video")
-    input_description = " and ".join(parts)
+  threading.Thread(target=worker, daemon=True).start()
 
-    response_data = {
-      "success": True,
-      "model": model_name,  # Inform client which model was used
-      "glb_data": glb_data,
-      "camera_poses": result["camera_poses"],  # Camera-to-world transformations (rotation as quaternion [w,x,y,z], translation as [x,y,z])
-      "intrinsics": result["intrinsics"],  # Scaled for original image dimensions
-      "processing_time": processing_time,
-      "message": f"Successfully processed {input_description} with {model_name}"
-    }
-    return jsonify(response_data), 200
+  # Return immediately so browser can poll
+  return jsonify({"success": True, "request_id": request_id, "state": "processing"}), 200
 
-  finally:
-    # Clean up temporary files
-    if glb_path and os.path.exists(glb_path):
-      os.unlink(glb_path)
 
 @app.route("/health", methods=["GET"])
 def healthCheck():
@@ -312,6 +358,14 @@ def listModels():
     }
   }
   return jsonify(models_data), 200
+
+@app.route("/reconstruction/status/<request_id>", methods=["GET"])
+def reconstructionStatus(request_id):
+  prune_status()
+  status = get_status(request_id)
+  if not status:
+    return jsonify({"success": False, "error": "unknown request_id"}), 404
+  return jsonify({"success": True, "request_id": request_id, **status}), 200
 
 # Error handlers
 @app.errorhandler(404)

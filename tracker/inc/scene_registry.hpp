@@ -58,6 +58,14 @@ public:
     [[nodiscard]] const Scene* find_scene_for_camera(const std::string& camera_id) const;
 
     /**
+     * @brief Find a scene by its ID.
+     *
+     * @param scene_id Scene identifier (UID)
+     * @return Pointer to scene or nullptr if not found
+     */
+    [[nodiscard]] const Scene* find_scene_by_id(const std::string& scene_id) const;
+
+    /**
      * @brief Find a specific camera by ID.
      *
      * @param camera_id Camera identifier

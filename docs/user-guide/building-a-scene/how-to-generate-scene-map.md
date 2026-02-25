@@ -109,7 +109,7 @@ You should see services including `mapping` with a status of `healthy`.
 
 Using the above example, the form should look like this for the `video0` camera:
 
-![Creating a new camera](../images/ui/new-camera.png)
+![Creating a new camera](../_assets/ui/new-camera.png)
 
 3. Click **Save Camera**
 4. Repeat for all cameras in your scene

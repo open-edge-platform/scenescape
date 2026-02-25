@@ -29,7 +29,7 @@ Before You Begin, ensure the following:
 
 ### 1. Select and Print AprilTags
 
-- Use this [PDF](files/tag36h11.pdf) to print tags from the `tag36h11` family. Additionally, [AprilTags can be generated](https://github.com/AprilRobotics/apriltag) or downloaded from the [AprilTag-imgs GitHub repository](https://github.com/AprilRobotics/apriltag-imgs).
+- Use this [PDF](../_assets/tag36h11.pdf) to print tags from the `tag36h11` family. Additionally, [AprilTags can be generated](https://github.com/AprilRobotics/apriltag) or downloaded from the [AprilTag-imgs GitHub repository](https://github.com/AprilRobotics/apriltag-imgs).
 - Tags must be:
   - Printed the same size.
   - Unique (one ID per scene).
@@ -43,7 +43,7 @@ Before You Begin, ensure the following:
 
 Place sample tags in the scene and observe the camera feed. Tags should show bounding boxes when detected.
 
-![AprilTag Test Detections](../images/ui/test-apriltags.png)
+![AprilTag Test Detections](../_assets/ui/test-apriltags.png)
 
 _Figure 1: Testing AprilTag visibility in camera feed._
 
@@ -67,7 +67,7 @@ Use a phone/tablet with LiDAR or another method to scan the scene. Export as a `
 2. Switch to orthographic, top-down view.
 3. Export the image and determine pixels-per-meter.
 
-![Generate an Orthographic Image](../images/ui/ortho-view.png)
+![Generate an Orthographic Image](../_assets/ui/ortho-view.png)
 
 _Figure 2: Export top-down orthographic scene view._
 
@@ -85,11 +85,11 @@ _Figure 2: Export top-down orthographic scene view._
 3. Set Calibration Type to `Apriltag`.
 4. Enter the physical size of the tags.
 
-![Update Scene Map](../images/ui/update-scene-map.png)
+![Update Scene Map](../_assets/ui/update-scene-map.png)
 
 _Figure 3: Upload scene image and set calibration method._
 
-![AprilTag dimensions](../images/apriltag-dimensions.png)
+![AprilTag dimensions](../_assets/apriltag-dimensions.png)
 
 _Figure 4: Enter AprilTag dimensions._
 
@@ -128,7 +128,7 @@ docker compose up
 8. Adjust opacity slider to verify alignment.
 9. Click **Save Camera** to finalize pose.
 
-![Auto Calibrate Camera](../images/ui/auto-calibrate.png)
+![Auto Calibrate Camera](../_assets/ui/auto-calibrate.png)
 
 _Figure 5: Auto Calibrate using AprilTags._
 
@@ -161,4 +161,4 @@ _Figure 5: Auto Calibrate using AprilTags._
 
 ## Supporting Resources
 
-- [Live Scene Docs](how-to-create-new-scene.md)
+- [Live Scene Docs](../building-a-scene/how-to-create-new-scene.md)

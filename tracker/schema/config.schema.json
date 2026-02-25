@@ -228,6 +228,12 @@
           "default": 15,
           "minimum": 1,
           "maximum": 60
+        },
+        "max_workers": {
+          "type": "integer",
+          "description": "DoS protection: maximum worker threads (one per scene+category). Limits resource exhaustion from unexpected categories.",
+          "default": 50,
+          "minimum": 1
         }
       }
     },
