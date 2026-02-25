@@ -74,13 +74,11 @@ void transform_api_scenes(rapidjson::Document& doc) {
         return;
 
     for (auto& scene_val : doc.GetArray()) {
-        if (!scene_val.HasMember("cameras") || !scene_val["cameras"].IsArray()) {
-            continue;
-        }
-
-        for (auto& cam_val : scene_val["cameras"].GetArray()) {
-            transform_camera_to_schema(cam_val, alloc);
-        }
+         if (scene_val.HasMember("cameras") && scene_val["cameras"].IsArray()) {
+             for (auto& cam_val : scene_val["cameras"].GetArray()) {
+                 transform_camera_to_schema(cam_val, alloc);
+             }
+         }
     }
 }
 
