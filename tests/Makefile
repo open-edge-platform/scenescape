@@ -109,11 +109,10 @@ broken-tests: \
 
 randomly-failing-tests: \
   distance-msoce \
-  out-of-box \
-  out-of-box-no-ntp \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
+  out-of-box \
   geometry-conformance \
   metric-tests \
   bounding-box \
@@ -139,6 +138,8 @@ functional-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
+  out-of-box \
+  out-of-box-no-ntp \
   geometry-conformance \
   auto-calibration-api \
   add-delete-3d-object-api \
