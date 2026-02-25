@@ -94,6 +94,7 @@ broken-features:
 # tests that are working, but feature is broken
 _broken-features: \
   calibrate-camera-3d-ui-2d-ui \
+  visibility-regulated \
 
 broken-tests: \
   3d-ui-calibration-points \
@@ -103,15 +104,15 @@ broken-tests: \
   reid-unique-count \
   reid-performance-degradation \
   auto-calibration-ui \
-  visibility-regulated \
+  3d-scene-control-panel \
+  3d-camera-control-panel \
 
 randomly-failing-tests: \
   distance-msoce \
-  out-of-box \
-  out-of-box-no-ntp \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
+  out-of-box \
   geometry-conformance \
   metric-tests \
   bounding-box \
@@ -119,6 +120,7 @@ basic-acceptance-tests: \
   mqtt-tripwire \
   unit-tests \
   auto-calibration-api \
+  openapi-validation \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
@@ -136,6 +138,8 @@ functional-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
+  out-of-box \
+  out-of-box-no-ntp \
   geometry-conformance \
   auto-calibration-api \
   add-delete-3d-object-api \
@@ -173,13 +177,13 @@ _functional-tests: \
   vdms-similarity-search \
   visibility-unregulated \
   visibility-none \
-  3d-scene-control-panel \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
 
 _non-functional-tests: \
   build-time \
+  openapi-validation \
 
 metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
@@ -193,7 +197,6 @@ ui-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _ui-tests: \
-  3d-camera-control-panel \
   show-telemetry-button \
   upload-only-3d-glb-files \
   add-delete-3d-object \
@@ -281,3 +284,8 @@ python-indent-check: # NEX-T10448
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; tests/scripts/checkIndent 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
+
+openapi-validation: # NEX-T10572
+	@cd ../docs/user-guide/api-docs/ \
+	; npm install --save-dev swagger-cli@2.0.0 \
+	; npx swagger-cli validate api.yaml
