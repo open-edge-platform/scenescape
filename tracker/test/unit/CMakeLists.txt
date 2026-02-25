@@ -3,6 +3,7 @@
 
 find_package(GTest REQUIRED)
 find_package(stduuid REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 # Tracker library sources for testing (exclude main.cpp)
 set(TRACKER_LIB_SOURCES
@@ -10,6 +11,8 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/cli.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/config_loader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/scene_loader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/api_scene_loader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/manager_rest_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/coordinate_transformer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_server.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_command.cpp
@@ -45,6 +48,8 @@ add_executable(tracker_tests
     time_utils_test.cpp
     uuid_test.cpp
     id_map_test.cpp
+    api_scene_loader_test.cpp
+    manager_rest_client_test.cpp
     ${TRACKER_LIB_SOURCES}
 )
 
@@ -78,6 +83,8 @@ target_link_libraries(tracker_tests
         OpenMP::OpenMP_CXX
         scenescape::security_options
         PahoMqttCpp::paho-mqttpp3-static
+        OpenSSL::SSL
+        OpenSSL::Crypto
         stduuid::stduuid
 )
 
