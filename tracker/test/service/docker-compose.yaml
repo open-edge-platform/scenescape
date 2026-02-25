@@ -25,6 +25,29 @@ services:
         target: /mosquitto/config/mosquitto.conf
     restart: no
 
+  mock-manager:
+    profiles: ["api"]
+    image: python:3.12-slim
+    command: ["python", "/app/mock_manager.py"]
+    configs:
+      - source: mock-manager-script
+        target: /app/mock_manager.py
+      - source: mock-scenes
+        target: /data/scenes.json
+    restart: no
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')",
+        ]
+      interval: 1s
+      timeout: 2s
+      retries: 5
+      start_period: 2s
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.115.1
     configs:
@@ -43,6 +66,10 @@ services:
       - TRACKER_MQTT_TLS_CA_CERT=${TRACKER_MQTT_TLS_CA_CERT:-}
       - TRACKER_MQTT_TLS_CLIENT_CERT=${TRACKER_MQTT_TLS_CLIENT_CERT:-}
       - TRACKER_MQTT_TLS_CLIENT_KEY=${TRACKER_MQTT_TLS_CLIENT_KEY:-}
+      - TRACKER_SCENES_SOURCE=${TRACKER_SCENES_SOURCE:-api}
+      - TRACKER_SCENES_FILE_PATH=${TRACKER_SCENES_FILE_PATH:-scenes.json}
+      - TRACKER_MANAGER_URL=${TRACKER_MANAGER_URL:-}
+      - TRACKER_MANAGER_AUTH_PATH=${TRACKER_MANAGER_AUTH_PATH:-}
       # Override host proxy settings - Paho MQTT dont respect no_proxy var, so as a WA
       # tracker code detects empty vars and unsets them (see mqtt_client.cpp clearEmptyProxyVars)
       - http_proxy=
@@ -57,6 +84,8 @@ services:
       - source: client_key
         target: /run/secrets/client_key
         mode: 0400
+      - source: mock_auth
+        target: /run/secrets/mock-auth
     configs:
       - source: tracker-config
         target: /scenescape/config/tracker.json
@@ -88,6 +117,8 @@ secrets:
     file: ${TLS_CLIENT_CERT_FILE:-/dev/null}
   client_key:
     file: ${TLS_CLIENT_KEY_FILE:-/dev/null}
+  mock_auth:
+    file: ./fixtures/test-auth.json
 
 configs:
   mosquitto-config:
@@ -96,3 +127,7 @@ configs:
     file: ./otel-collector-config.yaml
   tracker-config:
     file: ../../config/tracker.json
+  mock-manager-script:
+    file: ./mocks/mock_manager.py
+  mock-scenes:
+    file: ./fixtures/test-scenes-api.json

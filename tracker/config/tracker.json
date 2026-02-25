@@ -13,6 +13,10 @@
       "healthcheck": {
         "port": 8080
       }
+    },
+    "manager": {
+      "url": "https://web.scenescape.intel.com",
+      "auth_path": "/run/secrets/controller.auth"
     }
   },
   "observability": {
@@ -29,7 +33,6 @@
     "non_measurement_time_static_s": 1.6
   },
   "scenes": {
-    "source": "file",
-    "file_path": "scenes.json"
+    "source": "api"
   }
 }

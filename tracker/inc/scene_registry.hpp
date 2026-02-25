@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "config_loader.hpp"
+#include "scene_loader.hpp"
 
 #include <stdexcept>
 #include <string>
