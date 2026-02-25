@@ -247,6 +247,18 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
     config.tracking.max_workers =
         GetValueByPointerWithDefault(config_doc, json::TRACKING_MAX_WORKERS, kDefaultMaxWorkers)
             .GetInt();
+    config.tracking.max_unreliable_time_s =
+        GetValueByPointerWithDefault(config_doc, json::TRACKING_MAX_UNRELIABLE_TIME_S,
+                                     kDefaultMaxUnreliableTimeS)
+            .GetDouble();
+    config.tracking.non_measurement_time_dynamic_s =
+        GetValueByPointerWithDefault(config_doc, json::TRACKING_NON_MEASUREMENT_TIME_DYNAMIC_S,
+                                     kDefaultNonMeasurementTimeDynamicS)
+            .GetDouble();
+    config.tracking.non_measurement_time_static_s =
+        GetValueByPointerWithDefault(config_doc, json::TRACKING_NON_MEASUREMENT_TIME_STATIC_S,
+                                     kDefaultNonMeasurementTimeStaticS)
+            .GetDouble();
 
     // Apply environment variable overrides
     apply_env(config.observability.logging.level, tracker::env::LOG_LEVEL, parse_log_level);
@@ -300,6 +312,27 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                       throw std::runtime_error("Invalid " + s + ": " + v);
                   }
               });
+
+    // RobotVision tracker parameter overrides
+    auto parse_positive_double = [](const std::string& v, const std::string& s) {
+        try {
+            double val = std::stod(v);
+            if (val < 0) {
+                throw std::runtime_error(s + " must be >= 0: " + v);
+            }
+            return val;
+        } catch (const std::invalid_argument&) {
+            throw std::runtime_error("Invalid " + s + ": " + v);
+        } catch (const std::out_of_range&) {
+            throw std::runtime_error("Value out of range for " + s + ": " + v);
+        }
+    };
+    apply_env(config.tracking.max_unreliable_time_s, tracker::env::MAX_UNRELIABLE_TIME_S,
+              parse_positive_double);
+    apply_env(config.tracking.non_measurement_time_dynamic_s,
+              tracker::env::NON_MEASUREMENT_TIME_DYNAMIC_S, parse_positive_double);
+    apply_env(config.tracking.non_measurement_time_static_s,
+              tracker::env::NON_MEASUREMENT_TIME_STATIC_S, parse_positive_double);
 
     // Scenes overrides
     if (auto val = get_env(tracker::env::SCENES_SOURCE); val.has_value()) {
