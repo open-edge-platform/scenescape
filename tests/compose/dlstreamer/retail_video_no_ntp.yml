@@ -9,7 +9,7 @@ secrets:
 
 services:
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-20260217-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc1
     networks:
       scenescape-test:
     tty: true
