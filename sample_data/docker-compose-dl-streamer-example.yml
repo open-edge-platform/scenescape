@@ -26,6 +26,8 @@ secrets:
     file: ${SECRETSDIR}/django
   controller.auth:
     environment: CONTROLLER_AUTH
+  controller-auth-file:
+    file: manager/secrets/controller.auth
   browser.auth:
     file: ${SECRETSDIR}/browser.auth
   calibration.auth:
@@ -458,6 +460,8 @@ services:
     depends_on:
       broker:
         condition: service_started
+      web:
+        condition: service_healthy
     environment:
       - TRACKER_LOG_LEVEL=info
       - TRACKER_MQTT_HOST=broker.scenescape.intel.com
@@ -465,6 +469,10 @@ services:
       - TRACKER_MQTT_INSECURE=false
       - TRACKER_MQTT_TLS_CA_CERT=/run/secrets/certs/scenescape-ca.pem
       - TRACKER_MQTT_TLS_VERIFY_SERVER=true
+      - TRACKER_MANAGER_URL=https://web.scenescape.intel.com
+      - TRACKER_MANAGER_AUTH_PATH=/run/secrets/controller.auth
+      - TRACKER_MANAGER_CA_CERT_PATH=/run/secrets/certs/scenescape-ca.pem
+      - TRACKER_SCENES_SOURCE=api
       # Override host proxy settings - Paho MQTT dont respect no_proxy var, so as a WA
       # tracker code detects empty vars and unsets them (see mqtt_client.cpp clearEmptyProxyVars)
       - http_proxy=
@@ -474,12 +482,17 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+      - source: controller-auth-file
+        target: /run/secrets/controller.auth
     read_only: true
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    restart: always
+    # Exit 0: graceful stop or non-retryable error (bad auth) — stay stopped
+    # Exit 1: retryable error (broker unavailable) — restart
+    # Exit 99: scene update received — restart to reload config
+    restart: on-failure
     mem_limit: ${TRACKER_MEM_LIMIT:-512m}
     # Scale: ~1 CPU per 100 tracked objects. Increase TRACKER_CPUS for larger deployments.
     cpus: ${TRACKER_CPUS:-2.0}
