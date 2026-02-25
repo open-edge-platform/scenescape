@@ -53,7 +53,10 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
     for (const auto& track : tracks) {
         Value obj(kObjectType);
 
-        obj.AddMember("id", Value().SetString(track.id.c_str(), allocator), allocator);
+        obj.AddMember(
+            "id",
+            Value().SetString(track.id.c_str(), static_cast<SizeType>(track.id.size()), allocator),
+            allocator);
         obj.AddMember("category", Value().SetString(track.category.c_str(), allocator), allocator);
 
         // Translation [x, y, z]

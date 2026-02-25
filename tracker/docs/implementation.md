@@ -276,7 +276,7 @@ RobotVision output in world coordinates. See [`scene-data.schema.json`](../schem
 
 ```cpp
 struct Track {
-    std::string id;             // Persistent track ID (UUID)
+    std::string id;             // Persistent track ID (UUID v4, mapped from RobotVision int ID)
     std::string category;       // Object category (e.g., person, vehicle)
     std::array<double, 3> translation;  // World position [x, y, z] meters
     std::array<double, 3> velocity;     // Velocity [vx, vy, vz] m/s

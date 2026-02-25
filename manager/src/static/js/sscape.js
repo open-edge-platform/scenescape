@@ -1542,7 +1542,7 @@ function setupGenerateMesh() {
 }
 
 async function pollMeshStatus(sceneId, requestId) {
-  const timeout = 10 * 60 * 1000; // 10 minutes
+  const timeout = 15 * 60 * 1000; // 15 minutes
   const start = Date.now();
 
   while (true) {

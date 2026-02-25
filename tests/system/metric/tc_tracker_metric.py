@@ -60,8 +60,8 @@ def track(params):
   if int(params["camera_frame_rate"]) in [10, 1]:
     # run the tests with 1 fps camera files
     dir = os.path.dirname(os.path.abspath(__file__))
-    input_cam_1 = os.path.join(dir, "test_data/Cam_x1_0_"+str(params["camera_frame_rate"])+"fps.json")
-    input_cam_2 = os.path.join(dir, "test_data/Cam_x2_0_"+str(params["camera_frame_rate"])+"fps.json")
+    input_cam_1 = os.path.join(dir, "dataset/Cam_x1_0_"+str(params["camera_frame_rate"])+"fps.json")
+    input_cam_2 = os.path.join(dir, "dataset/Cam_x2_0_"+str(params["camera_frame_rate"])+"fps.json")
     params["input"] = [input_cam_1, input_cam_2]
   tracked_data = []
 
