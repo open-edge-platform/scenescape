@@ -55,31 +55,31 @@ def params(request):
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
-    file_name = Path(config.option.file_or_dir[0]).stem
-    config.option.htmlpath = os.getcwd() + '/tests/reports/test_reports/' + file_name + ".html"
-    # Register marker for test names
-    config.addinivalue_line("markers", "test_name(name): sets the XML test name attribute")
+  file_name = Path(config.option.file_or_dir[0]).stem
+  config.option.htmlpath = os.getcwd() + '/tests/reports/test_reports/' + file_name + ".html"
+  # Register marker for test names
+  config.addinivalue_line("markers", "test_name(name): sets the XML test name attribute")
 
 @pytest.fixture(scope="session")
 def rest(params):
-    client = RESTClient(params['resturl'], rootcert=params['rootcert'])
-    assert client.authenticate(params['user'], params['password'])
-    return client
+  client = RESTClient(params['resturl'], rootcert=params['rootcert'])
+  assert client.authenticate(params['user'], params['password'])
+  return client
 
 @pytest.fixture
 def scene_uid(rest, params):
-    name = params['scene_name']
-    res = rest.getScenes({'name': name})
-    scenes = res.get('results', []) if isinstance(res, dict) else []
-    assert scenes, f"Scene '{name}' not found"
-    return scenes[0]['uid']
+  name = params['scene_name']
+  res = rest.getScenes({'name': name})
+  scenes = res.get('results', []) if isinstance(res, dict) else []
+  assert scenes, f"Scene '{name}' not found"
+  return scenes[0]['uid']
 
 @pytest.fixture(autouse=True)
 def record_test_name(request, record_xml_attribute):
-    """Record test name from marker if provided; otherwise do nothing."""
-    marker = request.node.get_closest_marker("test_name")
-    if marker and marker.args:
-        record_xml_attribute("name", marker.args[0])
+  """Record test name from marker if provided; otherwise do nothing."""
+  marker = request.node.get_closest_marker("test_name")
+  if marker and marker.args:
+    record_xml_attribute("name", marker.args[0])
 
 @pytest.fixture
 def result_recorder(request):
