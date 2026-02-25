@@ -289,7 +289,8 @@ tracker/
 ├── inc/              # Headers
 ├── test/
 │   ├── unit/         # GoogleTest + GMock
-│   └── service/      # pytest integration tests
+│   ├── service/      # pytest integration tests
+│   └── load/         # pytest load tests + k6 generator
 ├── schema/           # JSON schemas
 ├── config/           # Default configuration
 ├── Dockerfile        # Multi-stage build

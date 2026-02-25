@@ -17,11 +17,23 @@
     "manager": {
       "url": "https://web.scenescape.intel.com",
       "auth_path": "/run/secrets/controller.auth"
+    },
+    "otlp": {
+      "endpoint": "localhost:4317",
+      "insecure": true
     }
   },
   "observability": {
     "logging": {
       "level": "info"
+    },
+    "metrics": {
+      "enabled": false,
+      "export_interval_s": 60
+    },
+    "tracing": {
+      "enabled": false,
+      "export_interval_s": 5
     }
   },
   "tracking": {
