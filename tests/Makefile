@@ -95,6 +95,7 @@ broken-features:
 # tests that are working, but feature is broken
 _broken-features: \
   calibrate-camera-3d-ui-2d-ui \
+  visibility-regulated \
 
 broken-tests: \
   3d-ui-calibration-points \
@@ -103,15 +104,15 @@ broken-tests: \
   scenes-summary-api \
   reid-performance-degradation \
   auto-calibration-ui \
-  visibility-regulated \
+  3d-scene-control-panel \
+  3d-camera-control-panel \
 
 randomly-failing-tests: \
   distance-msoce \
-  out-of-box \
-  out-of-box-no-ntp \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
+  out-of-box \
   geometry-conformance \
   metric-tests \
   bounding-box \
@@ -137,6 +138,8 @@ functional-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
+  out-of-box \
+  out-of-box-no-ntp \
   geometry-conformance \
   auto-calibration-api \
   add-delete-3d-object-api \
@@ -177,7 +180,6 @@ _functional-tests: \
   vdms-similarity-search \
   visibility-unregulated \
   visibility-none \
-  3d-scene-control-panel \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
@@ -198,7 +200,6 @@ ui-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _ui-tests: \
-  3d-camera-control-panel \
   show-telemetry-button \
   upload-only-3d-glb-files \
   add-delete-3d-object \

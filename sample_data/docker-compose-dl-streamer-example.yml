@@ -126,6 +126,16 @@ services:
     ports:
       - "5432:5432"
     restart: always
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost -p 5432",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
 
   web:
     image: scenescape-manager:${VERSION:-latest}
@@ -136,7 +146,7 @@ services:
           - web.scenescape.intel.com
     depends_on:
       pgserver:
-        condition: service_started
+        condition: service_healthy
       broker:
         condition: service_started
     ports:

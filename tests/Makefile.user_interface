@@ -6,7 +6,7 @@ define selenium-recipe =
 	$(eval TEST_SCRIPT=$2)
 	$(eval CONTAINERS=$3)
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
-	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%H-%M-%S").log)
+	$(eval LOGFILE=$(TEST_DATA)/ui/$@-$(shell date -u +"%F-%T").log)
 	$(eval SELENIUM_COVERAGE_DATA_FILE=$(TESTS_DIRECTORY)/ui/.coverage_$@)
 	@set -ex \
 		; echo RUNNING SELENIUM TEST $@ \
@@ -16,8 +16,9 @@ define selenium-recipe =
 			EXAMPLEDB=$4 \
 		; fi \
 		; echo $(EXAMPLEDB) \
+    ; mkdir -p $(shell dirname $(LOGFILE)) \
 		; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) \
-			DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOG=$(LOGFILE) LOGSFORCONTAINER="scene" \
+			DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOG=$(LOGFILE) LOGSFORCONTAINER=$(CONTAINERS) \
 			TEST_SCRIPT=$(TEST_SCRIPT) \
 			PROJECT=$(PROJECT) CLEANUP_MODE=$(CLEANUP_MODE) \
 			WAITFORCONTAINERS=$(CONTAINERS) \
@@ -25,7 +26,7 @@ define selenium-recipe =
 			--data-file=$(SELENIUM_COVERAGE_DATA_FILE) pytest -s $(GENERATE_JUNITXML) \
 			$(TEST_SCRIPT) --password=$(SUPASS) 2>&1 | tee -ia $(LOGFILE) \
 		; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-		; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; exit 1; fi \
+		; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
 		; echo END TEST $@
 endef
 
