@@ -14,7 +14,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from jsonschema import validate, ValidationError
+from jsonschema import validate, FormatChecker, ValidationError
 
 
 # Path to schema directory (relative to this file)
@@ -53,7 +53,7 @@ def validate_camera_input(data: dict) -> None:
   """
   schema = load_schema("camera-data.schema.json")
   try:
-    validate(instance=data, schema=schema)
+    validate(instance=data, schema=schema, format_checker=FormatChecker())
   except ValidationError as e:
     raise AssertionError(f"Camera input validation failed: {e.message}") from e
 
@@ -71,6 +71,6 @@ def validate_scene_output(data: dict) -> None:
   """
   schema = load_schema("scene-data.schema.json")
   try:
-    validate(instance=data, schema=schema)
+    validate(instance=data, schema=schema, format_checker=FormatChecker())
   except ValidationError as e:
     raise AssertionError(f"Scene output validation failed: {e.message}") from e

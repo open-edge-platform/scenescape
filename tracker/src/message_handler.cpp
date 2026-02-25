@@ -3,10 +3,10 @@
 
 #include "message_handler.hpp"
 #include "logger.hpp"
+#include "time_utils.hpp"
 #include "topic_utils.hpp"
 
 #include <chrono>
-#include <cstdio>
 #include <format>
 #include <fstream>
 #include <string_view>
@@ -195,8 +195,17 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         return;
     }
 
+    // Parse timestamp once (reused for lag check and batch storage)
+    auto msg_time = parseTimestamp(message->timestamp);
+    if (!msg_time) {
+        LOG_WARN("Failed to parse timestamp '{}' from camera '{}', dropping", message->timestamp,
+                 camera_id);
+        rejected_count_++;
+        return;
+    }
+
     // Check for lag
-    if (isMessageLagged(message->timestamp)) {
+    if (isMessageLagged(*msg_time)) {
         LOG_WARN_ENTRY(
             LogEntry("Dropping lagged message")
                 .component("message_handler")
@@ -233,6 +242,7 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         batch.camera_id = camera_id;
         batch.receive_time = receive_time;
         batch.timestamp_iso = message->timestamp;
+        batch.timestamp = *msg_time;
         batch.detections = std::move(detections);
 
         buffer_.add(scope, camera_id, std::move(batch));
@@ -337,17 +347,15 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
             }
             // Note: Type checking (IsNumber) omitted - schema validation ensures correct types
 
-            detection.bounding_box_px.x = bbox_x->GetDouble();
-            detection.bounding_box_px.y = bbox_y->GetDouble();
-            detection.bounding_box_px.width = bbox_width->GetDouble();
-            detection.bounding_box_px.height = bbox_height->GetDouble();
+            detection.bounding_box_px = cv::Rect2f(static_cast<float>(bbox_x->GetDouble()),
+                                                   static_cast<float>(bbox_y->GetDouble()),
+                                                   static_cast<float>(bbox_width->GetDouble()),
+                                                   static_cast<float>(bbox_height->GetDouble()));
 
             detections.push_back(detection);
         }
 
-        if (!detections.empty()) {
-            message.objects[category] = std::move(detections);
-        }
+        message.objects[category] = std::move(detections);
     }
 
     return message;
@@ -369,51 +377,11 @@ bool MessageHandler::validateJson(const rapidjson::Document& doc,
     return true;
 }
 
-bool MessageHandler::isMessageLagged(const std::string& timestamp_iso) const {
-    auto msg_time = parseTimestamp(timestamp_iso);
-    if (!msg_time) {
-        // If we can't parse the timestamp, don't drop based on lag
-        LOG_DEBUG("Could not parse timestamp for lag check: {}", timestamp_iso);
-        return false;
-    }
-
+bool MessageHandler::isMessageLagged(std::chrono::system_clock::time_point msg_time) const {
     auto now = std::chrono::system_clock::now();
-    auto lag = std::chrono::duration<double>(now - *msg_time).count();
+    auto lag = std::chrono::duration<double>(now - msg_time).count();
 
     return lag > tracking_config_.max_lag_s;
-}
-
-std::optional<std::chrono::system_clock::time_point>
-MessageHandler::parseTimestamp(const std::string& timestamp_iso) {
-    // Parse ISO 8601 format: "2026-01-20T10:05:01.482Z"
-    // Using sscanf for simple parsing, C++20 chrono for portable UTC handling
-    int year, month, day, hour, minute, second, millis = 0;
-
-    // Try parsing with milliseconds (format: YYYY-MM-DDTHH:MM:SS.mmm)
-    int parsed = std::sscanf(timestamp_iso.c_str(), "%4d-%2d-%2dT%2d:%2d:%2d.%d", &year, &month,
-                             &day, &hour, &minute, &second, &millis);
-
-    if (parsed < 6) {
-        // Try with space separator instead of 'T'
-        parsed = std::sscanf(timestamp_iso.c_str(), "%4d-%2d-%2d %2d:%2d:%2d.%d", &year, &month,
-                             &day, &hour, &minute, &second, &millis);
-    }
-
-    if (parsed < 6) {
-        return std::nullopt;
-    }
-
-    // Construct time_point using C++20 chrono calendar types (UTC, no timezone conversion)
-    using namespace std::chrono;
-    auto ymd =
-        year_month_day{std::chrono::year{year}, std::chrono::month{static_cast<unsigned>(month)},
-                       std::chrono::day{static_cast<unsigned>(day)}};
-    if (!ymd.ok())
-        return std::nullopt;
-
-    auto tp =
-        sys_days{ymd} + hours{hour} + minutes{minute} + seconds{second} + milliseconds{millis};
-    return tp;
 }
 
 } // namespace tracker

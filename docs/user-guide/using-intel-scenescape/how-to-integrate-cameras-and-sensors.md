@@ -18,7 +18,7 @@ Before you begin, ensure the following:
 Familiarity with MQTT, JSON formatting, and camera calibration is recommended. If needed, refer to:
 
 - [MQTT Intro](https://mqtt.org/getting-started/)
-- [Camera Calibration Guide](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/autocalibration/docs/user-guide/overview.md)
+- [Camera Calibration Guide](../microservices/auto-calibration/auto-calibration.md)
 
 ## Basic Data Flow
 
@@ -228,7 +228,7 @@ Camera calibration can be performed using the following methods:
 
 1. **Manual Calibration**: Use the user interface to calibrate cameras by marking points on the camera view and matching them with corresponding points on the map view. This process determines the camera's pose. You can also optionally unlock intrinsic parameters and distortion values, which will automatically adjust based on the selected points to improve calibration accuracy.
 
-2. **Automatic Calibration**: For automated calibration, refer to the [Auto Camera Calibration Microservice](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/autocalibration/docs/user-guide/overview.md).
+2. **Automatic Calibration**: For automated calibration, refer to the [Auto Camera Calibration Microservice](../microservices/auto-calibration/auto-calibration.md).
 
 ## Camera Calibration Support
 
@@ -279,6 +279,8 @@ optional arguments:
 ## Singleton sensor data
 
 "Singleton" sensors publish a given value that varies in time. This could be a temperature reading, a light sensor, whatever. Currently, Intel® SceneScape tags a given object track with any singleton data received when the object is within the singleton measurement area.
+
+> **Note:** For a complete guide on using light sensors to control 3D scene lighting in real-time, see [Controlling Scene Lighting with Physical Light Sensors](../other-topics/light-sensor-integration.md).
 
 Suppose a temperature sensor is configured to apply to an entire scene. Intel® SceneScape tags each object track in the scene with the latest temperature value and any changes to that temperature value that occurred while that object is tracked. The same thing applies when the measurement area is configured as a smaller portion of the scene (currently a circle or polygon area), except that objects are only tagged with the value if they are within the measurement area.
 
@@ -369,6 +371,6 @@ Using this data, a developer can easily write an application to trigger alerts o
 
 ## Supporting Resources
 
-- [SceneScape Auto Calibration Guide](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/autocalibration/docs/user-guide/overview.md)
+- [SceneScape Auto Calibration Guide](../microservices/auto-calibration/auto-calibration.md)
 - [SceneScape Metadata Schema](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/controller/src/schema/metadata.schema.json)
 - [MQTT Snapshot Script](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/tools/snapshot.py)

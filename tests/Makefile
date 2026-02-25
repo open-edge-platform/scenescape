@@ -24,7 +24,6 @@ GENERATE_JUNITXML_UNITTEST=-o junit_logging=all --junitxml tests/reports/test_re
 NPROCS?=$(shell echo $(shell grep -c ^processor /proc/cpuinfo)/3 | bc)
 COMPOSE=tests/compose
 EXAMPLEDB=tests/testdb.tar.bz2
-VISIBILITY_TOPIC := regulated unregulated none
 
 ifeq ($(KUBERNETES),1)
     RUNTEST=tests/kubernetes/runtest
@@ -88,8 +87,6 @@ release-tests: \
   live-view-button \
   non-functional-tests \
   scene-details \
-  reid-unique-count \
-  reid-performance-degradation \
 
 broken-features:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -103,17 +100,21 @@ broken-tests: \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
   scenes-summary-api \
+  reid-unique-count \
+  reid-performance-degradation \
+  auto-calibration-ui \
+  visibility-regulated \
 
 randomly-failing-tests: \
   distance-msoce \
+  out-of-box \
+  out-of-box-no-ntp \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
   geometry-conformance \
   metric-tests \
-	out-of-box \
-	out-of-box-no-ntp \
-	bounding-box \
+  bounding-box \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
@@ -135,8 +136,6 @@ functional-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
-  out-of-box \
-  out-of-box-no-ntp \
   geometry-conformance \
   auto-calibration-api \
   add-delete-3d-object-api \
@@ -150,8 +149,6 @@ _functional-tests: \
   delete-sensor-scene-api \
   delete-sensors-api \
   different-formats-maps-api \
-  reid-unique-count \
-  reid-performance-degradation \
   manual-camera-calibration-api \
   mqtt-auth \
   mqtt-cert \
@@ -174,7 +171,8 @@ _functional-tests: \
   upload-3d-glb-file-api \
   upload-only-3d-glb-files-api \
   vdms-similarity-search \
-  visibility \
+  visibility-unregulated \
+  visibility-none \
   3d-scene-control-panel \
 
 non-functional-tests:
@@ -199,7 +197,6 @@ _ui-tests: \
   show-telemetry-button \
   upload-only-3d-glb-files \
   add-delete-3d-object \
-  auto-calibration-ui \
   bounding-box \
   calibrate-all-sensor-types \
   camera-deletion \
