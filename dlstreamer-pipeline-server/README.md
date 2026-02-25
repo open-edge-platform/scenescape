@@ -94,7 +94,10 @@ To enable SceneScape pipelines to run on a discrete GPU, follow these steps. The
 ### Configuration
 
 1. **Update the `docker-compose.yml` file:**
-   - Uncomment the `devices` section and specify the appropriate GPU device. For example if your device is `renderD129`:
+   - Uncomment the `devices` section and specify the appropriate GPU device. Make sure only your device is listed; otherwise, it's not guaranteed
+     that the proper GPU will be chosen. For example, if you keep both `renderD128` and `renderD129`, it's likely that the first choice will be `renderD128`,
+     which is the integrated GPU.
+   Example:
      ```yaml
      devices:
        - "/dev/dri/renderD129:/dev/dri/renderD129"
