@@ -90,14 +90,14 @@ jobs:
           persist-credentials: false
 
       - name: "Initialize CodeQL build mode"
-        uses: github/codeql-action/init@b20883b0cd1f46c72ae0ba6d1090936928f9fa30 # v4.32.0
+        uses: github/codeql-action/init@9e907b5e64f6b83e7804b09294d44122997950d6 # v4.32.3
         with:
           languages: ${{ matrix.language }}
           build-mode: none
           source-root: .
 
       - name: "Perform CodeQL analysis"
-        uses: github/codeql-action/analyze@b20883b0cd1f46c72ae0ba6d1090936928f9fa30 # v4.32.0
+        uses: github/codeql-action/analyze@9e907b5e64f6b83e7804b09294d44122997950d6 # v4.32.3
         with:
           category: "/language:${{matrix.language}}"
 
@@ -132,16 +132,16 @@ jobs:
           persist-credentials: false
 
       - name: "Initialize CodeQL"
-        uses: github/codeql-action/init@b20883b0cd1f46c72ae0ba6d1090936928f9fa30 # v4.32.0
+        uses: github/codeql-action/init@9e907b5e64f6b83e7804b09294d44122997950d6 # v4.32.3
         with:
           languages: ${{ matrix.language }}
           dependency-caching: true
 
       - name: "Autobuild"
-        uses: github/codeql-action/autobuild@b20883b0cd1f46c72ae0ba6d1090936928f9fa30 # v4.32.0
+        uses: github/codeql-action/autobuild@9e907b5e64f6b83e7804b09294d44122997950d6 # v4.32.3
 
       - name: "Perform CodeQL Analysis"
-        uses: github/codeql-action/analyze@b20883b0cd1f46c72ae0ba6d1090936928f9fa30 # v4.32.0
+        uses: github/codeql-action/analyze@9e907b5e64f6b83e7804b09294d44122997950d6 # v4.32.3
         with:
           category: "/language:${{ matrix.language }}"
 
