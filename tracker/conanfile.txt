@@ -17,7 +17,7 @@ CMakeDeps
 CMakeToolchain
 
 [options]
-cpp-httplib/*:with_openssl=False
+cpp-httplib/*:with_openssl=True
 opencv/*:shared=True
 opencv/*:tracking=True
 opencv/*:video=True

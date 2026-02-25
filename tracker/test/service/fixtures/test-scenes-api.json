@@ -1,0 +1,187 @@
+{
+  "count": 2,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "uid": "3bc091c7-e449-46a0-9540-29c499bca18c",
+      "name": "Retail",
+      "map_type": "map_upload",
+      "use_tracker": true,
+      "output_lla": false,
+      "map": "https://localhost:443/media/HazardZoneSceneLarge.png",
+      "cameras": [
+        {
+          "uid": "camera1",
+          "name": "camera1",
+          "intrinsics": {
+            "fx": 571.2592026968458,
+            "fy": 571.2592026968458,
+            "cx": 320.0,
+            "cy": 240.0
+          },
+          "transform_type": "3d-2d point correspondence",
+          "transforms": [
+            278.0, 61.0, 621.0, 132.0, 559.0, 460.0, 66.0, 289.0, 0.1, 5.38,
+            3.04, 5.35, 3.05, 2.42, 0.1, 2.45
+          ],
+          "distortion": {
+            "k1": 0.0,
+            "k2": 0.0,
+            "p1": 0.0,
+            "p2": 0.0,
+            "k3": 0.0
+          },
+          "translation": [
+            2.6651330996559883, 1.0075648853123316, 2.603863333755973
+          ],
+          "rotation": [
+            -137.85924651441334, -19.441505783168942, -15.384890268257454
+          ],
+          "scale": [1.0000000000000009, 1.0, 1.0],
+          "resolution": [640, 480],
+          "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+        },
+        {
+          "uid": "camera2",
+          "name": "camera2",
+          "intrinsics": {
+            "fx": 571.2592026968458,
+            "fy": 571.2592026968458,
+            "cx": 320.0,
+            "cy": 240.0
+          },
+          "transform_type": "3d-2d point correspondence",
+          "transforms": [
+            31.0, 228.0, 423.0, 266.0, 537.0, 385.0, 79.0, 343.0, 1.06, 5.34,
+            4.0, 5.38, 4.98, 4.39, 2.04, 4.38
+          ],
+          "distortion": {
+            "k1": 0.0,
+            "k2": 0.0,
+            "p1": 0.0,
+            "p2": 0.0,
+            "k3": 0.0
+          },
+          "translation": [
+            4.034863921795162, 2.2777663107089894, 2.9551143733918663
+          ],
+          "rotation": [
+            -132.15360745910087, -8.172752500708558, -5.298590495090165
+          ],
+          "scale": [1.0, 1.0, 1.0],
+          "resolution": [640, 480],
+          "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+        }
+      ],
+      "mesh_translation": [0, 0, 0],
+      "mesh_rotation": [0, 0, 0],
+      "mesh_scale": [1.0, 1.0, 1.0],
+      "scale": 100.0,
+      "regulated_rate": 30.0,
+      "external_update_rate": 30.0,
+      "camera_calibration": "AprilTag",
+      "apriltag_size": 0.147,
+      "map_processed": "2023-06-08T13:53:58.767000Z",
+      "number_of_localizations": 50,
+      "global_feature": "netvlad",
+      "local_feature": { "sift": {} },
+      "matcher": { "NN-ratio": {} },
+      "minimum_number_of_matches": 20,
+      "inlier_threshold": 0.5,
+      "geospatial_provider": "google",
+      "map_zoom": 15.0,
+      "map_bearing": 0.0
+    },
+    {
+      "uid": "302cf49a-97ec-402d-a324-c5077b280b7b",
+      "name": "Queuing",
+      "map_type": "map_upload",
+      "use_tracker": true,
+      "output_lla": false,
+      "map": "https://localhost:443/media/scene.png",
+      "cameras": [
+        {
+          "uid": "atag-qcam1",
+          "name": "atag-qcam1",
+          "intrinsics": {
+            "fx": 905.0,
+            "fy": 905.0,
+            "cx": 640.0,
+            "cy": 360.0
+          },
+          "transform_type": "3d-2d point correspondence",
+          "transforms": [
+            119.0, 622.0, 257.0, 561.0, 978.0, 580.0, 628.0, 312.0, 1.685,
+            2.533, 2.188, 2.578, 4.449, 1.412, 3.94, 3.228
+          ],
+          "distortion": {
+            "k1": 0.0,
+            "k2": 0.0,
+            "p1": 0.0,
+            "p2": 0.0,
+            "k3": 0.0
+          },
+          "translation": [
+            2.985857104493509, 0.2054078898442529, 2.7150546825598902
+          ],
+          "rotation": [
+            -135.08718965001765, 12.682032394455131, 19.24508172546946
+          ],
+          "scale": [1.0, 1.0, 1.0],
+          "resolution": [1280, 720],
+          "scene": "302cf49a-97ec-402d-a324-c5077b280b7b"
+        },
+        {
+          "uid": "atag-qcam2",
+          "name": "atag-qcam2",
+          "intrinsics": {
+            "fx": 905.0,
+            "fy": 905.0,
+            "cx": 640.0,
+            "cy": 360.0
+          },
+          "transform_type": "3d-2d point correspondence",
+          "transforms": [
+            1012.0, 307.0, 956.0, 613.0, 1121.0, 505.0, 585.0, 316.0, 3.596,
+            2.96, 1.583, 2.794, 2.36, 2.266, 2.577, 4.903
+          ],
+          "distortion": {
+            "k1": 0.0,
+            "k2": 0.0,
+            "p1": 0.0,
+            "p2": 0.0,
+            "k3": 0.0
+          },
+          "translation": [
+            -0.6544951215349519, 2.8628274940885503, 2.894955006060443
+          ],
+          "rotation": [
+            -150.5988934259539, 42.35138027480063, 52.29263795544898
+          ],
+          "scale": [1.0, 1.0000000000000002, 1.0],
+          "resolution": [1280, 720],
+          "scene": "302cf49a-97ec-402d-a324-c5077b280b7b"
+        }
+      ],
+      "mesh_translation": [0, 0, 0],
+      "mesh_rotation": [0, 0, 0],
+      "mesh_scale": [1.0, 1.0, 1.0],
+      "scale": 157.0,
+      "regulated_rate": 30.0,
+      "external_update_rate": 30.0,
+      "camera_calibration": "AprilTag",
+      "apriltag_size": 0.318471338,
+      "map_processed": "2023-06-08T13:54:27.922000Z",
+      "number_of_localizations": 50,
+      "global_feature": "netvlad",
+      "local_feature": { "sift": {} },
+      "matcher": { "NN-ratio": {} },
+      "minimum_number_of_matches": 20,
+      "inlier_threshold": 0.5,
+      "geospatial_provider": "google",
+      "map_zoom": 15.0,
+      "map_bearing": 0.0
+    }
+  ]
+}

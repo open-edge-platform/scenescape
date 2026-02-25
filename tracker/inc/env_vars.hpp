@@ -58,6 +58,17 @@ constexpr const char* NON_MEASUREMENT_TIME_DYNAMIC_S = "TRACKER_NON_MEASUREMENT_
 /// seconds, >= 0 - RobotVision tracker parameter
 constexpr const char* NON_MEASUREMENT_TIME_STATIC_S = "TRACKER_NON_MEASUREMENT_TIME_STATIC_S";
 
+// Manager API overrides
+
+/// Manager API base URL
+constexpr const char* MANAGER_URL = "TRACKER_MANAGER_URL";
+
+/// Path to JSON auth file {user, password}
+constexpr const char* MANAGER_AUTH_PATH = "TRACKER_MANAGER_AUTH_PATH";
+
+/// Path to CA certificate for HTTPS verification
+constexpr const char* MANAGER_CA_CERT_PATH = "TRACKER_MANAGER_CA_CERT_PATH";
+
 // Scenes overrides
 
 /// "file"|"api"
