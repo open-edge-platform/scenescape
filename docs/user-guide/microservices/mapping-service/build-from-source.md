@@ -1,4 +1,4 @@
-# How to Build the Mapping Service Source
+# How to Build from Source
 
 ## Overview
 

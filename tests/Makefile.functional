@@ -286,15 +286,29 @@ vdms-similarity-search: # NEX-T10516
 	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/vdms.yml:$(COMPOSE)/pgserver.yml, tests/functional/tc_vdms_similarity_search.py,'pgserver',true, /run/secrets/controller.auth)
 	$(eval override BASE_IMAGE := $(IMAGE_OLD))
 
-visibility: # NEX-T10582
-	@for mode in $(VISIBILITY_TOPIC); do \
-		$(MAKE) SECRETSDIR=$(PWD)/manager/secrets visibility-test VISIBILITY_TOPIC=$$mode; \
-	done
-
-visibility-test: # NEX-T10582
+visibility-regulated: export VISIBILITY_TOPIC := regulated
+visibility-regulated: # NEX-T10582
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web_default.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/cams.yml)
 	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_camera_bound_visibility.py --visibility_topic $(VISIBILITY_TOPIC), '$(SERVICES)', true, /run/secrets/browser.auth)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_camera_bound_visibility_regulated.py --visibility_topic $(VISIBILITY_TOPIC), '$(SERVICES)', true, /run/secrets/browser.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+
+visibility-unregulated: export VISIBILITY_TOPIC := unregulated
+visibility-unregulated: # NEX-T19788
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web_default.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/cams.yml)
+	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_camera_bound_visibility_unregulated.py --visibility_topic $(VISIBILITY_TOPIC), '$(SERVICES)', true, /run/secrets/browser.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+
+visibility-none: export VISIBILITY_TOPIC := none
+visibility-none: # NEX-T19789
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web_default.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/cams.yml)
+	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_camera_bound_visibility_none.py --visibility_topic $(VISIBILITY_TOPIC), '$(SERVICES)', true, /run/secrets/browser.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
