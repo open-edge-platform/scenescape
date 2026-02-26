@@ -26,7 +26,7 @@ SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.
 
 .PHONY: all dependencies dependencies-debug dependencies-relwithdebinfo \
         build build-debug build-relwithdebinfo run run-debug profile flamegraph \
-        test-unit test-unit-coverage test-service clean install-tools install-deps \
+        test-unit test-unit-coverage test-service test-load clean install-tools install-deps \
         run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
         lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report \
         mqtt-subscribe mqtt-publish broker-start broker-stop generate-certs
@@ -339,6 +339,15 @@ test-service: build-image
 		unset TRACKER_MQTT_HOST TRACKER_MQTT_PORT TRACKER_MQTT_INSECURE TRACKER_MQTT_TLS_CA_CERT && \
 		.venv/bin/pytest -v --tb=short
 
+# Load test: orchestrates compose lifecycle, generates load, asserts SLIs.
+# Override defaults for boundary testing:
+#   NUM_CAMERAS=8 FPS=30 NUM_OBJECTS=500 DURATION=5m make test-load
+test-load: build-image
+	$(MAKE) -C test/load test VERSION=$(VERSION) \
+		NUM_CAMERAS=$${NUM_CAMERAS:-4} FPS=$${FPS:-15} \
+		NUM_OBJECTS=$${NUM_OBJECTS:-300} DURATION=$${DURATION:-1m} \
+		METRICS_EXPORT_INTERVAL_S=$${METRICS_EXPORT_INTERVAL_S:-1}
+
 #####################################################################
 # Docker build targets
 # - build-image: inherited from common.mk, builds runtime stage
@@ -430,6 +439,7 @@ mqtt-publish:
 # Override common.mk clean to also remove local build directories
 clean:
 	-@cd test/service && docker compose down 2>/dev/null || true
+	-@$(MAKE) -C test/load clean 2>/dev/null || true
 	rm -rf build* test/service/.venv test/service/.certs test/service/.env .pytest_cache
 	-docker rmi $(IMAGE):$(VERSION) $(IMAGE):latest 2>/dev/null || true
 	-rm -f $(BUILD_DIR)/$(IMAGE)-*deps.txt $(LOG_FILE) 2>/dev/null || true

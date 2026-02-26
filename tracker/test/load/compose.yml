@@ -1,0 +1,126 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 Intel Corporation
+
+# Load Test Compose Stack
+# Isolated environment for load testing the tracker service with k6 MQTT.
+#
+# Usage (via Makefile):
+#   make test-load
+#   NUM_CAMERAS=8 FPS=30 NUM_OBJECTS=500 DURATION=5m make test-load
+#
+# Services:
+#   broker        — Mosquitto MQTT (plaintext, port 1883)
+#   otel-collector — OTLP gRPC receiver + Prometheus exporter (port 8889)
+#   tracker       — Tracker service under test
+#   k6            — xk6-mqtt load generator (run via `docker compose run`)
+
+services:
+  broker:
+    image: eclipse-mosquitto:2
+    hostname: broker
+    configs:
+      - source: mosquitto_config
+        target: /mosquitto/config/mosquitto.conf
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -i healthcheck -W 3"]
+      interval: 2s
+      timeout: 3s
+      retries: 5
+      start_period: 2s
+    networks:
+      - load-test
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    hostname: otel-collector
+    command: ["--config=/etc/otel-config.yaml"]
+    ports:
+      - "8889:8889"
+      - "13133:13133"
+    configs:
+      - source: otel_config
+        target: /etc/otel-config.yaml
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "--version"]
+      interval: 2s
+      timeout: 3s
+      retries: 5
+      start_period: 2s
+    networks:
+      - load-test
+
+  tracker:
+    image: scenescape-tracker:${VERSION:-latest}
+    hostname: tracker
+    read_only: true
+    cap_drop:
+      - ALL
+    environment:
+      - TRACKER_LOG_LEVEL=${TRACKER_LOG_LEVEL:-info}
+      - TRACKER_MQTT_HOST=broker
+      - TRACKER_MQTT_PORT=1883
+      - TRACKER_MQTT_INSECURE=true
+      - TRACKER_SCENES_SOURCE=file
+      - TRACKER_SCENES_FILE_PATH=/config/scenes.json
+      - TRACKER_METRICS_ENABLED=true
+      - TRACKER_OTLP_ENDPOINT=otel-collector:4317
+      - TRACKER_METRICS_EXPORT_INTERVAL_S=${METRICS_EXPORT_INTERVAL_S:-1}
+      - TRACKER_TIME_CHUNKING_RATE_FPS=${FPS:-15}
+      - TRACKER_MAX_LAG_S=1.0
+      - TRACKER_MQTT_SCHEMA_VALIDATION=true
+      # Paho MQTT proxy workaround
+      - http_proxy=
+      - https_proxy=
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+    configs:
+      - source: tracker_scenes
+        target: /config/scenes.json
+    healthcheck:
+      test: ["CMD", "/scenescape/tracker", "healthcheck"]
+      interval: 1s
+      timeout: 3s
+      retries: 10
+      start_period: 2s
+    depends_on:
+      broker:
+        condition: service_healthy
+      otel-collector:
+        condition: service_healthy
+    networks:
+      - load-test
+
+  k6:
+    build:
+      context: .
+      dockerfile: Dockerfile.k6
+    hostname: k6
+    profiles: ["k6"]
+    volumes:
+      - ./simulate-detections.js:/scripts/simulate-detections.js:ro
+    environment:
+      - MQTT_HOST=tcp://broker
+      - MQTT_PORT=1883
+      - CAMERA_COUNT=${NUM_CAMERAS:-4}
+      - CAMERA_FPS=${FPS:-15}
+      - OBJECT_COUNT=${NUM_OBJECTS:-300}
+      - DEFAULT_TEST_DURATION=${DURATION:-1m}
+      - CAMERA_ID_PREFIX=atag-qcam
+    command: ["run", "--no-usage-report", "/scripts/simulate-detections.js"]
+    depends_on:
+      tracker:
+        condition: service_healthy
+    networks:
+      - load-test
+
+configs:
+  otel_config:
+    file: ./config/otel-collector.yaml
+  mosquitto_config:
+    file: ./config/mosquitto.conf
+  tracker_scenes:
+    file: ./config/scenes.json
+
+networks:
+  load-test:
+    driver: bridge
