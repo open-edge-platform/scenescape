@@ -99,6 +99,8 @@ updates:
       prefix: "pip"
     ignore:
       - dependency-name: "numpy"
+      - dependency-name: "Django"
+        update-types: ["version-update:semver-major"]
     reviewers:
       - "saratpoluri"
       - "dmytroye"
