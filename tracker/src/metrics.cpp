@@ -181,7 +181,6 @@ void Metrics::reset() {
     std::destroy_at(&init_flag);
     std::construct_at(&init_flag);
 
-
     // Clear instrument pointers
     latency_histogram = nullptr;
     messages_counter = nullptr;

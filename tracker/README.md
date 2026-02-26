@@ -110,12 +110,12 @@ The tracker includes k6-based load testing to validate SLI performance under sus
 
 **Test parameters** are configurable via environment variables:
 
-| Variable               | Default | Description                   |
-| ---------------------- | ------- | ----------------------------- |
+| Variable               | Default | Description                     |
+| ---------------------- | ------- | ------------------------------- |
 | `LOAD_TEST_DURATION_S` | `60`    | Duration of load test (seconds) |
-| `LOAD_TEST_CAMERAS`    | `4`     | Number of simulated cameras   |
-| `LOAD_TEST_FPS`        | `15`    | Frames per second per camera  |
-| `LOAD_TEST_OBJECTS`    | `300`   | Max objects per frame         |
+| `LOAD_TEST_CAMERAS`    | `4`     | Number of simulated cameras     |
+| `LOAD_TEST_FPS`        | `15`    | Frames per second per camera    |
+| `LOAD_TEST_OBJECTS`    | `300`   | Max objects per frame           |
 
 **Example: Run a 120-second test with 8 cameras at 30 FPS:**
 

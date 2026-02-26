@@ -299,7 +299,7 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         batch.timestamp_iso = message->timestamp;
         batch.timestamp = *msg_time;
         batch.detections = std::move(detections);
-        batch.obs_ctx = obs_ctx;  // Copy obs_ctx to allow reuse in next loop iteration
+        batch.obs_ctx = obs_ctx; // Copy obs_ctx to allow reuse in next loop iteration
         batch.obs_ctx.captureBufferTime();
         batch.obs_ctx.category = category;
         buffer_.add(scope, camera_id, std::move(batch));
