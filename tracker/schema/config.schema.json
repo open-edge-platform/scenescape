@@ -188,6 +188,12 @@
               "type": "boolean",
               "description": "Enable OpenTelemetry distributed tracing",
               "default": false
+            },
+            "export_interval_s": {
+              "type": "integer",
+              "description": "Batch span processor schedule delay in seconds",
+              "default": 5,
+              "minimum": 1
             }
           }
         }

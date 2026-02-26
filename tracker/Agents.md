@@ -32,6 +32,7 @@ Uses dedicated Makefile with Conan 2.x + CMake + Ninja. All builds run inside Do
 | `make test-unit`          | Run unit tests                     |
 | `make test-unit-coverage` | Coverage with enforced thresholds  |
 | `make test-service`       | pytest integration tests           |
+| `make test-load`          | k6 load test + drop-rate assertion |
 | `make lint-all`           | C++, Python, Dockerfile linting    |
 | `make profile`            | perf profiling                     |
 | `make flamegraph`         | Generate flamegraph visualization  |
@@ -81,6 +82,7 @@ make build                    # Release build
 make test-unit                # Run unit tests
 make test-unit-coverage       # Verify coverage thresholds
 make test-service             # Integration tests (requires running services)
+make test-load                # k6 load test + drop-rate assertion
 make lint-all                 # All linting checks
 ```
 
@@ -138,6 +140,7 @@ Before submitting changes:
 - [ ] `make lint-all` passes
 - [ ] `make test-unit-coverage` meets thresholds (90% line, 50% branch)
 - [ ] `make test-service` passes (if MQTT changes)
+- [ ] `make test-load` passes (if metrics/performance changes — drops < 0.1%)
 - [ ] Schema changes validated and documented
 - [ ] Environment variable overrides added for new config options
 - [ ] Design docs updated if architecture/behavior changes

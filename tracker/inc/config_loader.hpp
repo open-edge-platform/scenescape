@@ -57,12 +57,21 @@ struct ManagerConfig {
 };
 
 /**
+ * @brief OTLP collector connection settings.
+ */
+struct OtlpConfig {
+    std::string endpoint; ///< OTLP gRPC endpoint (e.g., localhost:4317)
+    bool insecure = true; ///< Use insecure (non-TLS) connection
+};
+
+/**
  * @brief External service connections.
  */
 struct InfrastructureConfig {
     MqttConfig mqtt;
     TrackerConfig tracker;
     std::optional<ManagerConfig> manager; ///< Required when scenes.source='api'
+    std::optional<OtlpConfig> otlp;       ///< Required when metrics or tracing enabled
 };
 
 /**
@@ -73,10 +82,28 @@ struct LoggingConfig {
 };
 
 /**
+ * @brief Metrics export configuration.
+ */
+struct MetricsConfig {
+    bool enabled = false;       ///< Enable OpenTelemetry metrics export
+    int export_interval_s = 60; ///< Export interval in seconds
+};
+
+/**
+ * @brief Tracing configuration.
+ */
+struct TracingConfig {
+    bool enabled = false;      ///< Enable OpenTelemetry distributed tracing
+    int export_interval_s = 5; ///< Batch span processor schedule delay in seconds
+};
+
+/**
  * @brief Observability settings.
  */
 struct ObservabilityConfig {
     LoggingConfig logging;
+    MetricsConfig metrics;
+    TracingConfig tracing;
 };
 
 /**
@@ -149,6 +176,21 @@ constexpr char INFRASTRUCTURE_MANAGER[] = "/infrastructure/manager";
 constexpr char INFRASTRUCTURE_MANAGER_URL[] = "/infrastructure/manager/url";
 constexpr char INFRASTRUCTURE_MANAGER_AUTH_PATH[] = "/infrastructure/manager/auth_path";
 constexpr char INFRASTRUCTURE_MANAGER_CA_CERT_PATH[] = "/infrastructure/manager/ca_cert_path";
+
+// OTLP
+constexpr char INFRASTRUCTURE_OTLP[] = "/infrastructure/otlp";
+constexpr char INFRASTRUCTURE_OTLP_ENDPOINT[] = "/infrastructure/otlp/endpoint";
+constexpr char INFRASTRUCTURE_OTLP_INSECURE[] = "/infrastructure/otlp/insecure";
+
+// Observability - Metrics
+constexpr char OBSERVABILITY_METRICS_ENABLED[] = "/observability/metrics/enabled";
+constexpr char OBSERVABILITY_METRICS_EXPORT_INTERVAL_S[] =
+    "/observability/metrics/export_interval_s";
+
+// Observability - Tracing
+constexpr char OBSERVABILITY_TRACING_ENABLED[] = "/observability/tracing/enabled";
+constexpr char OBSERVABILITY_TRACING_EXPORT_INTERVAL_S[] =
+    "/observability/tracing/export_interval_s";
 
 // Scenes
 constexpr char SCENES_SOURCE[] = "/scenes/source";

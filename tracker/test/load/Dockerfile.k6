@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 Intel Corporation
+
+# Build k6 with the xk6-mqtt extension for MQTT load testing.
+# xk6 Docker tag 1.3.5 bundles xk6 Go module v1.3.5 (Go 1.25.7).
+# See: https://github.com/grafana/xk6/releases/tag/v1.3.5
+FROM grafana/xk6:1.3.5@sha256:a6ec20c88f5a1087ed97861ddc3b1803a9148436d11f3e6253c7459d6d5781ce AS builder
+RUN xk6 build --with github.com/pmalhaire/xk6-mqtt@v0.40.3
+
+FROM scratch
+COPY --from=builder /xk6/k6 /usr/bin/k6
+USER 65532:65532
+ENTRYPOINT ["k6"]
