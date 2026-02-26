@@ -30,6 +30,29 @@ opentelemetry::nostd::unique_ptr<metrics_api::Histogram<double>> stage_transform
 opentelemetry::nostd::unique_ptr<metrics_api::Histogram<double>> stage_track_histogram;
 opentelemetry::nostd::unique_ptr<metrics_api::Histogram<double>> stage_publish_histogram;
 
+/**
+ * @brief Get the histogram for a given metric name.
+ * @param metric_name One of kMetricStageXxx constants
+ * @return Reference to the corresponding histogram unique_ptr
+ * @throws std::invalid_argument if metric_name is not recognized
+ */
+metrics_api::Histogram<double>& get_histogram(const char* metric_name) {
+    if (std::strcmp(metric_name, kMetricStageParse) == 0) {
+        return *stage_parse_histogram;
+    } else if (std::strcmp(metric_name, kMetricStageBuffer) == 0) {
+        return *stage_buffer_histogram;
+    } else if (std::strcmp(metric_name, kMetricStageQueue) == 0) {
+        return *stage_queue_histogram;
+    } else if (std::strcmp(metric_name, kMetricStageTransform) == 0) {
+        return *stage_transform_histogram;
+    } else if (std::strcmp(metric_name, kMetricStageTrack) == 0) {
+        return *stage_track_histogram;
+    } else if (std::strcmp(metric_name, kMetricStagePublish) == 0) {
+        return *stage_publish_histogram;
+    }
+    throw std::invalid_argument("Invalid metric name: " + std::string(metric_name));
+}
+
 } // namespace
 
 // Static member definitions
@@ -106,24 +129,14 @@ void Metrics::record_latency(double ms, MetricAttributes attrs) {
 void Metrics::record_stage_latency(const char* metric_name, double ms, MetricAttributes attrs) {
     ensure_initialized();
 
-    opentelemetry::nostd::unique_ptr<metrics_api::Histogram<double>>* hist = nullptr;
-    if (std::strcmp(metric_name, kMetricStageParse) == 0) {
-        hist = &stage_parse_histogram;
-    } else if (std::strcmp(metric_name, kMetricStageBuffer) == 0) {
-        hist = &stage_buffer_histogram;
-    } else if (std::strcmp(metric_name, kMetricStageQueue) == 0) {
-        hist = &stage_queue_histogram;
-    } else if (std::strcmp(metric_name, kMetricStageTransform) == 0) {
-        hist = &stage_transform_histogram;
-    } else if (std::strcmp(metric_name, kMetricStageTrack) == 0) {
-        hist = &stage_track_histogram;
-    } else if (std::strcmp(metric_name, kMetricStagePublish) == 0) {
-        hist = &stage_publish_histogram;
-    }
-
-    if (hist && *hist) {
-        (*hist)->Record(ms, opentelemetry::common::KeyValueIterableView<MetricAttributes>(attrs),
+    try {
+        auto& hist = get_histogram(metric_name);
+        if (hist) {
+            hist.Record(ms, opentelemetry::common::KeyValueIterableView<MetricAttributes>(attrs),
                         opentelemetry::context::Context{});
+        }
+    } catch (const std::invalid_argument&) {
+        // Silently ignore invalid metric names in production
     }
 }
 
@@ -166,10 +179,10 @@ void Metrics::set_active_tracks(const std::string& scene_id, const std::string& 
 }
 
 void Metrics::reset() {
-    // Reset the once_flag by replacing it (C++ doesn't allow resetting std::once_flag,
-    // so we use placement new to reconstruct it in-place)
-    init_flag.~once_flag();
-    new (&init_flag) std::once_flag();
+    // Reset the once_flag using std::destruct_at and std::construct_at for safety
+    std::destruct_at(&init_flag);
+    std::construct_at(&init_flag);
+
 
     // Clear instrument pointers
     latency_histogram = nullptr;
