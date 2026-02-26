@@ -48,6 +48,7 @@ To facilitate GPU acceleration, sample configuration files are provided for the 
 ### Automatic GPU Device Selection
 
 The following steps enable the above-mentioned optimizations for:
+
 - platforms with multiple GPU devices: a GPU device will be chosen automatically.
 - systems with only one GPU device.
 
