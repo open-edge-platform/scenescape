@@ -270,6 +270,16 @@ $(document).ready(function () {
     $elements.detach().appendTo($container);
   }
 
+  // Helper function to escape HTML special characters
+  function escapeHTML(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   // Function to show the prompt modal to confirm the action
   function showModelPromptModal(action, path, filenames) {
     return new Promise((resolve, reject) => {
@@ -284,7 +294,7 @@ $(document).ready(function () {
       // Multiple files to overwrite/delete -> join with <br> for better readability
       if (Array.isArray(filenames)) {
         if (filenames.length > 0) {
-          filenames = filenames.join("<br>");
+          filenames = filenames.map(escapeHTML).join("<br>");
         }
         // No files to overwrite/delete -> no need prompt
         else {
@@ -297,7 +307,7 @@ $(document).ready(function () {
       }
       // Single file to overwrite/delete -> convert to string
       else {
-        filenames = filenames.toString();
+        filenames = escapeHTML(filenames.toString());
       }
 
       // Set the path to "root" if it is empty

@@ -29,11 +29,26 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+      - name: Free up runner space
+        run: |
+          # Remove Java (JDKs)
+          sudo rm -rf /usr/lib/jvm
+          # Remove .NET SDKs
+          sudo rm -rf /usr/share/dotnet
+          # Remove Swift toolchain
+          sudo rm -rf /usr/share/swift
+          # Remove Haskell (GHC)
+          sudo rm -rf /usr/local/.ghcup
+          # Remove Julia
+          sudo rm -rf /usr/local/julia*
+          # Remove Android SDKs
+          sudo rm -rf /usr/local/lib/android
       - name: "Remove all Docker images"
         uses: ./.github/actions/cleanup
         with:
@@ -48,7 +63,7 @@ jobs:
         run: |
           echo "SCENESCAPE_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
           make build-all
-          docker image ls | awk '{print $1 ":" $2}' | grep $(cat version.txt) | grep -v "\-test" > images.txt
+          docker image ls | awk '{print $1}' | grep $(cat version.txt) | grep -v "\-test" > images.txt
       - name: "Run Trivy Image Scan"
         if: always() && steps.build_images.outcome == 'success' && steps.setup_trivy.outcome == 'success'
         run: |
@@ -79,7 +94,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Trivy Critical Filesystem Scan
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # 0.33.1
+        uses: aquasecurity/trivy-action@c1824fd6edce30d7ab345a9989de00bbd46ef284 # 0.34.0
         with:
           version: "v0.68.2"
           scan-type: "fs"

@@ -4,18 +4,23 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "config_loader.hpp"
 #include "logger.hpp"
 #include "message_handler.hpp"
 #include "mqtt_client.hpp"
+#include "scene_registry.hpp"
+#include "time_chunk_buffer.hpp"
+#include "utils/json_schema_validator.hpp"
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
+#include <chrono>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -27,6 +32,49 @@ using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::StrictMock;
+
+// Test scene constants
+constexpr const char* TEST_SCENE_ID = "test-scene-001";
+constexpr const char* TEST_SCENE_NAME = "Test Scene";
+constexpr const char* TEST_CAMERA_ID = "cam1";
+
+/**
+ * @brief Create a SceneRegistry with a single test scene containing cam1.
+ */
+SceneRegistry createTestRegistry() {
+    Camera cam;
+    cam.uid = TEST_CAMERA_ID;
+    cam.name = "Test Camera 1";
+    cam.intrinsics.fx = 500.0;
+    cam.intrinsics.fy = 500.0;
+    cam.intrinsics.cx = 320.0;
+    cam.intrinsics.cy = 240.0;
+    // distortion defaults to 0.0 via struct initialization
+
+    Scene scene;
+    scene.uid = TEST_SCENE_ID;
+    scene.name = TEST_SCENE_NAME;
+    scene.cameras = {cam};
+
+    SceneRegistry registry;
+    registry.register_scenes({scene});
+    return registry;
+}
+
+/**
+ * @brief Generate ISO 8601 timestamp for a time in the past.
+ *
+ * Creates a UTC timestamp string (e.g., "2026-02-09T10:30:00.000Z") offset
+ * from the current time. Useful for testing lag detection without hardcoded dates.
+ *
+ * @param offset Duration to subtract from current time
+ * @return ISO 8601 formatted timestamp string
+ */
+std::string generate_past_iso_timestamp(std::chrono::seconds offset) {
+    auto past_time =
+        std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now() - offset);
+    return std::format("{:%Y-%m-%dT%H:%M:%S}.000Z", past_time);
+}
 
 /**
  * @brief Mock MQTT client for unit testing MessageHandler.
@@ -73,19 +121,73 @@ protected:
         mock_client_->captureCallback();
         ON_CALL(*mock_client_, isConnected()).WillByDefault(Return(true));
         ON_CALL(*mock_client_, isSubscribed()).WillByDefault(Return(true));
+
+        // Create test scene registry with cam1
+        test_registry_ = createTestRegistry();
+
+        // Create tracking config with large max_lag to accept test timestamps from 2026
+        // 315360000.0 = 10 years in seconds to accept any reasonable test timestamp
+        test_config_ =
+            TrackingConfig{.max_lag_s = 315360000.0, // 10 years - accept all test timestamps
+                           .time_chunking_rate_fps = 15,
+                           .max_workers = 50};
     }
 
     void TearDown() override { Logger::shutdown(); }
 
     std::shared_ptr<NiceMock<MockMqttClient>> mock_client_;
+    SceneRegistry test_registry_;
+    TimeChunkBuffer test_buffer_;
+    TrackingConfig test_config_;
 };
 
-// Test that handler subscribes to camera topic on start
-TEST_F(MessageHandlerTest, Start_SubscribesToCameraTopic) {
-    EXPECT_CALL(*mock_client_, subscribe(MessageHandler::TOPIC_CAMERA_DATA)).Times(1);
+// Test that handler subscribes to each registered camera topic on start
+TEST_F(MessageHandlerTest, Start_SubscribesToRegisteredCameras) {
+    // test_registry_ has only cam1 registered
+    EXPECT_CALL(*mock_client_, subscribe(std::format(MessageHandler::TOPIC_CAMERA_SUBSCRIBE_PATTERN,
+                                                     TEST_CAMERA_ID)))
+        .Times(1);
 
-    // Disable schema validation since we don't have schemas in test env
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+}
+
+// Test subscribing to multiple cameras
+TEST_F(MessageHandlerTest, Start_SubscribesToMultipleCameras) {
+    // Create registry with multiple cameras
+    Camera cam1, cam2;
+    cam1.uid = "camera-1";
+    cam1.name = "Camera 1";
+    cam2.uid = "camera-2";
+    cam2.name = "Camera 2";
+
+    Scene scene;
+    scene.uid = "multi-cam-scene";
+    scene.name = "Multi Camera Scene";
+    scene.cameras = {cam1, cam2};
+
+    SceneRegistry multi_registry;
+    multi_registry.register_scenes({scene});
+
+    EXPECT_CALL(*mock_client_,
+                subscribe(std::format(MessageHandler::TOPIC_CAMERA_SUBSCRIBE_PATTERN, "camera-1")))
+        .Times(1);
+    EXPECT_CALL(*mock_client_,
+                subscribe(std::format(MessageHandler::TOPIC_CAMERA_SUBSCRIBE_PATTERN, "camera-2")))
+        .Times(1);
+
+    MessageHandler handler(mock_client_, multi_registry, test_buffer_, test_config_, false);
+    handler.start();
+}
+
+// Test that handler does not subscribe when registry is empty
+TEST_F(MessageHandlerTest, Start_NoSubscriptionsWithEmptyRegistry) {
+    SceneRegistry empty_registry;
+
+    // No subscribe calls expected
+    EXPECT_CALL(*mock_client_, subscribe(_)).Times(0);
+
+    MessageHandler handler(mock_client_, empty_registry, test_buffer_, test_config_, false);
     handler.start();
 }
 
@@ -93,13 +195,13 @@ TEST_F(MessageHandlerTest, Start_SubscribesToCameraTopic) {
 TEST_F(MessageHandlerTest, Start_SetsMessageCallback) {
     EXPECT_CALL(*mock_client_, setMessageCallback(_)).Times(1);
 
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
 }
 
 // Test processing valid camera message increments received count
 TEST_F(MessageHandlerTest, HandleMessage_IncrementsReceivedCount) {
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
 
     EXPECT_EQ(handler.getReceivedCount(), 0);
@@ -118,16 +220,9 @@ TEST_F(MessageHandlerTest, HandleMessage_IncrementsReceivedCount) {
     EXPECT_EQ(handler.getReceivedCount(), 1);
 }
 
-// Test processing valid message triggers publish
-TEST_F(MessageHandlerTest, HandleMessage_PublishesOutput) {
-    std::vector<std::pair<std::string, std::string>> published_messages;
-
-    ON_CALL(*mock_client_, publish(_, _))
-        .WillByDefault(Invoke([&](const std::string& topic, const std::string& payload) {
-            published_messages.emplace_back(topic, payload);
-        }));
-
-    MessageHandler handler(mock_client_, false);
+// Test processing valid message buffers detections
+TEST_F(MessageHandlerTest, HandleMessage_BuffersDetections) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
 
     std::string payload = R"({
@@ -140,21 +235,29 @@ TEST_F(MessageHandlerTest, HandleMessage_PublishesOutput) {
 
     mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
 
-    ASSERT_EQ(published_messages.size(), 1);
-    EXPECT_EQ(published_messages[0].first, "scenescape/data/scene/dummy-scene/thing");
-    EXPECT_EQ(handler.getPublishedCount(), 1);
+    EXPECT_EQ(handler.getBufferedCount(), 1);
+
+    // Verify buffer contains the expected data
+    auto buffer_data = test_buffer_.pop_all();
+    ASSERT_EQ(buffer_data.size(), 1);
+
+    TrackingScope expected_scope{"test-scene-001", "person"};
+    ASSERT_TRUE(buffer_data.count(expected_scope) == 1);
+
+    const auto& camera_map = buffer_data.at(expected_scope);
+    ASSERT_EQ(camera_map.size(), 1);
+    ASSERT_TRUE(camera_map.count("cam1") == 1);
+
+    const auto& batch = camera_map.at("cam1");
+    EXPECT_EQ(batch.camera_id, "cam1");
+    EXPECT_EQ(batch.timestamp_iso, "2026-01-27T12:00:00.000Z");
+    ASSERT_EQ(batch.detections.size(), 1);
+    EXPECT_EQ(batch.detections[0].id, 1);
 }
 
-// Test published output contains required fields
-TEST_F(MessageHandlerTest, PublishedOutput_ContainsRequiredFields) {
-    std::string published_payload;
-
-    ON_CALL(*mock_client_, publish(_, _))
-        .WillByDefault(Invoke([&](const std::string& /*topic*/, const std::string& payload) {
-            published_payload = payload;
-        }));
-
-    MessageHandler handler(mock_client_, false);
+// Test buffered data contains correct detection info
+TEST_F(MessageHandlerTest, BufferedData_ContainsCorrectDetectionInfo) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
 
     std::string input_payload = R"({
@@ -167,25 +270,27 @@ TEST_F(MessageHandlerTest, PublishedOutput_ContainsRequiredFields) {
 
     mock_client_->simulateMessage("scenescape/data/camera/cam1", input_payload);
 
-    // Parse the published output
-    rapidjson::Document doc;
-    doc.Parse(published_payload.c_str());
-    ASSERT_FALSE(doc.HasParseError()) << "Published JSON should be valid";
+    // Verify buffer has correct structure
+    auto buffer_data = test_buffer_.pop_all();
+    ASSERT_EQ(buffer_data.size(), 1);
 
-    // Check required fields
-    EXPECT_TRUE(doc.HasMember("id"));
-    EXPECT_TRUE(doc.HasMember("name"));
-    EXPECT_TRUE(doc.HasMember("timestamp"));
-    EXPECT_TRUE(doc.HasMember("objects"));
+    TrackingScope expected_scope{"test-scene-001", "person"};
+    const auto& batch = buffer_data.at(expected_scope).at("cam1");
 
-    EXPECT_STREQ(doc["id"].GetString(), MessageHandler::DUMMY_SCENE_ID);
-    EXPECT_STREQ(doc["name"].GetString(), MessageHandler::DUMMY_SCENE_NAME);
-    EXPECT_TRUE(doc["objects"].IsArray());
+    EXPECT_EQ(batch.camera_id, "cam1");
+    EXPECT_EQ(batch.timestamp_iso, "2026-01-27T12:00:00.000Z");
+    ASSERT_EQ(batch.detections.size(), 1);
+
+    const auto& det = batch.detections[0];
+    EXPECT_EQ(det.bounding_box_px.x, 10);
+    EXPECT_EQ(det.bounding_box_px.y, 20);
+    EXPECT_EQ(det.bounding_box_px.width, 50);
+    EXPECT_EQ(det.bounding_box_px.height, 100);
 }
 
 // Test that invalid JSON is rejected
 TEST_F(MessageHandlerTest, HandleMessage_RejectsInvalidJson) {
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
 
     std::string invalid_json = "{ this is not valid json }";
@@ -193,12 +298,12 @@ TEST_F(MessageHandlerTest, HandleMessage_RejectsInvalidJson) {
 
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 1);
-    EXPECT_EQ(handler.getPublishedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 0);
 }
 
 // Test that empty objects map still produces output
 TEST_F(MessageHandlerTest, HandleMessage_AcceptsEmptyObjects) {
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
 
     std::string payload = R"({
@@ -211,12 +316,13 @@ TEST_F(MessageHandlerTest, HandleMessage_AcceptsEmptyObjects) {
 
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 0);
-    EXPECT_EQ(handler.getPublishedCount(), 1);
+    // With empty objects, no categories to publish
+    EXPECT_EQ(handler.getBufferedCount(), 0);
 }
 
 // Test multiple objects categories are parsed correctly
 TEST_F(MessageHandlerTest, HandleMessage_ParsesMultipleCategories) {
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
 
     std::string payload = R"({
@@ -237,12 +343,13 @@ TEST_F(MessageHandlerTest, HandleMessage_ParsesMultipleCategories) {
 
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 0);
-    EXPECT_EQ(handler.getPublishedCount(), 1);
+    // Now publishes once per category
+    EXPECT_EQ(handler.getBufferedCount(), 2);
 }
 
 // Test detection without id is valid (id is optional)
 TEST_F(MessageHandlerTest, HandleMessage_AcceptsDetectionWithoutId) {
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
 
     std::string payload = R"({
@@ -259,19 +366,12 @@ TEST_F(MessageHandlerTest, HandleMessage_AcceptsDetectionWithoutId) {
 
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 0);
-    EXPECT_EQ(handler.getPublishedCount(), 1);
+    EXPECT_EQ(handler.getBufferedCount(), 1);
 }
 
-// Test output timestamp matches input timestamp
-TEST_F(MessageHandlerTest, PublishedOutput_PreservesTimestamp) {
-    std::string published_payload;
-
-    ON_CALL(*mock_client_, publish(_, _))
-        .WillByDefault(Invoke([&](const std::string& /*topic*/, const std::string& payload) {
-            published_payload = payload;
-        }));
-
-    MessageHandler handler(mock_client_, false);
+// Test buffered data preserves timestamp from input
+TEST_F(MessageHandlerTest, BufferedData_PreservesTimestamp) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
 
     std::string expected_timestamp = "2026-01-27T15:45:30.123Z";
@@ -279,35 +379,87 @@ TEST_F(MessageHandlerTest, PublishedOutput_PreservesTimestamp) {
         "id": "cam1",
         "timestamp": ")" + expected_timestamp +
                                 R"(",
-        "objects": {}
+        "objects": {"person": [{"bounding_box_px": {"x": 0, "y": 0, "width": 10, "height": 20}}]}
     })";
 
     mock_client_->simulateMessage("scenescape/data/camera/cam1", input_payload);
 
-    rapidjson::Document doc;
-    doc.Parse(published_payload.c_str());
-    ASSERT_FALSE(doc.HasParseError());
-    ASSERT_TRUE(doc.HasMember("timestamp"));
-    EXPECT_STREQ(doc["timestamp"].GetString(), expected_timestamp.c_str());
+    auto buffer_data = test_buffer_.pop_all();
+    ASSERT_EQ(buffer_data.size(), 1);
+
+    TrackingScope expected_scope{"test-scene-001", "person"};
+    const auto& batch = buffer_data.at(expected_scope).at("cam1");
+    EXPECT_EQ(batch.timestamp_iso, expected_timestamp);
 }
 
 // Test that stop() can be called safely
 TEST_F(MessageHandlerTest, Stop_CanBeCalled) {
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
     handler.stop(); // Should not throw
     SUCCEED();
 }
 
+// Test that lagged messages are dropped (timestamp older than max_lag_s)
+TEST_F(MessageHandlerTest, HandleMessage_DropsLaggedMessages) {
+    // Use very small max_lag (1ms) - any timestamp more than 1ms old is considered lagged
+    TrackingConfig lag_config{.max_lag_s = 0.001, .time_chunking_rate_fps = 15, .max_workers = 100};
+
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, lag_config, false);
+    handler.start();
+
+    EXPECT_EQ(handler.getLaggedCount(), 0);
+
+    // Generate timestamp 1 hour in the past - guaranteed to exceed 1ms max_lag threshold
+    std::string past_timestamp = generate_past_iso_timestamp(std::chrono::hours(1));
+    std::string payload = std::format(R"({{
+        "id": "cam1",
+        "timestamp": "{}",
+        "objects": {{
+            "person": [{{"id": 1, "bounding_box_px": {{"x": 10, "y": 20, "width": 50, "height": 100}}}}]
+        }}
+    }})",
+                                      past_timestamp);
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getLaggedCount(), 1);
+    EXPECT_EQ(handler.getBufferedCount(), 0); // Message dropped, not buffered
+    EXPECT_EQ(handler.getRejectedCount(), 0); // Not rejected, just lagged
+}
+
+// Test that unknown camera messages are rejected
+TEST_F(MessageHandlerTest, HandleMessage_RejectsUnknownCamera) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    // unknown-cam is not in the test registry (only cam1 is registered)
+    std::string payload = R"({
+        "id": "unknown-cam",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/unknown-cam", payload);
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getRejectedCount(), 1);
+    EXPECT_EQ(handler.getBufferedCount(), 0);
+}
+
 // Test handler with schema validation disabled accepts all valid JSON
 TEST_F(MessageHandlerTest, SchemaValidationDisabled_AcceptsValidJson) {
-    MessageHandler handler(mock_client_, false); // schema_validation = false
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_,
+                           false); // schema_validation = false
     handler.start();
 
     std::string payload = R"({
         "id": "cam1",
         "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {}
+        "objects": {"person": [{"bounding_box_px": {"x": 0, "y": 0, "width": 10, "height": 20}}]}
     })";
 
     mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
@@ -315,41 +467,69 @@ TEST_F(MessageHandlerTest, SchemaValidationDisabled_AcceptsValidJson) {
     EXPECT_EQ(handler.getRejectedCount(), 0);
 }
 
-// Test that dummy output contains objects array with expected structure
-TEST_F(MessageHandlerTest, DummyOutput_HasExpectedObjectStructure) {
-    std::string published_payload;
-
-    ON_CALL(*mock_client_, publish(_, _))
-        .WillByDefault(Invoke([&](const std::string& /*topic*/, const std::string& payload) {
-            published_payload = payload;
-        }));
-
-    MessageHandler handler(mock_client_, false);
+// Test that multiple categories result in separate buffer entries
+TEST_F(MessageHandlerTest, MultipleCategories_CreateSeparateBufferEntries) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
 
     std::string input_payload = R"({
         "id": "cam1",
         "timestamp": "2026-01-27T12:00:00.000Z",
-        "objects": {"person": [{"id": 1, "bounding_box_px": {"x": 0, "y": 0, "width": 10, "height": 20}}]}
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 0, "y": 0, "width": 10, "height": 20}}],
+            "vehicle": [{"id": 2, "bounding_box_px": {"x": 100, "y": 100, "width": 50, "height": 30}}]
+        }
     })";
 
     mock_client_->simulateMessage("scenescape/data/camera/cam1", input_payload);
 
-    rapidjson::Document doc;
-    doc.Parse(published_payload.c_str());
-    ASSERT_FALSE(doc.HasParseError());
-    ASSERT_TRUE(doc.HasMember("objects"));
-    ASSERT_TRUE(doc["objects"].IsArray());
-    ASSERT_GT(doc["objects"].Size(), 0u);
+    EXPECT_EQ(handler.getBufferedCount(), 2); // One per category
 
-    const auto& obj = doc["objects"][0];
-    EXPECT_TRUE(obj.HasMember("id"));
-    EXPECT_TRUE(obj.HasMember("category"));
-    EXPECT_TRUE(obj.HasMember("translation"));
-    EXPECT_TRUE(obj.HasMember("velocity"));
-    EXPECT_TRUE(obj.HasMember("size"));
-    EXPECT_TRUE(obj.HasMember("rotation"));
-    EXPECT_STREQ(obj["category"].GetString(), MessageHandler::DUMMY_THING_TYPE);
+    auto buffer_data = test_buffer_.pop_all();
+    ASSERT_EQ(buffer_data.size(), 2);
+
+    TrackingScope person_scope{"test-scene-001", "person"};
+    TrackingScope vehicle_scope{"test-scene-001", "vehicle"};
+
+    EXPECT_TRUE(buffer_data.count(person_scope) == 1);
+    EXPECT_TRUE(buffer_data.count(vehicle_scope) == 1);
+}
+
+// Test that buffer keeps latest data when same camera sends multiple messages
+TEST_F(MessageHandlerTest, BufferKeepsLatest_WhenSameCameraSendsMultiple) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    // First message with id=1
+    std::string first_payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {"person": [{"id": 1, "bounding_box_px": {"x": 100, "y": 50, "width": 80, "height": 200}}]}
+    })";
+
+    // Second message with id=2
+    std::string second_payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.100Z",
+        "objects": {"person": [{"id": 2, "bounding_box_px": {"x": 200, "y": 100, "width": 60, "height": 150}}]}
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", first_payload);
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", second_payload);
+
+    EXPECT_EQ(handler.getBufferedCount(), 2); // Both buffered
+
+    auto buffer_data = test_buffer_.pop_all();
+    TrackingScope expected_scope{"test-scene-001", "person"};
+
+    // Buffer should have only one entry per scope+camera (keep-latest semantics)
+    ASSERT_EQ(buffer_data.size(), 1);
+    const auto& batch = buffer_data.at(expected_scope).at("cam1");
+
+    // Should have the LATEST detection (id=2)
+    ASSERT_EQ(batch.detections.size(), 1);
+    EXPECT_EQ(batch.detections[0].id, 2);
+    EXPECT_EQ(batch.timestamp_iso, "2026-01-27T12:00:00.100Z");
 }
 
 //
@@ -359,6 +539,7 @@ TEST_F(MessageHandlerTest, DummyOutput_HasExpectedObjectStructure) {
 struct MalformedDetectionTestCase {
     std::string name;
     std::string payload;
+    bool expect_buffered; // true if empty batch should still be buffered
 };
 
 void PrintTo(const MalformedDetectionTestCase& tc, std::ostream* os) {
@@ -368,17 +549,29 @@ void PrintTo(const MalformedDetectionTestCase& tc, std::ostream* os) {
 class MalformedDetectionTest : public MessageHandlerTest,
                                public ::testing::WithParamInterface<MalformedDetectionTestCase> {};
 
-TEST_P(MalformedDetectionTest, SkipsMalformedDetectionButPublishes) {
+TEST_P(MalformedDetectionTest, SkipsMalformedDetectionAndNoPublish) {
     const auto& tc = GetParam();
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
 
     mock_client_->simulateMessage("scenescape/data/camera/cam1", tc.payload);
 
     // Message is received and processed (malformed detections skipped)
     EXPECT_EQ(handler.getReceivedCount(), 1);
-    EXPECT_EQ(handler.getRejectedCount(), 0);  // Message not rejected
-    EXPECT_EQ(handler.getPublishedCount(), 1); // Still publishes output
+    EXPECT_EQ(handler.getRejectedCount(), 0); // Message not rejected
+
+    if (tc.expect_buffered) {
+        // Category exists but all detections were malformed -> empty batch buffered
+        // (tracker still needs the heartbeat for track aging)
+        EXPECT_EQ(handler.getBufferedCount(), 1);
+        auto buffer_data = test_buffer_.pop_all();
+        TrackingScope scope{"test-scene-001", "person"};
+        ASSERT_TRUE(buffer_data.count(scope));
+        EXPECT_TRUE(buffer_data.at(scope).at("cam1").detections.empty());
+    } else {
+        // Category itself was invalid (not an array) -> nothing buffered
+        EXPECT_EQ(handler.getBufferedCount(), 0);
+    }
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -386,22 +579,28 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(
         MalformedDetectionTestCase{
             "MissingBoundingBoxHeight",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50}}]}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50}}]}})",
+            true},
         MalformedDetectionTestCase{
             "NoBoundingBox",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1}]}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1}]}})",
+            true},
         MalformedDetectionTestCase{
             "BoundingBoxIsString",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": "not_an_object"}]}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": "not_an_object"}]}})",
+            true},
         MalformedDetectionTestCase{
             "BoundingBoxIsArray",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": [10, 20, 50, 100]}]}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": [10, 20, 50, 100]}]}})",
+            true},
         MalformedDetectionTestCase{
             "CategoryIsNotArray",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": "not_an_array"}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": "not_an_array"}})",
+            false},
         MalformedDetectionTestCase{
             "DetectionIsNotObject",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": ["not_an_object", 123, null]}})"}),
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": ["not_an_object", 123, null]}})",
+            true}),
     [](const ::testing::TestParamInfo<MalformedDetectionTestCase>& info) {
         return info.param.name;
     });
@@ -424,7 +623,7 @@ class InvalidTopicTest : public MessageHandlerTest,
 
 TEST_P(InvalidTopicTest, RejectsInvalidTopic) {
     const auto& tc = GetParam();
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
 
     std::string payload =
@@ -463,14 +662,14 @@ class InvalidFieldTest : public MessageHandlerTest,
 
 TEST_P(InvalidFieldTest, RejectsInvalidFields) {
     const auto& tc = GetParam();
-    MessageHandler handler(mock_client_, false);
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
 
     mock_client_->simulateMessage("scenescape/data/camera/cam1", tc.payload);
 
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 1);
-    EXPECT_EQ(handler.getPublishedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 0);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -503,7 +702,8 @@ std::filesystem::path get_schema_dir() {
 // Test valid message passes schema validation (also verifies schemas load correctly)
 TEST_F(MessageHandlerTest, SchemaValidation_AcceptsValidMessage) {
     auto schema_dir = get_schema_dir();
-    MessageHandler handler(mock_client_, true, schema_dir);
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, true,
+                           schema_dir);
     handler.start();
 
     std::string payload = R"({
@@ -520,13 +720,14 @@ TEST_F(MessageHandlerTest, SchemaValidation_AcceptsValidMessage) {
 
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 0);
-    EXPECT_EQ(handler.getPublishedCount(), 1);
+    EXPECT_EQ(handler.getBufferedCount(), 1);
 }
 
 // Test invalid message is rejected by schema validation
 TEST_F(MessageHandlerTest, SchemaValidation_RejectsInvalidMessage) {
     auto schema_dir = get_schema_dir();
-    MessageHandler handler(mock_client_, true, schema_dir);
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, true,
+                           schema_dir);
     handler.start();
 
     // Missing required "timestamp" field
@@ -539,7 +740,7 @@ TEST_F(MessageHandlerTest, SchemaValidation_RejectsInvalidMessage) {
 
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 1);
-    EXPECT_EQ(handler.getPublishedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 0);
 }
 
 // Test schema gracefully falls back when schema directory is invalid or missing
@@ -547,17 +748,172 @@ TEST_F(MessageHandlerTest, SchemaValidation_GracefulFallbackOnErrors) {
     // Non-existent schema directory - should not throw, just log warning
     std::filesystem::path bad_dir = "/nonexistent/schema/dir";
     EXPECT_NO_THROW({
-        MessageHandler handler(mock_client_, true, bad_dir);
+        MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, true,
+                               bad_dir);
         handler.start();
 
         // Without schemas loaded, messages should still be processed
         std::string payload = R"({
             "id": "cam1",
             "timestamp": "2026-01-27T12:00:00.000Z",
-            "objects": {}
+            "objects": {"person": [{"bounding_box_px": {"x": 0, "y": 0, "width": 10, "height": 20}}]}
         })";
         mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
     });
+}
+
+//
+// Dynamic mode (database update) tests
+//
+
+// Test that dynamic mode subscribes to database update topic on start
+TEST_F(MessageHandlerTest, DynamicMode_SubscribesToDatabaseUpdateTopic) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+
+    bool callback_called = false;
+    handler.enableDynamicMode([&callback_called]() { callback_called = true; });
+
+    // Expect subscription to both camera and database update topics
+    EXPECT_CALL(*mock_client_, subscribe(std::format(MessageHandler::TOPIC_CAMERA_SUBSCRIBE_PATTERN,
+                                                     TEST_CAMERA_ID)))
+        .Times(1);
+    EXPECT_CALL(*mock_client_, subscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(1);
+
+    handler.start();
+}
+
+// Test that static mode does NOT subscribe to database update topic
+TEST_F(MessageHandlerTest, StaticMode_NoDatabaseUpdateSubscription) {
+    // Only camera subscription expected, no database update subscription
+    EXPECT_CALL(*mock_client_, subscribe(std::format(MessageHandler::TOPIC_CAMERA_SUBSCRIBE_PATTERN,
+                                                     TEST_CAMERA_ID)))
+        .Times(1);
+    EXPECT_CALL(*mock_client_, subscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(0);
+
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+}
+
+// Test dynamic mode with multiple scenes still subscribes to single database update topic
+TEST_F(MessageHandlerTest, DynamicMode_SingleDatabaseSubscriptionForMultipleScenes) {
+    Camera cam1, cam2;
+    cam1.uid = "cam-a";
+    cam1.name = "Camera A";
+    cam2.uid = "cam-b";
+    cam2.name = "Camera B";
+
+    Scene scene1;
+    scene1.uid = "scene-alpha";
+    scene1.name = "Scene Alpha";
+    scene1.cameras = {cam1};
+
+    Scene scene2;
+    scene2.uid = "scene-beta";
+    scene2.name = "Scene Beta";
+    scene2.cameras = {cam2};
+
+    SceneRegistry multi_registry;
+    multi_registry.register_scenes({scene1, scene2});
+
+    // Allow camera topic subscriptions
+    EXPECT_CALL(*mock_client_, subscribe(::testing::_)).Times(::testing::AnyNumber());
+    // Exactly one database update subscription regardless of scene count
+    EXPECT_CALL(*mock_client_, subscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(1);
+
+    MessageHandler handler(mock_client_, multi_registry, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([]() {});
+    handler.start();
+}
+
+// Test that receiving a database update message triggers the shutdown callback
+TEST_F(MessageHandlerTest, DynamicMode_DatabaseUpdateTriggersShutdown) {
+    bool callback_called = false;
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([&callback_called]() { callback_called = true; });
+    handler.start();
+
+    EXPECT_FALSE(callback_called);
+
+    mock_client_->simulateMessage(MessageHandler::TOPIC_DATABASE_UPDATE, "update");
+
+    EXPECT_TRUE(callback_called);
+}
+
+// Test that database update messages don't increment camera message counters
+TEST_F(MessageHandlerTest, DynamicMode_DatabaseUpdateDoesNotIncrementCounters) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([]() {});
+    handler.start();
+
+    mock_client_->simulateMessage(MessageHandler::TOPIC_DATABASE_UPDATE, "update");
+
+    EXPECT_EQ(handler.getReceivedCount(), 0);
+    EXPECT_EQ(handler.getRejectedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 0);
+}
+
+// Test that camera messages still work normally in dynamic mode
+TEST_F(MessageHandlerTest, DynamicMode_CameraMessagesStillWork) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([]() {});
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getRejectedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 1);
+}
+
+// Test that stop() unsubscribes from database update topic in dynamic mode
+TEST_F(MessageHandlerTest, DynamicMode_StopUnsubscribesFromDatabaseUpdateTopic) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([]() {});
+    handler.start();
+
+    // Allow camera topic unsubscriptions (catch-all must precede specific expectation)
+    EXPECT_CALL(*mock_client_, unsubscribe(::testing::_)).Times(::testing::AnyNumber());
+    EXPECT_CALL(*mock_client_, unsubscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(1);
+
+    handler.stop();
+}
+
+// Test that stop() in static mode does NOT unsubscribe from database update topic
+TEST_F(MessageHandlerTest, StaticMode_StopDoesNotUnsubscribeDatabaseUpdate) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    // Allow camera topic unsubscriptions (catch-all must precede specific expectation)
+    EXPECT_CALL(*mock_client_, unsubscribe(::testing::_)).Times(::testing::AnyNumber());
+    EXPECT_CALL(*mock_client_, unsubscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(0);
+
+    handler.stop();
+}
+
+// Test that database update in static mode is treated as camera message (rejected)
+TEST_F(MessageHandlerTest, StaticMode_DatabaseUpdateTreatedAsCameraMessage) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    // In static mode, database update topic is routed to handleCameraMessage
+    // which rejects it because it doesn't match camera topic format
+    mock_client_->simulateMessage(MessageHandler::TOPIC_DATABASE_UPDATE, "update");
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getRejectedCount(), 1);
 }
 
 //
@@ -576,6 +932,15 @@ protected:
         // Create temp directory for test schemas
         temp_dir_ = std::filesystem::temp_directory_path() / "schema_test";
         std::filesystem::create_directories(temp_dir_);
+
+        // Create test scene registry
+        test_registry_ = createTestRegistry();
+
+        // Create tracking config with large max_lag to accept test timestamps from 2026
+        test_config_ =
+            TrackingConfig{.max_lag_s = 315360000.0, // 10 years - accept all test timestamps
+                           .time_chunking_rate_fps = 15,
+                           .max_workers = 50};
     }
 
     void TearDown() override {
@@ -585,13 +950,17 @@ protected:
 
     std::shared_ptr<NiceMock<MockMqttClient>> mock_client_;
     std::filesystem::path temp_dir_;
+    SceneRegistry test_registry_;
+    TimeChunkBuffer test_buffer_;
+    TrackingConfig test_config_;
 };
 
 // Test schema gracefully handles missing files and invalid JSON in schema dir
 TEST_F(SchemaFileTest, SchemaValidation_HandlesCorruptOrMissingFiles) {
     // Test 1: Schema dir exists but schema files don't
     EXPECT_NO_THROW({
-        MessageHandler handler(mock_client_, true, temp_dir_);
+        MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, true,
+                               temp_dir_);
         // Handler should still work, just without schema validation
     });
 
@@ -605,14 +974,15 @@ TEST_F(SchemaFileTest, SchemaValidation_HandlesCorruptOrMissingFiles) {
     scene_schema.close();
 
     EXPECT_NO_THROW({
-        MessageHandler handler(mock_client_, true, temp_dir_);
+        MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, true,
+                               temp_dir_);
         handler.start();
 
         // Messages should still be processed (no schema to validate against)
         std::string payload = R"({
             "id": "cam1",
             "timestamp": "2026-01-27T12:00:00.000Z",
-            "objects": {}
+            "objects": {"person": [{"bounding_box_px": {"x": 0, "y": 0, "width": 10, "height": 20}}]}
         })";
         mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
     });

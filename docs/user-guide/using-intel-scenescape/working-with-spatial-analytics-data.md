@@ -49,7 +49,7 @@ This guide focuses on consuming spatial analytics event data. ROIs and Tripwires
 
 ## Understanding ROIs and Tripwires
 
-![Sample Region and Tripwire](../images/ui/sample_region_tripwire.png)
+![Sample Region and Tripwire](../_assets/ui/sample_region_tripwire.png)
 
 The image above shows a practical example from Intel's headquarters parking lot in Santa Clara, CA, demonstrating how spatial analytics elements are deployed in real-world scenarios. In this scene, you can see:
 

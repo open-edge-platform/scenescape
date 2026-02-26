@@ -3,12 +3,12 @@
 
 #include "message_handler.hpp"
 #include "logger.hpp"
+#include "time_utils.hpp"
+#include "topic_utils.hpp"
 
 #include <chrono>
-#include <ctime>
 #include <format>
 #include <fstream>
-#include <iomanip>
 #include <string_view>
 
 #include <rapidjson/document.h>
@@ -21,9 +21,6 @@
 namespace tracker {
 
 namespace {
-
-// Topic prefix for camera data
-constexpr std::string_view CAMERA_TOPIC_PREFIX = "scenescape/data/camera/";
 
 // Schema file names
 constexpr const char* CAMERA_SCHEMA_FILE = "camera-data.schema.json";
@@ -42,9 +39,12 @@ static const rapidjson::Pointer PTR_BBOX_HEIGHT("/bounding_box_px/height");
 
 } // namespace
 
-MessageHandler::MessageHandler(std::shared_ptr<IMqttClient> mqtt_client, bool schema_validation,
+MessageHandler::MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
+                               const SceneRegistry& scene_registry, TimeChunkBuffer& buffer,
+                               const TrackingConfig& tracking_config, bool schema_validation,
                                const std::filesystem::path& schema_dir)
-    : mqtt_client_(std::move(mqtt_client)), schema_validation_(schema_validation) {
+    : mqtt_client_(std::move(mqtt_client)), scene_registry_(scene_registry), buffer_(buffer),
+      tracking_config_(tracking_config), schema_validation_(schema_validation) {
     if (schema_validation_) {
         auto camera_schema_path = schema_dir / CAMERA_SCHEMA_FILE;
         auto scene_schema_path = schema_dir / SCENE_SCHEMA_FILE;
@@ -90,42 +90,124 @@ MessageHandler::loadSchema(const std::filesystem::path& schema_path) {
     return std::make_unique<rapidjson::SchemaDocument>(schema_doc);
 }
 
-void MessageHandler::start() {
-    LOG_INFO("MessageHandler starting, subscribing to: {}", TOPIC_CAMERA_DATA);
+void MessageHandler::enableDynamicMode(ShutdownCallback callback) {
+    dynamic_mode_ = true;
+    shutdown_callback_ = std::move(callback);
+    LOG_INFO_ENTRY(LogEntry("Dynamic mode enabled - will subscribe to database update topic")
+                       .component("mqtt"));
+}
 
-    // Set up message callback
+void MessageHandler::start() {
+    // Set up message callback with topic-based routing
     mqtt_client_->setMessageCallback([this](const std::string& topic, const std::string& payload) {
-        handleCameraMessage(topic, payload);
+        routeMessage(topic, payload);
     });
 
-    // Subscribe to camera topics
-    mqtt_client_->subscribe(TOPIC_CAMERA_DATA);
+    // Subscribe to each registered camera's topic
+    auto camera_ids = scene_registry_.get_all_camera_ids();
+    if (camera_ids.empty()) {
+        LOG_WARN_ENTRY(
+            LogEntry("No cameras registered - not subscribing to any topics").component("mqtt"));
+        return;
+    }
+
+    // Subscribe to all camera topics (validate UIDs to prevent MQTT topic injection)
+    for (const auto& camera_id : camera_ids) {
+        if (!isValidTopicSegment(camera_id)) {
+            LOG_ERROR_ENTRY(
+                LogEntry("Camera ID contains invalid characters for MQTT topic, skipping")
+                    .component("mqtt")
+                    .domain({.camera_id = camera_id})
+                    .error({.type = "validation_error",
+                            .message =
+                                "UID must contain only alphanumeric, hyphen, underscore, dot"}));
+            continue;
+        }
+        auto topic = std::format(TOPIC_CAMERA_SUBSCRIBE_PATTERN, camera_id);
+        mqtt_client_->subscribe(topic);
+    }
+
+    // Log subscription summary (individual topics logged at DEBUG in MqttClient)
+    LOG_INFO_ENTRY(LogEntry("Queued camera subscriptions")
+                       .component("mqtt")
+                       .operation(std::format("{} cameras", camera_ids.size())));
+
+    // In dynamic mode, subscribe to database update topic for config change notifications
+    if (dynamic_mode_) {
+        mqtt_client_->subscribe(TOPIC_DATABASE_UPDATE);
+        LOG_INFO_ENTRY(LogEntry("Queued database update subscription")
+                           .component("mqtt")
+                           .operation(TOPIC_DATABASE_UPDATE));
+    }
 }
 
 void MessageHandler::stop() {
-    LOG_INFO("MessageHandler stopping (received: {}, published: {}, rejected: {})",
-             received_count_.load(), published_count_.load(), rejected_count_.load());
+    LOG_INFO("MessageHandler stopping (received: {}, buffered: {}, rejected: {}, lagged: {})",
+             received_count_.load(), buffered_count_.load(), rejected_count_.load(),
+             lagged_count_.load());
 
-    mqtt_client_->unsubscribe(TOPIC_CAMERA_DATA);
+    // Unsubscribe from all camera topics (skip invalid UIDs - same validation as start())
+    auto camera_ids = scene_registry_.get_all_camera_ids();
+    for (const auto& camera_id : camera_ids) {
+        if (!isValidTopicSegment(camera_id)) {
+            continue; // Already logged at start(), no need to log again
+        }
+        auto topic = std::format(TOPIC_CAMERA_SUBSCRIBE_PATTERN, camera_id);
+        mqtt_client_->unsubscribe(topic);
+    }
+
+    // Unsubscribe from database update topic (dynamic mode)
+    if (dynamic_mode_) {
+        mqtt_client_->unsubscribe(TOPIC_DATABASE_UPDATE);
+    }
+
     mqtt_client_->setMessageCallback(nullptr);
+}
+
+void MessageHandler::routeMessage(const std::string& topic, const std::string& payload) {
+    if (dynamic_mode_ && topic == TOPIC_DATABASE_UPDATE) {
+        handleDatabaseUpdateMessage(topic, payload);
+    } else {
+        handleCameraMessage(topic, payload);
+    }
+}
+
+void MessageHandler::handleDatabaseUpdateMessage(const std::string& topic,
+                                                 const std::string& payload) {
+    LOG_INFO_ENTRY(LogEntry("Database update received, triggering restart")
+                       .component("message_handler")
+                       .mqtt({.topic = topic, .direction = "subscribe"}));
+
+    if (shutdown_callback_) {
+        shutdown_callback_();
+    } else {
+        LOG_WARN("Database update received but no shutdown callback registered");
+    }
 }
 
 void MessageHandler::handleCameraMessage(const std::string& topic, const std::string& payload) {
     received_count_++;
 
-    std::string_view camera_id = extractCameraId(topic);
-    if (camera_id.empty()) {
+    std::string_view camera_id_view = extractCameraId(topic);
+    if (camera_id_view.empty()) {
         LOG_WARN("Failed to extract camera_id from topic: {}", topic);
         rejected_count_++;
         return;
     }
+    std::string camera_id{camera_id_view}; // Single allocation for valid IDs only
 
-    LOG_DEBUG("Received detection from camera: {} ({} bytes)", camera_id, payload.size());
+    LOG_DEBUG_ENTRY(LogEntry("Received detection")
+                        .component("message_handler")
+                        .domain({.camera_id = camera_id}));
 
     // Parse and optionally validate the camera message
     auto message = parseCameraMessage(payload);
     if (!message) {
-        LOG_WARN("Failed to parse camera message from {}", camera_id);
+        LOG_WARN_ENTRY(LogEntry("Failed to parse camera message")
+                           .component("message_handler")
+                           .domain({.camera_id = camera_id})
+                           .error({.type = "parse_error",
+                                   .message = "Invalid JSON or schema validation failed"}));
         rejected_count_++;
         return;
     }
@@ -139,31 +221,96 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         LOG_DEBUG("Parsed message: camera={}, timestamp={}, detections={}", message->id,
                   message->timestamp, total_detections);
     }
+    LOG_DEBUG_ENTRY(LogEntry("Parsed camera message")
+                        .component("message_handler")
+                        .domain({.camera_id = message->id}));
 
-    // Build and publish dummy scene message
-    std::string scene_message = buildDummySceneMessage(message->timestamp);
+    // Look up scene for this camera
+    const Scene* scene = scene_registry_.find_scene_for_camera(camera_id);
+    if (!scene) {
+        LOG_WARN_ENTRY(
+            LogEntry("Unknown camera not registered to any scene, dropping message")
+                .component("message_handler")
+                .domain({.camera_id = camera_id})
+                .error({.type = "unknown_camera", .message = "Camera not in scene registry"}));
+        rejected_count_++;
+        return;
+    }
 
-    // Format output topic: scenescape/data/scene/{scene_id}/{thing_type}
-    std::string output_topic =
-        std::format(TOPIC_SCENE_DATA_PATTERN, DUMMY_SCENE_ID, DUMMY_THING_TYPE);
+    // Parse timestamp once (reused for lag check and batch storage)
+    auto msg_time = parseTimestamp(message->timestamp);
+    if (!msg_time) {
+        LOG_WARN("Failed to parse timestamp '{}' from camera '{}', dropping", message->timestamp,
+                 camera_id);
+        rejected_count_++;
+        return;
+    }
 
-    mqtt_client_->publish(output_topic, scene_message);
-    published_count_++;
+    // Check for lag
+    if (isMessageLagged(*msg_time)) {
+        LOG_WARN_ENTRY(
+            LogEntry("Dropping lagged message")
+                .component("message_handler")
+                .domain({.camera_id = camera_id, .scene_id = scene->uid})
+                .error({.type = "fell_behind", .message = "Message timestamp exceeds max_lag_s"}));
+        lagged_count_++;
+        return;
+    }
 
-    LOG_DEBUG("Published track to: {} ({} bytes)", output_topic, scene_message.size());
+    // Push detections to buffer for each category
+    auto receive_time = std::chrono::steady_clock::now();
+    for (auto& [category, detections] : message->objects) {
+        // Validate category on first use (cached to avoid per-frame overhead)
+        // Minimal critical section: only lock during cache access, not during publish
+        {
+            std::lock_guard<std::mutex> lock(categories_mutex_);
+            auto [it, is_new] = validated_categories_.insert(category);
+            if (is_new && !isValidTopicSegment(category)) {
+                validated_categories_.erase(it);
+                LOG_ERROR_ENTRY(
+                    LogEntry("Category contains invalid characters for MQTT topic, skipping")
+                        .component("message_handler")
+                        .domain({.scene_id = scene->uid, .object_category = category})
+                        .error({.type = "validation_error",
+                                .message = "Category must contain only alphanumeric, hyphen, "
+                                           "underscore, dot"}));
+                continue;
+            }
+        } // Lock released before expensive operations
+
+        TrackingScope scope{scene->uid, category};
+
+        DetectionBatch batch;
+        batch.camera_id = camera_id;
+        batch.receive_time = receive_time;
+        batch.timestamp_iso = message->timestamp;
+        batch.timestamp = *msg_time;
+        batch.detections = std::move(detections);
+
+        buffer_.add(scope, camera_id, std::move(batch));
+        buffered_count_++;
+
+        LOG_DEBUG_ENTRY(
+            LogEntry("Buffered detections")
+                .component("message_handler")
+                .domain(
+                    {.camera_id = camera_id, .scene_id = scene->uid, .object_category = category}));
+    }
 }
 
 std::string_view MessageHandler::extractCameraId(const std::string& topic) {
     // Topic format: scenescape/data/camera/{camera_id}
-    if (topic.size() <= CAMERA_TOPIC_PREFIX.size()) {
-        return {};
+    constexpr size_t prefix_len = std::char_traits<char>::length(TOPIC_CAMERA_PREFIX);
+
+    if (topic.size() <= prefix_len) {
+        return "";
     }
 
-    if (topic.compare(0, CAMERA_TOPIC_PREFIX.size(), CAMERA_TOPIC_PREFIX) != 0) {
-        return {};
+    if (topic.compare(0, prefix_len, TOPIC_CAMERA_PREFIX) != 0) {
+        return "";
     }
 
-    return std::string_view(topic).substr(CAMERA_TOPIC_PREFIX.size());
+    return std::string_view{topic}.substr(prefix_len);
 }
 
 std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::string& payload) {
@@ -240,24 +387,17 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
                 LOG_WARN("Missing bounding_box_px fields in detection");
                 continue;
             }
+            // Note: Type checking (IsNumber) omitted - schema validation ensures correct types
 
-            if (!bbox_x->IsNumber() || !bbox_y->IsNumber() || !bbox_width->IsNumber() ||
-                !bbox_height->IsNumber()) {
-                LOG_WARN("Invalid bounding_box_px field types in detection");
-                continue;
-            }
-
-            detection.bounding_box_px.x = bbox_x->GetDouble();
-            detection.bounding_box_px.y = bbox_y->GetDouble();
-            detection.bounding_box_px.width = bbox_width->GetDouble();
-            detection.bounding_box_px.height = bbox_height->GetDouble();
+            detection.bounding_box_px = cv::Rect2f(static_cast<float>(bbox_x->GetDouble()),
+                                                   static_cast<float>(bbox_y->GetDouble()),
+                                                   static_cast<float>(bbox_width->GetDouble()),
+                                                   static_cast<float>(bbox_height->GetDouble()));
 
             detections.push_back(detection);
         }
 
-        if (!detections.empty()) {
-            message.objects[category] = std::move(detections);
-        }
+        message.objects[category] = std::move(detections);
     }
 
     return message;
@@ -279,69 +419,11 @@ bool MessageHandler::validateJson(const rapidjson::Document& doc,
     return true;
 }
 
-std::string MessageHandler::buildDummySceneMessage(const std::string& timestamp) {
-    // Build JSON using rapidjson for type safety and schema compliance
-    rapidjson::Document doc;
-    doc.SetObject();
-    auto& allocator = doc.GetAllocator();
+bool MessageHandler::isMessageLagged(std::chrono::system_clock::time_point msg_time) const {
+    auto now = std::chrono::system_clock::now();
+    auto lag = std::chrono::duration<double>(now - msg_time).count();
 
-    // Add top-level fields
-    doc.AddMember("id", rapidjson::Value(DUMMY_SCENE_ID, allocator), allocator);
-    doc.AddMember("name", rapidjson::Value(DUMMY_SCENE_NAME, allocator), allocator);
-    doc.AddMember("timestamp", rapidjson::Value(timestamp.c_str(), allocator), allocator);
-
-    // Build objects array with a single dummy track
-    rapidjson::Value objects(rapidjson::kArrayType);
-
-    rapidjson::Value track(rapidjson::kObjectType);
-    track.AddMember("id", "dummy-track-001", allocator);
-    track.AddMember("category", rapidjson::Value(DUMMY_THING_TYPE, allocator), allocator);
-
-    // Translation [x, y, z]
-    rapidjson::Value translation(rapidjson::kArrayType);
-    translation.PushBack(1.0, allocator);
-    translation.PushBack(2.0, allocator);
-    translation.PushBack(0.0, allocator);
-    track.AddMember("translation", translation, allocator);
-
-    // Velocity [vx, vy, vz]
-    rapidjson::Value velocity(rapidjson::kArrayType);
-    velocity.PushBack(0.1, allocator);
-    velocity.PushBack(0.2, allocator);
-    velocity.PushBack(0.0, allocator);
-    track.AddMember("velocity", velocity, allocator);
-
-    // Size [length, width, height]
-    rapidjson::Value size(rapidjson::kArrayType);
-    size.PushBack(0.5, allocator);
-    size.PushBack(0.5, allocator);
-    size.PushBack(1.8, allocator);
-    track.AddMember("size", size, allocator);
-
-    // Rotation quaternion [x, y, z, w]
-    rapidjson::Value rotation(rapidjson::kArrayType);
-    rotation.PushBack(0, allocator);
-    rotation.PushBack(0, allocator);
-    rotation.PushBack(0, allocator);
-    rotation.PushBack(1, allocator);
-    track.AddMember("rotation", rotation, allocator);
-
-    objects.PushBack(track, allocator);
-    doc.AddMember("objects", objects, allocator);
-
-    // Validate output against schema if enabled
-    if (schema_validation_ && scene_schema_) {
-        if (!validateJson(doc, scene_schema_.get())) {
-            LOG_ERROR("Output message failed schema validation - this is a bug!");
-        }
-    }
-
-    // Serialize to string
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    doc.Accept(writer);
-
-    return buffer.GetString();
+    return lag > tracking_config_.max_lag_s;
 }
 
 } // namespace tracker

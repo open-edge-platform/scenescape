@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import hashlib
@@ -25,11 +25,11 @@ class CamCalibrateForm(forms.ModelForm):
       'sensor', 'sensorchain', 'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug',
       'override_saved_intrinstics', 'frames', 'stats', 'waitforstable', 'preprocess', 'realtime',
       'faketime', 'modelconfig', 'rootcert', 'cert', 'cvcores', 'ovcores', 'unwarp', 'ovmshost',
-      'framerate', 'maxcache', 'filter', 'disable_rotation', 'maxdistance', 'use_camera_pipeline', 'camera_pipeline'
+      'framerate', 'maxcache', 'filter', 'disable_rotation', 'maxdistance', 'use_camera_pipeline', 'camera_pipeline', 'detection_labels'
     ]
 
   def __init__(self, *args, **kwargs):
-    self.advanced_fields = ['cv_subsystem', 'undistort', 'modelconfig', 'use_camera_pipeline' ]
+    self.advanced_fields = ['cv_subsystem', 'undistort', 'modelconfig', 'use_camera_pipeline' , 'detection_labels']
     self.unsupported_fields = ['threshold', 'aspect', 'sensor', 'sensorchain',
                             'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug', 'override_saved_intrinstics',
                             'frames', 'stats', 'waitforstable', 'preprocess', 'realtime', 'faketime',
@@ -77,6 +77,11 @@ class CamCalibrateForm(forms.ModelForm):
           'cols': 80,
           'style': 'resize: vertical; white-space: pre-wrap; word-wrap: break-word;',
           'placeholder': 'Camera pipeline will be generated automatically when you click "Generate Pipeline Preview" button or save the form.'
+      })
+      self.fields['detection_labels'].widget = forms.Textarea(attrs={
+          'rows': 6,
+          'cols': 50,
+          'placeholder': 'car\npedestrian\ntrolley'
       })
 
 class ROIForm(forms.Form):

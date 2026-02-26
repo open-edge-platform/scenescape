@@ -28,7 +28,6 @@ install-omz-models: create-models-volume build-image
 	; APPDIR=/workspace \
 	; HOSTDIR=$$PWD \
 	; IMAGE=$(IMAGE):latest \
-	; MODELS=--$${MODELS:-default} \
 	; PRECISIONS=$${PRECISIONS:-FP32} \
 	; docker run --rm -v $$HOSTDIR:$$APPDIR:z \
 	             -v $${COMPOSE_PROJECT_NAME}_vol-models:/opt/intel/openvino/deployment_tools/intel_models \
@@ -39,7 +38,7 @@ install-omz-models: create-models-volume build-image
 	             -e MODEL_DIR=/opt/intel/openvino/deployment_tools/intel_models \
 	             -u $$UID \
 	             -l user=$$USER $$IMAGE \
-	             /workspace/model_installer/src/install-omz-models $$MODELS --precisions $$PRECISIONS --model_proc
+	             /workspace/model_installer/src/install-omz-models --precisions $$PRECISIONS --model_proc
 	@echo "DONE ==> Installing Open Model Zoo models"
 
 copy-config-files: create-models-volume

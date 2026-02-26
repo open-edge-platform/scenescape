@@ -71,10 +71,10 @@ graph LR
 
 **Topics Subscribed:**
 
-| Topic                           | Description                                                                  |
-| ------------------------------- | ---------------------------------------------------------------------------- |
-| `scenescape/data/camera/+`      | Detection messages from AI pipeline with bounding boxes in pixel coordinates |
-| `scenescape/cmd/scene/update/+` | Config change notifications from Manager API (dynamic mode only)             |
+| Topic                      | Description                                                                  |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `scenescape/data/camera/+` | Detection messages from AI pipeline with bounding boxes in pixel coordinates |
+| `scenescape/cmd/database`  | Database change notifications from Manager API (dynamic mode only)           |
 
 **Detection Message:**
 
@@ -166,9 +166,9 @@ Configuration changes require service restart. This simplifies implementation (n
 
 #### Static Mode
 
-Scenes defined inline in config file:
+Scenes defined in external file:
 
-- Set `scenes.source: "inline"` and provide `scenes.data` array
+- Set `scenes.source: "file"` and provide `scenes.file_path`
 - Self-contained deployment with no external dependencies
 - Enables horizontal scaling via static scene partitioning (see [Horizontal Scaling](#horizontal-scaling))
 - Suitable for development and production deployments with pre-defined scene assignments
@@ -179,8 +179,9 @@ Scenes fetched from Manager API at startup:
 
 - Set `scenes.source: "api"` or omit `scenes` section (defaults to API mode)
 - Requires `infrastructure.manager` with API URL and credentials
-- Subscribes to `scenescape/cmd/scene/update/{scene_id}` for change notifications
+- Subscribes to `scenescape/cmd/database` for change notifications
 - On notification: logs change, exits gracefully (Docker restarts the service which loads new config at startup)
+- Fires on any database change: scene create/update/delete, camera changes, region edits, etc.
 - Suitable for multi-node deployments with centralized scene management
 
 ### Observability

@@ -47,15 +47,15 @@ COPY tracker/src tracker/src
 COPY tracker/inc tracker/inc
 COPY controller/src/robot_vision controller/src/robot_vision
 
-# Configure (cacheable - no GIT_COMMIT dependency)
+# Configure and build
+ARG GIT_COMMIT=unknown
 RUN cmake -S tracker -B build -G Ninja \
         -DCMAKE_TOOLCHAIN_FILE=/scenescape/build/conan_toolchain.cmake \
         -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+        -DGIT_COMMIT=${GIT_COMMIT} \
         -DBUILD_TESTS=OFF
 
-# Build (GIT_COMMIT passed via env var, only recompiles version-dependent files)
-ARG GIT_COMMIT=unknown
-RUN GIT_COMMIT=${GIT_COMMIT} cmake --build build -j
+RUN cmake --build build -j
 
 # Collect all runtime library dependencies for the tracker binary
 WORKDIR /scenescape/runtime-libs
