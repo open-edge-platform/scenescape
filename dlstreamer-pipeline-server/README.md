@@ -37,7 +37,7 @@ Following are the step-by-step instructions for enabling the out-of-box scenes i
 
 ## Running on GPU
 
-Running the pipelines on GPU is highly recommended when available on the system. This approach efficiently utilizes available CPU cores for other SceneScape services and provides optimal performance for the visual analytics service.
+Running the pipelines on GPU is highly recommended when available on the system. This approach efficiently utilizes available CPU cores for other SceneScape services and provides optimal performance for the visual analytics service. Only Intel GPU devices are supported.
 
 To facilitate GPU acceleration, sample configuration files are provided for the out-of-box **Queuing** and **Retail** scenes with the following pipeline optimizations:
 
@@ -45,9 +45,13 @@ To facilitate GPU acceleration, sample configuration files are provided for the 
 - Inference offloaded to GPU
 - Cross-stream batching enabled
 
-### Configuration
+### Automatic GPU Device Selection
 
-1. Expose Direct Rendering Infrastructure device directory to the docker containers running visual pipelines. In your `docker-compose.yml` uncomment the following lines:
+The following steps enable the above-mentioned optimizations for:
+- platforms with multiple GPU devices: a GPU device will be chosen automatically.
+- systems with only one GPU device.
+
+1. Expose Direct Rendering Infrastructure device directory to the docker containers running visual pipelines. In your `docker-compose.yml`, uncomment the following lines:
 
    ```yaml
    retail-video:
@@ -67,17 +71,15 @@ To facilitate GPU acceleration, sample configuration files are provided for the 
 
    ```yaml
    configs:
-   retail-config:
-     file: ./dlstreamer-pipeline-server/retail-config-gpu.json
-   queuing-config:
-     file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
+     retail-config:
+       file: ./dlstreamer-pipeline-server/retail-config-gpu.json
+     queuing-config:
+       file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
    ```
 
-## Running on Discrete GPU
+### Manual GPU Device Selection (by exposing device to container)
 
-To enable SceneScape pipelines to run on a discrete GPU, follow these steps. These instructions are similar to the "Running on GPU" section, with the key difference being the selection of a specific device (e.g., `renderD129`).
-
-### Determine the Appropriate Device
+To enable SceneScape pipelines to run on a specific GPU device of your choice (e.g., on a discrete GPU, in case an integrated GPU also exists), follow these steps. These instructions are similar to the "Automatic GPU Device Selection" section, with the key difference being the selection of a specific device (e.g., `renderD129`).
 
 1. **List Available GPU Devices:**
    Use the following command to list available GPU devices on your system:
@@ -91,19 +93,15 @@ To enable SceneScape pipelines to run on a discrete GPU, follow these steps. The
 2. **Verify Device Functionality:**
    To ensure the selected device is functional, you can use tools like `vainfo` (for VA-API support) or `intel_gpu_top` (for Intel GPUs).
 
-### Configuration
-
-1. **Update the `docker-compose.yml` file:**
-   - Uncomment the `devices` section and specify the appropriate GPU device. Make sure only your device is listed; otherwise, it's not guaranteed
-     that the proper GPU will be chosen. For example, if you keep both `renderD128` and `renderD129`, it's likely that the first choice will be `renderD128`,
-     which is the integrated GPU.
+3. **Update the `docker-compose.yml` file:**
+   - Uncomment the `devices` section and specify the appropriate GPU device. Make sure only your device of choice is listed; otherwise, it's not guaranteed that the proper GPU will be chosen. For example, if you expose the whole folder `/dev/dri/` or keep both `renderD128` and `renderD129`, it's likely that the first choice will be `renderD128`, which may not be what you expect.
      Example:
      ```yaml
      devices:
        - "/dev/dri/renderD129:/dev/dri/renderD129"
      ```
 
-2. **Use GPU-specific configuration files:**
+4. **Use GPU-specific configuration files:**
    - Replace the default configuration files with GPU-optimized versions:
      ```yaml
      configs:
@@ -113,7 +111,9 @@ To enable SceneScape pipelines to run on a discrete GPU, follow these steps. The
          file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
      ```
 
-By following these steps, the SceneScape pipelines will leverage the discrete GPU for optimal performance. Ensure that the correct device (e.g., `renderD129`) is specified in the `docker-compose.yml` file.
+By following these steps, only the selected GPU device will be available in the container. As a result, all DLStreamer-Pipeline-Server pipelines running in the container will leverage the GPU device of your choice.
+
+> **Note**: Such a configuration does not allow running two pipelines in the same container on two different GPU devices.
 
 ## Enable Reidentification
 
