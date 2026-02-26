@@ -301,7 +301,7 @@ services:
         condition: service_started
     healthcheck:
       test:
-        ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8080/pipelines"]
+        ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
       interval: 10s
       timeout: 5s
       retries: 5
