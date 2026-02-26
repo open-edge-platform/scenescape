@@ -196,7 +196,7 @@ ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 
 # ---------- Manager Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
-FROM scenescape-manager-runtime AS scenescape-manager-test
+FROM python:3.11-slim-bookworm AS scenescape-manager-test
 ENV DEBIAN_FRONTEND=noninteractive
 USER root
 RUN : \
