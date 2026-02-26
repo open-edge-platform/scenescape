@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "observability_context.hpp"
+
 #include <array>
 #include <chrono>
 #include <functional>
@@ -50,6 +52,7 @@ struct DetectionBatch {
     std::string timestamp_iso;                       ///< Original ISO 8601 timestamp from message
     std::chrono::system_clock::time_point timestamp; ///< Parsed UTC timestamp
     std::vector<Detection> detections;
+    ObservabilityContext obs_ctx; ///< Pipeline observability context
 };
 
 /**
@@ -63,6 +66,7 @@ struct Chunk {
     std::string category;
     std::chrono::steady_clock::time_point chunk_time;
     std::vector<DetectionBatch> camera_batches; ///< Sorted by timestamp
+    ObservabilityContext obs_ctx;               ///< Earliest batch's observability context
 
     /**
      * @brief Check if this is a sentinel chunk (signals shutdown).

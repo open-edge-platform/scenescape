@@ -136,6 +136,57 @@ def tracker_service_delayed_broker(tls_certs):
 
 
 @pytest.fixture(scope="function")
+def tracker_service_otel(tls_certs):
+  """
+  Fixture that starts tracker with OpenTelemetry metrics and tracing enabled.
+
+  Uses short export intervals so the OTLP exporter connects to the
+  collector quickly, making log-based assertions feasible within the
+  test timeout.
+
+  Yields:
+      dict: Contains 'containers' and 'docker' client
+  """
+  service_dir = Path(__file__).parent
+  compose_file = service_dir / "docker-compose.yaml"
+
+  project_name = f"tracker-otel-{uuid.uuid4().hex[:8]}"
+
+  env_file = tls_certs.temp_dir / ".env"
+  env_file.write_text(
+      f"TLS_CA_CERT_FILE={tls_certs.ca.cert_path}\n"
+      f"TLS_SERVER_CERT_FILE={tls_certs.server.cert_path}\n"
+      f"TLS_SERVER_KEY_FILE={tls_certs.server.key_path}\n"
+      f"TLS_CLIENT_CERT_FILE={tls_certs.client.cert_path}\n"
+      f"TLS_CLIENT_KEY_FILE={tls_certs.client.key_path}\n"
+      f"TRACKER_MQTT_INSECURE=true\n"
+      f"TRACKER_SCENES_SOURCE=file\n"
+      f"TRACKER_METRICS_ENABLED=true\n"
+      f"TRACKER_TRACING_ENABLED=true\n"
+      f"TRACKER_OTLP_ENDPOINT=otel-collector:4317\n"
+      f"TRACKER_METRICS_EXPORT_INTERVAL_S=5\n"
+      f"TRACKER_TRACING_EXPORT_INTERVAL_S=2\n"
+  )
+
+  docker = DockerClient(
+      compose_files=[compose_file],
+      compose_project_name=project_name,
+      compose_project_directory=str(service_dir),
+      compose_env_files=[str(env_file)],
+  )
+
+  try:
+    print(f"\nStarting OTel test environment: {project_name}")
+    docker.compose.up(detach=True, wait=True)
+
+    yield {"containers": docker.compose.ps(), "docker": docker}
+
+  finally:
+    print(f"\nCleaning up: {project_name}")
+    docker.compose.down(remove_orphans=True, volumes=True)
+
+
+@pytest.fixture(scope="function")
 def tracker_service_api(tls_certs):
   """
   Fixture that starts tracker with mock Manager API for dynamic scene loading.
