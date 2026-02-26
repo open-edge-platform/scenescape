@@ -131,10 +131,8 @@ void Metrics::record_stage_latency(const char* metric_name, double ms, MetricAtt
 
     try {
         auto& hist = get_histogram(metric_name);
-        if (hist) {
-            hist.Record(ms, opentelemetry::common::KeyValueIterableView<MetricAttributes>(attrs),
-                        opentelemetry::context::Context{});
-        }
+        hist.Record(ms, opentelemetry::common::KeyValueIterableView<MetricAttributes>(attrs),
+                    opentelemetry::context::Context{});
     } catch (const std::invalid_argument&) {
         // Silently ignore invalid metric names in production
     }
@@ -179,8 +177,8 @@ void Metrics::set_active_tracks(const std::string& scene_id, const std::string& 
 }
 
 void Metrics::reset() {
-    // Reset the once_flag using std::destruct_at and std::construct_at for safety
-    std::destruct_at(&init_flag);
+    // Reset the once_flag using std::destroy_at and std::construct_at for safety
+    std::destroy_at(&init_flag);
     std::construct_at(&init_flag);
 
 
