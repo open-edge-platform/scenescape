@@ -1,0 +1,306 @@
+"""
+Implement a Python wrapper with functionality of ppl_runner:
+
+can use python_on_whales to run docker compose:
+Input: sample camera configuration JSON (may path to file)
+Output: metadata in SceneScape format (JSONL) for the input video (may path to file)
+Implement as a reusable class in tools/pipeline_runner subfolder
+"""
+
+import argparse
+import json
+import os
+import subprocess
+import threading
+import time
+from pathlib import Path
+from typing import Callable
+
+import paho.mqtt.client as mqtt
+from python_on_whales import DockerClient
+
+_ROOT = Path(subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip())
+_VERSION = (_ROOT / "version.txt").read_text().strip()
+
+SUPPORTED_PROFILES = [""] # TODO: add support for different profiles if needed
+
+DLSPS_CONFIG_FILE = "dlsps_config.json"
+VOLUME_PREFIX = "scenescape"
+PPL_GENERATOR_IMAGE = f"scenescape-manager:{_VERSION}"
+CAM_SETTINGS_SCRIPT = "/workspace/tools/pipeline_runner/cam_settings_to_dlsps_config.py"
+OUTPUT_DIR = "output"
+DLS_METADATA_OUTPUT_FILE = "dls_metadata.jsonl"
+SCENESCAPE_METADATA_FILE = "scenescape_metadata.jsonl"
+COMPOSE_FILE = Path(__file__).parent / "docker-compose-ppl.yaml"
+ENV_FILE = Path(__file__).parent / ".env"
+
+BROKER_HOST = "localhost"
+BROKER_PORT = 1884
+DETECTION_TOPIC = "scenescape/data/camera/{camera_id}"
+BROKER_CONNECT_TIMEOUT = 30 
+
+
+class PipelineRunner:
+    def __init__(
+        self,
+        camera_settings_file: str,
+        profile: str | None = None,
+        dump_dls_metadata: bool = False,
+        model_configs_folder: str | None = None,
+    ):
+        self.camera_settings_file = camera_settings_file
+        self.profile = profile
+        self.dump_dls_metadata = dump_dls_metadata
+
+        self.root_dir = self._get_root_dir()
+        self.secrets_dir = os.path.join(self.root_dir, "manager", "secrets")
+        self.tools_dir = os.path.join(self.root_dir, "tools")
+        self.model_configs_folder = model_configs_folder
+        self.dlsps_config_file = str(COMPOSE_FILE.parent / DLSPS_CONFIG_FILE)
+        self.output_dir = str(COMPOSE_FILE.parent / OUTPUT_DIR)
+        self.uid = os.getuid()
+        self.gid = os.getgid()
+        self.camera_id = self._get_camera_id()
+
+    def _get_root_dir(self) -> str: # TODO: maybe delete if not needed outside of __init__
+        return str(_ROOT)
+
+    def _get_camera_id(self) -> str:
+        with open(self.camera_settings_file) as f:
+            return json.load(f)["sensor_id"]
+
+    def _prepare_output(self):
+        os.makedirs(self.output_dir, exist_ok=True)
+        if self.dump_dls_metadata:
+            dls_metadata_path = os.path.join(self.output_dir, DLS_METADATA_OUTPUT_FILE)
+            if os.path.exists(dls_metadata_path):
+                os.remove(dls_metadata_path) #TODO: consider backing up old metadata instead of deleting
+
+    def _write_env_file(self):
+        env_vars = {
+            "DLSPS_CONFIG_FILE": self.dlsps_config_file,
+            "ROOT_DIR": self.root_dir,
+            "SECRETS_DIR": self.secrets_dir,
+            "TOOLS_DIR": self.tools_dir,
+            "OUTPUT_DIR": self.output_dir,
+            "UID": self.uid,
+            "GID": self.gid,
+            "PROFILE": self.profile or "",
+            "SCENESCAPE_METADATA_FILE": SCENESCAPE_METADATA_FILE,
+            "CAMERA_ID": self.camera_id,
+        }
+        with open(ENV_FILE, "w") as f:
+            for key, value in env_vars.items():
+                f.write(f"{key}={value}\n")
+
+    def _convert_cam_settings_to_dlsps_config(self):
+        """Run cam_settings_to_dlsps_config.py inside the scenescape-manager container.
+
+        The repo root is mounted as /workspace so all paths resolve inside the container.
+        """
+        docker = DockerClient()
+        envs = {
+            "PYTHONPATH": "/home/scenescape/SceneScape/",
+        }
+        if self.dump_dls_metadata:
+            envs["METADATA_OUTPUT_FILE"] = (
+                f"/home/pipeline-server/output/{DLS_METADATA_OUTPUT_FILE}"
+            )
+
+        # Make paths relative to repo root so they resolve inside the container
+        cam_settings_in_container = "/workspace/" + str(
+            Path(self.camera_settings_file).resolve().relative_to(_ROOT)
+        )
+        dlsps_config_in_container = "/workspace/" + str(
+            Path(self.dlsps_config_file).resolve().relative_to(_ROOT)
+        )
+        # Model configs: default to the Docker volume path (matching the shell script).
+        # If the user provided an explicit path, map it into /workspace/.
+        if self.model_configs_folder:
+            model_configs_in_container = "/workspace/" + str(
+                Path(self.model_configs_folder).resolve().relative_to(_ROOT)
+            )
+        else:
+            model_configs_in_container = "/models/model_configs"
+
+        cmd = [
+            CAM_SETTINGS_SCRIPT,
+            "--camera-settings", cam_settings_in_container,
+            "--config_folder", model_configs_in_container,
+            "--output_path", dlsps_config_in_container,
+        ]
+        if self.dump_dls_metadata:
+            cmd.append("--dump-dls-metadata")
+
+        docker.run(
+            PPL_GENERATOR_IMAGE,
+            cmd,
+            remove=True,
+            envs=envs,
+            entrypoint="python",
+            volumes=[
+                (str(_ROOT), "/workspace"),
+                (f"{VOLUME_PREFIX}_vol-models", "/models"),
+            ],
+            workdir="/workspace",
+        )
+
+    def _make_docker_client(self) -> DockerClient:
+        return DockerClient(
+            compose_files=[str(COMPOSE_FILE)],
+            compose_env_file=str(ENV_FILE),
+            compose_profiles=[self.profile] if self.profile else [],
+        )
+
+    def start(self) -> "PipelineRunner":
+        """Prepare config and bring up the docker compose stack.
+
+        Returns self to allow chaining or use as a context manager.
+        """
+        self._prepare_output()
+
+        # Convert camera settings to DLSPS config (runs inside scenescape-manager container)
+        self._convert_cam_settings_to_dlsps_config()
+
+        # Write docker compose environment file
+        self._write_env_file()
+
+        # Run docker compose (equivalent to: docker compose -f docker-compose-ppl.yaml [--profile PROFILE] up -d)
+        self._make_docker_client().compose.up(detach=True)
+        return self
+
+    def stop(self) -> None: # TODO: Use in cli mode
+        """Stop all compose services (containers are kept, can be restarted)."""
+        self._make_docker_client().compose.stop()
+
+    def __enter__(self) -> "PipelineRunner": # TODO delete if not used in tests
+        return self.start()
+
+    def __exit__(self, *_) -> None: # TODO delete if not used in tests
+        self.stop()
+
+    def collect(
+        self,
+        timeout: float | None = None,
+        min_detections: int | None = None,
+        message_callback: Callable[[dict], None] | None = None,
+    ) -> list[dict]:
+        """Subscribe to the camera MQTT topic and collect detection messages.
+
+        Stops collecting when *either* condition is satisfied:
+          - ``timeout`` seconds have elapsed (if provided)
+          - at least ``min_detections`` messages have been received (if provided)
+
+        At least one of ``timeout`` or ``min_detections`` must be given.
+
+        Args:
+            timeout: Maximum number of seconds to wait for messages.
+            min_detections: Stop as soon as this many messages have been received.
+            message_callback: Optional callable invoked with each parsed message
+                as it arrives (useful for real-time inspection in tests).
+
+        Returns:
+            List of parsed JSON dicts collected from the detection topic.
+        """
+        if timeout is None and min_detections is None:
+            raise ValueError("At least one of 'timeout' or 'min_detections' must be provided.")
+
+        topic = DETECTION_TOPIC.format(camera_id=self.camera_id)
+        messages: list[dict] = []
+        stop_event = threading.Event()
+
+        def on_connect(client, userdata, flags, rc):
+            if rc == 0:
+                client.subscribe(topic)
+
+        def on_message(client, userdata, msg):
+            try:
+                payload = json.loads(msg.payload.decode())
+            except json.JSONDecodeError:
+                return
+            messages.append(payload)
+            if message_callback is not None:
+                message_callback(payload)
+            if min_detections is not None and len(messages) >= min_detections:
+                stop_event.set()
+
+        client = mqtt.Client()
+        client.on_connect = on_connect
+        client.on_message = on_message
+
+        ca_cert = os.path.join(self.secrets_dir, "certs", "scenescape-ca.pem")
+        client.tls_set(ca_certs=ca_cert)
+        client.tls_insecure_set(True)  # hostname won't match "localhost"
+
+        # Wait for the broker to become ready before subscribing
+        deadline = time.monotonic() + BROKER_CONNECT_TIMEOUT
+        while True:
+            try:
+                client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)
+                break
+            except (ConnectionRefusedError, OSError):
+                if time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        f"Broker at {BROKER_HOST}:{BROKER_PORT} did not become ready "
+                        f"within {BROKER_CONNECT_TIMEOUT}s."
+                    )
+                time.sleep(1)
+
+        client.loop_start()
+        try:
+            stop_event.wait(timeout=timeout)
+        finally:
+            client.loop_stop()
+            client.disconnect()
+
+        return messages
+
+    # Backwards-compatible alias
+    # TODO: remove if not used in tests or elsewhere
+    def run_pipeline(self) -> None:
+        """Alias for start() for backwards compatibility."""
+        self.start()
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Run a DL Streamer pipeline server pipeline from a camera settings file.",
+    )
+    parser.add_argument(
+        "--camera-settings-file",
+        metavar="CAMERA_SETTINGS_FILE",
+        help="Path to the camera settings JSON file.",
+    )
+    parser.add_argument(
+        "--profile",
+        metavar="PROFILE",
+        nargs="?",
+        default=None,
+        choices=SUPPORTED_PROFILES,
+        help=f"Optional compose profile to activate. Supported profiles: {SUPPORTED_PROFILES}",
+    )
+    parser.add_argument(
+        "--dump-dls-metadata",
+        action="store_true",
+        default=os.environ.get("DUMP_DLS_METADATA", "false").lower() == "true",
+        help=(
+            "Enable metadata dumping in DLStreamer format. "
+            "Can also be set via the DUMP_DLS_METADATA environment variable."
+        ),
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    runner = PipelineRunner(
+        camera_settings_file=args.camera_settings_file,
+        profile=args.profile,
+        dump_dls_metadata=args.dump_dls_metadata,
+    )
+    runner.run_pipeline()
+
+
+if __name__ == "__main__":
+    main()
+        
