@@ -551,25 +551,40 @@
         "api": "sensor",
         "method": "updateSensor",
         "request": {
-          "UID": "${SENSOR_UID_MINIMAL}",
+          "UID": "${SENSOR_UID_FULL}",
           "body": {
-            "name": "sensor_minimal_updated",
+            "name": "sensor_full",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
-            "area": "polygon",
-            "points": [
-              [
-                1,
-                1
+            "sensor_id": "sensor_full",
+            "area": "circle",
+            "radius": 2.5,
+            "center": [
+              3.81,
+              4.59
+            ],
+            "translation": [
+              1,
+              1,
+              1
+            ],
+            "singleton_type": "attribute",
+            "color_range": {
+              "sectors": [
+                {
+                  "color": "green",
+                  "color_min": 3
+                },
+                {
+                  "color": "yellow",
+                  "color_min": 1
+                },
+                {
+                  "color": "red",
+                  "color_min": 2
+                }
               ],
-              [
-                2,
-                2
-              ],
-              [
-                3,
-                1
-              ]
-            ]
+              "range_max": 10
+            }
           }
         },
         "expected_status": {
@@ -608,7 +623,7 @@
           }
         },
         "expected_status": {
-          "status_code": 200
+          "status_code": 400
         }
       }
     ]
@@ -621,29 +636,44 @@
         "api": "sensor",
         "method": "updateSensor",
         "request": {
-          "UID": "${SENSOR_UID_MINIMAL}",
+          "UID": "${SENSOR_UID_FULL}",
           "body": {
-            "name": "sensor_minimal_updated",
+            "name": "sensor_full",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
-            "area": "polygon",
-            "points": [
-              [
-                1,
-                1
+            "sensor_id": "sensor_full",
+            "area": "circle",
+            "radius": 2.5,
+            "center": [
+              3.81,
+              4.59
+            ],
+            "translation": [
+              1,
+              1,
+              1
+            ],
+            "singleton_type": "attribute",
+            "color_range": {
+              "sectors": [
+                {
+                  "color": "blue",
+                  "color_min": 700
+                },
+                {
+                  "color": "black",
+                  "color_min": 500
+                },
+                {
+                  "color": "red",
+                  "color_min": -100
+                }
               ],
-              [
-                2,
-                2
-              ],
-              [
-                3,
-                1
-              ]
-            ]
+              "range_max": 20
+            }
           }
         },
         "expected_status": {
-          "status_code": 200
+          "status_code": 400
         }
       }
     ]
