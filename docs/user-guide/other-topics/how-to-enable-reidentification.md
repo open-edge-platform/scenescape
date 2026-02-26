@@ -83,7 +83,7 @@ This reidentification-specific configuration uses a vision pipeline that include
    Launch the updated stack:
 
    ```bash
-   docker compose up
+   docker compose --profile controller up
    ```
 
 **Expected Result**: Intel® SceneScape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
@@ -124,7 +124,7 @@ retail-config:
 4. **Restart the System**:
 
    ```bash
-   docker compose up --build
+   docker compose --profile controller up --build
    ```
 
 **Expected Result**: Intel® SceneScape runs without ReID and no visual feature matching is performed.
@@ -166,9 +166,9 @@ When an object is first detected, it is assigned a UUID and no similarity score.
 To apply changes:
 
 ```bash
-docker compose down
+docker compose --profile controller down
 make -C docker
-docker compose up --build
+docker compose --profile controller up --build
 ```
 
 ---

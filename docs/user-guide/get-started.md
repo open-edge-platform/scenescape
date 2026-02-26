@@ -133,15 +133,17 @@ Enter "admin" for the user name and the value you typed earlier for SUPASS.
 To stop the containers, use the following command in the project directory:
 
 ```console
-docker compose down --remove-orphans
+docker compose --profile controller down --remove-orphans
 ```
+
+> **Note:** The Scene Controller runs under the `controller` Docker Compose profile when deployed with `make demo`. Without passing `--profile controller` to the down command, the controller container will remain running. If you encounter leftover containers, network, or volumes after `docker compose down`, ensure you include `--profile controller`.
 
 ### Starting the System
 
 To start after the first time, use the following command in the project directory:
 
 ```console
-docker compose up -d
+docker compose --profile controller up -d
 ```
 
 ## Summary

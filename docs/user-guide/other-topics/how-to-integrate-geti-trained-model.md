@@ -65,8 +65,8 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
 3. **Deploy Intel® SceneScape**:
 
    ```bash
-   docker compose down --remove-orphans
-   docker compose up -d
+   docker compose --profile controller down --remove-orphans
+   docker compose --profile controller up -d
    ```
 
    Log into the Intel® SceneScape UI and verify that bounding boxes appear correctly.

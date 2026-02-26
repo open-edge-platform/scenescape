@@ -120,8 +120,8 @@ autocalibration:
 6. Restart Intel® SceneScape:
 
 ```bash
-docker compose down
-docker compose up
+docker compose --profile controller down
+docker compose --profile controller up
 ```
 
 7. Navigate to the camera page and click **Auto Calibrate**.

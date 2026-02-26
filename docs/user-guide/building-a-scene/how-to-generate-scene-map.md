@@ -240,14 +240,16 @@ For optimal mesh generation results:
 To stop all Intel® SceneScape services:
 
 ```bash
-docker compose down
+docker compose --profile controller --profile experimental down
 ```
 
 To stop services and remove volumes (this will delete all data):
 
 ```bash
-docker compose down -v
+docker compose --profile controller --profile experimental down -v
 ```
+
+> **Note:** The `--profile` flags must match those used when starting the services. If you only started with `--profile controller`, omit `--profile experimental`.
 
 ---
 
