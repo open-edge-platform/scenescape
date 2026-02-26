@@ -1,3 +1,11 @@
+<!--hide_directive
+<div class="component_card_widget">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/mapping/docs">
+     GitHub project
+  </a>
+</div>
+hide_directive-->
+
 # Mapping Service
 
 This Docker container provides a Flask REST API interface for 3D reconstruction with build-time

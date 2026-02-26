@@ -215,7 +215,7 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
     // Scenes configuration (required) - parse source and file_path only
     // Actual scene loading is done via ISceneLoader in main
     std::string source_str =
-        GetValueByPointerWithDefault(config_doc, json::SCENES_SOURCE, "file").GetString();
+        GetValueByPointerWithDefault(config_doc, json::SCENES_SOURCE, "api").GetString();
 
     if (source_str == "file") {
         config.scenes.source = SceneSource::File;
@@ -234,6 +234,27 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
             throw std::runtime_error("Missing required config: scenes.file_path (required when "
                                      "scenes.source='file')");
         }
+    }
+
+    // Infrastructure - Manager (required when scenes.source='api')
+    if (GetValueByPointer(config_doc, json::INFRASTRUCTURE_MANAGER)) {
+        ManagerConfig manager_config;
+        if (auto* url = GetValueByPointer(config_doc, json::INFRASTRUCTURE_MANAGER_URL)) {
+            manager_config.url = url->GetString();
+        } else {
+            throw std::runtime_error("Missing required config: " +
+                                     std::string(json::INFRASTRUCTURE_MANAGER_URL));
+        }
+        if (auto* auth = GetValueByPointer(config_doc, json::INFRASTRUCTURE_MANAGER_AUTH_PATH)) {
+            manager_config.auth_path = auth->GetString();
+        } else {
+            throw std::runtime_error("Missing required config: " +
+                                     std::string(json::INFRASTRUCTURE_MANAGER_AUTH_PATH));
+        }
+        if (auto* ca = GetValueByPointer(config_doc, json::INFRASTRUCTURE_MANAGER_CA_CERT_PATH)) {
+            manager_config.ca_cert_path = std::string(ca->GetString());
+        }
+        config.infrastructure.manager = manager_config;
     }
 
     // Tracking configuration (optional - defaults from constants in config_loader.hpp)
@@ -347,6 +368,37 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
     }
     if (auto val = get_env(tracker::env::SCENES_FILE_PATH); val.has_value()) {
         config.scenes.file_path = val.value();
+    }
+
+    // Manager env var overrides
+    auto env_mgr_url = get_env(tracker::env::MANAGER_URL);
+    auto env_mgr_auth = get_env(tracker::env::MANAGER_AUTH_PATH);
+    auto env_mgr_ca = get_env(tracker::env::MANAGER_CA_CERT_PATH);
+    if (env_mgr_url.has_value() || env_mgr_auth.has_value() || env_mgr_ca.has_value()) {
+        if (!config.infrastructure.manager.has_value()) {
+            config.infrastructure.manager = ManagerConfig{};
+        }
+        auto& mgr = config.infrastructure.manager.value();
+        if (env_mgr_url.has_value())
+            mgr.url = env_mgr_url.value();
+        if (env_mgr_auth.has_value())
+            mgr.auth_path = env_mgr_auth.value();
+        if (env_mgr_ca.has_value())
+            mgr.ca_cert_path = env_mgr_ca.value();
+    }
+
+    // Re-validate after env overrides: API mode requires manager config
+    if (config.scenes.source == SceneSource::Api) {
+        if (!config.infrastructure.manager.has_value()) {
+            throw std::runtime_error("Missing required config: infrastructure.manager (required "
+                                     "when scenes.source='api')");
+        }
+        const auto& mgr = config.infrastructure.manager.value();
+        if (mgr.url.empty() || mgr.auth_path.empty()) {
+            throw std::runtime_error(
+                "Invalid infrastructure.manager configuration: url and auth_path must be set "
+                "and non-empty when scenes.source='api'");
+        }
     }
 
     // TLS overrides - create tls config if any TLS env var is set
