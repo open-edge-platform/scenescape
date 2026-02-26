@@ -52,6 +52,9 @@ updates:
       interval: "monthly"
     commit-message:
       prefix: "Dockerfile"
+    ignore:
+      - dependency-name: "python"
+        versions: ["3.11-slim-bookworm"]
     reviewers:
       - "saratpoluri"
       - "dmytroye"
@@ -94,6 +97,8 @@ updates:
       interval: "monthly"
     commit-message:
       prefix: "pip"
+    ignore:
+      - dependency-name: "numpy"
     reviewers:
       - "saratpoluri"
       - "dmytroye"
