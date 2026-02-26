@@ -3,12 +3,6 @@
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/cluster_analytics">
      GitHub project
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/cluster_analytics/README.md">
-     Readme
-  </a>
-  <a class="icon_download" href="https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/microservices/cluster-analytics/get-started.md">
-     Installation guide
-  </a>
 </div>
 hide_directive-->
 

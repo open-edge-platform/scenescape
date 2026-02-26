@@ -5,10 +5,6 @@
   </a>
   <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/controller/README.md">
      Readme
-  </a>
-  <a class="icon_download" href="https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/microservices/controller/get-started/build-from-source.md">
-     Installation guide
-  </a>
 </div>
 hide_directive-->
 
