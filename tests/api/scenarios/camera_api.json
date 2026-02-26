@@ -66,7 +66,7 @@
         "api": "camera",
         "method": "createCamera",
         "request": {
-          "body": {            
+          "body": {
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "intrinsics": {
               "fx": 1000.0,
@@ -222,7 +222,7 @@
         "method": "updateCamera",
         "request": {
           "UID": "${CAMERA_UID_MINIMAL}",
-          "body": {            
+          "body": {
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "intrinsics": {
               "fx": 1000.0,
@@ -326,12 +326,12 @@
         },
         "expected_body": {
           "uid": "${CAMERA_UID_MINIMAL}",
-          "name": "Camera_Minimal",
+          "name": "Camera_Minimal_Updated",
           "intrinsics": {
-            "fx": 905.0,
-            "fy": 905.0,
-            "cx": 640.0,
-            "cy": 360.0
+            "fx": 1100.0,
+            "fy": 1100.0,
+            "cx": 960.0,
+            "cy": 540.0
           },
           "transform_type": "3d-2d point correspondence",
           "translation": [0.0, 0.0, 0.0],
