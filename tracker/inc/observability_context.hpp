@@ -49,6 +49,15 @@ struct ObservabilityContext {
     std::string camera_id;
     std::string category;
 
+    // ---- Timestamp capture helpers ----
+    void captureReceiveTime() { receive_time = std::chrono::steady_clock::now(); }
+    void captureParseTime() { parse_time = std::chrono::steady_clock::now(); }
+    void captureBufferTime() { buffer_time = std::chrono::steady_clock::now(); }
+    void captureDispatchTime() { dispatch_time = std::chrono::steady_clock::now(); }
+    void captureTransformTime() { transform_time = std::chrono::steady_clock::now(); }
+    void captureTrackTime() { track_time = std::chrono::steady_clock::now(); }
+    void capturePublishTime() { publish_time = std::chrono::steady_clock::now(); }
+
     /**
      * @brief Record end-to-end latency metric after successful publish.
      *

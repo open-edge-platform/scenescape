@@ -166,11 +166,11 @@ void TrackingWorker::process_chunk(Chunk chunk) {
 
     // Transform pixel detections to world coordinates (camera intrinsics + extrinsics)
     auto objects_per_camera = transform_detections(chunk);
-    chunk.obs_ctx.transform_time = std::chrono::steady_clock::now();
+    chunk.obs_ctx.captureTransformTime();
 
     // Run Hungarian matching, Kalman filter, and ID conversion
     auto tracks = match_and_convert(std::move(objects_per_camera), chunk, track_timestamp);
-    chunk.obs_ctx.track_time = std::chrono::steady_clock::now();
+    chunk.obs_ctx.captureTrackTime();
 
     // Update active tracks gauge for this scope
     Metrics::set_active_tracks(scope_.scene_id, scope_.category,
@@ -181,7 +181,7 @@ void TrackingWorker::process_chunk(Chunk chunk) {
         publish_callback_(scope_.scene_id, scene_name_, scope_.category, timestamp_iso, tracks);
     }
 
-    chunk.obs_ctx.publish_time = std::chrono::steady_clock::now();
+    chunk.obs_ctx.capturePublishTime();
     chunk.obs_ctx.finalize();
 
     processed_count_.fetch_add(1);

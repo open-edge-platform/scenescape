@@ -191,7 +191,7 @@ Chunk TimeChunkScheduler::build_chunk(const TrackingScope& scope, CameraMap&& ca
     // Propagate earliest batch's observability context to chunk level
     if (!chunk.camera_batches.empty()) {
         chunk.obs_ctx = chunk.camera_batches.front().obs_ctx;
-        chunk.obs_ctx.dispatch_time = std::chrono::steady_clock::now();
+        chunk.obs_ctx.captureDispatchTime();
     }
 
     return chunk;

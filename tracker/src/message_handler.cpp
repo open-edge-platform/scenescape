@@ -189,7 +189,7 @@ void MessageHandler::handleDatabaseUpdateMessage(const std::string& topic,
 
 void MessageHandler::handleCameraMessage(const std::string& topic, const std::string& payload) {
     ObservabilityContext obs_ctx;
-    obs_ctx.receive_time = std::chrono::steady_clock::now();
+    obs_ctx.captureReceiveTime();
     received_count_++;
 
     std::string_view camera_id_view = extractCameraId(topic);
@@ -219,7 +219,7 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         return;
     }
 
-    obs_ctx.parse_time = std::chrono::steady_clock::now();
+    obs_ctx.captureParseTime();
 
     // Log parsed message details (only compute total_detections if debug logging is enabled)
     if (Logger::should_log_debug()) {
@@ -300,7 +300,7 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         batch.timestamp = *msg_time;
         batch.detections = std::move(detections);
         batch.obs_ctx = obs_ctx;  // Copy obs_ctx to allow reuse in next loop iteration
-        batch.obs_ctx.buffer_time = std::chrono::steady_clock::now();
+        batch.obs_ctx.captureBufferTime();
         batch.obs_ctx.category = category;
         buffer_.add(scope, camera_id, std::move(batch));
         buffered_count_++;
