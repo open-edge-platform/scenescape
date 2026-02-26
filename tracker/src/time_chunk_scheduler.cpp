@@ -3,6 +3,7 @@
 
 #include "time_chunk_scheduler.hpp"
 #include "logger.hpp"
+#include "metrics.hpp"
 
 #include <algorithm>
 #include <stdexcept>
@@ -113,9 +114,13 @@ void TimeChunkScheduler::dispatch(BufferMap&& snapshot) {
         auto* worker = get_or_create_worker(scope);
         if (worker == nullptr) {
             // Max workers reached, drop this scope's data
+            size_t msg_count = cameras.size();
             scope_limit_drops_.fetch_add(1);
-            LOG_WARN("Dropped chunk for scope {}/{}: max_workers limit ({}) reached",
-                     scope.scene_id, scope.category, config_.max_workers);
+            Metrics::inc_dropped_n(msg_count, {{kAttrScene, scope.scene_id},
+                                               {kAttrCategory, scope.category},
+                                               {kAttrReason, kReasonDroppedMaxWorkers}});
+            LOG_WARN("Dropped chunk for scope {}/{}: max_workers limit ({}) reached, messages={}",
+                     scope.scene_id, scope.category, config_.max_workers, msg_count);
             continue;
         }
 
@@ -182,6 +187,12 @@ Chunk TimeChunkScheduler::build_chunk(const TrackingScope& scope, CameraMap&& ca
               [](const DetectionBatch& a, const DetectionBatch& b) {
                   return a.receive_time < b.receive_time;
               });
+
+    // Propagate earliest batch's observability context to chunk level
+    if (!chunk.camera_batches.empty()) {
+        chunk.obs_ctx = chunk.camera_batches.front().obs_ctx;
+        chunk.obs_ctx.captureDispatchTime();
+    }
 
     return chunk;
 }

@@ -76,4 +76,21 @@ constexpr const char* SCENES_SOURCE = "TRACKER_SCENES_SOURCE";
 
 constexpr const char* SCENES_FILE_PATH = "TRACKER_SCENES_FILE_PATH";
 
+// Observability overrides
+
+/// OTLP gRPC endpoint (e.g., localhost:4317)
+constexpr const char* OTLP_ENDPOINT = "TRACKER_OTLP_ENDPOINT";
+
+/// true|false
+constexpr const char* METRICS_ENABLED = "TRACKER_METRICS_ENABLED";
+
+/// true|false
+constexpr const char* TRACING_ENABLED = "TRACKER_TRACING_ENABLED";
+
+/// seconds, >= 1
+constexpr const char* METRICS_EXPORT_INTERVAL_S = "TRACKER_METRICS_EXPORT_INTERVAL_S";
+
+/// seconds, >= 1
+constexpr const char* TRACING_EXPORT_INTERVAL_S = "TRACKER_TRACING_EXPORT_INTERVAL_S";
+
 } // namespace tracker::env
