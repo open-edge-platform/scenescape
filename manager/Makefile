@@ -188,9 +188,9 @@ $(JSLIBDIR)/assets/ProjectedMaterial.module.js:
 	  &&  sed "s,'three','/static/assets/three.module.js'," $@ > temp.js && mv temp.js $@
 
 $(JSLIBDIR)/assets/opencv.js:
-	URL=https://docs.opencv.org/4.10.0 && PKG=$$(basename $@) \
-	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	URL=https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js \
+	  && echo "$${URL}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
+	  && curl $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}
 
 $(JSLIBDIR)/assets/doxygen-awesome.css:
 	URL=https://raw.githubusercontent.com/jothepro/doxygen-awesome-css/main && PKG=$$(basename $@) \
