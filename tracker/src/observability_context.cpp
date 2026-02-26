@@ -34,26 +34,26 @@ void ObservabilityContext::finalize() const {
     Metrics::record_latency(*latency_ms, {{kAttrScene, scene_id}, {kAttrCategory, category}});
 
     // Per-stage latency breakdown (informational — no-op when timestamps are missing)
-    MetricAttributes early_attrs = {{kAttrScene, scene_id}, {kAttrCameraId, camera_id}};
-    MetricAttributes late_attrs = {{kAttrScene, scene_id}, {kAttrCategory, category}};
+    // Attributes: scene only (no camera_id or category to avoid confusion when chunks mix sources)
+    MetricAttributes stage_attrs = {{kAttrScene, scene_id}};
 
     if (auto ms = elapsed_ms(receive_time, parse_time)) {
-        Metrics::record_stage_latency(kMetricStageParse, *ms, early_attrs);
+        Metrics::record_stage_latency(kMetricStageParse, *ms, stage_attrs);
     }
     if (auto ms = elapsed_ms(parse_time, buffer_time)) {
-        Metrics::record_stage_latency(kMetricStageBuffer, *ms, early_attrs);
+        Metrics::record_stage_latency(kMetricStageBuffer, *ms, stage_attrs);
     }
     if (auto ms = elapsed_ms(buffer_time, dispatch_time)) {
-        Metrics::record_stage_latency(kMetricStageQueue, *ms, late_attrs);
+        Metrics::record_stage_latency(kMetricStageQueue, *ms, stage_attrs);
     }
     if (auto ms = elapsed_ms(dispatch_time, transform_time)) {
-        Metrics::record_stage_latency(kMetricStageTransform, *ms, late_attrs);
+        Metrics::record_stage_latency(kMetricStageTransform, *ms, stage_attrs);
     }
     if (auto ms = elapsed_ms(transform_time, track_time)) {
-        Metrics::record_stage_latency(kMetricStageTrack, *ms, late_attrs);
+        Metrics::record_stage_latency(kMetricStageTrack, *ms, stage_attrs);
     }
     if (auto ms = elapsed_ms(track_time, publish_time)) {
-        Metrics::record_stage_latency(kMetricStagePublish, *ms, late_attrs);
+        Metrics::record_stage_latency(kMetricStagePublish, *ms, stage_attrs);
     }
 }
 
