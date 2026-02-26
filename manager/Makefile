@@ -12,6 +12,9 @@ FORCE_VAAPI ?= 0
 THREEJS_VERSION = 168
 SECRETSDIR ?= ./secrets
 
+# Actual calculated OpenCV.js SHA256 sum as of 26.02.2026
+EXPECTED_OPENCV_SHA256 = c5c6cbce0bd20f776405b083ca0794e56f5aed1867be9668ee6fb062d946281a
+
 include ../common.mk
 
 default: build-image
@@ -187,10 +190,14 @@ $(JSLIBDIR)/assets/ProjectedMaterial.module.js:
 	  && curl $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG} \
 	  &&  sed "s,'three','/static/assets/three.module.js'," $@ > temp.js && mv temp.js $@
 
+# Using CDN as the official https://docs.opencv.org/4.10.0/opencv.js return 403 and seem to require a headless browser to download
 $(JSLIBDIR)/assets/opencv.js:
 	URL=https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js \
 	  && echo "$${URL}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}
+	  && curl $(CURL_FLAGS) --location --create-dirs --output $@ $${URL} \
+	  && ACTUAL_SHA256=$$(sha256sum $@ | awk '{print $$1}') \
+	  && [ "$${ACTUAL_SHA256}" = "$(EXPECTED_OPENCV_SHA256)" ] \
+	     || (echo "ERROR: SHA256 mismatch for $@: expected=$(EXPECTED_OPENCV_SHA256) actual=$${ACTUAL_SHA256}" && rm -f $@ && exit 1)
 
 $(JSLIBDIR)/assets/doxygen-awesome.css:
 	URL=https://raw.githubusercontent.com/jothepro/doxygen-awesome-css/main && PKG=$$(basename $@) \
