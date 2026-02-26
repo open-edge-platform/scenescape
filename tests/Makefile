@@ -95,6 +95,8 @@ broken-features:
 _broken-features: \
   calibrate-camera-3d-ui-2d-ui \
   visibility-regulated \
+  3d-scene-control-panel \
+  3d-camera-control-panel \
 
 broken-tests: \
   3d-ui-calibration-points \
@@ -104,8 +106,6 @@ broken-tests: \
   reid-unique-count \
   reid-performance-degradation \
   auto-calibration-ui \
-  3d-scene-control-panel \
-  3d-camera-control-panel \
 
 randomly-failing-tests: \
   distance-msoce \
