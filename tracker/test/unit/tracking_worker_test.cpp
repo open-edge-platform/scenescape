@@ -471,5 +471,84 @@ TEST_F(TrackingWorkerTest, QueueFull_IncrementsDroppedCount) {
     block_cv.notify_all();
 }
 
+// Test that heartbeats are dispatched when no chunks arrive and invoke the tracker
+TEST_F(TrackingWorkerTest, Heartbeat_DispatchedWhileIdleAndPublishesEmptyTracks) {
+    // Use a fast FPS so heartbeat intervals are short (10ms) and the test is quick.
+    TrackingConfig fast_config = tracking_config_;
+    fast_config.time_chunking_rate_fps = 100; // 10ms interval
+
+    std::mutex mtx;
+    std::condition_variable cv;
+    int publish_count = 0;
+
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>&) {
+        std::lock_guard lock(mtx);
+        publish_count++;
+        cv.notify_one();
+    };
+
+    TrackingScope scope{"scene-1", "person"};
+    TrackingWorker worker(scope, "Test Scene", 2, callback, fast_config, cameras_);
+
+    // Do NOT enqueue any chunk. Worker should fire heartbeats autonomously.
+
+    // Wait for at least 2 heartbeat callbacks (up to ~300ms = 30 × 10ms intervals)
+    {
+        std::unique_lock lock(mtx);
+        EXPECT_TRUE(cv.wait_for(lock, std::chrono::milliseconds(300),
+                                [&] { return publish_count >= 2; }))
+            << "Expected at least 2 heartbeat publishes within 300ms";
+    }
+
+    EXPECT_GE(publish_count, 2);
+    // No real chunks were enqueued or processed
+    EXPECT_EQ(worker.processed_count(), 0);
+    EXPECT_EQ(worker.dropped_count(), 0);
+}
+
+// Test that heartbeat count resets cleanly and real chunks reset heartbeat cadence
+TEST_F(TrackingWorkerTest, Heartbeat_PausesWhenRealChunksArriveRapidly) {
+    // Use a slow heartbeat (10 FPS = 100ms interval) so real chunks dominate
+    TrackingConfig slow_config = tracking_config_;
+    slow_config.time_chunking_rate_fps = 10;
+
+    std::mutex mtx;
+    std::condition_variable cv;
+    int publish_count = 0;
+
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>&) {
+        std::lock_guard lock(mtx);
+        publish_count++;
+        cv.notify_one();
+    };
+
+    TrackingScope scope{"scene-1", "vehicle"};
+    TrackingWorker worker(scope, "Test Scene", 10, callback, slow_config, cameras_);
+
+    // Rapidly enqueue 5 real chunks — should all be processed before timeout fires
+    for (int i = 0; i < 5; ++i) {
+        Chunk chunk;
+        chunk.scene_id = "scene-1";
+        chunk.category = "vehicle";
+        chunk.chunk_time = std::chrono::steady_clock::now();
+        DetectionBatch batch;
+        batch.camera_id = "cam-1";
+        batch.timestamp_iso = std::format("2026-01-27T12:00:{:02d}.000Z", i);
+        chunk.camera_batches.push_back(std::move(batch));
+        EXPECT_TRUE(worker.try_enqueue(std::move(chunk)));
+    }
+
+    // Wait for all 5 to be processed (up to 1s)
+    {
+        std::unique_lock lock(mtx);
+        EXPECT_TRUE(cv.wait_for(lock, std::chrono::seconds(1), [&] { return publish_count >= 5; }))
+            << "Expected 5 real chunks processed within 1s";
+    }
+
+    EXPECT_EQ(worker.processed_count(), 5);
+}
+
 } // namespace
 } // namespace tracker

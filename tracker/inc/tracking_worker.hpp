@@ -121,6 +121,13 @@ private:
     void process_chunk(Chunk chunk);
 
     /**
+     * @brief Build a heartbeat chunk (empty camera_batches) for idle advancement.
+     *
+     * @return Chunk with scope set but empty camera_batches
+     */
+    Chunk build_heartbeat_chunk() const;
+
+    /**
      * @brief Run Hungarian matching, Kalman update, and ID conversion.
      *
      * Takes already-transformed world-coordinate detections, runs
@@ -160,6 +167,7 @@ private:
     std::string scene_name_;
     int queue_capacity_;
     PublishCallback publish_callback_;
+    std::chrono::milliseconds heartbeat_interval_;
 
     // RobotVision tracker instance (Hungarian matching + Kalman filter)
     rv::tracking::MultipleObjectTracker tracker_;

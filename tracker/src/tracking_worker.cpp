@@ -57,7 +57,8 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
                                const std::unordered_map<std::string, Camera>& cameras)
     : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
       publish_callback_(std::move(publish_callback)),
-      tracker_(build_tracker_config(tracking_config)) {
+      tracker_(build_tracker_config(tracking_config)),
+      heartbeat_interval_(std::chrono::milliseconds(1000 / tracking_config.time_chunking_rate_fps)) {
     // Adapt frame-rate-dependent timing parameters
     tracker_.updateTrackerParams(tracking_config.time_chunking_rate_fps);
 
@@ -125,30 +126,36 @@ void TrackingWorker::run() {
 
     while (true) {
         Chunk chunk;
+        bool dequeued = false;
         {
             std::unique_lock lock(queue_mutex_);
-            queue_cv_.wait(lock, [this] { return !queue_.empty() || stop_requested_; });
+            queue_cv_.wait_for(lock, heartbeat_interval_,
+                               [this] { return !queue_.empty() || stop_requested_; });
 
             if (stop_requested_ && queue_.empty()) {
                 break;
             }
 
-            if (queue_.empty()) {
-                continue;
+            if (!queue_.empty()) {
+                chunk = std::move(queue_.front());
+                queue_.pop_front();
+                dequeued = true;
             }
-
-            chunk = std::move(queue_.front());
-            queue_.pop_front();
         }
 
-        // Check for sentinel
-        if (chunk.is_sentinel()) {
-            LOG_DEBUG("TrackingWorker received sentinel for scope {}/{}", scope_.scene_id,
-                      scope_.category);
-            break;
+        if (dequeued) {
+            // Check for sentinel
+            if (chunk.is_sentinel()) {
+                LOG_DEBUG("TrackingWorker received sentinel for scope {}/{}", scope_.scene_id,
+                          scope_.category);
+                break;
+            }
+            process_chunk(std::move(chunk));
+        } else {
+            // No chunk arrived within the interval: run a heartbeat cycle to
+            // advance the tracker state so tracks are aged and pruned.
+            process_chunk(build_heartbeat_chunk());
         }
-
-        process_chunk(std::move(chunk));
     }
 
     LOG_INFO("TrackingWorker stopped for scope {}/{} (processed={}, dropped={})", scope_.scene_id,
@@ -256,6 +263,15 @@ std::vector<Track> TrackingWorker::match_and_convert(
               tracks.size());
 
     return tracks;
+}
+
+Chunk TrackingWorker::build_heartbeat_chunk() const {
+    Chunk chunk;
+    chunk.scene_id = scope_.scene_id;
+    chunk.category = scope_.category;
+    chunk.chunk_time = std::chrono::steady_clock::now();
+
+    return chunk;
 }
 
 } // namespace tracker
