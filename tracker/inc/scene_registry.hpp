@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "config_loader.hpp"
+#include "scene_loader.hpp"
 
 #include <stdexcept>
 #include <string>
@@ -56,6 +56,14 @@ public:
      * @return Pointer to scene or nullptr if camera is not registered
      */
     [[nodiscard]] const Scene* find_scene_for_camera(const std::string& camera_id) const;
+
+    /**
+     * @brief Find a scene by its ID.
+     *
+     * @param scene_id Scene identifier (UID)
+     * @return Pointer to scene or nullptr if not found
+     */
+    [[nodiscard]] const Scene* find_scene_by_id(const std::string& scene_id) const;
 
     /**
      * @brief Find a specific camera by ID.

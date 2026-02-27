@@ -31,7 +31,6 @@ quill::LogLevel to_quill_level(std::string_view level_str) {
     return quill::LogLevel::Info; // Default
 }
 
-// Escape string for JSON
 std::string json_escape(std::string_view str) {
     std::string result;
     result.reserve(str.size());

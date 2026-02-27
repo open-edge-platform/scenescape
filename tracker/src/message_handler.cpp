@@ -3,13 +3,14 @@
 
 #include "message_handler.hpp"
 #include "logger.hpp"
+#include "metrics.hpp"
+#include "observability_context.hpp"
+#include "time_utils.hpp"
 #include "topic_utils.hpp"
 
 #include <chrono>
-#include <ctime>
 #include <format>
 #include <fstream>
-#include <iomanip>
 #include <string_view>
 
 #include <rapidjson/document.h>
@@ -41,10 +42,11 @@ static const rapidjson::Pointer PTR_BBOX_HEIGHT("/bounding_box_px/height");
 } // namespace
 
 MessageHandler::MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
-                               const SceneRegistry& scene_registry, bool schema_validation,
+                               const SceneRegistry& scene_registry, TimeChunkBuffer& buffer,
+                               const TrackingConfig& tracking_config, bool schema_validation,
                                const std::filesystem::path& schema_dir)
-    : mqtt_client_(std::move(mqtt_client)), scene_registry_(scene_registry),
-      schema_validation_(schema_validation) {
+    : mqtt_client_(std::move(mqtt_client)), scene_registry_(scene_registry), buffer_(buffer),
+      tracking_config_(tracking_config), schema_validation_(schema_validation) {
     if (schema_validation_) {
         auto camera_schema_path = schema_dir / CAMERA_SCHEMA_FILE;
         auto scene_schema_path = schema_dir / SCENE_SCHEMA_FILE;
@@ -90,10 +92,17 @@ MessageHandler::loadSchema(const std::filesystem::path& schema_path) {
     return std::make_unique<rapidjson::SchemaDocument>(schema_doc);
 }
 
+void MessageHandler::enableDynamicMode(ShutdownCallback callback) {
+    dynamic_mode_ = true;
+    shutdown_callback_ = std::move(callback);
+    LOG_INFO_ENTRY(LogEntry("Dynamic mode enabled - will subscribe to database update topic")
+                       .component("mqtt"));
+}
+
 void MessageHandler::start() {
-    // Set up message callback
+    // Set up message callback with topic-based routing
     mqtt_client_->setMessageCallback([this](const std::string& topic, const std::string& payload) {
-        handleCameraMessage(topic, payload);
+        routeMessage(topic, payload);
     });
 
     // Subscribe to each registered camera's topic
@@ -124,11 +133,20 @@ void MessageHandler::start() {
     LOG_INFO_ENTRY(LogEntry("Queued camera subscriptions")
                        .component("mqtt")
                        .operation(std::format("{} cameras", camera_ids.size())));
+
+    // In dynamic mode, subscribe to database update topic for config change notifications
+    if (dynamic_mode_) {
+        mqtt_client_->subscribe(TOPIC_DATABASE_UPDATE);
+        LOG_INFO_ENTRY(LogEntry("Queued database update subscription")
+                           .component("mqtt")
+                           .operation(TOPIC_DATABASE_UPDATE));
+    }
 }
 
 void MessageHandler::stop() {
-    LOG_INFO("MessageHandler stopping, received: {}, published: {}, rejected: {}",
-             received_count_.load(), published_count_.load(), rejected_count_.load());
+    LOG_INFO("MessageHandler stopping (received: {}, buffered: {}, rejected: {}, lagged: {})",
+             received_count_.load(), buffered_count_.load(), rejected_count_.load(),
+             lagged_count_.load());
 
     // Unsubscribe from all camera topics (skip invalid UIDs - same validation as start())
     auto camera_ids = scene_registry_.get_all_camera_ids();
@@ -139,19 +157,50 @@ void MessageHandler::stop() {
         auto topic = std::format(TOPIC_CAMERA_SUBSCRIBE_PATTERN, camera_id);
         mqtt_client_->unsubscribe(topic);
     }
+
+    // Unsubscribe from database update topic (dynamic mode)
+    if (dynamic_mode_) {
+        mqtt_client_->unsubscribe(TOPIC_DATABASE_UPDATE);
+    }
+
     mqtt_client_->setMessageCallback(nullptr);
 }
 
+void MessageHandler::routeMessage(const std::string& topic, const std::string& payload) {
+    if (dynamic_mode_ && topic == TOPIC_DATABASE_UPDATE) {
+        handleDatabaseUpdateMessage(topic, payload);
+    } else {
+        handleCameraMessage(topic, payload);
+    }
+}
+
+void MessageHandler::handleDatabaseUpdateMessage(const std::string& topic,
+                                                 const std::string& payload) {
+    LOG_INFO_ENTRY(LogEntry("Database update received, triggering restart")
+                       .component("message_handler")
+                       .mqtt({.topic = topic, .direction = "subscribe"}));
+
+    if (shutdown_callback_) {
+        shutdown_callback_();
+    } else {
+        LOG_WARN("Database update received but no shutdown callback registered");
+    }
+}
+
 void MessageHandler::handleCameraMessage(const std::string& topic, const std::string& payload) {
+    ObservabilityContext obs_ctx;
+    obs_ctx.captureReceiveTime();
     received_count_++;
 
     std::string_view camera_id_view = extractCameraId(topic);
     if (camera_id_view.empty()) {
         LOG_WARN("Failed to extract camera_id from topic: {}", topic);
         rejected_count_++;
+        obs_ctx.abort(kReasonRejectedParse);
         return;
     }
     std::string camera_id{camera_id_view}; // Single allocation for valid IDs only
+    obs_ctx.camera_id = camera_id;
 
     LOG_DEBUG_ENTRY(LogEntry("Received detection")
                         .component("message_handler")
@@ -166,8 +215,11 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                            .error({.type = "parse_error",
                                    .message = "Invalid JSON or schema validation failed"}));
         rejected_count_++;
+        obs_ctx.abort(kReasonRejectedSchema);
         return;
     }
+
+    obs_ctx.captureParseTime();
 
     // Log parsed message details (only compute total_detections if debug logging is enabled)
     if (Logger::should_log_debug()) {
@@ -189,13 +241,39 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
             LogEntry("Unknown camera not registered to any scene, dropping message")
                 .component("message_handler")
                 .domain({.camera_id = camera_id})
-                .error({.type = "routing_error", .message = "Camera not in scene registry"}));
+                .error({.type = "unknown_camera", .message = "Camera not in scene registry"}));
         rejected_count_++;
+        obs_ctx.abort(kReasonRejectedUnknownTopic);
         return;
     }
 
-    // Build and publish scene message for each category
-    for (const auto& [category, detections] : message->objects) {
+    // Parse timestamp once (reused for lag check and batch storage)
+    auto msg_time = parseTimestamp(message->timestamp);
+    if (!msg_time) {
+        LOG_WARN("Failed to parse timestamp '{}' from camera '{}', dropping", message->timestamp,
+                 camera_id);
+        rejected_count_++;
+        obs_ctx.abort(kReasonRejectedParse);
+        return;
+    }
+
+    // Check for lag
+    if (isMessageLagged(*msg_time)) {
+        LOG_WARN_ENTRY(
+            LogEntry("Dropping lagged message")
+                .component("message_handler")
+                .domain({.camera_id = camera_id, .scene_id = scene->uid})
+                .error({.type = "fell_behind", .message = "Message timestamp exceeds max_lag_s"}));
+        lagged_count_++;
+        obs_ctx.abort(kReasonRejectedLag);
+        return;
+    }
+
+    obs_ctx.scene_id = scene->uid;
+
+    // Push detections to buffer for each category
+    auto receive_time = std::chrono::steady_clock::now();
+    for (auto& [category, detections] : message->objects) {
         // Validate category on first use (cached to avoid per-frame overhead)
         // Minimal critical section: only lock during cache access, not during publish
         {
@@ -214,19 +292,30 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
             }
         } // Lock released before expensive operations
 
-        std::string scene_message = buildDummySceneMessage(*scene, message->timestamp);
+        TrackingScope scope{scene->uid, category};
+        DetectionBatch batch;
+        batch.camera_id = camera_id;
+        batch.receive_time = receive_time;
+        batch.timestamp_iso = message->timestamp;
+        batch.timestamp = *msg_time;
+        batch.detections = std::move(detections);
+        batch.obs_ctx = obs_ctx; // Copy obs_ctx to allow reuse in next loop iteration
+        batch.obs_ctx.captureBufferTime();
+        batch.obs_ctx.category = category;
+        buffer_.add(scope, camera_id, std::move(batch));
+        buffered_count_++;
 
-        // Format output topic: scenescape/data/scene/{scene_id}/{category}
-        auto output_topic = std::format(TOPIC_SCENE_DATA_PATTERN, scene->uid, category);
-
-        mqtt_client_->publish(output_topic, scene_message);
-        published_count_++;
-
-        LOG_DEBUG_ENTRY(LogEntry("Published track")
-                            .component("message_handler")
-                            .mqtt({.topic = output_topic, .direction = "publish"})
-                            .domain({.scene_id = scene->uid, .object_category = category}));
+        LOG_DEBUG_ENTRY(
+            LogEntry("Buffered detections")
+                .component("message_handler")
+                .domain(
+                    {.camera_id = camera_id, .scene_id = scene->uid, .object_category = category}));
     }
+
+    // Record message accepted
+    Metrics::inc_messages({{kAttrScene, std::string(scene->uid)},
+                           {kAttrCameraId, camera_id},
+                           {kAttrReason, kReasonAccepted}});
 }
 
 std::string_view MessageHandler::extractCameraId(const std::string& topic) {
@@ -320,17 +409,15 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
             }
             // Note: Type checking (IsNumber) omitted - schema validation ensures correct types
 
-            detection.bounding_box_px.x = bbox_x->GetDouble();
-            detection.bounding_box_px.y = bbox_y->GetDouble();
-            detection.bounding_box_px.width = bbox_width->GetDouble();
-            detection.bounding_box_px.height = bbox_height->GetDouble();
+            detection.bounding_box_px = cv::Rect2f(static_cast<float>(bbox_x->GetDouble()),
+                                                   static_cast<float>(bbox_y->GetDouble()),
+                                                   static_cast<float>(bbox_width->GetDouble()),
+                                                   static_cast<float>(bbox_height->GetDouble()));
 
             detections.push_back(detection);
         }
 
-        if (!detections.empty()) {
-            message.objects[category] = std::move(detections);
-        }
+        message.objects[category] = std::move(detections);
     }
 
     return message;
@@ -352,65 +439,11 @@ bool MessageHandler::validateJson(const rapidjson::Document& doc,
     return true;
 }
 
-std::string MessageHandler::buildDummySceneMessage(const Scene& scene,
-                                                   const std::string& timestamp) {
-    // Build JSON using rapidjson for type safety and schema compliance
-    rapidjson::Document doc;
-    doc.SetObject();
-    auto& allocator = doc.GetAllocator();
+bool MessageHandler::isMessageLagged(std::chrono::system_clock::time_point msg_time) const {
+    auto now = std::chrono::system_clock::now();
+    auto lag = std::chrono::duration<double>(now - msg_time).count();
 
-    // Add top-level fields
-    doc.AddMember("id", rapidjson::Value(scene.uid.c_str(), allocator), allocator);
-    doc.AddMember("name", rapidjson::Value(scene.name.c_str(), allocator), allocator);
-    doc.AddMember("timestamp", rapidjson::Value(timestamp.c_str(), allocator), allocator);
-
-    // Build objects array with a single dummy track
-    rapidjson::Value objects(rapidjson::kArrayType);
-
-    rapidjson::Value track(rapidjson::kObjectType);
-    track.AddMember("id", "dummy-track-001", allocator);
-    track.AddMember("category", rapidjson::Value(DEFAULT_THING_TYPE, allocator), allocator);
-
-    // Translation [x, y, z]
-    rapidjson::Value translation(rapidjson::kArrayType);
-    translation.PushBack(1.0, allocator);
-    translation.PushBack(2.0, allocator);
-    translation.PushBack(0.0, allocator);
-    track.AddMember("translation", translation, allocator);
-
-    // Velocity [vx, vy, vz]
-    rapidjson::Value velocity(rapidjson::kArrayType);
-    velocity.PushBack(0.1, allocator);
-    velocity.PushBack(0.2, allocator);
-    velocity.PushBack(0.0, allocator);
-    track.AddMember("velocity", velocity, allocator);
-
-    // Size [length, width, height]
-    rapidjson::Value size(rapidjson::kArrayType);
-    size.PushBack(0.5, allocator);
-    size.PushBack(0.5, allocator);
-    size.PushBack(1.8, allocator);
-    track.AddMember("size", size, allocator);
-
-    // Rotation quaternion [x, y, z, w]
-    rapidjson::Value rotation(rapidjson::kArrayType);
-    rotation.PushBack(0, allocator);
-    rotation.PushBack(0, allocator);
-    rotation.PushBack(0, allocator);
-    rotation.PushBack(1, allocator);
-    track.AddMember("rotation", rotation, allocator);
-
-    objects.PushBack(track, allocator);
-    doc.AddMember("objects", objects, allocator);
-
-    // Note: Output schema validation is done in unit tests, not at runtime
-
-    // Serialize to string
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    doc.Accept(writer);
-
-    return buffer.GetString();
+    return lag > tracking_config_.max_lag_s;
 }
 
 } // namespace tracker

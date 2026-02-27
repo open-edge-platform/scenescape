@@ -43,6 +43,15 @@ find_package(CLI11 REQUIRED)
 find_package(httplib REQUIRED)
 find_package(RapidJSON REQUIRED)
 find_package(PahoMqttCpp REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(opentelemetry-cpp REQUIRED)
+find_package(gRPC REQUIRED)
+
+#####################################################################
+# System-provided packages
+#####################################################################
+
+find_package(OpenMP REQUIRED)
 
 #####################################################################
 # RobotVision integration
@@ -70,13 +79,24 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/config_loader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene_loader.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/api_scene_loader.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/manager_rest_client.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/coordinate_transformer.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_server.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_command.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/mqtt_client.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/message_handler.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene_registry.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/time_chunk_buffer.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/time_chunk_scheduler.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/tracking_worker.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/track_publisher.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/proxy_utils.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/time_utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/topic_utils.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/telemetry.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/metrics.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/observability_context.cpp
 )
 
 add_executable(${PROJECT_NAME}
@@ -104,11 +124,16 @@ target_link_libraries(${PROJECT_NAME}
   PRIVATE
     scenescape::security_options
     RobotVision
+    OpenMP::OpenMP_CXX
     quill::quill
     CLI11::CLI11
     httplib::httplib
     rapidjson
     PahoMqttCpp::paho-mqttpp3-static
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    opentelemetry-cpp::opentelemetry-cpp
+    grpc::grpc
 )
 
 #####################################################################

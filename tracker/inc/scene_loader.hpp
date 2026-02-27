@@ -3,12 +3,19 @@
 
 #pragma once
 
+#include "config_loader.hpp"
+#include "manager_rest_client.hpp"
+
 #include <array>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
+
+#include <rapidjson/document.h>
 
 namespace tracker {
 
@@ -68,22 +75,6 @@ struct Scene {
 };
 
 /**
- * @brief Scene configuration source type.
- */
-enum class SceneSource {
-    File, ///< Load scenes from external JSON file (scenes.file_path)
-    Api   ///< Fetch scenes from Manager REST API (not yet implemented)
-};
-
-/**
- * @brief Scene configuration source settings.
- */
-struct ScenesConfig {
-    SceneSource source = SceneSource::File; ///< Scene source type
-    std::optional<std::string> file_path;   ///< Path to scene file (when source=File)
-};
-
-/**
  * @brief Abstract interface for loading scene configurations.
  *
  * Implementations load scenes from different sources (file, API, etc.).
@@ -109,11 +100,30 @@ public:
  *
  * @param config Scene source configuration
  * @param config_dir Directory containing config file (for resolving relative paths)
+ * @param manager_config Manager API config (required when source=Api)
+ * @param schema_dir Directory containing schema files (for API response validation)
  * @return Unique pointer to the scene loader implementation
  * @throws std::runtime_error if configuration is invalid
  */
-std::unique_ptr<ISceneLoader> create_scene_loader(const ScenesConfig& config,
-                                                  const std::filesystem::path& config_dir);
+std::unique_ptr<ISceneLoader>
+create_scene_loader(const ScenesConfig& config, const std::filesystem::path& config_dir,
+                    const std::optional<ManagerConfig>& manager_config = std::nullopt,
+                    const std::filesystem::path& schema_dir = {});
+
+/// Factory type for creating IManagerRestClient instances (for testability).
+using ManagerClientFactory =
+    std::function<std::unique_ptr<IManagerRestClient>(const ManagerConfig&)>;
+
+/// Default factory: creates a real ManagerRestClient.
+inline std::unique_ptr<IManagerRestClient> default_manager_client_factory(const ManagerConfig& c) {
+    return std::make_unique<ManagerRestClient>(c.url, c.ca_cert_path);
+}
+
+// Internal factory functions used by create_scene_loader (defined in separate TUs)
+std::unique_ptr<ISceneLoader>
+create_api_scene_loader(const ManagerConfig& manager_config,
+                        const std::filesystem::path& schema_dir,
+                        ManagerClientFactory client_factory = default_manager_client_factory);
 
 /// JSON Pointer paths (RFC6901) for scene/camera fields
 namespace scene_json {
@@ -141,5 +151,29 @@ constexpr char CAMERA_EXTRINSICS_TRANSLATION[] = "/extrinsics/translation";
 constexpr char CAMERA_EXTRINSICS_ROTATION[] = "/extrinsics/rotation";
 constexpr char CAMERA_EXTRINSICS_SCALE[] = "/extrinsics/scale";
 } // namespace scene_json
+
+/// Internal helpers for API scene loading (exposed for testability).
+namespace detail {
+
+/// Read file contents and trim trailing whitespace.
+std::string read_file_trimmed(const std::filesystem::path& path);
+
+/// Transform a single camera from Manager API flat format to tracker schema format.
+void transform_camera_to_schema(rapidjson::Value& camera,
+                                rapidjson::Document::AllocatorType& alloc);
+
+/// Transform API response scenes array to tracker schema format.
+void transform_api_scenes(rapidjson::Document& doc);
+
+/// Read username and password from JSON auth file.
+std::pair<std::string, std::string> read_auth_file(const std::string& path);
+
+/// Validate each scene in the array against a JSON schema file.
+/// Returns a new document containing only the scenes that passed validation.
+/// Invalid scenes are logged with a warning and skipped.
+rapidjson::Document validate_scenes(const rapidjson::Document& scenes_doc,
+                                    const std::filesystem::path& schema_path);
+
+} // namespace detail
 
 } // namespace tracker

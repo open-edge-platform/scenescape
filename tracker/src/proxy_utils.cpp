@@ -10,12 +10,6 @@ namespace tracker {
 
 namespace {
 
-/**
- * @brief Check if an environment variable is set but empty.
- *
- * @param name The environment variable name.
- * @return true if the variable is set and its value is an empty string.
- */
 bool isEnvVarEmpty(const char* name) {
     const char* value = std::getenv(name);
     return value != nullptr && value[0] == '\0';

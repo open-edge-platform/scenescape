@@ -516,6 +516,212 @@ TEST(ConfigLoaderTest, SchemaValidationEnvOverride) {
 }
 
 //
+// Tracking environment variable override tests
+//
+
+TEST(ConfigLoaderTest, TrackingMaxLagEnvOverride) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Valid override
+    {
+        ScopedEnv env(tracker::env::MAX_LAG_S, "2.5");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_DOUBLE_EQ(config.tracking.max_lag_s, 2.5);
+    }
+
+    // Zero is valid
+    {
+        ScopedEnv env(tracker::env::MAX_LAG_S, "0");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_DOUBLE_EQ(config.tracking.max_lag_s, 0.0);
+    }
+}
+
+TEST(ConfigLoaderTest, TrackingMaxLagEnvOverride_InvalidValues) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Negative value
+    {
+        ScopedEnv env(tracker::env::MAX_LAG_S, "-1.0");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+
+    // Non-numeric
+    {
+        ScopedEnv env(tracker::env::MAX_LAG_S, "not_a_number");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+}
+
+TEST(ConfigLoaderTest, TrackingChunkingRateEnvOverride) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Valid override
+    {
+        ScopedEnv env(tracker::env::TIME_CHUNKING_RATE_FPS, "30");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.tracking.time_chunking_rate_fps, 30);
+    }
+
+    // Boundary: minimum (1)
+    {
+        ScopedEnv env(tracker::env::TIME_CHUNKING_RATE_FPS, "1");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.tracking.time_chunking_rate_fps, 1);
+    }
+
+    // Boundary: maximum (60)
+    {
+        ScopedEnv env(tracker::env::TIME_CHUNKING_RATE_FPS, "60");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.tracking.time_chunking_rate_fps, 60);
+    }
+}
+
+TEST(ConfigLoaderTest, TrackingChunkingRateEnvOverride_InvalidValues) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Below minimum
+    {
+        ScopedEnv env(tracker::env::TIME_CHUNKING_RATE_FPS, "0");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+
+    // Above maximum
+    {
+        ScopedEnv env(tracker::env::TIME_CHUNKING_RATE_FPS, "61");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+
+    // Non-numeric
+    {
+        ScopedEnv env(tracker::env::TIME_CHUNKING_RATE_FPS, "fast");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+}
+
+TEST(ConfigLoaderTest, TrackingMaxWorkersEnvOverride) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Valid override
+    {
+        ScopedEnv env(tracker::env::MAX_WORKERS, "25");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.tracking.max_workers, 25);
+    }
+
+    // Boundary: minimum (1)
+    {
+        ScopedEnv env(tracker::env::MAX_WORKERS, "1");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.tracking.max_workers, 1);
+    }
+}
+
+TEST(ConfigLoaderTest, TrackingMaxWorkersEnvOverride_InvalidValues) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Below minimum
+    {
+        ScopedEnv env(tracker::env::MAX_WORKERS, "0");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+
+    // Negative
+    {
+        ScopedEnv env(tracker::env::MAX_WORKERS, "-5");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+
+    // Non-numeric
+    {
+        ScopedEnv env(tracker::env::MAX_WORKERS, "many");
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+}
+
+//
+// Scenes environment variable override tests
+//
+
+TEST(ConfigLoaderTest, ScenesSourceEnvOverride) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Override to file (same as default, but explicit)
+    {
+        ScopedEnv env(tracker::env::SCENES_SOURCE, "file");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.scenes.source, SceneSource::File);
+    }
+
+    // Override to api (also requires manager config)
+    {
+        ScopedEnv env_src(tracker::env::SCENES_SOURCE, "api");
+        ScopedEnv env_mgr(tracker::env::MANAGER_URL, "https://manager.test");
+        ScopedEnv env_auth(tracker::env::MANAGER_AUTH_PATH, "/auth");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.scenes.source, SceneSource::Api);
+    }
+}
+
+TEST(ConfigLoaderTest, ScenesSourceEnvOverride_InvalidValue) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    ScopedEnv env(tracker::env::SCENES_SOURCE, "invalid");
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, ScenesFilePathEnvOverride) {
+    // Create a custom scenes file
+    TempSceneFile custom_scenes("[]");
+    TempFile config_file(MINIMAL_CONFIG());
+
+    std::string custom_path = custom_scenes.path().string();
+    ScopedEnv env(tracker::env::SCENES_FILE_PATH, custom_path.c_str());
+    auto config = load_config(config_file.path(), get_schema_path());
+    EXPECT_EQ(config.scenes.file_path.value(), custom_path);
+}
+
+TEST(ConfigLoaderTest, TrackingEnvOverrides_EmptyTreatedAsUnset) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Empty MAX_LAG_S should use default
+    {
+        ScopedEnv env(tracker::env::MAX_LAG_S, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_DOUBLE_EQ(config.tracking.max_lag_s, 1.0); // Default
+    }
+
+    // Empty TIME_CHUNKING_RATE_FPS should use default
+    {
+        ScopedEnv env(tracker::env::TIME_CHUNKING_RATE_FPS, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.tracking.time_chunking_rate_fps, 15); // Default
+    }
+
+    // Empty MAX_WORKERS should use default
+    {
+        ScopedEnv env(tracker::env::MAX_WORKERS, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.tracking.max_workers, 50); // Default
+    }
+
+    // Empty SCENES_SOURCE should use config file value
+    {
+        ScopedEnv env(tracker::env::SCENES_SOURCE, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.scenes.source, SceneSource::File); // From config
+    }
+
+    // Empty SCENES_FILE_PATH should use config file value
+    {
+        ScopedEnv env(tracker::env::SCENES_FILE_PATH, "");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(config.scenes.file_path.value(), empty_scenes_path()); // From config
+    }
+}
+
+//
 // TLS config from JSON file tests (covers lines 193-210)
 //
 
@@ -989,6 +1195,173 @@ TEST(ConfigLoaderTest, CameraNotObjectThrows) {
 
     auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
     EXPECT_THROW(scene_loader->load(), std::runtime_error);
+}
+
+//
+// API scenes source with Manager config from JSON file (lines 222-262)
+//
+
+/// Helper to create config with api source and manager section
+std::string config_with_api_source() {
+    return R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true},
+        "manager": {
+          "url": "https://manager.example.com",
+          "auth_path": "/tmp/auth.json",
+          "ca_cert_path": "/tmp/ca.pem"
+        }
+      },
+      "scenes": {
+        "source": "api"
+      }
+    })";
+}
+
+TEST(ConfigLoaderTest, LoadApiSourceConfig) {
+    TempFile config_file(config_with_api_source());
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_EQ(config.scenes.source, SceneSource::Api);
+    ASSERT_TRUE(config.infrastructure.manager.has_value());
+    EXPECT_EQ(config.infrastructure.manager->url, "https://manager.example.com");
+    EXPECT_EQ(config.infrastructure.manager->auth_path, "/tmp/auth.json");
+    ASSERT_TRUE(config.infrastructure.manager->ca_cert_path.has_value());
+    EXPECT_EQ(config.infrastructure.manager->ca_cert_path.value(), "/tmp/ca.pem");
+}
+
+TEST(ConfigLoaderTest, LoadApiSourceWithoutCaCert) {
+    std::string json = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true},
+        "manager": {
+          "url": "https://manager.example.com",
+          "auth_path": "/tmp/auth.json"
+        }
+      },
+      "scenes": {
+        "source": "api"
+      }
+    })";
+    TempFile config_file(json);
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.manager.has_value());
+    EXPECT_FALSE(config.infrastructure.manager->ca_cert_path.has_value());
+}
+
+TEST(ConfigLoaderTest, ApiSourceWithoutManagerThrows) {
+    std::string json = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "scenes": {
+        "source": "api"
+      }
+    })";
+    TempFile config_file(json);
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, ApiSourceMissingManagerUrlThrows) {
+    std::string json = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true},
+        "manager": {
+          "auth_path": "/tmp/auth.json"
+        }
+      },
+      "scenes": {
+        "source": "api"
+      }
+    })";
+    TempFile config_file(json);
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, ApiSourceMissingManagerAuthPathThrows) {
+    std::string json = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true},
+        "manager": {
+          "url": "https://manager.example.com"
+        }
+      },
+      "scenes": {
+        "source": "api"
+      }
+    })";
+    TempFile config_file(json);
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, InvalidScenesSourceInConfigThrows) {
+    std::string json = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "scenes": {
+        "source": "database"
+      }
+    })";
+    TempFile config_file(json);
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+//
+// Manager env var override tests (lines 385-398)
+//
+
+TEST(ConfigLoaderTest, ManagerEnvVarOverrides_AllFields) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    ScopedEnv env_src(tracker::env::SCENES_SOURCE, "api");
+    ScopedEnv env_url(tracker::env::MANAGER_URL, "https://env-manager.test");
+    ScopedEnv env_auth(tracker::env::MANAGER_AUTH_PATH, "/env/auth.json");
+    ScopedEnv env_ca(tracker::env::MANAGER_CA_CERT_PATH, "/env/ca.pem");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+    ASSERT_TRUE(config.infrastructure.manager.has_value());
+    EXPECT_EQ(config.infrastructure.manager->url, "https://env-manager.test");
+    EXPECT_EQ(config.infrastructure.manager->auth_path, "/env/auth.json");
+    ASSERT_TRUE(config.infrastructure.manager->ca_cert_path.has_value());
+    EXPECT_EQ(config.infrastructure.manager->ca_cert_path.value(), "/env/ca.pem");
+}
+
+TEST(ConfigLoaderTest, ManagerEnvVarOverrides_UrlOnlyCreatesManagerConfig) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    ScopedEnv env_url(tracker::env::MANAGER_URL, "https://env-only.test");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+    ASSERT_TRUE(config.infrastructure.manager.has_value());
+    EXPECT_EQ(config.infrastructure.manager->url, "https://env-only.test");
+}
+
+TEST(ConfigLoaderTest, ManagerEnvVarOverrides_OverridesExisting) {
+    TempFile config_file(config_with_api_source());
+
+    ScopedEnv env_url(tracker::env::MANAGER_URL, "https://overridden.test");
+    ScopedEnv env_auth(tracker::env::MANAGER_AUTH_PATH, "/overridden/auth.json");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+    ASSERT_TRUE(config.infrastructure.manager.has_value());
+    EXPECT_EQ(config.infrastructure.manager->url, "https://overridden.test");
+    EXPECT_EQ(config.infrastructure.manager->auth_path, "/overridden/auth.json");
+}
+
+//
+// parse_positive_double out_of_range path (line 353)
+//
+
+TEST(ConfigLoaderTest, PositiveDoubleEnvOverride_OutOfRange) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    // Use a value that causes std::stod to throw std::out_of_range
+    std::string huge_value = "1e99999";
+    ScopedEnv env(tracker::env::MAX_UNRELIABLE_TIME_S, huge_value.c_str());
+
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
 }
 
 } // namespace

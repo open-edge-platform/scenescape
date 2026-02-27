@@ -31,12 +31,14 @@ See [ADR-0007: Tracker Service](../adr/0007-tracker-service.md) for full rationa
 
 SLIs are measured under load: 4 cameras × 15 fps, up to 300 objects per message.
 
-| SLI                  | Target     | Metric                                      | Description                               |
-| -------------------- | ---------- | ------------------------------------------- | ----------------------------------------- |
-| **Latency (p50)**    | < 30ms     | `scenescape_tracker_latency_seconds`        | Median processing time (50% headroom)     |
-| **Latency (p99)**    | < 50ms     | `scenescape_tracker_latency_seconds`        | 99th percentile (25% headroom for jitter) |
-| **Throughput**       | 60 msg/sec | `scenescape_tracker_messages_total`         | Sustained message rate                    |
-| **Dropped Messages** | < 0.1%     | `scenescape_tracker_messages_dropped_total` | Ratio of dropped to total messages        |
+| SLI                  | Target     | Metric                  | Description                                               |
+| -------------------- | ---------- | ----------------------- | --------------------------------------------------------- |
+| **Latency (p50)**    | < 100ms    | `tracker.mqtt.latency`  | Median end-to-end time (≤ 1.5 chunk periods @ 15 FPS)     |
+| **Latency (p99)**    | < 133ms    | `tracker.mqtt.latency`  | 99th percentile tail latency (≤ 2 chunk periods @ 15 FPS) |
+| **Throughput**       | 60 msg/sec | `tracker.mqtt.messages` | Sustained message rate                                    |
+| **Dropped Messages** | < 0.1%     | `tracker.mqtt.dropped`  | Ratio of dropped to total messages                        |
+
+**Note**: Latency includes variable chunk buffering (0-67ms depending on arrival time within chunk) plus processing time. Messages arriving early in a chunk wait longest; messages arriving late wait minimally.
 
 ## Non-Goals
 
@@ -71,10 +73,10 @@ graph LR
 
 **Topics Subscribed:**
 
-| Topic                           | Description                                                                  |
-| ------------------------------- | ---------------------------------------------------------------------------- |
-| `scenescape/data/camera/+`      | Detection messages from AI pipeline with bounding boxes in pixel coordinates |
-| `scenescape/cmd/scene/update/+` | Config change notifications from Manager API (dynamic mode only)             |
+| Topic                      | Description                                                                  |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `scenescape/data/camera/+` | Detection messages from AI pipeline with bounding boxes in pixel coordinates |
+| `scenescape/cmd/database`  | Database change notifications from Manager API (dynamic mode only)           |
 
 **Detection Message:**
 
@@ -166,9 +168,9 @@ Configuration changes require service restart. This simplifies implementation (n
 
 #### Static Mode
 
-Scenes defined inline in config file:
+Scenes defined in external file:
 
-- Set `scenes.source: "inline"` and provide `scenes.data` array
+- Set `scenes.source: "file"` and provide `scenes.file_path`
 - Self-contained deployment with no external dependencies
 - Enables horizontal scaling via static scene partitioning (see [Horizontal Scaling](#horizontal-scaling))
 - Suitable for development and production deployments with pre-defined scene assignments
@@ -179,8 +181,9 @@ Scenes fetched from Manager API at startup:
 
 - Set `scenes.source: "api"` or omit `scenes` section (defaults to API mode)
 - Requires `infrastructure.manager` with API URL and credentials
-- Subscribes to `scenescape/cmd/scene/update/{scene_id}` for change notifications
+- Subscribes to `scenescape/cmd/database` for change notifications
 - On notification: logs change, exits gracefully (Docker restarts the service which loads new config at startup)
+- Fires on any database change: scene create/update/delete, camera changes, region edits, etc.
 - Suitable for multi-node deployments with centralized scene management
 
 ### Observability
@@ -195,12 +198,48 @@ This correlation enables jumping from a latency spike in metrics → trace → l
 
 #### Metrics
 
-| Metric                                      | Type      | Labels                  | Description                      |
-| ------------------------------------------- | --------- | ----------------------- | -------------------------------- |
-| `scenescape_tracker_latency_seconds`        | histogram | scene, category         | Processing latency (p50/p95/p99) |
-| `scenescape_tracker_messages_total`         | counter   | scene, category         | Messages processed               |
-| `scenescape_tracker_messages_dropped_total` | counter   | scene, category, reason | Messages dropped                 |
-| `scenescape_tracker_tracks_active`          | gauge     | scene, category         | Currently active tracks          |
+##### Core Metrics
+
+| Metric                  | Type      | Attributes               | Unit  | Description                           |
+| ----------------------- | --------- | ------------------------ | ----- | ------------------------------------- |
+| `tracker.mqtt.latency`  | histogram | scene, category          | ms    | End-to-end processing latency         |
+| `tracker.mqtt.messages` | counter   | scene, camera_id, reason | msgs  | Messages received (accepted/rejected) |
+| `tracker.mqtt.dropped`  | counter   | scene, camera_id, reason | msgs  | Messages dropped                      |
+| `tracker.tracks.active` | gauge     | scene, category          | count | Currently active tracks               |
+
+**Histogram Buckets** (milliseconds): `[0, 1, 2, 5, 10, 15, 20, 25, 30, 35, 40, 50, 75, 100, 150, 200, 300, 500, 1000, 2500, 5000]`
+
+Fine-grained buckets enable accurate p95/p99 calculation for 100ms and 133ms SLI targets (default OpenTelemetry buckets too coarse).
+
+##### Stage-Level Pipeline Metrics
+
+Detailed latency breakdown for bottleneck identification:
+
+| Metric                             | Type      | Attributes       | Unit | Description                               |
+| ---------------------------------- | --------- | ---------------- | ---- | ----------------------------------------- |
+| `tracker.stage.parse_duration`     | histogram | scene, camera_id | ms   | JSON parse & schema validation            |
+| `tracker.stage.buffer_duration`    | histogram | scene, camera_id | ms   | Scene lookup, lag check, buffer insertion |
+| `tracker.stage.queue_duration`     | histogram | scene, category  | ms   | Time waiting in chunk buffer              |
+| `tracker.stage.transform_duration` | histogram | scene, category  | ms   | Coordinate transformation                 |
+| `tracker.stage.track_duration`     | histogram | scene, category  | ms   | Hungarian matching & Kalman filter        |
+| `tracker.stage.publish_duration`   | histogram | scene, category  | ms   | MQTT serialize & publish                  |
+
+**Attribute Strategy**: Early-stage metrics (parse, buffer) use `camera_id` since category is not yet determined; late-stage metrics (queue, transform, track, publish) use `category` after detection classification.
+
+##### Rejection/Drop Reasons
+
+The `reason` attribute on `tracker.mqtt.messages` and `tracker.mqtt.dropped` uses these values:
+
+| Reason                      | Stage     | Description                         |
+| --------------------------- | --------- | ----------------------------------- |
+| `accepted`                  | message   | Successfully processed              |
+| `rejected_parse`            | parse     | JSON parse failure                  |
+| `rejected_schema`           | parse     | Schema validation failure           |
+| `rejected_unknown_topic`    | buffer    | Unknown MQTT topic                  |
+| `rejected_lag`              | buffer    | Message timestamp exceeds max_lag_s |
+| `rejected_invalid_category` | buffer    | Unknown object category             |
+| `dropped_queue_full`        | scheduler | Worker queue saturated              |
+| `dropped_max_workers`       | scheduler | Maximum worker limit reached        |
 
 #### Distributed Tracing
 

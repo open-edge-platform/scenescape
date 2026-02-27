@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import uuid
 from jsonschema import FormatChecker
 from fastjsonschema import compile
 
@@ -21,7 +22,8 @@ class SchemaValidation:
     for key in checker.checkers:
       formatType = checker.checkers[key][0]
       if key not in formats:
-        formats[key] = formatType
+        formats[key] = _adaptJsonschemaChecker(formatType)
+    formats['uuid'] = _validateUuidFormat
 
     if not self.mqtt_schema:
       raise Exception("Schema not available")
@@ -35,10 +37,10 @@ class SchemaValidation:
             defs_key: self.mqtt_schema[defs_key]
           }
           self.validator[key] = compile(sub_schema, formats=formats)
-          self.validator_no_format[key] = compile(sub_schema)
+          self.validator_no_format[key] = compile(sub_schema, formats=formats, use_formats=False)
     else:
       self.validator[None] = compile(self.mqtt_schema, formats=formats)
-      self.validator_no_format[None] = compile(self.mqtt_schema)
+      self.validator_no_format[None] = compile(self.mqtt_schema, formats=formats, use_formats=False)
     return
 
   def loadSchema(self, schema_path):
@@ -72,3 +74,23 @@ class SchemaValidation:
 
   def validate(self, msg, check_format=False):
     return self.validateMessage(None, msg, check_format=check_format)
+
+def _validateUuidFormat(instance):
+  """Validate UUID format (accepts UUIDv1-v5)"""
+  try:
+    uuid.UUID(instance)
+    return True
+  except (ValueError, AttributeError, TypeError):
+    raise ValueError(f"Invalid UUID format: {instance}")
+
+def _adaptJsonschemaChecker(checker_func):
+  """Adapt jsonschema format checker to work with fastjsonschema"""
+  def wrapper(instance):
+    try:
+      result = checker_func(instance)
+      if not result:
+        raise ValueError("Format validation failed")
+      return True
+    except Exception as e:
+      raise ValueError(f"Format validation failed: {e}")
+  return wrapper

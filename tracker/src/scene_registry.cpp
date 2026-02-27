@@ -41,6 +41,15 @@ const Scene* SceneRegistry::find_scene_for_camera(const std::string& camera_id) 
     return &scenes_[it->second];
 }
 
+const Scene* SceneRegistry::find_scene_by_id(const std::string& scene_id) const {
+    for (const auto& scene : scenes_) {
+        if (scene.uid == scene_id) {
+            return &scene;
+        }
+    }
+    return nullptr;
+}
+
 const Camera* SceneRegistry::find_camera(const std::string& camera_id) const {
     auto scene_it = camera_to_scene_.find(camera_id);
     if (scene_it == camera_to_scene_.end()) {
