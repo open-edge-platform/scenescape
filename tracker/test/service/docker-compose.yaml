@@ -70,6 +70,11 @@ services:
       - TRACKER_SCENES_FILE_PATH=${TRACKER_SCENES_FILE_PATH:-scenes.json}
       - TRACKER_MANAGER_URL=${TRACKER_MANAGER_URL:-}
       - TRACKER_MANAGER_AUTH_PATH=${TRACKER_MANAGER_AUTH_PATH:-}
+      - TRACKER_METRICS_ENABLED=${TRACKER_METRICS_ENABLED:-false}
+      - TRACKER_TRACING_ENABLED=${TRACKER_TRACING_ENABLED:-false}
+      - TRACKER_OTLP_ENDPOINT=${TRACKER_OTLP_ENDPOINT:-otel-collector:4317}
+      - TRACKER_METRICS_EXPORT_INTERVAL_S=${TRACKER_METRICS_EXPORT_INTERVAL_S:-60}
+      - TRACKER_TRACING_EXPORT_INTERVAL_S=${TRACKER_TRACING_EXPORT_INTERVAL_S:-5}
       # Override host proxy settings - Paho MQTT dont respect no_proxy var, so as a WA
       # tracker code detects empty vars and unsets them (see mqtt_client.cpp clearEmptyProxyVars)
       - http_proxy=

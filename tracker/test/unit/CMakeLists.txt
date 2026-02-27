@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 find_package(GTest REQUIRED)
+find_package(gRPC REQUIRED)
 find_package(stduuid REQUIRED)
 find_package(OpenSSL REQUIRED)
 
@@ -26,6 +27,9 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/proxy_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/time_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/topic_utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/telemetry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/metrics.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/observability_context.cpp
 )
 
 add_executable(tracker_tests
@@ -50,6 +54,8 @@ add_executable(tracker_tests
     id_map_test.cpp
     api_scene_loader_test.cpp
     manager_rest_client_test.cpp
+    telemetry_test.cpp
+    metrics_test.cpp
     ${TRACKER_LIB_SOURCES}
 )
 
@@ -86,6 +92,25 @@ target_link_libraries(tracker_tests
         OpenSSL::SSL
         OpenSSL::Crypto
         stduuid::stduuid
+        opentelemetry-cpp::opentelemetry-cpp
+        opentelemetry-cpp::opentelemetry_exporter_in_memory
+        grpc::grpc
+)
+
+# In-memory metric exporter static libs for testing.
+# The Conan component marks these as header-only (LIBS empty),
+# but the .a archives exist in the package lib dir.
+find_library(OTEL_EXPORTER_IN_MEMORY_LIB
+    NAMES opentelemetry_exporter_in_memory
+    REQUIRED
+)
+find_library(OTEL_EXPORTER_IN_MEMORY_METRIC_LIB
+    NAMES opentelemetry_exporter_in_memory_metric
+    REQUIRED
+)
+target_link_libraries(tracker_tests PRIVATE
+    ${OTEL_EXPORTER_IN_MEMORY_LIB}
+    ${OTEL_EXPORTER_IN_MEMORY_METRIC_LIB}
 )
 
 set_property(TARGET tracker_tests PROPERTY CXX_STANDARD ${TRACKER_CXX_STANDARD})
