@@ -51,7 +51,7 @@ services:
     init: true
 
   mediaserver:
-    image: bluenviron/mediamtx:1.14.0
+    image: bluenviron/mediamtx:1.16.1
     networks:
       scenescape-test:
         aliases:
@@ -62,7 +62,7 @@ services:
     pids_limit: 1000
 
   retail-cams:
-    image: linuxserver/ffmpeg:version-8.0-cli
+    image: linuxserver/ffmpeg:version-8.0.1-cli
     command: |
       -nostdin
       -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts
