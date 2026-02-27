@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import uuid
@@ -11,7 +11,9 @@ from controller.moving_object import (DEFAULT_EDGE_LENGTH,
                                       DEFAULT_TRACKING_RADIUS)
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
-                                 NON_MEASUREMENT_TIME_STATIC, Tracking)
+                                 NON_MEASUREMENT_TIME_STATIC,
+                                 DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
+                                 Tracking)
 from scene_common import log
 from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time
@@ -19,7 +21,7 @@ from scene_common.timestamp import get_epoch_time
 
 class IntelLabsTracking(Tracking):
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, name=None):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, name=None):
     """Initialize the tracker with tracker configuration parameters"""
     super().__init__()
     self.name = name if name is not None else "IntelLabsTracking"
@@ -45,6 +47,13 @@ class IntelLabsTracking(Tracking):
       tracker_config.non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC
       tracker_config.non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC
 
+    if suspended_track_timeout_secs is not None and suspended_track_timeout_secs > 0:
+      tracker_config.suspended_track_timeout_secs = suspended_track_timeout_secs
+    else:
+      log.error("The suspended_track_timeout_secs parameter needs to be positive and less than 3600 seconds. \
+                 Initiating the tracker with the default value.")
+      tracker_config.suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
+
     self.tracker = rv.tracking.MultipleObjectTracker(tracker_config)
     log.info(f"Multiple Object Tracker {self.__str__()} initialized")
     log.info("Tracker config: {}".format(tracker_config))
@@ -58,7 +67,6 @@ class IntelLabsTracking(Tracking):
       if all((value > 0) and (value < 10) for value in param_list):
         return True
     return False
-
 
   def rv_classification(self, confidence=None):
     confidence = 1.0 if confidence is None else confidence

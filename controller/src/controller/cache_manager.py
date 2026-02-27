@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from controller.scene import Scene
@@ -53,7 +53,8 @@ class CacheManager:
                                       self.tracker_config_data["non_measurement_time_dynamic"],
                                       self.tracker_config_data["non_measurement_time_static"],
                                       self.tracker_config_data["time_chunking_enabled"],
-                                      self.tracker_config_data["time_chunking_interval_milliseconds"]]
+                                      self.tracker_config_data["time_chunking_interval_milliseconds"],
+                                      self.tracker_config_data["suspended_track_timeout_secs"]]
         scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
 
       uid = scene_data['uid']

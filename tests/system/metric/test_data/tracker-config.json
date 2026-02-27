@@ -4,5 +4,6 @@
     "non_measurement_frames_static": 16,
     "baseline_frame_rate": 30,
     "time_chunking_enabled": false,
-    "time_chunking_interval_milliseconds": 50
+    "time_chunking_interval_milliseconds": 50,
+    "suspended_track_timeout_secs": 60.0
 }
