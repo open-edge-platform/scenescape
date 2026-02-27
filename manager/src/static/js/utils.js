@@ -122,23 +122,33 @@ function resizeRendererToDisplaySize(renderer) {
   return needResize;
 }
 
-function checkWebSocketConnection(url) {
+function checkMqttConnection(url) {
   return new Promise((resolve, reject) => {
     try {
-      console.log(`Attempting to connect to: ${url}`);
-      const ws = new WebSocket(url);
+      console.log(`Testing MQTT WebSocket connection to: ${url}`);
+      const client = mqtt.connect(url);
 
-      ws.onopen = () => {
+      client.on("connect", () => {
         console.log(`Successfully connected to ${url}`);
-        ws.close();
+        client.end(); // Close the connection after testing
         resolve(url);
-      };
+      });
 
-      ws.onerror = (error) => {
+      client.on("error", (error) => {
+        console.error(`Connection failed to ${url}:`, error);
+        client.end(); // Ensure the client is closed on error
         reject(null);
-      };
+      });
+
+      client.on("close", () => {
+        console.warn(`Connection to ${url} closed.`);
+      });
     } catch (err) {
-      console.log(`Error during WebSocket creation for ${url}:`, err);
+      console.error(
+        `Error during MQTT WebSocket connection test for ${url}:`,
+        err,
+      );
+      reject(null);
     }
   });
 }
@@ -159,6 +169,6 @@ export {
   waitUntil,
   initializeOpencv,
   resizeRendererToDisplaySize,
-  checkWebSocketConnection,
+  checkMqttConnection,
   updateElements,
 };
