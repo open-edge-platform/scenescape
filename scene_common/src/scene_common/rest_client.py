@@ -693,3 +693,68 @@ class RESTClient:
     with open(zip_file_path, "rb") as f:
       files = {"zipFile": (os.path.basename(zip_file_path), f)}
       return self._create(endpoint, data={}, files=files)
+
+  # Auto-calibration
+  def getStatus(self, filter):
+    """Checks if the camera calibration service is running and gets status of any ongoing calibrations.
+
+    @param      filter          dict with key/value pairs to filter matching objects
+    @return                     RESTResult with decoded objects on success,
+                                empty with `errors` set on failure
+    """
+    return self._get("status", filter)
+
+  def registerScene(self, sceneId, data):
+    """Registers a scene with calibration data
+
+    @param      sceneId        uid of scene to register
+    @param      data            dict with key/value pairs. `registration_file`
+                                field accepts binary data or open file pointer.
+    @return                     RESTResult with decoded object on success,
+                                empty with `errors` set on failure
+    """
+    data, files = self._separateFiles(data, ['registration_file'])
+    return self._create(f"scenes/{sceneId}/registration", data, files)
+  
+  def getSceneRegistrationStatus(self, sceneId):
+    """Gets registration data for a scene with `sceneId`
+
+    @param      sceneId        uid of scene to get registration data for
+    @return                     RESTResult with decoded object on success,
+                                empty with `errors` set on failure
+    """
+    return self._get(f"scenes/{sceneId}/registration", None)
+  
+  def updateSceneRegistration(self, sceneId, data):
+    """Updates registration data for a scene with `sceneId`
+
+    @param      sceneId        uid of scene to update registration data for
+    @param      data            dict with key/value pairs. `registration_file`
+                                field accepts binary data or open file pointer.
+    @return                     RESTResult with decoded object on success,
+                                empty with `errors` set on failure
+    """
+    data, files = self._separateFiles(data, ['registration_file'])
+    return self._update(f"scenes/{sceneId}/registration", data, files)
+  
+  def calibrateCamera(self, cameraId, data):
+    """Calibrates a camera with calibration data
+
+    @param      cameraId       uid of camera to calibrate
+    @param      data            dict with key/value pairs. `calibration_file`
+                                field accepts binary data or open file pointer.
+    @return                     RESTResult with decoded object on success,
+                                empty with `errors` set on failure
+    """
+    data, files = self._separateFiles(data, ['calibration_file'])
+    return self._create(f"cameras/{cameraId}/calibration", data, files)
+
+  def getCameraCalibrationStatus(self, cameraId):
+    """Gets calibration data for a camera with `cameraId`
+
+    @param      cameraId       uid of camera to get calibration data for
+    @return                     RESTResult with decoded object on success,
+                                empty with `errors` set on failure
+    """
+    return self._get(f"cameras/{cameraId}/calibration", None)
+  
