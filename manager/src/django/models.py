@@ -117,7 +117,7 @@ class Scene(models.Model):
                             "mov", "mkv", "webm", "avi"]),
                                         validate_map_file])
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
-                            validators=[MinValueValidator(np.nextafter(0, 1))])
+                            validators=[MinValueValidator(5e-324)])
   use_tracker = models.BooleanField("Use tracker", choices=BOOLEAN_CHOICES, default=True, blank=True)
   rotation_x = models.FloatField("X Rotation (degrees)", default=0.0, null=True, blank=False)
   rotation_y = models.FloatField("Y Rotation (degrees)", default=0.0, null=True, blank=False)

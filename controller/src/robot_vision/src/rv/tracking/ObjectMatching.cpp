@@ -11,8 +11,6 @@
 #include "rv/apollo/secure_matrix.hpp"
 #include "rv/tracking/Classification.hpp"
 
-#include <iostream>
-
 namespace rv {
 namespace tracking {
 

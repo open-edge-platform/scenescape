@@ -7,7 +7,6 @@
 @tdorauintc
 @MikolajKasprzak
 @dmytroye
-@jdanieck
 @GrzegorzWrobel
 @Irakus
 @daddo-intel
@@ -15,5 +14,5 @@
 @sbelhaik
 
 # documentation content
-/docs/               @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @jdanieck @GrzegorzWrobel @Irakus @daddo-intel @sarthakdeva-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write
-/README.md           @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @jdanieck @GrzegorzWrobel @Irakus @daddo-intel @sarthakdeva-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write
+/docs/               @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @GrzegorzWrobel @Irakus @daddo-intel @sarthakdeva-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write
+/README.md           @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @GrzegorzWrobel @Irakus @daddo-intel @sarthakdeva-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write
