@@ -69,7 +69,7 @@ RUN mkdir -p /scenescape/runtime-libs \
 WORKDIR /scenescape
 
 # --- Runtime stage ---
-FROM gcr.io/distroless/cc-debian13@sha256:77ba0164de17b88dd0bf6cdc8f65569e6e5fa6cd256562998b62553134a00ef0 AS runtime
+FROM gcr.io/distroless/cc-debian13@sha256:d7ac2f9af248f31fe6270002755722afdf6875e0e49cd52b9150208e6a23875cAS runtime
 
 USER 10001
 WORKDIR /scenescape
