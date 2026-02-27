@@ -113,8 +113,6 @@ services:
         condition: service_started
     environment:
       - RUN_MODE=EVA
-      #      - DETECTION_DEVICE=CPU
-      #      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
       #      - GST_DEBUG=1,gencamsrc:2
       - GST_DEBUG=3
