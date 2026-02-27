@@ -31,8 +31,8 @@ class PipelineGenerator:
     self.timestamper = [f'gvapython class=PostDecodeTimestampCapture function=processFrame module={self.gva_python_path}/sscape_adapter.py name=timesync']
     self.undistort = self.add_camera_undistort(camera_settings) if self.camera_settings.get('undistort') else []
     self.adapter = [
-      'videoconvert',
-      'video/x-raw,format=BGR',
+#      'videoconvert',
+#      'video/x-raw,format=BGR',
       f'gvapython class=PostInferenceDataPublish function=processFrame module={self.gva_python_path}/sscape_adapter.py name=datapublisher'
     ]
     self.metadata_conversion = ['gvametaconvert add-tensor-data=true name=metaconvert']
@@ -58,23 +58,25 @@ class PipelineGenerator:
     # Decoder selection
     if decode_device == "CPU":
       self.decode = ["decodebin force-sw-decoders=true", "videoconvert"]
-    elif decode_device == "GPU":
-      self.decode = ["decodebin3", "vapostproc"]
-    else:  # AUTO
+    else:  # AUTO, GPU
       self.decode = ["decodebin3"]
 
-    self.memory_uses_va_surfaces = (decode_device != "CPU" and inference_device == "GPU")
-    if self.memory_uses_va_surfaces:
-      self.memory_caps = ["video/x-raw(memory:VAMemory)"]
-      self.preprocessing_backend = "va-surface-sharing"
-    else:
-      self.memory_caps = ["video/x-raw"]
-      if inference_device == "GPU":
-        self.preprocessing_backend = "opencv"
-      else:
-        self.preprocessing_backend = ""
+    self.memory_uses_va_surfaces = False
+    self.memory_caps = []
+    self.preprocessing_backend = ""
 
-    self.post_gpu_inference_conversion = (self.model_chain.get_output_device() == "GPU")
+    if False:
+      if self.memory_uses_va_surfaces:
+        self.memory_caps = ["video/x-raw(memory:VAMemory)"]
+        self.preprocessing_backend = "va-surface-sharing"
+      else:
+        self.memory_caps = ["video/x-raw"]
+        if inference_device == "GPU":
+          self.preprocessing_backend = "opencv"
+        else:
+          self.preprocessing_backend = ""
+
+    self.post_gpu_inference_conversion = False
 
   def _parse_source(self, source: str, video_volume_path: str) -> list:
     """
