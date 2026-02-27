@@ -30,8 +30,6 @@
   -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
   -v $(pwd)/controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
-  -v $(pwd)/manager/secrets/certs/scenescape-vdms-c.key:/run/secrets/certs/scenescape-vdms-c.key:ro \
-  -v $(pwd)/manager/secrets/certs/scenescape-vdms-c.crt:/run/secrets/certs/scenescape-vdms-c.crt:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
