@@ -339,7 +339,7 @@
           "area": "circle",
           "radius": 2.5,
           "center": [3.81, 4.59],
-          "translation": [3.81, 4.59, 0.0],
+          "translation": [1, 1, 1],
           "singleton_type": "environmental"
         }
       }
@@ -378,25 +378,25 @@
           "previous": null,
           "results": [
             {
-              "uid": "sensor_minimal",
+              "uid": "${SENSOR_UID_MINIMAL}",
               "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
               "sensor_id": "sensor_minimal",
               "name": "sensor_minimal",
               "area": "circle",
               "radius": 2.5,
               "center": [3.81, 4.59],
-              "translation": [3.81, 4.59, 0.0],
+              "translation": [1, 1, 1],
               "singleton_type": "environmental"
             },
             {
-              "uid": "sensor_full",
+              "uid": "${SENSOR_UID_FULL}",
               "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
               "sensor_id": "sensor_full",
               "name": "sensor_full",
               "area": "circle",
               "radius": 2.5,
               "center": [3.81, 4.59],
-              "translation": [3.81, 4.59, 0.0],
+              "translation": [1, 1, 1],
               "singleton_type": "attribute"
             }
           ]
@@ -405,7 +405,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SENSOR/16: Update sesnor with minimal valid payload",
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/16: Update sensor with minimal valid payload",
     "test_steps": [
       {
         "step_name": "Update name",
@@ -516,7 +516,7 @@
     "test_name": "Vision_AI/SSCAPE/API/SENSOR/20: Update sensor with invalid points structure",
     "test_steps": [
       {
-        "step_name": "Update geometry",
+        "step_name": "Update with invalid points structure",
         "api": "sensor",
         "method": "updateSensor",
         "request": {
@@ -526,9 +526,7 @@
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "area": "polygon",
             "points": [
-              [1, 1],
-              [2, 2],
-              [3, 1]
+              [1, 1]
             ]
           }
         },
