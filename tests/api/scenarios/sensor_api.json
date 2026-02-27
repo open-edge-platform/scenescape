@@ -269,6 +269,7 @@
           "body": {
             "name": "bad_center",
             "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "area": "circle",
             "center": [1]
           }
         },
@@ -473,7 +474,7 @@
     "test_name": "Vision_AI/SSCAPE/API/SENSOR/19: Update sensor color range",
     "test_steps": [
       {
-        "step_name": "Update geometry",
+        "step_name": "Update color range",
         "api": "sensor",
         "method": "updateSensor",
         "request": {
@@ -540,7 +541,7 @@
     "test_name": "Vision_AI/SSCAPE/API/SENSOR/21: Update sensor with invalid color_range structure",
     "test_steps": [
       {
-        "step_name": "Update geometry",
+        "step_name": "Update color range",
         "api": "sensor",
         "method": "updateSensor",
         "request": {
