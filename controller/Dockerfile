@@ -24,7 +24,7 @@ COPY ./controller/src/robot_vision /tmp/robot_vision
 RUN pip3 install --no-cache-dir scikit-build-core \
     && export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
     && cd /tmp/robot_vision \
-    && pip3 install --no-cache-dir . \
+    && pip3 install --no-cache-dir --no-build-isolation . \
     && rm -rf /tmp/robot_vision
 
 # Build main controller package
