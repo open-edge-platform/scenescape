@@ -18,14 +18,14 @@ RUN : \
     && rm -rf /var/lib/apt/lists/*
 
 # Build robot vision package
+# numpy is already pinned to 2.2.6 in scenescape-common-base (via scene_common/requirements.txt)
+# ensuring ABI compatibility for all C extensions compiled here and in the base image.
 COPY ./controller/src/robot_vision /tmp/robot_vision
-RUN export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
+RUN pip3 install --no-cache-dir scikit-build-core \
+    && export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
     && cd /tmp/robot_vision \
-    && python3 setup.py bdist_wheel \
-    && cd dist \
-    && pip3 install --no-cache-dir ./*.whl \
-    && cd \
-   && rm -rf /tmp/robot_vision
+    && pip3 install --no-cache-dir . \
+    && rm -rf /tmp/robot_vision
 
 # Build main controller package
 COPY ./controller/src/controller /tmp/controller/controller

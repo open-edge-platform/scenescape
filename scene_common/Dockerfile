@@ -35,6 +35,12 @@ RUN : \
 # Upgrade pip and setuptools to latest versions
 RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel
 
+# Pin numpy to the runtime version before building C extensions (fast_geometry)
+# to ensure NumPy ABI compatibility between build and runtime stages.
+COPY ./scene_common/requirements.txt /tmp/scene_common_requirements.txt
+RUN pip3 install --no-cache-dir -r /tmp/scene_common_requirements.txt \
+    && rm /tmp/scene_common_requirements.txt
+
 # install common dependencies
 COPY ./scene_common/src /tmp/scene_common
 RUN : \
