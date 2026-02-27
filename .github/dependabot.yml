@@ -100,7 +100,8 @@ updates:
     ignore:
       - dependency-name: "numpy"
       - dependency-name: "Django"
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+        update-types:
+          ["version-update:semver-major", "version-update:semver-minor"]
     reviewers:
       - "saratpoluri"
       - "dmytroye"
