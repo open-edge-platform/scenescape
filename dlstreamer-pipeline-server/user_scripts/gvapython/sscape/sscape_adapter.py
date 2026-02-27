@@ -88,6 +88,9 @@ class PostDecodeTimestampCapture:
     return True
 
 class PostInferenceDataPublish:
+
+  CONVERSION_MAP = {'GST_VIDEO_FORMAT_NV12' : cv2.COLOR_YUV2BGR_NV12, 'GST_VIDEO_FORMAT_I420' : cv2.COLOR_YUV2BGR_I420}
+
   def __init__(self, cameraid, metadatagenpolicy='detectionPolicy', detection_labels=[], publish_image=False):
     self.cameraid = cameraid
 
@@ -169,15 +172,21 @@ class PostInferenceDataPublish:
             1 * scale, (255,255,255), 2 * scale)
     return
 
+  def _convertToBgr(self, raw_frame, format):
+    return cv2.cvtColor(raw_frame, PostInferenceDataPublish.CONVERSION_MAP[format]) \
+           if format in PostInferenceDataPublish.CONVERSION_MAP else raw_frame
+
   def buildImgData(self, imgdatadict, gvaframe, annotate, original_image_base64=None):
     imgdatadict.update({
       'timestamp': self.frame_level_data['timestamp'],
       'id': self.cameraid
     })
     image = original_image_base64
+
     if image is None:
       with gvaframe.data() as img:
-        image = np.copy(img)
+        format = gvaframe.video_meta().format.value_name
+        image = np.copy(self._convertToBgr(img, format))
     else:
       try:
         decoded_image = base64.b64decode(image)
@@ -188,7 +197,8 @@ class PostInferenceDataPublish:
       except (ValueError, Exception) as e:
         print(f"Error using original image: {e}. Falling back to current frame.")
         with gvaframe.data() as img:
-          image = np.copy(img)
+          format = gvaframe.video_meta().format.value_name
+          image = np.copy(self._convertToBgr(img, format))
     if annotate:
       self.annotateObjects(image)
       self.annotateFPS(image, self.frame_level_data['rate'])
