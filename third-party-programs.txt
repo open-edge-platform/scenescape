@@ -2861,6 +2861,7 @@ signature of Ty Coon, 1 April 1989 Ty Coon, President of Vice
     django-debug-toolbar==6.0.0
     django-session-timeout==0.1.0
     Django==5.2.7
+    Django==5.2.11
     Flask-Cors==4.0.0
     Flask-SocketIO==5.4.1
     Flask-SocketIO==5.6.1
@@ -4447,6 +4448,7 @@ signature of Ty Coon, 1 April 1989 Ty Coon, President of Vice
     libqt5widgets5t64:amd64:5.15.13+dfsg-1ubuntu1
     libreadline8:amd64:8.1.2-1
     libreadline8t64:amd64:8.2-4build1
+    plyfile==1.0.3
     plyfile==1.1.3
     python-is-python3:3.9.2-2
     readline-common:8.1.2-1
@@ -5409,6 +5411,7 @@ That's all there is to it!
     libelf1t64:amd64:0.190-1.1ubuntu0.1
     libelf1t64:amd64:0.192-4
     psycopg2-binary==2.9.10
+    psycopg2-binary==2.9.11
 
 GNU LESSER GENERAL PUBLIC LICENSE
 Version 3, 29 June 2007
@@ -7819,6 +7822,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
     typer==0.20.0
     typing-inspection==0.4.2
     urllib3==2.5.0
+    urllib3==2.6.3
     vdms==0.0.21
     wcwidth==0.2.13
     wheel==0.37.1
