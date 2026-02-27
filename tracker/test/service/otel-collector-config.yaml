@@ -20,7 +20,7 @@ processors:
 exporters:
   # Log to stdout for test visibility
   debug:
-    verbosity: basic
+    verbosity: detailed
 
 service:
   pipelines:
