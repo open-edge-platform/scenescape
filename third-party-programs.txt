@@ -7807,7 +7807,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
     tomlkit==0.13.3
     trimesh==4.7.4
     trimesh==4.11.0
-    trimesh==4.11.1
+    trimesh==4.11.2
     typer-slim==0.20.0
     typer==0.20.0
     typing-inspection==0.4.2
