@@ -212,6 +212,22 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
         GetValueByPointerWithDefault(config_doc, json::OBSERVABILITY_LOGGING_LEVEL, "info")
             .GetString();
 
+    // Observability - Metrics (optional, schema enforces type + minimum)
+    config.observability.metrics.enabled =
+        GetValueByPointerWithDefault(config_doc, json::OBSERVABILITY_METRICS_ENABLED, false)
+            .GetBool();
+    config.observability.metrics.export_interval_s =
+        GetValueByPointerWithDefault(config_doc, json::OBSERVABILITY_METRICS_EXPORT_INTERVAL_S, 60)
+            .GetInt();
+
+    // Observability - Tracing (optional, schema enforces type + minimum)
+    config.observability.tracing.enabled =
+        GetValueByPointerWithDefault(config_doc, json::OBSERVABILITY_TRACING_ENABLED, false)
+            .GetBool();
+    config.observability.tracing.export_interval_s =
+        GetValueByPointerWithDefault(config_doc, json::OBSERVABILITY_TRACING_EXPORT_INTERVAL_S, 5)
+            .GetInt();
+
     // Scenes configuration (required) - parse source and file_path only
     // Actual scene loading is done via ISceneLoader in main
     std::string source_str =
@@ -255,6 +271,21 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
             manager_config.ca_cert_path = std::string(ca->GetString());
         }
         config.infrastructure.manager = manager_config;
+    }
+
+    // Infrastructure - OTLP (optional, required when metrics or tracing enabled)
+    if (GetValueByPointer(config_doc, json::INFRASTRUCTURE_OTLP)) {
+        OtlpConfig otlp_config;
+        if (auto* endpoint = GetValueByPointer(config_doc, json::INFRASTRUCTURE_OTLP_ENDPOINT)) {
+            otlp_config.endpoint = endpoint->GetString();
+        } else {
+            throw std::runtime_error("Missing required config: " +
+                                     std::string(json::INFRASTRUCTURE_OTLP_ENDPOINT));
+        }
+        otlp_config.insecure =
+            GetValueByPointerWithDefault(config_doc, json::INFRASTRUCTURE_OTLP_INSECURE, true)
+                .GetBool();
+        config.infrastructure.otlp = otlp_config;
     }
 
     // Tracking configuration (optional - defaults from constants in config_loader.hpp)
@@ -400,6 +431,35 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                 "and non-empty when scenes.source='api'");
         }
     }
+
+    // OTLP env var overrides
+    if (auto val = get_env(tracker::env::OTLP_ENDPOINT); val.has_value()) {
+        if (!config.infrastructure.otlp.has_value()) {
+            config.infrastructure.otlp = OtlpConfig{};
+        }
+        config.infrastructure.otlp->endpoint = val.value();
+    }
+
+    // Observability env var overrides
+    apply_env(config.observability.metrics.enabled, tracker::env::METRICS_ENABLED, parse_bool);
+    apply_env(config.observability.tracing.enabled, tracker::env::TRACING_ENABLED, parse_bool);
+    auto parse_export_interval = [](const std::string& v, const std::string& s) {
+        try {
+            int val = std::stoi(v);
+            if (val < 1) {
+                throw std::runtime_error(s + " must be >= 1: " + v);
+            }
+            return val;
+        } catch (const std::invalid_argument&) {
+            throw std::runtime_error("Invalid " + s + ": " + v);
+        } catch (const std::out_of_range&) {
+            throw std::runtime_error("Value out of range for " + s + ": " + v);
+        }
+    };
+    apply_env(config.observability.metrics.export_interval_s,
+              tracker::env::METRICS_EXPORT_INTERVAL_S, parse_export_interval);
+    apply_env(config.observability.tracing.export_interval_s,
+              tracker::env::TRACING_EXPORT_INTERVAL_S, parse_export_interval);
 
     // TLS overrides - create tls config if any TLS env var is set
     auto env_tls_ca = get_env(tracker::env::MQTT_TLS_CA_CERT);

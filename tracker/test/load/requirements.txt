@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 Intel Corporation
+
+pytest
+requests
+prometheus_client
+pytimeparse2
