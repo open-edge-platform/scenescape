@@ -526,9 +526,7 @@
             "name": "sensor_minimal_updated",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "area": "polygon",
-            "points": [
-              [1, 1]
-            ]
+            "points": [[1, 1]]
           }
         },
         "expected_status": {
