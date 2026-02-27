@@ -11,6 +11,7 @@ stduuid/1.2.3
 opencv/4.12.0
 eigen/3.4.0
 paho-mqtt-cpp/1.5.3
+opentelemetry-cpp/1.18.0
 
 [generators]
 CMakeDeps
@@ -18,6 +19,10 @@ CMakeToolchain
 
 [options]
 cpp-httplib/*:with_openssl=True
+opentelemetry-cpp/*:with_otlp_grpc=True
+opentelemetry-cpp/*:with_otlp_http=False
+opentelemetry-cpp/*:with_logs_preview=False
+opentelemetry-cpp/*:with_abseil=True
 opencv/*:shared=True
 opencv/*:tracking=True
 opencv/*:video=True

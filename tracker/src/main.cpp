@@ -18,6 +18,7 @@
 #include "mqtt_client.hpp"
 #include "scene_loader.hpp"
 #include "scene_registry.hpp"
+#include "telemetry.hpp"
 #include "time_chunk_buffer.hpp"
 #include "time_chunk_scheduler.hpp"
 #include "track_publisher.hpp"
@@ -72,6 +73,9 @@ int main(int argc, char* argv[]) {
 
     // Main service mode - initialize logger
     tracker::Logger::init(config.observability.logging.level);
+
+    // Initialize OpenTelemetry SDK (metrics and/or tracing based on config)
+    tracker::Telemetry::init(config);
 
     // Setup signal handlers for graceful shutdown
     std::signal(SIGTERM, signal_handler);
@@ -216,6 +220,9 @@ int main(int argc, char* argv[]) {
 
     // Reset MQTT client BEFORE logger shutdown to ensure disconnect logs work
     g_mqtt_client.reset();
+
+    // Flush and shut down OpenTelemetry SDK before logger
+    tracker::Telemetry::shutdown();
 
     // Stop healthcheck server
     g_liveness = false;

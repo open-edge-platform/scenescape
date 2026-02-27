@@ -302,12 +302,12 @@ struct ObservabilityContext {
     std::string current_stage;             // Stage name for drop metrics
 
     // Stage timestamps for latency calculation
-    std::chrono::steady_clock::time_point receive_time;
-    std::chrono::steady_clock::time_point parse_time;
-    std::chrono::steady_clock::time_point buffer_time;
-    std::chrono::steady_clock::time_point dispatch_time;
-    std::chrono::steady_clock::time_point track_time;
-    std::chrono::steady_clock::time_point publish_time;
+    std::chrono::steady_clock::time_point receive_time;   // Set: MessageHandler::handleCameraMessage
+    std::chrono::steady_clock::time_point parse_time;     // Set: after parseCameraMessage()
+    std::chrono::steady_clock::time_point buffer_time;    // Set: before TimeChunkBuffer::add()
+    std::chrono::steady_clock::time_point dispatch_time;  // Set: TimeChunkScheduler::dispatch()
+    std::chrono::steady_clock::time_point track_time;     // Set: TrackingWorker after RobotVision::track()
+    std::chrono::steady_clock::time_point publish_time;   // Set: after MqttClient::publish()
 
     // Trace context propagation
     auto to_traceparent() const -> std::string;
@@ -331,6 +331,23 @@ struct ObservabilityContext {
 3. Emit structured log with `trace_id`, `span_id`, and latency/error details
 
 This ensures metrics, traces, and logs are correlated and emitted from a single code path, avoiding scattered instrumentation throughout the pipeline.
+
+**Metrics Emission**: The `ObservabilityContext::finalize()` method emits 7 metrics per successfully processed message:
+
+- `tracker.mqtt.latency` — End-to-end latency (receive → publish)
+- `tracker.stage.parse_duration` — Parse time (receive → parse_time)
+- `tracker.stage.buffer_duration` — Buffer time (parse_time → buffer_time, includes scene lookup and lag check)
+- `tracker.stage.queue_duration` — Queue time (buffer_time → dispatch_time, time waiting for scheduler)
+- `tracker.stage.transform_duration` — Transform time (dispatch_time → track_time, includes coordinate conversion)
+- `tracker.stage.track_duration` — Tracking time (part of dispatch → track_time, Hungarian matching + Kalman filter)
+- `tracker.stage.publish_duration` — Publish time (track_time → publish_time)
+
+The `abort()` method emits rejection/drop metrics at the failure point:
+
+- `tracker.mqtt.messages{reason="rejected_*"}` — Incremented for parse/validation/lag failures
+- `tracker.mqtt.dropped{reason="dropped_*"}` — Incremented for queue saturation
+
+See [`observability_context.cpp`](../src/observability_context.cpp) for emission logic.
 
 ### RobotVision Types
 
