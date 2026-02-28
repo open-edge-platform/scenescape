@@ -120,7 +120,7 @@ basic-acceptance-tests: \
   mqtt-tripwire \
   unit-tests \
   auto-calibration-api \
-	openapi-validation \
+  openapi-validation \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
@@ -186,7 +186,7 @@ non-functional-tests:
 
 _non-functional-tests: \
   build-time \
-	openapi-validation \
+  openapi-validation \
 
 metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k

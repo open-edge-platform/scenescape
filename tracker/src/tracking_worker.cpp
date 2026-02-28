@@ -4,6 +4,7 @@
 #include "tracking_worker.hpp"
 
 #include "logger.hpp"
+#include "metrics.hpp"
 #include "time_utils.hpp"
 
 #include <rv/tracking/ObjectMatching.hpp>
@@ -16,6 +17,13 @@
 namespace tracker {
 
 namespace {
+
+// Maximum Euclidean distance (meters) for matching a detection to an existing
+// track.  Pairs farther apart than this are never associated by the Hungarian
+// matcher.  The controller used a per-category value defaulting to 2.0 m
+// (DEFAULT_TRACKING_RADIUS); we keep the same default here so the tracker
+// service produces identical results.
+constexpr double kTrackingDistanceThreshold = 2.0;
 
 /**
  * @brief Build TrackManagerConfig from TrackingConfig.
@@ -83,9 +91,13 @@ bool TrackingWorker::try_enqueue(Chunk&& chunk) {
 
     if (static_cast<int>(queue_.size()) >= queue_capacity_) {
         // Drop current chunk (not oldest) per implementation.md
+        size_t msg_count = chunk.camera_batches.size();
         dropped_count_.fetch_add(1);
-        LOG_WARN("Dropped chunk for scope {}/{}: queue full (capacity={})", scope_.scene_id,
-                 scope_.category, queue_capacity_);
+        Metrics::inc_dropped_n(msg_count, {{kAttrScene, scope_.scene_id},
+                                           {kAttrCategory, scope_.category},
+                                           {kAttrReason, kReasonDroppedQueueFull}});
+        LOG_WARN("Dropped chunk for scope {}/{}: queue full (capacity={}, messages={})",
+                 scope_.scene_id, scope_.category, queue_capacity_, msg_count);
         return false;
     }
 
@@ -136,14 +148,14 @@ void TrackingWorker::run() {
             break;
         }
 
-        process_chunk(chunk);
+        process_chunk(std::move(chunk));
     }
 
     LOG_INFO("TrackingWorker stopped for scope {}/{} (processed={}, dropped={})", scope_.scene_id,
              scope_.category, processed_count_.load(), dropped_count_.load());
 }
 
-void TrackingWorker::process_chunk(const Chunk& chunk) {
+void TrackingWorker::process_chunk(Chunk chunk) {
     // Compute canonical timestamp once: prefer newest batch, fall back to now.
     auto now = std::chrono::system_clock::now();
     auto track_timestamp =
@@ -152,13 +164,25 @@ void TrackingWorker::process_chunk(const Chunk& chunk) {
                                     ? formatTimestamp(now)
                                     : chunk.camera_batches.back().timestamp_iso;
 
-    // Run RobotVision tracking (empty batches still advance tracker time for track aging)
-    auto tracks = run_tracking(chunk, track_timestamp);
+    // Transform pixel detections to world coordinates (camera intrinsics + extrinsics)
+    auto objects_per_camera = transform_detections(chunk);
+    chunk.obs_ctx.captureTransformTime();
+
+    // Run Hungarian matching, Kalman filter, and ID conversion
+    auto tracks = match_and_convert(std::move(objects_per_camera), chunk, track_timestamp);
+    chunk.obs_ctx.captureTrackTime();
+
+    // Update active tracks gauge for this scope
+    Metrics::set_active_tracks(scope_.scene_id, scope_.category,
+                               static_cast<int64_t>(tracks.size()));
 
     // Always publish (even with empty tracks — downstream needs heartbeats)
     if (publish_callback_) {
         publish_callback_(scope_.scene_id, scene_name_, scope_.category, timestamp_iso, tracks);
     }
+
+    chunk.obs_ctx.capturePublishTime();
+    chunk.obs_ctx.finalize();
 
     processed_count_.fetch_add(1);
 }
@@ -211,17 +235,15 @@ TrackingWorker::convert_tracks(const std::vector<rv::tracking::TrackedObject>& r
     return tracks;
 }
 
-std::vector<Track> TrackingWorker::run_tracking(const Chunk& chunk,
-                                                std::chrono::system_clock::time_point timestamp) {
-    // Transform pixel detections to world coordinates per camera
-    auto objects_per_camera = transform_detections(chunk);
-
+std::vector<Track> TrackingWorker::match_and_convert(
+    std::vector<std::vector<rv::tracking::TrackedObject>>&& objects_per_camera, const Chunk& chunk,
+    std::chrono::system_clock::time_point timestamp) {
     // Feed all cameras as a batch — MOT performs Hungarian matching across cameras,
     // deduplicates objects seen by multiple cameras, and runs Kalman filter update.
     // When no detections are present, track() still advances the Kalman filter and
     // increments non-measurement counters so tracks can age and expire.
     tracker_.track(std::move(objects_per_camera), timestamp, rv::tracking::DistanceType::Euclidean,
-                   5.0);
+                   kTrackingDistanceThreshold);
 
     // Get reliable tracks and map RobotVision int IDs to UUID strings
     auto rv_tracks = tracker_.getReliableTracks();

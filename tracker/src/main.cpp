@@ -18,18 +18,29 @@
 #include "mqtt_client.hpp"
 #include "scene_loader.hpp"
 #include "scene_registry.hpp"
+#include "telemetry.hpp"
 #include "time_chunk_buffer.hpp"
 #include "time_chunk_scheduler.hpp"
 #include "track_publisher.hpp"
 
+/// Exit code for scene update restart (non-zero triggers Docker restart: on-failure)
+constexpr int EXIT_SCENE_UPDATE_RESTART = 99;
+
+/// Shutdown reason codes for g_shutdown_requested
+enum ShutdownReason : int {
+    RUNNING = 0,      ///< Service is running normally
+    SIGNAL = 1,       ///< SIGTERM/SIGINT received
+    SCENE_UPDATE = 2, ///< Scene config changed, restart to reload
+};
+
 namespace {
-volatile std::sig_atomic_t g_shutdown_requested = 0;
+volatile std::sig_atomic_t g_shutdown_requested = ShutdownReason::RUNNING;
 std::atomic<bool> g_liveness{false};
 std::atomic<bool> g_readiness{false};
 std::shared_ptr<tracker::MqttClient> g_mqtt_client;
 
 void signal_handler(int signal) {
-    g_shutdown_requested = 1;
+    g_shutdown_requested = ShutdownReason::SIGNAL;
 }
 
 void update_readiness() {
@@ -63,6 +74,9 @@ int main(int argc, char* argv[]) {
     // Main service mode - initialize logger
     tracker::Logger::init(config.observability.logging.level);
 
+    // Initialize OpenTelemetry SDK (metrics and/or tracing based on config)
+    tracker::Telemetry::init(config);
+
     // Setup signal handlers for graceful shutdown
     std::signal(SIGTERM, signal_handler);
     std::signal(SIGINT, signal_handler);
@@ -80,8 +94,9 @@ int main(int argc, char* argv[]) {
     // Load scenes using appropriate loader based on config
     std::vector<tracker::Scene> scenes;
     try {
-        auto scene_loader =
-            tracker::create_scene_loader(config.scenes, cli_config.config_path.parent_path());
+        auto scene_loader = tracker::create_scene_loader(
+            config.scenes, cli_config.config_path.parent_path(), config.infrastructure.manager,
+            cli_config.schema_path.parent_path());
         scenes = scene_loader->load();
     } catch (const std::exception& e) {
         LOG_ERROR("Failed to load scenes: {}", e.what());
@@ -130,6 +145,15 @@ int main(int argc, char* argv[]) {
         g_mqtt_client, scene_registry, chunk_buffer, config.tracking,
         config.infrastructure.tracker.schema_validation, cli_config.schema_path.parent_path());
 
+    // In dynamic mode (API source), enable database update notifications.
+    // On receiving any database change (scene create/update/delete, camera change, etc.),
+    // the handler triggers graceful shutdown. Docker restart policy restarts the service,
+    // which re-fetches all scenes from the API.
+    if (config.scenes.source == tracker::SceneSource::Api) {
+        message_handler->enableDynamicMode(
+            []() { g_shutdown_requested = ShutdownReason::SCENE_UPDATE; });
+    }
+
     // Connect to MQTT broker.
     // Sync failures (broker unreachable) throw immediately.
     // Async failures (auth, protocol) set exitCode() and are caught in the main loop.
@@ -155,11 +179,16 @@ int main(int argc, char* argv[]) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    // Determine exit code: async connect failure or graceful shutdown
+    // Determine exit code: async connect failure, database update restart, or graceful shutdown
     int exit_code = 0;
     if (g_mqtt_client->exitCode() >= 0) {
         exit_code = g_mqtt_client->exitCode();
         LOG_ERROR("MQTT connect failure — exiting with code {}", exit_code);
+    } else if (g_shutdown_requested == ShutdownReason::SCENE_UPDATE) {
+        exit_code = EXIT_SCENE_UPDATE_RESTART;
+        LOG_INFO(
+            "Tracker service shutting down gracefully for database update restart (exit code {})",
+            exit_code);
     } else {
         LOG_INFO("Tracker service shutting down gracefully");
     }
@@ -191,6 +220,9 @@ int main(int argc, char* argv[]) {
 
     // Reset MQTT client BEFORE logger shutdown to ensure disconnect logs work
     g_mqtt_client.reset();
+
+    // Flush and shut down OpenTelemetry SDK before logger
+    tracker::Telemetry::shutdown();
 
     // Stop healthcheck server
     g_liveness = false;
