@@ -109,5 +109,5 @@ spec:
           name: {{ .Release.Name }}-tracker-config
       - name: reid-config
         configMap:
-          name: {{ .Release.Name }}-tracker-config
+          name: {{ .Release.Name }}-reid-config
 status: {}

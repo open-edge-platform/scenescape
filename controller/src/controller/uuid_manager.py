@@ -6,6 +6,7 @@ import concurrent.futures
 import json
 import threading
 import time
+from unittest import result
 
 from controller.vdms_adapter import VDMSDatabase
 from scene_common import log
@@ -19,6 +20,7 @@ DEFAULT_FEATURE_SLICE_SIZE = 10
 DEFAULT_MAX_QUERY_TIME = 4
 DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED = 10
 DEFAULT_STALE_FEATURE_TIMEOUT_SECS = 5.0
+DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS = 1.0
 
 available_databases = {
   "VDMS": VDMSDatabase,
@@ -43,9 +45,22 @@ class UUIDManager:
     if reid_config_data is None:
       reid_config_data = {}
     self.stale_feature_timeout_secs = reid_config_data.get('stale_feature_timeout_secs', DEFAULT_STALE_FEATURE_TIMEOUT_SECS)
+    self.stale_feature_check_interval_secs = reid_config_data.get('stale_feature_check_interval_secs', DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS)
     self.stale_feature_timer = None
     self._start_stale_feature_timer()
     return
+
+  def __del__(self):
+    """Clean up resources when the UUIDManager is destroyed"""
+    self.shutdown()
+
+  def shutdown(self):
+    """Explicitly stop the stale feature timer and clean up resources"""
+    if self.stale_feature_timer is not None:
+      self.stale_feature_timer.cancel()
+      self.stale_feature_timer = None
+    if hasattr(self, 'pool') and self.pool is not None:
+      self.pool.shutdown(wait=False)
 
   def _start_stale_feature_timer(self):
     """Start a background timer to periodically check for and flush stale features"""
@@ -53,11 +68,13 @@ class UUIDManager:
       """Timer callback: check for features older than timeout and flush them"""
       self._flush_stale_features()
       # Reschedule the timer
-      self.stale_feature_timer = threading.Timer(1.0, check_stale_features)
-      self.stale_feature_timer.daemon = True
-      self.stale_feature_timer.start()
+      self._schedule_timer(check_stale_features)
 
-    self.stale_feature_timer = threading.Timer(1.0, check_stale_features)
+    self._schedule_timer(check_stale_features)
+
+  def _schedule_timer(self, callback):
+    """Create and start a daemon timer with the configured check interval"""
+    self.stale_feature_timer = threading.Timer(self.stale_feature_check_interval_secs, callback)
     self.stale_feature_timer.daemon = True
     self.stale_feature_timer.start()
 
@@ -126,7 +143,7 @@ class UUIDManager:
 
     Note: Excludes 'reid' key since reid embeddings are used for vector search, not metadata filtering.
 
-    @param   sscape_object  The Scapescape object with detection data
+    @param   sscape_object  The Scenescape object with detection data
     @return  metadata       Dictionary of semantic attributes (excluding reid)
     """
     if hasattr(sscape_object, 'metadata') and sscape_object.metadata:
@@ -202,9 +219,6 @@ class UUIDManager:
     @param  sscape_object  The current Scenescape object
     """
     result = self.active_ids.get(sscape_object.rv_id, None)
-    # Case for incrementing the counter when there is no re-id vector
-    if sscape_object.reid is None and result is None:
-      self.unique_id_count += 1
     # Track is new only if not yet in active_ids dictionary
     return result is None
 
@@ -418,12 +432,15 @@ class UUIDManager:
     """
     Assigns a unique ID to the Scenescape object
 
-    @param  sscape_object  The current Scapescape object
+    @param  sscape_object  The current Scenescape object
     """
     is_new = self.isNewTrackerID(sscape_object)
 
     # Initialize tracking entry for new tracks
     if is_new:
+      # Case for incrementing the counter when there is no re-id vector
+      if sscape_object.reid is None:
+        self.unique_id_count += 1
       with self.active_ids_lock:
         self.active_ids.setdefault(sscape_object.rv_id, [None, None])
 

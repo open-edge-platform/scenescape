@@ -315,15 +315,6 @@ class VDMSDatabase(ReIDDatabase):
         if (item.get('status') == 0 and item.get('returned') > 0)
       ]
       log.debug(f"[VDMS] findMatches returned {len(result)} result(s) from {len(reid_vectors)} vector(s)")
-      for idx, entities in enumerate(result):
-        if entities:
-          log.debug(f"[VDMS] Vector {idx}: found {len(entities)} matches")
-          # Log distance scores for debugging
-          for match_idx, entity in enumerate(entities[:3]):  # Show first 3 matches
-            distance = entity.get('_distance', 'unknown')
-            uuid = entity.get('uuid', 'unknown')
-            rvid = entity.get('rvid', 'unknown')
-            log.debug(f"[VDMS]   Match {match_idx}: uuid={uuid}, rvid={rvid}, distance={distance}")
       return result
     log.debug("[VDMS] findMatches returned None (no response from VDMS)")
     return None

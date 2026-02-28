@@ -326,8 +326,12 @@ class TestIsNewTrackerID:
 
     assert result is False, "Should return False for known tracker ID"
 
+
+class TestAssignID:
+  """Test ID assignment logic."""
+
   @patch('controller.uuid_manager.VDMSDatabase')
-  def test_is_new_tracker_id_increments_counter_when_no_reid(self, mock_vdms_class):
+  def test_assign_id_increments_counter_when_no_reid(self, mock_vdms_class):
     """Verify unique_id_count increments when tracker has no reid vector."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
@@ -338,11 +342,180 @@ class TestIsNewTrackerID:
     obj = MagicMock()
     obj.rv_id = "tracker_no_reid"
     obj.reid = None
+    obj.category = "Person"
+    obj.gid = "auto_gid_1"
+    obj.metadata = {}
 
-    result = manager.isNewTrackerID(obj)
+    manager.assignID(obj)
 
-    assert result is True, "Should return True for new tracker"
-    assert manager.unique_id_count == initial_count + 1, "Should increment counter when no reid"
+    assert manager.unique_id_count == initial_count + 1, "Should increment counter when assigning ID to tracker with no reid"
+
+  @patch('controller.uuid_manager.VDMSDatabase')
+  def test_assign_id_does_not_increment_counter_when_reid_present(self, mock_vdms_class):
+    """Verify unique_id_count is not incremented when tracker has reid vector."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    manager = UUIDManager()
+    initial_count = manager.unique_id_count
+
+    obj = MagicMock()
+    obj.rv_id = "tracker_with_reid"
+    obj.reid = {"embedding_vector": np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist()}
+    obj.category = "Person"
+    obj.gid = "auto_gid_1"
+    obj.boundingBoxPixels = MagicMock()
+    obj.boundingBoxPixels.area = 10000
+    obj.metadata = {}
+
+    manager.assignID(obj)
+
+    assert manager.unique_id_count == initial_count, "Should not increment counter when reid is present"
+
+  @patch('controller.uuid_manager.VDMSDatabase')
+  def test_assign_id_initializes_tracking_for_new_tracker(self, mock_vdms_class):
+    """Verify assignID initializes tracking for new tracker IDs."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    manager = UUIDManager()
+
+    obj = MagicMock()
+    obj.rv_id = "new_tracker"
+    obj.reid = None
+    obj.category = "Person"
+    obj.gid = "auto_gid_1"
+    obj.metadata = {}
+
+    manager.assignID(obj)
+
+    assert "new_tracker" in manager.active_ids, "Should initialize tracking for new tracker"
+    assert manager.active_ids["new_tracker"] == [None, None], "Should initialize with [None, None]"
+
+  @patch('controller.uuid_manager.VDMSDatabase')
+  def test_assign_id_gathers_quality_features_for_new_tracker(self, mock_vdms_class):
+    """Verify assignID gathers quality visual features for new tracker."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    manager = UUIDManager()
+
+    obj = MagicMock()
+    obj.rv_id = "new_tracker_with_features"
+    obj.reid = {"embedding_vector": np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist()}
+    obj.category = "Person"
+    obj.gid = "auto_gid_1"
+    obj.boundingBoxPixels = MagicMock()
+    obj.boundingBoxPixels.area = 10000
+    obj.metadata = {}
+
+    manager.assignID(obj)
+
+    # Should have gathered features for the tracker
+    assert "new_tracker_with_features" in manager.quality_features, "Should gather quality features for new tracker"
+    assert len(manager.quality_features["new_tracker_with_features"]) > 0, "Should have collected at least one feature"
+
+  @patch('controller.uuid_manager.VDMSDatabase')
+  def test_assign_id_calls_pick_best_id_always(self, mock_vdms_class):
+    """Verify assignID always calls pickBestID."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    manager = UUIDManager()
+    # Mock pickBestID to verify it's called
+    manager.pickBestID = MagicMock()
+
+    obj = MagicMock()
+    obj.rv_id = "tracker_123"
+    obj.reid = None
+    obj.category = "Person"
+    obj.gid = "auto_gid_1"
+    obj.metadata = {}
+
+    manager.assignID(obj)
+
+    manager.pickBestID.assert_called_once_with(obj), "Should call pickBestID"
+
+  @patch('controller.uuid_manager.VDMSDatabase')
+  def test_assign_id_does_not_submit_query_without_sufficient_features(self, mock_vdms_class):
+    """Verify assignID does not submit query if features are insufficient."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+
+    obj = MagicMock()
+    obj.rv_id = "tracker_few_features"
+    obj.reid = {"embedding_vector": np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist()}
+    obj.category = "Person"
+    obj.gid = "auto_gid_1"
+    obj.boundingBoxPixels = MagicMock()
+    obj.boundingBoxPixels.area = 10000
+    obj.metadata = {}
+
+    manager.assignID(obj)
+
+    # Only one feature gathered, less than minimum required
+    assert manager.pool.submit.call_count == 0, "Should not submit query without sufficient features"
+
+  @patch('controller.uuid_manager.VDMSDatabase')
+  def test_assign_id_submits_query_with_sufficient_features(self, mock_vdms_class):
+    """Verify assignID submits similarity query when sufficient features are gathered."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+
+    obj = MagicMock()
+    obj.rv_id = "tracker_many_features"
+    obj.reid = {"embedding_vector": np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist()}
+    obj.category = "Person"
+    obj.gid = "auto_gid_1"
+    obj.boundingBoxPixels = MagicMock()
+    obj.boundingBoxPixels.area = 10000
+    obj.metadata = {}
+
+    # Manually add sufficient features to trigger query submission
+    manager.quality_features["tracker_many_features"] = [
+      np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist() for _ in range(15)
+    ]
+
+    manager.assignID(obj)
+
+    # Should submit query after gathering features and determining sufficiency
+    assert manager.pool.submit.call_count >= 1, "Should submit query with sufficient features"
+    assert "tracker_many_features" in manager.active_query, "Should mark query as submitted"
+
+  @patch('controller.uuid_manager.VDMSDatabase')
+  def test_assign_id_skips_feature_gathering_if_query_already_submitted(self, mock_vdms_class):
+    """Verify assignID doesn't resubmit queries if one is already in progress."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+
+    obj = MagicMock()
+    obj.rv_id = "tracker_with_pending_query"
+    obj.reid = {"embedding_vector": np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist()}
+    obj.category = "Person"
+    obj.gid = "auto_gid_1"
+    obj.boundingBoxPixels = MagicMock()
+    obj.boundingBoxPixels.area = 10000
+    obj.metadata = {}
+
+    # Mark query as already submitted
+    manager.active_query["tracker_with_pending_query"] = True
+
+    initial_features = len(manager.quality_features.get("tracker_with_pending_query", []))
+
+    manager.assignID(obj)
+
+    # Should not gather new features or submit another query
+    assert len(manager.quality_features.get("tracker_with_pending_query", [])) == initial_features, \
+      "Should not gather features if query already submitted"
 
 
 class TestConnectDatabase:

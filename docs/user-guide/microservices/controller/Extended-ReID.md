@@ -149,6 +149,7 @@ controller/config/reid-config.json
 ```json
 {
   "stale_feature_timeout_secs": 5.0,
+  "stale_feature_check_interval_secs": 1.0,
   "feature_accumulation_threshold": 12,
   "feature_slice_size": 10,
   "similarity_threshold": 60
@@ -157,12 +158,13 @@ controller/config/reid-config.json
 
 ### Configuration Parameters
 
-| Parameter                        | Type  | Default | Description                                                                                                                                                           |
-| -------------------------------- | ----- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stale_feature_timeout_secs`     | float | 5.0     | How long (seconds) to accumulate features in memory before flushing to VDMS. Features older than this threshold are persisted to the database for long-term storage.  |
-| `feature_accumulation_threshold` | int   | 12      | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.     |
-| `feature_slice_size`             | int   | 10      | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector. |
-| `similarity_threshold`           | int   | 60      | Minimum similarity score (0-100) for a match to be considered valid. Higher values = stricter matching.                                                               |
+| Parameter                           | Type  | Default | Description                                                                                                                                                           |
+| ----------------------------------- | ----- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stale_feature_timeout_secs`        | float | 5.0     | How long (seconds) to accumulate features in memory before flushing to VDMS. Features older than this threshold are persisted to the database for long-term storage.  |
+| `stale_feature_check_interval_secs` | float | 1.0     | How frequently (seconds) the background timer checks for stale features and flushes them to VDMS. More frequent checks ensure timely database updates.                |
+| `feature_accumulation_threshold`    | int   | 12      | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.     |
+| `feature_slice_size`                | int   | 10      | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector. |
+| `similarity_threshold`              | int   | 60      | Minimum similarity score (0-100) for a match to be considered valid. Higher values = stricter matching.                                                               |
 
 ### Using the Configuration File
 
@@ -178,7 +180,7 @@ python scene_controller.py \
 
 **Current Implementation Note**:
 
-- `stale_feature_timeout_secs`, `feature_accumulation_threshold`, `feature_slice_size`, and `similarity_threshold` are fully implemented
+- `stale_feature_timeout_secs`, `stale_feature_check_interval_secs`, `feature_accumulation_threshold`, `feature_slice_size`, and `similarity_threshold` are fully implemented
 - All semantic metadata attributes are currently used for TIER 1 filtering. Selective metadata filtering is planned for Phase 2.
 
 ### Tuning Recommendations
@@ -186,6 +188,7 @@ python scene_controller.py \
 **For Higher Recall (more matches found)**:
 
 - Decrease `stale_feature_timeout_secs`: 3.0 (flush features sooner, capture recent appearances)
+- Decrease `stale_feature_check_interval_secs`: 0.5 (check for stale features more frequently)
 - Decrease `feature_accumulation_threshold`: 8 (query sooner with fewer features)
 - Decrease `similarity_threshold`: 50 (accept less-perfect matches)
 - Increase `feature_slice_size`: 20 (store more diverse samples)
@@ -193,6 +196,7 @@ python scene_controller.py \
 **For Higher Precision (only confident matches)**:
 
 - Increase `stale_feature_timeout_secs`: 8.0 (accumulate more features before persisting)
+- Increase `stale_feature_check_interval_secs`: 2.0 (check less frequently, reduce overhead)
 - Increase `feature_accumulation_threshold`: 16 (require more samples for statistical confidence)
 - Increase `similarity_threshold`: 75 (stricter matching)
 - Decrease `feature_slice_size`: 5 (store every 5th feature for better coverage)
