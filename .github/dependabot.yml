@@ -52,6 +52,10 @@ updates:
       interval: "monthly"
     commit-message:
       prefix: "Dockerfile"
+    ignore:
+      - dependency-name: "python"
+        update-types:
+          ["version-update:semver-major", "version-update:semver-minor"]
     reviewers:
       - "saratpoluri"
       - "dmytroye"
@@ -94,6 +98,13 @@ updates:
       interval: "monthly"
     commit-message:
       prefix: "pip"
+    ignore:
+      - dependency-name: "numpy"
+        update-types:
+          ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "Django"
+        update-types:
+          ["version-update:semver-major", "version-update:semver-minor"]
     reviewers:
       - "saratpoluri"
       - "dmytroye"
