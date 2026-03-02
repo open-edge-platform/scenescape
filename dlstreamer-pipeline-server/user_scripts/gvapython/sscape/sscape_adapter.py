@@ -172,7 +172,8 @@ class PostInferenceDataPublish:
             1 * scale, (255,255,255), 2 * scale)
     return
 
-  def _convertToBgr(self, raw_frame, format):
+  def _convertToBgr(self, raw_frame, video_meta):
+    format = video_meta.format.value_name
     return cv2.cvtColor(raw_frame, PostInferenceDataPublish.CONVERSION_MAP[format]) \
            if format in PostInferenceDataPublish.CONVERSION_MAP else raw_frame
 
@@ -185,8 +186,8 @@ class PostInferenceDataPublish:
 
     if image is None:
       with gvaframe.data() as img:
-        format = gvaframe.video_meta().format.value_name
-        image = np.copy(self._convertToBgr(img, format))
+        video_meta = gvaframe.video_meta()
+        image = np.copy(self._convertToBgr(img, video_meta))
     else:
       try:
         decoded_image = base64.b64decode(image)
@@ -197,8 +198,8 @@ class PostInferenceDataPublish:
       except (ValueError, Exception) as e:
         print(f"Error using original image: {e}. Falling back to current frame.")
         with gvaframe.data() as img:
-          format = gvaframe.video_meta().format.value_name
-          image = np.copy(self._convertToBgr(img, format))
+          video_meta = gvaframe.video_meta()
+          image = np.copy(self._convertToBgr(img, video_meta))
     if annotate:
       self.annotateObjects(image)
       self.annotateFPS(image, self.frame_level_data['rate'])
