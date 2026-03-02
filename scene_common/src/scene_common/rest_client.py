@@ -199,14 +199,14 @@ class RESTClient:
           "requests library can't combine files and nested dictionaries")
     return data_args
 
-  def _create(self, endpoint, data, files=None, api_prefix=''):
+  def _create(self, endpoint, data, files=None, api_prefix='api/v1'):
     """Private method to create a new object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
     @param      data            dict with key/value pairs of new object
     @param      files           dict with file data, as binary blobs
                                 or open file pointers
-    @param      api_prefix      API version prefix (default: '')
+    @param      api_prefix      API version prefix (default: 'api/v1')
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
@@ -217,13 +217,13 @@ class RESTClient:
                               headers=headers, verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.CREATED)
 
-  def _get(self, endpoint, parameters, api_prefix=''):
+  def _get(self, endpoint, parameters, api_prefix='api/v1'):
     """Private method to get an object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
     @param      parameters      dictionary of key/value pairs appended to GET request,
                                 used by server to filter out objects
-    @param      api_prefix      API version prefix (default: '')
+    @param      api_prefix      API version prefix (default: 'api/v1')
     @return                     RESTResult with decoded object(s) on success,
                                 empty with `errors` set on failure. Result includes
                                 'full_path' key with the complete URL used.
@@ -234,14 +234,14 @@ class RESTClient:
                              verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.OK)
 
-  def _update(self, endpoint, data, files=None, api_prefix=''):
+  def _update(self, endpoint, data, files=None, api_prefix='api/v1'):
     """Private method to update an object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
     @param      data            dictionary with key/value pairs to update
     @param      files           dictionary with file data, as binary blobs
                                 or open file pointers
-    @param      api_prefix      API version prefix (default: '')
+    @param      api_prefix      API version prefix (default: 'api/v1')
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
@@ -252,7 +252,7 @@ class RESTClient:
                               headers=headers, verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.OK)
 
-  def _delete(self, endpoint, api_prefix=''):
+  def _delete(self, endpoint, api_prefix='api/v1'):
     """Private method to delete an object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
@@ -297,7 +297,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
-    return self._create("scene", data, files, api_prefix='api/v1')
+    return self._create("scene", data, files)
 
   def getScene(self, uid):
     """Gets scene with `uid`
@@ -306,8 +306,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    return self._get(f"scene/{uid}", None, api_prefix='api/v1')
-
+    return self._get(f"scene/{uid}", None)
   def updateScene(self, uid, data):
     """Updates scene with `uid`
 
@@ -318,7 +317,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
-    return self._update(f"scene/{uid}", data, files, api_prefix='api/v1')
+    return self._update(f"scene/{uid}", data, files)
 
   def deleteScene(self, uid):
     """Deletes scene with `uid`
@@ -327,8 +326,7 @@ class RESTClient:
     @return                     RESTResult with deleted object's uid on success,
                                 empty with `errors` set on failure
     """
-    return self._delete(f"scene/{uid}", api_prefix='api/v1')
-
+    return self._delete(f"scene/{uid}")
   # Child Scene
   def createChildScene(self, data):
     """Creates a new child scene
@@ -339,7 +337,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
-    return self._create("child", data, files, api_prefix='api/v1')
+    return self._create("child", data, files)
 
   def updateChildScene(self, uid, data):
     """Updates child scene with `uid`
@@ -351,7 +349,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
-    return self._update(f"child/{uid}", data, files, api_prefix='api/v1')
+    return self._update(f"child/{uid}", data, files)
 
   # Camera
   def getCameras(self, filter):
@@ -361,7 +359,7 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._get("cameras", filter, api_prefix='api/v1')
+    return self._get("cameras", filter)
 
   def createCamera(self, data):
     """Creates a new camera
@@ -370,7 +368,7 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._create("camera", data, api_prefix='api/v1')
+    return self._create("camera", data)
 
   def getCamera(self, uid):
     """Gets camera with `uid`
@@ -379,7 +377,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    return self._get(f"camera/{uid}", None, api_prefix='api/v1')
+    return self._get(f"camera/{uid}", None)
 
   def updateCamera(self, uid, data):
     """Updates camera with `uid`
@@ -388,8 +386,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    return self._update(f"camera/{uid}", data, api_prefix='api/v1')
-
+    return self._update(f"camera/{uid}", data)
   def deleteCamera(self, uid):
     """Deletes camera with `uid`
 
@@ -397,7 +394,7 @@ class RESTClient:
     @return                     RESTResult with deleted object's uid on success,
                                 empty with `errors` set on failure
     """
-    return self._delete(f"camera/{uid}", api_prefix='api/v1')
+    return self._delete(f"camera/{uid}")
 
   def frame(self, uid, timestamp):
     """Gets frame from camera with `uid` which is near `timestamp`
@@ -405,7 +402,7 @@ class RESTClient:
     @param      uid             uid of camera to get frame from
     @param      timestamp       timestamp in ISO 8601 format
     """
-    return self._get(f"frame", {'camera': uid, 'timestamp': timestamp}, api_prefix='api/v1')
+    return self._get(f"frame", {'camera': uid, 'timestamp': timestamp})
 
   # Sensor
   def getSensors(self, filter):
@@ -415,7 +412,7 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._get("sensors", filter, api_prefix='api/v1')
+    return self._get("sensors", filter)
 
   def createSensor(self, data):
     """Creates a new sensor
@@ -425,7 +422,7 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._create("sensor", data, api_prefix='api/v1')
+    return self._create("sensor", data)
 
   def getSensor(self, uid):
     """Gets sensor with `uid`
@@ -434,7 +431,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    return self._get(f"sensor/{uid}", None, api_prefix='api/v1')
+    return self._get(f"sensor/{uid}", None)
 
   def updateSensor(self, uid, data):
     """Updates sensor with `uid`
@@ -443,7 +440,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    return self._update(f"sensor/{uid}", data, api_prefix='api/v1')
+    return self._update(f"sensor/{uid}", data)
 
   def deleteSensor(self, uid):
     """Deletes sensor with `uid`
@@ -452,7 +449,7 @@ class RESTClient:
     @return                     RESTResult with deleted object's uid on success,
                                 empty with `errors` set on failure
     """
-    return self._delete(f"sensor/{uid}", api_prefix='api/v1')
+    return self._delete(f"sensor/{uid}")
 
   # Region
   def getRegions(self, filter):
@@ -462,7 +459,7 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._get("regions", filter, api_prefix='api/v1')
+    return self._get("regions", filter)
 
   def createRegion(self, data):
     """Creates a new region
@@ -472,7 +469,7 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._create("region", data, api_prefix='api/v1')
+    return self._create("region", data)
 
   def getRegion(self, uid):
     """Gets region with `uid`
@@ -481,7 +478,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    return self._get(f"region/{uid}", None, api_prefix='api/v1')
+    return self._get(f"region/{uid}", None)
 
   def updateRegion(self, uid, data):
     """Updates region with `uid`
@@ -490,7 +487,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    return self._update(f"region/{uid}", data, api_prefix='api/v1')
+    return self._update(f"region/{uid}", data)
 
   def deleteRegion(self, uid):
     """Deletes region with `uid`
@@ -499,7 +496,7 @@ class RESTClient:
     @return                     RESTResult with deleted object's uid on success,
                                 empty with `errors` set on failure
     """
-    return self._delete(f"region/{uid}", api_prefix='api/v1')
+    return self._delete(f"region/{uid}")
 
   # Tripwire
   def getTripwires(self, filter):
@@ -509,7 +506,7 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._get("tripwires", filter, api_prefix='api/v1')
+    return self._get("tripwires", filter)
 
   def createTripwire(self, data):
     """Creates a new tripwire
@@ -519,7 +516,7 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._create("tripwire", data, api_prefix='api/v1')
+    return self._create("tripwire", data)
 
   def getTripwire(self, uid):
     """Gets tripwire with `uid`
@@ -528,8 +525,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    return self._get(f"tripwire/{uid}", None, api_prefix='api/v1')
-
+    return self._get(f"tripwire/{uid}", None)
   def updateTripwire(self, uid, data):
     """Updates tripwire with `uid`
 
@@ -537,7 +533,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    return self._update(f"tripwire/{uid}", data, api_prefix='api/v1')
+    return self._update(f"tripwire/{uid}", data)
 
   def deleteTripwire(self, uid):
     """Deletes tripwire with `uid`
@@ -546,7 +542,7 @@ class RESTClient:
     @return                     RESTResult with deleted object's uid on success,
                                 empty with `errors` set on failure
     """
-    return self._delete(f"tripwire/{uid}", api_prefix='api/v1')
+    return self._delete(f"tripwire/{uid}")
 
   # Assets
   def getAssets(self, filter):
@@ -556,7 +552,7 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._get("assets", filter, api_prefix='api/v1')
+    return self._get("assets", filter)
 
   def createAsset(self, data):
     """Creates a new asset
@@ -567,7 +563,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['model_3d'])
-    return self._create("asset", data, files, api_prefix='api/v1')
+    return self._create("asset", data, files)
 
   def getAsset(self, uid):
     """Gets asset with `uid`
@@ -576,8 +572,8 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    return self._get(f"asset/{uid}", None, api_prefix='api/v1')
-
+    return self._get(f"asset/{uid}", None)
+  
   def updateAsset(self, uid, data):
     """Updates asset with `uid`
 
@@ -588,7 +584,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['model_3d'])
-    return self._update(f"asset/{uid}", data, files, api_prefix='api/v1')
+    return self._update(f"asset/{uid}", data, files)
 
   def deleteAsset(self, uid):
     """Deletes asset with `uid`
@@ -597,7 +593,7 @@ class RESTClient:
     @return                     RESTResult with deleted object's uid on success,
                                 empty with `errors` set on failure
     """
-    return self._delete(f"asset/{uid}", api_prefix='api/v1')
+    return self._delete(f"asset/{uid}")
 
   # child
   def getChildScene(self, filter):
@@ -607,10 +603,10 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._get("scenes/child", filter, api_prefix='api/v1')
+    return self._get("scenes/child", filter)
 
   def updateChildScene(self, uid, data):
-    return self._update(f"child/{uid}", data, api_prefix='api/v1')
+    return self._update(f"child/{uid}", data)
 
   # Users
   def getUsers(self, filter):
@@ -620,7 +616,7 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._get("users", filter, api_prefix='api/v1')
+    return self._get("users", filter)
 
   def createUser(self, data):
     """Creates a new user
@@ -629,8 +625,8 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._create("user", data, api_prefix='api/v1')
-
+    return self._create("user", data)
+  
   def getUser(self, username):
     """Gets user with `username`
 
@@ -638,7 +634,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    return self._get(f"user/{username}", None, api_prefix='api/v1')
+    return self._get(f"user/{username}", None)
 
   def updateUser(self, username, data):
     """Updates user with `username`
@@ -647,7 +643,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    return self._update(f"user/{username}", data, api_prefix='api/v1')
+    return self._update(f"user/{username}", data)
 
   def deleteUser(self, username):
     """Deletes user with `username`
@@ -656,7 +652,7 @@ class RESTClient:
     @return                     RESTResult with deleted object's uid on success,
                                 empty with `errors` set on failure
     """
-    return self._delete(f"user/{username}", api_prefix='api/v1')
+    return self._delete(f"user/{username}")
 
   # CalibrationMarker
   def getCalibrationMarkers(self, filter):
@@ -666,7 +662,7 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._get("calibrationmarkers", filter, api_prefix='api/v1')
+    return self._get("calibrationmarkers", filter)
 
   def getCalibrationMarker(self, marker_id):
     """Gets calibration marker with `marker_id`
@@ -675,7 +671,7 @@ class RESTClient:
     @return                        RESTResult with decoded object on success,
                                    empty with `errors` set on failure
     """
-    return self._get(f"calibrationmarker/{marker_id}", None, api_prefix='api/v1')
+    return self._get(f"calibrationmarker/{marker_id}", None)
 
   def createCalibrationMarker(self, data):
     """Creates a new calibration marker
@@ -684,7 +680,7 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._create("calibrationmarker", data, api_prefix='api/v1')
+    return self._create("calibrationmarker", data)
 
   def updateCalibrationMarker(self, uid, data):
     """Updates calibration marker with `uid`
@@ -693,7 +689,7 @@ class RESTClient:
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    return self._update(f"calibrationmarker/{uid}", data, api_prefix='api/v1')
+    return self._update(f"calibrationmarker/{uid}", data)
 
   def deleteCalibrationMarker(self, uid):
     """Deletes calibration marker with `uid`
@@ -702,7 +698,7 @@ class RESTClient:
     @return                     RESTResult with deleted object's uid on success,
                                 empty with `errors` set on failure
     """
-    return self._delete(f"calibrationmarker/{uid}", api_prefix='api/v1')
+    return self._delete(f"calibrationmarker/{uid}")
 
   def importScene(self, zip_file_path):
     if not os.path.exists(zip_file_path):
@@ -711,7 +707,7 @@ class RESTClient:
     endpoint = "import-scene/"
     with open(zip_file_path, "rb") as f:
       files = {"zipFile": (os.path.basename(zip_file_path), f)}
-      return self._create(endpoint, data={}, files=files, api_prefix='api/v1')
+      return self._create(endpoint, data={}, files=files)
 
   # Auto-calibration (uses v1/ prefix instead of api/v1)
   def getStatus(self):
