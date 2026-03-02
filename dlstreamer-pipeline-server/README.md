@@ -81,7 +81,6 @@ Running inference on NPU is recommended when an Intel® NPU is available on the 
 To facilitate NPU acceleration, sample configuration files are provided for the out-of-box **Queuing** and **Retail** scenes with the following pipeline optimizations:
 
 - Inference offloaded to NPU
-- Cross-stream batching enabled
 
 NPU performance metrics can be monitored using [NPU System Monitoring Tool](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/tools/npu-monitor-tool)
 
