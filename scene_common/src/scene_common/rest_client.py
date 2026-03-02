@@ -92,20 +92,20 @@ class RESTClient:
 
   def _build_url(self, path, api_prefix=None):
     """Build full URL with optional API prefix
-    
+
     @param      path           Endpoint path
     @param      api_prefix     Optional API prefix (e.g., 'api/v1' or 'v1' or without prefix for mapping endpoints)
     """
     if not path.startswith('/'):
       path = '/' + path
-    
+
     # Build URL with or without API prefix
     if api_prefix:
       api_prefix = api_prefix.strip('/')
       full_path = f"{api_prefix}{path}"
     else:
       full_path = path.lstrip('/')
-    
+
     return urljoin(self.url, full_path)
 
   def request(self, method, path, **kwargs):
@@ -716,7 +716,7 @@ class RESTClient:
   # Auto-calibration (uses v1/ prefix instead of api/v1)
   def getStatus(self):
     """Gets system status
-    
+
     @return                     RESTResult with system status on success,
                                 empty with `errors` set on failure
     """
@@ -724,7 +724,7 @@ class RESTClient:
 
   def registerScene(self, sceneId, data):
     """Register a scene for auto-calibration
-    
+
     @param      sceneId        ID of the scene to register
     @param      data            dict with registration parameters
     @return                     RESTResult with registration info on success,
@@ -734,7 +734,7 @@ class RESTClient:
 
   def getSceneRegistrationStatus(self, sceneId):
     """Gets scene registration status
-    
+
     @param      sceneId        ID of the scene
     @return                     RESTResult with registration status on success,
                                 empty with `errors` set on failure
@@ -743,7 +743,7 @@ class RESTClient:
 
   def updateSceneRegistration(self, sceneId, data):
     """Updates scene registration
-    
+
     @param      sceneId        ID of the scene
     @param      data            dict with registration update parameters
     @return                     RESTResult with updated registration on success,
@@ -753,7 +753,7 @@ class RESTClient:
 
   def calibrateCamera(self, cameraId, data):
     """Calibrate a camera
-    
+
     @param      cameraId       ID of the camera to calibrate
     @param      data            dict with calibration parameters
     @return                     RESTResult with calibration info on success,
@@ -763,10 +763,9 @@ class RESTClient:
 
   def getCameraCalibrationStatus(self, cameraId):
     """Gets camera calibration status
-    
+
     @param      cameraId       ID of the camera
     @return                     RESTResult with calibration status on success,
                                 empty with `errors` set on failure
     """
     return self._get(f"cameras/{cameraId}/calibration", None, api_prefix='v1')
-  
