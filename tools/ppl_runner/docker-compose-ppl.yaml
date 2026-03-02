@@ -17,7 +17,7 @@ secrets:
 
 services:
   mediaserver:
-    image: bluenviron/mediamtx:1.16.3
+    image: bluenviron/mediamtx:1.16.1
     profiles:
       - rtsp
     networks:
