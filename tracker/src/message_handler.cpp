@@ -3,6 +3,8 @@
 
 #include "message_handler.hpp"
 #include "logger.hpp"
+#include "metrics.hpp"
+#include "observability_context.hpp"
 #include "time_utils.hpp"
 #include "topic_utils.hpp"
 
@@ -90,10 +92,17 @@ MessageHandler::loadSchema(const std::filesystem::path& schema_path) {
     return std::make_unique<rapidjson::SchemaDocument>(schema_doc);
 }
 
+void MessageHandler::enableDynamicMode(ShutdownCallback callback) {
+    dynamic_mode_ = true;
+    shutdown_callback_ = std::move(callback);
+    LOG_INFO_ENTRY(LogEntry("Dynamic mode enabled - will subscribe to database update topic")
+                       .component("mqtt"));
+}
+
 void MessageHandler::start() {
-    // Set up message callback
+    // Set up message callback with topic-based routing
     mqtt_client_->setMessageCallback([this](const std::string& topic, const std::string& payload) {
-        handleCameraMessage(topic, payload);
+        routeMessage(topic, payload);
     });
 
     // Subscribe to each registered camera's topic
@@ -124,6 +133,14 @@ void MessageHandler::start() {
     LOG_INFO_ENTRY(LogEntry("Queued camera subscriptions")
                        .component("mqtt")
                        .operation(std::format("{} cameras", camera_ids.size())));
+
+    // In dynamic mode, subscribe to database update topic for config change notifications
+    if (dynamic_mode_) {
+        mqtt_client_->subscribe(TOPIC_DATABASE_UPDATE);
+        LOG_INFO_ENTRY(LogEntry("Queued database update subscription")
+                           .component("mqtt")
+                           .operation(TOPIC_DATABASE_UPDATE));
+    }
 }
 
 void MessageHandler::stop() {
@@ -140,19 +157,50 @@ void MessageHandler::stop() {
         auto topic = std::format(TOPIC_CAMERA_SUBSCRIBE_PATTERN, camera_id);
         mqtt_client_->unsubscribe(topic);
     }
+
+    // Unsubscribe from database update topic (dynamic mode)
+    if (dynamic_mode_) {
+        mqtt_client_->unsubscribe(TOPIC_DATABASE_UPDATE);
+    }
+
     mqtt_client_->setMessageCallback(nullptr);
 }
 
+void MessageHandler::routeMessage(const std::string& topic, const std::string& payload) {
+    if (dynamic_mode_ && topic == TOPIC_DATABASE_UPDATE) {
+        handleDatabaseUpdateMessage(topic, payload);
+    } else {
+        handleCameraMessage(topic, payload);
+    }
+}
+
+void MessageHandler::handleDatabaseUpdateMessage(const std::string& topic,
+                                                 const std::string& payload) {
+    LOG_INFO_ENTRY(LogEntry("Database update received, triggering restart")
+                       .component("message_handler")
+                       .mqtt({.topic = topic, .direction = "subscribe"}));
+
+    if (shutdown_callback_) {
+        shutdown_callback_();
+    } else {
+        LOG_WARN("Database update received but no shutdown callback registered");
+    }
+}
+
 void MessageHandler::handleCameraMessage(const std::string& topic, const std::string& payload) {
+    ObservabilityContext obs_ctx;
+    obs_ctx.captureReceiveTime();
     received_count_++;
 
     std::string_view camera_id_view = extractCameraId(topic);
     if (camera_id_view.empty()) {
         LOG_WARN("Failed to extract camera_id from topic: {}", topic);
         rejected_count_++;
+        obs_ctx.abort(kReasonRejectedParse);
         return;
     }
     std::string camera_id{camera_id_view}; // Single allocation for valid IDs only
+    obs_ctx.camera_id = camera_id;
 
     LOG_DEBUG_ENTRY(LogEntry("Received detection")
                         .component("message_handler")
@@ -167,8 +215,11 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                            .error({.type = "parse_error",
                                    .message = "Invalid JSON or schema validation failed"}));
         rejected_count_++;
+        obs_ctx.abort(kReasonRejectedSchema);
         return;
     }
+
+    obs_ctx.captureParseTime();
 
     // Log parsed message details (only compute total_detections if debug logging is enabled)
     if (Logger::should_log_debug()) {
@@ -192,6 +243,7 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                 .domain({.camera_id = camera_id})
                 .error({.type = "unknown_camera", .message = "Camera not in scene registry"}));
         rejected_count_++;
+        obs_ctx.abort(kReasonRejectedUnknownTopic);
         return;
     }
 
@@ -201,6 +253,7 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         LOG_WARN("Failed to parse timestamp '{}' from camera '{}', dropping", message->timestamp,
                  camera_id);
         rejected_count_++;
+        obs_ctx.abort(kReasonRejectedParse);
         return;
     }
 
@@ -212,8 +265,11 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                 .domain({.camera_id = camera_id, .scene_id = scene->uid})
                 .error({.type = "fell_behind", .message = "Message timestamp exceeds max_lag_s"}));
         lagged_count_++;
+        obs_ctx.abort(kReasonRejectedLag);
         return;
     }
+
+    obs_ctx.scene_id = scene->uid;
 
     // Push detections to buffer for each category
     auto receive_time = std::chrono::steady_clock::now();
@@ -237,14 +293,15 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         } // Lock released before expensive operations
 
         TrackingScope scope{scene->uid, category};
-
         DetectionBatch batch;
         batch.camera_id = camera_id;
         batch.receive_time = receive_time;
         batch.timestamp_iso = message->timestamp;
         batch.timestamp = *msg_time;
         batch.detections = std::move(detections);
-
+        batch.obs_ctx = obs_ctx; // Copy obs_ctx to allow reuse in next loop iteration
+        batch.obs_ctx.captureBufferTime();
+        batch.obs_ctx.category = category;
         buffer_.add(scope, camera_id, std::move(batch));
         buffered_count_++;
 
@@ -254,6 +311,11 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                 .domain(
                     {.camera_id = camera_id, .scene_id = scene->uid, .object_category = category}));
     }
+
+    // Record message accepted
+    Metrics::inc_messages({{kAttrScene, std::string(scene->uid)},
+                           {kAttrCameraId, camera_id},
+                           {kAttrReason, kReasonAccepted}});
 }
 
 std::string_view MessageHandler::extractCameraId(const std::string& topic) {
