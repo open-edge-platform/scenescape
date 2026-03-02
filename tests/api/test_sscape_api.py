@@ -32,7 +32,7 @@ logger.info(
   LOG_FILE)
 
 # Setup Base HTTP Client
-API_TOKEN = os.environ.get("API_TOKEN", "d33db8219e9949b6b6e3c17c58e6b8c2ab615842")
+API_TOKEN = os.environ.get("API_TOKEN")
 BASE_URL = os.environ.get("API_BASE_URL", "https://localhost")
 
 http_client = RESTClient(url=BASE_URL, token=API_TOKEN, verify_ssl=False)
