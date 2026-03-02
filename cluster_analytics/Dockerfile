@@ -4,7 +4,7 @@
 FROM scenescape-common-base AS scenescape-cluster-analytics-builder
 
 # -------------- Cluster Analytics Runtime Stage --------------
-FROM python:3.11-slim-bookworm AS scenescape-cluster-analytics-runtime
+FROM python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d AS scenescape-cluster-analytics-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Cluster Analytics Service"
