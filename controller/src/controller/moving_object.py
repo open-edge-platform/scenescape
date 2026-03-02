@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
@@ -17,6 +17,7 @@ from scipy.spatial.transform import Rotation
 from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2
 from scene_common.transform import normalize, rotationToTarget
+from scene_common import log
 
 warnings.simplefilter('ignore', np.RankWarning)
 
@@ -61,7 +62,7 @@ class Vector:
 class MovingObject:
   ## Fields that are specific to a single detection:
   # 'tracking_radius', 'camera', 'boundingBox', 'boundingBoxPixels',
-  # 'confidence', 'oid', 'reidVector', 'visibility'
+  # 'confidence', 'oid', 'reid', 'visibility'
 
   ## Fields that really are shared across the chain:
   # 'gid', 'frameCount', 'velocity', 'intersected',
@@ -107,35 +108,82 @@ class MovingObject:
     self.location = None
     self.rotation = np.array([0, 0, 0, 1]).tolist()
     self.intersected = False
-    self.reidVector = None
-    reid = self.info.get('reid', None)
-    if reid is not None:
-      self._decodeReIDVector(reid)
+    self.reid = {}  # Initialize reid as empty dict
+    self.metadata = {}  # Initialize metadata as empty dict
+    # Extract reid from metadata if present and preserve metadata attribute
+    metadata_from_info = self.info.get('metadata', {})
+    if metadata_from_info and isinstance(metadata_from_info, dict):
+      self.metadata = metadata_from_info  # Store metadata on the object
+      reid = metadata_from_info.get('reid', None)
+      if reid is not None:
+        self._decodeReIDVector(reid)
+      self.info.pop('metadata', None)  # Remove metadata from info to avoid duplication
+    else:
+      log.debug(f"MovingObject.__init__: No metadata in info dict")
     return
 
   def _decodeReIDVector(self, reid):
+    """
+    Decode reid embedding from either the new dict format or legacy formats.
+    New format: dict with 'embedding_vector' (base64 or list) and 'model_name'
+    Legacy format: base64-encoded string or direct list of floats
+
+    @param  reid  The reid data in one of the supported formats
+    """
     try:
-      vector = base64.b64decode(reid)
-      self.reidVector = np.array(struct.unpack("256f", vector)).reshape(1, -1)
-      self.info.pop('reid')
-    except TypeError:
-      if type(reid) == list:
-        self.reidVector = reid
+      # Handle new format: dict with embedding_vector and model_name
+      if isinstance(reid, dict) and 'embedding_vector' in reid:
+        embedding_data = reid['embedding_vector']
+        if 'model_name' in reid:
+          self.reid['model_name'] = reid['model_name']
+      else:
+        embedding_data = reid
+
+      # Process the embedding data
+      if isinstance(embedding_data, str):
+        # Base64-encoded string format
+        vector = base64.b64decode(embedding_data)
+        self.reid['embedding_vector'] = np.array(struct.unpack("256f", vector)).reshape(1, -1)
+      elif isinstance(embedding_data, list):
+        # Direct list format
+        self.reid['embedding_vector'] = embedding_data
+      else:
+        # Unknown format, leave as None
+        self.reid['embedding_vector'] = None
+
+      # Clean up info dict
+      self.info.pop('reid', None)
+    except (TypeError, ValueError) as e:
+      self.reid['embedding_vector'] = None
     return
 
   def setPersistentAttributes(self, info, persist_attributes):
+    """
+    Extract and store persistent attributes from the detection info.
+    Stores the complete metadata structure including value, model_name, and confidence.
+
+    @param  info                The object info dictionary containing attributes
+    @param  persist_attributes  List of attributes to persist (may include sub-attributes)
+    """
     if self.chain_data is None:
       self.chain_data = ChainData(regions={}, publishedLocations=[], sensors={}, persist={})
     for attribute in persist_attributes:
       attr, sub_attrs = (list(attribute.items())[0] if isinstance(attribute, dict) else (attribute, None))
       if attr in info:
-        result = info[attr][0] if isinstance(info[attr], list) and info[attr] else info[attr]
+        # Handle both new metadata format (dict) and legacy format (list/scalar)
+        if isinstance(info[attr], list) and info[attr]:
+          result = info[attr][0]
+        else:
+          result = info[attr]
+
         self.chain_data.persist.setdefault(attr, {})
         if sub_attrs:
+          # For sub-attributes, extract from the result dict if it has that structure
           for sub_attr in sub_attrs.split(','):
-            if sub_attr in result:
+            if isinstance(result, dict) and sub_attr in result:
               self.chain_data.persist[attr][sub_attr] = result[sub_attr]
         else:
+          # Store the entire result (which may be a dict with value, model_name, confidence)
           self.chain_data.persist[attr] = result
     return
 
@@ -313,7 +361,7 @@ class MovingObject:
       'bounding_box': self.boundingBox.asDict,
       'gid': self.gid,
       'frame_count': self.frameCount,
-      'reid': self.reidVector,
+      'reid': self.reid,
       'first_seen': self.first_seen,
       'location': [{'point': (v.point.x, v.point.y, v.point.z),
                     'timestamp': v.when,
@@ -339,10 +387,10 @@ class MovingObject:
     self.boundingBox = Rectangle(info['bounding_box'])
     self.gid = info['gid']
     self.frameCount = info['frame_count']
-    self.reidVector = info['reid']
-    if self.reidVector is not None:
-      vector = base64.b64decode(self.reidVector)
-      self.reidVector = np.array(struct.unpack("256f", vector)).reshape(1, -1)
+    self.reid = info['reid']
+    if self.reid is not None and 'embedding_vector' in self.reid:
+      vector = base64.b64decode(self.reid['embedding_vector'])
+      self.reid['embedding_vector'] = np.array(struct.unpack("256f", vector)).reshape(1, -1)
     self.first_seen = info['first_seen']
     self.location = [Chronoloc(Point(v['point']), v['timestamp'], Rectangle(v['bounding_box']))
                      for v in info['location']]
