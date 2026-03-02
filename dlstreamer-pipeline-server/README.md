@@ -2,6 +2,7 @@
 
 - [Getting Started](#getting-started)
 - [Running on GPU](#running-on-gpu)
+- [Running on NPU](#running-on-npu)
 - [Enable Re-ID](#enable-reidentification)
 - [Creating a New Pipeline](#creating-a-new-pipeline)
 - [Using Authenticated MQTT Broker](#using-authenticated-mqtt-broker)
@@ -71,6 +72,44 @@ To facilitate GPU acceleration, sample configuration files are provided for the 
      file: ./dlstreamer-pipeline-server/retail-config-gpu.json
    queuing-config:
      file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
+   ```
+
+## Running on NPU
+
+Running inference on NPU is recommended when an Intel® NPU is available on the system. This offloads the inference workload to the NPU, freeing up CPU and GPU resources for other SceneScape services.
+
+To facilitate NPU acceleration, sample configuration files are provided for the out-of-box **Queuing** and **Retail** scenes with the following pipeline optimizations:
+
+- Inference offloaded to NPU
+
+NPU performance metrics can be monitored using [NPU System Monitoring Tool](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/tools/npu-monitor-tool)
+
+### Configuration
+
+1. Expose the NPU accelerator device directory to the docker containers running visual pipelines. In your `docker-compose.yml` uncomment the following lines:
+
+   ```yaml
+   retail-video:
+     devices:
+       - "/dev/accel:/dev/accel"
+   ```
+
+   ```yaml
+   queuing-video:
+     devices:
+       - "/dev/accel:/dev/accel"
+   ```
+
+2. Use the predefined configuration files in your `docker-compose.yml` to enable NPU acceleration for out-of-box scenes:
+   - [queuing-config-npu.json](./queuing-config-npu.json) - NPU configuration for Queuing scene
+   - [retail-config-npu.json](./retail-config-npu.json) - NPU configuration for Retail scene
+
+   ```yaml
+   configs:
+   retail-config:
+     file: ./dlstreamer-pipeline-server/retail-config-npu.json
+   queuing-config:
+     file: ./dlstreamer-pipeline-server/queuing-config-npu.json
    ```
 
 ## Enable Reidentification
