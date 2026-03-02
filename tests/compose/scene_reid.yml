@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 networks:
@@ -7,10 +7,6 @@ networks:
 secrets:
   root-cert:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
-  vdms-client-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
-  vdms-client-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
@@ -40,13 +36,10 @@ services:
       - ./:/workspace
       - ./${DBROOT}/media:/workspace/media
       - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
+      - ./controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
-      - source: vdms-client-key
-        target: certs/scenescape-vdms-c.key
-      - source: vdms-client-cert
-        target: certs/scenescape-vdms-c.crt
       - django
       - controller.auth
     restart: on-failure

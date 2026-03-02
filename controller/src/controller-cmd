@@ -68,6 +68,8 @@ def build_argparser():
   script_path = os.path.abspath(__file__)
   parser.add_argument("--tracker_config_file", help="JSON file with tracker configuration for time-based parameters",
             default=os.path.join(os.path.dirname(script_path), "tracker-config.json"))
+  parser.add_argument("--reid_config_file", help="JSON file with Re-ID configuration for feature management and similarity settings",
+            default=os.path.join(os.path.dirname(script_path), "reid-config.json"))
   parser.add_argument("--schema_file", help="JSON file with metadata schema",
             default=os.path.join(os.path.dirname(script_path), "schema/metadata.schema.json"))
   parser.add_argument("--visibility_topic", help="Which topic to publish visibility on."
