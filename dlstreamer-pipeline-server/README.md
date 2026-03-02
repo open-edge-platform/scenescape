@@ -79,7 +79,6 @@ The following steps enable the above-mentioned optimizations for:
        file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
    ```
 
-<<<<<<< HEAD
 ### Manual GPU Device Selection (by exposing device to container)
 
 To enable SceneScape pipelines to run on a specific GPU device of your choice (e.g., on a discrete GPU, in case an integrated GPU also exists), follow these steps. These instructions are similar to the "Automatic GPU Device Selection" section, with the key difference being the selection of a specific device (e.g., `renderD129`).
@@ -116,8 +115,8 @@ To enable SceneScape pipelines to run on a specific GPU device of your choice (e
 
 By following these steps, only the selected GPU device will be available in the container. As a result, all DLStreamer-Pipeline-Server pipelines running in the container will leverage the GPU device of your choice.
 
-> **Note**: Such a configuration does not allow running two pipelines in the same container on two different GPU devices.
-=======
+> **Note**: This setup cannot run two pipelines in the same container on different GPU devices. To work around that limitation, configure each pipeline as described in the [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html), but be aware that doing so disables cross-stream batching and may deliver lower throughput.
+
 ## Running on NPU
 
 Running inference on NPU is recommended when an Intel® NPU is available on the system. This offloads the inference workload to the NPU, freeing up CPU and GPU resources for other SceneScape services.
@@ -155,7 +154,6 @@ NPU performance metrics can be monitored using [NPU System Monitoring Tool](http
    queuing-config:
      file: ./dlstreamer-pipeline-server/queuing-config-npu.json
    ```
->>>>>>> main
 
 ## Enable Reidentification
 
