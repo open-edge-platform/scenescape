@@ -212,7 +212,7 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 ### Limitations
 
 - Only serial chaining of detectors with classification or re-identification models is supported in the **Camera Chain** field, where the ROI from the detection model serves as input to the classification or re-identification model in the chain. Serial chaining of two or more detectors is not supported (e.g. vehicle detector → license plate detector → OCR). Parallel inference on multiple models is not yet supported.
-- Distortion correction is temporarily disabled due to a bug in DL Streamer-Pipeline-Server.
+- Distortion correction is temporarily disabled due to a bug in DL Streamer Pipeline Server.
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
 - Cross-stream batching is not supported since in Intel® SceneScape Kubernetes deployment each camera pipeline is running in a separate Pod.
