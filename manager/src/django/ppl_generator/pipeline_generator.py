@@ -57,7 +57,7 @@ class PipelineGenerator:
 
     # Decoder selection
     if decode_device == "CPU":
-      self.decode = ["decodebin force-sw-decoders=true", "videoconvert"]
+      self.decode = ["decodebin force-sw-decoders=true", "videoconvert", "video/x-raw,format=BGR"]
     else:  # AUTO, GPU
       self.decode = ["decodebin3"]
 
@@ -88,9 +88,7 @@ class PipelineGenerator:
     """
     if source.startswith('rtsp://'):
       return [
-        f'rtspsrc location={source} latency=200 name=source',
-        'rtph264depay',
-        'h264parse']
+        f'rtspsrc location={source} latency=200 name=source']
     elif source.startswith('file://'):
       filepath = Path(video_volume_path) / Path(source[len('file://'):])
       return [
