@@ -283,10 +283,10 @@ services:
       - "8080:8080"
     # Uncomment these lines to use GPU acceleration
     # devices:
-    #  - "/dev/dri:/dev/dri"
+    #   - "/dev/dri:/dev/dri"
     # Uncomment these lines to use NPU acceleration
     # devices:
-    #  - "/dev/accel:/dev/accel"
+    #   - "/dev/accel:/dev/accel"
     group_add:
       - "109"
       - "110"
@@ -349,10 +349,10 @@ services:
       - "8081:8080"
     # Uncomment these lines to use GPU acceleration
     # devices:
-    #  - "/dev/dri:/dev/dri"
+    #   - "/dev/dri:/dev/dri"
     # Uncomment these lines to use NPU acceleration
     # devices:
-    #  - "/dev/accel:/dev/accel"
+    #   - "/dev/accel:/dev/accel"
     group_add:
       - "109"
       - "110"
