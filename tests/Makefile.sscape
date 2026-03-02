@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 SSCAPE_TESTS_PATH=tests/sscape_tests
@@ -77,6 +77,12 @@ robot-vision-unit:
 
 scene-unit: # NEX-T10451
 	$(call unit-recipe, scene_pytest, $(IMAGE)-controller-test)
+
+uuid-manager-unit: # NEX-T19884
+	$(call unit-recipe, uuid_manager, $(IMAGE)-controller-test)
+
+vdms-adapter-unit: # NEX-T19885
+	$(call unit-recipe, vdms_adapter, $(IMAGE)-controller-test)
 
 scenescape-unit: # NEX-T10450
 	$(call unit-recipe, scenescape, $(IMAGE)-manager-test)
