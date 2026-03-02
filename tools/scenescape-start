@@ -131,7 +131,7 @@ if [[ "${IMAGE}" == *"scenescape-controller-test"* ]] ; then
 fi
 if [[ "${IMAGE}" == *"scenescape-manager-test"* ]] ; then
     echo "Using manager-test image, setting user to superuser"
-    DCKARGS+=(-u root)
+    DCKARGS+=(-u root --userns host -e DO_SHELL=super)
 fi
 docker run ${DCKARGS[@]} -v "${HOSTDIR}":${APPDIR} \
         -e http_proxy -e https_proxy -e no_proxy -e PROJECT="${DCKPROJECT}"\
