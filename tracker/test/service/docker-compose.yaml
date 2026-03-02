@@ -27,7 +27,7 @@ services:
 
   mock-manager:
     profiles: ["api"]
-    image: python:3.12-slim
+    image: python:3.14-slim
     command: ["python", "/app/mock_manager.py"]
     configs:
       - source: mock-manager-script
