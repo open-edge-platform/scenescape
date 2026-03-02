@@ -41,15 +41,20 @@ To deploy the scene controller service, refer to the [Get Started](./get-started
 
 `--tracker_config_file`: Path to the JSON file containing the tracker configuration. This file is used to enable and manage time-based parameters for the tracker.
 
+`--reid_config_file`: Path to the JSON file containing Re-ID (Re-Identification) configuration. This file controls Re-ID specific settings such as stale feature timeout, feature accumulation thresholds, and similarity scoring. See [Extended Re-ID](./Extended-ReID.md) for details.
+
 `--schema_file`: Specifies the path to the JSON file that contains the metadata schema. By default, it uses [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json). This schema outlines the structure and format of the messages processed by the service.
 
 `--visibility_topic`: Specifies the topic for publishing visibility information, which includes the visibility of objects in cameras. Options are `unregulated`, `regulated`, or `none`.
 
 `--analytics-only`: Enables analytics-only mode (experimental feature). In this mode, the Scene Controller consumes tracked objects from a separate Tracker service via MQTT instead of performing tracking internally. The tracker is not initialized, and camera/scene data processing is skipped. Child scenes are not supported. This mode can also be enabled via the `CONTROLLER_ENABLE_ANALYTICS_ONLY` environment variable set to `true`.
 
-### Tracker Configuration
+### Configuration
 
-For details see [How to Configure the Tracker](./how-to-configure-tracker.md).
+For detailed configuration guidance:
+
+- Tracker configuration: See [How to Configure the Tracker](./how-to-configure-tracker.md)
+- Re-ID configuration: See [Extended Re-ID](./Extended-ReID.md)
 
 ## Architecture
 
@@ -70,6 +75,7 @@ _Figure 2: Scene Controller Sequence diagram_
 - [Get Started Guide](./get-started.md)
 - [How to Configure the Tracker](./how-to-configure-tracker.md)
 - [API Reference](./api-reference.md)
+- [Extended Re-ID](Extended-ReID.md)
 
 <!--hide_directive
 :::{toctree}
@@ -78,6 +84,7 @@ _Figure 2: Scene Controller Sequence diagram_
 get-started.md
 how-to-configure-tracker.md
 api-reference.md
+Extended-ReID.md
 
 :::
 hide_directive-->
