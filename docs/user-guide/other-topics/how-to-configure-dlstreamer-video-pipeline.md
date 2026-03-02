@@ -41,7 +41,7 @@ By default, only a limited number of models is downloaded during helm chart inst
 - **Device specification**: Optionally specify the inference device using `<model name>=<device>` syntax:
   - Use `GPU` (e.g., `retail=GPU`) for systems with a single GPU device or for **automatic GPU device selection**.
   - Use [OpenVINO naming convention](https://docs.openvino.ai/2026/openvino-workflow/running-inference/inference-devices-and-modes/gpu-device.html#device-naming-convention) to **select a specific GPU device**. Only Intel GPU devices are supported.
-  - Use `NPU` (e.g., `retail=NPU`) to run the inference on NPU (Neural Processing Unit)
+  - Use `NPU` (e.g., `retail=NPU`) to run the inference on NPU (Neural Processing Unit).
   - **Default device**: If no device is specified, CPU is used as the default.
 
 > **Note**: On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other Intel® SceneScape services can fully benefit from available CPU cores. GPU inference typically provides better performance for complex models.
