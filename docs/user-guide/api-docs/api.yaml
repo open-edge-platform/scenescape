@@ -1156,13 +1156,6 @@ definitions:
         example: [1, 1, 1]
         items:
           type: number
-      tracker_config:
-        type: array
-        maxLength: 3
-        minLength: 3
-        example: [1, 1, 1]
-        items:
-          type: number
 
   Camera:
     allOf:

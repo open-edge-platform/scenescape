@@ -3,6 +3,8 @@
 
 #include "message_handler.hpp"
 #include "logger.hpp"
+#include "metrics.hpp"
+#include "observability_context.hpp"
 #include "time_utils.hpp"
 #include "topic_utils.hpp"
 
@@ -186,15 +188,19 @@ void MessageHandler::handleDatabaseUpdateMessage(const std::string& topic,
 }
 
 void MessageHandler::handleCameraMessage(const std::string& topic, const std::string& payload) {
+    ObservabilityContext obs_ctx;
+    obs_ctx.captureReceiveTime();
     received_count_++;
 
     std::string_view camera_id_view = extractCameraId(topic);
     if (camera_id_view.empty()) {
         LOG_WARN("Failed to extract camera_id from topic: {}", topic);
         rejected_count_++;
+        obs_ctx.abort(kReasonRejectedParse);
         return;
     }
     std::string camera_id{camera_id_view}; // Single allocation for valid IDs only
+    obs_ctx.camera_id = camera_id;
 
     LOG_DEBUG_ENTRY(LogEntry("Received detection")
                         .component("message_handler")
@@ -209,8 +215,11 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                            .error({.type = "parse_error",
                                    .message = "Invalid JSON or schema validation failed"}));
         rejected_count_++;
+        obs_ctx.abort(kReasonRejectedSchema);
         return;
     }
+
+    obs_ctx.captureParseTime();
 
     // Log parsed message details (only compute total_detections if debug logging is enabled)
     if (Logger::should_log_debug()) {
@@ -234,6 +243,7 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                 .domain({.camera_id = camera_id})
                 .error({.type = "unknown_camera", .message = "Camera not in scene registry"}));
         rejected_count_++;
+        obs_ctx.abort(kReasonRejectedUnknownTopic);
         return;
     }
 
@@ -243,6 +253,7 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         LOG_WARN("Failed to parse timestamp '{}' from camera '{}', dropping", message->timestamp,
                  camera_id);
         rejected_count_++;
+        obs_ctx.abort(kReasonRejectedParse);
         return;
     }
 
@@ -254,8 +265,11 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                 .domain({.camera_id = camera_id, .scene_id = scene->uid})
                 .error({.type = "fell_behind", .message = "Message timestamp exceeds max_lag_s"}));
         lagged_count_++;
+        obs_ctx.abort(kReasonRejectedLag);
         return;
     }
+
+    obs_ctx.scene_id = scene->uid;
 
     // Push detections to buffer for each category
     auto receive_time = std::chrono::steady_clock::now();
@@ -279,14 +293,15 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         } // Lock released before expensive operations
 
         TrackingScope scope{scene->uid, category};
-
         DetectionBatch batch;
         batch.camera_id = camera_id;
         batch.receive_time = receive_time;
         batch.timestamp_iso = message->timestamp;
         batch.timestamp = *msg_time;
         batch.detections = std::move(detections);
-
+        batch.obs_ctx = obs_ctx; // Copy obs_ctx to allow reuse in next loop iteration
+        batch.obs_ctx.captureBufferTime();
+        batch.obs_ctx.category = category;
         buffer_.add(scope, camera_id, std::move(batch));
         buffered_count_++;
 
@@ -296,6 +311,11 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                 .domain(
                     {.camera_id = camera_id, .scene_id = scene->uid, .object_category = category}));
     }
+
+    // Record message accepted
+    Metrics::inc_messages({{kAttrScene, std::string(scene->uid)},
+                           {kAttrCameraId, camera_id},
+                           {kAttrReason, kReasonAccepted}});
 }
 
 std::string_view MessageHandler::extractCameraId(const std::string& topic) {
