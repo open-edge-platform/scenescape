@@ -14,14 +14,6 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-web.crt
   web-key:
     file: ${SECRETSDIR}/certs/scenescape-web.key
-  vdms-client-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
-  vdms-client-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
-  vdms-server-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-s.crt
-  vdms-server-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-s.key
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
@@ -163,39 +155,26 @@ services:
     configs:
       - source: tracker-config
         target: /home/scenescape/SceneScape/tracker-config.json
+      - source: reid-config
+        target: /home/scenescape/SceneScape/reid-config.json
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
       - vol-sample-data:/home/scenescape/SceneScape/sample_data
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
-      - source: vdms-client-key
-        target: certs/scenescape-vdms-c.key
-      - source: vdms-client-cert
-        target: certs/scenescape-vdms-c.crt
       - django
       - controller.auth
     restart: always
     pids_limit: 1000
 
   # vdms:
-  #   image: intellabs/vdms:v2.11.0
+  #   image: intellabs/vdms:v2.12.0
   #   init: true
   #   networks:
   #     scenescape:
   #       aliases:
   #         - vdms.scenescape.intel.com
-  #   environment:
-  #     - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
-  #     - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
-  #     - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
-  #   secrets:
-  #     - source: root-cert
-  #       target: certs/scenescape-ca.pem
-  #     - source: vdms-server-cert
-  #       target: certs/scenescape-vdms-s.crt
-  #     - source: vdms-server-key
-  #       target: certs/scenescape-vdms-s.key
   #   restart: always
 
   mediaserver:
@@ -375,6 +354,8 @@ configs:
     file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
   tracker-config:
     file: ./controller/config/tracker-config.json
+  reid-config:
+    file: ./controller/config/reid-config.json
   perf-config:
     file: ./dlstreamer-pipeline-server/perf-config.json
 
