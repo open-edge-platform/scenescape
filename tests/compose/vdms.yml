@@ -1,16 +1,8 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 networks:
   scenescape-test:
-
-secrets:
-  root-cert:
-    file: ./manager/secrets/certs/scenescape-ca.pem
-  vdms-server-cert:
-    file: ./manager/secrets/certs/scenescape-vdms-s.crt
-  vdms-server-key:
-    file: ./manager/secrets/certs/scenescape-vdms-s.key
 
 services:
   vdms:
@@ -20,16 +12,5 @@ services:
       scenescape-test:
         aliases:
           - vdms.scenescape.intel.com
-    environment:
-      - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
-      - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
-      - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
-    secrets:
-      - source: root-cert
-        target: certs/scenescape-ca.pem
-      - source: vdms-server-cert
-        target: certs/scenescape-vdms-s.crt
-      - source: vdms-server-key
-        target: certs/scenescape-vdms-s.key
     restart: always
     pids_limit: 1000

@@ -877,6 +877,46 @@ def credentials(request):
     }
 ```
 
+### Unit Test conftest.py with Zephyr Tracking
+
+**All unit test conftest.py files MUST include TEST_NAME and session hooks** for CI/Zephyr tracking:
+
+```python
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+"""Pytest configuration for [module] unit tests."""
+
+import pytest
+from unittest.mock import Mock, MagicMock
+import tests.common_test_utils as common
+
+TEST_NAME = "NEX-T#####"  # Always assign a Zephyr test ID
+
+@pytest.fixture
+def mock_database():
+    """Mock database for unit tests"""
+    mock = MagicMock()
+    return mock
+
+def pytest_sessionstart():
+    """! Executes at the beginning of the test session. """
+    print(f"Executing: {TEST_NAME}")
+    return
+
+def pytest_sessionfinish(exitstatus):
+    """! Executes at the end of the test session. """
+    common.record_test_result(TEST_NAME, exitstatus)
+    return
+```
+
+**Requirements**:
+
+- `TEST_NAME` must be assigned a valid Zephyr test ID (format: `NEX-T#####`)
+- `pytest_sessionstart()` logs the test execution
+- `pytest_sessionfinish(exitstatus)` records the test result via `common.record_test_result()`
+- Import `tests.common_test_utils` to access the result recording function
+
 ## Test Data Management
 
 **Use fixtures for test data:**
