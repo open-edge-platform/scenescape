@@ -307,6 +307,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     return self._get(f"scene/{uid}", None)
+
   def updateScene(self, uid, data):
     """Updates scene with `uid`
 
@@ -327,6 +328,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     return self._delete(f"scene/{uid}")
+
   # Child Scene
   def createChildScene(self, data):
     """Creates a new child scene
@@ -387,6 +389,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     return self._update(f"camera/{uid}", data)
+
   def deleteCamera(self, uid):
     """Deletes camera with `uid`
 
@@ -526,6 +529,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     return self._get(f"tripwire/{uid}", None)
+
   def updateTripwire(self, uid, data):
     """Updates tripwire with `uid`
 
@@ -573,7 +577,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     return self._get(f"asset/{uid}", None)
-  
+
   def updateAsset(self, uid, data):
     """Updates asset with `uid`
 
@@ -626,7 +630,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     return self._create("user", data)
-  
+
   def getUser(self, username):
     """Gets user with `username`
 
