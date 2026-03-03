@@ -19,7 +19,7 @@ from scene_common.options import TYPE_1, TYPE_2
 from scene_common.transform import normalize, rotationToTarget
 from scene_common import log
 
-warnings.simplefilter('ignore', np.RankWarning)
+warnings.simplefilter('ignore', np.exceptions.RankWarning)
 
 APRILTAG_HOVER_DISTANCE = 0.5
 DEFAULT_EDGE_LENGTH = 1.0
