@@ -104,7 +104,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Scan Docker image with Trivy 🔍"
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@d9022baab8b32aa22ab07b53d9095351a334ef3b
         with:
           scan_target: "ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
           severity: "HIGH"
