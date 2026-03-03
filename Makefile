@@ -366,7 +366,7 @@ run_non_functional_tests: init-secrets .env
 	@echo "DONE ==> Running non-functional tests"
 
 .PHONY: run_metric_tests
-run_metric_tests: build-core init-secrets .env
+run_metric_tests: setup_tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running metric tests..."
 	$(MAKE) -C tests metric-tests -j $(NPROCS) SUPASS=$(SUPASS) -k || (echo "Metric tests failed" && exit 1)
