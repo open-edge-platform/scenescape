@@ -175,7 +175,7 @@ class PostInferenceDataPublish:
   def _convertToBgr(self, raw_frame, video_meta):
     video_format = video_meta.format.value_name
     return cv2.cvtColor(raw_frame, PostInferenceDataPublish.CONVERSION_MAP[video_format]) \
-           if video_format in PostInferenceDataPublish.CONVERSION_MAP else raw_frame
+           if video_format in PostInferenceDataPublish.CONVERSION_MAP else np.copy(raw_frame)
 
   def buildImgData(self, imgdatadict, gvaframe, annotate, original_image_base64=None):
     imgdatadict.update({
@@ -191,13 +191,13 @@ class PostInferenceDataPublish:
         if original_image is None:
           raise ValueError("Failed to decode original image from base64")
         image = original_image
-      except (ValueError, Exception) as e:
+      except (Exception) as e:
         print(f"Error using original image: {e}. Falling back to current frame.")
 
     if image is None:
       with gvaframe.data() as img:
         video_meta = gvaframe.video_meta()
-        image = np.copy(self._convertToBgr(img, video_meta))
+        image = self._convertToBgr(img, video_meta)
 
     if annotate:
       self.annotateObjects(image)
