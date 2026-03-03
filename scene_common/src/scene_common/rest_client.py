@@ -256,7 +256,7 @@ class RESTClient:
     """Private method to delete an object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
-    @param      api_prefix      API version prefix (default: '')
+    @param      api_prefix      API version prefix (default: 'api/v1')
     @return                     RESTResult with deleted object's uid on success,
                                 empty with `errors` set on failure
     """
