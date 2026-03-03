@@ -104,6 +104,17 @@ grep latency_tracer_pipeline /tmp/latency_tracer/trace.log | grep -oP 'frame_lat
 
 Please refer to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/dev_guide/latency_tracer.html) for more details on interpreting the latency tracer output.
 
+### Disabling latency tracer
+
+To disable the latency tracer, unset the environment variables `GST_DEBUG`, `GST_TRACERS`, and `GST_DEBUG_FILE` and comment out the volume mount in the [Docker Compose file](./docker-compose-ppl.yaml):
+
+```
+services:
+  video-pipeline:
+    volumes:
+    #  - "/tmp/latency_tracer:/tmp"
+```
+
 ## Troubleshooting
 
 It is assumed that the docker models volume is created with the default name `scenescape_vol-models`. It may be different if the user explicitly sets the `COMPOSE_PROJECT_NAME` variable. If the volume is not found, please check which name it was created with.
