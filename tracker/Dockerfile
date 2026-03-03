@@ -38,8 +38,7 @@ RUN conan profile detect --force \
         --build=missing \
         -s build_type=${BUILD_TYPE} \
         -c tools.cmake.cmaketoolchain:generator=Ninja \
-        -c tools.system.package_manager:mode=install \
-        -v warning
+        -c tools.system.package_manager:mode=install
 
 # Copy only the sources needed for the build
 COPY version.txt .
