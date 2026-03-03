@@ -182,31 +182,29 @@ class PostInferenceDataPublish:
       'timestamp': self.frame_level_data['timestamp'],
       'id': self.cameraid
     })
-    image = original_image_base64
+    image = None
 
-    if image is None:
-      with gvaframe.data() as img:
-        video_meta = gvaframe.video_meta()
-        image = np.copy(self._convertToBgr(img, video_meta))
-    else:
+    if original_image_base64:
       try:
-        decoded_image = base64.b64decode(image)
+        decoded_image = base64.b64decode(original_image_base64)
         original_image = cv2.imdecode(np.frombuffer(decoded_image, np.uint8), cv2.IMREAD_COLOR)
         if original_image is None:
           raise ValueError("Failed to decode original image from base64")
         image = original_image
       except (ValueError, Exception) as e:
         print(f"Error using original image: {e}. Falling back to current frame.")
-        with gvaframe.data() as img:
-          video_meta = gvaframe.video_meta()
-          image = np.copy(self._convertToBgr(img, video_meta))
+
+    if image is None:
+      with gvaframe.data() as img:
+        video_meta = gvaframe.video_meta()
+        image = np.copy(self._convertToBgr(img, video_meta))
+
     if annotate:
       self.annotateObjects(image)
       self.annotateFPS(image, self.frame_level_data['rate'])
     _, jpeg = cv2.imencode(".jpg", image)
     jpeg = base64.b64encode(jpeg).decode('utf-8')
     imgdatadict['image'] = jpeg
-
     return
 
   def buildObjData(self, gvadata):
