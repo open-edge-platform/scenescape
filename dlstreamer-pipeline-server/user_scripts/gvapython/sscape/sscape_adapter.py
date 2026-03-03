@@ -173,9 +173,9 @@ class PostInferenceDataPublish:
     return
 
   def _convertToBgr(self, raw_frame, video_meta):
-    format = video_meta.format.value_name
-    return cv2.cvtColor(raw_frame, PostInferenceDataPublish.CONVERSION_MAP[format]) \
-           if format in PostInferenceDataPublish.CONVERSION_MAP else raw_frame
+    video_format = video_meta.format.value_name
+    return cv2.cvtColor(raw_frame, PostInferenceDataPublish.CONVERSION_MAP[video_format]) \
+           if video_format in PostInferenceDataPublish.CONVERSION_MAP else raw_frame
 
   def buildImgData(self, imgdatadict, gvaframe, annotate, original_image_base64=None):
     imgdatadict.update({
