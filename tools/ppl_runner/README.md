@@ -88,7 +88,7 @@ services:
       - "/tmp/latency_tracer:/tmp"
 ```
 
-Start the pipeline and wait a couple of minutes until the pipeline stabilizes and enough tracing data is gathered.
+Start the pipeline using the `rtsp` profile and wait a couple of minutes until the pipeline stabilizes and enough tracing data is gathered. An RTSP source is required for reliable latency results, as file video sources introduce frame buffering that makes the measurements unreliable.
 
 Use the following command to check how many data points are available; at least 1500 are recommended before proceeding.
 
