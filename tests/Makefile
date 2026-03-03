@@ -95,8 +95,6 @@ broken-features:
 _broken-features: \
   calibrate-camera-3d-ui-2d-ui \
   visibility-regulated \
-  3d-scene-control-panel \
-  3d-camera-control-panel \
 
 broken-tests: \
   3d-ui-calibration-points \
@@ -225,6 +223,8 @@ _ui-tests: \
   superuser-crud-operations \
   upload-3d-glb-file \
   view-3d-glb-file \
+  3d-scene-control-panel \
+  3d-camera-control-panel \
 
 unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
