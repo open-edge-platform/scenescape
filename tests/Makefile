@@ -104,8 +104,6 @@ broken-tests: \
   scenes-summary-api \
   reid-performance-degradation \
   auto-calibration-ui \
-  3d-scene-control-panel \
-  3d-camera-control-panel \
 
 randomly-failing-tests: \
   distance-msoce \
@@ -228,6 +226,8 @@ _ui-tests: \
   superuser-crud-operations \
   upload-3d-glb-file \
   view-3d-glb-file \
+  3d-scene-control-panel \
+  3d-camera-control-panel \
 
 unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
