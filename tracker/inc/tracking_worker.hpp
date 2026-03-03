@@ -121,13 +121,6 @@ private:
     void process_chunk(Chunk chunk);
 
     /**
-     * @brief Build a heartbeat chunk (empty camera_batches) for idle advancement.
-     *
-     * @return Chunk with scope set but empty camera_batches
-     */
-    Chunk build_heartbeat_chunk() const;
-
-    /**
      * @brief Run Hungarian matching, Kalman update, and ID conversion.
      *
      * Takes already-transformed world-coordinate detections, runs

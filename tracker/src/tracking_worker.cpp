@@ -124,6 +124,8 @@ size_t TrackingWorker::queue_depth() const {
 void TrackingWorker::run() {
     LOG_INFO("TrackingWorker started for scope {}/{}", scope_.scene_id, scope_.category);
 
+    auto last_real_chunk_time = std::chrono::steady_clock::now();
+
     while (true) {
         Chunk chunk;
         bool dequeued = false;
@@ -150,11 +152,15 @@ void TrackingWorker::run() {
                           scope_.category);
                 break;
             }
+            last_real_chunk_time = std::chrono::steady_clock::now();
             process_chunk(std::move(chunk));
         } else {
-            // No chunk arrived within the interval: run a heartbeat cycle to
-            // advance the tracker state so tracks are aged and pruned.
-            process_chunk(build_heartbeat_chunk());
+            auto idle = std::chrono::steady_clock::now() - last_real_chunk_time;
+            if (idle >= 2 * heartbeat_interval_) {
+                tracker_.track(std::vector<std::vector<rv::tracking::TrackedObject>>{},
+                               std::chrono::system_clock::now(),
+                               rv::tracking::DistanceType::Euclidean, kTrackingDistanceThreshold);
+            }
         }
     }
 
@@ -263,15 +269,6 @@ std::vector<Track> TrackingWorker::match_and_convert(
               tracks.size());
 
     return tracks;
-}
-
-Chunk TrackingWorker::build_heartbeat_chunk() const {
-    Chunk chunk;
-    chunk.scene_id = scope_.scene_id;
-    chunk.category = scope_.category;
-    chunk.chunk_time = std::chrono::steady_clock::now();
-
-    return chunk;
 }
 
 } // namespace tracker

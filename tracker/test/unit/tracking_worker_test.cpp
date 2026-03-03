@@ -471,44 +471,36 @@ TEST_F(TrackingWorkerTest, QueueFull_IncrementsDroppedCount) {
     block_cv.notify_all();
 }
 
-// Test that heartbeats are dispatched when no chunks arrive and invoke the tracker
-TEST_F(TrackingWorkerTest, Heartbeat_DispatchedWhileIdleAndPublishesEmptyTracks) {
-    // Use a fast FPS so heartbeat intervals are short (10ms) and the test is quick.
+// Test that heartbeat cycles do not invoke the publish callback.
+// Heartbeats must only advance the tracker's internal Kalman state for track
+// aging/pruning; publishing Kalman predictions (no measurement update) would
+// cause map jitter.
+TEST_F(TrackingWorkerTest, Heartbeat_DoesNotPublishDuringIdleCycles) {
+    // Use a fast FPS so several heartbeat intervals elapse quickly.
     TrackingConfig fast_config = tracking_config_;
     fast_config.time_chunking_rate_fps = 100; // 10ms interval
 
-    std::mutex mtx;
-    std::condition_variable cv;
-    int publish_count = 0;
+    std::atomic<int> publish_count{0};
 
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
-                                   const std::string&, const std::vector<Track>&) {
-        std::lock_guard lock(mtx);
-        publish_count++;
-        cv.notify_one();
-    };
+                                   const std::string&,
+                                   const std::vector<Track>&) { publish_count++; };
 
     TrackingScope scope{"scene-1", "person"};
     TrackingWorker worker(scope, "Test Scene", 2, callback, fast_config, cameras_);
 
-    // Do NOT enqueue any chunk. Worker should fire heartbeats autonomously.
+    // Let ~15 heartbeat cycles elapse (150ms at 10ms interval) without enqueuing anything.
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
 
-    // Wait for at least 2 heartbeat callbacks (up to ~300ms = 30 × 10ms intervals)
-    {
-        std::unique_lock lock(mtx);
-        EXPECT_TRUE(cv.wait_for(lock, std::chrono::milliseconds(300),
-                                [&] { return publish_count >= 2; }))
-            << "Expected at least 2 heartbeat publishes within 300ms";
-    }
-
-    EXPECT_GE(publish_count, 2);
-    // No real chunks were enqueued or processed
+    // Heartbeats must not publish.
+    EXPECT_EQ(publish_count.load(), 0);
+    // No real chunks were enqueued or processed.
     EXPECT_EQ(worker.processed_count(), 0);
     EXPECT_EQ(worker.dropped_count(), 0);
 }
 
-// Test that heartbeat count resets cleanly and real chunks reset heartbeat cadence
-TEST_F(TrackingWorkerTest, Heartbeat_PausesWhenRealChunksArriveRapidly) {
+// Test that real chunks are still published normally when they arrive within the heartbeat interval.
+TEST_F(TrackingWorkerTest, Heartbeat_RealChunksPublishNormally) {
     // Use a slow heartbeat (10 FPS = 100ms interval) so real chunks dominate
     TrackingConfig slow_config = tracking_config_;
     slow_config.time_chunking_rate_fps = 10;
