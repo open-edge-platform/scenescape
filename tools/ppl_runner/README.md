@@ -70,7 +70,7 @@ If the pipeline is run with DLStreamer metadata dumps, the detections are dumped
 
 ## Measuring pipeline latency
 
-Create output folder and define the following variables in the shell:
+Create the output folder and define the following variables in the shell:
 
 ```
 mkdir -p /tmp/latency_tracer
@@ -90,7 +90,7 @@ services:
 
 Start the pipeline and wait a couple of minutes until the pipeline stabilizes and enough tracing data is gathered.
 
-Use the following command to check how many data points are available. It is recommended that the following command returns at least 1500.
+Use the following command to check how many data points are available; at least 1500 are recommended before proceeding.
 
 ```
 grep latency_tracer_pipeline /tmp/latency_tracer/trace.log | wc -l
@@ -101,6 +101,8 @@ Once the measurement data is available, the average and standard deviation of pi
 ```
 grep latency_tracer_pipeline /tmp/latency_tracer/trace.log | grep -oP 'frame_latency=\(double\)\K[0-9]+\.[0-9]+' | tail -n 1000 | awk '{sum+=$1; sumsq+=$1*$1; count++} END {avg=sum/count; std=sqrt(sumsq/count - avg*avg); printf "Count: %d\nAverage: %.6f\nStd Dev: %.6f\n", count, avg, std}'
 ```
+
+Please refer to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/dev_guide/latency_tracer.html) for more details on interpreting the latency tracer output.
 
 ## Troubleshooting
 
