@@ -116,8 +116,9 @@ services:
       #      - DETECTION_DEVICE=CPU
       #      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
-      #      - GST_DEBUG=1,gencamsrc:2
-      - GST_DEBUG=3
+      - GST_DEBUG=GST_TRACER:7
+      - GST_TRACERS=latency_tracer(flags=element+pipeline)
+      - GST_DEBUG_FILE=/tmp/trace.log
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
@@ -127,6 +128,7 @@ services:
       - source: queuing-config
         target: /home/pipeline-server/config.json
     volumes:
+      - "/tmp:/tmp"
       - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
