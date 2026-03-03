@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -10,21 +10,9 @@ from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
 from scene_common import log
 
-TEST_WAIT_TIME = 5 * 60  # 10 minutes in seconds
-
+TEST_WAIT_TIME = 150
 connected = False
-detection_count = {
-  "3bc091c7-e449-46a0-9540-29c499bca18c": {
-    "error": False,
-    "current": 0,
-    "maximum": 120
-  },
-  "302cf49a-97ec-402d-a324-c5077b280b7b": {
-    "error": False,
-    "current": 0,
-    "maximum": 60
-  }
-}
+detection_count = {}
 
 def on_connect(mqttc, data, flags, rc):
   """! Call back function for MQTT client on establishing a connection, which subscribes to the topic.
@@ -85,16 +73,16 @@ def check_unique_detections():
 
   return True
 
-def test_reid_unique_count(params, record_xml_attribute):
-  """! Tests the unique count for each scene when RE-ID is enabled.
-  @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @return   exit_code               Indicates test success or failure.
+def run_test(test_name, test_desc, scene_config, params):
+  """! Generic test runner for RE-ID unique count tests.
+  @param    test_name       The test identifier (e.g., "NEX-T10539").
+  @param    test_desc       The test description.
+  @param    scene_config    Dict of scene_id -> {error, current, maximum}.
+  @param    params          Dict of test parameters.
+  @return   exit_code       Indicates test success or failure.
   """
-  TEST_NAME = "NEX-T10539"
-  record_xml_attribute("name", TEST_NAME)
-  log.info("Executing: " + TEST_NAME )
-  log.info("Test the unique count for each scene when RE-ID is enabled.")
+  global detection_count
+  detection_count = scene_config
   exit_code = 1
 
   try:
@@ -103,7 +91,7 @@ def test_reid_unique_count(params, record_xml_attribute):
     res = rest.authenticate(params['user'], params['password'])
     assert res, (res.errors)
 
-    client.onConnect=on_connect
+    client.onConnect = on_connect
     for sc_uid in detection_count:
       client.addCallback(PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=sc_uid, thing_type="person"), on_scene_message)
     client.connect()
@@ -115,7 +103,33 @@ def test_reid_unique_count(params, record_xml_attribute):
     exit_code = 0
 
   finally:
-    common.record_test_result(TEST_NAME, exit_code)
+    common.record_test_result(test_name, exit_code)
 
   assert exit_code == 0
   return exit_code
+
+def test_reid_unique_count(params, record_xml_attribute):
+  """! Tests the unique count for each scene when RE-ID is enabled.
+  @param    params                  Dict of test parameters.
+  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @return   exit_code               Indicates test success or failure.
+  """
+  TEST_NAME = "NEX-T10539"
+  record_xml_attribute("name", TEST_NAME)
+  log.info("Executing: " + TEST_NAME)
+  log.info("Test the unique count for each scene when RE-ID is enabled.")
+
+  scene_config = {
+    "3bc091c7-e449-46a0-9540-29c499bca18c": {
+      "error": False,
+      "current": 0,
+      "maximum": 20
+    },
+    "302cf49a-97ec-402d-a324-c5077b280b7b": {
+      "error": False,
+      "current": 0,
+      "maximum": 10
+    }
+  }
+
+  return run_test(TEST_NAME, "Test the unique count for each scene when RE-ID is enabled.", scene_config, params)
