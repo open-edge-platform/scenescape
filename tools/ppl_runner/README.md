@@ -68,6 +68,34 @@ Additionally, an `mqtt_recorder` service is run by docker compose which dumps th
 
 If the pipeline is run with DLStreamer metadata dumps, the detections are dumped to a file with default location `tools/ppl_runner/output/dls_metadata.jsonl`. Detections from a single frame are described by a single line in this file.
 
+## Measuring pipeline latency
+
+Enable the following settings in the [Docker Compose file](./docker-compose-ppl.yaml):
+
+```
+    environment:
+      - GST_DEBUG=GST_TRACER:7
+      - GST_TRACERS=latency_tracer(flags=element+pipeline)
+      - GST_DEBUG_FILE=/tmp/trace.log
+    ...
+    volumes:
+      - "/tmp:/tmp"
+    ...
+```
+
+After running the pipeline, wait a couple of minutes until the pipeline stabilizes and enough tracing data is gathered.
+Use the following command to check how many data points are available. It is recommended that the following command returns at least 1000.
+
+```
+grep latency_tracer_pipeline /tmp/trace.log | wc -l
+```
+
+Once the measurement data is available, the average and standard deviation of pipeline latency can be calculated with the command:
+
+```
+grep latency_tracer_pipeline /tmp/trace.log | grep -oP 'frame_latency=\(double\)\K[0-9]+\.[0-9]+' | tail -n 500 | awk '{sum+=$1; sumsq+=$1*$1; count++} END {avg=sum/count; std=sqrt(sumsq/count - avg*avg); printf "Count: %d\nAverage: %.6f\nStd Dev: %.6f\n", count, avg, std}'
+```
+
 ## Troubleshooting
 
 It is assumed that the docker models volume is created with the default name `scenescape_vol-models`. It may be different if the user explicitly sets the `COMPOSE_PROJECT_NAME` variable. If the volume is not found, please check which name it was created with.
