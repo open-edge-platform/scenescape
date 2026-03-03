@@ -70,30 +70,36 @@ If the pipeline is run with DLStreamer metadata dumps, the detections are dumped
 
 ## Measuring pipeline latency
 
-Enable the following settings in the [Docker Compose file](./docker-compose-ppl.yaml):
+Create output folder and define the following variables in the shell:
 
 ```
-    environment:
-      - GST_DEBUG=GST_TRACER:7
-      - GST_TRACERS=latency_tracer(flags=element+pipeline)
-      - GST_DEBUG_FILE=/tmp/trace.log
-    ...
+mkdir -p /tmp/latency_tracer
+export GST_DEBUG=GST_TRACER:7
+export GST_TRACERS="latency_tracer(flags=element+pipeline)"
+export GST_DEBUG_FILE=/tmp/trace.log
+```
+
+Enable the following setting in the [Docker Compose file](./docker-compose-ppl.yaml):
+
+```
+services:
+  video-pipeline:
     volumes:
-      - "/tmp:/tmp"
-    ...
+      - "/tmp/latency_tracer:/tmp"
 ```
 
-After running the pipeline, wait a couple of minutes until the pipeline stabilizes and enough tracing data is gathered.
-Use the following command to check how many data points are available. It is recommended that the following command returns at least 1000.
+Start the pipeline and wait a couple of minutes until the pipeline stabilizes and enough tracing data is gathered.
+
+Use the following command to check how many data points are available. It is recommended that the following command returns at least 1500.
 
 ```
-grep latency_tracer_pipeline /tmp/trace.log | wc -l
+grep latency_tracer_pipeline /tmp/latency_tracer/trace.log | wc -l
 ```
 
 Once the measurement data is available, the average and standard deviation of pipeline latency can be calculated with the command:
 
 ```
-grep latency_tracer_pipeline /tmp/trace.log | grep -oP 'frame_latency=\(double\)\K[0-9]+\.[0-9]+' | tail -n 500 | awk '{sum+=$1; sumsq+=$1*$1; count++} END {avg=sum/count; std=sqrt(sumsq/count - avg*avg); printf "Count: %d\nAverage: %.6f\nStd Dev: %.6f\n", count, avg, std}'
+grep latency_tracer_pipeline /tmp/latency_tracer/trace.log | grep -oP 'frame_latency=\(double\)\K[0-9]+\.[0-9]+' | tail -n 1000 | awk '{sum+=$1; sumsq+=$1*$1; count++} END {avg=sum/count; std=sqrt(sumsq/count - avg*avg); printf "Count: %d\nAverage: %.6f\nStd Dev: %.6f\n", count, avg, std}'
 ```
 
 ## Troubleshooting
