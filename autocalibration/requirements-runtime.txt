@@ -3,10 +3,6 @@
 # This file is licensed under Apache 2.0 License.
 
 addict==2.4.0
-gdown==5.2.1
-h5py==3.15.1
-pycolmap==0.6.0
-tqdm==4.67.3
 kornia==0.8.2
 kubernetes==34.1.0
 numpy==2.2.6
