@@ -230,7 +230,7 @@ Post-process vector search results using trained ML model:
 - 50-200ms inference overhead per query (model inference cost)
 - Requires training data for reranker model
 - Model versioning complexity (old vs new ranking behavior)
-- Still doesn't solve schema flexibility (metadata schema still needed upfront)
+- Still does not solve schema flexibility (metadata schema still needed upfront)
 - Adds operational burden (model retraining, A/B testing)
 - Metadata filtering still happens at application level (slower than database)
 - Scalability limited by model inference throughput
