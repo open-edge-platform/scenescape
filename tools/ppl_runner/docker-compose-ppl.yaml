@@ -115,7 +115,7 @@ services:
       - RUN_MODE=EVA
       - GENICAM=Balluff
       # Use the GST_DEBUG, GST_TRACERS and GST_DEBUG_FILE environment variables to enable latency tracing
-      - GST_DEBUG=${GST_DEBUG:-3}
+      - GST_DEBUG=${GST_DEBUG:-2}
       - GST_TRACERS=${GST_TRACERS:-}
       - GST_DEBUG_FILE=${GST_DEBUG_FILE:-}
       - ADD_UTCTIME_TO_METADATA=true

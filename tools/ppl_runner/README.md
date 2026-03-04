@@ -79,6 +79,8 @@ export GST_TRACERS="latency_tracer(flags=element+pipeline)"
 export GST_DEBUG_FILE=/tmp/trace.log
 ```
 
+> **Note**: For guidance on GStreamer debug levels and general debugging of GStreamer applications, see the [Troubleshooting](#troubleshooting) section.
+
 Enable the following setting in the [Docker Compose file](./docker-compose-ppl.yaml):
 
 ```
@@ -102,7 +104,7 @@ Once the measurement data is available, the average and standard deviation of pi
 grep latency_tracer_pipeline /tmp/latency_tracer/trace.log | grep -oP 'frame_latency=\(double\)\K[0-9]+\.[0-9]+' | tail -n 1000 | awk '{sum+=$1; sumsq+=$1*$1; count++} END {avg=sum/count; std=sqrt(sumsq/count - avg*avg); printf "Count: %d\nAverage: %.6f\nStd Dev: %.6f\n", count, avg, std}'
 ```
 
-Please refer to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/dev_guide/latency_tracer.html) for more details on interpreting the latency tracer output.
+Please refer to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/dev_guide/latency_tracer.html) and [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer-pipeline-server/advanced-guide/detailed_usage/how-to-advanced/performance/processing-latency.html) for more details on interpreting the latency tracer output.
 
 ### Disabling latency tracer
 
@@ -116,5 +118,7 @@ services:
 ```
 
 ## Troubleshooting
+
+For information on GStreamer debug levels and debugging GStreamer applications, refer to the [GStreamer documentation](https://gstreamer.freedesktop.org/documentation/gstreamer/running.html?gi-language=python).
 
 It is assumed that the docker models volume is created with the default name `scenescape_vol-models`. It may be different if the user explicitly sets the `COMPOSE_PROJECT_NAME` variable. If the volume is not found, please check which name it was created with.
