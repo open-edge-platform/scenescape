@@ -18,10 +18,6 @@ from pathlib import Path
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# Repo / path setup
-# ---------------------------------------------------------------------------
-
 _REPO_ROOT = Path(__file__).parents[2]
 
 # Ensure PipelineRunner and scene_common are importable when running on the host.
@@ -35,16 +31,9 @@ for _mod in [k for k in sys.modules if k == "scene_common" or k.startswith("scen
 
 from pipeline_runner import PipelineRunner  # noqa: E402 - needs path setup above
 
-# ---------------------------------------------------------------------------
-# Device availability (read once at collection time)
-# ---------------------------------------------------------------------------
-
 _GPU_COUNT = int(os.environ.get("GPU_DEVICE_COUNT", "0"))
 _NPU_COUNT = int(os.environ.get("NPU_DEVICE_COUNT", "0"))
 
-# ---------------------------------------------------------------------------
-# Custom marks
-# ---------------------------------------------------------------------------
 
 def pytest_configure(config):
   """Register custom device-requirement marks."""
@@ -83,9 +72,6 @@ def pytest_collection_modifyitems(config, items):
       item.add_marker(skip_npu)
 
 
-# ---------------------------------------------------------------------------
-# Shared fixtures
-# ---------------------------------------------------------------------------
 
 _INTRINSICS = {
   "intrinsics_fx": "905",

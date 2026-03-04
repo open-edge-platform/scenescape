@@ -31,14 +31,10 @@ class PipelineScenario(NamedTuple):
   marks: tuple      # zero or more pytest mark *names* to apply
 
 
-# ---------------------------------------------------------------------------
-# People scenarios  (source: qcam1.ts)
-# ---------------------------------------------------------------------------
-
 _PEOPLE_SRC = "qcam1.ts"
 
 PEOPLE_SCENARIOS: list[PipelineScenario] = [
-  # ── CPU-only baselines (always run) ─────────────────────────────────────
+  # CPU-only baselines (always run)
   PipelineScenario(
     id="retail_cpu",
     camerachain="retail=CPU",
@@ -63,7 +59,7 @@ PEOPLE_SCENARIOS: list[PipelineScenario] = [
     source_file=_PEOPLE_SRC,
     marks=(),
   ),
-  # ── Single GPU (GPU_DEVICE_COUNT >= 1) ──────────────────────────────────
+  # Single GPU (GPU_DEVICE_COUNT >= 1)
   PipelineScenario(
     id="retail_gpu__agegender_cpu",
     camerachain="retail=GPU + agegender=CPU",
@@ -94,7 +90,7 @@ PEOPLE_SCENARIOS: list[PipelineScenario] = [
     source_file=_PEOPLE_SRC,
     marks=("requires_gpu",),
   ),
-  # ── Multi-GPU (GPU_DEVICE_COUNT >= 2) ───────────────────────────────────
+  # Multi-GPU (GPU_DEVICE_COUNT >= 2)
   PipelineScenario(
     id="retail_gpu1__agegender_gpu2",
     camerachain="retail=GPU.0 + agegender=GPU.1",
@@ -107,7 +103,7 @@ PEOPLE_SCENARIOS: list[PipelineScenario] = [
     source_file=_PEOPLE_SRC,
     marks=("requires_gpu2",),
   ),
-  # ── NPU (NPU_DEVICE_COUNT >= 1) ─────────────────────────────────────────
+  # NPU (NPU_DEVICE_COUNT >= 1)
   PipelineScenario(
     id="retail_npu",
     camerachain="retail=NPU",
@@ -128,14 +124,10 @@ PEOPLE_SCENARIOS: list[PipelineScenario] = [
   ),
 ]
 
-# ---------------------------------------------------------------------------
-# Vehicle scenarios  (source: car-detection.ts)
-# ---------------------------------------------------------------------------
-
 _CAR_SRC = "car-detection.ts"
 
 VEHICLE_SCENARIOS: list[PipelineScenario] = [
-  # ── CPU-only baselines (always run) ─────────────────────────────────────
+  # CPU-only baselines (always run)
   PipelineScenario(
     id="pvbcross16_cpu",
     camerachain="pvbcross16=CPU",
@@ -148,7 +140,7 @@ VEHICLE_SCENARIOS: list[PipelineScenario] = [
     source_file=_CAR_SRC,
     marks=(),
   ),
-  # ── Single GPU (GPU_DEVICE_COUNT >= 1) ──────────────────────────────────
+  # Single GPU (GPU_DEVICE_COUNT >= 1)
   PipelineScenario(
     id="pvbcross16_gpu__vehattr_cpu",
     camerachain="pvbcross16=GPU + vehattr=CPU",
@@ -167,14 +159,14 @@ VEHICLE_SCENARIOS: list[PipelineScenario] = [
     source_file=_CAR_SRC,
     marks=("requires_gpu",),
   ),
-  # ── Multi-GPU (GPU_DEVICE_COUNT >= 2) ───────────────────────────────────
+  # Multi-GPU (GPU_DEVICE_COUNT >= 2)
   PipelineScenario(
     id="pvbcross16_gpu1__vehattr_gpu2",
     camerachain="pvbcross16=GPU.0 + vehattr=GPU.1",
     source_file=_CAR_SRC,
     marks=("requires_gpu2",),
   ),
-  # ── NPU (NPU_DEVICE_COUNT >= 1) ─────────────────────────────────────────
+  # NPU (NPU_DEVICE_COUNT >= 1)
   PipelineScenario(
     id="pvbcross16_npu",
     camerachain="pvbcross16=NPU",
