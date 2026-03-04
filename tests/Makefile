@@ -122,6 +122,8 @@ basic-acceptance-tests: \
   unit-tests \
   auto-calibration-api \
   openapi-validation \
+  pipeline-runner-people \
+  pipeline-runner-vehicles \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
