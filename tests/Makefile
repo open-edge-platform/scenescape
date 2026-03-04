@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 SHELL=/bin/bash
@@ -87,6 +87,7 @@ release-tests: \
   live-view-button \
   non-functional-tests \
   scene-details \
+  reid-performance-degradation \
 
 broken-features:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -94,24 +95,23 @@ broken-features:
 # tests that are working, but feature is broken
 _broken-features: \
   calibrate-camera-3d-ui-2d-ui \
+  visibility-regulated \
 
 broken-tests: \
   3d-ui-calibration-points \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
   scenes-summary-api \
-  reid-unique-count \
   reid-performance-degradation \
   auto-calibration-ui \
   visibility-regulated \
 
 randomly-failing-tests: \
   distance-msoce \
-  out-of-box \
-  out-of-box-no-ntp \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
+  out-of-box \
   geometry-conformance \
   metric-tests \
   bounding-box \
@@ -119,7 +119,7 @@ basic-acceptance-tests: \
   mqtt-tripwire \
   unit-tests \
   auto-calibration-api \
-	openapi-validation \
+  openapi-validation \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
@@ -137,6 +137,8 @@ functional-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
+  out-of-box \
+  out-of-box-no-ntp \
   geometry-conformance \
   auto-calibration-api \
   add-delete-3d-object-api \
@@ -160,6 +162,9 @@ _functional-tests: \
   object-crud-api \
   orphaned-sensor \
   persistence-api \
+  reid-data-flow \
+  reid-unique-count \
+  reid-semantic-unique-count \
   rest-test \
   scene-details-api \
   scene-import-api \
@@ -174,14 +179,13 @@ _functional-tests: \
   vdms-similarity-search \
   visibility-unregulated \
   visibility-none \
-  3d-scene-control-panel \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
 
 _non-functional-tests: \
   build-time \
-	openapi-validation \
+  openapi-validation \
 
 metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
@@ -195,7 +199,6 @@ ui-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _ui-tests: \
-  3d-camera-control-panel \
   show-telemetry-button \
   upload-only-3d-glb-files \
   add-delete-3d-object \
@@ -224,6 +227,8 @@ _ui-tests: \
   superuser-crud-operations \
   upload-3d-glb-file \
   view-3d-glb-file \
+  3d-scene-control-panel \
+  3d-camera-control-panel \
 
 unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
@@ -243,6 +248,8 @@ _unit-tests: \
   singleton-sensor-unit \
   timestamp-unit \
   transform-unit \
+  uuid-manager-unit \
+  vdms-adapter-unit \
   views-unit \
 
 include Makefile.sscape Makefile.functional Makefile.perf \

@@ -222,8 +222,10 @@ Permission is hereby granted to copy and distribute this license without modific
     importlib_metadata==8.4.0
     importlib_metadata==8.7.0
     kornia==0.8.1
+    kornia==0.8.2
     kornia_rs==0.1.10
     kubernetes==33.1.0
+    kubernetes==34.1.0
     libapache2-mod-qos:11.63-1build1
     libapache2-mod-wsgi-py3:4.9.0-1ubuntu0.1
     libapr1:amd64:1.7.0-8ubuntu0.22.04.2
@@ -2859,17 +2861,21 @@ signature of Ty Coon, 1 April 1989 Ty Coon, President of Vice
     django-debug-toolbar==6.0.0
     django-session-timeout==0.1.0
     Django==5.2.7
+    Django==5.2.11
     Flask-Cors==4.0.0
     Flask-SocketIO==5.4.1
+    Flask-SocketIO==5.6.1
     Flask==3.0.3
     Flask==3.1.0
     Flask==3.1.2
+    Flask==3.1.3
     fsspec==2025.10.0
     h5py==3.15.1
     httpcore==1.0.9
     httpx==0.28.1
     idna==3.11
     intel_extension_for_pytorch==2.7.0
+    intel_extension_for_pytorch==2.8.0
     ipython==8.37.0
     ipython==9.6.0
     ipython_pygments_lexers==1.1.1
@@ -2963,6 +2969,7 @@ signature of Ty Coon, 1 April 1989 Ty Coon, President of Vice
     scipy==1.15.3
     scipy==1.16.1
     scipy==1.16.2
+    scipy==1.16.3
     shapely==2.1.1
     shared-mime-info:2.4-4
     sqlparse==0.5.3
@@ -2971,9 +2978,11 @@ signature of Ty Coon, 1 April 1989 Ty Coon, President of Vice
     threadpoolctl==3.6.0
     torch==2.7.1+cpu
     torch==2.9.1+cpu
+    torch==2.10.0+cpu
     torchaudio==2.9.1+cpu
     torchvision==0.22.1+cpu
     torchvision==0.24.1+cpu
+    torchvision==0.25.0+cpu
     traitlets==5.14.3
     uniception==0.1.6
     uvicorn==0.38.0
@@ -4439,6 +4448,7 @@ signature of Ty Coon, 1 April 1989 Ty Coon, President of Vice
     libqt5widgets5t64:amd64:5.15.13+dfsg-1ubuntu1
     libreadline8:amd64:8.1.2-1
     libreadline8t64:amd64:8.2-4build1
+    plyfile==1.0.3
     plyfile==1.1.3
     python-is-python3:3.9.2-2
     readline-common:8.1.2-1
@@ -4704,6 +4714,7 @@ Except as contained in this notice, the name of a copyright holder shall not be 
 30. Software released under the license Intel End User License:
     intel-cmplr-lib-ur==2025.2.0
     intel-openmp==2025.2.0
+    intel-openmp==2025.3.1
 
 Intel End User License Agreement for Developer Tools (Version October 2021)
 
@@ -5400,6 +5411,7 @@ That's all there is to it!
     libelf1t64:amd64:0.190-1.1ubuntu0.1
     libelf1t64:amd64:0.192-4
     psycopg2-binary==2.9.10
+    psycopg2-binary==2.9.11
 
 GNU LESSER GENERAL PUBLIC LICENSE
 Version 3, 29 June 2007
@@ -7555,6 +7567,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
     einops==0.8.1
     eventlet==0.35.2
     eventlet==0.37.0
+    eventlet==0.40.3
     exceptiongroup==1.3.0
     executing==2.2.1
     fastapi==0.121.2
@@ -7749,6 +7762,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
     open3d-cpu==0.19.0
     opencv-python-headless==4.10.0.84
     opencv-python-headless==4.11.0.86
+    opencv-python-headless==4.12.0.88
     opencv-python-headless==4.6.0.66
     orjson==3.11.3
     orjson==3.11.4
@@ -7756,6 +7770,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
     parso==0.8.5
     pillow==11.3.0
     pillow==12.0.0
+    pillow==12.1.1
     pillow_heif==1.1.1
     pip==22.0.2
     pip==24.0
@@ -7801,10 +7816,13 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
     tomlkit==0.13.3
     trimesh==4.7.4
     trimesh==4.11.0
+    trimesh==4.11.1
+    trimesh==4.11.2
     typer-slim==0.20.0
     typer==0.20.0
     typing-inspection==0.4.2
     urllib3==2.5.0
+    urllib3==2.6.3
     vdms==0.0.21
     wcwidth==0.2.13
     wheel==0.37.1

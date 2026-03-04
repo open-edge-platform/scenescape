@@ -43,6 +43,9 @@ find_package(CLI11 REQUIRED)
 find_package(httplib REQUIRED)
 find_package(RapidJSON REQUIRED)
 find_package(PahoMqttCpp REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(opentelemetry-cpp REQUIRED)
+find_package(gRPC REQUIRED)
 
 #####################################################################
 # System-provided packages
@@ -76,6 +79,8 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/config_loader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene_loader.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/api_scene_loader.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/manager_rest_client.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/coordinate_transformer.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_server.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_command.cpp
@@ -89,6 +94,9 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/proxy_utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/time_utils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/topic_utils.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/telemetry.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/metrics.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/observability_context.cpp
 )
 
 add_executable(${PROJECT_NAME}
@@ -122,6 +130,10 @@ target_link_libraries(${PROJECT_NAME}
     httplib::httplib
     rapidjson
     PahoMqttCpp::paho-mqttpp3-static
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    opentelemetry-cpp::opentelemetry-cpp
+    grpc::grpc
 )
 
 #####################################################################
