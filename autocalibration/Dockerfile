@@ -157,7 +157,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy built wheels and install them
 COPY --from=autocalibration-builder /output/*.whl /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install /tmp/*.whl && \
+    pip install --no-deps /tmp/*.whl && \
     rm -rf /tmp/*.whl
 
 # Copy application code (this changes frequently)
