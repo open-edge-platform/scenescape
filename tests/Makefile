@@ -104,7 +104,6 @@ broken-tests: \
   scenes-summary-api \
   reid-performance-degradation \
   auto-calibration-ui \
-  visibility-regulated \
 
 randomly-failing-tests: \
   distance-msoce \
