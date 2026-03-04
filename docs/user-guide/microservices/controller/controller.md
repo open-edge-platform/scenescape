@@ -1,9 +1,9 @@
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/controller">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/release-2026.0/controller">
      GitHub project
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/controller/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/release-2026.0/controller/README.md">
      Readme
 </div>
 hide_directive-->
@@ -43,7 +43,7 @@ To deploy the scene controller service, refer to the [Get Started](./get-started
 
 `--reid_config_file`: Path to the JSON file containing Re-ID (Re-Identification) configuration. This file controls Re-ID specific settings such as stale feature timeout, feature accumulation thresholds, and similarity scoring. See [Extended Re-ID](./Extended-ReID.md) for details.
 
-`--schema_file`: Specifies the path to the JSON file that contains the metadata schema. By default, it uses [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json). This schema outlines the structure and format of the messages processed by the service.
+`--schema_file`: Specifies the path to the JSON file that contains the metadata schema. By default, it uses [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.0/controller/src/schema/metadata.schema.json). This schema outlines the structure and format of the messages processed by the service.
 
 `--visibility_topic`: Specifies the topic for publishing visibility information, which includes the visibility of objects in cameras. Options are `unregulated`, `regulated`, or `none`.
 
