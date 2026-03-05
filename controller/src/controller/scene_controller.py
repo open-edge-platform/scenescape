@@ -31,7 +31,7 @@ class SceneController:
 
   def __init__(self, rewrite_bad_time, rewrite_all_time, max_lag, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert, ntp_server,
-               tracker_config_file, schema_file, visibility_topic, data_source):
+               tracker_config_file, schema_file, visibility_topic, data_source, reid_config_file=None):
     self.cert = client_cert
     self.root_cert = root_cert
     self.rewrite_bad_time = rewrite_bad_time
@@ -42,11 +42,18 @@ class SceneController:
     self.mqtt_auth = mqtt_auth
     self.tracker_config_data = {}
     self.tracker_config_file = tracker_config_file
+    self.reid_config_data = {}
+    self.reid_config_file = reid_config_file
 
     if tracker_config_file is not None and not ControllerMode.isAnalyticsOnly():
       self.extractTrackerConfigData(tracker_config_file)
     elif ControllerMode.isAnalyticsOnly():
       log.info("Analytics-only mode: Skipping tracker configuration file loading")
+
+    if reid_config_file is not None and not ControllerMode.isAnalyticsOnly():
+      self.extractReidConfigData(reid_config_file)
+    elif ControllerMode.isAnalyticsOnly():
+      log.info("Analytics-only mode: Skipping reid configuration file loading")
 
     self.last_time_sync = None
     self.ntp_server = ntp_server
@@ -75,7 +82,7 @@ class SceneController:
     self.pubsub.onConnect = self.onConnect
     self.pubsub.connect()
 
-    self.cache_manager = CacheManager(data_source, rest_url, rest_auth, root_cert, self.tracker_config_data)
+    self.cache_manager = CacheManager(data_source, rest_url, rest_auth, root_cert, self.tracker_config_data, self.reid_config_data)
 
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
@@ -101,6 +108,17 @@ class SceneController:
         else:
           log.error("Invalid persist_attributes format in tracker config file")
           self.tracker_config_data["persist_attributes"] = {}
+    return
+
+  def extractReidConfigData(self, reid_config_file):
+    """Extract REID configuration from reid-config.json file"""
+    if not os.path.exists(reid_config_file) and not os.path.isabs(reid_config_file):
+      script = os.path.realpath(__file__)
+      reid_config_file = os.path.join(os.path.dirname(script), reid_config_file)
+    with open(reid_config_file) as json_file:
+      reid_config = orjson.loads(json_file.read())
+      self.reid_config_data = reid_config
+      log.info(f"Loaded REID configuration from {reid_config_file}: {self.reid_config_data}")
     return
 
   def _extractTrackerRate(self, tracker_config, parameter_name, default_rate, min_rate=None, max_rate=None):

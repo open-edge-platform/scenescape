@@ -14,14 +14,6 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-web.crt
   web-key:
     file: ${SECRETSDIR}/certs/scenescape-web.key
-  vdms-client-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
-  vdms-client-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
-  vdms-server-cert:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-s.crt
-  vdms-server-key:
-    file: ${SECRETSDIR}/certs/scenescape-vdms-s.key
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
@@ -61,6 +53,8 @@ x-controller-base: &controller-base
     CONTROLLER_ENABLE_TRACING: ${CONTROLLER_ENABLE_TRACING}
     CONTROLLER_TRACING_ENDPOINT: ${CONTROLLER_TRACING_ENDPOINT}
     CONTROLLER_TRACING_SAMPLE_RATIO: ${CONTROLLER_TRACING_SAMPLE_RATIO}
+    no_proxy: ${no_proxy},.scenescape.intel.com
+    NO_PROXY: ${NO_PROXY},.scenescape.intel.com
   command: >
     --restauth /run/secrets/controller.auth
     --brokerauth /run/secrets/controller.auth
@@ -69,16 +63,14 @@ x-controller-base: &controller-base
   configs:
     - source: tracker-config
       target: /home/scenescape/SceneScape/tracker-config.json
+    - source: reid-config
+      target: /home/scenescape/SceneScape/reid-config.json
   volumes:
     - vol-media:/home/scenescape/SceneScape/media
     - vol-sample-data:/home/scenescape/SceneScape/sample_data
   secrets:
     - source: root-cert
       target: certs/scenescape-ca.pem
-    - source: vdms-client-key
-      target: certs/scenescape-vdms-c.key
-    - source: vdms-client-cert
-      target: certs/scenescape-vdms-c.crt
     - django
     - controller.auth
   restart: always
@@ -177,6 +169,8 @@ services:
     environment:
       - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
+      - no_proxy=${no_proxy},.scenescape.intel.com
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
     cap_add:
       - SYS_ADMIN
     devices:
@@ -224,17 +218,6 @@ services:
           - vdms.scenescape.intel.com
     ports:
       - "55555:55555"
-    environment:
-      - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
-      - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
-      - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
-    secrets:
-      - source: root-cert
-        target: certs/scenescape-ca.pem
-      - source: vdms-server-cert
-        target: certs/scenescape-vdms-s.crt
-      - source: vdms-server-key
-        target: certs/scenescape-vdms-s.key
     restart: always
     pids_limit: 1000
 
@@ -283,7 +266,10 @@ services:
       - "8080:8080"
     # Uncomment these lines to use GPU acceleration
     # devices:
-    #  - "/dev/dri:/dev/dri"
+    #   - "/dev/dri:/dev/dri"
+    # Uncomment these lines to use NPU acceleration
+    # devices:
+    #   - "/dev/accel:/dev/accel"
     group_add:
       - "109"
       - "110"
@@ -307,8 +293,6 @@ services:
       start_period: 10s
     environment:
       - RUN_MODE=EVA
-      - DETECTION_DEVICE=CPU
-      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
       - ADD_UTCTIME_TO_METADATA=true
@@ -346,7 +330,10 @@ services:
       - "8081:8080"
     # Uncomment these lines to use GPU acceleration
     # devices:
-    #  - "/dev/dri:/dev/dri"
+    #   - "/dev/dri:/dev/dri"
+    # Uncomment these lines to use NPU acceleration
+    # devices:
+    #   - "/dev/accel:/dev/accel"
     group_add:
       - "109"
       - "110"
@@ -370,8 +357,6 @@ services:
       start_period: 10s
     environment:
       - RUN_MODE=EVA
-      - DETECTION_DEVICE=CPU
-      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
       - ADD_UTCTIME_TO_METADATA=true
@@ -434,7 +419,7 @@ services:
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad
       - HTTP_PROXY=${HTTP_PROXY}
       - HTTPS_PROXY=${HTTPS_PROXY}
-      - NO_PROXY=${NO_PROXY}
+      - NO_PROXY=${NO_PROXY},scenescape.intel.com
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
       - vol-datasets:/home/scenescape/SceneScape/datasets
@@ -584,14 +569,20 @@ configs:
     # Use this configuration file to run tracking with time-chunking enabled
     # file: ./controller/config/tracker-config-time-chunking.json
     file: ./controller/config/tracker-config.json
+  reid-config:
+    file: ./controller/config/reid-config.json
   retail-config:
     # Use this configuration file to run decoding and inference on GPU
     # file: ./dlstreamer-pipeline-server/retail-config-gpu.json
     file: ./dlstreamer-pipeline-server/retail-config.json
+    # Use this configuration file to run inference on NPU
+    # file: ./dlstreamer-pipeline-server/retail-config-npu.json
   queuing-config:
     # Use this configuration file to run decoding and inference on GPU
     # file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
     file: ./dlstreamer-pipeline-server/queuing-config.json
+    # Use this configuration file to run inference on NPU
+    # file: ./dlstreamer-pipeline-server/queuing-config-npu.json
 
 volumes:
   vol-db:

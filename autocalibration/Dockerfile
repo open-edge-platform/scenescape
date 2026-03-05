@@ -144,11 +144,6 @@ COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/loca
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir --upgrade setuptools wheel
 
-# Create sitecustomize.py to patch intel_extension_for_pytorch os.exit bug
-# This must be done before installing packages that import ipex
-RUN mkdir -p /usr/local/lib/python3.11/site-packages && \
-    echo 'import sys\nimport os\n# Patch intel_extension_for_pytorch bug: os.exit -> sys.exit\nif not hasattr(os, "exit"):\n    os.exit = sys.exit\n' > /usr/local/lib/python3.11/site-packages/sitecustomize.py
-
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/
 COPY autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
@@ -162,7 +157,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy built wheels and install them
 COPY --from=autocalibration-builder /output/*.whl /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install /tmp/*.whl && \
+    pip install --extra-index-url https://download.pytorch.org/whl/cpu /tmp/*.whl && \
     rm -rf /tmp/*.whl
 
 # Copy application code (this changes frequently)
