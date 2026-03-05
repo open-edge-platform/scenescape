@@ -107,10 +107,12 @@ class VGGTModel(ReconstructionModel):
       pil_images = []
       original_sizes = []
       camera_ids = []
+      camera_locations = []
 
       for img_data in images:
         img_array = self.decodeBase64Image(img_data["data"])
         camera_ids.append(img_data.get("camera_id"))
+        camera_locations.append(img_data.get("camera_location"))
         # Apply CLAHE for improved contrast
         img_array = self._applyCLAHE(img_array)
         pil_image = Image.fromarray(img_array)
@@ -118,14 +120,14 @@ class VGGTModel(ReconstructionModel):
         original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
 
       # Preprocess images using VGGT's logic
-      images_tensor, model_size, metas = self._preprocessImages(pil_images)
+      images_tensor, model_size = self._preprocessImages(pil_images)
 
       # Run inference
       log.info(f"Running VGGT inference on device: {self.device}")
       predictions = self._runModelInference(images_tensor)
 
       # Process outputs
-      result = self._processOutputs(predictions, original_sizes, model_size, metas=metas, camera_ids=camera_ids)
+      result = self._processOutputs(predictions, original_sizes, model_size, camera_ids=camera_ids, camera_locations=camera_locations)
 
       return result
 
@@ -141,51 +143,86 @@ class VGGTModel(ReconstructionModel):
     """Get native output format."""
     return "pointcloud"
 
-  def scaleIntrinsicsToOriginalSize(
-    self,
-    intrinsics: np.ndarray,
-    model_size: tuple,
-    original_sizes: list,
-    preprocessing_mode: str = "square_crop",
-  ) -> list:
-    """
-    Invert the EXACT VGGT preprocessing you actually do:
+  def _camera_center_from_c2w(self, c2w: np.ndarray) -> np.ndarray:
+    return c2w[:3, 3]
 
-      - center square crop to side=min(w,h)
-      - resize to 518x518
+  def _baseline_units(self, c2w_a: np.ndarray, c2w_b: np.ndarray) -> float:
+    ca = self._camera_center_from_c2w(c2w_a)
+    cb = self._camera_center_from_c2w(c2w_b)
+    return float(np.linalg.norm(cb - ca))
 
-    Returns K in ORIGINAL image pixel coordinates.
-    """
+  def scaleIntrinsicsToOriginalSize(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
+                   preprocessing_mode: str = "crop") -> list:
+    """Scale intrinsics for VGGT preprocessing (simple resize + crop/pad)"""
     if len(intrinsics.shape) == 2:
+      # Single matrix (3, 3) -> (1, 3, 3)
       intrinsics = intrinsics[np.newaxis, ...]
 
-    target = 518
-    out = []
+    scaled_intrinsics = []
+    model_height, model_width = model_size
+    target_size = 518  # VGGT target size
 
-    for i, (orig_w, orig_h) in enumerate(original_sizes):
-      K = intrinsics[i].copy().astype(np.float32)
+    for i, (orig_width, orig_height) in enumerate(original_sizes):
+      K = intrinsics[i].copy()
 
-      if preprocessing_mode != "square_crop":
-        raise ValueError(f"Unsupported preprocessing_mode={preprocessing_mode} for current VGGT pipeline")
+      if preprocessing_mode == "crop":
+        # Original VGGT crop mode: width is set to target_size, height may be cropped
+        width_scale = orig_width / target_size
 
-      side = min(orig_w, orig_h)          # 720 for 1280x720
-      scale = side / float(target)        # 720/518 ~= 1.390
+        # Calculate what the new height would have been after resize
+        new_height_before_crop = round(orig_height * (target_size / orig_width) / 14) * 14
 
-      # 518-space -> crop-space (side x side)
-      K[0, 0] *= scale
-      K[1, 1] *= scale
-      K[0, 2] *= scale
-      K[1, 2] *= scale
+        if new_height_before_crop > target_size:
+          # Height was cropped - need to account for cropping offset
+          height_scale = orig_height / new_height_before_crop
+          # Principal point offset due to center cropping
+          crop_offset = (new_height_before_crop - target_size) // 2
+          K[1, 2] = K[1, 2] * height_scale + crop_offset * height_scale
+        else:
+          # Height was not cropped
+          height_scale = orig_height / new_height_before_crop
+          K[1, 2] = K[1, 2] * height_scale
 
-      # crop-space -> original full frame (undo crop offset)
-      left = (orig_w - side) // 2         # 280
-      top  = (orig_h - side) // 2         # 0
-      K[0, 2] += float(left)
-      K[1, 2] += float(top)
+        # Scale focal lengths and principal point
+        K[0, 0] *= width_scale  # fx
+        K[0, 2] *= width_scale  # cx
+        K[1, 1] *= height_scale # fy
 
-      out.append(K)
+      elif preprocessing_mode == "pad":
+        # Pad mode: largest dimension set to target_size, smaller padded
+        if orig_width >= orig_height:
+          # Width was the larger dimension
+          scale = orig_width / target_size
+          new_height_before_pad = round(orig_height * (target_size / orig_width) / 14) * 14
 
-    return out
+          # Remove padding offset from principal point
+          h_padding = target_size - new_height_before_pad
+          pad_top = h_padding // 2
+          K[1, 2] = (K[1, 2] - pad_top) * scale
+          K[0, 2] *= scale
+
+          # Scale focal lengths
+          K[0, 0] *= scale
+          K[1, 1] *= scale
+
+        else:
+          # Height was the larger dimension
+          scale = orig_height / target_size
+          new_width_before_pad = round(orig_width * (target_size / orig_height) / 14) * 14
+
+          # Remove padding offset from principal point
+          w_padding = target_size - new_width_before_pad
+          pad_left = w_padding // 2
+          K[0, 2] = (K[0, 2] - pad_left) * scale
+          K[1, 2] *= scale
+
+          # Scale focal lengths
+          K[0, 0] *= scale
+          K[1, 1] *= scale
+
+      scaled_intrinsics.append(K)
+
+    return scaled_intrinsics
 
   def createOutput(
     self,
@@ -375,55 +412,43 @@ class VGGTModel(ReconstructionModel):
 
   def _preprocessImages(self, pil_images: List[Image.Image]) -> tuple:
     """
-    Aspect-ratio preserve preprocessing:
-      - isotropic resize so long side = 518
-      - center-pad the short side to 518 (letterbox)
-    Returns:
-      images_tensor: (V,3,518,518)
-      model_size: (518,518)
-      metas: list of per-image transforms to invert intrinsics
+    No-padding preprocess:
+    1) Resize so the SHORTER side becomes 518 (keeps aspect ratio).
+    2) (Optionally) round resized dims to multiples of 14 for VGGT.
+    3) Center-crop to 518x518.
     """
+    processed_images = []
     target = 518
-    processed = []
-    metas = []
 
-    for im in pil_images:
-      w, h = im.size
+    for pil_image in pil_images:
+      w, h = pil_image.size
 
-      # Scale so long side becomes 518
-      if w >= h:
-        scale = target / float(w)
-      else:
-        scale = target / float(h)
+      # Scale so min side == 518
+      scale = target / float(min(w, h))
+      new_w = int(round((w * scale) / 14.0) * 14)
+      new_h = int(round((h * scale) / 14.0) * 14)
 
-      new_w = int(round(w * scale))
-      new_h = int(round(h * scale))
+      # Safety: ensure both dims >= 518 after rounding
+      new_w = max(target, new_w)
+      new_h = max(target, new_h)
 
-      im_rs = im.resize((new_w, new_h), Image.Resampling.BICUBIC)
+      img_resized = pil_image.resize((new_w, new_h), Image.Resampling.BICUBIC)
+      img_tensor = tvf.ToTensor()(img_resized)  # (3, H, W)
 
-      # Center pad to 518x518
-      pad_left = max(0, (target - new_w) // 2)
-      pad_top  = max(0, (target - new_h) // 2)
-      pad_right = max(0, target - new_w - pad_left)
-      pad_bottom= max(0, target - new_h - pad_top)
+      # Center crop to 518x518 (no padding)
+      H, W = img_tensor.shape[1], img_tensor.shape[2]
+      top = (H - target) // 2
+      left = (W - target) // 2
+      img_tensor = img_tensor[:, top:top + target, left:left + target]
 
-      im_pad = F.pad(im_rs, [pad_left, pad_top, pad_right, pad_bottom], fill=0)
+      if img_tensor.shape[1] != target or img_tensor.shape[2] != target:
+        raise RuntimeError(f"Preprocess produced {tuple(img_tensor.shape)}; expected (3,{target},{target})")
 
-      # (paranoia) ensure exact size
-      if im_pad.size != (target, target):
-        im_pad = im_pad.resize((target, target), Image.Resampling.BICUBIC)
+      processed_images.append(img_tensor)
 
-      processed.append(tvf.ToTensor()(im_pad))
-
-      metas.append(dict(
-        orig_w=w, orig_h=h,
-        scale=scale,
-        new_w=new_w, new_h=new_h,
-        pad_left=pad_left, pad_top=pad_top,
-      ))
-
-    images_tensor = torch.stack(processed).to(self.device)
-    return images_tensor, (target, target), metas
+    images_tensor = torch.stack(processed_images, dim=0).to(self.device)  # (N,3,518,518)
+    model_size = (target, target)
+    return images_tensor, model_size
 
   def _invert_intrinsics_letterbox(self, K_518: np.ndarray, meta: dict) -> np.ndarray:
     """
@@ -466,8 +491,50 @@ class VGGTModel(ReconstructionModel):
 
     return predictions
 
+  def _baseline_m_from_camera_locations(self, camera_locations, camera_ids=None) -> float:
+    """
+    Robustly compute a metric baseline (meters) from camera_locations.
+
+    camera_locations may contain dicts, None, and/or malformed entries.
+    Each valid dict must contain 'translation': [x,y,z] in meters.
+    """
+    if not camera_locations or len(camera_locations) < 2:
+      return 0.0
+
+    try:
+      translations = []
+      for loc in camera_locations:
+        if not isinstance(loc, dict):
+          continue
+        t = loc.get("translation", None)
+        if t is None or len(t) != 3:
+          continue
+        t = np.asarray(t, dtype=np.float32)
+        if t.shape != (3,) or not np.isfinite(t).all():
+          continue
+        translations.append(t)
+
+      if len(translations) < 2:
+        return 0.0
+
+      distances = []
+      for i in range(len(translations)):
+        for j in range(i + 1, len(translations)):
+          d = float(np.linalg.norm(translations[j] - translations[i]))
+          if np.isfinite(d) and d > 1e-6:
+            distances.append(d)
+
+      if not distances:
+        return 0.0
+
+      # Median is robust to occasional bad pose entries
+      return float(np.median(distances))
+
+    except Exception:
+      return 0.0
+
   def _processOutputs(self, predictions: Dict[str, Any], original_sizes: List[tuple],
-            model_size: tuple, metas=None, camera_ids: List[Any] = None) -> Dict[str, Any]:
+            model_size: tuple, camera_ids: List[Any] = None, camera_locations: List[Any] = None) -> Dict[str, Any]:
     """
     Process VGGT outputs into standard format.
 
@@ -502,9 +569,12 @@ class VGGTModel(ReconstructionModel):
     predictions["world_points_from_depth"] = world_points
 
     model_intrinsics = predictions["intrinsic"]  # (S, 3, 3)
-    original_intrinsics = []
-    for i in range(model_intrinsics.shape[0]):
-      original_intrinsics.append(self._invert_intrinsics_letterbox(model_intrinsics[i], metas[i]))
+    original_intrinsics = self.scaleIntrinsicsToOriginalSize(
+      model_intrinsics,
+      model_size,
+      original_sizes,
+      preprocessing_mode="crop"  # VGGT default mode
+    )
 
     # Extract camera poses and scaled intrinsics
     camera_poses = []
@@ -518,28 +588,63 @@ class VGGTModel(ReconstructionModel):
       [0, 0, 0, 1]
     ], dtype=np.float32)
 
+    # --- build camera_to_world for all frames first ---
+    camera_to_world_list = []
+
     for i in range(extrinsic_matrices.shape[0]):
-      # VGGT outputs extrinsics (world-to-camera), but we want camera poses (camera-to-world)
-      # Convert by taking the inverse of the extrinsic matrix
-      cam_id = camera_ids[i] if camera_ids is not None and i < len(camera_ids) else None
-      world_to_camera = extrinsic_matrices[i]  # 4x4 matrix
+      world_to_camera = extrinsic_matrices[i]  # (4,4) or (3,4)
 
       # Convert 3x4 to 4x4 if needed
       if world_to_camera.shape == (3, 4):
-        world_to_camera_4x4 = np.eye(4)
-        world_to_camera_4x4[:3, :4] = world_to_camera
-        world_to_camera = world_to_camera_4x4
+        w2c = np.eye(4, dtype=np.float32)
+        w2c[:3, :4] = world_to_camera
+        world_to_camera = w2c
 
-      # Invert to get camera-to-world (camera pose)
-      camera_to_world = np.linalg.inv(world_to_camera)
+      # Invert to get camera-to-world
+      c2w = np.linalg.inv(world_to_camera).astype(np.float32)
 
-      # intrinsic_matrix = original_intrinsics[i]  # Use scaled intrinsics
+      # Apply your orientation fix
+      c2w = rotation_x_180 @ c2w
 
-      camera_to_world = rotation_x_180 @ camera_to_world
+      camera_to_world_list.append(c2w)
 
+    # --- SCALE FIX: compute metric baseline from provided camera_locations ---
+    baseline_m = self._baseline_m_from_camera_locations(camera_locations, camera_ids=camera_ids)
+
+    if baseline_m <= 0:
+      log.warning("VGGT: camera_locations missing/invalid; skipping metric scaling (scale will be arbitrary).")
+
+    if baseline_m > 0 and len(camera_to_world_list) >= 2:
+      b_units = self._baseline_units(camera_to_world_list[0], camera_to_world_list[1])
+      if b_units > 1e-6:
+        s = baseline_m / b_units
+        log.info(f"Scaling VGGT outputs by s={s:.6f} (baseline {baseline_m:.6f}m / {b_units:.6f} units)")
+
+        # scale camera translations
+        for k in range(len(camera_to_world_list)):
+          camera_to_world_list[k] = camera_to_world_list[k].copy()
+          camera_to_world_list[k][:3, 3] *= s
+
+        # scale world points (affects glb_size -> pixels_per_meter)
+        if isinstance(predictions.get("world_points_from_depth"), np.ndarray):
+          predictions["world_points_from_depth"] *= s
+        if isinstance(predictions.get("world_points"), np.ndarray):
+          predictions["world_points"] *= s
+
+        # optional: scale depth too (only if used elsewhere)
+        if isinstance(predictions.get("depth"), np.ndarray):
+          predictions["depth"] *= s
+      else:
+        log.warning(f"VGGT: predicted baseline too small ({b_units}); skipping scaling.")
+
+    # --- now build camera_poses + intrinsics_list using the scaled camera_to_world_list ---
+    camera_poses = []
+    intrinsics_list = []
+
+    for i, camera_to_world in enumerate(camera_to_world_list):
+      cam_id = camera_ids[i] if camera_ids is not None and i < len(camera_ids) else None
       K = original_intrinsics[i]
 
-      # Convert rotation matrix to quaternion
       rotation_matrix = camera_to_world[:3, :3]
       quaternion = self.rotationMatrixToQuaternion(rotation_matrix)
 
