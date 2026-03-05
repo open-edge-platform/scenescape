@@ -189,6 +189,7 @@ copy-files:
 	cp ../dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json scenescape-chart/files/model-installer/person-detection-retail-0013.json
 	cp ../dlstreamer-pipeline-server/model_config.json scenescape-chart/files/model-installer/model_config.json
 	cp ../controller/config/tracker-config.json scenescape-chart/files/model-installer/tracker-config.json
+	cp ../controller/config/reid-config.json scenescape-chart/files/model-installer/reid-config.json
 	cp ../sample_data/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
 	cp ../sample_data/convert-videos-k8s.sh scenescape-chart/files/sample-data/convert-videos-k8s.sh
 
@@ -196,7 +197,7 @@ copy-files:
 # to test template rendering
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
-install: copy-files
+install: copy-files chart.yaml
 	@VALUES_FILE=""; \
 	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
 		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \
