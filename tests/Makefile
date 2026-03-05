@@ -44,11 +44,8 @@ define common-recipe =
 	$(eval DBROOT=$(TEST_DATA)/db_$@)
 	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
-	  ; if [ x$(REQUIRE_SUPASS) = xtrue ] ; then \
+    ; if [ x$(REQUIRE_SUPASS) = xtrue ] ; then \
 	      EXTRAS="--password=$(SUPASS)"; \
-	  fi \
-	  ; if [ ! -z "$(AUTH_USER)" ]; then \
-	      EXTRAS="$${EXTRAS} $(AUTH_USER)"; \
 	  fi \
 	  ; echo RUNNING COMMON TEST $@ \
 	  ; cd .. \
