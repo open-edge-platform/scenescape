@@ -260,7 +260,7 @@ When modifying the service, verify:
 
 ## Related Documentation
 
-- [User Guide](docs/user-guide/overview.md): High-level overview
-- [API Reference](docs/user-guide/api-docs/autocalibration-api.yaml): REST API spec
+- [User Guide](../docs/user-guide/microservices/auto-calibration/auto-calibration.md): High-level overview
+- [API Reference](../docs/user-guide/microservices/auto-calibration/api-reference.md): REST API spec
 - [Scene Common](../scene_common/): Shared library documentation
 - [Testing Guide](../.github/instructions/testing.md): Test creation patterns
