@@ -328,26 +328,28 @@ if [ -n "${WAITPID}" ] ; then
 else
     if [ "${DO_SHELL}" = 'user' ] ; then
         if [ $# -gt 0 ] ; then
-            # echo "Starting shell with command: $@"
+            echo "Starting shell with command: $@"
             IFS=
             sudo -u ${WSUSER} -E -H -s $@
         else
-            # echo "Starting shell"
+            echo "Starting shell"
             su ${WSUSER}
         fi
     elif [ "${DO_SHELL}" = 'super' ] ; then
         if [ $# -gt 0 ] ; then
-            # echo "Starting super shell with command: $@"
-            /bin/bash -c "$@"
+            echo "Starting super shell with command: $@"
+            sudo -u root -E -H -s $@
         else
-            # echo "Starting super shell"
+            echo "Starting super shell"
             /bin/bash
         fi
     else
         if [ $# -gt 0 ] ; then
             IFS=
+            echo "Starting container with command: $@"
             sudo -u ${WSUSER} -E -H $@
         else
+            echo "Starting container with su"
             su ${WSUSER}
         fi
     fi
