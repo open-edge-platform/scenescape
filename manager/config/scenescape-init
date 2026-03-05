@@ -243,7 +243,6 @@ fi
 
 export -n DBPASS SUPASS
 
-echo "CreateDB is: ${CREATEDB}"
 if [ -n "$DBTYPE" ]; then
     # Determine "first run" using the marker (or another check)
     CREATEDB=0
