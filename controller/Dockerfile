@@ -1,7 +1,7 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
 
 # -------------- Controller Builder Stage --------------
 FROM scenescape-common-base AS scenescape-controller-builder
@@ -18,14 +18,14 @@ RUN : \
     && rm -rf /var/lib/apt/lists/*
 
 # Build robot vision package
+# numpy is already pinned to 2.2.6 in scenescape-common-base (via scene_common/requirements.txt)
+# ensuring ABI compatibility for all C extensions compiled here and in the base image.
 COPY ./controller/src/robot_vision /tmp/robot_vision
-RUN export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
+RUN pip3 install --no-cache-dir scikit-build-core \
+    && export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
     && cd /tmp/robot_vision \
-    && python3 setup.py bdist_wheel \
-    && cd dist \
-    && pip3 install --no-cache-dir ./*.whl \
-    && cd \
-   && rm -rf /tmp/robot_vision
+    && pip3 install --no-cache-dir --no-build-isolation . \
+    && rm -rf /tmp/robot_vision
 
 # Build main controller package
 COPY ./controller/src/controller /tmp/controller/controller

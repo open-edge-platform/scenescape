@@ -3,5 +3,3 @@
 # This file is licensed under Apache 2.0 License.
 
 numpy==2.2.6
-networkx
-scipy
