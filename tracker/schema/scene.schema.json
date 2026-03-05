@@ -17,9 +17,18 @@
             "fx": 571.26,
             "fy": 571.26,
             "cx": 320.0,
-            "cy": 240.0
+            "cy": 240.0,
+            "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
           },
-          "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
+          "extrinsics": {
+            "translation": [
+              2.6651330996559883, 1.0075648853123316, 2.603863333755973
+            ],
+            "rotation": [
+              -137.85924651441334, -19.441505783168942, -15.384890268257454
+            ],
+            "scale": [1.0, 1.0, 1.0]
+          }
         },
         {
           "uid": "camera2",
@@ -28,9 +37,18 @@
             "fx": 571.26,
             "fy": 571.26,
             "cx": 320.0,
-            "cy": 240.0
+            "cy": 240.0,
+            "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
           },
-          "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
+          "extrinsics": {
+            "translation": [
+              4.034863921795162, 2.2777663107089894, 2.9551143733918663
+            ],
+            "rotation": [
+              -132.15360745910087, -8.172752500708558, -5.298590495090165
+            ],
+            "scale": [1.0, 1.0, 1.0]
+          }
         }
       ]
     }
@@ -58,7 +76,8 @@
   "$defs": {
     "camera": {
       "type": "object",
-      "required": ["uid", "name"],
+      "description": "Camera configuration with intrinsic and extrinsic calibration",
+      "required": ["uid", "name", "intrinsics", "extrinsics"],
       "properties": {
         "uid": {
           "type": "string",
@@ -71,7 +90,7 @@
         },
         "intrinsics": {
           "type": "object",
-          "description": "Camera intrinsic parameters",
+          "description": "Camera intrinsic parameters (internal camera model)",
           "properties": {
             "fx": {
               "type": "number",
@@ -88,18 +107,59 @@
             "cy": {
               "type": "number",
               "description": "Principal point Y (pixels)"
+            },
+            "distortion": {
+              "type": "object",
+              "description": "Lens distortion coefficients",
+              "properties": {
+                "k1": {
+                  "type": "number",
+                  "description": "Radial distortion coefficient k1"
+                },
+                "k2": {
+                  "type": "number",
+                  "description": "Radial distortion coefficient k2"
+                },
+                "p1": {
+                  "type": "number",
+                  "description": "Tangential distortion coefficient p1"
+                },
+                "p2": {
+                  "type": "number",
+                  "description": "Tangential distortion coefficient p2"
+                }
+              },
+              "additionalProperties": true
             }
           },
           "additionalProperties": true
         },
-        "distortion": {
+        "extrinsics": {
           "type": "object",
-          "description": "Lens distortion coefficients",
+          "description": "Camera extrinsic parameters (pose in world coordinates). Matches Python controller's CameraPose class in scene_common/src/scene_common/transform.py",
+          "required": ["translation", "rotation", "scale"],
           "properties": {
-            "k1": { "type": "number" },
-            "k2": { "type": "number" },
-            "p1": { "type": "number" },
-            "p2": { "type": "number" }
+            "translation": {
+              "type": "array",
+              "description": "Camera position in world coordinates [x, y, z] (meters)",
+              "items": { "type": "number" },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "rotation": {
+              "type": "array",
+              "description": "Camera orientation as Euler angles [X, Y, Z] (degrees). Uses XYZ rotation order, matching Python controller's Rotation.from_euler('XYZ', rotation, degrees=True)",
+              "items": { "type": "number" },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "scale": {
+              "type": "array",
+              "description": "Scale factors [x, y, z] applied to pose matrix",
+              "items": { "type": "number" },
+              "minItems": 3,
+              "maxItems": 3
+            }
           },
           "additionalProperties": true
         }

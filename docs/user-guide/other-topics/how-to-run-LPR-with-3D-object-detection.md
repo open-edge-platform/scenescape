@@ -7,7 +7,7 @@ This guide explains how to:
 
 ## Prerequisites
 
-- Successful deployment of a Intel® SceneScape instance using [Getting Started Guide](../getting-started-guide.md)
+- Successful deployment of a Intel® SceneScape instance using [Get Started](../get-started.md)
 - Access to the DeepScenario 3D Object Detection package
 
 ## Setup Steps
@@ -303,16 +303,16 @@ docker-compose ps
 ### 10. Adding a new scene and a new camera
 
 - Create a new scene, add a camera with name and id set to `lpr` and calibrate the camera, by following [How to Create a New Scene](../building-a-scene/how-to-create-new-scene.md#adding-the-new-scene-and-cameras).
-- 3D Object Detection can occasionally lead to the object not being positioned on the ground plane. When there is a discrepancy from ground truth with respect to the `z` value in object `translation`, leverage the `Project to map` setting mention [here](how-to-define-object-properties.md#additional-settings)
+- 3D Object Detection can occasionally lead to the object not being positioned on the ground plane. When there is a discrepancy from ground truth with respect to the `z` value in object `translation`, use the `Project to map` setting mentioned in the [How to Define Object Properties](./how-to-define-object-properties.md#additional-settings) guide.
 
 ### 11. Verifying the Setup
 
 - Check the 3D UI of the newly created scene to verify that the pose and size of the object are as expected. The same output can also be verified by looking at MQTT output on the topic `/scenescape/data/scene/${scene_id}`. The object metadata will contain, the output of 3D object detection (translation, rotation, size etc.) and the license plate details.
 
-![3D object detection](../images/3D-object.gif)
+![3D object detection](../_assets/3D-object.gif)
 Figure 1: 3D object detection
 
 ### Learn More
 
-- Read the solution brief [here](https://www.intel.com/content/www/us/en/content-details/824541/groundbreaking-4d-object-detection-with-deepscenario-and-intel-scenescape.html) to understand how the above setup can be used to detect parking violations with high accuracy.
-- Pair the 3D Object Detections with powerful spatial analytics: [how-to-configure-spatial-analytics.md].
+- Read [the solution brief](https://www.intel.com/content/www/us/en/content-details/824541/groundbreaking-4d-object-detection-with-deepscenario-and-intel-scenescape.html) to understand how the above setup can be used to detect parking violations with high accuracy.
+- Pair [3D Object Detections with powerful spatial analytics](../building-a-scene/how-to-configure-spatial-analytics.md).

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from controller.scene import Scene
@@ -11,10 +11,11 @@ REFRESH_TIME = 60
 
 class CacheManager:
   def __init__(self, data_source=None, rest_url=None, rest_auth=None,
-               root_cert=None, tracker_config_data={}):
+               root_cert=None, tracker_config_data={}, reid_config_data={}):
     self.cached_child_transforms_by_uid = {}
     self.camera_parameters = {}
     self.tracker_config_data = tracker_config_data
+    self.reid_config_data = reid_config_data
     self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
@@ -54,8 +55,11 @@ class CacheManager:
                                       self.tracker_config_data["non_measurement_time_static"],
                                       self.tracker_config_data["effective_object_update_rate"],
                                       self.tracker_config_data["time_chunking_enabled"],
-                                      self.tracker_config_data["time_chunking_rate_fps"]]
+                                      self.tracker_config_data["time_chunking_rate_fps"],
+                                      self.tracker_config_data["suspended_track_timeout_secs"]]
         scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
+      if self.reid_config_data:
+        scene_data["reid_config_data"] = self.reid_config_data
 
       uid = scene_data['uid']
       if uid not in self.cached_scenes_by_uid:

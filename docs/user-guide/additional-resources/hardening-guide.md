@@ -100,7 +100,7 @@ Note that the parameters of these certificates are specified in `certificates/Ma
 - Service certificates are issued with a lifetime of 360 days (1 year).
 - Service certificates are issued with a DNS X509v3 Subject Alternative Name matching the CN of the certificate, and additionally with an IP Address X509v3 SAN if specified.
 
-![SceneScape certificate flow](../images/hardening/certflow.png)
+![SceneScape certificate flow](../_assets/hardening/certflow.png)
 
 ### Intel® SceneScape Passwords
 

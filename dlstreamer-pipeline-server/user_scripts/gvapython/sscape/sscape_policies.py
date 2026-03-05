@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import struct
@@ -37,20 +37,44 @@ def detection3DPolicy(pobj, item, fw, fh):
   return
 
 def reidPolicy(pobj, item, fw, fh):
-  detectionPolicy(pobj, item, fw, fh)
-  reid_vector = item['tensors'][1]['data']
-  v = struct.pack("256f",*reid_vector)
-  pobj['reid'] = base64.b64encode(v).decode('utf-8')
+  classificationPolicy(pobj, item, fw, fh)
+  for tensor in item.get('tensors', [{}]):
+    name = tensor.get('name','')
+    if name and ('reid' in name or 'embedding' in name):
+      reid_vector = tensor.get('data', [])
+      v = struct.pack("256f",*reid_vector)
+      # Move reid under metadata key
+      if 'metadata' not in pobj:
+        pobj['metadata'] = {}
+      pobj['metadata']['reid'] = {
+        'embedding_vector': base64.b64encode(v).decode('utf-8'),
+        'model_name': tensor.get('model_name', '')
+      }
+      break
   return
 
 def classificationPolicy(pobj, item, fw, fh):
+  """Extract detection and classification metadata from tensors and update pobj"""
   detectionPolicy(pobj, item, fw, fh)
+
+  # Initialize metadata dict if it doesn't exist
+  if 'metadata' not in pobj:
+    pobj['metadata'] = {}
+
   categories = {}
   for tensor in item.get('tensors', [{}]):
     name = tensor.get('name','')
-    if name and name != 'detection':
-      categories[name] = tensor.get('label','')
-  pobj.update(categories)
+    if name and name != 'detection' and ('reid' not in name and 'embedding' not in name):
+      metadata_dict = {
+        'label': tensor.get('label', ''),
+        'model_name': tensor.get('model_name', '')
+      }
+      if 'confidence' in tensor:
+        metadata_dict['confidence'] = tensor.get('confidence')
+      categories[name] = metadata_dict
+
+  # Move all semantic metadata under metadata key
+  pobj['metadata'].update(categories)
   return
 
 def ocrPolicy(pobj, item, fw, fh):

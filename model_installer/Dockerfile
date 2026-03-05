@@ -5,6 +5,9 @@ FROM ubuntu:24.04
 
 USER root
 
+# Update and upgrade base OS packages
+RUN apt update && apt upgrade -y
+
 RUN apt-get update && apt-get install -y --no-install-recommends wget python3 python3-pip && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user
@@ -18,9 +21,6 @@ COPY ./model_installer/requirements-runtime.txt /tmp
 RUN chown model_installer_user:model_installer_user /tmp/requirements-runtime.txt
 
 USER model_installer_user
-
-# # Upgrade pip and setuptools to latest versions
-# RUN pip3 install --no-cache-dir --upgrade pip setuptools
 
 RUN : \
     ; pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements-runtime.txt \

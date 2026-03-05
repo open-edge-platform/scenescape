@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
@@ -56,12 +56,19 @@ def prepareObjDict(scene, obj, update_visibility):
     heading = calculateHeading(scene.trs_xyz_to_lla, aobj.sceneLoc.asCartesianVector, velocity.asCartesianVector)
     obj_dict['heading'] = heading.tolist()
 
-  reid = aobj.reidVector
-  if reid is not None:
-    if isinstance(reid, np.ndarray):
-      obj_dict['reid'] = reid.tolist()
-    else:
-      obj_dict['reid'] = reid
+  # Output reid in metadata structure
+  if aobj.reid and 'embedding_vector' in aobj.reid:
+    reid_embedding = aobj.reid['embedding_vector']
+    if reid_embedding is not None:
+      if 'metadata' not in obj_dict:
+        obj_dict['metadata'] = {}
+      if isinstance(reid_embedding, np.ndarray):
+        obj_dict['metadata']['reid'] = {'embedding_vector': reid_embedding.tolist()}
+      else:
+        obj_dict['metadata']['reid'] = {'embedding_vector': reid_embedding}
+      # Add model_name if available
+      if 'model_name' in aobj.reid:
+        obj_dict['metadata']['reid']['model_name'] = aobj.reid['model_name']
 
   if hasattr(aobj, 'visibility'):
     obj_dict['visibility'] = aobj.visibility
@@ -91,7 +98,7 @@ def computeCameraBounds(scene, aobj, obj_dict):
   camera_bounds = {}
   for cameraID in obj_dict['visibility']:
     bounds = None
-    if aobj and hasattr(aobj.vectors[0].camera, 'cameraID') \
+    if aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID') \
           and cameraID == aobj.vectors[0].camera.cameraID:
       bounds = getattr(aobj, 'boundingBoxPixels', None)
     elif scene:
