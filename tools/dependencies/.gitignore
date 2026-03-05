@@ -1,0 +1,5 @@
+# Test outputs
+tests/test_data/*_output.txt
+tests/__pycache__/
+tests/test_data/__pycache__/
+__pycache__/
