@@ -262,7 +262,10 @@ services:
       - "8080:8080"
     # Uncomment these lines to use GPU acceleration
     # devices:
-    #  - "/dev/dri:/dev/dri"
+    #   - "/dev/dri:/dev/dri"
+    # Uncomment these lines to use NPU acceleration
+    # devices:
+    #   - "/dev/accel:/dev/accel"
     group_add:
       - "109"
       - "110"
@@ -286,8 +289,6 @@ services:
       start_period: 10s
     environment:
       - RUN_MODE=EVA
-      - DETECTION_DEVICE=CPU
-      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
       - ADD_UTCTIME_TO_METADATA=true
@@ -325,7 +326,10 @@ services:
       - "8081:8080"
     # Uncomment these lines to use GPU acceleration
     # devices:
-    #  - "/dev/dri:/dev/dri"
+    #   - "/dev/dri:/dev/dri"
+    # Uncomment these lines to use NPU acceleration
+    # devices:
+    #   - "/dev/accel:/dev/accel"
     group_add:
       - "109"
       - "110"
@@ -349,8 +353,6 @@ services:
       start_period: 10s
     environment:
       - RUN_MODE=EVA
-      - DETECTION_DEVICE=CPU
-      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
       - ADD_UTCTIME_TO_METADATA=true
@@ -569,10 +571,14 @@ configs:
     # Use this configuration file to run decoding and inference on GPU
     # file: ./dlstreamer-pipeline-server/retail-config-gpu.json
     file: ./dlstreamer-pipeline-server/retail-config.json
+    # Use this configuration file to run inference on NPU
+    # file: ./dlstreamer-pipeline-server/retail-config-npu.json
   queuing-config:
     # Use this configuration file to run decoding and inference on GPU
     # file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
     file: ./dlstreamer-pipeline-server/queuing-config.json
+    # Use this configuration file to run inference on NPU
+    # file: ./dlstreamer-pipeline-server/queuing-config-npu.json
 
 volumes:
   vol-db:
