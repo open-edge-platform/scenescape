@@ -20,33 +20,38 @@ SceneScape uses Django's migration system to manage database schema changes. Mig
 
 ### For Local Development
 
-When you modify Django models in `src/django/models.py`, follow these steps:
+When you modify Django models in `src/manager/models.py`, follow these steps:
 
-1. **Make your model changes** in `src/django/models.py`
+1. **Make your model changes** in `src/manager/models.py`
 
-2. **Generate migration file** using the manager container:
+2. **Generate migration file** using the generate_migrations.sh script:
    ```bash
-   docker compose exec manager python manage.py makemigrations manager
+   bash manager/tools/generate_migrations.sh
    ```
 
-3. **Review the generated migration** in `src/django/migrations/`:
+3. **Review the generated migration** in `src/manager/migrations/`:
    ```bash
-   ls -la manager/src/django/migrations/
+   ls -la manager/src/manager/migrations/
    ```
 
-4. **Test the migration**:
+4. ** Re-build manager**
    ```bash
-   docker compose exec manager python manage.py migrate
+   make manager
+   ```
+
+5. **Verify the migration is being applied **:
+   ```bash
+   docker compose down web && docker compose up web
    ```
 
 5. **Check migration status**:
    ```bash
-   docker compose exec manager python manage.py showmigrations
+   bash manager/tools/generate_migrations.sh --show --network scenescape_scenescape --dbhost pgserver --dbport 5432
    ```
 
 6. **Commit the migration file** to version control:
    ```bash
-   git add manager/src/django/migrations/XXXX_*.py
+   git add manager/src/manager/migrations/XXXX_*.py
    git commit -m "Add migration for [describe changes]"
    ```
 
@@ -56,21 +61,17 @@ Migration generation should be automated as part of the release build:
 
 1. **In CI/CD pipeline**, after model changes are merged:
    ```bash
+   # If migrations are needed, generate them
+   bash manager/tools/generate_migrations.sh
+   
    # Build the manager image
    make manager
-   
-   # Start a temporary container to generate migrations
-   docker compose up -d manager
-   docker compose exec manager python manage.py makemigrations --dry-run --check
-   
-   # If migrations are needed, generate them
-   docker compose exec manager python manage.py makemigrations manager
-   
-   # Copy migrations from container to repository
-   docker cp scenescape-manager:/home/scenescape/SceneScape/manager/migrations/. manager/src/django/migrations/
+
+   # Review migrations
+   manager/src/manager/migrations
    
    # Commit and push the generated migrations
-   git add manager/src/django/migrations/
+   git add manager/src/manager/migrations/
    git commit -m "Generate migrations for release"
    git push
    ```
@@ -97,15 +98,18 @@ This creates: `0002_release_2026_1_0.py`
 Migrations are applied automatically at container startup via the `migrate` command in `config/scenescape-init`.
 
 To manually apply migrations:
+
 ```bash
-docker compose exec manager python manage.py migrate
+docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 \
+python manage.py migrate
 ```
 
 ## Checking Migration Status
 
 View all migrations and their application status:
 ```bash
-docker compose exec manager python manage.py showmigrations
+docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 \
+python manage.py showmigrations
 ```
 
 Example output:
@@ -128,16 +132,19 @@ If multiple developers create migrations in parallel:
 ### Reverting migrations
 ```bash
 # Revert to a specific migration
-docker compose exec manager python manage.py migrate manager 0001_initial
+docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 \
+python manage.py migrate manager 0001_initial
 
 # Revert all migrations for an app
-docker compose exec manager python manage.py migrate manager zero
+docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 \
+python manage.py migrate manager zero
 ```
 
 ### Fake migrations
 In rare cases (like database schema already matches):
 ```bash
-docker compose exec manager python manage.py migrate manager --fake
+docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 \
+python manage.py migrate manager --fake
 ```
 
 ## Best Practices
