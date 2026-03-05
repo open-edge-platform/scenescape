@@ -1,0 +1,43 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#map {
+  width: 1280px;
+  height: 1280px;
+  margin-bottom: 10px;
+}
+
+#map[style*="display: none"] {
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+#snapshot {
+  margin-top: 10px;
+  max-width: 100%;
+}
+
+#stitchedSnapshot {
+  margin-top: 10px;
+  border: 1px solid #ccc;
+}
+
+/* Controls now use Bootstrap styling */
+
+/* Google Maps specific styles */
+.google-maps-active .mapboxgl-ctrl-logo,
+.google-maps-active .mapboxgl-ctrl-attrib {
+  display: none !important;
+}
+
+/* Mapbox specific styles */
+.mapbox-active .mapboxgl-ctrl-logo {
+  display: none !important;
+}
+
+.mapbox-active .mapboxgl-ctrl-attrib {
+  display: none !important;
+}
