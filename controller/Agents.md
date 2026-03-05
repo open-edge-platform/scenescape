@@ -561,9 +561,9 @@ logger.error(f"Tracking failed for object {obj_id}") # Errors
 
 ## Related Documentation
 
-- [User Guide](docs/user-guide/overview.md): High-level architecture overview
-- [API Reference](docs/user-guide/api-docs/scene-controller-api.yaml): OpenAPI specification
+- [User Guide](../docs/user-guide/microservices/controller/controller.md): High-level architecture overview
+- [API Reference](../docs/user-guide/microservices/controller/_assets/scene-controller-api.yaml): OpenAPI specification
 - [Scene Common](../scene_common/): Shared library documentation (geometry, MQTT, etc.)
-- [Fast Geometry](../scene_common/fast_geometry/): C++ extension documentation
+- [Fast Geometry](../scene_common/src/fast_geometry/): C++ extension documentation
 - [Testing Guide](../.github/instructions/testing.md): Test creation patterns
 - [Python Conventions](../.github/instructions/python.md): Python coding standards
