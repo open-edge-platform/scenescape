@@ -114,8 +114,10 @@ services:
     environment:
       - RUN_MODE=EVA
       - GENICAM=Balluff
-      #      - GST_DEBUG=1,gencamsrc:2
-      - GST_DEBUG=3
+      # Use the GST_DEBUG, GST_TRACERS and GST_DEBUG_FILE environment variables to enable latency tracing
+      - GST_DEBUG=${GST_DEBUG:-2}
+      - GST_TRACERS=${GST_TRACERS:-}
+      - GST_DEBUG_FILE=${GST_DEBUG_FILE:-}
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
@@ -125,6 +127,8 @@ services:
       - source: queuing-config
         target: /home/pipeline-server/config.json
     volumes:
+      # Uncomment the line below to enable latency tracing
+      # - "/tmp/latency_tracer:/tmp"
       - ${ROOT_DIR}/dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
