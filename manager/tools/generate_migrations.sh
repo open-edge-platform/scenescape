@@ -75,7 +75,7 @@ generate_migrations() {
     python manage.py makemigrations manager
   '
   docker rm -f "${container}" >/dev/null
-  echo "✓ migrations saved to to ${HOST_MIGRATIONS_DIR}"
+  echo "==> Migrations can be found at ${HOST_MIGRATIONS_DIR}"
 }
 
 show_migrations() {
