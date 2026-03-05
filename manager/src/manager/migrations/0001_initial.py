@@ -164,11 +164,6 @@ class Migration(migrations.Migration):
                 ('regulated_rate', models.FloatField(blank=True, default=30, validators=[django.core.validators.MinValueValidator(0.001)], verbose_name='Regulate Rate (Hz)')),
                 ('external_update_rate', models.FloatField(blank=True, default=30, validators=[django.core.validators.MinValueValidator(0.001)], verbose_name='Max External Update Rate (Hz)')),
                 ('inlier_threshold', models.FloatField(blank=True, default=0.5, validators=[django.core.validators.MinValueValidator(0.0)], verbose_name='Feature Match Confidence Threshold')),
-                ('test_migration_field', models.BooleanField(default=False)),
-                ('test_migration_field2', models.BooleanField(default=False)),
-                ('test_migration_field3', models.BooleanField(default=False)),
-                ('test_migration_field4', models.BooleanField(default=False)),
-                ('test_migration_field5', models.BooleanField(default=False)),
             ],
         ),
         migrations.CreateModel(
