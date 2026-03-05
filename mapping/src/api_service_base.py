@@ -232,28 +232,28 @@ def reconstruct3D():
     images = []
 
     for idx, f in enumerate(image_files):
-        if not f or not f.filename:
-            continue
+      if not f or not f.filename:
+        continue
 
-        raw = f.read()
-        if not raw:
-            continue
+      raw = f.read()
+      if not raw:
+        continue
 
-        cam_id = camera_ids[idx] if idx < len(camera_ids) else None
+      cam_id = camera_ids[idx] if idx < len(camera_ids) else None
 
-        cam_loc = None
-        if camera_locations and idx < len(camera_locations):
-            try:
-                cam_loc = json.loads(camera_locations[idx])
-            except Exception:
-                cam_loc = None
+      cam_loc = None
+      if camera_locations and idx < len(camera_locations):
+        try:
+          cam_loc = json.loads(camera_locations[idx])
+        except Exception:
+          cam_loc = None
 
-        images.append({
-            "filename": secure_filename(f.filename),
-            "camera_id": cam_id,
-            "camera_location": cam_loc,   # Only populated if provided
-            "data": base64.b64encode(raw).decode("utf-8"),
-        })
+      images.append({
+          "filename": secure_filename(f.filename),
+          "camera_id": cam_id,
+          "camera_location": cam_loc,   # Only populated if provided
+          "data": base64.b64encode(raw).decode("utf-8"),
+      })
 
     if not images:
       set_status(request_id, state="failed", updated_at=time.time(), error="No valid images uploaded")
