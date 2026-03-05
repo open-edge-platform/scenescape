@@ -8,7 +8,6 @@ SPDX-License-Identifier: Apache-2.0
 ## Documentation
 
 - [MIGRATIONS.md](MIGRATIONS.md) - Django migrations workflow and best practices
-- [CI_CD_MIGRATIONS.md](CI_CD_MIGRATIONS.md) - CI/CD integration for automated migration generation
 
 ## Service Overview
 
@@ -20,13 +19,13 @@ The **Manager** service is the Django-based web UI and REST API gateway for Inte
 
 ### Core Modules
 
-1. **Django Application** (`src/django/`):
+1. **Django Application** (`src/manager/`):
    - Scene management views and APIs
    - Camera configuration interfaces
    - User authentication and authorization
    - PostgreSQL ORM models
 
-2. **REST API** (`src/django/api/`):
+2. **REST API** (`src/manager/api/`):
    - RESTful endpoints for external integrations
    - Scene CRUD operations
    - Camera calibration triggers
@@ -230,12 +229,12 @@ class Camera(models.Model):
 
 ### Adding New Database Model
 
-1. Define model in `src/django/models.py`
+1. Define model in `src/manager/models.py`
 2. Create migration: `docker compose exec manager python manage.py makemigrations`
-3. Review migration file in `src/django/migrations/`
+3. Review migration file in `src/manager/migrations/`
 4. Commit migration file to version control
 5. Apply: `docker compose exec manager python manage.py migrate`
-6. Update admin interface if needed: `src/django/admin.py`
+6. Update admin interface if needed: `src/manager/admin.py`
 
 ### Modifying Web UI
 
