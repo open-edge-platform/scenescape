@@ -3,7 +3,7 @@
 
 # Integration with common.mk for Docker image builds
 IMAGE := scenescape-tracker
-RUNTIME_OS_IMAGE := gcr.io/distroless/cc-debian13@sha256:d93602c2e8facf19435442a3fd19306e77505ca722aad08e7de659f6df43e147
+RUNTIME_OS_IMAGE := gcr.io/distroless/cc-debian13
 TARGET ?= runtime
 BUILD_TYPE ?= Release
 HAS_PIP := no
