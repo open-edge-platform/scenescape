@@ -113,8 +113,6 @@ services:
       start_period: 10s
     environment:
       - RUN_MODE=EVA
-      - DETECTION_DEVICE=CPU
-      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
       - ADD_UTCTIME_TO_METADATA=true
