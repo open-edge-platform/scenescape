@@ -53,6 +53,8 @@ x-controller-base: &controller-base
     CONTROLLER_ENABLE_TRACING: ${CONTROLLER_ENABLE_TRACING}
     CONTROLLER_TRACING_ENDPOINT: ${CONTROLLER_TRACING_ENDPOINT}
     CONTROLLER_TRACING_SAMPLE_RATIO: ${CONTROLLER_TRACING_SAMPLE_RATIO}
+    no_proxy: ${no_proxy},.scenescape.intel.com
+    NO_PROXY: ${NO_PROXY},.scenescape.intel.com
   command: >
     --restauth /run/secrets/controller.auth
     --brokerauth /run/secrets/controller.auth
@@ -167,6 +169,8 @@ services:
     environment:
       - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
+      - no_proxy=${no_proxy},.scenescape.intel.com
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
     cap_add:
       - SYS_ADMIN
     devices:
@@ -415,7 +419,7 @@ services:
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad
       - HTTP_PROXY=${HTTP_PROXY}
       - HTTPS_PROXY=${HTTPS_PROXY}
-      - NO_PROXY=${NO_PROXY}
+      - NO_PROXY=${NO_PROXY},scenescape.intel.com
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
       - vol-datasets:/home/scenescape/SceneScape/datasets
