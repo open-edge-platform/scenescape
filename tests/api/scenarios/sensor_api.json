@@ -207,7 +207,7 @@
         "request": {
           "body": {
             "name": "bad_points",
-            "area": "polygon",
+            "area": "poly",
             "points": [[1, 2]]
           }
         },
