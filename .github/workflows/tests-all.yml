@@ -89,7 +89,7 @@ jobs:
   run_non_functional_tests:
     runs-on: [all]
     name: "Non-Functional Tests"
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Remove test_data folder
         run: |
@@ -127,7 +127,7 @@ jobs:
   run_metric_tests:
     runs-on: [all]
     name: "Metric Tests"
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Remove test_data folder
         run: |
@@ -203,7 +203,7 @@ jobs:
   run_unit_tests:
     runs-on: [all]
     name: "Unit Tests"
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Remove test_data folder
         run: |

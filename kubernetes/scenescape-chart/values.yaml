@@ -121,7 +121,7 @@ vdms:
   image:
     repository: docker.io
     name: intellabs/vdms
-    tag: v2.11.0
+    tag: v2.12.0
     pullPolicy: IfNotPresent
 
 clusterAnalytics:
