@@ -72,7 +72,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SENSOR/03: Create sensor with entire scene Area",
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/03: Create sensor with entire scene area",
     "test_steps": [
       {
         "step_name": "Create sensor covering entire scene",
@@ -83,7 +83,7 @@
             "name": "sensor_entire_scene",
             "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
             "sensor_id": "sensor_entire_scene",
-            "area": "entire_scene",
+            "area": "scene",
             "translation": [1, 1, 1],
             "singleton_type": "attribute",
             "color_range": {
@@ -126,7 +126,7 @@
             "name": "sensor_polygon",
             "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
             "sensor_id": "sensor_polygon",
-            "area": "polygon",
+            "area": "poly",
             "points": [
               [3.81, 4.59],
               [5.42, 5.12],
@@ -207,7 +207,7 @@
         "request": {
           "body": {
             "name": "bad_points",
-            "area": "polygon",
+            "area": "poly",
             "points": [[1, 2]]
           }
         },
@@ -340,7 +340,7 @@
           "area": "circle",
           "radius": 2.5,
           "center": [3.81, 4.59],
-          "translation": [1, 1, 1],
+          "translation": [3.81, 4.59, 0.0],
           "singleton_type": "environmental"
         }
       }
@@ -525,7 +525,7 @@
           "body": {
             "name": "sensor_minimal_updated",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
-            "area": "polygon",
+            "area": "poly",
             "points": [[1, 1]]
           }
         },
