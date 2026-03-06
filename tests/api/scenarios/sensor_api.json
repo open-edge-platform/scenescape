@@ -586,7 +586,7 @@
     "test_name": "Vision_AI/SSCAPE/API/SENSOR/22: Delete sensor",
     "test_steps": [
       {
-        "step_name": "Delete sensor",
+        "step_name": "Delete minimal sensor",
         "api": "sensor",
         "method": "deleteSensor",
         "request": {
@@ -597,11 +597,77 @@
         }
       },
       {
-        "step_name": "Verify sensor is deleted",
+        "step_name": "Verify minimal sensor is deleted",
         "api": "sensor",
         "method": "getSensor",
         "request": {
           "UID": "${SENSOR_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      },
+      {
+        "step_name": "Delete full sensor",
+        "api": "sensor",
+        "method": "deleteSensor",
+        "request": {
+          "UID": "${SENSOR_UID_FULL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify full sensor is deleted",
+        "api": "sensor",
+        "method": "getSensor",
+        "request": {
+          "UID": "${SENSOR_UID_FULL}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      },
+      {
+        "step_name": "Delete entire scene sensor",
+        "api": "sensor",
+        "method": "deleteSensor",
+        "request": {
+          "UID": "${SENSOR_UID_ENTIRE}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify entire scene sensor is deleted",
+        "api": "sensor",
+        "method": "getSensor",
+        "request": {
+          "UID": "${SENSOR_UID_ENTIRE}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      },
+      {
+        "step_name": "Delete polygon sensor",
+        "api": "sensor",
+        "method": "deleteSensor",
+        "request": {
+          "UID": "${SENSOR_UID_POLYGON}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify polygon sensor is deleted",
+        "api": "sensor",
+        "method": "getSensor",
+        "request": {
+          "UID": "${SENSOR_UID_POLYGON}"
         },
         "expected_status": {
           "status_code": 404
