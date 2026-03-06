@@ -1,0 +1,7 @@
+{
+  "stale_feature_timeout_secs": 5.0,
+  "stale_feature_check_interval_secs": 1.0,
+  "feature_accumulation_threshold": 12,
+  "feature_slice_size": 10,
+  "similarity_threshold": 60
+}
