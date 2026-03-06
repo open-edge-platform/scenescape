@@ -83,7 +83,7 @@
             "name": "sensor_entire_scene",
             "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
             "sensor_id": "sensor_entire_scene",
-            "area": "entire_scene",
+            "area": "scene",
             "translation": [1, 1, 1],
             "singleton_type": "attribute",
             "color_range": {
