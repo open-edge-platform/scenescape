@@ -43,7 +43,7 @@
             "center": [3.81, 4.59],
             "translation": [1, 1, 1],
             "singleton_type": "attribute",
-            "color_range": {
+            "color_ranges": {
               "sectors": [
                 {
                   "color": "green",
@@ -86,7 +86,7 @@
             "area": "scene",
             "translation": [1, 1, 1],
             "singleton_type": "attribute",
-            "color_range": {
+            "color_ranges": {
               "sectors": [
                 {
                   "color": "green",
@@ -134,7 +134,7 @@
             ],
             "translation": [1, 1, 1],
             "singleton_type": "attribute",
-            "color_range": {
+            "color_ranges": {
               "sectors": [
                 {
                   "color": "green",
@@ -249,7 +249,7 @@
           "body": {
             "name": "polygon_no_points",
             "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
-            "area": "polygon"
+            "area": "poly"
           }
         },
         "expected_status": {
@@ -310,7 +310,7 @@
           "body": {
             "name": "bad_color_range",
             "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
-            "color_range": {}
+            "color_ranges": {}
           }
         },
         "expected_status": {
@@ -460,7 +460,7 @@
           "body": {
             "name": "sensor_minimal_updated",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
-            "area": "polygon",
+            "area": "poly",
             "points": [
               [1, 1],
               [2, 2],
@@ -557,7 +557,7 @@
             "center": [3.81, 4.59],
             "translation": [1, 1, 1],
             "singleton_type": "attribute",
-            "color_range": {
+            "color_ranges": {
               "sectors": [
                 {
                   "color": "blue",
