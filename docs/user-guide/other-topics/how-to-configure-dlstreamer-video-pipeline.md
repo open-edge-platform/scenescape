@@ -38,8 +38,11 @@ By default, only a limited number of models is downloaded during helm chart inst
 ##### Chaining Syntax
 
 - **Serial chaining**: Use the `+` operator to chain models sequentially (e.g., `retail+reid`).
-- **Device specification**: Optionally specify the inference device using `=` (e.g., `retail=GPU`). See [DLStreamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html) for GPU device selection convention.
-- **Default device**: If no device is specified, CPU is used as the default.
+- **Device specification**: Optionally specify the inference device using `<model name>=<device>` syntax:
+  - Use `GPU` (e.g., `retail=GPU`) for systems with a single GPU device or for **automatic GPU device selection**.
+  - Use [OpenVINO naming convention](https://docs.openvino.ai/2026/openvino-workflow/running-inference/inference-devices-and-modes/gpu-device.html#device-naming-convention) to **select a specific GPU device**. Only Intel GPU devices are supported.
+  - Use `NPU` (e.g., `retail=NPU`) to run the inference on NPU (Neural Processing Unit).
+  - **Default device**: If no device is specified, CPU is used as the default.
 
 > **Note**: On systems with Intel GPU (either integrated or discrete), it is highly recommended to run both the decoding and the inference on GPU, so that other Intel® SceneScape services can fully benefit from available CPU cores. GPU inference typically provides better performance for complex models.
 
@@ -189,7 +192,7 @@ After generating a pipeline preview, you can make manual adjustments:
 
 ### Adding custom models or input video files
 
-You can upload custom models or input video files and use them in DLStreamer Video Pipeline. These are stored in the Models Volume and Sample-Data Volume respectively.
+You can upload custom models or input video files and use them in DL Streamer Video Pipeline. These are stored in the Models Volume and Sample-Data Volume respectively.
 
 #### Uploading custom models
 
@@ -209,11 +212,11 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 ### Limitations
 
 - Only serial chaining of detectors with classification or re-identification models is supported in the **Camera Chain** field, where the ROI from the detection model serves as input to the classification or re-identification model in the chain. Serial chaining of two or more detectors is not supported (e.g. vehicle detector → license plate detector → OCR). Parallel inference on multiple models is not yet supported.
-- Distortion correction is temporarily disabled due to a bug in DLStreamer-Pipeline-Server.
+- Distortion correction is temporarily disabled due to a bug in DL Streamer Pipeline Server.
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
 - Cross-stream batching is not supported since in Intel® SceneScape Kubernetes deployment each camera pipeline is running in a separate Pod.
-- Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html).
+- Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html).
 - MP4 input files are not reliably supported. This is due to a GStreamer limitation: the combination of `multifilesrc` and `decodebin3` elements may fail because MP4 container metadata is unavailable when data is provided as discrete file fragments. As a workaround, convert MP4 files to a streaming-friendly format such as MPEG-TS (.ts).
 
 ### Troubleshooting
@@ -225,7 +228,9 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 
 ## Manual Video Pipeline Configuration (in Docker Compose deployment)
 
-Intel® SceneScape uses DLStreamer Pipeline Server as the Video Analytics microservice. The file [docker-compose-dl-streamer-example.yml](/sample_data/docker-compose-dl-streamer-example.yml) shows how a DLStreamer Pipeline Server docker container is configured to stream video analytics data for consumption by Intel® SceneScape. It leverages DLStreamer pipelines definitions in [queuing-config.json](/dlstreamer-pipeline-server/queuing-config.json) and [retail-config.json](/dlstreamer-pipeline-server/retail-config.json)
+Intel® SceneScape uses DL Streamer Pipeline Server as the Video Analytics microservice. The file [docker-compose-dl-streamer-example.yml](/sample_data/docker-compose-dl-streamer-example.yml) shows how a DL Streamer Pipeline Server docker container is configured to stream video analytics data for consumption by Intel® SceneScape. It leverages DL Streamer pipelines definitions in [queuing-config.json](/dlstreamer-pipeline-server/queuing-config.json) and [retail-config.json](/dlstreamer-pipeline-server/retail-config.json).
+
+> **Note**: To run DL Streamer Pipeline Server pipelines on hardware accelerators (GPU or NPU), see the DL Streamer Pipeline Server service [user documentation](/dlstreamer-pipeline-server/README.md).
 
 ### Video Pipeline Configuration
 
@@ -255,7 +260,7 @@ The following is the GStreamer command that defines the video processing pipelin
 
 `appsink` is the final element in the pipeline, which consumes the processed video and metadata. The `sync=true` parameter ensures the pipeline operates in sync with the video stream.
 
-Read the instructions here for details on how to further configure DLStreamer pipeline [DLStreamer Pipeline Server documentation](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide) to customize:
+Read the instructions here for details on how to further configure DL Streamer pipeline [DL Streamer Pipeline Server documentation](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide) to customize:
 
 - Input sources (video files, USB, RTSP streams)
 - Processing parameters
@@ -362,11 +367,11 @@ DL Streamer Pipeline Server supports grouping multiple frames into a single batc
 
 `batch-size` is an optional parameter which specifies the number of input frames grouped together in a single batch.
 
-Read the instructions on how to configure cross stream batching in [DLStreamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/edge-ai-libraries/dlstreamer-pipeline-server/main/user-guide/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)
+Read the instructions on how to configure cross stream batching in [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/edge-ai-libraries/dlstreamer-pipeline-server/main/user-guide/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)
 
 ### Adding custom models or input video files to Docker volumes
 
-You can upload custom models or input video files and use them in DLStreamer Video Pipeline. These are stored in the Models Volume and Sample-Data Volume respectively.
+You can upload custom models or input video files and use them in DL Streamer Video Pipeline. These are stored in the Models Volume and Sample-Data Volume respectively.
 
 #### Uploading custom models to Docker volumes
 

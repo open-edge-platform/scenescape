@@ -142,6 +142,7 @@ RUN : \
     ;
 # End of TLS installation
 
+# Copy application code
 RUN mkdir -p $SCENESCAPE_HOME/manager
 COPY ./manager/src/django/*.py \
     ./manager/src/setup.py \
@@ -158,9 +159,9 @@ COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/s
 # Install SceneScape
 RUN : \
     ; eval WSHOME=~$WSUSER \
-    ; chown -R "$WSUSER" "$WSHOME/SceneScape" \
+    ; chown -R "$WSUSER":"$WSUSER" "$WSHOME/SceneScape" \
     ; touch "$WSHOME/SceneScape/manager/settings_local.py" \
-    ; chown "$WSUSER.$WSUSER" "$WSHOME/SceneScape/manager/settings_local.py" \
+    ; chown "$WSUSER:$WSUSER" "$WSHOME/SceneScape/manager/settings_local.py" \
     ; pip3 install --no-cache-dir "$SCENESCAPE_HOME/manager/" \
     ;
 RUN cp -R /usr/local/lib/python3.*/site-packages/django/contrib/admin/static/ $SCENESCAPE_HOME/
@@ -174,23 +175,25 @@ RUN OPENCV_SHA=$(openssl dgst -sha256 -binary "$SCENESCAPE_HOME/manager/static/a
 
 COPY ./manager/config/user_access_config.json $SCENESCAPE_HOME
 
-COPY ./manager/config/webserver-init \
+COPY --chown=$WSUSER:$WSUSER ./manager/config/webserver-init \
      ./manager/config/scenescape-init \
      /usr/local/bin/
 
-RUN chown -R $USER_ID /home/scenescape/ \
-    && chown -R $USER_ID /etc/apache2/ \
+RUN chown -R $WSUSER:$WSUSER /home/scenescape/ \
+    && chown -R $WSUSER:$WSUSER /etc/apache2/ \
     && mkdir -p /workspace /workspace/media /workspace/migrations \
-    && chown -R $USER_ID /workspace \
+    && chown -R $WSUSER:$WSUSER /workspace \
     && mkdir -p /var/log/apache2 \
-    && chown -R $USER_ID /var/log/apache2 \
+    && chown -R $WSUSER:$WSUSER /var/log/apache2 \
     && mkdir -p /var/run/apache2 \
-    && chown -R $USER_ID /var/run/apache2
+    && chown -R $WSUSER:$WSUSER /var/run/apache2
 RUN sed -i "/^export APACHE_RUN_USER=/d" /etc/apache2/envvars && \
     sed -i "/^export APACHE_RUN_GROUP=/d" /etc/apache2/envvars && \
     echo "export APACHE_RUN_USER=$WSUSER" >> /etc/apache2/envvars && \
     echo "export APACHE_RUN_GROUP=$WSUSER" >> /etc/apache2/envvars
-USER $USER_ID:$GROUP_ID
+RUN echo "${WSUSER} ALL=(ALL) NOPASSWD: /bin/chown" >> /etc/sudoers.d/${WSUSER} \
+    && chmod 0440 /etc/sudoers.d/${WSUSER}
+USER $WSUSER
 ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 
 # ---------- Manager Test Stage ------------------
@@ -229,4 +232,4 @@ RUN : \
     ; eval WSHOME=~$WSUSER \
     ; chown -R "$WSUSER.$WSUSER" "$WSHOME/.mozilla" \
     ;
-USER $USER_ID:$GROUP_ID
+USER $WSUSER
