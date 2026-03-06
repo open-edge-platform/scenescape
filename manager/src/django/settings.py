@@ -99,14 +99,13 @@ AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 
 DATABASES = {
   'default': {
-    'ENGINE': 'django.db.backends.postgresql_psycopg2',
     'ATOMIC_REQUESTS': True,
     'NAME': APP_BASE_NAME,
     'USER': APP_BASE_NAME,
     'ENGINE': os.environ.get('ENGINE', ''),
     'HOST': os.environ.get('DBHOST', 'localhost'),
-    'PORT': os.environ.get('PORT', ''),
-    'PASSWORD': os.environ.get('DATABASE_PASSWORD', '')
+    'PORT': os.environ.get('DBPORT', ''),
+    'PASSWORD': os.environ.get('DBPASS', '')
   }
 }
 
