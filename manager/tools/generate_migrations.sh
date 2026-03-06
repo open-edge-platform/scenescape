@@ -115,7 +115,7 @@ show_migrations() {
 generate_migrations
 
 echo ""
-echo "==> Migration files generated in manager/src/django/migrations/"
+echo "==> Migration files generated in manager/src/manager/migrations/"
 echo ""
 echo "Next steps:"
 echo "1. Review the generated migration files"

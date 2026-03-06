@@ -91,7 +91,7 @@ Create `.vscode/settings.json` in the project root, or press `Ctrl+Shift+P` → 
   "python.terminal.activateEnvironment": true,
   "python.analysis.extraPaths": [
     "${workspaceFolder}",
-    "${workspaceFolder}/manager/src/django",
+    "${workspaceFolder}/manager/src/manager",
     "${workspaceFolder}/tests",
     "${workspaceFolder}/scene_common/src",
     "${workspaceFolder}/controller/src",
