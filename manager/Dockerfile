@@ -191,8 +191,6 @@ RUN sed -i "/^export APACHE_RUN_USER=/d" /etc/apache2/envvars && \
     sed -i "/^export APACHE_RUN_GROUP=/d" /etc/apache2/envvars && \
     echo "export APACHE_RUN_USER=$WSUSER" >> /etc/apache2/envvars && \
     echo "export APACHE_RUN_GROUP=$WSUSER" >> /etc/apache2/envvars
-RUN echo "${WSUSER} ALL=(ALL) NOPASSWD: /bin/chown" >> /etc/sudoers.d/${WSUSER} \
-    && chmod 0440 /etc/sudoers.d/${WSUSER}
 USER $WSUSER
 ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 
