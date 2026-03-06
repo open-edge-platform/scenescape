@@ -103,9 +103,9 @@ DATABASES = {
     'ATOMIC_REQUESTS': True,
     'NAME': APP_BASE_NAME,
     'USER': APP_BASE_NAME,
-    'ENGINE': os.environ.get('DB_ENGINE', ''),
-    'HOST': os.environ.get('DB_HOST', 'localhost'),
-    'PORT': os.environ.get('DB_PORT', ''),
+    'ENGINE': os.environ.get('ENGINE', ''),
+    'HOST': os.environ.get('DBHOST', 'localhost'),
+    'PORT': os.environ.get('PORT', ''),
     'PASSWORD': os.environ.get('DATABASE_PASSWORD', '')
   }
 }
