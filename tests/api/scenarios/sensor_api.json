@@ -72,7 +72,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SENSOR/03: Create sensor with entire scene Area",
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/03: Create sensor with entire scene area",
     "test_steps": [
       {
         "step_name": "Create sensor covering entire scene",
