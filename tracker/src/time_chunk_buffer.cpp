@@ -11,6 +11,17 @@ void TimeChunkBuffer::add(const TrackingScope& scope, const std::string& camera_
                           DetectionBatch&& batch) {
     std::lock_guard lock(mutex_);
     buffer_[scope][camera_id] = std::move(batch);
+    category_cache_[scope.scene_id].insert(scope.category);
+}
+
+void TimeChunkBuffer::updateScene(const std::string& scene_id, const DetectionBatch& batch) {
+    std::lock_guard lock(mutex_);
+    for (const auto& category : category_cache_[scene_id]) {
+        TrackingScope scope{scene_id, category};
+        auto& camera_map = buffer_[scope];
+        // Insert empty batch if camera_id not present, otherwise keep existing batch
+        camera_map.try_emplace(batch.camera_id, batch);
+    }
 }
 
 BufferMap TimeChunkBuffer::pop_all() {

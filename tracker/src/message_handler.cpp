@@ -312,6 +312,19 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                     {.camera_id = camera_id, .scene_id = scene->uid, .object_category = category}));
     }
 
+    if (message->objects.empty()) {
+        DetectionBatch batch;
+        batch.camera_id = camera_id;
+        batch.receive_time = receive_time;
+        batch.timestamp_iso = message->timestamp;
+        batch.timestamp = *msg_time;
+        batch.obs_ctx = obs_ctx; // Copy obs_ctx to allow reuse in next loop iteration
+        batch.obs_ctx.captureBufferTime();
+        batch.obs_ctx.category = "unknown";
+        buffer_.updateScene(scene->uid, batch);
+        LOG_DEBUG(">>> Received message with no detections for camera {}, scene {}, added empty batches to trigger processing", camera_id, scene->uid);
+    }
+
     // Record message accepted
     Metrics::inc_messages({{kAttrScene, std::string(scene->uid)},
                            {kAttrCameraId, camera_id},

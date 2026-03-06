@@ -97,6 +97,14 @@ void TimeChunkScheduler::run() {
 
         // Collect all buffered data
         BufferMap snapshot = buffer_.pop_all();
+        for (const auto& [scope, cameras] : snapshot) {
+            LOG_DEBUG(">>> Scheduler popped chunk for scope {}/{} with {} cameras", scope.scene_id,
+                      scope.category, cameras.size());
+            for (const auto& [camera_id, batch] : cameras) {
+                LOG_DEBUG(">>> Camera {}: {} detections (timestamp={})", camera_id,
+                          batch.detections.size(), batch.timestamp_iso);
+            }
+        }
 
         if (!snapshot.empty()) {
             dispatch(std::move(snapshot));

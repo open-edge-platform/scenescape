@@ -6,6 +6,7 @@
 #include "tracking_types.hpp"
 
 #include <mutex>
+#include <set>
 
 namespace tracker {
 
@@ -34,6 +35,14 @@ public:
     void add(const TrackingScope& scope, const std::string& camera_id, DetectionBatch&& batch);
 
     /**
+     * @brief Add empty camera chunks to trigger processing for scopes without new data.
+     *
+     * @param scene_id Scene identifier
+     * @param batch Detection batch to add
+     */
+    void updateScene(const std::string& scene_id, const DetectionBatch& batch);
+
+    /**
      * @brief Atomically retrieve and clear all buffered data.
      *
      * Returns a snapshot of all buffered data and clears the internal buffer.
@@ -56,6 +65,7 @@ public:
 private:
     mutable std::mutex mutex_;
     BufferMap buffer_;
+    std::unordered_map<std::string, std::set<std::string>> category_cache_; ///< scene_id → set of categories
 };
 
 } // namespace tracker

@@ -262,7 +262,7 @@ std::vector<Track> TrackingWorker::match_and_convert(
     auto rv_tracks = tracker_.getReliableTracks();
     auto tracks = convert_tracks(rv_tracks, chunk.category);
 
-    LOG_DEBUG("Processed chunk for {}/{}: {} detections -> {} reliable tracks", scope_.scene_id,
+    LOG_DEBUG(">>> Processed chunk for {}/{}: {} detections -> {} reliable tracks", scope_.scene_id,
               scope_.category,
               std::accumulate(chunk.camera_batches.begin(), chunk.camera_batches.end(), 0,
                               [](int sum, const auto& b) { return sum + b.detections.size(); }),
