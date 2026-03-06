@@ -249,7 +249,7 @@
           "body": {
             "name": "polygon_no_points",
             "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
-            "area": "polygon"
+            "area": "poly"
           }
         },
         "expected_status": {
@@ -456,7 +456,7 @@
           "body": {
             "name": "sensor_minimal_updated",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
-            "area": "polygon",
+            "area": "poly",
             "points": [
               [1, 1],
               [2, 2],
