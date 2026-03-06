@@ -83,10 +83,10 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/CAMERA/04: Create camera with missing required field intrinsics",
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/04: Create camera without intrinsics",
     "test_steps": [
       {
-        "step_name": "Attempt to create camera without intrinsics",
+        "step_name": "Create camera without intrinsics (intrinsics are optional)",
         "api": "camera",
         "method": "createCamera",
         "request": {
@@ -96,16 +96,30 @@
           }
         },
         "expected_status": {
-          "status_code": 400
+          "status_code": 201
+        },
+        "save": {
+          "CAMERA_UID_NO_INTRINSICS": "uid"
+        }
+      },
+      {
+        "step_name": "Delete camera created without intrinsics",
+        "api": "camera",
+        "method": "deleteCamera",
+        "request": {
+          "UID": "${CAMERA_UID_NO_INTRINSICS}"
+        },
+        "expected_status": {
+          "status_code": 200
         }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/CAMERA/05: Create camera with missing required field resolution",
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/05: Create camera without resolution",
     "test_steps": [
       {
-        "step_name": "Attempt to create camera without resolution",
+        "step_name": "Create camera without resolution (resolution defaults apply)",
         "api": "camera",
         "method": "createCamera",
         "request": {
@@ -121,7 +135,21 @@
           }
         },
         "expected_status": {
-          "status_code": 400
+          "status_code": 201
+        },
+        "save": {
+          "CAMERA_UID_NO_RESOLUTION": "uid"
+        }
+      },
+      {
+        "step_name": "Delete camera created without resolution",
+        "api": "camera",
+        "method": "deleteCamera",
+        "request": {
+          "UID": "${CAMERA_UID_NO_RESOLUTION}"
+        },
+        "expected_status": {
+          "status_code": 200
         }
       }
     ]
@@ -239,36 +267,36 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/CAMERA/09: Update camera with missing required field intrinsics",
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/09: Update camera without intrinsics",
     "test_steps": [
       {
-        "step_name": "Attempt to update camera without intrinsics",
+        "step_name": "Update camera without intrinsics (intrinsics are optional, partial update)",
         "api": "camera",
         "method": "updateCamera",
         "request": {
           "UID": "${CAMERA_UID_MINIMAL}",
           "body": {
-            "name": "Should_Fail",
+            "name": "Camera_Partial_Update",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
           }
         },
         "expected_status": {
-          "status_code": 400
+          "status_code": 200
         }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/CAMERA/10: Update camera missing required field resolution",
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/10: Update camera without resolution",
     "test_steps": [
       {
-        "step_name": "Attempt to update camera without resolution",
+        "step_name": "Update camera without resolution (resolution is optional, partial update)",
         "api": "camera",
         "method": "updateCamera",
         "request": {
           "UID": "${CAMERA_UID_MINIMAL}",
           "body": {
-            "name": "Should_Fail",
+            "name": "Camera_Partial_Update_No_Res",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "intrinsics": {
               "fx": 1000.0,
@@ -279,7 +307,7 @@
           }
         },
         "expected_status": {
-          "status_code": 400
+          "status_code": 200
         }
       }
     ]
