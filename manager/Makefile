@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 IMAGE = scenescape-manager
-RUNTIME_OS_IMAGE = python:3.11-slim-bookworm
 TARGET = scenescape-manager-runtime
 USES_SCENE_COMMON = yes
 SHELL = /bin/bash

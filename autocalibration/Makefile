@@ -3,7 +3,6 @@
 
 IMAGE := scenescape-autocalibration
 TEST_IMAGE := scenescape-autocalibration-test
-RUNTIME_OS_IMAGE := python:3.11-slim-bookworm
 TARGET = autocalibration-runtime
 USES_SCENE_COMMON := yes
 

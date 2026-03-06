@@ -9,6 +9,9 @@ LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
 HAS_PIP ?= yes
 HAS_DPKG ?= yes
 USES_SCENE_COMMON ?= no
+# Read the SHA-pinned image from the Dockerfile ARG default — single source of truth
+RUNTIME_OS_IMAGE ?= $(shell sed -n 's/^ARG RUNTIME_OS_IMAGE=//p' Dockerfile)
+$(if $(RUNTIME_OS_IMAGE),,$(if $(shell grep -qs 'FROM $${RUNTIME_OS_IMAGE}' Dockerfile && echo yes),$(error RUNTIME_OS_IMAGE could not be parsed from Dockerfile. Ensure 'ARG RUNTIME_OS_IMAGE=<image>' is present in $(CURDIR)/Dockerfile)))
 
 default: build-image
 
@@ -73,9 +76,18 @@ list-dependencies: $(BUILD_DIR)
 	  echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"; \
 	fi
 
-# TODO: detect whether Docker BuildKit container is running and fail if not
+.PHONY: check-buildkit
+check-buildkit:
+	@if ! docker buildx inspect 2>&1 | grep -q "Driver:.*docker-container"; then \
+	  echo "Error: generate-sbom requires a BuildKit container builder (current builder uses an incompatible driver)."; \
+	  echo "Create one with:"; \
+	  echo "  docker buildx create --use --name=scenescape-buildkit-container --driver=docker-container \\"; \
+	  echo "    --driver-opt=env.http_proxy=\$$http_proxy,env.https_proxy=\$$https_proxy,env.HTTP_PROXY=\$$HTTP_PROXY,env.HTTPS_PROXY=\$$HTTPS_PROXY,default-load=true"; \
+	  exit 1; \
+	fi
+
 .PHONY: generate-sbom
-generate-sbom: $(BUILD_DIR)
+generate-sbom: $(BUILD_DIR) check-buildkit
 # if the Dockerfile is based on scene_common/Dockerfile, prepend it to get the full context as a work-around for docker buildx limitations
 	@if [[ "$(USES_SCENE_COMMON)" == "yes" ]]; then \
 	  echo "ARG RUNTIME_OS_IMAGE=${RUNTIME_OS_IMAGE}" > $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \

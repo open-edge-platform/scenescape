@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 IMAGE := scenescape-mapping
-RUNTIME_OS_IMAGE := python:3.11-slim-bookworm
 TARGET = mapping-runtime
 USES_SCENE_COMMON := yes
 
