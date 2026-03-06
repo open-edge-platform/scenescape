@@ -93,10 +93,10 @@ if [ -n "$WAITFORCONTAINERS" ]; then
 fi
 
 if [ "${RUN_TEST}" = 1 ] ; then
-    if [[ "${IMAGE}" == *scenescape-controller-test* ]]; then
+    if [[ "${IMAGE}" == *scenescape-controller-test* ]] || [[ "${IMAGE}" == *scenescape-manager-test* ]]; then
         CMD="$@"
     else
-        CMD="$@"
+        CMD="PYTHONPATH=/home/scenescape/SceneScape/ $@"
     fi
 
     tools/scenescape-start --image ${IMAGE} --network ${PROJECT}_${NETWORK} --project ${PROJECT} ${CMD}
