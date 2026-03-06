@@ -7,6 +7,9 @@ RUNTIME_OS_IMAGE := gcr.io/distroless/cc-debian13
 TARGET ?= runtime
 BUILD_TYPE ?= Release
 HAS_PIP := no
+HAS_DPKG := no
+BUILDER_BASE_IMAGE := debian:13-slim
+BUILDER_IMAGE := $(IMAGE)-builder
 EXTRA_BUILD_ARGS := --build-arg GIT_COMMIT=$(shell git rev-parse --short HEAD) --build-arg BUILD_TYPE=$(BUILD_TYPE)
 # Override BUILD_DIR based on BUILD_TYPE (Release->build, others->build-<type>)
 ifeq ($(BUILD_TYPE),Release)
@@ -435,6 +438,29 @@ mqtt-publish:
 #####################################################################
 # Clean targets
 #####################################################################
+
+# Override common.mk list-dependencies to use the builder stage (runtime is distroless, has no dpkg/pip)
+.PHONY: list-dependencies
+list-dependencies: $(BUILD_DIR)
+	@if [[ -z $$(docker images | grep "^$(IMAGE)" | grep $(VERSION)) ]]; then \
+	  echo "Error: the image $(IMAGE):$(VERSION) does not exist! Cannot generate dependency list."; \
+	  echo "Please build the image first."; \
+	  exit 1; \
+	fi
+	@echo "Building builder stage for dependency analysis..."
+	@docker build --target builder \
+	    --build-arg http_proxy=$(http_proxy) \
+	    --build-arg https_proxy=$(https_proxy) \
+	    --build-arg no_proxy=$(no_proxy) \
+	    $(EXTRA_BUILD_ARGS) \
+	    -t $(BUILDER_IMAGE):$(VERSION) \
+	    -f ./Dockerfile .. -q
+	@docker run --rm $(BUILDER_BASE_IMAGE) dpkg -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-system-packages.txt
+	@docker run --rm --entrypoint dpkg $(BUILDER_IMAGE):$(VERSION) -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-packages.txt
+	@grep -Fxv -f $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt || true
+	@rm -rf $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt
+	@echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"
+	@docker rmi $(BUILDER_IMAGE):$(VERSION) > /dev/null 2>&1 || true
 
 # Override common.mk clean to also remove local build directories
 clean:

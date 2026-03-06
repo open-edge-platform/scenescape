@@ -7,6 +7,7 @@ BUILD_DIR ?= $(PWD)/build
 ROOT_DIR := $(PWD)
 LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
 HAS_PIP ?= yes
+HAS_DPKG ?= yes
 
 default: build-image
 
@@ -59,15 +60,17 @@ list-dependencies: $(BUILD_DIR)
 	  echo "Please build the image first."; \
 	  exit 1; \
 	fi
-	@if [[ -n $(HAS_PIP) ]]; then \
+	@if [[ "$(HAS_PIP)" == "yes" ]]; then \
 	  docker run --rm --entrypoint pip $(IMAGE):$(VERSION) freeze --all > $(BUILD_DIR)/$(IMAGE)-pip-deps.txt; \
 	  echo "Python dependencies listed in $(BUILD_DIR)/$(IMAGE)-pip-deps.txt"; \
 	fi
-	@docker run --rm $(RUNTIME_OS_IMAGE) dpkg -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-system-packages.txt
-	@docker run --rm --entrypoint dpkg $(IMAGE):$(VERSION) -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-packages.txt
-	@grep -Fxv -f $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt || true
-	@rm -rf $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt
-	@echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"
+	@if [[ "$(HAS_DPKG)" == "yes" ]]; then \
+	  docker run --rm $(RUNTIME_OS_IMAGE) dpkg -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-system-packages.txt; \
+	  docker run --rm --entrypoint dpkg $(IMAGE):$(VERSION) -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-packages.txt; \
+	  grep -Fxv -f $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt || true; \
+	  rm -rf $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt; \
+	  echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"; \
+	fi
 
 # TODO: detect whether Docker BuildKit container is running and fail if not
 .PHONY: generate-sbom
