@@ -488,7 +488,7 @@
             "center": [3.81, 4.59],
             "translation": [1, 1, 1],
             "singleton_type": "attribute",
-            "color_range": {
+            "color_ranges": {
               "sectors": [
                 {
                   "color": "green",
