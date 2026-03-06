@@ -4,6 +4,7 @@
 IMAGE = scenescape-manager
 RUNTIME_OS_IMAGE = python:3.11-slim-bookworm
 TARGET = scenescape-manager-runtime
+USES_SCENE_COMMON = yes
 SHELL = /bin/bash
 CERTDOMAIN = scenescape.intel.com
 JSLIBDIR = src/static

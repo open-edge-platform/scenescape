@@ -8,6 +8,7 @@ ROOT_DIR := $(abspath $(PWD)/..)
 LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
 HAS_PIP ?= yes
 HAS_DPKG ?= yes
+USES_SCENE_COMMON ?= no
 
 default: build-image
 
@@ -76,7 +77,7 @@ list-dependencies: $(BUILD_DIR)
 .PHONY: generate-sbom
 generate-sbom: $(BUILD_DIR)
 # if the Dockerfile is based on scene_common/Dockerfile, prepend it to get the full context as a work-around for docker buildx limitations
-	@if [[ "$(IMAGE)" == "scenescape-autocalibration" || "$(IMAGE)" == "scenescape-controller" || "$(IMAGE)" == "scenescape-manager" || "$(IMAGE)" == "scenescape-mapping" || "$(IMAGE)" == "scenescape-cluster-analytics" ]]; then \
+	@if [[ "$(USES_SCENE_COMMON)" == "yes" ]]; then \
 	  echo "ARG RUNTIME_OS_IMAGE=${RUNTIME_OS_IMAGE}" > $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	  cat $(ROOT_DIR)/scene_common/Dockerfile ./Dockerfile >> $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	else \

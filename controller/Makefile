@@ -4,6 +4,7 @@
 IMAGE := scenescape-controller
 RUNTIME_OS_IMAGE := python:3.11-slim-bookworm
 TARGET = scenescape-controller-runtime
+USES_SCENE_COMMON := yes
 
 include ../common.mk
 

@@ -4,6 +4,7 @@
 IMAGE := scenescape-cluster-analytics
 RUNTIME_OS_IMAGE := python:3.11-slim-bookworm
 TARGET = scenescape-cluster-analytics-runtime
+USES_SCENE_COMMON := yes
 
 include ../common.mk
 
