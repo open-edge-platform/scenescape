@@ -126,7 +126,7 @@
             "name": "sensor_polygon",
             "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
             "sensor_id": "sensor_polygon",
-            "area": "polygon",
+            "area": "poly",
             "points": [
               [3.81, 4.59],
               [5.42, 5.12],
