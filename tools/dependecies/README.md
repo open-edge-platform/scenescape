@@ -1,4 +1,3 @@
-
 # Generation of all dependencies lists per component
 
 Prerequisite (run in the top level folder):
