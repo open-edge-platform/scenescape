@@ -3,6 +3,18 @@
 TODO list for tracking evaluation
 =====================================
 
+Design:
+
+- extending the design to support pluggable similarity scoring in addition to Euclidean distance (2D IoU projected to the scene, Euclidean distance, in future 3D IoU and various shapes)
+
+-----------------------
+
+Improvements:
+
+- resolving multiple tracker frames into a single frame per ground-truth frame when time-chunking is disabled (or chunking frame rate is higher than camera FPS)
+
+-----------------------
+
 Cleanup:
 
 Simplify output folder structure of TrackEvalEvaluator.
@@ -55,3 +67,8 @@ https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2805832131
 3. MotChallenge3DPoint._load_raw_file documents an 8-column format (frame,id,x,y,z,conf,class,visibility) but parses classes from column 7 (visibility). This will mislabel classes as visibility and can corrupt metric results when class/visibility differ. Adjust the column indices (and/or the written CSV format) so class is read from the intended column.
 https://github.com/open-edge-platform/scenescape/pull/987#discussion_r2805832105
 
+-----------------------
+
+CI workflows:
+
+- Add threshold-based evaluation of the new metrics to CI (tracking quality degradation gating Pull Requests)
