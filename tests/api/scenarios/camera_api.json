@@ -356,16 +356,16 @@
           "uid": "${CAMERA_UID_MINIMAL}",
           "name": "Camera_Partial_Update_No_Res",
           "intrinsics": {
-    "fx": 1000.0,
-    "fy": 1000.0,
-    "cx": 960.0,
-    "cy": 540.0
-  },
+            "fx": 1000.0,
+            "fy": 1000.0,
+            "cx": 960.0,
+            "cy": 540.0
+          },
           "transform_type": "3d-2d point correspondence",
           "translation": [0.0, 0.0, 0.0],
           "rotation": [-0.0, 0.0, 0.0],
           "scale": [1.0, 1.0, 1.0],
-          "resolution": [640,480],
+          "resolution": [640, 480],
           "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
           "cv_subsystem": "AUTO",
           "undistort": false,
