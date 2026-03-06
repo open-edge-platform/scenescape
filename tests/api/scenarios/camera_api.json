@@ -354,18 +354,18 @@
         },
         "expected_body": {
           "uid": "${CAMERA_UID_MINIMAL}",
-          "name": "Camera_Minimal_Updated",
+          "name": "Camera_Partial_Update_No_Res",
           "intrinsics": {
-            "fx": 1100.0,
-            "fy": 1100.0,
-            "cx": 960.0,
-            "cy": 540.0
-          },
+    "fx": 1000.0,
+    "fy": 1000.0,
+    "cx": 960.0,
+    "cy": 540.0
+  },
           "transform_type": "3d-2d point correspondence",
           "translation": [0.0, 0.0, 0.0],
           "rotation": [-0.0, 0.0, 0.0],
           "scale": [1.0, 1.0, 1.0],
-          "resolution": [1920, 1080],
+          "resolution": [640,480],
           "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
           "cv_subsystem": "AUTO",
           "undistort": false,
@@ -443,6 +443,17 @@
         },
         "expected_status": {
           "status_code": 404
+        }
+      },
+      {
+        "step_name": "Delete camera",
+        "api": "camera",
+        "method": "deleteCamera",
+        "request": {
+          "UID": "${CAMERA_UID_FULL}"
+        },
+        "expected_status": {
+          "status_code": 200
         }
       }
     ]
