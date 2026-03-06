@@ -4,7 +4,7 @@
 SHELL := /bin/bash
 VERSION := $(shell cat ../version.txt)
 BUILD_DIR ?= $(PWD)/build
-ROOT_DIR := $(abspath $(PWD)/..)
+ROOT_DIR := $(PWD)
 LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
 HAS_PIP ?= yes
 HAS_DPKG ?= yes
