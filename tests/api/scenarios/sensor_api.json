@@ -525,7 +525,7 @@
           "body": {
             "name": "sensor_minimal_updated",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
-            "area": "polygon",
+            "area": "poly",
             "points": [[1, 1]]
           }
         },
