@@ -203,6 +203,7 @@ jobs:
 
   docker-build-and-test:
     name: "Docker build and service tests"
+    runs-on: [bat]
     needs: detect-changes
     if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
     runs-on: ubuntu-latest
