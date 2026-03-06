@@ -369,7 +369,11 @@
         "step_name": "Get all sensors",
         "api": "sensor",
         "method": "getSensors",
-        "request": {},
+        "request": {
+          "filter": {
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+          }
+        },
         "expected_status": {
           "status_code": 200
         },
