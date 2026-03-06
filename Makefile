@@ -304,7 +304,7 @@ generate-sboms: $(BUILD_DIR)
 	@echo "==> Generating SPDX SBOMs for all microservices..."
 	@set -e; \
 	for dir in $(IMAGE_FOLDERS); do \
-		$(MAKE) -C $$dir generate-sbom; \
+		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) generate-sbom; \
 	done
 	@echo "The following SBOMs have been generated in $(BUILD_DIR)/sboms:"
 	@echo "$$(ls $(BUILD_DIR)/sboms)"
