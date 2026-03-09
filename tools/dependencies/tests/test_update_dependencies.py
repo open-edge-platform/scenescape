@@ -57,7 +57,7 @@ def run_script_test():
             writer.writerow(['old-image', '/dev/null', 'Dockerfile-old', 'Y', 'Y', 'Test old image'])
 
         # Run the script
-        script_path = "/home/labrat/tdorau/repos/scenescape/tools/dependencies/update_dependencies.py"
+        script_path = str(Path(__file__).parent.parent / "update_dependencies.py")
         output_file = temp_path / "output.csv"
 
         result = subprocess.run([
@@ -177,7 +177,7 @@ def test_show_new_option():
             writer.writerow(['image1', '/dev/null', 'Dockerfile-1', 'Y', 'Y', 'Test'])
             writer.writerow(['image2', '/dev/null', 'Dockerfile-2', 'Y', 'Y', 'Test'])
 
-        script_path = "/home/labrat/tdorau/repos/scenescape/tools/dependencies/update_dependencies.py"
+        script_path = str(Path(__file__).parent.parent / "update_dependencies.py")
 
         # Test without --show-new
         output_file_no_new = temp_path / "output_no_new.csv"
@@ -363,7 +363,7 @@ RUN echo "skipped"
 ''')
 
         # Run the script
-        script_path = "/home/labrat/tdorau/repos/scenescape/tools/dependencies/update_dependencies.py"
+        script_path = str(Path(__file__).parent.parent / "update_dependencies.py")
         output_file = test_dir / 'output.csv'
 
         result = subprocess.run([

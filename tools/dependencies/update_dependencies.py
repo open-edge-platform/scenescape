@@ -11,8 +11,15 @@ import csv
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple, Set
+from typing import Dict, List, Optional, Tuple, Set
 from dataclasses import dataclass
+
+# pip-licenses support – optional: get_pip_licenses lives alongside this script
+try:
+    sys.path.insert(0, str(Path(__file__).parent))
+    from get_pip_licenses import load_pip_licenses
+except ImportError:
+    load_pip_licenses = None  # type: ignore[assignment]
 
 
 @dataclass
@@ -153,6 +160,19 @@ def load_sbom_data(sbom_folder_path: str) -> Dict[Tuple[str, str], str]:
     return sbom_data
 
 
+def load_pip_licenses_data(pip_licenses_dir: str) -> Dict[Tuple[str, str], str]:
+    """Load pip-licenses data from *-pip-licenses.csv files in *pip_licenses_dir*.
+
+    Returns the same ``(image, component) -> license`` mapping as
+    ``load_sbom_data()`` so the two sources can be used interchangeably.
+    Falls back gracefully if ``get_pip_licenses`` is not importable.
+    """
+    if load_pip_licenses is None:
+        print("Warning: get_pip_licenses module not found, pip-licenses data unavailable")
+        return {}
+    return load_pip_licenses(pip_licenses_dir)
+
+
 def load_image_list(image_list_path: str) -> Dict[str, Dict[str, str]]:
     """Load image list from CSV file."""
     image_data = {}
@@ -264,12 +284,14 @@ def resolve_dockerfile_variables(text: str, variables: Dict[str, str]) -> str:
 class DependencyProcessor:
     """Processes dependencies according to the rules."""
 
-    def __init__(self, image_data: Dict[str, Dict[str, str]] = None, show_new: bool = False):
+    def __init__(self, image_data: Dict[str, Dict[str, str]] = None, show_new: bool = False,
+                 pip_licenses_data: Optional[Dict[Tuple[str, str], str]] = None):
         self.output_deps = []
         self.log_entries = []
         self.action_items = []
         self.image_data = image_data or {}
         self.show_new = show_new
+        self.pip_licenses_data: Dict[Tuple[str, str], str] = pip_licenses_data or {}
 
     def get_distributed_value(self, image: str, prev_distributed: str = "") -> str:
         """Get the 'Distributed by you?' value based on image data."""
@@ -435,7 +457,7 @@ class DependencyProcessor:
             if not found_in_current:
                 self.add_log_entry(f"REMOVED_DEPENDENCY,{self.format_dependency_row(prev_dep)}")
 
-        # Final step: Resolve licenses from SBOM
+        # Final step: Resolve licenses from SBOM and/or pip-licenses
         self.resolve_licenses_from_sbom(sbom_data)
 
         # Add base image dependencies
@@ -466,29 +488,46 @@ class DependencyProcessor:
                 print(f"Warning: Could not extract base image for {image_name} from {dockerfile_path}")
 
     def resolve_licenses_from_sbom(self, sbom_data: Dict[Tuple[str, str], str]):
-        """Resolve licenses for dependencies with '?' license using SBOM data."""
+        """Resolve '?' licenses using SBOM data first, then pip-licenses as fallback.
+
+        Resolution order for PyPI packages:
+        1. SBOM data (exact component match, then normalised)
+        2. pip-licenses data (exact Name==Version, then Name-only)
+        """
         for dep in self.output_deps:
-            if dep.license == "?":
-                # Try both original and normalized component names for matching
-                normalized_component = normalize_component_name(dep.component)
+            if dep.license != "?":
+                continue
 
-                sbom_keys_to_try = [
-                    (dep.image, dep.component),          # Try exact match first
-                    (dep.image, normalized_component)     # Try normalized match
-                ]
+            normalized_component = normalize_component_name(dep.component)
+            component_name = dep.component.split("==")[0] if "==" in dep.component else dep.component
 
-                license_found = False
-                for sbom_key in sbom_keys_to_try:
-                    if sbom_key in sbom_data:
-                        dep.license = sbom_data[sbom_key]
-                        self.add_log_entry(f"LICENCE_IDENTIFIED,{self.format_dependency_row(dep)}")
+            # --- 1. SBOM lookup ---
+            for sbom_key in [
+                (dep.image, dep.component),
+                (dep.image, normalized_component),
+            ]:
+                if sbom_key in sbom_data:
+                    dep.license = sbom_data[sbom_key]
+                    self.add_log_entry(f"LICENCE_IDENTIFIED_SBOM,{self.format_dependency_row(dep)}")
+                    self.add_action_item("review resolved license information")
+                    break
+
+            if dep.license != "?":
+                continue
+
+            # --- 2. pip-licenses fallback (PyPI packages only) ---
+            if dep.origin == "pypi" and self.pip_licenses_data:
+                for pl_key in [
+                    (dep.image, dep.component),
+                    (dep.image, normalized_component),
+                    (dep.image, component_name),
+                    (dep.image, component_name.lower()),
+                ]:
+                    if pl_key in self.pip_licenses_data:
+                        dep.license = self.pip_licenses_data[pl_key]
+                        self.add_log_entry(f"LICENCE_IDENTIFIED_PIP_LICENSES,{self.format_dependency_row(dep)}")
                         self.add_action_item("review resolved license information")
-                        license_found = True
                         break
-
-                if not license_found:
-                    # Debug info for unmatched dependencies
-                    pass  # We could add debug logging here if needed
 
 
 def write_output_csv(dependencies: List[Dependency], output_file: str, show_new: bool = False):
@@ -530,6 +569,41 @@ def print_action_list(action_items: List[str]):
     print("- identify and manually add any missed dependencies (JavaScript, dependencies installed as prerequisites etc.)")
 
 
+def _version_key(filepath: Path) -> tuple:
+    """Extract a sortable version tuple from a release-data filename.
+
+    Handles formats such as:
+    - SceneScape-1.4.0-Dependencies.csv  -> (1, 4, 0)
+    - SceneScape-2025.2-Dependencies.csv -> (2025, 2)
+    - SceneScape-2026.0-Images.csv       -> (2026, 0)
+    """
+    match = re.search(r'(\d+(?:\.\d+)+)', filepath.name)
+    if match:
+        return tuple(int(x) for x in match.group(1).split('.'))
+    return (0,)
+
+
+def find_latest_release_file(release_data_dir: str, pattern: str) -> str:
+    """Return the path to the latest file matching *pattern* in *release_data_dir*.
+
+    'Latest' is determined by the version number embedded in the filename so the
+    result is stable regardless of filesystem timestamps (important for CI after
+    a fresh ``git clone``).
+    """
+    release_dir = Path(release_data_dir)
+    if not release_dir.exists():
+        print(f"Error: Release data directory '{release_data_dir}' not found")
+        sys.exit(1)
+
+    candidates = sorted(release_dir.glob(pattern), key=_version_key)
+    if not candidates:
+        print(f"Error: No files matching '{pattern}' found in '{release_data_dir}'")
+        sys.exit(1)
+
+    latest = candidates[-1]
+    return str(latest)
+
+
 def main():
     """Main function."""
     parser = argparse.ArgumentParser(
@@ -538,8 +612,11 @@ def main():
     parser.add_argument(
         '--from',
         dest='previous_file',
-        required=True,
-        help='Previous release CSV file with dependencies and license information'
+        default=None,
+        help=(
+            'Previous release CSV file with dependencies and license information. '
+            'Auto-detected from --release-data-dir when omitted.'
+        )
     )
     parser.add_argument(
         '--deps',
@@ -548,13 +625,35 @@ def main():
     )
     parser.add_argument(
         '--sbom',
-        required=True,
-        help='SBOM folder containing CSV files with license information'
+        default=None,
+        help='SBOM folder containing CSV files with license information (optional when --pip-licenses is provided)'
+    )
+    parser.add_argument(
+        '--pip-licenses',
+        dest='pip_licenses_dir',
+        default=None,
+        help=(
+            'Directory containing *-pip-licenses.csv files generated by '
+            '`make list-dependencies` (pip-licenses alternative to SBOM for PyPI packages). '
+            'Can be used together with or instead of --sbom.'
+        )
     )
     parser.add_argument(
         '--image-list',
-        required=True,
-        help='CSV file with image list containing Dockerfile paths and published status'
+        default=None,
+        help=(
+            'CSV file with image list containing Dockerfile paths and published status. '
+            'Auto-detected from --release-data-dir when omitted.'
+        )
+    )
+    parser.add_argument(
+        '--release-data-dir',
+        default=None,
+        help=(
+            'Directory containing versioned release-data CSV files. '
+            'Used to auto-detect --from and --image-list when those arguments are omitted. '
+            'Defaults to tools/dependencies/release-data relative to the script.'
+        )
     )
     parser.add_argument(
         '--output',
@@ -568,6 +667,26 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Resolve release-data directory: explicit arg > default next to the script
+    if args.previous_file is None or args.image_list is None:
+        release_data_dir = args.release_data_dir or str(
+            Path(__file__).parent / 'release-data'
+        )
+
+    # Auto-detect --from if not given
+    if args.previous_file is None:
+        args.previous_file = find_latest_release_file(release_data_dir, '*-Dependencies.csv')
+        print(f"Auto-detected previous release file: {args.previous_file}")
+
+    # Auto-detect --image-list if not given
+    if args.image_list is None:
+        args.image_list = find_latest_release_file(release_data_dir, '*-Images.csv')
+        print(f"Auto-detected image list file: {args.image_list}")
+
+    if args.sbom is None and args.pip_licenses_dir is None:
+        print("Error: at least one of --sbom or --pip-licenses must be provided")
+        sys.exit(1)
 
     # Validate input files
     for file_path in [args.previous_file, args.deps, args.image_list]:
@@ -588,11 +707,17 @@ def main():
     print(f"Loaded {len(current_deps)} current dependencies")
 
     print("Loading SBOM data...")
-    sbom_data = load_sbom_data(args.sbom)
-    print(f"Loaded {len(sbom_data)} SBOM entries from folder")
+    sbom_data = load_sbom_data(args.sbom) if args.sbom else {}
+    print(f"Loaded {len(sbom_data)} SBOM entries")
+
+    pip_licenses_data: Dict[Tuple[str, str], str] = {}
+    if args.pip_licenses_dir:
+        print("Loading pip-licenses data...")
+        pip_licenses_data = load_pip_licenses_data(args.pip_licenses_dir)
+        print(f"Loaded {len(pip_licenses_data)} pip-licenses entries")
 
     print("Processing dependencies...")
-    processor = DependencyProcessor(image_data, args.show_new)
+    processor = DependencyProcessor(image_data, args.show_new, pip_licenses_data)
     processor.process_dependencies(previous_deps, current_deps, sbom_data)
 
     # Write outputs

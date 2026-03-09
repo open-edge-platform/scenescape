@@ -106,8 +106,8 @@ def test_with_real_data():
     """Test with a small subset of real data."""
     print("\nTesting with real data...")
 
-    # Test with the actual build folder
-    build_folder = "/home/labrat/tdorau/repos/scenescape/build"
+    # Test with the actual build folder (relative to repo root)
+    build_folder = str(Path(__file__).parent.parent.parent.parent / "build")
 
     if os.path.exists(build_folder):
         dependencies = process_dependency_files(build_folder)
