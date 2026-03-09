@@ -57,7 +57,7 @@ When eight or more point pairs exist:
 3. To set values manually, enter them directly and re-check lock value boxes to prevent overwriting.
 
 **Expected Result**: Accurate focal length and distortion (k1) estimates update in the UI.
-**Note**: Computing distortion is unavailable as the Video Analytics service transitions to using DLStreamer Pipeline Server. File an issue on GitHub with information on proposed usage and priority against other features.
+**Note**: Computing distortion is unavailable as the Video Analytics service transitions to using DL Streamer Pipeline Server. File an issue on GitHub with information on proposed usage and priority against other features.
 
 ![Computed Camera Intrinsics](../_assets/ui/camera-intrinsics.png)
 

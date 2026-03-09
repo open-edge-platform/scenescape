@@ -597,7 +597,7 @@ scenescape/data/region/{scene_id}/{region_id}/{object_type}
 
 **Use Case**: Subscribe to these topics when you need continuous tracking of object movement and properties within a region, rather than just entry/exit notifications.
 
-**Calculating Dwell Time for Active Objects**: To calculate how long an object has been in a region while it's still present, you must use these streaming data topics, not the event topics. Each object contains a `regions` field with the entry timestamp. Calculate current dwell time by subtracting the `entered` timestamp from the current time. This is essential for applications that need to detect when objects have waited too long in a region before they exit - event topics only provide dwell time after an object has already left the region.
+**Calculating Dwell Time for Active Objects**: To calculate how long an object has been in a region while it is still present, you must use these streaming data topics, not the event topics. Each object contains a `regions` field with the entry timestamp. Calculate current dwell time by subtracting the `entered` timestamp from the current time. This is essential for applications that need to detect when objects have waited too long in a region before they exit - event topics only provide dwell time after an object has already left the region.
 
 ## Code Examples
 
