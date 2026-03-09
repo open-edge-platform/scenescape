@@ -35,6 +35,20 @@
         - key: tls.key
           path: scenescape-broker.key
     - secret:
+        name: {{ .Release.Name }}-vdms-s-tls
+        items:
+        - key: tls.key
+          path: scenescape-vdms-s.key
+        - key: tls.crt
+          path: scenescape-vdms-s.crt
+    - secret:
+        name: {{ .Release.Name }}-vdms-c-tls
+        items:
+        - key: tls.key
+          path: scenescape-vdms-c.key
+        - key: tls.crt
+          path: scenescape-vdms-c.crt
+    - secret:
         name: {{ .Release.Name }}-autocalibration-tls
         items:
         - key: tls.key

@@ -13,7 +13,7 @@
   git clone https://github.com/open-edge-platform/scenescape.git
   ```
 
-> **Note:** Adjust the repo link appropriately in case of forked repo.
+> **Note:** Adjust the repository link appropriately in case of a forked repository.
 
 - **Navigate to the Directory**:
 

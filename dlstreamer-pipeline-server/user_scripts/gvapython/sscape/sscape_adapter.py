@@ -88,6 +88,14 @@ class PostDecodeTimestampCapture:
     return True
 
 class PostInferenceDataPublish:
+
+  CONVERSION_MAP = {
+    'GST_VIDEO_FORMAT_NV12' : cv2.COLOR_YUV2BGR_NV12,
+    'GST_VIDEO_FORMAT_I420' : cv2.COLOR_YUV2BGR_I420,
+    'GST_VIDEO_FORMAT_BGRA' : cv2.COLOR_BGRA2BGR,
+    'GST_VIDEO_FORMAT_RGB'  : cv2.COLOR_RGB2BGR
+    }
+
   def __init__(self, cameraid, metadatagenpolicy='detectionPolicy', detection_labels=[], publish_image=False):
     self.cameraid = cameraid
 
@@ -169,33 +177,41 @@ class PostInferenceDataPublish:
             1 * scale, (255,255,255), 2 * scale)
     return
 
+  def _tryConvertToBgr(self, raw_frame, video_meta):
+    video_format = video_meta.format.value_name
+    if video_format in PostInferenceDataPublish.CONVERSION_MAP:
+      return cv2.cvtColor(raw_frame, PostInferenceDataPublish.CONVERSION_MAP[video_format])
+    else:
+      return np.copy(raw_frame)
+
   def buildImgData(self, imgdatadict, gvaframe, annotate, original_image_base64=None):
     imgdatadict.update({
       'timestamp': self.frame_level_data['timestamp'],
       'id': self.cameraid
     })
-    image = original_image_base64
-    if image is None:
-      with gvaframe.data() as img:
-        image = np.copy(img)
-    else:
+    image = None
+
+    if original_image_base64:
       try:
-        decoded_image = base64.b64decode(image)
+        decoded_image = base64.b64decode(original_image_base64)
         original_image = cv2.imdecode(np.frombuffer(decoded_image, np.uint8), cv2.IMREAD_COLOR)
         if original_image is None:
           raise ValueError("Failed to decode original image from base64")
         image = original_image
-      except (ValueError, Exception) as e:
+      except (Exception) as e:
         print(f"Error using original image: {e}. Falling back to current frame.")
-        with gvaframe.data() as img:
-          image = np.copy(img)
+
+    if image is None:
+      with gvaframe.data() as img:
+        video_meta = gvaframe.video_meta()
+        image = self._tryConvertToBgr(img, video_meta)
+
     if annotate:
       self.annotateObjects(image)
       self.annotateFPS(image, self.frame_level_data['rate'])
     _, jpeg = cv2.imencode(".jpg", image)
     jpeg = base64.b64encode(jpeg).decode('utf-8')
     imgdatadict['image'] = jpeg
-
     return
 
   def buildObjData(self, gvadata):
@@ -211,14 +227,50 @@ class PostInferenceDataPublish:
     objects = defaultdict(list)
     if 'objects' in gvadata and len(gvadata['objects']) > 0:
       framewidth, frameheight = gvadata['resolution']['width'], gvadata['resolution']['height']
-      for det in gvadata['objects']:
-        vaobj = {}
-        self.metadatagenpolicy(vaobj, det, framewidth, frameheight)
-        if self.detection_labels and vaobj['category'] not in self.detection_labels:
-          continue
-        otype = vaobj['category']
-        vaobj['id'] = len(objects[otype]) + 1
-        objects[otype].append(vaobj)
+      # gvadetect sets parent_id field only if inference-region=roi-list (on second gvadetect in your pipeline).
+      has_parent_ids = any('parent_id' in det for det in gvadata['objects'])
+      if has_parent_ids:
+        # Two-pass approach: first build all objects, then nest children into parents.
+        # region_id_map allows O(1) parent lookup by region_id.
+        region_id_map = {}
+        ordered_dets = []
+        for det in gvadata['objects']:
+          vaobj = {}
+          self.metadatagenpolicy(vaobj, det, framewidth, frameheight)
+          if self.detection_labels and vaobj['category'] not in self.detection_labels:
+            continue
+          region_id = det.get('region_id')
+          parent_id = det.get('parent_id')
+          ordered_dets.append((vaobj, region_id, parent_id))
+          if region_id is not None:
+            region_id_map[region_id] = vaobj
+
+        for vaobj, region_id, parent_id in ordered_dets:
+          otype = vaobj['category']
+          if parent_id is not None and parent_id in region_id_map:
+            parent_obj = region_id_map[parent_id]
+            sub_objects = parent_obj.setdefault('sub_objects', defaultdict(list))
+            vaobj['id'] = len(sub_objects[otype]) + 1
+            sub_objects[otype].append(vaobj)
+          else:
+            vaobj['id'] = len(objects[otype]) + 1
+            objects[otype].append(vaobj)
+
+        # Convert sub_objects defaultdicts to plain dicts
+        for obj_list in objects.values():
+          for obj in obj_list:
+            if 'sub_objects' in obj:
+              obj['sub_objects'] = dict(obj['sub_objects'])
+      else:
+        # Fast path: no parent_id present.
+        for det in gvadata['objects']:
+          vaobj = {}
+          self.metadatagenpolicy(vaobj, det, framewidth, frameheight)
+          if self.detection_labels and vaobj['category'] not in self.detection_labels:
+            continue
+          otype = vaobj['category']
+          vaobj['id'] = len(objects[otype]) + 1
+          objects[otype].append(vaobj)
 
     self.processSubDetections(objects)
     self.frame_level_data['objects'] = objects
