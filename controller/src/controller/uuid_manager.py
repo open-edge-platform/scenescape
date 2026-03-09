@@ -285,6 +285,10 @@ class UUIDManager:
         self.active_ids.setdefault(sscape_object.rv_id, [None, None])
       self.gatherQualityVisualFeatures(sscape_object)
       self.pickBestID(sscape_object)
+      # Store the assigned UUID in active_ids
+      with self.active_ids_lock:
+        if self.active_ids.get(sscape_object.rv_id, [None])[0] is None:
+          self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
       if self.haveSufficientVisualFeatures(sscape_object) and self.reid_enabled:
         # Only do the query for similarity if it hasn't been run before
         if sscape_object.rv_id not in self.active_query:
