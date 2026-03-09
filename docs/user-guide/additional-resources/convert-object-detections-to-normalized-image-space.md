@@ -4,7 +4,7 @@ This document provides details on how Intel® SceneScape converts object detecti
 
 ## From Pixels to Scene
 
-Before getting into the details, it's helpful to understand how Intel® SceneScape maps detections from image frames onto the scene. Basically, we need to figure out where a given light ray came from in the world, through the lens, and to the sensor.
+Before getting into the details, it is helpful to understand how Intel® SceneScape maps detections from image frames onto the scene. Basically, we need to figure out where a given light ray came from in the world, through the lens, and to the sensor.
 
 Pixel-based bounding boxes alone are insufficient to determine where the associated objects or people are in a common scene, so Intel® SceneScape works to bring in additional information about the camera -- things like its focal length and position in the scene. We are essentially reprojecting pixels back onto the world scene using the [geometry of camera image formation](https://learnopencv.com/geometry-of-image-formation/).
 
@@ -26,7 +26,7 @@ Intel® SceneScape's tracking system does not directly ingest images or video. I
 
 ### Projecting a Single Bounding Box
 
-Let's start with a single camera. Figure 1 illustrates a camera detection in a video frame, and shows how the bounding box can be projected to the scene.
+Let us start with a single camera. Figure 1 illustrates a camera detection in a video frame, and shows how the bounding box can be projected to the scene.
 
 ![Single Camera Detection Projection](../_assets/bbprojection1.png)
 
@@ -48,7 +48,7 @@ Intel® SceneScape utilizes these detections from various viewpoints to update t
 
 ### Normalized, Camera Agnostic Metadata
 
-Detection metadata is usually provided in pixel units. Here's an example of a detected object in a frame:
+Detection metadata is usually provided in pixel units. Here is an example of a detected object in a frame:
 
 ```
 {
@@ -88,7 +88,7 @@ The output will look something like this, where the values are now floating poin
 
 We calculate these values by projecting the bounding boxes onto an imagined plane that sits one unit length in front of the camera.
 
-**Note**: For simplicity we call it the "1-meter plane", but the numbers are normalized so any unit can be used. However, it's best to stick to meters for consistency with SI units. In general, this type of representation is called "normalized image space."
+**Note**: For simplicity we call it the "1-meter plane", but the numbers are normalized so any unit can be used. However, it is best to stick to meters for consistency with SI units. In general, this type of representation is called "normalized image space."
 
 Figure 3 illustrates two bounding boxes projected onto the 1-meter plane.
 
