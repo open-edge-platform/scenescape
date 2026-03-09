@@ -316,6 +316,14 @@ get-pip-licenses: $(BUILD_DIR)
 	python3 tools/dependencies/get_pip_licenses.py $(BUILD_DIR) -o $(BUILD_DIR)/all-pip-licenses.csv
 	@echo "DONE ==> Getting pip package licenses"
 
+.PHONY: generate-dockerfile-zip
+generate-dockerfile-zip: $(BUILD_DIR)
+	@echo "==> Generating Dockerfile artifacts zip and image summary table..."
+	python3 tools/dependencies/generate_dockerfile_artifacts.py \
+		--output-dir $(BUILD_DIR) \
+		--summary-file $(BUILD_DIR)/images-summary.md
+	@echo "DONE ==> Dockerfile zip and summary written to $(BUILD_DIR)/"
+
 .PHONY: build-sources-image
 build-sources-image: sources.Dockerfile
 	@echo "==> Building the image with 3rd party sources..."
