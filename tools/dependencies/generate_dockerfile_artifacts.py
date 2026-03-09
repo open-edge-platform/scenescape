@@ -160,10 +160,19 @@ def build_zip(
 
             subfolder = zip_subfolder_for(dockerfile_name)
 
+            dockerfile_dir = (repo_root / dockerfile_path_rel).parent
+
             if subfolder is None:
                 # Top-level (Dockerfile-common, Dockerfile-tests)
                 zf.write(src, dockerfile_name)
                 entries.append(dockerfile_name)
+                # Add any requirements files, prefixed with the Dockerfile suffix
+                # e.g. "Dockerfile-common" → prefix "common" → "requirements-common.txt"
+                prefix = dockerfile_name.split("-", 1)[1] if "-" in dockerfile_name else dockerfile_name
+                for req in sorted(dockerfile_dir.glob("requirements*.txt")):
+                    req_archive = f"requirements-{prefix}{req.name[len('requirements'):]}"
+                    zf.write(req, req_archive)
+                    entries.append(req_archive)
             else:
                 # Place inside service subfolder as "Dockerfile"
                 archive_path = f"{subfolder}/Dockerfile"
@@ -172,7 +181,6 @@ def build_zip(
 
                 # Include requirements*.txt files from the Dockerfile's directory
                 if report_deps == "Y":
-                    dockerfile_dir = (repo_root / dockerfile_path_rel).parent
                     for req in sorted(dockerfile_dir.glob("requirements*.txt")):
                         req_archive = f"{subfolder}/{req.name}"
                         zf.write(req, req_archive)
