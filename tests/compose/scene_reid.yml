@@ -41,8 +41,6 @@ services:
       - ./${DBROOT}/media:/workspace/media
       - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
       - ./controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json
-    environment:
-      VDMS_CONFIDENCE_THRESHOLD: 0.3
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
