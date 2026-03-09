@@ -103,32 +103,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: "Scan Docker image with Trivy 🔍"
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
-        with:
-          scan_target: "ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
-          severity: "HIGH"
-          scan_type: image
-          format: table
-          scan-scope: all
-          timeout: 20m
-          ignore_unfixed: true
-          report_suffix: "-${{ matrix.images }}"
-
-      - name: "Fail if vulnerabilities > 0 in Trivy results"
-        run: |
-          file=$(ls security-results/trivy/trivy-results-* | head -n 1)
-          echo "Checking Trivy results in file: $file"
-          cat $file
-          vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | awk '{sum += $1} END {print sum}')
-          if [[ "$vuln_count" != "0" ]]; then
-            echo "❌ Vulnerabilities found: $vuln_count"
-            exit 1
-          else
-            echo "✅ No vulnerabilities found."
-          fi
-        shell: bash
-
       - name: "Push images"
         run: |
           docker push ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}

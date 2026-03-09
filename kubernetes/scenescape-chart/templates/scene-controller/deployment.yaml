@@ -72,14 +72,6 @@ spec:
             subPath: scenescape-ca.pem
             name: certs
             readOnly: true
-          - mountPath: /run/secrets/certs/scenescape-vdms-c.key
-            subPath: scenescape-vdms-c.key
-            name: certs
-            readOnly: true
-          - mountPath: /run/secrets/certs/scenescape-vdms-c.crt
-            subPath: scenescape-vdms-c.crt
-            name: certs
-            readOnly: true
           - mountPath: /run/secrets/django/secrets.py
             subPath: secrets.py
             name: secrets-py
@@ -93,6 +85,9 @@ spec:
           - mountPath: /home/scenescape/SceneScape/tracker-config.json
             name: tracker-config
             subPath: tracker-config.json
+          - mountPath: /home/scenescape/SceneScape/reid-config.json
+            name: reid-config
+            subPath: reid-config.json
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -112,4 +107,7 @@ spec:
       - name: tracker-config
         configMap:
           name: {{ .Release.Name }}-tracker-config
+      - name: reid-config
+        configMap:
+          name: {{ .Release.Name }}-reid-config
 status: {}
