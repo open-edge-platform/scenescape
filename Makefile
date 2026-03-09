@@ -310,6 +310,12 @@ generate-sboms: $(BUILD_DIR)
 	@echo "$$(ls $(BUILD_DIR)/sboms)"
 	@echo "DONE ==> Generating SPDX SBOMs for all microservices"
 
+.PHONY: get-pip-licenses
+get-pip-licenses: $(BUILD_DIR)
+	@echo "==> Getting pip package licenses from PyPI..."
+	python3 tools/dependencies/get_pip_licenses.py $(BUILD_DIR)
+	@echo "DONE ==> Getting pip package licenses"
+
 .PHONY: build-sources-image
 build-sources-image: sources.Dockerfile
 	@echo "==> Building the image with 3rd party sources..."
