@@ -227,14 +227,50 @@ class PostInferenceDataPublish:
     objects = defaultdict(list)
     if 'objects' in gvadata and len(gvadata['objects']) > 0:
       framewidth, frameheight = gvadata['resolution']['width'], gvadata['resolution']['height']
-      for det in gvadata['objects']:
-        vaobj = {}
-        self.metadatagenpolicy(vaobj, det, framewidth, frameheight)
-        if self.detection_labels and vaobj['category'] not in self.detection_labels:
-          continue
-        otype = vaobj['category']
-        vaobj['id'] = len(objects[otype]) + 1
-        objects[otype].append(vaobj)
+      # gvadetect sets parent_id field only if inference-region=roi-list (on second gvadetect in your pipeline).
+      has_parent_ids = any('parent_id' in det for det in gvadata['objects'])
+      if has_parent_ids:
+        # Two-pass approach: first build all objects, then nest children into parents.
+        # region_id_map allows O(1) parent lookup by region_id.
+        region_id_map = {}
+        ordered_dets = []
+        for det in gvadata['objects']:
+          vaobj = {}
+          self.metadatagenpolicy(vaobj, det, framewidth, frameheight)
+          if self.detection_labels and vaobj['category'] not in self.detection_labels:
+            continue
+          region_id = det.get('region_id')
+          parent_id = det.get('parent_id')
+          ordered_dets.append((vaobj, region_id, parent_id))
+          if region_id is not None:
+            region_id_map[region_id] = vaobj
+
+        for vaobj, region_id, parent_id in ordered_dets:
+          otype = vaobj['category']
+          if parent_id is not None and parent_id in region_id_map:
+            parent_obj = region_id_map[parent_id]
+            sub_objects = parent_obj.setdefault('sub_objects', defaultdict(list))
+            vaobj['id'] = len(sub_objects[otype]) + 1
+            sub_objects[otype].append(vaobj)
+          else:
+            vaobj['id'] = len(objects[otype]) + 1
+            objects[otype].append(vaobj)
+
+        # Convert sub_objects defaultdicts to plain dicts
+        for obj_list in objects.values():
+          for obj in obj_list:
+            if 'sub_objects' in obj:
+              obj['sub_objects'] = dict(obj['sub_objects'])
+      else:
+        # Fast path: no parent_id present.
+        for det in gvadata['objects']:
+          vaobj = {}
+          self.metadatagenpolicy(vaobj, det, framewidth, frameheight)
+          if self.detection_labels and vaobj['category'] not in self.detection_labels:
+            continue
+          otype = vaobj['category']
+          vaobj['id'] = len(objects[otype]) + 1
+          objects[otype].append(vaobj)
 
     self.processSubDetections(objects)
     self.frame_level_data['objects'] = objects
