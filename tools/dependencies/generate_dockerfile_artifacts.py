@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Generate Dockerfile artifacts zip and image summary table.
@@ -60,6 +60,194 @@ COPYLEFT_RE = re.compile(
 
 # Dockerfile Names that are placed at the top level of the zip without a subfolder
 TOP_LEVEL_NAMES = {"Dockerfile-tests"}
+
+# ---------------------------------------------------------------------------
+# Sources Dockerfile generation
+# ---------------------------------------------------------------------------
+
+# Ordered list of (binary-package-name-prefix, debian-source-package-name).
+# Longer/more-specific prefixes must come before shorter ones.
+DEB_BINARY_TO_SOURCE: list[tuple[str, str]] = [
+    ("libglib2.0",          "glib2.0"),
+    ("libpython3.11",       "python3.11"),
+    ("perl-modules",        "perl"),
+    ("libheif-plugin",      "libheif"),
+    ("libgeos-c",           "geos"),
+    ("libgeos",             "geos"),
+    ("libgdbm",             "gdbm"),
+    ("libgfortran",         "gcc-12"),
+    ("libgomp",             "gcc-12"),
+    ("libquadmath",         "gcc-12"),
+    ("libgdal",             "gdal"),
+    ("gdal",                "gdal"),
+    ("libgdcm",             "gdcm"),
+    ("libarmadillo",        "armadillo"),
+    ("libcfitsio",          "cfitsio"),
+    ("libde265",            "libde265"),
+    ("libelf",              "elfutils"),
+    ("libfuse",             "fuse"),
+    ("libfyba",             "libfyba"),
+    ("libgudev",            "libgudev"),
+    ("libhdf4",             "hdf4"),
+    ("libhdf5",             "hdf5"),
+    ("libheif",             "libheif"),
+    ("libicu",              "icu"),
+    ("libinput",            "libinput"),
+    ("libjbig",             "jbigkit"),
+    ("libjson-c",           "json-c"),
+    ("libkml",              "libkml"),
+    ("libmariadb",          "mariadb"),
+    ("libmosquitto",        "mosquitto"),
+    ("libnetcdf",           "netcdf"),
+    ("libnuma",             "numactl"),
+    ("libodbc",             "unixodbc"),
+    ("libodbcinst",         "unixodbc"),
+    ("libogdi",             "ogdi"),
+    ("libopencv",           "opencv"),
+    ("libperl",             "perl"),
+    ("libpoppler",          "poppler"),
+    ("libproc",             "procps"),
+    ("libprotobuf",         "protobuf"),
+    ("libpython3",          "python3.11"),
+    ("libqt5",              "qtbase-opensource-src"),
+    ("libreadline",         "readline"),
+    ("librtmp",             "rtmpdump"),
+    ("librttopo",           "librttopo"),
+    ("libsensors",          "lm-sensors"),
+    ("libsocket",           "socket++"),
+    ("libspatialite",       "spatialite"),
+    ("libsuperlu",          "superlu"),
+    ("libwebp",             "libwebp"),
+    ("libx265",             "x265"),
+    ("libxerces-c",         "xerces-c"),
+    ("libz3",               "z3"),
+    ("bindfs",              "bindfs"),
+    ("ca-certificates",     "ca-certificates"),
+    ("fuse",                "fuse"),
+    ("mariadb",             "mariadb"),
+    ("media-types",         "media-types"),
+    ("mosquitto",           "mosquitto"),
+    ("mysql-common",        "mariadb"),
+    ("netbase",             "netbase"),
+    ("perl",                "perl"),
+    ("procps",              "procps"),
+    ("python3.11",          "python3.11"),
+    ("python3",             "python3.11"),
+    ("readline-common",     "readline"),
+    ("unixodbc-common",     "unixodbc"),
+    ("wget",                "wget"),
+]
+
+# PyPI package name → GitHub source repository URL
+PYPI_TO_GITHUB: dict[str, str] = {
+    "bidict":           "https://github.com/jab/bidict",
+    "certifi":          "https://github.com/certifi/python-certifi",
+    "paho-mqtt":        "https://github.com/eclipse-paho/paho.mqtt.python",
+    "plyfile":          "https://github.com/dranjan/python-plyfile",
+    "psycopg2-binary":  "https://github.com/psycopg/psycopg2",
+    "tqdm":             "https://github.com/tqdm/tqdm",
+}
+
+# Other source repositories always included for compliance
+OTHER_SOURCE_REPOS: list[str] = [
+    "https://github.com/mozilla/geckodriver",
+    "https://github.com/mirror/busybox",
+]
+
+# Base OS configuration for the sources Dockerfile
+SOURCES_GRABBER_IMAGE = "debian:12"
+SOURCES_FINAL_IMAGE = "debian:13"
+SOURCES_DEB_SRC_REPOS = [
+    "deb-src http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware",
+    "deb-src http://security.debian.org/debian-security bookworm-security main",
+    "deb-src http://deb.debian.org/debian bookworm-updates main",
+    "deb-src http://deb.debian.org/debian trixie main contrib non-free non-free-firmware",
+]
+
+
+def _binary_to_source(binary_name: str) -> str:
+    """Map a Debian binary package name to its source package name."""
+    for prefix, source in DEB_BINARY_TO_SOURCE:
+        if binary_name == prefix or binary_name.startswith(prefix + "-") or binary_name.startswith(prefix):
+            return source
+    return binary_name  # fall back to binary name itself
+
+
+def generate_sources_dockerfile(gpllist: list[str], version_slug: str) -> str:
+    """Generate the content of sources.Dockerfile for the current release.
+
+    Derives the apt-get source list and Python git-clone list from the
+    copyleft-licensed distributed packages in *gpllist*.
+    """
+    deb_sources: set[str] = set()
+    pypi_clones: list[str] = []
+
+    for component in gpllist:
+        if "==" in component:
+            pkg_name = component.split("==")[0]
+            url = PYPI_TO_GITHUB.get(pkg_name)
+            if url and url not in pypi_clones:
+                pypi_clones.append(url)
+        else:
+            base = component.split(":")[0]
+            deb_sources.add(_binary_to_source(base))
+
+    sorted_deb = sorted(deb_sources)
+    sorted_pypi = sorted(pypi_clones)
+
+    lines: list[str] = [
+        "# -*- mode: Fundamental; indent-tabs-mode: nil -*-",
+        "",
+        "# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation",
+        "# SPDX-License-Identifier: Apache-2.0",
+        "",
+        "# Auto-generated by tools/dependencies/generate_dockerfile_artifacts.py",
+        "# Run: make generate-dockerfile-zip",
+        "",
+        f"FROM {SOURCES_GRABBER_IMAGE} AS source-grabber",
+        "",
+    ]
+
+    # Add deb-src repos as a single chained RUN
+    for i, repo in enumerate(SOURCES_DEB_SRC_REPOS):
+        prefix = "RUN " if i == 0 else "    && "
+        suffix = " \\" if i < len(SOURCES_DEB_SRC_REPOS) - 1 else ""
+        lines.append(f'{prefix}echo "{repo}" >> /etc/apt/sources.list{suffix}')
+    lines.append("RUN apt-get update && apt-get install -y --no-install-recommends dpkg-dev")
+    lines += ["", "WORKDIR /sources-deb", "RUN apt-get source --download-only \\"]
+
+    for i, pkg in enumerate(sorted_deb):
+        suffix = " \\" if i < len(sorted_deb) - 1 else ""
+        lines.append(f"    {pkg}{suffix}")
+
+    lines += [
+        "",
+        "WORKDIR /sources-python",
+        "RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git",
+        "RUN : \\",
+    ]
+    for i, url in enumerate(sorted_pypi):
+        suffix = " \\" if i < len(sorted_pypi) - 1 else ""
+        lines.append(f"    ; git clone --depth 1 {url}{suffix}")
+
+    lines += ["", "WORKDIR /sources-other", "RUN : \\"]
+    for i, url in enumerate(OTHER_SOURCE_REPOS):
+        suffix = " \\" if i < len(OTHER_SOURCE_REPOS) - 1 else ""
+        lines.append(f"    ; git clone --depth 1 {url}{suffix}")
+
+    lines += [
+        "",
+        f"FROM {SOURCES_FINAL_IMAGE}",
+        "",
+        "COPY --from=source-grabber /sources* /sources",
+        "COPY third-party-programs.txt /sources",
+        "WORKDIR /sources",
+        "",
+        "USER nobody",
+        "",
+    ]
+
+    return "\n".join(lines)
 
 
 def get_version_slug(version_str: str) -> str:
@@ -260,6 +448,12 @@ def main() -> None:
         default=None,
         help="Write Markdown summary table to this file (default: stdout)",
     )
+    parser.add_argument(
+        "--no-update-sources",
+        action="store_true",
+        default=False,
+        help="Skip regenerating sources.Dockerfile in the repo root",
+    )
     args = parser.parse_args()
 
     repo_root = args.repo_root.resolve()
@@ -287,6 +481,13 @@ def main() -> None:
     # gpllist
     gpllist = generate_gpllist(deps)
     print(f"gpllist : {len(gpllist)} copyleft-licensed distributed packages")
+
+    # Generate / update sources.Dockerfile
+    if not args.no_update_sources:
+        sources_content = generate_sources_dockerfile(gpllist, version_slug)
+        sources_path = repo_root / "sources.Dockerfile"
+        sources_path.write_text(sources_content, encoding="utf-8")
+        print(f"\nUpdated : {sources_path}")
 
     # Build zip
     zip_name = args.zip_name or f"Dockerfiles-{version_slug}.zip"
