@@ -61,7 +61,7 @@ flowchart TB
 
 Fixed scene IDs configured per instance at startup.
 
-**Pros**: Simple, no external dependencies, no coordination overhead  
+**Pros**: Simple, no external dependencies, no coordination overhead
 **Cons**: Manual failover, scaling requires restarts, no automatic load balancing
 
 **Decision**: Remains the MVP approach; lease-based scaling is a post-MVP enhancement.
@@ -70,7 +70,7 @@ Fixed scene IDs configured per instance at startup.
 
 Dedicated service that monitors instance health and assigns scenes.
 
-**Pros**: Centralized decision-making, sophisticated load balancing  
+**Pros**: Centralized decision-making, sophisticated load balancing
 **Cons**: Additional service to maintain, single point of failure, more complex
 
 **Decision**: Rejected in favor of distributed lease-based approach.
@@ -228,7 +228,7 @@ For theory on why this matters, see [How to do distributed locking](https://mart
 
 ### Failure Modes
 
-**Tracker can't reach Manager:**
+**Tracker cannot reach Manager:**
 
 | Situation               | Behavior                                                                     |
 | ----------------------- | ---------------------------------------------------------------------------- |
@@ -236,10 +236,10 @@ For theory on why this matters, see [How to do distributed locking](https://mart
 | Renewal fails           | Stop processing that scene immediately — another Tracker may have taken over |
 | Sustained outage        | All leases expire; Tracker becomes idle until Manager returns                |
 
-**Analytics can't reach Manager:**
+**Analytics cannot reach Manager:**
 
-| Situation                    | Behavior                                                           |
-| ---------------------------- | ------------------------------------------------------------------ |
-| Can't validate fencing token | Use cached version (with TTL), or reject messages if cache expired |
+| Situation                     | Behavior                                                           |
+| ----------------------------- | ------------------------------------------------------------------ |
+| Cannot validate fencing token | Use cached version (with TTL), or reject messages if cache expired |
 
-**Key rule:** Treat renewal failure as lease loss. Don't continue processing — the fencing token prevents stale writes, but stopping early reduces duplicate work.
+**Key rule:** Treat renewal failure as lease loss. Do not continue processing — the fencing token prevents stale writes, but stopping early reduces duplicate work.
