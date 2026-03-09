@@ -190,7 +190,7 @@ All sensor and camera messages share two properties: timestamp and ID.
    #    +---x
    ```
 
-It's also important to keep in mind the orientation of a camera with no translation or rotation with respect to the scene. Again, the convention is the same as the one used by OpenCV, where the right side of the image is in the x direction, the top of the image is in the -y direction, and the camera looks in the z direction.
+It is also important to keep in mind the orientation of a camera with no translation or rotation with respect to the scene. Again, the convention is the same as the one used by OpenCV, where the right side of the image is in the x direction, the top of the image is in the -y direction, and the camera looks in the z direction.
 
 ## Detection Metadata
 
