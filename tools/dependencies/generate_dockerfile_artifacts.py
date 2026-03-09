@@ -59,7 +59,7 @@ COPYLEFT_RE = re.compile(
 )
 
 # Dockerfile Names that are placed at the top level of the zip without a subfolder
-TOP_LEVEL_NAMES = {"Dockerfile-common", "Dockerfile-tests"}
+TOP_LEVEL_NAMES = {"Dockerfile-tests"}
 
 
 def get_version_slug(version_str: str) -> str:
@@ -180,11 +180,10 @@ def build_zip(
                 entries.append(archive_path)
 
                 # Include requirements*.txt files from the Dockerfile's directory
-                if report_deps == "Y":
-                    for req in sorted(dockerfile_dir.glob("requirements*.txt")):
-                        req_archive = f"{subfolder}/{req.name}"
-                        zf.write(req, req_archive)
-                        entries.append(req_archive)
+                for req in sorted(dockerfile_dir.glob("requirements*.txt")):
+                    req_archive = f"{subfolder}/{req.name}"
+                    zf.write(req, req_archive)
+                    entries.append(req_archive)
 
     return entries
 
