@@ -136,7 +136,7 @@
           "body": {
             "name": "Region_Full_Updated",
             "scene": "${SCENE_UID}",
-            "vertices": [
+            "points": [
               [0.0, 0.0],
               [2.0, 0.0],
               [2.0, 2.0],
