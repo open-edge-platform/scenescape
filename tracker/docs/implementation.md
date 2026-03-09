@@ -207,7 +207,7 @@ if (!queue.try_enqueue(std::move(chunk))) {
 }
 ```
 
-Per-scene+category isolation ensures overload in one doesn't affect others.
+Per-scene+category isolation ensures overload in one does not affect others.
 
 ---
 
