@@ -236,6 +236,7 @@ if [ -e ${MANAGERDIR}/manager/secrets.py ] ; then
 fi
 
 export -n DBPASS SUPASS
+export DBTYPE ENGINE DBHOST DBPORT
 
 if [ -n "$DBTYPE" ]; then
     cd ${MANAGERDIR}
