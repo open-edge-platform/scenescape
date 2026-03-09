@@ -222,8 +222,10 @@ Permission is hereby granted to copy and distribute this license without modific
     importlib_metadata==8.4.0
     importlib_metadata==8.7.0
     kornia==0.8.1
+    kornia==0.8.2
     kornia_rs==0.1.10
     kubernetes==33.1.0
+    kubernetes==34.1.0
     libapache2-mod-qos:11.63-1build1
     libapache2-mod-wsgi-py3:4.9.0-1ubuntu0.1
     libapr1:amd64:1.7.0-8ubuntu0.22.04.2
@@ -2862,15 +2864,18 @@ signature of Ty Coon, 1 April 1989 Ty Coon, President of Vice
     Django==5.2.11
     Flask-Cors==4.0.0
     Flask-SocketIO==5.4.1
+    Flask-SocketIO==5.6.1
     Flask==3.0.3
     Flask==3.1.0
     Flask==3.1.2
+    Flask==3.1.3
     fsspec==2025.10.0
     h5py==3.15.1
     httpcore==1.0.9
     httpx==0.28.1
     idna==3.11
     intel_extension_for_pytorch==2.7.0
+    intel_extension_for_pytorch==2.8.0
     ipython==8.37.0
     ipython==9.6.0
     ipython_pygments_lexers==1.1.1
@@ -2973,9 +2978,11 @@ signature of Ty Coon, 1 April 1989 Ty Coon, President of Vice
     threadpoolctl==3.6.0
     torch==2.7.1+cpu
     torch==2.9.1+cpu
+    torch==2.10.0+cpu
     torchaudio==2.9.1+cpu
     torchvision==0.22.1+cpu
     torchvision==0.24.1+cpu
+    torchvision==0.25.0+cpu
     traitlets==5.14.3
     uniception==0.1.6
     uvicorn==0.38.0
@@ -4707,6 +4714,7 @@ Except as contained in this notice, the name of a copyright holder shall not be 
 30. Software released under the license Intel End User License:
     intel-cmplr-lib-ur==2025.2.0
     intel-openmp==2025.2.0
+    intel-openmp==2025.3.1
 
 Intel End User License Agreement for Developer Tools (Version October 2021)
 
@@ -7559,6 +7567,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
     einops==0.8.1
     eventlet==0.35.2
     eventlet==0.37.0
+    eventlet==0.40.3
     exceptiongroup==1.3.0
     executing==2.2.1
     fastapi==0.121.2
@@ -7807,6 +7816,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
     tomlkit==0.13.3
     trimesh==4.7.4
     trimesh==4.11.0
+    trimesh==4.11.1
     trimesh==4.11.2
     typer-slim==0.20.0
     typer==0.20.0
