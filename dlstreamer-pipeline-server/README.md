@@ -10,12 +10,12 @@
 
 ## Getting Started
 
-Following are the step-by-step instructions for enabling the out-of-box scenes in Intel® SceneScape to leverage DLStreamer Pipeline Server for Video Analytics.
+Below are step-by-step instructions for enabling out-of-the-box scenes in Intel® SceneScape to leverage DL Streamer Pipeline Server for Video Analytics.
 
 1. **Model Requirements:**
    Ensure the OMZ model `person-detection-retail-0013` is present in the Models Volume in the `models/intel/` subfolder. Refer to the instructions in [How to Manage Files in Volumes](../docs/user-guide/other-topics/how-to-manage-files-in-volumes.md) on how to access the Models Volume.
 
-2. **Start Intel® SceneScape DLStreamer-based demo:**
+2. **Start Intel® SceneScape DL Streamer-based demo:**
 
    If this is the first time running SceneScape, run:
 
@@ -96,7 +96,7 @@ To enable SceneScape pipelines to run on a specific GPU device of your choice (e
    To ensure the selected device is functional, you can use tools like `vainfo` (for VA-API support) or `intel_gpu_top` (for Intel GPUs).
 
 3. **Update the `docker-compose.yml` file:**
-   - Uncomment the `devices` section and specify the appropriate GPU device. Make sure only your device of choice is listed; otherwise, it's not guaranteed that the proper GPU will be chosen. For example, if you expose the whole folder `/dev/dri/` or keep both `renderD128` and `renderD129`, it's likely that the first choice will be `renderD128`, which may not be what you expect.
+   - Uncomment the `devices` section and specify the appropriate GPU device. Make sure only your device of choice is listed; otherwise, it is not guaranteed that the proper GPU will be chosen. For example, if you expose the whole folder `/dev/dri/` or keep both `renderD128` and `renderD129`, it is likely that the first choice will be `renderD128`, which may not be what you expect.
      Example:
      ```yaml
      devices:
@@ -113,7 +113,7 @@ To enable SceneScape pipelines to run on a specific GPU device of your choice (e
          file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
      ```
 
-By following these steps, only the selected GPU device will be available in the container. As a result, all DLStreamer-Pipeline-Server pipelines running in the container will leverage the GPU device of your choice.
+By following these steps, only the selected GPU device will be available in the container. As a result, all DL Streamer Pipeline Server pipelines running in the container will use the GPU device of your choice.
 
 > **Note**: This setup cannot run two pipelines in the same container on different GPU devices. To work around that limitation, configure each pipeline as described in the [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dl-streamer/dev_guide/gpu_device_selection.html), but be aware that doing so disables cross-stream batching and may deliver lower throughput.
 
@@ -166,7 +166,7 @@ Following are the step-by-step instructions for enabling person reidentification
    docker compose -f docker-compose.yml -f sample_data/docker-compose.vdms-override.yml --profile vdms up -d
    ```
 
-2. Use the predefined [queuing-config-reid.json](./queuing-config-reid.json) to enable vector embedding metadata from the DLStreamer service:
+2. Use the predefined [queuing-config-reid.json](./queuing-config-reid.json) to enable vector embedding metadata from the DL Streamer service:
 
    ```yaml
    configs:
@@ -196,7 +196,7 @@ Following are the step-by-step instructions for enabling person reidentification
 To create a new pipeline, follow these steps:
 
 1. **Create a New Config File:**
-   Use the existing [config.json](./config.json) as a template to create your new pipeline configuration file (e.g., `my_pipeline_config.json`). Adjust the parameters as needed for your use case.
+   Use the existing `config.json` as a template to create your new pipeline configuration file (e.g., `my_pipeline_config.json`). Adjust the parameters as needed for your use case.
 
    > **Note:** The `detection_policy` parameter specifies the type of inference model used in the pipeline. For example, use `detection_policy` for detection models, `reid_policy` for re-identification models, and `classification_policy` for classification models. Currently, only these policies are supported. To add a custom policy, refer to the implementation in [sscape_adapter.py](./user_scripts/gvapython/sscape/sscape_adapter.py).
 
@@ -226,7 +226,7 @@ Your new pipeline will now be used by the DL Streamer Pipeline Server on startup
 
 ## Additional Resources
 
-For detailed instructions on further configuring DLStreamer pipelines, refer to:
+For detailed instructions on further configuring DL Streamer pipelines, refer to:
 
-- [How to Configure DLStreamer Video Pipeline](../docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md) - Step-by-step guide for configuring DLStreamer video pipelines in SceneScape.
-- [DLStreamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/how-to-use-gpu-for-decode-and-inference.html) - How to configure video pipeline to use GPU.
+- [How to Configure DL Streamer Video Pipeline](../docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md) - Step-by-step guide for configuring DL Streamer video pipelines in SceneScape.
+- [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/how-to-guides/use-gpu-npu-for-decode-and-inference.html) - How to configure video pipeline to use GPU or NPU.
