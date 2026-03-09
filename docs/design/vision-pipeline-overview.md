@@ -239,7 +239,7 @@ The following stage types represent common analytics capabilities that can be co
 - **Configuration Schema Availability**: JSON schema for pipeline and stage configurations provided via API endpoints for validation and tooling integration, ideally with a single extensible schema for all possible pipeline configurations
 - **Stage Input/Output Behavior**: A given stage operates on the output of the previous stage (or the original frame for the first stage), and may operate on an array of outputs from that single previous stage
 - **Unscaled Image Data Output**: For stages that output image-like data (rather than text data), the output must refer to the unscaled portion of the input associated with the detection, such as the bounding box or a masked output of oriented bounding box or instance segment
-- **Metadata Collation**: Whenever a stage runs, the metadata is collated into a single object array per chain, with a property key defined by each stage that has run (e.g. when `vehicle+lpd+lpr` finds a vehicle but no plate, the metadata will have an empty `"lpd: []"` array to indicate the stage ran but found nothing, and no `lpr` value exists because it didn't run)
+- **Metadata Collation**: Whenever a stage runs, the metadata is collated into a single object array per chain, with a property key defined by each stage that has run (e.g. when `vehicle+lpd+lpr` finds a vehicle but no plate, the metadata will have an empty `"lpd: []"` array to indicate the stage ran but found nothing, and no `lpr` value exists because it did not run)
   **Model Metadata**: There must be a method to retrieve model information (such as model name, version identifier, and content hash) for each stage via the API, to support reproducibility, compliance tracking, debugging, and audit requirements.
 - **Guaranteed Output**: Every frame input must have a resultant metadata output, even if nothing is detected (not detecting something is also an important result)
 - **Source Frame Coordinates**: All collated metadata is reported in source frame coordinates for staged operations, e.g. vehicle bounding box and the license plate bounding box are both reported in original frame pixel units
@@ -306,7 +306,7 @@ This demonstrates how complex multi-branch analytics workflows can be concisely 
 
 **Corresponding Metadata Output:**
 
-The DAG execution produces structured JSON metadata that combines results from all executed stages. Here's an example output from our example pipeline showing how the parallel and sequential branches of the DAG contribute to a single metadata output message:
+The DAG execution produces structured JSON metadata that combines results from all executed stages. Here is an example output from our example pipeline showing how the parallel and sequential branches of the DAG contribute to a single metadata output message:
 
 ```json
 {
@@ -428,7 +428,7 @@ The system uses a concise syntax inspired by Percebro's DAG notation for definin
 - **Resource Management**: Hardware assignments are validated against available accelerators
 - **Execution Order**: DAG topology determines optimal execution scheduling
 - **Metadata Convergence**: All stages must ultimately converge on a single metadata publish node to ensure unified output regardless of DAG complexity
-- **Error Handling**: Failed stages don't block parallel branches; metadata indicates stage completion status
+- **Error Handling**: Failed stages do not block parallel branches; metadata indicates stage completion status
 - **Dynamic Reconfiguration**: DAG structure can be modified at runtime without stopping the pipeline
 
 **Performance Considerations:**
