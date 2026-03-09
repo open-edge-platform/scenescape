@@ -50,7 +50,7 @@
           "body": {
             "name": "Region_Full",
             "scene": "${SCENE_UID}",
-            "vertices": [
+            "points": [
               [0.0, 0.0],
               [1.0, 0.0],
               [1.0, 1.0],
@@ -77,7 +77,7 @@
         "request": {
           "body": {
             "scene": "${SCENE_UID}",
-            "vertices": [
+            "points": [
               [0.0, 0.0],
               [1.0, 1.0]
             ]
