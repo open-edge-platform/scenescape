@@ -47,7 +47,7 @@ define common-recipe =
 	  ; if [ x$(REQUIRE_SUPASS) = xtrue ] ; then \
 	      EXTRAS="--password=$(SUPASS)"; \
 	  fi \
-    ; if [ ! -z "$(AUTH_USER)" ]; then \
+	  ; if [ ! -z "$(AUTH_USER)" ]; then \
 	      EXTRAS="$${EXTRAS} $(AUTH_USER)"; \
 	  fi \
 	  ; echo RUNNING COMMON TEST $@ \
@@ -61,7 +61,7 @@ define common-recipe =
 	  ; fi \
 	  ; if [ -n "$(TEST_IMAGE)" ]; then \
 	        BASE_IMAGE=$(TEST_IMAGE) \
-    ; fi \
+	  ; fi \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) \
 	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \

@@ -4,7 +4,6 @@
 import os
 from datetime import timedelta
 from manager.secrets import *
-import json
 
 # Application Naming
 APP_NAME = 'manager'
@@ -97,6 +96,7 @@ AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 
 # Database
 # https://docs.djangoproject.com/en/2.0/ref/settings/#databases
+
 
 DATABASES = {
   'default': {
