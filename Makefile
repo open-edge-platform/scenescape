@@ -313,7 +313,7 @@ generate-sboms: $(BUILD_DIR)
 .PHONY: get-pip-licenses
 get-pip-licenses: $(BUILD_DIR)
 	@echo "==> Getting pip package licenses from PyPI..."
-	python3 tools/dependencies/get_pip_licenses.py $(BUILD_DIR)
+	python3 tools/dependencies/get_pip_licenses.py $(BUILD_DIR) -o $(BUILD_DIR)/all-pip-licenses.csv
 	@echo "DONE ==> Getting pip package licenses"
 
 .PHONY: build-sources-image

@@ -77,7 +77,8 @@ python3 tools/dependencies/update_dependencies.py \
     --deps build/all_dependencies.csv \
     --sbom build/sboms \
     --pip-licenses build \
-    --output build/updated-dependencies.csv
+    --output build/updated-dependencies.csv \
+    --show-new
 
 # Optional: Add "New" column to identify new dependencies
 python3 tools/dependencies/update_dependencies.py \
