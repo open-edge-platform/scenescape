@@ -20,7 +20,7 @@ The Intel® SceneScape model installer automatically generates the default model
 The user needs to update the model configuration file in the following cases:
 
 - They need to use their own custom models.
-- They need to do custom configurations of the installed models (e.g., non-default values of DLStreamer parameters like threshold).
+- They need to do custom configurations of the installed models (e.g., non-default values of DL Streamer parameters like threshold).
 - They need to modify the precisions of the installed models that are used in the generated pipelines.
 
 For basic usage of the models downloaded by the model installer, no changes are required in the automatically generated model configuration file.
@@ -71,7 +71,7 @@ It should be unique within the configuration file, descriptive of the model's pu
 
 ### Type Field
 
-Specifies the DLStreamer element type for the model:
+Specifies the DL Streamer element type for the model:
 
 - **`detect`**: maps to `gvadetect` element for object detection models.
 - **`classify`**: maps to `gvaclassify` element for classification models.
@@ -79,7 +79,7 @@ Specifies the DLStreamer element type for the model:
 
 ### Parameters Section
 
-Contains the model-specific parameters passed to the DLStreamer element.
+Contains the model-specific parameters passed to the DL Streamer element.
 
 #### Path Resolution
 
@@ -88,15 +88,15 @@ Contains the model-specific parameters passed to the DLStreamer element.
 
 > **Note**: The model proc file is deprecated. Avoid using it to prevent dealing with a legacy solution. It will be maintained for some time to ensure backward compatibility, but you should not use it in modern applications. The new method of model preparation is described in the Model Info Section. See the Model proc file [documentation page](https://dlstreamer.github.io/dev_guide/model_proc_file.html) for more details on the deprecated functionality.
 
-**Important**: Paths are automatically resolved relative to the `/home/pipeline-server/models` directory in the DLStreamer container. Use relative paths from this base directory.
+**Important**: Paths are automatically resolved relative to the `/home/pipeline-server/models` directory in the DL Streamer container. Use relative paths from this base directory.
 
 #### Additional Parameters
 
-Any additional parameters specified in the `params` section are passed directly to the DLStreamer element with proper formatting and quoting for GStreamer pipeline syntax.
+Any additional parameters specified in the `params` section are passed directly to the DL Streamer element with proper formatting and quoting for GStreamer pipeline syntax.
 
 ### Adapter Parameters
 
-Configuration for the Python adapter that transforms DLStreamer metadata to the Intel® SceneScape format:
+Configuration for the Python adapter that transforms DL Streamer metadata to the Intel® SceneScape format:
 
 - **`metadatagenpolicy`**: defines how metadata is generated and formatted.
   - `detectionPolicy`: for standard object detection results with 2D bounding boxes.
@@ -111,7 +111,7 @@ When generating a camera pipeline:
 
 1. The Camera Chain field references a model by its identifier (e.g., "retail").
 2. The pipeline generator looks up the model configuration.
-3. The `type` field determines which DLStreamer element to use.
+3. The `type` field determines which DL Streamer element to use.
 4. The `params` section provides the element parameters with resolved paths.
 5. The `adapter-params` configure the metadata transformation adapter.
 
@@ -132,7 +132,7 @@ Refer to the instructions in [`model_installer` documentation](../../../model_in
 
 ## Related Documentation
 
-- [How to Configure DLStreamer Video Pipeline](how-to-configure-dlstreamer-video-pipeline.md)
+- [How to Configure DL Streamer Video Pipeline](how-to-configure-dlstreamer-video-pipeline.md)
 - [Deep Learning Streamer Elements Documentation](https://dlstreamer.github.io/elements/elements.html)
 - [How to manage files in volumes](how-to-manage-files-in-volumes.md)
 - [`model_installer` documentation](../../../model_installer/src/README.md)
