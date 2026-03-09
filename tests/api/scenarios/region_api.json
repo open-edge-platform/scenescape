@@ -272,6 +272,17 @@
         }
       },
       {
+        "step_name": "Delete second region",
+        "api": "region",
+        "method": "deleteRegion",
+        "request": {
+          "UID": "${REGION_UID_FULL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
         "step_name": "Verify region is deleted",
         "api": "region",
         "method": "getRegion",
