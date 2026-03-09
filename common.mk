@@ -8,6 +8,10 @@ ROOT_DIR := $(PWD)
 LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
 HAS_PIP ?= yes
 HAS_DPKG ?= yes
+USES_SCENE_COMMON ?= no
+# Read the SHA-pinned image from the Dockerfile ARG default — single source of truth
+RUNTIME_OS_IMAGE ?= $(shell sed -n 's/^ARG RUNTIME_OS_IMAGE=//p' Dockerfile)
+$(if $(RUNTIME_OS_IMAGE),,$(if $(shell grep -qs 'FROM $${RUNTIME_OS_IMAGE}' Dockerfile && echo yes),$(error RUNTIME_OS_IMAGE could not be parsed from Dockerfile. Ensure 'ARG RUNTIME_OS_IMAGE=<image>' is present in $(CURDIR)/Dockerfile)))
 
 default: build-image
 
