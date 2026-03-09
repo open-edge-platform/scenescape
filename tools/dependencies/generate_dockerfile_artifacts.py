@@ -179,11 +179,16 @@ def build_zip(
                 zf.write(src, archive_path)
                 entries.append(archive_path)
 
-                # Include requirements*.txt files from the Dockerfile's directory
+                # Include requirements*.txt and conanfile.txt from the Dockerfile's directory
                 for req in sorted(dockerfile_dir.glob("requirements*.txt")):
                     req_archive = f"{subfolder}/{req.name}"
                     zf.write(req, req_archive)
                     entries.append(req_archive)
+                conanfile = dockerfile_dir / "conanfile.txt"
+                if conanfile.exists():
+                    conan_archive = f"{subfolder}/conanfile.txt"
+                    zf.write(conanfile, conan_archive)
+                    entries.append(conan_archive)
 
     return entries
 
