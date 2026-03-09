@@ -1,0 +1,193 @@
+[
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ASSET/01: Create assets with only required properties",
+    "test_steps": [
+      {
+        "step_name": "Create asset with minimal payload",
+        "api": "asset",
+        "method": "createAsset",
+        "request": {
+          "body": {
+            "name": "Asset_Minimal"
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "ASSET_UID_MINIMAL": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ASSET/02: Create assets with full valid payload",
+    "test_steps": [
+      {
+        "step_name": "Create asset with full payload",
+        "api": "asset",
+        "method": "createAsset",
+        "request": {
+          "body": {
+            "name": "Asset_Full",
+            "x_size": 1.2,
+            "y_size": 1.2,
+            "z_size": 1.2,
+            "x_buffer_size": 1.2,
+            "y_buffer_size": 1.2,
+            "z_buffer_size": 1.2,
+            "tracking_radius": 1.2,
+            "mark_color": "#888888",
+            "scale": 1.2,
+            "project_to_map": false,
+            "rotation_from_velocity": false
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "ASSET_UID_FULL": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ASSET/03: Update asset with minimal valid payload",
+    "test_steps": [
+      {
+        "step_name": "Update asset with minimal payload",
+        "api": "asset",
+        "method": "updateAsset",
+        "request": {
+          "UID": "${ASSET_UID_MINIMAL}",
+          "body": {
+            "name": "Asset_Minimal_Updated"
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify asset was updated",
+        "api": "asset",
+        "method": "getAsset",
+        "request": {
+          "UID": "${ASSET_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Asset_Minimal_Updated"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ASSET/04: Update asset with full valid payload",
+    "test_steps": [
+      {
+        "step_name": "Update asset with full payload",
+        "api": "asset",
+        "method": "updateAsset",
+        "request": {
+          "UID": "${ASSET_UID_FULL}",
+          "body": {
+            "name": "Asset_Full_Updated",
+            "x_size": 1.2,
+            "y_size": 1.2,
+            "z_size": 1.2,
+            "x_buffer_size": 1.2,
+            "y_buffer_size": 1.2,
+            "z_buffer_size": 1.2,
+            "tracking_radius": 1.2,
+            "mark_color": "#888888",
+            "scale": 1.2,
+            "project_to_map": false,
+            "rotation_from_velocity": false
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify asset was updated",
+        "api": "asset",
+        "method": "getAsset",
+        "request": {
+          "UID": "${ASSET_UID_FULL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "expected_body": {
+          "uid": "${ASSET_UID_FULL}",
+          "name": "Asset_Full_Updated",
+          "x_size": 1.2,
+          "y_size": 1.2,
+          "z_size": 1.2,
+          "tracking_radius": 1.2,
+          "shift_type": 1,
+          "mark_color": "#888888",
+          "scale": 1.2,
+          "project_to_map": false,
+          "rotation_from_velocity": false,
+          "rotation_x": 0.0,
+          "rotation_y": 0.0,
+          "rotation_z": 0.0,
+          "translation_x": 0.0,
+          "translation_y": 0.0,
+          "translation_z": 0.0,
+          "x_buffer_size": 1.2,
+          "y_buffer_size": 1.2,
+          "z_buffer_size": 1.2,
+          "geometric_center": [0.0, 0.0, 0.0],
+          "mass": 1.0,
+          "center_of_mass": [0.0, 0.0, 0.0],
+          "is_static": false,
+          "ttl": 0.0,
+          "linear_damping": 0.05,
+          "angular_damping": 0.05,
+          "coefficient_of_restitution": 0.5,
+          "friction_coefficients": [0.5, 0.4]
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ASSET/05: Update non existent asset",
+    "test_steps": [
+      {
+        "step_name": "Attempt to update asset with invalid UID",
+        "api": "asset",
+        "method": "updateAsset",
+        "request": {
+          "UID": "123",
+          "body": {
+            "name": "Should_Fail"
+          }
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ASSET/06: GET all assets",
+    "test_steps": [
+      {
+        "step_name": "Get all assets",
+        "api": "asset",
+        "method": "getAssets",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  }
+]
