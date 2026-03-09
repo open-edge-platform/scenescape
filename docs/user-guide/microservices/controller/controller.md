@@ -5,6 +5,7 @@
   </a>
   <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/controller/README.md">
      Readme
+  </a>
 </div>
 hide_directive-->
 
@@ -74,8 +75,8 @@ _Figure 2: Scene Controller Sequence diagram_
 
 - [Get Started Guide](./get-started.md)
 - [How to Configure the Tracker](./how-to-configure-tracker.md)
+- [Extended Re-ID](./Extended-ReID.md)
 - [API Reference](./api-reference.md)
-- [Extended Re-ID](Extended-ReID.md)
 
 <!--hide_directive
 :::{toctree}
@@ -83,8 +84,8 @@ _Figure 2: Scene Controller Sequence diagram_
 
 get-started.md
 how-to-configure-tracker.md
-api-reference.md
 Extended-ReID.md
+api-reference.md
 
 :::
 hide_directive-->
