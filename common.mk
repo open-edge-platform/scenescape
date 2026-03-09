@@ -110,11 +110,6 @@ generate-sbom: $(BUILD_DIR) check-buildkit
 	@cd $(BUILD_DIR)/sboms && \
 	tar -xf $(IMAGE).tar sbom.spdx.json && \
 	mv sbom.spdx.json $(IMAGE)-sbom.spdx.json && \
-	if [ -f "$(ROOT_DIR)/tools/dependencies/spdx_json_to_csv.py" ]; then \
-	  python $(ROOT_DIR)/tools/dependencies/spdx_json_to_csv.py $(IMAGE) $(IMAGE)-sbom.csv $(IMAGE)-sbom.spdx.json; \
-	else \
-	  echo "Warning: SBOM CSV converter script not found at $(ROOT_DIR)/tools/dependencies/spdx_json_to_csv.py; skipping CSV generation."; \
-	fi && \
 	rm $(IMAGE).tar $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile
 	@echo "SBOM generated at $(BUILD_DIR)/sboms/"
 
