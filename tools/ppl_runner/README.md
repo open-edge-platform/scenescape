@@ -32,7 +32,7 @@ To start the pipeline with **detection metadata in SceneScape format** use:
 
 Example command: `./start-dlsps-pipeline.sh sample_camera_configs/camera_settings_person_reid.json`
 
-To start the pipeline with **detection metadata in DLStreamer format** use:
+To start the pipeline with **detection metadata in DL Streamer format** use:
 
 ```
 DUMP_DLS_METADATA=true ./start-dlsps-pipeline.sh <CAMERA_SETTINGS_FILE>
@@ -64,9 +64,9 @@ The detection metadata published by the pipeline can be monitored with an MQTT c
 
 Additionally, an `mqtt_recorder` service is run by docker compose which dumps the detections within an arbitrary time interval to a file with default location `tools/ppl_runner/output/scenescape_metadata.jsonl`. Detections from a single frame are described by a single line in this file.
 
-### Pipeline using DLStreamer metadata format
+### Pipeline using DL Streamer metadata format
 
-If the pipeline is run with DLStreamer metadata dumps, the detections are dumped to a file with default location `tools/ppl_runner/output/dls_metadata.jsonl`. Detections from a single frame are described by a single line in this file.
+If the pipeline is run with DL Streamer metadata dumps, the detections are dumped to a file with default location `tools/ppl_runner/output/dls_metadata.jsonl`. Detections from a single frame are described by a single line in this file.
 
 ## Measuring pipeline latency
 
