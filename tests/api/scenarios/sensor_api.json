@@ -1,0 +1,705 @@
+[
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/01: Create sensor with valid required properties",
+    "test_steps": [
+      {
+        "step_name": "Create minimal sensor",
+        "api": "sensor",
+        "method": "createSensor",
+        "request": {
+          "body": {
+            "name": "sensor_minimal",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "sensor_id": "sensor_minimal",
+            "area": "circle",
+            "radius": 2.5,
+            "center": [3.81, 4.59],
+            "translation": [1, 1, 1]
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "SENSOR_UID_MINIMAL": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/02: Create sensor with circle area",
+    "test_steps": [
+      {
+        "step_name": "Create full sensor",
+        "api": "sensor",
+        "method": "createSensor",
+        "request": {
+          "body": {
+            "name": "sensor_full",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "sensor_id": "sensor_full",
+            "area": "circle",
+            "radius": 2.5,
+            "center": [3.81, 4.59],
+            "translation": [1, 1, 1],
+            "singleton_type": "attribute",
+            "color_ranges": {
+              "sectors": [
+                {
+                  "color": "green",
+                  "color_min": 0
+                },
+                {
+                  "color": "yellow",
+                  "color_min": 2
+                },
+                {
+                  "color": "red",
+                  "color_min": 5
+                }
+              ],
+              "range_max": 10
+            }
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "SENSOR_UID_FULL": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/03: Create sensor with entire scene area",
+    "test_steps": [
+      {
+        "step_name": "Create sensor covering entire scene",
+        "api": "sensor",
+        "method": "createSensor",
+        "request": {
+          "body": {
+            "name": "sensor_entire_scene",
+            "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "sensor_id": "sensor_entire_scene",
+            "area": "scene",
+            "translation": [1, 1, 1],
+            "singleton_type": "attribute",
+            "color_ranges": {
+              "sectors": [
+                {
+                  "color": "green",
+                  "color_min": 0
+                },
+                {
+                  "color": "yellow",
+                  "color_min": 2
+                },
+                {
+                  "color": "red",
+                  "color_min": 5
+                }
+              ],
+              "range_max": 10
+            }
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "SENSOR_UID_ENTIRE": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/04: Create sensor with a custom region (polygon)",
+    "test_steps": [
+      {
+        "step_name": "Create sensor with polygon area",
+        "api": "sensor",
+        "method": "createSensor",
+        "request": {
+          "body": {
+            "name": "sensor_polygon",
+            "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "sensor_id": "sensor_polygon",
+            "area": "poly",
+            "points": [
+              [3.81, 4.59],
+              [5.42, 5.12],
+              [5.82, 3.57]
+            ],
+            "translation": [1, 1, 1],
+            "singleton_type": "attribute",
+            "color_ranges": {
+              "sectors": [
+                {
+                  "color": "green",
+                  "color_min": 0
+                },
+                {
+                  "color": "yellow",
+                  "color_min": 2
+                },
+                {
+                  "color": "red",
+                  "color_min": 5
+                }
+              ],
+              "range_max": 10
+            }
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "SENSOR_UID_POLYGON": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/05: Create sensor without required field name",
+    "test_steps": [
+      {
+        "step_name": "Create without name",
+        "api": "sensor",
+        "method": "createSensor",
+        "request": {
+          "body": {}
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/06: Create sensor with non existent scene",
+    "test_steps": [
+      {
+        "step_name": "Invalid scene UUID",
+        "api": "sensor",
+        "method": "createSensor",
+        "request": {
+          "body": {
+            "name": "bad_scene",
+            "scene": "invalid-uuid"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/07: Create sensor with invalid points structure",
+    "test_steps": [
+      {
+        "step_name": "Invalid points array",
+        "api": "sensor",
+        "method": "createSensor",
+        "request": {
+          "body": {
+            "name": "bad_points",
+            "area": "poly",
+            "points": [[1, 2]]
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/08: Create sensor with circle area without radius",
+    "test_steps": [
+      {
+        "step_name": "Circle without radius",
+        "api": "sensor",
+        "method": "createSensor",
+        "request": {
+          "body": {
+            "name": "circle_no_radius",
+            "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "area": "circle",
+            "center": [1, 2]
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/09: Create sensor with polygon area without points",
+    "test_steps": [
+      {
+        "step_name": "Polygon without points",
+        "api": "sensor",
+        "method": "createSensor",
+        "request": {
+          "body": {
+            "name": "polygon_no_points",
+            "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "area": "poly"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/10: Create sensor with invalid center array length",
+    "test_steps": [
+      {
+        "step_name": "Invalid center",
+        "api": "sensor",
+        "method": "createSensor",
+        "request": {
+          "body": {
+            "name": "bad_center",
+            "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "area": "circle",
+            "center": [1]
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/11: Create sensor with invalid translation array length",
+    "test_steps": [
+      {
+        "step_name": "Invalid translation",
+        "api": "sensor",
+        "method": "createSensor",
+        "request": {
+          "body": {
+            "name": "bad_translation",
+            "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "translation": [1, 1]
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/12: Create sensor with invalid color_range structure",
+    "test_steps": [
+      {
+        "step_name": "Invalid color_range",
+        "api": "sensor",
+        "method": "createSensor",
+        "request": {
+          "body": {
+            "name": "bad_color_range",
+            "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "color_ranges": {}
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/13: Get sensor by UID",
+    "test_steps": [
+      {
+        "step_name": "Get minimal sensor",
+        "api": "sensor",
+        "method": "getSensor",
+        "request": {
+          "UID": "${SENSOR_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "expected_body": {
+          "uid": "${SENSOR_UID_MINIMAL}",
+          "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+          "sensor_id": "sensor_minimal",
+          "name": "sensor_minimal",
+          "area": "circle",
+          "radius": 2.5,
+          "center": [3.81, 4.59],
+          "translation": [3.81, 4.59, 0.0],
+          "singleton_type": "environmental"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/14: Get non existent sensor",
+    "test_steps": [
+      {
+        "step_name": "Get invalid UID",
+        "api": "sensor",
+        "method": "getSensor",
+        "request": {
+          "UID": "non-existing-uid"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/15: Get all sensors",
+    "test_steps": [
+      {
+        "step_name": "Get all sensors",
+        "api": "sensor",
+        "method": "getSensors",
+        "request": {
+          "filter": {
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "expected_body": {
+          "count": 2,
+          "next": null,
+          "previous": null,
+          "results": [
+            {
+              "uid": "${SENSOR_UID_MINIMAL}",
+              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+              "sensor_id": "sensor_minimal",
+              "name": "sensor_minimal",
+              "area": "circle",
+              "radius": 2.5,
+              "center": [3.81, 4.59],
+              "translation": [1, 1, 1],
+              "singleton_type": "environmental"
+            },
+            {
+              "uid": "${SENSOR_UID_FULL}",
+              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+              "sensor_id": "sensor_full",
+              "name": "sensor_full",
+              "area": "circle",
+              "radius": 2.5,
+              "center": [3.81, 4.59],
+              "translation": [1, 1, 1],
+              "singleton_type": "attribute"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/16: Update sensor with minimal valid payload",
+    "test_steps": [
+      {
+        "step_name": "Update name",
+        "api": "sensor",
+        "method": "updateSensor",
+        "request": {
+          "UID": "${SENSOR_UID_MINIMAL}",
+          "body": {
+            "name": "sensor_minimal_updated",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/17: Update non existent sensor",
+    "test_steps": [
+      {
+        "step_name": "Update invalid UID",
+        "api": "sensor",
+        "method": "updateSensor",
+        "request": {
+          "UID": "invalid-uid",
+          "body": {
+            "name": "invalid"
+          }
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/18: Update sensor geometry from circle to polygon",
+    "test_steps": [
+      {
+        "step_name": "Update geometry",
+        "api": "sensor",
+        "method": "updateSensor",
+        "request": {
+          "UID": "${SENSOR_UID_MINIMAL}",
+          "body": {
+            "name": "sensor_minimal_updated",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "area": "poly",
+            "points": [
+              [1, 1],
+              [2, 2],
+              [3, 1]
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/19: Update sensor color range",
+    "test_steps": [
+      {
+        "step_name": "Update color range",
+        "api": "sensor",
+        "method": "updateSensor",
+        "request": {
+          "UID": "${SENSOR_UID_FULL}",
+          "body": {
+            "name": "sensor_full",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "sensor_id": "sensor_full",
+            "area": "circle",
+            "radius": 2.5,
+            "center": [3.81, 4.59],
+            "translation": [1, 1, 1],
+            "singleton_type": "attribute",
+            "color_ranges": {
+              "sectors": [
+                {
+                  "color": "green",
+                  "color_min": 3
+                },
+                {
+                  "color": "yellow",
+                  "color_min": 1
+                },
+                {
+                  "color": "red",
+                  "color_min": 2
+                }
+              ],
+              "range_max": 10
+            }
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/20: Update sensor with invalid points structure",
+    "test_steps": [
+      {
+        "step_name": "Update with invalid points structure",
+        "api": "sensor",
+        "method": "updateSensor",
+        "request": {
+          "UID": "${SENSOR_UID_MINIMAL}",
+          "body": {
+            "name": "sensor_minimal_updated",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "area": "poly",
+            "points": [[1, 1]]
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/21: Update sensor with invalid color_range structure",
+    "test_steps": [
+      {
+        "step_name": "Update color range",
+        "api": "sensor",
+        "method": "updateSensor",
+        "request": {
+          "UID": "${SENSOR_UID_FULL}",
+          "body": {
+            "name": "sensor_full",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "sensor_id": "sensor_full",
+            "area": "circle",
+            "radius": 2.5,
+            "center": [3.81, 4.59],
+            "translation": [1, 1, 1],
+            "singleton_type": "attribute",
+            "color_ranges": {
+              "sectors": [
+                {
+                  "color": "blue",
+                  "color_min": 700
+                },
+                {
+                  "color": "black",
+                  "color_min": 500
+                },
+                {
+                  "color": "red",
+                  "color_min": -100
+                }
+              ],
+              "range_max": 20
+            }
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/22: Delete sensor",
+    "test_steps": [
+      {
+        "step_name": "Delete minimal sensor",
+        "api": "sensor",
+        "method": "deleteSensor",
+        "request": {
+          "UID": "${SENSOR_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify minimal sensor is deleted",
+        "api": "sensor",
+        "method": "getSensor",
+        "request": {
+          "UID": "${SENSOR_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      },
+      {
+        "step_name": "Delete full sensor",
+        "api": "sensor",
+        "method": "deleteSensor",
+        "request": {
+          "UID": "${SENSOR_UID_FULL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify full sensor is deleted",
+        "api": "sensor",
+        "method": "getSensor",
+        "request": {
+          "UID": "${SENSOR_UID_FULL}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      },
+      {
+        "step_name": "Delete entire scene sensor",
+        "api": "sensor",
+        "method": "deleteSensor",
+        "request": {
+          "UID": "${SENSOR_UID_ENTIRE}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify entire scene sensor is deleted",
+        "api": "sensor",
+        "method": "getSensor",
+        "request": {
+          "UID": "${SENSOR_UID_ENTIRE}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      },
+      {
+        "step_name": "Delete polygon sensor",
+        "api": "sensor",
+        "method": "deleteSensor",
+        "request": {
+          "UID": "${SENSOR_UID_POLYGON}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify polygon sensor is deleted",
+        "api": "sensor",
+        "method": "getSensor",
+        "request": {
+          "UID": "${SENSOR_UID_POLYGON}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/23: Delete non existent sensor",
+    "test_steps": [
+      {
+        "step_name": "Delete sensor",
+        "api": "sensor",
+        "method": "deleteSensor",
+        "request": {
+          "UID": "${SENSOR_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      },
+      {
+        "step_name": "Verify sensor is deleted",
+        "api": "sensor",
+        "method": "getSensor",
+        "request": {
+          "UID": "${SENSOR_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  }
+]
