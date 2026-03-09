@@ -166,17 +166,17 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/ROI/06: Update region with missing required field name",
+    "test_name": "Vision_AI/SSCAPE/API/ROI/06: Update region with invalid field value",
     "test_steps": [
       {
-        "step_name": "Attempt to update region without name",
+        "step_name": "Attempt to update region with empty name",
         "api": "region",
         "method": "updateRegion",
         "request": {
           "UID": "${REGION_UID_MINIMAL}",
           "body": {
             "scene": "${SCENE_UID}",
-            "type": "polygon"
+            "name": ""
           }
         },
         "expected_status": {
