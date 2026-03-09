@@ -23,17 +23,16 @@ on:
       - main
       - release-*
     types:
-      - opened
-      - synchronize
+      - labeled          # triggers BAT when 'bat-ready' label is added
+      - synchronize      # re-runs BAT if label present; also triggers label removal
       - reopened
       - ready_for_review
-  push:
-    branches:
-      - main
-      - release-*
 
   # Trigger workflow when enqueued to a merge group
   # (must be under 'on')
+  # Merge queue serializes PR validation: each PR is tested against the current
+  # state of main before merging, eliminating redundant re-runs when other PRs land.
+  # Enable in GitHub: Settings > Branches > branch protection > Require merge queue
   merge_group: {}
 
 # Only run at most 1 workflow concurrently per PR or per branch to keep costs down
@@ -47,6 +46,7 @@ env:
 
 permissions:
   contents: read
+  pull-requests: write  # needed to remove bat-ready label on new commits
 
 jobs:
   check-pr-state:
@@ -84,11 +84,34 @@ jobs:
           echo "pr_state=$PR_STATE" >> $GITHUB_OUTPUT
           echo "PR State \"isDraft\": $PR_STATE"
 
+  # When new commits are pushed to a PR that already has 'bat-ready', remove the
+  # label so stale BAT approvals don't carry over to different code.
+  remove-bat-ready-label:
+    name: "Remove bat-ready label on new commits"
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.action == 'synchronize' &&
+      contains(github.event.pull_request.labels.*.name, 'bat-ready')
+    steps:
+      - name: Remove bat-ready label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.number }} --remove-label "bat-ready" --repo ${{ github.repository }}
+
   filter:
     name: "Filter Changed Code Paths"
     needs: check-pr-state
     runs-on: ubuntu-latest
-    if: ${{ needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch' }}
+    # For PRs: only proceed if the 'bat-ready' label is present — this is the
+    # manual priority gate. Add the label to the PR you want to run BAT on next.
+    # merge_group and workflow_dispatch bypass the label check entirely.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
+      (needs.check-pr-state.outputs.pr_state != 'true' &&
+       contains(github.event.pull_request.labels.*.name, 'bat-ready'))
     outputs:
       code_changed: ${{ steps.filter.outputs.code }}
     steps:
@@ -170,7 +193,7 @@ jobs:
   chart-deployment-test:
     name: "Chart Deployment Test"
     runs-on: [bat]
-    needs: [filter, check-pr-state]
+    needs: [filter, check-pr-state, run-basic-acceptance-tests]
     if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
       - name: Checkout
