@@ -18,7 +18,6 @@ WORKDIR /sources-deb
 RUN apt-get source --download-only \
     armadillo \
     bindfs \
-    ca-certificates \
     cfitsio \
     elfutils \
     fuse \
@@ -45,7 +44,6 @@ RUN apt-get source --download-only \
     mariadb \
     media-types \
     mosquitto \
-    netbase \
     netcdf \
     numactl \
     ogdi \
@@ -56,7 +54,6 @@ RUN apt-get source --download-only \
     protobuf \
     python3.11 \
     qtbase-opensource-src \
-    readline \
     rtmpdump \
     socket++ \
     spatialite \
