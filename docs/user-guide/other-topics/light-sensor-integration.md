@@ -12,7 +12,7 @@ In the SceneScape UI, create a new sensor with:
 - **Type**: Environmental
 - **Area**: **scene** (required; see note below)
 
-**Important:** Only sensors with area="scene" control scene lighting. Localized sensors (area="circle" or "poly") tag objects but don't affect ambient illumination.
+**Important:** Only sensors with area="scene" control scene lighting. Localized sensors (area="circle" or "poly") tag objects but do not affect ambient illumination.
 
 **Sensor identification:** The 3D viewer identifies light sensors by `subtype: "light"` in the message payload, or by the sensor ID ending with `_light` (e.g., `warehouse_01_light`).
 
