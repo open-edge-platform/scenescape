@@ -236,7 +236,6 @@ RUN chmod a+rwx /usr/local/bin/geckodriver
 COPY ./manager/test/firefox-profile.tar /home/scenescape/.mozilla/
 RUN chmod -R a+rwx /home/scenescape/.mozilla
 
-
 USER $TEST_USER
 ENV PYTHONPATH=/home/scenescape/SceneScape/
 ENTRYPOINT [""]
