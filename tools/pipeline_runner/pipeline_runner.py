@@ -44,6 +44,8 @@ OUTPUT_DIR = "output"
 DLS_METADATA_OUTPUT_FILE = "dls_metadata.jsonl"
 SCENESCAPE_METADATA_FILE = "scenescape_metadata.jsonl"
 COMPOSE_FILE = Path(__file__).parent / "docker-compose-ppl.yaml"
+NPU_DEVICE = "/dev/accel"
+NPU_OVERRIDE_FILE = Path(__file__).parent / "docker-compose-ppl.npu.yaml"
 ENV_FILE = Path(__file__).parent / ".env"
 
 BROKER_HOST = "localhost"
@@ -159,8 +161,11 @@ class PipelineRunner:
     )
 
   def _make_docker_client(self) -> DockerClient:
+    compose_files = [str(COMPOSE_FILE)]
+    if os.path.exists(NPU_DEVICE):
+      compose_files.append(str(NPU_OVERRIDE_FILE))
     return DockerClient(
-      compose_files=[str(COMPOSE_FILE)],
+      compose_files=compose_files,
       compose_env_file=str(ENV_FILE),
       compose_profiles=[self.profile] if self.profile else [],
     )

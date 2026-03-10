@@ -350,15 +350,21 @@ pipeline-generation-test:
 GPU_DEVICE_COUNT ?= 0
 NPU_DEVICE_COUNT ?= 0
 
+PPL_VENV := $(CURDIR)/pipeline_runner/.venv
 _PYTEST_PPL = cd .. && GPU_DEVICE_COUNT=$(GPU_DEVICE_COUNT) NPU_DEVICE_COUNT=$(NPU_DEVICE_COUNT) \
-	python -m pytest -v $(GENERATE_JUNITXML)
+	$(PPL_VENV)/bin/python -m pytest -v $(GENERATE_JUNITXML)
 
-.PHONY: pipeline-runner-people pipeline-runner-vehicles pipeline-runner-integration
+.PHONY: pipeline-runner-setup pipeline-runner-people pipeline-runner-vehicles pipeline-runner-integration
 
-pipeline-runner-people: # TODO: update with correct one NEX-T30001
+pipeline-runner-setup:
+	@python3 -m venv $(PPL_VENV) 2>/dev/null || true
+	@$(PPL_VENV)/bin/pip install -q --upgrade pip
+	@$(PPL_VENV)/bin/pip install -q -r $(CURDIR)/../requirements-ppl-test.txt
+
+pipeline-runner-people: pipeline-runner-setup # TODO: update with correct one NEX-T30001
 	$(_PYTEST_PPL) tests/pipeline_runner/test_people_models.py
 
-pipeline-runner-vehicles: # TODO: update with correct one NEX-T30002
+pipeline-runner-vehicles: pipeline-runner-setup # TODO: update with correct one NEX-T30002
 	$(_PYTEST_PPL) tests/pipeline_runner/test_vehicle_models.py
 
 pipeline-runner-integration: pipeline-runner-people pipeline-runner-vehicles
