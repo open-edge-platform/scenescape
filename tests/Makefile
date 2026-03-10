@@ -202,6 +202,7 @@ _ui-tests: \
   upload-only-3d-glb-files \
   add-delete-3d-object \
   bounding-box \
+  rotation \
   calibrate-all-sensor-types \
   camera-deletion \
   camera-perspective \
