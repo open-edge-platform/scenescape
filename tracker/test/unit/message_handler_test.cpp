@@ -395,6 +395,47 @@ TEST_F(MessageHandlerTest, EmptyObjects_AfterMultipleScopes_CreatesEmptyBatchesF
     EXPECT_TRUE(buffer_data.at(vehicle_scope).at("cam1").detections.empty());
 }
 
+// Test that a new category in a message registers scope and enables empty-frame tracking
+//
+// This verifies the invariant the empty-frame fix depends on:
+// a category seen for the first time must be registered in active_scopes_ so that
+// subsequent empty messages produce empty batches for it (enabling track aging).
+TEST_F(MessageHandlerTest, NewCategory_RegistersScopeAndEnablesEmptyFrameTracking) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    // Step 1: first-ever message introduces "bicycle" scope
+    std::string first_payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "bicycle": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", first_payload);
+
+    // Scope registered and detection buffered
+    auto buffer_data = test_buffer_.pop_all();
+    ASSERT_EQ(buffer_data.size(), 1);
+    TrackingScope bicycle_scope{"test-scene-001", "bicycle"};
+    ASSERT_EQ(buffer_data.count(bicycle_scope), 1u);
+    EXPECT_EQ(buffer_data.at(bicycle_scope).at("cam1").detections.size(), 1u);
+
+    // Step 2: follow-up message with no "bicycle" detections
+    std::string empty_payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:01.000Z",
+        "objects": {}
+    })";
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", empty_payload);
+
+    // Scope still active — empty batch must be produced to allow Kalman aging
+    auto buffer_data2 = test_buffer_.pop_all();
+    ASSERT_EQ(buffer_data2.size(), 1);
+    ASSERT_EQ(buffer_data2.count(bicycle_scope), 1u);
+    EXPECT_TRUE(buffer_data2.at(bicycle_scope).at("cam1").detections.empty());
+}
+
 // Test multiple objects categories are parsed correctly
 TEST_F(MessageHandlerTest, HandleMessage_ParsesMultipleCategories) {
     MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
