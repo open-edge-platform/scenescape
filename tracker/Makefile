@@ -439,9 +439,9 @@ mqtt-publish:
 #####################################################################
 
 # Override common.mk list-dependencies to use the builder stage (runtime is distroless, has no dpkg/pip).
-# Uses ldd on the tracker binary (same approach as in the Dockerfile) to identify only the libraries
+# Uses ldd on the tracker binary (same approach as in the Dockerfile) to identify only the OS libraries
 # that are actually distributed with the image, then maps each back to its dpkg package.
-# Conan-managed libraries that are not registered with dpkg are silently omitted.
+# Conan-managed packages are collected separately via 'conan graph info' and written to conan-deps.txt.
 .PHONY: list-dependencies
 list-dependencies: $(BUILD_DIR)
 	@if [[ -z $$(docker images | grep "^$(IMAGE)" | grep $(VERSION)) ]]; then \
@@ -457,7 +457,7 @@ list-dependencies: $(BUILD_DIR)
 	    $(EXTRA_BUILD_ARGS) \
 	    -t $(BUILDER_IMAGE):$(VERSION) \
 	    -f ./Dockerfile .. -q
-	@echo "Listing runtime library dependencies via ldd..."
+	@echo "Listing runtime OS library dependencies via ldd..."
 	@docker run --rm --entrypoint bash $(BUILDER_IMAGE):$(VERSION) \
 	    -c '. /scenescape/build/conanrun.sh \
 	        && ldd /scenescape/build/tracker \
@@ -469,6 +469,15 @@ list-dependencies: $(BUILD_DIR)
 	        | awk '"'"'/^ii/ {print $$2, $$3, $$4}'"'"'' \
 	    > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt
 	@echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"
+	@echo "Listing Conan package dependencies..."
+	@docker run --rm --entrypoint bash $(BUILDER_IMAGE):$(VERSION) \
+	    -c 'for f in /scenescape/build/*ConfigVersion.cmake; do \
+	            pkg=$$(basename $$f ConfigVersion.cmake); \
+	            ver=$$(grep "^set(PACKAGE_VERSION " $$f | head -1 | sed "s/set(PACKAGE_VERSION \"\(.*\)\")/\1/"); \
+	            echo "$$pkg $$ver"; \
+	        done | sort -u' \
+	    > $(BUILD_DIR)/$(IMAGE)-conan-deps.txt
+	@echo "Conan dependencies listed in $(BUILD_DIR)/$(IMAGE)-conan-deps.txt"
 	@docker rmi $(BUILDER_IMAGE):$(VERSION) > /dev/null 2>&1 || true
 
 # Override common.mk clean to also remove local build directories
