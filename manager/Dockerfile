@@ -201,11 +201,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 ARG TEST_USER
 USER root
 RUN : \
-    ; groupadd -g $TEST_USER tester \
-    ; useradd -r -u $TEST_USER -g $TEST_USER -m -s /bin/bash tester \
-    ; usermod -a -G video,users tester \
+    ; getent group $TEST_USER >/dev/null 2>&1 || groupadd -g $TEST_USER tester \
+    ; getent passwd $TEST_USER >/dev/null 2>&1 || useradd -r -u $TEST_USER -g $TEST_USER -m -s /bin/bash tester \
+    ; usermod -a -G video,users $(id -nu $TEST_USER) \
     ;
-
 RUN : \
     ; apt-get update \
     ; install -d -m 0755 /etc/apt/keyrings \
