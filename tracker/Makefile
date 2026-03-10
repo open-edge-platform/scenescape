@@ -438,7 +438,10 @@ mqtt-publish:
 # Clean targets
 #####################################################################
 
-# Override common.mk list-dependencies to use the builder stage (runtime is distroless, has no dpkg/pip)
+# Override common.mk list-dependencies to use the builder stage (runtime is distroless, has no dpkg/pip).
+# Uses ldd on the tracker binary (same approach as in the Dockerfile) to identify only the libraries
+# that are actually distributed with the image, then maps each back to its dpkg package.
+# Conan-managed libraries that are not registered with dpkg are silently omitted.
 .PHONY: list-dependencies
 list-dependencies: $(BUILD_DIR)
 	@if [[ -z $$(docker images | grep "^$(IMAGE)" | grep $(VERSION)) ]]; then \
@@ -454,10 +457,17 @@ list-dependencies: $(BUILD_DIR)
 	    $(EXTRA_BUILD_ARGS) \
 	    -t $(BUILDER_IMAGE):$(VERSION) \
 	    -f ./Dockerfile .. -q
-	@docker run --rm $(BUILDER_BASE_IMAGE) dpkg -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-system-packages.txt
-	@docker run --rm --entrypoint dpkg $(BUILDER_IMAGE):$(VERSION) -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-packages.txt
-	@grep -Fxv -f $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt || true
-	@rm -rf $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt
+	@echo "Listing runtime library dependencies via ldd..."
+	@docker run --rm --entrypoint bash $(BUILDER_IMAGE):$(VERSION) \
+	    -c '. /scenescape/build/conanrun.sh \
+	        && ldd /scenescape/build/tracker \
+	        | awk '"'"'NF==4 && $$3~/^\// {print $$3}'"'"' \
+	        | xargs -r readlink -f 2>/dev/null \
+	        | xargs -r dpkg -S 2>/dev/null \
+	        | cut -d: -f1 | sort -u \
+	        | xargs -r dpkg -l \
+	        | awk '"'"'/^ii/ {print $$2, $$3, $$4}'"'"'' \
+	    > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt
 	@echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"
 	@docker rmi $(BUILDER_IMAGE):$(VERSION) > /dev/null 2>&1 || true
 
