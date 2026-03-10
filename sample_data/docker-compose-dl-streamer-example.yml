@@ -14,6 +14,14 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-web.crt
   web-key:
     file: ${SECRETSDIR}/certs/scenescape-web.key
+  vdms-client-cert:
+    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
+  vdms-client-key:
+    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
+  vdms-server-cert:
+    file: ${SECRETSDIR}/certs/scenescape-vdms-s.crt
+  vdms-server-key:
+    file: ${SECRETSDIR}/certs/scenescape-vdms-s.key
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
@@ -53,6 +61,8 @@ x-controller-base: &controller-base
     CONTROLLER_ENABLE_TRACING: ${CONTROLLER_ENABLE_TRACING}
     CONTROLLER_TRACING_ENDPOINT: ${CONTROLLER_TRACING_ENDPOINT}
     CONTROLLER_TRACING_SAMPLE_RATIO: ${CONTROLLER_TRACING_SAMPLE_RATIO}
+    no_proxy: ${no_proxy},.scenescape.intel.com
+    NO_PROXY: ${NO_PROXY},.scenescape.intel.com
   command: >
     --restauth /run/secrets/controller.auth
     --brokerauth /run/secrets/controller.auth
@@ -71,6 +81,10 @@ x-controller-base: &controller-base
       target: certs/scenescape-ca.pem
     - django
     - controller.auth
+    - source: vdms-client-key
+      target: certs/scenescape-vdms-c.key
+    - source: vdms-client-cert
+      target: certs/scenescape-vdms-c.crt
   restart: always
   pids_limit: 1000
 
@@ -167,6 +181,8 @@ services:
     environment:
       - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
+      - no_proxy=${no_proxy},.scenescape.intel.com
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
     cap_add:
       - SYS_ADMIN
     devices:
@@ -214,6 +230,17 @@ services:
           - vdms.scenescape.intel.com
     ports:
       - "55555:55555"
+    environment:
+      - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
+      - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
+      - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: vdms-server-cert
+        target: certs/scenescape-vdms-s.crt
+      - source: vdms-server-key
+        target: certs/scenescape-vdms-s.key
     restart: always
     pids_limit: 1000
 
@@ -253,7 +280,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc1
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc2
     networks:
       scenescape:
     tty: true
@@ -317,7 +344,7 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc1
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc2
     networks:
       scenescape:
     tty: true
@@ -415,7 +442,7 @@ services:
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad
       - HTTP_PROXY=${HTTP_PROXY}
       - HTTPS_PROXY=${HTTPS_PROXY}
-      - NO_PROXY=${NO_PROXY}
+      - NO_PROXY=${NO_PROXY},scenescape.intel.com
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
       - vol-datasets:/home/scenescape/SceneScape/datasets

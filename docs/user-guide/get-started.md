@@ -197,7 +197,7 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 - [Running License Plate Recognition with 3D Object Detection](./other-topics/how-to-run-LPR-with-3D-object-detection.md): Step-by-step guide for running license plate recognition with 3D object detection.
 
-- [How to Configure DLStreamer Video Pipeline](./other-topics/how-to-configure-dlstreamer-video-pipeline.md): Step-by-step guide for configuring DLStreamer video pipeline.
+- [How to Configure DL Streamer Video Pipeline](./other-topics/how-to-configure-dlstreamer-video-pipeline.md): Step-by-step guide for configuring DL Streamer video pipeline.
 
 - [Model configuration file format](./other-topics/model-configuration-file-format.md): Model configuration file overview.
 

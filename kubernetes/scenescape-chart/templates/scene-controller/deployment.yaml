@@ -72,6 +72,14 @@ spec:
             subPath: scenescape-ca.pem
             name: certs
             readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-vdms-c.key
+            subPath: scenescape-vdms-c.key
+            name: certs
+            readOnly: true
+          - mountPath: /run/secrets/certs/scenescape-vdms-c.crt
+            subPath: scenescape-vdms-c.crt
+            name: certs
+            readOnly: true
           - mountPath: /run/secrets/django/secrets.py
             subPath: secrets.py
             name: secrets-py
