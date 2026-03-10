@@ -198,7 +198,14 @@ ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 # This stage is meant to be used for test execution (not for final runtime)
 FROM scenescape-manager-runtime AS scenescape-manager-test
 ENV DEBIAN_FRONTEND=noninteractive
+ARG TEST_USER
 USER root
+RUN : \
+    ; groupadd -g $TEST_USER tester \
+    ; useradd -r -u $TEST_USER -g $TEST_USER -m -s /bin/bash tester \
+    ; usermod -a -G video,users tester \
+    ;
+
 RUN : \
     ; apt-get update \
     ; install -d -m 0755 /etc/apt/keyrings \
@@ -229,6 +236,7 @@ RUN chmod a+rwx /usr/local/bin/geckodriver
 COPY ./manager/test/firefox-profile.tar /home/scenescape/.mozilla/
 RUN chmod -R a+rwx /home/scenescape/.mozilla
 
-USER $WSUSER
+
+USER $TEST_USER
 ENV PYTHONPATH=/home/scenescape/SceneScape/
 ENTRYPOINT [""]
