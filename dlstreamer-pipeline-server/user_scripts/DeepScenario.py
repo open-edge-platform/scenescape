@@ -30,6 +30,10 @@ def project_to_image(pts_3d: np.ndarray, intrinsics: np.ndarray) -> np.ndarray:
   # Perform matrix multiplication with intrinsic matrix
   pts_img_homogeneous = intrinsics @ pts_3d_homogeneous.T
 
+  # Points at or behind the camera plane produce invalid projections
+  if np.any(pts_img_homogeneous[2] <= 0):
+    return None
+
   # Normalize to get 2D image coordinates
   pts_img = pts_img_homogeneous[:2] / pts_img_homogeneous[2]
   return pts_img.T
@@ -37,6 +41,8 @@ def project_to_image(pts_3d: np.ndarray, intrinsics: np.ndarray) -> np.ndarray:
 def compute_2d_bbox_closest_surface(corners_3d: np.ndarray, intrinsics: np.ndarray) -> tuple:
   # Project 3D corners to 2D image plane
   corners_2d = project_to_image(corners_3d, intrinsics)
+  if corners_2d is None:
+    return None
 
   # Define faces using corner indices
   faces = [
@@ -146,7 +152,11 @@ class DeepScenario:
               print(f"Filtering object at distance {distance} > max_distance {self.max_distance}")
               continue
           corners_3d = get_box_corners(annotation)
-          x, y, w, h = compute_2d_bbox_closest_surface(corners_3d, self.intrinsics)
+          bbox = compute_2d_bbox_closest_surface(corners_3d, self.intrinsics)
+          if bbox is None:
+            print(f"Skipping object with corners behind camera plane")
+            continue
+          x, y, w, h = bbox
           label = self.category_dict.get(annotation["category_id"], "")
           roi = frame.add_region(x, y, w, h, label, annotation["score"], False, annotation)
     frame.add_message(
