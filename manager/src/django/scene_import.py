@@ -146,7 +146,17 @@ class ImportScene:
     # Bulk create cameras with transform handling
     cam_items = []
     for cam in json_data.get("cameras", []):
-      cam_data = {"name": cam["name"], "scale": cam["scale"], "sensor_id": cam["uid"], "intrinsics": cam["intrinsics"]}
+      cam_data = {"name": cam["name"],
+      "scale": cam["scale"],
+      "sensor_id": cam["uid"],
+      "intrinsics": cam["intrinsics"],
+      "command": cam["command"],
+      "cv_subsystem": cam["cv_subsystem"],
+      "camerachain": cam["camerachain"],
+      "undistort": cam["undistort"],
+      "modelconfig": cam["modelconfig"],
+      "use_camera_pipeline": cam["use_camera_pipeline"]}
+
       if "transform_type" in cam:
         if cam["transform_type"] == POINT_CORRESPONDENCE:
           cam_data["transforms"] = cam.get("transforms")
