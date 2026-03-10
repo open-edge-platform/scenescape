@@ -158,7 +158,7 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
 
 #### Customizing the video analytics pipeline
 
-The `deepscenario-config.json` file can be edited using [DLStreamer Pipeline Server documentation](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide) to customize:
+The `deepscenario-config.json` file can be edited based on [DL Streamer Pipeline Server documentation](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide) to customize:
 
 - Input sources (video files, USB, RTSP streams)
 - Processing parameters

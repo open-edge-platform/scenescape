@@ -16,12 +16,12 @@ Replacing the current video streaming from MQTT-based to WebRTC-based to improve
 - Stop publishing video frames over MQTT
 - Implement WebRTC for video streaming
 - Reduce latency for each stream
-- Reduce resource consumption on DLStreamer Pipeline Server
+- Reduce resource consumption on DL Streamer Pipeline Server
 
 ## 3. Non-Goals
 
 - Using WebRTC for calibration service
-- Removing Python script from DLStreamer pipeline - Preprocessing will still be used, for Postprocessig only images publishing for calibration will be kept
+- Removing Python script from DL Streamer pipeline - Preprocessing will still be used, for Postprocessig only images publishing for calibration will be kept
 
 ## 4. Background / Context
 
@@ -71,10 +71,10 @@ flowchart LR
 As of now, MQTT was used as single channel for all data, including video frames. This approach has several drawbacks:
 
 - High latency due to MQTT protocol overhead
-- Increased CPU and memory usage on the server side - it's only assumption, need benchmark for exact numbers
+- Increased CPU and memory usage on the server side - it is only an assumption, need benchmark for exact numbers
 - Scalability issues with multiple concurrent video streams
-  To achieve this, there's a custom python script used in DLStreamer pipeline that takes raw video frames, draws overlays and watermarks, encodes them to JPEG and publishes to MQTT broker. On the client side, the web application subscribes to the MQTT topic, decodes JPEG frames and displays them in an HTML image and canvas elements. This approach is not optimal for real-time video streaming due to the overhead of encoding/decoding and the limitations of MQTT for high-frequency data transmission.
-- Even though the current solution is not optimal and efficient, it ensures that all data is synchronised since it's transmitted over a single channel.
+  To achieve this, there is a custom Python script used in DL Streamer pipeline that takes raw video frames, draws overlays and watermarks, encodes them to JPEG and publishes to MQTT broker. On the client side, the web application subscribes to the MQTT topic, decodes JPEG frames and displays them in an HTML image and canvas elements. This approach is not optimal for real-time video streaming due to the overhead of encoding/decoding and the limitations of MQTT for high-frequency data transmission.
+- Even though the current solution is not optimal and efficient, it ensures that all data is synchronised since it is transmitted over a single channel.
 - Another positive aspect is reliability of MQTT protocol, which ensures that all messages are delivered, even in case of temporary network issues. This is particularly important for scenarios where data integrity is crucial.
 
 ## 5. Proposed Design
@@ -151,20 +151,20 @@ flowchart LR
 
 ### Key changes
 
-- In python script, only frames needed for autocalibration will be published to MQTT as they're only transmitted one-time and on demand when autocalibration button is pressed by user.
+- In Python script, only frames needed for autocalibration will be published to MQTT as they are only transmitted a single time and on demand when autocalibration button is pressed by user.
 - MediaMTX server will be used to handle WebRTC connections.
 - On the client side, the web application will establish a WebRTC connection to MediaMTX server to receive video streams. This will involve setting up signaling, ICE candidates, and media tracks.
-- Overlays and watermarks provided by custom Python Script will be dropped. Instead, native DLStreamer bounding boxes will be used.
+- Overlays and watermarks provided by custom Python Script will be dropped. Instead, native DL Streamer bounding boxes will be used.
   Live-view button will be replaced from Scene Details as WebRTC stream is not that easy to start/stop as MQTT stream. Instead, live-view will be always active when user is on Scene Details page.
-- For raw camera feed, as they're already available in MediaMTX server, at least a consistent naming convention will be needed, as web app only knows topic names of DLStreamer output streams.
+- For raw camera feed, as they are already available in MediaMTX server, at least a consistent naming convention will be needed, as web app only knows topic names of DL Streamer output streams.
 - With MQTT there were no requirements for video format, as each frame was encoded to JPEG image. With WebRTC, video codec must be supported by both MediaMTX server and web browsers. Videos can no longer contain b-frames.
 - Nginx will be added as a reverse proxy in front of MediaMTX server to handle TLS termination and provide a secure connection for Web app.
-  For browser to connect to MediaMTX server, a valid TLS certificate must be used. Instead of accepting insecure connection in browser, user guide should include instructions on how to import Scenescape CA certificate.
+  For browser to connect to MediaMTX server, a valid TLS certificate must be used. Instead of accepting insecure connection in browser, user guide should include instructions on how to import SceneScape CA certificate.
 - TURN server will be set up using Coturn to ensure WebRTC connections can be established in various network configurations.
 
 ## 6. Alternatives Considered
 
-### Displaying DLStreamer output in all places
+### Displaying DL Streamer output in all places
 
 ```mermaid
 flowchart LR
@@ -215,11 +215,11 @@ flowchart LR
 
 #### Key changes
 
-- No adapter component is needed, as DLStreamer will handle all camera formats.
+- No adapter component is needed, as DL Streamer will handle all camera formats.
 - No change in currently supported video formats
-- DLStreamer will output only one video stream per camera, with bounding boxes overlayed. This means Camera calibration page will also show bounding boxes, which may be distracting for user.
+- DL Streamer will output only one video stream per camera, with bounding boxes overlayed. This means Camera calibration page will also show bounding boxes, which may be distracting for user.
 
-### Splitting streams in DLStreamer Pipeline Server
+### Splitting streams in DL Streamer Pipeline Server
 
 ```mermaid
 flowchart LR
@@ -272,29 +272,29 @@ flowchart LR
 
 #### Key changes
 
-- No adapter component is needed, as DLStreamer will handle all camera formats.
+- No adapter component is needed, as DL Streamer will handle all camera formats.
 - No change in currently supported video formats
-- DLStreamer would split the stream into two before applying watermarks. This would allow us to use different streams for Scene and Autocalibration pages.
+- DL Streamer would split the stream into two before applying watermarks. This would allow us to use different streams for Scene and Autocalibration pages.
 
 #### Issues
 
-- Although DLStreamer supports split pipelines, DLSPS doesn't as it only accepts one destination in payload. An experiment showed that it only used last defined appsink as output. Update in DLSPS would be needed to support multiple outputs.
+- Although DL Streamer supports split pipelines, DL StreamerPipeline Server does not, as it only accepts one destination in the payload. An experiment showed that it only used the last defined appsink as output. An update in DLSPS would be needed to support multiple outputs.
 
 ### Staying with current implementation
 
-Staying with MQTT: for few cameras and low frame rates, MQTT might be sufficient, but it doesn't scale well with more cameras and higher frame rates.
+Staying with MQTT: for few cameras and low frame rates, MQTT might be sufficient, but it does not scale well with more cameras and higher frame rates.
 
 ## 7. Risks and Mitigations
 
 - When video is out of user view, browsers stop buffering it. Reconnection can take a while - subject for further discussion
 - Lost synchronization between video and other dlstreamer data - subject for further discussion
-- Only DLStreamer output topics are known to web app - raw camera feed topic naming convention must be established
+- Only DL Streamer output topics are known to web app - raw camera feed topic naming convention must be established
 - WebRTC is less reliable at delivering every single frame compared to MQTT - subject for further discussion
 - WebRTC has more strict requirements for video format - Adding ffmpeg-based adapter component for connecting cameras to ensure WebRTC-compatible video format
 
 ## 8. Rollout / Migration Plan
 
-Upgrade from current version would require user to restart DLStreamer Pipelines and Web App.
+Upgrade from current version would require user to restart DL Streamer Pipelines and Web App.
 Inference is not affected by this change, so no retraining of models is needed.
 Persistent data is not affected by this change, so no migration of database is needed.
 With new component, system requirements will increase, so server specs must be checked to ensure they meet the new requirements.

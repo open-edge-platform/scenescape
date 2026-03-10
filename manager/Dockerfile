@@ -191,8 +191,6 @@ RUN sed -i "/^export APACHE_RUN_USER=/d" /etc/apache2/envvars && \
     sed -i "/^export APACHE_RUN_GROUP=/d" /etc/apache2/envvars && \
     echo "export APACHE_RUN_USER=$WSUSER" >> /etc/apache2/envvars && \
     echo "export APACHE_RUN_GROUP=$WSUSER" >> /etc/apache2/envvars
-RUN echo "${WSUSER} ALL=(ALL) NOPASSWD: /bin/chown" >> /etc/sudoers.d/${WSUSER} \
-    && chmod 0440 /etc/sudoers.d/${WSUSER}
 USER $WSUSER
 ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 
@@ -200,7 +198,13 @@ ENTRYPOINT ["/usr/local/bin/scenescape-init"]
 # This stage is meant to be used for test execution (not for final runtime)
 FROM scenescape-manager-runtime AS scenescape-manager-test
 ENV DEBIAN_FRONTEND=noninteractive
+ARG TEST_USER
 USER root
+RUN : \
+    ; getent group $TEST_USER >/dev/null 2>&1 || groupadd -g $TEST_USER tester \
+    ; getent passwd $TEST_USER >/dev/null 2>&1 || useradd -r -u $TEST_USER -g $TEST_USER -m -s /bin/bash tester \
+    ; usermod -a -G video,users $(id -nu $TEST_USER) \
+    ;
 RUN : \
     ; apt-get update \
     ; install -d -m 0755 /etc/apt/keyrings \
@@ -226,10 +230,11 @@ COPY ./manager/test/requirements-test.txt /tmp
 RUN pip3 install --upgrade --no-cache-dir -r /tmp/requirements-test.txt
 
 ADD ./manager/test/geckodriver.tar.gz /usr/local/bin/
+RUN chmod a+rwx /usr/local/bin/geckodriver
 
 COPY ./manager/test/firefox-profile.tar /home/scenescape/.mozilla/
-RUN : \
-    ; eval WSHOME=~$WSUSER \
-    ; chown -R "$WSUSER.$WSUSER" "$WSHOME/.mozilla" \
-    ;
-USER $WSUSER
+RUN chmod -R a+rwx /home/scenescape/.mozilla
+
+USER $TEST_USER
+ENV PYTHONPATH=/home/scenescape/SceneScape/
+ENTRYPOINT [""]
