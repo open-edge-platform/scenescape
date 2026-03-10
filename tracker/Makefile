@@ -470,12 +470,15 @@ list-dependencies: $(BUILD_DIR)
 	    > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt
 	@echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"
 	@echo "Listing Conan package dependencies..."
-	@docker run --rm --entrypoint bash $(BUILDER_IMAGE):$(VERSION) \
-	    -c 'for f in /scenescape/build/*ConfigVersion.cmake; do \
-	            pkg=$$(basename $$f ConfigVersion.cmake); \
-	            ver=$$(grep "^set(PACKAGE_VERSION " $$f | head -1 | sed "s/set(PACKAGE_VERSION \"\(.*\)\")/\1/"); \
-	            echo "$$pkg $$ver"; \
-	        done | sort -u' \
+	@docker run --rm \
+	    -e http_proxy=$(http_proxy) -e https_proxy=$(https_proxy) -e no_proxy=$(no_proxy) \
+	    --entrypoint bash $(BUILDER_IMAGE):$(VERSION) \
+	    -c 'conan graph info /scenescape/tracker 2>&1 \
+	        | grep -E "^[a-zA-Z][a-zA-Z0-9_.-]+/[0-9a-zA-Z._+-]+" \
+	        | grep -v "^conanfile" \
+	        | grep -v ": WARN:" \
+	        | sed '"'"'s|/| |; s|#.*||'"'"' \
+	        | sort -u' \
 	    > $(BUILD_DIR)/$(IMAGE)-conan-deps.txt
 	@echo "Conan dependencies listed in $(BUILD_DIR)/$(IMAGE)-conan-deps.txt"
 	@docker rmi $(BUILDER_IMAGE):$(VERSION) > /dev/null 2>&1 || true
