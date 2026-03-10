@@ -316,8 +316,83 @@ TEST_F(MessageHandlerTest, HandleMessage_AcceptsEmptyObjects) {
 
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 0);
-    // With empty objects, no categories to publish
+    // First empty message: no active scopes yet, so nothing buffered
     EXPECT_EQ(handler.getBufferedCount(), 0);
+}
+
+// Test that empty message after non-empty creates empty batches for previously seen scopes
+TEST_F(MessageHandlerTest, EmptyObjects_AfterNonEmpty_CreatesEmptyBatchForPreviousScope) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    // First message: establishes "person" scope
+    std::string non_empty_payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", non_empty_payload);
+    test_buffer_.pop_all(); // drain
+
+    // Second message: empty — should still create a batch for "person" scope (enables aging)
+    std::string empty_payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:01.000Z",
+        "objects": {}
+    })";
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", empty_payload);
+
+    EXPECT_EQ(handler.getBufferedCount(), 2); // 1 from first message + 1 empty from second
+
+    auto buffer_data = test_buffer_.pop_all();
+    ASSERT_EQ(buffer_data.size(), 1);
+
+    TrackingScope expected_scope{"test-scene-001", "person"};
+    ASSERT_TRUE(buffer_data.count(expected_scope) == 1);
+
+    const auto& batch = buffer_data.at(expected_scope).at("cam1");
+    EXPECT_EQ(batch.camera_id, "cam1");
+    EXPECT_TRUE(batch.detections.empty()); // Empty batch enables Kalman filter time-step
+}
+
+// Test that empty message creates empty batches for all previously seen scopes
+TEST_F(MessageHandlerTest, EmptyObjects_AfterMultipleScopes_CreatesEmptyBatchesForAll) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    // First message: establishes "person" and "vehicle" scopes
+    std::string non_empty_payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}],
+            "vehicle": [{"id": 2, "bounding_box_px": {"x": 200, "y": 300, "width": 80, "height": 60}}]
+        }
+    })";
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", non_empty_payload);
+    test_buffer_.pop_all(); // drain
+
+    // Empty message: should produce empty batches for both "person" and "vehicle"
+    std::string empty_payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:01.000Z",
+        "objects": {}
+    })";
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", empty_payload);
+
+    auto buffer_data = test_buffer_.pop_all();
+    ASSERT_EQ(buffer_data.size(), 2); // Both scopes receive empty batches
+
+    TrackingScope person_scope{"test-scene-001", "person"};
+    TrackingScope vehicle_scope{"test-scene-001", "vehicle"};
+
+    ASSERT_TRUE(buffer_data.count(person_scope) == 1);
+    ASSERT_TRUE(buffer_data.count(vehicle_scope) == 1);
+
+    EXPECT_TRUE(buffer_data.at(person_scope).at("cam1").detections.empty());
+    EXPECT_TRUE(buffer_data.at(vehicle_scope).at("cam1").detections.empty());
 }
 
 // Test multiple objects categories are parsed correctly
