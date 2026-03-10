@@ -250,7 +250,7 @@ Implementation of the component class must implement the following abstract meth
 
 - **set_output_folder**(path: Path) -> TrackerEvaluator
   - Set folder where evaluation results should be stored
-  - Args: path to results folder (will be created if doesn't exist)
+  - Args: path to results folder (will be created if does not exist)
   - Returns: self for method chaining
   - Raises: ValueError if path invalid, RuntimeError on other errors
 
