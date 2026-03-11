@@ -357,12 +357,11 @@ _PYTEST_PPL = cd .. && GPU_DEVICE_COUNT=$(GPU_DEVICE_COUNT) NPU_DEVICE_COUNT=$(N
 .PHONY: pipeline-runner-setup pipeline-runner-people pipeline-runner-vehicles pipeline-runner-integration
 
 pipeline-runner-setup:
-	@test -f $(PPL_VENV)/bin/pip || { \
-		python3 -m venv $(PPL_VENV) 2>/dev/null; \
-		test -f $(PPL_VENV)/bin/pip || { \
-			sudo apt-get install -y python$$(python3 -c 'import sys; v=sys.version_info; print("%d.%d"%(v.major,v.minor))')-venv \
-			&& rm -rf $(PPL_VENV) && python3 -m venv $(PPL_VENV); }; \
-	}
+	@if ! $(PPL_VENV)/bin/python -m pip --version >/dev/null 2>&1; then \
+		sudo apt-get install -y python$$(python3 -c 'import sys; v=sys.version_info; print("%d.%d"%(v.major,v.minor))')-venv; \
+		rm -rf $(PPL_VENV); \
+		python3 -m venv $(PPL_VENV); \
+	fi
 	@$(PPL_VENV)/bin/pip install -q --upgrade pip
 	@$(PPL_VENV)/bin/pip install -q -r $(CURDIR)/../requirements-ppl-test.txt
 
