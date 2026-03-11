@@ -318,13 +318,13 @@ generate-sboms: $(BUILD_DIR)
 	@echo "$$(ls $(BUILD_DIR)/sboms)"
 	@echo "DONE ==> Generating SPDX SBOMs for all microservices"
 
-<<<<<<< HEAD
-.PHONY: get-pip-licenses
-get-pip-licenses: $(BUILD_DIR)
-	@echo "==> Getting pip package licenses from PyPI..."
-	python3 tools/dependencies/get_pip_licenses.py $(BUILD_DIR) -o $(BUILD_DIR)/all-pip-licenses.csv
-	@echo "DONE ==> Getting pip package licenses"
-
+.PHONY: build-sources-image
+build-sources-image: sources.Dockerfile
+	@echo "==> Building the image with 3rd party sources..."
+	env BUILDKIT_PROGRESS=plain \
+	  docker build $(REBUILDFLAGS) -f $< \
+		--build-arg http_proxy=$(http_proxy) \
+		--build-arg https_proxy=$(https_proxy) \
 		--build-arg no_proxy=$(no_proxy) \
 		--rm -t $(SOURCES_IMAGE):$(VERSION) . \
 	&& docker tag $(SOURCES_IMAGE):$(VERSION) $(SOURCES_IMAGE):latest

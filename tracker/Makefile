@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: 2026 Intel Corporation
+﻿﻿# SPDX-FileCopyrightText: 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # Integration with common.mk for Docker image builds
@@ -457,10 +457,10 @@ list-dependencies: $(BUILD_DIR)
 	    $(EXTRA_BUILD_ARGS) \
 	    -t $(BUILDER_IMAGE):$(VERSION) \
 	    -f ./Dockerfile .. -q
-<<<<<<< HEAD
-	@docker run --rm $(BUILDER_BASE_IMAGE) dpkg -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-system-packages.txt
-	@docker run --rm --entrypoint dpkg $(BUILDER_IMAGE):$(VERSION) -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-packages.txt
-	@grep -Fxv -f $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt || true
+	@echo "Listing runtime OS library dependencies via ldd..."
+	@docker run --rm --entrypoint bash $(BUILDER_IMAGE):$(VERSION) \
+	    -c '. /scenescape/build/conanrun.sh \
+	        && ldd /scenescape/build/tracker \
 	        | awk '"'"'NF==4 && $$3~/^\// {print $$3}'"'"' \
 	        | xargs -r readlink -f 2>/dev/null \
 	        | xargs -r dpkg -S 2>/dev/null \
@@ -481,10 +481,10 @@ list-dependencies: $(BUILD_DIR)
 	        | sort -u' \
 	    > $(BUILD_DIR)/$(IMAGE)-conan-deps.txt
 	@echo "Conan dependencies listed in $(BUILD_DIR)/$(IMAGE)-conan-deps.txt"
->>>>>>> origin/main
 	@docker rmi $(BUILDER_IMAGE):$(VERSION) > /dev/null 2>&1 || true
 
 # Override common.mk clean to also remove local build directories
+clean:
 	-@cd test/service && docker compose down 2>/dev/null || true
 	-@$(MAKE) -C test/load clean 2>/dev/null || true
 	rm -rf build* test/service/.venv test/service/.certs test/service/.env .pytest_cache

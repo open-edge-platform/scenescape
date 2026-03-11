@@ -69,9 +69,12 @@ list-dependencies: $(BUILD_DIR)
 	@if [[ "$(HAS_DPKG)" == "yes" ]]; then \
 	  if [[ -z "$(RUNTIME_OS_IMAGE)" ]]; then \
 	    echo "Error: RUNTIME_OS_IMAGE is not set for $(IMAGE). Ensure 'ARG RUNTIME_OS_IMAGE=<image>' is present in $(CURDIR)/Dockerfile."; \
+	    exit 1; \
+	  fi; \
 	  docker run --rm $(RUNTIME_OS_IMAGE) dpkg -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-system-packages.txt; \
 	  docker run --rm --entrypoint dpkg $(IMAGE):$(VERSION) -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-packages.txt; \
 	  grep -Fxv -f $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt || true; \
+	  rm -rf $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt; \
 	  echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"; \
 	fi
 
@@ -92,10 +95,13 @@ generate-sbom: $(BUILD_DIR) check-buildkit
 	  echo "Error: RUNTIME_OS_IMAGE is not set for $(IMAGE). Ensure 'ARG RUNTIME_OS_IMAGE=<image>' is present in $(CURDIR)/Dockerfile."; \
 	  exit 1; \
 	fi
+	@if [[ "$(USES_SCENE_COMMON)" == "yes" ]]; then \
+	  echo "ARG RUNTIME_OS_IMAGE=${RUNTIME_OS_IMAGE}" > $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	  cat $(ROOT_DIR)/scene_common/Dockerfile ./Dockerfile >> $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	else \
 	  cp ./Dockerfile $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	fi
+	@mkdir -p $(BUILD_DIR)/sboms
 	docker buildx build \
 	--sbom=true \
 	--build-arg http_proxy=$(http_proxy) \
