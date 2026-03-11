@@ -138,7 +138,7 @@ For detailed usage, input formats, processing rules, and examples, see: [UPDATE_
 # Or call the script directly with explicit inputs
 python3 tools/dependencies/generate_dockerfile_artifacts.py \
     --deps build/updated-dependencies.csv \
-    --image-list tools/dependencies/release-data/2026.0-Images.csv \
+    --image-list tools/dependencies/release-data/SceneScape-2026.0-Images.csv \
     --summary-file build/image-summary.md
 ```
 
