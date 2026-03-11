@@ -94,6 +94,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.k6
+      args:
+        - http_proxy
+        - https_proxy
+        - no_proxy
     hostname: k6
     profiles: ["k6"]
     volumes:
