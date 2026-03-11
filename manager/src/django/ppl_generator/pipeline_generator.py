@@ -69,9 +69,12 @@ class PipelineGenerator:
       return [
         f'souphttpsrc location={source} name=source',
         'multipartdemux']
+    elif source.startswith('/dev/'):
+      return [
+        f'v4l2src device={source} name=source']
     else:
       raise PipelineGenerationValueError(
-        f"Unsupported source type in {source}. Supported types are 'rtsp://...' (raw H.264), 'http(s)://...' (MJPEG) and 'file://... (relative to video folder)'.")
+        f"Unsupported source type in {source}. Supported types are 'rtsp://...' (raw H.264), 'http(s)://...' (MJPEG), 'file://... (relative to video folder) and '/dev/...' (V4L2 devices)'.")
 
   def add_camera_undistort(self, camera_settings: dict) -> list[str]:
     intrinsics_keys = [
