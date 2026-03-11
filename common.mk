@@ -11,10 +11,6 @@ HAS_DPKG ?= yes
 USES_SCENE_COMMON ?= no
 # Read the SHA-pinned image from the Dockerfile ARG default — single source of truth
 RUNTIME_OS_IMAGE ?= $(shell sed -n 's/^ARG RUNTIME_OS_IMAGE=//p' Dockerfile)
-<<<<<<< HEAD
-$(if $(RUNTIME_OS_IMAGE),,$(if $(shell grep -qs 'FROM $${RUNTIME_OS_IMAGE}' Dockerfile && echo yes),$(error RUNTIME_OS_IMAGE could not be parsed from Dockerfile. Ensure 'ARG RUNTIME_OS_IMAGE=<image>' is present in $(CURDIR)/Dockerfile)))
-=======
->>>>>>> origin/main
 
 default: build-image
 
@@ -71,17 +67,11 @@ list-dependencies: $(BUILD_DIR)
 	  echo "Python dependencies listed in $(BUILD_DIR)/$(IMAGE)-pip-deps.txt"; \
 	fi
 	@if [[ "$(HAS_DPKG)" == "yes" ]]; then \
-<<<<<<< HEAD
-=======
 	  if [[ -z "$(RUNTIME_OS_IMAGE)" ]]; then \
 	    echo "Error: RUNTIME_OS_IMAGE is not set for $(IMAGE). Ensure 'ARG RUNTIME_OS_IMAGE=<image>' is present in $(CURDIR)/Dockerfile."; \
-	    exit 1; \
-	  fi; \
->>>>>>> origin/main
 	  docker run --rm $(RUNTIME_OS_IMAGE) dpkg -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-system-packages.txt; \
 	  docker run --rm --entrypoint dpkg $(IMAGE):$(VERSION) -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-packages.txt; \
 	  grep -Fxv -f $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt || true; \
-	  rm -rf $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt; \
 	  echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"; \
 	fi
 
@@ -98,20 +88,14 @@ check-buildkit:
 .PHONY: generate-sbom
 generate-sbom: $(BUILD_DIR) check-buildkit
 # if the Dockerfile is based on scene_common/Dockerfile, prepend it to get the full context as a work-around for docker buildx limitations
-<<<<<<< HEAD
-=======
 	@if [[ -z "$(RUNTIME_OS_IMAGE)" ]]; then \
 	  echo "Error: RUNTIME_OS_IMAGE is not set for $(IMAGE). Ensure 'ARG RUNTIME_OS_IMAGE=<image>' is present in $(CURDIR)/Dockerfile."; \
 	  exit 1; \
 	fi
->>>>>>> origin/main
-	@if [[ "$(USES_SCENE_COMMON)" == "yes" ]]; then \
-	  echo "ARG RUNTIME_OS_IMAGE=${RUNTIME_OS_IMAGE}" > $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	  cat $(ROOT_DIR)/scene_common/Dockerfile ./Dockerfile >> $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	else \
 	  cp ./Dockerfile $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile; \
 	fi
-	@mkdir -p $(BUILD_DIR)/sboms
 	docker buildx build \
 	--sbom=true \
 	--build-arg http_proxy=$(http_proxy) \
@@ -126,14 +110,6 @@ generate-sbom: $(BUILD_DIR) check-buildkit
 	@cd $(BUILD_DIR)/sboms && \
 	tar -xf $(IMAGE).tar sbom.spdx.json && \
 	mv sbom.spdx.json $(IMAGE)-sbom.spdx.json && \
-<<<<<<< HEAD
-	if [ -f "$(ROOT_DIR)/tools/dependencies/spdx_json_to_csv.py" ]; then \
-	  python $(ROOT_DIR)/tools/dependencies/spdx_json_to_csv.py $(IMAGE) $(IMAGE)-sbom.csv $(IMAGE)-sbom.spdx.json; \
-	else \
-	  echo "Warning: SBOM CSV converter script not found at $(ROOT_DIR)/tools/dependencies/spdx_json_to_csv.py; skipping CSV generation."; \
-	fi && \
-=======
->>>>>>> origin/main
 	rm $(IMAGE).tar $(BUILD_DIR)/sbom-$(IMAGE).Dockerfile
 	@echo "SBOM generated at $(BUILD_DIR)/sboms/"
 
