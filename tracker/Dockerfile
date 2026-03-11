@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025-2026 Intel Corporation
+# SPDX-FileCopyrightText: 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 ARG RUNTIME_OS_IMAGE=gcr.io/distroless/cc-debian13@sha256:d7ac2f9af248f31fe6270002755722afdf6875e0e49cd52b9150208e6a23875c

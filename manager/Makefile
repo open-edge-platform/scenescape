@@ -23,7 +23,7 @@ build-image: jslibraries jsm-examples remove-symlink Dockerfile
 
 .PHONY: test-build
 test-build: test/geckodriver.tar.gz
-	$(MAKE) IMAGE="scenescape-manager-test" TARGET="scenescape-manager-test"
+	$(MAKE) IMAGE="scenescape-manager-test" TARGET="scenescape-manager-test" EXTRA_BUILD_ARGS="--build-arg TEST_USER=$(shell id -u)"
 
 # The 'remove-symlink' target removes a potentially dangling symlink to prevent build failures.
 remove-symlink:
