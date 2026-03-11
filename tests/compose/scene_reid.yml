@@ -7,6 +7,10 @@ networks:
 secrets:
   root-cert:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
+  vdms-client-cert:
+    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
+  vdms-client-key:
+    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
   django:
     file: ${SECRETSDIR}/django
   controller.auth:
@@ -40,6 +44,10 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+      - source: vdms-client-key
+        target: certs/scenescape-vdms-c.key
+      - source: vdms-client-cert
+        target: certs/scenescape-vdms-c.crt
       - django
       - controller.auth
     restart: on-failure
