@@ -23,6 +23,20 @@ This script:
 - Parses Conan (C++) dependencies and converts them to format: `image,package/version,conan`
 - Outputs a CSV file with header: `Image,Component,Origin`
 
+## License identification for Conan packages
+
+`get_conan_licenses.py` runs `conan inspect` for each package listed in the
+`*-conan-deps.txt` files and writes per-image `build/<image>-conan-licenses.csv`
+files. Requires `conan` on PATH (`pipx install conan`).
+
+```bash
+# Write per-image *-conan-licenses.csv
+python3 tools/dependencies/get_conan_licenses.py build/
+
+# Also write a consolidated CSV
+python3 tools/dependencies/get_conan_licenses.py build/ -o build/all-conan-licenses.csv
+```
+
 ## License identification for PyPI packages
 
 `make get-pip-licenses` queries the PyPI JSON API for each package listed in
@@ -32,20 +46,31 @@ package installation is required — only the already-generated dep files and
 outbound HTTPS access to pypi.org.
 
 ```bash
-# Run after make list-dependencies
-make get-pip-licenses
-
-# Or call the script directly (e.g. for a subset of images or a different build dir)
 python3 tools/dependencies/get_pip_licenses.py build/ -o build/all-pip-licenses.csv
 ```
 
 ## Generation of SBOM from Dockerfiles using Docker buildkit
 
-This should generate additional licence information that can be associated with dependencies per Dockerfile
-Scripts are provided that generate SBOMS in Json format
+Generates per-image SPDX JSON SBOMs in `build/sboms/`. Requires a BuildKit
+container builder (see setup command below).
 
 ```sh
+docker buildx create --use --name=scenescape-buildkit-container --driver=docker-container \
+    --driver-opt=env.http_proxy=$http_proxy,env.https_proxy=$https_proxy,env.HTTP_PROXY=$HTTP_PROXY,env.HTTPS_PROXY=$HTTPS_PROXY,default-load=true
+
 make generate-sboms
+
+docker buildx rm scenescape-buildkit-container
+```
+
+To convert the generated `*.spdx.json` files to CSV:
+
+```bash
+# Write per-image *-sbom.csv files alongside the JSON files
+python3 tools/dependencies/spdx_json_to_csv.py build/sboms/
+
+# Also write a consolidated CSV
+python3 tools/dependencies/spdx_json_to_csv.py build/sboms/ -o build/all-sbom.csv
 ```
 
 Docs: https://www.docker.com/blog/generate-sboms-with-buildkit/
@@ -61,9 +86,6 @@ Docs: https://www.docker.com/blog/generate-sboms-with-buildkit/
   copyleft-licensed APT packages and Python packages distributed with the product
 
 ```bash
-# From the repo root (auto-detects latest *-Dependencies.csv and *-Images.csv)
-make generate-dockerfile-zip
-
 # Or call the script directly with explicit inputs
 python3 tools/dependencies/generate_dockerfile_artifacts.py \
     --deps build/updated-dependencies.csv \

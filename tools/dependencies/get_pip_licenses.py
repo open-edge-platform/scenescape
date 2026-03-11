@@ -43,7 +43,7 @@ PIP_LICENSES_SUFFIX = "-pip-licenses.csv"
 PYPI_API = "https://pypi.org/pypi/{name}/{version}/json"
 PYPI_LATEST_API = "https://pypi.org/pypi/{name}/json"
 REQUEST_DELAY = 0.05  # seconds between API calls (be polite)
-REQUEST_TIMEOUT = 10
+REQUEST_TIMEOUT = 30
 
 
 def _normalize_name(name: str) -> str:
@@ -112,8 +112,8 @@ def load_pip_licenses(build_dir: str) -> Dict[Tuple[str, str], str]:
 PYPI_API = "https://pypi.org/pypi/{name}/{version}/json"
 PYPI_LATEST_API = "https://pypi.org/pypi/{name}/json"
 REQUEST_DELAY = 0.05  # seconds between API calls (be polite)
-REQUEST_TIMEOUT = 10
-RETRY_COUNT = 3
+REQUEST_TIMEOUT = 30
+RETRY_COUNT = 5
 RETRY_BACKOFF = 2.0  # seconds; doubles on each retry
 
 
@@ -195,13 +195,14 @@ def query_pypi(name: str, version: str, cache: Dict[str, str]) -> str:
       break
     except urllib.error.URLError as exc:
       reason = str(exc.reason) if exc.reason else str(exc)
-      if "timed out" in reason.lower():
+      retriable = "timed out" in reason.lower() or "connection reset" in reason.lower() or "104" in reason
+      if retriable:
         if attempt < RETRY_COUNT:
-          print(f"  Warning: timeout fetching {name}=={version} (attempt {attempt}/{RETRY_COUNT}), retrying in {delay:.0f}s...", file=sys.stderr)
+          print(f"  Warning: {reason.strip()} for {name}=={version} (attempt {attempt}/{RETRY_COUNT}), retrying in {delay:.0f}s...", file=sys.stderr)
           time.sleep(delay)
           delay *= 2
           continue
-        print(f"  Warning: timeout fetching {name}=={version} after {RETRY_COUNT} attempts", file=sys.stderr)
+        print(f"  Warning: could not fetch {name}=={version} after {RETRY_COUNT} attempts: {reason.strip()}", file=sys.stderr)
       else:
         print(f"  Warning: could not fetch {name}=={version}: {exc}", file=sys.stderr)
       break
