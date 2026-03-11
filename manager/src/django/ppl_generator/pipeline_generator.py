@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
+import re
+
 from .common_types import PipelineGenerationValueError, InferenceRegion
 from .model_chain import parse_model_chain, InferenceNode
 
@@ -69,9 +71,12 @@ class PipelineGenerator:
       return [
         f'souphttpsrc location={source} name=source',
         'multipartdemux']
+    # matches /dev/video (default device sym-link), /dev/videoX, /dev/mediaY and sym-links: /dev/v4l/by-id/xxx, /dev/v4l/by-path/xxx
+    elif re.fullmatch(r'/dev/(video\d*|media\d+|v4l/by-(id|path)/.+)', source):
+      return [f'v4l2src device={source} name=source']
     else:
       raise PipelineGenerationValueError(
-        f"Unsupported source type in {source}. Supported types are 'rtsp://...' (raw H.264), 'http(s)://...' (MJPEG) and 'file://... (relative to video folder)'.")
+        f"Unsupported source type in {source}. Supported types are 'rtsp://...' (raw H.264), 'http(s)://...' (MJPEG), 'file://... (relative to video folder) and paths to V4L2 USB devices'.")
 
   def add_camera_undistort(self, camera_settings: dict) -> list[str]:
     intrinsics_keys = [
