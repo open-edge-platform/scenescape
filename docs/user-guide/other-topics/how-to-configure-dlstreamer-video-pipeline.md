@@ -21,7 +21,7 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
   - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264).
   - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG).
   - File sources: `file://video.ts` (relative to video folder, which is mounted from Sample-Data Volume). Streaming-friendly formats as MPEG-TS (.ts) are recommended. MP4 inputs are not reliably supported - see the [Limitations](#limitations).
-  - V4L2 (Video4Linux2) devices (local USB cameras): `/dev/video0` (path to device)
+  - V4L2 (Video4Linux2) local USB camera devices: `/dev/video0` (path to device). Allowed paths: `/dev/video` (default device), `/dev/videoX`, `/dev/mediaX` and symbolic links: `/dev/v4l/by-id/xxx`, `/dev/v4l/by-path/xxx`.
 - **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another). For details on chaining syntax, available models, and usage examples, see the [Model Chaining](#model-chaining) section below.
 - **Camera Pipeline**: The generated or custom GStreamer pipeline string
 
