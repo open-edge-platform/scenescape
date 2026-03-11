@@ -199,14 +199,13 @@ class RESTClient:
           "requests library can't combine files and nested dictionaries")
     return data_args
 
-  def _create(self, endpoint, data, files=None, api_prefix='api/v1'):
+  def _create(self, endpoint, data, api_prefix, files=None):
     """Private method to create a new object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
     @param      data            dict with key/value pairs of new object
     @param      files           dict with file data, as binary blobs
                                 or open file pointers
-    @param      api_prefix      API version prefix (default: 'api/v1')
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
@@ -217,13 +216,12 @@ class RESTClient:
                               headers=headers, verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.CREATED)
 
-  def _get(self, endpoint, parameters, api_prefix='api/v1'):
+  def _get(self, endpoint, parameters, api_prefix):
     """Private method to get an object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
     @param      parameters      dictionary of key/value pairs appended to GET request,
                                 used by server to filter out objects
-    @param      api_prefix      API version prefix (default: 'api/v1')
     @return                     RESTResult with decoded object(s) on success,
                                 empty with `errors` set on failure. Result includes
                                 'full_path' key with the complete URL used.
@@ -234,7 +232,7 @@ class RESTClient:
                              verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.OK)
 
-  def _update(self, endpoint, data, files=None, api_prefix='api/v1'):
+  def _update(self, endpoint, data, api_prefix, files=None):
     """Private method to update an object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
@@ -252,7 +250,7 @@ class RESTClient:
                               headers=headers, verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.OK)
 
-  def _delete(self, endpoint, api_prefix='api/v1'):
+  def _delete(self, endpoint, api_prefix):
     """Private method to delete an object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
