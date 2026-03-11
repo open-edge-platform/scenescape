@@ -299,12 +299,6 @@ list-dependencies: $(BUILD_DIR)
 	@find $(BUILD_DIR) -name '*-deps.txt' -print
 	@echo "DONE ==> Listing dependencies for all microservices"
 
-<<<<<<< HEAD
-.PHONY: generate-sboms
-generate-sboms: $(BUILD_DIR)
-	@echo "==> Generating SPDX SBOMs for all microservices..."
-	@set -e; \
-=======
 BUILDKIT_BUILDER_NAME := scenescape-buildkit-container
 
 # Generate SPDX SBOMs for all microservices using Docker BuildKit.
@@ -317,7 +311,6 @@ generate-sboms: $(BUILD_DIR)
 	@docker buildx create --use --name=$(BUILDKIT_BUILDER_NAME) --driver=docker-container \
 		--driver-opt=env.http_proxy=$(http_proxy),env.https_proxy=$(https_proxy),env.HTTP_PROXY=$(HTTP_PROXY),env.HTTPS_PROXY=$(HTTPS_PROXY),default-load=true
 	@set -e; trap 'docker buildx rm $(BUILDKIT_BUILDER_NAME) 2>/dev/null || true' EXIT; \
->>>>>>> origin/main
 	for dir in $(IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) generate-sbom; \
 	done
@@ -332,23 +325,6 @@ get-pip-licenses: $(BUILD_DIR)
 	python3 tools/dependencies/get_pip_licenses.py $(BUILD_DIR) -o $(BUILD_DIR)/all-pip-licenses.csv
 	@echo "DONE ==> Getting pip package licenses"
 
-.PHONY: generate-dockerfile-zip
-generate-dockerfile-zip: $(BUILD_DIR)
-	@echo "==> Generating Dockerfile artifacts zip and image summary table..."
-	python3 tools/dependencies/generate_dockerfile_artifacts.py \
-		--output-dir $(BUILD_DIR) \
-		--summary-file $(BUILD_DIR)/images-summary.md
-	@echo "DONE ==> Dockerfile zip and summary written to $(BUILD_DIR)/"
-
-=======
->>>>>>> origin/main
-.PHONY: build-sources-image
-build-sources-image: sources.Dockerfile
-	@echo "==> Building the image with 3rd party sources..."
-	env BUILDKIT_PROGRESS=plain \
-	  docker build $(REBUILDFLAGS) -f $< \
-		--build-arg http_proxy=$(http_proxy) \
-		--build-arg https_proxy=$(https_proxy) \
 		--build-arg no_proxy=$(no_proxy) \
 		--rm -t $(SOURCES_IMAGE):$(VERSION) . \
 	&& docker tag $(SOURCES_IMAGE):$(VERSION) $(SOURCES_IMAGE):latest
