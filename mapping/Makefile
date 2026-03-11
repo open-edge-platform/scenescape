@@ -43,3 +43,12 @@ list-dependencies: build-vggt build-mapanything
 	$(MAKE) MODEL_TYPE=vggt IMAGE=scenescape-mapping-vggt MAPPING_LIST_DEPS=1 list-dependencies
 	$(MAKE) MODEL_TYPE=mapanything IMAGE=scenescape-mapping-mapanything MAPPING_LIST_DEPS=1 list-dependencies
 endif
+
+# Override generate-sbom to produce SBOMs for both MODEL_TYPE modes.
+# Same sentinel pattern as list-dependencies above.
+ifndef MAPPING_GENERATE_SBOM
+.PHONY: generate-sbom
+generate-sbom: build-vggt build-mapanything
+	$(MAKE) ROOT_DIR=$(ROOT_DIR) MODEL_TYPE=vggt IMAGE=scenescape-mapping-vggt MAPPING_GENERATE_SBOM=1 generate-sbom
+	$(MAKE) ROOT_DIR=$(ROOT_DIR) MODEL_TYPE=mapanything IMAGE=scenescape-mapping-mapanything MAPPING_GENERATE_SBOM=1 generate-sbom
+endif

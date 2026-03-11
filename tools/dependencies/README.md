@@ -46,6 +46,10 @@ package installation is required — only the already-generated dep files and
 outbound HTTPS access to pypi.org.
 
 ```bash
+# Write per-image *-pip-licenses.csv
+python3 tools/dependencies/get_pip_licenses.py build/
+
+# Also write a consolidated CSV
 python3 tools/dependencies/get_pip_licenses.py build/ -o build/all-pip-licenses.csv
 ```
 
@@ -55,12 +59,7 @@ Generates per-image SPDX JSON SBOMs in `build/sboms/`. Requires a BuildKit
 container builder (see setup command below).
 
 ```sh
-docker buildx create --use --name=scenescape-buildkit-container --driver=docker-container \
-    --driver-opt=env.http_proxy=$http_proxy,env.https_proxy=$https_proxy,env.HTTP_PROXY=$HTTP_PROXY,env.HTTPS_PROXY=$HTTPS_PROXY,default-load=true
-
 make generate-sboms
-
-docker buildx rm scenescape-buildkit-container
 ```
 
 To convert the generated `*.spdx.json` files to CSV:
@@ -74,33 +73,6 @@ python3 tools/dependencies/spdx_json_to_csv.py build/sboms/ -o build/all-sbom.cs
 ```
 
 Docs: https://www.docker.com/blog/generate-sboms-with-buildkit/
-
-## Generate Dockerfile artifacts zip
-
-`make generate-dockerfile-zip` (or run the script directly) produces:
-
-- `build/Dockerfiles-<version-slug>.zip` — all service Dockerfiles, `requirements*.txt` files,
-  `conanfile.txt` files (for Conan-based services), and a `gpllist-<slug>` of copyleft-licensed
-  distributed packages
-- `sources.Dockerfile` (updated in-place in the repo root) — fetches source archives for all
-  copyleft-licensed APT packages and Python packages distributed with the product
-
-```bash
-# Or call the script directly with explicit inputs
-python3 tools/dependencies/generate_dockerfile_artifacts.py \
-    --deps build/updated-dependencies.csv \
-    --image-list tools/dependencies/release-data/2026.0-Images.csv \
-    --summary-file build/image-summary.md
-```
-
-Options:
-- `--repo-root PATH` — repository root (default: cwd)
-- `--output-dir PATH` — output directory (default: `build/`)
-- `--deps PATH` — reviewed dependencies CSV (auto-detected from `release-data/` if omitted)
-- `--image-list PATH` — images CSV (auto-detected from `release-data/` if omitted)
-- `--zip-name NAME` — override zip filename
-- `--summary-file PATH` — write Markdown image summary table to a file (default: stdout)
-- `--no-update-sources` — skip regenerating `sources.Dockerfile`
 
 ## Updating dependency list for the current version
 
@@ -151,6 +123,33 @@ This script:
 - Provides comprehensive logging and action guidance
 
 For detailed usage, input formats, processing rules, and examples, see: [UPDATE_DEPENDENCIES.md](UPDATE_DEPENDENCIES.md)
+
+## Generate Dockerfile artifacts zip
+
+`make generate-dockerfile-zip` (or run the script directly) produces:
+
+- `build/Dockerfiles-<version-slug>.zip` — all service Dockerfiles, `requirements*.txt` files,
+  `conanfile.txt` files (for Conan-based services), and a `gpllist-<slug>` of copyleft-licensed
+  distributed packages
+- `sources.Dockerfile` (updated in-place in the repo root) — fetches source archives for all
+  copyleft-licensed APT packages and Python packages distributed with the product
+
+```bash
+# Or call the script directly with explicit inputs
+python3 tools/dependencies/generate_dockerfile_artifacts.py \
+    --deps build/updated-dependencies.csv \
+    --image-list tools/dependencies/release-data/2026.0-Images.csv \
+    --summary-file build/image-summary.md
+```
+
+Options:
+- `--repo-root PATH` — repository root (default: cwd)
+- `--output-dir PATH` — output directory (default: `build/`)
+- `--deps PATH` — reviewed dependencies CSV (auto-detected from `release-data/` if omitted)
+- `--image-list PATH` — images CSV (auto-detected from `release-data/` if omitted)
+- `--zip-name NAME` — override zip filename
+- `--summary-file PATH` — write Markdown image summary table to a file (default: stdout)
+- `--no-update-sources` — skip regenerating `sources.Dockerfile`
 
 ## Generate 3-rd party programs file from the reviewed dependency list .csv
 
