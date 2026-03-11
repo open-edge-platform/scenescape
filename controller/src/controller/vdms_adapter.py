@@ -23,9 +23,12 @@ class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
                similarity_metric=SIMILARITY_METRIC, dimensions=DIMENSIONS,
                confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD):
-    # Initialize VDMS without TLS to avoid PMGD initialization issues in containerized environment
-    # TLS can be re-enabled after VDMS resolves container compatibility issues
-    self.db = vdms.vdms()
+    self.db = vdms.vdms(
+      use_tls=True,
+      ca_cert_file="/run/secrets/certs/scenescape-ca.pem",
+      client_cert_file="/run/secrets/certs/scenescape-vdms-c.crt",
+      client_key_file="/run/secrets/certs/scenescape-vdms-c.key"
+    )
     self.set_name = set_name
     self.similarity_metric = similarity_metric
     self.dimensions = dimensions

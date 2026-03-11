@@ -3,10 +3,12 @@
 
 # Integration with common.mk for Docker image builds
 IMAGE := scenescape-tracker
-RUNTIME_OS_IMAGE := gcr.io/distroless/cc-debian13@sha256:d93602c2e8facf19435442a3fd19306e77505ca722aad08e7de659f6df43e147
 TARGET ?= runtime
 BUILD_TYPE ?= Release
 HAS_PIP := no
+HAS_DPKG := no
+BUILDER_BASE_IMAGE := debian:13-slim
+BUILDER_IMAGE := $(IMAGE)-builder
 EXTRA_BUILD_ARGS := --build-arg GIT_COMMIT=$(shell git rev-parse --short HEAD) --build-arg BUILD_TYPE=$(BUILD_TYPE)
 # Override BUILD_DIR based on BUILD_TYPE (Release->build, others->build-<type>)
 ifeq ($(BUILD_TYPE),Release)
@@ -435,6 +437,51 @@ mqtt-publish:
 #####################################################################
 # Clean targets
 #####################################################################
+
+# Override common.mk list-dependencies to use the builder stage (runtime is distroless, has no dpkg/pip).
+# Uses ldd on the tracker binary (same approach as in the Dockerfile) to identify only the OS libraries
+# that are actually distributed with the image, then maps each back to its dpkg package.
+# Conan-managed packages are collected separately via 'conan graph info' and written to conan-deps.txt.
+.PHONY: list-dependencies
+list-dependencies: $(BUILD_DIR)
+	@if [[ -z $$(docker images | grep "^$(IMAGE)" | grep $(VERSION)) ]]; then \
+	  echo "Error: the image $(IMAGE):$(VERSION) does not exist! Cannot generate dependency list."; \
+	  echo "Please build the image first."; \
+	  exit 1; \
+	fi
+	@echo "Building builder stage for dependency analysis..."
+	@docker build --target builder \
+	    --build-arg http_proxy=$(http_proxy) \
+	    --build-arg https_proxy=$(https_proxy) \
+	    --build-arg no_proxy=$(no_proxy) \
+	    $(EXTRA_BUILD_ARGS) \
+	    -t $(BUILDER_IMAGE):$(VERSION) \
+	    -f ./Dockerfile .. -q
+	@echo "Listing runtime OS library dependencies via ldd..."
+	@docker run --rm --entrypoint bash $(BUILDER_IMAGE):$(VERSION) \
+	    -c '. /scenescape/build/conanrun.sh \
+	        && ldd /scenescape/build/tracker \
+	        | awk '"'"'NF==4 && $$3~/^\// {print $$3}'"'"' \
+	        | xargs -r readlink -f 2>/dev/null \
+	        | xargs -r dpkg -S 2>/dev/null \
+	        | cut -d: -f1 | sort -u \
+	        | xargs -r dpkg -l \
+	        | awk '"'"'/^ii/ {print $$2, $$3, $$4}'"'"'' \
+	    > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt
+	@echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"
+	@echo "Listing Conan package dependencies..."
+	@docker run --rm \
+	    -e http_proxy=$(http_proxy) -e https_proxy=$(https_proxy) -e no_proxy=$(no_proxy) \
+	    --entrypoint bash $(BUILDER_IMAGE):$(VERSION) \
+	    -c 'conan graph info /scenescape/tracker 2>&1 \
+	        | grep -E "^[a-zA-Z][a-zA-Z0-9_.-]+/[0-9a-zA-Z._+-]+" \
+	        | grep -v "^conanfile" \
+	        | grep -v ": WARN:" \
+	        | sed '"'"'s|/| |; s|#.*||'"'"' \
+	        | sort -u' \
+	    > $(BUILD_DIR)/$(IMAGE)-conan-deps.txt
+	@echo "Conan dependencies listed in $(BUILD_DIR)/$(IMAGE)-conan-deps.txt"
+	@docker rmi $(BUILDER_IMAGE):$(VERSION) > /dev/null 2>&1 || true
 
 # Override common.mk clean to also remove local build directories
 clean:

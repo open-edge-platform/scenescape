@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 IMAGE := scenescape-mapping
-RUNTIME_OS_IMAGE := python:3.11-slim-bookworm
 TARGET = mapping-runtime
+USES_SCENE_COMMON := yes
 
 # Model selection - can be overridden with MODEL_TYPE=vggt or MODEL_TYPE=mapanything
 MODEL_TYPE ?= mapanything

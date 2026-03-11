@@ -295,11 +295,28 @@ list-dependencies: $(BUILD_DIR)
 	for dir in $(IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir list-dependencies; \
 	done
-	@-find . -type f -name '*-apt-deps.txt' -exec cat {} + | sort | uniq > $(BUILD_DIR)/scenescape-all-apt-deps.txt
-	@-find . -type f -name '*-pip-deps.txt' -exec cat {} + | sort | uniq > $(BUILD_DIR)/scenescape-all-pip-deps.txt
 	@echo "The following dependency lists have been generated:"
 	@find $(BUILD_DIR) -name '*-deps.txt' -print
 	@echo "DONE ==> Listing dependencies for all microservices"
+
+BUILDKIT_BUILDER_NAME := scenescape-buildkit-container
+
+# Generate SPDX SBOMs for all microservices using Docker BuildKit.
+# A temporary BuildKit container builder is created automatically and removed on completion.
+# Docs: https://www.docker.com/blog/generate-sboms-with-buildkit/
+.PHONY: generate-sboms
+generate-sboms: $(BUILD_DIR)
+	@echo "==> Generating SPDX SBOMs for all microservices..."
+	@echo "Creating BuildKit container builder..."
+	@docker buildx create --use --name=$(BUILDKIT_BUILDER_NAME) --driver=docker-container \
+		--driver-opt=env.http_proxy=$(http_proxy),env.https_proxy=$(https_proxy),env.HTTP_PROXY=$(HTTP_PROXY),env.HTTPS_PROXY=$(HTTPS_PROXY),default-load=true
+	@set -e; trap 'docker buildx rm $(BUILDKIT_BUILDER_NAME) 2>/dev/null || true' EXIT; \
+	for dir in $(IMAGE_FOLDERS); do \
+		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) generate-sbom; \
+	done
+	@echo "The following SBOMs have been generated in $(BUILD_DIR)/sboms:"
+	@echo "$$(ls $(BUILD_DIR)/sboms)"
+	@echo "DONE ==> Generating SPDX SBOMs for all microservices"
 
 .PHONY: build-sources-image
 build-sources-image: sources.Dockerfile
