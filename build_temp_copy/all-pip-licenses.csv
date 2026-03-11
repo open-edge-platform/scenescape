@@ -1,0 +1,659 @@
+Image,Component,License
+scenescape-autocalibration,addict==2.4.0,MIT License
+scenescape-autocalibration,asttokens==3.0.1,Apache 2.0
+scenescape-autocalibration,attrs==25.4.0,MIT
+scenescape-autocalibration,beautifulsoup4==4.14.3,MIT License
+scenescape-autocalibration,bidict==0.23.1,MPL 2.0
+scenescape-autocalibration,blinker==1.9.0,MIT License
+scenescape-autocalibration,certifi==2026.2.25,MPL-2.0
+scenescape-autocalibration,cffi==2.0.0,MIT
+scenescape-autocalibration,charset-normalizer==3.4.5,MIT
+scenescape-autocalibration,click==8.3.1,BSD-3-Clause
+scenescape-autocalibration,comm==0.2.3,BSD License
+scenescape-autocalibration,ConfigArgParse==1.7.5,MIT
+scenescape-autocalibration,contourpy==1.3.3,BSD License
+scenescape-autocalibration,cryptography==46.0.5,Apache-2.0 OR BSD-3-Clause
+scenescape-autocalibration,cycler==0.12.1,BSD License
+scenescape-autocalibration,dash==4.0.0,MIT
+scenescape-autocalibration,decorator==5.2.1,BSD-2-Clause
+scenescape-autocalibration,dnspython==2.8.0,ISC
+scenescape-autocalibration,durationpy==0.10,MIT
+scenescape-autocalibration,eventlet==0.40.3,MIT
+scenescape-autocalibration,executing==2.2.1,MIT
+scenescape-autocalibration,fastjsonschema==2.21.2,BSD
+scenescape-autocalibration,filelock==3.25.1,MIT
+scenescape-autocalibration,Flask==3.1.3,BSD-3-Clause
+scenescape-autocalibration,Flask-SocketIO==5.6.1,MIT License
+scenescape-autocalibration,fonttools==4.62.0,MIT
+scenescape-autocalibration,fsspec==2026.2.0,BSD-3-Clause
+scenescape-autocalibration,gdown==5.2.1,MIT
+scenescape-autocalibration,google-auth==2.49.0,Apache 2.0
+scenescape-autocalibration,greenlet==3.3.2,MIT AND PSF-2.0
+scenescape-autocalibration,h11==0.16.0,MIT
+scenescape-autocalibration,h5py==3.15.1,BSD-3-Clause
+scenescape-autocalibration,idna==3.11,BSD-3-Clause
+scenescape-autocalibration,importlib_metadata==8.7.1,Apache-2.0
+scenescape-autocalibration,ipython==9.10.0,BSD-3-Clause
+scenescape-autocalibration,ipython_pygments_lexers==1.1.1,BSD License
+scenescape-autocalibration,ipywidgets==8.1.8,BSD 3-Clause License
+scenescape-autocalibration,isodate==0.7.2,BSD License
+scenescape-autocalibration,itsdangerous==2.2.0,BSD License
+scenescape-autocalibration,jedi==0.19.2,MIT
+scenescape-autocalibration,Jinja2==3.1.6,BSD License
+scenescape-autocalibration,joblib==1.5.3,BSD-3-Clause
+scenescape-autocalibration,jsonschema==4.26.0,MIT
+scenescape-autocalibration,jsonschema-specifications==2025.9.1,MIT
+scenescape-autocalibration,jupyter_core==5.9.1,BSD-3-Clause
+scenescape-autocalibration,jupyterlab_widgets==3.0.16,BSD License
+scenescape-autocalibration,kiwisolver==1.5.0,BSD License
+scenescape-autocalibration,kornia==0.8.2,Apache-2.0
+scenescape-autocalibration,kornia_rs==0.1.10,Apache Software License
+scenescape-autocalibration,kubernetes==34.1.0,Apache License Version 2.0
+scenescape-autocalibration,lxml==6.0.2,BSD-3-Clause
+scenescape-autocalibration,MarkupSafe==3.0.3,BSD-3-Clause
+scenescape-autocalibration,matplotlib==3.10.8,Python Software Foundation License
+scenescape-autocalibration,matplotlib-inline==0.2.1,
+scenescape-autocalibration,mpmath==1.3.0,BSD
+scenescape-autocalibration,narwhals==2.18.0,MIT License
+scenescape-autocalibration,nbformat==5.10.4,BSD License
+scenescape-autocalibration,nest-asyncio==1.6.0,BSD
+scenescape-autocalibration,networkx==3.6.1,BSD-3-Clause
+scenescape-autocalibration,numpy==2.2.6,BSD License
+scenescape-autocalibration,oauthlib==3.3.1,BSD-3-Clause
+scenescape-autocalibration,onvif_zeep==0.2.12,MIT
+scenescape-autocalibration,open3d-cpu==0.19.0,MIT
+scenescape-autocalibration,opencv-python-headless==4.12.0.88,Apache 2.0
+scenescape-autocalibration,packaging==26.0,Apache-2.0 OR BSD-2-Clause
+scenescape-autocalibration,paho-mqtt==2.1.0,EPL-2.0 OR BSD-3-Clause
+scenescape-autocalibration,pandas==3.0.1,BSD License
+scenescape-autocalibration,parso==0.8.6,MIT
+scenescape-autocalibration,pexpect==4.9.0,ISC license
+scenescape-autocalibration,pillow==12.1.1,MIT-CMU
+scenescape-autocalibration,pip==26.0.1,MIT
+scenescape-autocalibration,platformdirs==4.9.4,MIT
+scenescape-autocalibration,plotly==6.6.0,MIT License
+scenescape-autocalibration,prompt_toolkit==3.0.52,BSD License
+scenescape-autocalibration,ptyprocess==0.7.0,ISC License (ISCL)
+scenescape-autocalibration,pure_eval==0.2.3,MIT
+scenescape-autocalibration,pyasn1==0.6.2,BSD-2-Clause
+scenescape-autocalibration,pyasn1_modules==0.4.2,BSD
+scenescape-autocalibration,pycolmap==0.6.0,BSD License
+scenescape-autocalibration,pycparser==3.0,BSD-3-Clause
+scenescape-autocalibration,Pygments==2.19.2,BSD-2-Clause
+scenescape-autocalibration,pyparsing==3.3.2,MIT
+scenescape-autocalibration,pyquaternion==0.9.9,MIT
+scenescape-autocalibration,PySocks==1.7.1,BSD
+scenescape-autocalibration,python-dateutil==2.9.0.post0,Dual License
+scenescape-autocalibration,python-engineio==4.13.1,MIT
+scenescape-autocalibration,python-socketio==5.16.1,MIT
+scenescape-autocalibration,pytz==2026.1.post1,MIT
+scenescape-autocalibration,PyYAML==6.0.3,MIT
+scenescape-autocalibration,referencing==0.37.0,MIT
+scenescape-autocalibration,requests==2.32.5,Apache-2.0
+scenescape-autocalibration,requests-file==3.0.1,Apache 2.0
+scenescape-autocalibration,requests-oauthlib==2.0.0,ISC
+scenescape-autocalibration,requests-toolbelt==1.0.0,Apache 2.0
+scenescape-autocalibration,retrying==1.4.2,Apache-2.0
+scenescape-autocalibration,rpds-py==0.30.0,MIT
+scenescape-autocalibration,rsa==4.9.1,Apache-2.0
+scenescape-autocalibration,scikit-learn==1.8.0,BSD-3-Clause
+scenescape-autocalibration,scipy==1.16.3,BSD License
+scenescape-autocalibration,setuptools==82.0.1,MIT
+scenescape-autocalibration,simple-websocket==1.1.0,MIT License
+scenescape-autocalibration,six==1.17.0,MIT
+scenescape-autocalibration,soupsieve==2.8.3,MIT
+scenescape-autocalibration,stack-data==0.6.3,MIT
+scenescape-autocalibration,sympy==1.14.0,BSD
+scenescape-autocalibration,threadpoolctl==3.6.0,BSD-3-Clause
+scenescape-autocalibration,torch==2.10.0+cpu,BSD-3-Clause
+scenescape-autocalibration,torchvision==0.25.0+cpu,BSD
+scenescape-autocalibration,tqdm==4.67.3,MPL-2.0 AND MIT
+scenescape-autocalibration,traitlets==5.14.3,BSD License
+scenescape-autocalibration,trimesh==4.11.2,MIT License
+scenescape-autocalibration,typing_extensions==4.15.0,PSF-2.0
+scenescape-autocalibration,urllib3==2.3.0,MIT License
+scenescape-autocalibration,wcwidth==0.6.0,MIT
+scenescape-autocalibration,websocket-client==1.9.0,Apache-2.0
+scenescape-autocalibration,Werkzeug==3.1.6,BSD-3-Clause
+scenescape-autocalibration,wheel==0.46.3,MIT
+scenescape-autocalibration,widgetsnbextension==4.0.15,BSD 3-Clause License
+scenescape-autocalibration,wsproto==1.3.2,MIT
+scenescape-autocalibration,zeep==4.3.2,MIT
+scenescape-autocalibration,zipp==3.23.0,MIT
+scenescape-cluster-analytics,bidict==0.23.1,MPL 2.0
+scenescape-cluster-analytics,blinker==1.9.0,MIT License
+scenescape-cluster-analytics,click==8.3.0,BSD-3-Clause
+scenescape-cluster-analytics,dnspython==2.7.0,ISC
+scenescape-cluster-analytics,eventlet==0.40.3,MIT
+scenescape-cluster-analytics,Flask==3.1.1,BSD-3-Clause
+scenescape-cluster-analytics,Flask-SocketIO==5.4.1,MIT License
+scenescape-cluster-analytics,greenlet==3.1.1,MIT License
+scenescape-cluster-analytics,h11==0.16.0,MIT
+scenescape-cluster-analytics,itsdangerous==2.2.0,BSD License
+scenescape-cluster-analytics,Jinja2==3.1.6,BSD License
+scenescape-cluster-analytics,joblib==1.5.2,BSD 3-Clause
+scenescape-cluster-analytics,MarkupSafe==3.0.3,BSD-3-Clause
+scenescape-cluster-analytics,numpy==2.3.5,BSD License
+scenescape-cluster-analytics,opencv-python-headless==4.11.0.86,Apache 2.0
+scenescape-cluster-analytics,packaging==24.2,Apache Software License
+scenescape-cluster-analytics,paho-mqtt==2.1.0,EPL-2.0 OR BSD-3-Clause
+scenescape-cluster-analytics,pip==26.0.1,MIT
+scenescape-cluster-analytics,protobuf==6.33.5,3-Clause BSD License
+scenescape-cluster-analytics,python-engineio==4.12.3,MIT
+scenescape-cluster-analytics,python-socketio==5.14.0,MIT
+scenescape-cluster-analytics,scikit-learn==1.6.1,BSD License
+scenescape-cluster-analytics,scipy==1.16.2,BSD License
+scenescape-cluster-analytics,setuptools==82.0.1,MIT
+scenescape-cluster-analytics,simple-websocket==1.1.0,MIT License
+scenescape-cluster-analytics,threadpoolctl==3.6.0,BSD-3-Clause
+scenescape-cluster-analytics,Werkzeug==3.1.5,BSD-3-Clause
+scenescape-cluster-analytics,wheel==0.46.3,MIT
+scenescape-cluster-analytics,wsproto==1.2.0,MIT License
+scenescape-controller,addict==2.4.0,MIT License
+scenescape-controller,asttokens==3.0.1,Apache 2.0
+scenescape-controller,attrs==25.4.0,MIT
+scenescape-controller,blinker==1.9.0,MIT License
+scenescape-controller,certifi==2026.2.25,MPL-2.0
+scenescape-controller,charset-normalizer==3.4.5,MIT
+scenescape-controller,click==8.3.1,BSD-3-Clause
+scenescape-controller,comm==0.2.3,BSD License
+scenescape-controller,ConfigArgParse==1.7.5,MIT
+scenescape-controller,contourpy==1.3.3,BSD License
+scenescape-controller,cycler==0.12.1,BSD License
+scenescape-controller,dash==4.0.0,MIT
+scenescape-controller,decorator==5.2.1,BSD-2-Clause
+scenescape-controller,executing==2.2.1,MIT
+scenescape-controller,fastjsonschema==2.21.2,BSD
+scenescape-controller,Flask==3.1.3,BSD-3-Clause
+scenescape-controller,fonttools==4.62.0,MIT
+scenescape-controller,googleapis-common-protos==1.73.0,Apache 2.0
+scenescape-controller,grpcio==1.78.0,Apache-2.0
+scenescape-controller,idna==3.11,BSD-3-Clause
+scenescape-controller,importlib_metadata==8.7.1,Apache-2.0
+scenescape-controller,ipython==9.10.0,BSD-3-Clause
+scenescape-controller,ipython_pygments_lexers==1.1.1,BSD License
+scenescape-controller,ipywidgets==8.1.8,BSD 3-Clause License
+scenescape-controller,itsdangerous==2.2.0,BSD License
+scenescape-controller,jedi==0.19.2,MIT
+scenescape-controller,Jinja2==3.1.6,BSD License
+scenescape-controller,joblib==1.5.3,BSD-3-Clause
+scenescape-controller,jsonschema==4.26.0,MIT
+scenescape-controller,jsonschema-specifications==2025.9.1,MIT
+scenescape-controller,jupyter_core==5.9.1,BSD-3-Clause
+scenescape-controller,jupyterlab_widgets==3.0.16,BSD License
+scenescape-controller,kiwisolver==1.5.0,BSD License
+scenescape-controller,mapbox_earcut==1.0.3,ISC License (ISCL)
+scenescape-controller,MarkupSafe==3.0.3,BSD-3-Clause
+scenescape-controller,matplotlib==3.10.8,Python Software Foundation License
+scenescape-controller,matplotlib-inline==0.2.1,
+scenescape-controller,narwhals==2.18.0,MIT License
+scenescape-controller,nbformat==5.10.4,BSD License
+scenescape-controller,nest-asyncio==1.6.0,BSD
+scenescape-controller,ntplib==0.4.0,MIT
+scenescape-controller,numpy==2.2.6,BSD License
+scenescape-controller,open3d-cpu==0.19.0,MIT
+scenescape-controller,opencv-python-headless==4.12.0.88,Apache 2.0
+scenescape-controller,opentelemetry-api==1.38.0,Apache-2.0
+scenescape-controller,opentelemetry-exporter-otlp-proto-common==1.38.0,Apache-2.0
+scenescape-controller,opentelemetry-exporter-otlp-proto-grpc==1.38.0,Apache-2.0
+scenescape-controller,opentelemetry-proto==1.38.0,Apache-2.0
+scenescape-controller,opentelemetry-sdk==1.38.0,Apache-2.0
+scenescape-controller,opentelemetry-semantic-conventions==0.59b0,Apache-2.0
+scenescape-controller,orjson==3.11.5,Apache-2.0 OR MIT
+scenescape-controller,packaging==26.0,Apache-2.0 OR BSD-2-Clause
+scenescape-controller,paho-mqtt==2.1.0,EPL-2.0 OR BSD-3-Clause
+scenescape-controller,pandas==3.0.1,BSD License
+scenescape-controller,parso==0.8.6,MIT
+scenescape-controller,pexpect==4.9.0,ISC license
+scenescape-controller,pillow==12.1.1,MIT-CMU
+scenescape-controller,pip==26.0.1,MIT
+scenescape-controller,platformdirs==4.9.4,MIT
+scenescape-controller,plotly==6.6.0,MIT License
+scenescape-controller,prompt_toolkit==3.0.52,BSD License
+scenescape-controller,protobuf==7.34.0,3-Clause BSD License
+scenescape-controller,ptyprocess==0.7.0,ISC License (ISCL)
+scenescape-controller,pure_eval==0.2.3,MIT
+scenescape-controller,Pygments==2.19.2,BSD-2-Clause
+scenescape-controller,pyparsing==3.3.2,MIT
+scenescape-controller,pyquaternion==0.9.9,MIT
+scenescape-controller,python-dateutil==2.9.0.post0,Dual License
+scenescape-controller,PyYAML==6.0.3,MIT
+scenescape-controller,referencing==0.37.0,MIT
+scenescape-controller,requests==2.32.5,Apache-2.0
+scenescape-controller,retrying==1.4.2,Apache-2.0
+scenescape-controller,rpds-py==0.30.0,MIT
+scenescape-controller,scikit-learn==1.8.0,BSD-3-Clause
+scenescape-controller,scipy==1.16.3,BSD License
+scenescape-controller,setuptools==82.0.1,MIT
+scenescape-controller,shapely==2.1.1,BSD 3-Clause
+scenescape-controller,six==1.17.0,MIT
+scenescape-controller,stack-data==0.6.3,MIT
+scenescape-controller,threadpoolctl==3.6.0,BSD-3-Clause
+scenescape-controller,tqdm==4.67.3,MPL-2.0 AND MIT
+scenescape-controller,traitlets==5.14.3,BSD License
+scenescape-controller,trimesh==4.11.2,MIT License
+scenescape-controller,typing_extensions==4.15.0,PSF-2.0
+scenescape-controller,urllib3==2.6.3,MIT
+scenescape-controller,vdms==0.0.22,MIT
+scenescape-controller,wcwidth==0.6.0,MIT
+scenescape-controller,Werkzeug==3.1.6,BSD-3-Clause
+scenescape-controller,wheel==0.46.3,MIT
+scenescape-controller,widgetsnbextension==4.0.15,BSD 3-Clause License
+scenescape-controller,zipp==3.23.0,MIT
+scenescape-manager,addict==2.4.0,MIT License
+scenescape-manager,aiofiles==25.1.0,Apache-2.0
+scenescape-manager,asgiref==3.11.1,BSD-3-Clause
+scenescape-manager,asttokens==3.0.1,Apache 2.0
+scenescape-manager,attrs==25.4.0,MIT
+scenescape-manager,blinker==1.9.0,MIT License
+scenescape-manager,certifi==2026.2.25,MPL-2.0
+scenescape-manager,cffi==2.0.0,MIT
+scenescape-manager,charset-normalizer==3.4.5,MIT
+scenescape-manager,click==8.3.1,BSD-3-Clause
+scenescape-manager,comm==0.2.3,BSD License
+scenescape-manager,ConfigArgParse==1.7.5,MIT
+scenescape-manager,contourpy==1.3.3,BSD License
+scenescape-manager,cryptography==46.0.5,Apache-2.0 OR BSD-3-Clause
+scenescape-manager,cycler==0.12.1,BSD License
+scenescape-manager,dash==4.0.0,MIT
+scenescape-manager,decorator==5.2.1,BSD-2-Clause
+scenescape-manager,Django==5.2.12,BSD-3-Clause
+scenescape-manager,django-axes==8.0.0,MIT
+scenescape-manager,django-debug-toolbar==6.0.0,BSD-3-Clause
+scenescape-manager,django-session-timeout==0.1.0,MIT
+scenescape-manager,djangorestframework==3.16.1,BSD
+scenescape-manager,durationpy==0.10,MIT
+scenescape-manager,executing==2.2.1,MIT
+scenescape-manager,fastjsonschema==2.21.2,BSD
+scenescape-manager,Flask==3.1.3,BSD-3-Clause
+scenescape-manager,fonttools==4.62.0,MIT
+scenescape-manager,google-auth==2.49.0,Apache 2.0
+scenescape-manager,idna==3.11,BSD-3-Clause
+scenescape-manager,importlib_metadata==8.7.1,Apache-2.0
+scenescape-manager,ipython==9.10.0,BSD-3-Clause
+scenescape-manager,ipython_pygments_lexers==1.1.1,BSD License
+scenescape-manager,ipywidgets==8.1.8,BSD 3-Clause License
+scenescape-manager,isodate==0.7.2,BSD License
+scenescape-manager,itsdangerous==2.2.0,BSD License
+scenescape-manager,jedi==0.19.2,MIT
+scenescape-manager,Jinja2==3.1.6,BSD License
+scenescape-manager,joblib==1.5.3,BSD-3-Clause
+scenescape-manager,jsonschema==4.25.1,MIT
+scenescape-manager,jsonschema-specifications==2025.9.1,MIT
+scenescape-manager,jupyter_core==5.9.1,BSD-3-Clause
+scenescape-manager,jupyterlab_widgets==3.0.16,BSD License
+scenescape-manager,kiwisolver==1.5.0,BSD License
+scenescape-manager,kubernetes==33.1.0,Apache License Version 2.0
+scenescape-manager,lxml==6.0.2,BSD-3-Clause
+scenescape-manager,MarkupSafe==3.0.3,BSD-3-Clause
+scenescape-manager,matplotlib==3.10.8,Python Software Foundation License
+scenescape-manager,matplotlib-inline==0.2.1,
+scenescape-manager,narwhals==2.18.0,MIT License
+scenescape-manager,nbformat==5.10.4,BSD License
+scenescape-manager,nest-asyncio==1.6.0,BSD
+scenescape-manager,numpy==2.2.6,BSD License
+scenescape-manager,oauthlib==3.3.1,BSD-3-Clause
+scenescape-manager,onvif_zeep==0.2.12,MIT
+scenescape-manager,open3d-cpu==0.19.0,MIT
+scenescape-manager,opencv-python-headless==4.12.0.88,Apache 2.0
+scenescape-manager,packaging==26.0,Apache-2.0 OR BSD-2-Clause
+scenescape-manager,paho-mqtt==2.1.0,EPL-2.0 OR BSD-3-Clause
+scenescape-manager,pandas==3.0.1,BSD License
+scenescape-manager,parso==0.8.6,MIT
+scenescape-manager,pexpect==4.9.0,ISC license
+scenescape-manager,pillow==12.1.1,MIT-CMU
+scenescape-manager,pip==26.0.1,MIT
+scenescape-manager,platformdirs==4.9.4,MIT
+scenescape-manager,plotly==6.6.0,MIT License
+scenescape-manager,plyfile==1.0.3,GNU General Public License v3 or later (GPLv3+)
+scenescape-manager,prompt_toolkit==3.0.52,BSD License
+scenescape-manager,psycopg2-binary==2.9.11,LGPL with exceptions
+scenescape-manager,ptyprocess==0.7.0,ISC License (ISCL)
+scenescape-manager,pure_eval==0.2.3,MIT
+scenescape-manager,pyasn1==0.6.2,BSD-2-Clause
+scenescape-manager,pyasn1_modules==0.4.2,BSD
+scenescape-manager,pycparser==3.0,BSD-3-Clause
+scenescape-manager,Pygments==2.19.2,BSD-2-Clause
+scenescape-manager,pyparsing==3.3.2,MIT
+scenescape-manager,pyquaternion==0.9.9,MIT
+scenescape-manager,python-dateutil==2.9.0.post0,Dual License
+scenescape-manager,pytz==2026.1.post1,MIT
+scenescape-manager,PyYAML==6.0.3,MIT
+scenescape-manager,referencing==0.37.0,MIT
+scenescape-manager,requests==2.32.5,Apache-2.0
+scenescape-manager,requests-file==3.0.1,Apache 2.0
+scenescape-manager,requests-oauthlib==2.0.0,ISC
+scenescape-manager,requests-toolbelt==1.0.0,Apache 2.0
+scenescape-manager,retrying==1.4.2,Apache-2.0
+scenescape-manager,rpds-py==0.30.0,MIT
+scenescape-manager,rsa==4.9.1,Apache-2.0
+scenescape-manager,scikit-learn==1.8.0,BSD-3-Clause
+scenescape-manager,scipy==1.16.3,BSD License
+scenescape-manager,setuptools==82.0.1,MIT
+scenescape-manager,six==1.17.0,MIT
+scenescape-manager,sqlparse==0.5.5,BSD License
+scenescape-manager,stack-data==0.6.3,MIT
+scenescape-manager,threadpoolctl==3.6.0,BSD-3-Clause
+scenescape-manager,tqdm==4.67.3,MPL-2.0 AND MIT
+scenescape-manager,traitlets==5.14.3,BSD License
+scenescape-manager,trimesh==4.11.2,MIT License
+scenescape-manager,typing_extensions==4.15.0,PSF-2.0
+scenescape-manager,urllib3==2.6.3,MIT
+scenescape-manager,wcwidth==0.6.0,MIT
+scenescape-manager,websocket-client==1.9.0,Apache-2.0
+scenescape-manager,websockets==15.0.1,BSD-3-Clause
+scenescape-manager,Werkzeug==3.1.6,BSD-3-Clause
+scenescape-manager,wheel==0.46.3,MIT
+scenescape-manager,widgetsnbextension==4.0.15,BSD 3-Clause License
+scenescape-manager,zeep==4.3.2,MIT
+scenescape-manager,zipp==3.23.0,MIT
+scenescape-mapping-mapanything,absl-py==2.4.0,Apache-2.0
+scenescape-mapping-mapanything,addict==2.4.0,MIT License
+scenescape-mapping-mapanything,aiofiles==24.1.0,Apache-2.0
+scenescape-mapping-mapanything,annotated-doc==0.0.4,MIT
+scenescape-mapping-mapanything,annotated-types==0.7.0,MIT License
+scenescape-mapping-mapanything,antlr4-python3-runtime==4.9.3,BSD
+scenescape-mapping-mapanything,anyio==4.12.1,MIT
+scenescape-mapping-mapanything,argon2-cffi==25.1.0,MIT
+scenescape-mapping-mapanything,argon2-cffi-bindings==25.1.0,MIT
+scenescape-mapping-mapanything,asttokens==3.0.1,Apache 2.0
+scenescape-mapping-mapanything,attrs==25.4.0,MIT
+scenescape-mapping-mapanything,blinker==1.9.0,MIT License
+scenescape-mapping-mapanything,brotli==1.2.0,MIT
+scenescape-mapping-mapanything,certifi==2026.2.25,MPL-2.0
+scenescape-mapping-mapanything,cffi==2.0.0,MIT
+scenescape-mapping-mapanything,charset-normalizer==3.4.5,MIT
+scenescape-mapping-mapanything,click==8.3.1,BSD-3-Clause
+scenescape-mapping-mapanything,comm==0.2.3,BSD License
+scenescape-mapping-mapanything,ConfigArgParse==1.7.5,MIT
+scenescape-mapping-mapanything,contourpy==1.3.3,BSD License
+scenescape-mapping-mapanything,cycler==0.12.1,BSD License
+scenescape-mapping-mapanything,dash==4.0.0,MIT
+scenescape-mapping-mapanything,decorator==5.2.1,BSD-2-Clause
+scenescape-mapping-mapanything,einops==0.8.2,MIT
+scenescape-mapping-mapanything,executing==2.2.1,MIT
+scenescape-mapping-mapanything,fastapi==0.135.1,MIT
+scenescape-mapping-mapanything,fastjsonschema==2.21.2,BSD
+scenescape-mapping-mapanything,ffmpy==1.0.0,MIT
+scenescape-mapping-mapanything,filelock==3.25.1,MIT
+scenescape-mapping-mapanything,Flask==3.0.3,BSD License
+scenescape-mapping-mapanything,flask-cors==6.0.0,
+scenescape-mapping-mapanything,fonttools==4.62.0,MIT
+scenescape-mapping-mapanything,fsspec==2026.2.0,BSD-3-Clause
+scenescape-mapping-mapanything,gradio==6.7.0,Apache-2.0
+scenescape-mapping-mapanything,gradio_client==2.2.0,Apache-2.0
+scenescape-mapping-mapanything,groovy==0.1.2,MIT License
+scenescape-mapping-mapanything,grpcio==1.78.0,Apache-2.0
+scenescape-mapping-mapanything,gunicorn==22.0.0,MIT
+scenescape-mapping-mapanything,h11==0.16.0,MIT
+scenescape-mapping-mapanything,hf-xet==1.3.2,Apache Software License
+scenescape-mapping-mapanything,httpcore==1.0.9,BSD-3-Clause
+scenescape-mapping-mapanything,httpx==0.28.1,BSD-3-Clause
+scenescape-mapping-mapanything,huggingface_hub==1.3.1,Apache
+scenescape-mapping-mapanything,hydra-core==1.3.2,MIT
+scenescape-mapping-mapanything,idna==3.11,BSD-3-Clause
+scenescape-mapping-mapanything,importlib_metadata==8.7.1,Apache-2.0
+scenescape-mapping-mapanything,ipython==9.10.0,BSD-3-Clause
+scenescape-mapping-mapanything,ipython_pygments_lexers==1.1.1,BSD License
+scenescape-mapping-mapanything,ipywidgets==8.1.8,BSD 3-Clause License
+scenescape-mapping-mapanything,itsdangerous==2.2.0,BSD License
+scenescape-mapping-mapanything,jaxtyping==0.3.9,MIT License
+scenescape-mapping-mapanything,jedi==0.19.2,MIT
+scenescape-mapping-mapanything,Jinja2==3.1.6,BSD License
+scenescape-mapping-mapanything,joblib==1.5.3,BSD-3-Clause
+scenescape-mapping-mapanything,jsonschema==4.26.0,MIT
+scenescape-mapping-mapanything,jsonschema-specifications==2025.9.1,MIT
+scenescape-mapping-mapanything,jupyter_core==5.9.1,BSD-3-Clause
+scenescape-mapping-mapanything,jupyterlab_widgets==3.0.16,BSD License
+scenescape-mapping-mapanything,kiwisolver==1.5.0,BSD License
+scenescape-mapping-mapanything,lightning-utilities==0.15.3,Apache-2.0
+scenescape-mapping-mapanything,Markdown==3.10.2,BSD-3-Clause
+scenescape-mapping-mapanything,markdown-it-py==4.0.0,MIT License
+scenescape-mapping-mapanything,MarkupSafe==3.0.3,BSD-3-Clause
+scenescape-mapping-mapanything,matplotlib==3.10.8,Python Software Foundation License
+scenescape-mapping-mapanything,matplotlib-inline==0.2.1,
+scenescape-mapping-mapanything,mdurl==0.1.2,MIT License
+scenescape-mapping-mapanything,minio==7.2.20,Apache-2.0
+scenescape-mapping-mapanything,mpmath==1.3.0,BSD
+scenescape-mapping-mapanything,narwhals==2.18.0,MIT License
+scenescape-mapping-mapanything,natsort==8.4.0,MIT
+scenescape-mapping-mapanything,nbformat==5.10.4,BSD License
+scenescape-mapping-mapanything,nest-asyncio==1.6.0,BSD
+scenescape-mapping-mapanything,networkx==3.6.1,BSD-3-Clause
+scenescape-mapping-mapanything,numpy==2.4.3,BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0
+scenescape-mapping-mapanything,omegaconf==2.3.0,BSD License
+scenescape-mapping-mapanything,open3d-cpu==0.19.0,MIT
+scenescape-mapping-mapanything,opencv-python-headless==4.10.0.84,Apache 2.0
+scenescape-mapping-mapanything,orjson==3.11.5,Apache-2.0 OR MIT
+scenescape-mapping-mapanything,packaging==26.0,Apache-2.0 OR BSD-2-Clause
+scenescape-mapping-mapanything,pandas==3.0.1,BSD License
+scenescape-mapping-mapanything,parso==0.8.6,MIT
+scenescape-mapping-mapanything,pexpect==4.9.0,ISC license
+scenescape-mapping-mapanything,pillow==12.1.1,MIT-CMU
+scenescape-mapping-mapanything,pillow_heif==1.1.1,BSD-3-Clause
+scenescape-mapping-mapanything,pip==26.0.1,MIT
+scenescape-mapping-mapanything,platformdirs==4.9.4,MIT
+scenescape-mapping-mapanything,plotly==6.6.0,MIT License
+scenescape-mapping-mapanything,plyfile==1.1.3,GNU General Public License v3 or later (GPLv3+)
+scenescape-mapping-mapanything,prompt_toolkit==3.0.52,BSD License
+scenescape-mapping-mapanything,protobuf==7.34.0,3-Clause BSD License
+scenescape-mapping-mapanything,ptyprocess==0.7.0,ISC License (ISCL)
+scenescape-mapping-mapanything,pure_eval==0.2.3,MIT
+scenescape-mapping-mapanything,pyarrow==23.0.1,Apache-2.0
+scenescape-mapping-mapanything,pycparser==3.0,BSD-3-Clause
+scenescape-mapping-mapanything,pycryptodome==3.23.0,"BSD, Public Domain"
+scenescape-mapping-mapanything,pydantic==2.12.5,MIT
+scenescape-mapping-mapanything,pydantic_core==2.41.5,MIT
+scenescape-mapping-mapanything,pydub==0.25.1,MIT
+scenescape-mapping-mapanything,Pygments==2.19.2,BSD-2-Clause
+scenescape-mapping-mapanything,pyparsing==3.3.2,MIT
+scenescape-mapping-mapanything,pyquaternion==0.9.9,MIT
+scenescape-mapping-mapanything,python-box==7.3.2,MIT
+scenescape-mapping-mapanything,python-dateutil==2.9.0.post0,Dual License
+scenescape-mapping-mapanything,python-multipart==0.0.22,Apache-2.0
+scenescape-mapping-mapanything,pytz==2026.1.post1,MIT
+scenescape-mapping-mapanything,PyYAML==6.0.3,MIT
+scenescape-mapping-mapanything,referencing==0.37.0,MIT
+scenescape-mapping-mapanything,requests==2.32.5,Apache-2.0
+scenescape-mapping-mapanything,rerun-sdk==0.24.1,MIT OR Apache-2.0
+scenescape-mapping-mapanything,retrying==1.4.2,Apache-2.0
+scenescape-mapping-mapanything,rich==14.3.3,MIT
+scenescape-mapping-mapanything,rpds-py==0.30.0,MIT
+scenescape-mapping-mapanything,safehttpx==0.1.7,MIT License
+scenescape-mapping-mapanything,safetensors==0.7.0,Apache Software License
+scenescape-mapping-mapanything,scikit-learn==1.8.0,BSD-3-Clause
+scenescape-mapping-mapanything,scipy==1.17.1,BSD License
+scenescape-mapping-mapanything,semantic-version==2.10.0,BSD
+scenescape-mapping-mapanything,setuptools==82.0.1,MIT
+scenescape-mapping-mapanything,shellingham==1.5.4,ISC License
+scenescape-mapping-mapanything,six==1.17.0,MIT
+scenescape-mapping-mapanything,stack-data==0.6.3,MIT
+scenescape-mapping-mapanything,starlette==0.52.1,BSD-3-Clause
+scenescape-mapping-mapanything,sympy==1.14.0,BSD
+scenescape-mapping-mapanything,tensorboard==2.20.0,Apache 2.0
+scenescape-mapping-mapanything,tensorboard-data-server==0.7.2,Apache 2.0
+scenescape-mapping-mapanything,termcolor==3.3.0,MIT
+scenescape-mapping-mapanything,threadpoolctl==3.6.0,BSD-3-Clause
+scenescape-mapping-mapanything,timm==1.0.25,Apache-2.0
+scenescape-mapping-mapanything,tomlkit==0.13.3,MIT
+scenescape-mapping-mapanything,torch==2.9.1+cpu,BSD-3-Clause
+scenescape-mapping-mapanything,torchaudio==2.9.1+cpu,BSD License
+scenescape-mapping-mapanything,torchmetrics==1.9.0,Apache-2.0
+scenescape-mapping-mapanything,torchvision==0.24.1+cpu,BSD
+scenescape-mapping-mapanything,tqdm==4.67.1,MPL-2.0 AND MIT
+scenescape-mapping-mapanything,traitlets==5.14.3,BSD License
+scenescape-mapping-mapanything,trimesh==4.11.0,MIT License
+scenescape-mapping-mapanything,typer==0.24.1,MIT
+scenescape-mapping-mapanything,typer-slim==0.24.0,MIT
+scenescape-mapping-mapanything,typing-inspection==0.4.2,MIT
+scenescape-mapping-mapanything,typing_extensions==4.15.0,PSF-2.0
+scenescape-mapping-mapanything,uniception==0.1.6,BSD 3-Clause
+scenescape-mapping-mapanything,urllib3==2.6.3,MIT
+scenescape-mapping-mapanything,uvicorn==0.41.0,BSD-3-Clause
+scenescape-mapping-mapanything,wadler_lindig==0.1.7,Apache Software License
+scenescape-mapping-mapanything,wcwidth==0.6.0,MIT
+scenescape-mapping-mapanything,Werkzeug==3.1.6,BSD-3-Clause
+scenescape-mapping-mapanything,wheel==0.46.3,MIT
+scenescape-mapping-mapanything,widgetsnbextension==4.0.15,BSD 3-Clause License
+scenescape-mapping-mapanything,zipp==3.23.0,MIT
+scenescape-mapping-vggt,addict==2.4.0,MIT License
+scenescape-mapping-vggt,aiofiles==23.2.1,Apache-2.0
+scenescape-mapping-vggt,annotated-doc==0.0.4,MIT
+scenescape-mapping-vggt,annotated-types==0.7.0,MIT License
+scenescape-mapping-vggt,antlr4-python3-runtime==4.9.3,BSD
+scenescape-mapping-vggt,anyio==4.12.1,MIT
+scenescape-mapping-vggt,asttokens==3.0.1,Apache 2.0
+scenescape-mapping-vggt,attrs==25.4.0,MIT
+scenescape-mapping-vggt,blinker==1.9.0,MIT License
+scenescape-mapping-vggt,brotli==1.2.0,MIT
+scenescape-mapping-vggt,certifi==2026.2.25,MPL-2.0
+scenescape-mapping-vggt,charset-normalizer==3.4.5,MIT
+scenescape-mapping-vggt,click==8.3.1,BSD-3-Clause
+scenescape-mapping-vggt,colorlog==6.10.1,MIT License
+scenescape-mapping-vggt,comm==0.2.3,BSD License
+scenescape-mapping-vggt,ConfigArgParse==1.7.5,MIT
+scenescape-mapping-vggt,contourpy==1.3.3,BSD License
+scenescape-mapping-vggt,cycler==0.12.1,BSD License
+scenescape-mapping-vggt,dash==4.0.0,MIT
+scenescape-mapping-vggt,decorator==5.2.1,BSD-2-Clause
+scenescape-mapping-vggt,docstring_parser==0.17.0,MIT
+scenescape-mapping-vggt,einops==0.8.2,MIT
+scenescape-mapping-vggt,embreex==2.17.7.post7,
+scenescape-mapping-vggt,executing==2.2.1,MIT
+scenescape-mapping-vggt,fastapi==0.135.1,MIT
+scenescape-mapping-vggt,fastjsonschema==2.21.2,BSD
+scenescape-mapping-vggt,ffmpy==1.0.0,MIT
+scenescape-mapping-vggt,filelock==3.25.1,MIT
+scenescape-mapping-vggt,Flask==3.0.3,BSD License
+scenescape-mapping-vggt,flask-cors==6.0.0,
+scenescape-mapping-vggt,flatbuffers==25.12.19,Apache 2.0
+scenescape-mapping-vggt,fonttools==4.62.0,MIT
+scenescape-mapping-vggt,fsspec==2026.2.0,BSD-3-Clause
+scenescape-mapping-vggt,gradio==5.17.1,Apache Software License
+scenescape-mapping-vggt,gradio_client==1.7.1,Apache Software License
+scenescape-mapping-vggt,groovy==0.1.2,MIT License
+scenescape-mapping-vggt,gunicorn==22.0.0,MIT
+scenescape-mapping-vggt,h11==0.16.0,MIT
+scenescape-mapping-vggt,hf-xet==1.3.2,Apache Software License
+scenescape-mapping-vggt,httpcore==1.0.9,BSD-3-Clause
+scenescape-mapping-vggt,httpx==0.28.1,BSD-3-Clause
+scenescape-mapping-vggt,huggingface_hub==1.6.0,Apache-2.0
+scenescape-mapping-vggt,hydra-core==1.3.2,MIT
+scenescape-mapping-vggt,idna==3.11,BSD-3-Clause
+scenescape-mapping-vggt,ImageIO==2.37.3,BSD-2-Clause
+scenescape-mapping-vggt,importlib_metadata==8.7.1,Apache-2.0
+scenescape-mapping-vggt,ipython==9.10.0,BSD-3-Clause
+scenescape-mapping-vggt,ipython_pygments_lexers==1.1.1,BSD License
+scenescape-mapping-vggt,ipywidgets==8.1.8,BSD 3-Clause License
+scenescape-mapping-vggt,itsdangerous==2.2.0,BSD License
+scenescape-mapping-vggt,jedi==0.19.2,MIT
+scenescape-mapping-vggt,Jinja2==3.1.6,BSD License
+scenescape-mapping-vggt,joblib==1.5.3,BSD-3-Clause
+scenescape-mapping-vggt,jsonschema==4.26.0,MIT
+scenescape-mapping-vggt,jsonschema-specifications==2025.9.1,MIT
+scenescape-mapping-vggt,jupyter_core==5.9.1,BSD-3-Clause
+scenescape-mapping-vggt,jupyterlab_widgets==3.0.16,BSD License
+scenescape-mapping-vggt,kiwisolver==1.5.0,BSD License
+scenescape-mapping-vggt,kornia==0.8.2,Apache-2.0
+scenescape-mapping-vggt,kornia_rs==0.1.10,Apache Software License
+scenescape-mapping-vggt,lazy-loader==0.5,BSD-3-Clause
+scenescape-mapping-vggt,lxml==6.0.2,BSD-3-Clause
+scenescape-mapping-vggt,manifold3d==3.4.0,Apache Software License
+scenescape-mapping-vggt,mapbox_earcut==2.0.0,ISC License (ISCL)
+scenescape-mapping-vggt,markdown-it-py==4.0.0,MIT License
+scenescape-mapping-vggt,MarkupSafe==2.1.5,BSD-3-Clause
+scenescape-mapping-vggt,matplotlib==3.10.8,Python Software Foundation License
+scenescape-mapping-vggt,matplotlib-inline==0.2.1,
+scenescape-mapping-vggt,mdurl==0.1.2,MIT License
+scenescape-mapping-vggt,mpmath==1.3.0,BSD
+scenescape-mapping-vggt,msgspec==0.20.0,BSD-3-Clause
+scenescape-mapping-vggt,narwhals==2.18.0,MIT License
+scenescape-mapping-vggt,nbformat==5.10.4,BSD License
+scenescape-mapping-vggt,nest-asyncio==1.6.0,BSD
+scenescape-mapping-vggt,networkx==3.6.1,BSD-3-Clause
+scenescape-mapping-vggt,nodeenv==1.10.0,BSD
+scenescape-mapping-vggt,numpy==1.26.1,BSD License
+scenescape-mapping-vggt,omegaconf==2.3.0,BSD License
+scenescape-mapping-vggt,onnxruntime==1.24.3,MIT License
+scenescape-mapping-vggt,open3d-cpu==0.19.0,MIT
+scenescape-mapping-vggt,opencv-python==4.11.0.86,Apache 2.0
+scenescape-mapping-vggt,opencv-python-headless==4.13.0.92,Apache 2.0
+scenescape-mapping-vggt,orjson==3.11.7,MPL-2.0 AND (Apache-2.0 OR MIT)
+scenescape-mapping-vggt,packaging==26.0,Apache-2.0 OR BSD-2-Clause
+scenescape-mapping-vggt,pandas==2.3.3,BSD License
+scenescape-mapping-vggt,parso==0.8.6,MIT
+scenescape-mapping-vggt,pexpect==4.9.0,ISC license
+scenescape-mapping-vggt,pillow==11.3.0,MIT-CMU
+scenescape-mapping-vggt,pip==26.0.1,MIT
+scenescape-mapping-vggt,platformdirs==4.9.4,MIT
+scenescape-mapping-vggt,plotly==6.6.0,MIT License
+scenescape-mapping-vggt,plyfile==1.1.3,GNU General Public License v3 or later (GPLv3+)
+scenescape-mapping-vggt,prompt_toolkit==3.0.52,BSD License
+scenescape-mapping-vggt,protobuf==7.34.0,3-Clause BSD License
+scenescape-mapping-vggt,psutil==7.2.2,BSD-3-Clause
+scenescape-mapping-vggt,ptyprocess==0.7.0,ISC License (ISCL)
+scenescape-mapping-vggt,pure_eval==0.2.3,MIT
+scenescape-mapping-vggt,pyceres==2.3,Apache-2.0
+scenescape-mapping-vggt,pycollada==0.9.3,BSD
+scenescape-mapping-vggt,pycolmap==3.10.0,BSD-3-Clause
+scenescape-mapping-vggt,pydantic==2.10.6,MIT License
+scenescape-mapping-vggt,pydantic_core==2.27.2,MIT
+scenescape-mapping-vggt,pydub==0.25.1,MIT
+scenescape-mapping-vggt,Pygments==2.19.2,BSD-2-Clause
+scenescape-mapping-vggt,pyparsing==3.3.2,MIT
+scenescape-mapping-vggt,pyquaternion==0.9.9,MIT
+scenescape-mapping-vggt,python-dateutil==2.9.0.post0,Dual License
+scenescape-mapping-vggt,python-multipart==0.0.22,Apache-2.0
+scenescape-mapping-vggt,pytz==2026.1.post1,MIT
+scenescape-mapping-vggt,PyYAML==6.0.3,MIT
+scenescape-mapping-vggt,referencing==0.37.0,MIT
+scenescape-mapping-vggt,requests==2.32.5,Apache-2.0
+scenescape-mapping-vggt,retrying==1.4.2,Apache-2.0
+scenescape-mapping-vggt,rich==14.3.3,MIT
+scenescape-mapping-vggt,rpds-py==0.30.0,MIT
+scenescape-mapping-vggt,rtree==1.4.1,MIT
+scenescape-mapping-vggt,ruff==0.15.5,MIT License
+scenescape-mapping-vggt,safehttpx==0.1.7,MIT License
+scenescape-mapping-vggt,safetensors==0.7.0,Apache Software License
+scenescape-mapping-vggt,scikit-image==0.26.0,BSD License
+scenescape-mapping-vggt,scikit-learn==1.8.0,BSD-3-Clause
+scenescape-mapping-vggt,scipy==1.16.3,BSD License
+scenescape-mapping-vggt,semantic-version==2.10.0,BSD
+scenescape-mapping-vggt,setuptools==82.0.1,MIT
+scenescape-mapping-vggt,shapely==2.1.2,BSD 3-Clause
+scenescape-mapping-vggt,shellingham==1.5.4,ISC License
+scenescape-mapping-vggt,six==1.17.0,MIT
+scenescape-mapping-vggt,stack-data==0.6.3,MIT
+scenescape-mapping-vggt,starlette==0.52.1,BSD-3-Clause
+scenescape-mapping-vggt,svg.path==7.0,MIT
+scenescape-mapping-vggt,sympy==1.14.0,BSD
+scenescape-mapping-vggt,threadpoolctl==3.6.0,BSD-3-Clause
+scenescape-mapping-vggt,tifffile==2026.3.3,BSD-3-Clause
+scenescape-mapping-vggt,tomlkit==0.13.3,MIT
+scenescape-mapping-vggt,torch==2.3.1+cpu,BSD-3
+scenescape-mapping-vggt,torchvision==0.18.1+cpu,BSD
+scenescape-mapping-vggt,tqdm==4.67.3,MPL-2.0 AND MIT
+scenescape-mapping-vggt,traitlets==5.14.3,BSD License
+scenescape-mapping-vggt,trimesh==4.11.3,MIT License
+scenescape-mapping-vggt,typeguard==4.5.1,MIT
+scenescape-mapping-vggt,typer==0.24.1,MIT
+scenescape-mapping-vggt,typing-inspection==0.4.2,MIT
+scenescape-mapping-vggt,typing_extensions==4.15.0,PSF-2.0
+scenescape-mapping-vggt,tyro==1.0.8,MIT
+scenescape-mapping-vggt,tzdata==2025.3,Apache-2.0
+scenescape-mapping-vggt,urllib3==2.6.3,MIT
+scenescape-mapping-vggt,uvicorn==0.41.0,BSD-3-Clause
+scenescape-mapping-vggt,vhacdx==0.0.10,
+scenescape-mapping-vggt,viser==0.2.23,MIT
+scenescape-mapping-vggt,wcwidth==0.6.0,MIT
+scenescape-mapping-vggt,websockets==14.2,BSD-3-Clause
+scenescape-mapping-vggt,Werkzeug==3.1.6,BSD-3-Clause
+scenescape-mapping-vggt,wheel==0.46.3,MIT
+scenescape-mapping-vggt,widgetsnbextension==4.0.15,BSD 3-Clause License
+scenescape-mapping-vggt,xxhash==3.6.0,BSD
+scenescape-mapping-vggt,yourdfpy==0.0.60,MIT
+scenescape-mapping-vggt,zipp==3.23.0,MIT
+scenescape-model-installer,mpmath==1.3.0,BSD
+scenescape-model-installer,pip==24.0,MIT
+scenescape-model-installer,setuptools==68.1.2,MIT License
+scenescape-model-installer,wheel==0.42.0,MIT License

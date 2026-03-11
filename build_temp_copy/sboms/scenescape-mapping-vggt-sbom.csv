@@ -1,0 +1,520 @@
+Image,Component,Origin,License
+scenescape-mapping-vggt,@jupyter-widgets/jupyterlab-manager@5.0.15,npm,BSD-3-Clause
+scenescape-mapping-vggt,@plotly/dash-jupyterlab@0.4.3,npm,MIT
+scenescape-mapping-vggt,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,absl-py==2.4.0,pypi,Apache-2.0
+scenescape-mapping-vggt,addict==2.4.0,pypi,LicenseRef-UNKNOWN
+scenescape-mapping-vggt,adduser:3.134,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later
+scenescape-mapping-vggt,aiofiles==24.1.0,pypi,Apache-2.0
+scenescape-mapping-vggt,annotated-doc==0.0.4,pypi,MIT
+scenescape-mapping-vggt,annotated-types==0.7.0,pypi,NOASSERTION
+scenescape-mapping-vggt,antlr4-python3-runtime==4.9.3,pypi,LicenseRef-BSD
+scenescape-mapping-vggt,anyio==4.12.1,pypi,MIT
+scenescape-mapping-vggt,apt:2.6.1,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-mapping-vggt,argon2-cffi==25.1.0,pypi,MIT
+scenescape-mapping-vggt,argon2-cffi-bindings==25.1.0,pypi,MIT
+scenescape-mapping-vggt,asttokens==3.0.1,pypi,LicenseRef-Apache-2.0
+scenescape-mapping-vggt,attrs==25.4.0,pypi,MIT
+scenescape-mapping-vggt,autocommand==2.2.2,pypi,LicenseRef-LGPLv3
+scenescape-mapping-vggt,backports-tarfile==1.2.0,pypi,NOASSERTION
+scenescape-mapping-vggt,base-files:12.4+deb12u13,Ubuntu,LicenseRef-GPL
+scenescape-mapping-vggt,base-passwd:3.6.1,Ubuntu,GPL-2.0-only AND LicenseRef-public-domain
+scenescape-mapping-vggt,bash:5.2.15-2+b10,Ubuntu,BSD-4-Clause-UC AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND Latex2e AND LicenseRef-MIT-like AND LicenseRef-permissive
+scenescape-mapping-vggt,blinker==1.9.0,pypi,NOASSERTION
+scenescape-mapping-vggt,brotli==1.2.0,pypi,MIT
+scenescape-mapping-vggt,bsdutils:1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-mapping-vggt,ca-certificates:20230311+deb12u1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND MPL-2.0
+scenescape-mapping-vggt,certifi==2026.2.25,pypi,MPL-2.0
+scenescape-mapping-vggt,cffi==2.0.0,pypi,MIT
+scenescape-mapping-vggt,charset-normalizer==3.4.5,pypi,MIT
+scenescape-mapping-vggt,cli:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,cli-32:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,cli-64:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,cli-arm64:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,click==8.3.1,pypi,BSD-3-Clause
+scenescape-mapping-vggt,comm==0.2.3,pypi,BSD-3-Clause
+scenescape-mapping-vggt,configargparse==1.7.5,pypi,MIT
+scenescape-mapping-vggt,contourpy==1.3.3,pypi,BSD-3-Clause
+scenescape-mapping-vggt,coreutils:9.1-1,Ubuntu,BSD-4-Clause-UC AND FSFULLR AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-3.0-only AND GPL-3.0-or-later AND ISC
+scenescape-mapping-vggt,curl:7.88.1-10+deb12u14,Ubuntu,BSD-3-Clause AND BSD-3-Clause AND BSD-4-Clause-UC AND FSFULLR AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND ISC AND OLDAP-2.8 AND X11 AND curl
+scenescape-mapping-vggt,cycler==0.12.1,pypi,BSD-3-Clause
+scenescape-mapping-vggt,dash:0.5.12-2,Ubuntu,BSD-3-Clause AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-mapping-vggt,dash==4.0.0,pypi,MIT
+scenescape-mapping-vggt,debconf:1.5.82,Ubuntu,BSD-2-Clause
+scenescape-mapping-vggt,debian-archive-keyring:2023.3+deb12u2,Ubuntu,LicenseRef-GPL
+scenescape-mapping-vggt,debianutils:5.7-0.5~deb12u1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND SMAIL-GPL AND LicenseRef-public-domain
+scenescape-mapping-vggt,decorator==5.2.1,pypi,BSD-2-Clause
+scenescape-mapping-vggt,diffutils:1:3.8-4,Ubuntu,FSFAP AND FSFULLR AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND X11 AND LicenseRef-public-domain
+scenescape-mapping-vggt,dpkg:1.21.22,Ubuntu,BSD-2-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain-s-s-d
+scenescape-mapping-vggt,e2fsprogs:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-mapping-vggt,einops==0.8.2,pypi,MIT
+scenescape-mapping-vggt,executing==2.2.1,pypi,MIT
+scenescape-mapping-vggt,fastapi==0.135.1,pypi,MIT
+scenescape-mapping-vggt,fastjsonschema==2.21.2,pypi,LicenseRef-BSD
+scenescape-mapping-vggt,ffmpeg:5.1.4,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,ffmpeg:7:5.1.8-0+deb12u1,Ubuntu,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain
+scenescape-mapping-vggt,ffmpy==1.0.0,pypi,MIT
+scenescape-mapping-vggt,filelock==3.25.1,pypi,MIT
+scenescape-mapping-vggt,findutils:4.9.0-4,Ubuntu,BSD-3-Clause AND FSFAP AND FSFULLR AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3- AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND X11 AND LicenseRef-public-domain
+scenescape-mapping-vggt,flask==3.0.3,pypi,NOASSERTION
+scenescape-mapping-vggt,flask-cors==6.0.0,pypi,NOASSERTION
+scenescape-mapping-vggt,fontconfig:2.14.1-4,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,fontconfig-config:2.14.1-4,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,fonts-dejavu-core:2.37-6,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND Bitstream-Vera
+scenescape-mapping-vggt,fonttools==4.62.0,pypi,MIT
+scenescape-mapping-vggt,fsspec==2026.2.0,pypi,BSD-3-Clause
+scenescape-mapping-vggt,gcc-12-base:12.2.0-14+deb12u1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-mapping-vggt,git:1:2.39.5-0+deb12u3,Ubuntu,Apache-2.0 AND LicenseRef-Artistic AND BSD-3-Clause AND LicenseRef-Boost AND LicenseRef-EDL-1.0 AND LicenseRef-Expat AND LicenseRef-GPL AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND Zlib AND LicenseRef-dlmalloc AND LicenseRef-mingw-runtime
+scenescape-mapping-vggt,git-man:1:2.39.5-0+deb12u3,Ubuntu,Apache-2.0 AND LicenseRef-Artistic AND BSD-3-Clause AND LicenseRef-Boost AND LicenseRef-EDL-1.0 AND LicenseRef-Expat AND LicenseRef-GPL AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND Zlib AND LicenseRef-dlmalloc AND LicenseRef-mingw-runtime
+scenescape-mapping-vggt,gpgv:2.2.40-1.1+deb12u2,Ubuntu,BSD-3-Clause AND CC0-1.0 AND LicenseRef-Expat AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-RFC-Reference AND LicenseRef-TinySCHEME AND LicenseRef-permissive
+scenescape-mapping-vggt,gradio@6.7.0,npm,NOASSERTION
+scenescape-mapping-vggt,gradio==6.7.0,pypi,Apache-2.0
+scenescape-mapping-vggt,gradio-client==2.2.0,pypi,Apache-2.0
+scenescape-mapping-vggt,gradio-server-app@UNKNOWN,npm,NOASSERTION
+scenescape-mapping-vggt,gradio_client@2.2.0,npm,NOASSERTION
+scenescape-mapping-vggt,grep:3.8-5,Ubuntu,GPL-3.0-only AND GPL-3.0-or-later
+scenescape-mapping-vggt,groovy==0.1.2,pypi,NOASSERTION
+scenescape-mapping-vggt,grpcio==1.78.0,pypi,Apache-2.0
+scenescape-mapping-vggt,gui:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,gui-32:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,gui-64:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,gui-arm64:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,gunicorn==22.0.0,pypi,MIT
+scenescape-mapping-vggt,gzip:1.12-1,Ubuntu,LicenseRef-FSF-manpages AND LicenseRef-GFDL-1.3--no-invariant AND LicenseRef-GFDL-3 AND GPL-3.0-only AND GPL-3.0-or-later
+scenescape-mapping-vggt,h11==0.16.0,pypi,MIT
+scenescape-mapping-vggt,hf-xet==1.3.2,pypi,Apache-2.0
+scenescape-mapping-vggt,hostname:3.23+nmu1,Ubuntu,GPL-2.0-only
+scenescape-mapping-vggt,httpcore==1.0.9,pypi,BSD-3-Clause
+scenescape-mapping-vggt,httpx==0.28.1,pypi,BSD-3-Clause
+scenescape-mapping-vggt,huggingface-hub==1.3.1,pypi,LicenseRef-Apache
+scenescape-mapping-vggt,hydra-core==1.3.2,pypi,MIT
+scenescape-mapping-vggt,idna==3.11,pypi,BSD-3-Clause
+scenescape-mapping-vggt,importlib-metadata==8.7.1,pypi,Apache-2.0
+scenescape-mapping-vggt,importlib-metadata==8.7.1,pypi,Apache-2.0
+scenescape-mapping-vggt,init-system-helpers:1.65.2+deb12u1,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-mapping-vggt,ipython==9.10.0,pypi,BSD-3-Clause
+scenescape-mapping-vggt,ipython-pygments-lexers==1.1.1,pypi,NOASSERTION
+scenescape-mapping-vggt,ipywidgets==8.1.8,pypi,LicenseRef-BSD-3-Clause-License
+scenescape-mapping-vggt,itsdangerous==2.2.0,pypi,NOASSERTION
+scenescape-mapping-vggt,jaraco-context==6.1.0,pypi,MIT
+scenescape-mapping-vggt,jaraco-functools==4.4.0,pypi,MIT
+scenescape-mapping-vggt,jaraco-text==4.0.0,pypi,NOASSERTION
+scenescape-mapping-vggt,jaxtyping==0.3.9,pypi,MIT
+scenescape-mapping-vggt,jedi==0.19.2,pypi,MIT
+scenescape-mapping-vggt,jinja2==3.1.6,pypi,NOASSERTION
+scenescape-mapping-vggt,joblib==1.5.3,pypi,BSD-3-Clause
+scenescape-mapping-vggt,jsonschema==4.26.0,pypi,MIT
+scenescape-mapping-vggt,jsonschema-specifications==2025.9.1,pypi,MIT
+scenescape-mapping-vggt,jupyter-core==5.9.1,pypi,BSD-3-Clause
+scenescape-mapping-vggt,jupyterlab-plotly@6.0.1,npm,MIT
+scenescape-mapping-vggt,jupyterlab-plotly@6.0.1,npm,MIT
+scenescape-mapping-vggt,jupyterlab-widgets==3.0.16,pypi,BSD-3-Clause
+scenescape-mapping-vggt,kiwisolver==1.5.0,pypi,LicenseRef-4e89b2eeb82ea10ec61119c814f2ca0bbccdc22b72d0eb4f5542ef08f6a73ed2
+scenescape-mapping-vggt,libXau:1.0.9-3.el8,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,libacl1:2.3.1-3,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-only
+scenescape-mapping-vggt,libaom3:3.6.0-1+deb12u2,Ubuntu,BSD-2-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-Expat AND ISC AND LicenseRef-public-domain-md5
+scenescape-mapping-vggt,libapt-pkg6.0:2.6.1,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-mapping-vggt,libasound2:1.2.8-1+b1,Ubuntu,LGPL-2.1-only AND LicenseRef-LPGL-2.1-
+scenescape-mapping-vggt,libasound2-data:1.2.8-1,Ubuntu,LGPL-2.1-only AND LicenseRef-LPGL-2.1-
+scenescape-mapping-vggt,libass9:1:0.17.1-1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LicenseRef-other-1
+scenescape-mapping-vggt,libasyncns0:0.8-6+b3,Ubuntu,LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libattr1:1:2.5.1-4,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-only
+scenescape-mapping-vggt,libaudit-common:1:3.0.9-1,Ubuntu,GPL-1.0-only AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-mapping-vggt,libaudit1:1:3.0.9-1,Ubuntu,GPL-1.0-only AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-mapping-vggt,libavc1394-0:0.5.4-5,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libavcodec59:7:5.1.8-0+deb12u1,Ubuntu,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain
+scenescape-mapping-vggt,libavdevice59:7:5.1.8-0+deb12u1,Ubuntu,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain
+scenescape-mapping-vggt,libavfilter8:7:5.1.8-0+deb12u1,Ubuntu,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain
+scenescape-mapping-vggt,libavformat59:7:5.1.8-0+deb12u1,Ubuntu,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain
+scenescape-mapping-vggt,libavutil57:7:5.1.8-0+deb12u1,Ubuntu,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain
+scenescape-mapping-vggt,libblas3:3.11.0-2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-3-clause-intel
+scenescape-mapping-vggt,libblkid1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-mapping-vggt,libbluray2:1:1.3.4-1,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND MPL-1.0 AND LicenseRef-custom
+scenescape-mapping-vggt,libbrotli1:1.0.9-2+b6,Ubuntu,MIT
+scenescape-mapping-vggt,libbs2b0:3.1.0+dfsg-7,Ubuntu,LicenseRef-Expat AND LicenseRef-FSF-unlimited AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-MIT-FSF-public
+scenescape-mapping-vggt,libbsd0:0.11.7-2,Ubuntu,BSD-2-Clause AND BSD-2-Clause AND LicenseRef-BSD-2-clause-author AND LicenseRef-BSD-2-clause-verbatim AND BSD-3-Clause AND LicenseRef-BSD-3-clause-John-Birrell AND LicenseRef-BSD-3-clause-Regents AND LicenseRef-BSD-3-clause-author AND LicenseRef-BSD-4-clause-Niels-Provos AND Beerware AND LicenseRef-Expat AND ISC AND LicenseRef-ISC-Original AND libutil-David-Nugent AND LicenseRef-public-domain
+scenescape-mapping-vggt,libbz2-1.0:1.0.8-5+b1,Ubuntu,LicenseRef-BSD-variant AND GPL-2.0-only
+scenescape-mapping-vggt,libc-bin:2.36-9+deb12u13,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-mapping-vggt,libc6:2.36-9+deb12u13,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-mapping-vggt,libcaca0:0.99.beta20-3,Ubuntu,LicenseRef-GPL AND GPL-1.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-WTFPL-2
+scenescape-mapping-vggt,libcairo-gobject2:1.16.0-7,Ubuntu,LGPL-2.1-only
+scenescape-mapping-vggt,libcairo2:1.16.0-7,Ubuntu,LGPL-2.1-only
+scenescape-mapping-vggt,libcap-ng0:0.8.3-1+b3,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libcap2:1:2.66-4+deb12u2+b2,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-mapping-vggt,libcdio-cdda2:10.2+2.0.1-1,Ubuntu,GFDL-1.2-only AND GPL-3.0-only
+scenescape-mapping-vggt,libcdio-paranoia2:10.2+2.0.1-1,Ubuntu,GFDL-1.2-only AND GPL-3.0-only
+scenescape-mapping-vggt,libcdio19:2.1.0-4,Ubuntu,GFDL-1.2-only AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only
+scenescape-mapping-vggt,libchromaprint1:1.5.1-2+b1,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libcjson1:1.7.15-1+deb12u4,Ubuntu,Apache-2.0 AND MIT
+scenescape-mapping-vggt,libcodec2-1.0:1.0.5-1,Ubuntu,LicenseRef-JMVBSD AND LicenseRef-KISSFFTBSD AND LGPL-2.1-only
+scenescape-mapping-vggt,libcom-err2:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-mapping-vggt,libcrypt1:1:4.4.33-2,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libcurl3-gnutls:7.88.1-10+deb12u14,Ubuntu,BSD-3-Clause AND BSD-3-Clause AND BSD-4-Clause-UC AND FSFULLR AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND ISC AND OLDAP-2.8 AND X11 AND curl
+scenescape-mapping-vggt,libcurl4:7.88.1-10+deb12u14,Ubuntu,BSD-3-Clause AND BSD-3-Clause AND BSD-4-Clause-UC AND FSFULLR AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND ISC AND OLDAP-2.8 AND X11 AND curl
+scenescape-mapping-vggt,libdatrie1:0.2.13-2+b1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libdav1d6:1.0.0-2+deb12u1,Ubuntu,BSD-2-Clause AND ISC AND LicenseRef-public-domain
+scenescape-mapping-vggt,libdb5.3:5.3.28+dfsg2-1,Ubuntu,LicenseRef-Artistic AND BSD-3-Clause AND LicenseRef-BSD-3-clause-fjord AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-MIT-old AND MS-PL AND Sleepycat AND LicenseRef-TCL-like AND X11 AND Zlib
+scenescape-mapping-vggt,libdbus-1-3:1.14.10-1~deb12u1,Ubuntu,AFL-2.1 AND BSD-3-Clause AND LicenseRef-BSD-3-clause-generic AND LicenseRef-Expat AND LicenseRef-FSF-unlimited-permission AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Tcl-BSDish AND LicenseRef-autoconf-archive-permissive AND LicenseRef-g10-permissive
+scenescape-mapping-vggt,libdc1394-25:2.2.6-4,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-mapping-vggt,libdebconfclient0:0.270,Ubuntu,BSD-2-Clause AND BSD-2-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-mapping-vggt,libdecor-0-0:0.1.1-2,Ubuntu,LicenseRef-Expat AND GPL-3.0-only AND GPL-3.0-or-later
+scenescape-mapping-vggt,libdeflate0:1.14-1,Ubuntu,LicenseRef-Expat
+scenescape-mapping-vggt,libdrm-amdgpu1:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libdrm-common:2.4.114-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libdrm-intel1:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libdrm-nouveau2:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libdrm-radeon1:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libdrm2:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libedit2:3.1-20221030-2,Ubuntu,BSD-3-Clause
+scenescape-mapping-vggt,libelf1:0.188-2.1,Ubuntu,BSD-2-Clause AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-2.0-only AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later
+scenescape-mapping-vggt,libepoxy0:1.5.10-1,Ubuntu,LicenseRef-Expat
+scenescape-mapping-vggt,liberror-perl:0.17029-2,Ubuntu,LicenseRef-Artistic AND GPL-1.0-only AND GPL-1.0-or-later AND LicenseRef-MIT-X11
+scenescape-mapping-vggt,libexpat1:2.5.0-1+deb12u2,Ubuntu,MIT
+scenescape-mapping-vggt,libext2fs2:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-mapping-vggt,libffi8:3.4.4-1,Ubuntu,LicenseRef-Expat AND LicenseRef-GPL AND GPL-2.0-or-later AND GPL-3.0-or-later AND MPL-1.1 AND X11 AND LicenseRef-public-domain
+scenescape-mapping-vggt,libflac12:1.4.2+ds-2,Ubuntu,BSD-3-Clause AND GFDL-1.1-or-later AND GFDL-1.2-only AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Public-domain
+scenescape-mapping-vggt,libflite1:2.2-5,Ubuntu,GPL-2.0-only AND GPL-3.0-only
+scenescape-mapping-vggt,libfontconfig1:2.14.1-4,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libfreetype6:2.12.1+dfsg-5+deb12u4,Ubuntu,BSD-3-Clause AND BSL-1.0 AND FSFAP AND FTL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND MIT AND LicenseRef-OpenGroup-BSD-like AND LicenseRef-Public-Domain AND Zlib
+scenescape-mapping-vggt,libfribidi0:1.0.8-2.1,Ubuntu,LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libgbm1:22.3.6-1+deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause AND LicenseRef-BSD-3-google AND LicenseRef-BSL AND LicenseRef-GPL AND LicenseRef-Khronos AND MIT AND LicenseRef-MLAA AND LicenseRef-SGI
+scenescape-mapping-vggt,libgcc-s1:12.2.0-14+deb12u1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-mapping-vggt,libgcrypt20:1.10.1-3,Ubuntu,GPL-2.0-only AND LicenseRef-LGPL
+scenescape-mapping-vggt,libgdbm-compat4:1.23-3,Ubuntu,LicenseRef-GFDL-NIV-1.3- AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later
+scenescape-mapping-vggt,libgdbm6:1.23-3,Ubuntu,LicenseRef-GFDL-NIV-1.3- AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later
+scenescape-mapping-vggt,libgdk-pixbuf-2.0-0:2.42.10+dfsg-1+deb12u3,Ubuntu,CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libgdk-pixbuf2.0-common:2.42.10+dfsg-1+deb12u3,Ubuntu,CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libgfortran5:12.2.0-14+deb12u1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-mapping-vggt,libgl1:1.6.0-1,Ubuntu,Apache-2.0 AND BSD-1-Clause AND LicenseRef-GPL AND GPL-3.0-only AND GPL-3.0-or-later AND MIT
+scenescape-mapping-vggt,libgl1-mesa-dri:22.3.6-1+deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause AND LicenseRef-BSD-3-google AND LicenseRef-BSL AND LicenseRef-GPL AND LicenseRef-Khronos AND MIT AND LicenseRef-MLAA AND LicenseRef-SGI
+scenescape-mapping-vggt,libglapi-mesa:22.3.6-1+deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause AND LicenseRef-BSD-3-google AND LicenseRef-BSL AND LicenseRef-GPL AND LicenseRef-Khronos AND MIT AND LicenseRef-MLAA AND LicenseRef-SGI
+scenescape-mapping-vggt,libglib2.0-0:2.74.6-2+deb12u8,Ubuntu,AFL-2.0 AND Apache-2.0 AND LicenseRef-BSD-3-clause-pcre AND CC-BY-SA-3.0 AND CC0-1.0 AND LicenseRef-Expat AND FSFULLR AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-Iconv-PD AND LicenseRef-Janik-permissive AND LicenseRef-Kuchling-PD AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-Mingw-PD AND LicenseRef-Old-GLib-Tests-permissive AND LicenseRef-Plumb-PD AND Unicode-DFS-2016 AND bzip2-1.0.6
+scenescape-mapping-vggt,libglvnd0:1.6.0-1,Ubuntu,Apache-2.0 AND BSD-1-Clause AND LicenseRef-GPL AND GPL-3.0-only AND GPL-3.0-or-later AND MIT
+scenescape-mapping-vggt,libglx-mesa0:22.3.6-1+deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause AND LicenseRef-BSD-3-google AND LicenseRef-BSL AND LicenseRef-GPL AND LicenseRef-Khronos AND MIT AND LicenseRef-MLAA AND LicenseRef-SGI
+scenescape-mapping-vggt,libglx0:1.6.0-1,Ubuntu,Apache-2.0 AND BSD-1-Clause AND LicenseRef-GPL AND GPL-3.0-only AND GPL-3.0-or-later AND MIT
+scenescape-mapping-vggt,libgme0:0.6.3-6,Ubuntu,LGPL-2.1-only AND LGPL-2.1-or-later AND MIT
+scenescape-mapping-vggt,libgmp10:2:6.2.1+dfsg1-1.1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later
+scenescape-mapping-vggt,libgnutls30:3.7.9-2+deb12u6,Ubuntu,Apache-2.0 AND BSD-3-Clause AND LicenseRef-CC0 AND LicenseRef-Expat AND GFDL-1.3-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-GPLv3- AND LicenseRef-LGPL AND LGPL-3.0-only AND LicenseRef-LGPLv2.1- AND LicenseRef-LGPLv3--or-GPLv2- AND LicenseRef-The
+scenescape-mapping-vggt,libgomp:8.5.0-28.el8_10.alma.1,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,libgomp1:12.2.0-14+deb12u1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-mapping-vggt,libgpg-error0:1.46-1,Ubuntu,BSD-3-Clause AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-g10-permissive
+scenescape-mapping-vggt,libgraphite2-3:1.3.14-1,Ubuntu,LicenseRef-Artistic AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND MPL-1.1 AND LicenseRef-custom-sil-open-font-license AND LicenseRef-public-domain
+scenescape-mapping-vggt,libgsm1:1.0.22-1,Ubuntu,TU-Berlin-2.0
+scenescape-mapping-vggt,libgssapi-krb5-2:1.20.1-2+deb12u4,Ubuntu,GPL-2.0-only
+scenescape-mapping-vggt,libharfbuzz0b:6.0.0+dfsg-3,Ubuntu,Apache-2.0 AND CC0-1.0 AND LicenseRef-Expat AND FSFAP AND FSFUL AND FSFULLR AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND ISC AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT AND LicenseRef-Monotype AND OFL-1.1 AND LicenseRef-UFL-1.0 AND LicenseRef-Unicode
+scenescape-mapping-vggt,libhogweed6:3.8.1-2,Ubuntu,LicenseRef-Expat AND LicenseRef-GAP AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-3.0-or-later AND LicenseRef-public-domain
+scenescape-mapping-vggt,libhwy1:1.0.3-3+deb12u1,Ubuntu,Apache-2.0
+scenescape-mapping-vggt,libice6:2:1.0.10-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libicu72:72.1-3+deb12u1,Ubuntu,GPL-3.0-only AND MIT
+scenescape-mapping-vggt,libidn2-0:2.3.3-1+b1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-Unicode
+scenescape-mapping-vggt,libiec61883-0:1.2.0-6+b1,Ubuntu,LGPL-2.1-only
+scenescape-mapping-vggt,libjack-jackd2-0:1.9.21~dfsg-3,Ubuntu,BSD-2-Clause AND BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-2-either AND LicenseRef-GPL-2-or AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-public-domain-Kroon
+scenescape-mapping-vggt,libjbig0:2.1-6.1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later
+scenescape-mapping-vggt,libjpeg62-turbo:1:2.1.5-2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-BY-LC-NE AND LicenseRef-Expat AND NTP AND Zlib
+scenescape-mapping-vggt,libjxl0.7:0.7.0-10+deb12u1,Ubuntu,LicenseRef-BSD-3-clause-Google AND LicenseRef-ISC-License
+scenescape-mapping-vggt,libk5crypto3:1.20.1-2+deb12u4,Ubuntu,GPL-2.0-only
+scenescape-mapping-vggt,libkeyutils1:1.6.3-2,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later
+scenescape-mapping-vggt,libkrb5-3:1.20.1-2+deb12u4,Ubuntu,GPL-2.0-only
+scenescape-mapping-vggt,libkrb5support0:1.20.1-2+deb12u4,Ubuntu,GPL-2.0-only
+scenescape-mapping-vggt,liblapack3:3.11.0-2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-3-clause-intel
+scenescape-mapping-vggt,liblcms2-2:2.14-2,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND IJG AND MIT
+scenescape-mapping-vggt,libldap-2.5-0:2.5.13+dfsg-5,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-3-clause-California AND LicenseRef-BSD-3-clause-variant AND LicenseRef-BSD-4-clause-California AND Beerware AND LicenseRef-Expat AND LicenseRef-Expat-ISC AND LicenseRef-Expat-UNM AND LicenseRef-F5 AND LicenseRef-FSF-unlimited AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-JCG AND LicenseRef-MIT-XC AND LicenseRef-NeoSoft-permissive AND LicenseRef-OpenLDAP-2.8 AND LicenseRef-UMich AND LicenseRef-public-domain
+scenescape-mapping-vggt,liblerc4:4.0.0+ds-2,Ubuntu,Apache-2.0
+scenescape-mapping-vggt,liblilv-0-0:0.24.14-1,Ubuntu,BSD-3-Clause AND ISC
+scenescape-mapping-vggt,libllvm15:1:15.0.6-4+b1,Ubuntu,LicenseRef-APACHE-2-LLVM-EXCEPTIONS AND Apache-2.0 AND BSD-3-Clause AND BSD-3-Clause AND MIT AND LicenseRef-Python AND LicenseRef-solar-public-domain
+scenescape-mapping-vggt,liblz4-1:1.9.4-1,Ubuntu,BSD-2-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-mapping-vggt,liblzma5:5.4.1-1,Ubuntu,LicenseRef-Autoconf AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-PD AND LicenseRef-PD-debian AND LicenseRef-config-h AND LicenseRef-noderivs AND LicenseRef-permissive-fsf AND LicenseRef-permissive-nowarranty AND LicenseRef-probably-PD
+scenescape-mapping-vggt,libmbedcrypto7:2.28.3-1,Ubuntu,Apache-2.0 AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-mapping-vggt,libmd0:1.0.4-2,Ubuntu,BSD-2-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSD-3-clause-Aaron-D-Gifford AND Beerware AND ISC AND LicenseRef-public-domain-md4 AND LicenseRef-public-domain-md5 AND LicenseRef-public-domain-sha1
+scenescape-mapping-vggt,libmfx1:22.5.4-1,Ubuntu,Apache-2.0 AND BSD-3-Clause AND MIT AND NTP
+scenescape-mapping-vggt,libmount1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-mapping-vggt,libmp3lame0:3.100-6,Ubuntu,BSD-3-Clause AND GPL-1.0-only AND GPL-1.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-zlib-libpng
+scenescape-mapping-vggt,libmpg123-0:1.31.2-1+deb12u1,Ubuntu,LGPL-2.1-only
+scenescape-mapping-vggt,libmysofa1:1.3.1~dfsg0-1,Ubuntu,BSD-3-Clause AND CC-BY-4.0 AND CC-BY-SA-3.0 AND LicenseRef-cipic AND LicenseRef-listen-ircam AND LicenseRef-mit-kemar
+scenescape-mapping-vggt,libncursesw6:6.4-4,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-mapping-vggt,libnettle8:3.8.1-2,Ubuntu,LicenseRef-Expat AND LicenseRef-GAP AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-3.0-or-later AND LicenseRef-public-domain
+scenescape-mapping-vggt,libnghttp2-14:1.52.0-1+deb12u2,Ubuntu,BSD-2-Clause AND LicenseRef-Expat AND GPL-3.0-only AND GPL-3.0-or-later AND MIT AND LicenseRef-all-permissive
+scenescape-mapping-vggt,libnorm1:1.5.9+dfsg-2,Ubuntu,BSD-2-Clause AND BSD-3-Clause AND BSD-4-Clause-UC AND LicenseRef-NRL-2-clause AND LicenseRef-NRL-3-clause
+scenescape-mapping-vggt,libnsl2:1.3.0-2,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND LicenseRef-GPL-2--autoconf-exception AND LicenseRef-GPL-2--libtool-exception AND GPL-3.0-only AND LicenseRef-GPL-3--autoconf-exception AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT AND LicenseRef-permissive-autoconf-m4 AND LicenseRef-permissive-autoconf-m4-no-warranty AND LicenseRef-permissive-configure AND LicenseRef-permissive-fsf AND LicenseRef-permissive-makefile-in
+scenescape-mapping-vggt,libnuma1:2.0.16-1,Ubuntu,LicenseRef-GPL AND LicenseRef-LGPL
+scenescape-mapping-vggt,libogg0:1.3.5-3,Ubuntu,BSD-3-Clause AND LicenseRef-rfc3533-license AND LicenseRef-rfc5334-license
+scenescape-mapping-vggt,libopenal-data:1:1.19.1-2,Ubuntu,LicenseRef-Apache AND LicenseRef-BSD-3-clause-cmake AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libopenal1:1:1.19.1-2,Ubuntu,LicenseRef-Apache AND LicenseRef-BSD-3-clause-cmake AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libopenjp2-7:2.5.0-2+deb12u2,Ubuntu,LicenseRef-BSD-2 AND LicenseRef-BSD-3 AND Libpng AND libtiff AND LicenseRef-LIBTIFF-GLARSON AND LicenseRef-LIBTIFF-PIXAR AND MIT AND Zlib AND LicenseRef-public-domain
+scenescape-mapping-vggt,libopenmpt0:0.6.9-1,Ubuntu,BSD-3-Clause AND BSL-1.0 AND LicenseRef-GNU-All-Permissive-License AND LicenseRef-GNU-All-Permissive-License-FSF AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND X11
+scenescape-mapping-vggt,libopus0:1.3.1-3,Ubuntu,BSD-2-Clause AND BSD-3-Clause
+scenescape-mapping-vggt,libp11-kit0:0.24.1-2,Ubuntu,Apache-2.0 AND BSD-3-Clause AND ISC AND LicenseRef-ISC-IBM AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-permissive-like-automake-output AND LicenseRef-same-as-rest-of-p11kit
+scenescape-mapping-vggt,libpam-modules:1.5.2-6+deb12u2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-mapping-vggt,libpam-modules-bin:1.5.2-6+deb12u2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-mapping-vggt,libpam-runtime:1.5.2-6+deb12u2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-mapping-vggt,libpam0g:1.5.2-6+deb12u2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-mapping-vggt,libpango-1.0-0:1.50.12+ds-1,Ubuntu,Apache-2.0 AND Apache-2.0 AND Bitstream-Vera AND CC0-1.0 AND LicenseRef-Chromium-BSD-style AND LicenseRef-Example AND GPL-2.0-or-later AND GPL-2.0-only AND ICU AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND OFL-1.1 AND TCL AND LicenseRef-Unicode
+scenescape-mapping-vggt,libpangocairo-1.0-0:1.50.12+ds-1,Ubuntu,Apache-2.0 AND Apache-2.0 AND Bitstream-Vera AND CC0-1.0 AND LicenseRef-Chromium-BSD-style AND LicenseRef-Example AND GPL-2.0-or-later AND GPL-2.0-only AND ICU AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND OFL-1.1 AND TCL AND LicenseRef-Unicode
+scenescape-mapping-vggt,libpangoft2-1.0-0:1.50.12+ds-1,Ubuntu,Apache-2.0 AND Apache-2.0 AND Bitstream-Vera AND CC0-1.0 AND LicenseRef-Chromium-BSD-style AND LicenseRef-Example AND GPL-2.0-or-later AND GPL-2.0-only AND ICU AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND OFL-1.1 AND TCL AND LicenseRef-Unicode
+scenescape-mapping-vggt,libpciaccess0:0.17-2,Ubuntu,LicenseRef-GPL
+scenescape-mapping-vggt,libpcre2-8-0:10.42-1,Ubuntu,BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSD-3-clause-Cambridge AND X11 AND LicenseRef-public-domain
+scenescape-mapping-vggt,libperl5.36:5.36.0-7+deb12u3,Ubuntu,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib
+scenescape-mapping-vggt,libpgm-5.3-0:5.3.128~dfsg-2,Ubuntu,BSD-3-Clause AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only
+scenescape-mapping-vggt,libpixman-1-0:0.42.2-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libplacebo208:4.208.0-3,Ubuntu,LicenseRef-CC0 AND LicenseRef-Expat AND LGPL-2.1-only AND LGPL-2.1-or-later AND Zlib
+scenescape-mapping-vggt,libpng16-16:1.6.39-2+deb12u3,Ubuntu,Apache-2.0 AND BSD-3-Clause AND LicenseRef-BSD-like-with-advertising-clause AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-expat AND Libpng
+scenescape-mapping-vggt,libpocketsphinx3:0.8+5prealpha+1-15,Ubuntu,LicenseRef-BSD-2 AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-mapping-vggt,libpostproc56:7:5.1.8-0+deb12u1,Ubuntu,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain
+scenescape-mapping-vggt,libpsl5:0.21.2-1,Ubuntu,LicenseRef-Chromium AND MIT AND LicenseRef-gnulib
+scenescape-mapping-vggt,libpthread-stubs0-dev:0.4-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libpulse0:16.1+dfsg1-2+b1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-other
+scenescape-mapping-vggt,libquadmath0:12.2.0-14+deb12u1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-mapping-vggt,librabbitmq4:0.11.0-1+deb12u1,Ubuntu,LicenseRef-BSD-Author AND LicenseRef-Expat
+scenescape-mapping-vggt,librav1e0:0.5.1-6,Ubuntu,BSD-2-Clause AND BSD-2-Clause AND ISC
+scenescape-mapping-vggt,libraw1394-11:2.1.2-2,Ubuntu,LicenseRef-GPL AND LicenseRef-LGPL
+scenescape-mapping-vggt,libreadline8:8.2-1.3,Ubuntu,LicenseRef-GFDL AND LicenseRef-GFDL-NIV-1.3- AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-ISC-no-attribution
+scenescape-mapping-vggt,librist4:0.2.7+dfsg-1,Ubuntu,BSD-2-Clause AND LicenseRef-Expat AND ISC AND LicenseRef-public-domain
+scenescape-mapping-vggt,librsvg2-2:2.54.7+dfsg-1~deb12u1,Ubuntu,0BSD AND Apache-2.0 AND LicenseRef-Apache-2.0- AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-Boost-1.0 AND CC-BY-3.0 AND LicenseRef-CC-zero-waive-1.0-us AND LicenseRef-Expat AND FSFAP AND LGPL-2.0-only AND LGPL-2.0-or-later AND MPL-2.0 AND OFL-1.1 AND LicenseRef-Sun-permissive AND Unlicense AND Zlib
+scenescape-mapping-vggt,librtmp1:2.4+20151223.gitfa8646d.1-2+b2,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-mapping-vggt,librubberband2:3.1.2+dfsg0-1,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND Zlib AND LicenseRef-other-1
+scenescape-mapping-vggt,libsamplerate0:0.2.2-3,Ubuntu,BSD-2-Clause AND FSFAP AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later
+scenescape-mapping-vggt,libsasl2-2:2.1.28+dfsg-10,Ubuntu,BSD-2-Clause AND LicenseRef-BSD-2.2-clause AND BSD-3-Clause AND LicenseRef-BSD-3-clause-JANET AND LicenseRef-BSD-3-clause-PADL AND BSD-4-Clause AND LicenseRef-BSD-4-clause-KTH AND BSD-4-Clause-UC AND FSFULLR AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-IBM-as-is AND MIT-CMU AND LicenseRef-MIT-Export AND LicenseRef-MIT-OpenVision AND LicenseRef-OpenLDAP AND OpenSSL AND RSA-MD AND LicenseRef-SSLeay
+scenescape-mapping-vggt,libsasl2-modules-db:2.1.28+dfsg-10,Ubuntu,BSD-2-Clause AND LicenseRef-BSD-2.2-clause AND BSD-3-Clause AND LicenseRef-BSD-3-clause-JANET AND LicenseRef-BSD-3-clause-PADL AND BSD-4-Clause AND LicenseRef-BSD-4-clause-KTH AND BSD-4-Clause-UC AND FSFULLR AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-IBM-as-is AND MIT-CMU AND LicenseRef-MIT-Export AND LicenseRef-MIT-OpenVision AND LicenseRef-OpenLDAP AND OpenSSL AND RSA-MD AND LicenseRef-SSLeay
+scenescape-mapping-vggt,libsdl2-2.0-0:2.26.5+dfsg-1,Ubuntu,Apache-2.0 AND BSD-3-Clause AND LicenseRef-BSD-3-clause-chromium AND LicenseRef-BSD-3-clause-kitware AND LicenseRef-BrownUn-UnCalifornia-ErikCorry AND LicenseRef-Expat AND LicenseRef-Expat-like AND GPL-3.0-only AND LicenseRef-Gareth-McCaughan AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT-open-group AND LicenseRef-Mozilla-permissive AND LicenseRef-PublicDomain-David-Ludwig AND LicenseRef-PublicDomain-Edgar-Simo AND LicenseRef-PublicDomain-Sam-Lantinga AND LicenseRef-RSA-Data-Security AND LicenseRef-SGI-Free-Software-License-B AND SunPro AND LicenseRef-hidapi-orig AND LicenseRef-zlib-libpng-like-permissive AND LicenseRef-zlib-libpng
+scenescape-mapping-vggt,libseccomp2:2.5.4-1+deb12u1,Ubuntu,LGPL-2.1-only
+scenescape-mapping-vggt,libselinux1:3.4-1+b6,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-mapping-vggt,libsemanage-common:3.4-1,Ubuntu,LicenseRef-GPL AND LicenseRef-LGPL
+scenescape-mapping-vggt,libsemanage2:3.4-1+b5,Ubuntu,LicenseRef-GPL AND LicenseRef-LGPL
+scenescape-mapping-vggt,libsensors-config:1:3.6.0-7.1,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-mapping-vggt,libsensors5:1:3.6.0-7.1,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-mapping-vggt,libsepol2:3.4-2.1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND Zlib
+scenescape-mapping-vggt,libserd-0-0:0.30.16-1,Ubuntu,ISC
+scenescape-mapping-vggt,libshine3:3.1.1-2,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only
+scenescape-mapping-vggt,libslang2:2.3.3-3,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later
+scenescape-mapping-vggt,libsm6:2:1.2.3-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libsmartcols1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-mapping-vggt,libsnappy1v5:1.1.9-3,Ubuntu,BSD-3-Clause AND CC-BY-3.0 AND CC-BY-4.0 AND MIT AND LicenseRef-public-domain
+scenescape-mapping-vggt,libsndfile1:1.2.0-1+deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND FSFAP AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND NTP AND LicenseRef-gsm AND LicenseRef-sun
+scenescape-mapping-vggt,libsndio7.0:1.9.0-0.3+b2,Ubuntu,ISC AND LicenseRef-ISC-packaging
+scenescape-mapping-vggt,libsodium23:1.0.18-1+deb12u1,Ubuntu,BSD-2-Clause AND LicenseRef-CC0 AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND MIT AND LicenseRef-public-domain
+scenescape-mapping-vggt,libsord-0-0:0.16.14+git221008-1,Ubuntu,ISC
+scenescape-mapping-vggt,libsoxr0:0.1.3-4,Ubuntu,LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Spherepack AND LicenseRef-permissive1 AND LicenseRef-permissive2
+scenescape-mapping-vggt,libspeex1:1.2.1-2,Ubuntu,BSD-3-Clause AND GFDL-1.1-or-later AND GFDL-1.2-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-custom-1
+scenescape-mapping-vggt,libsphinxbase3:0.8+5prealpha+1-16,Ubuntu,BSD-2-Clause AND LicenseRef-BSD-2-clause-beyond AND BSD-3-Clause AND LicenseRef-BSD-3-clause-carnegie AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-lucent AND LicenseRef-u-o-tennesee
+scenescape-mapping-vggt,libsqlite3-0:3.40.1-2+deb12u2,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-mapping-vggt,libsratom-0-0:0.6.14-1,Ubuntu,ISC
+scenescape-mapping-vggt,libsrt1.5-gnutls:1.5.1-1+deb12u1,Ubuntu,BSD-3-Clause AND LGPL-2.1-only AND LGPL-2.1-or-later AND MPL-2.0 AND Zlib AND Unlicense
+scenescape-mapping-vggt,libss2:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-mapping-vggt,libssh-gcrypt-4:0.10.6-0+deb12u2,Ubuntu,BSD-2-Clause AND BSD-3-Clause AND LGPL-2.1-only AND LicenseRef-LGPL-2.1--OpenSSL AND LicenseRef-public-domain
+scenescape-mapping-vggt,libssh2-1:1.10.0-3+b1,Ubuntu,LicenseRef-BSD3
+scenescape-mapping-vggt,libssl3:3.0.18-1~deb12u2,Ubuntu,Apache-2.0 AND LicenseRef-Artistic AND GPL-1.0-only AND GPL-1.0-or-later
+scenescape-mapping-vggt,libstdc++6:12.2.0-14+deb12u1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-mapping-vggt,libsvtav1enc1:1.4.1+dfsg-1,Ubuntu,BSD-2-Clause AND BSD-3-Clause-Clear AND BSD-3-Clause AND LicenseRef-Expat AND ISC AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libswresample4:7:5.1.8-0+deb12u1,Ubuntu,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain
+scenescape-mapping-vggt,libswscale6:7:5.1.8-0+deb12u1,Ubuntu,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain
+scenescape-mapping-vggt,libsystemd0:252.39-1~deb12u1,Ubuntu,CC0-1.0 AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-public-domain
+scenescape-mapping-vggt,libtasn1-6:4.19.0-2+deb12u1,Ubuntu,GFDL-1.3-only AND GPL-3.0-only AND LicenseRef-LGPL AND LGPL-2.1-only
+scenescape-mapping-vggt,libthai-data:0.1.29-1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libthai0:0.1.29-1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libtheora0:1.1.1+dfsg.1-16.1+deb12u1,Ubuntu,BSD-3-Clause
+scenescape-mapping-vggt,libtiff6:4.5.0-6+deb12u3,Ubuntu,LicenseRef-Hylafax
+scenescape-mapping-vggt,libtinfo6:6.4-4,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-mapping-vggt,libtirpc-common:1.3.3+ds-1,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-mapping-vggt,libtirpc3:1.3.3+ds-1,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-mapping-vggt,libtwolame0:0.4.0-2,Ubuntu,LGPL-2.0-only AND LGPL-2.0-or-later
+scenescape-mapping-vggt,libudev1:252.39-1~deb12u1,Ubuntu,CC0-1.0 AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-public-domain
+scenescape-mapping-vggt,libudfread0:1.1.2-1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libunistring2:1.0-2,Ubuntu,LicenseRef-FreeSoftware AND GFDL-1.2-only AND GFDL-1.2-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT
+scenescape-mapping-vggt,libusb-1.0-0:2:1.0.26-1,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-mapping-vggt,libuuid1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-mapping-vggt,libva-drm2:2.17.0-1,Ubuntu,LicenseRef-Expat AND LicenseRef-Expat-advertising AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-other
+scenescape-mapping-vggt,libva-x11-2:2.17.0-1,Ubuntu,LicenseRef-Expat AND LicenseRef-Expat-advertising AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-other
+scenescape-mapping-vggt,libva2:2.17.0-1,Ubuntu,LicenseRef-Expat AND LicenseRef-Expat-advertising AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-other
+scenescape-mapping-vggt,libvdpau1:1.5-2,Ubuntu,LicenseRef-Expat AND LicenseRef-other
+scenescape-mapping-vggt,libvidstab1.1:1.1.0-2+b1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later
+scenescape-mapping-vggt,libvorbis0a:1.3.7-1,Ubuntu,BSD-3-Clause AND LicenseRef-RFC-special
+scenescape-mapping-vggt,libvorbisenc2:1.3.7-1,Ubuntu,BSD-3-Clause AND LicenseRef-RFC-special
+scenescape-mapping-vggt,libvorbisfile3:1.3.7-1,Ubuntu,BSD-3-Clause AND LicenseRef-RFC-special
+scenescape-mapping-vggt,libvpx7:1.12.0-1+deb12u5,Ubuntu,BSD-3-Clause AND ISC AND LicenseRef-public-domain
+scenescape-mapping-vggt,libvulkan1:1.3.239.0-1,Ubuntu,Apache-2.0 AND MIT
+scenescape-mapping-vggt,libwayland-client0:1.21.0-1,Ubuntu,X11
+scenescape-mapping-vggt,libwayland-cursor0:1.21.0-1,Ubuntu,X11
+scenescape-mapping-vggt,libwayland-egl1:1.21.0-1,Ubuntu,X11
+scenescape-mapping-vggt,libwayland-server0:1.21.0-1,Ubuntu,X11
+scenescape-mapping-vggt,libwebp7:1.2.4-0.2+deb12u1,Ubuntu,Apache-2.0
+scenescape-mapping-vggt,libwebpmux3:1.2.4-0.2+deb12u1,Ubuntu,Apache-2.0
+scenescape-mapping-vggt,libx11-6:2:1.8.4-2+deb12u2,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libx11-data:2:1.8.4-2+deb12u2,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libx11-dev:2:1.8.4-2+deb12u2,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libx11-xcb1:2:1.8.4-2+deb12u2,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libx264-164:2:0.164.3095+gitbaee400-3,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.1-or-later AND LicenseRef-public-domain
+scenescape-mapping-vggt,libx265-199:3.5-2+b1,Ubuntu,LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-mapping-vggt,libxau-dev:1:1.0.9-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxau6:1:1.0.9-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxcb-dri2-0:1.15-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxcb-dri3-0:1.15-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxcb-glx0:1.15-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxcb-present0:1.15-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxcb-randr0:1.15-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxcb-render0:1.15-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxcb-shape0:1.15-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxcb-shm0:1.15-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxcb-sync1:1.15-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxcb-xfixes0:1.15-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxcb1:1.15-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxcb1-dev:1.15-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxcursor1:1:1.2.1-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxdmcp-dev:1:1.1.2-3,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxdmcp6:1:1.1.2-3,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxext6:2:1.3.4-1+b1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxfixes3:1:6.0.0-2,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxi6:2:1.8-1+b1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxkbcommon0:1.5.0-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxml2:2.9.14+dfsg-1.3~deb12u5,Ubuntu,ISC AND LicenseRef-MIT-1
+scenescape-mapping-vggt,libxrandr2:2:1.5.2-2+b1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxrender-dev:1:0.9.10-1.1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxrender1:1:0.9.10-1.1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxshmfence1:1.3-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxss1:1:1.2.3-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxv1:2:1.0.11-1.1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxvidcore4:2:1.3.7-1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later
+scenescape-mapping-vggt,libxxf86vm1:1:1.1.4-1+b2,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,libxxhash0:0.8.1-1,Ubuntu,BSD-2-Clause AND GPL-2.0-only
+scenescape-mapping-vggt,libz3-4:4.8.12-3.1,Ubuntu,LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-mapping-vggt,libzimg2:3.0.4+ds1-1,Ubuntu,GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-WTFPL-2
+scenescape-mapping-vggt,libzmq5:4.3.4-6,Ubuntu,LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT
+scenescape-mapping-vggt,libzstd1:1.5.4+dfsg2-5,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND Zlib
+scenescape-mapping-vggt,libzvbi-common:0.2.41-1,Ubuntu,BSD-2-Clause AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT
+scenescape-mapping-vggt,libzvbi0:0.2.41-1,Ubuntu,BSD-2-Clause AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT
+scenescape-mapping-vggt,lightning-utilities==0.15.3,pypi,Apache-2.0
+scenescape-mapping-vggt,login:1:4.13+dfsg1-1+deb12u2,Ubuntu,BSD-3-Clause AND GPL-1.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-mapping-vggt,logsave:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-mapping-vggt,mapanything==1.1,pypi,NOASSERTION
+scenescape-mapping-vggt,mapanything==1.1,pypi,NOASSERTION
+scenescape-mapping-vggt,markdown==3.10.2,pypi,BSD-3-Clause
+scenescape-mapping-vggt,markdown-it-py==4.0.0,pypi,NOASSERTION
+scenescape-mapping-vggt,markupsafe==3.0.3,pypi,BSD-3-Clause
+scenescape-mapping-vggt,matplotlib==3.10.8,pypi,LicenseRef-3cb2c7aa8ec1f91fe59071d47f0d875cd1381b51d1cbf3ec8e225168c552597a
+scenescape-mapping-vggt,matplotlib-inline==0.2.1,pypi,NOASSERTION
+scenescape-mapping-vggt,mawk:1.3.4.20200120-3.1,Ubuntu,CC-BY-3.0 AND GPL-2.0-only AND X11
+scenescape-mapping-vggt,mdurl==0.1.2,pypi,NOASSERTION
+scenescape-mapping-vggt,minio==7.2.20,pypi,Apache-2.0
+scenescape-mapping-vggt,more-itertools==10.8.0,pypi,MIT
+scenescape-mapping-vggt,mount:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-mapping-vggt,mpmath==1.3.0,pypi,LicenseRef-BSD
+scenescape-mapping-vggt,narwhals==2.18.0,pypi,MIT
+scenescape-mapping-vggt,natsort==8.4.0,pypi,MIT
+scenescape-mapping-vggt,nbformat==5.10.4,pypi,BSD-3-Clause
+scenescape-mapping-vggt,ncurses-base:6.4-4,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-mapping-vggt,ncurses-bin:6.4-4,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-mapping-vggt,nest-asyncio==1.6.0,pypi,LicenseRef-BSD
+scenescape-mapping-vggt,netbase:6.4,Ubuntu,GPL-2.0-only
+scenescape-mapping-vggt,networkx==3.6.1,pypi,BSD-3-Clause
+scenescape-mapping-vggt,numpy==2.4.3,pypi,(BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0)
+scenescape-mapping-vggt,ocl-icd-libopencl1:2.3.1-1,Ubuntu,BSD-2-Clause
+scenescape-mapping-vggt,omegaconf==2.3.0,pypi,NOASSERTION
+scenescape-mapping-vggt,open3d@0.19.0,npm,MIT
+scenescape-mapping-vggt,open3d@0.19.0,npm,MIT
+scenescape-mapping-vggt,open3d-cpu==0.19.0,pypi,MIT
+scenescape-mapping-vggt,opencv-python-headless==4.10.0.84,pypi,LicenseRef-Apache-2.0
+scenescape-mapping-vggt,openssl:3.0.18-1~deb12u2,Ubuntu,Apache-2.0 AND LicenseRef-Artistic AND GPL-1.0-only AND GPL-1.0-or-later
+scenescape-mapping-vggt,orjson==3.11.5,pypi,(Apache-2.0 OR MIT)
+scenescape-mapping-vggt,packaging==26.0,pypi,(Apache-2.0 OR BSD-2-Clause)
+scenescape-mapping-vggt,packaging==26.0,pypi,(Apache-2.0 OR BSD-2-Clause)
+scenescape-mapping-vggt,pandas==3.0.1,pypi,LicenseRef-6dc1ad62d707e8dda646a5461c66fff8e6497c8656e04ccee9a64d411b017d65
+scenescape-mapping-vggt,parso==0.8.6,pypi,MIT
+scenescape-mapping-vggt,passwd:1:4.13+dfsg1-1+deb12u2,Ubuntu,BSD-3-Clause AND GPL-1.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-mapping-vggt,perl:5.36.0-7+deb12u3,Ubuntu,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib
+scenescape-mapping-vggt,perl-base:5.36.0-7+deb12u3,Ubuntu,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib
+scenescape-mapping-vggt,perl-modules-5.36:5.36.0-7+deb12u3,Ubuntu,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib
+scenescape-mapping-vggt,pexpect==4.9.0,pypi,LicenseRef-ISC-license
+scenescape-mapping-vggt,pillow==12.1.1,pypi,MIT-CMU
+scenescape-mapping-vggt,pillow==12.1.1,pypi,NOASSERTION
+scenescape-mapping-vggt,pillow-heif==1.1.1,pypi,BSD-3-Clause
+scenescape-mapping-vggt,pip==26.0.1,pypi,MIT
+scenescape-mapping-vggt,platformdirs==4.4.0,pypi,MIT
+scenescape-mapping-vggt,platformdirs==4.9.4,pypi,MIT
+scenescape-mapping-vggt,plotly==6.6.0,pypi,MIT
+scenescape-mapping-vggt,plyfile==1.1.3,pypi,GPL-3.0-only
+scenescape-mapping-vggt,prompt-toolkit==3.0.52,pypi,NOASSERTION
+scenescape-mapping-vggt,protobuf==7.34.0,pypi,LicenseRef-3-Clause-BSD-License
+scenescape-mapping-vggt,ptyprocess==0.7.0,pypi,LicenseRef-UNKNOWN
+scenescape-mapping-vggt,pure-eval==0.2.3,pypi,MIT
+scenescape-mapping-vggt,pyarrow==23.0.1,pypi,Apache-2.0
+scenescape-mapping-vggt,pycparser==3.0,pypi,BSD-3-Clause
+scenescape-mapping-vggt,pycryptodome==3.23.0,pypi,LicenseRef-BSD--Public-Domain
+scenescape-mapping-vggt,pydantic==2.12.5,pypi,MIT
+scenescape-mapping-vggt,pydantic-core==2.41.5,pypi,MIT
+scenescape-mapping-vggt,pydub==0.25.1,pypi,MIT
+scenescape-mapping-vggt,pygments==2.19.2,pypi,BSD-2-Clause
+scenescape-mapping-vggt,pyparsing==3.3.2,pypi,MIT
+scenescape-mapping-vggt,pyquaternion==0.9.9,pypi,MIT
+scenescape-mapping-vggt,python:3.11.14,UNKNOWN,NOASSERTION
+scenescape-mapping-vggt,python-box==7.3.2,pypi,MIT
+scenescape-mapping-vggt,python-dateutil==2.9.0.post0,pypi,LicenseRef-Dual-License
+scenescape-mapping-vggt,python-multipart==0.0.22,pypi,Apache-2.0
+scenescape-mapping-vggt,pytz==2026.1.post1,pypi,MIT
+scenescape-mapping-vggt,pyyaml==6.0.3,pypi,MIT
+scenescape-mapping-vggt,readline-common:8.2-1.3,Ubuntu,LicenseRef-GFDL AND LicenseRef-GFDL-NIV-1.3- AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-ISC-no-attribution
+scenescape-mapping-vggt,referencing==0.37.0,pypi,MIT
+scenescape-mapping-vggt,requests==2.32.5,pypi,Apache-2.0
+scenescape-mapping-vggt,rerun-sdk==0.24.1,pypi,(MIT OR Apache-2.0)
+scenescape-mapping-vggt,retrying==1.4.2,pypi,Apache-2.0
+scenescape-mapping-vggt,rich==14.3.3,pypi,MIT
+scenescape-mapping-vggt,rpds-py==0.30.0,pypi,MIT
+scenescape-mapping-vggt,safehttpx==0.1.7,pypi,NOASSERTION
+scenescape-mapping-vggt,safetensors==0.7.0,pypi,NOASSERTION
+scenescape-mapping-vggt,scikit-learn==1.8.0,pypi,BSD-3-Clause
+scenescape-mapping-vggt,scikit_learn==1.8.0,pypi,NOASSERTION
+scenescape-mapping-vggt,scipy==1.17.1,pypi,BSD-3-Clause
+scenescape-mapping-vggt,sed:4.9-1,Ubuntu,BSD-4-Clause-UC AND BSL-1.0 AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3- AND GPL-3.0-only AND GPL-3.0-or-later AND ISC AND X11 AND LicenseRef-pcre
+scenescape-mapping-vggt,semantic-version==2.10.0,pypi,LicenseRef-BSD
+scenescape-mapping-vggt,setuptools==82.0.1,pypi,MIT
+scenescape-mapping-vggt,shared-mime-info:2.2-1,Ubuntu,LicenseRef-GPL
+scenescape-mapping-vggt,shellingham==1.5.4,pypi,LicenseRef-ISC-License
+scenescape-mapping-vggt,six==1.17.0,pypi,MIT
+scenescape-mapping-vggt,stack-data==0.6.3,pypi,MIT
+scenescape-mapping-vggt,starlette==0.52.1,pypi,BSD-3-Clause
+scenescape-mapping-vggt,sympy==1.14.0,pypi,LicenseRef-BSD
+scenescape-mapping-vggt,sysvinit-utils:3.06-4,Ubuntu,GPL-2.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-only
+scenescape-mapping-vggt,tar:1.34+dfsg-1.2+deb12u1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later
+scenescape-mapping-vggt,tensorboard==2.20.0,pypi,LicenseRef-Apache-2.0
+scenescape-mapping-vggt,tensorboard-data-server==0.7.2,pypi,LicenseRef-Apache-2.0
+scenescape-mapping-vggt,termcolor==3.3.0,pypi,MIT
+scenescape-mapping-vggt,threadpoolctl==3.6.0,pypi,BSD-3-Clause
+scenescape-mapping-vggt,timm==1.0.25,pypi,Apache-2.0
+scenescape-mapping-vggt,tomli==2.4.0,pypi,MIT
+scenescape-mapping-vggt,tomlkit==0.13.3,pypi,MIT
+scenescape-mapping-vggt,torch==2.9.1+cpu,pypi,BSD-3-Clause
+scenescape-mapping-vggt,torchaudio==2.9.1+cpu,pypi,NOASSERTION
+scenescape-mapping-vggt,torchmetrics==1.9.0,pypi,Apache-2.0
+scenescape-mapping-vggt,torchvision==0.24.1+cpu,pypi,LicenseRef-BSD
+scenescape-mapping-vggt,tqdm==4.67.1,pypi,(MPL-2.0 AND MIT)
+scenescape-mapping-vggt,traitlets==5.14.3,pypi,BSD-3-Clause
+scenescape-mapping-vggt,trimesh==4.11.0,pypi,MIT
+scenescape-mapping-vggt,typer==0.24.1,pypi,MIT
+scenescape-mapping-vggt,typer-slim==0.24.0,pypi,MIT
+scenescape-mapping-vggt,typing-extensions==4.15.0,pypi,PSF-2.0
+scenescape-mapping-vggt,typing-inspection==0.4.2,pypi,MIT
+scenescape-mapping-vggt,tzdata:2025b-0+deb12u2,Ubuntu,LicenseRef-public-domain
+scenescape-mapping-vggt,uniception==0.1.6,pypi,LicenseRef-BSD-3-Clause
+scenescape-mapping-vggt,urllib3==2.6.3,pypi,MIT
+scenescape-mapping-vggt,usr-is-merged:37~deb12u1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later
+scenescape-mapping-vggt,util-linux:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-mapping-vggt,util-linux-extra:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-mapping-vggt,uvicorn==0.41.0,pypi,BSD-3-Clause
+scenescape-mapping-vggt,wadler-lindig==0.1.7,pypi,Apache-2.0
+scenescape-mapping-vggt,wcwidth==0.6.0,pypi,MIT
+scenescape-mapping-vggt,werkzeug==3.1.6,pypi,BSD-3-Clause
+scenescape-mapping-vggt,wheel==0.46.3,pypi,MIT
+scenescape-mapping-vggt,wheel==0.46.3,pypi,MIT
+scenescape-mapping-vggt,widgetsnbextension==4.0.15,pypi,LicenseRef-BSD-3-Clause-License
+scenescape-mapping-vggt,x11-common:1:7.7+23,Ubuntu,LicenseRef-GPL
+scenescape-mapping-vggt,x11proto-dev:2022.1-1,Ubuntu,MIT AND LicenseRef-SGI
+scenescape-mapping-vggt,xkb-data:2.35.1-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,xorg-sgml-doctools:1:1.11-1.1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,xtrans-dev:1.4.0-1,Ubuntu,NOASSERTION
+scenescape-mapping-vggt,zipp==3.23.0,pypi,MIT
+scenescape-mapping-vggt,zipp==3.23.0,pypi,MIT
+scenescape-mapping-vggt,zlib1g:1:1.2.13.dfsg-1,Ubuntu,Zlib
+scenescape-mapping-vggt,sbom,UNKNOWN,NOASSERTION

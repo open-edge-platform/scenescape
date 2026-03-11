@@ -1,0 +1,30 @@
+Name,Version,License
+bidict,0.23.1,MPL 2.0
+blinker,1.9.0,MIT License
+click,8.3.0,BSD-3-Clause
+dnspython,2.7.0,ISC
+eventlet,0.40.3,MIT
+Flask,3.1.1,BSD-3-Clause
+Flask-SocketIO,5.4.1,MIT License
+greenlet,3.1.1,MIT License
+h11,0.16.0,MIT
+itsdangerous,2.2.0,BSD License
+Jinja2,3.1.6,BSD License
+joblib,1.5.2,BSD 3-Clause
+MarkupSafe,3.0.3,BSD-3-Clause
+numpy,2.3.5,BSD License
+opencv-python-headless,4.11.0.86,Apache 2.0
+packaging,24.2,Apache Software License
+paho-mqtt,2.1.0,EPL-2.0 OR BSD-3-Clause
+pip,26.0.1,MIT
+protobuf,6.33.5,3-Clause BSD License
+python-engineio,4.12.3,MIT
+python-socketio,5.14.0,MIT
+scikit-learn,1.6.1,BSD License
+scipy,1.16.2,BSD License
+setuptools,82.0.1,MIT
+simple-websocket,1.1.0,MIT License
+threadpoolctl,3.6.0,BSD-3-Clause
+Werkzeug,3.1.5,BSD-3-Clause
+wheel,0.46.3,MIT
+wsproto,1.2.0,MIT License

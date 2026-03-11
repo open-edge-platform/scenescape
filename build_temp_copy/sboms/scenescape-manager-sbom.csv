@@ -1,0 +1,347 @@
+Image,Component,Origin,License
+scenescape-manager,@jupyter-widgets/jupyterlab-manager@5.0.15,npm,BSD-3-Clause
+scenescape-manager,@plotly/dash-jupyterlab@0.4.3,npm,MIT
+scenescape-manager,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-manager,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-manager,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-manager,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-manager,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-manager,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-manager,addict==2.4.0,pypi,LicenseRef-UNKNOWN
+scenescape-manager,adduser:3.134,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later
+scenescape-manager,aiofiles==25.1.0,pypi,Apache-2.0
+scenescape-manager,apache2:2.4.66-1~deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause-Darwin AND LicenseRef-BSD-3-clause-Cambridge AND LicenseRef-BSD-3-clause-Smrgrav AND LicenseRef-Cisco AND LicenseRef-Custom AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-Haines AND LicenseRef-MD5 AND LicenseRef-PCRE AND LicenseRef-Zeus
+scenescape-manager,apache2-bin:2.4.66-1~deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause-Darwin AND LicenseRef-BSD-3-clause-Cambridge AND LicenseRef-BSD-3-clause-Smrgrav AND LicenseRef-Cisco AND LicenseRef-Custom AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-Haines AND LicenseRef-MD5 AND LicenseRef-PCRE AND LicenseRef-Zeus
+scenescape-manager,apache2-data:2.4.66-1~deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause-Darwin AND LicenseRef-BSD-3-clause-Cambridge AND LicenseRef-BSD-3-clause-Smrgrav AND LicenseRef-Cisco AND LicenseRef-Custom AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-Haines AND LicenseRef-MD5 AND LicenseRef-PCRE AND LicenseRef-Zeus
+scenescape-manager,apache2-utils:2.4.66-1~deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause-Darwin AND LicenseRef-BSD-3-clause-Cambridge AND LicenseRef-BSD-3-clause-Smrgrav AND LicenseRef-Cisco AND LicenseRef-Custom AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-Haines AND LicenseRef-MD5 AND LicenseRef-PCRE AND LicenseRef-Zeus
+scenescape-manager,apt:2.6.1,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-manager,asgiref==3.11.1,pypi,BSD-3-Clause
+scenescape-manager,asttokens==3.0.1,pypi,LicenseRef-Apache-2.0
+scenescape-manager,attrs==25.4.0,pypi,MIT
+scenescape-manager,autocommand==2.2.2,pypi,LicenseRef-LGPLv3
+scenescape-manager,backports-tarfile==1.2.0,pypi,NOASSERTION
+scenescape-manager,base-files:12.4+deb12u13,Ubuntu,LicenseRef-GPL
+scenescape-manager,base-passwd:3.6.1,Ubuntu,GPL-2.0-only AND LicenseRef-public-domain
+scenescape-manager,bash:5.2.15-2+b10,Ubuntu,BSD-4-Clause-UC AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND Latex2e AND LicenseRef-MIT-like AND LicenseRef-permissive
+scenescape-manager,bindfs:1.14.7-1,Ubuntu,GPL-2.0-only
+scenescape-manager,blinker==1.9.0,pypi,NOASSERTION
+scenescape-manager,bsdutils:1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-manager,bzip2:1.0.8-5+b1,Ubuntu,LicenseRef-BSD-variant AND GPL-2.0-only
+scenescape-manager,ca-certificates:20230311+deb12u1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND MPL-2.0
+scenescape-manager,certifi==2026.2.25,pypi,MPL-2.0
+scenescape-manager,cffi==2.0.0,pypi,MIT
+scenescape-manager,charset-normalizer==3.4.5,pypi,MIT
+scenescape-manager,cli:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-manager,cli-32:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-manager,cli-64:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-manager,cli-arm64:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-manager,click==8.3.1,pypi,BSD-3-Clause
+scenescape-manager,comm==0.2.3,pypi,BSD-3-Clause
+scenescape-manager,configargparse==1.7.5,pypi,MIT
+scenescape-manager,contourpy==1.3.3,pypi,BSD-3-Clause
+scenescape-manager,coreutils:9.1-1,Ubuntu,BSD-4-Clause-UC AND FSFULLR AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-3.0-only AND GPL-3.0-or-later AND ISC
+scenescape-manager,cryptography==46.0.5,pypi,(Apache-2.0 OR BSD-3-Clause)
+scenescape-manager,curl:7.88.1-10+deb12u14,Ubuntu,BSD-3-Clause AND BSD-3-Clause AND BSD-4-Clause-UC AND FSFULLR AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND ISC AND OLDAP-2.8 AND X11 AND curl
+scenescape-manager,cycler==0.12.1,pypi,BSD-3-Clause
+scenescape-manager,dash:0.5.12-2,Ubuntu,BSD-3-Clause AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-manager,dash==4.0.0,pypi,MIT
+scenescape-manager,debconf:1.5.82,Ubuntu,BSD-2-Clause
+scenescape-manager,debian-archive-keyring:2023.3+deb12u2,Ubuntu,LicenseRef-GPL
+scenescape-manager,debianutils:5.7-0.5~deb12u1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND SMAIL-GPL AND LicenseRef-public-domain
+scenescape-manager,decorator==5.2.1,pypi,BSD-2-Clause
+scenescape-manager,diffutils:1:3.8-4,Ubuntu,FSFAP AND FSFULLR AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND X11 AND LicenseRef-public-domain
+scenescape-manager,django==5.2.12,pypi,BSD-3-Clause
+scenescape-manager,django-axes==8.0.0,pypi,MIT
+scenescape-manager,django-debug-toolbar==6.0.0,pypi,BSD-3-Clause
+scenescape-manager,django-session-timeout==0.1.0,pypi,MIT
+scenescape-manager,djangorestframework==3.16.1,pypi,LicenseRef-BSD
+scenescape-manager,dpkg:1.21.22,Ubuntu,BSD-2-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain-s-s-d
+scenescape-manager,durationpy==0.10,pypi,MIT
+scenescape-manager,e2fsprogs:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-manager,executing==2.2.1,pypi,MIT
+scenescape-manager,fastjsonschema==2.21.2,pypi,LicenseRef-BSD
+scenescape-manager,ffmpeg:5.1.6,UNKNOWN,NOASSERTION
+scenescape-manager,findutils:4.9.0-4,Ubuntu,BSD-3-Clause AND FSFAP AND FSFULLR AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3- AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND X11 AND LicenseRef-public-domain
+scenescape-manager,flask==3.1.3,pypi,BSD-3-Clause
+scenescape-manager,fonttools==4.62.0,pypi,MIT
+scenescape-manager,fuse:2.9.9-6+b1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only
+scenescape-manager,gcc-12-base:12.2.0-14+deb12u1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-manager,google-auth==2.49.0,pypi,LicenseRef-Apache-2.0
+scenescape-manager,gpgv:2.2.40-1.1+deb12u2,Ubuntu,BSD-3-Clause AND CC0-1.0 AND LicenseRef-Expat AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-RFC-Reference AND LicenseRef-TinySCHEME AND LicenseRef-permissive
+scenescape-manager,grep:3.8-5,Ubuntu,GPL-3.0-only AND GPL-3.0-or-later
+scenescape-manager,gui:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-manager,gui-32:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-manager,gui-64:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-manager,gui-arm64:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-manager,gzip:1.12-1,Ubuntu,LicenseRef-FSF-manpages AND LicenseRef-GFDL-1.3--no-invariant AND LicenseRef-GFDL-3 AND GPL-3.0-only AND GPL-3.0-or-later
+scenescape-manager,hostname:3.23+nmu1,Ubuntu,GPL-2.0-only
+scenescape-manager,idna==3.11,pypi,BSD-3-Clause
+scenescape-manager,importlib-metadata==8.7.1,pypi,Apache-2.0
+scenescape-manager,importlib-metadata==8.7.1,pypi,Apache-2.0
+scenescape-manager,init-system-helpers:1.65.2+deb12u1,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-manager,ipython==9.10.0,pypi,BSD-3-Clause
+scenescape-manager,ipython-pygments-lexers==1.1.1,pypi,NOASSERTION
+scenescape-manager,ipywidgets==8.1.8,pypi,LicenseRef-BSD-3-Clause-License
+scenescape-manager,isodate==0.7.2,pypi,BSD-3-Clause
+scenescape-manager,itsdangerous==2.2.0,pypi,NOASSERTION
+scenescape-manager,jaraco-context==6.1.0,pypi,MIT
+scenescape-manager,jaraco-functools==4.4.0,pypi,MIT
+scenescape-manager,jaraco-text==4.0.0,pypi,NOASSERTION
+scenescape-manager,jedi==0.19.2,pypi,MIT
+scenescape-manager,jinja2==3.1.6,pypi,NOASSERTION
+scenescape-manager,joblib==1.5.3,pypi,BSD-3-Clause
+scenescape-manager,jsonschema==4.25.1,pypi,MIT
+scenescape-manager,jsonschema-specifications==2025.9.1,pypi,MIT
+scenescape-manager,jupyter-core==5.9.1,pypi,BSD-3-Clause
+scenescape-manager,jupyterlab-plotly@6.0.1,npm,MIT
+scenescape-manager,jupyterlab-plotly@6.0.1,npm,MIT
+scenescape-manager,jupyterlab-widgets==3.0.16,pypi,BSD-3-Clause
+scenescape-manager,kiwisolver==1.5.0,pypi,LicenseRef-4e89b2eeb82ea10ec61119c814f2ca0bbccdc22b72d0eb4f5542ef08f6a73ed2
+scenescape-manager,kubernetes==33.1.0,pypi,LicenseRef-Apache-License-Version-2.0
+scenescape-manager,libXau:1.0.9-3.el8,UNKNOWN,NOASSERTION
+scenescape-manager,libacl1:2.3.1-3,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-only
+scenescape-manager,libapache2-mod-wsgi-py3:4.9.4-1+b2,Ubuntu,Apache-2.0
+scenescape-manager,libapr1:1.7.2-3+deb12u1,Ubuntu,Apache-2.0
+scenescape-manager,libaprutil1:1.6.3-1,Ubuntu,Apache-2.0
+scenescape-manager,libaprutil1-dbd-sqlite3:1.6.3-1,Ubuntu,Apache-2.0
+scenescape-manager,libaprutil1-ldap:1.6.3-1,Ubuntu,Apache-2.0
+scenescape-manager,libapt-pkg6.0:2.6.1,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-manager,libattr1:1:2.5.1-4,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-only
+scenescape-manager,libaudit-common:1:3.0.9-1,Ubuntu,GPL-1.0-only AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-manager,libaudit1:1:3.0.9-1,Ubuntu,GPL-1.0-only AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-manager,libblkid1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-manager,libbrotli1:1.0.9-2+b6,Ubuntu,MIT
+scenescape-manager,libbsd0:0.11.7-2,Ubuntu,BSD-2-Clause AND BSD-2-Clause AND LicenseRef-BSD-2-clause-author AND LicenseRef-BSD-2-clause-verbatim AND BSD-3-Clause AND LicenseRef-BSD-3-clause-John-Birrell AND LicenseRef-BSD-3-clause-Regents AND LicenseRef-BSD-3-clause-author AND LicenseRef-BSD-4-clause-Niels-Provos AND Beerware AND LicenseRef-Expat AND ISC AND LicenseRef-ISC-Original AND libutil-David-Nugent AND LicenseRef-public-domain
+scenescape-manager,libbz2-1.0:1.0.8-5+b1,Ubuntu,LicenseRef-BSD-variant AND GPL-2.0-only
+scenescape-manager,libc-bin:2.36-9+deb12u13,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-manager,libc6:2.36-9+deb12u13,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-manager,libcap-ng0:0.8.3-1+b3,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-manager,libcap2:1:2.66-4+deb12u2+b2,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-manager,libcjson1:1.7.15-1+deb12u4,Ubuntu,Apache-2.0 AND MIT
+scenescape-manager,libcom-err2:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-manager,libcrypt1:1:4.4.33-2,Ubuntu,NOASSERTION
+scenescape-manager,libcurl4:7.88.1-10+deb12u14,Ubuntu,BSD-3-Clause AND BSD-3-Clause AND BSD-4-Clause-UC AND FSFULLR AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND ISC AND OLDAP-2.8 AND X11 AND curl
+scenescape-manager,libdb5.3:5.3.28+dfsg2-1,Ubuntu,LicenseRef-Artistic AND BSD-3-Clause AND LicenseRef-BSD-3-clause-fjord AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-MIT-old AND MS-PL AND Sleepycat AND LicenseRef-TCL-like AND X11 AND Zlib
+scenescape-manager,libdebconfclient0:0.270,Ubuntu,BSD-2-Clause AND BSD-2-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-manager,libdrm-amdgpu1:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-manager,libdrm-common:2.4.114-1,Ubuntu,NOASSERTION
+scenescape-manager,libdrm-intel1:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-manager,libdrm-nouveau2:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-manager,libdrm-radeon1:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-manager,libdrm2:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-manager,libedit2:3.1-20221030-2,Ubuntu,BSD-3-Clause
+scenescape-manager,libegl-mesa0:22.3.6-1+deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause AND LicenseRef-BSD-3-google AND LicenseRef-BSL AND LicenseRef-GPL AND LicenseRef-Khronos AND MIT AND LicenseRef-MLAA AND LicenseRef-SGI
+scenescape-manager,libegl1:1.6.0-1,Ubuntu,Apache-2.0 AND BSD-1-Clause AND LicenseRef-GPL AND GPL-3.0-only AND GPL-3.0-or-later AND MIT
+scenescape-manager,libelf1:0.188-2.1,Ubuntu,BSD-2-Clause AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-2.0-only AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later
+scenescape-manager,libexpat1:2.5.0-1+deb12u2,Ubuntu,MIT
+scenescape-manager,libext2fs2:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-manager,libffi8:3.4.4-1,Ubuntu,LicenseRef-Expat AND LicenseRef-GPL AND GPL-2.0-or-later AND GPL-3.0-or-later AND MPL-1.1 AND X11 AND LicenseRef-public-domain
+scenescape-manager,libfuse2:2.9.9-6+b1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only
+scenescape-manager,libgbm1:22.3.6-1+deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause AND LicenseRef-BSD-3-google AND LicenseRef-BSL AND LicenseRef-GPL AND LicenseRef-Khronos AND MIT AND LicenseRef-MLAA AND LicenseRef-SGI
+scenescape-manager,libgcc-s1:12.2.0-14+deb12u1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-manager,libgcrypt20:1.10.1-3,Ubuntu,GPL-2.0-only AND LicenseRef-LGPL
+scenescape-manager,libgdbm-compat4:1.23-3,Ubuntu,LicenseRef-GFDL-NIV-1.3- AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later
+scenescape-manager,libgdbm6:1.23-3,Ubuntu,LicenseRef-GFDL-NIV-1.3- AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later
+scenescape-manager,libgl1:1.6.0-1,Ubuntu,Apache-2.0 AND BSD-1-Clause AND LicenseRef-GPL AND GPL-3.0-only AND GPL-3.0-or-later AND MIT
+scenescape-manager,libgl1-mesa-dri:22.3.6-1+deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause AND LicenseRef-BSD-3-google AND LicenseRef-BSL AND LicenseRef-GPL AND LicenseRef-Khronos AND MIT AND LicenseRef-MLAA AND LicenseRef-SGI
+scenescape-manager,libglapi-mesa:22.3.6-1+deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause AND LicenseRef-BSD-3-google AND LicenseRef-BSL AND LicenseRef-GPL AND LicenseRef-Khronos AND MIT AND LicenseRef-MLAA AND LicenseRef-SGI
+scenescape-manager,libglib2.0-0:2.74.6-2+deb12u8,Ubuntu,AFL-2.0 AND Apache-2.0 AND LicenseRef-BSD-3-clause-pcre AND CC-BY-SA-3.0 AND CC0-1.0 AND LicenseRef-Expat AND FSFULLR AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-Iconv-PD AND LicenseRef-Janik-permissive AND LicenseRef-Kuchling-PD AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-Mingw-PD AND LicenseRef-Old-GLib-Tests-permissive AND LicenseRef-Plumb-PD AND Unicode-DFS-2016 AND bzip2-1.0.6
+scenescape-manager,libglvnd0:1.6.0-1,Ubuntu,Apache-2.0 AND BSD-1-Clause AND LicenseRef-GPL AND GPL-3.0-only AND GPL-3.0-or-later AND MIT
+scenescape-manager,libglx-mesa0:22.3.6-1+deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause AND LicenseRef-BSD-3-google AND LicenseRef-BSL AND LicenseRef-GPL AND LicenseRef-Khronos AND MIT AND LicenseRef-MLAA AND LicenseRef-SGI
+scenescape-manager,libglx0:1.6.0-1,Ubuntu,Apache-2.0 AND BSD-1-Clause AND LicenseRef-GPL AND GPL-3.0-only AND GPL-3.0-or-later AND MIT
+scenescape-manager,libgmp10:2:6.2.1+dfsg1-1.1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later
+scenescape-manager,libgnutls30:3.7.9-2+deb12u6,Ubuntu,Apache-2.0 AND BSD-3-Clause AND LicenseRef-CC0 AND LicenseRef-Expat AND GFDL-1.3-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-GPLv3- AND LicenseRef-LGPL AND LGPL-3.0-only AND LicenseRef-LGPLv2.1- AND LicenseRef-LGPLv3--or-GPLv2- AND LicenseRef-The
+scenescape-manager,libgomp:8.5.0-28.el8_10.alma.1,UNKNOWN,NOASSERTION
+scenescape-manager,libgomp1:12.2.0-14+deb12u1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-manager,libgpg-error0:1.46-1,Ubuntu,BSD-3-Clause AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-g10-permissive
+scenescape-manager,libgssapi-krb5-2:1.20.1-2+deb12u4,Ubuntu,GPL-2.0-only
+scenescape-manager,libhogweed6:3.8.1-2,Ubuntu,LicenseRef-Expat AND LicenseRef-GAP AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-3.0-or-later AND LicenseRef-public-domain
+scenescape-manager,libicu72:72.1-3+deb12u1,Ubuntu,GPL-3.0-only AND MIT
+scenescape-manager,libidn2-0:2.3.3-1+b1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-Unicode
+scenescape-manager,libjansson4:2.14-2,Ubuntu,LicenseRef-Expat
+scenescape-manager,libk5crypto3:1.20.1-2+deb12u4,Ubuntu,GPL-2.0-only
+scenescape-manager,libkeyutils1:1.6.3-2,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later
+scenescape-manager,libkrb5-3:1.20.1-2+deb12u4,Ubuntu,GPL-2.0-only
+scenescape-manager,libkrb5support0:1.20.1-2+deb12u4,Ubuntu,GPL-2.0-only
+scenescape-manager,libldap-2.5-0:2.5.13+dfsg-5,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-3-clause-California AND LicenseRef-BSD-3-clause-variant AND LicenseRef-BSD-4-clause-California AND Beerware AND LicenseRef-Expat AND LicenseRef-Expat-ISC AND LicenseRef-Expat-UNM AND LicenseRef-F5 AND LicenseRef-FSF-unlimited AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-JCG AND LicenseRef-MIT-XC AND LicenseRef-NeoSoft-permissive AND LicenseRef-OpenLDAP-2.8 AND LicenseRef-UMich AND LicenseRef-public-domain
+scenescape-manager,libllvm15:1:15.0.6-4+b1,Ubuntu,LicenseRef-APACHE-2-LLVM-EXCEPTIONS AND Apache-2.0 AND BSD-3-Clause AND BSD-3-Clause AND MIT AND LicenseRef-Python AND LicenseRef-solar-public-domain
+scenescape-manager,liblua5.3-0:5.3.6-2,Ubuntu,LicenseRef-Expat
+scenescape-manager,liblz4-1:1.9.4-1,Ubuntu,BSD-2-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-manager,liblzma5:5.4.1-1,Ubuntu,LicenseRef-Autoconf AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-PD AND LicenseRef-PD-debian AND LicenseRef-config-h AND LicenseRef-noderivs AND LicenseRef-permissive-fsf AND LicenseRef-permissive-nowarranty AND LicenseRef-probably-PD
+scenescape-manager,libmd0:1.0.4-2,Ubuntu,BSD-2-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSD-3-clause-Aaron-D-Gifford AND Beerware AND ISC AND LicenseRef-public-domain-md4 AND LicenseRef-public-domain-md5 AND LicenseRef-public-domain-sha1
+scenescape-manager,libmosquitto1:2.0.11-1.2+deb12u2,Ubuntu,BSD-1-Clause AND LicenseRef-EDL-1.0 AND EPL-2.0
+scenescape-manager,libmount1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-manager,libncursesw6:6.4-4,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-manager,libnettle8:3.8.1-2,Ubuntu,LicenseRef-Expat AND LicenseRef-GAP AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-3.0-or-later AND LicenseRef-public-domain
+scenescape-manager,libnghttp2-14:1.52.0-1+deb12u2,Ubuntu,BSD-2-Clause AND LicenseRef-Expat AND GPL-3.0-only AND GPL-3.0-or-later AND MIT AND LicenseRef-all-permissive
+scenescape-manager,libnsl2:1.3.0-2,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND LicenseRef-GPL-2--autoconf-exception AND LicenseRef-GPL-2--libtool-exception AND GPL-3.0-only AND LicenseRef-GPL-3--autoconf-exception AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT AND LicenseRef-permissive-autoconf-m4 AND LicenseRef-permissive-autoconf-m4-no-warranty AND LicenseRef-permissive-configure AND LicenseRef-permissive-fsf AND LicenseRef-permissive-makefile-in
+scenescape-manager,libp11-kit0:0.24.1-2,Ubuntu,Apache-2.0 AND BSD-3-Clause AND ISC AND LicenseRef-ISC-IBM AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-permissive-like-automake-output AND LicenseRef-same-as-rest-of-p11kit
+scenescape-manager,libpam-modules:1.5.2-6+deb12u2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-manager,libpam-modules-bin:1.5.2-6+deb12u2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-manager,libpam-runtime:1.5.2-6+deb12u2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-manager,libpam0g:1.5.2-6+deb12u2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-manager,libpciaccess0:0.17-2,Ubuntu,LicenseRef-GPL
+scenescape-manager,libpcre2-8-0:10.42-1,Ubuntu,BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSD-3-clause-Cambridge AND X11 AND LicenseRef-public-domain
+scenescape-manager,libperl5.36:5.36.0-7+deb12u3,Ubuntu,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib
+scenescape-manager,libproc2-0:2:4.0.2-3,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-manager,libpsl5:0.21.2-1,Ubuntu,LicenseRef-Chromium AND MIT AND LicenseRef-gnulib
+scenescape-manager,libpython3-stdlib:3.11.2-1+b1,Ubuntu,NOASSERTION
+scenescape-manager,libpython3.11:3.11.2-6+deb12u6,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This
+scenescape-manager,libpython3.11-minimal:3.11.2-6+deb12u6,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This
+scenescape-manager,libpython3.11-stdlib:3.11.2-6+deb12u6,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This
+scenescape-manager,libreadline8:8.2-1.3,Ubuntu,LicenseRef-GFDL AND LicenseRef-GFDL-NIV-1.3- AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-ISC-no-attribution
+scenescape-manager,librtmp1:2.4+20151223.gitfa8646d.1-2+b2,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-manager,libsasl2-2:2.1.28+dfsg-10,Ubuntu,BSD-2-Clause AND LicenseRef-BSD-2.2-clause AND BSD-3-Clause AND LicenseRef-BSD-3-clause-JANET AND LicenseRef-BSD-3-clause-PADL AND BSD-4-Clause AND LicenseRef-BSD-4-clause-KTH AND BSD-4-Clause-UC AND FSFULLR AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-IBM-as-is AND MIT-CMU AND LicenseRef-MIT-Export AND LicenseRef-MIT-OpenVision AND LicenseRef-OpenLDAP AND OpenSSL AND RSA-MD AND LicenseRef-SSLeay
+scenescape-manager,libsasl2-modules-db:2.1.28+dfsg-10,Ubuntu,BSD-2-Clause AND LicenseRef-BSD-2.2-clause AND BSD-3-Clause AND LicenseRef-BSD-3-clause-JANET AND LicenseRef-BSD-3-clause-PADL AND BSD-4-Clause AND LicenseRef-BSD-4-clause-KTH AND BSD-4-Clause-UC AND FSFULLR AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-IBM-as-is AND MIT-CMU AND LicenseRef-MIT-Export AND LicenseRef-MIT-OpenVision AND LicenseRef-OpenLDAP AND OpenSSL AND RSA-MD AND LicenseRef-SSLeay
+scenescape-manager,libseccomp2:2.5.4-1+deb12u1,Ubuntu,LGPL-2.1-only
+scenescape-manager,libselinux1:3.4-1+b6,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-manager,libsemanage-common:3.4-1,Ubuntu,LicenseRef-GPL AND LicenseRef-LGPL
+scenescape-manager,libsemanage2:3.4-1+b5,Ubuntu,LicenseRef-GPL AND LicenseRef-LGPL
+scenescape-manager,libsensors-config:1:3.6.0-7.1,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-manager,libsensors5:1:3.6.0-7.1,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-manager,libsepol2:3.4-2.1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND Zlib
+scenescape-manager,libsmartcols1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-manager,libsqlite3-0:3.40.1-2+deb12u2,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-manager,libss2:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-manager,libssh2-1:1.10.0-3+b1,Ubuntu,LicenseRef-BSD3
+scenescape-manager,libssl3:3.0.18-1~deb12u2,Ubuntu,Apache-2.0 AND LicenseRef-Artistic AND GPL-1.0-only AND GPL-1.0-or-later
+scenescape-manager,libstdc++6:12.2.0-14+deb12u1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-manager,libsystemd0:252.39-1~deb12u1,Ubuntu,CC0-1.0 AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-public-domain
+scenescape-manager,libtasn1-6:4.19.0-2+deb12u1,Ubuntu,GFDL-1.3-only AND GPL-3.0-only AND LicenseRef-LGPL AND LGPL-2.1-only
+scenescape-manager,libtinfo6:6.4-4,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-manager,libtirpc-common:1.3.3+ds-1,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-manager,libtirpc3:1.3.3+ds-1,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-manager,libudev1:252.39-1~deb12u1,Ubuntu,CC0-1.0 AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-public-domain
+scenescape-manager,libunistring2:1.0-2,Ubuntu,LicenseRef-FreeSoftware AND GFDL-1.2-only AND GFDL-1.2-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT
+scenescape-manager,libuuid1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-manager,libwayland-client0:1.21.0-1,Ubuntu,X11
+scenescape-manager,libwayland-server0:1.21.0-1,Ubuntu,X11
+scenescape-manager,libx11-6:2:1.8.4-2+deb12u2,Ubuntu,NOASSERTION
+scenescape-manager,libx11-data:2:1.8.4-2+deb12u2,Ubuntu,NOASSERTION
+scenescape-manager,libx11-xcb1:2:1.8.4-2+deb12u2,Ubuntu,NOASSERTION
+scenescape-manager,libxau6:1:1.0.9-1,Ubuntu,NOASSERTION
+scenescape-manager,libxcb-dri2-0:1.15-1,Ubuntu,NOASSERTION
+scenescape-manager,libxcb-dri3-0:1.15-1,Ubuntu,NOASSERTION
+scenescape-manager,libxcb-glx0:1.15-1,Ubuntu,NOASSERTION
+scenescape-manager,libxcb-present0:1.15-1,Ubuntu,NOASSERTION
+scenescape-manager,libxcb-randr0:1.15-1,Ubuntu,NOASSERTION
+scenescape-manager,libxcb-shm0:1.15-1,Ubuntu,NOASSERTION
+scenescape-manager,libxcb-sync1:1.15-1,Ubuntu,NOASSERTION
+scenescape-manager,libxcb-xfixes0:1.15-1,Ubuntu,NOASSERTION
+scenescape-manager,libxcb1:1.15-1,Ubuntu,NOASSERTION
+scenescape-manager,libxdmcp6:1:1.1.2-3,Ubuntu,NOASSERTION
+scenescape-manager,libxext6:2:1.3.4-1+b1,Ubuntu,NOASSERTION
+scenescape-manager,libxfixes3:1:6.0.0-2,Ubuntu,NOASSERTION
+scenescape-manager,libxml2:2.9.14+dfsg-1.3~deb12u5,Ubuntu,ISC AND LicenseRef-MIT-1
+scenescape-manager,libxshmfence1:1.3-1,Ubuntu,NOASSERTION
+scenescape-manager,libxxf86vm1:1:1.1.4-1+b2,Ubuntu,NOASSERTION
+scenescape-manager,libxxhash0:0.8.1-1,Ubuntu,BSD-2-Clause AND GPL-2.0-only
+scenescape-manager,libz3-4:4.8.12-3.1,Ubuntu,LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-manager,libzstd1:1.5.4+dfsg2-5,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND Zlib
+scenescape-manager,login:1:4.13+dfsg1-1+deb12u2,Ubuntu,BSD-3-Clause AND GPL-1.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-manager,logsave:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-manager,lxml==6.0.2,pypi,BSD-3-Clause
+scenescape-manager,manager==2026.0.0rc2,pypi,Apache-2.0
+scenescape-manager,manager==2026.0.0rc2,pypi,Apache-2.0
+scenescape-manager,markupsafe==3.0.3,pypi,BSD-3-Clause
+scenescape-manager,matplotlib==3.10.8,pypi,LicenseRef-3cb2c7aa8ec1f91fe59071d47f0d875cd1381b51d1cbf3ec8e225168c552597a
+scenescape-manager,matplotlib-inline==0.2.1,pypi,NOASSERTION
+scenescape-manager,mawk:1.3.4.20200120-3.1,Ubuntu,CC-BY-3.0 AND GPL-2.0-only AND X11
+scenescape-manager,media-types:10.0.0,Ubuntu,LicenseRef-ad-hoc
+scenescape-manager,more-itertools==10.8.0,pypi,MIT
+scenescape-manager,mosquitto-clients:2.0.11-1.2+deb12u2,Ubuntu,BSD-1-Clause AND LicenseRef-EDL-1.0 AND EPL-2.0
+scenescape-manager,mount:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-manager,narwhals==2.18.0,pypi,MIT
+scenescape-manager,nbformat==5.10.4,pypi,BSD-3-Clause
+scenescape-manager,ncurses-base:6.4-4,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-manager,ncurses-bin:6.4-4,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-manager,nest-asyncio==1.6.0,pypi,LicenseRef-BSD
+scenescape-manager,netbase:6.4,Ubuntu,GPL-2.0-only
+scenescape-manager,netcat-openbsd:1.219-1,Ubuntu,BSD-2-Clause AND BSD-3-Clause
+scenescape-manager,numpy==2.2.6,pypi,BSD-3-Clause
+scenescape-manager,oauthlib==3.3.1,pypi,BSD-3-Clause
+scenescape-manager,onvif-zeep==0.2.12,pypi,MIT
+scenescape-manager,open3d@0.19.0,npm,MIT
+scenescape-manager,open3d@0.19.0,npm,MIT
+scenescape-manager,open3d-cpu==0.19.0,pypi,MIT
+scenescape-manager,opencv-python-headless==4.12.0.88,pypi,LicenseRef-Apache-2.0
+scenescape-manager,openssl:3.0.18-1~deb12u2,Ubuntu,Apache-2.0 AND LicenseRef-Artistic AND GPL-1.0-only AND GPL-1.0-or-later
+scenescape-manager,packaging==26.0,pypi,(Apache-2.0 OR BSD-2-Clause)
+scenescape-manager,packaging==26.0,pypi,(Apache-2.0 OR BSD-2-Clause)
+scenescape-manager,paho-mqtt==2.1.0,pypi,(EPL-2.0 OR BSD-3-Clause)
+scenescape-manager,pandas==3.0.1,pypi,LicenseRef-6dc1ad62d707e8dda646a5461c66fff8e6497c8656e04ccee9a64d411b017d65
+scenescape-manager,parso==0.8.6,pypi,MIT
+scenescape-manager,passwd:1:4.13+dfsg1-1+deb12u2,Ubuntu,BSD-3-Clause AND GPL-1.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-manager,perl:5.36.0-7+deb12u3,Ubuntu,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib
+scenescape-manager,perl-base:5.36.0-7+deb12u3,Ubuntu,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib
+scenescape-manager,perl-modules-5.36:5.36.0-7+deb12u3,Ubuntu,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib
+scenescape-manager,pexpect==4.9.0,pypi,LicenseRef-ISC-license
+scenescape-manager,pillow==12.1.1,pypi,MIT-CMU
+scenescape-manager,pillow==12.1.1,pypi,NOASSERTION
+scenescape-manager,pip==26.0.1,pypi,MIT
+scenescape-manager,platformdirs==4.4.0,pypi,MIT
+scenescape-manager,platformdirs==4.9.4,pypi,MIT
+scenescape-manager,plotly==6.6.0,pypi,MIT
+scenescape-manager,plyfile==1.0.3,pypi,NOASSERTION
+scenescape-manager,procps:2:4.0.2-3,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-manager,prompt-toolkit==3.0.52,pypi,NOASSERTION
+scenescape-manager,psycopg2-binary==2.9.11,pypi,LicenseRef-LGPL-with-exceptions
+scenescape-manager,ptyprocess==0.7.0,pypi,LicenseRef-UNKNOWN
+scenescape-manager,pure-eval==0.2.3,pypi,MIT
+scenescape-manager,pyasn1==0.6.2,pypi,BSD-2-Clause
+scenescape-manager,pyasn1-modules==0.4.2,pypi,LicenseRef-BSD
+scenescape-manager,pycparser==3.0,pypi,BSD-3-Clause
+scenescape-manager,pygments==2.19.2,pypi,BSD-2-Clause
+scenescape-manager,pyparsing==3.3.2,pypi,MIT
+scenescape-manager,pyquaternion==0.9.9,pypi,MIT
+scenescape-manager,python:3.11.14,UNKNOWN,NOASSERTION
+scenescape-manager,python-dateutil==2.9.0.post0,pypi,LicenseRef-Dual-License
+scenescape-manager,python3:3.11.2-1+b1,Ubuntu,NOASSERTION
+scenescape-manager,python3-minimal:3.11.2-1+b1,Ubuntu,NOASSERTION
+scenescape-manager,python3.11:3.11.2-6+deb12u6,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This
+scenescape-manager,python3.11-minimal:3.11.2-6+deb12u6,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This
+scenescape-manager,pytz==2026.1.post1,pypi,MIT
+scenescape-manager,pyyaml==6.0.3,pypi,MIT
+scenescape-manager,readline-common:8.2-1.3,Ubuntu,LicenseRef-GFDL AND LicenseRef-GFDL-NIV-1.3- AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-ISC-no-attribution
+scenescape-manager,referencing==0.37.0,pypi,MIT
+scenescape-manager,requests==2.32.5,pypi,Apache-2.0
+scenescape-manager,requests-file==3.0.1,pypi,LicenseRef-Apache-2.0
+scenescape-manager,requests-oauthlib==2.0.0,pypi,ISC
+scenescape-manager,requests-toolbelt==1.0.0,pypi,LicenseRef-Apache-2.0
+scenescape-manager,retrying==1.4.2,pypi,Apache-2.0
+scenescape-manager,rpds-py==0.30.0,pypi,MIT
+scenescape-manager,rsa==4.9.1,pypi,Apache-2.0
+scenescape-manager,scikit-learn==1.8.0,pypi,BSD-3-Clause
+scenescape-manager,scikit_learn==1.8.0,pypi,NOASSERTION
+scenescape-manager,scipy==1.16.3,pypi,BSD-3-Clause
+scenescape-manager,sed:4.9-1,Ubuntu,BSD-4-Clause-UC AND BSL-1.0 AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3- AND GPL-3.0-only AND GPL-3.0-or-later AND ISC AND X11 AND LicenseRef-pcre
+scenescape-manager,setuptools==82.0.1,pypi,MIT
+scenescape-manager,six==1.17.0,pypi,MIT
+scenescape-manager,sqlparse==0.5.5,pypi,NOASSERTION
+scenescape-manager,stack-data==0.6.3,pypi,MIT
+scenescape-manager,sudo:1.9.13p3-1+deb12u3,Ubuntu,BSD-2-Clause AND BSD-3-Clause AND ISC AND Zlib AND LicenseRef-other AND LicenseRef-public-domain
+scenescape-manager,sysvinit-utils:3.06-4,Ubuntu,GPL-2.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-only
+scenescape-manager,tar:1.34+dfsg-1.2+deb12u1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later
+scenescape-manager,threadpoolctl==3.6.0,pypi,BSD-3-Clause
+scenescape-manager,tomli==2.4.0,pypi,MIT
+scenescape-manager,tqdm==4.67.3,pypi,(MPL-2.0 AND MIT)
+scenescape-manager,traitlets==5.14.3,pypi,BSD-3-Clause
+scenescape-manager,trimesh==4.11.2,pypi,MIT
+scenescape-manager,typing-extensions==4.15.0,pypi,PSF-2.0
+scenescape-manager,tzdata:2025b-0+deb12u2,Ubuntu,LicenseRef-public-domain
+scenescape-manager,urllib3==2.6.3,pypi,MIT
+scenescape-manager,usr-is-merged:37~deb12u1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later
+scenescape-manager,util-linux:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-manager,util-linux-extra:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-manager,wcwidth==0.6.0,pypi,MIT
+scenescape-manager,websocket-client==1.9.0,pypi,Apache-2.0
+scenescape-manager,websockets==15.0.1,pypi,BSD-3-Clause
+scenescape-manager,werkzeug==3.1.6,pypi,BSD-3-Clause
+scenescape-manager,wheel==0.46.3,pypi,MIT
+scenescape-manager,wheel==0.46.3,pypi,MIT
+scenescape-manager,widgetsnbextension==4.0.15,pypi,LicenseRef-BSD-3-Clause-License
+scenescape-manager,zeep==4.3.2,pypi,MIT
+scenescape-manager,zipp==3.23.0,pypi,MIT
+scenescape-manager,zipp==3.23.0,pypi,MIT
+scenescape-manager,zlib1g:1:1.2.13.dfsg-1,Ubuntu,Zlib
+scenescape-manager,sbom,UNKNOWN,NOASSERTION

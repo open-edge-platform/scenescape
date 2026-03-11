@@ -1,0 +1,206 @@
+Image,Component,Origin,License
+scenescape-cluster-analytics,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,Simple Launcher:1.1.0.14,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,adduser:3.134,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later
+scenescape-cluster-analytics,apt:2.6.1,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-cluster-analytics,autocommand==2.2.2,pypi,LicenseRef-LGPLv3
+scenescape-cluster-analytics,backports-tarfile==1.2.0,pypi,NOASSERTION
+scenescape-cluster-analytics,base-files:12.4+deb12u13,Ubuntu,LicenseRef-GPL
+scenescape-cluster-analytics,base-passwd:3.6.1,Ubuntu,GPL-2.0-only AND LicenseRef-public-domain
+scenescape-cluster-analytics,bash:5.2.15-2+b10,Ubuntu,BSD-4-Clause-UC AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND Latex2e AND LicenseRef-MIT-like AND LicenseRef-permissive
+scenescape-cluster-analytics,bidict==0.23.1,pypi,LicenseRef-MPL-2.0
+scenescape-cluster-analytics,blinker==1.9.0,pypi,NOASSERTION
+scenescape-cluster-analytics,bsdutils:1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-cluster-analytics,ca-certificates:20230311+deb12u1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND MPL-2.0
+scenescape-cluster-analytics,cli:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,cli-32:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,cli-64:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,cli-arm64:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,click==8.3.0,pypi,BSD-3-Clause
+scenescape-cluster-analytics,coreutils:9.1-1,Ubuntu,BSD-4-Clause-UC AND FSFULLR AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-3.0-only AND GPL-3.0-or-later AND ISC
+scenescape-cluster-analytics,dash:0.5.12-2,Ubuntu,BSD-3-Clause AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-cluster-analytics,debconf:1.5.82,Ubuntu,BSD-2-Clause
+scenescape-cluster-analytics,debian-archive-keyring:2023.3+deb12u2,Ubuntu,LicenseRef-GPL
+scenescape-cluster-analytics,debianutils:5.7-0.5~deb12u1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND SMAIL-GPL AND LicenseRef-public-domain
+scenescape-cluster-analytics,diffutils:1:3.8-4,Ubuntu,FSFAP AND FSFULLR AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND X11 AND LicenseRef-public-domain
+scenescape-cluster-analytics,dnspython==2.7.0,pypi,ISC
+scenescape-cluster-analytics,dpkg:1.21.22,Ubuntu,BSD-2-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain-s-s-d
+scenescape-cluster-analytics,e2fsprogs:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-cluster-analytics,eventlet==0.40.3,pypi,MIT
+scenescape-cluster-analytics,ffmpeg:5.1.6,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,findutils:4.9.0-4,Ubuntu,BSD-3-Clause AND FSFAP AND FSFULLR AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3- AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND X11 AND LicenseRef-public-domain
+scenescape-cluster-analytics,flask==3.1.1,pypi,BSD-3-Clause
+scenescape-cluster-analytics,flask-socketio==5.4.1,pypi,NOASSERTION
+scenescape-cluster-analytics,gcc-12-base:12.2.0-14+deb12u1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-cluster-analytics,gpgv:2.2.40-1.1+deb12u2,Ubuntu,BSD-3-Clause AND CC0-1.0 AND LicenseRef-Expat AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-RFC-Reference AND LicenseRef-TinySCHEME AND LicenseRef-permissive
+scenescape-cluster-analytics,greenlet==3.1.1,pypi,LicenseRef-MIT-License
+scenescape-cluster-analytics,grep:3.8-5,Ubuntu,GPL-3.0-only AND GPL-3.0-or-later
+scenescape-cluster-analytics,gui:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,gui-32:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,gui-64:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,gui-arm64:UNKNOWN,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,gzip:1.12-1,Ubuntu,LicenseRef-FSF-manpages AND LicenseRef-GFDL-1.3--no-invariant AND LicenseRef-GFDL-3 AND GPL-3.0-only AND GPL-3.0-or-later
+scenescape-cluster-analytics,h11==0.16.0,pypi,MIT
+scenescape-cluster-analytics,hostname:3.23+nmu1,Ubuntu,GPL-2.0-only
+scenescape-cluster-analytics,importlib-metadata==8.7.1,pypi,Apache-2.0
+scenescape-cluster-analytics,init-system-helpers:1.65.2+deb12u1,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-cluster-analytics,itsdangerous==2.2.0,pypi,NOASSERTION
+scenescape-cluster-analytics,jaraco-context==6.1.0,pypi,MIT
+scenescape-cluster-analytics,jaraco-functools==4.4.0,pypi,MIT
+scenescape-cluster-analytics,jaraco-text==4.0.0,pypi,NOASSERTION
+scenescape-cluster-analytics,jinja2==3.1.6,pypi,NOASSERTION
+scenescape-cluster-analytics,joblib==1.5.2,pypi,LicenseRef-BSD-3-Clause
+scenescape-cluster-analytics,libacl1:2.3.1-3,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-only
+scenescape-cluster-analytics,libapt-pkg6.0:2.6.1,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-cluster-analytics,libattr1:1:2.5.1-4,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-only
+scenescape-cluster-analytics,libaudit-common:1:3.0.9-1,Ubuntu,GPL-1.0-only AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-cluster-analytics,libaudit1:1:3.0.9-1,Ubuntu,GPL-1.0-only AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-cluster-analytics,libblkid1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-cluster-analytics,libbsd0:0.11.7-2,Ubuntu,BSD-2-Clause AND BSD-2-Clause AND LicenseRef-BSD-2-clause-author AND LicenseRef-BSD-2-clause-verbatim AND BSD-3-Clause AND LicenseRef-BSD-3-clause-John-Birrell AND LicenseRef-BSD-3-clause-Regents AND LicenseRef-BSD-3-clause-author AND LicenseRef-BSD-4-clause-Niels-Provos AND Beerware AND LicenseRef-Expat AND ISC AND LicenseRef-ISC-Original AND libutil-David-Nugent AND LicenseRef-public-domain
+scenescape-cluster-analytics,libbz2-1.0:1.0.8-5+b1,Ubuntu,LicenseRef-BSD-variant AND GPL-2.0-only
+scenescape-cluster-analytics,libc-bin:2.36-9+deb12u13,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-cluster-analytics,libc6:2.36-9+deb12u13,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-cluster-analytics,libcap-ng0:0.8.3-1+b3,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-cluster-analytics,libcap2:1:2.66-4+deb12u2+b2,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-cluster-analytics,libcom-err2:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-cluster-analytics,libcrypt1:1:4.4.33-2,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libdb5.3:5.3.28+dfsg2-1,Ubuntu,LicenseRef-Artistic AND BSD-3-Clause AND LicenseRef-BSD-3-clause-fjord AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-MIT-old AND MS-PL AND Sleepycat AND LicenseRef-TCL-like AND X11 AND Zlib
+scenescape-cluster-analytics,libdebconfclient0:0.270,Ubuntu,BSD-2-Clause AND BSD-2-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-cluster-analytics,libdrm-amdgpu1:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libdrm-common:2.4.114-1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libdrm-intel1:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libdrm-nouveau2:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libdrm-radeon1:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libdrm2:2.4.114-1+b1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libedit2:3.1-20221030-2,Ubuntu,BSD-3-Clause
+scenescape-cluster-analytics,libelf1:0.188-2.1,Ubuntu,BSD-2-Clause AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-2.0-only AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later
+scenescape-cluster-analytics,libexpat1:2.5.0-1+deb12u2,Ubuntu,MIT
+scenescape-cluster-analytics,libext2fs2:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-cluster-analytics,libffi8:3.4.4-1,Ubuntu,LicenseRef-Expat AND LicenseRef-GPL AND GPL-2.0-or-later AND GPL-3.0-or-later AND MPL-1.1 AND X11 AND LicenseRef-public-domain
+scenescape-cluster-analytics,libgcc-s1:12.2.0-14+deb12u1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-cluster-analytics,libgcrypt20:1.10.1-3,Ubuntu,GPL-2.0-only AND LicenseRef-LGPL
+scenescape-cluster-analytics,libgdbm6:1.23-3,Ubuntu,LicenseRef-GFDL-NIV-1.3- AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later
+scenescape-cluster-analytics,libgl1:1.6.0-1,Ubuntu,Apache-2.0 AND BSD-1-Clause AND LicenseRef-GPL AND GPL-3.0-only AND GPL-3.0-or-later AND MIT
+scenescape-cluster-analytics,libgl1-mesa-dri:22.3.6-1+deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause AND LicenseRef-BSD-3-google AND LicenseRef-BSL AND LicenseRef-GPL AND LicenseRef-Khronos AND MIT AND LicenseRef-MLAA AND LicenseRef-SGI
+scenescape-cluster-analytics,libglapi-mesa:22.3.6-1+deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause AND LicenseRef-BSD-3-google AND LicenseRef-BSL AND LicenseRef-GPL AND LicenseRef-Khronos AND MIT AND LicenseRef-MLAA AND LicenseRef-SGI
+scenescape-cluster-analytics,libglib2.0-0:2.74.6-2+deb12u8,Ubuntu,AFL-2.0 AND Apache-2.0 AND LicenseRef-BSD-3-clause-pcre AND CC-BY-SA-3.0 AND CC0-1.0 AND LicenseRef-Expat AND FSFULLR AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-Iconv-PD AND LicenseRef-Janik-permissive AND LicenseRef-Kuchling-PD AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-Mingw-PD AND LicenseRef-Old-GLib-Tests-permissive AND LicenseRef-Plumb-PD AND Unicode-DFS-2016 AND bzip2-1.0.6
+scenescape-cluster-analytics,libglvnd0:1.6.0-1,Ubuntu,Apache-2.0 AND BSD-1-Clause AND LicenseRef-GPL AND GPL-3.0-only AND GPL-3.0-or-later AND MIT
+scenescape-cluster-analytics,libglx-mesa0:22.3.6-1+deb12u1,Ubuntu,Apache-2.0 AND BSD-2-Clause AND LicenseRef-BSD-3-google AND LicenseRef-BSL AND LicenseRef-GPL AND LicenseRef-Khronos AND MIT AND LicenseRef-MLAA AND LicenseRef-SGI
+scenescape-cluster-analytics,libglx0:1.6.0-1,Ubuntu,Apache-2.0 AND BSD-1-Clause AND LicenseRef-GPL AND GPL-3.0-only AND GPL-3.0-or-later AND MIT
+scenescape-cluster-analytics,libgmp10:2:6.2.1+dfsg1-1.1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later
+scenescape-cluster-analytics,libgnutls30:3.7.9-2+deb12u6,Ubuntu,Apache-2.0 AND BSD-3-Clause AND LicenseRef-CC0 AND LicenseRef-Expat AND GFDL-1.3-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-GPLv3- AND LicenseRef-LGPL AND LGPL-3.0-only AND LicenseRef-LGPLv2.1- AND LicenseRef-LGPLv3--or-GPLv2- AND LicenseRef-The
+scenescape-cluster-analytics,libgpg-error0:1.46-1,Ubuntu,BSD-3-Clause AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-g10-permissive
+scenescape-cluster-analytics,libgssapi-krb5-2:1.20.1-2+deb12u4,Ubuntu,GPL-2.0-only
+scenescape-cluster-analytics,libhogweed6:3.8.1-2,Ubuntu,LicenseRef-Expat AND LicenseRef-GAP AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-3.0-or-later AND LicenseRef-public-domain
+scenescape-cluster-analytics,libicu72:72.1-3+deb12u1,Ubuntu,GPL-3.0-only AND MIT
+scenescape-cluster-analytics,libidn2-0:2.3.3-1+b1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-Unicode
+scenescape-cluster-analytics,libk5crypto3:1.20.1-2+deb12u4,Ubuntu,GPL-2.0-only
+scenescape-cluster-analytics,libkeyutils1:1.6.3-2,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later
+scenescape-cluster-analytics,libkrb5-3:1.20.1-2+deb12u4,Ubuntu,GPL-2.0-only
+scenescape-cluster-analytics,libkrb5support0:1.20.1-2+deb12u4,Ubuntu,GPL-2.0-only
+scenescape-cluster-analytics,libllvm15:1:15.0.6-4+b1,Ubuntu,LicenseRef-APACHE-2-LLVM-EXCEPTIONS AND Apache-2.0 AND BSD-3-Clause AND BSD-3-Clause AND MIT AND LicenseRef-Python AND LicenseRef-solar-public-domain
+scenescape-cluster-analytics,liblz4-1:1.9.4-1,Ubuntu,BSD-2-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-cluster-analytics,liblzma5:5.4.1-1,Ubuntu,LicenseRef-Autoconf AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-PD AND LicenseRef-PD-debian AND LicenseRef-config-h AND LicenseRef-noderivs AND LicenseRef-permissive-fsf AND LicenseRef-permissive-nowarranty AND LicenseRef-probably-PD
+scenescape-cluster-analytics,libmd0:1.0.4-2,Ubuntu,BSD-2-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSD-3-clause-Aaron-D-Gifford AND Beerware AND ISC AND LicenseRef-public-domain-md4 AND LicenseRef-public-domain-md5 AND LicenseRef-public-domain-sha1
+scenescape-cluster-analytics,libmount1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-cluster-analytics,libncursesw6:6.4-4,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-cluster-analytics,libnettle8:3.8.1-2,Ubuntu,LicenseRef-Expat AND LicenseRef-GAP AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-3.0-or-later AND LicenseRef-public-domain
+scenescape-cluster-analytics,libnsl2:1.3.0-2,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND LicenseRef-GPL-2--autoconf-exception AND LicenseRef-GPL-2--libtool-exception AND GPL-3.0-only AND LicenseRef-GPL-3--autoconf-exception AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT AND LicenseRef-permissive-autoconf-m4 AND LicenseRef-permissive-autoconf-m4-no-warranty AND LicenseRef-permissive-configure AND LicenseRef-permissive-fsf AND LicenseRef-permissive-makefile-in
+scenescape-cluster-analytics,libp11-kit0:0.24.1-2,Ubuntu,Apache-2.0 AND BSD-3-Clause AND ISC AND LicenseRef-ISC-IBM AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-permissive-like-automake-output AND LicenseRef-same-as-rest-of-p11kit
+scenescape-cluster-analytics,libpam-modules:1.5.2-6+deb12u2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-cluster-analytics,libpam-modules-bin:1.5.2-6+deb12u2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-cluster-analytics,libpam-runtime:1.5.2-6+deb12u2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-cluster-analytics,libpam0g:1.5.2-6+deb12u2,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-cluster-analytics,libpciaccess0:0.17-2,Ubuntu,LicenseRef-GPL
+scenescape-cluster-analytics,libpcre2-8-0:10.42-1,Ubuntu,BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSD-3-clause-Cambridge AND X11 AND LicenseRef-public-domain
+scenescape-cluster-analytics,libreadline8:8.2-1.3,Ubuntu,LicenseRef-GFDL AND LicenseRef-GFDL-NIV-1.3- AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-ISC-no-attribution
+scenescape-cluster-analytics,libseccomp2:2.5.4-1+deb12u1,Ubuntu,LGPL-2.1-only
+scenescape-cluster-analytics,libselinux1:3.4-1+b6,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-cluster-analytics,libsemanage-common:3.4-1,Ubuntu,LicenseRef-GPL AND LicenseRef-LGPL
+scenescape-cluster-analytics,libsemanage2:3.4-1+b5,Ubuntu,LicenseRef-GPL AND LicenseRef-LGPL
+scenescape-cluster-analytics,libsensors-config:1:3.6.0-7.1,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-cluster-analytics,libsensors5:1:3.6.0-7.1,Ubuntu,GPL-2.0-only AND LGPL-2.1-only
+scenescape-cluster-analytics,libsepol2:3.4-2.1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND Zlib
+scenescape-cluster-analytics,libsmartcols1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-cluster-analytics,libsqlite3-0:3.40.1-2+deb12u2,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-cluster-analytics,libss2:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-cluster-analytics,libssl3:3.0.18-1~deb12u2,Ubuntu,Apache-2.0 AND LicenseRef-Artistic AND GPL-1.0-only AND GPL-1.0-or-later
+scenescape-cluster-analytics,libstdc++6:12.2.0-14+deb12u1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-cluster-analytics,libsystemd0:252.39-1~deb12u1,Ubuntu,CC0-1.0 AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-public-domain
+scenescape-cluster-analytics,libtasn1-6:4.19.0-2+deb12u1,Ubuntu,GFDL-1.3-only AND GPL-3.0-only AND LicenseRef-LGPL AND LGPL-2.1-only
+scenescape-cluster-analytics,libtinfo6:6.4-4,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-cluster-analytics,libtirpc-common:1.3.3+ds-1,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-cluster-analytics,libtirpc3:1.3.3+ds-1,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-cluster-analytics,libudev1:252.39-1~deb12u1,Ubuntu,CC0-1.0 AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-public-domain
+scenescape-cluster-analytics,libunistring2:1.0-2,Ubuntu,LicenseRef-FreeSoftware AND GFDL-1.2-only AND GFDL-1.2-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT
+scenescape-cluster-analytics,libuuid1:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-cluster-analytics,libx11-6:2:1.8.4-2+deb12u2,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libx11-data:2:1.8.4-2+deb12u2,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libx11-xcb1:2:1.8.4-2+deb12u2,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxau6:1:1.0.9-1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxcb-dri2-0:1.15-1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxcb-dri3-0:1.15-1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxcb-glx0:1.15-1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxcb-present0:1.15-1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxcb-randr0:1.15-1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxcb-shm0:1.15-1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxcb-sync1:1.15-1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxcb-xfixes0:1.15-1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxcb1:1.15-1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxdmcp6:1:1.1.2-3,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxext6:2:1.3.4-1+b1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxfixes3:1:6.0.0-2,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxml2:2.9.14+dfsg-1.3~deb12u5,Ubuntu,ISC AND LicenseRef-MIT-1
+scenescape-cluster-analytics,libxshmfence1:1.3-1,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxxf86vm1:1:1.1.4-1+b2,Ubuntu,NOASSERTION
+scenescape-cluster-analytics,libxxhash0:0.8.1-1,Ubuntu,BSD-2-Clause AND GPL-2.0-only
+scenescape-cluster-analytics,libz3-4:4.8.12-3.1,Ubuntu,LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-cluster-analytics,libzstd1:1.5.4+dfsg2-5,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND Zlib
+scenescape-cluster-analytics,login:1:4.13+dfsg1-1+deb12u2,Ubuntu,BSD-3-Clause AND GPL-1.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-cluster-analytics,logsave:1.47.0-2+b2,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-cluster-analytics,markupsafe==3.0.3,pypi,BSD-3-Clause
+scenescape-cluster-analytics,mawk:1.3.4.20200120-3.1,Ubuntu,CC-BY-3.0 AND GPL-2.0-only AND X11
+scenescape-cluster-analytics,more-itertools==10.8.0,pypi,MIT
+scenescape-cluster-analytics,mount:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-cluster-analytics,ncurses-base:6.4-4,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-cluster-analytics,ncurses-bin:6.4-4,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-cluster-analytics,netbase:6.4,Ubuntu,GPL-2.0-only
+scenescape-cluster-analytics,numpy==2.3.5,pypi,BSD-3-Clause
+scenescape-cluster-analytics,opencv-python-headless==4.11.0.86,pypi,LicenseRef-Apache-2.0
+scenescape-cluster-analytics,openssl:3.0.18-1~deb12u2,Ubuntu,Apache-2.0 AND LicenseRef-Artistic AND GPL-1.0-only AND GPL-1.0-or-later
+scenescape-cluster-analytics,packaging==24.2,pypi,NOASSERTION
+scenescape-cluster-analytics,packaging==26.0,pypi,(Apache-2.0 OR BSD-2-Clause)
+scenescape-cluster-analytics,paho-mqtt==2.1.0,pypi,(EPL-2.0 OR BSD-3-Clause)
+scenescape-cluster-analytics,passwd:1:4.13+dfsg1-1+deb12u2,Ubuntu,BSD-3-Clause AND GPL-1.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-cluster-analytics,perl-base:5.36.0-7+deb12u3,Ubuntu,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib
+scenescape-cluster-analytics,pip==26.0.1,pypi,MIT
+scenescape-cluster-analytics,platformdirs==4.4.0,pypi,MIT
+scenescape-cluster-analytics,protobuf==6.33.5,pypi,LicenseRef-3-Clause-BSD-License
+scenescape-cluster-analytics,python:3.11.14,UNKNOWN,NOASSERTION
+scenescape-cluster-analytics,python-engineio==4.12.3,pypi,MIT
+scenescape-cluster-analytics,python-socketio==5.14.0,pypi,MIT
+scenescape-cluster-analytics,readline-common:8.2-1.3,Ubuntu,LicenseRef-GFDL AND LicenseRef-GFDL-NIV-1.3- AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-ISC-no-attribution
+scenescape-cluster-analytics,scikit-learn==1.6.1,pypi,LicenseRef-eb8f4504317ebae6da2ce1752d7f93adfc2f7e25ba576f06e8643daf223c2cb3
+scenescape-cluster-analytics,scipy==1.16.2,pypi,BSD-3-Clause
+scenescape-cluster-analytics,sed:4.9-1,Ubuntu,BSD-4-Clause-UC AND BSL-1.0 AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3- AND GPL-3.0-only AND GPL-3.0-or-later AND ISC AND X11 AND LicenseRef-pcre
+scenescape-cluster-analytics,setuptools==82.0.1,pypi,MIT
+scenescape-cluster-analytics,simple-websocket==1.1.0,pypi,NOASSERTION
+scenescape-cluster-analytics,sysvinit-utils:3.06-4,Ubuntu,GPL-2.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-only
+scenescape-cluster-analytics,tar:1.34+dfsg-1.2+deb12u1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later
+scenescape-cluster-analytics,threadpoolctl==3.6.0,pypi,BSD-3-Clause
+scenescape-cluster-analytics,tomli==2.4.0,pypi,MIT
+scenescape-cluster-analytics,tzdata:2025b-0+deb12u2,Ubuntu,LicenseRef-public-domain
+scenescape-cluster-analytics,usr-is-merged:37~deb12u1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later
+scenescape-cluster-analytics,util-linux:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-cluster-analytics,util-linux-extra:2.38.1-5+deb12u3,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-cluster-analytics,werkzeug==3.1.5,pypi,BSD-3-Clause
+scenescape-cluster-analytics,wheel==0.46.3,pypi,MIT
+scenescape-cluster-analytics,wheel==0.46.3,pypi,MIT
+scenescape-cluster-analytics,wsproto==1.2.0,pypi,LicenseRef-MIT-License
+scenescape-cluster-analytics,zipp==3.23.0,pypi,MIT
+scenescape-cluster-analytics,zlib1g:1:1.2.13.dfsg-1,Ubuntu,Zlib
+scenescape-cluster-analytics,sbom,UNKNOWN,NOASSERTION

@@ -1,0 +1,34 @@
+Image,Component,License
+scenescape-tracker,abseil/20250127.0,Apache-2.0
+scenescape-tracker,autoconf/2.71,"GPL-2.0-or-later, GPL-3.0-or-later"
+scenescape-tracker,automake/1.16.5,"GPL-2.0-or-later, GPL-3.0-or-later"
+scenescape-tracker,c-ares/1.34.6,MIT
+scenescape-tracker,cli11/2.6.0,BSD-3-Clause
+scenescape-tracker,cmake/3.31.11,BSD-3-Clause
+scenescape-tracker,cmake/4.2.3,BSD-3-Clause
+scenescape-tracker,cpp-httplib/0.28.0,MIT
+scenescape-tracker,eigen/3.4.0,"MPL-2.0, LGPL-3.0-or-later"
+scenescape-tracker,gnu-config/cci.20210814,"GPL-3.0-or-later, autoconf-special-exception"
+scenescape-tracker,grpc/1.67.1,Apache-2.0
+scenescape-tracker,gtest/1.17.0,BSD-3-Clause
+scenescape-tracker,libcurl/8.18.0,curl
+scenescape-tracker,libtool/2.4.7,"GPL-2.0-or-later, GPL-3.0-or-later"
+scenescape-tracker,m4/1.4.19,GPL-3.0-only
+scenescape-tracker,meson/1.10.1,Apache-2.0
+scenescape-tracker,ms-gsl/4.0.0,MIT
+scenescape-tracker,ninja/1.13.2,Apache-2.0
+scenescape-tracker,nlohmann_json/3.11.3,MIT
+scenescape-tracker,opencv/4.12.0,Apache-2.0
+scenescape-tracker,openjpeg/2.5.4,BSD-2-Clause
+scenescape-tracker,openssl/3.6.1,Apache-2.0
+scenescape-tracker,opentelemetry-cpp/1.18.0,Apache-2.0
+scenescape-tracker,opentelemetry-proto/1.4.0,Apache-2.0
+scenescape-tracker,paho-mqtt-c/1.3.13,EPL-2.0
+scenescape-tracker,paho-mqtt-cpp/1.5.3,EPL-1.0
+scenescape-tracker,pkgconf/2.5.1,ISC
+scenescape-tracker,protobuf/5.27.0,BSD-3-Clause
+scenescape-tracker,quill/11.0.2,MIT
+scenescape-tracker,rapidjson/cci.20230929,MIT
+scenescape-tracker,re2/20230301,BSD-3-Clause
+scenescape-tracker,stduuid/1.2.3,MIT
+scenescape-tracker,zlib/1.3.1,Zlib

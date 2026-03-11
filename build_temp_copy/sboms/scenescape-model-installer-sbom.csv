@@ -1,0 +1,120 @@
+Image,Component,Origin,License
+scenescape-model-installer,apt:2.8.3,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-model-installer,base-files:13ubuntu10.4,Ubuntu,LicenseRef-GPL
+scenescape-model-installer,base-passwd:3.6.3build1,Ubuntu,GPL-2.0-only AND LicenseRef-public-domain
+scenescape-model-installer,bash:5.2.21-2ubuntu4,Ubuntu,BSD-4-Clause-UC AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND Latex2e AND LicenseRef-MIT-like AND LicenseRef-permissive
+scenescape-model-installer,bsdutils:1:2.39.3-9ubuntu6.4,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-model-installer,ca-certificates:20240203,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND MPL-2.0
+scenescape-model-installer,coreutils:9.4-3ubuntu6.1,Ubuntu,BSD-4-Clause-UC AND FSFULLR AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-3.0-only AND GPL-3.0-or-later AND ISC
+scenescape-model-installer,dash:0.5.12-6ubuntu5,Ubuntu,BSD-3-Clause AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-model-installer,debconf:1.5.86ubuntu1,Ubuntu,BSD-2-Clause
+scenescape-model-installer,debianutils:5.17build1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND SMAIL-GPL AND LicenseRef-public-domain
+scenescape-model-installer,diffutils:1:3.10-1build1,Ubuntu,FSFAP AND FSFULLR AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND X11 AND LicenseRef-public-domain
+scenescape-model-installer,dpkg:1.22.6ubuntu6.5,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain-s-s-d
+scenescape-model-installer,e2fsprogs:1.47.0-2.4~exp1ubuntu4.1,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-model-installer,findutils:4.9.0-5build1,Ubuntu,BSD-3-Clause AND FSFAP AND FSFULLR AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3- AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND X11 AND LicenseRef-public-domain
+scenescape-model-installer,gcc-14-base:14.2.0-4ubuntu2~24.04.1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-model-installer,gpgv:2.4.4-2ubuntu17.4,Ubuntu,BSD-3-Clause AND CC0-1.0 AND LicenseRef-Expat AND GPL-2.0-or-later AND GPL-2.0-only AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-RFC-Reference AND LicenseRef-TinySCHEME AND LicenseRef-permissive
+scenescape-model-installer,grep:3.11-4build1,Ubuntu,GPL-3.0-only AND GPL-3.0-or-later
+scenescape-model-installer,gzip:1.12-1ubuntu3.1,Ubuntu,LicenseRef-FSF-manpages AND LicenseRef-GFDL-1.3--no-invariant AND LicenseRef-GFDL-3 AND GPL-3.0-only AND GPL-3.0-or-later
+scenescape-model-installer,hostname:3.23+nmu2ubuntu2,Ubuntu,GPL-2.0-only
+scenescape-model-installer,init-system-helpers:1.66ubuntu1,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-model-installer,libacl1:2.3.2-1build1.1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-only
+scenescape-model-installer,libapt-pkg6.0t64:2.8.3,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-model-installer,libassuan0:2.5.6-1build1,Ubuntu,LicenseRef-GAP AND LicenseRef-GAP-FSF AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later
+scenescape-model-installer,libattr1:1:2.5.2-1build1.1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-only
+scenescape-model-installer,libaudit-common:1:3.1.2-2.1build1.1,Ubuntu,GPL-1.0-only AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-model-installer,libaudit1:1:3.1.2-2.1build1.1,Ubuntu,GPL-1.0-only AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-model-installer,libblkid1:2.39.3-9ubuntu6.4,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-model-installer,libbz2-1.0:1.0.8-5.1build0.1,Ubuntu,LicenseRef-BSD-variant AND GPL-2.0-only
+scenescape-model-installer,libc-bin:2.39-0ubuntu8.7,Ubuntu,GFDL-1.3-only AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-model-installer,libc6:2.39-0ubuntu8.7,Ubuntu,GFDL-1.3-only AND GPL-2.0-only AND LGPL-2.1-only
+scenescape-model-installer,libcap-ng0:0.8.4-2build2,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-model-installer,libcap2:1:2.66-5ubuntu2.2,Ubuntu,BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-model-installer,libcom-err2:1.47.0-2.4~exp1ubuntu4.1,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-model-installer,libcrypt1:1:4.4.36-4build1,Ubuntu,NOASSERTION
+scenescape-model-installer,libdb5.3t64:5.3.28+dfsg2-7,Ubuntu,LicenseRef-Artistic AND BSD-3-Clause AND LicenseRef-BSD-3-clause-fjord AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-MIT-old AND MS-PL AND Sleepycat AND LicenseRef-TCL-like AND X11 AND Zlib
+scenescape-model-installer,libdebconfclient0:0.271ubuntu3,Ubuntu,BSD-2-Clause AND BSD-2-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-model-installer,libexpat1:2.6.1-2ubuntu0.4,Ubuntu,MIT
+scenescape-model-installer,libext2fs2t64:1.47.0-2.4~exp1ubuntu4.1,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-model-installer,libffi8:3.4.6-1build1,Ubuntu,LicenseRef-Expat AND LicenseRef-GPL AND GPL-2.0-or-later AND GPL-3.0-or-later AND MPL-1.1 AND X11 AND LicenseRef-public-domain
+scenescape-model-installer,libgcc-s1:14.2.0-4ubuntu2~24.04.1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-model-installer,libgcrypt20:1.10.3-2build1,Ubuntu,GPL-2.0-only AND LicenseRef-LGPL
+scenescape-model-installer,libgmp10:2:6.3.0+dfsg-2ubuntu6.1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later
+scenescape-model-installer,libgnutls30t64:3.8.3-1.1ubuntu3.5,Ubuntu,Apache-2.0 AND BSD-3-Clause AND LicenseRef-CC0 AND LicenseRef-Expat AND GFDL-1.3-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-GPLv3- AND LicenseRef-LGPL AND LGPL-3.0-only AND LicenseRef-LGPLv2.1- AND LicenseRef-LGPLv3--or-GPLv2- AND LicenseRef-The
+scenescape-model-installer,libgpg-error0:1.47-3build2.1,Ubuntu,BSD-3-Clause AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-g10-permissive
+scenescape-model-installer,libhogweed6t64:3.9.1-2.2build1.1,Ubuntu,LicenseRef-Expat AND LicenseRef-GAP AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-3.0-or-later AND LicenseRef-public-domain
+scenescape-model-installer,libidn2-0:2.3.7-2build1.1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-Unicode
+scenescape-model-installer,liblz4-1:1.9.4-1build1.1,Ubuntu,BSD-2-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-model-installer,liblzma5:5.6.1+really5.4.5-1ubuntu0.2,Ubuntu,LicenseRef-Autoconf AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-PD AND LicenseRef-PD-debian AND LicenseRef-config-h AND LicenseRef-noderivs AND LicenseRef-permissive-fsf AND LicenseRef-permissive-nowarranty AND LicenseRef-probably-PD
+scenescape-model-installer,libmd0:1.1.0-2build1.1,Ubuntu,BSD-2-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSD-3-clause-Aaron-D-Gifford AND Beerware AND ISC AND LicenseRef-public-domain-md4 AND LicenseRef-public-domain-md5 AND LicenseRef-public-domain-sha1
+scenescape-model-installer,libmount1:2.39.3-9ubuntu6.4,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-model-installer,libncursesw6:6.4+20240113-1ubuntu2,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-model-installer,libnettle8t64:3.9.1-2.2build1.1,Ubuntu,LicenseRef-Expat AND LicenseRef-GAP AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-3.0-or-later AND LicenseRef-public-domain
+scenescape-model-installer,libnpth0t64:1.6-3.1build1,Ubuntu,LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-model-installer,libp11-kit0:0.25.3-4ubuntu2.1,Ubuntu,Apache-2.0 AND BSD-3-Clause AND FSFAP AND FSFULLR AND GPL-2.0-or-later AND GPL-3.0-or-later AND ISC AND LGPL-2.1-only AND LGPL-2.1-or-later AND X11 AND LicenseRef-customFSFUL AND LicenseRef-customFSFULLRWD
+scenescape-model-installer,libpam-modules:1.5.3-5ubuntu5.5,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-model-installer,libpam-modules-bin:1.5.3-5ubuntu5.5,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-model-installer,libpam-runtime:1.5.3-5ubuntu5.5,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-model-installer,libpam0g:1.5.3-5ubuntu5.5,Ubuntu,BSD-3-Clause AND LicenseRef-BSD-tcp-wrappers AND Beerware AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-model-installer,libpcre2-8-0:10.42-4ubuntu2.1,Ubuntu,BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSD-3-clause-Cambridge AND X11 AND LicenseRef-public-domain
+scenescape-model-installer,libproc2-0:2:4.0.4-4ubuntu3.2,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-model-installer,libpsl5t64:0.21.2-1.1build1,Ubuntu,LicenseRef-Chromium AND MIT AND LicenseRef-gnulib
+scenescape-model-installer,libpython3-stdlib:3.12.3-0ubuntu2.1,Ubuntu,NOASSERTION
+scenescape-model-installer,libpython3.12-minimal:3.12.3-1ubuntu0.12,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This
+scenescape-model-installer,libpython3.12-stdlib:3.12.3-1ubuntu0.12,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This
+scenescape-model-installer,libreadline8t64:8.2-4build1,Ubuntu,LicenseRef-GFDL AND LicenseRef-GFDL-NIV-1.3- AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-ISC-no-attribution
+scenescape-model-installer,libseccomp2:2.5.5-1ubuntu3.1,Ubuntu,LGPL-2.1-only
+scenescape-model-installer,libselinux1:3.5-2ubuntu2.1,Ubuntu,GPL-2.0-only AND LicenseRef-public-domain
+scenescape-model-installer,libsemanage-common:3.5-1build5,Ubuntu,GPL-2.0-only AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-model-installer,libsemanage2:3.5-1build5,Ubuntu,GPL-2.0-only AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-model-installer,libsepol2:3.5-2build1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND Zlib
+scenescape-model-installer,libsmartcols1:2.39.3-9ubuntu6.4,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-model-installer,libsqlite3-0:3.45.1-1ubuntu2.5,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-model-installer,libss2:1.47.0-2.4~exp1ubuntu4.1,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-model-installer,libssl3t64:3.0.13-0ubuntu3.7,Ubuntu,Apache-2.0 AND LicenseRef-Artistic AND GPL-1.0-only AND GPL-1.0-or-later
+scenescape-model-installer,libstdc++6:14.2.0-4ubuntu2~24.04.1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL
+scenescape-model-installer,libsystemd0:255.4-1ubuntu8.12,Ubuntu,CC0-1.0 AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-public-domain
+scenescape-model-installer,libtasn1-6:4.19.0-3ubuntu0.24.04.2,Ubuntu,GFDL-1.3-only AND GPL-3.0-only AND LicenseRef-LGPL AND LGPL-2.1-only
+scenescape-model-installer,libtinfo6:6.4+20240113-1ubuntu2,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-model-installer,libudev1:255.4-1ubuntu8.12,Ubuntu,CC0-1.0 AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-public-domain
+scenescape-model-installer,libunistring5:1.1-2build1.1,Ubuntu,LicenseRef-FreeSoftware AND GFDL-1.2-only AND LicenseRef-GFDL-NIV-1.2- AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND X11
+scenescape-model-installer,libuuid1:2.39.3-9ubuntu6.4,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-model-installer,libxxhash0:0.8.2-2build1,Ubuntu,BSD-2-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+scenescape-model-installer,libzstd1:1.5.5+dfsg2-2build1.1,Ubuntu,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND Zlib
+scenescape-model-installer,login:1:4.13+dfsg1-4ubuntu3.2,Ubuntu,BSD-3-Clause AND GPL-1.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-model-installer,logsave:1.47.0-2.4~exp1ubuntu4.1,Ubuntu,Apache-2.0 AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-GPL AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND Kazlib AND LGPL-2.0-only AND Latex2e
+scenescape-model-installer,mawk:1.3.4.20240123-1build1,Ubuntu,CC-BY-3.0 AND GPL-2.0-only AND GPL-2.0-only AND X11
+scenescape-model-installer,media-types:10.1.0,Ubuntu,LicenseRef-ad-hoc
+scenescape-model-installer,mount:2.39.3-9ubuntu6.4,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-model-installer,mpmath==1.3.0,pypi,LicenseRef-BSD
+scenescape-model-installer,ncurses-base:6.4+20240113-1ubuntu2,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-model-installer,ncurses-bin:6.4+20240113-1ubuntu2,Ubuntu,BSD-3-Clause AND LicenseRef-MIT-X11 AND X11
+scenescape-model-installer,netbase:6.4,Ubuntu,GPL-2.0-only
+scenescape-model-installer,openssl:3.0.13-0ubuntu3.7,Ubuntu,NOASSERTION
+scenescape-model-installer,passwd:1:4.13+dfsg1-4ubuntu3.2,Ubuntu,BSD-3-Clause AND GPL-1.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-public-domain
+scenescape-model-installer,perl-base:5.38.2-3.2ubuntu0.2,Ubuntu,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND FSFAP AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib
+scenescape-model-installer,pip==24.0,pypi,MIT
+scenescape-model-installer,procps:2:4.0.4-4ubuntu3.2,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-model-installer,python3:3.12.3-0ubuntu2.1,Ubuntu,NOASSERTION
+scenescape-model-installer,python3-minimal:3.12.3-0ubuntu2.1,Ubuntu,NOASSERTION
+scenescape-model-installer,python3-pip:24.0+dfsg-1ubuntu1.3,Ubuntu,Apache-2.0 AND LicenseRef-BSD-2 AND LicenseRef-BSD-3 AND LicenseRef-Expat AND ISC AND LGPL-2.1-only AND LGPL-2.1-or-later AND MPL-2.0 AND MPL-2.0 AND LicenseRef-Python
+scenescape-model-installer,python3-pkg-resources:68.1.2-2ubuntu1.2,Ubuntu,Apache-2.0 AND BSD-3-Clause
+scenescape-model-installer,python3-setuptools:68.1.2-2ubuntu1.2,Ubuntu,Apache-2.0 AND BSD-3-Clause
+scenescape-model-installer,python3-wheel:0.42.0-2,Ubuntu,Apache-2.0 AND BSD-2-Clause AND LicenseRef-Expat AND GPL-3.0-only
+scenescape-model-installer,python3.12:3.12.3-1ubuntu0.12,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This
+scenescape-model-installer,python3.12-minimal:3.12.3-1ubuntu0.12,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This
+scenescape-model-installer,readline-common:8.2-4build1,Ubuntu,LicenseRef-GFDL AND LicenseRef-GFDL-NIV-1.3- AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-ISC-no-attribution
+scenescape-model-installer,sed:4.9-2build1,Ubuntu,BSD-4-Clause-UC AND BSL-1.0 AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3- AND GPL-3.0-only AND GPL-3.0-or-later AND ISC AND X11 AND LicenseRef-pcre
+scenescape-model-installer,sensible-utils:0.0.22,Ubuntu,LicenseRef-All-permissive AND BSD-2-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-configure AND LicenseRef-installsh
+scenescape-model-installer,setuptools==68.1.2,pypi,NOASSERTION
+scenescape-model-installer,sysvinit-utils:3.08-6ubuntu3,Ubuntu,GPL-2.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-only AND LGPL-2.1-only AND LGPL-2.1-or-later
+scenescape-model-installer,tar:1.35+dfsg-3build1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later
+scenescape-model-installer,tzdata:2025b-0ubuntu0.24.04.1,Ubuntu,ICU AND LicenseRef-public-domain
+scenescape-model-installer,ubuntu-keyring:2023.11.28.1,Ubuntu,LicenseRef-GPL
+scenescape-model-installer,unminimize:0.2.1,Ubuntu,GPL-2.0-only AND GPL-2.0-or-later
+scenescape-model-installer,util-linux:2.39.3-9ubuntu6.4,Ubuntu,BSD-3-Clause AND BSD-4-Clause AND LicenseRef-BSLA AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT AND LicenseRef-public-domain
+scenescape-model-installer,wget:1.21.4-1ubuntu4.1,Ubuntu,GFDL-1.2-only AND GPL-3.0-only
+scenescape-model-installer,wheel==0.42.0,pypi,NOASSERTION
+scenescape-model-installer,zlib1g:1:1.3.dfsg-3.1ubuntu2.1,Ubuntu,Zlib
+scenescape-model-installer,sbom,UNKNOWN,NOASSERTION

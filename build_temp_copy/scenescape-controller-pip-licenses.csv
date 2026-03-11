@@ -1,0 +1,92 @@
+Name,Version,License
+addict,2.4.0,MIT License
+asttokens,3.0.1,Apache 2.0
+attrs,25.4.0,MIT
+blinker,1.9.0,MIT License
+certifi,2026.2.25,MPL-2.0
+charset-normalizer,3.4.5,MIT
+click,8.3.1,BSD-3-Clause
+comm,0.2.3,BSD License
+ConfigArgParse,1.7.5,MIT
+contourpy,1.3.3,BSD License
+cycler,0.12.1,BSD License
+dash,4.0.0,MIT
+decorator,5.2.1,BSD-2-Clause
+executing,2.2.1,MIT
+fastjsonschema,2.21.2,BSD
+Flask,3.1.3,BSD-3-Clause
+fonttools,4.62.0,MIT
+googleapis-common-protos,1.73.0,Apache 2.0
+grpcio,1.78.0,Apache-2.0
+idna,3.11,BSD-3-Clause
+importlib_metadata,8.7.1,Apache-2.0
+ipython,9.10.0,BSD-3-Clause
+ipython_pygments_lexers,1.1.1,BSD License
+ipywidgets,8.1.8,BSD 3-Clause License
+itsdangerous,2.2.0,BSD License
+jedi,0.19.2,MIT
+Jinja2,3.1.6,BSD License
+joblib,1.5.3,BSD-3-Clause
+jsonschema,4.26.0,MIT
+jsonschema-specifications,2025.9.1,MIT
+jupyter_core,5.9.1,BSD-3-Clause
+jupyterlab_widgets,3.0.16,BSD License
+kiwisolver,1.5.0,BSD License
+mapbox_earcut,1.0.3,ISC License (ISCL)
+MarkupSafe,3.0.3,BSD-3-Clause
+matplotlib,3.10.8,Python Software Foundation License
+matplotlib-inline,0.2.1,
+narwhals,2.18.0,MIT License
+nbformat,5.10.4,BSD License
+nest-asyncio,1.6.0,BSD
+ntplib,0.4.0,MIT
+numpy,2.2.6,BSD License
+open3d-cpu,0.19.0,MIT
+opencv-python-headless,4.12.0.88,Apache 2.0
+opentelemetry-api,1.38.0,Apache-2.0
+opentelemetry-exporter-otlp-proto-common,1.38.0,Apache-2.0
+opentelemetry-exporter-otlp-proto-grpc,1.38.0,Apache-2.0
+opentelemetry-proto,1.38.0,Apache-2.0
+opentelemetry-sdk,1.38.0,Apache-2.0
+opentelemetry-semantic-conventions,0.59b0,Apache-2.0
+orjson,3.11.5,Apache-2.0 OR MIT
+packaging,26.0,Apache-2.0 OR BSD-2-Clause
+paho-mqtt,2.1.0,EPL-2.0 OR BSD-3-Clause
+pandas,3.0.1,BSD License
+parso,0.8.6,MIT
+pexpect,4.9.0,ISC license
+pillow,12.1.1,MIT-CMU
+pip,26.0.1,MIT
+platformdirs,4.9.4,MIT
+plotly,6.6.0,MIT License
+prompt_toolkit,3.0.52,BSD License
+protobuf,7.34.0,3-Clause BSD License
+ptyprocess,0.7.0,ISC License (ISCL)
+pure_eval,0.2.3,MIT
+Pygments,2.19.2,BSD-2-Clause
+pyparsing,3.3.2,MIT
+pyquaternion,0.9.9,MIT
+python-dateutil,2.9.0.post0,Dual License
+PyYAML,6.0.3,MIT
+referencing,0.37.0,MIT
+requests,2.32.5,Apache-2.0
+retrying,1.4.2,Apache-2.0
+rpds-py,0.30.0,MIT
+scikit-learn,1.8.0,BSD-3-Clause
+scipy,1.16.3,BSD License
+setuptools,82.0.1,MIT
+shapely,2.1.1,BSD 3-Clause
+six,1.17.0,MIT
+stack-data,0.6.3,MIT
+threadpoolctl,3.6.0,BSD-3-Clause
+tqdm,4.67.3,MPL-2.0 AND MIT
+traitlets,5.14.3,BSD License
+trimesh,4.11.2,MIT License
+typing_extensions,4.15.0,PSF-2.0
+urllib3,2.6.3,MIT
+vdms,0.0.22,MIT
+wcwidth,0.6.0,MIT
+Werkzeug,3.1.6,BSD-3-Clause
+wheel,0.46.3,MIT
+widgetsnbextension,4.0.15,BSD 3-Clause License
+zipp,3.23.0,MIT
