@@ -186,6 +186,39 @@ class CamCreateForm(forms.ModelForm):
     super().__init__(*args, **kwargs)
     self.fields['scene'].required = False
 
+  # Added validation to ensure all models in camerachain exist in model_config
+  def clean_camerachain(self):
+    camerachain = self.cleaned_data.get('camerachain', '').strip()
+    if not camerachain:
+        return camerachain
+    
+    from pathlib import Path
+    from manager.ppl_generator.model_chain import CameraChainOperations
+    
+    # Load model config
+    model_config_path = Path(os.environ.get('MODEL_CONFIGS_FOLDER', '/models/model_configs')) / 'model_config.json'
+    if not model_config_path.is_file():
+        raise ValidationError(f"Model config file not found at {model_config_path}")
+    
+    try:
+        with open(model_config_path, 'r') as f:
+            model_config = json.load(f)
+    except (json.JSONDecodeError, IOError) as e:
+        raise ValidationError(f"Error reading model config: {str(e)}")
+    
+    # Extract model names from chain
+    chain_parts = camerachain.replace(CameraChainOperations.PARALLEL.value, CameraChainOperations.SEQUENTIAL.value)
+    model_names = [part.split('=')[0].strip() for part in chain_parts.split(CameraChainOperations.SEQUENTIAL.value) if part.strip()]
+    
+    # Validate models exist
+    missing = [m for m in model_names if m not in model_config]
+    if missing:
+        missing_str = ', '.join(f"'{m}'" for m in missing)
+        available = ', '.join(f"'{m}'" for m in sorted(model_config.keys()))
+        raise ValidationError(f"Error adding camera: Model(s) {missing_str} not found in model config file. Available models: {available}")
+    
+    return camerachain     
+
 class ChildSceneForm(forms.ModelForm):
   class Meta:
     model = ChildScene
