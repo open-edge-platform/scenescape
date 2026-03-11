@@ -32,3 +32,14 @@ build-all: build-vggt build-mapanything
 .PHONY: vggt mapanything
 vggt: build-vggt
 mapanything: build-mapanything
+
+# Override list-dependencies to produce dep files for both MODEL_TYPE modes.
+# MAPPING_LIST_DEPS sentinel prevents infinite recursion: the recursive $(MAKE)
+# calls below set it, causing this block to be skipped so common.mk's
+# list-dependencies runs with the correct IMAGE and MODEL_TYPE.
+ifndef MAPPING_LIST_DEPS
+.PHONY: list-dependencies
+list-dependencies: build-vggt build-mapanything
+	$(MAKE) MODEL_TYPE=vggt IMAGE=scenescape-mapping-vggt MAPPING_LIST_DEPS=1 list-dependencies
+	$(MAKE) MODEL_TYPE=mapanything IMAGE=scenescape-mapping-mapanything MAPPING_LIST_DEPS=1 list-dependencies
+endif

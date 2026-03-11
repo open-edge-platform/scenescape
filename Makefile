@@ -293,7 +293,7 @@ list-dependencies: $(BUILD_DIR)
 	@echo "==> Listing dependencies for all microservices..."
 	@set -e; \
 	for dir in $(IMAGE_FOLDERS); do \
-		$(MAKE) -C $$dir list-dependencies; \
+		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) list-dependencies; \
 	done
 	@echo "The following dependency lists have been generated:"
 	@find $(BUILD_DIR) -name '*-deps.txt' -print
