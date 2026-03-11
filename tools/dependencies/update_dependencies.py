@@ -38,6 +38,7 @@ class Dependency:
     distributed: str = ""
     comments: str = ""
     is_new: bool = False
+    license_source: str = ""
 
 
 def extract_component_name(component: str) -> str:
@@ -331,7 +332,7 @@ class DependencyProcessor:
 
     def format_dependency_row(self, dep: Dependency) -> str:
         """Format dependency as CSV row for logging."""
-        base_row = f"{dep.image},{dep.component},{dep.origin},{dep.license},{dep.distributed},{dep.comments}"
+        base_row = f"{dep.image},{dep.component},{dep.origin},{dep.license},{dep.distributed},{dep.comments},{dep.license_source}"
         if self.show_new:
             new_value = "Y" if dep.is_new else "N"
             return f"{base_row},{new_value}"
@@ -391,7 +392,8 @@ class DependencyProcessor:
                     license=prev_dep.license,
                     distributed=self.get_distributed_value(current_dep.image, prev_dep.distributed),
                     comments=prev_dep.comments,
-                    is_new=False
+                    is_new=False,
+                    license_source="previous-release"
                 )
                 self.output_deps.append(new_dep)
                 self.add_log_entry(f"COPIED_DEPENDENCY,{self.format_dependency_row(new_dep)}")
@@ -411,7 +413,8 @@ class DependencyProcessor:
                             license=prev_dep.license,
                             distributed=self.get_distributed_value(current_dep.image, prev_dep.distributed),
                             comments=prev_dep.comments,
-                            is_new=False
+                            is_new=False,
+                            license_source="previous-release"
                         )
                         self.output_deps.append(new_dep)
                         self.add_log_entry(f"UPDATED_DEPENDENCY,{self.format_dependency_row(new_dep)}")
@@ -431,7 +434,8 @@ class DependencyProcessor:
                             license=f"?{prev_dep.license}",
                             distributed=self.get_distributed_value(current_dep.image, prev_dep.distributed),
                             comments=f"?{prev_dep.comments}",
-                            is_new=True
+                            is_new=True,
+                            license_source="previous-release"
                         )
                         self.output_deps.append(new_dep)
                         self.add_log_entry(f"REUSED_DEPENDENCY from {prev_dep.image},{self.format_dependency_row(new_dep)}")
@@ -500,7 +504,8 @@ class DependencyProcessor:
                     origin="Ubuntu",  # As specified in requirements
                     license="collection of licenses",  # As specified in requirements
                     distributed="N",  # As specified in requirements
-                    comments="base image"  # As specified in requirements
+                    comments="base image",  # As specified in requirements
+                    license_source="base-image"
                 )
 
                 self.output_deps.append(base_dep)
@@ -529,6 +534,7 @@ class DependencyProcessor:
             ]:
                 if sbom_key in sbom_data:
                     dep.license = sbom_data[sbom_key]
+                    dep.license_source = "sbom"
                     self.add_log_entry(f"LICENCE_IDENTIFIED_SBOM,{self.format_dependency_row(dep)}")
                     self.add_action_item("review resolved license information")
                     break
@@ -546,6 +552,7 @@ class DependencyProcessor:
                 ]:
                     if pl_key in self.pip_licenses_data:
                         dep.license = self.pip_licenses_data[pl_key]
+                        dep.license_source = "pip-licenses"
                         self.add_log_entry(f"LICENCE_IDENTIFIED_PIP_LICENSES,{self.format_dependency_row(dep)}")
                         self.add_action_item("review resolved license information")
                         break
@@ -562,6 +569,7 @@ class DependencyProcessor:
                 ]:
                     if cl_key in self.conan_licenses_data:
                         dep.license = self.conan_licenses_data[cl_key]
+                        dep.license_source = "conan-licenses"
                         self.add_log_entry(f"LICENCE_IDENTIFIED_CONAN_LICENSES,{self.format_dependency_row(dep)}")
                         self.add_action_item("review resolved license information")
                         break
@@ -576,14 +584,14 @@ def write_output_csv(dependencies: List[Dependency], output_file: str, show_new:
         writer = csv.writer(f)
 
         # Write header
-        header = ['Image', 'Component', 'Origin', 'License', 'Distributed by you?', 'Comments']
+        header = ['Image', 'Component', 'Origin', 'License', 'Distributed by you?', 'Comments', 'License Source']
         if show_new:
             header.append('New')
         writer.writerow(header)
 
         # Write dependencies
         for dep in dependencies:
-            row = [dep.image, dep.component, dep.origin, dep.license, dep.distributed, dep.comments]
+            row = [dep.image, dep.component, dep.origin, dep.license, dep.distributed, dep.comments, dep.license_source]
             if show_new:
                 row.append('Y' if dep.is_new else 'N')
             writer.writerow(row)

@@ -107,6 +107,7 @@ python3 tools/dependencies/update_dependencies.py \
     --conan-licenses build \
     --output build/updated-dependencies.csv \
     --show-new
+```
 
 The script auto-detects the latest `*-Dependencies.csv` and `*-Images.csv` from
 `tools/dependencies/release-data/` by version number. Pass `--from` and
