@@ -17,9 +17,10 @@ python3 tools/dependencies/generate_dependencies.py build -o build/all_dependenc
 ```
 
 This script:
-- Scans the build folder for files matching `*-apt-deps.txt` and `*-pip-deps.txt` patterns
+- Scans the build folder for files matching `*-apt-deps.txt`, `*-pip-deps.txt`, and `*-conan-deps.txt` patterns
 - Parses Ubuntu (APT) dependencies and converts them to format: `image,package:version,Ubuntu`
 - Parses Python (pip) dependencies and converts them to format: `image,package==version,pypi`
+- Parses Conan (C++) dependencies and converts them to format: `image,package/version,conan`
 - Outputs a CSV file with header: `Image,Component,Origin`
 
 ## License identification for PyPI packages
@@ -44,14 +45,40 @@ This should generate additional licence information that can be associated with 
 Scripts are provided that generate SBOMS in Json format
 
 ```sh
-docker buildx create --use --name=scenescape-buildkit-container --driver=docker-container --driver-opt=env.http_proxy=$http_proxy,env.https_proxy=$https_proxy,env.HTTP_PROXY=$HTTP_PROXY,env.HTTPS_PROXY=$HTTPS_PROXY,default-load=true
-
 make generate-sboms
-
-docker buildx rm scenescape-buildkit-container
 ```
 
 Docs: https://www.docker.com/blog/generate-sboms-with-buildkit/
+
+## Generate Dockerfile artifacts zip
+
+`make generate-dockerfile-zip` (or run the script directly) produces:
+
+- `build/Dockerfiles-<version-slug>.zip` — all service Dockerfiles, `requirements*.txt` files,
+  `conanfile.txt` files (for Conan-based services), and a `gpllist-<slug>` of copyleft-licensed
+  distributed packages
+- `sources.Dockerfile` (updated in-place in the repo root) — fetches source archives for all
+  copyleft-licensed APT packages and Python packages distributed with the product
+
+```bash
+# From the repo root (auto-detects latest *-Dependencies.csv and *-Images.csv)
+make generate-dockerfile-zip
+
+# Or call the script directly with explicit inputs
+python3 tools/dependencies/generate_dockerfile_artifacts.py \
+    --deps build/updated-dependencies.csv \
+    --image-list tools/dependencies/release-data/2026.0-Images.csv \
+    --summary-file build/image-summary.md
+```
+
+Options:
+- `--repo-root PATH` — repository root (default: cwd)
+- `--output-dir PATH` — output directory (default: `build/`)
+- `--deps PATH` — reviewed dependencies CSV (auto-detected from `release-data/` if omitted)
+- `--image-list PATH` — images CSV (auto-detected from `release-data/` if omitted)
+- `--zip-name NAME` — override zip filename
+- `--summary-file PATH` — write Markdown image summary table to a file (default: stdout)
+- `--no-update-sources` — skip regenerating `sources.Dockerfile`
 
 ## Updating dependency list for the current version
 

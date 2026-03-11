@@ -44,6 +44,19 @@ def parse_pip_dependency(line: str) -> str:
     return line.strip()
 
 
+def parse_conan_dependency(line: str) -> str:
+    """
+    Parse Conan dependency line and return formatted component name.
+
+    Example input: "abseil 20250127.0"
+    Example output: "abseil/20250127.0"
+    """
+    parts = line.strip().split()
+    if len(parts) >= 2:
+        return f"{parts[0]}/{parts[1]}"
+    return line.strip()
+
+
 def process_dependency_files(build_folder: str) -> List[Tuple[str, str, str]]:
     """
     Process all dependency files in the build folder.
@@ -93,7 +106,26 @@ def process_dependency_files(build_folder: str) -> List[Tuple[str, str, str]]:
                             print(f"  Line content: {line}")
         except Exception as e:
             print(f"Error reading file {pip_file}: {e}")
-    
+
+    # Process Conan dependency files
+    conan_pattern = "*-conan-deps.txt"
+    for conan_file in build_path.glob(conan_pattern):
+        image_name = extract_image_name(conan_file.name, "-conan-deps.txt")
+
+        try:
+            with open(conan_file, 'r', encoding='utf-8') as f:
+                for line_num, line in enumerate(f, 1):
+                    line = line.strip()
+                    if line:  # Skip empty lines
+                        try:
+                            component = parse_conan_dependency(line)
+                            dependencies.append((image_name, component, "conan"))
+                        except Exception as e:
+                            print(f"Warning: Error parsing line {line_num} in {conan_file}: {e}")
+                            print(f"  Line content: {line}")
+        except Exception as e:
+            print(f"Error reading file {conan_file}: {e}")
+
     return dependencies
 
 
