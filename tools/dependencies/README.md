@@ -93,21 +93,20 @@ python3 tools/dependencies/update_dependencies.py \
     --pip-licenses build \
     --output build/updated-dependencies.csv
 
-# Using both sources together (SBOM checked first, pip-licenses as fallback)
+# Using conan-licenses for Conan/C++ packages
+python3 tools/dependencies/update_dependencies.py \
+    --deps build/all_dependencies.csv \
+    --conan-licenses build \
+    --output build/updated-dependencies.csv
+
+# Using all sources together (SBOM checked first, pip-licenses as fallback for PyPI, conan-licenses as fallback for Conan)
 python3 tools/dependencies/update_dependencies.py \
     --deps build/all_dependencies.csv \
     --sbom build/sboms \
     --pip-licenses build \
+    --conan-licenses build \
     --output build/updated-dependencies.csv \
     --show-new
-
-# Optional: Add "New" column to identify new dependencies
-python3 tools/dependencies/update_dependencies.py \
-    --deps build/all_dependencies.csv \
-    --pip-licenses build \
-    --output build/updated-dependencies.csv \
-    --show-new
-```
 
 The script auto-detects the latest `*-Dependencies.csv` and `*-Images.csv` from
 `tools/dependencies/release-data/` by version number. Pass `--from` and
@@ -116,8 +115,8 @@ The script auto-detects the latest `*-Dependencies.csv` and `*-Images.csv` from
 This script:
 - Compares previous release dependencies with current build dependencies
 - Implements 6-rule dependency matching algorithm (exact match, version update, cross-image reuse, etc.)
-- Automatically resolves licenses from SBOM data and/or pip-licenses data
-  (SBOM checked first; pip-licenses used as fallback for PyPI packages)
+- Automatically resolves licenses from SBOM data, pip-licenses data, and/or conan-licenses data
+  (SBOM checked first; pip-licenses used as fallback for PyPI packages; conan-licenses used as fallback for Conan/C++ packages)
 - Sets "Distributed by you?" field based on image publication status in image list
 - Extracts and adds base image dependencies from Dockerfiles
 - Provides comprehensive logging and action guidance
