@@ -9,7 +9,8 @@
         "request": {
           "body": {
             "name": "tripwire_minimal",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "points": [[0.0, 0.0], [1.0, 0.0]]
           }
         },
         "expected_status": {
