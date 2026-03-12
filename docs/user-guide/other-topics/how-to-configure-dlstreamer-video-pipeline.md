@@ -21,6 +21,7 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
   - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264).
   - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG).
   - File sources: `file://video.ts` (relative to video folder, which is mounted from Sample-Data Volume). Streaming-friendly formats as MPEG-TS (.ts) are recommended. MP4 inputs are not reliably supported - see the [Limitations](#limitations).
+  - V4L2 (Video4Linux2) local USB camera devices: `/dev/video0` (path to device). Allowed paths: `/dev/video` (default device), `/dev/videoX`, `/dev/mediaX` and symbolic links: `/dev/v4l/by-id/xxx`, `/dev/v4l/by-path/xxx`.
 - **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another). For details on chaining syntax, available models, and usage examples, see the [Model Chaining](#model-chaining) section below.
 - **Camera Pipeline**: The generated or custom GStreamer pipeline string
 
@@ -139,7 +140,7 @@ pvbcross16=GPU+reid=GPU
 The camera calibration page provides an automated pipeline generation feature:
 
 1. **Fill in Required Fields**: enter the necessary camera configuration parameters:
-   - Set the **Camera (Video Source)** (e.g., `rtsp://camera-ip:554/stream`).
+   - Set the **Camera (Video Source)** (e.g., `rtsp://camera-ip:554/stream` or `/dev/video0`).
    - Configure **Camera Chain** settings, if needed.
    - Select the appropriate **Model Config**.
 
@@ -164,7 +165,7 @@ After generating a pipeline preview, you can make manual adjustments:
    - Ensure the pipeline maintains compatibility with Intel® SceneScape - do not modify `gvapython` or `cameraundistort` elements.
 
 2. **Common Customizations**:
-   - **Video Source**: change input source type (file, RTSP, HTTP).
+   - **Video Source**: change input source type (file, RTSP, HTTP, device).
    - **Model Parameters**: fine-tune AI model inference settings either in model config file or the **Camera Pipeline** field.
 
 3. **Enable Use Camera Pipeline**: check the **Use Camera Pipeline** checkbox to apply your custom pipeline string directly instead of auto-generation from form fields.
