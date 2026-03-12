@@ -9,6 +9,7 @@ LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
 HAS_PIP ?= yes
 HAS_DPKG ?= yes
 USES_SCENE_COMMON ?= no
+GITHUB_ACTIONS_CACHE ?= false
 # Read the SHA-pinned image from the Dockerfile ARG default — single source of truth
 RUNTIME_OS_IMAGE ?= $(shell sed -n 's/^ARG RUNTIME_OS_IMAGE=//p' Dockerfile)
 
@@ -22,6 +23,12 @@ RED    := \033[0;31m
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
 RESET  := \033[0m
+
+ifeq ($(GITHUB_ACTIONS_CACHE),true)
+EXTRA_BUILD_ARGS += " --cache-from type=gha,scope=$(IMAGE) --cache-to type=gha,scope=$(IMAGE) "
+endif
+
+echo "EXTRA_BUILD_ARGS: $(EXTRA_BUILD_ARGS)"
 
 .PHONY: build-image
 build-image: $(BUILD_DIR) Dockerfile
