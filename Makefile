@@ -376,7 +376,7 @@ run_functional_tests: setup_tests
 	@echo "DONE ==> Running functional tests"
 
 .PHONY: run_non_functional_tests
-run_non_functional_tests: setup_tests
+run_non_functional_tests: init-secrets .env
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running non-functional tests..."
 	$(MAKE) -C tests non-functional-tests SUPASS=$(SUPASS) -k || (echo "Non-functional tests failed" && exit 1)
