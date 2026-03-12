@@ -364,7 +364,7 @@ pipeline-runner-setup:
 	fi
 	@$(PPL_VENV)/bin/pip install -q --upgrade pip
 	@$(PPL_VENV)/bin/pip install -q -r $(CURDIR)/../requirements-ppl-test.txt
-	$(MAKE) -C $(CURDIR)/.. install-models
+	$(MAKE) -C $(CURDIR)/.. install-models init-sample-data
 
 pipeline-runner-people: pipeline-runner-setup # TODO: update with correct one NEX-T30001
 	$(_PYTEST_PPL) tests/pipeline_runner/test_people_models.py
