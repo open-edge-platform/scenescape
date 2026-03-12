@@ -11,7 +11,6 @@ from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
 
 TEST_NAME = "NEX-T10543"
-THING_TYPE = "person"
 COLLECT_TIMEOUT = 5.0
 MIN_MESSAGES = 5
 
