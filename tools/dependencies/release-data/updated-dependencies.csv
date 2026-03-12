@@ -1558,40 +1558,40 @@ scenescape-model-installer,pip==24.0,pypi,MIT,N,used,previous-release,N
 scenescape-model-installer,setuptools==68.1.2,pypi,MIT,N,indirect dependency. auto installed,previous-release,N
 scenescape-model-installer,wheel==0.42.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,N
 scenescape-tracker,gcr.io/distroless/cc-debian13@sha256:d7ac2f9af248f31fe6270002755722afdf6875e0e49cd52b9150208e6a23875c,Ubuntu,collection of licenses,N,base image,base-image,N
-scenescape-tracker,libc6:amd64:2.41-12+deb13u1,Ubuntu,BSD-2-Clause AND LicenseRef-BSD-3-clause-Berkeley AND LicenseRef-BSD-3-clause-Carnegie AND LicenseRef-BSD-3-clause-Oracle AND LicenseRef-BSD-3-clause-WIDE AND LicenseRef-BSD-like-Spencer AND BSL-1.0 AND LicenseRef-CORE-MATH AND LicenseRef-Carnegie AND LicenseRef-DEC AND FSFAP AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-2--with-link-exception AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-IBM AND ISC AND LicenseRef-Inner-Net AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-LGPL-2.1--with-link-exception AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-MIT-like-Lord AND LicenseRef-PCRE AND SunPro AND Unicode-DFS-2016 AND LicenseRef-Univ-Coimbra AND LicenseRef-public-domain,N,?,sbom,Y
-scenescape-tracker,libgcc-s1:amd64:14.2.0-19,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL,N,?,sbom,Y
+scenescape-tracker,libc6:amd64:2.41-12+deb13u1,Ubuntu,BSD-2-Clause AND LicenseRef-BSD-3-clause-Berkeley AND LicenseRef-BSD-3-clause-Carnegie AND LicenseRef-BSD-3-clause-Oracle AND LicenseRef-BSD-3-clause-WIDE AND LicenseRef-BSD-like-Spencer AND BSL-1.0 AND LicenseRef-CORE-MATH AND LicenseRef-Carnegie AND LicenseRef-DEC AND FSFAP AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-2--with-link-exception AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-IBM AND ISC AND LicenseRef-Inner-Net AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-LGPL-2.1--with-link-exception AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-MIT-like-Lord AND LicenseRef-PCRE AND SunPro AND Unicode-DFS-2016 AND LicenseRef-Univ-Coimbra AND LicenseRef-public-domain,N,linked,sbom,Y
+scenescape-tracker,libgcc-s1:amd64:14.2.0-19,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL,N,linked,sbom,Y
 scenescape-tracker,libgomp1:amd64:14.2.0-19,Ubuntu,?GPL-3.0,N,?indirect dependency automatically installed,previous-release,Y
-scenescape-tracker,libstdc++6:amd64:14.2.0-19,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL,N,?,sbom,Y
-scenescape-tracker,abseil/20250127.0,conan,Apache-2.0,N,?,conan-licenses,Y
-scenescape-tracker,autoconf/2.71,conan,"GPL-2.0-or-later, GPL-3.0-or-later",N,?,conan-licenses,Y
-scenescape-tracker,automake/1.16.5,conan,"GPL-2.0-or-later, GPL-3.0-or-later",N,?,conan-licenses,Y
-scenescape-tracker,c-ares/1.34.6,conan,MIT,N,?,conan-licenses,Y
-scenescape-tracker,cli11/2.6.0,conan,BSD-3-Clause,N,?,conan-licenses,Y
-scenescape-tracker,cmake/3.31.11,conan,BSD-3-Clause,N,?,conan-licenses,Y
-scenescape-tracker,cmake/4.2.3,conan,BSD-3-Clause,N,?,conan-licenses,Y
-scenescape-tracker,cpp-httplib/0.28.0,conan,MIT,N,?,conan-licenses,Y
-scenescape-tracker,eigen/3.4.0,conan,"MPL-2.0, LGPL-3.0-or-later",N,?,conan-licenses,Y
-scenescape-tracker,gnu-config/cci.20210814,conan,"GPL-3.0-or-later, autoconf-special-exception",N,?,conan-licenses,Y
-scenescape-tracker,grpc/1.67.1,conan,Apache-2.0,N,?,conan-licenses,Y
-scenescape-tracker,gtest/1.17.0,conan,BSD-3-Clause,N,?,conan-licenses,Y
-scenescape-tracker,libcurl/8.18.0,conan,curl,N,?,conan-licenses,Y
-scenescape-tracker,libtool/2.4.7,conan,"GPL-2.0-or-later, GPL-3.0-or-later",N,?,conan-licenses,Y
-scenescape-tracker,m4/1.4.19,conan,GPL-3.0-only,N,?,conan-licenses,Y
-scenescape-tracker,meson/1.10.1,conan,Apache-2.0,N,?,conan-licenses,Y
-scenescape-tracker,ms-gsl/4.0.0,conan,MIT,N,?,conan-licenses,Y
-scenescape-tracker,ninja/1.13.2,conan,Apache-2.0,N,?,conan-licenses,Y
-scenescape-tracker,nlohmann_json/3.11.3,conan,MIT,N,?,conan-licenses,Y
-scenescape-tracker,opencv/4.12.0,conan,Apache-2.0,N,?,conan-licenses,Y
-scenescape-tracker,openjpeg/2.5.4,conan,BSD-2-Clause,N,?,conan-licenses,Y
-scenescape-tracker,openssl/3.6.1,conan,Apache-2.0,N,?,conan-licenses,Y
-scenescape-tracker,opentelemetry-cpp/1.18.0,conan,Apache-2.0,N,?,conan-licenses,Y
-scenescape-tracker,opentelemetry-proto/1.4.0,conan,Apache-2.0,N,?,conan-licenses,Y
-scenescape-tracker,paho-mqtt-c/1.3.13,conan,EPL-2.0,N,?,conan-licenses,Y
-scenescape-tracker,paho-mqtt-cpp/1.5.3,conan,EPL-1.0,N,?,conan-licenses,Y
-scenescape-tracker,pkgconf/2.5.1,conan,ISC,N,?,conan-licenses,Y
-scenescape-tracker,protobuf/5.27.0,conan,BSD-3-Clause,N,?,conan-licenses,Y
-scenescape-tracker,quill/11.0.2,conan,MIT,N,?,conan-licenses,Y
-scenescape-tracker,rapidjson/cci.20230929,conan,MIT,N,?,conan-licenses,Y
-scenescape-tracker,re2/20230301,conan,BSD-3-Clause,N,?,conan-licenses,Y
-scenescape-tracker,stduuid/1.2.3,conan,MIT,N,?,conan-licenses,Y
-scenescape-tracker,zlib/1.3.1,conan,Zlib,N,?,conan-licenses,Y
+scenescape-tracker,libstdc++6:amd64:14.2.0-19,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL,N,linked,sbom,Y
+scenescape-tracker,abseil/20250127.0,conan,Apache-2.0,N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,autoconf/2.71,conan,"GPL-2.0-or-later, GPL-3.0-or-later",N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,automake/1.16.5,conan,"GPL-2.0-or-later, GPL-3.0-or-later",N,used for building,conan-licenses,Y
+scenescape-tracker,c-ares/1.34.6,conan,MIT,N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,cli11/2.6.0,conan,BSD-3-Clause,N,linked,conan-licenses,Y
+scenescape-tracker,cmake/3.31.11,conan,BSD-3-Clause,N,used for building,conan-licenses,Y
+scenescape-tracker,cmake/4.2.3,conan,BSD-3-Clause,N,used for building,conan-licenses,Y
+scenescape-tracker,cpp-httplib/0.28.0,conan,MIT,N,linked,conan-licenses,Y
+scenescape-tracker,eigen/3.4.0,conan,"MPL-2.0, LGPL-3.0-or-later",N,linked,conan-licenses,Y
+scenescape-tracker,gnu-config/cci.20210814,conan,"GPL-3.0-or-later, autoconf-special-exception",N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,grpc/1.67.1,conan,Apache-2.0,N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,gtest/1.17.0,conan,BSD-3-Clause,N,used in tests,conan-licenses,Y
+scenescape-tracker,libcurl/8.18.0,conan,curl,N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,libtool/2.4.7,conan,"GPL-2.0-or-later, GPL-3.0-or-later",N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,m4/1.4.19,conan,GPL-3.0-only,N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,meson/1.10.1,conan,Apache-2.0,N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,ms-gsl/4.0.0,conan,MIT,N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,ninja/1.13.2,conan,Apache-2.0,N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,nlohmann_json/3.11.3,conan,MIT,N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,opencv/4.12.0,conan,Apache-2.0,N,linked,conan-licenses,Y
+scenescape-tracker,openjpeg/2.5.4,conan,BSD-2-Clause,N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,openssl/3.6.1,conan,Apache-2.0,N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,opentelemetry-cpp/1.18.0,conan,Apache-2.0,N,linked,conan-licenses,Y
+scenescape-tracker,opentelemetry-proto/1.4.0,conan,Apache-2.0,N,linked,conan-licenses,Y
+scenescape-tracker,paho-mqtt-c/1.3.13,conan,EPL-2.0,N,linked,conan-licenses,Y
+scenescape-tracker,paho-mqtt-cpp/1.5.3,conan,EPL-1.0,N,linked,conan-licenses,Y
+scenescape-tracker,pkgconf/2.5.1,conan,ISC,N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,protobuf/5.27.0,conan,BSD-3-Clause,N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,quill/11.0.2,conan,MIT,N,linked,conan-licenses,Y
+scenescape-tracker,rapidjson/cci.20230929,conan,MIT,N,linked,conan-licenses,Y
+scenescape-tracker,re2/20230301,conan,BSD-3-Clause,N,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,stduuid/1.2.3,conan,MIT,N,linked,conan-licenses,Y
+scenescape-tracker,zlib/1.3.1,conan,Zlib,N,indirect dependency automatically installed,conan-licenses,Y
