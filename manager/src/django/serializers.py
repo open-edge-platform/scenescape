@@ -598,8 +598,8 @@ class SceneSerializer(NonNullSerializer):
     return obj.id
 
   def get_cameras(self, obj):
-    queryset = [x for x in obj.sensor_set.all() if x.type == "camera"]
-    return CamSerializer(queryset, many=True).data
+    queryset = Cam.objects.filter(scene=obj)
+    return CamSerializer(queryset, many=True, context=self.context).data
 
   def get_sensors(self, obj):
     queryset = [SingletonSensor.objects.get(pk=x.id) for x in obj.sensor_set.all()
