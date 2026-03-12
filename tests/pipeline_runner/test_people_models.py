@@ -63,14 +63,14 @@ class TestPeoplePipelines:
         min_detections=MIN_DETECTIONS,
       )
 
-    assert len(detections) >= MIN_DETECTIONS, (
-      f"Expected >= {MIN_DETECTIONS} detections, got {len(detections)}"
-    )
-
-    for i, detection in enumerate(detections):
-      assert schema_validator.validateMessage("detector", detection), (
-        f"Detection {i} failed schema validation:\n{detection}"
+      assert len(detections) >= MIN_DETECTIONS, (
+        f"Expected >= {MIN_DETECTIONS} detections, got {len(detections)}"
       )
+
+      for i, detection in enumerate(detections):
+        assert schema_validator.validateMessage("detector", detection), (
+          f"Detection {i} failed schema validation:\n{detection}"
+        )
 
   def test_collect_raises_without_stopping_condition(self, tmp_path):
     """collect() must raise ValueError when called with no timeout or min_detections.

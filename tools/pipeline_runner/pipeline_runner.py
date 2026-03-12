@@ -23,6 +23,7 @@ import os
 import signal
 import threading
 import time
+import sys
 from pathlib import Path
 from typing import Callable
 
@@ -212,10 +213,21 @@ class PipelineRunner:
       self._make_docker_client().compose.down()
       self._running = False
 
+  def get_logs(self) -> str:
+    """Return combined stdout+stderr logs from all compose services."""
+    return self._make_docker_client().compose.logs()
+
   def __enter__(self) -> "PipelineRunner":
     return self.start()
 
-  def __exit__(self, *_) -> None:
+  def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    if exc_type is not None and self._running:
+      print("\n--- Docker Compose container logs (captured on failure) ---", file=sys.stderr)
+      try:
+        print(self.get_logs(), file=sys.stderr)
+      except Exception as log_err:
+        print(f"(Failed to retrieve container logs: {log_err})", file=sys.stderr)
+      print("--- End of container logs ---\n", file=sys.stderr)
     self.down()
 
   def collect(
@@ -345,5 +357,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+  main()
         
