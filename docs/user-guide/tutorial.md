@@ -1,4 +1,4 @@
-# Tutorial
+# Use Intel(R) SceneScape UI and Online Documentation
 
 These tutorials demonstrate how to use Intel® SceneScape user interface using a browser and access the online documentation.
 

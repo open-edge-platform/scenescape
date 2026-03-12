@@ -1,4 +1,4 @@
-# Working with Spatial Analytics Data: ROIs and Tripwires
+# Work with Spatial Analytics Data: ROIs and Tripwires
 
 This guide provides comprehensive information for developers who want to build applications that consume Intel® SceneScape's spatial analytics event data. You'll learn how to subscribe to MQTT events from Regions of Interest (ROIs) and Tripwires to create intelligent applications that respond to object interactions within defined areas, regardless of the sensor modality used for detection.
 

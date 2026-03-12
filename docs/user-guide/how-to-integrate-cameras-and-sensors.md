@@ -1,4 +1,4 @@
-# How to Integrate Cameras and Sensors into Intel® SceneScape
+# Integrate Cameras and Sensors into Intel® SceneScape
 
 This guide provides step-by-step instructions to integrate cameras and other sensors into Intel® SceneScape. By completing this guide, you will:
 
