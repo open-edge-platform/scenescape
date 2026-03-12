@@ -24,21 +24,21 @@ scenescape-autocalibration,libglvnd0:amd64:1.6.0-1,Ubuntu,?MIT,Y,?indirect depen
 scenescape-autocalibration,libglx-mesa0:amd64:22.3.6-1+deb12u1,Ubuntu,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-autocalibration,libglx0:amd64:1.6.0-1,Ubuntu,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-autocalibration,libgomp1:amd64:12.2.0-14+deb12u1,Ubuntu,?GPL-3.0,Y,?indirect dependency automatically installed,previous-release,Y
-scenescape-autocalibration,libicu72:amd64:72.1-3+deb12u1,Ubuntu,GPL-3.0-only AND MIT,Y,?,sbom,Y
+scenescape-autocalibration,libicu72:amd64:72.1-3+deb12u1,Ubuntu,GPL-3.0-only AND MIT,Y,indirect dependency automatically installed,sbom,Y
 scenescape-autocalibration,libldap-2.5-0:amd64:2.5.13+dfsg-5,Ubuntu,?OpenLDAP Public License,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-autocalibration,libllvm15:amd64:1:15.0.6-4+b1,Ubuntu,?Apache-2.0 and BSD-3-Clause and MIT,Y,?used by openvino,previous-release,Y
 scenescape-autocalibration,libnghttp2-14:amd64:1.52.0-1+deb12u2,Ubuntu,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-autocalibration,libpciaccess0:amd64:0.17-2,Ubuntu,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-autocalibration,libpsl5:amd64:0.21.2-1,Ubuntu,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-autocalibration,libpython3-stdlib:amd64:3.11.2-1+b1,Ubuntu,?PSF,Y,?indirect dependency automatically installed,previous-release,Y
-scenescape-autocalibration,libpython3.11-minimal:amd64:3.11.2-6+deb12u6,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This,Y,?,sbom,Y
-scenescape-autocalibration,libpython3.11-stdlib:amd64:3.11.2-6+deb12u6,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This,Y,?,sbom,Y
+scenescape-autocalibration,libpython3.11-minimal:amd64:3.11.2-6+deb12u6,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This,Y,indirect dependency automatically installed,sbom,Y
+scenescape-autocalibration,libpython3.11-stdlib:amd64:3.11.2-6+deb12u6,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This,Y,indirect dependency automatically installed,sbom,Y
 scenescape-autocalibration,librtmp1:amd64:2.4+20151223.gitfa8646d.1-2+b2,Ubuntu,?LGPL-2.1,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-autocalibration,libsasl2-2:amd64:2.1.28+dfsg-10,Ubuntu,?BSD-4-Clause,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-autocalibration,libsasl2-modules-db:amd64:2.1.28+dfsg-10,Ubuntu,?BSD-4-Clause,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-autocalibration,libsensors-config:1:3.6.0-7.1,Ubuntu,?GPL-2.0,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-autocalibration,libsensors5:amd64:1:3.6.0-7.1,Ubuntu,?GPL-2.0,Y,?indirect dependency automatically installed,previous-release,Y
-scenescape-autocalibration,libssh2-1:amd64:1.10.0-3+b1,Ubuntu,LicenseRef-BSD3,Y,?,sbom,Y
+scenescape-autocalibration,libssh2-1:amd64:1.10.0-3+b1,Ubuntu,LicenseRef-BSD3,Y,indirect dependency automatically installed,sbom,Y
 scenescape-autocalibration,libwayland-client0:amd64:1.21.0-1,Ubuntu,?X11,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-autocalibration,libwayland-server0:amd64:1.21.0-1,Ubuntu,?X11,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-autocalibration,libx11-6:amd64:2:1.8.4-2+deb12u2,Ubuntu,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
@@ -70,8 +70,8 @@ scenescape-autocalibration,python3-pip:23.0.1+dfsg-1,Ubuntu,?Apache-2.0,Y,?indir
 scenescape-autocalibration,python3-pkg-resources:66.1.1-1+deb12u2,Ubuntu,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-autocalibration,python3-setuptools:66.1.1-1+deb12u2,Ubuntu,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-autocalibration,python3-wheel:0.38.4-2,Ubuntu,?Apache-2.0,Y,?indirect dependency automatically installed,previous-release,Y
-scenescape-autocalibration,python3.11:3.11.2-6+deb12u6,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This,Y,?,sbom,Y
-scenescape-autocalibration,python3.11-minimal:3.11.2-6+deb12u6,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This,Y,?,sbom,Y
+scenescape-autocalibration,python3.11:3.11.2-6+deb12u6,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This,Y,used,sbom,Y
+scenescape-autocalibration,python3.11-minimal:3.11.2-6+deb12u6,Ubuntu,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This,Y,indirect dependency automatically installed,sbom,Y
 scenescape-autocalibration,python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d,Ubuntu,collection of licenses,N,base image,base-image,N
 scenescape-autocalibration,wget:1.21.3-1+deb12u1,Ubuntu,?GPL-3.0,Y,?used,previous-release,Y
 scenescape-autocalibration,ConfigArgParse==1.7.5,pypi,?MIT,Y,?indirect dependency. auto installed,previous-release,Y
@@ -95,12 +95,12 @@ scenescape-autocalibration,charset-normalizer==3.4.5,pypi,?MIT,Y,?indirect depen
 scenescape-autocalibration,click==8.3.1,pypi,?BSD-3-Clause,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-autocalibration,comm==0.2.3,pypi,?BSD-3-Clause,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-autocalibration,contourpy==1.3.3,pypi,?MIT,Y,?indirect dependency. auto installed,previous-release,Y
-scenescape-autocalibration,cryptography==46.0.5,pypi,(Apache-2.0 OR BSD-3-Clause),Y,?,sbom,Y
+scenescape-autocalibration,cryptography==46.0.5,pypi,(Apache-2.0 OR BSD-3-Clause),Y,imported,sbom,Y
 scenescape-autocalibration,cycler==0.12.1,pypi,?BSD-3-Clause,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-autocalibration,dash==4.0.0,pypi,?MIT,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-autocalibration,decorator==5.2.1,pypi,?BSD-2-Clause,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-autocalibration,dnspython==2.8.0,pypi,?ISC,Y,?indirect dependency. auto installed,previous-release,Y
-scenescape-autocalibration,dt_apriltags @ file:///tmp/dt_apriltags-3.3.0-py3-none-any.whl#sha256=f5241c8347751572647629b3afba291d403164e1a593fb0f076e542ccd1436b6,pypi,?,Y,?,,Y
+scenescape-autocalibration,dt_apriltags @ file:///tmp/dt_apriltags-3.3.0-py3-none-any.whl#sha256=f5241c8347751572647629b3afba291d403164e1a593fb0f076e542ccd1436b6,pypi,The Regents of The University of Michigan,Y,imported,,Y
 scenescape-autocalibration,durationpy==0.10,pypi,?MIT,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-autocalibration,eventlet==0.40.3,pypi,?MIT,Y,?imported,previous-release,Y
 scenescape-autocalibration,executing==2.2.1,pypi,?MIT,Y,?indirect dependency. auto installed,previous-release,Y
@@ -141,7 +141,7 @@ scenescape-autocalibration,nest-asyncio==1.6.0,pypi,?BSD-3-Clause,Y,?indirect de
 scenescape-autocalibration,networkx==3.6.1,pypi,?BSD-3-Clause,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-autocalibration,numpy==2.2.6,pypi,?BSD-3-Clause,Y,?imported,previous-release,Y
 scenescape-autocalibration,oauthlib==3.3.1,pypi,?BSD-3-Clause,Y,?indirect dependency. auto installed,previous-release,Y
-scenescape-autocalibration,onvif_zeep==0.2.12,pypi,MIT,Y,?,pip-licenses,Y
+scenescape-autocalibration,onvif_zeep==0.2.12,pypi,MIT,Y,imported,pip-licenses,Y
 scenescape-autocalibration,open3d-cpu==0.19.0,pypi,?MIT,Y,?imported,previous-release,Y
 scenescape-autocalibration,opencv-python-headless==4.12.0.88,pypi,?MIT,Y,?imported,previous-release,Y
 scenescape-autocalibration,packaging==26.0,pypi,?Apache-2.0,Y,?imported,previous-release,Y
@@ -182,7 +182,7 @@ scenescape-autocalibration,six==1.17.0,pypi,?MIT,Y,?indirect dependency. auto in
 scenescape-autocalibration,soupsieve==2.8.3,pypi,?MIT,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-autocalibration,stack-data==0.6.3,pypi,?MIT,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-autocalibration,sympy==1.14.0,pypi,?BSD-3-Clause,Y,?imported,previous-release,Y
-scenescape-autocalibration,third_party @ file:///tmp/third_party-1.0.0-py3-none-any.whl#sha256=81f4923e9bf13f8014394beddd4822383e6fc4d6397035a91ed83eb3016471d7,pypi,?,Y,?,,Y
+scenescape-autocalibration,third_party @ file:///tmp/third_party-1.0.0-py3-none-any.whl#sha256=81f4923e9bf13f8014394beddd4822383e6fc4d6397035a91ed83eb3016471d7,pypi,Apache-2.0,Y,imported,,Y
 scenescape-autocalibration,threadpoolctl==3.6.0,pypi,?BSD-3-Clause,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-autocalibration,torch==2.10.0+cpu,pypi,?BSD-3-Clause,Y,?imported,previous-release,Y
 scenescape-autocalibration,torchvision==0.25.0+cpu,pypi,?BSD-3-Clause,Y,?imported,previous-release,Y
