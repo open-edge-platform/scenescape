@@ -25,7 +25,7 @@ YELLOW := \033[0;33m
 RESET  := \033[0m
 
 ifeq ($(GITHUB_ACTIONS_CACHE),true)
-EXTRA_BUILD_ARGS += " --cache-from type=gha,scope=$(IMAGE) --cache-to type=gha,scope=$(IMAGE) "
+EXTRA_BUILD_ARGS += --cache-from "type=gha,scope=$(IMAGE)" --cache-to "type=gha,scope=$(IMAGE)"
 endif
 
 
@@ -36,7 +36,7 @@ build-image: $(BUILD_DIR) Dockerfile
 	@set -x
 	@echo -e "$(GREEN)------- STARTING BUILD OF IMAGE: $(IMAGE):$(VERSION) -------$(RESET)"
 	@{ \
-	    set -e; \
+	    set -xe; \
 	    set -o pipefail; \
 	    TARGET_ARG=""; \
 	    if [ -n "$(TARGET)" ]; then TARGET_ARG="--target $(TARGET)"; fi; \
