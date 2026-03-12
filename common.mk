@@ -28,10 +28,12 @@ ifeq ($(GITHUB_ACTIONS_CACHE),true)
 EXTRA_BUILD_ARGS += " --cache-from type=gha,scope=$(IMAGE) --cache-to type=gha,scope=$(IMAGE) "
 endif
 
-echo "EXTRA_BUILD_ARGS: $(EXTRA_BUILD_ARGS)"
+
 
 .PHONY: build-image
 build-image: $(BUILD_DIR) Dockerfile
+	@echo "EXTRA_BUILD_ARGS: $(EXTRA_BUILD_ARGS)"
+	@set -x
 	@echo -e "$(GREEN)------- STARTING BUILD OF IMAGE: $(IMAGE):$(VERSION) -------$(RESET)"
 	@{ \
 	    set -e; \
