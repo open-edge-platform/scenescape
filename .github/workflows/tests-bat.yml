@@ -77,13 +77,6 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install gh
 
-      - name: "Log in to GHCR"
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: "Check PR state"
         id: check_pr
         if: ${{ github.event_name == 'pull_request' }}
@@ -144,11 +137,18 @@ jobs:
         with:
           system-prune: "true"
 
+      - name: "Log in to GHCR"
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: "Run Basic Acceptance Tests (BAT)"
         run: |
           make clean-all
           git clean -fdx
-          make setup_tests
+          make build-common
 
       - name: Rename logs to remove colons
         if: always()
