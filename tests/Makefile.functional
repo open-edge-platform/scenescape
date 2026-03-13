@@ -363,7 +363,7 @@ pipeline-runner-setup:
 		python3 -m venv $(PPL_VENV); \
 	fi
 	@$(PPL_VENV)/bin/pip install -q --upgrade pip
-	@$(PPL_VENV)/bin/pip install -q -r $(CURDIR)/../requirements-ppl-test.txt
+	@$(PPL_VENV)/bin/pip install -q -r $(CURDIR)/pipeline_runner/requirements-ppl-test.txt
 	$(MAKE) -C $(CURDIR)/.. install-models init-sample-data
 
 pipeline-runner-people: pipeline-runner-setup # TODO: update with correct one NEX-T30001
