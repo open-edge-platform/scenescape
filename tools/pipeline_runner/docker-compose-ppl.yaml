@@ -1,9 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# TODO: use a separate project name and implement a simple volume lifecycle management
-#       (copy the project volumes to new volumes, clean up after use)
-# this is temporary to enable easy reuse of the project volumes for volumes and sample data
 name: scenescape
 
 networks:

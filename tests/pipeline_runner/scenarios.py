@@ -2,20 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 """Pipeline test scenario descriptors.
 
-Each scenario drives one ``PipelineRunner`` integration test.  The list is the
+Each scenario drives one ``PipelineRunner`` test.  The list is the
 single source of truth for which (model chain, source video, required hardware)
 combinations are exercised.
 
-Device marks
-------------
+Device marks:
+
 requires_gpu     At least one GPU must be available (GPU_DEVICE_COUNT >= 1).
 requires_gpu2    At least two GPUs must be available (GPU_DEVICE_COUNT >= 2).
 requires_npu     At least one NPU must be available (NPU_DEVICE_COUNT >= 1).
 
 Scenarios without a device mark run on CPU and are always executed.
 
-Source files
-------------
+Source files:
+
 People models   ``file://qcam1.ts``          models: retail, agegender, personattr, reid
 Vehicle models  ``file://car-detection.ts``  models: pvbcross16, vehattr
 """

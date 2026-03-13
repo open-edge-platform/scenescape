@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-"""Pytest configuration and shared fixtures for pipeline_runner integration tests.
+"""Pytest configuration and shared fixtures for pipeline_runner tests.
 
 Device availability is read from environment variables:
 

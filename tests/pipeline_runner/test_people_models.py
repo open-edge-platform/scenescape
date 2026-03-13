@@ -31,7 +31,7 @@ sys.path.insert(0, str(_REPO_ROOT / "tools" / "pipeline_runner"))
 from pipeline_runner import PipelineRunner  # noqa: E402
 from tests.pipeline_runner.scenarios import PEOPLE_SCENARIOS, PipelineScenario
 
-TEST_NAME = "NEX-T30001"   # TODO: update with real Zephyr IDs before merging
+TEST_NAME = "NEX-T20170"
 
 MIN_DETECTIONS = 5
 COLLECT_TIMEOUT = 120  # seconds - generous to allow model  warm-up

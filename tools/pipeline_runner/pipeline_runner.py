@@ -36,7 +36,7 @@ from python_on_whales import DockerClient
 _REPO_ROOT: Path = Path(__file__).parents[2]
 _VERSION: str = (_REPO_ROOT / "version.txt").read_text().strip()
 
-SUPPORTED_PROFILES = [""]  # TODO: add support for different profiles if needed
+SUPPORTED_PROFILES = [""]
 
 DLSPS_CONFIG_FILE = "dlsps_config.json"
 VOLUME_PREFIX = "scenescape"
@@ -47,7 +47,6 @@ SCENESCAPE_METADATA_FILE = "scenescape_metadata.jsonl"
 COMPOSE_FILE = Path(__file__).parent / "docker-compose-ppl.yaml"
 NPU_DEVICE = "/dev/accel"
 NPU_OVERRIDE_FILE = Path(__file__).parent / "docker-compose-ppl.npu.yaml"
-ENV_FILE = Path(__file__).parent / ".env"
 
 BROKER_HOST = "localhost"
 BROKER_PORT = 1884
@@ -90,24 +89,21 @@ class PipelineRunner:
     if self.dump_dls_metadata:
       dls_metadata_path = os.path.join(self.output_dir, DLS_METADATA_OUTPUT_FILE)
       if os.path.exists(dls_metadata_path):
-        os.remove(dls_metadata_path)  # TODO: consider backing up old metadata instead of deleting
+        os.remove(dls_metadata_path)
 
-  def _write_env_file(self):
-    env_vars = {
+  def _set_env_vars(self):
+    os.environ.update({
       "DLSPS_CONFIG_FILE": self.dlsps_config_file,
       "ROOT_DIR": self.root_dir,
       "SECRETS_DIR": self.secrets_dir,
       "TOOLS_DIR": self.tools_dir,
       "OUTPUT_DIR": self.output_dir,
-      "UID": self.uid,
-      "GID": self.gid,
+      "UID": str(self.uid),
+      "GID": str(self.gid),
       "PROFILE": self.profile or "",
       "SCENESCAPE_METADATA_FILE": SCENESCAPE_METADATA_FILE,
       "CAMERA_ID": self.camera_id,
-    }
-    with open(ENV_FILE, "w") as f:
-      for key, value in env_vars.items():
-        f.write(f"{key}={value}\n")
+    })
 
   def _convert_cam_settings_to_dlsps_config(self):
     """Run cam_settings_to_dlsps_config.py inside the scenescape-manager container.
@@ -167,7 +163,6 @@ class PipelineRunner:
       compose_files.append(str(NPU_OVERRIDE_FILE))
     return DockerClient(
       compose_files=compose_files,
-      compose_env_file=str(ENV_FILE),
       compose_profiles=[self.profile] if self.profile else [],
     )
 
@@ -190,8 +185,8 @@ class PipelineRunner:
     # Convert camera settings to DLSPS config (runs inside scenescape-manager container)
     self._convert_cam_settings_to_dlsps_config()
 
-    # Write docker compose environment file
-    self._write_env_file()
+    # Inject docker compose variables into the process environment
+    self._set_env_vars()
 
     # Register OS-signal handlers so containers are cleaned up on SIGTERM/SIGINT
     self._register_signal_handlers()

@@ -366,10 +366,10 @@ pipeline-runner-setup:
 	@$(PPL_VENV)/bin/pip install -q -r $(CURDIR)/pipeline_runner/requirements-ppl-test.txt
 	$(MAKE) -C $(CURDIR)/.. install-models init-sample-data
 
-pipeline-runner-people: pipeline-runner-setup # TODO: update with correct one NEX-T30001
+pipeline-runner-people: pipeline-runner-setup # NEX-T20170
 	$(_PYTEST_PPL) tests/pipeline_runner/test_people_models.py
 
-pipeline-runner-vehicles: pipeline-runner-setup # TODO: update with correct one NEX-T30002
+pipeline-runner-vehicles: pipeline-runner-setup # NEX-T20170
 	$(_PYTEST_PPL) tests/pipeline_runner/test_vehicle_models.py
 
 pipeline-runner-integration: pipeline-runner-people pipeline-runner-vehicles
