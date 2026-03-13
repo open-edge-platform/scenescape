@@ -78,7 +78,7 @@ LABEL org.opencontainers.image.description="Intel® SceneScape Tracker Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/tracker/docs/How-to-guide.md"
 
 USER 10001
 WORKDIR /scenescape
