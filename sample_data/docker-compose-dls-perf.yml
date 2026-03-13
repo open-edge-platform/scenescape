@@ -71,8 +71,8 @@ services:
       - scenescape
     volumes:
       - vol-db:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     restart: always
 
   web:
@@ -237,8 +237,8 @@ services:
       scenescape:
     tty: true
     entrypoint: ["./run.sh"]
-    ports:
-      - "8080:8080"
+    # ports:
+    #   - "8080:8080"
     devices:
       - "/dev/dri:/dev/dri"
     group_add:
