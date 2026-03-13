@@ -139,29 +139,9 @@ jobs:
           git clean -fdx
           make run_basic_acceptance_tests
 
-      - name: Rename logs to remove colons
+      - name: Upload Logs and Reports
         if: always()
-        run: |
-          set +e # Ignore errors if no logs are found
-          find . -wholename "**/test_data/**/*.log" -exec rename 's/:/-/g' {} +
-          exit 0
-
-      - name: Upload Test Reports
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f #v6.0.0
-        with:
-          name: tests-reports
-          path: |
-            tests/**/test_reports/**/*.html
-            tests/**/test_reports/**/*.xml
-
-      - name: Upload Test Logs
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f #v6.0.0
-        with:
-          name: tests-logs
-          path: |
-            **/test_data/**/*.log
+        uses: ./.github/actions/upload-artifacts
 
       - name: Cleanup
         if: always()
