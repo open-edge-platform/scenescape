@@ -212,9 +212,11 @@ private:
     std::atomic<int> lagged_count_{0};
 
     /// Cache of validated category names (validated once on first use)
-    /// Protected by categories_mutex_ for thread-safe access from MQTT callback
+    /// Active scopes accumulated as new (scene, category) pairs are seen.
+    /// Both protected by categories_mutex_ for thread-safe access from MQTT callback
     mutable std::mutex categories_mutex_;
     std::unordered_set<std::string> validated_categories_;
+    std::unordered_set<TrackingScope, TrackingScopeHash> active_scopes_;
 };
 
 } // namespace tracker

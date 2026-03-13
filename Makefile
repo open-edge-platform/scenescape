@@ -293,7 +293,7 @@ list-dependencies: $(BUILD_DIR)
 	@echo "==> Listing dependencies for all microservices..."
 	@set -e; \
 	for dir in $(IMAGE_FOLDERS); do \
-		$(MAKE) -C $$dir list-dependencies; \
+		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) list-dependencies; \
 	done
 	@echo "The following dependency lists have been generated:"
 	@find $(BUILD_DIR) -name '*-deps.txt' -print
@@ -376,7 +376,7 @@ run_functional_tests: setup_tests
 	@echo "DONE ==> Running functional tests"
 
 .PHONY: run_non_functional_tests
-run_non_functional_tests: setup_tests
+run_non_functional_tests: init-secrets .env
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running non-functional tests..."
 	$(MAKE) -C tests non-functional-tests SUPASS=$(SUPASS) -k || (echo "Non-functional tests failed" && exit 1)
