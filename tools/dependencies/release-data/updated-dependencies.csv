@@ -534,7 +534,7 @@ scenescape-controller,opentelemetry-exporter-otlp-proto-grpc==1.38.0,pypi,Apache
 scenescape-controller,opentelemetry-proto==1.38.0,pypi,Apache-2.0,Y,indirect dependency. auto installed,previous-release,N
 scenescape-controller,opentelemetry-sdk==1.38.0,pypi,Apache-2.0,Y,imported,previous-release,N
 scenescape-controller,opentelemetry-semantic-conventions==0.59b0,pypi,Apache-2.0,Y,indirect dependency. auto installed,previous-release,N
-scenescape-controller,orjson==3.11.5,pypi,MIT,Y,imported,previous-release,N
+scenescape-controller,orjson==3.11.6,pypi,MIT,Y,imported,previous-release,N
 scenescape-controller,packaging==26.0,pypi,Apache-2.0,Y,indirect dependency. auto installed,previous-release,N
 scenescape-controller,paho-mqtt==2.1.0,pypi,EPL-1.0,Y,imported,previous-release,N
 scenescape-controller,pandas==3.0.1,pypi,BSD-3-Clause,Y,indirect dependency. auto installed,previous-release,N
