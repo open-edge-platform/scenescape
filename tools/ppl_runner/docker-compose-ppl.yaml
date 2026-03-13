@@ -91,7 +91,7 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
 
   video-pipeline:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc3
     networks:
       ppl_runner:
     tty: true

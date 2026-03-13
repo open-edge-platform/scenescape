@@ -34,9 +34,6 @@ vggt: build-vggt
 mapanything: build-mapanything
 
 # Override list-dependencies to produce dep files for both MODEL_TYPE modes.
-# MAPPING_LIST_DEPS sentinel prevents infinite recursion: the recursive $(MAKE)
-# calls below set it, causing this block to be skipped so common.mk's
-# list-dependencies runs with the correct IMAGE and MODEL_TYPE.
 ifndef MAPPING_LIST_DEPS
 .PHONY: list-dependencies
 list-dependencies: build-vggt build-mapanything
@@ -45,7 +42,6 @@ list-dependencies: build-vggt build-mapanything
 endif
 
 # Override generate-sbom to produce SBOMs for both MODEL_TYPE modes.
-# Same sentinel pattern as list-dependencies above.
 ifndef MAPPING_GENERATE_SBOM
 .PHONY: generate-sbom
 generate-sbom: build-vggt build-mapanything
