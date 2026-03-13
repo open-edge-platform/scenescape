@@ -25,7 +25,7 @@ YELLOW := \033[0;33m
 RESET  := \033[0m
 
 ifeq ($(GITHUB_ACTIONS_CACHE),true)
-EXTRA_BUILD_ARGS += --cache-from "type=gha,scope=$(IMAGE)" --cache-to "type=gha,scope=$(IMAGE)"
+EXTRA_BUILD_ARGS += --cache-from "type=registry,ghcr.io/${CACHE_REGISTRY}/$(IMAGE):${CACHE_TAG}" --cache-to "type=registry,ghcr.io/${CACHE_REGISTRY}/$(IMAGE):${CACHE_TAG}"
 endif
 
 

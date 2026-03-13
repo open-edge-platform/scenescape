@@ -45,6 +45,9 @@ env:
   DOCKER_BUILDKIT: 1
   SUPASS: demo
   GITHUB_ACTIONS_CACHE: true
+  CACHE_REGISTRY: ${{ github.repository }}
+  CACHE_TAG: ${{ github.ref_name }}
+
 
 permissions:
   contents: read
@@ -73,6 +76,13 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: |
           sudo apt-get update && sudo apt-get install gh
+
+      - name: "Log in to GHCR"
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Check PR state"
         id: check_pr
