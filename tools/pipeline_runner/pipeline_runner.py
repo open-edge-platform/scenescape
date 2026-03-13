@@ -52,7 +52,7 @@ ENV_FILE = Path(__file__).parent / ".env"
 BROKER_HOST = "localhost"
 BROKER_PORT = 1884
 DETECTION_TOPIC = "scenescape/data/camera/{camera_id}"
-BROKER_CONNECT_TIMEOUT = 30 
+BROKER_CONNECT_TIMEOUT = 30
 
 
 class PipelineRunner:
@@ -358,4 +358,3 @@ def main():
 
 if __name__ == "__main__":
   main()
-        
