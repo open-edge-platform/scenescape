@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+import pytest
 from tests.functional.common_scene_obj import SceneObjectMqtt
-
-TEST_NAME = "NEX-T10404"
 
 def runROIMqttCreate(self):
   self.exitCode = 1
@@ -20,11 +20,11 @@ def runROIMqttCreate(self):
     self.runSceneObjMqttFinally()
   return
 
-def test_roi_create(request, record_xml_attribute):
-  test = SceneObjectMqtt(TEST_NAME, request, record_xml_attribute)
+@pytest.mark.test_ids(default="NEX-T10404", analytics="NEX-T12345")
+def test_roi_create(request, record_xml_attribute, test_id):
+  test = SceneObjectMqtt(test_id, request, record_xml_attribute)
   runROIMqttCreate(test)
   assert test.exitCode == 0
-  return
 
 def main():
   return test_roi_create(None, None)

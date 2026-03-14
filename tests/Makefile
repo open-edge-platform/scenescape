@@ -24,6 +24,12 @@ GENERATE_JUNITXML_UNITTEST=-o junit_logging=all --junitxml tests/reports/test_re
 NPROCS?=$(shell echo $(shell grep -c ^processor /proc/cpuinfo)/3 | bc)
 COMPOSE=tests/compose
 EXAMPLEDB=tests/testdb.tar.bz2
+ANALYTICS_ONLY ?= 0
+
+PYTEST_EXTRA_ARGS :=
+ifeq ($(ANALYTICS_ONLY),1)
+PYTEST_EXTRA_ARGS += \--analytics-only
+endif
 
 ifeq ($(KUBERNETES),1)
     RUNTEST=tests/kubernetes/runtest
@@ -69,8 +75,8 @@ define common-recipe =
 	      WAITFORCONTAINERS=$(CONTAINERS) \
 	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
 	      no_proxy=$(no_proxy),.scenescape.intel.com,.scenescape \
-	      $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
-	                                  $${EXTRAS} 2>&1 | tee -ia $(LOGFILE) \
+	      $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(PYTEST_EXTRA_ARGS) \
+                          $(TEST_SCRIPT) $${EXTRAS} 2>&1 | tee -ia $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
 	  ; echo END TEST $@
@@ -119,6 +125,10 @@ basic-acceptance-tests: \
   unit-tests \
   auto-calibration-api \
   openapi-validation \
+
+# Analytics-only mode enabled
+analytics-only-tests: \
+  mqtt-roi \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose

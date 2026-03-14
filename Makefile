@@ -16,6 +16,8 @@ IMAGE_PREFIX := scenescape
 SOURCES_IMAGE := $(IMAGE_PREFIX)-sources
 VERSION := $(shell cat ./version.txt)
 
+# Default SUPASS
+SUPASS ?= admin
 # User configurable variables
 COMPOSE_PROJECT_NAME ?= scenescape
 # - User can adjust build output folder (defaults to $PWD/build)
@@ -409,6 +411,15 @@ run_basic_acceptance_tests: setup_tests
 	@echo "Running basic acceptance tests..."
 	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
+
+.PHONY: run_analytics_only_tests
+run_analytics_only_tests: setup_tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS)
+	@echo "Running analytics-only test group..."
+	$(MAKE) CONTROLLER_ENABLE_ANALYTICS_ONLY=true .env
+	$(MAKE) --trace -C tests analytics-only-tests -j 1 SUPASS=$(SUPASS) || \
+	  (echo "Analytics-only tests failed" && exit 1)
+	@echo "DONE ==> Running analytics-only test group"
 
 .PHONY: run_stability_tests
 run_stability_tests: setup_tests

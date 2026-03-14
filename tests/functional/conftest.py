@@ -4,9 +4,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import sys
 import pytest
 from pathlib import Path
 import numpy as np
+
 
 def pytest_addoption(parser):
   parser.addoption("--user", required=True, help="user to log into REST server")
@@ -26,7 +28,29 @@ def pytest_addoption(parser):
                    help="name of scene to test against")
   parser.addoption("--visibility_topic", default="regulated",
                    help="Visibility policy: regulated, unregulated, none")
+  parser.addoption(
+    "--analytics-only",
+    action="store_true",
+    default=False,
+    help="Enable analytics-only mode for tests (tracker disabled)"
+  )
 
+@pytest.fixture
+def test_id(request):
+  """
+  Returns the correct test ID depending on analytics-only mode.
+  Usage:
+      @pytest.mark.test_ids(default="NEX-T10404", analytics="NEX-T12345")
+  """
+  marker = request.node.get_closest_marker("test_ids")
+
+  default_id = marker.kwargs.get("default")
+  analytics_id = marker.kwargs.get("analytics", default_id)
+
+  analytics_mode = os.getenv("CONTROLLER_ENABLE_ANALYTICS_ONLY", "").lower() == "true"
+
+  return analytics_id if analytics_mode else default_id
+  
 @pytest.fixture
 def params(request):
   return {
@@ -89,8 +113,33 @@ def pytest_configure(config):
   file_name = Path(config.option.file_or_dir[0]).stem
   config.option.htmlpath = os.getcwd() + '/tests/functional/reports/test_reports/' + file_name + ".html"
 
+# Ensure controller module is importable from controller/src
+controller_src = Path(__file__).resolve().parents[2] / 'controller' / 'src'
+sys.path.insert(0, str(controller_src))
+
+from controller.controller_mode import ControllerMode
+
+@pytest.fixture(scope='session', autouse=True)
+def initialize_controller_mode(request):
+  """
+  Initialize ControllerMode before any tests run.
+
+  This fixture is automatically used by all tests under the tests/ directory.
+  It initializes the ControllerMode singleton to prevent "not initialized" warnings.
+
+  Tests default to non-analytics mode (tracking enabled) unless overridden
+  by the --analytics-only command-line option.
+  """
+  # Check if --analytics-only option exists; default to False if not provided
+  analytics_only = request.config.getoption('analytics_only', default=False)
+  ControllerMode.initialize(analytics_only=analytics_only)
+  yield
+  # Clean up after all tests complete
+  ControllerMode.reset()
+
 def pytest_runtest_makereport(item, call):
   if call.when == "call":
     if hasattr(item, 'callspec') and 'test_name' in item.callspec.params:
       test_name = item.callspec.params['test_name']
       item._nodeid = f"{item.nodeid}\n {test_name}"
+      
