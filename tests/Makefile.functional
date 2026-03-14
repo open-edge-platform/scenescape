@@ -197,7 +197,7 @@ mqtt-roi: # NEX-T10404
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml:$(COMPOSE)/tracker.yml:$(COMPOSE)/controller_analytics.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_roi_mqtt.py, 'pgserver web controller-analytics', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_roi_mqtt.py, 'pgserver web controller-analytics tracker', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 mqtt-sensor-roi: # NEX-T10460
