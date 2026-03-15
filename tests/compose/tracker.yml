@@ -31,10 +31,10 @@ services:
       TRACKER_MANAGER_AUTH_PATH: /run/secrets/controller.auth
       TRACKER_MANAGER_CA_CERT_PATH: /run/secrets/certs/scenescape-ca.pem
       TRACKER_SCENES_SOURCE: api
-      http_proxy:
-      https_proxy:
-      HTTP_PROXY:
-      HTTPS_PROXY:
+      http_proxy: ""
+      https_proxy: ""
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
