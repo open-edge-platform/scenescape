@@ -969,9 +969,9 @@ scenescape-mapping-mapanything,libxcb1:amd64:1.15-1,Debian,MIT,N,indirect depend
 scenescape-mapping-mapanything,libxcursor1:amd64:1:1.2.1-1,Debian,MIT,N,indirect dependency automatically installed,,Y
 scenescape-mapping-mapanything,libxdmcp-dev:amd64:1:1.1.2-3,Debian,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-mapanything,libxdmcp6:amd64:1:1.1.2-3,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-mapanything,libxext6:amd64:2:1.3.4-1+b1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
+scenescape-mapping-mapanything,libxext6:amd64:2:1.3.4-1+b1,Debian,MIT,N,used,previous-release,Y
 scenescape-mapping-mapanything,libxfixes3:amd64:1:6.0.0-2,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-mapanything,libxi6:amd64:2:1.8-1+b1,Debian,,N,,,Y
+scenescape-mapping-mapanything,libxi6:amd64:2:1.8-1+b1,Debian,,N,used,,Y
 scenescape-mapping-mapanything,libxkbcommon0:amd64:1.5.0-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libxml2:amd64:2.9.14+dfsg-1.3~deb12u5,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libxrandr2:amd64:2:1.5.2-2+b1,Debian,,N,,,Y
@@ -1147,44 +1147,44 @@ scenescape-mapping-mapanything,wheel==0.46.3,pypi,MIT,N,indirect dependency. aut
 scenescape-mapping-mapanything,widgetsnbextension==4.0.15,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-mapanything,zipp==3.23.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,curl:7.88.1-10+deb12u14,Debian,MIT,N,used,previous-release,Y
-scenescape-mapping-vggt,ffmpeg:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,,sbom,Y
+scenescape-mapping-vggt,ffmpeg:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,used,sbom,Y
 scenescape-mapping-vggt,fontconfig:2.14.1-4,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,fontconfig-config:2.14.1-4,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,fonts-dejavu-core:2.37-6,Debian,Bitstream Vera License,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,git-man:1:2.39.5-0+deb12u3,Debian,Apache-2.0 AND LicenseRef-Artistic AND LicenseRef-Boost AND LicenseRef-EDL-1.0 AND LicenseRef-Expat AND LicenseRef-GPL AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-dlmalloc AND LicenseRef-mingw-runtime,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,git:1:2.39.5-0+deb12u3,Debian,Apache-2.0 AND LicenseRef-Artistic AND LicenseRef-Boost AND LicenseRef-EDL-1.0 AND LicenseRef-Expat AND LicenseRef-GPL AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-dlmalloc AND LicenseRef-mingw-runtime,N,used,previous-release,Y
 scenescape-mapping-vggt,libaom3:amd64:3.6.0-1+deb12u2,Debian,BSD-2-Clause,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libasound2-data:1.2.8-1,Debian,LGPL-2.1-only AND LicenseRef-LPGL-2.1-,N,,sbom,Y
-scenescape-mapping-vggt,libasound2:amd64:1.2.8-1+b1,Debian,LGPL-2.1-only AND LicenseRef-LPGL-2.1-,N,,sbom,Y
-scenescape-mapping-vggt,libass9:amd64:1:0.17.1-1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LicenseRef-other-1,N,,sbom,Y
-scenescape-mapping-vggt,libasyncns0:amd64:0.8-6+b3,Debian,LGPL-2.1-only AND LGPL-2.1-or-later,N,,sbom,Y
-scenescape-mapping-vggt,libavc1394-0:amd64:0.5.4-5,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,N,,sbom,Y
-scenescape-mapping-vggt,libavcodec59:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,,sbom,Y
-scenescape-mapping-vggt,libavdevice59:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,,sbom,Y
-scenescape-mapping-vggt,libavfilter8:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,,sbom,Y
-scenescape-mapping-vggt,libavformat59:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,,sbom,Y
-scenescape-mapping-vggt,libavutil57:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,,sbom,Y
+scenescape-mapping-vggt,libasound2-data:1.2.8-1,Debian,LGPL-2.1-only AND LicenseRef-LPGL-2.1-,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libasound2:amd64:1.2.8-1+b1,Debian,LGPL-2.1-only AND LicenseRef-LPGL-2.1-,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libass9:amd64:1:0.17.1-1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LicenseRef-other-1,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libasyncns0:amd64:0.8-6+b3,Debian,LGPL-2.1-only AND LGPL-2.1-or-later,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libavc1394-0:amd64:0.5.4-5,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libavcodec59:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libavdevice59:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libavfilter8:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libavformat59:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libavutil57:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libblas3:amd64:3.11.0-2,Debian,BSD-3-Clause,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libbluray2:amd64:1:1.3.4-1,Debian,BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND MPL-1.0 AND LicenseRef-custom,N,,sbom,Y
+scenescape-mapping-vggt,libbluray2:amd64:1:1.3.4-1,Debian,BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND MPL-1.0 AND LicenseRef-custom,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libbrotli1:amd64:1.0.9-2+b6,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libbs2b0:amd64:3.1.0+dfsg-7,Debian,LicenseRef-Expat AND LicenseRef-FSF-unlimited AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-MIT-FSF-public,N,,sbom,Y
+scenescape-mapping-vggt,libbs2b0:amd64:3.1.0+dfsg-7,Debian,LicenseRef-Expat AND LicenseRef-FSF-unlimited AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-MIT-FSF-public,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libbsd0:amd64:0.11.7-2,Debian,BSD-3-Clause,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libcaca0:amd64:0.99.beta20-3,Debian,LicenseRef-GPL AND GPL-1.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-WTFPL-2,N,,sbom,Y
-scenescape-mapping-vggt,libcairo-gobject2:amd64:1.16.0-7,Debian,LGPL-2.1-only,N,,sbom,Y
-scenescape-mapping-vggt,libcairo2:amd64:1.16.0-7,Debian,LGPL-2.1-only,N,,sbom,Y
-scenescape-mapping-vggt,libcdio-cdda2:amd64:10.2+2.0.1-1,Debian,GFDL-1.2-only AND GPL-3.0-only,N,,sbom,Y
-scenescape-mapping-vggt,libcdio-paranoia2:amd64:10.2+2.0.1-1,Debian,GFDL-1.2-only AND GPL-3.0-only,N,,sbom,Y
-scenescape-mapping-vggt,libcdio19:amd64:2.1.0-4,Debian,GFDL-1.2-only AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only,N,,sbom,Y
-scenescape-mapping-vggt,libchromaprint1:amd64:1.5.1-2+b1,Debian,BSD-3-Clause AND LicenseRef-Expat AND LGPL-2.1-only AND LGPL-2.1-or-later,N,,sbom,Y
+scenescape-mapping-vggt,libcaca0:amd64:0.99.beta20-3,Debian,LicenseRef-GPL AND GPL-1.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-WTFPL-2,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libcairo-gobject2:amd64:1.16.0-7,Debian,LGPL-2.1-only,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libcairo2:amd64:1.16.0-7,Debian,LGPL-2.1-only,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libcdio-cdda2:amd64:10.2+2.0.1-1,Debian,GFDL-1.2-only AND GPL-3.0-only,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libcdio-paranoia2:amd64:10.2+2.0.1-1,Debian,GFDL-1.2-only AND GPL-3.0-only,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libcdio19:amd64:2.1.0-4,Debian,GFDL-1.2-only AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libchromaprint1:amd64:1.5.1-2+b1,Debian,BSD-3-Clause AND LicenseRef-Expat AND LGPL-2.1-only AND LGPL-2.1-or-later,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libcjson1:amd64:1.7.15-1+deb12u4,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libcodec2-1.0:amd64:1.0.5-1,Debian,LicenseRef-JMVBSD AND LicenseRef-KISSFFTBSD AND LGPL-2.1-only,N,,sbom,Y
+scenescape-mapping-vggt,libcodec2-1.0:amd64:1.0.5-1,Debian,LicenseRef-JMVBSD AND LicenseRef-KISSFFTBSD AND LGPL-2.1-only,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libcurl3-gnutls:amd64:7.88.1-10+deb12u14,Debian,BSD-3-Clause AND BSD-4-Clause AND ISC AND curl AND LicenseRef-other AND LicenseRef-public-domain,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,libcurl4:amd64:7.88.1-10+deb12u14,Debian,BSD-3-Clause,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libdatrie1:amd64:0.2.13-2+b1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,N,,sbom,Y
-scenescape-mapping-vggt,libdav1d6:amd64:1.0.0-2+deb12u1,Debian,BSD-2-Clause AND ISC AND LicenseRef-public-domain,N,,sbom,Y
+scenescape-mapping-vggt,libdatrie1:amd64:0.2.13-2+b1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libdav1d6:amd64:1.0.0-2+deb12u1,Debian,BSD-2-Clause AND ISC AND LicenseRef-public-domain,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libdbus-1-3:amd64:1.14.10-1~deb12u1,Debian,AFL-2.1 License,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libdc1394-25:amd64:2.2.6-4,Debian,GPL-2.0-only AND LGPL-2.1-only,N,,sbom,Y
-scenescape-mapping-vggt,libdecor-0-0:amd64:0.1.1-2,Debian,LicenseRef-Expat AND GPL-3.0-only AND GPL-3.0-or-later,N,,sbom,Y
+scenescape-mapping-vggt,libdc1394-25:amd64:2.2.6-4,Debian,GPL-2.0-only AND LGPL-2.1-only,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libdecor-0-0:amd64:0.1.1-2,Debian,LicenseRef-Expat AND GPL-3.0-only AND GPL-3.0-or-later,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libdeflate0:amd64:1.14-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libdrm-amdgpu1:amd64:2.4.114-1+b1,Debian,MIT,N,linked,previous-release,Y
 scenescape-mapping-vggt,libdrm-common:2.4.114-1,Debian,MIT,N,linked,previous-release,Y
@@ -1194,18 +1194,18 @@ scenescape-mapping-vggt,libdrm-radeon1:amd64:2.4.114-1+b1,Debian,MIT,N,linked,pr
 scenescape-mapping-vggt,libdrm2:amd64:2.4.114-1+b1,Debian,MIT,N,linked,previous-release,Y
 scenescape-mapping-vggt,libedit2:amd64:3.1-20221030-2,Debian,BSD-3-Clause,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libelf1:amd64:0.188-2.1,Debian,LGPL-3.0,N,imported,previous-release,Y
-scenescape-mapping-vggt,libepoxy0:amd64:1.5.10-1,Debian,LicenseRef-Expat,N,,sbom,Y
+scenescape-mapping-vggt,libepoxy0:amd64:1.5.10-1,Debian,LicenseRef-Expat,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,liberror-perl:0.17029-2,Debian,LicenseRef-Artistic AND GPL-1.0-only AND GPL-1.0-or-later AND LicenseRef-MIT-X11,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,libexpat1:amd64:2.5.0-1+deb12u2,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libflac12:amd64:1.4.2+ds-2,Debian,BSD-3-Clause AND GFDL-1.1-or-later AND GFDL-1.2-only AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Public-domain,N,,sbom,Y
-scenescape-mapping-vggt,libflite1:amd64:2.2-5,Debian,GPL-2.0-only AND GPL-3.0-only,N,,sbom,Y
+scenescape-mapping-vggt,libflac12:amd64:1.4.2+ds-2,Debian,BSD-3-Clause AND GFDL-1.1-or-later AND GFDL-1.2-only AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Public-domain,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libflite1:amd64:2.2-5,Debian,GPL-2.0-only AND GPL-3.0-only,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libfontconfig1:amd64:2.14.1-4,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libfreetype6:amd64:2.12.1+dfsg-5+deb12u4,Debian,FTL,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libfribidi0:amd64:1.0.8-2.1,Debian,LGPL-2.1-only AND LGPL-2.1-or-later,N,,sbom,Y
+scenescape-mapping-vggt,libfribidi0:amd64:1.0.8-2.1,Debian,LGPL-2.1-only AND LGPL-2.1-or-later,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libgbm1:amd64:22.3.6-1+deb12u1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libgdbm-compat4:amd64:1.23-3,Debian,GPL-3.0,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libgdk-pixbuf-2.0-0:amd64:2.42.10+dfsg-1+deb12u3,Debian,CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,N,,sbom,Y
-scenescape-mapping-vggt,libgdk-pixbuf2.0-common:2.42.10+dfsg-1+deb12u3,Debian,CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,N,,sbom,Y
+scenescape-mapping-vggt,libgdk-pixbuf-2.0-0:amd64:2.42.10+dfsg-1+deb12u3,Debian,CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libgdk-pixbuf2.0-common:2.42.10+dfsg-1+deb12u3,Debian,CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libgfortran5:amd64:12.2.0-14+deb12u1,Debian,GPL-3.0,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libgl1-mesa-dri:amd64:22.3.6-1+deb12u1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libgl1:amd64:1.6.0-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
@@ -1214,106 +1214,106 @@ scenescape-mapping-vggt,libglib2.0-0:amd64:2.74.6-2+deb12u8,Debian,LGPL-2.1,N,li
 scenescape-mapping-vggt,libglvnd0:amd64:1.6.0-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libglx-mesa0:amd64:22.3.6-1+deb12u1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libglx0:amd64:1.6.0-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libgme0:amd64:0.6.3-6,Debian,LGPL-2.1-only AND LGPL-2.1-or-later AND MIT,N,,sbom,Y
+scenescape-mapping-vggt,libgme0:amd64:0.6.3-6,Debian,LGPL-2.1-only AND LGPL-2.1-or-later AND MIT,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libgomp1:amd64:12.2.0-14+deb12u1,Debian,GPL-3.0,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libgraphite2-3:amd64:1.3.14-1,Debian,SIL Open Font License,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libgsm1:amd64:1.0.22-1,Debian,TU-Berlin-2.0,N,,sbom,Y
+scenescape-mapping-vggt,libgsm1:amd64:1.0.22-1,Debian,TU-Berlin-2.0,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libharfbuzz0b:amd64:6.0.0+dfsg-3,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libhwy1:amd64:1.0.3-3+deb12u1,Debian,Apache-2.0,N,,sbom,Y
+scenescape-mapping-vggt,libhwy1:amd64:1.0.3-3+deb12u1,Debian,Apache-2.0,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libice6:amd64:2:1.0.10-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libicu72:amd64:72.1-3+deb12u1,Debian,GPL-3.0-only AND MIT,N,,sbom,Y
-scenescape-mapping-vggt,libiec61883-0:amd64:1.2.0-6+b1,Debian,LGPL-2.1-only,N,,sbom,Y
-scenescape-mapping-vggt,libjack-jackd2-0:amd64:1.9.21~dfsg-3,Debian,BSD-2-Clause AND BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-2-either AND LicenseRef-GPL-2-or AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-public-domain-Kroon,N,,sbom,Y
+scenescape-mapping-vggt,libiec61883-0:amd64:1.2.0-6+b1,Debian,LGPL-2.1-only,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libjack-jackd2-0:amd64:1.9.21~dfsg-3,Debian,BSD-2-Clause AND BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-2-either AND LicenseRef-GPL-2-or AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-public-domain-Kroon,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libjbig0:amd64:2.1-6.1,Debian,GPL-2.0-or-later,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libjpeg62-turbo:amd64:1:2.1.5-2,Debian,BSD-3-Clause AND LicenseRef-BSD-BY-LC-NE AND LicenseRef-Expat AND NTP AND Zlib,N,,sbom,Y
-scenescape-mapping-vggt,libjxl0.7:amd64:0.7.0-10+deb12u1,Debian,LicenseRef-BSD-3-clause-Google AND LicenseRef-ISC-License,N,,sbom,Y
+scenescape-mapping-vggt,libjpeg62-turbo:amd64:1:2.1.5-2,Debian,BSD-3-Clause AND LicenseRef-BSD-BY-LC-NE AND LicenseRef-Expat AND NTP AND Zlib,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libjxl0.7:amd64:0.7.0-10+deb12u1,Debian,LicenseRef-BSD-3-clause-Google AND LicenseRef-ISC-License,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,liblapack3:amd64:3.11.0-2,Debian,BSD-3-Clause,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,liblcms2-2:amd64:2.14-2,Debian,BSD-3-Clause,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libldap-2.5-0:amd64:2.5.13+dfsg-5,Debian,OpenLDAP Public License,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,liblerc4:amd64:4.0.0+ds-2,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,liblilv-0-0:amd64:0.24.14-1,Debian,BSD-3-Clause AND ISC,N,,sbom,Y
+scenescape-mapping-vggt,liblilv-0-0:amd64:0.24.14-1,Debian,BSD-3-Clause AND ISC,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libllvm15:amd64:1:15.0.6-4+b1,Debian,Apache-2.0 and BSD-3-Clause and MIT,N,used by openvino,previous-release,Y
-scenescape-mapping-vggt,libmbedcrypto7:amd64:2.28.3-1,Debian,Apache-2.0 AND GPL-2.0-only AND GPL-2.0-or-later,N,,sbom,Y
-scenescape-mapping-vggt,libmfx1:amd64:22.5.4-1,Debian,Apache-2.0 AND BSD-3-Clause AND MIT AND NTP,N,,sbom,Y
-scenescape-mapping-vggt,libmp3lame0:amd64:3.100-6,Debian,BSD-3-Clause AND GPL-1.0-only AND GPL-1.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-zlib-libpng,N,,sbom,Y
-scenescape-mapping-vggt,libmpg123-0:amd64:1.31.2-1+deb12u1,Debian,LGPL-2.1-only,N,,sbom,Y
-scenescape-mapping-vggt,libmysofa1:amd64:1.3.1~dfsg0-1,Debian,BSD-3-Clause AND CC-BY-4.0 AND CC-BY-SA-3.0 AND LicenseRef-cipic AND LicenseRef-listen-ircam AND LicenseRef-mit-kemar,N,,sbom,Y
+scenescape-mapping-vggt,libmbedcrypto7:amd64:2.28.3-1,Debian,Apache-2.0 AND GPL-2.0-only AND GPL-2.0-or-later,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libmfx1:amd64:22.5.4-1,Debian,Apache-2.0 AND BSD-3-Clause AND MIT AND NTP,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libmp3lame0:amd64:3.100-6,Debian,BSD-3-Clause AND GPL-1.0-only AND GPL-1.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-zlib-libpng,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libmpg123-0:amd64:1.31.2-1+deb12u1,Debian,LGPL-2.1-only,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libmysofa1:amd64:1.3.1~dfsg0-1,Debian,BSD-3-Clause AND CC-BY-4.0 AND CC-BY-SA-3.0 AND LicenseRef-cipic AND LicenseRef-listen-ircam AND LicenseRef-mit-kemar,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libnghttp2-14:amd64:1.52.0-1+deb12u2,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libnorm1:amd64:1.5.9+dfsg-2,Debian,BSD-2-Clause AND BSD-3-Clause AND BSD-4-Clause-UC AND LicenseRef-NRL-2-clause AND LicenseRef-NRL-3-clause,N,,sbom,Y
-scenescape-mapping-vggt,libnuma1:amd64:2.0.16-1,Debian,LicenseRef-GPL AND LicenseRef-LGPL,N,,sbom,Y
-scenescape-mapping-vggt,libogg0:amd64:1.3.5-3,Debian,BSD-3-Clause AND LicenseRef-rfc3533-license AND LicenseRef-rfc5334-license,N,,sbom,Y
-scenescape-mapping-vggt,libopenal-data:1:1.19.1-2,Debian,LicenseRef-Apache AND LicenseRef-BSD-3-clause-cmake AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-or-later,N,,sbom,Y
-scenescape-mapping-vggt,libopenal1:amd64:1:1.19.1-2,Debian,LicenseRef-Apache AND LicenseRef-BSD-3-clause-cmake AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-or-later,N,,sbom,Y
+scenescape-mapping-vggt,libnorm1:amd64:1.5.9+dfsg-2,Debian,BSD-2-Clause AND BSD-3-Clause AND BSD-4-Clause-UC AND LicenseRef-NRL-2-clause AND LicenseRef-NRL-3-clause,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libnuma1:amd64:2.0.16-1,Debian,LicenseRef-GPL AND LicenseRef-LGPL,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libogg0:amd64:1.3.5-3,Debian,BSD-3-Clause AND LicenseRef-rfc3533-license AND LicenseRef-rfc5334-license,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libopenal-data:1:1.19.1-2,Debian,LicenseRef-Apache AND LicenseRef-BSD-3-clause-cmake AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-or-later,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libopenal1:amd64:1:1.19.1-2,Debian,LicenseRef-Apache AND LicenseRef-BSD-3-clause-cmake AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-or-later,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libopenjp2-7:amd64:2.5.0-2+deb12u2,Debian,BSD-2-Clause,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libopenmpt0:amd64:0.6.9-1,Debian,BSD-3-Clause AND BSL-1.0 AND LicenseRef-GNU-All-Permissive-License AND LicenseRef-GNU-All-Permissive-License-FSF AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND X11,N,,sbom,Y
-scenescape-mapping-vggt,libopus0:amd64:1.3.1-3,Debian,BSD-2-Clause AND BSD-3-Clause,N,,sbom,Y
-scenescape-mapping-vggt,libpango-1.0-0:amd64:1.50.12+ds-1,Debian,Apache-2.0 AND Apache-2.0 AND Bitstream-Vera AND CC0-1.0 AND LicenseRef-Chromium-BSD-style AND LicenseRef-Example AND GPL-2.0-or-later AND GPL-2.0-only AND ICU AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND OFL-1.1 AND TCL AND LicenseRef-Unicode,N,,sbom,Y
-scenescape-mapping-vggt,libpangocairo-1.0-0:amd64:1.50.12+ds-1,Debian,Apache-2.0 AND Apache-2.0 AND Bitstream-Vera AND CC0-1.0 AND LicenseRef-Chromium-BSD-style AND LicenseRef-Example AND GPL-2.0-or-later AND GPL-2.0-only AND ICU AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND OFL-1.1 AND TCL AND LicenseRef-Unicode,N,,sbom,Y
-scenescape-mapping-vggt,libpangoft2-1.0-0:amd64:1.50.12+ds-1,Debian,Apache-2.0 AND Apache-2.0 AND Bitstream-Vera AND CC0-1.0 AND LicenseRef-Chromium-BSD-style AND LicenseRef-Example AND GPL-2.0-or-later AND GPL-2.0-only AND ICU AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND OFL-1.1 AND TCL AND LicenseRef-Unicode,N,,sbom,Y
+scenescape-mapping-vggt,libopenmpt0:amd64:0.6.9-1,Debian,BSD-3-Clause AND BSL-1.0 AND LicenseRef-GNU-All-Permissive-License AND LicenseRef-GNU-All-Permissive-License-FSF AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND X11,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libopus0:amd64:1.3.1-3,Debian,BSD-2-Clause AND BSD-3-Clause,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libpango-1.0-0:amd64:1.50.12+ds-1,Debian,Apache-2.0 AND Apache-2.0 AND Bitstream-Vera AND CC0-1.0 AND LicenseRef-Chromium-BSD-style AND LicenseRef-Example AND GPL-2.0-or-later AND GPL-2.0-only AND ICU AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND OFL-1.1 AND TCL AND LicenseRef-Unicode,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libpangocairo-1.0-0:amd64:1.50.12+ds-1,Debian,Apache-2.0 AND Apache-2.0 AND Bitstream-Vera AND CC0-1.0 AND LicenseRef-Chromium-BSD-style AND LicenseRef-Example AND GPL-2.0-or-later AND GPL-2.0-only AND ICU AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND OFL-1.1 AND TCL AND LicenseRef-Unicode,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libpangoft2-1.0-0:amd64:1.50.12+ds-1,Debian,Apache-2.0 AND Apache-2.0 AND Bitstream-Vera AND CC0-1.0 AND LicenseRef-Chromium-BSD-style AND LicenseRef-Example AND GPL-2.0-or-later AND GPL-2.0-only AND ICU AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND OFL-1.1 AND TCL AND LicenseRef-Unicode,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libpciaccess0:amd64:0.17-2,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libperl5.36:amd64:5.36.0-7+deb12u3,Debian,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib,N,,sbom,Y
-scenescape-mapping-vggt,libpgm-5.3-0:amd64:5.3.128~dfsg-2,Debian,BSD-3-Clause AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only,N,,sbom,Y
-scenescape-mapping-vggt,libpixman-1-0:amd64:0.42.2-1,Debian,,N,,,Y
-scenescape-mapping-vggt,libplacebo208:amd64:4.208.0-3,Debian,LicenseRef-CC0 AND LicenseRef-Expat AND LGPL-2.1-only AND LGPL-2.1-or-later AND Zlib,N,,sbom,Y
+scenescape-mapping-vggt,libperl5.36:amd64:5.36.0-7+deb12u3,Debian,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libpgm-5.3-0:amd64:5.3.128~dfsg-2,Debian,BSD-3-Clause AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libpixman-1-0:amd64:0.42.2-1,Debian,,N,indirect dependency. auto installed,,Y
+scenescape-mapping-vggt,libplacebo208:amd64:4.208.0-3,Debian,LicenseRef-CC0 AND LicenseRef-Expat AND LGPL-2.1-only AND LGPL-2.1-or-later AND Zlib,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libpng16-16:amd64:1.6.39-2+deb12u3,Debian,libpng License,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libpocketsphinx3:amd64:0.8+5prealpha+1-15,Debian,LicenseRef-BSD-2 AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later,N,,sbom,Y
-scenescape-mapping-vggt,libpostproc56:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,,sbom,Y
+scenescape-mapping-vggt,libpocketsphinx3:amd64:0.8+5prealpha+1-15,Debian,LicenseRef-BSD-2 AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libpostproc56:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libpsl5:amd64:0.21.2-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libpthread-stubs0-dev:amd64:0.4-1,Debian,CC-BY-SA,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,libpulse0:amd64:16.1+dfsg1-2+b1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-other,N,,sbom,Y
-scenescape-mapping-vggt,libquadmath0:amd64:12.2.0-14+deb12u1,Debian,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL,N,,sbom,Y
-scenescape-mapping-vggt,librabbitmq4:amd64:0.11.0-1+deb12u1,Debian,LicenseRef-BSD-Author AND LicenseRef-Expat,N,,sbom,Y
-scenescape-mapping-vggt,librav1e0:amd64:0.5.1-6,Debian,BSD-2-Clause AND BSD-2-Clause AND ISC,N,,sbom,Y
-scenescape-mapping-vggt,libraw1394-11:amd64:2.1.2-2,Debian,LicenseRef-GPL AND LicenseRef-LGPL,N,,sbom,Y
-scenescape-mapping-vggt,librist4:amd64:0.2.7+dfsg-1,Debian,BSD-2-Clause AND LicenseRef-Expat AND ISC AND LicenseRef-public-domain,N,,sbom,Y
-scenescape-mapping-vggt,librsvg2-2:amd64:2.54.7+dfsg-1~deb12u1,Debian,0BSD AND Apache-2.0 AND LicenseRef-Apache-2.0- AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-Boost-1.0 AND CC-BY-3.0 AND LicenseRef-CC-zero-waive-1.0-us AND LicenseRef-Expat AND FSFAP AND LGPL-2.0-only AND LGPL-2.0-or-later AND MPL-2.0 AND OFL-1.1 AND LicenseRef-Sun-permissive AND Unlicense AND Zlib,N,,sbom,Y
+scenescape-mapping-vggt,libpulse0:amd64:16.1+dfsg1-2+b1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-other,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libquadmath0:amd64:12.2.0-14+deb12u1,Debian,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,librabbitmq4:amd64:0.11.0-1+deb12u1,Debian,LicenseRef-BSD-Author AND LicenseRef-Expat,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,librav1e0:amd64:0.5.1-6,Debian,BSD-2-Clause AND BSD-2-Clause AND ISC,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libraw1394-11:amd64:2.1.2-2,Debian,LicenseRef-GPL AND LicenseRef-LGPL,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,librist4:amd64:0.2.7+dfsg-1,Debian,BSD-2-Clause AND LicenseRef-Expat AND ISC AND LicenseRef-public-domain,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,librsvg2-2:amd64:2.54.7+dfsg-1~deb12u1,Debian,0BSD AND Apache-2.0 AND LicenseRef-Apache-2.0- AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-Boost-1.0 AND CC-BY-3.0 AND LicenseRef-CC-zero-waive-1.0-us AND LicenseRef-Expat AND FSFAP AND LGPL-2.0-only AND LGPL-2.0-or-later AND MPL-2.0 AND OFL-1.1 AND LicenseRef-Sun-permissive AND Unlicense AND Zlib,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,librtmp1:amd64:2.4+20151223.gitfa8646d.1-2+b2,Debian,LGPL-2.1,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,librubberband2:amd64:3.1.2+dfsg0-1,Debian,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND Zlib AND LicenseRef-other-1,N,,sbom,Y
-scenescape-mapping-vggt,libsamplerate0:amd64:0.2.2-3,Debian,BSD-2-Clause AND FSFAP AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later,N,,sbom,Y
+scenescape-mapping-vggt,librubberband2:amd64:3.1.2+dfsg0-1,Debian,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND Zlib AND LicenseRef-other-1,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libsamplerate0:amd64:0.2.2-3,Debian,BSD-2-Clause AND FSFAP AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libsasl2-2:amd64:2.1.28+dfsg-10,Debian,BSD-4-Clause,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libsasl2-modules-db:amd64:2.1.28+dfsg-10,Debian,BSD-4-Clause,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libsdl2-2.0-0:amd64:2.26.5+dfsg-1,Debian,Apache-2.0 AND BSD-3-Clause AND LicenseRef-BSD-3-clause-chromium AND LicenseRef-BSD-3-clause-kitware AND LicenseRef-BrownUn-UnCalifornia-ErikCorry AND LicenseRef-Expat AND LicenseRef-Expat-like AND GPL-3.0-only AND LicenseRef-Gareth-McCaughan AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT-open-group AND LicenseRef-Mozilla-permissive AND LicenseRef-PublicDomain-David-Ludwig AND LicenseRef-PublicDomain-Edgar-Simo AND LicenseRef-PublicDomain-Sam-Lantinga AND LicenseRef-RSA-Data-Security AND LicenseRef-SGI-Free-Software-License-B AND SunPro AND LicenseRef-hidapi-orig AND LicenseRef-zlib-libpng-like-permissive AND LicenseRef-zlib-libpng,N,,sbom,Y
+scenescape-mapping-vggt,libsdl2-2.0-0:amd64:2.26.5+dfsg-1,Debian,Apache-2.0 AND BSD-3-Clause AND LicenseRef-BSD-3-clause-chromium AND LicenseRef-BSD-3-clause-kitware AND LicenseRef-BrownUn-UnCalifornia-ErikCorry AND LicenseRef-Expat AND LicenseRef-Expat-like AND GPL-3.0-only AND LicenseRef-Gareth-McCaughan AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT-open-group AND LicenseRef-Mozilla-permissive AND LicenseRef-PublicDomain-David-Ludwig AND LicenseRef-PublicDomain-Edgar-Simo AND LicenseRef-PublicDomain-Sam-Lantinga AND LicenseRef-RSA-Data-Security AND LicenseRef-SGI-Free-Software-License-B AND SunPro AND LicenseRef-hidapi-orig AND LicenseRef-zlib-libpng-like-permissive AND LicenseRef-zlib-libpng,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libsensors-config:1:3.6.0-7.1,Debian,GPL-2.0,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libsensors5:amd64:1:3.6.0-7.1,Debian,GPL-2.0,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libserd-0-0:amd64:0.30.16-1,Debian,ISC,N,,sbom,Y
-scenescape-mapping-vggt,libshine3:amd64:3.1.1-2,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only,N,,sbom,Y
-scenescape-mapping-vggt,libslang2:amd64:2.3.3-3,Debian,GPL-2.0-only AND GPL-2.0-or-later,N,,sbom,Y
+scenescape-mapping-vggt,libserd-0-0:amd64:0.30.16-1,Debian,ISC,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libshine3:amd64:3.1.1-2,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libslang2:amd64:2.3.3-3,Debian,GPL-2.0-only AND GPL-2.0-or-later,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libsm6:amd64:2:1.2.3-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libsnappy1v5:amd64:1.1.9-3,Debian,BSD-3-Clause,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libsndfile1:amd64:1.2.0-1+deb12u1,Debian,Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND FSFAP AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND NTP AND LicenseRef-gsm AND LicenseRef-sun,N,,sbom,Y
-scenescape-mapping-vggt,libsndio7.0:amd64:1.9.0-0.3+b2,Debian,ISC AND LicenseRef-ISC-packaging,N,,sbom,Y
-scenescape-mapping-vggt,libsodium23:amd64:1.0.18-1+deb12u1,Debian,BSD-2-Clause AND LicenseRef-CC0 AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND MIT AND LicenseRef-public-domain,N,,sbom,Y
-scenescape-mapping-vggt,libsord-0-0:amd64:0.16.14+git221008-1,Debian,ISC,N,,sbom,Y
-scenescape-mapping-vggt,libsoxr0:amd64:0.1.3-4,Debian,LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Spherepack AND LicenseRef-permissive1 AND LicenseRef-permissive2,N,,sbom,Y
-scenescape-mapping-vggt,libspeex1:amd64:1.2.1-2,Debian,BSD-3-Clause AND GFDL-1.1-or-later AND GFDL-1.2-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-custom-1,N,,sbom,Y
-scenescape-mapping-vggt,libsphinxbase3:amd64:0.8+5prealpha+1-16,Debian,BSD-2-Clause AND LicenseRef-BSD-2-clause-beyond AND BSD-3-Clause AND LicenseRef-BSD-3-clause-carnegie AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-lucent AND LicenseRef-u-o-tennesee,N,,sbom,Y
-scenescape-mapping-vggt,libsratom-0-0:amd64:0.6.14-1,Debian,ISC,N,,sbom,Y
-scenescape-mapping-vggt,libsrt1.5-gnutls:amd64:1.5.1-1+deb12u1,Debian,BSD-3-Clause AND LGPL-2.1-only AND LGPL-2.1-or-later AND MPL-2.0 AND Zlib AND Unlicense,N,,sbom,Y
-scenescape-mapping-vggt,libssh-gcrypt-4:amd64:0.10.6-0+deb12u2,Debian,BSD-2-Clause AND BSD-3-Clause AND LGPL-2.1-only AND LicenseRef-LGPL-2.1--OpenSSL AND LicenseRef-public-domain,N,,sbom,Y
-scenescape-mapping-vggt,libssh2-1:amd64:1.10.0-3+b1,Debian,LicenseRef-BSD3,N,,sbom,Y
-scenescape-mapping-vggt,libsvtav1enc1:amd64:1.4.1+dfsg-1,Debian,BSD-2-Clause AND BSD-3-Clause-Clear AND BSD-3-Clause AND LicenseRef-Expat AND ISC AND LGPL-2.1-only AND LGPL-2.1-or-later,N,,sbom,Y
-scenescape-mapping-vggt,libswresample4:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,,sbom,Y
-scenescape-mapping-vggt,libswscale6:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,,sbom,Y
-scenescape-mapping-vggt,libthai-data:0.1.29-1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,N,,sbom,Y
-scenescape-mapping-vggt,libthai0:amd64:0.1.29-1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,N,,sbom,Y
-scenescape-mapping-vggt,libtheora0:amd64:1.1.1+dfsg.1-16.1+deb12u1,Debian,BSD-3-Clause,N,,sbom,Y
+scenescape-mapping-vggt,libsndfile1:amd64:1.2.0-1+deb12u1,Debian,Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND FSFAP AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND NTP AND LicenseRef-gsm AND LicenseRef-sun,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libsndio7.0:amd64:1.9.0-0.3+b2,Debian,ISC AND LicenseRef-ISC-packaging,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libsodium23:amd64:1.0.18-1+deb12u1,Debian,BSD-2-Clause AND LicenseRef-CC0 AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND MIT AND LicenseRef-public-domain,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libsord-0-0:amd64:0.16.14+git221008-1,Debian,ISC,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libsoxr0:amd64:0.1.3-4,Debian,LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Spherepack AND LicenseRef-permissive1 AND LicenseRef-permissive2,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libspeex1:amd64:1.2.1-2,Debian,BSD-3-Clause AND GFDL-1.1-or-later AND GFDL-1.2-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-custom-1,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libsphinxbase3:amd64:0.8+5prealpha+1-16,Debian,BSD-2-Clause AND LicenseRef-BSD-2-clause-beyond AND BSD-3-Clause AND LicenseRef-BSD-3-clause-carnegie AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-lucent AND LicenseRef-u-o-tennesee,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libsratom-0-0:amd64:0.6.14-1,Debian,ISC,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libsrt1.5-gnutls:amd64:1.5.1-1+deb12u1,Debian,BSD-3-Clause AND LGPL-2.1-only AND LGPL-2.1-or-later AND MPL-2.0 AND Zlib AND Unlicense,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libssh-gcrypt-4:amd64:0.10.6-0+deb12u2,Debian,BSD-2-Clause AND BSD-3-Clause AND LGPL-2.1-only AND LicenseRef-LGPL-2.1--OpenSSL AND LicenseRef-public-domain,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libssh2-1:amd64:1.10.0-3+b1,Debian,LicenseRef-BSD3,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libsvtav1enc1:amd64:1.4.1+dfsg-1,Debian,BSD-2-Clause AND BSD-3-Clause-Clear AND BSD-3-Clause AND LicenseRef-Expat AND ISC AND LGPL-2.1-only AND LGPL-2.1-or-later,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libswresample4:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libswscale6:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libthai-data:0.1.29-1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libthai0:amd64:0.1.29-1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libtheora0:amd64:1.1.1+dfsg.1-16.1+deb12u1,Debian,BSD-3-Clause,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libtiff6:amd64:4.5.0-6+deb12u3,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libtwolame0:amd64:0.4.0-2,Debian,LGPL-2.0-only AND LGPL-2.0-or-later,N,,sbom,Y
-scenescape-mapping-vggt,libudfread0:amd64:1.1.2-1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,N,,sbom,Y
-scenescape-mapping-vggt,libusb-1.0-0:amd64:2:1.0.26-1,Debian,GPL-2.0-only AND LGPL-2.1-only,N,,sbom,Y
-scenescape-mapping-vggt,libva-drm2:amd64:2.17.0-1,Debian,LicenseRef-Expat AND LicenseRef-Expat-advertising AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-other,N,,sbom,Y
-scenescape-mapping-vggt,libva-x11-2:amd64:2.17.0-1,Debian,LicenseRef-Expat AND LicenseRef-Expat-advertising AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-other,N,,sbom,Y
-scenescape-mapping-vggt,libva2:amd64:2.17.0-1,Debian,LicenseRef-Expat AND LicenseRef-Expat-advertising AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-other,N,,sbom,Y
-scenescape-mapping-vggt,libvdpau1:amd64:1.5-2,Debian,LicenseRef-Expat AND LicenseRef-other,N,,sbom,Y
-scenescape-mapping-vggt,libvidstab1.1:amd64:1.1.0-2+b1,Debian,GPL-2.0-only AND GPL-2.0-or-later,N,,sbom,Y
-scenescape-mapping-vggt,libvorbis0a:amd64:1.3.7-1,Debian,BSD-3-Clause AND LicenseRef-RFC-special,N,,sbom,Y
-scenescape-mapping-vggt,libvorbisenc2:amd64:1.3.7-1,Debian,BSD-3-Clause AND LicenseRef-RFC-special,N,,sbom,Y
-scenescape-mapping-vggt,libvorbisfile3:amd64:1.3.7-1,Debian,BSD-3-Clause AND LicenseRef-RFC-special,N,,sbom,Y
-scenescape-mapping-vggt,libvpx7:amd64:1.12.0-1+deb12u5,Debian,BSD-3-Clause AND ISC AND LicenseRef-public-domain,N,,sbom,Y
+scenescape-mapping-vggt,libtwolame0:amd64:0.4.0-2,Debian,LGPL-2.0-only AND LGPL-2.0-or-later,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libudfread0:amd64:1.1.2-1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libusb-1.0-0:amd64:2:1.0.26-1,Debian,GPL-2.0-only AND LGPL-2.1-only,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libva-drm2:amd64:2.17.0-1,Debian,LicenseRef-Expat AND LicenseRef-Expat-advertising AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-other,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libva-x11-2:amd64:2.17.0-1,Debian,LicenseRef-Expat AND LicenseRef-Expat-advertising AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-other,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libva2:amd64:2.17.0-1,Debian,LicenseRef-Expat AND LicenseRef-Expat-advertising AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-other,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libvdpau1:amd64:1.5-2,Debian,LicenseRef-Expat AND LicenseRef-other,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libvidstab1.1:amd64:1.1.0-2+b1,Debian,GPL-2.0-only AND GPL-2.0-or-later,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libvorbis0a:amd64:1.3.7-1,Debian,BSD-3-Clause AND LicenseRef-RFC-special,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libvorbisenc2:amd64:1.3.7-1,Debian,BSD-3-Clause AND LicenseRef-RFC-special,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libvorbisfile3:amd64:1.3.7-1,Debian,BSD-3-Clause AND LicenseRef-RFC-special,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libvpx7:amd64:1.12.0-1+deb12u5,Debian,BSD-3-Clause AND ISC AND LicenseRef-public-domain,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libvulkan1:amd64:1.3.239.0-1,Debian,LGPL-2.1,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libwayland-client0:amd64:1.21.0-1,Debian,X11,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libwayland-cursor0:amd64:1.21.0-1,Debian,X11,N,,sbom,Y
-scenescape-mapping-vggt,libwayland-egl1:amd64:1.21.0-1,Debian,X11,N,,sbom,Y
+scenescape-mapping-vggt,libwayland-cursor0:amd64:1.21.0-1,Debian,X11,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libwayland-egl1:amd64:1.21.0-1,Debian,X11,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libwayland-server0:amd64:1.21.0-1,Debian,X11,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libwebp7:amd64:1.2.4-0.2+deb12u1,Debian,LGPL-2.1,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libwebpmux3:amd64:1.2.4-0.2+deb12u1,Debian,LGPL-2.1,N,indirect dependency automatically installed,previous-release,Y
@@ -1321,8 +1321,8 @@ scenescape-mapping-vggt,libx11-6:amd64:2:1.8.4-2+deb12u2,Debian,MIT,N,indirect d
 scenescape-mapping-vggt,libx11-data:2:1.8.4-2+deb12u2,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libx11-dev:amd64:2:1.8.4-2+deb12u2,Debian,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,libx11-xcb1:amd64:2:1.8.4-2+deb12u2,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libx264-164:amd64:2:0.164.3095+gitbaee400-3,Debian,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.1-or-later AND LicenseRef-public-domain,N,,sbom,Y
-scenescape-mapping-vggt,libx265-199:amd64:3.5-2+b1,Debian,LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.1-only AND LGPL-2.1-or-later,N,,sbom,Y
+scenescape-mapping-vggt,libx264-164:amd64:2:0.164.3095+gitbaee400-3,Debian,BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.1-or-later AND LicenseRef-public-domain,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libx265-199:amd64:3.5-2+b1,Debian,LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.1-only AND LGPL-2.1-or-later,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libxau-dev:amd64:1:1.0.9-1,Debian,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,libxau6:amd64:1:1.0.9-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libxcb-dri2-0:amd64:1.15-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
@@ -1340,27 +1340,27 @@ scenescape-mapping-vggt,libxcb1:amd64:1.15-1,Debian,MIT,N,indirect dependency au
 scenescape-mapping-vggt,libxcursor1:amd64:1:1.2.1-1,Debian,MIT,N,indirect dependency automatically installed,,Y
 scenescape-mapping-vggt,libxdmcp-dev:amd64:1:1.1.2-3,Debian,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,libxdmcp6:amd64:1:1.1.2-3,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libxext6:amd64:2:1.3.4-1+b1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
+scenescape-mapping-vggt,libxext6:amd64:2:1.3.4-1+b1,Debian,MIT,N,used,previous-release,Y
 scenescape-mapping-vggt,libxfixes3:amd64:1:6.0.0-2,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libxi6:amd64:2:1.8-1+b1,Debian,,N,,,Y
+scenescape-mapping-vggt,libxi6:amd64:2:1.8-1+b1,Debian,,N,used,,Y
 scenescape-mapping-vggt,libxkbcommon0:amd64:1.5.0-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libxml2:amd64:2.9.14+dfsg-1.3~deb12u5,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libxrandr2:amd64:2:1.5.2-2+b1,Debian,,N,,,Y
+scenescape-mapping-vggt,libxrandr2:amd64:2:1.5.2-2+b1,Debian,,N,indirect dependency. auto installed,,Y
 scenescape-mapping-vggt,libxrender-dev:amd64:1:0.9.10-1.1,Debian,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,libxrender1:amd64:1:0.9.10-1.1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libxshmfence1:amd64:1.3-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libxss1:amd64:1:1.2.3-1,Debian,,N,,,Y
-scenescape-mapping-vggt,libxv1:amd64:2:1.0.11-1.1,Debian,,N,,,Y
-scenescape-mapping-vggt,libxvidcore4:amd64:2:1.3.7-1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later,N,,sbom,Y
+scenescape-mapping-vggt,libxss1:amd64:1:1.2.3-1,Debian,,N,indirect dependency. auto installed,,Y
+scenescape-mapping-vggt,libxv1:amd64:2:1.0.11-1.1,Debian,,N,indirect dependency. auto installed,,Y
+scenescape-mapping-vggt,libxvidcore4:amd64:2:1.3.7-1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libxxf86vm1:amd64:1:1.1.4-1+b2,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libz3-4:amd64:4.8.12-3.1,Debian,LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libzimg2:amd64:3.0.4+ds1-1,Debian,GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-WTFPL-2,N,,sbom,Y
-scenescape-mapping-vggt,libzmq5:amd64:4.3.4-6,Debian,LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT,N,,sbom,Y
-scenescape-mapping-vggt,libzvbi-common:0.2.41-1,Debian,BSD-2-Clause AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT,N,,sbom,Y
-scenescape-mapping-vggt,libzvbi0:amd64:0.2.41-1,Debian,BSD-2-Clause AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT,N,,sbom,Y
-scenescape-mapping-vggt,ocl-icd-libopencl1:amd64:2.3.1-1,Debian,BSD-2-Clause,N,,sbom,Y
+scenescape-mapping-vggt,libzimg2:amd64:3.0.4+ds1-1,Debian,GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-WTFPL-2,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libzmq5:amd64:4.3.4-6,Debian,LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libzvbi-common:0.2.41-1,Debian,BSD-2-Clause AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,libzvbi0:amd64:0.2.41-1,Debian,BSD-2-Clause AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT,N,indirect dependency. auto installed,sbom,Y
+scenescape-mapping-vggt,ocl-icd-libopencl1:amd64:2.3.1-1,Debian,BSD-2-Clause,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,perl:5.36.0-7+deb12u3,Debian,Artistic License or GPL-1.0,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,perl-modules-5.36:5.36.0-7+deb12u3,Debian,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib,N,,sbom,Y
+scenescape-mapping-vggt,perl-modules-5.36:5.36.0-7+deb12u3,Debian,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,shared-mime-info:2.2-1,Debian,BSD-3-Clause,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,x11-common:1:7.7+23,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,x11proto-dev:2022.1-1,Debian,MIT AND LicenseRef-SGI,N,indirect dependency. auto installed,previous-release,Y
@@ -1370,7 +1370,7 @@ scenescape-mapping-vggt,xtrans-dev:1.4.0-1,Debian,MIT,N,indirect dependency. aut
 scenescape-mapping-vggt,-e git+https://github.com/facebookresearch/vggt.git@44b3afbd1869d8bde4894dd8ea1e293112dd5eba#egg=vggt,pypi,Apache-2.0,N,imported,previous-release,Y
 scenescape-mapping-vggt,ConfigArgParse==1.7.5,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,Flask==3.0.3,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,ImageIO==2.37.3,pypi,BSD-2-Clause,N,,pip-licenses,Y
+scenescape-mapping-vggt,ImageIO==2.37.3,pypi,BSD-2-Clause,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,Jinja2==3.1.6,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,MarkupSafe==2.1.5,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,PyYAML==6.0.3,pypi,MIT,N,imported,previous-release,Y
@@ -1389,22 +1389,22 @@ scenescape-mapping-vggt,brotli==1.2.0,pypi,MIT,N,indirect dependency. auto insta
 scenescape-mapping-vggt,certifi==2026.2.25,pypi,MPL-2.0,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,charset-normalizer==3.4.5,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,click==8.3.1,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,colorlog==6.10.1,pypi,MIT License,N,,pip-licenses,Y
+scenescape-mapping-vggt,colorlog==6.10.1,pypi,MIT License,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,comm==0.2.3,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,contourpy==1.3.3,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,cycler==0.12.1,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,dash==4.0.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,decorator==5.2.1,pypi,BSD-2-Clause,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,docstring_parser==0.17.0,pypi,MIT,N,,pip-licenses,Y
+scenescape-mapping-vggt,docstring_parser==0.17.0,pypi,MIT,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,einops==0.8.2,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,embreex==2.17.7.post7,pypi,,N,,,Y
+scenescape-mapping-vggt,embreex==2.17.7.post7,pypi,,N,indirect dependency. auto installed,,Y
 scenescape-mapping-vggt,executing==2.2.1,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,fastapi==0.135.1,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,fastjsonschema==2.21.2,pypi,MIT,N,imported,previous-release,Y
 scenescape-mapping-vggt,ffmpy==1.0.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,filelock==3.25.1,pypi,Unlicense,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,flask-cors==6.0.0,pypi,,N,,,Y
-scenescape-mapping-vggt,flatbuffers==25.12.19,pypi,Apache 2.0,N,,pip-licenses,Y
+scenescape-mapping-vggt,flask-cors==6.0.0,pypi,,N,indirect dependency. auto installed,,Y
+scenescape-mapping-vggt,flatbuffers==25.12.19,pypi,Apache 2.0,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,fonttools==4.62.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,fsspec==2026.2.0,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,gradio==5.17.1,pypi,Apache-2.0,N,imported,previous-release,Y
@@ -1432,27 +1432,27 @@ scenescape-mapping-vggt,jupyterlab_widgets==3.0.16,pypi,BSD-3-Clause,N,indirect 
 scenescape-mapping-vggt,kiwisolver==1.5.0,pypi,BSD License,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,kornia==0.8.2,pypi,Apache-2.0,N,imported,previous-release,Y
 scenescape-mapping-vggt,kornia_rs==0.1.10,pypi,Apache-2.0,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,lazy-loader==0.5,pypi,BSD-3-Clause,N,,pip-licenses,Y
-scenescape-mapping-vggt,lightglue @ git+https://github.com/jytime/LightGlue.git@2f23ca2ea9638cecad7f7220795210fc6b8353c3,pypi,Apache-2.0,N,,,Y
+scenescape-mapping-vggt,lazy-loader==0.5,pypi,BSD-3-Clause,N,indirect dependency. auto installed,pip-licenses,Y
+scenescape-mapping-vggt,lightglue @ git+https://github.com/jytime/LightGlue.git@2f23ca2ea9638cecad7f7220795210fc6b8353c3,pypi,Apache-2.0,N,indirect dependency. auto installed,,Y
 scenescape-mapping-vggt,lxml==6.0.2,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,manifold3d==3.4.0,pypi,Apache Software License,N,,pip-licenses,Y
+scenescape-mapping-vggt,manifold3d==3.4.0,pypi,Apache Software License,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,mapbox_earcut==2.0.0,pypi,ISC,N,imported,previous-release,Y
 scenescape-mapping-vggt,markdown-it-py==4.0.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,matplotlib==3.10.8,pypi,PSF,N,imported,previous-release,Y
 scenescape-mapping-vggt,matplotlib-inline==0.2.1,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,mdurl==0.1.2,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,mpmath==1.3.0,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,msgspec==0.20.0,pypi,BSD-3-Clause,N,,pip-licenses,Y
+scenescape-mapping-vggt,msgspec==0.20.0,pypi,BSD-3-Clause,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,narwhals==2.18.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,nbformat==5.10.4,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,nest-asyncio==1.6.0,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,networkx==3.6.1,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,nodeenv==1.10.0,pypi,BSD,N,,pip-licenses,Y
+scenescape-mapping-vggt,nodeenv==1.10.0,pypi,BSD,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,numpy==1.26.1,pypi,BSD-3-Clause,N,imported,previous-release,Y
 scenescape-mapping-vggt,omegaconf==2.3.0,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,onnxruntime==1.24.3,pypi,MIT License,N,,pip-licenses,Y
+scenescape-mapping-vggt,onnxruntime==1.24.3,pypi,MIT License,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,open3d-cpu==0.19.0,pypi,MIT,N,imported,previous-release,Y
-scenescape-mapping-vggt,opencv-python==4.11.0.86,pypi,Apache 2.0,N,,pip-licenses,Y
+scenescape-mapping-vggt,opencv-python==4.11.0.86,pypi,Apache 2.0,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,opencv-python-headless==4.13.0.92,pypi,MIT,N,imported,previous-release,Y
 scenescape-mapping-vggt,orjson==3.11.7,pypi,MIT,N,imported,previous-release,Y
 scenescape-mapping-vggt,packaging==26.0,pypi,Apache-2.0,N,imported,previous-release,Y
@@ -1469,8 +1469,8 @@ scenescape-mapping-vggt,protobuf==7.34.0,pypi,BSD-3-Clause,N,dependency,previous
 scenescape-mapping-vggt,psutil==7.2.2,pypi,BSD-3-Clause,N,used by tests,previous-release,Y
 scenescape-mapping-vggt,ptyprocess==0.7.0,pypi,ISC,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,pure_eval==0.2.3,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,pyceres==2.3,pypi,Apache-2.0,N,,pip-licenses,Y
-scenescape-mapping-vggt,pycollada==0.9.3,pypi,BSD,N,,pip-licenses,Y
+scenescape-mapping-vggt,pyceres==2.3,pypi,Apache-2.0,N,indirect dependency. auto installed,pip-licenses,Y
+scenescape-mapping-vggt,pycollada==0.9.3,pypi,BSD,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,pycolmap==3.10.0,pypi,BSD-3-Clause,N,imported,previous-release,Y
 scenescape-mapping-vggt,pydantic==2.10.6,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,pydantic_core==2.27.2,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
@@ -1485,11 +1485,11 @@ scenescape-mapping-vggt,requests==2.32.5,pypi,Apache-2.0,N,imported,previous-rel
 scenescape-mapping-vggt,retrying==1.4.2,pypi,Apache-2.0,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,rich==14.3.3,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,rpds-py==0.30.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,rtree==1.4.1,pypi,MIT,N,,pip-licenses,Y
+scenescape-mapping-vggt,rtree==1.4.1,pypi,MIT,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,ruff==0.15.5,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,safehttpx==0.1.7,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,safetensors==0.7.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,scikit-image==0.26.0,pypi,BSD License,N,,pip-licenses,Y
+scenescape-mapping-vggt,scikit-image==0.26.0,pypi,BSD License,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,scikit-learn==1.8.0,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,scipy==1.16.3,pypi,BSD-3-Clause,N,imported,previous-release,Y
 scenescape-mapping-vggt,semantic-version==2.10.0,pypi,LicenseRef-BSD,N,indirect dependency. auto installed,previous-release,Y
@@ -1499,32 +1499,32 @@ scenescape-mapping-vggt,shellingham==1.5.4,pypi,LicenseRef-ISC-License,N,indirec
 scenescape-mapping-vggt,six==1.17.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,stack-data==0.6.3,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,starlette==0.52.1,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,svg.path==7.0,pypi,MIT,N,,pip-licenses,Y
+scenescape-mapping-vggt,svg.path==7.0,pypi,MIT,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,sympy==1.14.0,pypi,BSD-3-Clause,N,imported,previous-release,Y
 scenescape-mapping-vggt,threadpoolctl==3.6.0,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,tifffile==2026.3.3,pypi,BSD-3-Clause,N,,pip-licenses,Y
+scenescape-mapping-vggt,tifffile==2026.3.3,pypi,BSD-3-Clause,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,tomlkit==0.13.3,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,torch==2.3.1+cpu,pypi,BSD-3-Clause,N,imported,previous-release,Y
 scenescape-mapping-vggt,torchvision==0.18.1+cpu,pypi,BSD-3-Clause,N,imported,previous-release,Y
 scenescape-mapping-vggt,tqdm==4.67.3,pypi,MPL-2.0,N,imported,previous-release,Y
 scenescape-mapping-vggt,traitlets==5.14.3,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,trimesh==4.11.3,pypi,MIT,N,imported,previous-release,Y
-scenescape-mapping-vggt,typeguard==4.5.1,pypi,MIT,N,,pip-licenses,Y
+scenescape-mapping-vggt,typeguard==4.5.1,pypi,MIT,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,typer==0.24.1,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,typing-inspection==0.4.2,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,typing_extensions==4.15.0,pypi,PSF,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,tyro==1.0.8,pypi,MIT,N,,pip-licenses,Y
+scenescape-mapping-vggt,tyro==1.0.8,pypi,MIT,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,tzdata==2025.3,pypi,Apache-2.0,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,urllib3==2.6.3,pypi,MIT,N,imported,previous-release,Y
 scenescape-mapping-vggt,uvicorn==0.41.0,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,vhacdx==0.0.10,pypi,MIT,N,,,Y
-scenescape-mapping-vggt,viser==0.2.23,pypi,MIT,N,,pip-licenses,Y
+scenescape-mapping-vggt,vhacdx==0.0.10,pypi,MIT,N,indirect dependency. auto installed,,Y
+scenescape-mapping-vggt,viser==0.2.23,pypi,MIT,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,wcwidth==0.6.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,websockets==14.2,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,wheel==0.46.3,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,widgetsnbextension==4.0.15,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,xxhash==3.6.0,pypi,BSD,N,,pip-licenses,Y
-scenescape-mapping-vggt,yourdfpy==0.0.60,pypi,MIT,N,,pip-licenses,Y
+scenescape-mapping-vggt,xxhash==3.6.0,pypi,BSD,N,indirect dependency. auto installed,pip-licenses,Y
+scenescape-mapping-vggt,yourdfpy==0.0.60,pypi,MIT,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,zipp==3.23.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-model-installer,ca-certificates:20240203,Ubuntu,MPL-2.0,N,used during initialization,previous-release,N
 scenescape-model-installer,gcc-14-base:amd64:14.2.0-4ubuntu2~24.04.1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL,N,indirect dependency automatically installed,sbom,Y
