@@ -10,7 +10,10 @@
           "body": {
             "name": "tripwire_minimal",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
-            "points": [[0.0, 0.0], [1.0, 0.0]]
+            "points": [
+              [0.0, 0.0],
+              [1.0, 0.0]
+            ]
           }
         },
         "expected_status": {
@@ -33,7 +36,10 @@
           "body": {
             "name": "tripwire_full",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
-            "points": [[2.0, 0.0], [1.0, 1.0]]
+            "points": [
+              [2.0, 0.0],
+              [1.0, 1.0]
+            ]
           }
         },
         "expected_status": {
@@ -176,8 +182,11 @@
           "UID": "${TRIPWIRE_UID_MINIMAL}",
           "body": {
             "name": "tripwire_minimal_updated",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",            
-            "points": [[1.0, 1.0], [1.0, 0.0]]
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "points": [
+              [1.0, 1.0],
+              [1.0, 0.0]
+            ]
           }
         },
         "expected_status": {
