@@ -715,7 +715,7 @@ scenescape-manager,jupyterlab_widgets==3.0.16,pypi,BSD-3-Clause,Y,indirect depen
 scenescape-manager,kiwisolver==1.5.0,pypi,BSD License,Y,indirect dependency. auto installed,previous-release,N
 scenescape-manager,kubernetes==33.1.0,pypi,Apache-2.0,Y,imported,previous-release,N
 scenescape-manager,lxml==6.0.2,pypi,BSD-3-Clause,Y,indirect dependency. auto installed,previous-release,N
-scenescape-manager,manager @ file:///home/scenescape/SceneScape/manager,pypi,?,Y,?,,Y
+scenescape-manager,manager @ file:///home/scenescape/SceneScape/manager,pypi,?Apache-2.0,Y,?imported,,Y
 scenescape-manager,matplotlib==3.10.8,pypi,PSF,Y,indirect dependency. auto installed,previous-release,N
 scenescape-manager,matplotlib-inline==0.2.1,pypi,MIT,Y,indirect dependency. auto installed,previous-release,N
 scenescape-manager,narwhals==2.18.0,pypi,MIT,Y,indirect dependency. auto installed,previous-release,N
@@ -775,9 +775,9 @@ scenescape-manager,widgetsnbextension==4.0.15,pypi,BSD-3-Clause,Y,indirect depen
 scenescape-manager,zeep==4.3.2,pypi,MIT,Y,indirect dependency. auto installed,previous-release,N
 scenescape-manager,zipp==3.23.0,pypi,MIT,Y,indirect dependency. auto installed,previous-release,N
 scenescape-mapping,python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d,Debian,collection of licenses,N,base image,base-image,N
-scenescape-mapping-mapanything,curl:7.88.1-10+deb12u14,Debian,?MIT,Y,?used,previous-release,Y
+scenescape-mapping-mapanything,curl:7.88.1-10+deb12u14,Debian,MIT,Y,used,previous-release,Y
 scenescape-mapping-mapanything,ffmpeg:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,,?,sbom,Y
-scenescape-mapping-mapanything,fontconfig:2.14.1-4,Debian,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
+scenescape-mapping-mapanything,fontconfig:2.14.1-4,Debian,MIT,Y,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,fontconfig-config:2.14.1-4,Debian,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,fonts-dejavu-core:2.37-6,Debian,?Bitstream Vera License,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,git-man:1:2.39.5-0+deb12u3,Debian,?Apache-2.0 AND LicenseRef-Artistic AND LicenseRef-Boost AND LicenseRef-EDL-1.0 AND LicenseRef-Expat AND LicenseRef-GPL AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-dlmalloc AND LicenseRef-mingw-runtime,N,?indirect dependency. auto installed,previous-release,Y
