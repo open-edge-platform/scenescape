@@ -116,7 +116,7 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   - Analytics processing (regions, tripwires, sensors) continues to function
   - Child scenes are not supported in analytics-only mode
   - Sensors in Scene not supported and attribute persistence across moving objects not supported on data/scene MQTT topic (data avaliable on events topic)
-  - The following fields are not available in analytics-only mode: `visibility`, `similarity`, `entered`, `exited`, `confidence` — these rely on per-camera detection vectors and tracker-internal state that are not present in the pre-tracked MQTT data consumed by this mode
+  - The following fields are not available in analytics-only mode: `visibility`, `similarity`, `entered`, `exited`, `confidence` — these rely on per-camera detection vectors and tracker-internal state that are not present in the MQTT data consumed by this mode
 
 <!--hide_directive
 :::{toctree}
