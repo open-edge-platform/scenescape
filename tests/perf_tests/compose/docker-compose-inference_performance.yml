@@ -60,8 +60,13 @@ services:
     pids_limit: 1000
 
   retail-cams:
-    image: linuxserver/ffmpeg:version-8.0-cli
-    command: -nostdin -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts -re -stream_loop -1 -i /workspace/media/apriltag-cam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam2
+    image: linuxserver/ffmpeg:version-8.0.1-cli
+    command: |
+      -nostdin
+      -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts
+      -re -stream_loop -1 -i /workspace/media/apriltag-cam2.ts
+      -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam1
+      -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam2
     volumes:
       - vol-sample-data:/workspace/media
     networks:
@@ -73,6 +78,7 @@ services:
 
   retail-video:
     image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc2
+    privileged: true
     networks:
       scenescape-test:
     tty: true
