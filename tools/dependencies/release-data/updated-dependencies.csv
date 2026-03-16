@@ -844,7 +844,7 @@ scenescape-mapping-mapanything,libglvnd0:amd64:1.6.0-1,Debian,MIT,N,indirect dep
 scenescape-mapping-mapanything,libglx-mesa0:amd64:22.3.6-1+deb12u1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libglx0:amd64:1.6.0-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libgme0:amd64:0.6.3-6,Debian,LGPL-2.1-only AND LGPL-2.1-or-later AND MIT,N,,sbom,Y
-scenescape-mapping-mapanything,libgomp1:amd64:12.2.0-14+deb12u1,Debian,GPL-3.0,N,indirect dependency automatically installed,previous-release,Y
+scenescape-mapping-mapanything,libgomp1:amd64:12.2.0-14+deb12u1,Debian,GPL-3.0,N,linked,previous-release,Y
 scenescape-mapping-mapanything,libgraphite2-3:amd64:1.3.14-1,Debian,SIL Open Font License,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libgsm1:amd64:1.0.22-1,Debian,TU-Berlin-2.0,N,,sbom,Y
 scenescape-mapping-mapanything,libharfbuzz0b:amd64:6.0.0+dfsg-3,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
@@ -1214,8 +1214,8 @@ scenescape-mapping-vggt,libglib2.0-0:amd64:2.74.6-2+deb12u8,Debian,LGPL-2.1,N,li
 scenescape-mapping-vggt,libglvnd0:amd64:1.6.0-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libglx-mesa0:amd64:22.3.6-1+deb12u1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libglx0:amd64:1.6.0-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libgme0:amd64:0.6.3-6,Debian,LGPL-2.1-only AND LGPL-2.1-or-later AND MIT,N,linked,sbom,Y
-scenescape-mapping-vggt,libgomp1:amd64:12.2.0-14+deb12u1,Debian,GPL-3.0,N,indirect dependency automatically installed,previous-release,Y
+scenescape-mapping-vggt,libgme0:amd64:0.6.3-6,Debian,LGPL-2.1-only AND LGPL-2.1-or-later AND MIT,N,indirect dependency automatically installed,sbom,Y
+scenescape-mapping-vggt,libgomp1:amd64:12.2.0-14+deb12u1,Debian,GPL-3.0,N,linked,previous-release,Y
 scenescape-mapping-vggt,libgraphite2-3:amd64:1.3.14-1,Debian,SIL Open Font License,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libgsm1:amd64:1.0.22-1,Debian,TU-Berlin-2.0,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libharfbuzz0b:amd64:6.0.0+dfsg-3,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
