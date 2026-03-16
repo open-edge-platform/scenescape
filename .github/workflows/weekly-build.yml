@@ -29,6 +29,7 @@ jobs:
             scenescape-autocalibration,
             scenescape-controller,
             scenescape-manager,
+            scenescape-tracker,
           ]
     steps:
       - name: "Set up Docker Buildx"
@@ -56,6 +57,9 @@ jobs:
           elif [[ "${{ matrix.images }}" == "scenescape-manager" ]]; then
             echo "Building ${{ matrix.images }}"
             make -C manager
+          elif [[ "${{ matrix.images }}" == "scenescape-tracker" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C tracker
           fi
 
       - name: "Determine Image Tag"

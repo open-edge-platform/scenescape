@@ -271,13 +271,17 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
 
     obs_ctx.scene_id = scene->uid;
 
-    // Push detections to buffer for each category
+    // Push detections to buffer for each active scope in this scene.
+    // Active scopes are accumulated as new (scene, category) pairs are seen in messages.
+    // Empty batches (no detections) are created for scopes not present in the current message,
+    // allowing the Kalman filter to advance time-steps and age out stale tracks.
     auto receive_time = std::chrono::steady_clock::now();
-    for (auto& [category, detections] : message->objects) {
-        // Validate category on first use (cached to avoid per-frame overhead)
-        // Minimal critical section: only lock during cache access, not during publish
-        {
-            std::lock_guard<std::mutex> lock(categories_mutex_);
+
+    // Under lock: validate new categories, update active_scopes_, collect scene's active scopes.
+    std::vector<TrackingScope> scene_scopes;
+    {
+        std::lock_guard<std::mutex> lock(categories_mutex_);
+        for (const auto& [category, _] : message->objects) {
             auto [it, is_new] = validated_categories_.insert(category);
             if (is_new && !isValidTopicSegment(category)) {
                 validated_categories_.erase(it);
@@ -290,18 +294,33 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                                            "underscore, dot"}));
                 continue;
             }
-        } // Lock released before expensive operations
+            active_scopes_.insert(TrackingScope{scene->uid, category});
+        }
+        for (const auto& scope : active_scopes_) {
+            if (scope.scene_id == scene->uid) {
+                scene_scopes.push_back(scope);
+            }
+        }
+    } // Lock released before buffer operations
 
-        TrackingScope scope{scene->uid, category};
+    for (const auto& scope : scene_scopes) {
+        const auto& category = scope.category;
+
         DetectionBatch batch;
         batch.camera_id = camera_id;
         batch.receive_time = receive_time;
         batch.timestamp_iso = message->timestamp;
         batch.timestamp = *msg_time;
-        batch.detections = std::move(detections);
         batch.obs_ctx = obs_ctx; // Copy obs_ctx to allow reuse in next loop iteration
         batch.obs_ctx.captureBufferTime();
         batch.obs_ctx.category = category;
+
+        // Use detections from the message if present; empty batch otherwise (enables track aging).
+        auto det_it = message->objects.find(category);
+        if (det_it != message->objects.end()) {
+            batch.detections = std::move(det_it->second);
+        }
+
         buffer_.add(scope, camera_id, std::move(batch));
         buffered_count_++;
 

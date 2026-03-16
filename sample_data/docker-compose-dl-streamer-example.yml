@@ -135,8 +135,8 @@ services:
       - scenescape
     volumes:
       - vol-db:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     restart: always
     healthcheck:
       test:
@@ -228,8 +228,8 @@ services:
       scenescape:
         aliases:
           - vdms.scenescape.intel.com
-    ports:
-      - "55555:55555"
+    # ports:
+    #   - "55555:55555"
     environment:
       - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
       - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
@@ -280,13 +280,13 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc3
     networks:
       scenescape:
     tty: true
     entrypoint: ["./run.sh"]
-    ports:
-      - "8080:8080"
+    # ports:
+    #   - "8080:8080"
     # Uncomment these lines to use GPU acceleration
     # devices:
     #   - "/dev/dri:/dev/dri"
@@ -344,13 +344,13 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc3
     networks:
       scenescape:
     tty: true
     entrypoint: ["./run.sh"]
-    ports:
-      - "8081:8080"
+    # ports:
+    #   - "8081:8080"
     # Uncomment these lines to use GPU acceleration
     # devices:
     #   - "/dev/dri:/dev/dri"

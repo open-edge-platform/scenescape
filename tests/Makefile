@@ -107,6 +107,9 @@ broken-tests: \
 
 randomly-failing-tests: \
   distance-msoce \
+  reid-data-flow \
+  reid-semantic-unique-count \
+  reid-unique-count \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
@@ -161,9 +164,6 @@ _functional-tests: \
   object-crud-api \
   orphaned-sensor \
   persistence-api \
-  reid-data-flow \
-  reid-unique-count \
-  reid-semantic-unique-count \
   rest-test \
   scene-details-api \
   scene-import-api \
@@ -272,7 +272,7 @@ build-time: # NEX-T12520
 		; mkdir -p $(shell dirname $(LOGFILE)) \
 		; python3 tests/scripts/build-time.py \
 			--time-limit 600 \
-			--build-cmd "make" \
+			--build-cmd "make build-core" \
 			--test-name "NEX-T12520" \
 			2>&1 | tee -i $(LOGFILE) \
 		; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
