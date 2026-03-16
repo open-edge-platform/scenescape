@@ -150,7 +150,7 @@ jobs:
         run: |
           make clean-all
           git clean -fdx
-          make build-all
+          make run_basic_acceptance_tests
 
       - name: Upload Logs and Reports
         if: always()
@@ -163,6 +163,8 @@ jobs:
   chart-deployment-test:
     name: "Chart Deployment Test"
     runs-on: [bat]
+    permissions:
+      packages: write # For using GHCR as cache registry
     needs: [filter, check-pr-state]
     if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
@@ -178,6 +180,13 @@ jobs:
         with:
           python-version: "3.x"
           check-latest: true
+
+      - name: "Log in to GHCR"
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install chart with timeout
         run: KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
