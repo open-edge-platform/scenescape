@@ -46,6 +46,7 @@ env:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   run_functional_tests:
