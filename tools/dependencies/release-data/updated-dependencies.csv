@@ -882,7 +882,7 @@ scenescape-mapping-mapanything,libpangoft2-1.0-0:amd64:1.50.12+ds-1,Debian,Apach
 scenescape-mapping-mapanything,libpciaccess0:amd64:0.17-2,Debian,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libperl5.36:amd64:5.36.0-7+deb12u3,Debian,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib,,?,sbom,Y
 scenescape-mapping-mapanything,libpgm-5.3-0:amd64:5.3.128~dfsg-2,Debian,BSD-3-Clause AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only,,?,sbom,Y
-scenescape-mapping-mapanything,libpixman-1-0:amd64:0.42.2-1,Debian,?,,?,,Y
+scenescape-mapping-mapanything,libpixman-1-0:amd64:0.42.2-1,Debian,?MIT,,?,,Y
 scenescape-mapping-mapanything,libplacebo208:amd64:4.208.0-3,Debian,LicenseRef-CC0 AND LicenseRef-Expat AND LGPL-2.1-only AND LGPL-2.1-or-later AND Zlib,,?,sbom,Y
 scenescape-mapping-mapanything,libpng16-16:amd64:1.6.39-2+deb12u3,Debian,?libpng License,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libpocketsphinx3:amd64:0.8+5prealpha+1-15,Debian,LicenseRef-BSD-2 AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later,,?,sbom,Y
@@ -978,8 +978,8 @@ scenescape-mapping-mapanything,libxrandr2:amd64:2:1.5.2-2+b1,Debian,?,,?,,Y
 scenescape-mapping-mapanything,libxrender-dev:amd64:1:0.9.10-1.1,Debian,?MIT,N,?indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-mapanything,libxrender1:amd64:1:0.9.10-1.1,Debian,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libxshmfence1:amd64:1.3-1,Debian,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-mapanything,libxss1:amd64:1:1.2.3-1,Debian,?,,?,,Y
-scenescape-mapping-mapanything,libxv1:amd64:2:1.0.11-1.1,Debian,?,,?,,Y
+scenescape-mapping-mapanything,libxss1:amd64:1:1.2.3-1,Debian,?X11,,?,,Y
+scenescape-mapping-mapanything,libxv1:amd64:2:1.0.11-1.1,Debian,?MIT,,?,,Y
 scenescape-mapping-mapanything,libxvidcore4:amd64:2:1.3.7-1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later,,?,sbom,Y
 scenescape-mapping-mapanything,libxxf86vm1:amd64:1:1.1.4-1+b2,Debian,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libz3-4:amd64:4.8.12-3.1,Debian,?LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later,N,?indirect dependency automatically installed,previous-release,Y
@@ -1032,8 +1032,8 @@ scenescape-mapping-mapanything,executing==2.2.1,pypi,?MIT,Y,?indirect dependency
 scenescape-mapping-mapanything,fastapi==0.135.1,pypi,?MIT,N,?indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-mapanything,fastjsonschema==2.21.2,pypi,?MIT,Y,?imported,previous-release,Y
 scenescape-mapping-mapanything,ffmpy==1.0.0,pypi,?MIT,N,?indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-mapanything,filelock==3.25.1,pypi,?Unlicense,Y,?indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-mapanything,flask-cors==6.0.0,pypi,?,,?,,Y
+scenescape-mapping-mapanything,filelock==3.25.1,pypi,?MIT,Y,?indirect dependency. auto installed,previous-release,Y
+scenescape-mapping-mapanything,flask-cors==6.0.0,pypi,?MIT,,?,,Y
 scenescape-mapping-mapanything,fonttools==4.62.0,pypi,?MIT,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-mapanything,fsspec==2026.2.0,pypi,?BSD-3-Clause,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-mapanything,gradio==6.7.0,pypi,?Apache-2.0,N,?imported,previous-release,Y
@@ -1517,7 +1517,7 @@ scenescape-mapping-vggt,tyro==1.0.8,pypi,MIT,,?,pip-licenses,Y
 scenescape-mapping-vggt,tzdata==2025.3,pypi,?Apache-2.0,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,urllib3==2.6.3,pypi,?MIT,Y,?imported,previous-release,Y
 scenescape-mapping-vggt,uvicorn==0.41.0,pypi,?BSD-3-Clause,N,?indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,vhacdx==0.0.10,pypi,?,,?,,Y
+scenescape-mapping-vggt,vhacdx==0.0.10,pypi,?MIT,,?,,Y
 scenescape-mapping-vggt,viser==0.2.23,pypi,MIT,,?,pip-licenses,Y
 scenescape-mapping-vggt,wcwidth==0.6.0,pypi,?MIT,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,websockets==14.2,pypi,?BSD-3-Clause,Y,?indirect dependency. auto installed,previous-release,Y
