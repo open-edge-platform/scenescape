@@ -25,7 +25,7 @@ YELLOW := \033[0;33m
 RESET  := \033[0m
 
 ifeq ($(GITHUB_ACTIONS_CACHE),true)
-EXTRA_BUILD_ARGS += --cache-from "type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG}" --cache-from "type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):main" --cache-to "type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG},ignore-error=true"
+EXTRA_BUILD_ARGS += --cache-from "type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG}" --cache-from "type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):main" --cache-to "type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG}"
 endif
 
 .PHONY: build-image
