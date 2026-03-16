@@ -118,7 +118,6 @@ jobs:
     name: "Run Basic Acceptance Tests"
     runs-on: [bat]
     permissions:
-      contents: read
       packages: write
     timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
     needs: [filter, check-pr-state]

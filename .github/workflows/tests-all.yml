@@ -46,12 +46,13 @@ env:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   run_functional_tests:
     runs-on: [all]
     name: "Functional Tests"
+    permissions:
+      packages: write
     timeout-minutes: 120
     steps:
       - name: Remove test_data folder
@@ -90,6 +91,8 @@ jobs:
   run_non_functional_tests:
     runs-on: [all]
     name: "Non-Functional Tests"
+    permissions:
+      packages: write
     timeout-minutes: 20
     steps:
       - name: Remove test_data folder
@@ -128,6 +131,8 @@ jobs:
   run_metric_tests:
     runs-on: [all]
     name: "Metric Tests"
+    permissions:
+      packages: write
     timeout-minutes: 40
     steps:
       - name: Remove test_data folder
@@ -166,6 +171,8 @@ jobs:
   run_ui_tests:
     runs-on: [all]
     name: "UI Tests"
+    permissions:
+      packages: write
     timeout-minutes: 90
     steps:
       - name: Remove test_data folder
@@ -204,6 +211,8 @@ jobs:
   run_unit_tests:
     runs-on: [all]
     name: "Unit Tests"
+    permissions:
+      packages: write
     timeout-minutes: 30
     steps:
       - name: Remove test_data folder
