@@ -907,7 +907,7 @@ scenescape-mapping-mapanything,libsensors5:amd64:1:3.6.0-7.1,Debian,GPL-2.0,N,in
 scenescape-mapping-mapanything,libserd-0-0:amd64:0.30.16-1,Debian,ISC,N,,sbom,Y
 scenescape-mapping-mapanything,libshine3:amd64:3.1.1-2,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only,N,,sbom,Y
 scenescape-mapping-mapanything,libslang2:amd64:2.3.3-3,Debian,GPL-2.0-only AND GPL-2.0-or-later,N,,sbom,Y
-scenescape-mapping-mapanything,libsm6:amd64:2:1.2.3-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
+scenescape-mapping-mapanything,libsm6:amd64:2:1.2.3-1,Debian,MIT,N,linked,previous-release,Y
 scenescape-mapping-mapanything,libsnappy1v5:amd64:1.1.9-3,Debian,BSD-3-Clause,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libsndfile1:amd64:1.2.0-1+deb12u1,Debian,Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND FSFAP AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND NTP AND LicenseRef-gsm AND LicenseRef-sun,N,,sbom,Y
 scenescape-mapping-mapanything,libsndio7.0:amd64:1.9.0-0.3+b2,Debian,ISC AND LicenseRef-ISC-packaging,N,,sbom,Y
@@ -969,13 +969,13 @@ scenescape-mapping-mapanything,libxcb1:amd64:1.15-1,Debian,MIT,N,indirect depend
 scenescape-mapping-mapanything,libxcursor1:amd64:1:1.2.1-1,Debian,MIT,N,indirect dependency automatically installed,,Y
 scenescape-mapping-mapanything,libxdmcp-dev:amd64:1:1.1.2-3,Debian,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-mapanything,libxdmcp6:amd64:1:1.1.2-3,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-mapanything,libxext6:amd64:2:1.3.4-1+b1,Debian,MIT,N,used,previous-release,Y
+scenescape-mapping-mapanything,libxext6:amd64:2:1.3.4-1+b1,Debian,MIT,N,linked,previous-release,Y
 scenescape-mapping-mapanything,libxfixes3:amd64:1:6.0.0-2,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-mapanything,libxi6:amd64:2:1.8-1+b1,Debian,,N,used,,Y
+scenescape-mapping-mapanything,libxi6:amd64:2:1.8-1+b1,Debian,,N,linked,,Y
 scenescape-mapping-mapanything,libxkbcommon0:amd64:1.5.0-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libxml2:amd64:2.9.14+dfsg-1.3~deb12u5,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libxrandr2:amd64:2:1.5.2-2+b1,Debian,,N,,,Y
-scenescape-mapping-mapanything,libxrender-dev:amd64:1:0.9.10-1.1,Debian,MIT,N,used,previous-release,Y
+scenescape-mapping-mapanything,libxrender-dev:amd64:1:0.9.10-1.1,Debian,MIT,N,linked,previous-release,Y
 scenescape-mapping-mapanything,libxrender1:amd64:1:0.9.10-1.1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libxshmfence1:amd64:1.3-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libxss1:amd64:1:1.2.3-1,Debian,X11,N,,,Y
@@ -1278,7 +1278,7 @@ scenescape-mapping-vggt,libsensors5:amd64:1:3.6.0-7.1,Debian,GPL-2.0,N,indirect 
 scenescape-mapping-vggt,libserd-0-0:amd64:0.30.16-1,Debian,ISC,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libshine3:amd64:3.1.1-2,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libslang2:amd64:2.3.3-3,Debian,GPL-2.0-only AND GPL-2.0-or-later,N,indirect dependency. auto installed,sbom,Y
-scenescape-mapping-vggt,libsm6:amd64:2:1.2.3-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
+scenescape-mapping-vggt,libsm6:amd64:2:1.2.3-1,Debian,MIT,N,linked,previous-release,Y
 scenescape-mapping-vggt,libsnappy1v5:amd64:1.1.9-3,Debian,BSD-3-Clause,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libsndfile1:amd64:1.2.0-1+deb12u1,Debian,Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND FSFAP AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND NTP AND LicenseRef-gsm AND LicenseRef-sun,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libsndio7.0:amd64:1.9.0-0.3+b2,Debian,ISC AND LicenseRef-ISC-packaging,N,indirect dependency. auto installed,sbom,Y
@@ -1340,13 +1340,13 @@ scenescape-mapping-vggt,libxcb1:amd64:1.15-1,Debian,MIT,N,indirect dependency au
 scenescape-mapping-vggt,libxcursor1:amd64:1:1.2.1-1,Debian,MIT,N,indirect dependency automatically installed,,Y
 scenescape-mapping-vggt,libxdmcp-dev:amd64:1:1.1.2-3,Debian,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,libxdmcp6:amd64:1:1.1.2-3,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libxext6:amd64:2:1.3.4-1+b1,Debian,MIT,N,used,previous-release,Y
+scenescape-mapping-vggt,libxext6:amd64:2:1.3.4-1+b1,Debian,MIT,N,linked,previous-release,Y
 scenescape-mapping-vggt,libxfixes3:amd64:1:6.0.0-2,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libxi6:amd64:2:1.8-1+b1,Debian,,N,used,,Y
+scenescape-mapping-vggt,libxi6:amd64:2:1.8-1+b1,Debian,,N,linked,,Y
 scenescape-mapping-vggt,libxkbcommon0:amd64:1.5.0-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libxml2:amd64:2.9.14+dfsg-1.3~deb12u5,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libxrandr2:amd64:2:1.5.2-2+b1,Debian,,N,indirect dependency. auto installed,,Y
-scenescape-mapping-vggt,libxrender-dev:amd64:1:0.9.10-1.1,Debian,MIT,N,used,previous-release,Y
+scenescape-mapping-vggt,libxrender-dev:amd64:1:0.9.10-1.1,Debian,MIT,N,linked,previous-release,Y
 scenescape-mapping-vggt,libxrender1:amd64:1:0.9.10-1.1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libxshmfence1:amd64:1.3-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libxss1:amd64:1:1.2.3-1,Debian,,N,indirect dependency. auto installed,,Y
