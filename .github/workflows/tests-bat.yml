@@ -53,6 +53,7 @@ permissions:
   contents: read
   packages: write
   id-token: write
+  deployments: write
 
 jobs:
   check-pr-state:
