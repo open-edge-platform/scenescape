@@ -147,12 +147,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: "Print docker config"
-        run: |
-          sudo cat /etc/docker/daemon.json || echo "No docker config found"
-          sudo systemctl daemon-reload
-          sudo systemctl restart docker
-
       - name: "Run Basic Acceptance Tests (BAT)"
         run: |
           make clean-all
