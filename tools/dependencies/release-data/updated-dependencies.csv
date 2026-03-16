@@ -966,7 +966,7 @@ scenescape-mapping-mapanything,libxcb-sync1:amd64:1.15-1,Debian,?MIT,Y,?indirect
 scenescape-mapping-mapanything,libxcb-xfixes0:amd64:1.15-1,Debian,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libxcb1-dev:amd64:1.15-1,Debian,?MIT,N,?indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-mapanything,libxcb1:amd64:1.15-1,Debian,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-mapanything,libxcursor1:amd64:1:1.2.1-1,Debian,?,,?,,Y
+scenescape-mapping-mapanything,libxcursor1:amd64:1:1.2.1-1,Debian,?MIT,,?indirect dependency automatically installed,,Y
 scenescape-mapping-mapanything,libxdmcp-dev:amd64:1:1.1.2-3,Debian,?MIT,N,?indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-mapanything,libxdmcp6:amd64:1:1.1.2-3,Debian,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,libxext6:amd64:2:1.3.4-1+b1,Debian,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
@@ -1337,7 +1337,7 @@ scenescape-mapping-vggt,libxcb-sync1:amd64:1.15-1,Debian,?MIT,Y,?indirect depend
 scenescape-mapping-vggt,libxcb-xfixes0:amd64:1.15-1,Debian,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libxcb1-dev:amd64:1.15-1,Debian,?MIT,N,?indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,libxcb1:amd64:1.15-1,Debian,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libxcursor1:amd64:1:1.2.1-1,Debian,?,,?,,Y
+scenescape-mapping-vggt,libxcursor1:amd64:1:1.2.1-1,Debian,?MIT,,?indirect dependency automatically installed,,Y
 scenescape-mapping-vggt,libxdmcp-dev:amd64:1:1.1.2-3,Debian,?MIT,N,?indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,libxdmcp6:amd64:1:1.1.2-3,Debian,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libxext6:amd64:2:1.3.4-1+b1,Debian,?MIT,Y,?indirect dependency automatically installed,previous-release,Y
