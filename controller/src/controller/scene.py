@@ -479,8 +479,10 @@ class Scene(SceneModel):
       objects = []
       for obj in curObjects:
         age = now - obj.when
-        if obj.frameCount > 3 \
-           and len(obj.chain_data.publishedLocations) > 1:
+        # When tracker is disabled, skip the frameCount check and consider all objects;
+        # otherwise, only consider objects with frameCount > 3 as reliable.
+        if (obj.frameCount > 3 or not self.use_tracker) \
+          and len(obj.chain_data.publishedLocations) > 1:
           d = tripwire.lineCrosses(Line(obj.chain_data.publishedLocations[0].as2Dxy,
                                         obj.chain_data.publishedLocations[1].as2Dxy))
           if d != 0:
