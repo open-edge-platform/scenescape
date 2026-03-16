@@ -51,6 +51,7 @@ env:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   check-pr-state:
@@ -143,6 +144,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Print docker config"
+        run: sudo cat /etc/docker/daemon.json || echo "No docker config found"
 
       - name: "Run Basic Acceptance Tests (BAT)"
         run: |
