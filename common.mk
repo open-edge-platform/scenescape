@@ -33,7 +33,7 @@ build-image: $(BUILD_DIR) Dockerfile
 	@echo "EXTRA_BUILD_ARGS: $(EXTRA_BUILD_ARGS)"
 	@echo -e "$(GREEN)------- STARTING BUILD OF IMAGE: $(IMAGE):$(VERSION) -------$(RESET)"
 	@{ \
-	    set -xe; \
+	    set -e; \
 	    set -o pipefail; \
 	    TARGET_ARG=""; \
 	    if [ -n "$(TARGET)" ]; then TARGET_ARG="--target $(TARGET)"; fi; \
