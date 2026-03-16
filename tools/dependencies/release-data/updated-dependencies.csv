@@ -992,9 +992,9 @@ scenescape-mapping-mapanything,perl:5.36.0-7+deb12u3,Debian,Artistic License or 
 scenescape-mapping-mapanything,perl-modules-5.36:5.36.0-7+deb12u3,Debian,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib,N,,sbom,Y
 scenescape-mapping-mapanything,shared-mime-info:2.2-1,Debian,BSD-3-Clause,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,x11-common:1:7.7+23,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-mapanything,x11proto-dev:2022.1-1,Debian,MIT AND LicenseRef-SGI,N,indirect dependency. auto installed,previous-release,Y
+scenescape-mapping-mapanything,x11proto-dev:2022.1-1,Debian,MIT AND LicenseRef-SGI,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,xkb-data:2.35.1-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-mapanything,xorg-sgml-doctools:1:1.11-1.1,Debian,MIT,N,indirect dependency. auto installed,previous-release,Y
+scenescape-mapping-mapanything,xorg-sgml-doctools:1:1.11-1.1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-mapanything,xtrans-dev:1.4.0-1,Debian,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-mapanything,-e git+https://github.com/facebookresearch/map-anything.git@b84b28f4f4052c8dd5d8febe873125e00bf9ab3e#egg=mapanything,pypi,Apache-2.0,N,imported,previous-release,Y
 scenescape-mapping-mapanything,ConfigArgParse==1.7.5,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
@@ -1527,17 +1527,17 @@ scenescape-mapping-vggt,xxhash==3.6.0,pypi,BSD,N,,pip-licenses,Y
 scenescape-mapping-vggt,yourdfpy==0.0.60,pypi,MIT,N,,pip-licenses,Y
 scenescape-mapping-vggt,zipp==3.23.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-model-installer,ca-certificates:20240203,Ubuntu,MPL-2.0,N,used during initialization,previous-release,N
-scenescape-model-installer,gcc-14-base:amd64:14.2.0-4ubuntu2~24.04.1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL,N,,sbom,Y
+scenescape-model-installer,gcc-14-base:amd64:14.2.0-4ubuntu2~24.04.1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL,N,indirect dependency automatically installed,sbom,Y
 scenescape-model-installer,libexpat1:amd64:2.6.1-2ubuntu0.4,Ubuntu,MIT,N,indirect dependency. auto installed,previous-release,N
-scenescape-model-installer,libgcc-s1:amd64:14.2.0-4ubuntu2~24.04.1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL,N,,sbom,Y
-scenescape-model-installer,libgnutls30t64:amd64:3.8.3-1.1ubuntu3.5,Ubuntu,Apache-2.0 AND BSD-3-Clause AND LicenseRef-CC0 AND LicenseRef-Expat AND GFDL-1.3-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-GPLv3- AND LicenseRef-LGPL AND LGPL-3.0-only AND LicenseRef-LGPLv2.1- AND LicenseRef-LGPLv3--or-GPLv2- AND LicenseRef-The,N,,sbom,Y
+scenescape-model-installer,libgcc-s1:amd64:14.2.0-4ubuntu2~24.04.1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL,N,indirect dependency automatically installed,sbom,Y
+scenescape-model-installer,libgnutls30t64:amd64:3.8.3-1.1ubuntu3.5,Ubuntu,Apache-2.0 AND BSD-3-Clause AND LicenseRef-CC0 AND LicenseRef-Expat AND GFDL-1.3-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-GPLv3- AND LicenseRef-LGPL AND LGPL-3.0-only AND LicenseRef-LGPLv2.1- AND LicenseRef-LGPLv3--or-GPLv2- AND LicenseRef-The,N,indirect dependency automatically installed,sbom,Y
 scenescape-model-installer,libpsl5t64:amd64:0.21.2-1.1build1,Ubuntu,MIT,N,indirect dependency. auto installed,previous-release,N
 scenescape-model-installer,libpython3-stdlib:amd64:3.12.3-0ubuntu2.1,Ubuntu,PSF,N,indirect dependency. auto installed,previous-release,N
 scenescape-model-installer,libpython3.12-minimal:amd64:3.12.3-1ubuntu0.12,Ubuntu,PSF,N,indirect dependency. auto installed,previous-release,N
 scenescape-model-installer,libpython3.12-stdlib:amd64:3.12.3-1ubuntu0.12,Ubuntu,PSF,N,indirect dependency. auto installed,previous-release,N
 scenescape-model-installer,libreadline8t64:amd64:8.2-4build1,Ubuntu,GPL-3.0,N,indirect dependency. auto installed,previous-release,N
 scenescape-model-installer,libsqlite3-0:amd64:3.45.1-1ubuntu2.5,Ubuntu,MIT,N,indirect dependency. auto installed,previous-release,N
-scenescape-model-installer,libstdc++6:amd64:14.2.0-4ubuntu2~24.04.1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL,N,,sbom,Y
+scenescape-model-installer,libstdc++6:amd64:14.2.0-4ubuntu2~24.04.1,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL,N,indirect dependency automatically installed,sbom,Y
 scenescape-model-installer,media-types:10.1.0,Ubuntu,GPL-2.0,N,indirect dependency. auto installed,previous-release,N
 scenescape-model-installer,netbase:6.4,Ubuntu,GPL-2.0,N,indirect dependency. auto installed,previous-release,N
 scenescape-model-installer,openssl:3.0.13-0ubuntu3.7,Ubuntu,Apache-2.0,N,used,previous-release,N
