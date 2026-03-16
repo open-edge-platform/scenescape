@@ -32,7 +32,7 @@ endif
 build-image: $(BUILD_DIR) Dockerfile
 	@echo -e "$(GREEN)------- STARTING BUILD OF IMAGE: $(IMAGE):$(VERSION) -------$(RESET)"
 	@{ \
-	    set -e; \
+	    set -xe; \
 	    set -o pipefail; \
 	    TARGET_ARG=""; \
 	    if [ -n "$(TARGET)" ]; then TARGET_ARG="--target $(TARGET)"; fi; \
