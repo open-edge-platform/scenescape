@@ -579,7 +579,7 @@ scenescape-manager,apache2-utils:2.4.66-1~deb12u1,Debian,Apache-2.0,Y,used for w
 scenescape-manager,bindfs:1.14.7-1,Debian,GPL-2.0,Y,used at initialization,previous-release,N
 scenescape-manager,bzip2:1.0.8-5+b1,Debian,BSD License,Y,used during initialization to unzip sample database,previous-release,N
 scenescape-manager,curl:7.88.1-10+deb12u14,Debian,MIT,Y,used,previous-release,N
-scenescape-manager,fuse:2.9.9-6+b1,Debian,GPL-2.0,Y,used,previous-release,N
+scenescape-manager,fuse:2.9.9-6+b1,Debian,GPL-2.0,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libapache2-mod-wsgi-py3:4.9.4-1+b2,Debian,Apache-2.0,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libapr1:amd64:1.7.2-3+deb12u1,Debian,Apache-2.0,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libaprutil1-dbd-sqlite3:amd64:1.6.3-1,Debian,Apache-2.0,Y,indirect dependency automatically installed,previous-release,N
@@ -611,7 +611,7 @@ scenescape-manager,libglvnd0:amd64:1.6.0-1,Debian,MIT,Y,indirect dependency auto
 scenescape-manager,libglx-mesa0:amd64:22.3.6-1+deb12u1,Debian,MIT,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libglx0:amd64:1.6.0-1,Debian,MIT,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libgomp1:amd64:12.2.0-14+deb12u1,Debian,GPL-3.0,Y,indirect dependency automatically installed,previous-release,N
-scenescape-manager,libicu72:amd64:72.1-3+deb12u1,Debian,GPL-3.0-only AND MIT,Y,?,sbom,Y
+scenescape-manager,libicu72:amd64:72.1-3+deb12u1,Debian,GPL-3.0-only AND MIT,Y,indirect dependency automatically installed,sbom,Y
 scenescape-manager,libjansson4:amd64:2.14-2,Debian,MIT,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libldap-2.5-0:amd64:2.5.13+dfsg-5,Debian,OpenLDAP Public License,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libllvm15:amd64:1:15.0.6-4+b1,Debian,Apache-2.0,Y,used by openvino,previous-release,N
@@ -619,19 +619,19 @@ scenescape-manager,liblua5.3-0:amd64:5.3.6-2,Debian,MIT,Y,indirect dependency au
 scenescape-manager,libmosquitto1:amd64:2.0.11-1.2+deb12u2,Debian,EPL-2.0,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libnghttp2-14:amd64:1.52.0-1+deb12u2,Debian,MIT,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libpciaccess0:amd64:0.17-2,Debian,MIT,Y,indirect dependency automatically installed,previous-release,N
-scenescape-manager,libperl5.36:amd64:5.36.0-7+deb12u3,Debian,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib,Y,?,sbom,Y
-scenescape-manager,libproc2-0:amd64:2:4.0.2-3,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,Y,?,sbom,Y
+scenescape-manager,libperl5.36:amd64:5.36.0-7+deb12u3,Debian,LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib,Y,indirect dependency automatically installed,sbom,Y
+scenescape-manager,libproc2-0:amd64:2:4.0.2-3,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,Y,indirect dependency automatically installed,sbom,Y
 scenescape-manager,libpsl5:amd64:0.21.2-1,Debian,MIT,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libpython3-stdlib:amd64:3.11.2-1+b1,Debian,PSF,Y,indirect dependency automatically installed,previous-release,N
-scenescape-manager,libpython3.11-minimal:amd64:3.11.2-6+deb12u6,Debian,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This,Y,?,sbom,Y
-scenescape-manager,libpython3.11-stdlib:amd64:3.11.2-6+deb12u6,Debian,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This,Y,?,sbom,Y
-scenescape-manager,libpython3.11:amd64:3.11.2-6+deb12u6,Debian,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This,Y,?,sbom,Y
+scenescape-manager,libpython3.11-minimal:amd64:3.11.2-6+deb12u6,Debian,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This,Y,indirect dependency automatically installed,sbom,Y
+scenescape-manager,libpython3.11-stdlib:amd64:3.11.2-6+deb12u6,Debian,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This,Y,indirect dependency automatically installed,sbom,Y
+scenescape-manager,libpython3.11:amd64:3.11.2-6+deb12u6,Debian,LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This,Y,indirect dependency automatically installed,sbom,Y
 scenescape-manager,librtmp1:amd64:2.4+20151223.gitfa8646d.1-2+b2,Debian,LGPL-2.1,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libsasl2-2:amd64:2.1.28+dfsg-10,Debian,BSD-3-Clause,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libsasl2-modules-db:amd64:2.1.28+dfsg-10,Debian,BSD-3-Clause,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libsensors-config:1:3.6.0-7.1,Debian,GPL-2.0,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libsensors5:amd64:1:3.6.0-7.1,Debian,GPL-2.0,Y,indirect dependency automatically installed,previous-release,N
-scenescape-manager,libssh2-1:amd64:1.10.0-3+b1,Debian,LicenseRef-BSD3,Y,?,sbom,Y
+scenescape-manager,libssh2-1:amd64:1.10.0-3+b1,Debian,LicenseRef-BSD3,Y,indirect dependency automatically installed,sbom,Y
 scenescape-manager,libwayland-client0:amd64:1.21.0-1,Debian,MIT,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libwayland-server0:amd64:1.21.0-1,Debian,MIT,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libx11-6:amd64:2:1.8.4-2+deb12u2,Debian,MIT,Y,indirect dependency automatically installed,previous-release,N
@@ -786,8 +786,8 @@ scenescape-mapping-mapanything,libaom3:amd64:3.6.0-1+deb12u2,Debian,BSD-2-Clause
 scenescape-mapping-mapanything,libasound2-data:1.2.8-1,Debian,LGPL-2.1-only AND LicenseRef-LPGL-2.1-,,indirect dependency automatically installed,sbom,Y
 scenescape-mapping-mapanything,libasound2:amd64:1.2.8-1+b1,Debian,LGPL-2.1-only AND LicenseRef-LPGL-2.1-,,indirect dependency automatically installed,sbom,Y
 scenescape-mapping-mapanything,libass9:amd64:1:0.17.1-1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LicenseRef-other-1,,indirect dependency automatically installed,sbom,Y
-scenescape-mapping-mapanything,libasyncns0:amd64:0.8-6+b3,Debian,LGPL-2.1-only AND LGPL-2.1-or-later,,?,sbom,Y
-scenescape-mapping-mapanything,libavc1394-0:amd64:0.5.4-5,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,,?,sbom,Y
+scenescape-mapping-mapanything,libasyncns0:amd64:0.8-6+b3,Debian,LGPL-2.1-only AND LGPL-2.1-or-later,,indirect dependency automatically installed,sbom,Y
+scenescape-mapping-mapanything,libavc1394-0:amd64:0.5.4-5,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later,,indirect dependency automatically installed,sbom,Y
 scenescape-mapping-mapanything,libavcodec59:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,,?,sbom,Y
 scenescape-mapping-mapanything,libavdevice59:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,,?,sbom,Y
 scenescape-mapping-mapanything,libavfilter8:amd64:7:5.1.8-0+deb12u1,Debian,BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain,,?,sbom,Y
@@ -1433,7 +1433,7 @@ scenescape-mapping-vggt,kiwisolver==1.5.0,pypi,?BSD License,Y,?indirect dependen
 scenescape-mapping-vggt,kornia==0.8.2,pypi,?Apache-2.0,Y,?imported,previous-release,Y
 scenescape-mapping-vggt,kornia_rs==0.1.10,pypi,?Apache-2.0,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,lazy-loader==0.5,pypi,BSD-3-Clause,,?,pip-licenses,Y
-scenescape-mapping-vggt,lightglue @ git+https://github.com/jytime/LightGlue.git@2f23ca2ea9638cecad7f7220795210fc6b8353c3,pypi,?,,?,,Y
+scenescape-mapping-vggt,lightglue @ git+https://github.com/jytime/LightGlue.git@2f23ca2ea9638cecad7f7220795210fc6b8353c3,pypi,Apache-2.0,,?,,Y
 scenescape-mapping-vggt,lxml==6.0.2,pypi,?BSD-3-Clause,Y,?indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,manifold3d==3.4.0,pypi,Apache Software License,,?,pip-licenses,Y
 scenescape-mapping-vggt,mapbox_earcut==2.0.0,pypi,?ISC,Y,?imported,previous-release,Y
