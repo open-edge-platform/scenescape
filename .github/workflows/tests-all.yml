@@ -43,6 +43,9 @@ concurrency:
 env:
   DOCKER_BUILDKIT: 1
   SUPASS: demo
+  GITHUB_ACTIONS_CACHE: true
+  CACHE_REGISTRY: ${{ github.repository }}
+  CACHE_TAG: ${{ github.ref_name }}
 
 permissions:
   contents: read
