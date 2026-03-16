@@ -1221,7 +1221,7 @@ scenescape-mapping-vggt,libgsm1:amd64:1.0.22-1,Debian,TU-Berlin-2.0,N,indirect d
 scenescape-mapping-vggt,libharfbuzz0b:amd64:6.0.0+dfsg-3,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libhwy1:amd64:1.0.3-3+deb12u1,Debian,Apache-2.0,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libice6:amd64:2:1.0.10-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libicu72:amd64:72.1-3+deb12u1,Debian,GPL-3.0-only AND MIT,N,,sbom,Y
+scenescape-mapping-vggt,libicu72:amd64:72.1-3+deb12u1,Debian,GPL-3.0-only AND MIT,N,indirect dependency automatically installed,sbom,Y
 scenescape-mapping-vggt,libiec61883-0:amd64:1.2.0-6+b1,Debian,LGPL-2.1-only,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libjack-jackd2-0:amd64:1.9.21~dfsg-3,Debian,BSD-2-Clause AND BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-2-either AND LicenseRef-GPL-2-or AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-public-domain-Kroon,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libjbig0:amd64:2.1-6.1,Debian,GPL-2.0-or-later,N,indirect dependency automatically installed,previous-release,Y
