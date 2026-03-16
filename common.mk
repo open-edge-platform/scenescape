@@ -25,15 +25,12 @@ YELLOW := \033[0;33m
 RESET  := \033[0m
 
 ifeq ($(GITHUB_ACTIONS_CACHE),true)
-EXTRA_BUILD_ARGS += --cache-from "type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG}" --cache-to "type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG}" --debug
+EXTRA_BUILD_ARGS += --cache-from "type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG}" --cache-from "type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):main" --cache-to "type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG}" --debug
 endif
-
-
 
 .PHONY: build-image
 build-image: $(BUILD_DIR) Dockerfile
 	@echo "EXTRA_BUILD_ARGS: $(EXTRA_BUILD_ARGS)"
-	@set -x
 	@echo -e "$(GREEN)------- STARTING BUILD OF IMAGE: $(IMAGE):$(VERSION) -------$(RESET)"
 	@{ \
 	    set -xe; \
