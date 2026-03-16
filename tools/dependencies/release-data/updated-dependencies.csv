@@ -1342,15 +1342,15 @@ scenescape-mapping-vggt,libxdmcp-dev:amd64:1:1.1.2-3,Debian,MIT,N,indirect depen
 scenescape-mapping-vggt,libxdmcp6:amd64:1:1.1.2-3,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libxext6:amd64:2:1.3.4-1+b1,Debian,MIT,N,linked,previous-release,Y
 scenescape-mapping-vggt,libxfixes3:amd64:1:6.0.0-2,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libxi6:amd64:2:1.8-1+b1,Debian,,N,linked,,Y
+scenescape-mapping-vggt,libxi6:amd64:2:1.8-1+b1,Debian,MIT,N,linked,,Y
 scenescape-mapping-vggt,libxkbcommon0:amd64:1.5.0-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libxml2:amd64:2.9.14+dfsg-1.3~deb12u5,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libxrandr2:amd64:2:1.5.2-2+b1,Debian,,N,indirect dependency. auto installed,,Y
+scenescape-mapping-vggt,libxrandr2:amd64:2:1.5.2-2+b1,Debian,MIT,N,indirect dependency. auto installed,,Y
 scenescape-mapping-vggt,libxrender-dev:amd64:1:0.9.10-1.1,Debian,MIT,N,linked,previous-release,Y
 scenescape-mapping-vggt,libxrender1:amd64:1:0.9.10-1.1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libxshmfence1:amd64:1.3-1,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
-scenescape-mapping-vggt,libxss1:amd64:1:1.2.3-1,Debian,,N,indirect dependency. auto installed,,Y
-scenescape-mapping-vggt,libxv1:amd64:2:1.0.11-1.1,Debian,,N,indirect dependency. auto installed,,Y
+scenescape-mapping-vggt,libxss1:amd64:1:1.2.3-1,Debian,MIT,N,indirect dependency. auto installed,,Y
+scenescape-mapping-vggt,libxv1:amd64:2:1.0.11-1.1,Debian,MIT,N,indirect dependency. auto installed,,Y
 scenescape-mapping-vggt,libxvidcore4:amd64:2:1.3.7-1,Debian,GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later,N,indirect dependency. auto installed,sbom,Y
 scenescape-mapping-vggt,libxxf86vm1:amd64:1:1.1.4-1+b2,Debian,MIT,N,indirect dependency automatically installed,previous-release,Y
 scenescape-mapping-vggt,libz3-4:amd64:4.8.12-3.1,Debian,LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later,N,indirect dependency automatically installed,previous-release,Y
@@ -1397,13 +1397,13 @@ scenescape-mapping-vggt,dash==4.0.0,pypi,MIT,N,indirect dependency. auto install
 scenescape-mapping-vggt,decorator==5.2.1,pypi,BSD-2-Clause,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,docstring_parser==0.17.0,pypi,MIT,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,einops==0.8.2,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,embreex==2.17.7.post7,pypi,,N,indirect dependency. auto installed,,Y
+scenescape-mapping-vggt,embreex==2.17.7.post7,pypi,"BSD 2-Clause ""Simplified"" License",N,indirect dependency. auto installed,,Y
 scenescape-mapping-vggt,executing==2.2.1,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,fastapi==0.135.1,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,fastjsonschema==2.21.2,pypi,MIT,N,imported,previous-release,Y
 scenescape-mapping-vggt,ffmpy==1.0.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,filelock==3.25.1,pypi,Unlicense,N,indirect dependency. auto installed,previous-release,Y
-scenescape-mapping-vggt,flask-cors==6.0.0,pypi,,N,indirect dependency. auto installed,,Y
+scenescape-mapping-vggt,flask-cors==6.0.0,pypi,MIT,N,indirect dependency. auto installed,,Y
 scenescape-mapping-vggt,flatbuffers==25.12.19,pypi,Apache 2.0,N,indirect dependency. auto installed,pip-licenses,Y
 scenescape-mapping-vggt,fonttools==4.62.0,pypi,MIT,N,indirect dependency. auto installed,previous-release,Y
 scenescape-mapping-vggt,fsspec==2026.2.0,pypi,BSD-3-Clause,N,indirect dependency. auto installed,previous-release,Y
