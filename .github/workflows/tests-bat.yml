@@ -52,8 +52,6 @@ env:
 permissions:
   contents: read
   packages: write
-  id-token: write
-  deployments: write
 
 jobs:
   check-pr-state:
@@ -126,6 +124,9 @@ jobs:
     runs-on: [bat]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
     needs: [filter, check-pr-state]
+    permissions:
+      contents: read
+      packages: write
     if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
       - name: "Checkout Repository"
