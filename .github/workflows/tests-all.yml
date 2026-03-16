@@ -52,7 +52,7 @@ jobs:
     runs-on: [all]
     name: "Functional Tests"
     permissions:
-      packages: write
+      packages: write # For using GHCR as cache registry
     timeout-minutes: 120
     steps:
       - name: Remove test_data folder
@@ -92,7 +92,7 @@ jobs:
     runs-on: [all]
     name: "Non-Functional Tests"
     permissions:
-      packages: write
+      packages: write # For using GHCR as cache registry
     timeout-minutes: 20
     steps:
       - name: Remove test_data folder
@@ -132,7 +132,7 @@ jobs:
     runs-on: [all]
     name: "Metric Tests"
     permissions:
-      packages: write
+      packages: write # For using GHCR as cache registry
     timeout-minutes: 40
     steps:
       - name: Remove test_data folder
@@ -172,7 +172,7 @@ jobs:
     runs-on: [all]
     name: "UI Tests"
     permissions:
-      packages: write
+      packages: write # For using GHCR as cache registry
     timeout-minutes: 90
     steps:
       - name: Remove test_data folder
@@ -212,7 +212,7 @@ jobs:
     runs-on: [all]
     name: "Unit Tests"
     permissions:
-      packages: write
+      packages: write # For using GHCR as cache registry
     timeout-minutes: 30
     steps:
       - name: Remove test_data folder
