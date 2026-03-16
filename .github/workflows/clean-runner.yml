@@ -23,4 +23,4 @@ jobs:
           persist-credentials: false
       - name: "Clean workdir before checkout"
         run: |
-          ./.github/resources/setup_cache.sh
+          sudo ./.github/resources/setup_cache.sh
