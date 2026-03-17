@@ -6,7 +6,6 @@ import os
 import json
 import re
 import requests
-import sys
 from http import HTTPStatus
 from urllib.parse import urljoin
 
