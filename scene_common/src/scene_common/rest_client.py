@@ -8,6 +8,9 @@ import re
 import requests
 from http import HTTPStatus
 from urllib.parse import urljoin
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class RESTResult(dict):
@@ -100,7 +103,7 @@ class RESTClient:
       path = '/' + path
 
     url = urljoin(self.url, path.lstrip('/'))
-    print(f"DEBUG [request]: {method} {url}")
+    logger.debug("REST request: %s %s", method, url)
     # Merge headers
     headers = self._headers()
     if 'headers' in kwargs:
