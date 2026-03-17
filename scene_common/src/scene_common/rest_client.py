@@ -10,6 +10,7 @@ import sys
 from http import HTTPStatus
 from urllib.parse import urljoin
 
+
 class RESTResult(dict):
   def __init__(self, statusCode, errors=None):
     super().__init__()
@@ -27,6 +28,7 @@ class RESTResult(dict):
   @property
   def text(self):
     return json.dumps(dict(self))
+
 
 class RESTClient:
   def __init__(self, url=None, token=None, auth=None,
@@ -218,7 +220,8 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
-    print(f"DEBUG [_get]: endpoint='{endpoint}', full_path='{full_path}', params={parameters}")
+    print(f"DEBUG [_get]: endpoint='{endpoint}', full_path='{
+          full_path}', params={parameters}")
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.get(full_path, params=parameters, headers=headers,
                              verify=self.verify_ssl)
@@ -706,7 +709,7 @@ class RESTClient:
   # Auto-calibration
   def getStatus(self):
     """Gets system status
-    
+
     @return                     RESTResult with system status on success,
                                 empty with `errors` set on failure
     """
@@ -714,7 +717,7 @@ class RESTClient:
 
   def registerScene(self, scene_id, data):
     """Register a scene for auto-calibration
-    
+
     @param      scene_id        ID of the scene to register
     @param      data            dict with registration parameters
     @return                     RESTResult with registration info on success,
@@ -724,7 +727,7 @@ class RESTClient:
 
   def getSceneRegistrationStatus(self, scene_id):
     """Gets scene registration status
-    
+
     @param      scene_id        ID of the scene
     @return                     RESTResult with registration status on success,
                                 empty with `errors` set on failure
@@ -733,7 +736,7 @@ class RESTClient:
 
   def updateSceneRegistration(self, scene_id, data):
     """Updates scene registration
-    
+
     @param      scene_id        ID of the scene
     @param      data            dict with registration update parameters
     @return                     RESTResult with updated registration on success,
@@ -743,7 +746,7 @@ class RESTClient:
 
   def calibrateCamera(self, camera_id, data):
     """Calibrate a camera
-    
+
     @param      camera_id       ID of the camera to calibrate
     @param      data            dict with calibration parameters
     @return                     RESTResult with calibration info on success,
@@ -753,7 +756,7 @@ class RESTClient:
 
   def getCameraCalibrationStatus(self, camera_id):
     """Gets camera calibration status
-    
+
     @param      camera_id       ID of the camera
     @return                     RESTResult with calibration status on success,
                                 empty with `errors` set on failure
@@ -788,7 +791,8 @@ class RESTClient:
         paths = [paths]
       for path in paths:
         if not os.path.exists(path):
-          raise FileNotFoundError(f"File not found for field '{field}': {path}")
+          raise FileNotFoundError(
+              f"File not found for field '{field}': {path}")
         mime_type, _ = mimetypes.guess_type(path)
         if mime_type is None:
           mime_type = "application/octet-stream"
@@ -814,7 +818,8 @@ class RESTClient:
     @return                     RESTResult with reconstruction info on success,
                                 empty with `errors` set on failure
     """
-    data, files, handles = self._build_multipart_files(data, ['images', 'video'])
+    data, files, handles = self._build_multipart_files(
+        data, ['images', 'video'])
     try:
       full_path = urljoin(self.url, "reconstruction")
       headers = {'Authorization': f"Token {self.token}"}

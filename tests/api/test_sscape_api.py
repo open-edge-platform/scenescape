@@ -212,11 +212,11 @@ def execute_step(step, step_number, total_steps):
   #   "body" -> "data"  (request body)
   #   "path_params" -> extract and merge its contents into request_data
   KEY_MAP = {"UID": "uid", "body": "data"}
-  
+
   # Extract path_params if present (e.g., {"request_id": "123"})
   path_params = request_data.pop("path_params", {})
   request_data.update(path_params)
-  
+
   request_data = {KEY_MAP.get(k, k): v for k, v in request_data.items()}
 
   # If the method expects "filter" and it wasn't provided, default to None
@@ -228,16 +228,17 @@ def execute_step(step, step_number, total_steps):
   poll_config = step.get("poll")
 
   # Execute API call
-  
+
   api_method = getattr(api, method_name)
   try:
     if poll_config:
       # Polling mode: repeat the call until a field matches `until`,
       # or bail out early if `fail_if` matches, or timeout is reached.
-      interval_s  = poll_config.get("interval_s", 2)
-      timeout_s   = poll_config.get("timeout_s", 60) # default 1 minute timeout, can be overridden by scenario
+      interval_s = poll_config.get("interval_s", 2)
+      # default 1 minute timeout, can be overridden by scenario
+      timeout_s = poll_config.get("timeout_s", 60)
       until_rules = poll_config.get("until", {})
-      fail_rules  = poll_config.get("fail_if", {})
+      fail_rules = poll_config.get("fail_if", {})
 
       deadline = time.time() + timeout_s
       response = None
@@ -283,10 +284,10 @@ def execute_step(step, step_number, total_steps):
 
   logger.debug(f"    Response Status: {response.status_code}")
   logger.debug(f"    Response Body: {json.dumps(
-              response_body,
-              indent=2) if isinstance(
-              response_body,
-              dict) else response_body}")
+      response_body,
+      indent=2) if isinstance(
+      response_body,
+      dict) else response_body}")
 
   # Check status code
   expected_status = expected_status.get("status_code", 200)
@@ -306,7 +307,8 @@ def execute_step(step, step_number, total_steps):
 
   # Save variables
   for var_name, path in save_vars.items():
-    val = response_body if isinstance(response_body, (dict, list)) else response
+    val = response_body if isinstance(
+        response_body, (dict, list)) else response
 
     for key in path.split("."):
       if isinstance(val, dict):
