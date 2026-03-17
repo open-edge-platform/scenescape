@@ -356,7 +356,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/MAPPING/10: Vision_AI/SSCAPE/API/MAPPING/10: Verify health check",
+    "test_name": "Vision_AI/SSCAPE/API/MAPPING/10: Verify health check",
     "test_steps": [
       {
         "step_name": "GET /health — API is up and model is loaded",
