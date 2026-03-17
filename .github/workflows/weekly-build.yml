@@ -44,8 +44,10 @@ jobs:
 
       - name: "Build image scene_common"
         run: |
-          echo "Building scene_common"
-          make -C scene_common
+          if [[ "${{ matrix.images }}" != "scenescape-sources" && "${{ matrix.images }}" != "scenescape-tracker" ]]; then
+            echo "Building scene_common"
+            make -C scene_common
+          fi
 
       - name: "Build image ${{ matrix.images }}"
         run: |
@@ -61,7 +63,7 @@ jobs:
           elif [[ "${{ matrix.images }}" == "scenescape-tracker" ]]; then
             echo "Building ${{ matrix.images }}"
             make -C tracker
-          elif [[ "${{ matrix.images }}" == "scenescape-source" ]]; then
+          elif [[ "${{ matrix.images }}" == "scenescape-sources" ]]; then
             echo "Building ${{ matrix.images }}"
             make build-sources-image
           fi
