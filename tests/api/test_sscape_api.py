@@ -5,12 +5,13 @@ import logging
 import os
 import json
 import glob
+import time
 import inspect
 import pytest
 from scene_common.rest_client import RESTClient
 
 # Logging Configuration
-LOG_FILE = os.path.join(os.path.dirname(__file__), "api_test.log")
+LOG_FILE = os.path.join(os.path.dirname(__file__), "logs/api_test.log")
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -33,7 +34,8 @@ logger.info(
 
 # Setup Base HTTP Client
 API_TOKEN = os.environ.get("API_TOKEN")
-BASE_URL = os.environ.get("API_BASE_URL", "https://localhost/api/v1")
+# BASE_URL = os.environ.get("API_BASE_URL", "https://localhost/api/v1")
+BASE_URL = os.environ.get("API_BASE_URL", "https://localhost:8444")
 
 http_client = RESTClient(url=BASE_URL, token=API_TOKEN, verify_ssl=False)
 
@@ -48,6 +50,7 @@ API_MAP = {
     "user": http_client,
     "asset": http_client,
     "child": http_client,
+    "mapping": http_client,
 }
 
 
@@ -207,7 +210,13 @@ def execute_step(step, step_number, total_steps):
   # Normalize request keys to match RESTClient parameter names:
   #   "UID"  -> "uid"   (path parameter used in camera/scene/sensor/etc.)
   #   "body" -> "data"  (request body)
+  #   "path_params" -> extract and merge its contents into request_data
   KEY_MAP = {"UID": "uid", "body": "data"}
+  
+  # Extract path_params if present (e.g., {"request_id": "123"})
+  path_params = request_data.pop("path_params", {})
+  request_data.update(path_params)
+  
   request_data = {KEY_MAP.get(k, k): v for k, v in request_data.items()}
 
   # If the method expects "filter" and it wasn't provided, default to None
@@ -216,10 +225,53 @@ def execute_step(step, step_number, total_steps):
   if "filter" in method_params and "filter" not in request_data:
     request_data["filter"] = None
 
+  poll_config = step.get("poll")
+
   # Execute API call
+  
+  api_method = getattr(api, method_name)
   try:
-    api_method = getattr(api, method_name)
-    response = api_method(**request_data)
+    if poll_config:
+      # Polling mode: repeat the call until a field matches `until`,
+      # or bail out early if `fail_if` matches, or timeout is reached.
+      interval_s  = poll_config.get("interval_s", 2)
+      timeout_s   = poll_config.get("timeout_s", 60) # default 1 minute timeout, can be overridden by scenario
+      until_rules = poll_config.get("until", {})
+      fail_rules  = poll_config.get("fail_if", {})
+
+      deadline = time.time() + timeout_s
+      response = None
+      while True:
+        response = api_method(**request_data)
+        # RESTResult is a dict subclass; requests.Response has .json()
+        if isinstance(response, dict):
+          body = dict(response)
+        else:
+          try:
+            body = response.json()
+          except Exception:
+            body = {}
+
+        # Check fail_if conditions first
+        if fail_rules:
+          _, fail_errors = validate_response(body, fail_rules)
+          if not fail_errors:   # all fail_if conditions matched → abort
+            return False, response, f"Poll aborted: fail_if condition matched {fail_rules}"
+
+        # Check until conditions
+        if until_rules:
+          _, until_errors = validate_response(body, until_rules)
+          if not until_errors:  # all until conditions matched → done
+            break
+
+        if time.time() >= deadline:
+          state = body.get("state", "unknown")
+          return False, response, f"Poll timed out after {timeout_s}s (last state: {state})"
+
+        logger.info(f"    Polling... (state={body.get('state', '?')})")
+        time.sleep(interval_s)
+    else:
+      response = api_method(**request_data)
   except Exception as e:
     return False, None, f"API call failed: {str(e)}"
 
