@@ -66,6 +66,9 @@ jobs:
           elif [[ "${{ matrix.images }}" == "scenescape-sources" ]]; then
             echo "Building ${{ matrix.images }}"
             make build-sources-image
+          else
+            echo "ERROR: Unexpected matrix.images value: '${{ matrix.images }}'"
+            exit 1
           fi
 
       - name: "Determine Image Tag"
