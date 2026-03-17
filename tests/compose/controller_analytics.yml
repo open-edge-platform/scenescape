@@ -27,6 +27,7 @@ services:
         condition: service_started
     environment:
       CONTROLLER_ENABLE_ANALYTICS_ONLY: "true"
+      VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
     command: >
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth

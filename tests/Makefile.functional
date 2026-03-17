@@ -194,15 +194,19 @@ mqtt-cert: # NEX-T10423
 	$(call common-recipe, $(COMPOSE_FILES), tests/security/system/negative_mqtt_insecure_cert.py)
 
 mqtt-roi: # NEX-T10404
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml:$(COMPOSE)/tracker.yml:$(COMPOSE)/controller_analytics.yml)
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/controller_analytics.yml:$(COMPOSE)/tracker.yml:$(COMPOSE)/web.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/cams.yml)
+	$(eval SERVICES := $(strip pgserver web controller-analytics tracker))
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_roi_mqtt.py, 'pgserver web controller-analytics tracker', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_roi_mqtt.py, '$(SERVICES)', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 mqtt-sensor-roi: # NEX-T10460
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_mqtt_sensor_roi.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 mqtt-slow-sensor-roi: # NEX-T10461
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
@@ -216,8 +220,8 @@ mqtt-tripwire: # NEX-T10406
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 out-of-box: # NEX-T10417
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web_default.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/cams.yml)
-	$(eval SERVICES := $(strip pgserver web queuing-video retail-video scene))
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/controller_analytics.yml:$(COMPOSE)/tracker.yml:$(COMPOSE)/web_default.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/cams.yml)
+	$(eval SERVICES := $(strip pgserver web queuing-video retail-video controller-analytics tracker))
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/ui/tc_out_of_box.py, '$(SERVICES)', true, /run/secrets/browser.auth)
