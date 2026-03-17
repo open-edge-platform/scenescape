@@ -1,0 +1,10 @@
+# -*- mode: Fundamental; indent-tabs-mode: nil -*-
+
+# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+FROM busybox
+
+COPY tests /root/tests
+
+CMD ["/bin/sh"]

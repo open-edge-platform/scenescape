@@ -128,7 +128,7 @@ For detailed usage, input formats, processing rules, and examples, see: [UPDATE_
 
 `make generate-dockerfile-zip` (or run the script directly) produces:
 
-- `build/Dockerfiles-<version-slug>.zip` — all service Dockerfiles, `requirements*.txt` files,
+- `build/Dockerfiles-<version-slug>/` — folder containing all service Dockerfiles, `requirements*.txt` files,
   `conanfile.txt` files (for Conan-based services), and a `gpllist-<slug>` of copyleft-licensed
   distributed packages
 - `sources.Dockerfile` (updated in-place in the repo root) — fetches source archives for all
@@ -147,7 +147,7 @@ Options:
 - `--output-dir PATH` — output directory (default: `build/`)
 - `--deps PATH` — reviewed dependencies CSV (auto-detected from `release-data/` if omitted)
 - `--image-list PATH` — images CSV (auto-detected from `release-data/` if omitted)
-- `--zip-name NAME` — override zip filename
+- `--zip-name NAME` — *removed; output is now a folder, not a zip*
 - `--summary-file PATH` — write Markdown image summary table to a file (default: stdout)
 - `--no-update-sources` — skip regenerating `sources.Dockerfile`
 

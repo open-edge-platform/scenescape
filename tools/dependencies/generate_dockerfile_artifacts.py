@@ -3,11 +3,11 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Generate Dockerfile artifacts zip and image summary table.
+"""Generate Dockerfile artifacts folder structure and image summary table.
 
 Produces:
-  - Dockerfiles-<version-slug>.zip   Dockerfiles and requirements files, plus a
-                                     gpllist of copyleft-licensed distributed packages
+  - build/Dockerfiles-<version-slug>/   Dockerfiles and requirements files, plus a
+                                        gpllist of copyleft-licensed distributed packages
   - Markdown summary table of all images (--summary-file or stdout)
 
 Usage (from repo root):
@@ -18,11 +18,10 @@ Options:
     --output-dir PATH    Output directory (default: <repo-root>/build/)
     --deps PATH          Dependencies CSV file (auto-detected from release-data/)
     --image-list PATH    Images CSV file (auto-detected from release-data/)
-    --zip-name NAME      Zip filename (default: Dockerfiles-<version-slug>.zip)
     --summary-file PATH  Write Markdown summary to this file (default: stdout)
 
-The zip layout mirrors the 2025.2 example:
-    Dockerfiles-<slug>.zip/
+The output layout mirrors the previous zip layout:
+    build/Dockerfiles-<slug>/
         gpllist-<slug>
         sources-<slug>.Dockerfile
         Dockerfile-common
@@ -48,8 +47,8 @@ Dependencies CSV columns expected:
 import argparse
 import csv
 import re
+import shutil
 import sys
-import zipfile
 from pathlib import Path
 
 # Licenses that require source distribution under open-source compliance policies
@@ -61,7 +60,7 @@ COPYLEFT_RE = re.compile(
 # Both old ("Distributed by you?") and new ("Distributed by you") column names
 _DISTRIBUTED_COLS = ("Distributed by you?", "Distributed by you")
 
-# Dockerfile Names that are placed at the top level of the zip without a subfolder
+# Dockerfile Names that are placed at the top level of the output folder without a subfolder
 TOP_LEVEL_NAMES = {"Dockerfile-tests"}
 
 # ---------------------------------------------------------------------------
@@ -198,6 +197,35 @@ def _is_conan(component: str) -> bool:
     return "/" in component and "==" not in component and ":" not in component
 
 
+def _build_source_mapping(gpllist: list[str]) -> tuple[
+    dict[str, list[str]],  # deb source → [binary components]
+    dict[str, list[str]],  # pypi url → [package==version components]
+    dict[str, list[str]],  # conan url → [name/version components]
+]:
+    """Build mappings from source repository/package to the binary components it covers."""
+    deb_map: dict[str, list[str]] = {}
+    pypi_map: dict[str, list[str]] = {}
+    conan_map: dict[str, list[str]] = {}
+
+    for component in gpllist:
+        if "==" in component:
+            pkg_name = component.split("==")[0]
+            url = PYPI_TO_GITHUB.get(pkg_name)
+            if url:
+                pypi_map.setdefault(url, []).append(component)
+        elif _is_conan(component):
+            pkg_name = component.split("/")[0]
+            url = CONAN_TO_GITHUB.get(pkg_name)
+            if url:
+                conan_map.setdefault(url, []).append(component)
+        else:
+            base = component.split(":")[0]
+            src = _binary_to_source(base)
+            deb_map.setdefault(src, []).append(component)
+
+    return deb_map, pypi_map, conan_map
+
+
 def generate_sources_dockerfile(gpllist: list[str], version_slug: str) -> str:
     """Generate the content of sources.Dockerfile for the current release.
 
@@ -205,28 +233,11 @@ def generate_sources_dockerfile(gpllist: list[str], version_slug: str) -> str:
     git-clone list from the copyleft-licensed distributed packages in
     *gpllist*.
     """
-    deb_sources: set[str] = set()
-    pypi_clones: list[str] = []
-    conan_clones: list[str] = []
+    deb_map, pypi_map, conan_map = _build_source_mapping(gpllist)
 
-    for component in gpllist:
-        if "==" in component:
-            pkg_name = component.split("==")[0]
-            url = PYPI_TO_GITHUB.get(pkg_name)
-            if url and url not in pypi_clones:
-                pypi_clones.append(url)
-        elif _is_conan(component):
-            pkg_name = component.split("/")[0]
-            url = CONAN_TO_GITHUB.get(pkg_name)
-            if url and url not in conan_clones:
-                conan_clones.append(url)
-        else:
-            base = component.split(":")[0]
-            deb_sources.add(_binary_to_source(base))
-
-    sorted_deb = sorted(deb_sources)
-    sorted_pypi = sorted(pypi_clones)
-    sorted_conan = sorted(conan_clones)
+    sorted_deb = sorted(deb_map)
+    sorted_pypi = sorted(pypi_map)
+    sorted_conan = sorted(conan_map)
 
     lines: list[str] = [
         "# -*- mode: Fundamental; indent-tabs-mode: nil -*-",
@@ -267,6 +278,83 @@ def generate_sources_dockerfile(gpllist: list[str], version_slug: str) -> str:
         lines += ["", "WORKDIR /sources-conan", "RUN : \\"]
         for i, url in enumerate(sorted_conan):
             suffix = " \\" if i < len(sorted_conan) - 1 else ""
+            lines.append(f"    ; git clone --depth 1 {url}{suffix}")
+
+    lines += ["", "WORKDIR /sources-other", "RUN : \\"]
+    for i, url in enumerate(OTHER_SOURCE_REPOS):
+        suffix = " \\" if i < len(OTHER_SOURCE_REPOS) - 1 else ""
+        lines.append(f"    ; git clone --depth 1 {url}{suffix}")
+
+    lines += [
+        "",
+        f"FROM {SOURCES_FINAL_IMAGE}",
+        "",
+        "COPY --from=source-grabber /sources* /sources",
+        "COPY third-party-programs.txt /sources",
+        "WORKDIR /sources",
+        "",
+        "USER nobody",
+        "",
+    ]
+
+    return "\n".join(lines)
+
+
+def generate_annotated_sources_dockerfile(gpllist: list[str], version_slug: str) -> str:
+    """Like generate_sources_dockerfile but with inline comments showing which
+    binary packages / components from updated-dependencies.csv each source entry covers.
+    """
+    deb_map, pypi_map, conan_map = _build_source_mapping(gpllist)
+
+    sorted_deb = sorted(deb_map)
+    sorted_pypi = sorted(pypi_map)
+    sorted_conan = sorted(conan_map)
+
+    def _comment_block(components: list[str]) -> list[str]:
+        return [f"    # {c}" for c in sorted(components)]
+
+    lines: list[str] = [
+        "# -*- mode: Fundamental; indent-tabs-mode: nil -*-",
+        "",
+        "# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation",
+        "# SPDX-License-Identifier: Apache-2.0",
+        "",
+        "# Auto-generated by tools/dependencies/generate_dockerfile_artifacts.py",
+        "# Annotated version: comments show which binary packages from",
+        "# updated-dependencies.csv are covered by each source entry.",
+        "",
+        f"FROM {SOURCES_GRABBER_IMAGE} AS source-grabber",
+        "",
+    ]
+
+    for i, repo in enumerate(SOURCES_DEB_SRC_REPOS):
+        prefix = "RUN " if i == 0 else "    && "
+        suffix = " \\" if i < len(SOURCES_DEB_SRC_REPOS) - 1 else ""
+        lines.append(f'{prefix}echo "{repo}" >> /etc/apt/sources.list{suffix}')
+    lines.append("RUN apt-get update && apt-get install -y --no-install-recommends dpkg-dev")
+    lines += ["", "WORKDIR /sources-deb", "RUN apt-get source --download-only \\"]
+
+    for i, pkg in enumerate(sorted_deb):
+        suffix = " \\" if i < len(sorted_deb) - 1 else ""
+        lines += _comment_block(deb_map[pkg])
+        lines.append(f"    {pkg}{suffix}")
+
+    lines += [
+        "",
+        "WORKDIR /sources-python",
+        "RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git",
+        "RUN : \\",
+    ]
+    for i, url in enumerate(sorted_pypi):
+        suffix = " \\" if i < len(sorted_pypi) - 1 else ""
+        lines += _comment_block(pypi_map[url])
+        lines.append(f"    ; git clone --depth 1 {url}{suffix}")
+
+    if sorted_conan:
+        lines += ["", "WORKDIR /sources-conan", "RUN : \\"]
+        for i, url in enumerate(sorted_conan):
+            suffix = " \\" if i < len(sorted_conan) - 1 else ""
+            lines += _comment_block(conan_map[url])
             lines.append(f"    ; git clone --depth 1 {url}{suffix}")
 
     lines += ["", "WORKDIR /sources-other", "RUN : \\"]
@@ -341,8 +429,8 @@ def generate_gpllist(deps: list[dict]) -> list[str]:
     return sorted(seen)
 
 
-def zip_subfolder_for(dockerfile_name: str) -> str | None:
-    """Return the subfolder name inside the zip for this Dockerfile Name,
+def output_subfolder_for(dockerfile_name: str) -> str | None:
+    """Return the subfolder name inside the output dir for this Dockerfile Name,
     or None if it should be placed at the top level."""
     if dockerfile_name in TOP_LEVEL_NAMES:
         return None
@@ -353,82 +441,84 @@ def zip_subfolder_for(dockerfile_name: str) -> str | None:
     return None
 
 
-def build_zip(
+def build_output_dir(
     images: list[dict],
     repo_root: Path,
     version_slug: str,
     gpllist: list[str],
-    output_zip: Path,
+    output_root: Path,
 ) -> list[str]:
-    """Create the Dockerfiles zip. Returns list of archive paths added."""
+    """Write the Dockerfiles folder structure. Returns list of relative paths written."""
     entries: list[str] = []
 
-    with zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+    if output_root.exists():
+        shutil.rmtree(output_root)
+    output_root.mkdir(parents=True)
 
-        # gpllist — always included
-        gpllist_name = f"gpllist-{version_slug}"
-        zf.writestr(gpllist_name, "\n".join(gpllist) + "\n")
-        entries.append(gpllist_name)
+    # gpllist — always included
+    gpllist_name = f"gpllist-{version_slug}"
+    (output_root / gpllist_name).write_text("\n".join(gpllist) + "\n", encoding="utf-8")
+    entries.append(gpllist_name)
 
-        for row in images:
-            image_name = row.get("Image", "").strip()
-            dockerfile_path_rel = row.get("Dockerfile Path", "").strip()
-            dockerfile_name = row.get("Dockerfile Name", "").strip()
-            report_deps = row.get("Report Dependencies", "").strip().upper()
+    # annotated sources Dockerfile — always included
+    annotated_name = f"sources-{version_slug}.annotated.Dockerfile"
+    annotated_content = generate_annotated_sources_dockerfile(gpllist, version_slug)
+    (output_root / annotated_name).write_text(annotated_content, encoding="utf-8")
+    entries.append(annotated_name)
 
-            if not dockerfile_path_rel or not dockerfile_name:
-                print(
-                    f"Warning: skipping row with missing path/name for image '{image_name}'",
-                    file=sys.stderr,
-                )
-                continue
+    for row in images:
+        image_name = row.get("Image", "").strip()
+        dockerfile_path_rel = row.get("Dockerfile Path", "").strip()
+        dockerfile_name = row.get("Dockerfile Name", "").strip()
 
-            src = repo_root / dockerfile_path_rel
-            if not src.exists():
-                print(
-                    f"Warning: Dockerfile not found: {src}",
-                    file=sys.stderr,
-                )
-                continue
+        if not dockerfile_path_rel or not dockerfile_name:
+            print(
+                f"Warning: skipping row with missing path/name for image '{image_name}'",
+                file=sys.stderr,
+            )
+            continue
 
-            # sources.Dockerfile — renamed at top level
-            if dockerfile_name == "sources.Dockerfile":
-                archive_path = f"sources-{version_slug}.Dockerfile"
-                zf.write(src, archive_path)
-                entries.append(archive_path)
-                continue
+        src = repo_root / dockerfile_path_rel
+        if not src.exists():
+            print(
+                f"Warning: Dockerfile not found: {src}",
+                file=sys.stderr,
+            )
+            continue
 
-            subfolder = zip_subfolder_for(dockerfile_name)
+        # sources.Dockerfile — renamed at top level
+        if dockerfile_name == "sources.Dockerfile":
+            dest_name = f"sources-{version_slug}.Dockerfile"
+            shutil.copy2(src, output_root / dest_name)
+            entries.append(dest_name)
+            continue
 
-            dockerfile_dir = (repo_root / dockerfile_path_rel).parent
+        subfolder = output_subfolder_for(dockerfile_name)
+        dockerfile_dir = src.parent
 
-            if subfolder is None:
-                # Top-level (Dockerfile-common, Dockerfile-tests)
-                zf.write(src, dockerfile_name)
-                entries.append(dockerfile_name)
-                # Add any requirements files, prefixed with the Dockerfile suffix
-                # e.g. "Dockerfile-common" → prefix "common" → "requirements-common.txt"
-                prefix = dockerfile_name.split("-", 1)[1] if "-" in dockerfile_name else dockerfile_name
-                for req in sorted(dockerfile_dir.glob("requirements*.txt")):
-                    req_archive = f"requirements-{prefix}{req.name[len('requirements'):]}"
-                    zf.write(req, req_archive)
-                    entries.append(req_archive)
-            else:
-                # Place inside service subfolder as "Dockerfile"
-                archive_path = f"{subfolder}/Dockerfile"
-                zf.write(src, archive_path)
-                entries.append(archive_path)
+        if subfolder is None:
+            # Top-level (Dockerfile-common, Dockerfile-tests)
+            shutil.copy2(src, output_root / dockerfile_name)
+            entries.append(dockerfile_name)
+            prefix = dockerfile_name.split("-", 1)[1] if "-" in dockerfile_name else dockerfile_name
+            for req in sorted(dockerfile_dir.glob("requirements*.txt")):
+                req_dest = f"requirements-{prefix}{req.name[len('requirements'):]}"
+                shutil.copy2(req, output_root / req_dest)
+                entries.append(req_dest)
+        else:
+            # Place inside service subfolder as "Dockerfile"
+            subdir = output_root / subfolder
+            subdir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, subdir / "Dockerfile")
+            entries.append(f"{subfolder}/Dockerfile")
 
-                # Include requirements*.txt and conanfile.txt from the Dockerfile's directory
-                for req in sorted(dockerfile_dir.glob("requirements*.txt")):
-                    req_archive = f"{subfolder}/{req.name}"
-                    zf.write(req, req_archive)
-                    entries.append(req_archive)
-                conanfile = dockerfile_dir / "conanfile.txt"
-                if conanfile.exists():
-                    conan_archive = f"{subfolder}/conanfile.txt"
-                    zf.write(conanfile, conan_archive)
-                    entries.append(conan_archive)
+            for req in sorted(dockerfile_dir.glob("requirements*.txt")):
+                shutil.copy2(req, subdir / req.name)
+                entries.append(f"{subfolder}/{req.name}")
+            conanfile = dockerfile_dir / "conanfile.txt"
+            if conanfile.exists():
+                shutil.copy2(conanfile, subdir / "conanfile.txt")
+                entries.append(f"{subfolder}/conanfile.txt")
 
     return entries
 
@@ -461,7 +551,7 @@ def generate_summary_table(images: list[dict]) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate Dockerfile artifacts zip and image summary table.",
+        description="Generate Dockerfile artifacts folder structure and image summary table.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -487,12 +577,6 @@ def main() -> None:
         type=Path,
         default=None,
         help="Images CSV (auto-detected from release-data/ if omitted)",
-    )
-    parser.add_argument(
-        "--zip-name",
-        type=str,
-        default=None,
-        help="Zip filename (default: Dockerfiles-<version-slug>.zip)",
     )
     parser.add_argument(
         "--summary-file",
@@ -541,11 +625,10 @@ def main() -> None:
         sources_path.write_text(sources_content, encoding="utf-8")
         print(f"\nUpdated : {sources_path}")
 
-    # Build zip
-    zip_name = args.zip_name or f"Dockerfiles-{version_slug}.zip"
-    output_zip = output_dir / zip_name
-    entries = build_zip(images, repo_root, version_slug, gpllist, output_zip)
-    print(f"\nCreated : {output_zip}")
+    # Build folder structure
+    artifacts_dir = output_dir / f"Dockerfiles-{version_slug}"
+    entries = build_output_dir(images, repo_root, version_slug, gpllist, artifacts_dir)
+    print(f"\nCreated : {artifacts_dir}/")
     for entry in entries:
         print(f"  {entry}")
 

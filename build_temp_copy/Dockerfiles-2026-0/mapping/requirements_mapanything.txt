@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+torch==2.9.1
+torchvision==0.24.1
+torchaudio==2.9.1
