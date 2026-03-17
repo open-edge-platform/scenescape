@@ -11,7 +11,7 @@ import pytest
 from scene_common.rest_client import RESTClient
 
 # Logging Configuration
-LOG_FILE = os.path.join(os.path.dirname(__file__), "logs/api_test.log")
+LOG_FILE = os.path.join(os.path.dirname(__file__), "api_test.log")
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
