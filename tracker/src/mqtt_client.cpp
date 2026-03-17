@@ -27,38 +27,6 @@ std::string getHostname() {
     return "unknown";
 }
 
-/**
- * @brief Clear proxy environment variables if they are set but empty.
- *
- * Paho MQTT library workaround: Paho reads proxy environment variables
- * (http_proxy, https_proxy, etc.) but fails when they are set to empty
- * strings - it attempts to use "" as a proxy URL, causing connection errors.
- *
- * This commonly occurs when:
- *   - Docker containers set proxy vars to empty to override host values
- *   - Makefile targets export empty proxy vars for local development
- *
- * Solution: Detect empty proxy vars and unset them entirely, while
- * preserving real proxy URLs for production environments that need them.
- */
-void clearEmptyProxyVars() {
-    const char* proxy_vars[] = {"http_proxy",  "HTTP_PROXY", "https_proxy",
-                                "HTTPS_PROXY", "no_proxy",   "NO_PROXY"};
-
-    bool cleared_any = false;
-    for (const char* var : proxy_vars) {
-        const char* value = std::getenv(var);
-        if (value != nullptr && value[0] == '\0') {
-            unsetenv(var);
-            cleared_any = true;
-        }
-    }
-
-    if (cleared_any) {
-        LOG_DEBUG("Cleared empty proxy environment variables");
-    }
-}
-
 } // namespace
 
 std::string MqttClient::generateClientId() {
