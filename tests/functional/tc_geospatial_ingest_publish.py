@@ -203,7 +203,7 @@ class GeospatialIngestPublish(FunctionalTest):
     print("Verifying base output has no lat_long_alt")
     self.waitForUpdate(False)
     print("Enabling lat_long_alt output")
-    res = self.rest.updateScene(self.sceneUID, {'output_lla': True, 'map_corners_lla': json.dumps(MAP_CORNERS_LLA), 'map': (map_image, map_data)})
+    res = self.rest.updateScene(self.sceneUID, {'output_lla': True, 'map_corners_lla': MAP_CORNERS_LLA, 'map': (map_image, map_data)})
     self.detectionValidator = _verifyLLA
     self.waitForUpdate(True)
     print("Disabling lat_long_alt output")
