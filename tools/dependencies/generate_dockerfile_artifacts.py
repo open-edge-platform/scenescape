@@ -58,6 +58,9 @@ COPYLEFT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Both old ("Distributed by you?") and new ("Distributed by you") column names
+_DISTRIBUTED_COLS = ("Distributed by you?", "Distributed by you")
+
 # Dockerfile Names that are placed at the top level of the zip without a subfolder
 TOP_LEVEL_NAMES = {"Dockerfile-tests"}
 
@@ -78,6 +81,11 @@ DEB_BINARY_TO_SOURCE: list[tuple[str, str]] = [
     ("libgfortran",         "gcc-12"),
     ("libgomp",             "gcc-12"),
     ("libquadmath",         "gcc-12"),
+    ("libgcc-s",            "gcc-14"),
+    ("libstdc++",           "gcc-14"),
+    ("libc6",               "glibc"),
+    ("libc-",               "glibc"),
+    ("libgcc1",             "gcc-12"),
     ("libgdal",             "gdal"),
     ("gdal",                "gdal"),
     ("libgdcm",             "gdcm"),
@@ -148,6 +156,18 @@ PYPI_TO_GITHUB: dict[str, str] = {
     "tqdm":             "https://github.com/tqdm/tqdm",
 }
 
+# Conan package name → GitHub source repository URL
+CONAN_TO_GITHUB: dict[str, str] = {
+    "autoconf":         "https://github.com/autotools-mirror/autoconf",
+    "automake":         "https://github.com/autotools-mirror/automake",
+    "eigen":            "https://github.com/eigenteam/eigen-git-mirror",
+    "gnu-config":       "https://github.com/gcc-mirror/config",
+    "libtool":          "https://github.com/autotools-mirror/libtool",
+    "m4":               "https://github.com/autotools-mirror/m4",
+    "paho-mqtt-c":      "https://github.com/eclipse/paho.mqtt.c",
+    "paho-mqtt-cpp":    "https://github.com/eclipse/paho.mqtt.cpp",
+}
+
 # Other source repositories always included for compliance
 OTHER_SOURCE_REPOS: list[str] = [
     "https://github.com/mozilla/geckodriver",
@@ -173,14 +193,21 @@ def _binary_to_source(binary_name: str) -> str:
     return binary_name  # fall back to binary name itself
 
 
+def _is_conan(component: str) -> bool:
+    """Return True if the component is a Conan package (name/version format)."""
+    return "/" in component and "==" not in component and ":" not in component
+
+
 def generate_sources_dockerfile(gpllist: list[str], version_slug: str) -> str:
     """Generate the content of sources.Dockerfile for the current release.
 
-    Derives the apt-get source list and Python git-clone list from the
-    copyleft-licensed distributed packages in *gpllist*.
+    Derives the apt-get source list, Python git-clone list, and Conan
+    git-clone list from the copyleft-licensed distributed packages in
+    *gpllist*.
     """
     deb_sources: set[str] = set()
     pypi_clones: list[str] = []
+    conan_clones: list[str] = []
 
     for component in gpllist:
         if "==" in component:
@@ -188,12 +215,18 @@ def generate_sources_dockerfile(gpllist: list[str], version_slug: str) -> str:
             url = PYPI_TO_GITHUB.get(pkg_name)
             if url and url not in pypi_clones:
                 pypi_clones.append(url)
+        elif _is_conan(component):
+            pkg_name = component.split("/")[0]
+            url = CONAN_TO_GITHUB.get(pkg_name)
+            if url and url not in conan_clones:
+                conan_clones.append(url)
         else:
             base = component.split(":")[0]
             deb_sources.add(_binary_to_source(base))
 
     sorted_deb = sorted(deb_sources)
     sorted_pypi = sorted(pypi_clones)
+    sorted_conan = sorted(conan_clones)
 
     lines: list[str] = [
         "# -*- mode: Fundamental; indent-tabs-mode: nil -*-",
@@ -229,6 +262,12 @@ def generate_sources_dockerfile(gpllist: list[str], version_slug: str) -> str:
     for i, url in enumerate(sorted_pypi):
         suffix = " \\" if i < len(sorted_pypi) - 1 else ""
         lines.append(f"    ; git clone --depth 1 {url}{suffix}")
+
+    if sorted_conan:
+        lines += ["", "WORKDIR /sources-conan", "RUN : \\"]
+        for i, url in enumerate(sorted_conan):
+            suffix = " \\" if i < len(sorted_conan) - 1 else ""
+            lines.append(f"    ; git clone --depth 1 {url}{suffix}")
 
     lines += ["", "WORKDIR /sources-other", "RUN : \\"]
     for i, url in enumerate(OTHER_SOURCE_REPOS):
@@ -272,6 +311,14 @@ def find_latest_csv(data_dir: Path, pattern: str) -> Path:
     return matches[-1]
 
 
+def find_deps_csv(data_dir: Path) -> Path:
+    """Locate the dependencies CSV, preferring updated-dependencies.csv when present."""
+    updated = data_dir / "updated-dependencies.csv"
+    if updated.exists():
+        return updated
+    return find_latest_csv(data_dir, "*-Dependencies.csv")
+
+
 def load_csv(path: Path) -> list[dict]:
     with open(path, encoding="utf-8") as f:
         return list(csv.DictReader(f))
@@ -279,10 +326,15 @@ def load_csv(path: Path) -> list[dict]:
 
 def generate_gpllist(deps: list[dict]) -> list[str]:
     """Collect unique component identifiers that have copyleft licenses and
-    are distributed (Distributed by you? == 'Y')."""
+    are distributed. Supports both 'Distributed by you?' (old) and
+    'Distributed by you' (new) column names."""
     seen: set[str] = set()
     for row in deps:
-        distributed = row.get("Distributed by you?", "").strip().upper()
+        distributed = ""
+        for col in _DISTRIBUTED_COLS:
+            if col in row:
+                distributed = row[col].strip().upper()
+                break
         license_val = row.get("License", "")
         if distributed == "Y" and COPYLEFT_RE.search(license_val):
             seen.add(row["Component"].strip())
@@ -471,7 +523,7 @@ def main() -> None:
     # Locate CSVs
     release_data_dir = repo_root / "tools" / "dependencies" / "release-data"
     image_list_path = args.image_list or find_latest_csv(release_data_dir, "*-Images.csv")
-    deps_path = args.deps or find_latest_csv(release_data_dir, "*-Dependencies.csv")
+    deps_path = args.deps or find_deps_csv(release_data_dir)
     print(f"Images  : {image_list_path}")
     print(f"Deps    : {deps_path}")
 
