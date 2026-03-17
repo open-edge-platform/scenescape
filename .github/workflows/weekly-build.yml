@@ -30,6 +30,7 @@ jobs:
             scenescape-controller,
             scenescape-manager,
             scenescape-tracker,
+            scenescape-sources,
           ]
     steps:
       - name: "Set up Docker Buildx"
@@ -60,6 +61,9 @@ jobs:
           elif [[ "${{ matrix.images }}" == "scenescape-tracker" ]]; then
             echo "Building ${{ matrix.images }}"
             make -C tracker
+          elif [[ "${{ matrix.images }}" == "scenescape-source" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make build-sources-image
           fi
 
       - name: "Determine Image Tag"
