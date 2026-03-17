@@ -56,8 +56,6 @@ services:
       scenescape-test:
         aliases:
           - mediaserver
-    #  ports:
-    #    - "8554:8554"
     restart: always
     pids_limit: 1000
 
@@ -105,8 +103,7 @@ services:
       retail-cams:
         condition: service_started
     healthcheck:
-      test:
-        ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8080/pipelines"]
+      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -119,6 +116,13 @@ services:
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
+      - REST_SERVER_PORT=8080
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
+      - NO_PROXY=mediaserver,${NO_PROXY}
+      - no_proxy=mediaserver,${no_proxy}
     configs:
       - source: retail-config
         target: /home/pipeline-server/config.json
