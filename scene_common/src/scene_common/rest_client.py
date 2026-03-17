@@ -1,13 +1,11 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
-
+import mimetypes
 import os
 import json
 import re
 import requests
+import sys
 from http import HTTPStatus
 from urllib.parse import urljoin
-
 
 class RESTResult(dict):
   def __init__(self, statusCode, errors=None):
@@ -26,7 +24,6 @@ class RESTResult(dict):
   @property
   def text(self):
     return json.dumps(dict(self))
-
 
 class RESTClient:
   def __init__(self, url=None, token=None, auth=None,
@@ -99,7 +96,7 @@ class RESTClient:
       path = '/' + path
 
     url = urljoin(self.url, path.lstrip('/'))
-
+    print(f"DEBUG [request]: {method} {url}")
     # Merge headers
     headers = self._headers()
     if 'headers' in kwargs:
@@ -116,6 +113,11 @@ class RESTClient:
 
   def decodeReply(self, reply, expectedStatus, successContent=None):
     result = RESTResult(statusCode=reply.status_code)
+    # Accept either a single status code or a list/tuple of acceptable codes
+    if isinstance(expectedStatus, (list, tuple)):
+      status_ok = reply.status_code in expectedStatus
+    else:
+      status_ok = reply.status_code == expectedStatus
     decoded = False
     if 'Content-Type' in reply.headers and reply.headers['Content-Type'] == "application/json":
       try:
@@ -133,14 +135,14 @@ class RESTClient:
         content['filename'] = fname
       decoded = True
 
-    if reply.status_code == expectedStatus:
+    if status_ok:
       if successContent:
         content = successContent
         decoded = True
       if decoded:
         result.update(content)
 
-    if not decoded or reply.status_code != expectedStatus:
+    if not decoded or not status_ok:
       result.errors = content
 
     return result
@@ -196,6 +198,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    print(f"DEBUG [_create]: endpoint='{endpoint}', full_path='{full_path}'")
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
@@ -212,6 +215,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    print(f"DEBUG [_get]: endpoint='{endpoint}', full_path='{full_path}', params={parameters}")
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.get(full_path, params=parameters, headers=headers,
                              verify=self.verify_ssl)
@@ -228,6 +232,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    print(f"DEBUG [_update]: endpoint='{endpoint}', full_path='{full_path}'")
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
@@ -242,6 +247,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    print(f"DEBUG [_delete]: endpoint='{endpoint}', full_path='{full_path}'")
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.delete(
         full_path,
@@ -693,3 +699,156 @@ class RESTClient:
     with open(zip_file_path, "rb") as f:
       files = {"zipFile": (os.path.basename(zip_file_path), f)}
       return self._create(endpoint, data={}, files=files)
+
+  # Auto-calibration
+  def getStatus(self):
+    """Gets system status
+    
+    @return                     RESTResult with system status on success,
+                                empty with `errors` set on failure
+    """
+    return self._get("status", None)
+
+  def registerScene(self, scene_id, data):
+    """Register a scene for auto-calibration
+    
+    @param      scene_id        ID of the scene to register
+    @param      data            dict with registration parameters
+    @return                     RESTResult with registration info on success,
+                                empty with `errors` set on failure
+    """
+    return self._create(f"scene/{scene_id}/registration", data)
+
+  def getSceneRegistrationStatus(self, scene_id):
+    """Gets scene registration status
+    
+    @param      scene_id        ID of the scene
+    @return                     RESTResult with registration status on success,
+                                empty with `errors` set on failure
+    """
+    return self._get(f"scene/{scene_id}/registration", None)
+
+  def updateSceneRegistration(self, scene_id, data):
+    """Updates scene registration
+    
+    @param      scene_id        ID of the scene
+    @param      data            dict with registration update parameters
+    @return                     RESTResult with updated registration on success,
+                                empty with `errors` set on failure
+    """
+    return self._update(f"scene/{scene_id}/registration", data)
+
+  def calibrateCamera(self, camera_id, data):
+    """Calibrate a camera
+    
+    @param      camera_id       ID of the camera to calibrate
+    @param      data            dict with calibration parameters
+    @return                     RESTResult with calibration info on success,
+                                empty with `errors` set on failure
+    """
+    return self._create(f"camera/{camera_id}/calibration", data)
+
+  def getCameraCalibrationStatus(self, camera_id):
+    """Gets camera calibration status
+    
+    @param      camera_id       ID of the camera
+    @return                     RESTResult with calibration status on success,
+                                empty with `errors` set on failure
+    """
+    return self._get(f"camera/{camera_id}/calibration", None)
+
+  # Mapping
+  def _build_multipart_files(self, data, file_fields):
+    """Extract file path strings from data dict and open them as file handles
+    for multipart/form-data requests.
+
+    Caller MUST close the returned handles (use try/finally).
+
+    @param      data            dict potentially containing file path strings
+    @param      file_fields     list of field names to treat as file paths;
+                                each value may be a single path string or a list of paths
+    @return                     (cleaned_data, files_list, file_handles)
+                                - cleaned_data: data dict with file fields removed
+                                - files_list:   list of (field, (filename, handle, mimetype))
+                                                tuples ready to pass as requests `files=`
+                                - file_handles: list of open file handles to close after request
+    """
+    data = data.copy()
+    files = []
+    handles = []
+
+    for field in file_fields:
+      if field not in data:
+        continue
+      paths = data.pop(field)
+      if isinstance(paths, str):
+        paths = [paths]
+      for path in paths:
+        if not os.path.exists(path):
+          raise FileNotFoundError(f"File not found for field '{field}': {path}")
+        mime_type, _ = mimetypes.guess_type(path)
+        if mime_type is None:
+          mime_type = "application/octet-stream"
+        fh = open(path, 'rb')
+        handles.append(fh)
+        files.append((field, (os.path.basename(path), fh, mime_type)))
+
+    return data, files if files else None, handles
+
+  def performReconstruction(self, data):
+    """Perform 3D reconstruction by uploading images and/or a video file.
+
+    Sends a multipart/form-data POST to /reconstruction.
+
+    @param      data            dict with reconstruction parameters:
+                                  - images (str or list[str]): image file paths (field name "images")
+                                  - video  (str):              video file path  (field name "video")
+                                  - output_format (str):       "glb" or "json"
+                                  - mesh_type (str):           "mesh" or "pointcloud"
+                                  - use_keyframes (bool):      True/False
+                                `images` and `video` are opened as binary multipart parts;
+                                all remaining keys become plain form fields.
+    @return                     RESTResult with reconstruction info on success,
+                                empty with `errors` set on failure
+    """
+    data, files, handles = self._build_multipart_files(data, ['images', 'video'])
+    try:
+      full_path = urljoin(self.url, "reconstruction")
+      headers = {'Authorization': f"Token {self.token}"}
+      data_args = self.prepareDataArgs(data, files)
+      reply = self.session.post(full_path, **data_args, files=files,
+                                headers=headers, verify=self.verify_ssl)
+      # Reconstruction endpoint returns either 200 (sync) or 202 (async)
+      return self.decodeReply(reply, [HTTPStatus.OK, HTTPStatus.ACCEPTED])
+    finally:
+      for fh in handles:
+        fh.close()
+
+  def getReconstructionStatus(self, request_id):
+    """Poll the status of an async reconstruction job.
+
+    @param      request_id      request_id returned by performReconstruction
+    @return                     RESTResult with job state on success:
+                                  - state: "queued" | "processing" | "complete" | "failed"
+                                  - message: optional progress message
+                                  - result: final result dict (when state == "complete")
+                                  - error: error description (when state == "failed")
+    """
+    return self._get(f"reconstruction/status/{request_id}", None)
+
+  def healthCheckEndpoint(self):
+    """Health check endpoint
+
+    @return                     RESTResult with health status on success,
+                                empty with `errors` set on failure
+    """
+    return self._get("health", None)
+
+  def listModels(self, filter=None):
+    """List available models
+
+    @param      filter          Optional dict with filter parameters
+    @return                     RESTResult with list of models on success,
+                                empty with `errors` set on failure
+    """
+    return self._get("models", filter)
