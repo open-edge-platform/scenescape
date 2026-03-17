@@ -11,7 +11,7 @@ RUN echo "deb-src http://deb.debian.org/debian bookworm main contrib non-free no
     && echo "deb-src http://deb.debian.org/debian trixie main contrib non-free non-free-firmware" >> /etc/apt/sources.list
 RUN apt-get update && apt-get install -y --no-install-recommends dpkg-dev
 
-WORKDIR /sources-deb
+WORKDIR /sources/deb
 RUN apt-get source --download-only \
     armadillo \
     bindfs \
@@ -63,7 +63,7 @@ RUN apt-get source --download-only \
     xerces-c \
     z3
 
-WORKDIR /sources-python
+WORKDIR /sources/python
 RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git
 RUN : \
     ; git clone --depth 1 https://github.com/certifi/python-certifi \
@@ -73,7 +73,7 @@ RUN : \
     ; git clone --depth 1 https://github.com/psycopg/psycopg2 \
     ; git clone --depth 1 https://github.com/tqdm/tqdm
 
-WORKDIR /sources-conan
+WORKDIR /sources/conan
 RUN : \
     ; git clone --depth 1 https://github.com/autotools-mirror/autoconf \
     ; git clone --depth 1 https://github.com/autotools-mirror/automake \
@@ -84,14 +84,14 @@ RUN : \
     ; git clone --depth 1 https://github.com/eigenteam/eigen-git-mirror \
     ; git clone --depth 1 https://github.com/gcc-mirror/gcc
 
-WORKDIR /sources-other
+WORKDIR /sources/other
 RUN : \
     ; git clone --depth 1 https://github.com/mozilla/geckodriver \
     ; git clone --depth 1 https://github.com/mirror/busybox
 
 FROM debian:13@sha256:55a15a112b42be10bfc8092fcc40b6748dc236f7ef46a358d9392b339e9d60e8
 
-COPY --from=source-grabber /sources* /sources
+COPY --from=source-grabber /sources /sources
 COPY third-party-programs.txt /sources
 WORKDIR /sources
 
