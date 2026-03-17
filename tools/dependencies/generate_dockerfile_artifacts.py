@@ -258,7 +258,7 @@ def generate_sources_dockerfile(gpllist: list[str], version_slug: str) -> str:
         suffix = " \\" if i < len(SOURCES_DEB_SRC_REPOS) - 1 else ""
         lines.append(f'{prefix}echo "{repo}" >> /etc/apt/sources.list{suffix}')
     lines.append("RUN apt-get update && apt-get install -y --no-install-recommends dpkg-dev")
-    lines += ["", "WORKDIR /sources-deb", "RUN apt-get source --download-only \\"]
+    lines += ["", "WORKDIR /sources/deb", "RUN apt-get source --download-only \\"]
 
     for i, pkg in enumerate(sorted_deb):
         suffix = " \\" if i < len(sorted_deb) - 1 else ""
@@ -266,7 +266,7 @@ def generate_sources_dockerfile(gpllist: list[str], version_slug: str) -> str:
 
     lines += [
         "",
-        "WORKDIR /sources-python",
+        "WORKDIR /sources/python",
         "RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git",
         "RUN : \\",
     ]
@@ -275,12 +275,12 @@ def generate_sources_dockerfile(gpllist: list[str], version_slug: str) -> str:
         lines.append(f"    ; git clone --depth 1 {url}{suffix}")
 
     if sorted_conan:
-        lines += ["", "WORKDIR /sources-conan", "RUN : \\"]
+        lines += ["", "WORKDIR /sources/conan", "RUN : \\"]
         for i, url in enumerate(sorted_conan):
             suffix = " \\" if i < len(sorted_conan) - 1 else ""
             lines.append(f"    ; git clone --depth 1 {url}{suffix}")
 
-    lines += ["", "WORKDIR /sources-other", "RUN : \\"]
+    lines += ["", "WORKDIR /sources/other", "RUN : \\"]
     for i, url in enumerate(OTHER_SOURCE_REPOS):
         suffix = " \\" if i < len(OTHER_SOURCE_REPOS) - 1 else ""
         lines.append(f"    ; git clone --depth 1 {url}{suffix}")
@@ -289,7 +289,7 @@ def generate_sources_dockerfile(gpllist: list[str], version_slug: str) -> str:
         "",
         f"FROM {SOURCES_FINAL_IMAGE}",
         "",
-        "COPY --from=source-grabber /sources* /sources",
+        "COPY --from=source-grabber /sources /sources",
         "COPY third-party-programs.txt /sources",
         "WORKDIR /sources",
         "",
@@ -332,7 +332,7 @@ def generate_annotated_sources_dockerfile(gpllist: list[str], version_slug: str)
         suffix = " \\" if i < len(SOURCES_DEB_SRC_REPOS) - 1 else ""
         lines.append(f'{prefix}echo "{repo}" >> /etc/apt/sources.list{suffix}')
     lines.append("RUN apt-get update && apt-get install -y --no-install-recommends dpkg-dev")
-    lines += ["", "WORKDIR /sources-deb", "RUN apt-get source --download-only \\"]
+    lines += ["", "WORKDIR /sources/deb", "RUN apt-get source --download-only \\"]
 
     for i, pkg in enumerate(sorted_deb):
         suffix = " \\" if i < len(sorted_deb) - 1 else ""
@@ -341,7 +341,7 @@ def generate_annotated_sources_dockerfile(gpllist: list[str], version_slug: str)
 
     lines += [
         "",
-        "WORKDIR /sources-python",
+        "WORKDIR /sources/python",
         "RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git",
         "RUN : \\",
     ]
@@ -351,13 +351,13 @@ def generate_annotated_sources_dockerfile(gpllist: list[str], version_slug: str)
         lines.append(f"    ; git clone --depth 1 {url}{suffix}")
 
     if sorted_conan:
-        lines += ["", "WORKDIR /sources-conan", "RUN : \\"]
+        lines += ["", "WORKDIR /sources/conan", "RUN : \\"]
         for i, url in enumerate(sorted_conan):
             suffix = " \\" if i < len(sorted_conan) - 1 else ""
             lines += _comment_block(conan_map[url])
             lines.append(f"    ; git clone --depth 1 {url}{suffix}")
 
-    lines += ["", "WORKDIR /sources-other", "RUN : \\"]
+    lines += ["", "WORKDIR /sources/other", "RUN : \\"]
     for i, url in enumerate(OTHER_SOURCE_REPOS):
         suffix = " \\" if i < len(OTHER_SOURCE_REPOS) - 1 else ""
         lines.append(f"    ; git clone --depth 1 {url}{suffix}")
@@ -366,7 +366,7 @@ def generate_annotated_sources_dockerfile(gpllist: list[str], version_slug: str)
         "",
         f"FROM {SOURCES_FINAL_IMAGE}",
         "",
-        "COPY --from=source-grabber /sources* /sources",
+        "COPY --from=source-grabber /sources /sources",
         "COPY third-party-programs.txt /sources",
         "WORKDIR /sources",
         "",
