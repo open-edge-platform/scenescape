@@ -1,0 +1,314 @@
+[
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ROI/01: Create region with only required properties",
+    "test_steps": [
+      {
+        "step_name": "Create Scene",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Scene1",
+            "use_tracker": true,
+            "output_lla": false
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "SCENE_UID": "uid"
+        }
+      },
+      {
+        "step_name": "Create region with minimal payload",
+        "api": "region",
+        "method": "createRegion",
+        "request": {
+          "body": {
+            "name": "Region_Minimal",
+            "scene": "${SCENE_UID}"
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "REGION_UID_MINIMAL": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ROI/02: Create region with full valid payload",
+    "test_steps": [
+      {
+        "step_name": "Create region with full payload",
+        "api": "region",
+        "method": "createRegion",
+        "request": {
+          "body": {
+            "name": "Region_Full",
+            "scene": "${SCENE_UID}",
+            "points": [
+              [0.0, 0.0],
+              [1.0, 0.0],
+              [1.0, 1.0],
+              [0.0, 1.0]
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "REGION_UID_FULL": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ROI/03: Create region with missing required field name",
+    "test_steps": [
+      {
+        "step_name": "Attempt to create region without name",
+        "api": "region",
+        "method": "createRegion",
+        "request": {
+          "body": {
+            "scene": "${SCENE_UID}",
+            "points": [
+              [0.0, 0.0],
+              [1.0, 1.0]
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ROI/04: Update region with minimal valid payload",
+    "test_steps": [
+      {
+        "step_name": "Update region with minimal payload",
+        "api": "region",
+        "method": "updateRegion",
+        "request": {
+          "UID": "${REGION_UID_MINIMAL}",
+          "body": {
+            "name": "Region_Minimal_Updated",
+            "scene": "${SCENE_UID}"
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify region was updated",
+        "api": "region",
+        "method": "getRegion",
+        "request": {
+          "UID": "${REGION_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Region_Minimal_Updated"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ROI/05: Update region with full valid payload",
+    "test_steps": [
+      {
+        "step_name": "Update region with full payload",
+        "api": "region",
+        "method": "updateRegion",
+        "request": {
+          "UID": "${REGION_UID_FULL}",
+          "body": {
+            "name": "Region_Full_Updated",
+            "scene": "${SCENE_UID}",
+            "points": [
+              [0.0, 0.0],
+              [2.0, 0.0],
+              [2.0, 2.0],
+              [0.0, 2.0]
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify region was updated",
+        "api": "region",
+        "method": "getRegion",
+        "request": {
+          "UID": "${REGION_UID_FULL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Region_Full_Updated"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ROI/06: Update region with invalid field value",
+    "test_steps": [
+      {
+        "step_name": "Attempt to update region with empty name",
+        "api": "region",
+        "method": "updateRegion",
+        "request": {
+          "UID": "${REGION_UID_MINIMAL}",
+          "body": {
+            "scene": "${SCENE_UID}",
+            "name": ""
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ROI/07: Update non existent region",
+    "test_steps": [
+      {
+        "step_name": "Attempt to update region with invalid UID",
+        "api": "region",
+        "method": "updateRegion",
+        "request": {
+          "UID": "123",
+          "body": {
+            "name": "Should_Fail",
+            "scene": "${SCENE_UID}"
+          }
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ROI/08: Get region by UID",
+    "test_steps": [
+      {
+        "step_name": "Test: Get region by UID",
+        "api": "region",
+        "method": "getRegion",
+        "request": {
+          "UID": "${REGION_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "expected_body": {
+          "uid": "${REGION_UID_MINIMAL}",
+          "name": "Region_Minimal_Updated",
+          "scene": "${SCENE_UID}",
+          "buffer_size": 0.0,
+          "height": 1.0,
+          "volumetric": false
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ROI/09: Get non existent region",
+    "test_steps": [
+      {
+        "step_name": "Attempt to get region with invalid UID",
+        "api": "region",
+        "method": "getRegion",
+        "request": {
+          "UID": "123"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ROI/10: Get all regions",
+    "test_steps": [
+      {
+        "step_name": "Get all regions",
+        "api": "region",
+        "method": "getRegions",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ROI/11: Delete region by UID",
+    "test_steps": [
+      {
+        "step_name": "Delete region",
+        "api": "region",
+        "method": "deleteRegion",
+        "request": {
+          "UID": "${REGION_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Delete second region",
+        "api": "region",
+        "method": "deleteRegion",
+        "request": {
+          "UID": "${REGION_UID_FULL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify region is deleted",
+        "api": "region",
+        "method": "getRegion",
+        "request": {
+          "UID": "${REGION_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ROI/12: Delete non existent region",
+    "test_steps": [
+      {
+        "step_name": "Attempt to delete region with invalid UID",
+        "api": "region",
+        "method": "deleteRegion",
+        "request": {
+          "UID": "123"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  }
+]
