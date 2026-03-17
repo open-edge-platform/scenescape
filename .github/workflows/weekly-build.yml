@@ -13,7 +13,7 @@ permissions: {}
 
 jobs:
   build:
-    name: "Build, Tag, Scan and Push Images"
+    name: "Build, Tag and Push Images"
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.determine-tag.outputs.image_tag }}
