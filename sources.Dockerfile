@@ -1,88 +1,98 @@
 # -*- mode: Fundamental; indent-tabs-mode: nil -*-
 
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-FROM ubuntu:22.04 AS source-grabber
+FROM debian:12@sha256:bc960ef50e6feed90686c593361df158517556ed1d2d98e5d1df3724024e0f49 AS source-grabber
 
-RUN echo "deb-src http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse" >> /etc/apt/sources.list
-RUN apt update && apt-get install -y --no-install-recommends dpkg-dev
+RUN echo "deb-src http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware" >> /etc/apt/sources.list \
+    && echo "deb-src http://security.debian.org/debian-security bookworm-security main" >> /etc/apt/sources.list \
+    && echo "deb-src http://deb.debian.org/debian bookworm-updates main" >> /etc/apt/sources.list \
+    && echo "deb-src http://deb.debian.org/debian trixie main contrib non-free non-free-firmware" >> /etc/apt/sources.list
+RUN apt-get update && apt-get install -y --no-install-recommends dpkg-dev
 
 WORKDIR /sources-deb
 RUN apt-get source --download-only \
+    armadillo \
     bindfs \
-    ca-certificates \
     cfitsio \
+    elfutils \
     fuse \
+    gcc-12 \
+    gcc-14 \
+    gdal \
     gdbm \
+    gdcm \
     geos \
+    glib2.0 \
+    glibc \
+    libhdf4 \
+    hdf5 \
     icu \
-    libapparmor1 \
-    libatomic1 \
-    libdbus-1-3 \
-    libde265-0 \
-    libelf1 \
-    libfuse2 \
-    libfyba0 \
-    libgfortran5 \
-    libglib2.0-0 \
-    libgomp1 \
-    libgudev-1.0-0 \
-    libheif1 \
-    libinput-bin \
-    libinput10 \
-    libjbig0 \
-    libjson-c5 \
-    libmpdec3 \
-    libmysqlclient21 \
-    libodbc2 \
-    libodbcinst2 \
-    libogdi4.1 \
-    libreadline8 \
-    librtmp1 \
-    librttopo1 \
-    libsensors-config \
-    libsensors5 \
-    libsocket++1 \
-    libssh-4 \
-    libtirpc-common \
-    libvulkan1 \
-    libwebp7 \
-    libwebpmux3 \
-    libxxhash0 \
-    libz3-4 \
+    jbigkit \
+    json-c \
+    libde265 \
+    fyba \
+    libgudev \
+    libheif \
+    libinput \
+    libkml \
+    librttopo \
+    libwebp \
+    lm-sensors \
+    mariadb \
     media-types \
     mosquitto \
-    mysql-common \
-    netbase \
+    netcdf \
+    numactl \
+    ogdi-dfsg \
+    opencv \
     perl \
     poppler \
-    python-is-python3 \
+    procps \
+    protobuf \
+    python3.11 \
     qtbase-opensource-src \
-    readline-common \
+    rtmpdump \
+    socket++ \
     spatialite \
-    unixodbc-common \
-    wget
+    superlu \
+    unixodbc \
+    wget \
+    x265 \
+    xerces-c \
+    z3
 
 WORKDIR /sources-python
 RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git
 RUN : \
-    ; git clone --depth 1 https://github.com/eclipse-paho/paho.mqtt.python \
-    ; git clone --depth 1 https://github.com/psycopg/psycopg2 \
     ; git clone --depth 1 https://github.com/certifi/python-certifi \
-    ; git clone --depth 1 https://github.com/tqdm/tqdm \
+    ; git clone --depth 1 https://github.com/dranjan/python-plyfile \
+    ; git clone --depth 1 https://github.com/eclipse-paho/paho.mqtt.python \
     ; git clone --depth 1 https://github.com/jab/bidict \
-    ; git clone --depth 1 https://github.com/dranjan/python-plyfile
+    ; git clone --depth 1 https://github.com/psycopg/psycopg2 \
+    ; git clone --depth 1 https://github.com/tqdm/tqdm
+
+WORKDIR /sources-conan
+RUN : \
+    ; git clone --depth 1 https://github.com/autotools-mirror/autoconf \
+    ; git clone --depth 1 https://github.com/autotools-mirror/automake \
+    ; git clone --depth 1 https://github.com/autotools-mirror/libtool \
+    ; git clone --depth 1 https://github.com/autotools-mirror/m4 \
+    ; git clone --depth 1 https://github.com/eclipse/paho.mqtt.c \
+    ; git clone --depth 1 https://github.com/eclipse/paho.mqtt.cpp \
+    ; git clone --depth 1 https://github.com/eigenteam/eigen-git-mirror \
+    ; git clone --depth 1 https://github.com/gcc-mirror/gcc
 
 WORKDIR /sources-other
 RUN : \
     ; git clone --depth 1 https://github.com/mozilla/geckodriver \
     ; git clone --depth 1 https://github.com/mirror/busybox
 
-FROM ubuntu:24.04
+FROM debian:13@sha256:55a15a112b42be10bfc8092fcc40b6748dc236f7ef46a358d9392b339e9d60e8
 
 COPY --from=source-grabber /sources* /sources
 COPY third-party-programs.txt /sources
 WORKDIR /sources
 
-USER ubuntu
+USER nobody
