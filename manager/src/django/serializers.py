@@ -571,7 +571,7 @@ class SceneSerializer(NonNullSerializer):
     if attempted:
       raise serializers.ValidationError({field: ["This field is read-only."] for field in attempted})
 
-    if 'output_lla' in self.initial_data:
+    if attrs.get('output_lla') is True:
       incoming_map_corners = attrs.get('map_corners_lla', None)
       existing_map_corners = getattr(self.instance, 'map_corners_lla', None)
 
