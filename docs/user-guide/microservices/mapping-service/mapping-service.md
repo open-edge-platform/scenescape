@@ -216,16 +216,16 @@ curl -X POST "https://localhost:8444/reconstruction" \
 
 ## Model Comparison
 
-| Feature               | MapAnything           | VGGT                                                                     |
-| --------------------- | --------------------- | ------------------------------------------------------------------------ |
-| **License**           | Apache 2.0            | [VGGT License](https://github.com/3d-scene-recon/vggt/blob/main/LICENSE) |
-| **Input**             | Multiple images       | Multiple images/video frames                                             |
-| **Strength**          | Metric reconstruction | Sparse view reconstruction                                               |
-| **Speed**             | Fast                  | Moderate                                                                 |
-| **Memory**            | Lower                 | Higher                                                                   |
-| **Quality**           | High for dense views  | High for sparse views                                                    |
-| **Native Output**     | Watertight mesh       | Point cloud                                                              |
-| **Supported Outputs** | Mesh, Point cloud     | Point cloud, Mesh                                                        |
+| Feature               | MapAnything           | VGGT                                                                           |
+| --------------------- | --------------------- | ------------------------------------------------------------------------------ |
+| **License**           | Apache 2.0            | [VGGT License](https://github.com/facebookresearch/vggt/blob/main/LICENSE.txt) |
+| **Input**             | Multiple images       | Multiple images/video frames                                                   |
+| **Strength**          | Metric reconstruction | Sparse view reconstruction                                                     |
+| **Speed**             | Fast                  | Moderate                                                                       |
+| **Memory**            | Lower                 | Higher                                                                         |
+| **Quality**           | High for dense views  | High for sparse views                                                          |
+| **Native Output**     | Watertight mesh       | Point cloud                                                                    |
+| **Supported Outputs** | Mesh, Point cloud     | Point cloud, Mesh                                                              |
 
 ## Development
 
