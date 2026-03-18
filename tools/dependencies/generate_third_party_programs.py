@@ -50,6 +50,7 @@ def get_license_url(license_name):
 
         # License names that map to different SPDX identifiers
         "libpng License": spdx_base + "Libpng.txt",  # Case change required
+        "MIT-License": spdx_base + "MIT.txt",
         "OpenLDAP Public License": spdx_base + "OLDAP-2.8.txt",  # Completely different name
         "PIL": spdx_base + "HPND.txt",  # PIL uses HPND license
         "PSF": spdx_base + "Python-2.0.txt",  # PSF -> Python-2.0
