@@ -31,9 +31,12 @@ def get_license_url(license_name):
     # Only licenses that cannot be auto-discovered are included here
     custom_map = {
         # Version mappings where the license name doesn't include version
+        "Apache Software License": spdx_base + "Apache-2.0.txt",  # Generic Apache maps to 2.0
         "Artistic License": spdx_base + "Artistic-2.0.txt",
         "Artistic License 1.0": spdx_base + "Artistic-1.0.txt",
+        "BSD": spdx_base + "BSD-3-Clause.txt",  # Generic BSD maps to 3-clause
         "BSD License": spdx_base + "BSD-3-Clause.txt",  # Generic BSD maps to 3-clause
+        "BSD 2-Clause \"Simplified\" License": spdx_base + "BSD-2-Clause.txt",
 
         # GPL/LGPL licenses that need -only suffix
         "GPL-1.0": spdx_base + "GPL-1.0-only.txt",
@@ -539,6 +542,7 @@ def process_dependencies(input_file, output_file, preamble_file, licenses_dir):
 
         entry_num = 1
         for license_expr in sorted_license_exprs:
+            print(f"Processing license expression: {license_expr}")
             # Download license text for the expression
             license_text = download_license_expression_text(
                 license_expr, license_sources, failed_licenses, licenses_dir, special_licenses_skipped

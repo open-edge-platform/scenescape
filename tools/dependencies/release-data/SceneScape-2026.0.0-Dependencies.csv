@@ -1563,19 +1563,19 @@ scenescape-tracker,libgcc-s1:amd64:14.2.0-19,Ubuntu,LicenseRef-Artistic AND GFDL
 scenescape-tracker,libgomp1:amd64:14.2.0-19,Ubuntu,GPL-3.0,Y,linked,previous-release,Y
 scenescape-tracker,libstdc++6:amd64:14.2.0-19,Ubuntu,LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL,Y,linked,sbom,Y
 scenescape-tracker,abseil/20250127.0,conan,Apache-2.0,Y,indirect dependency automatically installed,conan-licenses,Y
-scenescape-tracker,autoconf/2.71,conan,"GPL-2.0-or-later, GPL-3.0-or-later",Y,indirect dependency automatically installed,conan-licenses,Y
-scenescape-tracker,automake/1.16.5,conan,"GPL-2.0-or-later, GPL-3.0-or-later",Y,used for building,conan-licenses,Y
+scenescape-tracker,autoconf/2.71,conan,GPL-2.0-or-later AND GPL-3.0-or-later,Y,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,automake/1.16.5,conan,GPL-2.0-or-later AND GPL-3.0-or-later,Y,used for building,conan-licenses,Y
 scenescape-tracker,c-ares/1.34.6,conan,MIT,Y,indirect dependency automatically installed,conan-licenses,Y
 scenescape-tracker,cli11/2.6.0,conan,BSD-3-Clause,Y,linked,conan-licenses,Y
 scenescape-tracker,cmake/3.31.11,conan,BSD-3-Clause,Y,used for building,conan-licenses,Y
 scenescape-tracker,cmake/4.2.3,conan,BSD-3-Clause,Y,used for building,conan-licenses,Y
 scenescape-tracker,cpp-httplib/0.28.0,conan,MIT,Y,linked,conan-licenses,Y
-scenescape-tracker,eigen/3.4.0,conan,"MPL-2.0, LGPL-3.0-or-later",Y,linked,conan-licenses,Y
-scenescape-tracker,gnu-config/cci.20210814,conan,"GPL-3.0-or-later, autoconf-special-exception",Y,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,eigen/3.4.0,conan,MPL-2.0 AND LGPL-3.0-or-later,Y,linked,conan-licenses,Y
+scenescape-tracker,gnu-config/cci.20210814,conan,GPL-3.0-or-later AND autoconf-special-exception,Y,indirect dependency automatically installed,conan-licenses,Y
 scenescape-tracker,grpc/1.67.1,conan,Apache-2.0,Y,indirect dependency automatically installed,conan-licenses,Y
 scenescape-tracker,gtest/1.17.0,conan,BSD-3-Clause,Y,used in tests,conan-licenses,Y
 scenescape-tracker,libcurl/8.18.0,conan,curl,Y,indirect dependency automatically installed,conan-licenses,Y
-scenescape-tracker,libtool/2.4.7,conan,"GPL-2.0-or-later, GPL-3.0-or-later",Y,indirect dependency automatically installed,conan-licenses,Y
+scenescape-tracker,libtool/2.4.7,conan,GPL-2.0-or-later AND GPL-3.0-or-later,Y,indirect dependency automatically installed,conan-licenses,Y
 scenescape-tracker,m4/1.4.19,conan,GPL-3.0-only,Y,indirect dependency automatically installed,conan-licenses,Y
 scenescape-tracker,meson/1.10.1,conan,Apache-2.0,Y,indirect dependency automatically installed,conan-licenses,Y
 scenescape-tracker,ms-gsl/4.0.0,conan,MIT,Y,indirect dependency automatically installed,conan-licenses,Y
