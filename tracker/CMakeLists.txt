@@ -113,16 +113,22 @@ target_include_directories(${PROJECT_NAME}
 )
 
 # Apply strict compiler flags only to the tracker target
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-fcf-protection=full" COMPILER_SUPPORTS_CF_PROTECTION)
+
 target_compile_options(${PROJECT_NAME}
   PRIVATE
-    -Wall -Wextra -Werror -fcf-protection=full -Wconversion -Wimplicit-fallthrough
+    -Wall -Wextra -Werror -Wconversion -Wimplicit-fallthrough
     -Wno-missing-field-initializers
+    $<$<BOOL:${COMPILER_SUPPORTS_CF_PROTECTION}>:-fcf-protection=full>
 )
 
 # Treat RobotVision headers as system includes to suppress third-party warnings
-get_target_property(_rv_inc RobotVision INTERFACE_INCLUDE_DIRECTORIES)
-if(_rv_inc)
-  target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${_rv_inc})
+if(TARGET RobotVision)
+  get_target_property(_rv_inc RobotVision INTERFACE_INCLUDE_DIRECTORIES)
+  if(_rv_inc)
+    target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${_rv_inc})
+  endif()
 endif()
 
 # Inject version info as compile definitions
