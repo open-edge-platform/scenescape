@@ -3,13 +3,10 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import time
 import os
-
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.action_chains import ActionChains
 from tests.ui import UserInterfaceTest
 from tests.ui import common
 
@@ -20,32 +17,33 @@ class NoAprilTagCalibrationTest(UserInterfaceTest):
     self.exitCode = 1
     return
   
+  def wait_for_button_label(self, driver, expected_label, actual_label, button_id):
+    value = driver.find_element(By.ID, button_id).get_attribute("title")
+    actual_label['value'] = value
+    return value == expected_label
+  
   def execute_test(self):
     """! Executes test case """
+    expected_label = "Cannot auto calibrate. Check scene to ensure there are at least 4 april tags"
+    actual_label = {"value": None}
     cam_url = "/cam/calibrate/1"
+    button_id = "auto-autocalibration"
+    wait_time = 600
 
     assert self.login()
-    # self.navigateDirectlyToPage("/cam/list/")
+    print("Navigating to camera1 page.")
     self.navigateDirectlyToPage(cam_url)
-    print("Successfully navigated to camera1 page.")
 
-    expected_label = "Cannot auto calibrate. Check scene to ensure there are at least 4 april tags"
-    actual_label = self.check_label("auto-autocalibration")
-    print(f"Expected label: {expected_label}")
-    print(f"Actual label: {actual_label}")
+    print(f"Checking auto calibration button label. Timeout: {wait_time}")
+    WebDriverWait(self.browser, wait_time).until(
+      lambda d: self.wait_for_button_label(d, expected_label, actual_label, button_id)
+    )
 
-    if expected_label == actual_label:
+    if expected_label == actual_label['value']:
       self.exitCode = 0
       print("Autocalibration label displays correct message.")
     else: 
       print("Autocalibration label displays wrong message.")
-  
-  def check_label(self, button_id):
-    button = self.browser.find_element(By.ID, button_id)
-    label = button.get_attribute("title")
-    return label
-
-  # def check_container_logs(self):
 
 @common.mock_display
 def test_no_april_tag(request, record_xml_attribute):
@@ -65,7 +63,6 @@ def test_no_april_tag(request, record_xml_attribute):
 
 def main():
   return test_no_april_tag(None, None)
-
 
 if __name__ == '__main__':
   os._exit(main() or 0)
