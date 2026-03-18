@@ -268,7 +268,7 @@ class CamCreateView(SuperUserCheck, CreateView):
 
   # Return 400 Bad Request when form validation fails
   def form_invalid(self, form):
-    return self.render_to_response(self.get_context_data(form=form), status=400)  
+    return self.render_to_response(self.get_context_data(form=form), status=400)
 
   def get_success_url(self):
     if self.object.scene is not None:
