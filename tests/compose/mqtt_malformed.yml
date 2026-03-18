@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ./manager/secrets/certs/scenescape-ca.pem
+
+services:
+  mqtt_malformed:
+    image: scenescape-manager:${VERSION:-latest}
+    init: true
+    environment:
+      - "SUPASS"
+    networks:
+      scenescape-test:
+    working_dir: /workspace
+    entrypoint: [""]
+    command: bash -c "SUPASS=${SUPASS} PYTHONPATH=/workspace python3 tests/security/malformed_data/baddata_gen.py -i tests/security/malformed_data/baddata_json.txt broker.scenescape.intel.com"
+    volumes:
+      - ./:/workspace
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+    tty: true
+    depends_on:
+      - broker

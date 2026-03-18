@@ -1,0 +1,21 @@
+python check_zephyr_exists.py --jira-token $JIRA_TOKEN ../test_plans/SceneScape/Functional/API/Region.md     # Check test existence
+
+python check_zephyr_exists.py --jira-token $JIRA_TOKEN ../test_plans/SceneScape/Functional/API/Region.md --create   # Create missing tests
+
+python check_zephyr_exists.py --jira-token $JIRA_TOKEN ../test_plans/SceneScape/Functional/API/Region.md --check-fields    # Validate fields (report only)
+
+python check_zephyr_exists.py --jira-token $JIRA_TOKEN ../test_plans/SceneScape/Functional/API/Region.md --check-fields --update   # Fix field mismatches
+
+python check_zephyr_exists.py --jira-token $JIRA_TOKEN ../test_plans/SceneScape/Functional/API/Region.md --check-fields --update --automation true    # Overrides automation flag to `true` for all tests
+
+python check_zephyr_exists.py --jira-token $JIRA_TOKEN ../test_plans/SceneScape/Functional/API/Region.md --check-fields --update --affected-versions "2026.1,2024.1"   # Overrides affected versions for all tests
+
+python check_zephyr_exists.py --jira-token $JIRA_TOKEN ../test_plans/SceneScape/Functional/API/Region.md --detect-orphaned   # Find orphaned tests
+
+python check_zephyr_exists.py --jira-token $JIRA_TOKEN ../test_plans/SceneScape/Functional/API/Region.md --detect-orphaned --report-only  # Audit orphaned tests
+
+python check_zephyr_exists.py --jira-token $JIRA_TOKEN ../test_plans/SceneScape/Functional/API/Region.md --detect-orphaned --auto-deprecate  # Auto-deprecate orphaned
+
+python check_zephyr_exists.py --jira-token $JIRA_TOKEN ../test_plans/SceneScape/Functional/API/Region.md --detect-renumber    # Fix test renumbering
+
+python check_zephyr_exists.py --jira-token $JIRA_TOKEN ../test_plans/SceneScape/Functional/API/Region.md --debug    # Shows detailed API calls and all matching attempts

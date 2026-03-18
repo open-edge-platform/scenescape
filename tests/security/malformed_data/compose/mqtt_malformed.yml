@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+
+services:
+  mqtt_malformed:
+    image: scenescape-manager:${VERSION:-latest}
+    init: true
+    environment:
+      - "SUPASS"
+    networks:
+      scenescape-test:
+    working_dir: /workspace
+    entrypoint: [""]
+    command: bash -c "SUPASS=${SUPASS} PYTHONPATH=/workspace python3 tests/security/malformed_data/baddata_gen.py -i tests/security/malformed_data/baddata_json.txt broker.scenescape.intel.com"
+    volumes:
+      - ./:/workspace
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+    tty: true
+    depends_on:
+      - broker
+
+      - /dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    # web interface needs access to the media files
+    volumes:
+      - vol-media:/workspace/media
+      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-migrations:/workspace/migrations
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: web-cert
+        target: certs/scenescape-web.crt
+      - source: web-key
+        target: certs/scenescape-web.key
+      - django
+      - controller.auth
+      - browser.auth
+      - calibration.auth
+    restart: on-failure
+
+volumes:
+  vol-media:
+  vol-migrations:
+  vol-sample-data:
+  vol-db:

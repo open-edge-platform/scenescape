@@ -1,0 +1,20 @@
+categories:
+  - prefix: "/SSCAPE/"
+    category: "Functional"
+    type: "Component"
+    component: "API"
+
+  - prefix: "/INT/"
+    category: "Functional"
+    type: "Component"
+    component: "Integration"
+
+  - prefix: "/PERF/"
+    category: "Non-Functional"
+    type: "Performance"
+    component: "Performance"
+
+  - prefix: "/UI/"
+    category: "Functional"
+    type: "UI"
+    component: "UI"
