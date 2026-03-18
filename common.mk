@@ -32,7 +32,7 @@ build-image: $(BUILD_DIR) Dockerfile
 		set -xe; \
 		set -o pipefail; \
 		if [ "$(GITHUB_ACTIONS_CACHE)" = "true" ]; then \
-		  EXTRA_BUILD_ARGS+=" --cache-from \"type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG}\" --cache-from \"type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):main\" --cache-to \"type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG},ignore-error=true\""; \
+		  EXTRA_BUILD_ARGS+=" --cache-from type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG} --cache-from type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):main --cache-to type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG},ignore-error=true"; \
 		fi; \
 		TARGET_ARG=""; \
 		if [ -n "$(TARGET)" ]; then TARGET_ARG="--target $(TARGET)"; fi; \
