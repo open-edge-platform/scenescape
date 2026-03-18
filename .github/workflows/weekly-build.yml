@@ -13,7 +13,7 @@ permissions: {}
 
 jobs:
   build:
-    name: "Build, Tag, Scan and Push Images"
+    name: "Build, Tag and Push Images"
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.determine-tag.outputs.image_tag }}
@@ -30,6 +30,7 @@ jobs:
             scenescape-controller,
             scenescape-manager,
             scenescape-tracker,
+            scenescape-sources,
           ]
     steps:
       - name: "Set up Docker Buildx"
@@ -43,8 +44,10 @@ jobs:
 
       - name: "Build image scene_common"
         run: |
-          echo "Building scene_common"
-          make -C scene_common
+          if [[ "${{ matrix.images }}" != "scenescape-sources" && "${{ matrix.images }}" != "scenescape-tracker" ]]; then
+            echo "Building scene_common"
+            make -C scene_common
+          fi
 
       - name: "Build image ${{ matrix.images }}"
         run: |
@@ -60,6 +63,12 @@ jobs:
           elif [[ "${{ matrix.images }}" == "scenescape-tracker" ]]; then
             echo "Building ${{ matrix.images }}"
             make -C tracker
+          elif [[ "${{ matrix.images }}" == "scenescape-sources" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make build-sources-image
+          else
+            echo "ERROR: Unexpected matrix.images value: '${{ matrix.images }}'"
+            exit 1
           fi
 
       - name: "Determine Image Tag"
