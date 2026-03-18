@@ -431,14 +431,21 @@ def generate_gpllist(deps: list[dict]) -> list[str]:
 
 def output_subfolder_for(dockerfile_name: str) -> str | None:
     """Return the subfolder name inside the output dir for this Dockerfile Name,
-    or None if it should be placed at the top level."""
-    if dockerfile_name in TOP_LEVEL_NAMES:
+    or None if it should be placed at the top level.
+
+    *dockerfile_name* is now the repo-relative path from the images CSV,
+    e.g. 'manager/Dockerfile' or 'kubernetes/init-images/Dockerfile-tests'.
+    For nested paths the first path component is used as the subfolder name,
+    unless the filename itself is in TOP_LEVEL_NAMES.
+    """
+    p = Path(dockerfile_name)
+    # Files whose name is in TOP_LEVEL_NAMES always go to top level
+    if p.name in TOP_LEVEL_NAMES:
         return None
-    if dockerfile_name == "sources.Dockerfile":
-        return None  # top-level, but renamed
-    if dockerfile_name.startswith("Dockerfile-"):
-        return dockerfile_name[len("Dockerfile-"):]
-    return None
+    # Bare filenames (no directory component) go to top level
+    if p.parent == Path('.'):
+        return None
+    return p.parts[0]
 
 
 def build_output_dir(
@@ -467,18 +474,17 @@ def build_output_dir(
     entries.append(annotated_name)
 
     for row in images:
-        image_name = row.get("Image", "").strip()
-        dockerfile_path_rel = row.get("Dockerfile Path", "").strip()
+        image_name = row.get("Container", "").strip()
         dockerfile_name = row.get("Dockerfile Name", "").strip()
 
-        if not dockerfile_path_rel or not dockerfile_name:
+        if not dockerfile_name:
             print(
-                f"Warning: skipping row with missing path/name for image '{image_name}'",
+                f"Warning: skipping row with missing Dockerfile Name for image '{image_name}'",
                 file=sys.stderr,
             )
             continue
 
-        src = repo_root / dockerfile_path_rel
+        src = repo_root / dockerfile_name
         if not src.exists():
             print(
                 f"Warning: Dockerfile not found: {src}",
@@ -487,7 +493,7 @@ def build_output_dir(
             continue
 
         # sources.Dockerfile — renamed at top level
-        if dockerfile_name == "sources.Dockerfile":
+        if Path(dockerfile_name).name == "sources.Dockerfile":
             dest_name = f"sources-{version_slug}.Dockerfile"
             shutil.copy2(src, output_root / dest_name)
             entries.append(dest_name)
@@ -497,10 +503,11 @@ def build_output_dir(
         dockerfile_dir = src.parent
 
         if subfolder is None:
-            # Top-level (Dockerfile-common, Dockerfile-tests)
-            shutil.copy2(src, output_root / dockerfile_name)
-            entries.append(dockerfile_name)
-            prefix = dockerfile_name.split("-", 1)[1] if "-" in dockerfile_name else dockerfile_name
+            # Top-level (Dockerfile-tests, etc.)
+            dest_name = Path(dockerfile_name).name
+            shutil.copy2(src, output_root / dest_name)
+            entries.append(dest_name)
+            prefix = dest_name.split("-", 1)[1] if "-" in dest_name else dest_name
             for req in sorted(dockerfile_dir.glob("requirements*.txt")):
                 req_dest = f"requirements-{prefix}{req.name[len('requirements'):]}"
                 shutil.copy2(req, output_root / req_dest)
@@ -526,11 +533,10 @@ def build_output_dir(
 def generate_summary_table(images: list[dict]) -> str:
     """Render the image list as a Markdown table."""
     cols = [
-        "Image",
-        "Dockerfile Path",
+        "Container",
         "Dockerfile Name",
-        "Report Dependencies",
-        "Published",
+        "Container Distribution",
+        "Dockerfile Distribution",
         "Comment",
     ]
     widths = {c: len(c) for c in cols}
