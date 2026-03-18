@@ -29,7 +29,7 @@ RESET  := \033[0m
 build-image: $(BUILD_DIR) Dockerfile
 	@echo -e "$(GREEN)------- STARTING BUILD OF IMAGE: $(IMAGE):$(VERSION) -------$(RESET)"
 	@{ \
-		set -e; \
+		set -xe; \
 		set -o pipefail; \
 		if [ "$(GITHUB_ACTIONS_CACHE)" = "true" ]; then \
 		  EXTRA_BUILD_ARGS+=" --cache-from \"type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG}\" --cache-from \"type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):main\" --cache-to \"type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG},ignore-error=true\""; \
