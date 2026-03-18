@@ -239,7 +239,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
-    print(f"DEBUG [_update]: endpoint='{endpoint}', full_path='{full_path}'")
+    logger.debug("RESTClient _update: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
@@ -254,7 +254,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
-    print(f"DEBUG [_delete]: endpoint='{endpoint}', full_path='{full_path}'")
+    logger.debug("RESTClient _delete: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.delete(
         full_path,
@@ -783,23 +783,31 @@ class RESTClient:
     data = data.copy()
     files = []
     handles = []
-
-    for field in file_fields:
-      if field not in data:
-        continue
-      paths = data.pop(field)
-      if isinstance(paths, str):
-        paths = [paths]
-      for path in paths:
-        if not os.path.exists(path):
-          raise FileNotFoundError(
-              f"File not found for field '{field}': {path}")
-        mime_type, _ = mimetypes.guess_type(path)
-        if mime_type is None:
-          mime_type = "application/octet-stream"
-        fh = open(path, 'rb')
-        handles.append(fh)
-        files.append((field, (os.path.basename(path), fh, mime_type)))
+    try:
+      for field in file_fields:
+        if field not in data:
+          continue
+        paths = data.pop(field)
+        if isinstance(paths, str):
+          paths = [paths]
+        for path in paths:
+          if not os.path.exists(path):
+            raise FileNotFoundError(
+                f"File not found for field '{field}': {path}")
+          mime_type, _ = mimetypes.guess_type(path)
+          if mime_type is None:
+            mime_type = "application/octet-stream"
+          fh = open(path, 'rb')
+          handles.append(fh)
+          files.append((field, (os.path.basename(path), fh, mime_type)))
+    except Exception:
+      for fh in handles:
+        try:
+          fh.close()
+        except Exception:
+          # Best-effort cleanup; preserve original exception
+          logger.warning("Failed to close file handle during cleanup", exc_info=True)
+      raise
 
     return data, files if files else None, handles
 
@@ -819,9 +827,9 @@ class RESTClient:
     @return                     RESTResult with reconstruction info on success,
                                 empty with `errors` set on failure
     """
-    data, files, handles = self._build_multipart_files(
-        data, ['images', 'video'])
     try:
+      data, files, handles = self._build_multipart_files(
+          data, ['images', 'video'])
       full_path = urljoin(self.url, "reconstruction")
       headers = {'Authorization': f"Token {self.token}"}
       data_args = self.prepareDataArgs(data, files)
