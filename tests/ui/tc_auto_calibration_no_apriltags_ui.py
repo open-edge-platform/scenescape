@@ -30,7 +30,7 @@ class NoAprilTagCalibrationTest(UserInterfaceTest):
     print("Successfully navigated to camera1 page.")
 
     expected_label = "Cannot auto calibrate. Check scene to ensure there are at least 4 april tags"
-    actual_label = self.check_label
+    actual_label = self.check_label("auto-autocalibration")
     print(f"Expected label: {expected_label}")
     print(f"Actual label: {actual_label}")
 
