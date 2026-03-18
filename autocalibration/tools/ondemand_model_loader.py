@@ -37,7 +37,10 @@ def get_model_path() -> Path:
 
 def download_file(url: str, destination: Path, chunk_size: int = 8192) -> bool:
   """
-  Download file with progress bar and error handling.
+  Download a file with logging-based progress reporting and error handling.
+
+  Progress is logged via the module logger in approximately 10%% increments
+  based on the HTTP Content-Length header (when available).
 
   Args:
     url: URL to download from
