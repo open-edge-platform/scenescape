@@ -54,6 +54,7 @@ def download_file(url: str, destination: Path, chunk_size: int = 8192) -> bool:
 
     total_size = int(response.headers.get('content-length', 0))
     downloaded = 0
+    last_logged_pct = -1
 
     with open(destination, 'wb') as f:
       for chunk in response.iter_content(chunk_size=chunk_size):
@@ -61,13 +62,13 @@ def download_file(url: str, destination: Path, chunk_size: int = 8192) -> bool:
           f.write(chunk)
           downloaded += len(chunk)
 
-          # Show progress
           if total_size > 0:
             progress = (downloaded / total_size) * 100
-            sys.stdout.write(f"\rDownloading: {progress:.1f}% ({downloaded}/{total_size} bytes)")
-            sys.stdout.flush()
+            current_bucket = int(progress / 10) * 10
+            if current_bucket > last_logged_pct:
+              logger.info(f"Downloading: {progress:.1f}% ({downloaded}/{total_size} bytes)")
+              last_logged_pct = current_bucket
 
-    print()  # New line after progress
     logger.info(f"Download complete: {destination}")
     return True
 
