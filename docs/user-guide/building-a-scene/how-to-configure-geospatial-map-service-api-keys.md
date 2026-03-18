@@ -29,7 +29,7 @@ export MAPBOX_API_KEY="your_mapbox_api_key_here"
 
 #### Mapbox API Key
 
-1. Go to [Mapbox Account](https://account.mapbox.com/).
+1. Go to [Mapbox Account](https://console.mapbox.com/).
 2. Create an account or sign in.
 3. Go to the Access Tokens section.
 4. Create a new token or use the default public token.
