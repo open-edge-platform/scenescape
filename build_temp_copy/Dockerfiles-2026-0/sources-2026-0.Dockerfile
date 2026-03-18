@@ -14,7 +14,7 @@ RUN echo "deb-src http://deb.debian.org/debian bookworm main contrib non-free no
     && echo "deb-src http://deb.debian.org/debian trixie main contrib non-free non-free-firmware" >> /etc/apt/sources.list
 RUN apt-get update && apt-get install -y --no-install-recommends dpkg-dev
 
-WORKDIR /sources-deb
+WORKDIR /sources/deb
 RUN apt-get source --download-only \
     armadillo \
     bindfs \
@@ -64,7 +64,7 @@ RUN apt-get source --download-only \
     xerces-c \
     z3
 
-WORKDIR /sources-python
+WORKDIR /sources/python
 RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git
 RUN : \
     ; git clone --depth 1 https://github.com/certifi/python-certifi \
@@ -74,14 +74,14 @@ RUN : \
     ; git clone --depth 1 https://github.com/psycopg/psycopg2 \
     ; git clone --depth 1 https://github.com/tqdm/tqdm
 
-WORKDIR /sources-other
+WORKDIR /sources/other
 RUN : \
     ; git clone --depth 1 https://github.com/mozilla/geckodriver \
     ; git clone --depth 1 https://github.com/mirror/busybox
 
 FROM debian:13
 
-COPY --from=source-grabber /sources* /sources
+COPY --from=source-grabber /sources /sources
 COPY third-party-programs.txt /sources
 WORKDIR /sources
 

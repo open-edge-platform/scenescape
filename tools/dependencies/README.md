@@ -135,11 +135,14 @@ For detailed usage, input formats, processing rules, and examples, see: [UPDATE_
   copyleft-licensed APT packages and Python packages distributed with the product
 
 ```bash
-# Or call the script directly with explicit inputs
+# Auto-detects latest Images CSV and Dependencies CSV from release-data/
+python3 tools/dependencies/generate_dockerfile_artifacts.py \
+    --deps build/updated-dependencies.csv
+
+# Or call the script with explicit inputs
 python3 tools/dependencies/generate_dockerfile_artifacts.py \
     --deps build/updated-dependencies.csv \
-    --image-list tools/dependencies/release-data/SceneScape-2026.0-Images.csv \
-    --summary-file build/image-summary.md
+    --image-list tools/dependencies/release-data/SceneScape-2026.0-Images.csv
 ```
 
 Options:
@@ -147,8 +150,6 @@ Options:
 - `--output-dir PATH` — output directory (default: `build/`)
 - `--deps PATH` — reviewed dependencies CSV (auto-detected from `release-data/` if omitted)
 - `--image-list PATH` — images CSV (auto-detected from `release-data/` if omitted)
-- `--zip-name NAME` — *removed; output is now a folder, not a zip*
-- `--summary-file PATH` — write Markdown image summary table to a file (default: stdout)
 - `--no-update-sources` — skip regenerating `sources.Dockerfile`
 
 ## Generate 3-rd party programs file from the reviewed dependency list .csv

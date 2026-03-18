@@ -15,7 +15,7 @@ RUN echo "deb-src http://deb.debian.org/debian bookworm main contrib non-free no
     && echo "deb-src http://deb.debian.org/debian trixie main contrib non-free non-free-firmware" >> /etc/apt/sources.list
 RUN apt-get update && apt-get install -y --no-install-recommends dpkg-dev
 
-WORKDIR /sources-deb
+WORKDIR /sources/deb
 RUN apt-get source --download-only \
     # libarmadillo11:1:11.4.2+dfsg-1
     armadillo \
@@ -32,12 +32,8 @@ RUN apt-get source --download-only \
     fyba \
     # libgfortran5:amd64:12.2.0-14+deb12u1
     # libgomp1:amd64:12.2.0-14+deb12u1
-    # libgomp1:amd64:14.2.0-19
     # libquadmath0:amd64:12.2.0-14+deb12u1
     gcc-12 \
-    # libgcc-s1:amd64:14.2.0-19
-    # libstdc++6:amd64:14.2.0-19
-    gcc-14 \
     # gdal-plugins:3.6.2+dfsg-1+b2
     # libgdal32:3.6.2+dfsg-1+b2
     gdal \
@@ -50,8 +46,6 @@ RUN apt-get source --download-only \
     geos \
     # libglib2.0-0:amd64:2.74.6-2+deb12u8
     glib2.0 \
-    # libc6:amd64:2.41-12+deb13u1
-    glibc \
     # libhdf5-103-1:amd64:1.10.8+repack1-1
     # libhdf5-hl-100:amd64:1.10.8+repack1-1
     hdf5 \
@@ -159,7 +153,7 @@ RUN apt-get source --download-only \
     # libz3-4:amd64:4.8.12-3.1
     z3
 
-WORKDIR /sources-python
+WORKDIR /sources/python
 RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git
 RUN : \
     # certifi==2026.2.25
@@ -172,36 +166,18 @@ RUN : \
     ; git clone --depth 1 https://github.com/jab/bidict \
     # psycopg2-binary==2.9.11
     ; git clone --depth 1 https://github.com/psycopg/psycopg2 \
+    # tqdm==4.67.1
     # tqdm==4.67.3
     ; git clone --depth 1 https://github.com/tqdm/tqdm
 
-WORKDIR /sources-conan
-RUN : \
-    # autoconf/2.71
-    ; git clone --depth 1 https://github.com/autotools-mirror/autoconf \
-    # automake/1.16.5
-    ; git clone --depth 1 https://github.com/autotools-mirror/automake \
-    # libtool/2.4.7
-    ; git clone --depth 1 https://github.com/autotools-mirror/libtool \
-    # m4/1.4.19
-    ; git clone --depth 1 https://github.com/autotools-mirror/m4 \
-    # paho-mqtt-c/1.3.13
-    ; git clone --depth 1 https://github.com/eclipse/paho.mqtt.c \
-    # paho-mqtt-cpp/1.5.3
-    ; git clone --depth 1 https://github.com/eclipse/paho.mqtt.cpp \
-    # eigen/3.4.0
-    ; git clone --depth 1 https://github.com/eigenteam/eigen-git-mirror \
-    # gnu-config/cci.20210814
-    ; git clone --depth 1 https://github.com/gcc-mirror/gcc
-
-WORKDIR /sources-other
+WORKDIR /sources/other
 RUN : \
     ; git clone --depth 1 https://github.com/mozilla/geckodriver \
     ; git clone --depth 1 https://github.com/mirror/busybox
 
 FROM debian:13
 
-COPY --from=source-grabber /sources* /sources
+COPY --from=source-grabber /sources /sources
 COPY third-party-programs.txt /sources
 WORKDIR /sources
 

@@ -5,7 +5,7 @@ scenescape-autocalibration,autocalibration/Dockerfile,DockerHub,GitHub,,
 scenescape-mapping,mapping/Dockerfile,N,GitHub,"2 modes avaliable (vggt and mapanything models), dependencies listed separatly","2 modes avaliable (vggt and mapanything models), dependencies listed separatly"
 scenescape-cluster-analytics,cluster_analytics/Dockerfile,N,GitHub,,
 scenescape-model-installer,model_installer/Dockerfile,N,GitHub,,
-init-tests,Dockerfile-tests,N,GitHub,,
+init-tests,kubernetes/init-images/Dockerfile-tests,N,GitHub,,
 scenescape-sources,sources.Dockerfile,N,GitHub,Contains GPL sources to satisfy license guidelines,Contains GPL sources to satisfy license guidelines
 scenescape-common-base,scene_common/Dockerfile,N,GitHub,Used as the base build image,Used as the base build image
 scenescape-tracker,tracker/Dockerfile,DockerHub,GitHub,,

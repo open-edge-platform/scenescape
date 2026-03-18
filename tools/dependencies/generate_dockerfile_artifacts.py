@@ -557,7 +557,7 @@ def generate_summary_table(images: list[dict]) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate Dockerfile artifacts folder structure and image summary table.",
+        description="Generate Dockerfile artifacts folder structure.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -583,12 +583,6 @@ def main() -> None:
         type=Path,
         default=None,
         help="Images CSV (auto-detected from release-data/ if omitted)",
-    )
-    parser.add_argument(
-        "--summary-file",
-        type=Path,
-        default=None,
-        help="Write Markdown summary table to this file (default: stdout)",
     )
     parser.add_argument(
         "--no-update-sources",
@@ -637,16 +631,6 @@ def main() -> None:
     print(f"\nCreated : {artifacts_dir}/")
     for entry in entries:
         print(f"  {entry}")
-
-    # Summary table
-    summary = generate_summary_table(images)
-    if args.summary_file:
-        args.summary_file.parent.mkdir(parents=True, exist_ok=True)
-        args.summary_file.write_text(summary + "\n", encoding="utf-8")
-        print(f"\nSummary : {args.summary_file}")
-    else:
-        print("\n## Image Summary\n")
-        print(summary)
 
 
 if __name__ == "__main__":
