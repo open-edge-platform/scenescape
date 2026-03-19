@@ -4,7 +4,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 @@ -1,204 +1,226 @@
 +# SPDX-FileCopyrightText: (C) 2018 ETH Zurich and UNC Chapel Hill
 +# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
-+# SPDX-License-Identifier: Apache-2.0
++# SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
 +# Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
 +# All rights reserved.
 +#
