@@ -134,25 +134,6 @@ class DeepScenario:
     self.max_distance = max_distance
     self.model = load_model(MODEL_PATH, self.password, "CPU")
 
-  def clip_box_to_image(self, x, y, w, h, img_w, img_h):
-      x1 = int(round(x))
-      y1 = int(round(y))
-      x2 = int(round(x + w))
-      y2 = int(round(y + h))
-
-      x1 = max(0, min(x1, img_w - 1))
-      y1 = max(0, min(y1, img_h - 1))
-      x2 = max(0, min(x2, img_w))
-      y2 = max(0, min(y2, img_h))
-
-      w2 = x2 - x1
-      h2 = y2 - y1
-
-      if w2 <= 0 or h2 <= 0:
-          return None
-
-      return x1, y1, w2, h2
-
   def process_frame(self, frame: VideoFrame) -> bool:
     custom_regions = []
 
