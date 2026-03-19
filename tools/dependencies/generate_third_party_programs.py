@@ -163,14 +163,321 @@ def _parse_pypi_component(component):
     return None, None
 
 
+def _parse_debian_component(component):
+    """
+    Parse a Debian binary package component string into (name, version).
+
+    Component format from the CSV is 'pkg:version' or 'pkg:arch:version'.
+    The architecture qualifier (amd64, i386, arm64, …) is discarded.
+    """
+    parts = component.split(":")
+    name = parts[0]
+    if len(parts) >= 3:
+        version = parts[-1]
+    elif len(parts) == 2:
+        # Second field is a version if it contains digits or version separators;
+        # otherwise it is an architecture name with no version present.
+        if re.match(r'[0-9]|.*[.+~]', parts[1]):
+            version = parts[1]
+        else:
+            version = None
+    else:
+        version = None
+    return name, version
+
+
+def _parse_conan_component(component):
+    """
+    Parse a Conan component string 'name/version[@user/channel]' into (name, version).
+    """
+    at_stripped = component.split("@")[0]
+    parts = at_stripped.split("/")
+    name = parts[0]
+    version = parts[1] if len(parts) > 1 else None
+    return name, version
+
+
+def _extract_dep5_copyrights(text):
+    """
+    Extract copyright statements from a Debian DEP-5 debian/copyright file.
+
+    Parses the structured 'Copyright:' fields (including multi-line continuation
+    lines) from all Files stanzas.  Falls back to the generic regex extractor
+    for old-style free-form copyright files.
+
+    Returns a list of unique copyright statement strings.
+    """
+    dep5_copyrights = []
+    current_lines = []
+    in_copyright_field = False
+
+    for line in text.split("\n"):
+        if re.match(r"^Copyright:\s*", line, re.IGNORECASE):
+            # Flush previous field
+            dep5_copyrights.extend(current_lines)
+            current_lines = []
+            value = re.sub(r"^Copyright:\s*", "", line, flags=re.IGNORECASE).strip()
+            if value and value != ".":
+                current_lines.append(value)
+            in_copyright_field = True
+        elif in_copyright_field and line.startswith((" ", "\t")):
+            value = line.strip()
+            if value and value != ".":
+                current_lines.append(value)
+        else:
+            dep5_copyrights.extend(current_lines)
+            current_lines = []
+            in_copyright_field = False
+
+    dep5_copyrights.extend(current_lines)
+
+    # Deduplicate, preserving order
+    seen = set()
+    unique = []
+    for c in dep5_copyrights:
+        if c not in seen:
+            seen.add(c)
+            unique.append(c)
+
+    if unique:
+        return unique
+
+    # Old-style free-form copyright file – fall back to regex
+    return extract_copyright_from_text(text)
+
+
+def _debian_source_name_candidates(binary_name):
+    """
+    Generate source package name candidates from a Debian binary package name.
+
+    Debian binary packages often have names like 'libbrotli1' while the source
+    package is 'brotli'.  Common patterns are tried in order:
+      1. Exact match (binary name == source name)
+      2. Strip trailing digits (libbrotli1 -> libbrotli)
+      3. Strip leading 'lib' prefix + trailing digits (libbrotli1 -> brotli)
+    """
+    candidates = [binary_name]
+    # Strip trailing version digit(s): libfoo2 -> libfoo
+    no_digits = re.sub(r'\d+$', '', binary_name)
+    if no_digits and no_digits != binary_name:
+        candidates.append(no_digits)
+    # Strip leading 'lib' prefix
+    if binary_name.startswith('lib'):
+        no_lib = binary_name[3:]
+        if no_lib and no_lib not in candidates:
+            candidates.append(no_lib)
+        no_lib_no_digits = re.sub(r'\d+$', '', no_lib)
+        if no_lib_no_digits and no_lib_no_digits not in candidates:
+            candidates.append(no_lib_no_digits)
+    return candidates
+
+
+def _fetch_debian_copyright_file(package_name, version):
+    """
+    Fetch the debian/copyright file for a package from sources.debian.org.
+
+    Uses the source package name (often identical to the binary name) and
+    selects the best available source version.  Results are cached.
+    Returns the raw copyright file text, or None if not found.
+    """
+    cache_key = f"deb-copyright:{package_name}:{version}"
+    if cache_key in _package_license_file_cache:
+        return _package_license_file_cache[cache_key]
+
+    # Try source package name candidates (binary name often differs from source name,
+    # e.g. 'libbrotli1' binary comes from 'brotli' source package).
+    for src_pkg in _debian_source_name_candidates(package_name):
+        text = _fetch_debian_copyright_for_source_pkg(src_pkg, version)
+        if text is not None:
+            _package_license_file_cache[cache_key] = text
+            return text
+
+    _package_license_file_cache[cache_key] = None
+    return None
+
+
+def _fetch_debian_copyright_for_source_pkg(package_name, version):
+    """Fetch debian/copyright for a specific *source* package name (no caching)."""
+    # Retrieve available source package versions
+    api_url = f"https://sources.debian.org/api/src/{package_name}/"
+    try:
+        resp = requests.get(api_url, timeout=10)
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        if data.get("error"):
+            return None
+    except Exception:
+        return None
+
+    versions = [v["version"] for v in data.get("versions", [])]
+    if not versions:
+        return None
+
+    # Pick the best matching version: exact first, then upstream-prefix match, then latest
+    src_version = None
+    if version and version in versions:
+        src_version = version
+    else:
+        upstream_ver = version.split("-")[0] if version else ""
+        for v in versions:
+            if upstream_ver and v.startswith(upstream_ver):
+                src_version = v
+                break
+        if not src_version:
+            src_version = versions[0]  # newest listed first
+
+    copyright_url = (
+        f"https://sources.debian.org/api/src/{package_name}/{src_version}/debian/copyright/"
+    )
+    try:
+        resp = requests.get(copyright_url, timeout=10)
+        if resp.status_code == 200:
+            meta = resp.json()
+            raw_path = meta.get("raw_url", "")
+            if raw_path:
+                raw_resp = requests.get(f"https://sources.debian.org{raw_path}", timeout=10)
+                if raw_resp.status_code == 200:
+                    return raw_resp.text
+    except Exception:
+        pass
+
+    return None
+
+
+def get_debian_package_copyright(package_name, version=None):
+    """
+    Extract copyright statements from a Debian package's debian/copyright file.
+    Returns a newline-joined string of copyright lines, or None if not found.
+    """
+    cache_key = f"deb-cpy:{package_name}:{version}"
+    if cache_key in _copyright_cache:
+        return _copyright_cache[cache_key]
+
+    text = _fetch_debian_copyright_file(package_name, version)
+    if text is None:
+        _copyright_cache[cache_key] = None
+        return None
+
+    copyright_lines = _extract_dep5_copyrights(text)
+    if copyright_lines:
+        result = "\n".join(copyright_lines)
+        _copyright_cache[cache_key] = result
+        return result
+
+    _copyright_cache[cache_key] = None
+    return None
+
+
+def _fetch_conan_license_file(package_name, version=None):
+    """
+    Fetch the upstream LICENSE file for a Conan Center package.
+
+    Strategy:
+      1. Locate the conanfile.py in the conan-center-index GitHub repository.
+      2. Extract the 'homepage' or 'url' attribute to find the upstream repo.
+      3. Download the LICENSE file from the upstream repository on GitHub.
+
+    Results are cached.  Returns the full license text, or None if not found.
+    """
+    cache_key = (f"conan:{package_name}", version)
+    if cache_key in _package_license_file_cache:
+        return _package_license_file_cache[cache_key]
+
+    # conan-center-index uses 'all/' subfolder for packages with a single recipe
+    # and version-named subfolders for packages with per-version recipes.
+    conanfile_candidates = [
+        f"https://raw.githubusercontent.com/conan-io/conan-center-index/master/recipes/{package_name}/all/conanfile.py",
+    ]
+    if version:
+        conanfile_candidates.append(
+            f"https://raw.githubusercontent.com/conan-io/conan-center-index/master/recipes/{package_name}/{version}/conanfile.py"
+        )
+
+    conanfile_text = None
+    for url in conanfile_candidates:
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200:
+                conanfile_text = resp.text
+                break
+        except Exception:
+            continue
+
+    if not conanfile_text:
+        _package_license_file_cache[cache_key] = None
+        return None
+
+    # Extract the upstream project homepage from the conanfile.
+    # We deliberately avoid the 'url' attribute because it conventionally points
+    # to the conan-center-index repository itself, not the upstream project.
+    github_url = None
+    homepage_match = re.search(r'homepage\s*=\s*["\']([^"\']+)["\']', conanfile_text)
+    if homepage_match:
+        val = homepage_match.group(1).strip()
+        if "github.com" in val:
+            github_url = val
+
+    if not github_url:
+        _package_license_file_cache[cache_key] = None
+        return None
+
+    repo_path = _get_github_repo_path(github_url)
+    if not repo_path:
+        _package_license_file_cache[cache_key] = None
+        return None
+
+    license_filenames = ["LICENSE", "LICENSE.txt", "LICENSE.md", "LICENSE.rst",
+                         "LICENCE", "COPYING", "COPYING.txt"]
+    for filename in license_filenames:
+        raw_url = f"https://raw.githubusercontent.com/{repo_path}/HEAD/{filename}"
+        try:
+            resp = requests.get(raw_url, timeout=10)
+            if resp.status_code == 200:
+                _package_license_file_cache[cache_key] = resp.text
+                return resp.text
+        except Exception:
+            continue
+
+    _package_license_file_cache[cache_key] = None
+    return None
+
+
+def get_conan_package_copyright(package_name, version=None):
+    """
+    Extract copyright statements from a Conan package's upstream LICENSE file.
+    Returns a newline-joined string of copyright lines, or None if not found.
+    """
+    cache_key = f"conan-cpy:{package_name}:{version}"
+    if cache_key in _copyright_cache:
+        return _copyright_cache[cache_key]
+
+    text = _fetch_conan_license_file(package_name, version)
+    if text is None:
+        _copyright_cache[cache_key] = None
+        return None
+
+    copyright_lines = extract_copyright_from_text(text)
+    if copyright_lines:
+        result = "\n".join(copyright_lines)
+        _copyright_cache[cache_key] = result
+        return result
+
+    _copyright_cache[cache_key] = None
+    return None
+
+
 def get_package_copyright(component, origin):
     """
-    Get copyright statement for a package based on its declared origin.
+    Get copyright statement(s) for a package based on its declared origin.
 
-    Currently supports:
-      - pypi: fetches from the package's source repository on GitHub.
+    Supported origins:
+      - pypi    : queries PyPI JSON API → GitHub upstream LICENSE file
+      - debian  : queries sources.debian.org → debian/copyright (DEP-5)
+      - ubuntu  : same as debian (Ubuntu packages are sourced from Debian)
+      - conan   : queries conan-center-index → upstream GitHub LICENSE file
 
-    Returns a copyright string or None.
+    Returns a newline-joined string of copyright lines, or None if not found.
     """
     if not origin:
         return None
@@ -179,7 +486,14 @@ def get_package_copyright(component, origin):
         package_name, version = _parse_pypi_component(component)
         if package_name:
             return get_pypi_package_copyright(package_name, version)
-    # Other origins (debian, ubuntu, conan, …) can be added here in the future
+    elif origin_lower in ("debian", "ubuntu"):
+        package_name, version = _parse_debian_component(component)
+        if package_name:
+            return get_debian_package_copyright(package_name, version)
+    elif origin_lower == "conan":
+        package_name, version = _parse_conan_component(component)
+        if package_name:
+            return get_conan_package_copyright(package_name, version)
     return None
 
 
@@ -187,8 +501,12 @@ def get_package_license_text(component, origin):
     """
     Get the full license file text for a package from its source repository.
 
-    Currently supports:
-      - pypi: fetches the LICENSE file from the project's GitHub repository.
+    Supported origins:
+      - pypi  : fetches the LICENSE file from the project's GitHub repository.
+      - conan : fetches the upstream LICENSE file via conan-center-index metadata.
+
+    Debian/Ubuntu packages use the SPDX template for the license body; their
+    copyright statements are surfaced separately via get_package_copyright().
 
     Returns the full license text string, or None if not available.
     """
@@ -199,7 +517,10 @@ def get_package_license_text(component, origin):
         package_name, version = _parse_pypi_component(component)
         if package_name:
             return get_pypi_package_license_text(package_name, version)
-    # Other origins (debian, ubuntu, conan, …) can be added here in the future
+    elif origin_lower == "conan":
+        package_name, version = _parse_conan_component(component)
+        if package_name:
+            return _fetch_conan_license_file(package_name, version)
     return None
 
 

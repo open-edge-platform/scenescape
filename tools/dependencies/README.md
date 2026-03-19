@@ -154,7 +154,7 @@ Options:
 
 ## Generate 3-rd party programs file from the reviewed dependency list .csv
 
-The script now supports proper command-line arguments for input/output files:
+The script supports command-line arguments for input/output files:
 
 ```bash
 # Basic usage - specify input CSV file
@@ -169,34 +169,35 @@ python3 generate_third_party_programs.py reviewed_dependencies.csv \
     --licenses-dir custom_licenses_dir
 ```
 
-### Enhanced License Text Acquisition
+### License Text Acquisition
 
-The script features an improved license acquisition system:
+The script uses a three-tier priority system to obtain the most accurate license text for each dependency:
 
-1. **Primary Source**: Downloads license texts from the official SPDX license repository:
+1. **Package source (highest priority)**: For PyPI and Conan packages, the script fetches the actual `LICENSE` file directly from the upstream source repository on GitHub (located via the PyPI JSON API or the conan-center-index, respectively). This ensures the license text includes the real copyright statement (e.g. `Copyright (c) Armin Rigo, Christian Tismer and contributors` for greenlet) rather than the generic SPDX template placeholder (`Copyright (c) <year> <copyright holders>`). Results are cached to avoid redundant network requests.
+
+2. **SPDX license repository (fallback)**: When no package-sourced license is available, the script downloads the canonical license text from:
    - `https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/`
-   - Provides the most up-to-date and authoritative license texts
+   For licenses not in the predefined name mapping, it automatically attempts to locate them using intelligent name matching (e.g., `"BSD License"` → `BSD-3-Clause.txt`, `"PIL"` → `HPND.txt`).
 
-2. **Auto-Discovery**: For licenses not in the predefined mapping, automatically attempts to find them in the SPDX repository using intelligent name matching. The custom mapping is minimized to only include licenses that require specific SPDX identifier translation (e.g., "BSD License" → "BSD-3-Clause.txt", "PIL" → "HPND.txt")
+3. **Local files (final fallback)**: Falls back to files in the `licenses/` directory for custom or non-standard licenses that cannot be retrieved from the above sources.
 
-3. **Local Fallback**: Falls back to local license files in the `licenses/` directory for custom or non-standard licenses
+**Special license handling**: `"Public Domain"` and `"collection of licenses"` are recognised as special types and receive explanatory text in lieu of a license body.
 
-4. **Special License Handling**: Recognizes special license types like "Public Domain" and "collection of licenses" and provides appropriate explanatory text
+### Copyright Statements
 
-### Features
+In addition to fetching license texts, the script extracts copyright statement(s) from each package's actual source material. The strategy per origin:
 
-The script:
-- Takes a reviewed dependencies CSV file with Component and License columns
-- Automatically downloads license texts from SPDX when available
-- Supports auto-discovery of licenses not in the predefined mapping
-- Handles special license types (Public Domain, collection of licenses) with explanatory text
-- Falls back to local license files for custom licenses
-- Provides detailed output showing license sources and any missing licenses
-- Generates a comprehensive third-party programs file with all license texts
+| Origin | Source for copyright | Source for full license body |
+|--------|---------------------|------------------------------|
+| `pypi` | Upstream `LICENSE` file on GitHub (via PyPI JSON API) | Same file (replaces SPDX template) |
+| `conan` | Upstream `LICENSE` file on GitHub (via conan-center-index) | Same file (replaces SPDX template) |
+| `debian` / `ubuntu` | `debian/copyright` on sources.debian.org (DEP-5 `Copyright:` fields) | SPDX template (full license body) |
+
+Copyright lines are printed indented beneath the component name in the output. When the full license text is sourced directly from a package this is already embedded in that text; for Debian/Ubuntu components the copyright line is listed separately alongside the component name while the SPDX template provides the complete license body.
 
 ### Local License Directory
 
-The `licenses/` directory now contains only custom/non-standard licenses:
+The `licenses/` directory contains only custom/non-standard licenses:
 - `Bitstream_Vera_License.txt` - Bitstream Vera fonts license
 - `Intel_End_User_License.txt` - Intel proprietary software license
 - `Intel_Simplified_Software_License.txt` - Intel simplified license
@@ -204,9 +205,9 @@ The `licenses/` directory now contains only custom/non-standard licenses:
 - `ad-hoc.txt` - Custom ad-hoc license text
 - `preamble.txt` - Template preamble for the third-party programs file
 
-Standard open-source licenses (MIT, Apache, GPL, LGPL, etc.) are automatically downloaded from the SPDX repository and no longer need local copies.
+Standard open-source licenses (MIT, Apache, GPL, LGPL, etc.) are automatically downloaded from the SPDX repository and do not need local copies.
 
-Review not found licenses and update the local licenses directory accordingly.
+Review any licenses reported as not found and add the corresponding file to the `licenses/` directory.
 
 ## Limitations
 
