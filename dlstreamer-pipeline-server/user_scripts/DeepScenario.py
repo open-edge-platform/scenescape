@@ -105,10 +105,12 @@ def read_passwd(file_path):
     return None
 
 def infer_from_img(img, model, intrinsics, categories):
+
   class_ids = [category['id'] for category in categories]
   input_height = model.input().shape[3]
   input_width = model.input().shape[4]
   input_size = (input_height, input_width)
+
   network_input, intrinsics_scaled = preprocess(img, intrinsics, input_size)
   network_output = model(network_input)
   anns = postprocess(
@@ -116,9 +118,10 @@ def infer_from_img(img, model, intrinsics, categories):
     intrinsics_scaled,
     input_size,
     class_ids,
-    score_threshold=SCORE_THRESHOLD,
-    nms_threshold=NMS_THRESHOLD,
+    score_threshold=SCORE_THRESHOLD, # 0.3,
+    nms_threshold=NMS_THRESHOLD, #0.65,
   )
+
   return anns
 
 class DeepScenario:
