@@ -16,12 +16,12 @@ class NoAprilTagCalibrationTest(UserInterfaceTest):
     self.sceneName = self.params['scene']
     self.exitCode = 1
     return
-  
+
   def wait_for_button_label(self, driver, expected_label, actual_label, button_id):
     value = driver.find_element(By.ID, button_id).get_attribute("title")
     actual_label['value'] = value
     return value == expected_label
-  
+
   def execute_test(self):
     """! Executes test case """
     expected_label = "Cannot auto calibrate. Check scene to ensure there are at least 4 april tags"
@@ -42,7 +42,7 @@ class NoAprilTagCalibrationTest(UserInterfaceTest):
     if expected_label == actual_label['value']:
       self.exitCode = 0
       print("Autocalibration label displays correct message.")
-    else: 
+    else:
       print("Autocalibration label displays wrong message.")
 
 @common.mock_display
