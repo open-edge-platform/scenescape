@@ -491,7 +491,7 @@ services:
       - TRACKER_MANAGER_CA_CERT_PATH=/run/secrets/certs/scenescape-ca.pem
       - TRACKER_SCENES_SOURCE=api
       # Override host proxy settings - Paho MQTT dont respect no_proxy var, so as a WA
-      # tracker code detects empty vars and unsets them (see mqtt_client.cpp clearEmptyProxyVars)
+      # tracker code detects empty vars and unsets them (see proxy_utils.cpp clearEmptyProxyEnvVars)
       - http_proxy=
       - https_proxy=
       - HTTP_PROXY=
