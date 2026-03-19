@@ -105,12 +105,10 @@ def read_passwd(file_path):
     return None
 
 def infer_from_img(img, model, intrinsics, categories):
-
   class_ids = [category['id'] for category in categories]
   input_height = model.input().shape[3]
   input_width = model.input().shape[4]
   input_size = (input_height, input_width)
-
   network_input, intrinsics_scaled = preprocess(img, intrinsics, input_size)
   network_output = model(network_input)
   anns = postprocess(
@@ -118,10 +116,9 @@ def infer_from_img(img, model, intrinsics, categories):
     intrinsics_scaled,
     input_size,
     class_ids,
-    score_threshold=SCORE_THRESHOLD, # 0.3,
-    nms_threshold=NMS_THRESHOLD #0.65,
+    score_threshold=SCORE_THRESHOLD,
+    nms_threshold=NMS_THRESHOLD,
   )
-
   return anns
 
 class DeepScenario:
@@ -134,7 +131,28 @@ class DeepScenario:
     self.max_distance = max_distance
     self.model = load_model(MODEL_PATH, self.password, "CPU")
 
+  def clip_box_to_image(self, x, y, w, h, img_w, img_h):
+      x1 = int(round(x))
+      y1 = int(round(y))
+      x2 = int(round(x + w))
+      y2 = int(round(y + h))
+
+      x1 = max(0, min(x1, img_w - 1))
+      y1 = max(0, min(y1, img_h - 1))
+      x2 = max(0, min(x2, img_w))
+      y2 = max(0, min(y2, img_h))
+
+      w2 = x2 - x1
+      h2 = y2 - y1
+
+      if w2 <= 0 or h2 <= 0:
+          return None
+
+      return x1, y1, w2, h2
+
   def process_frame(self, frame: VideoFrame) -> bool:
+    custom_regions = []
+
     with frame.data() as frame_data:
       original_image_copy = frame_data.copy()
       annotations = infer_from_img(frame_data, self.model, self.intrinsics, self.categories)
@@ -148,7 +166,16 @@ class DeepScenario:
           corners_3d = get_box_corners(annotation)
           x, y, w, h = compute_2d_bbox_closest_surface(corners_3d, self.intrinsics)
           label = self.category_dict.get(annotation["category_id"], "")
-          roi = frame.add_region(x, y, w, h, label, annotation["score"], False, annotation)
+          frame.add_region(x, y, w, h, label, float(annotation["score"]), False)
+          custom_regions.append({
+          "label": label,
+          "score": float(annotation["score"]),
+          "bbox": {"x": int(x), "y": int(y), "w": int(w), "h": int(h)},
+          "category_id": int(annotation["category_id"]),
+          "translation": [float(v) for v in annotation["translation"]],
+          "rotation": [float(v) for v in annotation["rotation"]],
+          "dimension": [float(v) for v in annotation["dimension"]],
+          })
     frame.add_message(
       json.dumps(
         {
@@ -156,6 +183,7 @@ class DeepScenario:
           'original_image_base64': base64.b64encode(
             cv2.imencode('.jpg', original_image_copy)[1]
           ).decode('utf-8'),
+          "custom_regions_3d": custom_regions,
         }
       )
     )
