@@ -59,6 +59,7 @@ def _fetch_pypi_license_file(package_name, version=None):
       1. Query the PyPI JSON API to find the project source URL.
       2. Resolve to a GitHub repository.
       3. Try common LICENSE file names and return the first one found.
+      4. If the version-specific query has no source URL, retry without version.
 
     Results are cached in _package_license_file_cache.
     Returns the full license file text, or None if not found.
@@ -67,18 +68,19 @@ def _fetch_pypi_license_file(package_name, version=None):
     if cache_key in _package_license_file_cache:
         return _package_license_file_cache[cache_key]
 
-    # Query PyPI JSON API
-    if version:
-        api_url = f"https://pypi.org/pypi/{package_name}/{version}/json"
-    else:
-        api_url = f"https://pypi.org/pypi/{package_name}/json"
-    try:
-        resp = requests.get(api_url, timeout=10)
-        if resp.status_code != 200:
-            _package_license_file_cache[cache_key] = None
+    def _query_pypi(name, ver):
+        url = f"https://pypi.org/pypi/{name}/{ver}/json" if ver else f"https://pypi.org/pypi/{name}/json"
+        try:
+            r = requests.get(url, timeout=10)
+            return r.json() if r.status_code == 200 else None
+        except Exception:
             return None
-        data = resp.json()
-    except Exception:
+
+    data = _query_pypi(package_name, version)
+    # If version-specific query fails to yield a source URL, retry without version
+    if data is None and version:
+        data = _query_pypi(package_name, None)
+    if data is None:
         _package_license_file_cache[cache_key] = None
         return None
 
@@ -86,16 +88,23 @@ def _fetch_pypi_license_file(package_name, version=None):
     project_urls = info.get("project_urls") or {}
     home_page = (info.get("home_page") or "").strip()
 
-    # Search for a GitHub URL across common project_url keys
+    # Search for a GitHub URL across common project_url keys (case-insensitive)
     github_url = None
-    source_key_priority = ["Source Code", "Source", "Repository", "GitHub", "Code", "Homepage", "Home"]
+    source_key_priority = ["source code", "source", "repository", "github", "code", "homepage", "home"]
+    project_urls_lower = {k.lower(): v for k, v in project_urls.items()}
     for key in source_key_priority:
-        val = (project_urls.get(key) or "").strip()
+        val = (project_urls_lower.get(key) or "").strip()
         if "github.com" in val:
             github_url = val
             break
     if not github_url and "github.com" in home_page:
         github_url = home_page
+    # Last resort: any URL in project_urls pointing to github.com
+    if not github_url:
+        for val in project_urls.values():
+            if val and "github.com" in val:
+                github_url = val
+                break
 
     if not github_url:
         _package_license_file_cache[cache_key] = None
@@ -106,9 +115,10 @@ def _fetch_pypi_license_file(package_name, version=None):
         _package_license_file_cache[cache_key] = None
         return None
 
-    # Try common LICENSE file names in the default branch
+    # Try common LICENSE file names in the default branch; also NOTICE and AUTHORS as fallback
     license_filenames = ["LICENSE", "LICENSE.txt", "LICENSE.md", "LICENSE.rst",
-                         "LICENCE", "COPYING", "COPYING.txt"]
+                         "LICENCE", "COPYING", "COPYING.txt",
+                         "NOTICE", "NOTICE.txt", "AUTHORS", "AUTHORS.txt"]
     for filename in license_filenames:
         raw_url = f"https://raw.githubusercontent.com/{repo_path}/HEAD/{filename}"
         try:
@@ -126,6 +136,8 @@ def _fetch_pypi_license_file(package_name, version=None):
 def get_pypi_package_copyright(package_name, version=None):
     """
     Fetch copyright statement(s) from a PyPI package's source repository.
+    Falls back to the PyPI metadata 'author' field when no Copyright line is
+    present in the LICENSE/NOTICE/AUTHORS file.
     Returns a newline-joined string of copyright lines, or None if not found.
     """
     cache_key = f"pypi:{package_name}:{version}"
@@ -133,15 +145,30 @@ def get_pypi_package_copyright(package_name, version=None):
         return _copyright_cache[cache_key]
 
     license_text = _fetch_pypi_license_file(package_name, version)
-    if license_text is None:
-        _copyright_cache[cache_key] = None
-        return None
+    if license_text is not None:
+        copyright_lines = extract_copyright_from_text(license_text)
+        if copyright_lines:
+            result = "\n".join(copyright_lines)
+            _copyright_cache[cache_key] = result
+            return result
 
-    copyright_lines = extract_copyright_from_text(license_text)
-    if copyright_lines:
-        result = "\n".join(copyright_lines)
-        _copyright_cache[cache_key] = result
-        return result
+    # Fallback: derive copyright from PyPI metadata author field
+    def _query_pypi(name, ver):
+        url = f"https://pypi.org/pypi/{name}/{ver}/json" if ver else f"https://pypi.org/pypi/{name}/json"
+        try:
+            r = requests.get(url, timeout=10)
+            return r.json() if r.status_code == 200 else None
+        except Exception:
+            return None
+
+    data = _query_pypi(package_name, version) or _query_pypi(package_name, None)
+    if data:
+        info = data.get("info", {})
+        author = (info.get("author") or "").strip()
+        if author:
+            result = f"Copyright (c) {author}"
+            _copyright_cache[cache_key] = result
+            return result
 
     _copyright_cache[cache_key] = None
     return None
@@ -246,16 +273,135 @@ def _extract_dep5_copyrights(text):
     return extract_copyright_from_text(text)
 
 
+# Static overrides for Debian binary packages whose source package name cannot
+# be derived from the binary name by simple heuristics.
+_DEBIAN_SOURCE_OVERRIDES = {
+    # ffmpeg family
+    "libavcodec59": "ffmpeg", "libavcodec60": "ffmpeg", "libavcodec61": "ffmpeg",
+    "libavdevice59": "ffmpeg", "libavdevice60": "ffmpeg",
+    "libavfilter8": "ffmpeg", "libavfilter9": "ffmpeg",
+    "libavformat59": "ffmpeg", "libavformat60": "ffmpeg",
+    "libavutil57": "ffmpeg", "libavutil58": "ffmpeg",
+    "libpostproc56": "ffmpeg", "libpostproc57": "ffmpeg",
+    "libswresample4": "ffmpeg", "libswresample5": "ffmpeg",
+    "libswscale6": "ffmpeg", "libswscale7": "ffmpeg",
+    # libpng
+    "libpng16-16": "libpng", "libpng12-0": "libpng",
+    # glib / gdk-pixbuf
+    "libglib2.0-0": "glib2.0", "libglib2.0-data": "glib2.0",
+    "libgdk-pixbuf-2.0-0": "gdk-pixbuf", "libgdk-pixbuf2.0-common": "gdk-pixbuf",
+    # pcre2 / pcre3
+    "libpcre2-8-0": "pcre2", "libpcre2-16-0": "pcre2", "libpcre2-32-0": "pcre2",
+    "libpcre3": "pcre3",
+    # GCC runtime (multiple major versions)
+    "libgcc-s1": "gcc-12", "libstdc++6": "gcc-12",
+    "libgomp1": "gcc-12", "libgfortran5": "gcc-12", "libquadmath0": "gcc-12",
+    "gcc-12-base": "gcc-12", "gcc-13-base": "gcc-13", "gcc-14-base": "gcc-14",
+    # glibc
+    "libc6": "glibc", "libc6-dev": "glibc", "libc-dev-bin": "glibc",
+    # perl runtime
+    "libperl5.36": "perl", "libperl5.38": "perl", "libperl5.40": "perl",
+    # readline
+    "libreadline8": "readline", "libreadline8t64": "readline",
+    # vorbis
+    "libvorbis0a": "libvorbis", "libvorbisenc2": "libvorbis", "libvorbisfile3": "libvorbis",
+    # libxcb family
+    "libxcb-dri2-0": "libxcb", "libxcb-dri3-0": "libxcb", "libxcb-glx0": "libxcb",
+    "libxcb-present0": "libxcb", "libxcb-randr0": "libxcb", "libxcb-render0": "libxcb",
+    "libxcb-shape0": "libxcb", "libxcb-shm0": "libxcb", "libxcb-sync1": "libxcb",
+    "libxcb-xfixes0": "libxcb", "libxcb-xkb1": "libxcb", "libxcb1": "libxcb",
+    "libxcb-icccm4": "libxcb-util-wm",
+    "libxcb-image0": "libxcb-util-image",
+    "libxcb-keysyms1": "libxcb-util-keysyms",
+    "libxcb-render-util0": "libxcb-util-renderutil",
+    # jpeg / jbig
+    "libjpeg62-turbo": "libjpeg-turbo",
+    "libjbig0": "jbigkit",
+    # audio/video codecs
+    "libmp3lame0": "lame", "libmpg123-0": "mpg123",
+    "librav1e0": "rav1e", "libsvtav1enc1": "svt-av1",
+    "libcodec2-1.0": "codec2",
+    "libde265-0": "libde265",
+    "libjxl0.7": "jpeg-xl",
+    # hdf
+    "libhdf4-0-alt": "hdf4", "libhdf5-103-1": "hdf5", "libhdf5-hl-100": "hdf5",
+    # kml
+    "libkmlbase1": "libkml", "libkmldom1": "libkml", "libkmlengine1": "libkml",
+    # various
+    "libblosc1": "c-blosc",
+    "liblapack3": "lapack", "libblas3": "lapack",
+    "libltdl7": "libtool",
+    "liblua5.3-0": "lua5.3", "liblua5.4-0": "lua5.4",
+    "libmbedcrypto7": "mbedtls",
+    "libmfx1": "intel-mediasdk",
+    "libnghttp2-14": "nghttp2",
+    "libnuma1": "numactl",
+    "libodbc2": "unixodbc", "libodbcinst2": "unixodbc",
+    "libogdi4.1": "ogdi",
+    "libopenal-data": "openal-soft", "libopenal1": "openal-soft",
+    "libpango-1.0-0": "pango1.0", "libpangocairo-1.0-0": "pango1.0", "libpangoft2-1.0-0": "pango1.0",
+    "libpgm-5.3-0": "openpgm",
+    "libproc2-0": "procps",
+    "librsvg2-2": "librsvg",
+    "librtmp1": "rtmpdump",
+    "libsasl2-2": "cyrus-sasl2", "libsasl2-modules-db": "cyrus-sasl2",
+    "libsdl2-2.0-0": "libsdl2",
+    "libsnappy1v5": "snappy",
+    "libsqlite3-0": "sqlite3",
+    "libsrt1.5-gnutls": "srt",
+    "libssh-gcrypt-4": "libssh",
+    "libssh2-1": "libssh2",
+    "libusb-1.0-0": "libusb-1.0",
+    "libva-drm2": "libva", "libva-x11-2": "libva",
+    "libvidstab1.1": "vid.stab",
+    "libx264-164": "x264", "libx265-199": "x265",
+    "libapache2-mod-wsgi-py3": "libapache2-mod-wsgi",
+    "libaprutil1-dbd-sqlite3": "apr-util", "libaprutil1-ldap": "apr-util", "libaprutil1": "apr-util",
+    "libavc1394-0": "libavc1394",
+    "libdc1394-25": "libdc1394",
+    "libgme0": "game-music-emu",
+    "libgraphite2-3": "graphite2",
+    "libgudev-1.0-0": "libgudev",
+    "libharfbuzz0b": "harfbuzz",
+    "libhwy1": "highway",
+    "libiec61883-0": "libiec61883",
+    "libimath-3-1-29": "imath",
+    "libjack-jackd2-0": "jackd2",
+    "libkmlbase1": "libkml",
+    "liblcms2-2": "lcms2",
+    "libldap-2.5-0": "openldap",
+    "liblept5": "leptonica",
+    "liblilv-0-0": "lilv",
+    "libmbedcrypto7": "mbedtls",
+    "libpsl5t64": "libpsl",
+    "libqhull-r8.0": "qhull",
+    "libraw1394-11": "libraw1394",
+    "libsensors5": "lm-sensors", "libsensors-config": "lm-sensors",
+    "libserd-0-0": "serd",
+    "libsord-0-0": "sord",
+    "libsratom-0-0": "sratom",
+    "libwayland-client0": "wayland", "libwayland-cursor0": "wayland",
+    "libwayland-egl1": "wayland", "libwayland-server0": "wayland",
+}
+
+
 def _debian_source_name_candidates(binary_name):
     """
     Generate source package name candidates from a Debian binary package name.
 
     Debian binary packages often have names like 'libbrotli1' while the source
     package is 'brotli'.  Common patterns are tried in order:
-      1. Exact match (binary name == source name)
-      2. Strip trailing digits (libbrotli1 -> libbrotli)
-      3. Strip leading 'lib' prefix + trailing digits (libbrotli1 -> brotli)
+      1. Static override map (exact known binary→source mappings)
+      2. Exact match (binary name == source name)
+      3. Strip trailing digits (libbrotli1 -> libbrotli)
+      4. Strip leading 'lib' prefix + trailing digits (libbrotli1 -> brotli)
     """
+    # Check static override map first
+    if binary_name in _DEBIAN_SOURCE_OVERRIDES:
+        override = _DEBIAN_SOURCE_OVERRIDES[binary_name]
+        # Return the override first, fall back to the binary name itself
+        return [override, binary_name]
+
     candidates = [binary_name]
     # Strip trailing version digit(s): libfoo2 -> libfoo
     no_digits = re.sub(r'\d+$', '', binary_name)
@@ -314,12 +460,20 @@ def _fetch_debian_copyright_for_source_pkg(package_name, version):
     if not versions:
         return None
 
-    # Pick the best matching version: exact first, then upstream-prefix match, then latest
+    # Pick the best matching version:
+    # 1. Exact match
+    # 2. Upstream prefix match (strips Debian/Ubuntu revision suffix)
+    # 3. Latest available
+    # For Ubuntu packages (version contains 'ubuntu'), also try stripping
+    # the ubuntu-specific part to find the upstream version prefix.
     src_version = None
     if version and version in versions:
         src_version = version
     else:
-        upstream_ver = version.split("-")[0] if version else ""
+        # Strip Ubuntu/epoch revision: "14.2.0-4ubuntu2~24.04.1" -> "14.2.0"
+        # Also strip epoch prefix like "1:8.4.7+dfsg-1" -> "8.4.7"
+        ver_no_epoch = version.split(":", 1)[-1] if version else ""
+        upstream_ver = re.split(r"[-~+]", ver_no_epoch)[0] if ver_no_epoch else ""
         for v in versions:
             if upstream_ver and v.startswith(upstream_ver):
                 src_version = v
