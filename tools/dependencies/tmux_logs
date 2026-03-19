@@ -1,0 +1,1190 @@
+
+Fetching copyright statements from package sources...
+  --  -e git+https://github.com/facebookresearch/map-anything.git@b84b28f4f4052c8dd5d8febe873125e00bf9ab3e#egg=mapanything: no copyright found
+  --  -e git+https://github.com/facebookresearch/vggt.git@44b3afbd1869d8bde4894dd8ea1e293112dd5eba#egg=vggt: no copyright found
+  OK  ConfigArgParse==1.7.5: Copyright (c) 2015 bw2
+  OK  Django==5.2.12: Copyright (c) Django Software Foundation and individual contributors.
+  OK  Flask-SocketIO==5.4.1: Copyright (c) 2014 Miguel Grinberg
+  OK  Flask-SocketIO==5.6.1: Copyright (c) 2014 Miguel Grinberg
+  OK  Flask==3.0.3: Copyright 2010 Pallets
+  OK  Flask==3.1.1: Copyright 2010 Pallets
+  OK  Flask==3.1.3: Copyright 2010 Pallets
+  OK  ImageIO==2.37.3: Copyright (c) 2014-2026, imageio developers
+  OK  Jinja2==3.1.6: Copyright 2007 Pallets
+  OK  Markdown==3.10.2: Copyright 2007, 2008 The Python Markdown Project (v. 1.7 and later)
+  OK  MarkupSafe==2.1.5: Copyright 2010 Pallets
+  OK  MarkupSafe==3.0.3: Copyright 2010 Pallets
+  OK  PySocks==1.7.1: Copyright 2006 Dan-Haim. All rights reserved.
+  OK  PyYAML==6.0.3: Copyright (c) 2017-2021 Ingy döt Net
+  OK  Pygments==2.19.2: Copyright (c) 2006-2022 by the respective authors (see AUTHORS file).
+  OK  Werkzeug==3.1.5: Copyright 2007 Pallets
+  OK  Werkzeug==3.1.6: Copyright 2007 Pallets
+  --  abseil/20250127.0: no copyright found
+  OK  absl-py==2.4.0: Copyright (c) The Abseil Authors
+  OK  addict==2.4.0: Copyright (c) 2014 Mats Julian Olsen
+  --  aiofiles==23.2.1: no copyright found
+  --  aiofiles==24.1.0: no copyright found
+  --  aiofiles==25.1.0: no copyright found
+  OK  annotated-doc==0.0.4: Copyright (c) 2025 Sebastián Ramírez
+  OK  annotated-types==0.7.0: Copyright (c) 2022 the contributors
+  OK  antlr4-python3-runtime==4.9.3: Copyright (c) Eric Vergnaud, Terence Parr, Sam Harwell
+  OK  anyio==4.12.1: Copyright (c) 2018 Alex Grönholm
+  --  apache2-bin:2.4.66-1~deb12u1: no copyright found
+  --  apache2-data:2.4.66-1~deb12u1: no copyright found
+  --  apache2-utils:2.4.66-1~deb12u1: no copyright found
+  OK  apache2:2.4.66-1~deb12u1: 2022 The Apache Software Foundation
+  OK  argon2-cffi-bindings==25.1.0: Copyright (c) 2021 Hynek Schlawack
+  OK  argon2-cffi==25.1.0: Copyright (c) 2015 Hynek Schlawack and the argon2-cffi contributors
+  OK  asgiref==3.11.1: Copyright (c) Django Software Foundation and individual contributors.
+  OK  asttokens==3.0.1: Copyright (c) Dmitry Sagalovskiy, Grist Labs
+  OK  attrs==25.4.0: Copyright (c) 2015 Hynek Schlawack and the attrs contributors
+  --  autoconf/2.71: no copyright found
+  --  automake/1.16.5: no copyright found
+  --  beautifulsoup4==4.14.3: no copyright found
+  OK  bidict==0.23.1: Copyright 2009-2026 Joshua Bronson. All rights reserved.
+  OK  bindfs:1.14.7-1: Copyright (C) 2006-2016 Martin Pärtel <martin.partel@gmail.com>
+  OK  blinker==1.9.0: Copyright 2010 Jason Kirtland
+  OK  brotli==1.2.0: Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
+  OK  busybox: 1999-2005 Erik Andersen
+  OK  bzip2:1.0.8-5+b1: 1996-2010 Julian R Seward <jseward@bzip.org>
+  --  c-ares/1.34.6: no copyright found
+  OK  ca-certificates:20240203: 2003 Fumitoshi UKAI <ukai@debian.or.jp>
+  OK  certifi==2026.2.25: Copyright (c) Kenneth Reitz
+  OK  cffi==2.0.0: Copyright (c) Armin Rigo, Maciej Fijalkowski
+  OK  charset-normalizer==3.4.5: Copyright (c) 2025 TAHRI Ahmed R.
+  --  cli11/2.6.0: no copyright found
+  OK  click==8.3.0: Copyright 2014 Pallets
+  OK  click==8.3.1: Copyright 2014 Pallets
+  --  cmake/3.31.11: no copyright found
+  --  cmake/4.2.3: no copyright found
+  OK  colorlog==6.10.1: Copyright (c) 2012-2021 Sam Clements <sam@borntyping.co.uk>
+  OK  comm==0.2.3: Copyright (c) 2022, Jupyter
+  OK  contourpy==1.3.3: Copyright (c) 2021-2026, ContourPy Developers.
+  OK  cpp-httplib/0.28.0: Copyright (c) 2017 yhirose
+  --  cryptography==46.0.5: no copyright found
+  OK  curl:7.88.1-10+deb12u14: 1997-2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+  OK  cycler==0.12.1: Copyright (c) 2015, matplotlib project
+  OK  dash==4.0.0: Copyright (c) 2015-2024 Plotly Technologies Inc.
+  --  decorator==5.2.1: no copyright found
+  OK  django-axes==8.0.0: Copyright (c) 2008 Josh VanderLinden
+  OK  django-debug-toolbar==6.0.0: Copyright (c) Rob Hudson and individual contributors.
+  OK  django-session-timeout==0.1.0: Copyright (c) 2017 Michael van Tellingen
+  OK  djangorestframework==3.16.1: Copyright © 2011-present, [Encode OSS Ltd](https://www.encode.io/).
+  OK  dnspython==2.7.0: Copyright (C) Dnspython Contributors
+  OK  dnspython==2.8.0: Copyright (C) Dnspython Contributors
+  OK  docstring_parser==0.17.0: Copyright (c) 2018 Marcin Kurczewski
+  --  dt_apriltags @ file:///tmp/dt_apriltags-3.3.0-py3-none-any.whl#sha256=f5241c8347751572647629b3afba291d403164e1a593fb0f076e542ccd1436b6: no copyright found
+  OK  durationpy==0.10: Copyright 2017 Ilia Choly
+  --  eigen/3.4.0: no copyright found
+  OK  einops==0.8.2: Copyright (c) 2018 Alex Rogozhnikov
+  OK  embreex==2.17.7.post7: Copyright (c) 2015, Anthony Scopatz
+  OK  eventlet==0.40.3: Copyright (c) 2005-2006, Bob Ippolito
+  OK  executing==2.2.1: Copyright (c) 2019 Alex Hall
+  OK  fastapi==0.135.1: Copyright (c) 2018 Sebastián Ramírez
+  OK  fastjsonschema==2.21.2: Copyright (c) 2018, Michal Horejsek
+  OK  ffmpeg:7:5.1.8-0+deb12u1: 1990, James Ashton - Sydney University
+  OK  ffmpy==1.0.0: Copyright (c) Andrii Yurchuk
+  OK  filelock==3.25.1: Copyright (c) 2025 Bernát Gábor and contributors
+  OK  flask-cors==6.0.0: Copyright (C) 2025 Cory Dolphin
+  OK  flatbuffers==25.12.19: Copyright (c) Derek Bailey
+  --  fontconfig-config:2.14.1-4: no copyright found
+  --  fontconfig:2.14.1-4: no copyright found
+  --  fonts-dejavu-core:2.37-6: no copyright found
+  OK  fonttools==4.62.0: Copyright (c) 2017 Just van Rossum
+  OK  fsspec==2026.2.0: Copyright (c) 2018, Martin Durant
+  OK  fuse:2.9.9-6+b1: 2001-2015 Miklos Szeredi <miklos@szeredi.hu>,
+  OK  gcc-14-base:amd64:14.2.0-4ubuntu2~24.04.1: Copyright (c) 2009-2019 by the LLVM contributors.
+  --  gcr.io/distroless/cc-debian13@sha256:d7ac2f9af248f31fe6270002755722afdf6875e0e49cd52b9150208e6a23875c: no copyright found
+  --  gdal-data:3.6.2+dfsg-1: no copyright found
+  --  gdal-plugins:3.6.2+dfsg-1+b2: no copyright found
+  OK  gdown==5.2.1: Copyright (c) 2015 Kentaro Wada.
+  --  git-man:1:2.39.5-0+deb12u3: no copyright found
+  OK  git:1:2.39.5-0+deb12u3: © 2005-2026, Linus Torvalds and others.
+  --  gnu-config/cci.20210814: no copyright found
+  OK  google-auth==2.49.0: Copyright (c) Google Cloud Platform
+  --  googleapis-common-protos==1.73.0: no copyright found
+  OK  gosu:1.14-1+b10: 2014 Tianon Gravi
+  --  gradio==5.17.1: no copyright found
+  --  gradio==6.7.0: no copyright found
+  --  gradio_client==1.7.1: no copyright found
+  --  gradio_client==2.2.0: no copyright found
+  OK  greenlet==3.1.1: Copyright (c) Armin Rigo, Christian Tismer and contributors
+  OK  greenlet==3.3.2: Copyright (c) Armin Rigo, Christian Tismer and contributors
+  --  groovy==0.1.2: no copyright found
+  OK  grpc/1.67.1: Copyright 2016, Google Inc.
+  OK  grpcio==1.78.0: Copyright 2016, Google Inc.
+  OK  gtest/1.17.0: Copyright 2008, Google Inc.
+  --  gunicorn==22.0.0: no copyright found
+  OK  h11==0.16.0: Copyright (c) 2016 Nathaniel J. Smith <njs@pobox.com> and other contributors
+  OK  h5py==3.15.1: Copyright (c) 2008 Andrew Collette and contributors
+  --  hf-xet==1.3.2: no copyright found
+  --  hloc @ file:///tmp/hloc-1.3-py3-none-any.whl#sha256=cfa30da2c64ddae4b5742050bef43cf21b32937ea14639e7f5966e257a079bea: no copyright found
+  OK  httpcore==1.0.9: Copyright © 2020, [Encode OSS Ltd](https://www.encode.io/).
+  OK  httpx==0.28.1: Copyright © 2019, [Encode OSS Ltd](https://www.encode.io/).
+  OK  huggingface_hub==1.3.1: Copyright (c) Hugging Face, Inc.
+  OK  huggingface_hub==1.6.0: Copyright (c) Hugging Face, Inc.
+  OK  hydra-core==1.3.2: Copyright (c) Facebook, Inc. and its affiliates.
+  OK  idna==3.11: Copyright (c) 2013-2025, Kim Davies and contributors.
+  --  importlib_metadata==8.7.1: no copyright found
+  OK  ipython==9.10.0: Copyright (c) The IPython Development Team
+  --  ipython_pygments_lexers==1.1.1: no copyright found
+  OK  ipywidgets==8.1.8: Copyright (c) Jupyter Development Team
+  OK  isodate==0.7.2: Copyright (c) 2021, Hugo van Kemenade and contributors
+  OK  itsdangerous==2.2.0: Copyright 2011 Pallets
+  OK  jaxtyping==0.3.9: Copyright (c) 2022 Google LLC
+  OK  jedi==0.19.2: Copyright (c) <2013> <David Halter and others, see AUTHORS.txt>
+  OK  joblib==1.5.2: Copyright (c) 2008-2021, The joblib developers.
+  OK  joblib==1.5.3: Copyright (c) 2008-2021, The joblib developers.
+  OK  jsonschema-specifications==2025.9.1: Copyright (c) 2022 Julian Berman
+  OK  jsonschema==4.25.1: Copyright (c) 2013 Julian Berman
+  OK  jsonschema==4.26.0: Copyright (c) 2013 Julian Berman
+  --  jupyter_core==5.9.1: no copyright found
+  OK  jupyterlab_widgets==3.0.16: Copyright (c) 2015 Project Jupyter Contributors
+  OK  kiwisolver==1.5.0: Copyright (c) 2013-2026, Nucleic Development Team
+  --  kornia==0.8.2: no copyright found
+  --  kornia_rs==0.1.10: no copyright found
+  OK  kubernetes==33.1.0: Copyright 2014 The Kubernetes Authors.
+  OK  kubernetes==34.1.0: Copyright 2014 The Kubernetes Authors.
+  OK  lazy-loader==0.5: Copyright (c) 2022--2023, Scientific Python project
+  OK  libaec0:amd64:1.0.6-1+b1: Copyright 2012 - 2014
+  OK  libaom3:amd64:3.6.0-1+deb12u2: 2001-2022, Alliance for Open Media
+  --  libapache2-mod-wsgi-py3:4.9.4-1+b2: no copyright found
+  OK  libapr1:amd64:1.7.2-3+deb12u1: Copyright (C) 2000 by Martin Pool <mbp@humbug.org.au>
+  OK  libaprutil1-dbd-sqlite3:amd64:1.6.3-1: Copyright (C) 2000 by Martin Pool <mbp@humbug.org.au>
+  OK  libaprutil1-ldap:amd64:1.6.3-1: Copyright (C) 2000 by Martin Pool <mbp@humbug.org.au>
+  OK  libaprutil1:amd64:1.6.3-1: Copyright (C) 2000 by Martin Pool <mbp@humbug.org.au>
+  OK  libarchive13:amd64:3.6.2-1+deb12u3: (c) 2003-2018 Tim Kientzle
+  OK  libarmadillo11:1:11.4.2+dfsg-1: 2008-2025 Conrad Sanderson (http://conradsanderson.id.au)
+  OK  libarpack2:amd64:3.8.0-3: 1996-2008 Rice University.
+  --  libasound2-data:1.2.8-1: no copyright found
+  --  libasound2:amd64:1.2.8-1+b1: no copyright found
+  OK  libass9:amd64:1:0.17.1-1: 2005-2024, x264 project
+  OK  libasyncns0:amd64:0.8-6+b3: 2005-2009 Lennart Poettering
+  OK  libavc1394-0:amd64:0.5.4-5: 2003 Dan Dennedy <dan@dennedy.org>
+  OK  libavcodec59:amd64:7:5.1.8-0+deb12u1: 1990, James Ashton - Sydney University
+  OK  libavdevice59:amd64:7:5.1.8-0+deb12u1: 1990, James Ashton - Sydney University
+  OK  libavfilter8:amd64:7:5.1.8-0+deb12u1: 1990, James Ashton - Sydney University
+  OK  libavformat59:amd64:7:5.1.8-0+deb12u1: 1990, James Ashton - Sydney University
+  OK  libavutil57:amd64:7:5.1.8-0+deb12u1: 1990, James Ashton - Sydney University
+  OK  libblas3:amd64:3.11.0-2: 1992-2022 The University of Tennessee and The University of Tennessee Research Foundation
+  OK  libblosc1:amd64:1.21.3+ds-1: 2014-2018 Francesc Alted <francesc@blosc.org>
+  OK  libbluray2:amd64:1:1.3.4-1: 2009-2010, hpi1
+  OK  libbrotli1:amd64:1.0.9-2+b6: 2009, 2010, 2013-2015 by the Brotli Authors
+  OK  libbs2b0:amd64:3.1.0+dfsg-7: 2005-2009 Boris Mikhaylov <boris_mikhaylov@users.sourceforge.net>
+  OK  libbsd0:amd64:0.11.7-2: Copyright © 2004-2006, 2008-2022 Guillem Jover <guillem@hadrons.org>
+  OK  libc6:amd64:2.41-12+deb13u1: 1991-2025 Free Software Foundation, Inc.
+  OK  libcaca0:amd64:0.99.beta20-3: 2009-2012, <carmie@zoy.org>
+  --  libcairo-gobject2:amd64:1.16.0-7: no copyright found
+  OK  libcairo2:amd64:1.16.0-7: Copyright 1999 Tom Tromey
+  --  libcdio-cdda2:amd64:10.2+2.0.1-1: no copyright found
+  OK  libcdio-paranoia2:amd64:10.2+2.0.1-1: Copyright (C) 1999, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Rocky Bernstein <rocky@gnu.org>
+  OK  libcdio19:amd64:2.1.0-4: 1985, 1987-2013 Free Software Foundation, Inc.
+  OK  libcfitsio10:amd64:4.2.0-3: Copyright (Unpublished--all rights reserved under the copyright laws of
+  OK  libcharls2:amd64:2.4.1-1: © Jan de Vaan 2007-2010, all rights reserved.
+  OK  libchromaprint1:amd64:1.5.1-2+b1: 2010-2012 Lukáš Lalinský <lalinsky@gmail.com>
+  OK  libcjson1:amd64:1.7.15-1+deb12u4: 2009-2020, Dave Gamble and cJSON contributors
+  OK  libcodec2-1.0:amd64:1.0.5-1: Copyright 2007-2019 David Rowe
+  --  libcurl/8.18.0: no copyright found
+  --  libcurl3-gnutls:amd64:7.88.1-10+deb12u14: no copyright found
+  OK  libcurl4:amd64:7.88.1-10+deb12u14: 1997-2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+  OK  libdatrie1:amd64:0.2.13-2+b1: 2006-2021 Theppitak Karoonboonyanan <theppitak@gmail.com>
+  OK  libdav1d6:amd64:1.0.0-2+deb12u1: 2018-2022, VideoLAN and dav1d authors
+  --  libdbus-1-3:amd64:1.14.10-1~deb12u1: no copyright found
+  OK  libdc1394-25:amd64:2.2.6-4: Copyright (C) 2000      Carnegie Mellon University
+  OK  libde265-0:amd64:1.0.11-1+deb12u2: 2013-2014 struktur AG, Dirk Farin <farin@struktur.de>
+  --  libdecor-0-0:amd64:0.1.1-2: no copyright found
+  OK  libdeflate0:amd64:1.14-1: 2016, 2018, Eric Biggers
+  OK  libdouble-conversion3:amd64:3.2.1-1: 2006-2008, 2010-2012 The V8 project authors
+  --  libdrm-amdgpu1:amd64:2.4.114-1+b1: no copyright found
+  --  libdrm-common:2.4.114-1: no copyright found
+  --  libdrm-intel1:amd64:2.4.114-1+b1: no copyright found
+  --  libdrm-nouveau2:amd64:2.4.114-1+b1: no copyright found
+  --  libdrm-radeon1:amd64:2.4.114-1+b1: no copyright found
+  OK  libdrm2:amd64:2.4.114-1+b1: Copyright 2005 Adam Jackson.
+  OK  libedit2:amd64:3.1-20221030-2: Copyright (c) 1992, 1993
+  --  libegl-mesa0:amd64:22.3.6-1+deb12u1: no copyright found
+  --  libegl1:amd64:1.6.0-1: no copyright found
+  --  libelf1:amd64:0.188-2.1: no copyright found
+  OK  libepoxy0:amd64:1.5.10-1: 2013-2014 Intel Corporation
+  OK  liberror-perl:0.17029-2: 1997-1998, Graham Barr <gbarr@pobox.com>
+  OK  libevdev2:amd64:1.13.0+dfsg-1: 2013-2014, 2019, 2021 Red Hat, Inc.
+  OK  libexpat1:amd64:2.5.0-1+deb12u2: Copyright (C) Expat maintainers
+  OK  libexpat1:amd64:2.6.1-2ubuntu0.4: Copyright (C) Expat maintainers
+  OK  libflac12:amd64:1.4.2+ds-2: 2011-2022, Xiph.Org Foundation
+  OK  libflite1:amd64:2.2-5: Copyright (c) 1999-2001 by:
+  --  libfontconfig1:amd64:2.14.1-4: no copyright found
+  OK  libfreetype6:amd64:2.12.1+dfsg-5+deb12u4: 1996-2022 David Turner, Robert Wilhelm and Werner Lemberg
+  OK  libfreexl1:amd64:1.0.6-2: © 2011-2012, Alessandro Furieri <a.furieri@lqt.it>
+  OK  libfribidi0:amd64:1.0.8-2.1: 2001,2002,2004,2005 Behdad Esfahbod
+  OK  libfuse2:amd64:2.9.9-6+b1: 2001-2015 Miklos Szeredi <miklos@szeredi.hu>,
+  OK  libfyba0:amd64:4.1.1-8: 1990-2011 Statens kartverk
+  --  libgbm1:amd64:22.3.6-1+deb12u1: no copyright found
+  OK  libgcc-s1:amd64:14.2.0-19: Copyright (c) 2009-2019 by the LLVM contributors.
+  OK  libgcc-s1:amd64:14.2.0-4ubuntu2~24.04.1: Copyright (c) 2009-2019 by the LLVM contributors.
+  OK  libgdal32:3.6.2+dfsg-1+b2: 2007-2022, Even Rouault <even dot rouault at spatialys dot com>
+  --  libgdbm-compat4:amd64:1.23-3: no copyright found
+  --  libgdcm3.0:amd64:3.0.21-1: no copyright found
+  OK  libgdk-pixbuf-2.0-0:amd64:2.42.10+dfsg-1+deb12u3: Copyright (C) 1999-2016 Red Hat, Inc
+  OK  libgdk-pixbuf2.0-common:2.42.10+dfsg-1+deb12u3: Copyright (C) 1999-2016 Red Hat, Inc
+  --  libgeos-c1v5:amd64:3.11.1-1: no copyright found
+  --  libgeos3.11.1:amd64:3.11.1-1: no copyright found
+  OK  libgeotiff5:amd64:1.7.1-2+b1: 1995, Niles D. Ritter
+  OK  libgfortran5:amd64:12.2.0-14+deb12u1: Copyright (c) 2009-2019 by the LLVM contributors.
+  --  libgif7:amd64:5.2.1-2.5: no copyright found
+  --  libgl1-mesa-dri:amd64:22.3.6-1+deb12u1: no copyright found
+  --  libgl1:amd64:1.6.0-1: no copyright found
+  --  libglapi-mesa:amd64:22.3.6-1+deb12u1: no copyright found
+  OK  libglib2.0-0:amd64:2.74.6-2+deb12u8: 2004-2005 Adam Weinberger
+  OK  libglvnd0:amd64:1.6.0-1: 2013-2017 NVIDIA Corporation
+  --  libglx-mesa0:amd64:22.3.6-1+deb12u1: no copyright found
+  --  libglx0:amd64:1.6.0-1: no copyright found
+  OK  libgme0:amd64:0.6.3-6: 2003-2009 Shay Green <gblargg@gmail.com>
+  --  libgnutls30t64:amd64:3.8.3-1.1ubuntu3.5: no copyright found
+  OK  libgomp1:amd64:12.2.0-14+deb12u1: Copyright (c) 2009-2019 by the LLVM contributors.
+  OK  libgomp1:amd64:14.2.0-19: Copyright (c) 2009-2019 by the LLVM contributors.
+  OK  libgraphite2-3:amd64:1.3.14-1: (C) 2010-2011, SIL International
+  OK  libgsm1:amd64:1.0.22-1: 1992-1994 by Jutta Degener and Carsten Bormann, Technische Universitaet Berlin
+  OK  libgudev-1.0-0:amd64:237-2: 2008-2010 David Zeuthen <davidz@redhat.com>
+  OK  libharfbuzz0b:amd64:6.0.0+dfsg-3: 2018-2020, Adobe, Inc
+  --  libhdf4-0-alt:4.2.15-5: no copyright found
+  OK  libhdf5-103-1:amd64:1.10.8+repack1-1: 1998-2006 The Board of Trustees of the University of Illinois
+  OK  libhdf5-hl-100:amd64:1.10.8+repack1-1: 1998-2006 The Board of Trustees of the University of Illinois
+  OK  libheif1:amd64:1.15.1-1+deb12u1: 2017 struktur AG, Dirk Farin <farin@struktur.de>
+  OK  libhwloc15:amd64:2.9.0-1: Copyright © 2009 CNRS
+  OK  libhwy1:amd64:1.0.3-3+deb12u1: 2019-2022 Google LLC
+  OK  libice6:amd64:2:1.0.10-1: Copyright 1993, 1998  The Open Group
+  OK  libicu72:amd64:72.1-3+deb12u1: Copyright Â© 1991-2022 Unicode, Inc.
+  OK  libiec61883-0:amd64:1.2.0-6+b1: 2002-2004 Kristian HÃ¸gsberg <krh@bitplanet.net> (cip and amdtp)
+  OK  libimath-3-1-29:amd64:3.1.6-1: 2005, Industrial Light & Magic, a division of Lucas Digital Ltd. LLC
+  --  libinput-bin:1.22.1-1: no copyright found
+  OK  libinput10:amd64:1.22.1-1: Copyright © 2006-2009 Simon Thum
+  OK  libjack-jackd2-0:amd64:1.9.21~dfsg-3: 2002, Apple Computer, Inc
+  OK  libjansson4:amd64:2.14-2: 2009-2014 Petri Lehtinen <petri@digip.org>
+  OK  libjbig0:amd64:2.1-6.1: 1995-2008 Dr. Marcus Kuhn <mgk25@cl.cam.ac.uk>
+  OK  libjpeg62-turbo:amd64:1:2.1.5-2: 1991-2020, Thomas G. Lane, Guido Vollbeding
+  OK  libjson-c5:amd64:0.16-2: 2004-2005, 2013 Metaparadigm Pte. Ltd. <michael@metaparadigm.com>,
+  OK  libjxl0.7:amd64:0.7.0-10+deb12u1: 2020 the JPEG XL Project
+  OK  libkmlbase1:amd64:1.3.0-10: 2008-2010, Google Inc.
+  OK  libkmldom1:amd64:1.3.0-10: 2008-2010, Google Inc.
+  OK  libkmlengine1:amd64:1.3.0-10: 2008-2010, Google Inc.
+  OK  liblapack3:amd64:3.11.0-2: 1992-2022 The University of Tennessee and The University of Tennessee Research Foundation
+  OK  liblcms2-2:amd64:2.14-2: 1998-2022 Marti Maria Saguer <marti.maria@littlecms.com>
+  OK  libldap-2.5-0:amd64:2.5.13+dfsg-5: Copyright 1998-2022 The OpenLDAP Foundation.
+  --  liblept5:amd64:1.82.0-3+b3: no copyright found
+  OK  liblerc4:amd64:4.0.0+ds-2: 2015-2022, Esri
+  OK  liblilv-0-0:amd64:0.24.14-1: 2007-2021 David Robillard <https://drobilla.net>
+  OK  libllvm15:amd64:1:15.0.6-4+b1: Copyright (C) 2004 Sam Hocevar
+  OK  libltdl7:amd64:2.4.7-7~deb12u1: 1996-2015 Free Software Foundation, Inc.
+  OK  liblua5.3-0:amd64:5.3.6-2: 1994â€“2020 Lua.org, PUC-Rio.
+  OK  libmariadb3:amd64:1:10.11.14-0+deb12u2: 2000-2016, Oracle and/or its affiliates. All rights reserved.
+  OK  libmbedcrypto7:amd64:2.28.3-1: The Mbed TLS Contributors
+  OK  libmd4c0:amd64:0.4.8-1: 2016-2020 Martin Mitáš
+  OK  libmfx1:amd64:22.5.4-1: 2018 Intel
+  OK  libminizip1:amd64:1.1-8+deb12u1: Copyright (C) 1998-2010 Gilles Vollant <info@winimage.com>
+  OK  libmosquitto1:amd64:2.0.11-1.2+deb12u2: 2009-2021 Roger A. Light <roger@atchoo.org>
+  OK  libmp3lame0:amd64:3.100-6: © 1998, Michael Cheng
+  OK  libmpg123-0:amd64:1.31.2-1+deb12u1: 1995-2021 by the mpg123 project
+  OK  libmtdev1:amd64:1.1.6-1: 2010, Henrik Rydberg <rydberg@euromail.se>
+  OK  libmysofa1:amd64:1.3.1~dfsg0-1: 2016-2019 Christian Hoene <christian.hoene@symonics.com>, Symonics GmbH
+  OK  libnetcdf19:amd64:1:4.9.0-3+b1: 1988-2025, University Corporation for Atmospheric Research/Unidata
+  OK  libnghttp2-14:amd64:1.52.0-1+deb12u2: 2012, 2013, 2014 Tatsuhiro Tsujikawa
+  OK  libnorm1:amd64:1.5.9+dfsg-2: 2005-2015 Naval Research Laboratory (NRL)
+  OK  libnspr4:amd64:2:4.35-1: 1998-2000 Netscape Communications Corporation.
+  OK  libnss3:amd64:2:3.87.1-1+deb12u2: 1994-2000 Netscape Communications Corporation.
+  OK  libnuma1:amd64:2.0.16-1: Copyright (C) 2004 Andi Kleen
+  OK  libodbc2:amd64:2.3.11-2+deb12u1: 1999-2022 Nick Gorham
+  OK  libodbcinst2:amd64:2.3.11-2+deb12u1: 1999-2022 Nick Gorham
+  --  libogdi4.1:4.1.0+ds-6: no copyright found
+  OK  libogg0:amd64:1.3.5-3: 1994-2020, the Xiph.Org Foundation http://www.xiph.org/
+  OK  libopenal-data:1:1.19.1-2: © 1999-2014 the OpenAL team
+  OK  libopenal1:amd64:1:1.19.1-2: © 1999-2014 the OpenAL team
+  --  libopencv-calib3d406:amd64:4.6.0+dfsg-12: no copyright found
+  --  libopencv-contrib406:amd64:4.6.0+dfsg-12: no copyright found
+  --  libopencv-core406:amd64:4.6.0+dfsg-12: no copyright found
+  --  libopencv-dnn406:amd64:4.6.0+dfsg-12: no copyright found
+  --  libopencv-features2d406:amd64:4.6.0+dfsg-12: no copyright found
+  --  libopencv-flann406:amd64:4.6.0+dfsg-12: no copyright found
+  --  libopencv-highgui406:amd64:4.6.0+dfsg-12: no copyright found
+  --  libopencv-imgcodecs406:amd64:4.6.0+dfsg-12: no copyright found
+  --  libopencv-imgproc406:amd64:4.6.0+dfsg-12: no copyright found
+  --  libopencv-ml406:amd64:4.6.0+dfsg-12: no copyright found
+  --  libopencv-objdetect406:amd64:4.6.0+dfsg-12: no copyright found
+  --  libopencv-stitching406:amd64:4.6.0+dfsg-12: no copyright found
+  --  libopencv-video406:amd64:4.6.0+dfsg-12: no copyright found
+  --  libopenexr-3-1-30:amd64:3.1.5-5: no copyright found
+  --  libopengl0:amd64:1.6.0-1: no copyright found
+  --  libopenjp2-7:amd64:2.5.0-2+deb12u2: no copyright found
+  OK  libopenmpt0:amd64:0.6.9-1: 1997-2003, Olivier Lapicque
+  OK  libopus0:amd64:1.3.1-3: 2001-2018, Xiph.Org
+  OK  libpango-1.0-0:amd64:1.50.12+ds-1: 1999-2019  Red Hat
+  OK  libpangocairo-1.0-0:amd64:1.50.12+ds-1: 1999-2019  Red Hat
+  OK  libpangoft2-1.0-0:amd64:1.50.12+ds-1: 1999-2019  Red Hat
+  OK  libpciaccess0:amd64:0.17-2: Copyright (c) 2007, 2008, 2009, 2011, 2012, 2013 Oracle and/or its affiliates.
+  OK  libpcre2-16-0:amd64:10.42-1: 1997-2022 University of Cambridge.
+  OK  libperl5.36:amd64:5.36.0-7+deb12u3: Perl is Copyright (C) 1987-2022 by Larry Wall and others. All rights reserved.
+  --  libpgm-5.3-0:amd64:5.3.128~dfsg-2: no copyright found
+  --  libpixman-1-0:amd64:0.42.2-1: no copyright found
+  OK  libplacebo208:amd64:4.208.0-3: 2009-2016, Nicolas P. Rougier
+  OK  libpng16-16:amd64:1.6.39-2+deb12u3: copyright (C) 2001 Philippe Troin <phil@fifi.org>,
+  OK  libpocketsphinx3:amd64:0.8+5prealpha+1-15: 1995-2014 Carnegie Mellon University.  All rights reserved.
+  OK  libpoppler126:amd64:22.12.0-2+deb12u1: Copyright © 2008 Adam Batkin
+  OK  libpostproc56:amd64:7:5.1.8-0+deb12u1: 1990, James Ashton - Sydney University
+  --  libpq5:amd64:15.16-0+deb12u1: no copyright found
+  OK  libproc2-0:amd64:2:4.0.2-3: 1998-2004 Albert Cahalan
+  OK  libproj25:amd64:9.1.1-1+b1: 2008-2022, Even Rouault <even dot rouault at mines-paris dot org>
+  OK  libprotobuf32:amd64:3.21.12-3: 2008-2021 Google Inc.
+  OK  libpsl5:amd64:0.21.2-1: 2014-2022 Tim Ruehsen
+  OK  libpsl5t64:amd64:0.21.2-1.1build1: 2014-2022 Tim Ruehsen
+  --  libpthread-stubs0-dev:amd64:0.4-1: no copyright found
+  --  libpulse0:amd64:16.1+dfsg1-2+b1: no copyright found
+  --  libpython3-stdlib:amd64:3.11.2-1+b1: no copyright found
+  --  libpython3-stdlib:amd64:3.12.3-0ubuntu2.1: no copyright found
+  --  libpython3.11-minimal:amd64:3.11.2-6+deb12u6: no copyright found
+  --  libpython3.11-stdlib:amd64:3.11.2-6+deb12u6: no copyright found
+  OK  libpython3.11:amd64:3.11.2-6+deb12u6: (c) 2008-2009, Google Inc.
+  --  libpython3.12-minimal:amd64:3.12.3-1ubuntu0.12: no copyright found
+  --  libpython3.12-stdlib:amd64:3.12.3-1ubuntu0.12: no copyright found
+  OK  libqhull-r8.0:amd64:2020.2-5: 1993-2020, C.B. Barber <brad@qhull.org>
+  --  libqt5core5a:amd64:5.15.8+dfsg-11+deb12u3: no copyright found
+  --  libqt5dbus5:amd64:5.15.8+dfsg-11+deb12u3: no copyright found
+  --  libqt5gui5:amd64:5.15.8+dfsg-11+deb12u3: no copyright found
+  --  libqt5network5:amd64:5.15.8+dfsg-11+deb12u3: no copyright found
+  --  libqt5opengl5:amd64:5.15.8+dfsg-11+deb12u3: no copyright found
+  --  libqt5test5:amd64:5.15.8+dfsg-11+deb12u3: no copyright found
+  --  libqt5widgets5:amd64:5.15.8+dfsg-11+deb12u3: no copyright found
+  OK  libquadmath0:amd64:12.2.0-14+deb12u1: Copyright (c) 2009-2019 by the LLVM contributors.
+  OK  librabbitmq4:amd64:0.11.0-1+deb12u1: 2007-2012, VMware, Inc.
+  --  librav1e0:amd64:0.5.1-6: no copyright found
+  OK  libraw1394-11:amd64:2.1.2-2: Copyright (C) 1994-2005  Free Software Foundation, Inc.
+  OK  libreadline8t64:amd64:8.2-4build1: Copyright (C) 1987-2022 Free Software Foundation, Inc.
+  OK  librist4:amd64:0.2.7+dfsg-1: 2019-2021, VideoLAN and librist authors
+  OK  librsvg2-2:amd64:2.54.7+dfsg-1~deb12u1: 2000 Eazel, Inc.
+  OK  librtmp1:amd64:2.4+20151223.gitfa8646d.1-2+b2: 2008-2009 Andrej Stepanchuk
+  OK  librttopo1:amd64:1.1.0-3: 2004-2016, Sandro Santilli <strk@kbt.io>
+  OK  librubberband2:amd64:3.1.2+dfsg0-1: 2007-2011, Chris Cannam <cannam@all-day-breakfast.com>
+  OK  libsamplerate0:amd64:0.2.2-3: 2002-2021 Erik de Castro Lopo <erikd@mega-nerd.com>
+  OK  libsasl2-2:amd64:2.1.28+dfsg-10: 1998-2003, Carnegie Mellon University
+  OK  libsasl2-modules-db:amd64:2.1.28+dfsg-10: 1998-2003, Carnegie Mellon University
+  OK  libsdl2-2.0-0:amd64:2.26.5+dfsg-1: 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  OK  libsensors-config:1:3.6.0-7.1: Copyright 1999-2002 Merlin Hughes <merlin@merlin.org>
+  OK  libsensors5:amd64:1:3.6.0-7.1: Copyright 1999-2002 Merlin Hughes <merlin@merlin.org>
+  OK  libserd-0-0:amd64:0.30.16-1: 2011-2022 David Robillard <https://drobilla.net>
+  OK  libshine3:amd64:3.1.1-2: Gabriel Bougvigne
+  OK  libslang2:amd64:2.3.3-3: 1995-2011 John E. Davis <davis@space.mit.edu>
+  OK  libsm6:amd64:2:1.2.3-1: Copyright 1993, 1998  The Open Group
+  OK  libsnappy1v5:amd64:1.1.9-3: 2005-     Google Inc. <opensource@google.com>
+  OK  libsndfile1:amd64:1.2.0-1+deb12u1: 1999-2022, Erik de Castro Lopo <erikd@mega-nerd.com>
+  --  libsndio7.0:amd64:1.9.0-0.3+b2: no copyright found
+  OK  libsocket++1:amd64:1.12.13+git20131030.5d039ba-1+b1: 1992-1996 Gnanasekaran Swaminathan
+  OK  libsodium23:amd64:1.0.18-1+deb12u1: 2013-2017 Frank Denis <j at pureftpd dot org>
+  OK  libsord-0-0:amd64:0.16.14+git221008-1: 2011-2021 David Robillard <https://drobilla.net>
+  OK  libsoxr0:amd64:0.1.3-4: 2007-2013, Rob Sykes <robs@users.sourceforge.net>
+  OK  libspatialite7:amd64:5.0.1-3: 2008-2021, Alessandro Furieri <a.furieri@lqt.it>
+  OK  libspeex1:amd64:1.2.1-2: 2002-2007 Jean-Marc Valin <jean-marc.valin@hermes.usherb.ca>
+  OK  libsphinxbase3:amd64:0.8+5prealpha+1-16: 1994-2015 Carnegie Mellon University
+  OK  libsqlite3-0:amd64:3.45.1-1ubuntu2.5: D. Richard Hipp <drh@hwaci.com>
+  OK  libsratom-0-0:amd64:0.6.14-1: 2012-2022 David Robillard <https://drobilla.net>
+  OK  libsrt1.5-gnutls:amd64:1.5.1-1+deb12u1: 2017-2021 Haivision Systems Inc.
+  OK  libssh-gcrypt-4:amd64:0.10.6-0+deb12u2: *No copyright*
+  OK  libssh2-1:amd64:1.10.0-3+b1: (c) 2004-2007 Sara Golemon <sarag@libssh2.org>
+  OK  libstdc++6:amd64:14.2.0-19: Copyright (c) 2009-2019 by the LLVM contributors.
+  OK  libstdc++6:amd64:14.2.0-4ubuntu2~24.04.1: Copyright (c) 2009-2019 by the LLVM contributors.
+  OK  libsuperlu5:amd64:5.3.0+dfsg1-2+b1: 2003, The Regents of the University of California, through Lawrence
+  OK  libsvtav1enc1:amd64:1.4.1+dfsg-1: 2016-2021 Alliance for Open Media
+  OK  libswresample4:amd64:7:5.1.8-0+deb12u1: 1990, James Ashton - Sydney University
+  OK  libswscale6:amd64:7:5.1.8-0+deb12u1: 1990, James Ashton - Sydney University
+  --  libsz2:amd64:1.0.6-1+b1: no copyright found
+  OK  libtbb12:amd64:2021.8.0-2+deb12u1: Copyright (c) 2005-2017 Intel Corporation
+  --  libtbbbind-2-5:amd64:2021.8.0-2+deb12u1: no copyright found
+  --  libtbbmalloc2:amd64:2021.8.0-2+deb12u1: no copyright found
+  OK  libtesseract5:amd64:5.3.0-2: 1988-1995 Hewlett Packard Company.
+  --  libthai-data:0.1.29-1: no copyright found
+  OK  libthai0:amd64:0.1.29-1: 2001-2021 Theppitak Karoonboonyanan <theppitak@gmail.com>,
+  OK  libtheora0:amd64:1.1.1+dfsg.1-16.1+deb12u1: 1992-2004, Xiph.org Foundation
+  OK  libtiff6:amd64:4.5.0-6+deb12u3: 1988-1997 Sam Leffler
+  --  libtool/2.4.7: no copyright found
+  OK  libtwolame0:amd64:0.4.0-2: 2001-2004 Michael Cheng
+  OK  libudfread0:amd64:1.1.2-1: 2014-2017 VLC authors and VideoLAN
+  OK  liburiparser1:amd64:0.9.7+dfsg-2: 2007      Weijia Song <songweijia@gmail.com>
+  OK  libusb-1.0-0:amd64:2:1.0.26-1: Copyright 2001 Johannes Erdfelt <johannes@erdfelt.com>
+  OK  libva-drm2:amd64:2.17.0-1: 1998-1999, Precision Insight, Inc.
+  OK  libva-x11-2:amd64:2.17.0-1: 1998-1999, Precision Insight, Inc.
+  OK  libva2:amd64:2.17.0-1: 1998-1999, Precision Insight, Inc.
+  OK  libvdpau1:amd64:1.5-2: © 2008-2022 NVIDIA Corporation
+  --  libvidstab1.1:amd64:1.1.0-2+b1: no copyright found
+  OK  libvorbis0a:amd64:1.3.7-1: 2002-2020, Xiph.org Foundation
+  OK  libvorbisenc2:amd64:1.3.7-1: 2002-2020, Xiph.org Foundation
+  OK  libvorbisfile3:amd64:1.3.7-1: 2002-2020, Xiph.org Foundation
+  OK  libvpx7:amd64:1.12.0-1+deb12u5: (c) 2010-2018, The WebM Project authors. All rights reserved.
+  OK  libvulkan1:amd64:1.3.239.0-1: 2015-2016 Valve Corporation
+  --  libwacom-common:2.6.0-1: no copyright found
+  OK  libwacom9:amd64:2.6.0-1: 2011, Red Hat, Inc.
+  OK  libwayland-client0:amd64:1.21.0-1: © 2011 Cyril Brulebois <kibi@debian.org>
+  OK  libwayland-cursor0:amd64:1.21.0-1: © 2011 Cyril Brulebois <kibi@debian.org>
+  OK  libwayland-egl1:amd64:1.21.0-1: © 2011 Cyril Brulebois <kibi@debian.org>
+  OK  libwayland-server0:amd64:1.21.0-1: © 2011 Cyril Brulebois <kibi@debian.org>
+  OK  libwebp7:amd64:1.2.4-0.2+deb12u1: Copyright (C) 2010, Google Inc. All rights reserved.
+  --  libwebpmux3:amd64:1.2.4-0.2+deb12u1: no copyright found
+  --  libx11-6:amd64:2:1.8.4-2+deb12u2: no copyright found
+  --  libx11-data:2:1.8.4-2+deb12u2: no copyright found
+  --  libx11-dev:amd64:2:1.8.4-2+deb12u2: no copyright found
+  --  libx11-xcb1:amd64:2:1.8.4-2+deb12u2: no copyright found
+  OK  libx264-164:amd64:2:0.164.3095+gitbaee400-3: 2003-2025 x264 project
+  OK  libx265-199:amd64:3.5-2+b1: 2013-2020, MulticoreWare, Inc
+  --  libxau-dev:amd64:1:1.0.9-1: no copyright found
+  OK  libxau6:amd64:1:1.0.9-1: Copyright 1988, 1998  The Open Group
+  --  libxcb-dri2-0:amd64:1.15-1: no copyright found
+  --  libxcb-dri3-0:amd64:1.15-1: no copyright found
+  --  libxcb-glx0:amd64:1.15-1: no copyright found
+  --  libxcb-icccm4:amd64:0.4.1-1.1: no copyright found
+  --  libxcb-image0:amd64:0.4.0-2: no copyright found
+  --  libxcb-keysyms1:amd64:0.4.0-1+b2: no copyright found
+  --  libxcb-present0:amd64:1.15-1: no copyright found
+  --  libxcb-randr0:amd64:1.15-1: no copyright found
+  --  libxcb-render-util0:amd64:0.3.9-1+b1: no copyright found
+  --  libxcb-render0:amd64:1.15-1: no copyright found
+  --  libxcb-shape0:amd64:1.15-1: no copyright found
+  --  libxcb-shm0:amd64:1.15-1: no copyright found
+  --  libxcb-sync1:amd64:1.15-1: no copyright found
+  OK  libxcb-util1:amd64:0.4.0-1+b1: 2008-2009 Julien Danjou <julien@danjou.info>
+  --  libxcb-xfixes0:amd64:1.15-1: no copyright found
+  --  libxcb-xinerama0:amd64:1.15-1: no copyright found
+  --  libxcb-xinput0:amd64:1.15-1: no copyright found
+  --  libxcb-xkb1:amd64:1.15-1: no copyright found
+  --  libxcb1-dev:amd64:1.15-1: no copyright found
+  --  libxcb1:amd64:1.15-1: no copyright found
+  OK  libxcursor1:amd64:1:1.2.1-1: Copyright 2003 Software in the Public Interest, Inc.
+  --  libxdmcp-dev:amd64:1:1.1.2-3: no copyright found
+  OK  libxdmcp6:amd64:1:1.1.2-3: 1989, 1998, The Open Group
+  --  libxerces-c3.2:amd64:3.2.4+debian-1: no copyright found
+  OK  libxext6:amd64:2:1.3.4-1+b1: Copyright 1986, 1987, 1988, 1989, 1994, 1998  The Open Group
+  OK  libxfixes3:amd64:1:6.0.0-2: Copyright (c) 2006, Oracle and/or its affiliates. All rights reserved.
+  OK  libxi6:amd64:2:1.8-1+b1: Copyright 1989, 1998  The Open Group
+  --  libxkbcommon-x11-0:amd64:1.5.0-1: no copyright found
+  OK  libxkbcommon0:amd64:1.5.0-1: Copyright 1985, 1987, 1988, 1990, 1998  The Open Group
+  OK  libxml2:amd64:2.9.14+dfsg-1.3~deb12u5: 1998-2017 Daniel Veillard <daniel@veillard.com>
+  OK  libxrandr2:amd64:2:1.5.2-2+b1: Copyright © 2000, Compaq Computer Corporation,
+  --  libxrender-dev:amd64:1:0.9.10-1.1: no copyright found
+  OK  libxrender1:amd64:1:0.9.10-1.1: Copyright © 2001,2003 Keith Packard
+  --  libxshmfence1:amd64:1.3-1: no copyright found
+  OK  libxss1:amd64:1:1.2.3-1: Copyright (c) 1992  X Consortium
+  OK  libxv1:amd64:2:1.0.11-1.1: 1991 by Digital Equipment Corporation, Maynard, Massachusetts,
+  OK  libxvidcore4:amd64:2:1.3.7-1: © 1999, Intel Corporation
+  OK  libxxf86vm1:amd64:1:1.1.4-1+b2: 1995 Kaleb S. KEITHLEY
+  --  libz3-4:amd64:4.8.12-3.1: no copyright found
+  OK  libzimg2:amd64:3.0.4+ds1-1: 2014-2020, sekrit-twc
+  --  libzmq5:amd64:4.3.4-6: no copyright found
+  --  libzvbi-common:0.2.41-1: no copyright found
+  OK  libzvbi0:amd64:0.2.41-1: 2000-2013 Michael H. Schimek <mschimek@gmx.at, mschimek@users.sf.net>
+  --  lightglue @ git+https://github.com/jytime/LightGlue.git@2f23ca2ea9638cecad7f7220795210fc6b8353c3: no copyright found
+  OK  lightning-utilities==0.15.3: Copyright 2018-2021 William Falcon
+  OK  lxml==6.0.2: Copyright (c) 2004 Infrae. All rights reserved.
+  --  m4/1.4.19: no copyright found
+  --  manager @ file:///home/scenescape/SceneScape/manager: no copyright found
+  --  manifold3d==3.4.0: no copyright found
+  OK  mapbox_earcut==1.0.3: Copyright (c) Samuel Kogler
+  OK  mapbox_earcut==2.0.0: Copyright (c) Samuel Kogler
+  --  mariadb-common:1:10.11.14-0+deb12u2: no copyright found
+  OK  markdown-it-py==4.0.0: Copyright (c) 2020 ExecutableBookProject
+  OK  matplotlib-inline==0.2.1: Copyright (c) 2019-2022, IPython Development Team.
+  OK  matplotlib==3.10.8: Copyright (c) John D. Hunter, Michael Droettboom
+  OK  mdurl==0.1.2: Copyright (c) 2015 Vitaly Puzrin, Alex Kocharin.
+  --  media-types:10.0.0: no copyright found
+  OK  media-types:10.1.0: public-domain
+  --  meson/1.10.1: no copyright found
+  OK  minio==7.2.20: Copyright (c) MinIO, Inc.
+  --  mosquitto-clients:2.0.11-1.2+deb12u2: no copyright found
+  OK  mpmath==1.3.0: Copyright (c) 2005-2026 Fredrik Johansson and mpmath contributors
+  OK  ms-gsl/4.0.0: Copyright (c) 2015 Microsoft Corporation. All rights reserved.
+  OK  msgspec==0.20.0: Copyright (c) 2021, Jim Crist-Harif
+  --  mysql-common:5.8+1.1.0: no copyright found
+  OK  narwhals==2.18.0: Copyright (c) 2024 to present, Marco Gorelli
+  OK  natsort==8.4.0: Copyright (c) 2012-2023 Seth M. Morton
+  --  nbformat==5.10.4: no copyright found
+  OK  nest-asyncio==1.6.0: Copyright (c) 2018-2020, Ewald de Wit
+  OK  netbase:6.4: Copyright (c) 1994-1998 Peter Tobias
+  OK  netcat-openbsd:1.219-1: 2001 Eric Jackson <ericj@monkey.org>
+  OK  networkx==3.6.1: Copyright (c) 2004-2025, NetworkX Developers
+  --  ninja/1.13.2: no copyright found
+  --  nlohmann_json/3.11.3: no copyright found
+  OK  nodeenv==1.10.0: Copyright (c) 2011, Eugene Kalinin.
+  OK  ntplib==0.4.0: Copyright (c) Charles-Francois Natali
+  OK  numpy==1.26.1: Copyright (c) 2005-2025, NumPy Developers.
+  OK  numpy==2.2.6: Copyright (c) 2005-2025, NumPy Developers.
+  OK  numpy==2.3.5: Copyright (c) 2005-2025, NumPy Developers.
+  OK  numpy==2.4.3: Copyright (c) 2005-2025, NumPy Developers.
+  OK  oauthlib==3.3.1: Copyright (c) The OAuthlib Community
+  --  ocl-icd-libopencl1:amd64:2.3.1-1: no copyright found
+  OK  omegaconf==2.3.0: Copyright (c) 2018, Omry Yadan
+  OK  onnxruntime==1.24.3: Copyright (c) Microsoft Corporation
+  OK  onvif_zeep==0.2.12: Copyright (c) 2014 Quatanium Co., Ltd.
+  OK  open3d-cpu==0.19.0: Copyright (c) 2018-2023 www.open3d.org
+  OK  opencv-python-headless==4.10.0.84: Copyright (c) Olli-Pekka Heinisuo
+  OK  opencv-python-headless==4.11.0.86: Copyright (c) Olli-Pekka Heinisuo
+  OK  opencv-python-headless==4.12.0.88: Copyright (c) Olli-Pekka Heinisuo
+  OK  opencv-python-headless==4.13.0.92: Copyright (c) Olli-Pekka Heinisuo
+  OK  opencv-python==4.11.0.86: Copyright (c) Olli-Pekka Heinisuo
+  --  opencv/4.12.0: no copyright found
+  --  openjpeg/2.5.4: no copyright found
+  --  openssl/3.6.1: no copyright found
+  OK  openssl:3.0.13-0ubuntu3.7: 1995-2026, The OpenSSL Project Authors
+  --  opentelemetry-api==1.38.0: no copyright found
+  --  opentelemetry-cpp/1.18.0: no copyright found
+  --  opentelemetry-exporter-otlp-proto-common==1.38.0: no copyright found
+  --  opentelemetry-exporter-otlp-proto-grpc==1.38.0: no copyright found
+  --  opentelemetry-proto/1.4.0: no copyright found
+  --  opentelemetry-proto==1.38.0: no copyright found
+  --  opentelemetry-sdk==1.38.0: no copyright found
+  --  opentelemetry-semantic-conventions==0.59b0: no copyright found
+  --  orjson==3.11.5: no copyright found
+  --  orjson==3.11.6: no copyright found
+  --  orjson==3.11.7: no copyright found
+  --  packaging==24.2: no copyright found
+  --  packaging==26.0: no copyright found
+  --  paho-mqtt-c/1.3.13: no copyright found
+  --  paho-mqtt-cpp/1.5.3: no copyright found
+  --  paho-mqtt==2.1.0: no copyright found
+  OK  pandas==2.3.3: Copyright (c) 2008-2011, AQR Capital Management, LLC, Lambda Foundry, Inc. and PyData Development Team
+  OK  pandas==3.0.1: Copyright (c) 2008-2011, AQR Capital Management, LLC, Lambda Foundry, Inc. and PyData Development Team
+  OK  parso==0.8.6: Copyright (c) <2013-2017> <David Halter and others, see AUTHORS.txt>
+  --  perl-modules-5.36:5.36.0-7+deb12u3: no copyright found
+  OK  perl:5.36.0-7+deb12u3: Perl is Copyright (C) 1987-2022 by Larry Wall and others. All rights reserved.
+  OK  pexpect==4.9.0: Copyright (c) 2013-2014, Pexpect development team
+  OK  pillow==11.3.0: Copyright © 1997-2011 by Secret Labs AB
+  OK  pillow==12.1.1: Copyright © 1997-2011 by Secret Labs AB
+  OK  pillow_heif==1.1.1: Copyright (c) 2021-2023, Pillow-Heif contributors.
+  OK  pip==24.0: Copyright (c) 2008-present The pip developers (see AUTHORS.txt file)
+  OK  pip==26.0.1: Copyright (c) 2008-present The pip developers (see AUTHORS.txt file)
+  --  pkgconf/2.5.1: no copyright found
+  OK  platformdirs==4.9.4: Copyright (c) 2010-202x The platformdirs developers
+  OK  plotly==6.6.0: Copyright (c) 2016-2024 Plotly Technologies Inc.
+  OK  plyfile==1.0.3: Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
+  OK  plyfile==1.1.3: Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
+  OK  procps:2:4.0.2-3: 1998-2004 Albert Cahalan
+  --  proj-data:9.1.1-1: no copyright found
+  OK  prompt_toolkit==3.0.52: Copyright (c) 2014, Jonathan Slenders
+  OK  protobuf/5.27.0: Copyright 2008 Google Inc.  All rights reserved.
+  OK  protobuf==6.33.5: Copyright (c) protobuf@googlegroups.com
+  OK  protobuf==7.34.0: Copyright (c) protobuf@googlegroups.com
+  OK  psutil==7.2.2: Copyright (c) 2009, Jay Loden, Dave Daeschler, Giampaolo Rodola
+  OK  psycopg2-binary==2.9.11: Copyright (c) Federico Di Gregorio
+  OK  ptyprocess==0.7.0: Copyright (c) 2013-2014, Pexpect development team
+  OK  pure_eval==0.2.3: Copyright (c) 2019 Alex Hall
+  OK  pyarrow==23.0.1: copyright (c) Google inc and (c) The Chromium Authors and licensed under the
+  OK  pyasn1==0.6.2: Copyright (c) 2005-2020, Ilya Etingof <etingof@gmail.com>
+  OK  pyasn1_modules==0.4.2: Copyright (c) 2005-2020, Ilya Etingof <etingof@gmail.com>
+  OK  pyceres==2.3: Copyright 2022-2023 Computer Vision and Geometry Lab, ETH Zurich
+  --  pycollada==0.9.3: no copyright found
+  OK  pycolmap==0.6.0: Copyright (c) 2020, Mihai Dusmanu <mihai.dusmanu@inf.ethz.ch>.
+  OK  pycolmap==3.10.0: Copyright (c), ETH Zurich and UNC Chapel Hill.
+  OK  pycparser==3.0: Copyright (c) 2008-2022, Eli Bendersky
+  OK  pycryptodome==3.23.0: Copyright (c) Helder Eijs
+  OK  pydantic==2.10.6: Copyright (c) 2017 to present Pydantic Services Inc. and individual contributors.
+  OK  pydantic==2.12.5: Copyright (c) 2017 to present Pydantic Services Inc. and individual contributors.
+  OK  pydantic_core==2.27.2: Copyright (c) 2022 Samuel Colvin
+  OK  pydantic_core==2.41.5: Copyright (c) 2022 Samuel Colvin
+  OK  pydub==0.25.1: Copyright (c) James Robert
+  OK  pyparsing==3.3.2: Copyright (c) 2003-2025  Paul McGuire
+  OK  pyquaternion==0.9.9: Copyright (c) 2015 Kieran Wynn
+  OK  python-box==7.3.2: Copyright (c) 2017-2026 Chris Griffith
+  OK  python-dateutil==2.9.0.post0: Copyright 2017- Paul Ganssle <paul@ganssle.io>
+  OK  python-engineio==4.12.3: Copyright (c) 2015 Miguel Grinberg
+  OK  python-engineio==4.13.1: Copyright (c) 2015 Miguel Grinberg
+  OK  python-multipart==0.0.22: Copyright 2012, Andrew Dunham
+  OK  python-socketio==5.14.0: Copyright (c) 2015 Miguel Grinberg
+  OK  python-socketio==5.16.1: Copyright (c) 2015 Miguel Grinberg
+  --  python3-distutils:3.11.2-3: no copyright found
+  --  python3-lib2to3:3.11.2-3: no copyright found
+  --  python3-minimal:3.11.2-1+b1: no copyright found
+  --  python3-minimal:3.12.3-0ubuntu2.1: no copyright found
+  --  python3-pip:23.0.1+dfsg-1: no copyright found
+  --  python3-pip:24.0+dfsg-1ubuntu1.3: no copyright found
+  --  python3-pkg-resources:66.1.1-1+deb12u2: no copyright found
+  --  python3-pkg-resources:68.1.2-2ubuntu1.2: no copyright found
+  --  python3-setuptools:66.1.1-1+deb12u2: no copyright found
+  --  python3-setuptools:68.1.2-2ubuntu1.2: no copyright found
+  --  python3-wheel:0.38.4-2: no copyright found
+  --  python3-wheel:0.42.0-2: no copyright found
+  --  python3.11-minimal:3.11.2-6+deb12u6: no copyright found
+  OK  python3.11:3.11.2-6+deb12u6: (c) 2008-2009, Google Inc.
+  --  python3.12-minimal:3.12.3-1ubuntu0.12: no copyright found
+  --  python3.12:3.12.3-1ubuntu0.12: no copyright found
+  OK  python3:3.11.2-1+b1: Copyright 1991-1995 by Stichting Mathematisch Centrum, Amsterdam,
+  OK  python3:3.12.3-0ubuntu2.1: Copyright 1991-1995 by Stichting Mathematisch Centrum, Amsterdam,
+  OK  python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d: Copyright 1991-1995 by Stichting Mathematisch Centrum, Amsterdam,
+  OK  pytz==2026.1.post1: Copyright (c) Stuart Bishop
+  OK  quill/11.0.2: Copyright (c) 2020 - present, Odysseas Georgoudis
+  --  rapidjson/cci.20230929: no copyright found
+  --  re2/20230301: no copyright found
+  --  readline-common:8.2-4build1: no copyright found
+  OK  referencing==0.37.0: Copyright (c) 2022 Julian Berman
+  --  requests-file==3.0.1: no copyright found
+  OK  requests-oauthlib==2.0.0: Copyright (c) 2014 Kenneth Reitz.
+  OK  requests-toolbelt==1.0.0: Copyright 2014 Ian Cordasco, Cory Benfield
+  OK  requests==2.32.5: Copyright (c) Kenneth Reitz
+  --  rerun-sdk==0.24.1: no copyright found
+  OK  retrying==1.4.2: Copyright (c) Alex Kuang, Anthony McClosky, Cyrus Durgin, Daniel Nephin, Dougal Matthews, Greg Roodt, Haïkel Guémar, Hugo Klepsch, J Derek Wilson, James Page, Jason Dunkelberger, Job Evers, Jonathan Herriott, Josh Marshall, Joshua Harlow, Justin Turner Arthur, Maxym Shalenyi, Monty Taylor, Pierre-Yves Chibon, Ray Holder, Rees Dooley, Saul Shanabrook, Simon Dollé, Simeon Visser, Thomas Goirand
+  OK  rich==14.3.3: Copyright (c) 2020 Will McGugan
+  OK  rpds-py==0.30.0: Copyright (c) 2023 Julian Berman
+  OK  rsa==4.9.1: Copyright 2011 Sybren A. Stüvel <sybren@stuvel.eu>
+  OK  rtree==1.4.1: Copyright (c) 2018: Sean C. Gillies, Howard Butler and contributors
+  OK  ruff==0.15.5: Copyright (c) 2022 Charles Marsh
+  --  safehttpx==0.1.7: no copyright found
+  --  safetensors==0.7.0: no copyright found
+  --  scikit-image==0.26.0: no copyright found
+  OK  scikit-learn==1.6.1: Copyright (c) 2007-2026 The scikit-learn developers.
+  OK  scikit-learn==1.8.0: Copyright (c) 2007-2026 The scikit-learn developers.
+  OK  scipy==1.16.2: Copyright (c) 2001-2002 Enthought, Inc. 2003, SciPy Developers.
+  OK  scipy==1.16.3: Copyright (c) 2001-2002 Enthought, Inc. 2003, SciPy Developers.
+  OK  scipy==1.17.1: Copyright (c) 2001-2002 Enthought, Inc. 2003, SciPy Developers.
+  OK  semantic-version==2.10.0: Copyright (c) Raphaël Barrois
+  OK  setuptools==68.1.2: Copyright (c) Python Packaging Authority
+  --  setuptools==82.0.1: no copyright found
+  OK  shapely==2.1.1: Copyright (c) 2007, Sean C. Gillies. 2019, Casper van der Wel. 2007-2022, Shapely Contributors.
+  OK  shapely==2.1.2: Copyright (c) 2007, Sean C. Gillies. 2019, Casper van der Wel. 2007-2022, Shapely Contributors.
+  OK  shared-mime-info:2.2-1: Copyright (C) 2002, 2003 Thomas Leonard.
+  OK  shellingham==1.5.4: Copyright (c) 2018, Tzu-ping Chung <uranusjr@gmail.com>
+  OK  simple-websocket==1.1.0: Copyright (c) 2021 Miguel Grinberg
+  OK  six==1.17.0: Copyright (c) 2010-2024 Benjamin Peterson
+  OK  soupsieve==2.8.3: Copyright (c) 2018 - 2026 Isaac Muse <isaacmuse@gmail.com>
+  OK  sqlparse==0.5.5: Copyright (c) 2016, Andi Albrecht <albrecht.andi@gmail.com>
+  OK  stack-data==0.6.3: Copyright (c) 2019 Alex Hall
+  OK  starlette==0.52.1: Copyright © 2018, [Encode OSS Ltd](https://www.encode.io/).
+  OK  stduuid/1.2.3: Copyright (c) 2017
+  OK  sudo:1.9.13p3-1+deb12u3: 1994-1996, 1998-2023  Todd C. Miller <Todd.Miller@sudo.ws>
+  OK  svg.path==7.0: Copyright (c) 2013-2014 Lennart Regebro
+  OK  sympy==1.14.0: Copyright (c) 2006-2023 SymPy Development Team
+  OK  tensorboard-data-server==0.7.2: Copyright 2017 The TensorFlow Authors.  All rights reserved.
+  OK  tensorboard==2.20.0: Copyright 2017 The TensorFlow Authors.  All rights reserved.
+  OK  termcolor==3.3.0: Copyright (c) 2008-2011 Volvox Development Team
+  --  third_party @ file:///tmp/third_party-1.0.0-py3-none-any.whl#sha256=81f4923e9bf13f8014394beddd4822383e6fc4d6397035a91ed83eb3016471d7: no copyright found
+  OK  threadpoolctl==3.6.0: Copyright (c) 2019, threadpoolctl contributors
+  OK  tifffile==2026.3.3: Copyright (c) 2008-2026, Christoph Gohlke
+  OK  timm==1.0.25: Copyright 2019 Ross Wightman
+  OK  tomlkit==0.13.3: Copyright (c) 2018 Sébastien Eustace
+  --  torch==2.10.0+cpu: no copyright found
+  --  torch==2.3.1+cpu: no copyright found
+  --  torch==2.9.1+cpu: no copyright found
+  --  torchaudio==2.9.1+cpu: no copyright found
+  OK  torchmetrics==1.9.0: Copyright 2020-2022 Lightning-AI team
+  --  torchvision==0.18.1+cpu: no copyright found
+  --  torchvision==0.24.1+cpu: no copyright found
+  --  torchvision==0.25.0+cpu: no copyright found
+  OK  tqdm==4.67.1: Copyright (c) 2013 noamraph
+  OK  tqdm==4.67.3: Copyright (c) 2013 noamraph
+  --  traitlets==5.14.3: no copyright found
+  OK  trimesh==4.11.0: Copyright (c) 2023 Michael Dawson-Haggerty
+  OK  trimesh==4.11.2: Copyright (c) 2023 Michael Dawson-Haggerty
+  OK  trimesh==4.11.3: Copyright (c) 2023 Michael Dawson-Haggerty
+  OK  typeguard==4.5.1: Copyright (c) Alex Grönholm
+  OK  typer-slim==0.24.0: Copyright (c) 2019 Sebastián Ramírez
+  OK  typer==0.24.1: Copyright (c) 2019 Sebastián Ramírez
+  OK  typing-inspection==0.4.2: Copyright (c) Pydantic Services Inc. 2025 to present
+  OK  typing_extensions==4.15.0: Copyright (c) 1991 - 1995, Stichting Mathematisch Centrum Amsterdam,
+  OK  tyro==1.0.8: Copyright (c) 2024 Brent Yi
+  OK  tzdata:2025b-0ubuntu0.24.04.1: The Internet Assigned Numbers Authority (IANA)
+  OK  tzdata==2025.3: Copyright (c) 2020, Paul Ganssle (Google)
+  --  ubuntu:24.04@sha256:d1e2e92c075e5ca139d51a140fff46f84315c0fdce203eab2807c7e495eff4f9: no copyright found
+  OK  uniception==0.1.6: Copyright (c) 2024, AirLab Stacks
+  --  unixodbc-common:2.3.11-2+deb12u1: no copyright found
+  OK  urllib3==2.3.0: Copyright (c) 2008-2020 Andrey Petrov and contributors.
+  OK  urllib3==2.6.3: Copyright (c) 2008-2020 Andrey Petrov and contributors.
+  OK  uvicorn==0.41.0: Copyright © 2017-present, [Encode OSS Ltd](https://www.encode.io/).
+  OK  vdms==0.0.22: Copyright (c) 2017 Intel Corporation
+  OK  vhacdx==0.0.10: Copyright (c) 2022 Thomas Wolf
+  --  viser==0.2.23: no copyright found
+  --  wadler_lindig==0.1.7: no copyright found
+  OK  wcwidth==0.6.0: Copyright (c) 2014 Jeff Quast <contact@jeffquast.com>
+  OK  websocket-client==1.9.0: Copyright 2025 engn33r
+  OK  websockets==14.2: Copyright (c) Aymeric Augustin and contributors
+  OK  websockets==15.0.1: Copyright (c) Aymeric Augustin and contributors
+  OK  wget:1.21.3-1+deb12u1: (C) 2007 Free Software Foundation, Inc.
+  OK  wget:1.21.4-1ubuntu4.1: (C) 2007 Free Software Foundation, Inc.
+  OK  wheel==0.42.0: Copyright (c) 2012 Daniel Holth <dholth@fastmail.fm> and contributors
+  OK  wheel==0.46.3: Copyright (c) 2012 Daniel Holth <dholth@fastmail.fm> and contributors
+  OK  widgetsnbextension==4.0.15: Copyright (c) Jupyter Development Team
+  OK  wsproto==1.2.0: Copyright (c) 2017 Benno Rice and contributors
+  OK  wsproto==1.3.2: Copyright (c) 2017 Benno Rice and contributors
+  --  x11-common:1:7.7+23: no copyright found
+  --  x11proto-dev:2022.1-1: no copyright found
+  --  xkb-data:2.35.1-1: no copyright found
+  OK  xorg-sgml-doctools:1:1.11-1.1: Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+  --  xtrans-dev:1.4.0-1: no copyright found
+  OK  xxhash==3.6.0: Copyright (c) 2014-2024, Yue Du
+  OK  yourdfpy==0.0.60: Copyright (c) 2021 Clemens Eppner
+  OK  zeep==4.3.2: Copyright (c) 2016-2021 Michael van Tellingen
+  --  zipp==3.23.0: no copyright found
+  --  zlib/1.3.1: no copyright found
+Processing license expression: (Apache-2.0 OR BSD-3-Clause)
+  Using license text from package source: cryptography==46.0.5
+Processing license expression: (MIT AND Python-2.0)
+  Using license text from package source: greenlet==3.3.2
+Processing license expression: 0BSD AND Apache-2.0 AND LicenseRef-Apache-2.0- AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-Boost-1.0 AND CC-BY-3.0 AND LicenseRef-CC-zero-waive-1.0-us AND LicenseRef-Expat AND FSFAP AND LGPL-2.0-only AND LGPL-2.0-or-later AND MPL-2.0 AND OFL-1.1 AND LicenseRef-Sun-permissive AND Unlicense AND Zlib
+Processing license expression: AFL-2.1 License
+Processing license expression: Apache 2.0
+  Using license text from package source: flatbuffers==25.12.19
+Processing license expression: Apache Software License
+  Using license text from package source: manifold3d==3.4.0
+Processing license expression: Apache-2.0
+  Using license text from package source: abseil/20250127.0
+Processing license expression: Apache-2.0 AND Apache-2.0 AND Bitstream-Vera AND CC0-1.0 AND LicenseRef-Chromium-BSD-style AND LicenseRef-Example AND GPL-2.0-or-later AND GPL-2.0-only AND ICU AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND OFL-1.1 AND TCL AND LicenseRef-Unicode
+Processing license expression: Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-STEREO-CALIB-PERMISSIVE
+Processing license expression: Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND FSFAP AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND NTP AND LicenseRef-gsm AND LicenseRef-sun
+Processing license expression: Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-Bitstream AND CC0-1.0 AND LicenseRef-Expat AND FTL AND GFDL-1.3-only AND LicenseRef-GFDL-NIV-1.3 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LicenseRef-Harfbuzz AND LicenseRef-Hybrid-BSD AND LicenseRef-ICC AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND MPL-2.0 AND LicenseRef-Unicode AND W3C AND Zlib AND LicenseRef-brg-endian AND LicenseRef-libjpeg AND Libpng AND LicenseRef-public-domain
+Processing license expression: Apache-2.0 AND BSD-2-Clause AND LicenseRef-BSD-3-clause-alike-Alexander-Chemeris AND LicenseRef-BSD-3-clause-alike-CREATIS AND LicenseRef-BSD-3-clause-alike-Jan-de-Vaan AND LicenseRef-BSD-3-clause-alike-Mathieu-Malaterre AND LicenseRef-BSD-3-clause-alike-Theodore-Ts AND BSD-4-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND LGPL-2.0-only AND LGPL-2.0-or-later AND Zlib AND LicenseRef-gdcmjpeg AND LicenseRef-public-domain AND LicenseRef-socketxx AND LicenseRef-zlib-libpng
+Processing license expression: Apache-2.0 AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-HDF4 AND NetCDF
+Processing license expression: Apache-2.0 AND BSD-3-Clause AND LicenseRef-Base64 AND LicenseRef-Expat AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-HPND-3i AND LicenseRef-HPND-disclaimer AND LicenseRef-HPND-eos AND LicenseRef-HPND-p-sl-sgi AND LicenseRef-HPND-sl-gl-sgi AND LicenseRef-HPND-sl-sgi AND IJG AND ISC AND LicenseRef-ITT AND Info-ZIP AND LGPL-2.0-only AND LGPL-2.0-or-later AND PostgreSQL AND Qhull AND LicenseRef-cpl-mem-cache AND LicenseRef-fontconfig AND Libpng AND LicenseRef-public-domain AND Zlib
+Processing license expression: Apache-2.0 AND BSD-3-Clause AND LicenseRef-BSD-3-clause-chromium AND LicenseRef-BSD-3-clause-kitware AND LicenseRef-BrownUn-UnCalifornia-ErikCorry AND LicenseRef-Expat AND LicenseRef-Expat-like AND GPL-3.0-only AND LicenseRef-Gareth-McCaughan AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT-open-group AND LicenseRef-Mozilla-permissive AND LicenseRef-PublicDomain-David-Ludwig AND LicenseRef-PublicDomain-Edgar-Simo AND LicenseRef-PublicDomain-Sam-Lantinga AND LicenseRef-RSA-Data-Security AND LicenseRef-SGI-Free-Software-License-B AND SunPro AND LicenseRef-hidapi-orig AND LicenseRef-zlib-libpng-like-permissive AND LicenseRef-zlib-libpng
+Processing license expression: Apache-2.0 AND BSD-3-Clause AND LicenseRef-BSD-3-Clause-Google AND LicenseRef-Expat AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-GPLWithACException AND LicenseRef-Public-Domain
+Processing license expression: Apache-2.0 AND BSD-3-Clause AND LicenseRef-CC0 AND LicenseRef-Expat AND GFDL-1.3-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-GPLv3- AND LicenseRef-LGPL AND LGPL-3.0-only AND LicenseRef-LGPLv2.1- AND LicenseRef-LGPLv3--or-GPLv2- AND LicenseRef-The
+Processing license expression: Apache-2.0 and BSD-3-Clause and MIT
+Processing license expression: Apache-2.0 AND BSD-3-Clause AND MIT AND NTP
+Processing license expression: Apache-2.0 AND BSL-1.0 AND LicenseRef-Expat AND LGPL-2.1-only AND LGPL-2.1-or-later AND Zlib
+Processing license expression: Apache-2.0 AND GPL-2.0-only AND GPL-2.0-or-later
+Processing license expression: Apache-2.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-X11-install-sh AND LicenseRef-permissive-configure AND LicenseRef-permissive-fsf AND LicenseRef-xerces-Apache-2.0
+Processing license expression: Apache-2.0 AND GPL-2.0-only AND GPL-3.0-only
+Processing license expression: Apache-2.0 AND LicenseRef-Artistic AND LicenseRef-Boost AND LicenseRef-EDL-1.0 AND LicenseRef-Expat AND LicenseRef-GPL AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-dlmalloc AND LicenseRef-mingw-runtime
+Processing license expression: Apache-2.0 AND LicenseRef-BSD-1-clause-UCB AND LicenseRef-BSD-124-clause-UCB AND BSD-2-Clause AND LicenseRef-BSD-3-clause-UCB AND LicenseRef-BSD-4-clause-UCB AND CC0-1.0 AND LicenseRef-Expat AND LicenseRef-OpenSSL-SSLeay AND LicenseRef-PD
+Processing license expression: Artistic License or GPL-1.0
+Processing license expression: Bitstream Vera License
+Processing license expression: BSD
+  Using license text from package source: nodeenv==1.10.0
+Processing license expression: BSD 2-Clause "Simplified" License
+  Using license text from package source: embreex==2.17.7.post7
+Processing license expression: BSD License
+  Using license text from package source: kiwisolver==1.5.0
+Processing license expression: BSD-1-Clause AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-BSL AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND IJG AND ISC AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Sundry AND Zlib AND LicenseRef-man-page AND LicenseRef-public-domain
+Processing license expression: BSD-2-Clause
+  Using license text from package source: ImageIO==2.37.3
+Processing license expression: BSD-2-Clause AND BSD-2-Clause AND ISC
+Processing license expression: BSD-2-Clause AND BSD-3-Clause
+Processing license expression: BSD-2-Clause AND BSD-3-Clause AND BSD-4-Clause-UC AND LicenseRef-NRL-2-clause AND LicenseRef-NRL-3-clause
+Processing license expression: BSD-2-Clause AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT
+Processing license expression: BSD-2-Clause AND BSD-3-Clause AND LGPL-2.1-only AND LicenseRef-LGPL-2.1--OpenSSL AND LicenseRef-public-domain
+Processing license expression: BSD-2-Clause AND BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-2-either AND LicenseRef-GPL-2-or AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-public-domain-Kroon
+Processing license expression: BSD-2-Clause AND BSD-3-Clause-Clear AND BSD-3-Clause AND LicenseRef-Expat AND ISC AND LGPL-2.1-only AND LGPL-2.1-or-later
+Processing license expression: BSD-2-Clause AND FSFAP AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later
+Processing license expression: BSD-2-Clause AND ISC AND LicenseRef-public-domain
+Processing license expression: BSD-2-Clause AND LicenseRef-BSD-2-clause-beyond AND BSD-3-Clause AND LicenseRef-BSD-3-clause-carnegie AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-lucent AND LicenseRef-u-o-tennesee
+Processing license expression: BSD-2-Clause AND LicenseRef-BSD-3-clause-Berkeley AND LicenseRef-BSD-3-clause-Carnegie AND LicenseRef-BSD-3-clause-Oracle AND LicenseRef-BSD-3-clause-WIDE AND LicenseRef-BSD-like-Spencer AND BSL-1.0 AND LicenseRef-CORE-MATH AND LicenseRef-Carnegie AND LicenseRef-DEC AND FSFAP AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-2--with-link-exception AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-IBM AND ISC AND LicenseRef-Inner-Net AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-LGPL-2.1--with-link-exception AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-MIT-like-Lord AND LicenseRef-PCRE AND SunPro AND Unicode-DFS-2016 AND LicenseRef-Univ-Coimbra AND LicenseRef-public-domain
+Processing license expression: BSD-2-Clause AND LicenseRef-CC0 AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND MIT AND LicenseRef-public-domain
+Processing license expression: BSD-2-Clause AND LicenseRef-Expat AND ISC AND LicenseRef-public-domain
+Processing license expression: BSD-3-Clause
+  Using license text from package source: asgiref==3.11.1
+Processing license expression: BSD-3-Clause AND BSD-4-Clause AND ISC AND curl AND LicenseRef-other AND LicenseRef-public-domain
+Processing license expression: BSD-3-Clause AND BSL-1.0 AND CC-BY-4.0 AND LicenseRef-Expat AND GPL-3.0-only AND GPL-3.0-or-later AND HDF5 AND NetCDF AND LicenseRef-Unicode-data AND Zlib AND LicenseRef-ncxml AND LicenseRef-public-domain
+Processing license expression: BSD-3-Clause AND BSL-1.0 AND LicenseRef-GNU-All-Permissive-License AND LicenseRef-GNU-All-Permissive-License-FSF AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND X11
+Processing license expression: BSD-3-Clause AND CC-BY-4.0 AND CC-BY-SA-3.0 AND LicenseRef-cipic AND LicenseRef-listen-ircam AND LicenseRef-mit-kemar
+Processing license expression: BSD-3-Clause AND GFDL-1.1-or-later AND GFDL-1.2-only AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Public-domain
+Processing license expression: BSD-3-Clause AND GFDL-1.1-or-later AND GFDL-1.2-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-custom-1
+Processing license expression: BSD-3-Clause AND GPL-1.0-only AND GPL-1.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-zlib-libpng
+Processing license expression: BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+Processing license expression: BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND MPL-1.0 AND LicenseRef-custom
+Processing license expression: BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-permissive AND LicenseRef-permissive-colamd
+Processing license expression: BSD-3-Clause AND GPL-3.0-only AND GPL-3.0-or-later AND Zlib
+Processing license expression: BSD-3-Clause AND ISC
+Processing license expression: BSD-3-Clause AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only
+Processing license expression: BSD-3-Clause AND ISC AND LicenseRef-public-domain
+Processing license expression: BSD-3-Clause AND LGPL-2.1-only AND LGPL-2.1-or-later AND MPL-2.0 AND Zlib AND Unlicense
+Processing license expression: BSD-3-Clause AND LicenseRef-BSD-BY-LC-NE AND LicenseRef-Expat AND NTP AND Zlib
+Processing license expression: BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.1-or-later AND LicenseRef-public-domain
+Processing license expression: BSD-3-Clause AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND Zlib AND LicenseRef-other-1
+Processing license expression: BSD-3-Clause AND LicenseRef-Expat AND LGPL-2.1-only AND LGPL-2.1-or-later
+Processing license expression: BSD-3-Clause AND LicenseRef-RFC-special
+Processing license expression: BSD-3-Clause AND LicenseRef-rfc3533-license AND LicenseRef-rfc5334-license
+Processing license expression: BSD-4-Clause
+Processing license expression: BSD-4-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND MPL-1.1 AND LicenseRef-public-domain
+Processing license expression: CC-BY-SA
+Processing license expression: CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later
+Processing license expression: collection of licenses
+Processing license expression: curl
+Processing license expression: EPL-1.0
+  Using license text from package source: paho-mqtt-cpp/1.5.3
+Processing license expression: EPL-2.0
+  Using license text from package source: paho-mqtt-c/1.3.13
+Processing license expression: EPL-2.0 OR BSD-3-Clause
+Processing license expression: FTL
+Processing license expression: GFDL-1.2-only AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only
+Processing license expression: GFDL-1.2-only AND GPL-3.0-only
+Processing license expression: GPL-2.0
+Processing license expression: GPL-2.0-only AND GPL-2.0-or-later
+Processing license expression: GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LicenseRef-other-1
+Processing license expression: GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only
+Processing license expression: GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later
+Processing license expression: GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later
+Processing license expression: GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-other
+Processing license expression: GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later
+Processing license expression: GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND MIT AND LicenseRef-OGDI-3I AND LicenseRef-OGDI-LAS AND LicenseRef-OGDI-QUEEN AND LicenseRef-VPFLIB AND LicenseRef-public-domain
+Processing license expression: GPL-2.0-only AND GPL-2.0-or-later AND MIT
+Processing license expression: GPL-2.0-only AND GPL-3.0-only
+Processing license expression: GPL-2.0-only AND LGPL-2.0-only
+Processing license expression: GPL-2.0-only AND LGPL-2.1-only
+Processing license expression: GPL-2.0-or-later
+Processing license expression: GPL-2.0-or-later AND GPL-3.0-or-later
+Processing license expression: GPL-3.0
+  Using license text from package source: plyfile==1.0.3
+Processing license expression: GPL-3.0-only
+Processing license expression: GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-WTFPL-2
+Processing license expression: GPL-3.0-only AND MIT
+Processing license expression: GPL-3.0-or-later AND autoconf-special-exception
+Processing license expression: HPND-sell-variant-libxrandr2
+Processing license expression: ICU License
+Processing license expression: ISC
+  Using license text from package source: dnspython==2.7.0
+Processing license expression: ISC AND LicenseRef-ISC-packaging
+Processing license expression: ISC License
+Processing license expression: LGPL-2.0
+Processing license expression: LGPL-2.0-only AND LGPL-2.0-or-later
+Processing license expression: LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND MIT
+Processing license expression: LGPL-2.1
+Processing license expression: LGPL-2.1-only
+Processing license expression: LGPL-2.1-only AND LGPL-2.1-or-later
+Processing license expression: LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-Spherepack AND LicenseRef-permissive1 AND LicenseRef-permissive2
+Processing license expression: LGPL-2.1-only AND LGPL-2.1-or-later AND MIT
+Processing license expression: LGPL-2.1-only AND LicenseRef-LPGL-2.1-
+Processing license expression: LGPL-3.0
+  Using license text from package source: psycopg2-binary==2.9.11
+Processing license expression: libpng License
+Processing license expression: LicenseRef-Apache AND Apache-2.0 AND GPL-2.0-only
+Processing license expression: LicenseRef-Apache AND LicenseRef-BSD-3-clause-cmake AND LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-or-later
+Processing license expression: LicenseRef-Apache-License-2.0
+  Using license text from package source: grpcio==1.78.0
+Processing license expression: LicenseRef-Artistic AND Artistic-2.0 AND Artistic-dist AND BSD-3-Clause AND LicenseRef-BSD-3-clause-GENERIC AND LicenseRef-BSD-3-clause-with-weird-numbering AND LicenseRef-BSD-4-clause-POWERDOG AND LicenseRef-BZIP AND LicenseRef-DONT-CHANGE-THE-GPL AND LicenseRef-Expat AND GPL-1.0-only AND GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-3--WITH-BISON-EXCEPTION AND LicenseRef-HSIEH-BSD AND LicenseRef-HSIEH-DERIVATIVE AND LGPL-2.1-only AND LicenseRef-REGCOMP AND LicenseRef-REGCOMP- AND LicenseRef-RRA-KEEP-THIS-NOTICE AND LicenseRef-SDBM-PUBLIC-DOMAIN AND LicenseRef-TEXT-TABS AND LicenseRef-Unicode AND Zlib
+Processing license expression: LicenseRef-Artistic AND BSD-2-Clause AND BSD-2-Clause AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-GPL-2--with-bison-exception AND LicenseRef-GPL-3--with-bison-exception AND LicenseRef-LGPL AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LicenseRef-SWsoft AND LicenseRef-public-domain AND LicenseRef-unlimited-free-doc AND LicenseRef-zlib-libpng
+Processing license expression: LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-2.0-only AND GPL-3.0-only AND LicenseRef-LGPL
+Processing license expression: LicenseRef-Artistic AND GFDL-1.2-only AND LicenseRef-GPL AND GPL-3.0-only AND LicenseRef-LGPL
+Processing license expression: LicenseRef-Artistic AND GPL-1.0-only AND GPL-1.0-or-later AND LicenseRef-MIT-X11
+Processing license expression: LicenseRef-BSD
+Processing license expression: LicenseRef-BSD-2 AND BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later
+Processing license expression: LicenseRef-BSD-3-clause-Google AND LicenseRef-ISC-License
+Processing license expression: LicenseRef-BSD-Author AND LicenseRef-Expat
+Processing license expression: LicenseRef-BSD3
+Processing license expression: LicenseRef-By AND GPL-2.0-only AND LicenseRef-Permission AND LicenseRef-Redistribution AND LicenseRef-This
+Processing license expression: LicenseRef-CC0 AND LicenseRef-Expat AND LGPL-2.1-only AND LGPL-2.1-or-later AND Zlib
+Processing license expression: LicenseRef-Expat
+Processing license expression: LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later
+Processing license expression: LicenseRef-Expat AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.1-only AND LGPL-2.1-or-later
+Processing license expression: LicenseRef-Expat AND GPL-3.0-only AND GPL-3.0-or-later
+Processing license expression: LicenseRef-Expat AND LicenseRef-Expat-advertising AND GPL-2.0-only AND GPL-2.0-or-later AND LicenseRef-other
+Processing license expression: LicenseRef-Expat AND LicenseRef-FSF-unlimited AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LicenseRef-MIT-FSF-public
+Processing license expression: LicenseRef-Expat AND LicenseRef-other
+Processing license expression: LicenseRef-GPL AND GPL-1.0-only AND GPL-2.0-only AND GPL-2.0-or-later AND ISC AND LGPL-2.0-only AND LGPL-2.0-or-later AND LicenseRef-WTFPL-2
+Processing license expression: LicenseRef-GPL AND LicenseRef-LGPL
+Processing license expression: LicenseRef-imath
+Processing license expression: LicenseRef-ISC-License
+  Using license text from package source: shellingham==1.5.4
+Processing license expression: LicenseRef-JMVBSD AND LicenseRef-KISSFFTBSD AND LGPL-2.1-only
+Processing license expression: LicenseRef-MIT-License
+  Using license text from package source: greenlet==3.1.1
+Processing license expression: LicenseRef-MPL-2.0
+  Using license text from package source: bidict==0.23.1
+Processing license expression: MIT
+  Using license text from package source: addict==2.4.0
+Processing license expression: MIT AND LicenseRef-SGI
+Processing license expression: MIT License
+  Using license text from package source: colorlog==6.10.1
+Processing license expression: MIT-libxi6
+Processing license expression: MPL-2.0
+  Using license text from package source: certifi==2026.2.25
+Processing license expression: MPL-2.0 AND LGPL-3.0-or-later
+Processing license expression: OpenLDAP Public License
+Processing license expression: PostgreSQL
+Processing license expression: PSF
+  Using license text from package source: typing_extensions==4.15.0
+Processing license expression: Qhull License
+Processing license expression: SIL Open Font License
+Processing license expression: The Regents of The University of Michigan
+Processing license expression: TU-Berlin-2.0
+Processing license expression: Unlicense
+  Using license text from package source: filelock==3.25.1
+Processing license expression: X11
+Processing license expression: Zlib
+Processed 1596 total components
+Found 261 unique individual licenses
+Found 160 unique license expressions
+
+Unique individual licenses used (with source):
+ - 0BSD [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/0BSD.txt]
+ - AFL-2.1 License [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/AFL-2.1.txt]
+ - Apache 2.0 [None]
+ - Apache Software License [None]
+ - Apache-2.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Apache-2.0.txt]
+ - Artistic License [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Artistic-2.0.txt]
+ - Artistic-2.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Artistic-2.0.txt]
+ - Artistic-dist [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Artistic-dist.txt]
+ - autoconf-special-exception [File: licenses/autoconf-special-exception.txt]
+ - Bitstream Vera License [File: licenses/Bitstream_Vera_License.txt]
+ - Bitstream-Vera [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Bitstream-Vera.txt]
+ - BSD [None]
+ - BSD 2-Clause "Simplified" License [None]
+ - BSD License [None]
+ - BSD-1-Clause [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-1-Clause.txt]
+ - BSD-2-Clause [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-2-Clause.txt]
+ - BSD-3-Clause [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - BSD-3-Clause-Clear [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause-Clear.txt]
+ - BSD-4-Clause [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-4-Clause.txt]
+ - BSD-4-Clause-UC [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-4-Clause-UC.txt]
+ - BSL-1.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSL-1.0.txt]
+ - CC-BY-3.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC-BY-3.0.txt]
+ - CC-BY-4.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC-BY-4.0.txt]
+ - CC-BY-SA [File: licenses/CC-BY-SA.txt]
+ - CC-BY-SA-3.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC-BY-SA-3.0.txt]
+ - CC0-1.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - collection of licenses [File: Special license (no text required)]
+ - curl [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/curl.txt]
+ - EPL-1.0 [None]
+ - EPL-2.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/EPL-2.0.txt]
+ - FSFAP [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/FSFAP.txt]
+ - FTL [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/FTL.txt]
+ - GFDL-1.1-or-later [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GFDL-1.1-or-later.txt]
+ - GFDL-1.2-only [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GFDL-1.2-only.txt]
+ - GFDL-1.3-only [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GFDL-1.3-only.txt]
+ - GPL-1.0 [None]
+ - GPL-1.0-only [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-1.0-only.txt]
+ - GPL-1.0-or-later [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-1.0-or-later.txt]
+ - GPL-2.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-2.0-only.txt]
+ - GPL-2.0-only [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-2.0-only.txt]
+ - GPL-2.0-or-later [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-2.0-or-later.txt]
+ - GPL-3.0 [None]
+ - GPL-3.0-only [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-3.0-only.txt]
+ - GPL-3.0-or-later [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-3.0-or-later.txt]
+ - HDF5 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/HDF5.txt]
+ - HPND-sell-variant-libxrandr2 [File: licenses/HPND-sell-variant-libxrandr2.txt]
+ - ICU [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/ICU.txt]
+ - ICU License [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/ICU.txt]
+ - IJG [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/IJG.txt]
+ - Info-ZIP [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Info-ZIP.txt]
+ - ISC [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/ISC.txt]
+ - ISC License [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/ISC.txt]
+ - LGPL-2.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LGPL-2.0-only.txt]
+ - LGPL-2.0-only [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LGPL-2.0-only.txt]
+ - LGPL-2.0-or-later [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LGPL-2.0-or-later.txt]
+ - LGPL-2.1 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LGPL-2.1-only.txt]
+ - LGPL-2.1-only [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LGPL-2.1-only.txt]
+ - LGPL-2.1-or-later [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LGPL-2.1-or-later.txt]
+ - LGPL-3.0 [None]
+ - LGPL-3.0-only [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LGPL-3.0-only.txt]
+ - LGPL-3.0-or-later [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LGPL-3.0-or-later.txt]
+ - Libpng [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Libpng.txt]
+ - libpng License [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Libpng.txt]
+ - LicenseRef-Apache [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Apache-2.0.txt]
+ - LicenseRef-Apache-2.0- [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Apache-2.0.txt]
+ - LicenseRef-Apache-License-2.0 [None]
+ - LicenseRef-Artistic [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Artistic-2.0.txt]
+ - LicenseRef-Base64 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - LicenseRef-Bitstream [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Bitstream-Vera.txt]
+ - LicenseRef-Boost [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSL-1.0.txt]
+ - LicenseRef-Boost-1.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSL-1.0.txt]
+ - LicenseRef-brg-endian [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BrownUn-UnCalifornia-ErikCorry [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD [File: URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-1-clause-UCB [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-1-Clause.txt]
+ - LicenseRef-BSD-124-clause-UCB [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-4-Clause.txt]
+ - LicenseRef-BSD-2 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-2-Clause.txt]
+ - LicenseRef-BSD-2-clause-beyond [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-2-Clause.txt]
+ - LicenseRef-BSD-3-clause-alike-Alexander-Chemeris [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-alike-CREATIS [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-alike-Jan-de-Vaan [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-alike-Mathieu-Malaterre [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-alike-Theodore-Ts [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-Berkeley [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-Carnegie [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-carnegie [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-chromium [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-cmake [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-GENERIC [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-Clause-Google [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-Google [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-kitware [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-Oracle [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-UCB [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-WIDE [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-3-clause-with-weird-numbering [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-4-clause-POWERDOG [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-4-Clause.txt]
+ - LicenseRef-BSD-4-clause-UCB [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-4-Clause.txt]
+ - LicenseRef-BSD-Author [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-BY-LC-NE [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD-like-Spencer [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSD3 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-BSL [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSL-1.0.txt]
+ - LicenseRef-By [None]
+ - LicenseRef-BZIP [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/bzip2-1.0.6.txt]
+ - LicenseRef-Carnegie [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-CC-zero-waive-1.0-us [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - LicenseRef-CC0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - LicenseRef-Chromium-BSD-style [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-cipic [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-CORE-MATH [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-cpl-mem-cache [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-custom [None]
+ - LicenseRef-custom-1 [None]
+ - LicenseRef-DEC [File: licenses/LicenseRef-DEC.txt]
+ - LicenseRef-dlmalloc [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - LicenseRef-DONT-CHANGE-THE-GPL [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-2.0-only.txt]
+ - LicenseRef-EDL-1.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-Example [None]
+ - LicenseRef-Expat [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-Expat-advertising [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-Expat-like [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-fontconfig [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-FSF-unlimited [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/FSFAP.txt]
+ - LicenseRef-Gareth-McCaughan [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-gdcmjpeg [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-GFDL-NIV-1.3 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GFDL-1.3-no-invariants-only.txt]
+ - LicenseRef-GNU-All-Permissive-License [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/FSFAP.txt]
+ - LicenseRef-GNU-All-Permissive-License-FSF [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/FSFAP.txt]
+ - LicenseRef-GPL [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-2.0-only.txt]
+ - LicenseRef-GPL-2--with-bison-exception [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-2.0-only.txt]
+ - LicenseRef-GPL-2--with-link-exception [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-2.0-only.txt]
+ - LicenseRef-GPL-2-either [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-2.0-or-later.txt]
+ - LicenseRef-GPL-2-or [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-2.0-or-later.txt]
+ - LicenseRef-GPL-3--WITH-BISON-EXCEPTION [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-3.0-only.txt]
+ - LicenseRef-GPL-3--with-bison-exception [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-3.0-only.txt]
+ - LicenseRef-GPLv3- [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-3.0-only.txt]
+ - LicenseRef-GPLWithACException [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/GPL-2.0-only.txt]
+ - LicenseRef-gsm [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/HPND.txt]
+ - LicenseRef-Harfbuzz [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-HDF4 [File: licenses/LicenseRef-HDF4.txt]
+ - LicenseRef-hidapi-orig [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-HPND-3i [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/HPND.txt]
+ - LicenseRef-HPND-disclaimer [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/HPND.txt]
+ - LicenseRef-HPND-eos [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/HPND.txt]
+ - LicenseRef-HPND-p-sl-sgi [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/HPND.txt]
+ - LicenseRef-HPND-sl-gl-sgi [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/HPND.txt]
+ - LicenseRef-HPND-sl-sgi [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/HPND.txt]
+ - LicenseRef-HSIEH-BSD [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-HSIEH-DERIVATIVE [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-Hybrid-BSD [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-IBM [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/IPL-1.0.txt]
+ - LicenseRef-ICC [File: licenses/LicenseRef-ICC.txt]
+ - LicenseRef-imath [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-Inner-Net [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-ISC-License [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/ISC.txt]
+ - LicenseRef-ISC-packaging [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/ISC.txt]
+ - LicenseRef-ITT [File: licenses/LicenseRef-ITT.txt]
+ - LicenseRef-JMVBSD [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-KISSFFTBSD [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-LGPL [File: URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LGPL-2.1-only.txt]
+ - LicenseRef-LGPL-2.1--OpenSSL [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LGPL-2.1-only.txt]
+ - LicenseRef-LGPL-2.1--with-link-exception [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LGPL-2.1-only.txt]
+ - LicenseRef-LGPLv2.1- [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LGPL-2.1-only.txt]
+ - LicenseRef-LGPLv3--or-GPLv2- [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LGPL-3.0-or-later.txt]
+ - LicenseRef-libjpeg [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/IJG.txt]
+ - LicenseRef-listen-ircam [File: licenses/LicenseRef-listen-ircam.txt]
+ - LicenseRef-LPGL-2.1- [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LGPL-2.1-only.txt]
+ - LicenseRef-lucent [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/LPL-1.0.txt]
+ - LicenseRef-man-page [File: licenses/LicenseRef-man-page.txt]
+ - LicenseRef-mingw-runtime [File: licenses/LicenseRef-mingw-runtime.txt]
+ - LicenseRef-MIT-FSF-public [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-mit-kemar [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-MIT-License [None]
+ - LicenseRef-MIT-like-Lord [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-MIT-X11 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-Mozilla-permissive [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MPL-2.0.txt]
+ - LicenseRef-MPL-2.0 [None]
+ - LicenseRef-ncxml [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-NRL-2-clause [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-2-Clause.txt]
+ - LicenseRef-NRL-3-clause [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-OGDI-3I [File: licenses/LicenseRef-OGDI-3I.txt]
+ - LicenseRef-OGDI-LAS [File: licenses/LicenseRef-OGDI-LAS.txt]
+ - LicenseRef-OGDI-QUEEN [File: licenses/LicenseRef-OGDI-QUEEN.txt]
+ - LicenseRef-OpenSSL-SSLeay [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/OpenSSL.txt]
+ - LicenseRef-other [None]
+ - LicenseRef-other-1 [None]
+ - LicenseRef-PCRE [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-PD [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - LicenseRef-Permission [None]
+ - LicenseRef-permissive [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-permissive-colamd [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-permissive-configure [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/FSFAP.txt]
+ - LicenseRef-permissive-fsf [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/FSFAP.txt]
+ - LicenseRef-permissive1 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-permissive2 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-public-domain [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - LicenseRef-Public-domain [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - LicenseRef-Public-Domain [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - LicenseRef-public-domain-Kroon [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - LicenseRef-PublicDomain-David-Ludwig [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - LicenseRef-PublicDomain-Edgar-Simo [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - LicenseRef-PublicDomain-Sam-Lantinga [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - LicenseRef-Redistribution [None]
+ - LicenseRef-REGCOMP [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-REGCOMP- [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-RFC-special [File: licenses/LicenseRef-RFC-special.txt]
+ - LicenseRef-rfc3533-license [None]
+ - LicenseRef-rfc5334-license [None]
+ - LicenseRef-RRA-KEEP-THIS-NOTICE [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-RSA-Data-Security [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/RSA-MD.txt]
+ - LicenseRef-SDBM-PUBLIC-DOMAIN [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - LicenseRef-SGI [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-SGI-Free-Software-License-B [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/SGI-B-2.0.txt]
+ - LicenseRef-socketxx [File: licenses/LicenseRef-socketxx.txt]
+ - LicenseRef-Spherepack [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/CC0-1.0.txt]
+ - LicenseRef-STEREO-CALIB-PERMISSIVE [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-sun [File: licenses/LicenseRef-sun.txt]
+ - LicenseRef-Sun-permissive [File: licenses/LicenseRef-Sun-permissive.txt]
+ - LicenseRef-Sundry [File: licenses/LicenseRef-Sundry.txt]
+ - LicenseRef-SWsoft [File: licenses/LicenseRef-SWsoft.txt]
+ - LicenseRef-TEXT-TABS [File: licenses/LicenseRef-TEXT-TABS.txt]
+ - LicenseRef-The [None]
+ - LicenseRef-This [None]
+ - LicenseRef-u-o-tennesee [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/BSD-3-Clause.txt]
+ - LicenseRef-Unicode [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Unicode-DFS-2016.txt]
+ - LicenseRef-Unicode-data [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Unicode-DFS-2016.txt]
+ - LicenseRef-Univ-Coimbra [File: licenses/LicenseRef-Univ-Coimbra.txt]
+ - LicenseRef-unlimited-free-doc [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/FSFAP.txt]
+ - LicenseRef-VPFLIB [File: licenses/LicenseRef-VPFLIB.txt]
+ - LicenseRef-WTFPL-2 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/WTFPL.txt]
+ - LicenseRef-X11-install-sh [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - LicenseRef-xerces-Apache-2.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Apache-2.0.txt]
+ - LicenseRef-zlib-libpng [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Zlib.txt]
+ - LicenseRef-zlib-libpng-like-permissive [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Zlib.txt]
+ - MIT [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT.txt]
+ - MIT License [None]
+ - MIT-libxi6 [File: licenses/MIT-libxi6.txt]
+ - MIT-open-group [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MIT-open-group.txt]
+ - MPL-1.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MPL-1.0.txt]
+ - MPL-1.1 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MPL-1.1.txt]
+ - MPL-2.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/MPL-2.0.txt]
+ - NetCDF [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/NetCDF.txt]
+ - NTP [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/NTP.txt]
+ - OFL-1.1 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/OFL-1.1.txt]
+ - OpenLDAP Public License [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/OLDAP-2.8.txt]
+ - PostgreSQL [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/PostgreSQL.txt]
+ - PSF [None]
+ - Python-2.0 [None]
+ - Qhull [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Qhull.txt]
+ - Qhull License [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Qhull.txt]
+ - SIL Open Font License [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/OFL-1.1.txt]
+ - SunPro [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/SunPro.txt]
+ - TCL [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/TCL.txt]
+ - The Regents of The University of Michigan [File: licenses/The_Regents_of_The_University_of_Michigan.txt]
+ - TU-Berlin-2.0 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/TU-Berlin-2.0.txt]
+ - Unicode-DFS-2016 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Unicode-DFS-2016.txt]
+ - Unlicense [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Unlicense.txt]
+ - W3C [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/W3C.txt]
+ - X11 [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/X11.txt]
+ - Zlib [URL: https://raw.githubusercontent.com/spdx/license-list-data/refs/heads/main/text/Zlib.txt]
+
+Special licenses (no license text required):
+ - collection of licenses
+
+Note: These special license types are included in the output with explanatory text only.
+
+Failed to obtain license text for the following licenses:
+ - LicenseRef-By
+ - LicenseRef-Example
+ - LicenseRef-Permission
+ - LicenseRef-Redistribution
+ - LicenseRef-The
+ - LicenseRef-This
+ - LicenseRef-custom
+ - LicenseRef-custom-1
+ - LicenseRef-other
+ - LicenseRef-other-1
+ - LicenseRef-rfc3533-license
+ - LicenseRef-rfc5334-license
+
+Note: Review not found licenses and update the local licenses directory accordingly.
+
+Generated third-party-programs.txt
