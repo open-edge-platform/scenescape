@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from tests.ui import UserInterfaceTest
 from tests.ui import common
@@ -28,22 +28,33 @@ class NoAprilTagCalibrationTest(UserInterfaceTest):
     actual_label = {"value": None}
     cam_url = "/cam/calibrate/1"
     button_id = "auto-autocalibration"
-    wait_time = 600
+    timeout = 120
 
     assert self.login()
     print("Navigating to camera1 page.")
     self.navigateDirectlyToPage(cam_url)
 
-    print(f"Checking auto calibration button label. Timeout: {wait_time}")
-    WebDriverWait(self.browser, wait_time).until(
-      lambda d: self.wait_for_button_label(d, expected_label, actual_label, button_id)
-    )
-
-    if expected_label == actual_label['value']:
-      self.exitCode = 0
+    print(f"Checking auto calibration button label. Timeout: {timeout}")
+    try:
+      WebDriverWait(self.browser, timeout).until(
+        lambda d: self.wait_for_button_label(d, expected_label, actual_label, button_id)
+      )
       print("Autocalibration label displays correct message.")
+    except TimeoutException:
+       print(
+         f"Autocalibration label did not display expected message within {timeout} seconds. "
+         f"Last observed label: {actual_label['value']!r}, expected: {expected_label!r}."
+       )
+
+    print("Checking button state is disabled.")
+    button_element = self.browser.find_element(By.ID, button_id)
+    button_is_disabled = not button_element.is_enabled()
+
+    if actual_label['value'] == expected_label and button_is_disabled:
+      self.exitCode = 0
+      print("Button state is correct and label displays correct message.")
     else:
-      print("Autocalibration label displays wrong message.")
+      print("Autocalibration label or button state is incorrect.")
 
 @common.mock_display
 def test_no_april_tag(request, record_xml_attribute):
