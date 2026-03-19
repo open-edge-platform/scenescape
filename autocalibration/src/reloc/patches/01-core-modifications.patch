@@ -47,7 +47,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
  import numpy as np
 -from tqdm import tqdm
 +from pathlib import Path
-
+ 
  from . import logger
 -from .utils.read_write_model import (
 -    CAMERA_MODEL_NAMES,
@@ -58,8 +58,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -)
 +from .utils.read_write_model import Camera, Image, Point3D, CAMERA_MODEL_NAMES
 +from .utils.read_write_model import write_model
-
-
+ 
+ 
  def recover_database_images_and_ids(database_path):
 -    images = {}
 -    cameras = {}
@@ -82,8 +82,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  logger.info(
 +      f'Found {len(images)} images and {len(cameras)} cameras in database.')
 +  return images, cameras
-
-
+ 
+ 
  def quaternion_to_rotation_matrix(qvec):
 -    qvec = qvec / np.linalg.norm(qvec)
 -    w, x, y, z = qvec
@@ -102,15 +102,15 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      [2 * x * y + 2 * z * w, 1 - 2 * x * x - 2 * z * z, 2 * y * z - 2 * x * w],
 +      [2 * x * z - 2 * y * w, 2 * y * z + 2 * x * w, 1 - 2 * x * x - 2 * y * y]])
 +  return R
-
-
+ 
+ 
  def camera_center_to_translation(c, qvec):
 -    R = quaternion_to_rotation_matrix(qvec)
 -    return (-1) * np.matmul(R, c)
 +  R = quaternion_to_rotation_matrix(qvec)
 +  return (-1) * np.matmul(R, c)
-
-
+ 
+ 
 -def read_nvm_model(nvm_path, intrinsics_path, image_ids, camera_ids, skip_points=False):
 -    with open(intrinsics_path, "r") as f:
 -        raw_intrinsics = f.readlines()
@@ -134,7 +134,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -        cameras[camera_id] = camera
 +def read_nvm_model(
 +        nvm_path, intrinsics_path, image_ids, camera_ids, skip_points=False):
-
+ 
 -    nvm_f = open(nvm_path, "r")
 +  with open(intrinsics_path, 'r') as f:
 +    raw_intrinsics = f.readlines()
@@ -176,7 +176,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -        i += 1
 +  num_images = int(line)
 +  assert num_images == len(cameras)
-
+ 
 +  logger.info(f'Reading {num_images} images...')
 +  image_idx_to_db_image_id = []
 +  image_data = []
@@ -349,11 +349,11 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +        xys=xys,
 +        point3D_ids=point3D_ids)
 +    images[image_id] = image
-
+ 
 -    return cameras, images, points3D
 +  return cameras, images, points3D
-
-
+ 
+ 
  def main(nvm, intrinsics, database, output, skip_points=False):
 -    assert nvm.exists(), nvm
 -    assert intrinsics.exists(), intrinsics
@@ -434,7 +434,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +import pprint
 +import collections.abc as collections
 +import PIL.Image
-
+ 
  from . import extractors, logger
 -from .utils.base_model import dynamic_load
 -from .utils.io import list_h5_names, read_image
@@ -443,7 +443,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
  from .utils.parsers import parse_image_lists
 +from .utils.io import read_image, list_h5_names, base64_to_image
 +
-
+ 
 -"""
 -A set of standard configurations that can be directly selected from the command
 -line using their name. Each is a dictionary with the following entries:
@@ -584,8 +584,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +    - model: the model configuration, as passed to a feature extractor.
 +    - preprocessing: how to preprocess the images read from disk.
 +"""
-
-
+ 
+ 
  def resize_image(image, size, interp):
 -    if interp.startswith("cv2_"):
 -        interp = getattr(cv2, "INTER_" + interp[len("cv2_") :].upper())
@@ -615,8 +615,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  else:
 +    raise ValueError(f"Unknown interpolation {interp}.")
 +  return resized
-
-
+ 
+ 
  class ImageDataset(torch.utils.data.Dataset):
 -    default_conf = {
 -        "globs": ["*.jpg", "*.png", "*.jpeg", "*.JPG", "*.PNG"],
@@ -730,7 +730,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      scale = self.conf.resize_max / max(size)
 +      size_new = tuple(int(round(x * scale)) for x in size)
 +      image = resize_image(image, size_new, self.conf.interpolation)
-
+ 
 -    def __len__(self):
 -        return len(self.names)
 +    if self.conf.grayscale:
@@ -744,8 +744,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +
 +  def __len__(self):
 +    return len(self.names)
-
-
+ 
+ 
  @torch.no_grad()
 @@ -235,94 +163,83 @@
      image_dir: Path,
@@ -799,7 +799,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  if set(loader.dataset.names).issubset(set(skip_names)):
 +    logger.info("Skipping the extraction.")
 +    return feature_path
-
+ 
 -        pred["image_size"] = original_size = data["original_size"][0].numpy()
 +  model = cached_load(extractors, conf["model"])
 +  for data in tqdm(loader):
@@ -872,16 +872,16 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +          )
 +          del grp, fd[name]
 +        raise error
-
+ 
 -        del pred
 +    del pred
-
+ 
 -    logger.info("Finished exporting features.")
 -    return feature_path
 +  logger.info("Finished exporting features.")
 +  return feature_path
-
-
+ 
+ 
  if __name__ == "__main__":
 -    parser = argparse.ArgumentParser()
 -    parser.add_argument("--image_dir", type=Path, required=True)
@@ -919,19 +919,19 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -import logging
 +# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 +# SPDX-License-Identifier: Apache-2.0
-
+ 
 +from warnings import filterwarnings
 +import logging
  from packaging import version
-
+ 
 -__version__ = "1.5"
 +__version__ = "1.3"
-
+ 
  formatter = logging.Formatter(
      fmt="[%(asctime)s %(name)s %(levelname)s] %(message)s", datefmt="%Y/%m/%d %H:%M:%S"
 @@ -17,20 +20,24 @@
  logger.propagate = False
-
+ 
  try:
 -    import pycolmap
 +  import pycolmap
@@ -993,14 +993,14 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
  from tqdm import tqdm
 +import cv2
 +import pycolmap
-
+ 
  from . import logger
 -from .utils.io import write_poses
 -from .utils.parsers import names_to_pair, parse_retrieval
 +from .utils.parsers import parse_retrieval, names_to_pair
 +from .utils.evaluate import evaluate
-
-
+ 
+ 
  def interpolate_scan(scan, kp):
 -    h, w, c = scan.shape
 -    kp = kp / np.array([[w - 1, h - 1]]) * 2 - 1
@@ -1042,8 +1042,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  kp3d = interp.T.numpy()
 +  valid = valid.numpy()
 +  return kp3d, valid
-
-
+ 
+ 
  def get_scan_pose(dataset_dir, rpath):
 -    split_image_rpath = rpath.split("/")
 -    floor_name = split_image_rpath[-3]
@@ -1373,13 +1373,13 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
  from tqdm import tqdm
 +import pickle
 +import pycolmap
-
+ 
  from . import logger
 -from .utils.io import get_keypoints, get_matches, write_poses
 +from .utils.io import get_keypoints, get_matches
  from .utils.parsers import parse_image_lists, parse_retrieval
-
-
+ 
+ 
 -def do_covisibility_clustering(
 -    frame_ids: List[int], reconstruction: pycolmap.Reconstruction
 -):
@@ -1443,13 +1443,13 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      connected_frames &= set(frame_ids)
 +      connected_frames -= visited
 +      queue |= connected_frames
-
+ 
 -    clusters = sorted(clusters, key=len, reverse=True)
 -    return clusters
 +  clusters = sorted(clusters, key=len, reverse=True)
 +  return clusters
-
-
+ 
+ 
  class QueryLocalizer:
 -    def __init__(self, reconstruction, config=None):
 -        self.reconstruction = reconstruction
@@ -1481,8 +1481,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +        refinement_options=self.config.get('refinement', {}),
 +    )
 +    return ret
-
-
+ 
+ 
  def pose_from_cluster(
 -    localizer: QueryLocalizer,
 -    qname: str,
@@ -1836,7 +1836,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 +from concurrent.futures import Executor, ThreadPoolExecutor
 +import threading
-
+ 
 -import h5py
 +from tqdm import tqdm
  import numpy as np
@@ -1846,7 +1846,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
  import torchvision.transforms.functional as F
  from scipy.spatial import KDTree
 -from tqdm import tqdm
-
+ 
 -from . import logger, matchers
 -from .extract_features import read_image, resize_image
 +from . import matchers, logger
@@ -1873,7 +1873,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -#      images, export_dir=outputs, features_ref=features, max_kps=None)
 +from .extract_features import resize_image
 +from .utils.io import list_h5_names, read_image, base64_to_image
-
+ 
  confs = {
 -    # Best quality but loads of points. Only use for small scenes
 +    "qta_indoor": {
@@ -1959,8 +1959,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +        "batch_size": 1,
      },
  }
-
-
+ 
+ 
 -def to_cpts(kpts, ps):
 -    if ps > 0.0:
 -        kpts = np.round(np.round((kpts + 0.5) / ps) * ps - 0.5, 2)
@@ -1981,8 +1981,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  other_cpts.append(kpts)
 +  # ref_bins.append(scores)
 +  return kpt_ids
-
-
+ 
+ 
  def assign_keypoints(
 @@ -78,460 +129,457 @@
      scores: Optional[np.ndarray] = None,
@@ -2050,8 +2050,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +        ref_bins[cp_to_id[cpt]][bpt] += score
 +      kpt_ids.append(kid)
 +    return np.array(kpt_ids)
-
-
+ 
+ 
  def get_grouped_ids(array):
 -    # Group array indices based on its values
 -    # all duplicates are grouped as a set
@@ -2067,14 +2067,14 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  _, ids, _ = np.unique(sorted_array, return_counts=True, return_index=True)
 +  res = np.split(idx_sort, ids[1:])
 +  return res
-
-
+ 
+ 
  def get_unique_matches(match_ids, scores):
 -    if len(match_ids.shape) == 1:
 -        return [0]
 +  if len(match_ids.shape) == 1:
 +    return [0]
-
+ 
 -    isets1 = get_grouped_ids(match_ids[:, 0])
 -    isets2 = get_grouped_ids(match_ids[:, 1])
 -    uid1s = [ids[scores[ids].argmax()] for ids in isets1 if len(ids) > 0]
@@ -2092,8 +2092,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +def to_cpts(kpts, ps):
 +  cpts = np.round(np.round((kpts + 0.5) / ps) * ps - 0.5, 2)
 +  return [tuple(cpt) for cpt in cpts]
-
-
+ 
+ 
  def matches_to_matches0(matches, scores):
 -    if len(matches) == 0:
 -        return np.zeros(0, dtype=np.int32), np.zeros(0, dtype=np.float16)
@@ -2111,8 +2111,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  matches0[matches[:, 0]] = matches[:, 1]
 +  scores0[matches[:, 0]] = scores
 +  return matches0.astype(np.int32), scores0.astype(np.float16)
-
-
+ 
+ 
  def kpids_to_matches0(kpt_ids0, kpt_ids1, scores):
 -    valid = (kpt_ids0 != -1) & (kpt_ids1 != -1)
 -    matches = np.dstack([kpt_ids0[valid], kpt_ids1[valid]])
@@ -2130,8 +2130,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  # Remove n-to-1 matches
 +  matches, scores = get_unique_matches(matches, scores)
 +  return matches_to_matches0(matches, scores)
-
-
+ 
+ 
  def scale_keypoints(kpts, scale):
 -    if np.any(scale != 1.0):
 -        kpts *= kpts.new_tensor(scale)
@@ -2139,8 +2139,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  if torch.any(scale != 1.0):
 +    kpts *= scale
 +  return kpts
-
-
+ 
+ 
 -class ImagePairDataset(torch.utils.data.Dataset):
 -    default_conf = {
 -        "grayscale": True,
@@ -2182,7 +2182,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -        image = torch.from_numpy(image / 255.0).float()
 +class SimpleExecutor(Executor):
 +  """Simple executor that runs the function in the main thread."""
-
+ 
 -        # assure that the size is divisible by dfactor
 -        size_new = tuple(
 -            map(
@@ -2195,12 +2195,12 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -        return image, scale
 +  def __init__(self, max_workers=0):
 +    pass
-
+ 
 -    def __len__(self):
 -        return len(self.pairs)
 +  def submit(self, fn, *args, **kwargs):
 +    return fn(*args, **kwargs)
-
+ 
 -    def __getitem__(self, idx):
 -        name0, name1 = self.pairs[idx]
 -        if self.conf.cache_images:
@@ -2214,10 +2214,10 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -        return image0, image1, scale0, scale1, name0, name1
 +  def map(self, fn, *iterables, timeout=None, chunksize=1):
 +    return map(fn, *iterables)
-
+ 
 +  def shutdown(self, wait=True):
 +    pass
-
+ 
 -@torch.no_grad()
 -def match_dense(
 -    conf: Dict,
@@ -2321,10 +2321,10 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -    return cpdict, bindict
 +  def __enter__(self):
 +    return self
-
+ 
 +  def __exit__(self, *args):
 +    self.shutdown()
-
+ 
 -def aggregate_matches(
 -    conf: Dict,
 -    pairs: List[Tuple[str, str]],
@@ -2390,7 +2390,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -                scores,
 -                conf["cell_size"],
 -            )
-
+ 
 -            # Build matches from assignments
 -            matches0, scores0 = kpids_to_matches0(mkp_ids0, mkp_ids1, scores)
 +class ImagePairDataset(torch.utils.data.Dataset):
@@ -2451,7 +2451,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +    size = image.shape[:2][::-1]
 +    scale = np.array([1.0, 1.0])
 +    size_new = np.array(size)
-
+ 
 -            assert kpts0.shape[0] == scores.shape[0]
 -            grp.create_dataset("matches0", data=matches0)
 -            grp.create_dataset("matching_scores0", data=scores0)
@@ -2508,7 +2508,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +    else:
 +      image = image.transpose((2, 0, 1))[None]  # HxWxC to CxHxW
 +    image = torch.from_numpy(image / 255.0).float()
-
+ 
 +    with self.images_cv:
 +      if self.imsize is None:
 +        self.imsize = size_new
@@ -2533,7 +2533,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +            self.pool.submit(
 +                self.preprocess, name, None, self.image_dir[i] / name
 +            )
-
+ 
 -def assign_matches(
 -    pairs: List[Tuple[str, str]],
 -    match_path: Path,
@@ -2596,8 +2596,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +        names0,
 +        names1,
 +    )
-
-
+ 
+ 
  @torch.no_grad()
 -def match_and_assign(
 +def match_dense_from_paths(
@@ -2764,7 +2764,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +
 +        # Build matches from assignments
 +        matches0, scores0 = kpids_to_matches0(kpt_ids0, kpt_ids1, scores)
-
+ 
 -    # Reassign matches by aggregation
 -    cpdict = aggregate_matches(
 -        conf,
@@ -2822,7 +2822,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +        f"Finished assignment, found {avg_kp_per_image} "
 +        f"keypoints/image (avg.), total {n_kps}."
      )
-
+ 
 -    # Invalidate matches that are far from selected bin by reassignment
 -    if max_kps is not None:
 -        logger.info(f'Reassign matches with max_error={conf["max_error"]}.')
@@ -2852,8 +2852,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +        # overwrite matches0 and matching_scores0
 +        grp.create_dataset("matches0", data=matches0)
 +        grp.create_dataset("matching_scores0", data=scores0)
-
-
+ 
+ 
  @torch.no_grad()
 @@ -542,65 +590,73 @@
      export_dir: Optional[Path] = None,
@@ -2911,7 +2911,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      overwrite=overwrite,
 +      image_cache=image_cache,
 +  )
-
+ 
 -    if features is None:
 -        features = "feats_"
 -
@@ -2946,8 +2946,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -
 -    return features_q, matches
 +  return features_q, matches
-
-
+ 
+ 
  if __name__ == "__main__":
 -    parser = argparse.ArgumentParser()
 -    parser.add_argument("--pairs", type=Path, required=True)
@@ -3007,14 +3007,14 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
  import h5py
  import torch
 -from tqdm import tqdm
-
+ 
 -from . import logger, matchers
 +from . import matchers, logger
  from .utils.base_model import dynamic_load
  from .utils.parsers import names_to_pair, names_to_pair_old, parse_retrieval
 +from .utils.io import list_h5_names
 +
-
+ 
  """
  A set of standard configurations that can be directly selected from the command
 @@ -21,42 +23,17 @@
@@ -3081,8 +3081,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +        "model": {"name": "nearest_neighbor", "do_mutual_check": True},
      },
  }
-
-
+ 
+ 
 -class WorkQueue:
 -    def __init__(self, work_fn, num_threads=1):
 -        self.queue = Queue(num_threads)
@@ -3165,8 +3165,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +        except ImportError:
 +          pass
 +    return cls.model
-
-
+ 
+ 
  def main(
 @@ -161,49 +89,55 @@
      features_ref: Optional[Path] = None,
@@ -3190,7 +3190,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -    if features_ref is None:
 -        features_ref = features_q
 -    match_from_paths(conf, pairs, matches, features_q, features_ref, overwrite)
-
+ 
 -    return matches
 +  if isinstance(features, Path) or Path(features).exists():
 +    features_q = features
@@ -3217,8 +3217,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  match_from_paths(conf, pairs, matches, features_q, features_ref, overwrite)
 +
 +  return matches
-
-
+ 
+ 
  def find_unique_new_pairs(pairs_all: List[Tuple[str]], match_path: Path = None):
 -    """Avoid to recompute duplicates to save time."""
 -    pairs = set()
@@ -3260,8 +3260,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +        pairs_filtered.append((i, j))
 +    return pairs_filtered
 +  return pairs
-
-
+ 
+ 
  @torch.no_grad()
 @@ -212,57 +146,72 @@
      pairs_path: Path,
@@ -3362,8 +3362,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +        grp.create_dataset("matching_scores0", data=scores)
 +
 +  logger.info("Finished exporting matches.")
-
-
+ 
+ 
  if __name__ == "__main__":
 -    parser = argparse.ArgumentParser()
 -    parser.add_argument("--pairs", type=Path, required=True)
@@ -3399,17 +3399,17 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
  import numpy as np
  from tqdm import tqdm
 +from collections import defaultdict
-
+ 
  from . import logger
  from .utils.read_write_model import read_model
-
-
+ 
+ 
  def main(model, output, num_matched):
 -    logger.info("Reading the COLMAP model...")
 -    cameras, images, points3D = read_model(model)
 +  logger.info('Reading the COLMAP model...')
 +  cameras, images, points3D = read_model(model)
-
+ 
 -    logger.info("Extracting image pairs from covisibility info...")
 -    pairs = []
 -    for image_id, image in tqdm(images.items()):
@@ -3482,8 +3482,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  logger.info(f'Found {len(pairs)} pairs.')
 +  with open(output, 'w') as f:
 +    f.write('\n'.join(' '.join([i, j]) for i, j in pairs))
-
-
+ 
+ 
  if __name__ == "__main__":
 -    parser = argparse.ArgumentParser()
 -    parser.add_argument("--model", required=True, type=Path)
@@ -3509,13 +3509,13 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
  from pathlib import Path
 -from typing import List, Optional, Union
 +from typing import Optional, Union, List
-
+ 
  from . import logger
 -from .utils.io import list_h5_names
  from .utils.parsers import parse_image_lists
 +from .utils.io import list_h5_names
-
-
+ 
+ 
  def main(
 -    output: Path,
 -    image_list: Optional[Union[Path, List[str]]] = None,
@@ -3600,8 +3600,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  logger.info(f'Found {len(pairs)} pairs.')
 +  with open(output, 'w') as f:
 +    f.write('\n'.join(' '.join([i, j]) for i, j in pairs))
-
-
+ 
+ 
  if __name__ == "__main__":
 -    parser = argparse.ArgumentParser()
 -    parser.add_argument("--output", required=True, type=Path)
@@ -3631,15 +3631,15 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -
  import numpy as np
  import scipy.spatial
-
+ 
  from . import logger
 -from .pairs_from_retrieval import pairs_from_score_matrix
  from .utils.read_write_model import read_images_binary
 +from .pairs_from_retrieval import pairs_from_score_matrix
-
+ 
  DEFAULT_ROT_THRESH = 30  # in degrees
-
-
+ 
+ 
  def get_pairwise_distances(images):
 -    ids = np.array(list(images.keys()))
 -    Rs = []
@@ -3689,17 +3689,17 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  axes = Rs[:, :, -1]
 +  dots = np.einsum('mi,ni->mn', axes, axes, optimize=True)
 +  dR = np.rad2deg(np.arccos(np.clip(dots, -1., 1.)))
-
+ 
 -    return ids, dist, dR
 +  return ids, dist, dR
-
-
+ 
+ 
  def main(model, output, num_matched, rotation_threshold=DEFAULT_ROT_THRESH):
 -    logger.info("Reading the COLMAP model...")
 -    images = read_images_binary(model / "images.bin")
 +  logger.info('Reading the COLMAP model...')
 +  images = read_images_binary(model / 'images.bin')
-
+ 
 -    logger.info(f"Obtaining pairwise distances between {len(images)} images...")
 -    ids, dist, dR = get_pairwise_distances(images)
 -    scores = -dist
@@ -3725,8 +3725,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  logger.info(f'Found {len(pairs)} pairs.')
 +  with open(output, 'w') as f:
 +    f.write('\n'.join(' '.join(p) for p in pairs))
-
-
+ 
+ 
  if __name__ == "__main__":
 -    parser = argparse.ArgumentParser()
 -    parser.add_argument("--model", required=True, type=Path)
@@ -3759,14 +3759,14 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
  import numpy as np
  import torch
 +import collections.abc as collections
-
+ 
  from . import logger
 -from .utils.io import list_h5_names
  from .utils.parsers import parse_image_lists
  from .utils.read_write_model import read_images_binary
 +from .utils.io import list_h5_names
-
-
+ 
+ 
  def parse_names(prefix, names, names_all):
 -    if prefix is not None:
 -        if not isinstance(prefix, str):
@@ -3958,8 +3958,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  logger.info(f'Found {len(pairs)} pairs.')
 +  with open(output, 'w') as f:
 +    f.write('\n'.join(' '.join([i, j]) for i, j in pairs))
-
-
+ 
+ 
  if __name__ == "__main__":
 -    parser = argparse.ArgumentParser()
 -    parser.add_argument("--descriptors", type=Path, required=True)
@@ -4002,7 +4002,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -
  import pycolmap
 -import tqdm
-
+ 
  from . import logger
 +from .utils.database import COLMAPDatabase
  from .triangulation import (
@@ -4014,8 +4014,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -)
 +    import_features, import_matches, estimation_and_geometric_verification,
 +    OutputCapture, parse_option_args)
-
-
+ 
+ 
  def create_empty_db(database_path: Path):
 -    if database_path.exists():
 -        logger.warning("The database already exists, deleting it.")
@@ -4071,8 +4071,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +    pycolmap.import_images(database_path, image_dir, camera_mode,
 +                           image_list=image_list or [],
 +                           options=options)
-
-
+ 
+ 
  def get_image_ids(database_path: Path) -> Dict[str, int]:
 -    images = {}
 -    with pycolmap.Database.open(database_path) as db:
@@ -4137,7 +4137,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +    with pycolmap.ostream():
 +      reconstructions = pycolmap.incremental_mapping(
 +          database_path, image_dir, models_path, options=options)
-
+ 
 -def run_reconstruction(
 -    sfm_dir: Path,
 -    database_path: Path,
@@ -4300,8 +4300,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -        )
 -    return reconstruction
 +  return reconstruction
-
-
+ 
+ 
  if __name__ == "__main__":
 -    parser = argparse.ArgumentParser()
 -    parser.add_argument("--sfm_dir", type=Path, required=True)
@@ -4369,7 +4369,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      args.pop("image_options"), pycolmap.ImageReaderOptions())
 +  mapper_options = parse_option_args(
 +      args.pop("mapper_options"), pycolmap.IncrementalMapperOptions())
-
+ 
 -    main(**args, image_options=image_options, mapper_options=mapper_options)
 +  main(**args, image_options=image_options, mapper_options=mapper_options)
 diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--exclude=extractors' '--exclude=matchers' /tmp/hloc-latest/hloc/triangulation.py hloc/triangulation.py
@@ -4391,21 +4391,21 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -import pycolmap
  from tqdm import tqdm
 +import pycolmap
-
+ 
  from . import logger
 -from .utils.geometry import compute_epipolar_errors
 +from .utils.database import COLMAPDatabase
  from .utils.io import get_keypoints, get_matches
  from .utils.parsers import parse_retrieval
 +from .utils.geometry import compute_epipolar_errors
-
-
+ 
+ 
  class OutputCapture:
 -    def __init__(self, verbose: bool):
 -        self.verbose = verbose
 +  def __init__(self, verbose: bool):
 +    self.verbose = verbose
-
+ 
 -    def __enter__(self):
 -        if not self.verbose:
 -            pycolmap.logging.alsologtostderr = False
@@ -4834,8 +4834,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  logger.info('Finished the triangulation with statistics:\n%s',
 +              reconstruction.summary())
 +  return reconstruction
-
-
+ 
+ 
  def parse_option_args(args: List[str], default_options) -> Dict[str, Any]:
 -    options = {}
 -    for arg in args:
@@ -4912,7 +4912,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +
 +  mapper_options = parse_option_args(
 +      args.pop("mapper_options"), pycolmap.IncrementalMapperOptions())
-
+ 
 -    main(**args, mapper_options=mapper_options)
 +  main(**args, mapper_options=mapper_options)
 diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--exclude=extractors' '--exclude=matchers' /tmp/hloc-latest/hloc/utils/base_model.py hloc/utils/base_model.py
@@ -4933,17 +4933,17 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +import torch
 +from types import SimpleNamespace as SN
  from torch import nn
-
+ 
 +torch.set_flush_denormal(True)
 +torch.jit.enable_onednn_fusion(True)
 +
-
+ 
  class BaseModel(nn.Module, metaclass=ABCMeta):
 -    default_conf = {}
 -    required_inputs = []
 +  default_conf = {}
 +  required_inputs = []
-
+ 
 -    def __init__(self, conf):
 -        """Perform some logic and call the _init method of the child model."""
 -        super().__init__()
@@ -4990,8 +4990,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  def _forward(self, data):
 +    """To be implemented by the child class."""
 +    raise NotImplementedError
-
-
+ 
+ 
  def dynamic_load(root, model):
 -    module_path = f"{root.__name__}.{model}"
 -    module = __import__(module_path, fromlist=[""])
@@ -5577,8 +5577,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  return np.vstack(
 +      (np.hstack((Tr[:3, :3].T, -Tr[:3, :3].T @ Tr[:3, 3:])), [[0, 0, 0, 1]])
 +  )
-
-
+ 
+ 
  def to_homogeneous(p):
 -    return np.pad(p, ((0, 0),) * (p.ndim - 1) + ((0, 1),), constant_values=1)
 +  return np.pad(p, ((0, 0),) * (p.ndim - 1) + ((0, 1),), constant_values=1)
@@ -5688,14 +5688,14 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  Returns:
 +      tuple of 3D keypoints (shape (N,3)) and valid mask (shape (N,))
 +  """
-
+ 
 +  @functools.lru_cache(maxsize=8)
 +  def get_raycasting_scene(mesh_path: str):
 +    mesh = o3d.t.io.read_triangle_mesh(mesh_path)
 +    rc_scene = o3d.t.geometry.RaycastingScene()
 +    rc_scene.add_triangles(mesh)
 +    return rc_scene
-
+ 
 -def compute_epipolar_errors(j_from_i: pycolmap.Rigid3d, p2d_i, p2d_j):
 -    j_E_i = pycolmap.essential_matrix_from_pose(j_from_i)
 -    l2d_j = to_homogeneous(p2d_i) @ j_E_i.T
@@ -5726,7 +5726,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -from typing import Mapping, Tuple
 +# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 +# SPDX-License-Identifier: Apache-2.0
-
+ 
 +from typing import Tuple
 +from pathlib import Path
 +import base64
@@ -5735,10 +5735,10 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
  import h5py
 -import numpy as np
 -import pycolmap
-
+ 
  from .parsers import names_to_pair, names_to_pair_old
-
-
+ 
+ 
  def read_image(path, grayscale=False):
 -    if grayscale:
 -        mode = cv2.IMREAD_GRAYSCALE
@@ -5776,8 +5776,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  if not grayscale and len(image.shape) == 3:
 +    image = image[:, :, ::-1]  # BGR to RGB
 +  return image
-
-
+ 
+ 
  def list_h5_names(path):
 -    names = []
 -    with h5py.File(str(path), "r", libver="latest") as fd:
@@ -5819,8 +5819,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  if return_uncertainty:
 +    return p, uncertainty
 +  return p
-
-
+ 
+ 
  def find_pair(hfile: h5py.File, name0: str, name1: str):
 -    pair = names_to_pair(name0, name1)
 -    if pair in hfile:
@@ -5856,8 +5856,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      f"Could not find pair {(name0, name1)}... "
 +      "Maybe you matched with a different list of pairs? "
 +  )
-
-
+ 
+ 
  def get_matches(path: Path, name0: str, name1: str) -> Tuple[np.ndarray]:
 -    with h5py.File(str(path), "r", libver="latest") as hfile:
 -        pair, reverse = find_pair(hfile, name0, name1)
@@ -5901,16 +5901,16 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -from pathlib import Path
 +# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 +# SPDX-License-Identifier: Apache-2.0
-
+ 
 +from pathlib import Path
 +import logging
  import numpy as np
 +from collections import defaultdict
  import pycolmap
-
+ 
  logger = logging.getLogger(__name__)
-
-
+ 
+ 
  def parse_image_list(path, with_intrinsics=False):
 -    images = []
 -    with open(path, "r") as f:
@@ -5950,8 +5950,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  assert len(images) > 0
 +  logger.info(f'Imported {len(images)} images from {path.name}')
 +  return images
-
-
+ 
+ 
  def parse_image_lists(paths, with_intrinsics=False):
 -    images = []
 -    files = list(Path(paths.parent).glob(paths.name))
@@ -5965,8 +5965,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  for lfile in files:
 +    images += parse_image_list(lfile, with_intrinsics=with_intrinsics)
 +  return images
-
-
+ 
+ 
  def parse_retrieval(path):
 -    retrieval = defaultdict(list)
 -    with open(path, "r") as f:
@@ -5984,14 +5984,14 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      q, r = p.split()
 +      retrieval[q].append(r)
 +  return dict(retrieval)
-
-
+ 
+ 
 -def names_to_pair(name0, name1, separator="/"):
 -    return separator.join((name0.replace("/", "-"), name1.replace("/", "-")))
 +def names_to_pair(name0, name1, separator='/'):
 +  return separator.join((name0.replace('/', '-'), name1.replace('/', '-')))
-
-
+ 
+ 
  def names_to_pair_old(name0, name1):
 -    return names_to_pair(name0, name1, separator="_")
 +  return names_to_pair(name0, name1, separator='_')
@@ -6032,7 +6032,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 +# SPDX-FileCopyrightText: 2018 ETH Zurich and UNC Chapel Hill.
 +# SPDX-License-Identifier: Apache-2.0
-
+ 
 -import argparse
 -import collections
 -import logging
@@ -6044,23 +6044,23 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +import struct
 +import argparse
 +import logging
-
+ 
  logger = logging.getLogger(__name__)
-
+ 
 @@ -53,8 +25,8 @@
-
-
+ 
+ 
  class Image(BaseImage):
 -    def qvec2rotmat(self):
 -        return qvec2rotmat(self.qvec)
 +  def qvec2rotmat(self):
 +    return qvec2rotmat(self.qvec)
-
-
+ 
+ 
  CAMERA_MODELS = {
 @@ -79,510 +51,524 @@
-
-
+ 
+ 
  def read_next_bytes(fid, num_bytes, format_char_sequence, endian_character="<"):
 -    """Read and unpack the next bytes from a binary file.
 -    :param fid:
@@ -6080,8 +6080,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  """
 +  data = fid.read(num_bytes)
 +  return struct.unpack(endian_character + format_char_sequence, data)
-
-
+ 
+ 
  def write_next_bytes(fid, data, format_char_sequence, endian_character="<"):
 -    """pack and write to a binary file.
 -    :param fid:
@@ -6109,8 +6109,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  else:
 +    bytes = struct.pack(endian_character + format_char_sequence, data)
 +  fid.write(bytes)
-
-
+ 
+ 
  def read_cameras_text(path):
 -    """
 -    see: src/base/reconstruction.cc
@@ -6158,8 +6158,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +            id=camera_id, model=model, width=width, height=height, params=params
 +        )
 +  return cameras
-
-
+ 
+ 
  def read_cameras_binary(path_to_model_file):
 -    """
 -    see: src/base/reconstruction.cc
@@ -6221,8 +6221,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      )
 +    assert len(cameras) == num_cameras
 +  return cameras
-
-
+ 
+ 
  def write_cameras_text(cameras, path):
 -    """
 -    see: src/base/reconstruction.cc
@@ -6256,8 +6256,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      to_write = [cam.id, cam.model, cam.width, cam.height, *cam.params]
 +      line = " ".join([str(elem) for elem in to_write])
 +      fid.write(line + "\n")
-
-
+ 
+ 
  def write_cameras_binary(cameras, path_to_model_file):
 -    """
 -    see: src/base/reconstruction.cc
@@ -6287,8 +6287,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      for p in cam.params:
 +        write_next_bytes(fid, float(p), "d")
 +  return cameras
-
-
+ 
+ 
  def read_images_text(path):
 -    """
 -    see: src/base/reconstruction.cc
@@ -6358,8 +6358,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +            point3D_ids=point3D_ids,
 +        )
 +  return images
-
-
+ 
+ 
  def read_images_binary(path_to_model_file):
 -    """
 -    see: src/base/reconstruction.cc
@@ -6447,8 +6447,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +          point3D_ids=point3D_ids,
 +      )
 +  return images
-
-
+ 
+ 
  def write_images_text(images, path):
 -    """
 -    see: src/base/reconstruction.cc
@@ -6512,8 +6512,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      for xy, point3D_id in zip(img.xys, img.point3D_ids):
 +        points_strings.append(" ".join(map(str, [*xy, point3D_id])))
 +      fid.write(" ".join(points_strings) + "\n")
-
-
+ 
+ 
  def write_images_binary(images, path_to_model_file):
 -    """
 -    see: src/base/reconstruction.cc
@@ -6551,8 +6551,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      write_next_bytes(fid, len(img.point3D_ids), "Q")
 +      for xy, p3d_id in zip(img.xys, img.point3D_ids):
 +        write_next_bytes(fid, [*xy, p3d_id], "ddq")
-
-
+ 
+ 
  def read_points3D_text(path):
 -    """
 -    see: src/base/reconstruction.cc
@@ -6612,8 +6612,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +            point2D_idxs=point2D_idxs,
 +        )
 +  return points3D
-
-
+ 
+ 
  def read_points3D_binary(path_to_model_file):
 -    """
 -    see: src/base/reconstruction.cc
@@ -6685,8 +6685,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +          point2D_idxs=point2D_idxs,
 +      )
 +  return points3D
-
-
+ 
+ 
  def write_points3D_text(points3D, path):
 -    """
 -    see: src/base/reconstruction.cc
@@ -6744,8 +6744,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      for image_id, point2D in zip(pt.image_ids, pt.point2D_idxs):
 +        track_strings.append(" ".join(map(str, [image_id, point2D])))
 +      fid.write(" ".join(track_strings) + "\n")
-
-
+ 
+ 
  def write_points3D_binary(points3D, path_to_model_file):
 -    """
 -    see: src/base/reconstruction.cc
@@ -6791,8 +6791,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +    xyz[i] = pt.xyz * scale
 +    rgb[i] = pt.rgb
 +  write_point_cloud(str(file_path), PointCloud({"positions": xyz, "colors": rgb}))
-
-
+ 
+ 
  def detect_model_format(path, ext):
 -    if (
 -        os.path.isfile(os.path.join(path, "cameras" + ext))
@@ -6806,11 +6806,11 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      and os.path.isfile(os.path.join(path, "points3D" + ext))
 +  ):
 +    return True
-
+ 
 -    return False
 +  return False
-
-
+ 
+ 
  def read_model(path, ext=""):
 -    # try to detect the extension automatically
 -    if ext == "":
@@ -6863,8 +6863,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +    images = read_images_binary(os.path.join(path, "images" + ext))
 +    points3D = read_points3D_binary(os.path.join(path, "points3D") + ext)
 +  return cameras, images, points3D
-
-
+ 
+ 
  def write_model(cameras, images, points3D, path, ext=".bin"):
 -    if ext == ".txt":
 -        write_cameras_text(cameras, os.path.join(path, "cameras" + ext))
@@ -6884,8 +6884,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +    write_images_binary(images, os.path.join(path, "images" + ext))
 +    write_points3D_binary(points3D, os.path.join(path, "points3D") + ext)
 +  return cameras, images, points3D
-
-
+ 
+ 
  def qvec2rotmat(qvec):
 -    return np.array(
 -        [
@@ -6925,8 +6925,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +          ],
 +      ]
 +  )
-
-
+ 
+ 
  def rotmat2qvec(R):
 -    Rxx, Ryx, Rzx, Rxy, Ryy, Rzy, Rxz, Ryz, Rzz = R.flat
 -    K = (
@@ -6962,8 +6962,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  if qvec[0] < 0:
 +    qvec *= -1
 +  return qvec
-
-
+ 
+ 
  def main():
 -    parser = argparse.ArgumentParser(
 -        description="Read and write COLMAP binary and text models"
@@ -7022,8 +7022,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -        write_model(
 -            cameras, images, points3D, path=args.output_model, ext=args.output_format
 -        )
-
-
+ 
+ 
  if __name__ == "__main__":
 -    main()
 +  main()
@@ -7276,17 +7276,17 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +
  """
  2D visualization primitives based on Matplotlib.
-
+ 
 @@ -7,109 +10,114 @@
  """
-
+ 
  import matplotlib
 -import matplotlib.patheffects as path_effects
  import matplotlib.pyplot as plt
 +import matplotlib.patheffects as path_effects
  import numpy as np
-
-
+ 
+ 
  def cm_RdGn(x):
 -    """Custom colormap: red (0) -> yellow (0.5) -> green (1)."""
 -    x = np.clip(x, 0, 1)[..., None] * 2
@@ -7362,8 +7362,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +    if titles:
 +      ax[i].set_title(titles[i])
 +  fig.tight_layout(pad=pad)
-
-
+ 
+ 
  def plot_keypoints(kpts, colors="lime", ps=4):
 -    """Plot keypoints for existing images.
 -    Args:
@@ -7388,8 +7388,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  for a, k, c in zip(axes, kpts, colors):
 +    if k.size > 0:
 +      a.scatter(k[:, 0], k[:, 1], c=c, s=ps, linewidths=0)
-
-
+ 
+ 
  def plot_matches(kpts0, kpts1, color=None, lw=1.5, ps=4, indices=(0, 1), a=1.0):
 -    """Plot matches for a pair of existing images.
 -    Args:
@@ -7481,8 +7481,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +  if ps > 0:
 +    ax0.scatter(kpts0[:, 0], kpts0[:, 1], c=color, s=ps)
 +    ax1.scatter(kpts1[:, 0], kpts1[:, 1], c=color, s=ps)
-
-
+ 
+ 
  def add_text(
 @@ -123,19 +131,19 @@
      ha="left",
@@ -7509,8 +7509,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -                path_effects.Normal(),
 -            ]
 -        )
-
-
+ 
+ 
  def save_plot(path, **kw):
 -    """Save the current figure without any white margin."""
 -    plt.savefig(path, bbox_inches="tight", pad_inches=0, **kw)
@@ -7524,7 +7524,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 -import random
 +# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 +# SPDX-License-Identifier: Apache-2.0
-
+ 
 +from matplotlib import cm
 +import random
  import numpy as np
@@ -7533,7 +7533,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +import h5py
  import pycolmap
 -from matplotlib import cm
-
+ 
 +from .utils.viz import (
 +    plot_images,
 +    plot_keypoints,
@@ -7544,8 +7544,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +)
  from .utils.io import read_image
 -from .utils.viz import add_text, cm_RdGn, plot_images, plot_keypoints, plot_matches
-
-
+ 
+ 
 -def visualize_sfm_2d(
 -    reconstruction, image_dir, color_by="visibility", selected=[], n=1, seed=0, dpi=75
 -):
@@ -7597,7 +7597,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +      keypoints = keypoints[visible]
 +    else:
 +      raise NotImplementedError(f"Coloring not implemented: {color_by}.")
-
+ 
 -    if not selected:
 -        image_ids = list(reconstruction.reg_image_ids())
 -        selected = random.Random(seed).sample(image_ids, min(n, len(image_ids)))
@@ -7650,8 +7650,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +    plot_keypoints([keypoints], colors=[color], ps=4)
 +    add_text(0, text)
 +    add_text(0, name, pos=(0.01, 0.01), fs=5, lcolor=None, va="bottom")
-
-
+ 
+ 
  def visualize_loc(
 @@ -76,26 +84,26 @@
      prefix=None,
@@ -7659,12 +7659,12 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
  ):
 -    assert image_dir.exists()
 +  assert image_dir.exists()
-
+ 
 -    with open(str(results) + "_logs.pkl", "rb") as f:
 -        logs = pickle.load(f)
 +  with open(str(results) + "_logs.pkl", "rb") as f:
 +    logs = pickle.load(f)
-
+ 
 -    if not selected:
 -        queries = list(logs["loc"].keys())
 -        if prefix:
@@ -7675,14 +7675,14 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +    if prefix:
 +      queries = [q for q in queries if q.startswith(prefix)]
 +    selected = random.Random(seed).sample(queries, min(n, len(queries)))
-
+ 
 -    if reconstruction is not None:
 -        if not isinstance(reconstruction, pycolmap.Reconstruction):
 -            reconstruction = pycolmap.Reconstruction(reconstruction)
 +  if reconstruction is not None:
 +    if not isinstance(reconstruction, pycolmap.Reconstruction):
 +      reconstruction = pycolmap.Reconstruction(reconstruction)
-
+ 
 -    for qname in selected:
 -        loc = logs["loc"][qname]
 -        visualize_loc_from_log(
@@ -7693,8 +7693,8 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=pipelines' '--ex
 +    if loc["PnP_ret"]["success"]:
 +      visualize_loc_from_log(image_dir, qname, loc, reconstruction,
 +                             db_image_dir, **kwargs)
-
-
+ 
+ 
  def visualize_loc_from_log(
 @@ -106,60 +114,101 @@
      db_image_dir=None,
