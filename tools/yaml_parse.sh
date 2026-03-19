@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2017 Jonathan Peres
+# SPDX-FileCopyrightText: (C) 2017 Jonathan Peres
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: MIT AND Apache-2.0
 
