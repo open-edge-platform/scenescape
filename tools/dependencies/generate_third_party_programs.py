@@ -19,6 +19,189 @@ import re
 # Global cache for license texts to avoid redundant downloads
 _license_text_cache = {}
 
+# Global cache for per-package copyright statements
+_copyright_cache = {}
+
+# Global cache for full license file texts fetched from package sources
+_package_license_file_cache = {}
+
+
+def extract_copyright_from_text(text):
+    """
+    Extract copyright statements from the text of a LICENSE file.
+
+    Matches lines that start with "Copyright" (case-insensitive), optionally
+    followed by (c) or the © symbol.
+    """
+    copyright_lines = []
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if re.match(r"(?i)^copyright\s*[\(\u00a9]", stripped) or \
+           re.match(r"(?i)^copyright\s+\d{4}", stripped) or \
+           re.match(r"(?i)^copyright\s+\(c\)", stripped):
+            copyright_lines.append(stripped)
+    return copyright_lines
+
+
+def _get_github_repo_path(github_url):
+    """Extract the 'owner/repo' path from a GitHub URL."""
+    match = re.match(r"https?://github\.com/([^/]+/[^/?#]+?)(?:\.git|[/?#].*)?$", github_url)
+    if match:
+        return match.group(1)
+    return None
+
+
+def _fetch_pypi_license_file(package_name, version=None):
+    """
+    Fetch the raw LICENSE file text from a PyPI package's GitHub source repository.
+
+    Strategy:
+      1. Query the PyPI JSON API to find the project source URL.
+      2. Resolve to a GitHub repository.
+      3. Try common LICENSE file names and return the first one found.
+
+    Results are cached in _package_license_file_cache.
+    Returns the full license file text, or None if not found.
+    """
+    cache_key = (package_name, version)
+    if cache_key in _package_license_file_cache:
+        return _package_license_file_cache[cache_key]
+
+    # Query PyPI JSON API
+    if version:
+        api_url = f"https://pypi.org/pypi/{package_name}/{version}/json"
+    else:
+        api_url = f"https://pypi.org/pypi/{package_name}/json"
+    try:
+        resp = requests.get(api_url, timeout=10)
+        if resp.status_code != 200:
+            _package_license_file_cache[cache_key] = None
+            return None
+        data = resp.json()
+    except Exception:
+        _package_license_file_cache[cache_key] = None
+        return None
+
+    info = data.get("info", {})
+    project_urls = info.get("project_urls") or {}
+    home_page = (info.get("home_page") or "").strip()
+
+    # Search for a GitHub URL across common project_url keys
+    github_url = None
+    source_key_priority = ["Source Code", "Source", "Repository", "GitHub", "Code", "Homepage", "Home"]
+    for key in source_key_priority:
+        val = (project_urls.get(key) or "").strip()
+        if "github.com" in val:
+            github_url = val
+            break
+    if not github_url and "github.com" in home_page:
+        github_url = home_page
+
+    if not github_url:
+        _package_license_file_cache[cache_key] = None
+        return None
+
+    repo_path = _get_github_repo_path(github_url)
+    if not repo_path:
+        _package_license_file_cache[cache_key] = None
+        return None
+
+    # Try common LICENSE file names in the default branch
+    license_filenames = ["LICENSE", "LICENSE.txt", "LICENSE.md", "LICENSE.rst",
+                         "LICENCE", "COPYING", "COPYING.txt"]
+    for filename in license_filenames:
+        raw_url = f"https://raw.githubusercontent.com/{repo_path}/HEAD/{filename}"
+        try:
+            resp = requests.get(raw_url, timeout=10)
+            if resp.status_code == 200:
+                _package_license_file_cache[cache_key] = resp.text
+                return resp.text
+        except Exception:
+            continue
+
+    _package_license_file_cache[cache_key] = None
+    return None
+
+
+def get_pypi_package_copyright(package_name, version=None):
+    """
+    Fetch copyright statement(s) from a PyPI package's source repository.
+    Returns a newline-joined string of copyright lines, or None if not found.
+    """
+    cache_key = f"pypi:{package_name}:{version}"
+    if cache_key in _copyright_cache:
+        return _copyright_cache[cache_key]
+
+    license_text = _fetch_pypi_license_file(package_name, version)
+    if license_text is None:
+        _copyright_cache[cache_key] = None
+        return None
+
+    copyright_lines = extract_copyright_from_text(license_text)
+    if copyright_lines:
+        result = "\n".join(copyright_lines)
+        _copyright_cache[cache_key] = result
+        return result
+
+    _copyright_cache[cache_key] = None
+    return None
+
+
+def get_pypi_package_license_text(package_name, version=None):
+    """
+    Fetch the full license text from a PyPI package's source repository on GitHub.
+    Returns the full text of the LICENSE file, or None if not found.
+    """
+    return _fetch_pypi_license_file(package_name, version)
+
+
+def _parse_pypi_component(component):
+    """Parse 'package==version' / 'package>=version' / 'package' into (name, version)."""
+    match = re.match(r"^([A-Za-z0-9_.\-]+)(?:[><=!~^]+([A-Za-z0-9._\-]*))?$", component)
+    if match:
+        return match.group(1), match.group(2) or None
+    return None, None
+
+
+def get_package_copyright(component, origin):
+    """
+    Get copyright statement for a package based on its declared origin.
+
+    Currently supports:
+      - pypi: fetches from the package's source repository on GitHub.
+
+    Returns a copyright string or None.
+    """
+    if not origin:
+        return None
+    origin_lower = origin.lower().strip()
+    if origin_lower == "pypi":
+        package_name, version = _parse_pypi_component(component)
+        if package_name:
+            return get_pypi_package_copyright(package_name, version)
+    # Other origins (debian, ubuntu, conan, …) can be added here in the future
+    return None
+
+
+def get_package_license_text(component, origin):
+    """
+    Get the full license file text for a package from its source repository.
+
+    Currently supports:
+      - pypi: fetches the LICENSE file from the project's GitHub repository.
+
+    Returns the full license text string, or None if not available.
+    """
+    if not origin:
+        return None
+    origin_lower = origin.lower().strip()
+    if origin_lower == "pypi":
+        package_name, version = _parse_pypi_component(component)
+        if package_name:
+            return get_pypi_package_license_text(package_name, version)
+    # Other origins (debian, ubuntu, conan, …) can be added here in the future
+    return None
+
 
 def get_license_url(license_name):
     """Get SPDX license URL for a given license name."""
@@ -494,6 +677,7 @@ def process_dependencies(input_file, output_file, preamble_file, licenses_dir):
     failed_licenses = []
     special_licenses_skipped = set()
     license_sources = {}  # license_name -> source (url, file, or None)
+    component_to_origin = {}  # component -> origin (first occurrence wins)
 
     # Read dependencies CSV
     with open(input_file, newline='', encoding='utf-8') as csvfile:
@@ -501,7 +685,11 @@ def process_dependencies(input_file, output_file, preamble_file, licenses_dir):
         for row in reader:
             component = row["Component"].strip()
             license_ = row["License"].strip()
+            origin = row.get("Origin", "").strip()
             components.append((component, license_))
+            # Record origin for copyright lookup (first occurrence wins)
+            if component not in component_to_origin:
+                component_to_origin[component] = origin
             if license_:
                 # Parse license expression to get all individual licenses
                 individual_licenses = get_licenses_from_expression(license_)
@@ -528,6 +716,23 @@ def process_dependencies(input_file, output_file, preamble_file, licenses_dir):
             key=lambda x: x.lower()
         )
 
+    # -- Collect per-component copyright statements --
+    # Build the set of unique components we need to look up
+    all_unique_components = set()
+    for comps in license_expr_to_components.values():
+        all_unique_components.update(comps)
+
+    print("\nFetching copyright statements from package sources...")
+    component_copyrights = {}  # component -> copyright text (or None)
+    for comp in sorted(all_unique_components):
+        origin = component_to_origin.get(comp, "")
+        copyright_text = get_package_copyright(comp, origin)
+        if copyright_text:
+            component_copyrights[comp] = copyright_text
+            print(f"  OK  {comp}: {copyright_text.splitlines()[0]}")
+        else:
+            print(f"  --  {comp}: no copyright found")
+
     # Read preamble
     preamble = ""
     if os.path.isfile(preamble_file):
@@ -544,10 +749,26 @@ def process_dependencies(input_file, output_file, preamble_file, licenses_dir):
         entry_num = 1
         for license_expr in sorted_license_exprs:
             print(f"Processing license expression: {license_expr}")
-            # Download license text for the expression
-            license_text = download_license_expression_text(
-                license_expr, license_sources, failed_licenses, licenses_dir, special_licenses_skipped
-            )
+
+            # Prefer full license text fetched directly from a package source.
+            # Use the first component in the group that has a retrievable LICENSE file.
+            license_text = None
+            pkg_license_source = None
+            for comp in license_expr_to_components[license_expr]:
+                origin = component_to_origin.get(comp, "")
+                pkg_text = get_package_license_text(comp, origin)
+                if pkg_text:
+                    license_text = pkg_text
+                    pkg_license_source = comp
+                    break
+
+            if pkg_license_source:
+                print(f"  Using license text from package source: {pkg_license_source}")
+            else:
+                # Fall back to SPDX template / local files
+                license_text = download_license_expression_text(
+                    license_expr, license_sources, failed_licenses, licenses_dir, special_licenses_skipped
+                )
 
             # Only write entry if license text was found
             if license_text is not None:
@@ -556,6 +777,12 @@ def process_dependencies(input_file, output_file, preamble_file, licenses_dir):
                 f.write(f"{entry_num}. Software released under the license {license_expr}:\n")
                 for comp in license_expr_to_components[license_expr]:
                     f.write(f"    {comp}\n")
+                    # Include per-component copyright statement when the license text
+                    # comes from a different component or from the SPDX template
+                    # (the copyright for pkg_license_source is embedded in its LICENSE file).
+                    if comp in component_copyrights and comp != pkg_license_source:
+                        for cline in component_copyrights[comp].splitlines():
+                            f.write(f"        {cline}\n")
                 f.write("\n")
                 f.write(license_text.strip() + "\n")
                 entry_num += 1
