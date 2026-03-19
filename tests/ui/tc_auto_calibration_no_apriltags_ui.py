@@ -41,10 +41,10 @@ class NoAprilTagCalibrationTest(UserInterfaceTest):
       )
       print("Autocalibration label displays correct message.")
     except TimeoutException:
-       print(
-         f"Autocalibration label did not display expected message within {timeout} seconds. "
-         f"Last observed label: {actual_label['value']!r}, expected: {expected_label!r}."
-       )
+        print(
+          f"Autocalibration label did not display expected message within {timeout} seconds. "
+          f"Last observed label: {actual_label['value']!r}, expected: {expected_label!r}."
+        )
 
     print("Checking button state is disabled.")
     button_element = self.browser.find_element(By.ID, button_id)
@@ -68,6 +68,8 @@ def test_no_april_tag(request, record_xml_attribute):
 
   test = NoAprilTagCalibrationTest(TEST_NAME, request, record_xml_attribute)
   test.execute_test()
+
+  common.record_test_result(TEST_NAME, test.exitCode)
 
   assert test.exitCode == 0
   return test.exitCode
