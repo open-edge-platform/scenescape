@@ -196,7 +196,8 @@ class CamCreateForm(forms.ModelForm):
     from manager.ppl_generator.model_chain import parse_model_chain
     from manager.ppl_generator import PipelineGenerationValueError, PipelineGenerationNotImplementedError
 
-    model_config_path = Path(os.environ.get('MODEL_CONFIGS_FOLDER', '/models/model_configs')) / 'model_config.json'
+    modelconfig_name = getattr(self.instance, 'modelconfig', None) or 'model_config.json'
+    model_config_path = Path(os.environ.get('MODEL_CONFIGS_FOLDER', '/models/model_configs')) / modelconfig_name
     if not model_config_path.is_file():
       raise ValidationError(f"Model config file not found at {model_config_path}")
 
