@@ -194,8 +194,8 @@ mqtt-cert: # NEX-T10423
 	$(call common-recipe, $(COMPOSE_FILES), tests/security/system/negative_mqtt_insecure_cert.py)
 
 mqtt-roi: # NEX-T10404
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/controller_analytics.yml:$(COMPOSE)/tracker.yml:$(COMPOSE)/web.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/cams.yml)
-	$(eval SERVICES := $(strip pgserver web controller-analytics tracker))
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml:$(COMPOSE)/controller_analytics.yml:$(COMPOSE)/tracker.yml:$(COMPOSE)/cams.yml:$(COMPOSE)/dlstreamer/retail_video.yml)
+	$(eval SERVICES := $(strip pgserver web controller-analytics tracker retail-video))
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_roi_mqtt.py, '$(SERVICES)', true, /run/secrets/controller.auth)

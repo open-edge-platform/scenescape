@@ -9,6 +9,10 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
   django:
     file: ${SECRETSDIR}/django
+  vdms-client-cert:
+    file: ${SECRETSDIR}/certs/scenescape-vdms-c.crt
+  vdms-client-key:
+    file: ${SECRETSDIR}/certs/scenescape-vdms-c.key
   controller.auth:
     environment: CONTROLLER_AUTH
 
@@ -26,20 +30,30 @@ services:
       ntpserv:
         condition: service_started
     environment:
-      CONTROLLER_ENABLE_ANALYTICS_ONLY: "true"
-      VISIBILITY_TOPIC: ${VISIBILITY:-regulated}
+      - CONTROLLER_ENABLE_ANALYTICS_ONLY=true
+      - CONTROLLER_ENABLE_METRICS=${CONTROLLER_ENABLE_METRICS:-false}
+      - CONTROLLER_METRICS_ENDPOINT=${CONTROLLER_METRICS_ENDPOINT:-otel-collector.scenescape.intel.com:4317}
+      - CONTROLLER_METRICS_EXPORT_INTERVAL_S=${CONTROLLER_METRICS_EXPORT_INTERVAL_S:-60}
+      - CONTROLLER_ENABLE_TRACING=${CONTROLLER_ENABLE_TRACING:-false}
+      - CONTROLLER_TRACING_ENDPOINT=${CONTROLLER_TRACING_ENDPOINT:-otel-collector.scenescape.intel.com:4317}
+      - CONTROLLER_TRACING_SAMPLE_RATIO=${CONTROLLER_TRACING_SAMPLE_RATIO:-1.0}
+      - VISIBILITY_TOPIC=${VISIBILITY:-regulated}
     command: >
       --restauth /run/secrets/controller.auth
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
       --ntp ntpserv
-      --visibility_topic "${VISIBILITY_TOPIC}"
+      --visibility_topic "$VISIBILITY_TOPIC"
     volumes:
       - ./${DBROOT}/media:/home/scenescape/SceneScape/media
       - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+      - source: vdms-client-key
+        target: certs/scenescape-vdms-c.key
+      - source: vdms-client-cert
+        target: certs/scenescape-vdms-c.crt
       - django
       - controller.auth
     restart: on-failure
