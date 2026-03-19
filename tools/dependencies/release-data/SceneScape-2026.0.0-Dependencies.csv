@@ -580,6 +580,7 @@ scenescape-manager,bindfs:1.14.7-1,Debian,GPL-2.0,Y,used at initialization,previ
 scenescape-manager,bzip2:1.0.8-5+b1,Debian,BSD License,Y,used during initialization to unzip sample database,previous-release,N
 scenescape-manager,curl:7.88.1-10+deb12u14,Debian,MIT,Y,used,previous-release,N
 scenescape-manager,fuse:2.9.9-6+b1,Debian,GPL-2.0,Y,indirect dependency automatically installed,previous-release,N
+scenescape-manager,mod_qos-11.76,https://sourceforge.net/projects/mod-qos/files/mod_qos-11.76.tar.gz,Apache-2.0,Y,used,other,N
 scenescape-manager,libapache2-mod-wsgi-py3:4.9.4-1+b2,Debian,Apache-2.0,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libapr1:amd64:1.7.2-3+deb12u1,Debian,Apache-2.0,Y,indirect dependency automatically installed,previous-release,N
 scenescape-manager,libaprutil1-dbd-sqlite3:amd64:1.6.3-1,Debian,Apache-2.0,Y,indirect dependency automatically installed,previous-release,N
