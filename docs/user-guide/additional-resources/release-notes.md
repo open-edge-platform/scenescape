@@ -103,6 +103,6 @@ During the Docker build process, packages are installed from public repositories
 Between Intel® SceneScape releases, it is possible that packages in public apt repositories get upgraded to newer versions. Although it is possible for these upgraded software packages to work without issues with the current Intel® SceneScape 1.3.0 release, you assume all risks associated with the use of the upgraded packages. Compatibility was tested using the versions mentioned in "Package versions" file.
 
 Note: Performance varies by use, configuration and other factors. Learn more at
-[www.Intel.com/PerformanceIndex](http://www.intel.com/PerformanceIndex).
+[Intel Performance Index](https://edc.intel.com/content/www/us/en/products/performance/benchmarks/overview/).
 
 Contact your Intel representative if you encounter issues that are a result of using different versions of software packages from public repositories than the ones provided with this release.

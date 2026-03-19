@@ -9,6 +9,7 @@ LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
 HAS_PIP ?= yes
 HAS_DPKG ?= yes
 USES_SCENE_COMMON ?= no
+GITHUB_ACTIONS_CACHE ?= false
 # Read the SHA-pinned image from the Dockerfile ARG default — single source of truth
 RUNTIME_OS_IMAGE ?= $(shell sed -n 's/^ARG RUNTIME_OS_IMAGE=//p' Dockerfile)
 
@@ -23,32 +24,36 @@ GREEN  := \033[0;32m
 YELLOW := \033[0;33m
 RESET  := \033[0m
 
+
 .PHONY: build-image
 build-image: $(BUILD_DIR) Dockerfile
 	@echo -e "$(GREEN)------- STARTING BUILD OF IMAGE: $(IMAGE):$(VERSION) -------$(RESET)"
 	@{ \
-	    set -e; \
-	    set -o pipefail; \
-	    TARGET_ARG=""; \
-	    if [ -n "$(TARGET)" ]; then TARGET_ARG="--target $(TARGET)"; fi; \
-	    if env BUILDKIT_PROGRESS=plain docker build $(REBUILDFLAGS) $$TARGET_ARG \
-	        --build-arg http_proxy=$(http_proxy) \
-	        --build-arg https_proxy=$(https_proxy) \
-	        --build-arg no_proxy=$(no_proxy) \
-	        --build-arg CERTDOMAIN=$(CERTDOMAIN) \
-	        --build-arg FORCE_VAAPI=$(FORCE_VAAPI) \
-	        $(EXTRA_BUILD_ARGS) \
-	        --rm -t $(IMAGE):$(VERSION) \
-	        -f ./Dockerfile .. 2>&1 | tee $(LOG_FILE); \
-	    then \
-	        docker tag $(IMAGE):$(VERSION) $(IMAGE):latest; \
-	        echo -e "$(GREEN)------- BUILD OF IMAGE $(IMAGE):$(VERSION) COMPLETED SUCCESSFULLY -------$(RESET)"; \
-	        echo "Log file created at $(LOG_FILE)"; \
-	    else \
-	        echo -e "$(RED)------- BUILD OF IMAGE $(IMAGE):$(VERSION) FAILED. CHECK $(LOG_FILE) FOR DETAILS. -------$(RESET)"; \
-	        grep --color=auto -i -r "^error" $(LOG_FILE); \
-	        exit 1; \
-	    fi \
+		set -xe; \
+		set -o pipefail; \
+		if [ "$(GITHUB_ACTIONS_CACHE)" = "true" ]; then \
+		  EXTRA_BUILD_ARGS+=" --cache-from type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG} --cache-from type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):main --cache-to type=registry,ref=ghcr.io/${CACHE_REGISTRY}/cache-$(IMAGE):${CACHE_TAG},ignore-error=true"; \
+		fi; \
+		TARGET_ARG=""; \
+		if [ -n "$(TARGET)" ]; then TARGET_ARG="--target $(TARGET)"; fi; \
+		if env BUILDKIT_PROGRESS=plain docker build $(REBUILDFLAGS) $$TARGET_ARG \
+			--build-arg http_proxy=$(http_proxy) \
+			--build-arg https_proxy=$(https_proxy) \
+			--build-arg no_proxy=$(no_proxy) \
+			--build-arg CERTDOMAIN=$(CERTDOMAIN) \
+			--build-arg FORCE_VAAPI=$(FORCE_VAAPI) \
+			$$EXTRA_BUILD_ARGS \
+			--rm -t $(IMAGE):$(VERSION) \
+			-f ./Dockerfile .. 2>&1 | tee $(LOG_FILE); \
+		then \
+			docker tag $(IMAGE):$(VERSION) $(IMAGE):latest; \
+			echo -e "$(GREEN)------- BUILD OF IMAGE $(IMAGE):$(VERSION) COMPLETED SUCCESSFULLY -------$(RESET)"; \
+			echo "Log file created at $(LOG_FILE)"; \
+		else \
+			echo -e "$(RED)------- BUILD OF IMAGE $(IMAGE):$(VERSION) FAILED. CHECK $(LOG_FILE) FOR DETAILS. -------$(RESET)"; \
+			grep --color=auto -i -r "^error" $(LOG_FILE); \
+			exit 1; \
+		fi \
 	}
 
 .PHONY: rebuild
