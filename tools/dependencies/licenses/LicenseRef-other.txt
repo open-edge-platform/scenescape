@@ -1,0 +1,8 @@
+Unclassified License (LicenseRef-other)
+
+This license identifier is a catch-all for license text detected in source
+code that could not be mapped to a known SPDX identifier. The code may be
+under a permissive, copyleft, or proprietary license.
+
+Review of the original source file copyright/license notices is required
+to determine the exact terms.

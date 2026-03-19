@@ -1,0 +1,8 @@
+Example/Sample Code License (LicenseRef-Example)
+
+This identifier was assigned to example or sample code included in a
+software package. Sample code is typically provided under permissive terms
+that allow free use, modification, and distribution.
+
+Please refer to the package's main license or the individual source file
+headers to confirm the applicable terms.

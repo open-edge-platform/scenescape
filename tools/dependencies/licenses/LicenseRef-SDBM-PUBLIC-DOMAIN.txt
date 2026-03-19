@@ -1,0 +1,20 @@
+From ext/SDBM_File/sdbm/README:
+
+The entire sdbm  library package, as authored by me, Ozan S.  Yigit,
+is  hereby placed in the public domain. As such, the author is not
+responsible for the  consequences  of  use  of this  software, no
+matter how awful, even if they arise from defects in it. There is no
+expressed or implied warranty for the sdbm library.
+
+Since the sdbm library package is in the public domain, this   original
+release  or  any  additional  public-domain releases of the modified
+original cannot possibly (by definition) be withheld from you. Also
+by definition, You (singular) have all the rights to this code
+(including  the  right to sell without permission, the right to
+hoard[3]  and  the right  to  do  other  icky  things as you see fit)
+but those rights are also granted to everyone else.
+
+Please note that all  previous  distributions  of  this software
+contained  a  copyright  (which is now dropped) to protect its origins
+and its  current  public  domain  status against any possible claims
+and/or challenges.

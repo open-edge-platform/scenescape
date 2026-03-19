@@ -1,0 +1,8 @@
+Scanner-Detected License Notice: Sundry Permissive
+
+This license identifier covers miscellaneous short permissive notices that
+do not fit precisely into a single SPDX category. The notices typically grant
+broad permission to use, copy, modify, and distribute the covered code, 
+subject to attribution requirements.
+
+Please refer to the original source files for the exact license text.

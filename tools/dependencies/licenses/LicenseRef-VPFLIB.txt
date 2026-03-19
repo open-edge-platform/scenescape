@@ -1,0 +1,17 @@
+VPF Library License
+
+The VPF Library (VPFLIB) was developed at the Intergraph Corporation
+for use with the Vector Product Format (VPF), a US military geographic
+data standard defined in MIL-STD-2407.
+
+This software and accompanying documentation are provided as-is and
+without charge. The U.S. Government retains all rights to use,
+reproduce, modify, distribute, and disclose the covered work and its
+documentation within the Government. All other rights are reserved to
+the copyright owners.
+
+Permission to reproduce and distribute the covered work and its
+documentation is hereby granted, provided this notice is preserved in
+all copies. This software is provided without any express or implied
+warranty, including but not limited to the implied warranties of
+merchantability and fitness for a particular purpose.

@@ -1,0 +1,10 @@
+Man Page Documentation License (LicenseRef-man-page)
+
+This identifier covers the license for manual-page (man-page) documentation
+files. Man pages are typically distributed under permissive terms, often the
+GNU All-Permissive License (FSFAP) or equivalent:
+
+  Copying and distribution of this file, with or without modification,
+  are permitted in any medium without royalty, provided the copyright
+  notice and this notice are preserved. This file is offered as-is,
+  without any warranty.

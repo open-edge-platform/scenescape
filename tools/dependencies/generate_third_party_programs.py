@@ -559,6 +559,202 @@ def get_license_url(license_name):
         "PIL": spdx_base + "HPND.txt",  # PIL uses HPND license
         "PSF": spdx_base + "Python-2.0.txt",  # PSF -> Python-2.0
         "SIL Open Font License": spdx_base + "OFL-1.1.txt",  # Completely different name
+
+        # ── LicenseRef-* mappings ─────────────────────────────────────────────
+        # These are non-SPDX identifiers (e.g. from Debian/Ubuntu copyright
+        # databases, Scancode, or hand-curated metadata) mapped to the closest
+        # canonical SPDX license text.
+
+        # Apache variants
+        "LicenseRef-Apache": spdx_base + "Apache-2.0.txt",
+        "LicenseRef-Apache-2.0-": spdx_base + "Apache-2.0.txt",       # trailing dash artifact
+        "LicenseRef-Apache-License-2.0": spdx_base + "Apache-2.0.txt",  # verbose alias
+        "LicenseRef-xerces-Apache-2.0": spdx_base + "Apache-2.0.txt",
+
+        # Artistic
+        "LicenseRef-Artistic": spdx_base + "Artistic-2.0.txt",
+
+        # BSD-1-clause
+        "LicenseRef-BSD-1-clause-UCB": spdx_base + "BSD-1-Clause.txt",
+
+        # BSD-2-clause variants
+        "LicenseRef-BSD-2": spdx_base + "BSD-2-Clause.txt",
+        "LicenseRef-BSD-2-clause-beyond": spdx_base + "BSD-2-Clause.txt",
+        "LicenseRef-NRL-2-clause": spdx_base + "BSD-2-Clause.txt",
+
+        # BSD-3-clause variants (all map to canonical BSD-3-Clause text)
+        "LicenseRef-BSD-3-Clause-Google": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-Berkeley": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-Carnegie": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-GENERIC": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-Google": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-Oracle": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-UCB": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-WIDE": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-alike-Alexander-Chemeris": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-alike-CREATIS": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-alike-Jan-de-Vaan": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-alike-Mathieu-Malaterre": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-alike-Theodore-Ts": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-carnegie": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-chromium": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-cmake": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-kitware": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-3-clause-with-weird-numbering": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-Author": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-BY-LC-NE": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD-like-Spencer": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BSD3": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-BrownUn-UnCalifornia-ErikCorry": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-Carnegie": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-Chromium-BSD-style": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-CORE-MATH": spdx_base + "BSD-3-Clause.txt",       # CORE-MATH uses BSD-3
+        "LicenseRef-EDL-1.0": spdx_base + "BSD-3-Clause.txt",         # Eclipse Dist. License ≈ BSD-3
+        "LicenseRef-HSIEH-BSD": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-HSIEH-DERIVATIVE": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-Hybrid-BSD": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-JMVBSD": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-KISSFFTBSD": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-NRL-3-clause": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-PCRE": spdx_base + "BSD-3-Clause.txt",            # PCRE uses BSD-3
+        "LicenseRef-REGCOMP": spdx_base + "BSD-3-Clause.txt",         # Henry Spencer regex (BSD-like)
+        "LicenseRef-REGCOMP-": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-STEREO-CALIB-PERMISSIVE": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-brg-endian": spdx_base + "BSD-3-Clause.txt",      # Brian Gladman permissive
+        "LicenseRef-cipic": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-cpl-mem-cache": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-gdcmjpeg": spdx_base + "BSD-3-Clause.txt",
+        "LicenseRef-hidapi-orig": spdx_base + "BSD-3-Clause.txt",     # HIDAPI original = BSD-3
+        "LicenseRef-imath": spdx_base + "BSD-3-Clause.txt",           # OpenEXR/iMath = BSD-3
+        "LicenseRef-permissive-colamd": spdx_base + "BSD-3-Clause.txt",  # COLAMD = BSD-3
+        "LicenseRef-u-o-tennesee": spdx_base + "BSD-3-Clause.txt",    # Univ. of Tennessee (LAPACK)
+
+        # BSD-4-clause variants (original 4-clause with advertising clause)
+        "LicenseRef-BSD-124-clause-UCB": spdx_base + "BSD-4-Clause.txt",  # 1+2+4-clause UCB
+        "LicenseRef-BSD-4-clause-POWERDOG": spdx_base + "BSD-4-Clause.txt",
+        "LicenseRef-BSD-4-clause-UCB": spdx_base + "BSD-4-Clause.txt",
+
+        # Boost Software License 1.0
+        "LicenseRef-BSL": spdx_base + "BSL-1.0.txt",
+        "LicenseRef-Boost": spdx_base + "BSL-1.0.txt",
+        "LicenseRef-Boost-1.0": spdx_base + "BSL-1.0.txt",
+
+        # bzip2
+        "LicenseRef-BZIP": spdx_base + "bzip2-1.0.6.txt",
+
+        # Bitstream Vera
+        "LicenseRef-Bitstream": spdx_base + "Bitstream-Vera.txt",
+
+        # Public domain / CC0
+        "LicenseRef-Base64": spdx_base + "CC0-1.0.txt",               # Base64 code is public domain
+        "LicenseRef-CC-zero-waive-1.0-us": spdx_base + "CC0-1.0.txt",
+        "LicenseRef-CC0": spdx_base + "CC0-1.0.txt",
+        "LicenseRef-PD": spdx_base + "CC0-1.0.txt",
+        "LicenseRef-Public-Domain": spdx_base + "CC0-1.0.txt",
+        "LicenseRef-Public-domain": spdx_base + "CC0-1.0.txt",
+        "LicenseRef-PublicDomain-David-Ludwig": spdx_base + "CC0-1.0.txt",
+        "LicenseRef-PublicDomain-Edgar-Simo": spdx_base + "CC0-1.0.txt",
+        "LicenseRef-PublicDomain-Sam-Lantinga": spdx_base + "CC0-1.0.txt",
+        "LicenseRef-SDBM-PUBLIC-DOMAIN": spdx_base + "CC0-1.0.txt",
+        "LicenseRef-Spherepack": spdx_base + "CC0-1.0.txt",           # NCAR public domain
+        "LicenseRef-dlmalloc": spdx_base + "CC0-1.0.txt",             # dlmalloc is public domain
+        "LicenseRef-public-domain": spdx_base + "CC0-1.0.txt",
+        "LicenseRef-public-domain-Kroon": spdx_base + "CC0-1.0.txt",
+
+        # FSF All-Permissive (FSFAP)
+        "LicenseRef-FSF-unlimited": spdx_base + "FSFAP.txt",
+        "LicenseRef-GNU-All-Permissive-License": spdx_base + "FSFAP.txt",
+        "LicenseRef-GNU-All-Permissive-License-FSF": spdx_base + "FSFAP.txt",
+        "LicenseRef-permissive-configure": spdx_base + "FSFAP.txt",   # autoconf configure scripts
+        "LicenseRef-permissive-fsf": spdx_base + "FSFAP.txt",
+        "LicenseRef-unlimited-free-doc": spdx_base + "FSFAP.txt",
+
+        # GFDL (no invariant sections variant)
+        "LicenseRef-GFDL-NIV-1.3": spdx_base + "GFDL-1.3-no-invariants-only.txt",
+
+        # GPL variants (use base GPL text; exception clauses are noted separately)
+        "LicenseRef-GPL": spdx_base + "GPL-2.0-only.txt",
+        "LicenseRef-GPL-2--with-bison-exception": spdx_base + "GPL-2.0-only.txt",
+        "LicenseRef-GPL-2--with-link-exception": spdx_base + "GPL-2.0-only.txt",
+        "LicenseRef-GPL-2-either": spdx_base + "GPL-2.0-or-later.txt",
+        "LicenseRef-GPL-2-or": spdx_base + "GPL-2.0-or-later.txt",
+        "LicenseRef-GPL-3--WITH-BISON-EXCEPTION": spdx_base + "GPL-3.0-only.txt",
+        "LicenseRef-GPL-3--with-bison-exception": spdx_base + "GPL-3.0-only.txt",
+        "LicenseRef-GPLWithACException": spdx_base + "GPL-2.0-only.txt",  # WITH Autoconf exception
+        "LicenseRef-GPLv3-": spdx_base + "GPL-3.0-only.txt",
+        "LicenseRef-DONT-CHANGE-THE-GPL": spdx_base + "GPL-2.0-only.txt",
+
+        # HPND variants (Historical Permission Notice and Disclaimer)
+        "LicenseRef-HPND-3i": spdx_base + "HPND.txt",
+        "LicenseRef-HPND-disclaimer": spdx_base + "HPND.txt",
+        "LicenseRef-HPND-eos": spdx_base + "HPND.txt",
+        "LicenseRef-HPND-p-sl-sgi": spdx_base + "HPND.txt",
+        "LicenseRef-HPND-sl-gl-sgi": spdx_base + "HPND.txt",
+        "LicenseRef-HPND-sl-sgi": spdx_base + "HPND.txt",
+        "LicenseRef-gsm": spdx_base + "HPND.txt",                     # libgsm "use freely" = HPND-like
+
+        # IBM Public License
+        "LicenseRef-IBM": spdx_base + "IPL-1.0.txt",
+
+        # ISC
+        "LicenseRef-ISC-License": spdx_base + "ISC.txt",
+        "LicenseRef-ISC-packaging": spdx_base + "ISC.txt",
+
+        # libjpeg / IJG
+        "LicenseRef-libjpeg": spdx_base + "IJG.txt",
+
+        # LGPL variants
+        "LicenseRef-LGPL-2.1--OpenSSL": spdx_base + "LGPL-2.1-only.txt",
+        "LicenseRef-LGPL-2.1--with-link-exception": spdx_base + "LGPL-2.1-only.txt",
+        "LicenseRef-LGPLv2.1-": spdx_base + "LGPL-2.1-only.txt",
+        "LicenseRef-LGPLv3--or-GPLv2-": spdx_base + "LGPL-3.0-or-later.txt",
+        "LicenseRef-LPGL-2.1-": spdx_base + "LGPL-2.1-only.txt",     # typo: LPGL = LGPL
+
+        # Lucent Public License
+        "LicenseRef-lucent": spdx_base + "LPL-1.0.txt",
+
+        # MIT / Expat variants
+        "LicenseRef-Expat": spdx_base + "MIT.txt",                    # Expat is the MIT license
+        "LicenseRef-Expat-advertising": spdx_base + "MIT.txt",
+        "LicenseRef-Expat-like": spdx_base + "MIT.txt",
+        "LicenseRef-Gareth-McCaughan": spdx_base + "MIT.txt",
+        "LicenseRef-Harfbuzz": spdx_base + "MIT.txt",
+        "LicenseRef-Inner-Net": spdx_base + "MIT.txt",                # Inner Net License ≈ MIT
+        "LicenseRef-MIT-FSF-public": spdx_base + "MIT.txt",
+        "LicenseRef-MIT-X11": spdx_base + "MIT.txt",                  # X11 variant of MIT
+        "LicenseRef-MIT-like-Lord": spdx_base + "MIT.txt",
+        "LicenseRef-RRA-KEEP-THIS-NOTICE": spdx_base + "MIT.txt",     # Russ Allbery permissive
+        "LicenseRef-SGI": spdx_base + "MIT.txt",                      # SGI X11/MIT-style
+        "LicenseRef-X11-install-sh": spdx_base + "MIT.txt",
+        "LicenseRef-fontconfig": spdx_base + "MIT.txt",
+        "LicenseRef-mit-kemar": spdx_base + "MIT.txt",
+        "LicenseRef-ncxml": spdx_base + "MIT.txt",
+        "LicenseRef-permissive": spdx_base + "MIT.txt",               # generic permissive ≈ MIT
+        "LicenseRef-permissive1": spdx_base + "MIT.txt",
+        "LicenseRef-permissive2": spdx_base + "MIT.txt",
+
+        # Mozilla permissive
+        "LicenseRef-Mozilla-permissive": spdx_base + "MPL-2.0.txt",
+
+        # OpenSSL / SSLeay combined
+        "LicenseRef-OpenSSL-SSLeay": spdx_base + "OpenSSL.txt",
+
+        # RSA Data Security (MD4/MD5 notice)
+        "LicenseRef-RSA-Data-Security": spdx_base + "RSA-MD.txt",
+
+        # SGI Free Software License B
+        "LicenseRef-SGI-Free-Software-License-B": spdx_base + "SGI-B-2.0.txt",
+
+        # Unicode
+        "LicenseRef-Unicode": spdx_base + "Unicode-DFS-2016.txt",
+        "LicenseRef-Unicode-data": spdx_base + "Unicode-DFS-2016.txt",
+
+        # WTFPL
+        "LicenseRef-WTFPL-2": spdx_base + "WTFPL.txt",
+
+        # Zlib / libpng
+        "LicenseRef-zlib-libpng": spdx_base + "Zlib.txt",
+        "LicenseRef-zlib-libpng-like-permissive": spdx_base + "Zlib.txt",
     }    # First, try the custom mapping
     if license_name in custom_map:
         return custom_map[license_name]

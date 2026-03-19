@@ -1,0 +1,7 @@
+Custom Project License (LicenseRef-custom)
+
+This component is distributed under a project-specific or custom license
+that does not map directly to a standard SPDX identifier. The terms are
+defined in the copyright/license header of the original source files.
+
+Please consult the original source package for the applicable license terms.

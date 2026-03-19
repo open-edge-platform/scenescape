@@ -1,0 +1,7 @@
+Unclassified License (LicenseRef-other-1)
+
+This license identifier is a secondary catch-all for license text detected
+in source code that could not be mapped to a known SPDX identifier.
+
+Review of the original source file copyright/license notices is required
+to determine the exact terms.

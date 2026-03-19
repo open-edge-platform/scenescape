@@ -1,0 +1,19 @@
+SWsoft, Inc. License
+
+Copyright (c) SWsoft, Inc. All rights reserved.
+
+The source code and binary code or software contained in this product
+are protected by SWsoft's intellectual property rights and by copyright
+law. Access to this intellectual property is permitted solely for
+purposes of supporting SWsoft products and services.
+
+The right to use, reproduce, modify, and create derivative works of
+this source code is limited to authorized recipients and partners of
+SWsoft. Redistribution of the source code in binary or source form is
+restricted to the terms of the agreement under which this source code
+was provided.
+
+THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTIES OF ANY KIND,
+EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION THE IMPLIED
+WARRANTIES OF MERCHANTABILITY, NON-INFRINGEMENT, OR FITNESS FOR A
+PARTICULAR PURPOSE.

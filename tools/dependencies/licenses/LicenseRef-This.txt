@@ -1,0 +1,8 @@
+Scanner-Detected License Notice: Permissive "This" Clause
+
+This license identifier was assigned by a license scanner to code containing
+a permissive notice of the form "This software may be freely copied and
+distributed..." or similar. The code is intended for free redistribution.
+
+This is a fragment notice. Please refer to the original source file for
+the full license terms.

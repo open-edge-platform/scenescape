@@ -1,0 +1,3 @@
+The Listen database is public and available for any use. We would however
+appreciate an acknowledgment of the database somewhere in the description
+of your work (e.g. paper) or in your development.

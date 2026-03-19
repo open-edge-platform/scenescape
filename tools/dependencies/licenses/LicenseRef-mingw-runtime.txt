@@ -1,0 +1,19 @@
+MinGW Runtime Library License
+
+The MinGW base runtime package is in the public domain and is not
+protected by copyright. There is no warranty; not even for
+merchantability or fitness for a particular purpose.
+
+Portions of the MinGW runtime package are derived from public domain
+sources provided by Sun Microsystems, Hewlett-Packard, and others.
+Some components are covered by BSD-style licenses permitting
+redistribution in source and binary forms with or without modification.
+
+Additional components of the MinGW runtime are governed by the GNU
+Lesser General Public License (LGPL) version 2.1 or later. For those
+components, the full LGPL text applies. See the individual component
+source files for specific licensing information.
+
+Header files derived from Windows API documentation are provided as-is
+with minimal restrictions, consistent with the original distribution
+terms from Microsoft's Platform SDK documentation.
