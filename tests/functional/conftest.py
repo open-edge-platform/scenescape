@@ -47,7 +47,8 @@ def test_id(request):
   default_id = marker.kwargs.get("default")
   analytics_id = marker.kwargs.get("analytics", default_id)
 
-  analytics_mode = os.getenv("CONTROLLER_ENABLE_ANALYTICS_ONLY", "").lower() == "true"
+  analytics_mode = (os.getenv("CONTROLLER_ENABLE_ANALYTICS_ONLY", "").lower() == "true"
+                    or request.config.getoption("analytics_only", default=False))
 
   return analytics_id if analytics_mode else default_id
   
