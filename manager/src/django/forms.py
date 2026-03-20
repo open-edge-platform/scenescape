@@ -191,7 +191,7 @@ class CamCreateForm(forms.ModelForm):
     camerachain = self.cleaned_data.get('camerachain', '').strip()
     if not camerachain:
       return camerachain
-    
+
     from pathlib import Path
     from manager.ppl_generator.model_chain import parse_model_chain
     from manager.ppl_generator import PipelineGenerationValueError, PipelineGenerationNotImplementedError
@@ -211,7 +211,7 @@ class CamCreateForm(forms.ModelForm):
       parse_model_chain(camerachain, settings.MODEL_ROOT, model_config)
     except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
       raise ValidationError(str(e))
-    
+
     return camerachain
 
 class ChildSceneForm(forms.ModelForm):
