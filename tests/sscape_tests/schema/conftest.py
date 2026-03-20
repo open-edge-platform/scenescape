@@ -20,7 +20,7 @@ def pytest_sessionfinish(exitstatus):
 
 @pytest.fixture
 def schemaObject():
-  schemaObj = SchemaValidation(SCHEMA_PATH)
+  schemaObj = SchemaValidation(SCHEMA_PATH, is_multi_message=True)
   return schemaObj
 
 @pytest.fixture

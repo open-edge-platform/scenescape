@@ -1,5 +1,7 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
 
 # =========================
 # STAGE 1: BUILD STAGE
@@ -90,7 +92,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # STAGE 2: RUNTIME STAGE
 # =========================
 # Runtime stage
-FROM python:3.11-slim-bookworm AS autocalibration-runtime
+FROM ${RUNTIME_OS_IMAGE} AS autocalibration-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
@@ -144,11 +146,6 @@ COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/loca
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir --upgrade setuptools wheel
 
-# Create sitecustomize.py to patch intel_extension_for_pytorch os.exit bug
-# This must be done before installing packages that import ipex
-RUN mkdir -p /usr/local/lib/python3.11/site-packages && \
-    echo 'import sys\nimport os\n# Patch intel_extension_for_pytorch bug: os.exit -> sys.exit\nif not hasattr(os, "exit"):\n    os.exit = sys.exit\n' > /usr/local/lib/python3.11/site-packages/sitecustomize.py
-
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/
 COPY autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
@@ -162,7 +159,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy built wheels and install them
 COPY --from=autocalibration-builder /output/*.whl /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install /tmp/*.whl && \
+    pip install --extra-index-url https://download.pytorch.org/whl/cpu /tmp/*.whl && \
     rm -rf /tmp/*.whl
 
 # Copy application code (this changes frequently)

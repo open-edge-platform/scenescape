@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import cv2
@@ -49,7 +49,12 @@ def labelObjects(objects, camDetect, frame, sensor, font, scale):
                       bounds.y + bounds.height / 2)) / scale
     label = "GID:%s" % (obj.gid)
     size = centerTextWithinFrame(frame, label, point, font, 1, sensor.color)
-    label = "%s/%s" % (obj.oid, obj.reidVector)
+    label = "%s/%s" % (
+      obj.oid,
+      obj.reid.get('embedding_vector').shape[1]
+      if obj.reid and obj.reid.get('embedding_vector') is not None
+      else 'None'
+    )
     lsize = cv2.getTextSize(label, font, 0.5, 2)[0]
     point[1] += size[1] + lsize[1] / 2
     centerTextWithinFrame(frame, label, point, font, 0.5, sensor.color)

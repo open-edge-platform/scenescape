@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 SHELL=/bin/bash
@@ -82,14 +82,11 @@ tests: \
   standard-tests \
 
 release-tests: \
-  additional-floor-plans \
   camera-deletion \
   different-formats-maps \
   live-view-button \
   non-functional-tests \
   scene-details \
-  randomly-failing-tests \
-  reid-unique-count \
   reid-performance-degradation \
 
 broken-features:
@@ -97,35 +94,34 @@ broken-features:
 
 # tests that are working, but feature is broken
 _broken-features: \
-  scene-import \
   calibrate-camera-3d-ui-2d-ui \
+  visibility-regulated \
 
 broken-tests: \
   3d-ui-calibration-points \
-  distance-msoce \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
   scenes-summary-api \
+  reid-performance-degradation \
+  auto-calibration-ui \
 
-randomly-failing-tests:
-	camera-status \
-	delete-sensor-scene \
-	persistence \
-	scenes-summary \
-	3d-scene-control-panel \
-	auto-calibration-ui \
+randomly-failing-tests: \
+  distance-msoce \
+  reid-data-flow \
+  reid-semantic-unique-count \
+  reid-unique-count \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
+  out-of-box \
   geometry-conformance \
   metric-tests \
-	out-of-box \
-	out-of-box-no-ntp \
-	bounding-box \
+  bounding-box \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
   auto-calibration-api \
+  openapi-validation \
 
 # Temp K8s BAT target
 # Not sorted alphabetically on purpose
@@ -138,13 +134,15 @@ basic-acceptance-tests-k8s: \
 standard-tests: \
   _functional-tests \
   _ui-tests \
-  show-telemetry-button \
-  upload-only-3d-glb-files \
 
 functional-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
+  out-of-box \
+  out-of-box-no-ntp \
+  geometry-conformance \
+  auto-calibration-api \
   add-delete-3d-object-api \
   add-orphaned-cameras \
   api-large-strings \
@@ -159,8 +157,10 @@ _functional-tests: \
   manual-camera-calibration-api \
   mqtt-auth \
   mqtt-cert \
+  mqtt-roi \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
+  mqtt-tripwire \
   object-crud-api \
   orphaned-sensor \
   persistence-api \
@@ -176,12 +176,15 @@ _functional-tests: \
   upload-3d-glb-file-api \
   upload-only-3d-glb-files-api \
   vdms-similarity-search \
+  visibility-unregulated \
+  visibility-none \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
 
 _non-functional-tests: \
   build-time \
+  openapi-validation \
 
 metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
@@ -195,24 +198,36 @@ ui-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _ui-tests: \
-  3d-camera-control-panel \
+  show-telemetry-button \
+  upload-only-3d-glb-files \
   add-delete-3d-object \
   bounding-box \
   calibrate-all-sensor-types \
+  camera-deletion \
   camera-perspective \
   delete-roi-mqtt \
   delete-sensor-mqtt \
+  delete-sensor-scene \
   delete-sensors \
+  camera-status \
   delete-tripwire-mqtt \
+  different-formats-maps \
   manual-camera-calibration \
   object-crud \
   restricted-media-access \
+  persistence \
+  live-view-button \
+  scene-details \
+  scene-import \
+  scenes-summary \
   sensor-area \
   sensor-location \
   sensor-scene \
   superuser-crud-operations \
   upload-3d-glb-file \
   view-3d-glb-file \
+  3d-scene-control-panel \
+  3d-camera-control-panel \
 
 unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
@@ -232,6 +247,8 @@ _unit-tests: \
   singleton-sensor-unit \
   timestamp-unit \
   transform-unit \
+  uuid-manager-unit \
+  vdms-adapter-unit \
   views-unit \
 
 include Makefile.sscape Makefile.functional Makefile.perf \
@@ -255,7 +272,7 @@ build-time: # NEX-T12520
 		; mkdir -p $(shell dirname $(LOGFILE)) \
 		; python3 tests/scripts/build-time.py \
 			--time-limit 600 \
-			--build-cmd "make" \
+			--build-cmd "make build-core" \
 			--test-name "NEX-T12520" \
 			2>&1 | tee -i $(LOGFILE) \
 		; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
@@ -272,3 +289,8 @@ python-indent-check: # NEX-T10448
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; tests/scripts/checkIndent 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE)
+
+openapi-validation: # NEX-T10572
+	@cd ../docs/user-guide/api-docs/ \
+	; npm install --save-dev swagger-cli@2.0.0 \
+	; npx swagger-cli validate api.yaml

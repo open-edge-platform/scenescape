@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import OrderedDict
@@ -598,8 +598,8 @@ class SceneSerializer(NonNullSerializer):
     return obj.id
 
   def get_cameras(self, obj):
-    queryset = [x for x in obj.sensor_set.all() if x.type == "camera"]
-    return CamSerializer(queryset, many=True).data
+    queryset = Cam.objects.filter(scene=obj)
+    return CamSerializer(queryset, many=True, context=self.context).data
 
   def get_sensors(self, obj):
     queryset = [SingletonSensor.objects.get(pk=x.id) for x in obj.sensor_set.all()
@@ -872,7 +872,9 @@ class Asset3DSerializer(NonNullSerializer):
     fields = ['uid', 'name', 'x_size', 'y_size', 'z_size', 'tracking_radius', 'shift_type', 'mark_color',
               'model_3d', 'scale', 'project_to_map', 'rotation_from_velocity',
               'rotation_x', 'rotation_y', 'rotation_z', 'translation_x', 'translation_y', 'translation_z',
-              'x_buffer_size', 'y_buffer_size', 'z_buffer_size']
+              'x_buffer_size', 'y_buffer_size', 'z_buffer_size',
+              'geometric_center', 'mass', 'center_of_mass', 'is_static', 'ttl',
+              'linear_damping', 'angular_damping', 'coefficient_of_restitution', 'friction_coefficients']
 
 class ChildSceneSerializer(NonNullSerializer):
   name = serializers.SerializerMethodField('getChildName')

@@ -1,5 +1,7 @@
-# SPDX-FileCopyrightText: 2025-2026 Intel Corporation
+# SPDX-FileCopyrightText: 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+ARG RUNTIME_OS_IMAGE=gcr.io/distroless/cc-debian13@sha256:d7ac2f9af248f31fe6270002755722afdf6875e0e49cd52b9150208e6a23875c
 
 # --- Build stage ---
 FROM debian:13-slim@sha256:77ba0164de17b88dd0bf6cdc8f65569e6e5fa6cd256562998b62553134a00ef0 AS builder
@@ -69,7 +71,14 @@ RUN mkdir -p /scenescape/runtime-libs \
 WORKDIR /scenescape
 
 # --- Runtime stage ---
-FROM gcr.io/distroless/cc-debian13@sha256:d7ac2f9af248f31fe6270002755722afdf6875e0e49cd52b9150208e6a23875c AS runtime
+FROM ${RUNTIME_OS_IMAGE} AS runtime
+
+# Label image with description and metadata
+LABEL org.opencontainers.image.description="Intel® SceneScape Tracker Service"
+LABEL org.opencontainers.image.vendor="Intel Corporation"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/tracker/README.md"
 
 USER 10001
 WORKDIR /scenescape

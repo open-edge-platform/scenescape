@@ -9,11 +9,19 @@ import tests.common_test_utils as common
 from scene_common.scene_model import SceneModel as Scene
 from controller.scene import Scene
 from scene_common.camera import Camera
+from controller.controller_mode import ControllerMode
 
 TEST_NAME = "NEX-T10451"
 ################################################################
 # Methods
 ################################################################
+@pytest.fixture(scope='session', autouse=True)
+def initialize_controller_mode():
+  """Initialize ControllerMode before any tests run."""
+  ControllerMode.initialize(analytics_only=False)
+  yield
+  ControllerMode.reset()
+
 def pytest_sessionstart():
   """! Executes at the beginning of the session. """
   print(f"Executing: {TEST_NAME}")

@@ -13,7 +13,6 @@
 #include <mutex>
 #include <set>
 #include <string>
-#include <thread>
 
 #include <mqtt/async_client.h>
 
@@ -86,10 +85,14 @@ public:
 };
 
 /**
- * @brief MQTT client wrapper with automatic reconnection and TLS support.
+ * @brief MQTT client wrapper with Paho auto-reconnect and TLS support.
  *
  * Provides a simplified interface for MQTT pub/sub with:
- * - Automatic reconnection with exponential backoff (1s → 30s max)
+ * - Paho built-in auto-reconnect with exponential backoff (1s → 30s max)
+ *   for connection loss after initial connect
+ * - Connect failures cause process exit; container orchestrator
+ *   (Docker restart: on-failure, K8s) handles restart for retryable errors.
+ *   Non-retryable errors (auth, bad protocol) exit with code 0 to prevent restart.
  * - TLS/mTLS connection support
  * - Thread-safe connection state queries
  * - QoS 1 for all publish/subscribe operations
@@ -184,18 +187,25 @@ public:
     static std::string generateClientId();
 
     /**
-     * @brief Calculate exponential backoff delay for reconnection.
+     * @brief Classify MQTT CONNACK return code as retryable or permanent.
      *
-     * Pure function exposed for unit testing. Uses exponential backoff:
-     * 1s, 2s, 4s, 8s, 16s, then capped at max_delay_s.
+     * Non-retryable: 1 (bad protocol), 2 (identifier rejected),
+     * 4 (bad credentials), 5 (not authorized).
+     * Everything else (including 3=server unavailable) is retryable.
      *
-     * @param attempt Current reconnection attempt number (0-based)
-     * @param initial_ms Initial backoff delay in milliseconds (default: 1000)
-     * @param max_delay_s Maximum delay in seconds (default: 30)
-     * @return Delay in milliseconds
+     * @param rc CONNACK return code from broker
+     * @return true if the error is transient and worth retrying
      */
-    static std::chrono::milliseconds calculateBackoff(int attempt, int initial_ms = 1000,
-                                                      int max_delay_s = 30);
+    static bool isRetryableConnectError(int rc);
+
+    /**
+     * @brief Get requested exit code after a connect failure.
+     *
+     * Returns -1 while running normally. After a connect failure,
+     * returns 0 (non-retryable, don't restart) or 1 (retryable, restart).
+     * Polled by the main loop to trigger process exit.
+     */
+    [[nodiscard]] int exitCode() const { return exit_code_.load(); }
 
 private:
     /**
@@ -229,16 +239,6 @@ private:
      */
     mqtt::ssl_options buildTlsOptions() const;
 
-    /**
-     * @brief Schedule reconnection with exponential backoff.
-     */
-    void scheduleReconnect();
-
-    /**
-     * @brief Reconnection worker thread function.
-     */
-    void reconnectWorker();
-
     // Configuration
     MqttConfig config_;
     int max_reconnect_delay_s_;
@@ -254,13 +254,7 @@ private:
     std::atomic<bool> connected_{false};
     std::atomic<bool> subscribed_{false};
     std::atomic<bool> stop_requested_{false};
-
-    // Reconnection
-    std::thread reconnect_thread_;
-    std::mutex reconnect_mutex_;
-    std::condition_variable reconnect_cv_;
-    std::atomic<bool> reconnecting_{false};
-    std::atomic<int> reconnect_attempt_{0};
+    std::atomic<int> exit_code_{-1}; // -1=running, 0=exit no-restart, 1=exit for restart
 
     // Callbacks
     MessageCallback message_callback_;

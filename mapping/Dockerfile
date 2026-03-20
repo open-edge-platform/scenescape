@@ -1,5 +1,7 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
 
 # =========================
 # STAGE 1: MODEL BUILDER STAGE
@@ -30,7 +32,7 @@ RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
 # =========================
 # STAGE 2: RUNTIME STAGE
 # =========================
-FROM python:3.11-slim-bookworm AS mapping-runtime
+FROM ${RUNTIME_OS_IMAGE} AS mapping-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's 3D Mapping Service"
@@ -104,13 +106,13 @@ RUN pip install --no-cache-dir --upgrade pip \
 RUN pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
     if [ "$MODEL_TYPE" = "mapanything" ]; then \
         cd /workspace/map-anything && \
-        pip install --no-cache-dir -e . && \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_mapanything.txt; \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_mapanything.txt && \
+        pip install --no-cache-dir -e .; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_vggt.txt && \
         cd /workspace/vggt && \
         pip install --no-cache-dir -e . && \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_vggt.txt && \
-        pip install --no-cache-dir -r requirements.txt -r requirements_demo.txt; \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt -r requirements_demo.txt; \
     fi && \
     rm -rf /usr/local/lib/python3.11/site-packages/torch/test \
            /usr/local/lib/python3.11/site-packages/torch/share \

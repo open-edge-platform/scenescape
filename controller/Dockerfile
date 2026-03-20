@@ -1,7 +1,7 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
 
 # -------------- Controller Builder Stage --------------
 FROM scenescape-common-base AS scenescape-controller-builder
@@ -18,14 +18,14 @@ RUN : \
     && rm -rf /var/lib/apt/lists/*
 
 # Build robot vision package
+# numpy is already pinned to 2.2.6 in scenescape-common-base (via scene_common/requirements.txt)
+# ensuring ABI compatibility for all C extensions compiled here and in the base image.
 COPY ./controller/src/robot_vision /tmp/robot_vision
-RUN export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
+RUN pip3 install --no-cache-dir scikit-build-core \
+    && export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
     && cd /tmp/robot_vision \
-    && python3 setup.py bdist_wheel \
-    && cd dist \
-    && pip3 install --no-cache-dir ./*.whl \
-    && cd \
-   && rm -rf /tmp/robot_vision
+    && pip3 install --no-cache-dir --no-build-isolation . \
+    && rm -rf /tmp/robot_vision
 
 # Build main controller package
 COPY ./controller/src/controller /tmp/controller/controller
@@ -44,7 +44,7 @@ LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Controlle
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
-LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/docs/user-guide/overview.md"
+LABEL org.opencontainers.image.documentation="https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/microservices/controller/controller.md"
 
 ARG USER_ID=1001
 ARG GROUP_ID=1001
@@ -108,7 +108,9 @@ COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/python${PYTHON_VERSION}/site-packages/robot_vision /usr/local/lib/python${PYTHON_VERSION}/site-packages/robot_vision
 
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json
+COPY --chown=$WSUSER:$WSUSER ./tracker/schema/scene-data.schema.json $SCENESCAPE_HOME/tracker/schema/scene-data.schema.json
 COPY --chown=$WSUSER:$WSUSER ./controller/config/tracker-config.json $SCENESCAPE_HOME/tracker-config.json
+COPY --chown=$WSUSER:$WSUSER ./controller/config/reid-config.json $SCENESCAPE_HOME/reid-config.json
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
 COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-cmd $SCENESCAPE_HOME/controller-cmd
 

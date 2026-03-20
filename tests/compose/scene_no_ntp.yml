@@ -30,6 +30,7 @@ services:
     volumes:
       - ./${DBROOT}/media:/home/scenescape/SceneScape/media
       - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
+      - ./controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

@@ -16,7 +16,7 @@ Building Intel® SceneScape will perform all the above steps and additionally bu
 The commands below will perform all the above steps and additionally build all images (adjust environment variables if needed):
 
 ```
-make MODELS=all PRECISIONS=FP32
+make install-models PRECISIONS=FP32
 make init-sample-data
 ```
 
@@ -32,7 +32,7 @@ To start the pipeline with **detection metadata in SceneScape format** use:
 
 Example command: `./start-dlsps-pipeline.sh sample_camera_configs/camera_settings_person_reid.json`
 
-To start the pipeline with **detection metadata in DLStreamer format** use:
+To start the pipeline with **detection metadata in DL Streamer format** use:
 
 ```
 DUMP_DLS_METADATA=true ./start-dlsps-pipeline.sh <CAMERA_SETTINGS_FILE>
@@ -64,10 +64,61 @@ The detection metadata published by the pipeline can be monitored with an MQTT c
 
 Additionally, an `mqtt_recorder` service is run by docker compose which dumps the detections within an arbitrary time interval to a file with default location `tools/ppl_runner/output/scenescape_metadata.jsonl`. Detections from a single frame are described by a single line in this file.
 
-### Pipeline using DLStreamer metadata format
+### Pipeline using DL Streamer metadata format
 
-If the pipeline is run with DLStreamer metadata dumps, the detections are dumped to a file with default location `tools/ppl_runner/output/dls_metadata.jsonl`. Detections from a single frame are described by a single line in this file.
+If the pipeline is run with DL Streamer metadata dumps, the detections are dumped to a file with default location `tools/ppl_runner/output/dls_metadata.jsonl`. Detections from a single frame are described by a single line in this file.
+
+## Measuring pipeline latency
+
+Create the output folder and define the following variables in the shell:
+
+```
+mkdir -p /tmp/latency_tracer
+export GST_DEBUG=GST_TRACER:7
+export GST_TRACERS="latency_tracer(flags=element+pipeline)"
+export GST_DEBUG_FILE=/tmp/trace.log
+```
+
+> **Note**: For guidance on GStreamer debug levels and general debugging of GStreamer applications, see the [Troubleshooting](#troubleshooting) section.
+
+Enable the following setting in the [Docker Compose file](./docker-compose-ppl.yaml):
+
+```
+services:
+  video-pipeline:
+    volumes:
+      - "/tmp/latency_tracer:/tmp"
+```
+
+Start the pipeline using the `rtsp` profile and wait a couple of minutes until the pipeline stabilizes and enough tracing data is gathered. An RTSP source is required for reliable latency results, as file video sources introduce frame buffering that makes the measurements unreliable.
+
+Use the following command to check how many data points are available; at least 1500 are recommended before proceeding.
+
+```
+grep latency_tracer_pipeline /tmp/latency_tracer/trace.log | wc -l
+```
+
+Once the measurement data is available, the average and standard deviation of pipeline latency can be calculated with the command:
+
+```
+grep latency_tracer_pipeline /tmp/latency_tracer/trace.log | grep -oP 'frame_latency=\(double\)\K[0-9]+\.[0-9]+' | tail -n 1000 | awk '{sum+=$1; sumsq+=$1*$1; count++} END {avg=sum/count; std=sqrt(sumsq/count - avg*avg); printf "Count: %d\nAverage: %.6f\nStd Dev: %.6f\n", count, avg, std}'
+```
+
+Please refer to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/dev_guide/latency_tracer.html) and [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer-pipeline-server/advanced-guide/detailed_usage/how-to-advanced/performance/processing-latency.html) for more details on interpreting the latency tracer output.
+
+### Disabling latency tracer
+
+To disable the latency tracer, unset the environment variables `GST_DEBUG`, `GST_TRACERS`, and `GST_DEBUG_FILE` and comment out the volume mount in the [Docker Compose file](./docker-compose-ppl.yaml):
+
+```
+services:
+  video-pipeline:
+    volumes:
+    #  - "/tmp/latency_tracer:/tmp"
+```
 
 ## Troubleshooting
+
+For information on GStreamer debug levels and debugging GStreamer applications, refer to the [GStreamer documentation](https://gstreamer.freedesktop.org/documentation/gstreamer/running.html?gi-language=python).
 
 It is assumed that the docker models volume is created with the default name `scenescape_vol-models`. It may be different if the user explicitly sets the `COMPOSE_PROJECT_NAME` variable. If the volume is not found, please check which name it was created with.

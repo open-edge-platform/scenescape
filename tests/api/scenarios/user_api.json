@@ -1,0 +1,482 @@
+[
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/01: Create user with only required properties",
+    "test_steps": [
+      {
+        "step_name": "Create user",
+        "api": "user",
+        "method": "createUser",
+        "request": {
+          "body": {
+            "username": "user",
+            "password": "Password123!"
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "USER_NAME_MINIMAL": "username",
+          "USER_ID": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/02: Create user with full payload",
+    "test_steps": [
+      {
+        "step_name": "Create user with all optional fields",
+        "api": "user",
+        "method": "createUser",
+        "request": {
+          "body": {
+            "username": "user_full",
+            "password": "FullPassword123!",
+            "email": "user_full@example.com",
+            "is_active": true,
+            "is_staff": true,
+            "is_superuser": false,
+            "first_name": "John",
+            "last_name": "Doe",
+            "scene": "16fd2706-8baf-433b-82eb-8c7fada847da"
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "USER_NAME_FULL": "username",
+          "USER_ID_FULL": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/03: Create user Without required field username",
+    "test_steps": [
+      {
+        "step_name": "Create user missing username",
+        "api": "user",
+        "method": "createUser",
+        "request": {
+          "body": {
+            "password": "Password123!"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/04: Create user without required field password",
+    "test_steps": [
+      {
+        "step_name": "Create user missing password",
+        "api": "user",
+        "method": "createUser",
+        "request": {
+          "body": {
+            "username": "user_no_pass"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/05: Create user with invalid email format",
+    "test_steps": [
+      {
+        "step_name": "Create user with bad email",
+        "api": "user",
+        "method": "createUser",
+        "request": {
+          "body": {
+            "username": "user_bad_email",
+            "password": "Password123!",
+            "email": "invalid-email"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/06: Create user with duplicate Username",
+    "test_steps": [
+      {
+        "step_name": "Create duplicate username",
+        "api": "user",
+        "method": "createUser",
+        "request": {
+          "body": {
+            "username": "${USER_NAME_FULL}",
+            "password": "AnotherPass123!"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/07: Create user with invalid scene UID",
+    "test_steps": [
+      {
+        "step_name": "Create user with invalid scene UID",
+        "api": "user",
+        "method": "createUser",
+        "request": {
+          "body": {
+            "username": "invalid_scene",
+            "password": "AnotherPass123!",
+            "scene": "invalid-uuid"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/08: Get existing user",
+    "test_steps": [
+      {
+        "step_name": "Get user",
+        "api": "user",
+        "method": "getUser",
+        "request": {
+          "username": "${USER_NAME_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "expected_body": {
+          "uid": "${USER_ID}",
+          "username": "${USER_NAME_MINIMAL}",
+          "is_active": true,
+          "is_staff": false,
+          "is_superuser": false,
+          "first_name": "",
+          "last_name": "",
+          "email": ""
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/09: Get non existent user",
+    "test_steps": [
+      {
+        "step_name": "Get user that does not exist",
+        "api": "user",
+        "method": "getUser",
+        "request": {
+          "username": "invalid_user"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/10: Get all users",
+    "test_steps": [
+      {
+        "step_name": "Get user minimal",
+        "api": "user",
+        "method": "getUsers",
+        "expected_status": {
+          "status_code": 200
+        },
+        "expected_body": {
+          "count": 8,
+          "next": null,
+          "previous": null,
+          "results": [
+            {
+              "uid": "4",
+              "username": "admin",
+              "is_active": true,
+              "is_staff": true,
+              "is_superuser": true,
+              "first_name": "",
+              "last_name": "",
+              "email": "admin@domain.com"
+            },
+            {
+              "uid": "1",
+              "username": "calibration",
+              "is_active": true,
+              "is_staff": false,
+              "is_superuser": true,
+              "first_name": "",
+              "last_name": "",
+              "email": "",
+              "acls": [
+                {
+                  "topic": "IMAGE_CALIBRATE",
+                  "access": 1
+                },
+                {
+                  "topic": "CMD_SCENE_UPDATE",
+                  "access": 1
+                },
+                {
+                  "topic": "DATA_AUTOCALIB_CAM_POSE",
+                  "access": 2
+                }
+              ]
+            },
+            {
+              "uid": "2",
+              "username": "scenectrl",
+              "is_active": true,
+              "is_staff": false,
+              "is_superuser": true,
+              "first_name": "",
+              "last_name": "",
+              "email": "",
+              "acls": [
+                {
+                  "topic": "CMD_CAMERA",
+                  "access": 3
+                },
+                {
+                  "topic": "IMAGE_CALIBRATE",
+                  "access": 1
+                },
+                {
+                  "topic": "CMD_DATABASE",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_REGULATED",
+                  "access": 2
+                },
+                {
+                  "topic": "DATA_SCENE",
+                  "access": 2
+                },
+                {
+                  "topic": "DATA_AUTOCALIB_CAM_POSE",
+                  "access": 2
+                },
+                {
+                  "topic": "CMD_KUBECLIENT",
+                  "access": 3
+                },
+                {
+                  "topic": "CMD_SCENE_UPDATE",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_EXTERNAL",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_REGION",
+                  "access": 2
+                },
+                {
+                  "topic": "DATA_SENSOR",
+                  "access": 1
+                },
+                {
+                  "topic": "EVENT",
+                  "access": 3
+                },
+                {
+                  "topic": "SYS_CHILDSCENE_STATUS",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_CAMERA",
+                  "access": 1
+                }
+              ]
+            },
+            {
+              "uid": "3",
+              "username": "webuser",
+              "is_active": true,
+              "is_staff": false,
+              "is_superuser": true,
+              "first_name": "",
+              "last_name": "",
+              "email": "",
+              "acls": [
+                {
+                  "topic": "DATA_CAMERA",
+                  "access": 1
+                },
+                {
+                  "topic": "CHANNEL",
+                  "access": 1
+                },
+                {
+                  "topic": "IMAGE_CAMERA",
+                  "access": 1
+                },
+                {
+                  "topic": "IMAGE_CALIBRATE",
+                  "access": 1
+                },
+                {
+                  "topic": "CMD_DATABASE",
+                  "access": 3
+                },
+                {
+                  "topic": "CMD_CAMERA",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_AUTOCALIB_CAM_POSE",
+                  "access": 1
+                },
+                {
+                  "topic": "CMD_KUBECLIENT",
+                  "access": 3
+                },
+                {
+                  "topic": "EVENT",
+                  "access": 1
+                },
+                {
+                  "topic": "SYS_CHILDSCENE_STATUS",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_REGULATED",
+                  "access": 1
+                },
+                {
+                  "topic": "DATA_EXTERNAL",
+                  "access": 1
+                }
+              ]
+            },
+            {
+              "uid": "${USER_ID}",
+              "username": "${USER_NAME_MINIMAL}",
+              "is_active": true,
+              "is_staff": false,
+              "is_superuser": false,
+              "first_name": "",
+              "last_name": "",
+              "email": ""
+            },
+            {
+              "uid": "${USER_ID_FULL}",
+              "username": "${USER_NAME_FULL}",
+              "is_active": true,
+              "is_staff": true,
+              "is_superuser": false,
+              "first_name": "John",
+              "last_name": "Doe",
+              "email": "user_full@example.com"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/11: Update user profile fields",
+    "test_steps": [
+      {
+        "step_name": "Update email, first_name, last_name",
+        "api": "user",
+        "method": "updateUser",
+        "request": {
+          "username": "${USER_NAME_MINIMAL}",
+          "body": {
+            "email": "updated@example.com",
+            "first_name": "UpdatedFirst",
+            "last_name": "UpdatedLast"
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Validate updated fields",
+        "api": "user",
+        "method": "getUser",
+        "request": {
+          "username": "${USER_NAME_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "email": "updated@example.com",
+          "first_name": "UpdatedFirst",
+          "last_name": "UpdatedLast"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/12: Update user with invalid email format",
+    "test_steps": [
+      {
+        "step_name": "Update user with invalid email",
+        "api": "user",
+        "method": "updateUser",
+        "request": {
+          "username": "${USER_NAME_MINIMAL}",
+          "body": {
+            "email": "not-an-email"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/13: Delete Existing User",
+    "test_steps": [
+      {
+        "step_name": "Delete user minimal",
+        "api": "user",
+        "method": "deleteUser",
+        "request": {
+          "username": "${USER_NAME_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/USER/14: Delete non existent user",
+    "test_steps": [
+      {
+        "step_name": "Delete again",
+        "api": "user",
+        "method": "deleteUser",
+        "request": {
+          "username": "${USER_NAME_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  }
+]

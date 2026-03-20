@@ -26,6 +26,8 @@ secrets:
     file: ${SECRETSDIR}/django
   controller.auth:
     environment: CONTROLLER_AUTH
+  controller-auth-file:
+    file: manager/secrets/controller.auth
   browser.auth:
     file: ${SECRETSDIR}/browser.auth
   calibration.auth:
@@ -59,6 +61,8 @@ x-controller-base: &controller-base
     CONTROLLER_ENABLE_TRACING: ${CONTROLLER_ENABLE_TRACING}
     CONTROLLER_TRACING_ENDPOINT: ${CONTROLLER_TRACING_ENDPOINT}
     CONTROLLER_TRACING_SAMPLE_RATIO: ${CONTROLLER_TRACING_SAMPLE_RATIO}
+    no_proxy: ${no_proxy},.scenescape.intel.com
+    NO_PROXY: ${NO_PROXY},.scenescape.intel.com
   command: >
     --restauth /run/secrets/controller.auth
     --brokerauth /run/secrets/controller.auth
@@ -67,18 +71,20 @@ x-controller-base: &controller-base
   configs:
     - source: tracker-config
       target: /home/scenescape/SceneScape/tracker-config.json
+    - source: reid-config
+      target: /home/scenescape/SceneScape/reid-config.json
   volumes:
     - vol-media:/home/scenescape/SceneScape/media
     - vol-sample-data:/home/scenescape/SceneScape/sample_data
   secrets:
     - source: root-cert
       target: certs/scenescape-ca.pem
+    - django
+    - controller.auth
     - source: vdms-client-key
       target: certs/scenescape-vdms-c.key
     - source: vdms-client-cert
       target: certs/scenescape-vdms-c.crt
-    - django
-    - controller.auth
   restart: always
   pids_limit: 1000
 
@@ -129,9 +135,19 @@ services:
       - scenescape
     volumes:
       - vol-db:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     restart: always
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost -p 5432",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
 
   web:
     image: scenescape-manager:${VERSION:-latest}
@@ -142,7 +158,7 @@ services:
           - web.scenescape.intel.com
     depends_on:
       pgserver:
-        condition: service_started
+        condition: service_healthy
       broker:
         condition: service_started
     ports:
@@ -165,6 +181,8 @@ services:
     environment:
       - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
+      - no_proxy=${no_proxy},.scenescape.intel.com
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
     cap_add:
       - SYS_ADMIN
     devices:
@@ -210,8 +228,8 @@ services:
       scenescape:
         aliases:
           - vdms.scenescape.intel.com
-    ports:
-      - "55555:55555"
+    # ports:
+    #   - "55555:55555"
     environment:
       - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
       - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
@@ -262,16 +280,19 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-20260203-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc3
     networks:
       scenescape:
     tty: true
     entrypoint: ["./run.sh"]
-    ports:
-      - "8080:8080"
+    # ports:
+    #   - "8080:8080"
     # Uncomment these lines to use GPU acceleration
     # devices:
-    #  - "/dev/dri:/dev/dri"
+    #   - "/dev/dri:/dev/dri"
+    # Uncomment these lines to use NPU acceleration
+    # devices:
+    #   - "/dev/accel:/dev/accel"
     group_add:
       - "109"
       - "110"
@@ -288,16 +309,13 @@ services:
       retail-cams:
         condition: service_started
     healthcheck:
-      test:
-        ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8080/pipelines"]
+      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
     environment:
       - RUN_MODE=EVA
-      - DETECTION_DEVICE=CPU
-      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
       - ADD_UTCTIME_TO_METADATA=true
@@ -326,16 +344,19 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-20260203-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc3
     networks:
       scenescape:
     tty: true
     entrypoint: ["./run.sh"]
-    ports:
-      - "8081:8080"
+    # ports:
+    #   - "8081:8080"
     # Uncomment these lines to use GPU acceleration
     # devices:
-    #  - "/dev/dri:/dev/dri"
+    #   - "/dev/dri:/dev/dri"
+    # Uncomment these lines to use NPU acceleration
+    # devices:
+    #   - "/dev/accel:/dev/accel"
     group_add:
       - "109"
       - "110"
@@ -359,8 +380,6 @@ services:
       start_period: 10s
     environment:
       - RUN_MODE=EVA
-      - DETECTION_DEVICE=CPU
-      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
       - GST_DEBUG=1,gencamsrc:2
       - ADD_UTCTIME_TO_METADATA=true
@@ -423,7 +442,7 @@ services:
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad
       - HTTP_PROXY=${HTTP_PROXY}
       - HTTPS_PROXY=${HTTPS_PROXY}
-      - NO_PROXY=${NO_PROXY}
+      - NO_PROXY=${NO_PROXY},scenescape.intel.com
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
       - vol-datasets:/home/scenescape/SceneScape/datasets
@@ -458,6 +477,8 @@ services:
     depends_on:
       broker:
         condition: service_started
+      web:
+        condition: service_healthy
     environment:
       - TRACKER_LOG_LEVEL=info
       - TRACKER_MQTT_HOST=broker.scenescape.intel.com
@@ -465,8 +486,12 @@ services:
       - TRACKER_MQTT_INSECURE=false
       - TRACKER_MQTT_TLS_CA_CERT=/run/secrets/certs/scenescape-ca.pem
       - TRACKER_MQTT_TLS_VERIFY_SERVER=true
+      - TRACKER_MANAGER_URL=https://web.scenescape.intel.com
+      - TRACKER_MANAGER_AUTH_PATH=/run/secrets/controller.auth
+      - TRACKER_MANAGER_CA_CERT_PATH=/run/secrets/certs/scenescape-ca.pem
+      - TRACKER_SCENES_SOURCE=api
       # Override host proxy settings - Paho MQTT dont respect no_proxy var, so as a WA
-      # tracker code detects empty vars and unsets them (see mqtt_client.cpp clearEmptyProxyVars)
+      # tracker code detects empty vars and unsets them (see proxy_utils.cpp clearEmptyProxyEnvVars)
       - http_proxy=
       - https_proxy=
       - HTTP_PROXY=
@@ -474,7 +499,17 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
-    restart: always
+      - source: controller-auth-file
+        target: /run/secrets/controller.auth
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Exit 0: graceful stop or non-retryable error (bad auth) — stay stopped
+    # Exit 1: retryable error (broker unavailable) — restart
+    # Exit 99: scene update received — restart to reload config
+    restart: on-failure
     mem_limit: ${TRACKER_MEM_LIMIT:-512m}
     # Scale: ~1 CPU per 100 tracked objects. Increase TRACKER_CPUS for larger deployments.
     cpus: ${TRACKER_CPUS:-2.0}
@@ -498,7 +533,7 @@ services:
       - vol-mapping-torch-cache:/workspace/.cache/torch
       - vol-mapping-hf-cache:/workspace/.cache/huggingface
     environment:
-      - MAPANYTHING_CPU_SEC_PER_FRAME=10
+      - MAPPING_CPU_SEC_PER_FRAME=10
       - GUNICORN_TIMEOUT=300
       - PYTHONDONTWRITEBYTECODE=1
       - http_proxy=${http_proxy}
@@ -557,14 +592,20 @@ configs:
     # Use this configuration file to run tracking with time-chunking enabled
     # file: ./controller/config/tracker-config-time-chunking.json
     file: ./controller/config/tracker-config.json
+  reid-config:
+    file: ./controller/config/reid-config.json
   retail-config:
     # Use this configuration file to run decoding and inference on GPU
     # file: ./dlstreamer-pipeline-server/retail-config-gpu.json
     file: ./dlstreamer-pipeline-server/retail-config.json
+    # Use this configuration file to run inference on NPU
+    # file: ./dlstreamer-pipeline-server/retail-config-npu.json
   queuing-config:
     # Use this configuration file to run decoding and inference on GPU
     # file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
     file: ./dlstreamer-pipeline-server/queuing-config.json
+    # Use this configuration file to run inference on NPU
+    # file: ./dlstreamer-pipeline-server/queuing-config-npu.json
 
 volumes:
   vol-db:

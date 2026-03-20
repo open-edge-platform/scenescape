@@ -3,6 +3,7 @@
 
 #include "proxy_utils.hpp"
 
+#include "logger.hpp"
 #include "utils/scoped_env.hpp"
 
 #include <gtest/gtest.h>
@@ -14,11 +15,17 @@ namespace {
 
 using test::ScopedEnv;
 
+class ProxyUtilsTest : public ::testing::Test {
+protected:
+    void SetUp() override { Logger::init("warn"); }
+    void TearDown() override { Logger::shutdown(); }
+};
+
 // =============================================================================
 // clearEmptyProxyEnvVars() tests
 // =============================================================================
 
-TEST(ProxyUtilsTest, ClearEmptyProxyEnvVars_UnsetsEmptyVars) {
+TEST_F(ProxyUtilsTest, ClearEmptyProxyEnvVars_UnsetsEmptyVars) {
     // Set proxy variables to empty strings
     ScopedEnv http_lower("http_proxy", "");
     ScopedEnv http_upper("HTTP_PROXY", "");
@@ -42,7 +49,7 @@ TEST(ProxyUtilsTest, ClearEmptyProxyEnvVars_UnsetsEmptyVars) {
     EXPECT_EQ(std::getenv("NO_PROXY"), nullptr);
 }
 
-TEST(ProxyUtilsTest, ClearEmptyProxyEnvVars_PreservesNonEmptyVars) {
+TEST_F(ProxyUtilsTest, ClearEmptyProxyEnvVars_PreservesNonEmptyVars) {
     // Set proxy variables to actual values
     ScopedEnv http_lower("http_proxy", "http://proxy:8080");
     ScopedEnv https_lower("https_proxy", "https://proxy:8443");
@@ -54,7 +61,7 @@ TEST(ProxyUtilsTest, ClearEmptyProxyEnvVars_PreservesNonEmptyVars) {
     EXPECT_STREQ(std::getenv("https_proxy"), "https://proxy:8443");
 }
 
-TEST(ProxyUtilsTest, ClearEmptyProxyEnvVars_MixedEmptyAndNonEmpty) {
+TEST_F(ProxyUtilsTest, ClearEmptyProxyEnvVars_MixedEmptyAndNonEmpty) {
     // Mix of empty and non-empty
     ScopedEnv http_lower("http_proxy", "");                     // empty - should be cleared
     ScopedEnv https_lower("https_proxy", "https://proxy:8443"); // non-empty - should be preserved
@@ -66,7 +73,7 @@ TEST(ProxyUtilsTest, ClearEmptyProxyEnvVars_MixedEmptyAndNonEmpty) {
     EXPECT_STREQ(std::getenv("https_proxy"), "https://proxy:8443");
 }
 
-TEST(ProxyUtilsTest, ClearEmptyProxyEnvVars_NoOpWhenNotSet) {
+TEST_F(ProxyUtilsTest, ClearEmptyProxyEnvVars_NoOpWhenNotSet) {
     // Ensure vars are not set
     ScopedEnv http_lower("http_proxy", std::nullopt);
     ScopedEnv https_lower("https_proxy", std::nullopt);

@@ -6,13 +6,13 @@ from .settings import APP_BASE_NAME
 
 DEBUG = True
 DATABASES = {
-  'default': {
-    'ENGINE': 'django.db.backends.postgresql_psycopg2',
-    'NAME': APP_BASE_NAME,
-    'USER': APP_BASE_NAME,
-    'PASSWORD': DATABASE_PASSWORD,
-    'HOST': 'pgserver',
-    'PORT': '',
+    'default': {
+      'ENGINE': os.environ.get('ENGINE', 'django.db.backends.postgresql_psycopg2'),
+      'NAME': APP_BASE_NAME,
+      'USER': APP_BASE_NAME,
+      'PASSWORD': DATABASE_PASSWORD,
+      'HOST': os.environ.get('DBHOST', 'pgserver'),
+      'PORT': os.environ.get('DBPORT', '')
   }
 }
 
