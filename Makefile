@@ -509,7 +509,7 @@ add-licensing:
 .PHONY: build-coverity
 build-coverity:
 	$(MAKE) -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
-	@export OpenCV_DIR=$${OpenCV_DIR:-$$(pkg-config --variable=pc_path opencv4 | cut -d':' -f1)} && cd controller/src/robot_vision && python3 setup.py bdist_wheel || (echo "robot vision build failed" && exit 1)
+	@export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" && pip3 install --no-cache-dir scikit-build-core && cd controller/src/robot_vision && pip3 install --no-cache-dir --no-build-isolation . || (echo "robot vision build failed" && exit 1)
 	$(MAKE) -C tracker build || (echo "tracker build failed" && exit 1)
 # ===================== Docker Compose Demo ==========================
 

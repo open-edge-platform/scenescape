@@ -44,6 +44,9 @@ concurrency:
 env:
   DOCKER_BUILDKIT: 1
   SUPASS: demo
+  GITHUB_ACTIONS_CACHE: true
+  CACHE_REGISTRY: ${{ github.repository }}
+  CACHE_TAG: ${{ github.head_ref || github.ref_name }}
 
 permissions:
   contents: read
@@ -135,6 +138,13 @@ jobs:
         with:
           system-prune: "true"
 
+      - name: "Log in to GHCR"
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: "Run Basic Acceptance Tests (BAT)"
         run: |
           make clean-all
@@ -152,6 +162,8 @@ jobs:
   chart-deployment-test:
     name: "Chart Deployment Test"
     runs-on: [bat]
+    permissions:
+      packages: write # For using GHCR as cache registry
     needs: [filter, check-pr-state]
     if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
@@ -167,6 +179,13 @@ jobs:
         with:
           python-version: "3.x"
           check-latest: true
+
+      - name: "Log in to GHCR"
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install chart with timeout
         run: KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
