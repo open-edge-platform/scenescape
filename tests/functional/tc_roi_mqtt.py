@@ -9,8 +9,6 @@ from tests.functional.common_scene_obj import SceneObjectMqtt
 
 def runROIMqttCreate(self):
   self.exitCode = 1
-    # while (true):
-    #   pass
   self.runSceneObjMqttInitialize()
   try:
     self.runSceneObjMqttPrepare()
