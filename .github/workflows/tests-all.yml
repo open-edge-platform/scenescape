@@ -43,6 +43,9 @@ concurrency:
 env:
   DOCKER_BUILDKIT: 1
   SUPASS: demo
+  GITHUB_ACTIONS_CACHE: true
+  CACHE_REGISTRY: ${{ github.repository }}
+  CACHE_TAG: ${{ github.head_ref || github.ref_name }}
 
 permissions:
   contents: read
@@ -71,6 +74,13 @@ jobs:
         uses: ./.github/actions/cleanup
         with:
           system-prune: "true"
+
+      - name: "Log in to GHCR"
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
@@ -112,6 +122,13 @@ jobs:
         with:
           system-prune: "true"
 
+      - name: "Log in to GHCR"
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
@@ -151,6 +168,13 @@ jobs:
         uses: ./.github/actions/cleanup
         with:
           system-prune: "true"
+
+      - name: "Log in to GHCR"
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
@@ -192,6 +216,13 @@ jobs:
         with:
           system-prune: "true"
 
+      - name: "Log in to GHCR"
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
@@ -231,6 +262,13 @@ jobs:
         uses: ./.github/actions/cleanup
         with:
           system-prune: "true"
+
+      - name: "Log in to GHCR"
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
