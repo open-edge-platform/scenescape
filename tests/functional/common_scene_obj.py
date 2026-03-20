@@ -51,7 +51,7 @@ class SceneObjectMqtt(FunctionalTest):
       return
 
     if self.sceneData:
-      for regionObj in regionData.get('entered', []):
+      for regionObj in regionData['objects']:
         for sceneObj in self.sceneData['objects']:
           if regionObj['id'] == sceneObj['id']:
             self.expectedEnter.append(sceneObj['id'])
