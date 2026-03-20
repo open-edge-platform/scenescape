@@ -41,7 +41,6 @@ services:
       - source: root-cert
         target: certs/scenescape-ca.pem
       - controller.auth
-    read_only: true
     cap_drop:
       - ALL
     security_opt:
