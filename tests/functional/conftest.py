@@ -95,6 +95,8 @@ def objData():
     "objects": {},
     "rate": 9.8
   }
+  FRAME_WIDTH = 640
+  FRAME_HEIGHT = 480
   obj = {
     "id": 1,
     "category": "person",
@@ -103,6 +105,12 @@ def objData():
       "y": 0.0,
       "width": 0.24,
       "height": 0.49
+    },
+    "bounding_box_px": {
+      "x": int(0.56 * FRAME_WIDTH),
+      "y": 0,
+      "width": int(0.24 * FRAME_WIDTH),
+      "height": int(0.49 * FRAME_HEIGHT)
     }
   }
   jdata['objects']['person'] = [obj]

@@ -80,10 +80,16 @@ class FunctionalTest(Diagnostic):
 
     return count if ready else None
 
+  FRAME_WIDTH = 640
+  FRAME_HEIGHT = 480
+
   def objData(self):
     jdata = {"id": "camera1", "objects": {}, "rate": 9.8}
     obj = {"id": 1, "category": "person",
-           "bounding_box": { "x": 0.56, "y": 0.0, "width": 0.24, "height": 0.49}}
+           "bounding_box": { "x": 0.56, "y": 0.0, "width": 0.24, "height": 0.49},
+           "bounding_box_px": { "x": int(0.56 * self.FRAME_WIDTH), "y": 0,
+                                 "width": int(0.24 * self.FRAME_WIDTH),
+                                 "height": int(0.49 * self.FRAME_HEIGHT)}}
     jdata['objects']['person'] = [obj]
     return jdata
 

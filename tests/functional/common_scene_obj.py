@@ -114,6 +114,7 @@ class SceneObjectMqtt(FunctionalTest):
       camera_id = jdata['id']
       jdata['timestamp'] = get_iso_time()
       jdata['objects'][PERSON][0]['bounding_box']['y'] = location
+      jdata['objects'][PERSON][0]['bounding_box_px']['y'] = int(location * self.FRAME_HEIGHT)
       detection = json.dumps(jdata)
       self.pubsub.publish(PubSub.formatTopic(PubSub.DATA_CAMERA,
                                         camera_id=camera_id), detection)
@@ -161,6 +162,7 @@ class SceneObjectMqtt(FunctionalTest):
     publishTopic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=objData['id'])
     objLocation = self.getLocations()
     objData['objects'][PERSON][0]['bounding_box']['y'] = objLocation[0]
+    objData['objects'][PERSON][0]['bounding_box_px']['y'] = int(objLocation[0] * self.FRAME_HEIGHT)
     self.sceneReady(MAX_ATTEMPTS, waitTopic, publishTopic, objData)
 
     self.getScene()
