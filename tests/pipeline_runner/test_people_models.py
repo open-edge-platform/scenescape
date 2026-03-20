@@ -33,7 +33,8 @@ from tests.pipeline_runner.scenarios import PEOPLE_SCENARIOS, PipelineScenario
 
 TEST_NAME = "NEX-T20170"
 
-MIN_DETECTIONS = 5
+MIN_DETECTIONS = 30
+MIN_CATEGORY_DETECTIONS = 3
 COLLECT_TIMEOUT = 120  # seconds - generous to allow model  warm-up
 
 def _apply_marks(scenario: PipelineScenario):
@@ -71,6 +72,17 @@ class TestPeoplePipelines:
         assert schema_validator.validateMessage("detector", detection), (
           f"Detection {i} failed schema validation:\n{detection}"
         )
+
+      category_counts = {}
+      for detection in detections:
+        for cat, objs in detection.get("objects", {}).items():
+          if objs:
+            category_counts[cat] = category_counts.get(cat, 0) + len(objs)
+
+      assert category_counts.get("person", 0) >= MIN_CATEGORY_DETECTIONS, (
+        f"Expected >= {MIN_CATEGORY_DETECTIONS} person detections, "
+        f"got {category_counts.get('person', 0)}"
+      )
 
   def test_collect_raises_without_stopping_condition(self, tmp_path):
     """collect() must raise ValueError when called with no timeout or min_detections.
