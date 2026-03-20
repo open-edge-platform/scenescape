@@ -132,9 +132,9 @@ class IntelLabsTracking(Tracking):
       # Check if UUID manager already has a mapping for this rv_id
       existing_gid = self.uuid_manager.active_ids.get(sscape_object.rv_id, [None])[0]
       if existing_gid is None:
-          sscape_object.setGID(uuid)
+        sscape_object.setGID(uuid)
       else:
-          sscape_object.setGID(existing_gid)
+        sscape_object.setGID(existing_gid)
 
     self.uuid_manager.assignID(sscape_object)
 
