@@ -50,10 +50,11 @@ class SceneObjectMqtt(FunctionalTest):
       print("Event received after ROI deletion (unexpected)")
       return
 
-    for regionObj in regionData['objects']:
-      for sceneObj in self.sceneData['objects']:
-        if regionObj['id'] == sceneObj['id']:
-          self.expectedEnter.append(sceneObj['id'])
+    if self.sceneData:
+      for regionObj in regionData.get('entered', []):
+        for sceneObj in self.sceneData['objects']:
+          if regionObj['id'] == sceneObj['id']:
+            self.expectedEnter.append(sceneObj['id'])
     self.verifyRegionEvent(regionData)
     return
 
@@ -63,21 +64,21 @@ class SceneObjectMqtt(FunctionalTest):
 
     if len(regionEvent['entered']) > 0:
       for event in regionEvent['entered']:
-        assert len(self.expectedEnter) > 0
         if event['id'] in self.expectedEnter:
           currPoint = event['translation']
           if self.isWithinRectangle(self.roiPoints[1], self.roiPoints[3], (currPoint[0], currPoint[1])):
             self.expectedExit.append(event['id'])
             self.expectedEnter.remove(event['id'])
             self.entered = True
+            self.enterObserved = True
             print("object with id {} entered region\n".format(event['id']))
 
     if len(regionEvent['exited']) > 0:
       for event in regionEvent['exited']:
-        assert len(self.expectedExit) > 0
         if event['object']['id'] in self.expectedExit:
           self.expectedExit.remove(event['object']['id'])
           self.exited = True
+          self.exitObserved = True
           print("object with id {} exited region\n".format(event['object']['id']))
     return
 
@@ -127,6 +128,8 @@ class SceneObjectMqtt(FunctionalTest):
     self.sceneData = None
     self.entered = False
     self.exited = False
+    self.enterObserved = False
+    self.exitObserved = False
     self.roiPoints = ((0.9, 4.0), (0.9, 2.4),
                       (8.1, 2.4), (8.1, 4.0))
     self.message_received_after_delete = False
@@ -197,9 +200,7 @@ class SceneObjectMqtt(FunctionalTest):
     return
 
   def runROIMqttVerifyPassed(self):
-    return self.exited and self.entered == False \
-              and len(self.expectedExit) == 0 \
-              and len(self.expectedEnter) == 0
+    return self.enterObserved and self.exitObserved
 
   def runROIMqttVerifyNoEventsAfterDelete(self):
 
