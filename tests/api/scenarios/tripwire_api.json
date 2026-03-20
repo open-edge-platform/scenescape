@@ -1,0 +1,252 @@
+[
+  {
+    "test_name": "Vision_AI/SSCAPE/API/TRIPWIRE/01: Create Tripwire with Valid Required properties",
+    "test_steps": [
+      {
+        "step_name": "Create tripwire",
+        "api": "tripwire",
+        "method": "createTripwire",
+        "request": {
+          "body": {
+            "name": "tripwire_minimal",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "points": [
+              [0.0, 0.0],
+              [1.0, 0.0]
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "TRIPWIRE_UID_MINIMAL": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/TRIPWIRE/02: Create tripwire with full valid payload",
+    "test_steps": [
+      {
+        "step_name": "Create tripwire with name, uid, color_range",
+        "api": "tripwire",
+        "method": "createTripwire",
+        "request": {
+          "body": {
+            "name": "tripwire_full",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "points": [
+              [2.0, 0.0],
+              [1.0, 1.0]
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "TRIPWIRE_UID_FULL": "uid"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/TRIPWIRE/03: Create tripwire without required field name",
+    "test_steps": [
+      {
+        "step_name": "Create tripwire missing name",
+        "api": "tripwire",
+        "method": "createTripwire",
+        "request": {
+          "body": {
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/TRIPWIRE/04: Get existing tripwire by UID",
+    "test_steps": [
+      {
+        "step_name": "Get tripwire minimal",
+        "api": "tripwire",
+        "method": "getTripwire",
+        "request": {
+          "UID": "${TRIPWIRE_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "tripwire_minimal"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/TRIPWIRE/05: Get non existent tripwire",
+    "test_steps": [
+      {
+        "step_name": "Get non existent tripwire",
+        "api": "tripwire",
+        "method": "getTripwire",
+        "request": {
+          "UID": "invalid_uid"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/TRIPWIRE/06: Get all tripwires",
+    "test_steps": [
+      {
+        "step_name": "Get all tripwires",
+        "api": "tripwire",
+        "method": "getTripwires",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        },
+        "expected_body": {
+          "count": 2,
+          "next": null,
+          "previous": null,
+          "results": [
+            {
+              "uid": "${TRIPWIRE_UID_MINIMAL}",
+              "name": "tripwire_minimal",
+              "height": 1.0,
+              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+            },
+            {
+              "uid": "${TRIPWIRE_UID_FULL}",
+              "name": "tripwire_full",
+              "height": 1.0,
+              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/TRIPWIRE/07: Update tripwire with required properties",
+    "test_steps": [
+      {
+        "step_name": "Update name field",
+        "api": "tripwire",
+        "method": "updateTripwire",
+        "request": {
+          "UID": "${TRIPWIRE_UID_MINIMAL}",
+          "body": {
+            "name": "tripwire_minimal_updated",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Validate updated name",
+        "api": "tripwire",
+        "method": "getTripwire",
+        "request": {
+          "UID": "${TRIPWIRE_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "tripwire_minimal_updated"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/TRIPWIRE/08: Update tripwire with full payload",
+    "test_steps": [
+      {
+        "step_name": "Update color_range",
+        "api": "tripwire",
+        "method": "updateTripwire",
+        "request": {
+          "UID": "${TRIPWIRE_UID_MINIMAL}",
+          "body": {
+            "name": "tripwire_minimal_updated",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "points": [
+              [1.0, 1.0],
+              [1.0, 0.0]
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/TRIPWIRE/09: Delete existing tripwire by UID",
+    "test_steps": [
+      {
+        "step_name": "Delete tripwire minimal",
+        "api": "tripwire",
+        "method": "deleteTripwire",
+        "request": {
+          "UID": "${TRIPWIRE_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Delete tripwire full",
+        "api": "tripwire",
+        "method": "deleteTripwire",
+        "request": {
+          "UID": "${TRIPWIRE_UID_FULL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify deletion of tripwire",
+        "api": "tripwire",
+        "method": "getTripwire",
+        "request": {
+          "UID": "${TRIPWIRE_UID_FULL}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/TRIPWIRE/10: Delete non existent tripwire",
+    "test_steps": [
+      {
+        "step_name": "Delete again",
+        "api": "tripwire",
+        "method": "deleteTripwire",
+        "request": {
+          "UID": "${TRIPWIRE_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  }
+]
