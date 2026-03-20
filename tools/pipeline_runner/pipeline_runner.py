@@ -36,7 +36,7 @@ from python_on_whales import DockerClient
 _REPO_ROOT: Path = Path(__file__).parents[2]
 _VERSION: str = (_REPO_ROOT / "version.txt").read_text().strip()
 
-SUPPORTED_PROFILES = [""]
+SUPPORTED_PROFILES = ["rtsp"]
 
 DLSPS_CONFIG_FILE = "dlsps_config.json"
 VOLUME_PREFIX = "scenescape"
@@ -79,6 +79,7 @@ class PipelineRunner:
     self.camera_id = self._get_camera_id()
     self._ppl_generator_image = f"scenescape-manager:{_VERSION}"
     self._running = False
+    self._docker_client: DockerClient | None = None
 
   def _get_camera_id(self) -> str:
     with open(self.camera_settings_file) as f:
@@ -149,6 +150,7 @@ class PipelineRunner:
       cmd,
       remove=True,
       envs=envs,
+      user=f"{self.uid}:{self.gid}",
       entrypoint="python",
       volumes=[
         (str(self._root), "/workspace"),
@@ -192,25 +194,59 @@ class PipelineRunner:
     self._register_signal_handlers()
 
     # Run docker compose (equivalent to: docker compose -f docker-compose-ppl.yaml [--profile PROFILE] up -d)
-    self._make_docker_client().compose.up(detach=True)
+    self._docker_client = self._make_docker_client()
+    self._docker_client.compose.up(detach=True)
     self._running = True
     return self
 
   def stop(self) -> None:
     """Stop all compose services (containers are kept; can be restarted)."""
     if self._running:
-      self._make_docker_client().compose.stop()
+      self._docker_client.compose.stop()
       self._running = False
 
   def down(self) -> None:
     """Stop and remove all compose services and containers (full cleanup)."""
     if self._running:
-      self._make_docker_client().compose.down()
+      self._docker_client.compose.down()
       self._running = False
 
   def get_logs(self) -> str:
     """Return combined stdout+stderr logs from all compose services."""
-    return self._make_docker_client().compose.logs()
+    return self._docker_client.compose.logs()
+
+  @classmethod
+  def teardown(cls) -> None:
+    """Tear down all pipeline compose services from outside a running PipelineRunner.
+
+    Useful when the runner process has already exited but containers are still
+    running in the background. Equivalent to running ``docker compose down``
+    against the pipeline compose file.
+    """
+    root_dir = str(_REPO_ROOT)
+    secrets_dir = os.path.join(root_dir, "manager", "secrets")
+    dlsps_config_file = str(COMPOSE_FILE.parent / DLSPS_CONFIG_FILE)
+    # docker-compose-ppl.yaml references DLSPS_CONFIG_FILE via a config section;
+    # the file must exist for compose to parse the YAML without errors.
+    Path(dlsps_config_file).touch()
+    os.environ.update({
+      "DLSPS_CONFIG_FILE": dlsps_config_file,
+      "ROOT_DIR": root_dir,
+      "SECRETS_DIR": secrets_dir,
+      "TOOLS_DIR": os.path.join(root_dir, "tools"),
+      "OUTPUT_DIR": str(COMPOSE_FILE.parent / OUTPUT_DIR),
+      "UID": str(os.getuid()),
+      "GID": str(os.getgid()),
+      "PROFILE": "",
+      "SCENESCAPE_METADATA_FILE": SCENESCAPE_METADATA_FILE,
+      "CAMERA_ID": "",
+    })
+    compose_files = [str(COMPOSE_FILE)]
+    if os.path.exists(NPU_DEVICE):
+      compose_files.append(str(NPU_OVERRIDE_FILE))
+    # Include all supported profiles so profile-gated services (e.g. rtsp) are
+    # also stopped regardless of which profile was used to start the pipeline.
+    DockerClient(compose_files=compose_files, compose_profiles=SUPPORTED_PROFILES).compose.down()
 
   def __enter__(self) -> "PipelineRunner":
     return self.start()
@@ -337,11 +373,26 @@ def parse_args():
       f"Defaults to '{OUTPUT_DIR}/' next to this script."
     ),
   )
+  parser.add_argument(
+    "--down",
+    action="store_true",
+    default=False,
+    help=(
+      "Tear down all pipeline containers and exit. "
+      "Use this to clean up containers that are still running after the pipeline runner process has exited."
+    ),
+  )
   return parser.parse_args()
 
 
 def main():
   args = parse_args()
+  if args.down:
+    PipelineRunner.teardown()
+    return
+  if not args.camera_settings_file:
+    print("error: --camera-settings-file is required", file=sys.stderr)
+    sys.exit(1)
   runner = PipelineRunner(
     camera_settings_file=args.camera_settings_file,
     profile=args.profile,
