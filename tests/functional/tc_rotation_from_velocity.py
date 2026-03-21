@@ -22,7 +22,7 @@ IDENTITY_QUAT = (0.0, 0.0, 0.0, 1.0)
 def normalize(v):
   n = math.sqrt(sum(x * x for x in v))
   if n == 0:
-      return None
+    return None
   return tuple(x / n for x in v)
 
 # computes angle between two unit vectors
@@ -129,19 +129,19 @@ class RotationFromVelocityTest(FunctionalTest):
     assert target_list_name in {"before", "enabled", "disabled"}
     self.collect_target = target_list_name    
     dest = {
-        "before": self.rotations_before,
-        "enabled": self.rotations_enabled,
-        "disabled": self.rotations_disabled,
+      "before": self.rotations_before,
+      "enabled": self.rotations_enabled,
+      "disabled": self.rotations_disabled,
     }[target_list_name]
     dest.clear()
 
     start = time.time()    
     while time.time() - start < COLLECT_TIMEOUT and len(dest) < MIN_MESSAGES:
-        time.sleep(0.05)
+      time.sleep(0.05)
 
     assert len(dest) >= MIN_MESSAGES, (
-        f"Collected {len(dest)} messages for phase '{target_list_name}', "
-        f"expected >= {MIN_MESSAGES} from topic '{self.topic}'"
+      f"Collected {len(dest)} messages for phase '{target_list_name}', "
+      f"expected >= {MIN_MESSAGES} from topic '{self.topic}'"
     )
 
   # Test flow
@@ -156,7 +156,7 @@ class RotationFromVelocityTest(FunctionalTest):
       log.info(f"Rotation before changing settings (feature OFF):", before_set)
 
       assert all(all(abs(a - b) < 1e-6 for a, b in zip(q, IDENTITY_QUAT)) for q in before_set), \
-          "Spec violation: When OFF, rotation must be the identity quaternion [0,0,0,1]"
+        "Spec violation: When OFF, rotation must be the identity quaternion [0,0,0,1]"
 
       # enable rotation-from-velocity
       self.set_rotation_from_velocity(True)
@@ -171,30 +171,30 @@ class RotationFromVelocityTest(FunctionalTest):
       aligned = 0
 
       for quat, velocity in self.rotations_enabled:
-          speed = math.sqrt(sum(x * x for x in velocity))
-          if speed < MIN_SPEED:
-              continue
+        speed = math.sqrt(sum(x * x for x in velocity))
+        if speed < MIN_SPEED:
+          continue
 
-          v_dir = normalize(velocity)
-          if v_dir is None:
-              continue
+        v_dir = normalize(velocity)
+        if v_dir is None:
+          continue
 
-          forward_world = quat_rotate_vector(quat, FORWARD_AXIS)
-          fwd_dir = normalize(forward_world)
-          if fwd_dir is None:
-              continue
+        forward_world = quat_rotate_vector(quat, FORWARD_AXIS)
+        fwd_dir = normalize(forward_world)
+        if fwd_dir is None:
+          continue
 
-          angle = angle_deg(fwd_dir, v_dir)
-          checked += 1
+        angle = angle_deg(fwd_dir, v_dir)
+        checked += 1
 
-          if angle <= MAX_ANGLE:
-              aligned += 1
+        if angle <= MAX_ANGLE:
+          aligned += 1
 
       assert checked > 0, "No moving objects found to verify velocity alignment"
 
       log.info(
-          f"Rotation/velocity alignment: {aligned}/{checked} "
-          f"samples within {MAX_ANGLE} degrees"
+        f"Rotation/velocity alignment: {aligned}/{checked} "
+        f"samples within {MAX_ANGLE} degrees"
       )
 
       # disable again and verify rotations return to identity
@@ -205,7 +205,7 @@ class RotationFromVelocityTest(FunctionalTest):
       log.info(f"Rotation after disabling rotation-from-velocity (feature OFF):", disabled_set)
       
       assert all(all(abs(a - b) < 1e-6 for a, b in zip(q, IDENTITY_QUAT)) for q in disabled_set), \
-          "Rotations did not return to identity after disabling rotation"
+        "Rotations did not return to identity after disabling rotation"
       
       log.info("Rotation has successfully returned to the default (identity) rotation.")
 
