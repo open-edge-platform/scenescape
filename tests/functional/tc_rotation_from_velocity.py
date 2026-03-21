@@ -69,7 +69,7 @@ class RotationFromVelocityTest(FunctionalTest):
     self.client = PubSub(self.params["auth"], None, self.params["rootcert"], self.params["broker_url"])
     self.client.connect()
     self.client.loopStart()
-    
+
     self.topic = PubSub.formatTopic(
       PubSub.DATA_SCENE,
       scene_id=self.scene_id,
@@ -85,7 +85,7 @@ class RotationFromVelocityTest(FunctionalTest):
     self.rotations_disabled = []
     self.collect_target = None  # "before" | "after" | "disabled"
     self.exitCode = 1
-  
+
   # MQTT callback
   def on_message(self, _client, _obj, msg):
     try:
@@ -96,7 +96,7 @@ class RotationFromVelocityTest(FunctionalTest):
     for o in payload.get("objects", []):
       if o.get("category") != "person":
         continue
-      
+
       rot = o.get("rotation")
       vel = o.get("velocity")
       if not rot or len(rot) != 4:
@@ -106,7 +106,7 @@ class RotationFromVelocityTest(FunctionalTest):
 
       quat = tuple(float(v) for v in rot)
       velocity = tuple(float(v) for v in vel)
-      
+
       if self.collect_target == "before":
         self.rotations_before.append(tuple(quat))
       elif self.collect_target == "enabled":
@@ -127,7 +127,7 @@ class RotationFromVelocityTest(FunctionalTest):
   # Collect messages from the topic
   def collect(self, target_list_name: str):
     assert target_list_name in {"before", "enabled", "disabled"}
-    self.collect_target = target_list_name    
+    self.collect_target = target_list_name
     dest = {
       "before": self.rotations_before,
       "enabled": self.rotations_enabled,
@@ -135,7 +135,7 @@ class RotationFromVelocityTest(FunctionalTest):
     }[target_list_name]
     dest.clear()
 
-    start = time.time()    
+    start = time.time()
     while time.time() - start < COLLECT_TIMEOUT and len(dest) < MIN_MESSAGES:
       time.sleep(0.05)
 
@@ -149,7 +149,7 @@ class RotationFromVelocityTest(FunctionalTest):
     try:
       # ensure feature is OFF at start and verify OFF-state rotation is identity
       self.set_rotation_from_velocity(False)
-      
+
       # collect BEFORE enabling rotation
       self.collect("before")
       before_set = set(self.rotations_before)
@@ -199,14 +199,14 @@ class RotationFromVelocityTest(FunctionalTest):
 
       # disable again and verify rotations return to identity
       self.set_rotation_from_velocity(False)
-      
+
       self.collect("disabled")
       disabled_set = set(self.rotations_disabled)
       log.info(f"Rotation after disabling rotation-from-velocity (feature OFF):", disabled_set)
-      
+
       assert all(all(abs(a - b) < 1e-6 for a, b in zip(q, IDENTITY_QUAT)) for q in disabled_set), \
         "Rotations did not return to identity after disabling rotation"
-      
+
       log.info("Rotation has successfully returned to the default (identity) rotation.")
 
       self.exitCode = 0
@@ -219,7 +219,7 @@ class RotationFromVelocityTest(FunctionalTest):
       except: pass
       try: self.rest.deleteAsset(self.asset_uid)
       except: pass
-      
+
       self.recordTestResult()
     return
 
