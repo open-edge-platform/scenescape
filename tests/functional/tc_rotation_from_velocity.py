@@ -18,17 +18,20 @@ MIN_MESSAGES = 5
 PROPAGATION_DELAY = 0.5
 IDENTITY_QUAT = (0.0, 0.0, 0.0, 1.0)
 
+# turns a vector into a unit vector
 def normalize(v):
   n = math.sqrt(sum(x * x for x in v))
   if n == 0:
       return None
   return tuple(x / n for x in v)
 
+# computes angle between two unit vectors
 def angle_deg(a, b):
   dot = sum(x * y for x, y in zip(a, b))
   dot = max(-1.0, min(1.0, dot))
   return math.degrees(math.acos(dot))
 
+# Rotates a 3D vector by a quaternion, returning the vector in world space
 def quat_rotate_vector(q, v):
     # q = (x, y, z, w), v = (vx, vy, vz)
     x, y, z, w = q
