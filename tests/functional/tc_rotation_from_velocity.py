@@ -33,19 +33,19 @@ def angle_deg(a, b):
 
 # Rotates a 3D vector by a quaternion, returning the vector in world space
 def quat_rotate_vector(q, v):
-    # q = (x, y, z, w), v = (vx, vy, vz)
-    x, y, z, w = q
-    vx, vy, vz = v
+  # q = (x, y, z, w), v = (vx, vy, vz)
+  x, y, z, w = q
+  vx, vy, vz = v
 
-    tx = 2 * (y * vz - z * vy)
-    ty = 2 * (z * vx - x * vz)
-    tz = 2 * (x * vy - y * vx)
+  tx = 2 * (y * vz - z * vy)
+  ty = 2 * (z * vx - x * vz)
+  tz = 2 * (x * vy - y * vx)
 
-    rx = vx + w * tx + (y * tz - z * ty)
-    ry = vy + w * ty + (z * tx - x * tz)
-    rz = vz + w * tz + (x * ty - y * tx)
+  rx = vx + w * tx + (y * tz - z * ty)
+  ry = vy + w * ty + (z * tx - x * tz)
+  rz = vz + w * tz + (x * ty - y * tx)
 
-    return (rx, ry, rz)
+  return (rx, ry, rz)
 
 class RotationFromVelocityTest(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
