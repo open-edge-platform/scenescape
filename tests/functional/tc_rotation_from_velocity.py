@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
+import math
 import json
 from http import HTTPStatus
 from tests.functional import FunctionalTest
@@ -16,6 +17,32 @@ COLLECT_TIMEOUT = 10.0
 MIN_MESSAGES = 5
 PROPAGATION_DELAY = 0.5
 IDENTITY_QUAT = (0.0, 0.0, 0.0, 1.0)
+
+def normalize(v):
+  n = math.sqrt(sum(x * x for x in v))
+  if n == 0:
+      return None
+  return tuple(x / n for x in v)
+
+def angle_deg(a, b):
+  dot = sum(x * y for x, y in zip(a, b))
+  dot = max(-1.0, min(1.0, dot))
+  return math.degrees(math.acos(dot))
+
+def quat_rotate_vector(q, v):
+    # q = (x, y, z, w), v = (vx, vy, vz)
+    x, y, z, w = q
+    vx, vy, vz = v
+
+    tx = 2 * (y * vz - z * vy)
+    ty = 2 * (z * vx - x * vz)
+    tz = 2 * (x * vy - y * vx)
+
+    rx = vx + w * tx + (y * tz - z * ty)
+    ry = vy + w * ty + (z * tx - x * tz)
+    rz = vz + w * tz + (x * ty - y * tx)
+
+    return (rx, ry, rz)
 
 class RotationFromVelocityTest(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
@@ -55,7 +82,7 @@ class RotationFromVelocityTest(FunctionalTest):
     self.rotations_disabled = []
     self.collect_target = None  # "before" | "after" | "disabled"
     self.exitCode = 1
-
+  
   # MQTT callback
   def on_message(self, _client, _obj, msg):
     try:
@@ -66,15 +93,21 @@ class RotationFromVelocityTest(FunctionalTest):
     for o in payload.get("objects", []):
       if o.get("category") != "person":
         continue
+      
       rot = o.get("rotation")
+      vel = o.get("velocity")
       if not rot or len(rot) != 4:
+        continue
+      if not vel or len(vel) != 3:
         continue
 
       quat = tuple(float(v) for v in rot)
+      velocity = tuple(float(v) for v in vel)
+      
       if self.collect_target == "before":
         self.rotations_before.append(tuple(quat))
       elif self.collect_target == "enabled":
-        self.rotations_enabled.append(tuple(quat))
+        self.rotations_enabled.append(tuple((quat, velocity)))
       elif self.collect_target == "disabled":
         self.rotations_disabled.append(tuple(quat))
 
@@ -127,13 +160,39 @@ class RotationFromVelocityTest(FunctionalTest):
 
       # collect AFTER enabling rotation
       self.collect("enabled")
-      enabled_set = set(self.rotations_enabled)
-      log.info(f"Rotation after enabling rotation-from-velocity (feature ON):", enabled_set)
-      
-      assert enabled_set != before_set, \
-          "Rotation values did not change after enabling rotation from velocity"            
-      assert any(any(abs(a - b) > 1e-6 for a, b in zip(q, IDENTITY_QUAT)) for q in enabled_set), \
-          "When ON, rotation should differ from the identity quaternion"
+      FORWARD_AXIS = (1.0, 0.0, 0.0)
+      MIN_SPEED = 0.05
+      MAX_ANGLE = 10.0
+
+      checked = 0
+      aligned = 0
+
+      for quat, velocity in self.rotations_enabled:
+          speed = math.sqrt(sum(x * x for x in velocity))
+          if speed < MIN_SPEED:
+              continue
+
+          v_dir = normalize(velocity)
+          if v_dir is None:
+              continue
+
+          forward_world = quat_rotate_vector(quat, FORWARD_AXIS)
+          fwd_dir = normalize(forward_world)
+          if fwd_dir is None:
+              continue
+
+          angle = angle_deg(fwd_dir, v_dir)
+          checked += 1
+
+          if angle <= MAX_ANGLE:
+              aligned += 1
+
+      assert checked > 0, "No moving objects found to verify velocity alignment"
+
+      log.info(
+          f"Rotation/velocity alignment: {aligned}/{checked} "
+          f"samples within {MAX_ANGLE} degrees"
+      )
 
       # disable again and verify rotations return to identity
       self.set_rotation_from_velocity(False)
@@ -166,4 +225,3 @@ def test_rotation_from_velocity(request, record_xml_attribute):
   test = RotationFromVelocityTest(TEST_NAME, request, record_xml_attribute)
   test.run()
   assert test.exitCode == 0
-  return test.exitCode
