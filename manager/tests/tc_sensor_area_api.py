@@ -21,7 +21,7 @@ def test_sensor_area_api(rest, scene_uid, result_recorder):
     "area": "poly",
     "points": initial_poly_points
   }
-  logging.info("\nCreate polygon payload:", poly_sensor_data)
+  logging.info(f"Create polygon payload:", poly_sensor_data)
   res = rest.createSensor(poly_sensor_data)
   assert res, (res.statusCode, res.errors)
   poly_sensor_uid = res['uid']
@@ -33,7 +33,7 @@ def test_sensor_area_api(rest, scene_uid, result_recorder):
     "area": "poly",
     "points": updated_poly_points
   }
-  logging.info("Update polygon payload:", update_data_poly)
+  logging.info(f"Update polygon payload:", update_data_poly)
   res = rest.updateSensor(poly_sensor_uid, update_data_poly)
   assert res.statusCode == HTTPStatus.OK, f"Failed to update polygon area: {res.errors}"
   logging.info("Polygon sensor points updated.")
@@ -60,7 +60,7 @@ def test_sensor_area_api(rest, scene_uid, result_recorder):
     "center": center,
     "radius": initial_radius
   }
-  logging.info("Create payload:", circle_sensor_data)
+  logging.info(f"Create payload:", circle_sensor_data)
   res = rest.createSensor(circle_sensor_data)
   assert res, (res.statusCode, res.errors)
   circle_sensor_uid = res['uid']
@@ -73,7 +73,7 @@ def test_sensor_area_api(rest, scene_uid, result_recorder):
     "center": center,
     "radius": updated_radius
   }
-  logging.info("Update payload:", update_circle_data)
+  logging.info(f"Update payload:", update_circle_data)
   res = rest.updateSensor(circle_sensor_uid, update_circle_data)
   assert res.statusCode == HTTPStatus.OK, f"Failed to update circle area: {res.errors}"
 

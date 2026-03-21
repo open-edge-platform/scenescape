@@ -12,7 +12,7 @@ CAMERA_NAME = "camtest1"
 CAMERA_SENSOR_ID = "camtest1"
 
 def test_persistence_on_page_navigate_api(params, rest, result_recorder):
-  sceneName = params["scene"]
+  sceneName = params["scene_name"]
 
   def _cleanup_test_artifacts():
     """Remove leftover scene/camera/sensors."""

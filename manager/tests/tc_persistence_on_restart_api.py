@@ -9,7 +9,7 @@ TEST_NAME = "NEX-T10393-RESTART-API"
 CAMERA_NAME = "camtest1"
 
 def test_persistence_on_restart_api(params, rest, result_recorder):
-  sceneName = params["scene"]
+  sceneName = params["scene_name"]
 
   def _cleanup_test_artifacts(scene_uid):
     """Cleanup helper to remove scene + related camera/sensors after the test."""

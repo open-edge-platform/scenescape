@@ -23,6 +23,6 @@ def test_upload_3d_glb_file_api(rest, result_recorder):
     assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED), f"Failed to create scene with .glb: {res.errors}"
 
 
-  logging.info(f"GLB file uploaded to scene '{params['scene_name']}' successfully.")
+  logging.info(f"GLB file uploaded to scene '{scene_data['name']}' successfully.")
 
   result_recorder.success()
