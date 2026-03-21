@@ -3,14 +3,14 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import time
-import math
 import json
+import math
+import time
 from http import HTTPStatus
 from tests.functional import FunctionalTest
-from scene_common.rest_client import RESTClient
-from scene_common.mqtt import PubSub
 from scene_common import log
+from scene_common.mqtt import PubSub
+from scene_common.rest_client import RESTClient
 
 TEST_NAME = "NEX-T10543"
 COLLECT_TIMEOUT = 10.0
