@@ -316,8 +316,101 @@ TEST_F(MessageHandlerTest, HandleMessage_AcceptsEmptyObjects) {
 
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 0);
-    // With empty objects, no categories to publish
+    // First empty message: no active scopes yet, so nothing buffered
     EXPECT_EQ(handler.getBufferedCount(), 0);
+}
+
+// Test that empty/partial messages produce empty batches for all previously seen scopes.
+//
+// Exercises three scenarios in sequence using the same accumulated active-scope state:
+//   1. Single scope: 'person' seen first; an empty message produces an empty batch for it.
+//   2. Multiple scopes: after 'car' is introduced, an empty message produces empty batches
+//      for both 'person' and 'car'.
+//   3. Partial message: a message that contains only 'person' detections still produces an
+//      empty batch for 'car', enabling Kalman filter aging for the absent category.
+TEST_F(MessageHandlerTest, EmptyObjects_AfterNonEmpty_CreatesEmptyBatchForPreviousScope) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    TrackingScope person_scope{"test-scene-001", "person"};
+    TrackingScope car_scope{"test-scene-001", "car"};
+
+    // --- Scenario 1: single known scope ---
+    // First message: establishes "person" scope; verify scope is registered with 1 detection.
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })");
+    {
+        auto first_data = test_buffer_.pop_all();
+        ASSERT_EQ(first_data.size(), 1u);
+        ASSERT_EQ(first_data.count(person_scope), 1u);
+        EXPECT_EQ(first_data.at(person_scope).at("cam1").detections.size(), 1u);
+    }
+
+    // Empty message: should produce an empty batch for "person" (enables track aging)
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:01.000Z",
+        "objects": {}
+    })");
+    {
+        auto buffer_data = test_buffer_.pop_all();
+        ASSERT_EQ(buffer_data.size(), 1u);
+        ASSERT_EQ(buffer_data.count(person_scope), 1u);
+        const auto& batch = buffer_data.at(person_scope).at("cam1");
+        EXPECT_EQ(batch.camera_id, "cam1");
+        EXPECT_TRUE(batch.detections.empty()); // Empty batch enables Kalman filter time-step
+    }
+
+    // --- Scenario 2: two known scopes, empty message ---
+    // Introduce "car" scope alongside "person"
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:02.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}],
+            "car":    [{"id": 2, "bounding_box_px": {"x": 200, "y": 300, "width": 80, "height": 60}}]
+        }
+    })");
+    auto _ = test_buffer_.pop_all(); // drain
+
+    // Empty message: should produce empty batches for both "person" and "car"
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:03.000Z",
+        "objects": {}
+    })");
+    {
+        auto buffer_data = test_buffer_.pop_all();
+        ASSERT_EQ(buffer_data.size(), 2u);
+        ASSERT_EQ(buffer_data.count(person_scope), 1u);
+        ASSERT_EQ(buffer_data.count(car_scope), 1u);
+        EXPECT_TRUE(buffer_data.at(person_scope).at("cam1").detections.empty());
+        EXPECT_TRUE(buffer_data.at(car_scope).at("cam1").detections.empty());
+    }
+
+    // --- Scenario 3: partial message with two known scopes ---
+    // A message that only contains "person" detections should still produce an empty batch
+    // for "car", ensuring that the absent category is aged by the Kalman filter.
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:04.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })");
+    {
+        auto buffer_data = test_buffer_.pop_all();
+        ASSERT_EQ(buffer_data.size(), 2u);
+        ASSERT_EQ(buffer_data.count(person_scope), 1u);
+        ASSERT_EQ(buffer_data.count(car_scope), 1u);
+        EXPECT_FALSE(buffer_data.at(person_scope).at("cam1").detections.empty()); // has detections
+        EXPECT_TRUE(buffer_data.at(car_scope).at("cam1").detections.empty());     // empty batch
+    }
 }
 
 // Test multiple objects categories are parsed correctly
