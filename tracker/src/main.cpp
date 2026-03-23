@@ -39,7 +39,7 @@ std::atomic<bool> g_liveness{false};
 std::atomic<bool> g_readiness{false};
 std::shared_ptr<tracker::MqttClient> g_mqtt_client;
 
-void signal_handler(int signal) {
+void signal_handler(int /*signal*/) {
     g_shutdown_requested = ShutdownReason::SIGNAL;
 }
 
