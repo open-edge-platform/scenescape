@@ -135,8 +135,8 @@ services:
       - scenescape
     volumes:
       - vol-db:/var/lib/postgresql/data
-    # ports:
-    #   - "5432:5432"
+    ports:
+      - "5432:5432"
     restart: always
     healthcheck:
       test:
@@ -165,9 +165,7 @@ services:
       - "443:443"
     command: >
       webserver
-      --dbhost pgserver
       --dbtype postgres
-      --dbport 5432
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/browser.auth
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
@@ -181,6 +179,8 @@ services:
     environment:
       - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
+      - DBHOST=pgserver
+      - DBPORT=5432
       - no_proxy=${no_proxy},.scenescape.intel.com
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
     cap_add:

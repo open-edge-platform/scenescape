@@ -53,7 +53,7 @@ When you modify Django models in `src/manager/models.py`, follow these steps:
 6. **Check migration status**:
 
    ```bash
-   bash manager/tools/generate_migrations.sh --show --network scenescape_scenescape --dbhost pgserver --dbport 5432
+   bash manager/tools/generate_migrations.sh --show --network scenescape_scenescape
    ```
 
 7. **Commit the migration file** to version control:
@@ -110,7 +110,7 @@ Migrations are applied automatically at container startup via the `migrate` comm
 To manually apply migrations:
 
 ```bash
-docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 \
+docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 bash \
 python manage.py migrate
 ```
 
@@ -119,7 +119,7 @@ python manage.py migrate
 View all migrations and their application status:
 
 ```bash
-docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 \
+docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 bash \
 python manage.py showmigrations
 ```
 
@@ -147,11 +147,11 @@ If multiple developers create migrations in parallel:
 
 ```bash
 # Revert to a specific migration
-docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 \
+docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 bash \
 python manage.py migrate manager 0001_initial
 
 # Revert all migrations for an app
-docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 \
+docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 bash \
 python manage.py migrate manager zero
 ```
 
@@ -160,7 +160,7 @@ python manage.py migrate manager zero
 In rare cases (like database schema already matches):
 
 ```bash
-docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 \
+docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 bash \
 python manage.py migrate manager --fake
 ```
 

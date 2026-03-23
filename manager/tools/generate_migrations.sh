@@ -63,6 +63,8 @@ generate_migrations() {
   mkdir -p "${HOST_MIGRATIONS_DIR}"
   docker run --name "${container}" \
   --user "$(id -u):$(id -g)" \
+  -e DBHOST=pgserver \
+  -e DBPORT=5432 \
   -v "${SECRETS_DIR}/django:/run/secrets/django:ro" \
   -v "${PROJECT_ROOT}/manager/src/manager/migrations:/home/scenescape/SceneScape/manager/migrations:rw" \
   -v "${PROJECT_ROOT}/manager/src/manager:/home/scenescape/SceneScape/manager:rw" \
@@ -97,6 +99,8 @@ show_migrations() {
   # We patch settings.py HOST/PORT just for this container run.
   docker run --rm \
     --network "${DB_NETWORK}" \
+    -e DBHOST=pgserver \
+    -e DBPORT=5432 \
     -v "${SECRETS_DIR}/django:/run/secrets/django:ro" \
     --entrypoint /bin/bash \
     "${IMAGE}" \
@@ -125,6 +129,6 @@ if [[ "${SHOW_AFTER}" -eq 1 ]]; then
   show_migrations
 else
   echo "3. (Optional) Check applied/unapplied status (requires DB):"
-  echo "   $(basename "$0") --show --network ${DB_NETWORK} --dbhost ${DB_HOST} --dbport ${DB_PORT}"
+  echo "   $(basename "$0") --show --network ${DB_NETWORK}"
 fi
 echo ""
