@@ -3,7 +3,7 @@
   "sensor_id": "car-reid",
   "command": "file://car-detection.ts",
   "cv_subsystem": "AUTO",
-  "camerachain": "veh0200=CPU + reid=CPU",
+  "camerachain": "pvbcross16=CPU + reid=CPU",
   "intrinsics_fx": "905",
   "intrinsics_fy": "905",
   "intrinsics_cx": "640",
