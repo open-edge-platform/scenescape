@@ -110,7 +110,11 @@ jobs:
             echo "update_needed=true" >> $GITHUB_OUTPUT
             echo "Update needed: ${CURRENT} -> ${LATEST}"
             [ -n "${OUTDATED_FILES}" ] && echo "Files with non-latest versions:" && echo "${OUTDATED_FILES}"
-            echo "outdated_files=${OUTDATED_FILES}" >> $GITHUB_OUTPUT
+            {
+              echo "outdated_files<<EOF"
+              echo "${OUTDATED_FILES}"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
           else
             echo "update_needed=false" >> $GITHUB_OUTPUT
             echo "No update needed. Already on latest version: ${CURRENT}"
@@ -139,8 +143,9 @@ jobs:
             sed -i "s|${OLD_VERSION}|${NEW_VERSION}|g" kubernetes/scenescape-chart/values.yaml
           fi
 
-          # Count files changed
-          CHANGED_FILES=$(git diff --name-only | wc -l)
+          # Capture changed files once; derive count and markdown list from the same variable
+          CHANGED_FILES_LIST=$(git diff --name-only)
+          CHANGED_FILES=$(echo "${CHANGED_FILES_LIST}" | grep -c . || true)
           echo "changed_files=${CHANGED_FILES}" >> $GITHUB_OUTPUT
           echo "Files changed: ${CHANGED_FILES}"
 
@@ -150,7 +155,7 @@ jobs:
             # Build markdown list of changed files for PR body
             {
               echo "changed_files_list<<EOF"
-              git diff --name-only | sed 's|^|- `|' | sed 's|$|`|'
+              echo "${CHANGED_FILES_LIST}" | sed 's|^|- `|' | sed 's|$|`|'
               echo "EOF"
             } >> $GITHUB_OUTPUT
           else
