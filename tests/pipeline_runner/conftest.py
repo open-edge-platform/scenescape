@@ -101,7 +101,7 @@ def make_camera_settings(sensor_id: str, camerachain: str, source_file: str) -> 
 
 @pytest.fixture
 def camera_settings_path(request):
-  """Write a camera settings JSON for the parameterised scenario and return its path.
+  """Write a camera settings JSON for the parameterized scenario and return its path.
 
   The file is written under the repo root so that PipelineRunner can map it
   into the Docker container as /workspace/<relative-path>.  It is removed
