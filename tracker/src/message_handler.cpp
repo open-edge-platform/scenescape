@@ -175,7 +175,7 @@ void MessageHandler::routeMessage(const std::string& topic, const std::string& p
 }
 
 void MessageHandler::handleDatabaseUpdateMessage(const std::string& topic,
-                                                 const std::string& payload) {
+                                                 [[maybe_unused]] const std::string& payload) {
     LOG_INFO_ENTRY(LogEntry("Database update received, triggering restart")
                        .component("message_handler")
                        .mqtt({.topic = topic, .direction = "subscribe"}));
