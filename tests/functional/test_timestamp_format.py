@@ -4,6 +4,7 @@
 import subprocess
 import re
 from datetime import datetime
+from scene_common import log
 
 def get_container_name(pattern, log):
   """Returns the name of a container with specific pattern in name"""
@@ -91,7 +92,7 @@ def validate_timestamp_format(rows):
   )
 
 
-def test_timestamp_format(test_logger):
+def test_timestamp_format():
   """ Verifies that all timestamps are utilizing ISO 8601 UTC format.
 
   Steps:
@@ -100,7 +101,6 @@ def test_timestamp_format(test_logger):
     * Verify ISO 8601 format
   """
   test_name = "NEX-T10547"
-  log = test_logger
   log.info(f"Test: {test_name}")
 
   query = """
