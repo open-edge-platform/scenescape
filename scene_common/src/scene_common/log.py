@@ -63,7 +63,7 @@ def enable_file_logging(test_name):
   log.logger.addHandler(file_handler)
   log.file_handler = file_handler
 
-  log.logger.info("File logging enabled: {log_file}")
+  log.logger.info(f"File logging enabled: {log_file}")
 
 
 def log(*args, level=logging.INFO):
