@@ -4,33 +4,32 @@ import os
 import re
 from datetime import datetime
 
-def logging_configuration(test_name):
-  try:
-    LOG_FILE = os.path.join(os.path.dirname(__file__), f"timestamp_format_test_{test_name}.log")
+test_name = "NEX-T10547"
+date_format = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+LOG_FILE = os.path.join(os.path.dirname(__file__), "logs", f"timestamp_format_test_{date_format}.log")
+os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
 
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
 
-    file_handler = logging.FileHandler(LOG_FILE, mode="w")
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+file_handler = logging.FileHandler(LOG_FILE, mode="w")
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
-    logger.info(
-        "Logger initialized. Logs will be written to console and %s",
-        LOG_FILE)
-    return logger
-  except Exception:
-    return None
+logger.info(
+    "Logger initialized. Logs will be written to console and %s",
+    LOG_FILE)
 
-def get_container_name(pattern, logger):
+
+def get_container_name(pattern):
   """Returns the name of a container with specific pattern in name"""
 
   cmd = ["docker", "ps", "--format", "{{.Names}}"]
@@ -45,6 +44,7 @@ def get_container_name(pattern, logger):
   logger.info(f"Container {pattern} not found in the container list.")
   return None
 
+
 def run_psql(container, query):
   cmd = ["docker", "exec", "-i", container,
           "psql", "-U", "scenescape",
@@ -52,6 +52,7 @@ def run_psql(container, query):
 
   result = subprocess.run(cmd, capture_output=True, text=True)
   return result.stdout.strip()
+
 
 def normalize_timezone(value: str) -> str:
   """Normalizes timezone to avoid python issues."""
@@ -63,7 +64,8 @@ def normalize_timezone(value: str) -> str:
 
   return value
 
-def is_valid_timestamp(value: str, logger) -> bool:
+
+def is_valid_timestamp(value: str) -> bool:
   """Verifies if psql output in iso format represents a valid date."""
   try:
     value = value.strip()
@@ -89,13 +91,15 @@ def is_valid_timestamp(value: str, logger) -> bool:
     logger.debug(f"Problem parsing value: {value!r} -> {e!r}")
     return False
 
-def validate_timestamps(output, logger):
+
+def validate_timestamps(output):
   lines = [line.strip() for line in output.splitlines() if line.strip()]
 
   for line in lines:
     line = normalize_timezone(line)
-    assert is_valid_timestamp(line, logger), f"Invalid timestamp {line!r}"
+    assert is_valid_timestamp(line), f"Invalid timestamp {line!r}"
   logger.info("All values successfuly validated.")
+
 
 def validate_timestamp_format(rows):
   invalid = []
@@ -120,8 +124,6 @@ def test_timestamp_format():
     * Verify ISO 8601 format
   """
   test_name = "NEX-T10547"
-  logger = logging_configuration(test_name)
-  assert logger, "Logging initialization failed. "
   logger.info(f"Test: {test_name}")
 
   query = """
@@ -134,11 +136,11 @@ def test_timestamp_format():
     SELECT attempt_time FROM axes_accesslog;
   """
 
-  pg_container = get_container_name('pgserver', logger)
+  pg_container = get_container_name('pgserver')
   output = run_psql(pg_container, query)
   logger.info("Timestamp data from selected fields obtained.")
 
-  validate_timestamps(output, logger)
+  validate_timestamps(output)
 
   query = """
     SELECT table_schema, table_name, column_name, data_type
