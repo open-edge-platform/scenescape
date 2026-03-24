@@ -28,7 +28,7 @@ def _init_loger():
   if not log.logger.handlers:
     formatter = logging.Formatter(
       "%(asctime)s [%(levelname)s] %(message)s",
-      datefmt="%Y-%m-%d %H:%M:%S"
+      datefmt="%Y-%m-%d_%H:%M:%S"
     )
 
     console_handler = logging.StreamHandler(sys.stdout)
