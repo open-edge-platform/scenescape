@@ -63,6 +63,7 @@ generate_migrations() {
   mkdir -p "${HOST_MIGRATIONS_DIR}"
   docker run --name "${container}" \
   --user "$(id -u):$(id -g)" \
+  --network "${DB_NETWORK}" \
   -e DBHOST=pgserver \
   -e DBPORT=5432 \
   -v "${SECRETS_DIR}/django:/run/secrets/django:ro" \
