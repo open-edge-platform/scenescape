@@ -101,7 +101,6 @@ def test_timestamp_format():
     * Verify ISO 8601 format
   """
   test_name = "NEX-T10547"
-  log.enable_file_logging("test_timestamp_format")
   log.info(f"Test: {test_name}")
 
   query = """
