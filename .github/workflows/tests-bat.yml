@@ -46,7 +46,7 @@ env:
   SUPASS: demo
   GITHUB_ACTIONS_CACHE: true
   CACHE_REGISTRY: ${{ github.repository }}
-  CACHE_TAG: ${{ (github.head_ref || github.ref_name)|replace('/', '_') }}
+  CACHE_TAG: ${{ github.head_ref || github.ref_name }}
 
 permissions:
   contents: read
@@ -147,6 +147,7 @@ jobs:
 
       - name: "Run Basic Acceptance Tests (BAT)"
         run: |
+          export CACHE_TAG=$(echo $CACHE_TAG | tr '/' '_')
           make clean-all
           git clean -fdx
           make run_basic_acceptance_tests
@@ -188,7 +189,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install chart with timeout
-        run: KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
+        run: |
+          export CACHE_TAG=$(echo $CACHE_TAG | tr '/' '_')
+          KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
 
       - name: Stability test (2m)
         run: make -C kubernetes test
