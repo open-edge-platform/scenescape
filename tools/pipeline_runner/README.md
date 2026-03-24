@@ -68,7 +68,7 @@ The context manager ensures the docker compose stack is always torn down on exit
 
 ### Stopping the pipeline
 
-When used as a CLI tool the pipeline runs until the process is interrupted (e.g., `Ctrl+C`), which stops the runner process. The broker and DL Streamer Pipeline Server containers continue running in the background intentionally — this allows subsequent runs to start faster by reusing the existing containers.
+When used as a CLI tool the pipeline starts the containers in detached mode and exits immediately. The broker and DL Streamer Pipeline Server containers continue running in the background - this allows subsequent runs to start faster by reusing the existing containers.
 
 To fully tear down all pipeline containers when you are done, run:
 
