@@ -56,6 +56,14 @@ def prepareObjDict(scene, obj, update_visibility):
     heading = calculateHeading(scene.trs_xyz_to_lla, aobj.sceneLoc.asCartesianVector, velocity.asCartesianVector)
     obj_dict['heading'] = heading.tolist()
 
+  # Restore semantic metadata (age, gender, clothing, etc.) stripped from info during construction
+  if hasattr(aobj, 'metadata') and aobj.metadata:
+    if 'metadata' not in obj_dict:
+      obj_dict['metadata'] = {}
+    for key, value in aobj.metadata.items():
+      if key != 'reid':
+        obj_dict['metadata'][key] = value
+
   # Output reid in metadata structure
   if aobj.reid and 'embedding_vector' in aobj.reid:
     reid_embedding = aobj.reid['embedding_vector']

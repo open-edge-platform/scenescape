@@ -1,6 +1,6 @@
-// Copyright 2010-2021 Three.js Authors
+// SPDX-FileCopyrightText: (C) 2010-2021 Three.js Authors
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT AND Apache-2.0
 
 "use strict";
 
