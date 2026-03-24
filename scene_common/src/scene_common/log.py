@@ -48,12 +48,12 @@ def enable_file_logging(test_name):
   log_dir = os.path.join(os.getcwd(), "test_data", "logs")
   os.makedirs(log_dir, exist_ok=True)
 
-  timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+  timestamp = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
   log_file = os.path.join(log_dir, f"{test_name}_{timestamp}.log")
 
   formatter = logging.Formatter(
       "%(asctime)s [%(levelname)s] %(message)s",
-      datefmt="%Y-%m-%d %H:%M:%S"
+      datefmt="%Y-%m-%d_%H:%M:%S"
     )
 
   file_handler = logging.FileHandler(log_file, mode="w")
