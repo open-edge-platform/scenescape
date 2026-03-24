@@ -7,32 +7,7 @@ import os
 import re
 from datetime import datetime
 
-test_name = "NEX-T10547"
-date_format = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-LOG_FILE = os.path.join(os.path.dirname(__file__), "logs", f"timestamp_format_test_{date_format}.log")
-os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
-
-file_handler = logging.FileHandler(LOG_FILE, mode="w")
-file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-
-logger.info(
-    "Logger initialized. Logs will be written to console and %s",
-    LOG_FILE)
-
-
-def get_container_name(pattern):
+def get_container_name(pattern, log):
   """Returns the name of a container with specific pattern in name"""
 
   cmd = ["docker", "ps", "--format", "{{.Names}}"]
@@ -41,10 +16,10 @@ def get_container_name(pattern):
 
   for name in containers:
     if pattern in name:
-      logger.info(f"Container {pattern} found in the container list.")
+      log.info(f"Container {pattern} found in the container list.")
       return name
 
-  logger.info(f"Container {pattern} not found in the container list.")
+  log.info(f"Container {pattern} not found in the container list.")
   return None
 
 
@@ -68,7 +43,7 @@ def normalize_timezone(value: str) -> str:
   return value
 
 
-def is_valid_timestamp(value: str) -> bool:
+def is_valid_timestamp(value: str, log) -> bool:
   """Verifies if psql output in iso format represents a valid date."""
   try:
     value = value.strip()
@@ -91,17 +66,17 @@ def is_valid_timestamp(value: str) -> bool:
     return True
 
   except Exception as e:
-    logger.debug(f"Problem parsing value: {value!r} -> {e!r}")
+    log.debug(f"Problem parsing value: {value!r} -> {e!r}")
     return False
 
 
-def validate_timestamps(output):
+def validate_timestamps(output, log):
   lines = [line.strip() for line in output.splitlines() if line.strip()]
 
   for line in lines:
     line = normalize_timezone(line)
-    assert is_valid_timestamp(line), f"Invalid timestamp {line!r}"
-  logger.info("All values successfuly validated.")
+    assert is_valid_timestamp(line, log), f"Invalid timestamp {line!r}"
+  log.info("All values successfuly validated.")
 
 
 def validate_timestamp_format(rows):
@@ -118,7 +93,7 @@ def validate_timestamp_format(rows):
   )
 
 
-def test_timestamp_format():
+def test_timestamp_format(test_logger):
   """ Verifies that all timestamps are utilizing ISO 8601 UTC format.
 
   Steps:
@@ -127,7 +102,8 @@ def test_timestamp_format():
     * Verify ISO 8601 format
   """
   test_name = "NEX-T10547"
-  logger.info(f"Test: {test_name}")
+  log = test_logger
+  log.info(f"Test: {test_name}")
 
   query = """
     SELECT map_processed FROM manager_scene
@@ -139,11 +115,11 @@ def test_timestamp_format():
     SELECT attempt_time FROM axes_accesslog;
   """
 
-  pg_container = get_container_name('pgserver')
+  pg_container = get_container_name('pgserver', log)
   output = run_psql(pg_container, query)
-  logger.info("Timestamp data from selected fields obtained.")
+  log.info("Timestamp data from selected fields obtained.")
 
-  validate_timestamps(output)
+  validate_timestamps(output, log)
 
   query = """
     SELECT table_schema, table_name, column_name, data_type
@@ -152,12 +128,12 @@ def test_timestamp_format():
   """
 
   output = run_psql(pg_container, query)
-  logger.info("All timestamps in the postgres database obtained.")
+  log.info("All timestamps in the postgres database obtained.")
 
   lines = output.splitlines()
   lines = [line.strip() for line in lines if line.strip()]
   lines = [line.split("|") for line in lines]
-  logger.info("Output parsed.")
+  log.info("Output parsed.")
 
   validate_timestamp_format(lines)
-  logger.info("All entries successfuly validated.")
+  log.info("All entries successfuly validated.")

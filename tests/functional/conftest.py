@@ -5,6 +5,8 @@
 
 import os
 import pytest
+import logging
+from datetime import datetime
 from pathlib import Path
 import numpy as np
 
@@ -94,3 +96,43 @@ def pytest_runtest_makereport(item, call):
     if hasattr(item, 'callspec') and 'test_name' in item.callspec.params:
       test_name = item.callspec.params['test_name']
       item._nodeid = f"{item.nodeid}\n {test_name}"
+
+@pytest.fixture
+def test_logger(request):
+  """Per-test logger with file and console output."""
+
+  logger = logging.getLogger(request.node.name)
+  logger.setLevel(logging.DEBUG)
+
+  # Avoid duplicate handlers if reused
+  if logger.handlers:
+    return logger
+
+  log_dir = os.path.join(os.getcwd(), "tests", "functional", "logs")
+  os.makedirs(log_dir, exist_ok=True)
+
+  test_name = request.node.name.replace("/", "_").replace(" ", "_")
+  timestamp = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+
+  log_file = os.path.join(log_dir, f"{test_name}_{timestamp}.log")
+  formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+
+  console_handler = logging.StreamHandler()
+  console_handler.setLevel(logging.INFO)
+  console_handler.setFormatter(formatter)
+  logger.addHandler(console_handler)
+
+  file_handler = logging.FileHandler(log_file, mode="w")
+  file_handler.setLevel(logging.DEBUG)
+  file_handler.setFormatter(formatter)
+  logger.addHandler(file_handler)
+
+  logger.info(
+    "Logger initialized. Logs will be written to console and %s",
+    log_file)
+
+  yield logger
+
+  # Cleanup
+  logger.removeHandler(console_handler)
+  logger.removeHandler(file_handler)
