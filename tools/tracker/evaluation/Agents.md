@@ -19,9 +19,9 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Quick Links
 
-- Architecture & flow: [docs/design/tracker-evaluation-pipeline.md](../../docs/design/tracker-evaluation-pipeline.md)
+- Architecture & flow: [docs/design/tracker-evaluation-pipeline.md](../../../docs/design/tracker-evaluation-pipeline.md)
 - Main tracker evaluation README (canonical formats, usage, CLI): [README.md](README.md)
-- ADR context: [docs/adr/0009-tracking-evaluation.md](../../docs/adr/0009-tracking-evaluation.md)
+- ADR context: [docs/adr/0009-tracking-evaluation.md](../../../docs/adr/0009-tracking-evaluation.md)
 - Example configuration: [pipeline_configs/metric_test_evaluation.yaml](pipeline_configs/metric_test_evaluation.yaml)
 
 ## Folders structure
@@ -73,7 +73,7 @@ Check `evaluators/README.md` for more details
   - Dataset: [base/tracking_dataset.py](base/tracking_dataset.py)
   - Harness: [base/tracker_harness.py](base/tracker_harness.py)
   - Evaluator: [base/tracker_evaluator.py](base/tracker_evaluator.py)
-- **TrackEval adapter & helpers**: [evaluators/trackeval_evaluator.py](evaluators/trackeval_evaluator.py), [utils/format_converters/](utils/format_converters/).
+- **TrackEval adapter & helpers**: [evaluators/trackeval_evaluator.py](evaluators/trackeval_evaluator.py), [utils/format_converters/](./utils/format_converters.py).
 
 ## Guidelines for Adding New Component or Updating Existing One
 

@@ -71,8 +71,8 @@ services:
       - scenescape
     volumes:
       - vol-db:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     restart: always
 
   web:
@@ -231,14 +231,14 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24
     privileged: true
     networks:
       scenescape:
     tty: true
     entrypoint: ["./run.sh"]
-    ports:
-      - "8080:8080"
+    # ports:
+    #   - "8080:8080"
     devices:
       - "/dev/dri:/dev/dri"
     group_add:
