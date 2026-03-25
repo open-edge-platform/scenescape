@@ -9,6 +9,7 @@ import time
 import inspect
 import pytest
 from scene_common.rest_client import RESTClient
+from mapping_client import MappingClient
 
 # Logging Configuration
 LOG_FILE = os.path.join(os.path.dirname(__file__), "api_test.log")
@@ -34,8 +35,8 @@ logger.info(
 
 # Setup Base HTTP Client
 API_TOKEN = os.environ.get("API_TOKEN")
-# BASE_URL = os.environ.get("API_BASE_URL", "https://localhost/api/v1")
-BASE_URL = os.environ.get("API_BASE_URL", "https://localhost:8444")
+BASE_URL = os.environ.get("API_BASE_URL", "https://localhost/api/v1")
+MAPPING_BASE_URL = os.environ.get("MAPPING_BASE_URL", "https://localhost:8444")
 
 http_client = RESTClient(url=BASE_URL, token=API_TOKEN, verify_ssl=False)
 
@@ -50,7 +51,7 @@ API_MAP = {
     "user": http_client,
     "asset": http_client,
     "child": http_client,
-    "mapping": http_client,
+    "mapping": MappingClient(url=MAPPING_BASE_URL, token=API_TOKEN, verify_ssl=False),
 }
 
 
