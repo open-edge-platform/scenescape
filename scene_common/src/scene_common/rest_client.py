@@ -199,11 +199,12 @@ class RESTClient:
           "requests library can't combine files and nested dictionaries")
     return data_args
 
-  def _create(self, endpoint, data, api_prefix, files=None):
+  def _create(self, endpoint, data, api_prefix='api/v1', files=None):
     """Private method to create a new object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
     @param      data            dict with key/value pairs of new object
+    @param      api_prefix      API version prefix (default: 'api/v1')
     @param      files           dict with file data, as binary blobs
                                 or open file pointers
     @return                     RESTResult with decoded object on success,
@@ -216,12 +217,13 @@ class RESTClient:
                               headers=headers, verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.CREATED)
 
-  def _get(self, endpoint, parameters, api_prefix):
+  def _get(self, endpoint, parameters, api_prefix='api/v1'):
     """Private method to get an object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
     @param      parameters      dictionary of key/value pairs appended to GET request,
                                 used by server to filter out objects
+    @param      api_prefix      API version prefix (default: 'api/v1')
     @return                     RESTResult with decoded object(s) on success,
                                 empty with `errors` set on failure. Result includes
                                 'full_path' key with the complete URL used.
@@ -232,14 +234,14 @@ class RESTClient:
                              verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.OK)
 
-  def _update(self, endpoint, data, api_prefix, files=None):
+  def _update(self, endpoint, data, api_prefix='api/v1', files=None):
     """Private method to update an object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
     @param      data            dictionary with key/value pairs to update
+    @param      api_prefix      API version prefix (default: 'api/v1')
     @param      files           dictionary with file data, as binary blobs
                                 or open file pointers
-    @param      api_prefix      API version prefix (default: 'api/v1')
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
@@ -250,7 +252,7 @@ class RESTClient:
                               headers=headers, verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.OK)
 
-  def _delete(self, endpoint, api_prefix):
+  def _delete(self, endpoint, api_prefix='api/v1'):
     """Private method to delete an object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
@@ -295,7 +297,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
-    return self._create("scene", data, files)
+    return self._create("scene", data, files=files)
 
   def getScene(self, uid):
     """Gets scene with `uid`
@@ -316,7 +318,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
-    return self._update(f"scene/{uid}", data, files)
+    return self._update(f"scene/{uid}", data, files=files)
 
   def deleteScene(self, uid):
     """Deletes scene with `uid`
@@ -337,7 +339,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
-    return self._create("child", data, files)
+    return self._create("child", data, files=files)
 
   def updateChildScene(self, uid, data):
     """Updates child scene with `uid`
@@ -349,7 +351,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
-    return self._update(f"child/{uid}", data, files)
+    return self._update(f"child/{uid}", data, files=files)
 
   # Camera
   def getCameras(self, filter):
@@ -565,7 +567,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['model_3d'])
-    return self._create("asset", data, files)
+    return self._create("asset", data, files=files)
 
   def getAsset(self, uid):
     """Gets asset with `uid`
@@ -586,7 +588,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['model_3d'])
-    return self._update(f"asset/{uid}", data, files)
+    return self._update(f"asset/{uid}", data, files=files)
 
   def deleteAsset(self, uid):
     """Deletes asset with `uid`
