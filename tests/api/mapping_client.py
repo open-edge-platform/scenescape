@@ -71,7 +71,7 @@ class MappingClient(RESTClient):
 
     @param      data            dict with reconstruction parameters:
                                   - images (str or list[str]): image file paths (field name "images")
-                                  - video  (str):              video file path  (field name "video")
+                                  - video  (str or list[str]): video file path(s) (field name "video")
                                   - output_format (str):       "glb" or "json"
                                   - mesh_type (str):           "mesh" or "pointcloud"
                                   - use_keyframes (bool):      True/False
