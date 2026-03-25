@@ -8,7 +8,7 @@
 
 As our project grows in complexity and impact, making and communicating architectural decisions becomes increasingly critical. Currently, Intel® SceneScape lacks a consistent, transparent process for capturing, reviewing and sharing these decisions. This can lead to misunderstandings, duplicated efforts, and difficulty onboarding new contributors.
 
-Many successful open-source and enterprise projects — including the [Edge Manageability Framework](https://github.com/open-edge-platform/edge-manageability-framework/tree/main/design-proposals) — have adopted Architecture Decision Records (ADRs) to address these challenges. ADRs are recognized as an industry best practice for documenting the "why" behind technical choices, ensuring that knowledge is preserved and accessible.
+Many successful open-source and enterprise projects — including the [Edge Manageability Framework](https://github.com/open-edge-platform/edge-manageability-framework/tree/release-2026.0/design-proposals) — have adopted Architecture Decision Records (ADRs) to address these challenges. ADRs are recognized as an industry best practice for documenting the "why" behind technical choices, ensuring that knowledge is preserved and accessible.
 
 ## Decision
 
@@ -55,4 +55,4 @@ ADRs were chosen for their simplicity, version control, and industry adoption.
 - Michael Nygard, "Documenting Architecture Decisions" — [thinkrelevance.com/blog/2011/11/15/documenting-architecture-decisions](http://thinkrelevance.com/blog/2011/11/15/documenting-architecture-decisions)
 - Joel Parker Henderson, "Architecture Decision Record" — [github.com/joelparkerhenderson/architecture-decision-record](https://github.com/joelparkerhenderson/architecture-decision-record)
 - ADR Tools — [github.com/npryce/adr-tools](https://github.com/npryce/adr-tools)
-- Edge Manageability Framework Design Proposals — [github.com/open-edge-platform/edge-manageability-framework/tree/main/design-proposals](https://github.com/open-edge-platform/edge-manageability-framework/tree/main/design-proposals)
+- Edge Manageability Framework Design Proposals — [github.com/open-edge-platform/edge-manageability-framework/tree/release-2026.0/design-proposals](https://github.com/open-edge-platform/edge-manageability-framework/tree/release-2026.0/design-proposals)
