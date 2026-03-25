@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import mimetypes
 import os
 import json
 import re
@@ -706,60 +705,4 @@ class RESTClient:
     with open(zip_file_path, "rb") as f:
       files = {"zipFile": (os.path.basename(zip_file_path), f)}
       return self._create(endpoint, data={}, files=files)
-
-  # Auto-calibration
-  def getStatus(self):
-    """Gets system status
-
-    @return                     RESTResult with system status on success,
-                                empty with `errors` set on failure
-    """
-    return self._get("status", None)
-
-  def registerScene(self, scene_id, data):
-    """Register a scene for auto-calibration
-
-    @param      scene_id        ID of the scene to register
-    @param      data            dict with registration parameters
-    @return                     RESTResult with registration info on success,
-                                empty with `errors` set on failure
-    """
-    return self._create(f"scene/{scene_id}/registration", data)
-
-  def getSceneRegistrationStatus(self, scene_id):
-    """Gets scene registration status
-
-    @param      scene_id        ID of the scene
-    @return                     RESTResult with registration status on success,
-                                empty with `errors` set on failure
-    """
-    return self._get(f"scene/{scene_id}/registration", None)
-
-  def updateSceneRegistration(self, scene_id, data):
-    """Updates scene registration
-
-    @param      scene_id        ID of the scene
-    @param      data            dict with registration update parameters
-    @return                     RESTResult with updated registration on success,
-                                empty with `errors` set on failure
-    """
-    return self._update(f"scene/{scene_id}/registration", data)
-
-  def calibrateCamera(self, camera_id, data):
-    """Calibrate a camera
-
-    @param      camera_id       ID of the camera to calibrate
-    @param      data            dict with calibration parameters
-    @return                     RESTResult with calibration info on success,
-                                empty with `errors` set on failure
-    """
-    return self._create(f"camera/{camera_id}/calibration", data)
-
-  def getCameraCalibrationStatus(self, camera_id):
-    """Gets camera calibration status
-
-    @param      camera_id       ID of the camera
-    @return                     RESTResult with calibration status on success,
-                                empty with `errors` set on failure
-    """
-    return self._get(f"camera/{camera_id}/calibration", None)
+    
