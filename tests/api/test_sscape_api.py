@@ -39,6 +39,7 @@ BASE_URL = os.environ.get("API_BASE_URL", "https://localhost/api/v1")
 MAPPING_BASE_URL = os.environ.get("MAPPING_BASE_URL", "https://localhost:8444")
 
 http_client = RESTClient(url=BASE_URL, token=API_TOKEN, verify_ssl=False)
+mapping_client = MappingClient(url=MAPPING_BASE_URL, token=API_TOKEN, verify_ssl=False)
 
 saved_vars = {}
 
@@ -51,7 +52,7 @@ API_MAP = {
     "user": http_client,
     "asset": http_client,
     "child": http_client,
-    "mapping": MappingClient(url=MAPPING_BASE_URL, token=API_TOKEN, verify_ssl=False),
+    "mapping": mapping_client,
 }
 
 
