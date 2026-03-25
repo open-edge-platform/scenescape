@@ -10,6 +10,7 @@ A data-driven, multi-step REST API test framework built on pytest. Tests are def
 tests
 ├── api
     ├── test_sscape_api.py        # Main test runner
+    ├── mapping_client.py         # Mapping/reconstruction REST client
     ├── conftest.py               # Pytest configuration
     ├── scenarios/                # Default directory for test scenario files
     │   ├── camera_api.json
@@ -36,16 +37,22 @@ pip install pytest requests
 
 ## Environment Variables
 
-| Variable        | Default                        | Description                        |
-|-----------------|--------------------------------|------------------------------------|
-| `API_TOKEN`     | `token`                        | Authentication token for API calls |
-| `API_BASE_URL`  | `https://localhost/api/v1`     | Base URL of the target API         |
+| Variable            | Default                        | Description                                  |
+|---------------------|--------------------------------|----------------------------------------------|
+| `API_TOKEN`         | `token`                        | Authentication token for API calls           |
+| `API_BASE_URL`      | `https://localhost/api/v1`     | Base URL of the target API                   |
+| `MAPPING_BASE_URL`  | `https://localhost:8444`                    | Base URL of the mapping/reconstruction service. Mapping tests are skipped if not set. |
 
 Set them before running:
 ```bash
 export API_TOKEN=your_token_here
-export API_BASE_URL=https://your-server/api/v1
+export API_BASE_URL=https://localhost/api/v1
+export MAPPING_BASE_URL=https://localhost:8444
 ```
+
+### Mapping Service Setup
+
+The mapping/reconstruction tests require the `scenescape-mapping` service to be running. Before executing mapping API tests:
 
 ---
 
@@ -300,18 +307,19 @@ The log file is overwritten on each run. Debug output includes full request data
 
 ## Available API Methods
 
-All methods live in `RESTClient`:
+All methods live in `RESTClient` unless noted otherwise:
 
-| API group  | Methods                                                      |
-|------------|--------------------------------------------------------------|
-| `scene`    | `getScenes`, `createScene`, `getScene`, `updateScene`, `deleteScene` |
-| `camera`   | `getCameras`, `createCamera`, `getCamera`, `updateCamera`, `deleteCamera` |
-| `sensor`   | `getSensors`, `createSensor`, `getSensor`, `updateSensor`, `deleteSensor` |
-| `region`   | `getRegions`, `createRegion`, `getRegion`, `updateRegion`, `deleteRegion` |
-| `tripwire` | `getTripwires`, `createTripwire`, `getTripwire`, `updateTripwire`, `deleteTripwire` |
-| `user`     | `getUsers`, `createUser`, `getUser`, `updateUser`, `deleteUser` |
-| `asset`    | `getAssets`, `createAsset`, `getAsset`, `updateAsset`, `deleteAsset` |
-| `child`    | `getChildScene`, `updateChildScene`                          |
+| API group  | Methods                                                      | Client          |
+|------------|--------------------------------------------------------------|-----------------|
+| `scene`    | `getScenes`, `createScene`, `getScene`, `updateScene`, `deleteScene` | `RESTClient` |
+| `camera`   | `getCameras`, `createCamera`, `getCamera`, `updateCamera`, `deleteCamera` | `RESTClient` |
+| `sensor`   | `getSensors`, `createSensor`, `getSensor`, `updateSensor`, `deleteSensor` | `RESTClient` |
+| `region`   | `getRegions`, `createRegion`, `getRegion`, `updateRegion`, `deleteRegion` | `RESTClient` |
+| `tripwire` | `getTripwires`, `createTripwire`, `getTripwire`, `updateTripwire`, `deleteTripwire` | `RESTClient` |
+| `user`     | `getUsers`, `createUser`, `getUser`, `updateUser`, `deleteUser` | `RESTClient` |
+| `asset`    | `getAssets`, `createAsset`, `getAsset`, `updateAsset`, `deleteAsset` | `RESTClient` |
+| `child`    | `getChildScene`, `updateChildScene`                          | `RESTClient`    |
+| `mapping`  | `performReconstruction`, `getReconstructionStatus`, `healthCheckEndpoint`, `listModels` | `MappingClient` |
 
 ---
 
