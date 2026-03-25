@@ -113,6 +113,8 @@ randomly-failing-tests: \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
+  pipeline-runner-people \
+  pipeline-runner-vehicles \
   out-of-box \
   geometry-conformance \
   metric-tests \
