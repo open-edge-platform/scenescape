@@ -278,6 +278,7 @@ class Scene(models.Model):
 
   def save(self, *args, **kwargs):
     updated_scene = self.id
+    send_update_command = kwargs.pop("send_update_command", True)
     self.dataset_dir = f"{os.getcwd()}/datasets/{self.name}"
     self.output_dir = f"{os.getcwd()}/datasets/{self.name}/output_dir"
     try:
@@ -333,7 +334,9 @@ class Scene(models.Model):
         super().save(*args, **kwargs)
     except FileNotFoundError as e:
       log.error(f"Failed to save scene , {str(e)}")
-    transaction.on_commit(partial(sendUpdateCommand, scene_id = updated_scene))
+
+    if send_update_command:
+      transaction.on_commit(partial(sendUpdateCommand, scene_id=updated_scene))
     return
 
   def delete(self, *args, **kwargs):
