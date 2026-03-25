@@ -168,15 +168,6 @@ class PipelineRunner:
       compose_profiles=[self.profile] if self.profile else [],
     )
 
-  def _register_signal_handlers(self) -> None:
-    """Register SIGTERM/SIGINT handlers to ensure containers are removed on OS signals."""
-    def _handler(signum, frame):
-      self.down()
-      raise SystemExit(1)
-
-    signal.signal(signal.SIGTERM, _handler)
-    signal.signal(signal.SIGINT, _handler)
-
   def start(self) -> "PipelineRunner":
     """Prepare config and bring up the docker compose stack.
 
@@ -190,20 +181,28 @@ class PipelineRunner:
     # Inject docker compose variables into the process environment
     self._set_env_vars()
 
-    # Register OS-signal handlers so containers are cleaned up on SIGTERM/SIGINT
-    self._register_signal_handlers()
-
     # Run docker compose (equivalent to: docker compose -f docker-compose-ppl.yaml [--profile PROFILE] up -d)
     self._docker_client = self._make_docker_client()
-    self._docker_client.compose.up(detach=True)
-    self._running = True
+    try:
+      self._docker_client.compose.up(detach=True)
+      self._running = True
+    except Exception:
+      # Best-effort cleanup: if compose.up() failed after starting some
+      # services, attempt to bring the stack down even though _running is
+      # still False and down() would otherwise be a no-op.
+      if self._docker_client is not None:
+        try:
+          self._docker_client.compose.down()
+        except Exception:
+          # Suppress cleanup errors to avoid masking the original failure.
+          pass
+      raise
     return self
 
   def stop(self) -> None:
     """Stop all compose services (containers are kept; can be restarted)."""
     if self._running:
       self._docker_client.compose.stop()
-      self._running = False
 
   def down(self) -> None:
     """Stop and remove all compose services and containers (full cleanup)."""

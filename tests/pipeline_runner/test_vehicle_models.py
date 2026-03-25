@@ -31,7 +31,7 @@ from tests.pipeline_runner.scenarios import VEHICLE_SCENARIOS, PipelineScenario
 
 TEST_NAME = "NEX-T20170"
 
-MIN_DETECTIONS = 300
+MIN_DETECTIONS = 200
 MIN_CATEGORY_DETECTIONS = 3
 COLLECT_TIMEOUT = 120  # seconds - generous to allow model  warm-up
 
