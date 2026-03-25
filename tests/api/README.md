@@ -40,7 +40,7 @@ The test framework depends on the `scene_common` package.
 
 ```bash
 make -C scene_common
-// Or add source directory to PYTHONPATH 
+# Or add source directory to PYTHONPATH 
 export PYTHONPATH=$(pwd)/scene_common/src:$PYTHONPATH
 ```
 
