@@ -7,7 +7,7 @@ import os
 from http import HTTPStatus
 from urllib.parse import urljoin
 
-from scene_common.rest_client import RESTClient, RESTResult
+from scene_common.rest_client import RESTClient
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ class MappingClient(RESTClient):
                                   - use_keyframes (bool):      True/False
                                 `images` and `video` are opened as binary multipart parts;
                                 all remaining keys become plain form fields.
-    @return                     RESTResult with reconstruction info on success,
+    @return                     dict with reconstruction info on success,
                                 empty with `errors` set on failure
     """
     handles = []
@@ -99,7 +99,7 @@ class MappingClient(RESTClient):
     """Poll the status of an async reconstruction job.
 
     @param      request_id      request_id returned by performReconstruction
-    @return                     RESTResult with job state on success:
+    @return                     dict with job state on success:
                                   - state: "queued" | "processing" | "complete" | "failed"
                                   - message: optional progress message
                                   - result: final result dict (when state == "complete")
@@ -110,7 +110,7 @@ class MappingClient(RESTClient):
   def healthCheckEndpoint(self):
     """Health check endpoint
 
-    @return                     RESTResult with health status on success,
+    @return                     dict with health status on success,
                                 empty with `errors` set on failure
     """
     return self._get("health", None)
@@ -119,7 +119,7 @@ class MappingClient(RESTClient):
     """List available models
 
     @param      filter          Optional dict with filter parameters
-    @return                     RESTResult with list of models on success,
+    @return                     dict with list of models on success,
                                 empty with `errors` set on failure
     """
     return self._get("models", filter)
