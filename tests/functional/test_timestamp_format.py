@@ -5,6 +5,7 @@ import subprocess
 import re
 from datetime import datetime
 from scene_common import log
+from common_test_utils import record_test_result
 
 def get_container_name(pattern, log):
   """Returns the name of a container with specific pattern in name"""
@@ -92,6 +93,7 @@ def validate_timestamp_format(rows):
   )
 
 
+
 def test_timestamp_format():
   """ Verifies that all timestamps are utilizing ISO 8601 UTC format.
 
@@ -101,37 +103,42 @@ def test_timestamp_format():
     * Verify ISO 8601 format
   """
   test_name = "NEX-T10547"
+  exit_code = 1
   log.info(f"Test: {test_name}")
 
-  query = """
-    SELECT map_processed FROM manager_scene
-    UNION ALL
-    SELECT applied FROM django_migrations
-    UNION ALL
-    SELECT action_time FROM django_admin_log
-    UNION ALL
-    SELECT attempt_time FROM axes_accesslog;
-  """
+  try:
+    query = """
+      SELECT map_processed FROM manager_scene
+      UNION ALL
+      SELECT applied FROM django_migrations
+      UNION ALL
+      SELECT action_time FROM django_admin_log
+      UNION ALL
+      SELECT attempt_time FROM axes_accesslog;
+    """
 
-  pg_container = get_container_name('pgserver', log)
-  output = run_psql(pg_container, query)
-  log.info("Timestamp data from selected fields obtained.")
+    pg_container = get_container_name('pgserver', log)
+    output = run_psql(pg_container, query)
+    log.info("Timestamp data from selected fields obtained.")
 
-  validate_timestamps(output, log)
+    validate_timestamps(output, log)
 
-  query = """
-    SELECT table_schema, table_name, column_name, data_type
-    FROM information_schema.columns
-    WHERE data_type LIKE '%timestamp%';
-  """
+    query = """
+      SELECT table_schema, table_name, column_name, data_type
+      FROM information_schema.columns
+      WHERE data_type LIKE '%timestamp%';
+    """
 
-  output = run_psql(pg_container, query)
-  log.info("All timestamps in the postgres database obtained.")
+    output = run_psql(pg_container, query)
+    log.info("All timestamps in the postgres database obtained.")
 
-  lines = output.splitlines()
-  lines = [line.strip() for line in lines if line.strip()]
-  lines = [line.split("|") for line in lines]
-  log.info("Output parsed.")
+    lines = output.splitlines()
+    lines = [line.strip() for line in lines if line.strip()]
+    lines = [line.split("|") for line in lines]
+    log.info("Output parsed.")
 
-  validate_timestamp_format(lines)
-  log.info("All entries successfuly validated.")
+    validate_timestamp_format(lines)
+    log.info("All entries successfuly validated.")
+    exit_code = 0
+  finally:
+    record_test_result(test_name, exit_code)
