@@ -204,7 +204,8 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
-    logger.debug("RESTClient _create: endpoint='%s', full_path='%s'", endpoint, full_path)
+    logger.debug(
+        "RESTClient _create: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
@@ -221,7 +222,8 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
-    logger.debug("RESTClient _get: endpoint='%s', full_path='%s', params=%s", endpoint, full_path, parameters)
+    logger.debug("RESTClient _get: endpoint='%s', full_path='%s', params=%s",
+                 endpoint, full_path, parameters)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.get(full_path, params=parameters, headers=headers,
                              verify=self.verify_ssl)
@@ -238,7 +240,8 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
-    logger.debug("RESTClient _update: endpoint='%s', full_path='%s'", endpoint, full_path)
+    logger.debug(
+        "RESTClient _update: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
@@ -253,7 +256,8 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
-    logger.debug("RESTClient _delete: endpoint='%s', full_path='%s'", endpoint, full_path)
+    logger.debug(
+        "RESTClient _delete: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.delete(
         full_path,
@@ -705,4 +709,3 @@ class RESTClient:
     with open(zip_file_path, "rb") as f:
       files = {"zipFile": (os.path.basename(zip_file_path), f)}
       return self._create(endpoint, data={}, files=files)
-    

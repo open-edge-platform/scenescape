@@ -59,7 +59,8 @@ class MappingClient(RESTClient):
         try:
           fh.close()
         except Exception:
-          logger.warning("Failed to close file handle during cleanup", exc_info=True)
+          logger.warning(
+              "Failed to close file handle during cleanup", exc_info=True)
       raise
 
     return data, files if files else None, handles
