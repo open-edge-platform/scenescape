@@ -231,7 +231,6 @@ def execute_step(step, step_number, total_steps):
 
   # Execute API call
 
-  api_method = getattr(api, method_name)
   try:
     if poll_config:
       # Polling mode: repeat the call until a field matches `until`,
