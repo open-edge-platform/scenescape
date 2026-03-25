@@ -31,4 +31,9 @@ def test_timestamp_format():
     *
   """
   test_name = "NEX-T10548"
+  exit_code = 1
   log.info(f"Test: {test_name}")
+  try:
+    web_container = get_container_name("web")
+  finally:
+    record_test_result(test_name, exit_code)
