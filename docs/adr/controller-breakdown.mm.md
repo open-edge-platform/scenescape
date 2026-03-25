@@ -8,9 +8,9 @@ markmap:
 
 ### MOT Tracking
 
-- **Role**: perform near-real time 3D Multi-Object-Tracking
-- input: data/camera topics
-- output: data/scene topics
+- **Role**: perform 2D->3D projection and n3D Multi-Object-Tracking
+- **Input**: `data/camera` topics
+- **Output**: `data/scene` topics
   - passed-through:
     - detection metadata
       - cross-camera fusion: TBD
@@ -21,15 +21,30 @@ markmap:
     - object location projection to 3D scene
     - reliable tracks
     - [open] unreliable and suspended (properly tagged)
-- not aware of scene hierarchy
+- configuration:
+  - tracker config
+  - scenes and cameras
+- not aware of:
+  - scene hierarchy
+  - sensors, regions, tripwires
 - latency-critical, highly optimized
-- horizontal scalability (sharding):
-    - exclusive subset of scenes
-    - dynamically allocated - mechanism TBD
+- scalability
+    - vertical
+      - thread per (scene, category)
+      - OpenMP in tracking algorithm
+    - horizontal (sharding):
+      - exclusive subset of scenes
+      - dynamically allocated (mechanism ditributed vs centralized - TBD)
 
-### Scene Analytics (ROI, tripwires)
+### Scene Analytics
 
--
+- **Role**: Sensor Attributes, Permanance, ROI, tripwires, Camera Visibility, Projecting Sub-detections
+- **Input**: `data/scene` topics
+- **Output**:
+  - `regulated/scene` topics
+    - produced:
+  - `events/+` topics
+    - produced
 
 ### UUID manager + ReID
 
@@ -37,4 +52,9 @@ markmap:
 
 ### Scene Hierarchy
 
+- **Role**:
+
 ### Clustering
+
+- **Role**: Clustering analytics
+- to be merged
