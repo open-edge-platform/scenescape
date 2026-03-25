@@ -274,14 +274,14 @@ class AutoCalibration(FunctionalTest):
 @pytest.mark.parametrize(
   "test_name, n_tags, random_select, expect_status, expected_result, intrinsics",
   [
-    ("NEX-T17850", 0, False, "success", EXPECTED_RESULT_1,
+    ("NEX-T17850:", 0, False, "success", EXPECTED_RESULT_1,
      [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
-    ("NEX-T10487", 2, False, "success", EXPECTED_RESULT_2,
+    ("NEX-T10487:", 2, False, "success", EXPECTED_RESULT_2,
      [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
-    ("NEX-T17851", 0, True, "success", EXPECTED_RESULT_3, None),
-    ("NEX-T10486", 3, False, "pending", EXPECTED_RESULT_4,
+    ("NEX-T17851:", 0, True, "success", EXPECTED_RESULT_3, None),
+    ("NEX-T10486:", 3, False, "pending", EXPECTED_RESULT_4,
      [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
-    ("NEX-T17852", 6, True, "pending", None,
+    ("NEX-T17852:", 6, True, "pending", None,
      [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
   ]
 )
