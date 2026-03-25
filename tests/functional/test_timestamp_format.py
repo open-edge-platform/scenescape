@@ -5,7 +5,7 @@ import subprocess
 import re
 from datetime import datetime
 from scene_common import log
-from common_test_utils import record_test_result
+from tests.common_test_utils import record_test_result
 
 def get_container_name(pattern, log):
   """Returns the name of a container with specific pattern in name"""
