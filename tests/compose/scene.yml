@@ -33,7 +33,7 @@ services:
       --ntp ntpserv
       --visibility_topic "$VISIBILITY_TOPIC"
     volumes:
-      - ./${DBROOT}/media:/home/scenescape/SceneScape/media
+      - vol-media:/home/scenescape/SceneScape/media
       - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
     secrets:
       - source: root-cert
@@ -41,3 +41,6 @@ services:
       - django
       - controller.auth
     restart: on-failure
+
+volumes:
+  vol-media:
