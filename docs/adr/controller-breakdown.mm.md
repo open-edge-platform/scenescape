@@ -17,16 +17,14 @@ markmap:
       - cross-frame carry-over: TBD
     - camera timestamp
   - produced:
-    - [open] camera visibility (e.g. last only, all in the last second)
     - object location projection to 3D scene
-    - reliable tracks
-    - [open] unreliable and suspended (properly tagged)
+    - reliable tracks with local UUID (unique per scene)
 - configuration:
   - tracker config
   - scenes and cameras
 - not aware of:
   - scene hierarchy
-  - sensors, regions, tripwires
+  - non-localization sensors, regions, tripwires
 - latency-critical, highly optimized
 - scalability
     - vertical
@@ -34,25 +32,39 @@ markmap:
       - OpenMP in tracking algorithm
     - horizontal (sharding):
       - exclusive subset of scenes
-      - dynamically allocated (mechanism ditributed vs centralized - TBD)
+      - dynamically allocated (mechanism distributed vs centralized - TBD)
+- **Opens**:
+  - how to implement object permanence? how to provide input which tracks should be permanent
+  - how to handle non camera inputs like 3D sensors (LIDARs, GPS etc.)
+  - whether to produce as output: unreliable and suspended (properly tagged)
+  - whether to produce as output: camera visibility (e.g. last frame camera only, cameras in the last second)
 
 ### Scene Analytics
 
-- **Role**: Sensor Attributes, Permanance, ROI, tripwires, Camera Visibility, Projecting Sub-detections
+- **Role**:
+  - Generating scene analytics that build on top of 3D tracks from MOT and anything else existing in the scene
+  - Including: Sensor Attributes, Events (ROI, Tripwires), Projecting Sub-detections, Camera Visibility
 - **Input**: `data/scene` topics
 - **Output**:
   - `regulated/scene` topics
-    - produced:
+    - produced: TBD
   - `events/+` topics
-    - produced
+    - produced: TBD
 
 ### UUID manager + ReID
 
 - **Role**: Assign a global unique ID to objects with re-identification
+- **Input**: REST API / gRPC requests
+  - track local UUID
+  - scene, category
+  - metadata (attributes, ReID embeddings)
+- **Output**: REST API / gRPC requests
+  - unique track global UUID
 
 ### Scene Hierarchy
 
-- **Role**:
+- **Role**: Transform reliable tracks upstream across the scene hierarchy
+
 
 ### Clustering
 
