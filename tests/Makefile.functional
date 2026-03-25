@@ -335,3 +335,38 @@ visibility-none: # NEX-T19789
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_camera_bound_visibility_none.py --visibility_topic $(VISIBILITY_TOPIC), '$(SERVICES)', true, /run/secrets/browser.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+pipeline-generation-test:
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_pipeline_generation.py --flags, '$(SERVICES)', true, /run/secrets/browser.auth)
+
+# Run pipeline_runner integration tests.
+# The PipelineRunner brings up its own Docker Compose stack (docker-compose-ppl.yaml),
+# so no COMPOSE_FILES / common-recipe is needed here.
+#
+# Override device counts to enable GPU / NPU scenarios:
+#   make pipeline-runner-people GPU_DEVICE_COUNT=1
+#   make pipeline-runner-vehicles NPU_DEVICE_COUNT=1
+#   make pipeline-runner-integration GPU_DEVICE_COUNT=2 NPU_DEVICE_COUNT=1
+#
+GPU_DEVICE_COUNT ?= 0
+NPU_DEVICE_COUNT ?= 0
+
+PPL_VENV := $(CURDIR)/pipeline_runner/.venv
+_PYTEST_PPL = cd .. && GPU_DEVICE_COUNT=$(GPU_DEVICE_COUNT) NPU_DEVICE_COUNT=$(NPU_DEVICE_COUNT) \
+	$(PPL_VENV)/bin/python -m pytest -v $(GENERATE_JUNITXML)
+
+.PHONY: pipeline-runner-setup pipeline-runner-people pipeline-runner-vehicles pipeline-runner-integration
+
+pipeline-runner-setup:
+	rm -rf $(PPL_VENV);
+	python3 -m venv $(PPL_VENV);
+	@$(PPL_VENV)/bin/pip install -q --upgrade pip
+	@$(PPL_VENV)/bin/pip install -q -r $(CURDIR)/pipeline_runner/requirements-ppl-test.txt
+	$(MAKE) -C $(CURDIR)/.. install-models init-sample-data
+
+pipeline-runner-people: pipeline-runner-setup # NEX-T20170
+	$(_PYTEST_PPL) tests/pipeline_runner/test_people_models.py
+
+pipeline-runner-vehicles: pipeline-runner-setup # NEX-T20170
+	$(_PYTEST_PPL) tests/pipeline_runner/test_vehicle_models.py
+
+pipeline-runner-integration: pipeline-runner-people pipeline-runner-vehicles
