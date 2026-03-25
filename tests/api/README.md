@@ -27,10 +27,21 @@ tests
 - Python 3.8+
 - pytest
 - requests
+- `scene_common` package (built from source)
 
 Install dependencies:
 ```bash
 pip install pytest requests
+```
+
+### Setup `scene_common`
+
+The test framework depends on the `scene_common` package.
+
+```bash
+make -C scene_common
+// Or add source directory to PYTHONPATH 
+export PYTHONPATH=$(pwd)/scene_common/src:$PYTHONPATH
 ```
 
 ---
@@ -41,18 +52,12 @@ pip install pytest requests
 |---------------------|--------------------------------|----------------------------------------------|
 | `API_TOKEN`         | `token`                        | Authentication token for API calls           |
 | `API_BASE_URL`      | `https://localhost/api/v1`     | Base URL of the target API                   |
-| `MAPPING_BASE_URL`  | `https://localhost:8444`                    | Base URL of the mapping/reconstruction service. Mapping tests are skipped if not set. |
+| `MAPPING_BASE_URL`  | `https://localhost:8444`       | Base URL of the mapping service              |
 
-Set them before running:
-```bash
-export API_TOKEN=your_token_here
-export API_BASE_URL=https://localhost/api/v1
-export MAPPING_BASE_URL=https://localhost:8444
-```
 
 ### Mapping Service Setup
 
-The mapping/reconstruction tests require the `scenescape-mapping` service to be running. Before executing mapping API tests:
+The mapping/reconstruction tests require the `scenescape-mapping` service to be running.
 
 ---
 
