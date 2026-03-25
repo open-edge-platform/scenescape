@@ -1,9 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# TODO: use a separate project name and implement a simple volume lifecycle management
-#       (copy the project volumes to new volumes, clean up after use)
-# this is temporary to enable easy reuse of the project volumes for volumes and sample data
 name: scenescape
 
 networks:
@@ -31,7 +28,7 @@ services:
     pids_limit: 1000
 
   queuing-cam-rtsp:
-    image: linuxserver/ffmpeg:version-8.0.1-cli
+    image: linuxserver/ffmpeg:version-8.0-cli
     profiles:
       - rtsp
     command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1
@@ -113,11 +110,14 @@ services:
         condition: service_started
     environment:
       - RUN_MODE=EVA
+      #      - DETECTION_DEVICE=CPU
+      #      - CLASSIFICATION_DEVICE=CPU
       - GENICAM=Balluff
       # Use the GST_DEBUG, GST_TRACERS and GST_DEBUG_FILE environment variables to enable latency tracing
       - GST_DEBUG=${GST_DEBUG:-2}
       - GST_TRACERS=${GST_TRACERS:-}
       - GST_DEBUG_FILE=${GST_DEBUG_FILE:-}
+      #      - GST_DEBUG=1,gencamsrc:2
       - ADD_UTCTIME_TO_METADATA=true
       - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
       - MQTT_HOST=broker.scenescape.intel.com
