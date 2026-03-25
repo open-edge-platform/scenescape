@@ -11,7 +11,15 @@ from pathlib import Path
 controller_src = Path(__file__).resolve().parents[1] / 'controller' / 'src'
 sys.path.insert(0, str(controller_src))
 
-from controller.controller_mode import ControllerMode
+try:
+  from controller.controller_mode import ControllerMode
+  _controller_mode_available = True
+except ImportError:
+  # controller / scene_common not installed on the host; tests that run
+  # outside Docker containers (e.g. pipeline_runner integration tests) are
+  # unaffected because they do not use ControllerMode.
+  _controller_mode_available = False
+
 
 @pytest.fixture(scope='session', autouse=True)
 def initialize_controller_mode(request):
@@ -23,7 +31,13 @@ def initialize_controller_mode(request):
 
   Tests default to non-analytics mode (tracking enabled) unless overridden
   by the --analytics-only command-line option.
+
+  No-ops gracefully when running outside the Docker environment (e.g. during
+  pipeline_runner integration tests executed directly on the host).
   """
+  if not _controller_mode_available:
+    yield
+    return
   # Check if --analytics-only option exists; default to False if not provided
   analytics_only = request.config.getoption('analytics_only', default=False)
   ControllerMode.initialize(analytics_only=analytics_only)
