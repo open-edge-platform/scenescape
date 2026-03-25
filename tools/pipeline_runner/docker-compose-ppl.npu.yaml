@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Override file to add NPU (/dev/accel) device access to the video-pipeline service.
+# Applied automatically by pipeline_runner.py when /dev/accel is present on the host.
+
+services:
+  video-pipeline:
+    devices:
+      - "/dev/accel:/dev/accel"
