@@ -180,6 +180,7 @@ _functional-tests: \
   vdms-similarity-search \
   visibility-unregulated \
   visibility-none \
+  remove_child-scenes \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
