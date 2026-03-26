@@ -14,11 +14,11 @@ To build only the manager image from source, see [Build from Source](./get-start
 
 ## Run the service using Docker Compose
 
-<!-- AGENT: Prerequisite: Run 'make init-secrets' if not already done -->
+<!-- AGENT: PREREQ - Run `make init-secrets` if not already completed. -->
 
 From repository root:
 
-<!-- AGENT: Command to start manager service -->
+<!-- AGENT: RUN - Start manager service. -->
 
 ```bash
 docker compose up -d manager
@@ -26,7 +26,7 @@ docker compose up -d manager
 
 **Expected output:** Manager container starts in detached mode and appears as `Up` in compose status.
 
-<!-- AGENT: Health checks - verify service is running -->
+<!-- AGENT: VERIFY - Run health checks to confirm service is running. -->
 
 Check service status:
 
@@ -35,11 +35,11 @@ docker compose ps manager
 docker compose logs manager -f
 ```
 
-<!-- AGENT: Expected: Status should be 'Up', no error messages in logs -->
+<!-- AGENT: VERIFY - Status should be `Up` with no startup errors in logs. -->
 
 **Expected output:** Status column shows "Up", startup logs show "Application startup complete"
 
-<!-- AGENT: Command to stop service (for cleanup) -->
+<!-- AGENT: RUN - Stop service for cleanup. -->
 
 Stop service:
 
@@ -51,7 +51,7 @@ docker compose stop manager
 
 ## Access points
 
-<!-- AGENT: Access URLs for Manager service REST API and Web UI -->
+<!-- AGENT: ACCESS - Manager Web UI and REST API endpoints. -->
 
 - Web UI: `https://<host-or-ip>/`
 - REST API base path: `https://<host-or-ip>/api/v1/`

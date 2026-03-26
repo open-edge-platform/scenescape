@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-<!-- AGENT: Validate hardware requirements before proceeding -->
+<!-- AGENT: PREREQ - Validate hardware requirements before proceeding. -->
 
 - The hardware platform must be at least a 10th Generation Intel® Core™ i5 Processor or Intel® Xeon® Scalable processor, with at least 8+GB of RAM and 64+GB of storage.
 - [How to build Scene Controller from source](./get-started/build-from-source.md)
@@ -11,7 +11,7 @@
 
 - **Navigate to the Directory**:
 
-  <!-- AGENT: Change to repository root -->
+  <!-- AGENT: PREREQ - Change to repository root. -->
 
   ```bash
   cd scenescape
@@ -21,7 +21,7 @@
 
 - **Generate secrets**:
 
-  <!-- AGENT: CRITICAL: Must run before first container start. Creates TLS certs and auth tokens. -->
+  <!-- AGENT: PREREQ - Run before first container start to create TLS certs and auth tokens. -->
 
   ```bash
   make init-secrets
@@ -30,7 +30,7 @@
   **Expected output:** Secret files and certificates are generated under `manager/secrets/`.
 
 - **Start the service**:
-  <!-- AGENT: Dependencies MUST be running first: broker, web service, ntp service -->
+  <!-- AGENT: PREREQ - Ensure dependencies are running first (broker, web, ntp). -->
 
   Start the service using docker run:
 
@@ -56,7 +56,7 @@
   **Expected output:** Scene Controller container starts and begins processing with no immediate startup errors.
 
 - **Note**:
-  <!-- AGENT: List of service dependencies - verify all are running before starting controller -->
+  <!-- AGENT: VERIFY - Confirm all listed dependencies are running before start. -->
 
   The `scene` service **depends on** the `broker`,`web` and `ntpserv`services.
   Before starting this container, ensure that:
@@ -65,7 +65,7 @@
   - The **ntpserv** service at `udp://<host-ip>:123` whihc maps to port `123/udp` inside the container.
 
 - **Verify the service**:
-  <!-- AGENT: Health check - container must be present and running -->
+  <!-- AGENT: VERIFY - Container must be present and running. -->
 
   Check that the service is running:
 
@@ -73,13 +73,13 @@
   docker ps
   ```
 
-  <!-- AGENT: Expected: Container named 'scene' with status 'Up' -->
+  <!-- AGENT: VERIFY - Expect container `scene` with status `Up`. -->
 
   **Expected output:** Container named 'scene' showing status "Up"
 
 - **Stop the service**:
 
-  <!-- AGENT: Cleanup command -->
+  <!-- AGENT: RUN - Cleanup command. -->
 
   ```bash
   docker stop scene
@@ -88,7 +88,7 @@
   **Expected output:** Container `scene` stops successfully.
 
 - **Access scene controller output through MQTT**:
-  <!-- AGENT: Reference files for MQTT API spec and workflow diagrams -->
+  <!-- AGENT: REF - MQTT API spec and workflow diagram references. -->
   - Refer to [scene-controller-api.yaml](./_assets/scene-controller-api.yaml) on how to access scene controller output
   - Refer to [scene controller sequence diagram](./controller.md#sequence-diagram-scene-controller-workflow)
 

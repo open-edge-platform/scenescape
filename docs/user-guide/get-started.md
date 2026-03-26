@@ -6,13 +6,13 @@
 
 ### Prerequisites
 
-<!-- AGENT: Validate these prerequisites before proceeding -->
+<!-- AGENT: PREREQ - Validate prerequisites before proceeding. -->
 
 Check [System Requirements](./get-started/system-requirements.md) before proceeding with rest of the steps in this documentation.
 
 ### Step 1: Install Prerequisites
 
-<!-- AGENT: Extract and execute these system packages -->
+<!-- AGENT: RUN - Install required system packages. -->
 
 The prerequisite software can be installed via the following commands on the Ubuntu host OS:
 
@@ -31,7 +31,7 @@ sudo apt install -y \
 
 **Installing Docker on your system:**
 
-<!-- AGENT: Docker is required. Verify installation after these steps. -->
+<!-- AGENT: VERIFY - Docker is required; confirm installation after setup. -->
 
 1. Install Docker using the official installation guide for Ubuntu:
    [Docker Installation Guide for Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
@@ -49,7 +49,7 @@ sudo apt install -y \
 
 4. Verify Docker is working properly:
 
-   <!-- AGENT: Health check - Docker must respond successfully -->
+   <!-- AGENT: VERIFY - Docker health check must succeed. -->
 
    ```bash
    docker --version
@@ -60,7 +60,7 @@ sudo apt install -y \
 
 ### Step 2: Download and extract code of a Intel® SceneScape release
 
-<!-- AGENT: Source code must be present. Choose either: release archive OR git clone -->
+<!-- AGENT: PREREQ - Ensure source code is present (release archive or git clone). -->
 
 > **Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
 
@@ -105,7 +105,7 @@ sudo apt install -y \
 
 ### Step 3: Build Intel® SceneScape container images
 
-<!-- AGENT: Build all Docker images - this is a critical setup step (15+ min) -->
+<!-- AGENT: RUN - Build all Docker images (critical setup step). -->
 
 Build container images:
 
@@ -115,7 +115,7 @@ make
 
 **Expected output:** Build completes successfully and SceneScape Docker images are created locally.
 
-<!-- AGENT: Expected: Docker images created. Check with: docker images | grep scenescape -->
+<!-- AGENT: VERIFY - Confirm Docker images were created (for example with image listing). -->
 
 The build may take around 15 minutes depending on target machine.
 This step generates common base docker image and docker images for all microservices.
@@ -141,7 +141,7 @@ This step generates dependency lists. Two separate files are created for system 
 
 ### Step 5: Deploy Intel® SceneScape demo to the target system
 
-<!-- AGENT: CRITICAL: Set SUPASS env var before deployment. This is required. -->
+<!-- AGENT: PREREQ - Set SUPASS before deployment (required). -->
 
 Before deploying the demo of Intel® SceneScape for the first time, please set the environment variable SUPASS with the super user password for logging into Intel® SceneScape.
 Important: This should be different than the password for your system user.
@@ -152,19 +152,19 @@ export SUPASS=<password>
 
 **Expected output:** `SUPASS` is set in the current shell session.
 
-<!-- AGENT: Deploy all core services via this make target -->
+<!-- AGENT: RUN - Deploy core services via this make target. -->
 
 ```bash
 make demo
 ```
 
-<!-- AGENT: Expected: All containers started. Verify with: docker compose ps -->
+<!-- AGENT: VERIFY - Confirm all containers started successfully. -->
 
 **Expected output:** All services showing "Up" status
 
 ### Step 6: Verify a successful deployment
 
-<!-- AGENT: Access point - web UI should be accessible after deployment -->
+<!-- AGENT: ACCESS - Web UI endpoint should be reachable after deployment. -->
 
 If you are running remotely, connect using `"https://<ip_address>"` or `"https://<hostname>"`, using the correct IP address or hostname of the remote Intel® SceneScape system. If accessing on a local system use `"https://localhost"`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
 
@@ -176,7 +176,7 @@ Enter "admin" for the user name and the value you typed earlier for SUPASS.
 
 ### Stopping the System
 
-<!-- AGENT: Cleanup command - stops all containers -->
+<!-- AGENT: RUN - Cleanup command to stop all containers. -->
 
 To stop the containers, use the following command in the project directory:
 
@@ -188,7 +188,7 @@ docker compose down --remove-orphans
 
 ### Starting the System
 
-<!-- AGENT: Restart command - brings containers back up after stop -->
+<!-- AGENT: RUN - Restart command to bring containers back up. -->
 
 To start after the first time, use the following command in the project directory:
 

@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-<!-- AGENT: Validate hardware requirements before proceeding -->
+<!-- AGENT: PREREQ - Validate hardware requirements before proceeding. -->
 
 - The hardware platform must be at least a 10th Generation Intel® Core™ i5 Processor or Intel® Xeon® Scalable processor, with at least 8+GB of RAM and 64+GB of storage.
 - [Build Auto Camera Calibration from source](./get-started/build-from-source.md).
@@ -11,7 +11,7 @@
 
 - **Navigate to the Directory**:
 
-  <!-- AGENT: Change to repository root -->
+  <!-- AGENT: PREREQ - Change to repository root. -->
 
   ```bash
   cd scenescape
@@ -21,7 +21,7 @@
 
 - **Generate secrets**:
 
-  <!-- AGENT: CRITICAL: Must run before first container start -->
+  <!-- AGENT: PREREQ - Must run before first container start. -->
 
   ```bash
   make build-secrets
@@ -30,7 +30,7 @@
   **Expected output:** Required secret files and certificates are generated.
 
 - **Start the service**:
-  <!-- AGENT: Dependency check - web service must be running first -->
+  <!-- AGENT: PREREQ - Verify web service is running first. -->
 
   Start the service using docker run:
 
@@ -57,14 +57,14 @@
   **Expected output:** Autocalibration container starts and connects to the Manager REST API.
 
 - **Note**:
-  <!-- AGENT: List of service dependencies before starting -->
+  <!-- AGENT: VERIFY - Confirm listed service dependencies before starting. -->
 
   The `autocalibration` service **depends on** the `web` service.
   Before starting this container, ensure that:
   - The **web** service at `https://web.scenescape.intel.com:443` is accessible.
 
 - **Verify the service**:
-  <!-- AGENT: Health check - container must be present and running -->
+  <!-- AGENT: VERIFY - Container must be present and running. -->
 
   Check that the service is running:
 
@@ -72,13 +72,13 @@
   docker ps
   ```
 
-  <!-- AGENT: Expected: Container named 'autocalibration' with status 'Up' -->
+  <!-- AGENT: VERIFY - Expect container `autocalibration` with status `Up`. -->
 
   **Expected output:** Container named 'autocalibration' showing status "Up"
 
 - **Stop the service**:
 
-  <!-- AGENT: Cleanup command -->
+  <!-- AGENT: RUN - Cleanup command. -->
 
   ```bash
   docker stop autocalibration
@@ -87,7 +87,7 @@
   **Expected output:** Container `autocalibration` stops successfully.
 
 - **Access autocalibration output through MQTT**:
-  <!-- AGENT: Reference for MQTT output spec and workflow -->
+  <!-- AGENT: REF - MQTT output specification and workflow references. -->
   - Refer to [autocalibration-api.yaml](./_assets/autocalibration-api.yaml) on how to access
     auto calibration output.
   - Refer to [Auto Calibration Sequence Diagram](./auto-calibration.md#sequence-diagram-auto-camera-calibration-workflow)
