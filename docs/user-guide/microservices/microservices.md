@@ -8,6 +8,7 @@ various aspects of the tool's capabilites.
 - [Cluster Analytics Service](./cluster-analytics/cluster-analytics.md) - advanced object
   clustering and movement analysis.
 - [Scene Controller Service](./controller/controller.md) - multimodal sensor data fusing for spatial analytics.
+- [Manager Service](./manager/manager.md) - Django-based web UI and REST API for SceneScape configuration and metadata management.
 - [Mapping Service](./mapping-service/mapping-service.md) - generate meshes and camera
   parameters from camera-captured frames.
 
@@ -18,6 +19,7 @@ various aspects of the tool's capabilites.
 Auto Camera Calibration <./auto-calibration/auto-calibration.md>
 Cluster Analytics <./cluster-analytics/cluster-analytics.md>
 Scene Controller <./controller/controller.md>
+Manager Service <./manager/manager.md>
 Mapping Service <./mapping-service/mapping-service.md>
 
 :::
