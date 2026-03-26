@@ -220,16 +220,9 @@ def execute_step(step, step_number, total_steps):
     return False, None, f"API {api_name} has no method {method_name}"
 
   # Normalize request keys to match RESTClient parameter names:
-  #   "UID"  -> "uid"   (path parameter used in camera/scene/sensor/etc.)
   #   "body" -> "data"  (request body)
   #   "path_params" -> extract and merge its contents into request_data
-  KEY_MAP = {"UID": "uid", "body": "data"}
-
-  # Extract path_params if present (e.g., {"request_id": "123"})
-  path_params = request_data.pop("path_params", {})
-  request_data.update(path_params)
-
-  request_data = {KEY_MAP.get(k, k): v for k, v in request_data.items()}
+  call_kwargs = build_call_kwargs(raw_request)
 
   # If the method expects "filter" and it wasn't provided, default to None
   api_method = getattr(api, method_name)
@@ -254,7 +247,7 @@ def execute_step(step, step_number, total_steps):
       deadline = time.time() + timeout_s
       response = None
       while True:
-        response = api_method(**request_data)
+        response = api_method(**call_kwargs)
         # RESTResult is a dict subclass; requests.Response has .json()
         if isinstance(response, dict):
           body = dict(response)
@@ -283,7 +276,7 @@ def execute_step(step, step_number, total_steps):
         logger.info(f"    Polling... (state={body.get('state', '?')})")
         time.sleep(interval_s)
     else:
-      response = api_method(**request_data)
+      response = api_method(**call_kwargs)
   except Exception as e:
     return False, None, f"API call failed: {str(e)}"
 
