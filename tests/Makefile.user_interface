@@ -61,6 +61,14 @@ auto-calibration-ui: # NEX-T15710
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_auto_calibration_ui.py, '$(SERVICES)',sample_data/exampledb.tar.bz2)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
+auto-calibration-no-apriltags-ui: # NEX-T10485
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(eval SERVICES := $(strip pgserver broker scene retail-video queuing-video autocalibration web))
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/autocalibration.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web_default.yml:$(COMPOSE)/cams.yml)
+	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_auto_calibration_no_apriltags_ui.py, '$(SERVICES)',sample_data/exampledb.tar.bz2)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+
 bounding-box: # NEX-T10419
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
