@@ -20,7 +20,7 @@ pillow==12.1.1
 plyfile==1.0.3
 psycopg2-binary==2.9.11
 PyYAML==6.0.3
-requests==2.32.5
+requests==2.33.0
 scipy==1.16.3
 trimesh==4.11.2
 urllib3==2.6.3
