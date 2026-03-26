@@ -6,6 +6,11 @@ The geospatial mapping functionality requires API keys for Google Maps or Mapbox
 
 ### Environment Variables For API Keys
 
+| Environment Variable  | Provider    | Required                       | Description                                                    |
+| --------------------- | ----------- | ------------------------------ | -------------------------------------------------------------- |
+| `GOOGLE_MAPS_API_KEY` | Google Maps | Optional (choose one provider) | API key used when rendering maps through Google Maps services. |
+| `MAPBOX_API_KEY`      | Mapbox      | Optional (choose one provider) | API key used when rendering maps through Mapbox services.      |
+
 ```bash
 # Google Maps API Key (for Google Maps provider)
 export GOOGLE_MAPS_API_KEY="your_google_maps_api_key_here"
@@ -40,6 +45,11 @@ export MAPBOX_API_KEY="your_mapbox_api_key_here"
 ### Docker Deployment
 
 When deploying with Docker, add the environment variables to your docker-compose.yml:
+
+| Compose Service | Environment Variable  | Value Pattern                   |
+| --------------- | --------------------- | ------------------------------- |
+| `manager`       | `GOOGLE_MAPS_API_KEY` | `your_google_maps_api_key_here` |
+| `manager`       | `MAPBOX_API_KEY`      | `your_mapbox_api_key_here`      |
 
 ```yaml
 services:

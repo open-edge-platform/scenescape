@@ -106,13 +106,13 @@ Result: "Find strong age-gender matches, refined by vector similarity"
 
 **Environment variables**:
 
-- `VDMS_HOSTNAME`: VDMS server hostname (default: `vdms.scenescape.intel.com`)
-- `REID_DATABASE`: Vector database backend (default: `VDMS`)
-- `VDMS_CONFIDENCE_THRESHOLD`: Minimum confidence for applying constraints in TIER 1 (default: `0.8`)
-  - Values ≥ threshold: Included in AND constraints (strict metadata filtering)
-  - Values < threshold: Ignored (rely on TIER 2 vector similarity for flexible matching)
-  - Valid range: 0.0 to 1.0
-  - Example: Set to `0.7` to include more metadata filters, `0.9` for stricter filtering
+| Variable                    | Default                     | Valid Range/Values | Purpose                                                                                                                                                                                                                |
+| --------------------------- | --------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VDMS_HOSTNAME`             | `vdms.scenescape.intel.com` | Hostname           | VDMS server hostname used by the controller for vector database access.                                                                                                                                                |
+| `REID_DATABASE`             | `VDMS`                      | Backend identifier | Selects the vector database backend for ReID operations.                                                                                                                                                               |
+| `VDMS_CONFIDENCE_THRESHOLD` | `0.8`                       | `0.0` to `1.0`     | Minimum confidence for applying TIER 1 metadata constraints. Values >= threshold are included in strict AND constraints; values below threshold are ignored so TIER 2 vector similarity can provide flexible matching. |
+
+Example threshold usage: set to `0.7` to include more metadata filters or `0.9` for stricter filtering.
 
 ## Configuring Confidence Threshold
 

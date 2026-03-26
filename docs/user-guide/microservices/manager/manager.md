@@ -46,10 +46,12 @@ configuration metadata in PostgreSQL.
 
 Typical runtime configuration includes:
 
-- `SECRET_KEY` for Django
-- database credentials via generated secrets
-- TLS certificates from `manager/secrets/certs/`
-- service auth tokens in `manager/secrets/*.auth`
+| Configuration Item   | Location/Variable                            | Purpose                                                                     |
+| -------------------- | -------------------------------------------- | --------------------------------------------------------------------------- |
+| Django secret key    | `SECRET_KEY`                                 | Protects Django cryptographic operations and session integrity.             |
+| Database credentials | Generated secrets (`manager/secrets/django`) | Authenticates Manager service access to PostgreSQL metadata storage.        |
+| TLS certificates     | `manager/secrets/certs/`                     | Enables TLS-secured service-to-service and user-facing communication.       |
+| Service auth tokens  | `manager/secrets/*.auth`                     | Provides service account credentials for internal authentication workflows. |
 
 For shared platform setup steps (host prerequisites, repository setup, secrets initialization,
 and full-stack deployment), use the canonical [Getting Started](../../get-started.md) guide.

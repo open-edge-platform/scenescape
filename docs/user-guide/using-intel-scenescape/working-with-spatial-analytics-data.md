@@ -145,9 +145,11 @@ client.connect(host, 1883, 60)
 
 **Setup Requirements:**
 
-- Expose MQTT port 1883 in deployment configuration
-- Create dedicated MQTT user accounts (not admin)
-- Use MQTT-specific credentials from secrets management
+| Requirement        | Description                                                                     |
+| ------------------ | ------------------------------------------------------------------------------- |
+| MQTT port exposure | Expose MQTT port `1883` in deployment configuration for direct protocol access. |
+| Dedicated accounts | Create dedicated MQTT user accounts and avoid admin credentials.                |
+| Credential source  | Use MQTT-specific credentials from secrets management.                          |
 
 #### Web Applications
 
@@ -172,6 +174,12 @@ const client = mqtt.connect(`wss://${host}/mqtt`, {
 
 **For Development/Testing:**
 
+| Variable           | Required               | Purpose                                                          |
+| ------------------ | ---------------------- | ---------------------------------------------------------------- |
+| `SCENESCAPE_HOST`  | Yes                    | Hostname or IP for SceneScape REST and MQTT endpoints.           |
+| `SCENESCAPE_TOKEN` | Yes                    | API token used for REST discovery calls.                         |
+| `SUPASS`           | For quick MQTT testing | Web login password used for websocket MQTT quick-start examples. |
+
 ```bash
 export SCENESCAPE_HOST="scenescape-hostname-or-ip-address"
 export SCENESCAPE_TOKEN="your-api-token"  # For REST API calls
@@ -181,6 +189,13 @@ export SUPASS="your-web-login-password"   # For quick MQTT testing
 **Expected output:** Environment variables are set in the current shell for development/testing.
 
 **For Production:**
+
+| Variable           | Required | Purpose                                              |
+| ------------------ | -------- | ---------------------------------------------------- |
+| `SCENESCAPE_HOST`  | Yes      | Hostname or IP for production deployment endpoints.  |
+| `SCENESCAPE_TOKEN` | Yes      | API token for authenticated REST operations.         |
+| `MQTT_USER`        | Yes      | Dedicated MQTT username for direct MQTT connections. |
+| `MQTT_PASS`        | Yes      | Dedicated MQTT password for direct MQTT connections. |
 
 ```bash
 export SCENESCAPE_HOST="scenescape-hostname-or-ip-address"
@@ -641,6 +656,12 @@ pip install requests paho-mqtt
 **Expected output:** Virtual environment is created/activated and required Python packages are installed.
 
 **Environment Variables:**
+
+| Variable           | Required                    | Description                                                   |
+| ------------------ | --------------------------- | ------------------------------------------------------------- |
+| `SCENESCAPE_HOST`  | Yes                         | Hostname or IP of the Intel® SceneScape deployment.          |
+| `SCENESCAPE_TOKEN` | Yes                         | REST API token from Intel® SceneScape Admin panel.           |
+| `SUPASS`           | For websocket MQTT examples | Web login password used in tutorial MQTT quick-start scripts. |
 
 ```bash
 export SCENESCAPE_HOST="scenescape-hostname-or-ip-address"
