@@ -292,6 +292,7 @@ class PostInferenceDataPublish:
 
       utils.get_gva_meta_messages(frame, gvametadata)
       gvametadata['gva_meta'] = utils.get_gva_meta_regions(frame)
+      self.mergeRegionsIntoObject(gvametadata)
 
       if 'original_image_base64' in gvametadata:
         original_image_base64 = gvametadata['original_image_base64']
@@ -320,3 +321,48 @@ class PostInferenceDataPublish:
       self.client.publish(f"scenescape/data/camera/{self.cameraid}", json.dumps(self.frame_level_data))
       frame.add_message(json.dumps(self.frame_level_data))
     return True
+
+  def mergeRegionsIntoObject(self, gvadata):
+    custom_regions = gvadata.get("custom_regions_3d", [])
+    objects = gvadata.get("objects", [])
+
+    if not custom_regions or not objects:
+      return
+    print(f"Merging {len(custom_regions)} custom 3D regions into {len(objects)} objects")
+
+    for det in objects:
+      dx = det.get("x")
+      dy = det.get("y")
+      dw = det.get("w")
+      dh = det.get("h")
+
+      best_match = None
+      best_score = None
+
+      for region in custom_regions:
+        bbox = region.get("bbox", {})
+        rx = bbox.get("x")
+        ry = bbox.get("y")
+        rw = bbox.get("w")
+        rh = bbox.get("h")
+
+        if None in (dx, dy, dw, dh, rx, ry, rw, rh):
+          continue
+
+        # Exact match first
+        if dx == rx and dy == ry and dw == rw and dh == rh:
+          best_match = region
+          break
+
+        # Fallback: choose nearest bbox if exact match is not found
+        score = abs(dx - rx) + abs(dy - ry) + abs(dw - rw) + abs(dh - rh)
+        if best_score is None or score < best_score:
+          best_score = score
+          best_match = region
+
+      if best_match is not None:
+        det["extra_params"] = {
+          "translation": best_match.get("translation"),
+          "rotation": best_match.get("rotation"),
+          "dimension": best_match.get("dimension"),
+        }

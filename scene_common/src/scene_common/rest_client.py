@@ -7,6 +7,9 @@ import re
 import requests
 from http import HTTPStatus
 from urllib.parse import urljoin
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class RESTResult(dict):
@@ -99,7 +102,7 @@ class RESTClient:
       path = '/' + path
 
     url = urljoin(self.url, path.lstrip('/'))
-
+    logger.debug("REST request: %s %s", method, url)
     # Merge headers
     headers = self._headers()
     if 'headers' in kwargs:
@@ -116,6 +119,11 @@ class RESTClient:
 
   def decodeReply(self, reply, expectedStatus, successContent=None):
     result = RESTResult(statusCode=reply.status_code)
+    # Accept either a single status code or a list/tuple of acceptable codes
+    if isinstance(expectedStatus, (list, tuple)):
+      status_ok = reply.status_code in expectedStatus
+    else:
+      status_ok = reply.status_code == expectedStatus
     decoded = False
     if 'Content-Type' in reply.headers and reply.headers['Content-Type'] == "application/json":
       try:
@@ -133,14 +141,14 @@ class RESTClient:
         content['filename'] = fname
       decoded = True
 
-    if reply.status_code == expectedStatus:
+    if status_ok:
       if successContent:
         content = successContent
         decoded = True
       if decoded:
         result.update(content)
 
-    if not decoded or reply.status_code != expectedStatus:
+    if not decoded or not status_ok:
       result.errors = content
 
     return result
@@ -196,6 +204,8 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    logger.debug(
+        "RESTClient _create: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
@@ -212,6 +222,8 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    logger.debug("RESTClient _get: endpoint='%s', full_path='%s', params=%s",
+                 endpoint, full_path, parameters)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.get(full_path, params=parameters, headers=headers,
                              verify=self.verify_ssl)
@@ -228,6 +240,8 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    logger.debug(
+        "RESTClient _update: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
@@ -242,6 +256,8 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    logger.debug(
+        "RESTClient _delete: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.delete(
         full_path,
@@ -693,3 +709,60 @@ class RESTClient:
     with open(zip_file_path, "rb") as f:
       files = {"zipFile": (os.path.basename(zip_file_path), f)}
       return self._create(endpoint, data={}, files=files)
+
+  # Auto-calibration
+  def getStatus(self):
+    """Gets system status
+
+    @return                     RESTResult with system status on success,
+                                empty with `errors` set on failure
+    """
+    return self._get("status", None)
+
+  def registerScene(self, sceneId, data):
+    """Register a scene for auto-calibration
+
+    @param      sceneId        ID of the scene to register
+    @param      data            dict with registration parameters
+    @return                     RESTResult with registration info on success,
+                                empty with `errors` set on failure
+    """
+    return self._create(f"scenes/{sceneId}/registration", data)
+
+  def getSceneRegistrationStatus(self, sceneId):
+    """Gets scene registration status
+
+    @param      sceneId        ID of the scene
+    @return                     RESTResult with registration status on success,
+                                empty with `errors` set on failure
+    """
+    return self._get(f"scenes/{sceneId}/registration", None)
+
+  def updateSceneRegistration(self, sceneId, data):
+    """Updates scene registration
+
+    @param      sceneId        ID of the scene
+    @param      data            dict with registration update parameters
+    @return                     RESTResult with updated registration on success,
+                                empty with `errors` set on failure
+    """
+    return self._update(f"scenes/{sceneId}/registration", data)
+
+  def calibrateCamera(self, cameraId, data):
+    """Calibrate a camera
+
+    @param      cameraId       ID of the camera to calibrate
+    @param      data            dict with calibration parameters
+    @return                     RESTResult with calibration info on success,
+                                empty with `errors` set on failure
+    """
+    return self._create(f"cameras/{cameraId}/calibration", data)
+
+  def getCameraCalibrationStatus(self, cameraId):
+    """Gets camera calibration status
+
+    @param      cameraId       ID of the camera
+    @return                     RESTResult with calibration status on success,
+                                empty with `errors` set on failure
+    """
+    return self._get(f"cameras/{cameraId}/calibration", None)
