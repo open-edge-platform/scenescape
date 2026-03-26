@@ -2,16 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 # This file is licensed under Apache 2.0 License.
 
-pip == 26.0
+pip == 26.0.1
 pytest == 9.0.1
 numpy == 2.2.6
-selenium == 4.40.0
+selenium == 4.41.0
 selenium-wire == 5.1.0
 blinker == 1.9.0
 pyvirtualdisplay == 3.0
 opencv-python == 4.13.0.92
 setuptools >= 78.1.1
-xmltodict == 1.0.3
+xmltodict == 1.0.4
 PyYAML >=6.0.1,<7.0
-pylint [spelling] == 4.0.4
+pylint [spelling] == 4.0.5
 flake8 == 7.3.0
