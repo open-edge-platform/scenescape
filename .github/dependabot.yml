@@ -48,6 +48,7 @@ updates:
       - "/controller/src/robot_vision"
       - "/mapping"
       - "/tracker"
+      - "/tracker/test/load"
     schedule:
       interval: "monthly"
     commit-message:
@@ -70,6 +71,7 @@ updates:
       - "/tests/perf_tests/compose"
       - "/tools/ppl_runner"
       - "/tracker/test/service"
+      - "/tracker/test/load"
     schedule:
       interval: "monthly"
     commit-message:
@@ -94,6 +96,7 @@ updates:
       - "/mapping"
       - "/mapping/tests"
       - "/tracker/test/service"
+      - "/tracker/test/load"
     schedule:
       interval: "monthly"
     commit-message:

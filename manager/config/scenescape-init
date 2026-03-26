@@ -213,12 +213,6 @@ else
     echo "Unsupported DBTYPE: $DBTYPE"
     DBTYPE=""
 fi
-echo "Configuring database settings for DBTYPE: $DBTYPE, Setting file: $SETTINGS_FILE"
-sed -i -E "s|'ENGINE': '[^']*'|'ENGINE': '$ENGINE'|; \
-           s|'HOST': '[^']*'|'HOST': '$DBHOST'|; \
-           s|'PORT': '[^']*'|'PORT': '$PORT'|; \
-           s|'PASSWORD': '[^']*'|'PASSWORD': '$DATABASE_PASSWORD'|" \
-    "$SETTINGS_FILE"
 
 grep -E "ENGINE|HOST|PORT|PASSWORD" "$SETTINGS_FILE"
 echo "Database configuration complete"
@@ -242,6 +236,7 @@ if [ -e ${MANAGERDIR}/manager/secrets.py ] ; then
 fi
 
 export -n DBPASS SUPASS
+export DBTYPE ENGINE DBHOST DBPORT
 
 if [ -n "$DBTYPE" ]; then
     cd ${MANAGERDIR}

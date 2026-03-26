@@ -31,7 +31,7 @@ services:
       - load-test
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.115.1
+    image: otel/opentelemetry-collector-contrib:0.146.1
     hostname: otel-collector
     command: ["--config=/etc/otel-config.yaml"]
     ports:
@@ -94,6 +94,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.k6
+      args:
+        - http_proxy
+        - https_proxy
+        - no_proxy
     hostname: k6
     profiles: ["k6"]
     volumes:

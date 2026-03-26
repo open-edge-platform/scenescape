@@ -32,17 +32,6 @@ vdms:
     scenescape:
       aliases:
         - vdms.scenescape.intel.com
-  environment:
-    - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
-    - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
-    - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
-  secrets:
-    - source: root-cert
-      target: certs/scenescape-ca.pem
-    - source: vdms-server-cert
-      target: certs/scenescape-vdms-s.crt
-    - source: vdms-server-key
-      target: certs/scenescape-vdms-s.key
   restart: always
 ```
 

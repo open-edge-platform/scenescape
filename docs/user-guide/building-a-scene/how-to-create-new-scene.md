@@ -8,7 +8,7 @@ Once the demo scene is running, the system is ready to process a live scene. The
 4. [Adding the new scene and cameras](#adding-the-new-scene-and-cameras)
 5. [Exporting and Importing the scene](#exporting-and-importing-the-scene)
 
-Before getting into the actual setup, let's review a couple of reference configurations that we will be using.
+Before getting into the actual setup, let us review a couple of reference configurations that we will be using.
 
 ## Audience
 
@@ -58,7 +58,7 @@ Three Gen 8 Intel Core i5 or better computers are sufficient for this configurat
 
 ## Mounting and Connecting Cameras
 
-Once you have selected the configuration and cameras, it's time to mount them in a good spot for monitoring the scene and connect them up to the computer or network.
+Once you have selected the configuration and cameras, it is time to mount them in a good spot for monitoring the scene and connect them up to the computer or network.
 
 A good rule of thumb is to mount the cameras above any object or person to be monitored and angle them down by at least 30 degrees.
 
@@ -72,7 +72,7 @@ Once the cameras are mounted and connected, verify that the cameras are working 
 
 ## Configuring the vision pipeline for a camera stream
 
-Refer to [How to Configure DLStreamer Video Pipeline](../other-topics/how-to-configure-dlstreamer-video-pipeline.md)
+Refer to [How to Configure DL Streamer Video Pipeline](../other-topics/how-to-configure-dlstreamer-video-pipeline.md)
 
 ## Configuring a New Scene
 

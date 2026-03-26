@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 SHELL=/bin/bash
@@ -87,6 +87,7 @@ release-tests: \
   live-view-button \
   non-functional-tests \
   scene-details \
+  reid-performance-degradation \
 
 broken-features:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
@@ -101,17 +102,19 @@ broken-tests: \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
   scenes-summary-api \
-  reid-unique-count \
   reid-performance-degradation \
   auto-calibration-ui \
-  3d-scene-control-panel \
-  3d-camera-control-panel \
 
 randomly-failing-tests: \
   distance-msoce \
+  reid-data-flow \
+  reid-semantic-unique-count \
+  reid-unique-count \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
+  pipeline-runner-people \
+  pipeline-runner-vehicles \
   out-of-box \
   geometry-conformance \
   metric-tests \
@@ -225,6 +228,9 @@ _ui-tests: \
   superuser-crud-operations \
   upload-3d-glb-file \
   view-3d-glb-file \
+  3d-scene-control-panel \
+  3d-camera-control-panel \
+  auto-calibration-no-apriltags-ui \
 
 unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
@@ -244,6 +250,8 @@ _unit-tests: \
   singleton-sensor-unit \
   timestamp-unit \
   transform-unit \
+  uuid-manager-unit \
+  vdms-adapter-unit \
   views-unit \
 
 include Makefile.sscape Makefile.functional Makefile.perf \
@@ -267,7 +275,7 @@ build-time: # NEX-T12520
 		; mkdir -p $(shell dirname $(LOGFILE)) \
 		; python3 tests/scripts/build-time.py \
 			--time-limit 600 \
-			--build-cmd "make" \
+			--build-cmd "make build-core" \
 			--test-name "NEX-T12520" \
 			2>&1 | tee -i $(LOGFILE) \
 		; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \

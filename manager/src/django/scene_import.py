@@ -11,6 +11,18 @@ from scene_common.rest_client import RESTClient
 from scene_common.options import POINT_CORRESPONDENCE, EULER
 from scene_common import log
 
+COMMON_CAMERA_FIELDS = (
+    "name",
+    "scale",
+    "intrinsics",
+    "command",
+    "cv_subsystem",
+    "camerachain",
+    "undistort",
+    "modelconfig",
+    "use_camera_pipeline",
+)
+
 class ImportScene:
   def __init__(self, zip_path, token):
     self.zip_path = zip_path
@@ -22,6 +34,30 @@ class ImportScene:
     self.rest.token = token
     self.badZipfile = False
     return
+
+  def build_camera_items(self, json_data):
+    cam_items = []
+
+    for cam in json_data.get("cameras", []):
+      cam_data = {
+        "sensor_id": cam.get("uid"),
+        **{field: cam.get(field) for field in COMMON_CAMERA_FIELDS if field in cam},
+      }
+
+      transform_type = cam.get("transform_type")
+      if transform_type == POINT_CORRESPONDENCE:
+        cam_data.update({
+          "transform_type": POINT_CORRESPONDENCE,
+          "transforms": cam.get("transforms"),
+        })
+      elif transform_type:
+        cam_data.update({
+          "transform_type": EULER,
+          "translation": cam.get("translation"),
+          "rotation": cam.get("rotation"),
+        })
+      cam_items.append(cam_data)
+    return cam_items
 
   def extractZip(self):
     self.extract_dir = os.path.splitext(self.zip_path)[0]
@@ -144,20 +180,8 @@ class ImportScene:
       log.info("Child link updated:", update_response)
 
     # Bulk create cameras with transform handling
-    cam_items = []
-    for cam in json_data.get("cameras", []):
-      cam_data = {"name": cam["name"], "scale": cam["scale"], "sensor_id": cam["uid"], "intrinsics": cam["intrinsics"]}
-      if "transform_type" in cam:
-        if cam["transform_type"] == POINT_CORRESPONDENCE:
-          cam_data["transforms"] = cam.get("transforms")
-          cam_data["transform_type"] = POINT_CORRESPONDENCE
-        else:
-          cam_data["transform_type"] = EULER
-          cam_data["translation"] = cam.get("translation")
-          cam_data["rotation"] = cam.get("rotation")
-      cam_items.append(cam_data)
+    cam_items = self.build_camera_items(json_data)
     errors["cameras"] = await self.bulk_create(cam_items, scene_id, self.rest.createCamera)
-
     # Bulk create other resources
     errors["regions"] = await self.bulk_create(json_data.get("regions", []), scene_id, self.rest.createRegion)
     errors["tripwires"] = await self.bulk_create(json_data.get("tripwires", []), scene_id, self.rest.createTripwire)
