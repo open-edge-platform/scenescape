@@ -34,7 +34,7 @@ def run_psql(container, query):
 
 def normalize_timezone(value: str) -> str:
   """Normalizes timezone to avoid python issues."""
-  #+00 -> +00:0p
+  #+00 -> +00:00
   value = re.sub(r"([+-]\d{2})$", r"\1:00", value)
 
   #+0000 -> +00:00
@@ -76,7 +76,7 @@ def validate_timestamps(output, log):
   for line in lines:
     line = normalize_timezone(line)
     assert is_valid_timestamp(line, log), f"Invalid timestamp {line!r}"
-  log.info("All values successfuly validated.")
+  log.info("All values successfully validated.")
 
 
 def validate_timestamp_format(rows):
@@ -138,7 +138,7 @@ def test_timestamp_format():
     log.info("Output parsed.")
 
     validate_timestamp_format(lines)
-    log.info("All entries successfuly validated.")
+    log.info("All entries successfully validated.")
     exit_code = 0
   finally:
     record_test_result(test_name, exit_code)
