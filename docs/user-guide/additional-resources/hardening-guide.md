@@ -88,6 +88,8 @@ To generate CSRs, run the following command from the root Intel® SceneScape dir
 make -C ./tools/certificates deploy-csr
 ```
 
+**Expected output:** CSR files are generated for services under the configured secrets directory.
+
 A CSR will be generated for each service and placed in the secrets directory, which defaults to `manager/secrets/` in the Intel® SceneScape repository but can be set with the SECRETSDIR variable.
 
 Note that the parameters of these certificates are specified in `certificates/Makefile` and `certificates/openssl.cnf`. The following section gives an overview of the parameters used. Your CA may have different requirements for certificate parameters, which can be accomplished by modifying the relevant configuration or generation commands.
@@ -127,6 +129,8 @@ For `SECRET_KEY` the following short Python script is used:
 python3 -c 'import secrets; print("\x27"+ "".join([secrets.choice( "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)") for i in range(50)]) + "\x27")'
 ```
 
+**Expected output:** A random Django `SECRET_KEY` string is printed.
+
 `SECRET_KEY` is a Django-specific setting. As described in the Django documentation, this value should be unique per installation and should be kept secret. More information about the `SECRET_KEY` can be found here: https://docs.djangoproject.com/en/4.0/ref/settings/#secret-key
 
 For `DATABASE_PASSWORD`, OpenSSL is used to generate a random 12-byte value, base64 encoded:
@@ -134,6 +138,8 @@ For `DATABASE_PASSWORD`, OpenSSL is used to generate a random 12-byte value, bas
 ```bash
 openssl rand -base64 12
 ```
+
+**Expected output:** A random base64-encoded password value is printed.
 
 Alternatively, the `DATABASE_PASSWORD` can be set by the customer by setting a `DBPASS` environment variable before executing the deploy.sh script.
 

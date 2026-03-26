@@ -14,6 +14,8 @@ export GOOGLE_MAPS_API_KEY="your_google_maps_api_key_here"
 export MAPBOX_API_KEY="your_mapbox_api_key_here"
 ```
 
+**Expected output:** API key environment variables are available in the current shell session.
+
 ### Getting API Keys
 
 #### Google Maps API Key

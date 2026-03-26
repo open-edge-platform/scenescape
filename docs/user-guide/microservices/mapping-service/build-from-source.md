@@ -81,6 +81,8 @@ docker run -d \
     scenescape-mapping
 ```
 
+**Expected output:** Mapping service container starts in detached mode with persistent model/cache volumes mounted.
+
 This command sets up the container with the correct user, network, hostname, ports, and persistent volumes for model weights and caches.
 
 ### API Usage
@@ -114,6 +116,8 @@ The response will include which model was used:
 curl https://localhost:8444/health
 ```
 
+**Expected output:** JSON health response is returned with selected model and load status.
+
 Response includes model information:
 
 ```json
@@ -130,6 +134,8 @@ Response includes model information:
 ```bash
 curl https://localhost:8444/models
 ```
+
+**Expected output:** JSON response returns details of the single model included in the container.
 
 Response shows single model details:
 

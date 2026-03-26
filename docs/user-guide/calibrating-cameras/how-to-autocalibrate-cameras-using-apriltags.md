@@ -124,6 +124,8 @@ docker compose down
 docker compose up
 ```
 
+**Expected output:** Intel® SceneScape services restart and auto calibration becomes available in the UI.
+
 7. Navigate to the camera page and click **Auto Calibrate**.
 8. Adjust opacity slider to verify alignment.
 9. Click **Save Camera** to finalize pose.

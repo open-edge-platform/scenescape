@@ -12,6 +12,8 @@ Ensure Docker is installed and running on your system.
 make init-secrets install-models
 ```
 
+**Expected output:** Secrets are generated and required OpenVINO models are downloaded.
+
 ## 3. Use Prebuilt Images for Intel® SceneScape Deployment
 
 Prebuilt containers can be found here:
@@ -59,11 +61,15 @@ Start the demo services:
 SUPASS=<password> make demo
 ```
 
+**Expected output:** Intel® SceneScape services start in Docker containers.
+
 Verify that all containers are running:
 
 ```bash
 docker ps
 ```
+
+**Expected output:** SceneScape containers appear in running state.
 
 ## 5. Import Scenes
 

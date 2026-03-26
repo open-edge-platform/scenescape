@@ -24,6 +24,8 @@ From repository root:
 docker compose up -d manager
 ```
 
+**Expected output:** Manager container starts in detached mode and appears as `Up` in compose status.
+
 <!-- AGENT: Health checks - verify service is running -->
 
 Check service status:
@@ -44,6 +46,8 @@ Stop service:
 ```bash
 docker compose stop manager
 ```
+
+**Expected output:** Manager container stops and is no longer running.
 
 ## Access points
 

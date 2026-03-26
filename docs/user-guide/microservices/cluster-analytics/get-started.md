@@ -17,6 +17,8 @@
   cd scenescape
   ```
 
+  **Expected output:** Shell prompt changes to the SceneScape repository root.
+
 - **Generate secrets**:
 
   <!-- AGENT: CRITICAL: Must run before first container start -->
@@ -24,6 +26,8 @@
   ```bash
   make build-secrets
   ```
+
+  **Expected output:** Required secret files and certificates are generated.
 
 - **Start the service**:
 
@@ -55,6 +59,8 @@ docker run --rm \
   --broker broker.scenescape.intel.com
 ```
 
+**Expected output:** Cluster Analytics container starts and remains running without immediate startup errors.
+
 - **Verify the service**:
   <!-- AGENT: Health check - container must be present and running -->
 
@@ -75,6 +81,8 @@ docker run --rm \
   ```bash
   docker stop cluster_analytics_manual
   ```
+
+  **Expected output:** Container `cluster_analytics_manual` stops successfully.
 
 - **Access autocalibration output through MQTT**:
   <!-- AGENT: Reference for MQTT output spec and workflow -->

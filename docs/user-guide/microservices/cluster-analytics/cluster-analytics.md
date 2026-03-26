@@ -28,6 +28,8 @@ SUPASS=admin123 make
 SUPASS=admin123 make demo-all
 ```
 
+**Expected output:** SceneScape images build successfully and demo-all services start with cluster analytics enabled.
+
 ### Build from Source
 
 Alternatively, see how to [Build from Source](./get-started/build-from-source.md).
@@ -608,6 +610,8 @@ Subscribe to the ANALYTICS_CLUSTERS topic to receive live cluster updates:
 ```bash
 mosquitto_sub -h broker.scenescape.intel.com -t "scenescape/analytics/clusters/+" -v
 ```
+
+**Expected output:** Live cluster analytics MQTT messages stream to the terminal.
 
 ### Processing Cluster Data
 

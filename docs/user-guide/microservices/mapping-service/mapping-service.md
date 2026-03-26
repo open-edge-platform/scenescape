@@ -49,6 +49,8 @@ sequenceDiagram
 GET /health
 ```
 
+**Expected output:** Endpoint path for health check is defined.
+
 Returns service status and model availability.
 
 ### List Models
@@ -57,6 +59,8 @@ Returns service status and model availability.
 GET /models
 ```
 
+**Expected output:** Endpoint path for model information is defined.
+
 Returns information about the model in this container and its status.
 
 ### 3D Reconstruction
@@ -64,6 +68,8 @@ Returns information about the model in this container and its status.
 ```bash
 POST /reconstruction
 ```
+
+**Expected output:** Endpoint path for reconstruction requests is defined.
 
 Perform 3D reconstruction from images and/or video.
 
@@ -84,6 +90,8 @@ Form fields:
 - mesh_type: "mesh" or "pointcloud" (default: "mesh")
 - use_keyframes: "true" or "false" (for video, default: true)
 ```
+
+**Expected output:** Required multipart request format and accepted form fields are defined.
 
 **Notes:**
 
@@ -171,6 +179,8 @@ python client_example.py --images image1.jpg image2.jpg --mesh-type mesh --outpu
 python client_example.py --images image1.jpg image2.jpg --mesh-type pointcloud --output points.glb --insecure
 ```
 
+**Expected output:** Health status is returned and reconstruction output files are generated for the selected mesh type.
+
 ### Using curl
 
 ```bash
@@ -213,6 +223,8 @@ curl -X POST "https://localhost:8444/reconstruction" \
   -F "mesh_type=mesh" \
   --insecure | jq -r '.glb_data' | base64 -d > output.glb
 ```
+
+**Expected output:** Health/model endpoints return JSON responses and reconstruction requests return GLB data (optionally saved to `output.glb`).
 
 ## Model Comparison
 

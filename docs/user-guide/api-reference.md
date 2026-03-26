@@ -14,6 +14,8 @@
 docker pull swaggerapi/swagger-ui
 ```
 
+**Expected output:** Swagger UI image is downloaded locally.
+
 ## 2. Run the Swagger UI container
 
 Use a configuration that loads the Intel® SceneScape `docs/user-guide/api-docs/api.yaml` definitions.
@@ -24,6 +26,8 @@ General Syntax:
 docker run -p 80:8080 --user $(id -u):$(id -g) -e SWAGGER_JSON=/mnt/api.yaml -v <full path to parent directory of api.yaml>:/mnt swaggerapi/swagger-ui
 ```
 
+**Expected output:** Swagger UI container starts and serves the API UI on port 80.
+
 Re: https://github.com/swagger-api/swagger-ui/blob/master/docs/usage/configuration.md
 
 Example:
@@ -31,6 +35,8 @@ Example:
 ```bash
 docker run -p 80:8080 --user $(id -u):$(id -g) -e SWAGGER_JSON=/mnt/api.yaml -v ~/scenescape/docs/user-guide/api-docs:/mnt swaggerapi/swagger-ui
 ```
+
+**Expected output:** Swagger UI loads Intel® SceneScape API definitions from the mounted path.
 
 Note: Ensure that for the -v option to use the correct path to where Intel® SceneScape repository was cloned (`~/scenescape/` in the example above).
 

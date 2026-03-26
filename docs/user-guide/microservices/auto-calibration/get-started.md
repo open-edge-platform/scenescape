@@ -17,6 +17,8 @@
   cd scenescape
   ```
 
+  **Expected output:** Shell prompt changes to the SceneScape repository root.
+
 - **Generate secrets**:
 
   <!-- AGENT: CRITICAL: Must run before first container start -->
@@ -24,6 +26,8 @@
   ```bash
   make build-secrets
   ```
+
+  **Expected output:** Required secret files and certificates are generated.
 
 - **Start the service**:
   <!-- AGENT: Dependency check - web service must be running first -->
@@ -49,6 +53,8 @@
   autocalibration \
   --resturl https://web.scenescape.intel.com:443/api/v1
   ```
+
+  **Expected output:** Autocalibration container starts and connects to the Manager REST API.
 
 - **Note**:
   <!-- AGENT: List of service dependencies before starting -->
@@ -77,6 +83,8 @@
   ```bash
   docker stop autocalibration
   ```
+
+  **Expected output:** Container `autocalibration` stops successfully.
 
 - **Access autocalibration output through MQTT**:
   <!-- AGENT: Reference for MQTT output spec and workflow -->

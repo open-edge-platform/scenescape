@@ -17,11 +17,15 @@ SPDX-License-Identifier: Apache-2.0
   make manager
   ```
 
+  **Expected output:** Manager image build completes successfully.
+
 - **Rebuild manager image** (clean + build):
 
   ```bash
   make rebuild-manager
   ```
+
+  **Expected output:** Existing manager image is cleaned and a fresh manager image is built successfully.
 
 ## Next Steps
 

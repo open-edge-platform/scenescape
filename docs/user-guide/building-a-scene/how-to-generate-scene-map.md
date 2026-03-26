@@ -34,6 +34,8 @@ Before launching the demo, build all Intel® SceneScape services including the m
 SUPASS=your_password make build-all
 ```
 
+**Expected output:** Core and experimental SceneScape service images build successfully.
+
 This command will:
 
 - Build all core services (controller, manager, autocalibration, model_installer)
@@ -53,6 +55,8 @@ To start all services including both mapping and cluster analytics:
 SUPASS=your_password make demo-all
 ```
 
+**Expected output:** Full stack starts with mapping and cluster analytics services enabled.
+
 For successive runs, you can use Docker Compose directly:
 
 ### Launch all cores services and experimental services
@@ -61,11 +65,15 @@ For successive runs, you can use Docker Compose directly:
 docker compose --profile experimental up -d
 ```
 
+**Expected output:** Core services plus experimental services start in detached mode.
+
 ### Launch all cores services and mapping service
 
 ```bash
 docker compose --profile mapping up -d
 ```
+
+**Expected output:** Core services plus mapping service start in detached mode.
 
 > **Note**: The `--profile` flag allows you to selectively enable experimental services. Use `experimental` for both clustering and mapping, or `mapping` to start just the mapping service along with all core services.
 
@@ -76,6 +84,8 @@ Check that all services are healthy:
 ```bash
 docker compose ps
 ```
+
+**Expected output:** Service status is listed, including a `healthy` mapping service (after initial model download).
 
 You should see services including `mapping` with a status of `healthy`.
 
@@ -243,11 +253,15 @@ To stop all Intel® SceneScape services:
 docker compose down
 ```
 
+**Expected output:** All SceneScape services are stopped and removed.
+
 To stop services and remove volumes (this will delete all data):
 
 ```bash
 docker compose down -v
 ```
+
+**Expected output:** All services are stopped and named volumes are removed.
 
 ---
 

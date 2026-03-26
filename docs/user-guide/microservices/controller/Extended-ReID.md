@@ -126,6 +126,8 @@ VDMS_CONFIDENCE_THRESHOLD=0.85
 docker compose up -d
 ```
 
+**Expected output:** Controller starts with the configured `VDMS_CONFIDENCE_THRESHOLD` applied.
+
 **Example Threshold Selection Guide**:
 
 - `0.7`: More metadata constraints applied, higher specificity in TIER 1 (may miss matches due to strict filtering)
@@ -177,6 +179,8 @@ python scene_controller.py \
   --broker mqtt.example.com \
   --resturl http://rest.example.com
 ```
+
+**Expected output:** Scene Controller starts using both tracker and ReID configuration files.
 
 **Current Implementation Note**:
 

@@ -23,6 +23,8 @@ fi
 echo "Volume name: $VOLUME"
 ```
 
+**Expected output:** Volume name is printed, or an error is shown if no matching volume exists.
+
 ### Access the Docker volume
 
 #### List the Docker volume contents
@@ -31,11 +33,15 @@ echo "Volume name: $VOLUME"
 docker run --rm -v "$VOLUME:/volume" alpine ls -la /volume
 ```
 
+**Expected output:** Directory listing of files and folders in the selected Docker volume.
+
 #### Execute a single arbitrary command accessing Docker volume
 
 ```bash
 docker run --rm -v "$VOLUME:/volume" alpine <command> <arguments...>
 ```
+
+**Expected output:** The provided command runs against the mounted Docker volume.
 
 For example, to find JSON files within the volume:
 
@@ -43,17 +49,23 @@ For example, to find JSON files within the volume:
 docker run --rm -v "$VOLUME:/volume" alpine find /volume -name '*.json' -print
 ```
 
+**Expected output:** Matching JSON file paths in the Docker volume are printed.
+
 #### Execute shell to access the Docker volume
 
 ```bash
 docker run --rm -it -v "$VOLUME:/volume" alpine sh -c "cd /volume && sh"
 ```
 
+**Expected output:** Interactive shell opens in the mounted Docker volume path.
+
 #### Copy files to the Docker volume
 
 ```bash
 docker run --rm -v "/path/to/local/directory:/source" -v "$VOLUME:/volume" alpine cp /source/local.file /volume/destination_path/destination.file
 ```
+
+**Expected output:** File is copied into the Docker volume destination path.
 
 After the copy operation completes, verify the file transfer by listing the volume contents to check the files.
 
@@ -78,6 +90,8 @@ VOLUME=$(kubectl get pvc -n scenescape | grep $VOL_KEYWORD | head -n 1 | awk '{ 
 echo "Volume name: $VOLUME"
 ```
 
+**Expected output:** Matching PVC name is printed.
+
 ### Identify the mount path
 
 **Find the Pod that has the volume mounted**
@@ -96,6 +110,8 @@ kubectl get pods -n scenescape -o wide --no-headers | awk '{print $1}' | while r
 done
 ```
 
+**Expected output:** Pods mounting the target PVC are listed with mount name and read-only status.
+
 **Select a pod with proper access:**
 
 Choose a pod from the list above with proper access to the volume and copy-paste its name into the command below. For write access, choose a pod where `readOnly` is `false` or not set at all.
@@ -105,6 +121,8 @@ Choose a pod from the list above with proper access to the volume and copy-paste
 POD_NAME="<pod-name-with-write-access>"
 echo "Pod name: $POD_NAME"
 ```
+
+**Expected output:** Selected pod name is stored and printed.
 
 > **Tip**: For the Models Volume, web-app pods typically have write access. For the Sample-Data Volume, video pipeline pods usually have write access.
 
@@ -117,12 +135,16 @@ VOLUME_MOUNT=$(kubectl get pod $POD_NAME -n scenescape -o json | jq -r '.spec.vo
 echo "Volume mount name: $VOLUME_MOUNT"
 ```
 
+**Expected output:** Kubernetes volume mount name associated with the PVC is printed.
+
 **Identify the mount path of the volume:**
 
 ```bash
 MOUNT_PATH=$(kubectl get pod $POD_NAME -n scenescape -o json | jq -r '.spec.containers[].volumeMounts[] | select(.name=="'$VOLUME_MOUNT'") | .mountPath')
 echo "Mount path: $MOUNT_PATH"
 ```
+
+**Expected output:** Mount path for the selected volume is printed.
 
 ### Access the Kubernetes volume
 
@@ -132,11 +154,15 @@ echo "Mount path: $MOUNT_PATH"
 kubectl exec -n scenescape $POD_NAME -- ls -la $MOUNT_PATH
 ```
 
+**Expected output:** Directory listing of files and folders in the mounted Kubernetes volume.
+
 #### Execute a single arbitrary command accessing Kubernetes volume
 
 ```bash
 kubectl exec -n scenescape $POD_NAME -- <command> <arguments...>
 ```
+
+**Expected output:** The provided command runs against the mounted Kubernetes volume path.
 
 For example, to find JSON files within the volume:
 
@@ -144,16 +170,22 @@ For example, to find JSON files within the volume:
 kubectl exec -n scenescape $POD_NAME -- find $MOUNT_PATH -name '*.json' -print
 ```
 
+**Expected output:** Matching JSON file paths in the Kubernetes volume are printed.
+
 #### Execute shell to access the Kubernetes volume
 
 ```bash
 kubectl exec -it -n scenescape $POD_NAME -- /bin/sh -c "cd $MOUNT_PATH && /bin/sh"
 ```
 
+**Expected output:** Interactive shell opens in the mounted Kubernetes volume path.
+
 #### Copy files to the Kubernetes volume
 
 ```bash
 kubectl cp /path/to/local.file scenescape/$POD_NAME:$MOUNT_PATH/destination_path/destination.file
 ```
+
+**Expected output:** Local file is copied into the Kubernetes volume destination path.
 
 After the copy operation completes, verify the file transfer by listing the volume contents or executing a shell command to check the files.

@@ -160,6 +160,8 @@ make -C docker
 docker compose up --build
 ```
 
+**Expected output:** Services rebuild and restart with updated ReID configuration values.
+
 ---
 
 ## Troubleshooting

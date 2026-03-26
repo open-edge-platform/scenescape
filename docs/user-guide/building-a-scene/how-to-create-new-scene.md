@@ -117,6 +117,8 @@ From the Intel® SceneScape working directory on the scene controller, bring up 
 docker compose up
 ```
 
+**Expected output:** SceneScape services start and logs begin streaming in the terminal.
+
 If you are using Configuration 2, also run `docker compose up` on each additional computer.
 
 Launch Intel® SceneScape and log in. Create a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ New Scene". Give your scene a name, select your floor plan file, and enter the scene's scale. Using the above parking lot example, it might look something like this:

@@ -27,6 +27,8 @@ sudo apt install -y \
   rsync
 ```
 
+**Expected output:** Package lists update successfully and prerequisite packages install without errors.
+
 **Installing Docker on your system:**
 
 <!-- AGENT: Docker is required. Verify installation after these steps. -->
@@ -40,6 +42,8 @@ sudo apt install -y \
    sudo systemctl enable docker
    sudo usermod -aG docker $USER
    ```
+
+   **Expected output:** Docker service is enabled for boot and the user is added to the `docker` group.
 
 3. Log out and log back in for group membership changes to take effect.
 
@@ -68,6 +72,8 @@ sudo apt install -y \
    cd scenescape-<version>/
    ```
 
+   **Expected output:** Shell prompt changes to the extracted Intel® SceneScape directory.
+
 3. When downloading older Intel® SceneScape releases, follow instructions in `Getting-Started-Guide` specific to that version.
 
 #### Alternatively, get the Intel® SceneScape source code
@@ -78,11 +84,15 @@ sudo apt install -y \
    git clone https://github.com/open-edge-platform/scenescape.git
    ```
 
+   **Expected output:** Repository is cloned and a `scenescape/` folder is created.
+
 2. Change directories to the cloned repository:
 
    ```bash
    cd scenescape/
    ```
+
+   **Expected output:** Shell prompt changes to the cloned `scenescape` repository root.
 
    > **Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
 
@@ -90,6 +100,8 @@ sudo apt install -y \
    git tag
    git checkout <tag-version>
    ```
+
+   **Expected output:** Available tags are listed and the selected tag is checked out.
 
 ### Step 3: Build Intel® SceneScape container images
 
@@ -100,6 +112,8 @@ Build container images:
 ```bash
 make
 ```
+
+**Expected output:** Build completes successfully and SceneScape Docker images are created locally.
 
 <!-- AGENT: Expected: Docker images created. Check with: docker images | grep scenescape -->
 
@@ -113,11 +127,15 @@ Optionally, the number of jobs can be adjusted by setting the `JOBS` variable, e
 make JOBS=1
 ```
 
+**Expected output:** Build runs sequentially and completes without parallel jobs.
+
 ### Step 4 (Optional): Build dependency list of Intel® SceneScape container images
 
 ```bash
 make list-dependencies
 ```
+
+**Expected output:** Dependency report files are generated under the build output for each microservice image.
 
 This step generates dependency lists. Two separate files are created for system packages and Python packages per each microservice image.
 
@@ -131,6 +149,8 @@ Important: This should be different than the password for your system user.
 ```bash
 export SUPASS=<password>
 ```
+
+**Expected output:** `SUPASS` is set in the current shell session.
 
 <!-- AGENT: Deploy all core services via this make target -->
 
@@ -164,6 +184,8 @@ To stop the containers, use the following command in the project directory:
 docker compose down --remove-orphans
 ```
 
+**Expected output:** Running containers stop and are removed, including orphaned compose services.
+
 ### Starting the System
 
 <!-- AGENT: Restart command - brings containers back up after stop -->
@@ -173,6 +195,8 @@ To start after the first time, use the following command in the project director
 ```bash
 docker compose up -d
 ```
+
+**Expected output:** Compose services start in detached mode and return control to the shell.
 
 ## Summary
 

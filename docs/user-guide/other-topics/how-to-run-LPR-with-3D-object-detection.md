@@ -27,6 +27,8 @@ cp /path/to/your/categories.json .
 cp /path/to/your/utils ./deepscenario_utils.py
 ```
 
+**Expected output:** Required DeepScenario model and support files are present in `user_scripts/`.
+
 ### 2. Download Required Models
 
 Download the required models for License Plate Detection and Optical Character Recognition to the following location `scenescape/model_installer/models/public/`. For more information, refer to [DL Streamer documentation](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/license_plate_recognition#models).
@@ -54,6 +56,8 @@ And then build the image with:
 ```bash
 docker build Dockerfile.dls-deepscenario -t dls-ps-deepscenario
 ```
+
+**Expected output:** Custom DL Streamer image `dls-ps-deepscenario` is built successfully.
 
 ### 4. Configure Video Analytics Pipeline
 
@@ -291,6 +295,8 @@ make
 make demo
 ```
 
+**Expected output:** SceneScape images are built and demo services start successfully.
+
 ### 9. Verification
 
 Check that the services are running correctly:
@@ -299,6 +305,8 @@ Check that the services are running correctly:
 # Check service status
 docker-compose ps
 ```
+
+**Expected output:** Services required for the LPR pipeline appear as running.
 
 ### 10. Adding a new scene and a new camera
 

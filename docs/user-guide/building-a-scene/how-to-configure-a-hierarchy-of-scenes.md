@@ -85,6 +85,8 @@ rm manager/secrets/ca/* manager/secrets/certs/*
 make -C tools/certificates/ deploy-certificates CERTPASS=<random-string>
 ```
 
+**Expected output:** Parent certificates are regenerated and old containers are stopped.
+
 **On Child system**:
 
 > **Note**: Ensure that there are no scenes with the same UUID present on both the parent and child systems.
@@ -100,11 +102,15 @@ scp parent:/path-to-scenescape-repo/manager/secrets/certs/scenescape-ca.pem ./ma
  make -C tools/certificates/ deploy-certificates IP_SAN=<child_ip> CERTPASS=<random-string-used-in-parent>
 ```
 
+**Expected output:** Child trust assets are updated using parent CA material and certificates are regenerated.
+
 Then restart Intel® SceneScape:
 
 ```bash
 ./deploy.sh
 ```
+
+**Expected output:** Intel® SceneScape services restart with updated secure communication settings.
 
 ### 3. Link Remote Child
 

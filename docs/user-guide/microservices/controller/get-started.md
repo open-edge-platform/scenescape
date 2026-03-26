@@ -17,6 +17,8 @@
   cd scenescape
   ```
 
+  **Expected output:** Shell prompt changes to the SceneScape repository root.
+
 - **Generate secrets**:
 
   <!-- AGENT: CRITICAL: Must run before first container start. Creates TLS certs and auth tokens. -->
@@ -24,6 +26,8 @@
   ```bash
   make init-secrets
   ```
+
+  **Expected output:** Secret files and certificates are generated under `manager/secrets/`.
 
 - **Start the service**:
   <!-- AGENT: Dependencies MUST be running first: broker, web service, ntp service -->
@@ -48,6 +52,8 @@
   --reid_config_file /home/scenescape/SceneScape/reid-config.json \
   --ntp ntpserv
   ```
+
+  **Expected output:** Scene Controller container starts and begins processing with no immediate startup errors.
 
 - **Note**:
   <!-- AGENT: List of service dependencies - verify all are running before starting controller -->
@@ -79,6 +85,8 @@
   docker stop scene
   ```
 
+  **Expected output:** Container `scene` stops successfully.
+
 - **Access scene controller output through MQTT**:
   <!-- AGENT: Reference files for MQTT API spec and workflow diagrams -->
   - Refer to [scene-controller-api.yaml](./_assets/scene-controller-api.yaml) on how to access scene controller output
@@ -109,6 +117,8 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   --analytics-only
   ```
 
+  **Expected output:** Scene Controller starts in analytics-only mode and does not initialize internal tracking.
+
   Alternatively, use the environment variable:
 
   ```bash
@@ -127,6 +137,8 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   --broker broker.scenescape.intel.com \
   --ntp ntpserv
   ```
+
+  **Expected output:** Scene Controller starts with analytics-only behavior enabled from environment configuration.
 
 - **Note**: In analytics-only mode (experimental feature):
   - The tracker is not initialized

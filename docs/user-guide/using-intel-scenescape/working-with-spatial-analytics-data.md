@@ -107,6 +107,8 @@ For REST API access (discovering regions, tripwires, and configuration data):
 Authorization: Token <your_api_token>
 ```
 
+**Expected output:** Authentication header format is defined for use in REST requests.
+
 **Getting Your API Token:**
 
 - Access the Intel® SceneScape Admin panel: `https://<your-host>/admin`
@@ -176,6 +178,8 @@ export SCENESCAPE_TOKEN="your-api-token"  # For REST API calls
 export SUPASS="your-web-login-password"   # For quick MQTT testing
 ```
 
+**Expected output:** Environment variables are set in the current shell for development/testing.
+
 **For Production:**
 
 ```bash
@@ -184,6 +188,8 @@ export SCENESCAPE_TOKEN="your-api-token"
 export MQTT_USER="dedicated-mqtt-user"    # Production MQTT account
 export MQTT_PASS="dedicated-mqtt-password"
 ```
+
+**Expected output:** Production environment variables are set in the current shell.
 
 ## Discovering Existing ROIs and Tripwires via API
 
@@ -199,6 +205,8 @@ Before subscribing to events, discover what ROIs and Tripwires exist in your sce
 curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
   https://$SCENESCAPE_HOST/api/v1/regions
 ```
+
+**Expected output:** JSON response returns the list of configured regions.
 
 **Response Example:**
 
@@ -233,6 +241,8 @@ curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
   https://$SCENESCAPE_HOST/api/v1/tripwires
 ```
 
+**Expected output:** JSON response returns the list of configured tripwires.
+
 **Response Example:**
 
 ```json
@@ -262,12 +272,16 @@ curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
   https://$SCENESCAPE_HOST/api/v1/region/{region_id}
 ```
 
+**Expected output:** JSON response returns details for the specified region.
+
 #### Get Specific Tripwire
 
 ```bash
 curl -k -H "Authorization: Token $SCENESCAPE_TOKEN" \
   https://$SCENESCAPE_HOST/api/v1/tripwire/{tripwire_id}
 ```
+
+**Expected output:** JSON response returns details for the specified tripwire.
 
 ## MQTT Event Topics and Data Flow
 
@@ -591,6 +605,8 @@ In addition to event-driven notifications, Intel® SceneScape provides continuou
 scenescape/data/region/{scene_id}/{region_id}/{object_type}
 ```
 
+**Expected output:** Topic format is defined for continuous region streaming data subscriptions.
+
 **Object Types**: Detected object types (see [Object Type Definitions](#object-type-definitions) above).
 
 **Purpose**: These topics provide continuous real-time updates for all objects currently within the region, including positional changes, confidence updates, and other dynamic properties. They act as a spatial filter to the larger scene data, delivering streaming updates only for objects inside the specific region. Unlike event topics that fire on entry/exit, these data topics stream continuously while objects remain in the region.
@@ -611,6 +627,8 @@ scenescape/data/region/{scene_id}/{region_id}/{object_type}
 sudo apt update && sudo apt install python3-requests python3-paho-mqtt
 ```
 
+**Expected output:** Required Python MQTT and REST client packages are installed.
+
 **Alternative (using virtual environment):**
 
 ```bash
@@ -620,6 +638,8 @@ source scenescape-env/bin/activate
 pip install requests paho-mqtt
 ```
 
+**Expected output:** Virtual environment is created/activated and required Python packages are installed.
+
 **Environment Variables:**
 
 ```bash
@@ -627,6 +647,8 @@ export SCENESCAPE_HOST="scenescape-hostname-or-ip-address"
 export SCENESCAPE_TOKEN="your-api-token"  # Found in SceneScape Admin panel > Tokens (admin or scenectrl user)
 export SUPASS="your-web-login-password"
 ```
+
+**Expected output:** Environment variables are set for running the tutorial scripts.
 
 ### Step 1: Discover Your Regions and Tripwires
 
@@ -663,6 +685,8 @@ for t in tripwires["results"]:
 ```bash
 python3 discover.py
 ```
+
+**Expected output:** Script lists discovered regions and tripwires with names and UUIDs.
 
 ### Step 2: Listen to Live Events
 
@@ -730,6 +754,8 @@ client.loop_forever()
 ```bash
 python3 listen.py
 ```
+
+**Expected output:** Client connects to MQTT and prints live region/tripwire events.
 
 ### Step 3: JavaScript Web Example
 
@@ -807,6 +833,8 @@ python3 listen.py
 python3 -m http.server 8000
 ```
 
+**Expected output:** Local web server starts and listens on port 8000.
+
 Then, open `http://<your-server-ip>:8000` in your browser
 
 **Important:** Replace `YOUR_SCENESCAPE_HOST` and `YOUR_SUPASS` with your actual values:
@@ -849,6 +877,8 @@ Use the generated MQTT credentials instead of web login credentials:
 export MQTT_USER=$(jq -r '.user' manager/secrets/controller.auth)
 export MQTT_PASS=$(jq -r '.password' manager/secrets/controller.auth)
 ```
+
+**Expected output:** MQTT credential environment variables are populated from secrets.
 
 **Python Example for Direct MQTT:**
 
@@ -897,6 +927,8 @@ export SCENESCAPE_HOST="scenescape-hostname-or-ip"  # No https:// prefix
 export MQTT_USER="dedicated-mqtt-user"
 export MQTT_PASS="dedicated-mqtt-password"
 ```
+
+**Expected output:** Environment variables are set for direct MQTT connection mode.
 
 > **Note:** WebSocket MQTT works out-of-the-box with standard HTTPS port 443, while direct MQTT requires exposing additional ports.
 
