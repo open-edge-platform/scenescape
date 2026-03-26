@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -15,7 +15,7 @@ import tests.common_test_utils as common
 from scene_common.timestamp import get_iso_time
 
 FRAME_RATE = 10
-MAX_WAIT = 30
+MAX_WAIT = 10
 NUM_PUBLISH_ITERATIONS = 3
 parent_id = None
 child_id = None
@@ -95,8 +95,8 @@ def setup_scenes(rest_client):
     })
   assert res.statusCode == 200, f"Expected status code 200, got {res.statusCode}"
 
-  test_child = rest_client.getScene(child_id)
-  log.info(f"Updated Child Scene Details: {test_child}")
+  res = rest_client.getChildScene(child_id)
+  assert res.statusCode == 200, f"Expected status code 200, got {res.statusCode}"
 
 def publish_data(obj_data, client, obj_category="person"):
   """! Publish simulated object detection data to a camera's MQTT topic
@@ -149,7 +149,7 @@ def test_remove_linked_scene(parent_scene, child_scene, objData, record_xml_attr
   """
 
   global parent_id, child_id, parent_received, child_received, connected
-  TEST_NAME = "NEX-T10439"
+  TEST_NAME = "NEX-T10520"
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
@@ -167,13 +167,6 @@ def test_remove_linked_scene(parent_scene, child_scene, objData, record_xml_attr
     client.connect()
     client.loopStart()
 
-    # Wait for MQTT connection
-    timeout = time.time() + MAX_WAIT
-    while not connected and time.time() < timeout:
-      time.sleep(0.5)
-    assert connected, "Failed to connect to MQTT broker"
-
-    # Step 1: Publish data to child scene and verify parent receives it (linked)
     log.info("Step 1: Publishing data to child scene while linked to parent")
     parent_received.clear()
     child_received.clear()
@@ -188,38 +181,24 @@ def test_remove_linked_scene(parent_scene, child_scene, objData, record_xml_attr
     
     log.info("PASS: Parent scene received data from linked child scene")
 
-    # Step 2: Unlink the child scene from the parent scene
     log.info("Step 2: Unlinking child scene from parent scene")
-    res = rest_client.updateChildScene(child_id, {
-        'parent': None,
-      })
+    res = rest_client.deleteChildScene(child_id)
     assert res.statusCode == 200, f"Expected status code 200, got {res.statusCode}"
 
-    # Step 3: Publish data to child scene and verify parent no longer receives it
-    # log.info("Step 3: Publishing data to child scene after unlinking")
-    # parent_received.clear()
-    # child_received.clear()
-    # publish_data(objData, client, obj_category="person")
-    # wait_for_messages(timeout=5)
+    log.info("Step 3: Publishing data to child scene after unlinking")
+    parent_received.clear()
+    child_received.clear()
+    publish_data(objData, client, obj_category="person")
+    wait_for_messages(timeout=5)
 
-    # assert len(child_received) > 0, "Child scene should still receive its own data"
+    assert len(child_received) > 0, "Child scene should still receive its own data"
+    assert len(parent_received) == 0, "Parent scene should not receive data from unlinked child scene"
 
-    # After unlinking, parent should NOT receive objects from child
-    # parent_has_objects_after_unlink = any(
-    #   len(msg.get('objects', [])) > 0 for msg in parent_received
-    # )
-    # assert not parent_has_objects_after_unlink, \
-    #   "Parent scene should NOT receive objects from unlinked child scene"
-    # log.info("PASS: Parent scene did not receive data after child was unlinked")
+    log.info("PASS: Parent scene did not receive data after child was unlinked")
 
     exit_code = 0
 
   finally:
-    # Clean up: unlink child before deleting parent to avoid orphan state
-    try:
-      rest_client.deleteScene(parent_id)
-    except Exception:
-      pass
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
