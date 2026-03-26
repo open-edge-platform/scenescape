@@ -89,3 +89,34 @@ Input metadata received via MQTT on `data/camera/<camera-id>` topics from visual
 | 10 | `$.objects.<category>[*].metadata.<attr>.confidence` | **Absent for `age` attribute** in sample | Info | Schema marks `confidence` optional; `age` entry omits it, which is valid |
 
 All differences are **schema-valid** (no violations). The debug fields (`debug_mac`, `debug_timestamp_end`, `debug_processing_time`) and `rate` are extra operational fields not formalized in the `detector` definition.
+
+---
+
+## Controller Use of Extra (Non-Schema) Fields
+
+### Fields read from the incoming camera message
+
+| JSON Path | Accessed in | Access pattern | Purpose |
+|-----------|-------------|----------------|---------|
+| `$.rate` | `scene_controller.py:223` | `jdata.get('rate', None)` | Stored per-camera in the regulated publish cache to track each contributing camera's framerate |
+| `$.rate` | `scene_controller.py:229` | `jdata['rate']` | In analytics-only mode, the single rate value is spread to all cameras listed in each object's `visibility` array |
+| `$.intrinsics` | `cache_manager.py:108,114` | `jdata.get('intrinsics', {})` | Extracts `cx`/`cy` to compute image resolution; calls `updateCamera()` to push calibration to the scene; triggers full scene refresh if changed |
+| `$.distortion` | `cache_manager.py:109` | `jdata.get('distortion', ...)` | Same mechanism as `intrinsics`; triggers a scene refresh when changed |
+| `$.updatecamera` | `scene_controller.py:435` | presence check (`'updatecamera' in jdata`) | **Control signal**: if this field is present the entire detector message is discarded immediately (early `return`) |
+
+### Fields injected by the controller before forwarding to scene topics
+
+| JSON Path | Injected in | Description |
+|-----------|-------------|-------------|
+| `$.debug_hmo_start_time` | `scene_controller.py:438` | Set to current epoch time when the MQTT handler begins processing the message |
+| `$.debug_hmo_processing_time` | `scene_controller.py:189` | Computed as `now − debug_hmo_start_time`; written just before publishing to the scene topic |
+
+### Camera pipeline `debug_*` fields — not used by the controller
+
+| JSON Path | Status |
+|-----------|--------|
+| `$.debug_mac` | Ignored — not accessed anywhere in the controller |
+| `$.debug_timestamp_end` | Ignored — not accessed anywhere in the controller |
+| `$.debug_processing_time` | Ignored — not accessed anywhere in the controller |
+
+`rate`, `intrinsics`, and `distortion` are the only non-schema fields the controller meaningfully depends on. `updatecamera` is a control-plane escape hatch. The `debug_*` fields emitted by camera pipelines are pass-through noise — they are forwarded in the JSON blob but never read by the controller.
