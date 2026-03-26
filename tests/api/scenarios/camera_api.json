@@ -107,7 +107,7 @@
         "api": "camera",
         "method": "deleteCamera",
         "request": {
-          "UID": "${CAMERA_UID_NO_INTRINSICS}"
+          "uid": "${CAMERA_UID_NO_INTRINSICS}"
         },
         "expected_status": {
           "status_code": 200
@@ -146,7 +146,7 @@
         "api": "camera",
         "method": "deleteCamera",
         "request": {
-          "UID": "${CAMERA_UID_NO_RESOLUTION}"
+          "uid": "${CAMERA_UID_NO_RESOLUTION}"
         },
         "expected_status": {
           "status_code": 200
@@ -162,7 +162,7 @@
         "api": "camera",
         "method": "updateCamera",
         "request": {
-          "UID": "${CAMERA_UID_MINIMAL}",
+          "uid": "${CAMERA_UID_MINIMAL}",
           "body": {
             "name": "Camera_Minimal_Updated",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
@@ -183,7 +183,7 @@
         "api": "camera",
         "method": "getCamera",
         "request": {
-          "UID": "${CAMERA_UID_MINIMAL}"
+          "uid": "${CAMERA_UID_MINIMAL}"
         },
         "expected_status": {
           "status_code": 200
@@ -202,7 +202,7 @@
         "api": "camera",
         "method": "updateCamera",
         "request": {
-          "UID": "${CAMERA_UID_FULL}",
+          "uid": "${CAMERA_UID_FULL}",
           "body": {
             "name": "Camera_Full_Updated",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
@@ -230,7 +230,7 @@
         "api": "camera",
         "method": "getCamera",
         "request": {
-          "UID": "${CAMERA_UID_FULL}"
+          "uid": "${CAMERA_UID_FULL}"
         },
         "expected_status": {
           "status_code": 200
@@ -249,7 +249,7 @@
         "api": "camera",
         "method": "updateCamera",
         "request": {
-          "UID": "${CAMERA_UID_MINIMAL}",
+          "uid": "${CAMERA_UID_MINIMAL}",
           "body": {
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "intrinsics": {
@@ -274,7 +274,7 @@
         "api": "camera",
         "method": "updateCamera",
         "request": {
-          "UID": "${CAMERA_UID_MINIMAL}",
+          "uid": "${CAMERA_UID_MINIMAL}",
           "body": {
             "name": "Camera_Partial_Update",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
@@ -294,7 +294,7 @@
         "api": "camera",
         "method": "updateCamera",
         "request": {
-          "UID": "${CAMERA_UID_MINIMAL}",
+          "uid": "${CAMERA_UID_MINIMAL}",
           "body": {
             "name": "Camera_Partial_Update_No_Res",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
@@ -316,11 +316,11 @@
     "test_name": "Vision_AI/SSCAPE/API/CAMERA/11: Update non existent camera",
     "test_steps": [
       {
-        "step_name": "Attempt to update camera with numeric UID",
+        "step_name": "Attempt to update camera with numeric uid",
         "api": "camera",
         "method": "updateCamera",
         "request": {
-          "UID": "123",
+          "uid": "123",
           "body": {
             "name": "Should_Fail",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
@@ -340,14 +340,14 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/CAMERA/12: Get camera by UID",
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/12: Get camera by uid",
     "test_steps": [
       {
-        "step_name": "Get camera by UID",
+        "step_name": "Get camera by uid",
         "api": "camera",
         "method": "getCamera",
         "request": {
-          "UID": "${CAMERA_UID_MINIMAL}"
+          "uid": "${CAMERA_UID_MINIMAL}"
         },
         "expected_status": {
           "status_code": 200
@@ -376,14 +376,14 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/CAMERA/13: Get camera with invalid UID",
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/13: Get camera with invalid uid",
     "test_steps": [
       {
-        "step_name": "Attempt to get camera with invalid UID",
+        "step_name": "Attempt to get camera with invalid uid",
         "api": "camera",
         "method": "getCamera",
         "request": {
-          "UID": "123"
+          "uid": "123"
         },
         "expected_status": {
           "status_code": 404
@@ -405,14 +405,14 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/CAMERA/15: Delete camera by UID",
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/15: Delete camera by uid",
     "test_steps": [
       {
         "step_name": "Delete camera",
         "api": "camera",
         "method": "deleteCamera",
         "request": {
-          "UID": "${CAMERA_UID_MINIMAL}"
+          "uid": "${CAMERA_UID_MINIMAL}"
         },
         "expected_status": {
           "status_code": 200
@@ -423,7 +423,7 @@
         "api": "camera",
         "method": "getCamera",
         "request": {
-          "UID": "${CAMERA_UID_MINIMAL}"
+          "uid": "${CAMERA_UID_MINIMAL}"
         },
         "expected_status": {
           "status_code": 404
@@ -435,11 +435,11 @@
     "test_name": "Vision_AI/SSCAPE/API/CAMERA/16: Delete non existent camera",
     "test_steps": [
       {
-        "step_name": "Attempt to delete camera with invalid UID",
+        "step_name": "Attempt to delete camera with invalid uid",
         "api": "camera",
         "method": "deleteCamera",
         "request": {
-          "UID": "123"
+          "uid": "123"
         },
         "expected_status": {
           "status_code": 404
@@ -450,7 +450,7 @@
         "api": "camera",
         "method": "deleteCamera",
         "request": {
-          "UID": "${CAMERA_UID_FULL}"
+          "uid": "${CAMERA_UID_FULL}"
         },
         "expected_status": {
           "status_code": 200
