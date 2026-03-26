@@ -13,6 +13,16 @@ This guide provides comprehensive information for developers who want to build a
 7. [Code Examples](#code-examples)
 8. [Conclusion](#conclusion)
 
+## Contracts Summary
+
+| Interface                   | Contract                                                                                                  | Authentication Mode                                                                   | Response/Behavior Guarantee                                                                                                    |
+| --------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| REST: Regions discovery     | `GET /api/v1/regions` returns configured region metadata (`uid`, `name`, `points`, scene linkage).        | Token auth via `Authorization: Token <token>`                                         | JSON response with list semantics (`count`, `results`) for deterministic polling and refresh.                                  |
+| REST: Tripwires discovery   | `GET /api/v1/tripwires` returns configured tripwire metadata (`uid`, `name`, `points`, scene linkage).    | Token auth via `Authorization: Token <token>`                                         | JSON response with list semantics (`count`, `results`) for deterministic polling and refresh.                                  |
+| MQTT: Region event stream   | `scenescape/event/region/{scene_id}/{region_id}/{event_type}` where `event_type` is `count` or `objects`. | MQTT credentials (`admin/SUPASS` for quick testing, dedicated account for production) | Event payload includes scene/region identifiers, object/count deltas, and metadata needed for entry/exit handling.             |
+| MQTT: Tripwire event stream | `scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}` with `event_type=objects`.              | MQTT credentials (`admin/SUPASS` for quick testing, dedicated account for production) | Event payload includes crossing objects and per-object `direction` for directional analytics.                                  |
+| MQTT: Region streaming data | `scenescape/data/region/{scene_id}/{region_id}/{object_type}` for continuous in-region updates.           | MQTT credentials (`admin/SUPASS` for quick testing, dedicated account for production) | Continuous updates while objects remain in region; supports active dwell-time calculation using `regions.{region_id}.entered`. |
+
 ## Overview
 
 Intel® SceneScape's spatial analytics system enables you to receive real-time notifications when objects interact with predefined virtual areas and boundaries within monitored scenes. The system supports various sensor modalities including cameras, lidar, radar, and other detection technologies. This guide focuses on consuming these events to build dynamic applications.

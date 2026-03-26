@@ -53,6 +53,38 @@ Typical runtime configuration includes:
 | TLS certificates     | `manager/secrets/certs/`                     | Enables TLS-secured service-to-service and user-facing communication.       |
 | Service auth tokens  | `manager/secrets/*.auth`                     | Provides service account credentials for internal authentication workflows. |
 
+### Configuration-to-Behavior Mapping
+
+| Configuration Item                              | Runtime Behavior                                                                                          | Validation Signal if Correct                                                                                                      | Typical Failure Symptom                                                                          |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `SECRET_KEY`                                    | Django can sign sessions, CSRF values, and token-related cryptographic data consistently across restarts. | Manager container starts and handles authenticated UI/API sessions without cryptographic errors.                                  | Startup/runtime errors referencing Django secret key configuration; unstable session behavior.   |
+| Database credentials (`manager/secrets/django`) | Manager can connect to PostgreSQL and read/write scene metadata (scenes, cameras, users, configs).        | Manager service remains `Up` and API/UI operations that access metadata complete without DB errors in logs.                       | `OperationalError`/database connection failures and metadata operations failing in UI/API.       |
+| TLS certificates (`manager/secrets/certs/`)     | HTTPS endpoints are served over TLS and inter-service trust paths can be established.                     | `https://<host-or-ip>/` and `https://<host-or-ip>/api/v1/` are reachable with expected self-signed cert warning in default setup. | TLS handshake/certificate errors, unavailable HTTPS endpoints, or trust chain failures.          |
+| Service auth tokens (`manager/secrets/*.auth`)  | Internal components authenticate to Manager and MQTT-related account provisioning flows succeed.          | No authentication-related service account errors in Manager logs during startup and runtime integration flows.                    | Authentication failures between services and errors related to missing/invalid auth token files. |
+
+### Validation Checklist
+
+Run the following checks from repository root after starting Manager:
+
+```bash
+docker compose ps manager
+docker compose logs manager --tail=200
+ls -l manager/secrets/django
+ls -l manager/secrets/certs/
+ls -l manager/secrets/*.auth
+```
+
+**Expected output:** `manager` shows `Up`, recent logs do not show repeated DB/TLS/auth failures, and required secret/cert/auth files are present.
+
+To validate user-facing endpoints:
+
+```bash
+curl -k https://<host-or-ip>/
+curl -k https://<host-or-ip>/api/v1/
+```
+
+**Expected output:** HTTPS endpoints are reachable (with self-signed certificate handling in default deployments).
+
 For shared platform setup steps (host prerequisites, repository setup, secrets initialization,
 and full-stack deployment), use the canonical [Getting Started](../../get-started.md) guide.
 

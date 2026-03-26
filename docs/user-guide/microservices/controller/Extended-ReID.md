@@ -214,6 +214,114 @@ The `reid-config.json` design is extensible for future REID enhancements:
 - **Phase 4**: Spatio-temporal constraints (spatial radius, time window)
 - **Phase 5**: Custom feature aggregation strategies
 
+## Recovery Paths (If X fails, do Y)
+
+Use the following playbook to recover common Extended ReID failures.
+
+### 1) If controller fails to start after ReID config changes
+
+**If X fails:** Scene Controller exits or restarts repeatedly after `reid-config.json` changes.
+
+**Do Y:**
+
+```bash
+# Validate JSON structure
+python3 -m json.tool controller/config/reid-config.json > /dev/null
+
+# Check controller logs for config parse/runtime errors
+docker compose logs scene --tail=200
+```
+
+**Validation:** JSON validation succeeds, and controller logs no longer show configuration parsing errors.
+
+### 2) If no ReID matches are returned (too strict)
+
+**If X fails:** Objects are tracked, but known identities rarely/never match.
+
+**Do Y:**
+
+- Lower `VDMS_CONFIDENCE_THRESHOLD` (for example, `0.8` → `0.7`) to include more TIER 1 metadata constraints.
+- Lower `similarity_threshold` (for example, `60` → `50`) to accept less strict vector matches.
+- Lower `feature_accumulation_threshold` (for example, `12` → `8`) so queries run sooner.
+
+```bash
+# After updating .env and/or reid-config.json
+docker compose up -d
+docker compose logs scene --tail=200
+```
+
+**Validation:** Match frequency increases while controller remains stable.
+
+### 3) If false positives increase (too permissive)
+
+**If X fails:** ReID returns frequent incorrect identity matches.
+
+**Do Y:**
+
+- Increase `VDMS_CONFIDENCE_THRESHOLD` (for example, `0.8` → `0.9`).
+- Increase `similarity_threshold` (for example, `60` → `75`).
+- Increase `feature_accumulation_threshold` (for example, `12` → `16`) for stronger evidence before querying.
+
+```bash
+docker compose up -d
+docker compose logs scene --tail=200
+```
+
+**Validation:** False positive rate decreases and matched identities are more stable.
+
+### 4) If VDMS connection/authentication fails
+
+**If X fails:** Logs show VDMS hostname/connectivity/authentication errors and similarity queries fail.
+
+**Do Y:**
+
+```bash
+# Confirm VDMS host configuration and container status
+echo "$VDMS_HOSTNAME"
+docker compose ps
+
+# Inspect controller logs for connection errors
+docker compose logs scene --tail=200
+```
+
+- Ensure `VDMS_HOSTNAME` resolves correctly in your deployment network.
+- Ensure the selected backend in `REID_DATABASE` matches deployed services.
+
+**Validation:** Connection errors disappear from logs and similarity queries resume.
+
+### 5) If memory growth or DB bloat is observed
+
+**If X fails:** Memory usage grows unexpectedly or VDMS storage grows too fast.
+
+**Do Y:**
+
+- Decrease `stale_feature_timeout_secs` (flush sooner).
+- Decrease `stale_feature_check_interval_secs` (check stale features more frequently).
+- Increase `feature_slice_size` to persist fewer sampled vectors.
+
+```bash
+docker compose up -d
+docker compose logs scene --tail=200
+```
+
+**Validation:** Feature flush activity occurs regularly and resource growth trend stabilizes.
+
+### 6) If stale feature flushing appears inactive
+
+**If X fails:** Features appear to stay in memory and are not persisted in expected intervals.
+
+**Do Y:**
+
+- Verify `stale_feature_timeout_secs` and `stale_feature_check_interval_secs` are set to practical values (for example, `5.0` and `1.0`).
+- Restart controller after config updates.
+
+```bash
+docker compose up -d
+docker compose logs scene --tail=200
+```
+
+**Validation:** Logs show periodic stale feature checks/flushes aligned with configured timing.
+
 ## Testing
 
 Tests should verify:

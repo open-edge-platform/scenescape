@@ -45,7 +45,7 @@ sequenceDiagram
 
 ### Health Check
 
-```bash
+```text
 GET /health
 ```
 
@@ -55,7 +55,7 @@ Returns service status and model availability.
 
 ### List Models
 
-```bash
+```text
 GET /models
 ```
 
@@ -65,7 +65,7 @@ Returns information about the model in this container and its status.
 
 ### 3D Reconstruction
 
-```bash
+```text
 POST /reconstruction
 ```
 
@@ -79,7 +79,7 @@ Perform 3D reconstruction from images and/or video.
 
 The API accepts `Content-Type: multipart/form-data` to upload image and/or video files:
 
-```bash
+```text
 POST /reconstruction
 Content-Type: multipart/form-data
 
@@ -139,33 +139,34 @@ the service from source and running it.
 import base64
 import requests
 
-# Encode images to base64
-def encode_image(image_path):
-    with open(image_path, "rb") as f:
-        return base64.b64encode(f.read()).decode('utf-8')
+with open("image1.jpg", "rb") as image1, open("image2.jpg", "rb") as image2:
+  files = [
+    ("images", ("image1.jpg", image1, "image/jpeg")),
+    ("images", ("image2.jpg", image2, "image/jpeg")),
+  ]
+  data = {
+    "output_format": "glb",
+    "mesh_type": "mesh",
+  }
 
-# Prepare request
-payload = {
-    "images": [
-        {"data": encode_image("image1.jpg"), "filename": "image1.jpg"},
-        {"data": encode_image("image2.jpg"), "filename": "image2.jpg"}
-    ],
-    "output_format": "glb"
-}
+  response = requests.post(
+    "https://localhost:8444/reconstruction",
+    files=files,
+    data=data,
+    verify=False,
+  )
 
-# Send request
-response = requests.post("https://localhost:8444/reconstruction", json=payload)
+response.raise_for_status()
 result = response.json()
 
-if result["success"]:
-    # Save GLB file
-    glb_data = base64.b64decode(result["glb_data"])
-    with open("output.glb", "wb") as f:
-        f.write(glb_data)
+if result.get("success"):
+  glb_data = base64.b64decode(result["glb_data"])
+  with open("output.glb", "wb") as output_file:
+    output_file.write(glb_data)
 
-    print(f"Model used: {result['model']}")
-    print(f"Processing time: {result['processing_time']:.2f}s")
-    print(f"Camera poses: {len(result['camera_poses'])}")
+  print(f"Model used: {result['model']}")
+  print(f"Processing time: {result['processing_time']:.2f}s")
+  print(f"Camera poses: {len(result['camera_poses'])}")
 ```
 
 ### Using the Included Client

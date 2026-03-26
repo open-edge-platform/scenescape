@@ -48,10 +48,24 @@ Each build produces a container image with a single model. The API and runtime a
   MODEL_TYPE=mapanything make mapping
   ```
 
+  **Expected output:** Docker build completes successfully and produces the mapping service image with the `mapanything` model variant.
+
 - **Build mapping (vggt)**:
+
   ```bash
   MODEL_TYPE=vggt make mapping
   ```
+
+  **Expected output:** Docker build completes successfully and produces the mapping service image with the `vggt` model variant.
+
+### Build Contract
+
+| Contract Element    | Requirement                                                                        | Verification                                              |
+| ------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Build input         | `MODEL_TYPE` must be either `mapanything` or `vggt`                                | Build command exits with code `0`                         |
+| Build output        | One mapping container image with a single embedded model variant                   | Mapping image appears in local Docker image list.         |
+| Invariant           | Runtime API surface remains the same regardless of selected model                  | Health and models endpoints are reachable and return JSON |
+| Dependency behavior | Model weights are not baked in; they download at runtime and are cached on volumes | First run downloads weights; subsequent runs reuse cache  |
 
 ### How It Works
 
@@ -75,6 +89,7 @@ docker run -d \
     --name mapping \
     --network scenescape \
     --hostname mapping.scenescape.intel.com \
+  -p 8444:8444 \
     -v vol-mapping-model-weights:/workspace/model_weights \
     -v vol-mapping-torch-cache:/workspace/.cache/torch \
     -v vol-mapping-hf-cache:/workspace/.cache/huggingface \
@@ -83,17 +98,32 @@ docker run -d \
 
 **Expected output:** Mapping service container starts in detached mode with persistent model/cache volumes mounted.
 
-This command sets up the container with the correct user, network, hostname, ports, and persistent volumes for model weights and caches.
+This command sets up the container with network, hostname, port exposure, and persistent volumes for model weights and caches.
+
+### Runtime Contract
+
+| Runtime Element     | Requirement                                                                    | Expected Behavior                                                          |
+| ------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| Container name      | `mapping`                                                                      | Container appears as running in `docker ps`                                |
+| Network             | `scenescape`                                                                   | Service can communicate with other SceneScape services on the same network |
+| API port            | `8444` exposed from container                                                  | Endpoints are reachable at `https://localhost:8444`                        |
+| Model/cache volumes | `vol-mapping-model-weights`, `vol-mapping-torch-cache`, `vol-mapping-hf-cache` | First-run downloads persist and speed up subsequent starts                 |
+| Model selection     | Fixed at build time                                                            | `/models` returns a single selected model                                  |
 
 ### API Usage
 
-```json
-{
-  "images": [{ "data": "base64..." }],
-  "output_format": "glb",
-  "mesh_type": "mesh"
-}
+Canonical request format is `multipart/form-data` file upload:
+
+```bash
+curl -X POST "https://localhost:8444/reconstruction" \
+  -F "images=@image1.jpg" \
+  -F "images=@image2.jpg" \
+  -F "output_format=glb" \
+  -F "mesh_type=mesh" \
+  --insecure
 ```
+
+**Expected output:** Successful JSON response includes `success=true`, selected `model`, `glb_data`, `camera_poses`, and `intrinsics`.
 
 The response will include which model was used:
 
@@ -109,6 +139,15 @@ The response will include which model was used:
 ```
 
 ## Validation
+
+### Build Artifact Validation
+
+```bash
+docker images | grep scenescape-mapping
+docker ps --filter name=mapping
+```
+
+**Expected output:** Mapping image is present locally and the `mapping` container is running.
 
 ### Health Check
 
