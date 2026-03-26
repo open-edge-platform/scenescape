@@ -2,6 +2,8 @@
 
 ## Prerequisites
 
+<!-- AGENT: Validate hardware requirements before proceeding -->
+
 - The hardware platform must be at least a 10th Generation Intel® Core™ i5 Processor or Intel® Xeon® Scalable processor, with at least 8+GB of RAM and 64+GB of storage.
 - [How to build Scene Controller from source](./get-started/build-from-source.md)
 
@@ -9,17 +11,23 @@
 
 - **Navigate to the Directory**:
 
+  <!-- AGENT: Change to repository root -->
+
   ```bash
   cd scenescape
   ```
 
 - **Generate secrets**:
 
+  <!-- AGENT: CRITICAL: Must run before first container start. Creates TLS certs and auth tokens. -->
+
   ```bash
   make init-secrets
   ```
 
 - **Start the service**:
+  <!-- AGENT: Dependencies MUST be running first: broker, web service, ntp service -->
+
   Start the service using docker run:
 
   ```bash
@@ -42,6 +50,8 @@
   ```
 
 - **Note**:
+  <!-- AGENT: List of service dependencies - verify all are running before starting controller -->
+
   The `scene` service **depends on** the `broker`,`web` and `ntpserv`services.
   Before starting this container, ensure that:
   - The **broker** service at `broker.scenescape.intel.com` is up and reachable.
@@ -49,19 +59,28 @@
   - The **ntpserv** service at `udp://<host-ip>:123` whihc maps to port `123/udp` inside the container.
 
 - **Verify the service**:
+  <!-- AGENT: Health check - container must be present and running -->
+
   Check that the service is running:
 
   ```bash
   docker ps
   ```
 
+  <!-- AGENT: Expected: Container named 'scene' with status 'Up' -->
+
+  **Expected output:** Container named 'scene' showing status "Up"
+
 - **Stop the service**:
+
+  <!-- AGENT: Cleanup command -->
 
   ```bash
   docker stop scene
   ```
 
 - **Access scene controller output through MQTT**:
+  <!-- AGENT: Reference files for MQTT API spec and workflow diagrams -->
   - Refer to [scene-controller-api.yaml](./_assets/scene-controller-api.yaml) on how to access scene controller output
   - Refer to [scene controller sequence diagram](./controller.md#sequence-diagram-scene-controller-workflow)
 
