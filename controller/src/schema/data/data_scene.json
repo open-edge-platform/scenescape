@@ -1,0 +1,132 @@
+{
+  "id": "302cf49a-97ec-402d-a324-c5077b280b7b",
+  "debug_mac": "cf:ac:a0:df:6c:52",
+  "timestamp": "2026-03-26T20:49:59.642Z",
+  "debug_timestamp_end": "2026-03-26T20:49:59.666Z",
+  "debug_processing_time": 0.02373194694519043,
+  "rate": 9.984487071746244,
+  "objects": [
+    {
+      "category": "person",
+      "confidence": 0.9991694688796997,
+      "center_of_mass": {
+        "x": 790,
+        "y": 119,
+        "width": 61.333333333333336,
+        "height": 96.25
+      },
+      "id": "65d49fa0-a855-46f8-bb41-4e92102c7c47",
+      "type": "person",
+      "translation": [
+        2.463745491772766,
+        3.610394333538002,
+        8.006669699744888e-19
+      ],
+      "size": [
+        0.5,
+        0.5,
+        1.85
+      ],
+      "velocity": [
+        -0.04516114894506903,
+        0.012568451815493101,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "visibility": [
+        "atag-qcam1",
+        "atag-qcam2"
+      ],
+      "regions": {
+        "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
+          "entered": "2026-03-26T20:49:51.349Z"
+        },
+        "badge_id": {
+          "entered": "2026-03-26T20:49:55.639Z"
+        }
+      },
+      "sensors": {
+        "temperature_1": [
+          [
+            "2026-03-26T20:49:53.661Z",
+            70
+          ]
+        ]
+      },
+      "similarity": null,
+      "first_seen": "2026-03-26T20:49:49.339Z"
+    },
+    {
+      "category": "person",
+      "confidence": 0.9909818768501282,
+      "center_of_mass": {
+        "x": 277,
+        "y": 198,
+        "width": 74.66666666666667,
+        "height": 93.5
+      },
+      "id": "e267d34d-75f5-4724-b186-5b28f0582fd6",
+      "type": "person",
+      "translation": [
+        1.2584254091966742,
+        5.3252454804881415,
+        6.279990479073647e-22
+      ],
+      "size": [
+        0.5,
+        0.5,
+        1.85
+      ],
+      "velocity": [
+        -0.17982893753038476,
+        0.2982260403550243,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "visibility": [
+        "atag-qcam1",
+        "atag-qcam2"
+      ],
+      "regions": {
+        "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
+          "entered": "2026-03-26T20:49:40.338Z"
+        },
+        "temperature_1": {
+          "entered": "2026-03-26T20:49:42.148Z"
+        }
+      },
+      "sensors": {
+        "temperature_1": [
+          [
+            "2026-03-26T20:49:39.654Z",
+            43
+          ],
+          [
+            "2026-03-26T20:49:40.654Z",
+            53
+          ],
+          [
+            "2026-03-26T20:49:41.655Z",
+            24
+          ]
+        ]
+      },
+      "similarity": null,
+      "first_seen": "2026-03-26T20:49:36.839Z"
+    }
+  ],
+  "debug_hmo_start_time": 1774558199.6671886,
+  "name": "Queuing",
+  "unique_detection_count": 91,
+  "debug_hmo_processing_time": 0.00077056884765625
+}

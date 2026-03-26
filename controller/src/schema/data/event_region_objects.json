@@ -1,0 +1,243 @@
+{
+  "timestamp": "2026-03-26T20:53:32.045Z",
+  "scene_id": "302cf49a-97ec-402d-a324-c5077b280b7b",
+  "scene_name": "Queuing",
+  "region_id": "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4",
+  "region_name": "region_2",
+  "counts": {
+    "person": 2
+  },
+  "objects": [
+    {
+      "category": "person",
+      "confidence": 0.9987726807594299,
+      "center_of_mass": {
+        "x": 855,
+        "y": 113,
+        "width": 56,
+        "height": 99.25
+      },
+      "id": "2d3c96d9-24bd-498b-ba1f-2fd54ab6c25b",
+      "type": "person",
+      "translation": [
+        2.557844551963894,
+        3.6786095095366225,
+        -8.412501691838874e-19
+      ],
+      "size": [
+        0.5,
+        0.5,
+        1.85
+      ],
+      "velocity": [
+        -0.11853836608640095,
+        0.18649999209478746,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "visibility": [
+        "atag-qcam1",
+        "atag-qcam2"
+      ],
+      "regions": {
+        "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
+          "entered": "2026-03-26T20:53:27.336Z"
+        },
+        "badge_id": {
+          "entered": "2026-03-26T20:53:31.244Z"
+        }
+      },
+      "sensors": {
+        "temperature_1": [
+          [
+            "2026-03-26T20:53:29.761Z",
+            48
+          ]
+        ]
+      },
+      "similarity": null,
+      "first_seen": "2026-03-26T20:53:25.339Z",
+      "camera_bounds": {
+        "atag-qcam2": {
+          "x": 799,
+          "y": 14,
+          "width": 169,
+          "height": 397
+        }
+      }
+    },
+    {
+      "category": "person",
+      "confidence": 0.991757333278656,
+      "center_of_mass": {
+        "x": 615,
+        "y": 170,
+        "width": 35.666666666666664,
+        "height": 95.5
+      },
+      "id": "187fbaf4-76a8-4304-9672-2b14daae0833",
+      "type": "person",
+      "translation": [
+        1.711082640402466,
+        4.4634060578959955,
+        1.6116022085935303e-17
+      ],
+      "size": [
+        0.5,
+        0.5,
+        1.85
+      ],
+      "velocity": [
+        -0.0016786441670291266,
+        -0.002791163164887393,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "visibility": [
+        "atag-qcam1",
+        "atag-qcam2"
+      ],
+      "regions": {
+        "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
+          "entered": "2026-03-26T20:53:16.343Z"
+        },
+        "temperature_1": {
+          "entered": "2026-03-26T20:53:18.149Z"
+        }
+      },
+      "sensors": {
+        "temperature_1": [
+          [
+            "2026-03-26T20:53:15.757Z",
+            12
+          ],
+          [
+            "2026-03-26T20:53:16.757Z",
+            93
+          ],
+          [
+            "2026-03-26T20:53:17.757Z",
+            44
+          ]
+        ]
+      },
+      "similarity": null,
+      "first_seen": "2026-03-26T20:53:12.850Z",
+      "camera_bounds": {
+        "atag-qcam2": {
+          "x": 581,
+          "y": 75,
+          "width": 107,
+          "height": 383
+        }
+      }
+    }
+  ],
+  "entered": [],
+  "exited": [
+    {
+      "object": {
+        "category": "person",
+        "confidence": 0.9800664186477661,
+        "center_of_mass": {
+          "x": 235,
+          "y": 214,
+          "width": 55.333333333333336,
+          "height": 100
+        },
+        "id": "bbd07321-dbb9-4384-bf1b-4eb5d9a0aa05",
+        "type": "person",
+        "translation": [
+          0.8937401510085708,
+          5.709889513464022,
+          1.8968932573784202e-25
+        ],
+        "size": [
+          0.5,
+          0.5,
+          1.85
+        ],
+        "velocity": [
+          0.00573190431208215,
+          -0.012806991105924106,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "visibility": [
+          "atag-qcam2"
+        ],
+        "regions": {},
+        "sensors": {
+          "temperature_1": [
+            [
+              "2026-03-26T20:53:07.754Z",
+              21
+            ],
+            [
+              "2026-03-26T20:53:08.754Z",
+              1
+            ],
+            [
+              "2026-03-26T20:53:09.755Z",
+              35
+            ]
+          ]
+        },
+        "similarity": null,
+        "first_seen": "2026-03-26T20:53:06.647Z",
+        "camera_bounds": {
+          "atag-qcam2": {
+            "x": 180,
+            "y": 115,
+            "width": 166,
+            "height": 400
+          }
+        }
+      },
+      "dwell": 5.297000169754028
+    }
+  ],
+  "metadata": {
+    "points": [
+      [
+        0.7707006369426752,
+        6.528662420382165
+      ],
+      [
+        1.286624203821656,
+        2.3630573248407645
+      ],
+      [
+        4.961783439490445,
+        1.1019108280254777
+      ],
+      [
+        3.394904458598726,
+        4.828025477707007
+      ],
+      [
+        1.9235668789808917,
+        6.261146496815287
+      ]
+    ],
+    "title": "region_2",
+    "uuid": "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4",
+    "area": "poly",
+    "fromSensor": false
+  }
+}

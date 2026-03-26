@@ -1,0 +1,183 @@
+{
+  "id": "302cf49a-97ec-402d-a324-c5077b280b7b",
+  "debug_mac": "cf:ac:a0:df:6c:52",
+  "timestamp": "2026-03-26T20:57:04.543Z",
+  "debug_timestamp_end": "2026-03-26T20:57:04.675Z",
+  "debug_processing_time": 0.13226675987243652,
+  "rate": 10.007354475984675,
+  "objects": [
+    {
+      "category": "person",
+      "confidence": 0.9989911913871765,
+      "center_of_mass": {
+        "x": 979,
+        "y": 144,
+        "width": 77.33333333333333,
+        "height": 108
+      },
+      "id": "d4fc1061-6df7-4144-bb39-d0044261c0e4",
+      "type": "person",
+      "translation": [
+        2.426692381620708,
+        2.382907596086218,
+        8.432316134955304e-27
+      ],
+      "size": [
+        0.5,
+        0.5,
+        1.85
+      ],
+      "velocity": [
+        0.7228907299786114,
+        -0.5782018427634982,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "visibility": [
+        "atag-qcam1",
+        "atag-qcam2"
+      ],
+      "regions": {
+        "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
+          "entered": "2026-03-26T20:57:03.347Z"
+        },
+        "badge_id": {
+          "entered": "2026-03-26T20:57:04.040Z"
+        }
+      },
+      "similarity": null,
+      "first_seen": "2026-03-26T20:57:01.348Z"
+    },
+    {
+      "category": "person",
+      "confidence": 0.9822285771369934,
+      "center_of_mass": {
+        "x": 634,
+        "y": 174,
+        "width": 29.333333333333332,
+        "height": 92.25
+      },
+      "id": "e4c6de39-e633-49f2-8f1e-997f8101f4a4",
+      "type": "person",
+      "translation": [
+        1.7106523555876825,
+        4.469730212760269,
+        -1.341178214284118e-19
+      ],
+      "size": [
+        0.5,
+        0.5,
+        1.85
+      ],
+      "velocity": [
+        -0.03598408638611045,
+        0.03494715076803137,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "visibility": [
+        "atag-qcam1",
+        "atag-qcam2"
+      ],
+      "regions": {
+        "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
+          "entered": "2026-03-26T20:56:52.345Z"
+        },
+        "temperature_1": {
+          "entered": "2026-03-26T20:56:54.142Z"
+        }
+      },
+      "sensors": {
+        "temperature_1": [
+          [
+            "2026-03-26T20:56:51.864Z",
+            67
+          ],
+          [
+            "2026-03-26T20:56:52.864Z",
+            9
+          ],
+          [
+            "2026-03-26T20:56:53.864Z",
+            77
+          ]
+        ]
+      },
+      "similarity": null,
+      "first_seen": "2026-03-26T20:56:48.842Z"
+    },
+    {
+      "category": "person",
+      "confidence": 0.9813982844352722,
+      "center_of_mass": {
+        "x": 236,
+        "y": 213,
+        "width": 53.333333333333336,
+        "height": 99.5
+      },
+      "id": "e974e146-5026-4944-b122-941609c23010",
+      "type": "person",
+      "translation": [
+        0.9311130567557702,
+        5.70043444616837,
+        1.3409604874335032e-26
+      ],
+      "size": [
+        0.5,
+        0.5,
+        1.85
+      ],
+      "velocity": [
+        0.014307952694281138,
+        -0.005323771226349039,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "visibility": [
+        "atag-qcam2"
+      ],
+      "regions": {
+        "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
+          "entered": "2026-03-26T20:57:02.739Z"
+        }
+      },
+      "sensors": {
+        "temperature_1": [
+          [
+            "2026-03-26T20:56:43.860Z",
+            28
+          ],
+          [
+            "2026-03-26T20:56:44.860Z",
+            35
+          ],
+          [
+            "2026-03-26T20:56:45.860Z",
+            77
+          ]
+        ]
+      },
+      "similarity": null,
+      "first_seen": "2026-03-26T20:56:42.640Z"
+    }
+  ],
+  "debug_hmo_start_time": 1774558624.6764784,
+  "name": "Queuing",
+  "unique_detection_count": 130,
+  "debug_hmo_processing_time": 0.0003437995910644531
+}

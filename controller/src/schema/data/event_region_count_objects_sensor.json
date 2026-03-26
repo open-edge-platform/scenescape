@@ -1,0 +1,145 @@
+{
+  "timestamp": "2026-03-26T20:55:03.240Z",
+  "scene_id": "302cf49a-97ec-402d-a324-c5077b280b7b",
+  "scene_name": "Queuing",
+  "region_id": "badge_id",
+  "region_name": "badge_id",
+  "counts": {
+    "person": 1
+  },
+  "objects": [
+    {
+      "category": "person",
+      "confidence": 0.9946722388267517,
+      "center_of_mass": {
+        "x": 879,
+        "y": 88,
+        "width": 47,
+        "height": 84.75
+      },
+      "id": "fd33a6de-2ce3-4409-847d-20ad7a1927ac",
+      "type": "person",
+      "translation": [
+        5.2537785637980825,
+        2.811919684723857,
+        0
+      ],
+      "size": [
+        0.5,
+        0.5,
+        1.85
+      ],
+      "velocity": [
+        -0.2929845589093748,
+        0.3377785371000472,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "visibility": [
+        "atag-qcam1",
+        "atag-qcam2"
+      ],
+      "regions": {
+        "badge_id": {
+          "entered": "2026-03-26T20:55:03.240Z"
+        },
+        "temperature_1": {
+          "entered": "2026-03-26T20:55:03.240Z"
+        }
+      },
+      "similarity": null,
+      "first_seen": "2026-03-26T20:55:00.839Z"
+    }
+  ],
+  "entered": [
+    {
+      "category": "person",
+      "confidence": 0.9946722388267517,
+      "center_of_mass": {
+        "x": 879,
+        "y": 88,
+        "width": 47,
+        "height": 84.75
+      },
+      "id": "fd33a6de-2ce3-4409-847d-20ad7a1927ac",
+      "type": "person",
+      "translation": [
+        5.2537785637980825,
+        2.811919684723857,
+        0
+      ],
+      "size": [
+        0.5,
+        0.5,
+        1.85
+      ],
+      "velocity": [
+        -0.2929845589093748,
+        0.3377785371000472,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "visibility": [
+        "atag-qcam1",
+        "atag-qcam2"
+      ],
+      "regions": {
+        "badge_id": {
+          "entered": "2026-03-26T20:55:03.240Z"
+        },
+        "temperature_1": {
+          "entered": "2026-03-26T20:55:03.240Z"
+        }
+      },
+      "similarity": null,
+      "first_seen": "2026-03-26T20:55:00.839Z"
+    }
+  ],
+  "exited": [],
+  "metadata": {
+    "points": [
+      [
+        1.8343949044585988,
+        2.8153078980891717
+      ],
+      [
+        3.929936305732484,
+        4.942696433121019
+      ],
+      [
+        5.1528662420382165,
+        4.70065821656051
+      ],
+      [
+        5.89171974522293,
+        3.445881146496815
+      ],
+      [
+        3.968152866242038,
+        1.5095754140127386
+      ],
+      [
+        2.337579617834395,
+        0.9809129936305732
+      ],
+      [
+        1.6114649681528663,
+        1.4649894267515922
+      ]
+    ],
+    "title": "badge_id",
+    "uuid": "badge_id",
+    "area": "poly",
+    "fromSensor": true
+  }
+}

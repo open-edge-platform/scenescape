@@ -1,0 +1,76 @@
+{
+  "timestamp": "2026-03-26T20:51:39.241Z",
+  "scene_id": "302cf49a-97ec-402d-a324-c5077b280b7b",
+  "scene_name": "Queuing",
+  "tripwire_id": "5fc8df22-0497-411c-9a62-90218cb20d7d",
+  "tripwire_name": "tripwire_1",
+  "counts": {
+    "person": 1
+  },
+  "objects": [
+    {
+      "category": "person",
+      "confidence": 0.9987891316413879,
+      "center_of_mass": {
+        "x": 880,
+        "y": 300,
+        "width": 85.66666666666667,
+        "height": 126
+      },
+      "id": "d62d8bbf-9008-40f5-84f8-9faca9e03d90",
+      "type": "person",
+      "translation": [
+        1.0436917269325041,
+        3.542856728583286,
+        2.3538475919316913e-17
+      ],
+      "size": [
+        0.5,
+        0.5,
+        1.85
+      ],
+      "velocity": [
+        0.37495747768611926,
+        -0.8245603002402337,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "visibility": [
+        "atag-qcam1",
+        "atag-qcam2"
+      ],
+      "similarity": null,
+      "first_seen": "2026-03-26T20:51:37.336Z",
+      "camera_bounds": {
+        "atag-qcam2": {
+          "x": 796,
+          "y": 175,
+          "width": 257,
+          "height": 504
+        }
+      },
+      "direction": -1
+    }
+  ],
+  "entered": [],
+  "exited": [],
+  "metadata": {
+    "title": "tripwire_1",
+    "points": [
+      [
+        3.745222929936306,
+        6.082802547770701
+      ],
+      [
+        0.8789808917197452,
+        3.573248407643312
+      ]
+    ],
+    "uuid": "5fc8df22-0497-411c-9a62-90218cb20d7d"
+  }
+}
