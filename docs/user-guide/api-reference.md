@@ -10,7 +10,7 @@
 
 ## 1. Pull Swagger UI image:
 
-```
+```bash
 docker pull swaggerapi/swagger-ui
 ```
 
@@ -20,7 +20,7 @@ Use a configuration that loads the Intel® SceneScape `docs/user-guide/api-docs/
 
 General Syntax:
 
-```
+```bash
 docker run -p 80:8080 --user $(id -u):$(id -g) -e SWAGGER_JSON=/mnt/api.yaml -v <full path to parent directory of api.yaml>:/mnt swaggerapi/swagger-ui
 ```
 
@@ -28,7 +28,7 @@ Re: https://github.com/swagger-api/swagger-ui/blob/master/docs/usage/configurati
 
 Example:
 
-```
+```bash
 docker run -p 80:8080 --user $(id -u):$(id -g) -e SWAGGER_JSON=/mnt/api.yaml -v ~/scenescape/docs/user-guide/api-docs:/mnt swaggerapi/swagger-ui
 ```
 

@@ -12,7 +12,7 @@ Check [System Requirements](./get-started/system-requirements.md) before proceed
 
 The prerequisite software can be installed via the following commands on the Ubuntu host OS:
 
-```console
+```bash
 sudo apt update
 sudo apt install -y \
   curl \
@@ -30,7 +30,7 @@ sudo apt install -y \
 
 2. Configure Docker to start on boot and add your user to the Docker group:
 
-   ```console
+   ```bash
    sudo systemctl enable docker
    sudo usermod -aG docker $USER
    ```
@@ -39,7 +39,7 @@ sudo apt install -y \
 
 4. Verify Docker is working properly:
 
-   ```console
+   ```bash
    docker --version
    docker run hello-world
    ```
@@ -132,7 +132,7 @@ Enter "admin" for the user name and the value you typed earlier for SUPASS.
 
 To stop the containers, use the following command in the project directory:
 
-```console
+```bash
 docker compose down --remove-orphans
 ```
 
@@ -140,7 +140,7 @@ docker compose down --remove-orphans
 
 To start after the first time, use the following command in the project directory:
 
-```console
+```bash
 docker compose up -d
 ```
 

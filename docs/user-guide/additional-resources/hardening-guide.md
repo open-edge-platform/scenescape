@@ -84,7 +84,7 @@ By default, the built-in certificate generation tooling produces a trust chain c
 
 To generate CSRs, run the following command from the root Intel® SceneScape directory:
 
-```
+```bash
 make -C ./tools/certificates deploy-csr
 ```
 
@@ -123,7 +123,7 @@ The Django passwords are generated during execution of the `build-all` and `buil
 
 For `SECRET_KEY` the following short Python script is used:
 
-```
+```bash
 python3 -c 'import secrets; print("\x27"+ "".join([secrets.choice( "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)") for i in range(50)]) + "\x27")'
 ```
 
@@ -131,7 +131,7 @@ python3 -c 'import secrets; print("\x27"+ "".join([secrets.choice( "abcdefghijkl
 
 For `DATABASE_PASSWORD`, OpenSSL is used to generate a random 12-byte value, base64 encoded:
 
-```
+```bash
 openssl rand -base64 12
 ```
 
@@ -180,7 +180,7 @@ _Note:_ While Apache `mod_reqtimeout` provides a basic level of robustness, if y
 
 The `mod_reqtimeout` tunables can be changed via the `RequestReadTimeout` directive in `apache2.conf`. The directive syntax is as follows:
 
-```
+```text
 RequestReadTimeout [handshake=timeout[-maxtimeout][,MinRate=rate] [header=timeout[-maxtimeout][,MinRate=rate] [body=timeout[-maxtimeout][,MinRate=rate]
 ```
 
@@ -190,7 +190,7 @@ RequestReadTimeout [handshake=timeout[-maxtimeout][,MinRate=rate] [header=timeou
 
 The default values for the directive are as follows:
 
-```
+```text
 RequestReadTimeout handshake=0 header=20-40,MinRate=500 body=20,MinRate=500
 ```
 
