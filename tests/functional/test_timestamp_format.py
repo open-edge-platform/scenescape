@@ -32,29 +32,22 @@ def run_psql(container, query):
   return result.stdout.strip()
 
 
-def normalize_timezone(value: str) -> str:
-  """Normalizes timezone to avoid python issues."""
-  #+00 -> +00:00
-  value = re.sub(r"([+-]\d{2})$", r"\1:00", value)
-
-  #+0000 -> +00:00
-  value = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", value)
-
-  return value
-
-
 def is_valid_timestamp(value: str, log) -> bool:
-  """Verifies if psql output in iso format represents a valid date."""
+  """Normalizes and verifies if psql output in iso format represents a valid date."""
   try:
-    value = value.strip()
+    #+00 -> +00:00
+    value = re.sub(r"([+-]\d{2})$", r"\1:00", value)
 
+    #+0000 -> +00:00
+    value = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", value)
+    value = value.strip()
     # Replace space with T
     value = value.replace(" ", "T")
 
     # Normalize timezone formats like +00 -> +00:00
     tz_match = re.search(r"([+-]\d{2})$", value)
     if tz_match:
-      value = value[-3] + tz_match.group(1) + ":00"
+      value = value[:-3] + tz_match.group(1) + ":00"
 
     # Normalize timezone formats like +0000 -> +00:00
     tz_match = re.search(r"([+-]\d{2})(\d{2})$", value)
@@ -74,7 +67,6 @@ def validate_timestamps(output, log):
   lines = [line.strip() for line in output.splitlines() if line.strip()]
 
   for line in lines:
-    line = normalize_timezone(line)
     assert is_valid_timestamp(line, log), f"Invalid timestamp {line!r}"
   log.info("All values successfully validated.")
 
@@ -91,7 +83,6 @@ def validate_timestamp_format(rows):
     "\n".join(f"{schema}.{table}.{column} -> {dtype}"
               for schema, table, column, dtype in invalid)
   )
-
 
 
 def test_timestamp_format():
