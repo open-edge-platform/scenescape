@@ -14,7 +14,7 @@ define metric-recipe =
 	  ; fi \
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; tools/scenescape-start --image ${IMAGE}-controller-test pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
+	  ; $(DOCKER_RUN_CONTROLLER) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
 	                                   $${METRIC} $${THRESHOLD} $${FRAME_RATE} \
 	                                   -o junit_suite_name=$(TEST_SUITE) | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \

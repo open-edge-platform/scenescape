@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Makefile for pytest-based E2E test orchestration.
+#
+# Usage (from repo root):
+#   make -f tests/Makefile.pytest -C tests setup          # Create venv
+#   make -f tests/Makefile.pytest -C tests all            # Run all tests
+#   make -f tests/Makefile.pytest -C tests functional     # Functional only
+#   make -f tests/Makefile.pytest -C tests unit           # Unit only
+#
+# Run a single test by name (after setup):
+#   cd tests && .venv/bin/pytest -k rest_test -v
+#
+# Capture a full session log:
+#   cd tests && .venv/bin/pytest -k mqtt_roi \
+#       --log-file=../test_data/logs/mqtt_roi-$(date +%F-%T).log
+
+SHELL := /bin/bash
+PYTEST_VENV := $(CURDIR)/.venv
+REPO_ROOT := $(CURDIR)/..
+PYTEST := $(PYTEST_VENV)/bin/pytest
+LOG_DIR := $(REPO_ROOT)/test_data/logs
+TIMESTAMP := $(shell date +%Y-%m-%d-%H:%M:%S)
+
+.PHONY: setup all functional unit clean
+
+setup:
+	@if [ ! -d "$(PYTEST_VENV)" ]; then \
+		python3 -m venv $(PYTEST_VENV); \
+		$(PYTEST_VENV)/bin/pip install -q --upgrade pip; \
+		$(PYTEST_VENV)/bin/pip install -q -r $(CURDIR)/requirements.txt; \
+	fi
+
+all: setup
+	@mkdir -p $(LOG_DIR)
+	cd $(REPO_ROOT) && $(PYTEST) tests/test_functional.py tests/test_unit.py \
+		--log-file=$(LOG_DIR)/all-$(TIMESTAMP).log
+
+functional: setup
+	@mkdir -p $(LOG_DIR)
+	cd $(REPO_ROOT) && $(PYTEST) tests/test_functional.py \
+		--log-file=$(LOG_DIR)/functional-$(TIMESTAMP).log
+
+unit: setup
+	@mkdir -p $(LOG_DIR)
+	cd $(REPO_ROOT) && $(PYTEST) tests/test_unit.py \
+		--log-file=$(LOG_DIR)/unit-$(TIMESTAMP).log
+
+clean:
+	rm -rf $(PYTEST_VENV)

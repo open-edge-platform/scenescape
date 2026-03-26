@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Host-side dependencies for E2E test orchestration.
+# These are NOT the test dependencies (those live inside Docker images).
+
+pytest>=7.4.0
+python-on-whales>=0.73.0
+waiting>=1.4.0
+pyyaml>=6.0.0

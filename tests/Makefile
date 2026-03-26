@@ -25,56 +25,57 @@ NPROCS?=$(shell echo $(shell grep -c ^processor /proc/cpuinfo)/3 | bc)
 COMPOSE=tests/compose
 EXAMPLEDB=tests/testdb.tar.bz2
 
-ifeq ($(KUBERNETES),1)
-    RUNTEST=tests/kubernetes/runtest
-else
-    RUNTEST=tests/runtest
-endif
-
 RANDPASS:=$(shell openssl rand -base64 12)
 export SUPASS?=$(RANDPASS)
 
-define common-recipe =
-	$(eval YML=$1)
-	$(eval TEST_SCRIPT=$2)
-	$(eval CONTAINERS=$3)
-	$(eval REQUIRE_SUPASS=$4)
-	$(eval AUTH_USER=$(if $5, --auth=$(strip $5), ))
-	$(eval TEST_IMAGE=$7)
-	$(eval DBROOT=$(TEST_DATA)/db_$@)
-	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; if [ x$(REQUIRE_SUPASS) = xtrue ] ; then \
-	      EXTRAS="--password=$(SUPASS)"; \
-	  fi \
-	  ; if [ ! -z "$(AUTH_USER)" ]; then \
-	      EXTRAS="$${EXTRAS} $(AUTH_USER)"; \
-	  fi \
-	  ; echo RUNNING COMMON TEST $@ \
-	  ; cd .. \
-	  ; EXAMPLEDB=$(EXAMPLEDB) \
-	  ; if [ -n "$6" ] ; then \
-	        EXAMPLEDB=$6 \
-	  ; fi \
-	  ; if [ -z "$(BASE_IMAGE)" ]; then \
-	        BASE_IMAGE=$(IMAGE)-manager-test \
-	  ; fi \
-	  ; if [ -n "$(TEST_IMAGE)" ]; then \
-	        BASE_IMAGE=$(TEST_IMAGE) \
-	  ; fi \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; env SECRETSDIR=$(SECRETSDIR) IMAGE=$(BASE_IMAGE):$(VERSION) \
-	      DBROOT=$(DBROOT) EXAMPLEDB=$${EXAMPLEDB} LOGSFORCONTAINER=$(CONTAINERS) \
-	      PROJECT=$(PROJECT) CLEANUP_MODE=$(CLEANUP_MODE) SKIP_INIT=$(SKIP_INIT) \
-	      WAITFORCONTAINERS=$(CONTAINERS) \
-	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
-	      no_proxy=$(no_proxy),.scenescape.intel.com,.scenescape \
-	      $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
-	                                  $${EXTRAS} 2>&1 | tee -ia $(LOGFILE) \
+# ---------------------------------------------------------------------------
+# Standalone docker run helpers.
+#
+# Used by Makefile.perf, Makefile.metric, and Makefile.reports for targets
+# that invoke a single container without a compose stack.
+#
+# DOCKER_RUN_MANAGER  — scenescape-manager-test image (uid-only, userns=host)
+# DOCKER_RUN_CONTROLLER — scenescape-controller-test image (uid:gid)
+# ---------------------------------------------------------------------------
+_UID := $(shell id -u)
+_GID := $(shell id -g)
+
+_DOCKER_FLAGS = --rm --privileged --cap-add=SYS_ADMIN --cap-add=SYS_PTRACE --workdir=/workspace
+_DOCKER_MOUNTS = --volume="$(CURDIR)/..:/workspace:rw" --volume="scenescape_vol-models:/opt/intel/openvino/deployment_tools/intel_models:rw" --volume="scenescape_vol-sample-data:/home/scenescape/SceneScape/sample_data:rw" --volume="$(CURDIR)/../manager/secrets:/run/secrets:ro"
+_DOCKER_ENV = -e PYTHONPATH=/workspace -e SECRETSDIR=/run/secrets
+
+DOCKER_RUN_MANAGER = docker run $(_DOCKER_FLAGS) -u $(_UID) --userns=host $(_DOCKER_MOUNTS) --volume="$(CURDIR)/../manager/secrets:/home/scenescape/SceneScape/manager/secrets:ro" --volume="$(CURDIR)/../manager/secrets/django/secrets.py:/home/scenescape/SceneScape/manager/secrets.py:ro" $(_DOCKER_ENV) $(IMAGE)-manager-test:$(VERSION)
+DOCKER_RUN_CONTROLLER = docker run $(_DOCKER_FLAGS) -u $(_UID):$(_GID) $(_DOCKER_MOUNTS) $(_DOCKER_ENV) $(IMAGE)-controller-test:$(VERSION)
+
+# ---------------------------------------------------------------------------
+# pytest-recipe: invoke the tests/.venv pytest with -k selection.
+#
+# Usage:  $(call pytest-recipe, test_id)
+# ---------------------------------------------------------------------------
+define pytest-recipe =
+	$(eval TEST_ID := $1)
+	$(eval LOGFILE := $(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
+	@set -e \
+	  ; echo "RUNNING TEST $@" \
+	  ; mkdir -p $(shell dirname $(LOGFILE)) reports/test_reports \
+	  ; SECRETSDIR=$(SECRETSDIR) SUPASS=$(SUPASS) \
+	    .venv/bin/pytest \
+	    -k "$(TEST_ID)" -v \
+	    --junitxml reports/test_reports/$@.xml \
+	    2>&1 | tee -ia $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
-	  ; echo END TEST $@
+	  ; echo "END TEST $@"
 endef
+
+# Create the pytest virtualenv if it does not already exist.
+# Called automatically by functional-tests, unit-tests, and ui-tests groups.
+.PHONY: setup-pytest
+setup-pytest:
+	@if [ ! -d "$(CURDIR)/.venv" ]; then \
+		python3 -m venv $(CURDIR)/.venv; \
+		$(CURDIR)/.venv/bin/pip install -q --upgrade pip; \
+		$(CURDIR)/.venv/bin/pip install -q -r $(CURDIR)/requirements.txt; \
+	fi
 
 # Not sorted alphabetically on purpose
 tests: \
@@ -137,7 +138,7 @@ standard-tests: \
   _functional-tests \
   _ui-tests \
 
-functional-tests:
+functional-tests: setup-pytest
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) BASE_IMAGE=$(BASE_IMAGE) -k
 
 _functional-tests: \
@@ -196,7 +197,7 @@ _metric-tests: \
   velocity-metric \
   msoce-metric \
 
-ui-tests:
+ui-tests: setup-pytest
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _ui-tests: \
@@ -230,8 +231,9 @@ _ui-tests: \
   view-3d-glb-file \
   3d-scene-control-panel \
   3d-camera-control-panel \
+  timestamp-format \
 
-unit-tests:
+unit-tests: setup-pytest
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _unit-tests: \
@@ -280,9 +282,19 @@ build-time: # NEX-T12520
 		; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 		; echo END TEST $@
 
-system-stability: # NEX-T10411
+system-stability: setup-pytest # NEX-T10411
 	$(eval HOURS ?= 24)
-	$(call common-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml, tests/system/stability/tc_sscape_stability.py --hours=$(HOURS),'pgserver web scene',true)
+	$(eval LOGFILE := $(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
+	@set -e \
+	  ; echo "RUNNING TEST $@" \
+	  ; mkdir -p $(shell dirname $(LOGFILE)) reports/test_reports \
+	  ; SECRETSDIR=$(SECRETSDIR) SUPASS=$(SUPASS) STABILITY_HOURS=$(HOURS) \
+	    .venv/bin/pytest \
+	    -k "system_stability" -v \
+	    --junitxml reports/test_reports/$@.xml \
+	    2>&1 | tee -ia $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+	  ; echo "END TEST $@"
 
 python-indent-check: # NEX-T10448
 	$(eval LOGFILE=$(TEST_DATA)/code_check/$@-$(shell date -u +"%F-%T").log)
