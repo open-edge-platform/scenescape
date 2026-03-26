@@ -7,6 +7,9 @@ import re
 import requests
 from http import HTTPStatus
 from urllib.parse import urljoin
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class RESTResult(dict):
@@ -90,30 +93,16 @@ class RESTClient:
       headers["Authorization"] = f"Token {self.token}"
     return headers
 
-  def _build_url(self, path, api_prefix=None):
-    """Build full URL with optional API prefix
-
-    @param      path           Endpoint path
-    @param      api_prefix     Optional API prefix (e.g., 'api/v1' or 'v1' or without prefix for mapping endpoints)
-    """
-    if not path.startswith('/'):
-      path = '/' + path
-
-    # Build URL with or without API prefix
-    if api_prefix:
-      api_prefix = api_prefix.strip('/')
-      full_path = f"{api_prefix}{path}"
-    else:
-      full_path = path.lstrip('/')
-
-    return urljoin(self.url, full_path)
-
   def request(self, method, path, **kwargs):
     """
     Returns raw requests.Response object for compatibility with API tests
     """
-    url = self._build_url(path)
+    # Ensure path starts with /
+    if not path.startswith('/'):
+      path = '/' + path
 
+    url = urljoin(self.url, path.lstrip('/'))
+    logger.debug("REST request: %s %s", method, url)
     # Merge headers
     headers = self._headers()
     if 'headers' in kwargs:
@@ -130,6 +119,11 @@ class RESTClient:
 
   def decodeReply(self, reply, expectedStatus, successContent=None):
     result = RESTResult(statusCode=reply.status_code)
+    # Accept either a single status code or a list/tuple of acceptable codes
+    if isinstance(expectedStatus, (list, tuple)):
+      status_ok = reply.status_code in expectedStatus
+    else:
+      status_ok = reply.status_code == expectedStatus
     decoded = False
     if 'Content-Type' in reply.headers and reply.headers['Content-Type'] == "application/json":
       try:
@@ -147,14 +141,14 @@ class RESTClient:
         content['filename'] = fname
       decoded = True
 
-    if reply.status_code == expectedStatus:
+    if status_ok:
       if successContent:
         content = successContent
         decoded = True
       if decoded:
         result.update(content)
 
-    if not decoded or reply.status_code != expectedStatus:
+    if not decoded or not status_ok:
       result.errors = content
 
     return result
@@ -199,68 +193,71 @@ class RESTClient:
           "requests library can't combine files and nested dictionaries")
     return data_args
 
-  def _create(self, endpoint, data, api_prefix='api/v1', files=None):
+  def _create(self, endpoint, data, files=None):
     """Private method to create a new object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
     @param      data            dict with key/value pairs of new object
-    @param      api_prefix      API version prefix (default: 'api/v1')
     @param      files           dict with file data, as binary blobs
                                 or open file pointers
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    full_path = self._build_url(endpoint, api_prefix)
+    full_path = urljoin(self.url, endpoint)
+    logger.debug(
+        "RESTClient _create: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
                               headers=headers, verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.CREATED)
 
-  def _get(self, endpoint, parameters, api_prefix='api/v1'):
+  def _get(self, endpoint, parameters):
     """Private method to get an object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
     @param      parameters      dictionary of key/value pairs appended to GET request,
                                 used by server to filter out objects
-    @param      api_prefix      API version prefix (default: 'api/v1')
     @return                     RESTResult with decoded object(s) on success,
-                                empty with `errors` set on failure. Result includes
-                                'full_path' key with the complete URL used.
+                                empty with `errors` set on failure
     """
-    full_path = self._build_url(endpoint, api_prefix)
+    full_path = urljoin(self.url, endpoint)
+    logger.debug("RESTClient _get: endpoint='%s', full_path='%s', params=%s",
+                 endpoint, full_path, parameters)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.get(full_path, params=parameters, headers=headers,
                              verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.OK)
 
-  def _update(self, endpoint, data, api_prefix='api/v1', files=None):
+  def _update(self, endpoint, data, files=None):
     """Private method to update an object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
     @param      data            dictionary with key/value pairs to update
-    @param      api_prefix      API version prefix (default: 'api/v1')
     @param      files           dictionary with file data, as binary blobs
                                 or open file pointers
     @return                     RESTResult with decoded object on success,
                                 empty with `errors` set on failure
     """
-    full_path = self._build_url(endpoint, api_prefix)
+    full_path = urljoin(self.url, endpoint)
+    logger.debug(
+        "RESTClient _update: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
                               headers=headers, verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.OK)
 
-  def _delete(self, endpoint, api_prefix='api/v1'):
+  def _delete(self, endpoint):
     """Private method to delete an object, used by public object specific calls.
 
     @param      endpoint        object specific endpoint on REST server
-    @param      api_prefix      API version prefix (default: 'api/v1')
     @return                     RESTResult with deleted object's uid on success,
                                 empty with `errors` set on failure
     """
-    full_path = self._build_url(endpoint, api_prefix)
+    full_path = urljoin(self.url, endpoint)
+    logger.debug(
+        "RESTClient _delete: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.delete(
         full_path,
@@ -286,7 +283,7 @@ class RESTClient:
     @return                     RESTResult with decoded objects on success,
                                 empty with `errors` set on failure
     """
-    return self._get("scenes", filter, api_prefix='api/v1')
+    return self._get("scenes", filter)
 
   def createScene(self, data):
     """Creates a new scene
@@ -297,7 +294,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
-    return self._create("scene", data, files=files)
+    return self._create("scene", data, files)
 
   def getScene(self, uid):
     """Gets scene with `uid`
@@ -318,7 +315,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
-    return self._update(f"scene/{uid}", data, files=files)
+    return self._update(f"scene/{uid}", data, files)
 
   def deleteScene(self, uid):
     """Deletes scene with `uid`
@@ -339,7 +336,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
-    return self._create("child", data, files=files)
+    return self._create("child", data, files)
 
   def updateChildScene(self, uid, data):
     """Updates child scene with `uid`
@@ -351,7 +348,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
-    return self._update(f"child/{uid}", data, files=files)
+    return self._update(f"child/{uid}", data, files)
 
   # Camera
   def getCameras(self, filter):
@@ -567,7 +564,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['model_3d'])
-    return self._create("asset", data, files=files)
+    return self._create("asset", data, files)
 
   def getAsset(self, uid):
     """Gets asset with `uid`
@@ -588,7 +585,7 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     data, files = self._separateFiles(data, ['model_3d'])
-    return self._update(f"asset/{uid}", data, files=files)
+    return self._update(f"asset/{uid}", data, files)
 
   def deleteAsset(self, uid):
     """Deletes asset with `uid`
@@ -713,14 +710,14 @@ class RESTClient:
       files = {"zipFile": (os.path.basename(zip_file_path), f)}
       return self._create(endpoint, data={}, files=files)
 
-  # Auto-calibration (uses v1/ prefix instead of api/v1)
+  # Auto-calibration
   def getStatus(self):
     """Gets system status
 
     @return                     RESTResult with system status on success,
                                 empty with `errors` set on failure
     """
-    return self._get("status", None, api_prefix='v1')
+    return self._get("status", None)
 
   def registerScene(self, sceneId, data):
     """Register a scene for auto-calibration
@@ -730,7 +727,7 @@ class RESTClient:
     @return                     RESTResult with registration info on success,
                                 empty with `errors` set on failure
     """
-    return self._create(f"scenes/{sceneId}/registration", data, api_prefix='v1')
+    return self._create(f"scenes/{sceneId}/registration", data)
 
   def getSceneRegistrationStatus(self, sceneId):
     """Gets scene registration status
@@ -739,7 +736,7 @@ class RESTClient:
     @return                     RESTResult with registration status on success,
                                 empty with `errors` set on failure
     """
-    return self._get(f"scenes/{sceneId}/registration", None, api_prefix='v1')
+    return self._get(f"scenes/{sceneId}/registration", None)
 
   def updateSceneRegistration(self, sceneId, data):
     """Updates scene registration
@@ -749,7 +746,7 @@ class RESTClient:
     @return                     RESTResult with updated registration on success,
                                 empty with `errors` set on failure
     """
-    return self._update(f"scenes/{sceneId}/registration", data, api_prefix='v1')
+    return self._update(f"scenes/{sceneId}/registration", data)
 
   def calibrateCamera(self, cameraId, data):
     """Calibrate a camera
@@ -759,7 +756,7 @@ class RESTClient:
     @return                     RESTResult with calibration info on success,
                                 empty with `errors` set on failure
     """
-    return self._create(f"cameras/{cameraId}/calibration", data, api_prefix='v1')
+    return self._create(f"cameras/{cameraId}/calibration", data)
 
   def getCameraCalibrationStatus(self, cameraId):
     """Gets camera calibration status
@@ -768,4 +765,4 @@ class RESTClient:
     @return                     RESTResult with calibration status on success,
                                 empty with `errors` set on failure
     """
-    return self._get(f"cameras/{cameraId}/calibration", None, api_prefix='v1')
+    return self._get(f"cameras/{cameraId}/calibration", None)

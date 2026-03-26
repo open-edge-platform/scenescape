@@ -35,7 +35,8 @@ logger.info(
 API_TOKEN = os.environ.get("API_TOKEN")
 BASE_URL = os.environ.get("API_BASE_URL", "https://localhost")
 
-http_client = RESTClient(url=BASE_URL, token=API_TOKEN, verify_ssl=False)
+http_client = RESTClient(url=f"{BASE_URL}/api/v1", token=API_TOKEN, verify_ssl=False)
+autocalib_client = RESTClient(url=f"{BASE_URL}/v1", token=API_TOKEN, verify_ssl=False)
 
 saved_vars = {}
 
@@ -48,7 +49,7 @@ API_MAP = {
   "user": http_client,
   "asset": http_client,
   "child": http_client,
-  "autocalibration": http_client,
+  "autocalibration": autocalib_client,
 }
 
 
