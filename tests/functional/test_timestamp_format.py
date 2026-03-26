@@ -35,28 +35,20 @@ def run_psql(container, query):
 def is_valid_timestamp(value: str, log) -> bool:
   """Normalizes and verifies if psql output in iso format represents a valid date."""
   try:
-    #+00 -> +00:00
-    value = re.sub(r"([+-]\d{2})$", r"\1:00", value)
 
-    #+0000 -> +00:00
-    value = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", value)
-    value = value.strip()
-    # Replace space with T
-    value = value.replace(" ", "T")
-
-    # Normalize timezone formats like +00 -> +00:00
-    tz_match = re.search(r"([+-]\d{2})$", value)
-    if tz_match:
-      value = value[:-3] + tz_match.group(1) + ":00"
-
-    # Normalize timezone formats like +0000 -> +00:00
-    tz_match = re.search(r"([+-]\d{2})(\d{2})$", value)
-    if tz_match:
-      value = value[:-5] + tz_match.group(1) + ":" +tz_match.group(2)
+    timestamp_regex = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+(?:[+-]\d{2}:\d{2}|Z)?")
+    if not timestamp_regex.match(value):
+      log.debug(f"Value {value!r} does not match expected timestamp format.")
+      return False
 
     # check validity
-    datetime.fromisoformat(value)
-    return True
+    try:
+      datetime.fromisoformat(value)
+      return True
+    except Exception as e:
+      log.debug(f"Value {value!r} matches format but is not a valid timestamp: {e!r}")
+      return False
+
 
   except Exception as e:
     log.debug(f"Problem parsing value: {value!r} -> {e!r}")
