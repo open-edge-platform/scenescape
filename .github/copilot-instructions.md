@@ -96,7 +96,7 @@ make rebuild-core                  # Clean + build (useful after code changes)
 
 ## Testing Framework
 
-**For comprehensive test creation guidance, see `.github/instructions/testing.md`** - detailed instructions on creating unit, functional, integration, UI, and smoke tests with both positive and negative cases.
+**For comprehensive test creation guidance, see `.github/skills/testing.md`** - detailed instructions on creating unit, functional, integration, UI, and smoke tests with both positive and negative cases.
 
 **Running Tests** (must have containers running via docker-compose):
 
@@ -223,8 +223,8 @@ This skill contains:
 
 **Quick reference - Key locations:**
 
-- `<service>/docs/user-guide/overview.md` - Features and API endpoints
-- `<service>/docs/user-guide/How-to-build-source.md` - Build instructions
+- `docs/user-guide/microservices/<service>/<service>.md` - Features and API endpoints
+- `docs/user-guide/microservices/<service>/get-started/build-from-source.md` - Build instructions
 - `<service>/README.md` - Quick start
 - `docs/user-guide/` - Cross-service documentation
 
