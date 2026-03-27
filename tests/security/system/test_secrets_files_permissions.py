@@ -2,11 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import subprocess
-import re
-from datetime import datetime
 from scene_common import log
 from tests.common_test_utils import record_test_result
-from tests.functional.test_file_permissions import run_find
 
 def get_container_name(pattern, log):
   """Returns the name of a container with specific pattern in name"""
@@ -45,6 +42,7 @@ def test_secrets_file_permissions():
     web_container = get_container_name("web")
     cmd = ["find", "run/secrets/", "-type", "f", "|", "xargs", "ls", "-la"]
     response = run_find(web_container, cmd)
+    print(response)
     exit_code = 0
   finally:
     record_test_result(test_name, exit_code)
