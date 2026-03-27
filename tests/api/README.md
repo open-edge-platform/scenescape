@@ -51,8 +51,7 @@ export PYTHONPATH=$(pwd)/scene_common/src:$PYTHONPATH
 | Variable            | Default                        | Description                                  |
 |---------------------|--------------------------------|----------------------------------------------|
 | `API_TOKEN`         | `token`                        | Authentication token for API calls           |
-| `API_BASE_URL`      | `https://localhost/api/v1`     | Base URL of the target API                   |
-| `MAPPING_BASE_URL`  | `https://localhost:8444`       | Base URL of the mapping service              |
+| `API_BASE_URL`      | `https://localhost`            | Base URL (scheme + host only); the test runner appends the API path internally                   |
 
 
 ### Mapping Service Setup
