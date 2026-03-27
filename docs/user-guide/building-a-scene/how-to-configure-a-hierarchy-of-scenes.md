@@ -76,11 +76,13 @@ _Figure 5: ntpserver config for DL Streamer Pipeline in `pipeline-config.json`._
 
 ### 2. Set Up Secure Communication
 
+> **Note:** For details on available Docker Compose profiles, see [Docker Compose Profiles](../get-started.md#docker-compose-profiles).
+
 **On Parent system**:
 
 ```bash
 ./deploy.sh
-docker compose down --remove-orphans
+docker compose --profile controller down --remove-orphans
 rm manager/secrets/ca/* manager/secrets/certs/*
 make -C tools/certificates/ deploy-certificates CERTPASS=<random-string>
 ```
@@ -91,7 +93,7 @@ make -C tools/certificates/ deploy-certificates CERTPASS=<random-string>
 
 ```bash
 ./deploy.sh
-docker compose down --remove-orphans
+docker compose --profile controller down --remove-orphans
 rm manager/secrets/ca/* manager/secrets/certs/*
 # Copy parent secrets:
 scp parent:/path-to-scenescape-repo/manager/secrets/ca/scenescape-ca.key ./manager/secrets/ca/
