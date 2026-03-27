@@ -128,12 +128,58 @@ If you are running remotely, connect using `"https://<ip_address>"` or `"https:/
 
 Enter "admin" for the user name and the value you typed earlier for SUPASS.
 
-### Stopping the System
+### Docker Compose Profiles
 
-To stop the containers, use the following command in the project directory:
+Intel® SceneScape uses [Docker Compose profiles](https://docs.docker.com/compose/how-tos/profiles/) to organize services into logical groups. When starting or stopping services, you must specify the same profile(s) used during deployment.
+
+The following profiles are available:
+
+| Profile             | Description                                                                   |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `controller`        | Scene Controller in default mode (analytics + tracking). Used by `make demo`. |
+| `analytics`         | Scene Controller in analytics-only mode (without tracking).                   |
+| `experimental`      | Enables mapping and cluster-analytics services.                               |
+| `mapping`           | Enables mapping service only.                                                 |
+| `cluster-analytics` | Enables cluster-analytics service only.                                       |
+| `vdms`              | Enables the VDMS visual database service (used for re-identification).        |
+| `tracker`           | Enables the tracker service.                                                  |
+
+Profiles can be specified on the command line with `--profile`:
 
 ```console
-docker compose down --remove-orphans
+docker compose --profile controller up -d
+```
+
+Multiple profiles can be combined:
+
+```console
+docker compose --profile controller --profile experimental up -d
+```
+
+Alternatively, profiles can be set via the `COMPOSE_PROFILES` environment variable:
+
+```console
+export COMPOSE_PROFILES=controller
+docker compose up -d
+```
+
+For multiple profiles, use a comma-separated list:
+
+```console
+export COMPOSE_PROFILES=controller,experimental
+docker compose up -d
+```
+
+For more details, see the [Docker Compose profiles documentation](https://docs.docker.com/compose/how-tos/profiles/) and the [COMPOSE_PROFILES environment variable reference](https://docs.docker.com/compose/how-tos/environment-variables/envvars/#compose_profiles).
+
+> **Note:** The `--profile` flags used with `docker compose down` must match those used when starting the services. Otherwise, containers started under a specific profile will remain running.
+
+### Stopping the System
+
+To stop the containers, use the following command in the project directory (see [Docker Compose Profiles](#docker-compose-profiles) for details on choosing profiles):
+
+```console
+docker compose --profile controller down --remove-orphans
 ```
 
 ### Starting the System
@@ -141,7 +187,7 @@ docker compose down --remove-orphans
 To start after the first time, use the following command in the project directory:
 
 ```console
-docker compose up -d
+docker compose --profile controller up -d
 ```
 
 ## Summary
