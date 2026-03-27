@@ -113,6 +113,8 @@ randomly-failing-tests: \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
+  pipeline-runner-people \
+  pipeline-runner-vehicles \
   out-of-box \
   geometry-conformance \
   metric-tests \
@@ -228,6 +230,7 @@ _ui-tests: \
   view-3d-glb-file \
   3d-scene-control-panel \
   3d-camera-control-panel \
+  auto-calibration-no-apriltags-ui \
 
 unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k

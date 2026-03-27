@@ -4,9 +4,8 @@
 import argparse
 import json
 import os
-import cv2
 
-from manager.ppl_generator import PipelineConfigGenerator, PipelineGenerator
+from manager.ppl_generator import PipelineConfigGenerator
 
 def load_camera_settings(filepath: str) -> dict:
   if not os.path.isfile(filepath):
