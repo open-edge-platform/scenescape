@@ -130,7 +130,7 @@ The JSON request keys are automatically mapped to RESTClient parameter names:
 | JSON key | RESTClient parameter | Usage                        |
 |----------|----------------------|------------------------------|
 | `body`   | `data`               | Request body (POST/PUT)      |
-| `UID`    | `uid`                | Path parameter               |
+| `uid`    | `uid`                | Path parameter               |
 
 List methods (e.g. `getCameras`, `getScenes`) automatically receive `filter=None` if no filter is provided in the request.
 
@@ -171,7 +171,7 @@ List methods (e.g. `getCameras`, `getScenes`) automatically receive `filter=None
         "api": "scene",
         "method": "updateScene",
         "request": {
-          "UID": "${SCENE_UID}",
+          "uid": "${SCENE_UID}",
           "body": {
             "name": "Scene1_Updated",
             "use_tracker": false,
@@ -187,7 +187,7 @@ List methods (e.g. `getCameras`, `getScenes`) automatically receive `filter=None
         "api": "scene",
         "method": "getScene",
         "request": {
-          "UID": "${SCENE_UID}"
+          "uid": "${SCENE_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -254,7 +254,7 @@ This extracts the `uid` field from the response body and stores it as `SCENE_UID
 ### Using a saved value
 ```json
 "request": {
-  "UID": "${SCENE_UID}"
+  "uid": "${SCENE_UID}"
 }
 ```
 
