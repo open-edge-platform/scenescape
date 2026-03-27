@@ -32,7 +32,6 @@ SPDX-License-Identifier: Apache-2.0
           {% csrf_token %}
           <div class="form-group">
             <div class="input-group mb-3">
-              {{ username.errors }}
               <div class="input-group-prepend">
                 <label
                   class="input-group-text sign-in-form"
@@ -51,6 +50,7 @@ SPDX-License-Identifier: Apache-2.0
                 autocomplete="off"
               />
             </div>
+            {{ form.username.errors }}
 
             <div class="input-group mb-3">
               <div class="input-group-prepend">
@@ -70,6 +70,7 @@ SPDX-License-Identifier: Apache-2.0
                 value=""
               />
             </div>
+            {{ form.password.errors }}
           </div>
           <button
             type="submit"
