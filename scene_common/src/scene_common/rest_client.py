@@ -349,7 +349,7 @@ class RESTClient:
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
     return self._update(f"child/{uid}", data, files)
-  
+
   def getChildScene(self, filter):
     """Gets all child scenes matching filter. If filter is None returns all child scenes.
 
@@ -359,10 +359,10 @@ class RESTClient:
     """
     return self._get("scenes/child", filter)
 
-  def deleteChildScene(self, uid):
-    """Deletes child scene with `uid`
+  def deleteChildSceneLink(self, uid):
+    """Deletes child scene link with `uid`
 
-    @param      uid             uid of child scene to delete
+    @param      uid             uid of child scene link to delete
     @return                     RESTResult with deleted object's uid on success,
                                 empty with `errors` set on failure
     """
