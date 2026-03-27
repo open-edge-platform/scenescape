@@ -25,6 +25,9 @@ def run_find(container, query):
           "bash", "-c", query]
 
   result = subprocess.run(cmd, capture_output=True, text=True)
+  assert result.returncode == 0, (
+    f"docker exec failed with exit code {result.returncode}: {result.stderr}"
+  )
   return result.stdout
 
 def parse_find_output(output):
