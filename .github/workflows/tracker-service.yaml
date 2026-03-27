@@ -201,6 +201,10 @@ jobs:
               --exclude '.*/src/main.cpp' || true
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup
+
   docker-build-and-test:
     name: "Docker build and service tests"
     needs: detect-changes
@@ -236,3 +240,7 @@ jobs:
 
       - name: "Run service tests"
         run: make -C tracker test-service
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup
