@@ -80,7 +80,7 @@ def test_secrets_file_permissions():
   log.info(f"Test: {test_name}")
   try:
     web_container = get_container_name("web", log)
-    cmd = "find run/secrets -type f -exec ls -la {} \\;"
+    cmd = "find /run/secrets -type f -exec ls -la {} \\;"
     response = run_find(web_container, cmd)
     file_info = parse_find_output(response)
     relevant_files = [info for info in file_info if is_relevant_file(info[1])]
