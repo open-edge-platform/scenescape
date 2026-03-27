@@ -163,3 +163,19 @@ The table below catalogues every passage in the `docs/` folder that references c
 | [user-guide/microservices/controller/_assets/scene-controller-api.yaml](../../../docs/user-guide/microservices/controller/_assets/scene-controller-api.yaml) | 22–62 | Partial | Partial | AsyncAPI spec for `scenescape/data/camera/{camera_id}`. Correctly documents `timestamp`, `debug_timestamp_end`, `debug_mac`, `id`, `objects`, `intrinsics`, `distortion`. Issues: `rate` typed as `string` (schema/samples use `number`); `objects` typed as `array` (schema/samples use an `object`/map keyed by category); `frame_rate` field listed has no counterpart in schema or samples. |
 | [design/vision-pipeline-overview.md](../../../docs/design/vision-pipeline-overview.md) | 58–78 | ✓ Valid | ✓ Matches | High-level description of MQTT metadata publishing from camera pipelines to SceneScape. No JSON example; description is consistent with schema and samples. |
 | [design/vision-pipeline-overview.md](../../../docs/design/vision-pipeline-overview.md) | 106, 160–163 | ✓ Valid | ✓ Matches | Architecture diagram and text describe `intrinsics`/`distortion` as calibration data passed in the camera message and used for dynamically adjusting camera parameters. Consistent with controller behavior. |
+
+---
+
+## Data-Correctness Issues in `scene-controller-api.yaml`
+
+The AsyncAPI spec at [user-guide/microservices/controller/_assets/scene-controller-api.yaml](../../../docs/user-guide/microservices/controller/_assets/scene-controller-api.yaml) (currently `asyncapi: "2.6.0"`) contains the following field-level errors that are independent of spec version and must be fixed regardless of whether the file is migrated to 3.0.0.
+
+| # | Channel / field | Current declaration | Correct declaration | Source of truth | Impact |
+|---|-----------------|--------------------|--------------------|-----------------|--------|
+| 1 | `scenescape/data/camera/{camera_id}` → `$.objects` | `type: array` | `type: object` with `additionalProperties: { type: array, items: { type: object } }` | `metadata.schema.json` `detector.objects`; `data_camera*.json` samples | A validator would accept any array; the actual message is a category-keyed map (e.g. `{"person": [...]}`) |
+| 2 | `scenescape/data/camera/{camera_id}` → `$.rate` | `type: string` | `type: number, minimum: 0` | `metadata.schema.json` `rate` definition; samples show float (e.g. `10.03`) | Type mismatch — code-generated clients would treat rate as a string |
+| 3 | `scenescape/data/camera/{camera_id}` → `$.intrinsics` | `type: array, items: { type: array }` | `type: object` with properties `fx`, `fy`, `cx`, `cy` (`type: number`) | `cache_manager.py` accesses `intrinsics.get('cx')`, `intrinsics.get('cy')` | Declared as array-of-arrays; actually an object with named keys |
+| 4 | `scenescape/data/camera/{camera_id}` → `$.distortion` | `type: array, items: { type: array }` | `type: array, items: { type: number }` | DL Streamer config docs (L133–136): coefficients `[k1, k2, k3, p1, p2]` | Declared as array-of-arrays; actually a flat array of numbers |
+| 5 | `scenescape/data/camera/{camera_id}` → `$.frame_rate` | `type: string` (present) | — (remove) | Absent from `metadata.schema.json`, all samples, and controller source | Undocumented field with no backing definition; misleading to API consumers |
+| 6 | `scenescape/regulated/scene/{scene_id}` → `$.scene_rate` | `type: float` | `type: number, minimum: 0` | JSON Schema does not define a `float` type; valid types are `number`, `integer`, `string`, `boolean`, `array`, `object`, `null` | Invalid JSON Schema type; any strict validator will reject the spec |
+| 7 | `scenescape/regulated/scene/{scene_id}` → `$.rate` | `type: string` | `type: number, minimum: 0` | Same as issue #2 — camera framerate echoed into regulated scene output | Type mismatch |
