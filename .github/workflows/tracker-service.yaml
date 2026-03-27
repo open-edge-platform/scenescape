@@ -147,6 +147,7 @@ jobs:
             libeigen3-dev \
             libopenblas-dev \
             lcov
+            pip
           pip install conan gcovr
 
       - name: "Configure Conan"
