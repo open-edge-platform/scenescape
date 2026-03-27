@@ -84,6 +84,8 @@ def test_secrets_file_permissions():
     response = run_find(web_container, cmd)
     file_info = parse_find_output(response)
     relevant_files = [info for info in file_info if is_relevant_file(info[1])]
+    log.info(f"Found {len(relevant_files)} relevant secrets files to validate.")
+    assert relevant_files, "No relevant secrets files found in run/secrets; test configuration may be incorrect."
     assert validate_file_permissions(relevant_files)
     exit_code = 0
   finally:
