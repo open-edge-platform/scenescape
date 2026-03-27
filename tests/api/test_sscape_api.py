@@ -273,21 +273,21 @@ def execute_step(step, step_number, total_steps):
           except Exception:
             body = {}
 
-        # Short-circuit on non-OK HTTP status or errors in response
-        status_code = getattr(response, 'status_code', None)
-        if status_code is None:
-          status_code = getattr(response, 'statusCode', None)
-        errors = getattr(response, 'errors', None)
-        if errors is None:
-          errors = body.get('error')
-        if errors is None:
-          errors = body.get('errors')
-        is_error_status = status_code is not None and not (200 <= int(status_code) < 300)
-        if is_error_status or errors is not None:
+        # Non-OK HTTP status
+        status = getattr(response, 'status_code', None) or getattr(response, 'statusCode', None)
+        if status is not None and status >= 400:
           return False, response, (
-              f"Poll aborted: server returned status {status_code}"
-              + (f" with errors: {errors}" if errors is not None else "")
+            f"Poll aborted: server returned HTTP {status}. "
+            f"Body: {json.dumps(body, indent=2) if isinstance(body, dict) else body}"
           )
+
+        # Error fields in the response body
+        if isinstance(body, dict):
+          errors = body.get("errors") or body.get("error")
+          if errors:
+            return False, response, (
+              f"Poll aborted: response contains errors: {errors}"
+            )
 
         # Check fail_if conditions first
         if fail_rules:
