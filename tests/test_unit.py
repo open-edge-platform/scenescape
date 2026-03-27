@@ -7,8 +7,8 @@
 unit test wrappers.
 
 Each entry maps to an existing Makefile target in tests/Makefile.sscape.
-Unit tests using `unit-recipe` run in a standalone container (no compose).
-Unit tests using `unit-docker-compose-recipe` require a compose stack.
+Standalone unit tests run locally from the venv.
+Compose-based unit tests require a compose stack for service dependencies.
 """
 
 import pytest
@@ -18,31 +18,26 @@ from utils.profiles import MARKERLESS
 
 
 # ---------------------------------------------------------------------------
-# Standalone unit tests (unit-recipe: no compose, just docker run)
+# Standalone unit tests (run locally from venv)
 # ---------------------------------------------------------------------------
 
 UNIT_TESTS = [
-  # manager-test image
-  UnitTestSpec(id="account_security_unit", test_folder="account-security", docker_image="manager-test"),
-  UnitTestSpec(id="cam_unit", test_folder="cam", docker_image="manager-test"),
-  UnitTestSpec(id="geometry_unit", test_folder="geometry", docker_image="manager-test"),
-  UnitTestSpec(id="geospatial_unit", test_folder="geospatial", docker_image="manager-test"),
-  UnitTestSpec(id="scenescape_unit", test_folder="scenescape", docker_image="manager-test"),
-  UnitTestSpec(id="schema_unit", test_folder="schema", docker_image="manager-test"),
-  UnitTestSpec(id="singleton_sensor_unit", test_folder="singleton_sensor", docker_image="manager-test"),
-  UnitTestSpec(id="timestamp_unit", test_folder="timestamp", docker_image="manager-test"),
-  UnitTestSpec(id="transform_unit", test_folder="transform", docker_image="manager-test"),
-  UnitTestSpec(id="views_unit", test_folder="views", docker_image="manager-test"),
-
-  # controller-test image
-  UnitTestSpec(id="mesh_util_unit", test_folder="mesh_util", docker_image="controller-test"),
-  UnitTestSpec(id="robot_vision_unit", test_folder="robot_vision", docker_image="controller-test"),
-  UnitTestSpec(id="scene_unit", test_folder="scene_pytest", docker_image="controller-test"),
-  UnitTestSpec(id="uuid_manager_unit", test_folder="uuid_manager", docker_image="controller-test"),
-  UnitTestSpec(id="vdms_adapter_unit", test_folder="vdms_adapter", docker_image="controller-test"),
-
-  # autocalibration-test image
-  UnitTestSpec(id="autocamcalib_unit", test_folder="autocamcalib", docker_image="autocalibration-test"),
+  UnitTestSpec(id="account_security_unit", test_folder="account-security"),
+  UnitTestSpec(id="cam_unit", test_folder="cam"),
+  UnitTestSpec(id="geometry_unit", test_folder="geometry"),
+  UnitTestSpec(id="geospatial_unit", test_folder="geospatial"),
+  UnitTestSpec(id="scenescape_unit", test_folder="scenescape"),
+  UnitTestSpec(id="schema_unit", test_folder="schema"),
+  UnitTestSpec(id="singleton_sensor_unit", test_folder="singleton_sensor"),
+  UnitTestSpec(id="timestamp_unit", test_folder="timestamp"),
+  UnitTestSpec(id="transform_unit", test_folder="transform"),
+  UnitTestSpec(id="views_unit", test_folder="views"),
+  UnitTestSpec(id="mesh_util_unit", test_folder="mesh_util"),
+  UnitTestSpec(id="robot_vision_unit", test_folder="robot_vision"),
+  UnitTestSpec(id="scene_unit", test_folder="scene_pytest"),
+  UnitTestSpec(id="uuid_manager_unit", test_folder="uuid_manager"),
+  UnitTestSpec(id="vdms_adapter_unit", test_folder="vdms_adapter"),
+  UnitTestSpec(id="autocamcalib_unit", test_folder="autocamcalib"),
 ]
 
 
@@ -59,13 +54,13 @@ def unit_spec(request):
   indirect=True,
 )
 def test_unit(run_unit, unit_spec):
-  """Run a standalone unit test inside a Docker container."""
+  """Run a standalone unit test locally from the venv."""
   rc = run_unit(unit_spec)
   assert rc == 0, f"Unit test {unit_spec.id} failed with exit code {rc}"
 
 
 # ---------------------------------------------------------------------------
-# Compose-based unit tests (unit-docker-compose-recipe)
+# Compose-based unit tests (require a compose stack)
 # ---------------------------------------------------------------------------
 
 COMPOSE_UNIT_TESTS = [
@@ -73,7 +68,6 @@ COMPOSE_UNIT_TESTS = [
     id="markerless_unit",
     profile=MARKERLESS,
     script="tests/sscape_tests/markerless/",
-    test_image="autocalibration-test",
     require_password=False,
     auth="",
   ),

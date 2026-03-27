@@ -7,9 +7,8 @@
 E2E functional test wrappers.
 
 Each entry maps to an existing Makefile target in tests/Makefile.functional.
-The test scripts themselves run unchanged inside Docker containers — only
-the orchestration (compose lifecycle, readiness, cleanup) is handled by
-pytest fixtures.
+The test scripts run locally from the venv — the orchestration (compose
+lifecycle, readiness, cleanup) is handled by pytest fixtures.
 """
 
 import os
@@ -166,7 +165,7 @@ FUNCTIONAL_TESTS = [
     profile=FULL_STACK,
     script="tests/functional/tc_child_scenes.py",
     auth="/run/secrets/controller.auth",
-    test_image="controller-test",
+
   ),
   FuncTestSpec(
     id="camera_deletion_api",
@@ -320,25 +319,25 @@ FUNCTIONAL_TESTS = [
     id="reid_performance_degradation",
     profile=REID,
     script="tests/functional/tc_reid_performance_degradation.py",
-    test_image="controller-test",
+
   ),
   FuncTestSpec(
     id="reid_unique_count",
     profile=REID,
     script="tests/functional/tc_reid_unique_count.py",
-    test_image="controller-test",
+
   ),
   FuncTestSpec(
     id="reid_data_flow",
     profile=REID_DATA_FLOW,
     script="tests/functional/tc_reid_data_flow.py",
-    test_image="controller-test",
+
   ),
   FuncTestSpec(
     id="reid_semantic_unique_count",
     profile=REID_SEMANTIC,
     script="tests/functional/tc_reid_semantic_unique_count.py",
-    test_image="controller-test",
+
   ),
 
   # --- BROKER_VDMS_DB ---
@@ -347,7 +346,7 @@ FUNCTIONAL_TESTS = [
     profile=BROKER_VDMS_DB,
     script="tests/functional/tc_vdms_similarity_search.py",
     auth="/run/secrets/controller.auth",
-    test_image="controller-test",
+
   ),
 
   # --- FULL_STACK_WITH_VIDEO_AND_RETAIL (full stack with video) ---
@@ -397,7 +396,7 @@ def test_func(scenescape_env, run_test, test_spec):
   """Run a functional test end-to-end.
 
   Each parametrized entry starts its own compose stack, runs the test
-  script inside a Docker container, and tears down on completion.
+  script locally from the venv, and tears down on completion.
   """
   rc = run_test(test_spec)
   assert rc == 0, f"Test {test_spec.id} failed with exit code {rc}"

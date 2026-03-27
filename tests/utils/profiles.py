@@ -6,8 +6,8 @@
 """
 Service profile definitions for end-to-end tests.
 
-Each profile encodes the Docker Compose file combination, container
-readiness checks, and default test image that a group of tests requires.
+Each profile encodes the Docker Compose file combination and container
+readiness checks that a group of tests requires.
 Derived from tests/Makefile.functional, tests/Makefile.sscape, and
 tests/Makefile.user_interface.
 """
@@ -31,7 +31,6 @@ class ServiceProfile:
   name: str
   compose_files: tuple[str, ...]
   wait_for: dict[str, WaitConfig] = field(default_factory=dict)
-  default_test_image: str = "manager-test"
 
 
 # Common wait configs reused across profiles
@@ -178,7 +177,7 @@ REID = ServiceProfile(
     "retail-video": WaitConfig(),
     "scene": _SCENE,
   },
-  default_test_image="controller-test",
+
 )
 
 REID_DATA_FLOW = ServiceProfile(
@@ -200,7 +199,7 @@ REID_DATA_FLOW = ServiceProfile(
     "web": _WEB,
     "scene": _SCENE,
   },
-  default_test_image="controller-test",
+
 )
 
 REID_SEMANTIC = ServiceProfile(
@@ -221,7 +220,7 @@ REID_SEMANTIC = ServiceProfile(
     "queuing-video": WaitConfig(),
     "scene": _SCENE,
   },
-  default_test_image="controller-test",
+
 )
 
 BROKER_AND_DB = ServiceProfile(
@@ -244,7 +243,7 @@ BROKER_VDMS_DB = ServiceProfile(
   wait_for={
     "pgserver": _PGSERVER,
   },
-  default_test_image="controller-test",
+
 )
 
 SCENE_NO_DB = ServiceProfile(
@@ -273,7 +272,7 @@ MARKERLESS = ServiceProfile(
     "web": _WEB,
     "autocalibration": _AUTOCALIBRATION,
   },
-  default_test_image="autocalibration-test",
+
 )
 
 # broker + pgserver + web (with readiness checks) — used by UI/selenium tests

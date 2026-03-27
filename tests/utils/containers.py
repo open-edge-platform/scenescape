@@ -15,7 +15,7 @@ import re
 
 from waiting import wait
 
-logger = logging.getLogger("e2e.containers")
+logger = logging.getLogger("test.containers")
 
 
 def container_is_ready(docker, project_name, service, log_pattern):

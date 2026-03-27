@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared utilities for E2E test orchestration."""
+"""Shared utilities for end-to-end test orchestration."""
 
 import logging
 import subprocess
 
-logger = logging.getLogger("e2e.subprocess")
+logger = logging.getLogger("test.runner")
 
 
 def stream_subprocess(cmd, check=True, **kwargs):

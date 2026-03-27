@@ -9,7 +9,8 @@ Pytest configuration for tests
 Contains two sets of fixtures:
   - ControllerMode (in-container): initializes the tracker controller mode
     for functional tests running inside Docker containers.
-  - Environmental (host): manages Docker Compose lifecycle for end-to-end test runs.
+  - Environmental (host): manages Docker Compose lifecycle and runs test
+    scripts locally from the venv.
 """
 
 import logging
@@ -48,7 +49,7 @@ try:
   import utils.log as _testlog
   from utils import stream_subprocess
   from utils.containers import collect_logs, scan_tracebacks, wait_for_services
-  from utils.runner import run_test_in_container, run_unit_test
+  from utils.runner import run_test_local, run_unit_test
   _ORCHESTRATION_AVAILABLE = True
 except ImportError:
   pass
@@ -105,7 +106,6 @@ class FuncTestSpec:
   auth: str = ""
   require_password: bool = True
   extra_args: list = None
-  test_image: str = ""
   exampledb: str = ""
   extra_env: dict = None
 
@@ -120,8 +120,6 @@ class UnitTestSpec:
   """Specification for a unit test (no compose stack)."""
   id: str
   test_folder: str
-  docker_image: str
-  pythonpath: str = "/home/scenescape/SceneScape/"
 
 @dataclass
 class ScenescapeEnv:
@@ -129,7 +127,6 @@ class ScenescapeEnv:
   docker: object  # DockerClient
   project_name: str
   network: str
-  test_image: str
   repo_root: str
   secrets_dir: str
   supass: str
@@ -164,6 +161,60 @@ def supass():
     ["openssl", "rand", "-base64", "12"], text=True,
   ).strip()
 
+# Hostnames that must resolve to 127.0.0.1 for TLS cert verification.
+_HOST_ALIASES = ["broker.scenescape.intel.com", "web.scenescape.intel.com"]
+_HOSTS_MARKER = "# scenescape-test-aliases"
+
+@pytest.fixture(scope="session", autouse=True)
+def loopback_hosts():
+  """Ensure Docker service hostnames resolve to 127.0.0.1 on the host.
+
+  The TLS certificates are issued with SANs for broker.scenescape.intel.com
+  and web.scenescape.intel.com.  When tests run from the host venv they reach
+  the services via exposed ports on localhost, so these names must point to
+  127.0.0.1.
+  """
+  if not _ORCHESTRATION_AVAILABLE:
+    yield
+    return
+
+  hosts_path = Path("/etc/hosts")
+  entry = f"127.0.0.1 {' '.join(_HOST_ALIASES)}  {_HOSTS_MARKER}\n"
+
+  try:
+    content = hosts_path.read_text()
+  except OSError:
+    logger.warning("/etc/hosts not readable; skipping alias setup")
+    yield
+    return
+
+  if all(alias in content for alias in _HOST_ALIASES):
+    logger.info("Host aliases already present in /etc/hosts")
+    yield
+    return
+
+  try:
+    with hosts_path.open("a") as fh:
+      fh.write(entry)
+    logger.info("Added host aliases to /etc/hosts")
+  except OSError:
+    logger.warning(
+      "Cannot write /etc/hosts. Add manually:\n  %s", entry.strip()
+    )
+    yield
+    return
+
+  yield
+
+  # Cleanup: remove the line we added.
+  try:
+    lines = hosts_path.read_text().splitlines(keepends=True)
+    with hosts_path.open("w") as fh:
+      fh.writelines(l for l in lines if _HOSTS_MARKER not in l)
+    logger.info("Removed host aliases from /etc/hosts")
+  except OSError:
+    logger.warning("Could not clean /etc/hosts; remove %s manually", _HOSTS_MARKER)
+
 # ---------------------------------------------------------------------------
 # end-to-end function-scoped fixtures
 # ---------------------------------------------------------------------------
@@ -182,15 +233,12 @@ def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
     pytest.skip("scenescape_env requires indirect parametrize with a FuncTestSpec")
 
   profile = spec.profile
-  image_suffix = spec.test_image or profile.default_test_image
-  image_version = os.environ.get("IMAGE_VERSION", "latest")
-  test_image = f"scenescape-{image_suffix}:{image_version}"
-  project_name = f"sst-{uuid.uuid4().hex[:8]}"
+  project_name = f"test-{uuid.uuid4().hex[:8]}"
   exampledb = spec.exampledb or "tests/testdb.tar.bz2"
+  image_version = os.environ.get("IMAGE_VERSION", "latest")
 
   os.environ["SECRETSDIR"] = secrets_dir
 
-  # Uses original compose files directly. Only the runner container uses test_image.
   compose_file_paths = [os.path.join(repo_root, cf) for cf in profile.compose_files]
 
   controller_auth_path = os.path.join(secrets_dir, "controller.auth")
@@ -233,7 +281,7 @@ def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
   try:
     logger.info("=" * 60)
     logger.info("Starting test environment: %s", project_name)
-    logger.info("Profile: %s | Image: %s", profile.name, test_image)
+    logger.info("Profile: %s", profile.name)
     logger.info("=" * 60)
 
     skip_init = request.node.get_closest_marker("skip_init")
@@ -255,7 +303,6 @@ def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
       docker=docker,
       project_name=project_name,
       network=network,
-      test_image=test_image,
       repo_root=repo_root,
       secrets_dir=secrets_dir,
       supass=supass,
@@ -300,22 +347,26 @@ def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
 
 @pytest.fixture(scope="function")
 def run_test(request, scenescape_env, supass):
-  """Return a callable that runs a test script inside the compose network."""
+  """Return a callable that runs a test script locally from the venv."""
   env = scenescape_env
 
   def _run(spec):
-    cmd = ["pytest", "-s", spec.script]
-    if spec.require_password:
-      cmd.append(f"--password={supass}")
+    # Translate container paths (/run/secrets/...) to host paths.
     if spec.auth:
-      cmd.append(f"--auth={spec.auth}")
+      auth = spec.auth.replace("/run/secrets/", f"{env.secrets_dir}/")
+    else:
+      auth = f"{env.secrets_dir}/controller.auth"
+    rootcert = f"{env.secrets_dir}/certs/scenescape-ca.pem"
+
+    cmd = [sys.executable, "-m", "pytest", "-s", spec.script]
+    if spec.require_password:
+      cmd.extend([f"--user=admin", f"--password={supass}"])
+    cmd.extend([f"--auth={auth}", f"--rootcert={rootcert}"])
     cmd.extend(spec.extra_args)
-    return run_test_in_container(
-      image=env.test_image,
+    return run_test_local(
       command=cmd,
       repo_root=env.repo_root,
-      project_name=env.project_name,
-      network=env.network,
+      secrets_dir=env.secrets_dir,
       extra_env=dict(spec.extra_env) if spec.extra_env else {},
     )
 
@@ -323,17 +374,14 @@ def run_test(request, scenescape_env, supass):
 
 @pytest.fixture(scope="function")
 def run_unit(repo_root):
-  """Return a callable that runs a standalone unit test in a container."""
-  image_version = os.environ.get("IMAGE_VERSION", "latest")
+  """Return a callable that runs a standalone unit test locally."""
 
   def _run(spec):
-    image = f"scenescape-{spec.docker_image}:{image_version}"
     cmd = [
-      "sh", "-c",
-      f"export PYTHONPATH={spec.pythonpath} && "
-      f"pytest -s tests/sscape_tests/{spec.test_folder}/",
+      sys.executable, "-m", "pytest", "-s",
+      f"tests/sscape_tests/{spec.test_folder}/",
     ]
-    return run_unit_test(image=image, command=cmd, repo_root=repo_root)
+    return run_unit_test(command=cmd, repo_root=repo_root)
 
   return _run
 

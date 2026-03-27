@@ -7,13 +7,13 @@
 Logging configuration for end-to-end test orchestration.
 
 All test orchestration code should obtain loggers via get_logger() so
-that their records flow through the single "e2e" hierarchy and are
+that their records flow through the single "test" hierarchy and are
 handled by exactly one console handler and one per-test file handler.
 
 Typical usage in fixtures / utilities::
 
     from utils.log import get_logger
-    logger = get_logger(__name__)   # e.g. "e2e.containers"
+    logger = get_logger(__name__)   # e.g. "test.containers"
 
 In conftest pytest_runtest_setup hook::
 
@@ -37,7 +37,7 @@ LVL_INFO = logging.INFO
 LVL_DEBUG = logging.DEBUG
 
 # Root logger name for all end-to-end orchestration output
-_ROOT = "e2e"
+_ROOT = "test"
 
 _console_handler: logging.Handler | None = None
 _file_handler: logging.Handler | None = None
@@ -49,14 +49,14 @@ logging.getLogger(_ROOT).propagate = False
 
 
 def get_logger(name: str | None = None) -> logging.Logger:
-  """Return a logger in the 'e2e.*' hierarchy.
+  """Return a logger in the 'test.*' hierarchy.
 
   Args:
-    name: Dot-separated suffix appended to 'e2e.', e.g. "containers".
-          Pass None to get the root 'e2e' logger.
+    name: Dot-separated suffix appended to 'test.', e.g. "containers".
+          Pass None to get the root 'test' logger.
   """
   if name:
-    # Strip leading package path so "tests.utils.containers" → "e2e.containers"
+    # Strip leading package path so "tests.utils.containers" → "test.containers"
     leaf = name.rsplit(".", 1)[-1]
     return logging.getLogger(f"{_ROOT}.{leaf}")
   return logging.getLogger(_ROOT)

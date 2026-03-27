@@ -7,11 +7,8 @@
 UI / Selenium test wrappers.
 
 Each entry maps to an existing Makefile target in tests/Makefile.user_interface.
-The test scripts run unchanged inside Docker containers — only orchestration
+The test scripts run locally from the venv — orchestration
 (compose lifecycle, readiness, cleanup) is handled by pytest fixtures.
-
-Most tests here originally used selenium-recipe (Selenium + coverage run).
-In the pytest model they run as regular pytest sessions via run_test_in_container.
 """
 
 import pytest
@@ -277,7 +274,7 @@ def test_ui(scenescape_env, run_test, ui_spec):
   """Run a UI/Selenium test end-to-end.
 
   Each parametrized entry starts its own compose stack, runs the test
-  script inside a Docker container, and tears down on completion.
+  script locally from the venv, and tears down on completion.
   """
   rc = run_test(ui_spec)
   assert rc == 0, f"UI test {ui_spec.id} failed with exit code {rc}"

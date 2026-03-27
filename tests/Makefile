@@ -7,7 +7,6 @@ IMAGE=scenescape
 BASE_IMAGE := $(IMAGE)-manager-test
 VERSION := $(shell cat ../version.txt)
 
-TEST_DATA=test_data
 TESTS_DIRECTORY=tests
 COVERAGE_CMD=coverage run
 SELENIUM_TEST_COVERAGE_ARGS=-m -a --omit */site-packages/*,*/dist-packages/*
@@ -54,7 +53,6 @@ DOCKER_RUN_CONTROLLER = docker run $(_DOCKER_FLAGS) -u $(_UID):$(_GID) $(_DOCKER
 # ---------------------------------------------------------------------------
 define pytest-recipe =
 	$(eval TEST_ID := $1)
-	$(eval LOGFILE := $(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
 	@set -e \
 	  ; echo "RUNNING TEST $@" \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) reports/test_reports \
@@ -260,7 +258,6 @@ include Makefile.sscape Makefile.functional Makefile.perf \
 
 # Recipes below must be in alphabetical order
 malformed-json:
-	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
@@ -269,7 +266,6 @@ malformed-json:
 	  ; echo END TEST $@
 
 build-time: # NEX-T12520
-	$(eval LOGFILE=$(TEST_DATA)/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
 		; echo RUNNING TEST $@ \
 		; cd $(CURDIR)/.. \
@@ -284,7 +280,6 @@ build-time: # NEX-T12520
 
 system-stability: setup-pytest # NEX-T10411
 	$(eval HOURS ?= 24)
-	$(eval LOGFILE := $(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
 	@set -e \
 	  ; echo "RUNNING TEST $@" \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) reports/test_reports \
@@ -297,7 +292,6 @@ system-stability: setup-pytest # NEX-T10411
 	  ; echo "END TEST $@"
 
 python-indent-check: # NEX-T10448
-	$(eval LOGFILE=$(TEST_DATA)/code_check/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
