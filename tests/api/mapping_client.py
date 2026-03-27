@@ -90,7 +90,6 @@ class MappingClient(RESTClient):
       data_args = self.prepareDataArgs(data, files)
       reply = self.session.post(full_path, **data_args, files=files,
                                 headers=headers, verify=self.verify_ssl)
-      # Reconstruction endpoint returns either 200 (sync) or 202 (async)
       return self.decodeReply(reply, [HTTPStatus.OK, HTTPStatus.ACCEPTED])
     finally:
       for fh in handles:
