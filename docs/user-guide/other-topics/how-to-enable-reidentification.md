@@ -22,6 +22,8 @@ Before you begin, ensure the following:
 
 ## Steps to Enable Reidentification (ReID) for Out of Box Experience
 
+> **Note:** The VDMS service is configured under the `vdms` Docker Compose profile. You must include `--profile vdms` (or set `COMPOSE_PROFILES` accordingly) when starting services. See [Docker Compose Profiles](../get-started.md#docker-compose-profiles) for more information.
+
 1. **Enable VDMS storage by uncomment the following section in [docker-compose-dl-streamer-example.yml](/sample_data/docker-compose-dl-streamer-example.yml)**
 
 ```yaml
@@ -69,10 +71,10 @@ This reidentification-specific configuration uses a vision pipeline that include
 ```
 
 4. **Start the System**
-   Launch the updated stack:
+   Launch the updated stack with the `vdms` profile to enable the visual database (see [Docker Compose Profiles](../get-started.md#docker-compose-profiles) for details on available profiles):
 
    ```bash
-   docker compose up
+   docker compose --profile controller --profile vdms up
    ```
 
 **Expected Result**: Intel® SceneScape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
@@ -110,10 +112,10 @@ retail-config:
   file: ./dlstreamer-pipeline-server/retail-config.json
 ```
 
-4. **Restart the System**:
+4. **Restart the System** (the `vdms` profile is no longer needed since ReID is disabled):
 
    ```bash
-   docker compose up --build
+   docker compose --profile controller up --build
    ```
 
 **Expected Result**: Intel® SceneScape runs without ReID and no visual feature matching is performed.
@@ -152,12 +154,12 @@ When an object is first detected, it is assigned a UUID and no similarity score.
 | `DEFAULT_MINIMUM_FEATURE_COUNT`  | Minimum features needed before querying DB.                                       | Integer (e.g., 5–20)        |
 | `DEFAULT_MAX_FEATURE_SLICE_SIZE` | Proportion of features stored to improve DB performance.                          | Float (e.g., 0.1–1.0)       |
 
-To apply changes:
+To apply changes (include `--profile vdms` if ReID is enabled; see [Docker Compose Profiles](../get-started.md#docker-compose-profiles)):
 
 ```bash
-docker compose down
+docker compose --profile controller --profile vdms down
 make -C docker
-docker compose up --build
+docker compose --profile controller --profile vdms up --build
 ```
 
 ---
