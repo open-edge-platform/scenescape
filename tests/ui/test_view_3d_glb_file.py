@@ -82,7 +82,7 @@ def test_3D_file_upload_visibility(params, record_xml_attribute):
   try:
     base_screenshot = get_baseline_screenshot(params)
     if DEBUG:
-      cv2.imwrite("tc_view_3d_glb_screenshot_base.png", base_screenshot)
+      cv2.imwrite("test_view_3d_glb_screenshot_base.png", base_screenshot)
 
     # glb test
     success_1, success_2 = file_visibility_test(params, "box.glb", base_screenshot, DEBUG)

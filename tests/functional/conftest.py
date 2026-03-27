@@ -47,7 +47,7 @@ def params(request):
 
 @pytest.fixture
 def obj_location(request):
-  """! Moving object locations used in tc_roi_mqtt.py.
+  """! Moving object locations used in test_roi_mqtt.py.
   @return   location    Object location.
   """
   step = 0.02
@@ -63,7 +63,7 @@ def obj_location(request):
 
 @pytest.fixture
 def objData():
-  """! Moving object data used in tc_roi_mqtt.py
+  """! Moving object data used in test_roi_mqtt.py
   @return   location    Object data.
   """
   jdata = {

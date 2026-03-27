@@ -21,7 +21,7 @@ def run_test_local(command, repo_root, secrets_dir, extra_env=None):
 
   Args:
     command: List of strings for the test command
-        (e.g. ["pytest", "-s", "tests/functional/tc_roi_mqtt.py", ...]).
+        (e.g. ["pytest", "-s", "tests/functional/test_roi_mqtt.py", ...]).
     repo_root: Absolute path to the repository root.
     secrets_dir: Absolute path to the secrets directory.
     extra_env: Optional dict of additional environment variables.

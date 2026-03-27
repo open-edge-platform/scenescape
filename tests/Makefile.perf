@@ -31,12 +31,12 @@ geometry-conformance: \
 # Recipes below must be in alphabetical order
 
 inference-performance: # NEX-T10412
-	$(call perf-recipe, tc_inference_performance.sh)
+	$(call perf-recipe, test_inference_performance.sh)
 
 scene-performance-full: # NEX-T10488
 	# 2 Cameras at 10fps, 2 models
 	$(eval TARGET_RATE ?= 40)
-	$(call perf-recipe, tc_scene_performance_full --target $(TARGET_RATE))
+	$(call perf-recipe, test_scene_performance_full --target $(TARGET_RATE))
 
 # Compare C++ geometry implementation
 # vs original python implementation.
@@ -47,7 +47,7 @@ point-conformance:
           ; echo RUNNING TEST $@ \
           ; cd .. \
           ; mkdir -p $(LOGDIR) \
-          ; $(DOCKER_RUN_MANAGER) python3 $(PERF_TESTS_PATH)/tc_geometry_point.py | tee -ia $(LOGFILE) \
+          ; $(DOCKER_RUN_MANAGER) python3 $(PERF_TESTS_PATH)/test_geometry_point.py | tee -ia $(LOGFILE) \
           ; echo END TEST $@
 
 line-conformance:
@@ -57,5 +57,5 @@ line-conformance:
           ; echo RUNNING TEST $@ \
           ; cd .. \
           ; mkdir -p $(LOGDIR) \
-          ; $(DOCKER_RUN_MANAGER) python3 $(PERF_TESTS_PATH)/tc_geometry_line.py | tee -ia $(LOGFILE) \
+          ; $(DOCKER_RUN_MANAGER) python3 $(PERF_TESTS_PATH)/test_geometry_line.py | tee -ia $(LOGFILE) \
           ; echo END TEST $@

@@ -9,7 +9,7 @@ from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 
 def test_system_persist_main(params, record_xml_attribute):
-  """! Checks that the scene constructed in tc_persistence_on_page_navigate.py is
+  """! Checks that the scene constructed in test_persistence_on_page_navigate.py is
   still in the scenescape database.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.

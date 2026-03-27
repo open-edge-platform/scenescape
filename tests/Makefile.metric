@@ -22,16 +22,16 @@ define metric-recipe =
 endef
 
 distance-msoce: # NEX-T10524
-	$(call metric-recipe, tests/system/metric/tc_distance_thresh.py, distance-threshold)
+	$(call metric-recipe, tests/system/metric/test_distance_thresh.py, distance-threshold)
 
 idc-error-metric: # NEX-T10463
-	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, idc-metric, idc-error, 0.05, 30)
-	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, idc-metric, idc-error, 0.05, 10)
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, idc-metric, idc-error, 0.05, 30)
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, idc-metric, idc-error, 0.05, 10)
 
 msoce-metric: # NEX-T10463
-	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, msoce-metric, msoce, 0.05, 30)
-	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, msoce-metric, msoce, 0.05, 10)
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, msoce-metric, msoce, 0.05, 30)
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, msoce-metric, msoce, 0.05, 10)
 
 velocity-metric: # NEX-T10463
-	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, velocity-metric, velocity, 0.15, 30)
-	$(call metric-recipe, tests/system/metric/tc_tracker_metric.py, velocity-metric, velocity, 0.15, 10)
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, velocity-metric, velocity, 0.15, 30)
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, velocity-metric, velocity, 0.15, 10)

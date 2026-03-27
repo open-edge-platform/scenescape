@@ -3,8 +3,8 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# Import the shared test infrastructure from tc_reid_unique_count
-from tests.functional.tc_reid_unique_count import run_test
+# Import the shared test infrastructure from test_reid_unique_count
+from tests.functional.test_reid_unique_count import run_test
 from scene_common import log
 
 def test_reid_semantic_unique_count(params, record_xml_attribute):
