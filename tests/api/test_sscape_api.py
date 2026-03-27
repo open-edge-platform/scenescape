@@ -257,6 +257,15 @@ def execute_step(step, step_number, total_steps):
           except Exception:
             body = {}
 
+        # Short-circuit on non-OK HTTP status or errors in response
+        status_code = getattr(response, 'status_code', None) or getattr(response, 'statusCode', None)
+        errors = getattr(response, 'errors', None) or body.get('error') or body.get('errors')
+        if (status_code is not None and not (200 <= int(status_code) < 300)) or errors:
+          return False, response, (
+              f"Poll aborted: server returned status {status_code}"
+              + (f" with errors: {errors}" if errors else "")
+          )
+
         # Check fail_if conditions first
         if fail_rules:
           _, fail_errors = validate_response(body, fail_rules)
