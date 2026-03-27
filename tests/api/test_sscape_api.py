@@ -3,11 +3,17 @@
 
 import logging
 import os
+import sys
 import json
 import glob
 import time
 import inspect
 import pytest
+
+TESTS_API_DIR = os.path.dirname(__file__)
+if TESTS_API_DIR not in sys.path:
+  sys.path.insert(0, TESTS_API_DIR)
+
 from scene_common.rest_client import RESTClient
 from mapping_client import MappingClient
 
@@ -103,6 +109,16 @@ def substitute_variables(obj):
     return saved_vars.get(var_name, obj)
   return obj
 
+def resolve_file_paths(data):
+  """Resolve file paths in request data relative to the tests/api directory."""
+  if isinstance(data, dict):
+    return {k: resolve_file_paths(v) for k, v in data.items()}
+  elif isinstance(data, list):
+    return [resolve_file_paths(item) for item in data]
+  elif isinstance(data, str) and ("test_media/" in data):
+    resolved = os.path.join(TESTS_API_DIR, data)
+    return resolved
+  return data
 
 def build_call_kwargs(request_data):
   """
@@ -125,7 +141,7 @@ def build_call_kwargs(request_data):
         logger.warning(f"    'path_params' should be a dict, got {type(value).__name__}; skipping")
     elif key == "body":
       # Request body → "data" (RESTClient convention)
-      kwargs["data"] = value
+      kwargs["data"] = resolve_file_paths(value)
     else:
       # filter, uid, data, or any legacy flat key – pass through as-is
       kwargs[key] = value
