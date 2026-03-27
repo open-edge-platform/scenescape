@@ -21,11 +21,48 @@ def get_container_name(pattern, log):
   return None
 
 def run_find(container, query):
-  cmd = ["docker", "exec", "-i", container,
-          "-t", "-A", "-c", query]
+  cmd = ["docker", "exec", container,
+          "bash", "-c", query]
 
   result = subprocess.run(cmd, capture_output=True, text=True)
-  return result.stdout.strip()
+  return result.stdout
+
+def parse_find_output(output):
+  rows = []
+
+  for line in output.splitlines():
+    line = line.strip()
+    if not line:
+      continue
+    parts = line.split()
+    permissions = parts[0]
+    path = parts[-1]
+    rows.append((permissions, path))
+  return rows
+
+def is_relevant_file(path):
+  return (
+    path.endswith(".key") or
+    path.endswith(".pem") or
+    path.endswith(".auth") or
+    path.endswith("secrets.py")
+  )
+
+def has_strict_read_only_permissions(permissions: str) -> bool:
+  return (
+    permissions[4:7] == "r--" and
+    permissions[7:10] == "r--"
+  )
+
+def validate_file_permissions(file_info):
+  for permissions, path in file_info:
+    if not is_relevant_file(path):
+      continue
+    if not has_strict_read_only_permissions(permissions):
+      log.error(f"File {path} has incorrect permissions: {permissions}")
+      return False
+    log.info(f"File {path} has correct permissions: {permissions}")
+  return True
 
 def test_secrets_file_permissions():
   """ Verifies that all secrets files have expected levels of permission.
@@ -39,10 +76,12 @@ def test_secrets_file_permissions():
   exit_code = 1
   log.info(f"Test: {test_name}")
   try:
-    web_container = get_container_name("web")
-    cmd = ["find", "run/secrets/", "-type", "f", "|", "xargs", "ls", "-la"]
+    web_container = get_container_name("web", log)
+    cmd = "find run/secrets -type f -exec ls -la {} \\;"
     response = run_find(web_container, cmd)
-    print(response)
+    file_info = parse_find_output(response)
+    relevant_files = [info for info in file_info if is_relevant_file(info[1])]
+    assert validate_file_permissions(relevant_files)
     exit_code = 0
   finally:
     record_test_result(test_name, exit_code)
