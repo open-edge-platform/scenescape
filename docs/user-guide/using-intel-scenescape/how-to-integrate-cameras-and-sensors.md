@@ -194,33 +194,40 @@ It is also important to keep in mind the orientation of a camera with no transla
 
 ## Detection Metadata
 
-Other metadata associated with each detection can also be tagged on the object and will be passed on to the scene update for that detection. For example, if a vision-based hat detector is used then a "hat" object could be added:
+Other metadata associated with each detection can also be tagged on the object and will be passed on to the scene update for that detection. Semantic attributes are placed inside the `metadata` property on each detection object. Each attribute must include a `label` (the detected value) and a `model_name` (the source model identifier), with an optional `confidence` score.
+
+For example, if a vision-based hat detector is used then a `"hat"` attribute could be added to the `metadata` of each person detection:
 
 ```json
 {
   "timestamp": "2022-09-19T21:33:09.832Z",
   "id": "camera1",
-  "objects": [
-    {
-      "id": 1,
-      "category": "person",
-      "confidence": 0.9958761930465698,
-      "bounding_box": {
-        "x": 0.0017505188455242745,
-        "y": -0.4183740040803016,
-        "width": 0.16804980917033036,
-        "height": 0.40962140985268025
-      },
-      "hat": {
-        "confidence": 0.9123,
-        "value": true
+  "objects": {
+    "person": [
+      {
+        "id": 1,
+        "category": "person",
+        "confidence": 0.9958761930465698,
+        "bounding_box": {
+          "x": 0.0017505188455242745,
+          "y": -0.4183740040803016,
+          "width": 0.16804980917033036,
+          "height": 0.40962140985268025
+        },
+        "metadata": {
+          "hat": {
+            "label": true,
+            "model_name": "hat-detector",
+            "confidence": 0.9123
+          }
+        }
       }
-    }
-  ]
+    ]
+  }
 }
 ```
 
-Metadata for camera-based detections can be validated against the [SceneScape metadata schema](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/controller/src/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
+Metadata for camera-based detections can be validated against the [SceneScape metadata schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
 
 ## Camera Calibration Methods
 

@@ -40,7 +40,7 @@ Figure 1: Architecture Diagram
 
 ### **Scene Controller**
 
-Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](./microservices/controller/controller.md).
+Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](./microservices/controller/controller.md). For details on the controller input message format, see [Controller Input Message Format](./microservices/controller/controller.md#controller-input-message-format).
 
 ### **Deep Learning Streamer Pipeline Server**
 

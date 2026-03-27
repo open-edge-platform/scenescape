@@ -42,21 +42,29 @@ channels:
             id:
               type: string
             objects:
-              type: array
-              items:
-                type: object
-            rate:
-              type: string
-            intrinsics:
-              type: array
-              items:
+              type: object
+              additionalProperties:
                 type: array
+                items:
+                  type: object
+            rate:
+              type: number
+              minimum: 0
+            intrinsics:
+              type: object
+              properties:
+                fx:
+                  type: number
+                fy:
+                  type: number
+                cx:
+                  type: number
+                cy:
+                  type: number
             distortion:
               type: array
               items:
-                type: array
-            frame_rate:
-              type: string
+                type: number
 
   scenescape/regulated/scene/{scene_id}:
     parameters:

@@ -3,5 +3,5 @@
 **Version: 1.3.0**
 
 ```{eval-rst}
-.. swagger-plugin:: ./_assets/scene-controller-api.yaml
+.. asyncapi:: ./_assets/scene-controller-api.yaml
 ```
