@@ -134,15 +134,15 @@ Intel® SceneScape uses [Docker Compose profiles](https://docs.docker.com/compos
 
 The following profiles are available:
 
-| Profile              | Description                                                              |
-| -------------------- | ------------------------------------------------------------------------ |
-| `controller`         | Scene Controller in default mode (analytics + tracking). Used by `make demo`. |
-| `analytics`          | Scene Controller in analytics-only mode (without tracking).              |
-| `experimental`       | Enables mapping and cluster-analytics services.                          |
-| `mapping`            | Enables mapping service only.                                            |
-| `cluster-analytics`  | Enables cluster-analytics service only.                                  |
-| `vdms`               | Enables the VDMS visual database service (used for re-identification).   |
-| `tracker`            | Enables the tracker service.                                             |
+| Profile             | Description                                                                   |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `controller`        | Scene Controller in default mode (analytics + tracking). Used by `make demo`. |
+| `analytics`         | Scene Controller in analytics-only mode (without tracking).                   |
+| `experimental`      | Enables mapping and cluster-analytics services.                               |
+| `mapping`           | Enables mapping service only.                                                 |
+| `cluster-analytics` | Enables cluster-analytics service only.                                       |
+| `vdms`              | Enables the VDMS visual database service (used for re-identification).        |
+| `tracker`           | Enables the tracker service.                                                  |
 
 Profiles can be specified on the command line with `--profile`:
 
