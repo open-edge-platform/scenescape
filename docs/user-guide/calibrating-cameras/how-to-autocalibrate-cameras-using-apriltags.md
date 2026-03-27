@@ -117,7 +117,7 @@ autocalibration:
   restart: on-failure
 ```
 
-6. Restart Intel® SceneScape:
+6. Restart Intel® SceneScape (see [Docker Compose Profiles](../get-started.md#docker-compose-profiles) for details on choosing profiles):
 
 ```bash
 docker compose --profile controller down
