@@ -571,6 +571,15 @@ class SceneSerializer(NonNullSerializer):
     if attempted:
       raise serializers.ValidationError({field: ["This field is read-only."] for field in attempted})
 
+    if attrs.get('output_lla') is True:
+      incoming_map_corners = attrs.get('map_corners_lla', None)
+      existing_map_corners = getattr(self.instance, 'map_corners_lla', None)
+
+      if incoming_map_corners is None and existing_map_corners is None:
+        raise serializers.ValidationError({
+          'map_corners_lla': ['This field must be set when enabling output_lla.']
+        })
+
     return super().validate(attrs)
 
   def validate_name(self, value):
@@ -694,6 +703,8 @@ class SceneSerializer(NonNullSerializer):
     map_path = validated_data.get('map', None)
     use_tracker = validated_data.get('use_tracker', True)
     trs_matrix =  self.initial_data.get('trs_matrix', None)
+    request_keys = set(self.initial_data.keys())
+    send_update_command = not (is_update and request_keys == {"trs_matrix"})
 
     self.handleMeshTransform(self.initial_data, validated_data)
     child_data = validated_data.pop('parent', None)
@@ -716,8 +727,10 @@ class SceneSerializer(NonNullSerializer):
       instance.scenescapeScene.map_corners_lla = map_corners_lla
     if use_tracker:
       instance.scenescapeScene.use_tracker = use_tracker
-    if trs_matrix:
-      Scene.objects.filter(pk=self.pk).update(trs_matrix=trs_matrix)
+
+    if trs_matrix is not None:
+      Scene.objects.filter(pk=instance.pk).update(trs_matrix=trs_matrix)
+      instance.trs_matrix = trs_matrix
 
     if map_path:
       map_path = '/media/' + map_path.name
@@ -747,7 +760,7 @@ class SceneSerializer(NonNullSerializer):
     if is_update:
       for key, value in validated_data.items():
         setattr(instance, key, value)
-      instance.save()
+      instance.save(send_update_command=send_update_command)
     return instance
 
   def create(self, validated_data):

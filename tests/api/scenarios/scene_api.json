@@ -160,7 +160,7 @@
         "api": "scene",
         "method": "updateScene",
         "request": {
-          "UID": "${SCENE_UID}",
+          "uid": "${SCENE_UID}",
           "body": {
             "name": "Scene1_Updated",
             "use_tracker": false,
@@ -176,7 +176,7 @@
         "api": "scene",
         "method": "getScene",
         "request": {
-          "UID": "${SCENE_UID}"
+          "uid": "${SCENE_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -219,7 +219,7 @@
         "api": "scene",
         "method": "updateScene",
         "request": {
-          "UID": "${SCENE_UID}",
+          "uid": "${SCENE_UID}",
           "body": {
             "name": "Scene1_Updated_Full",
             "use_tracker": true,
@@ -238,7 +238,7 @@
         "api": "scene",
         "method": "getScene",
         "request": {
-          "UID": "${SCENE_UID}"
+          "uid": "${SCENE_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -281,7 +281,7 @@
         "api": "scene",
         "method": "updateScene",
         "request": {
-          "UID": "${SCENE_UID}",
+          "uid": "${SCENE_UID}",
           "body": {}
         },
         "expected_status": {
@@ -293,7 +293,7 @@
         "api": "scene",
         "method": "getScene",
         "request": {
-          "UID": "${SCENE_UID}"
+          "uid": "${SCENE_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -312,7 +312,7 @@
         "api": "scene",
         "method": "updateScene",
         "request": {
-          "UID": "${SCENE_UID}",
+          "uid": "${SCENE_UID}",
           "body": {
             "name": "Scene_Update_MeshTranslation_Invalid",
             "use_tracker": true,
@@ -329,7 +329,7 @@
         "api": "scene",
         "method": "getScene",
         "request": {
-          "UID": "${SCENE_UID}"
+          "uid": "${SCENE_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -348,7 +348,7 @@
         "api": "scene",
         "method": "updateScene",
         "request": {
-          "UID": "${SCENE_UID}",
+          "uid": "${SCENE_UID}",
           "body": {
             "name": "Scene_Update_MeshRotation_Invalid",
             "use_tracker": true,
@@ -365,7 +365,7 @@
         "api": "scene",
         "method": "getScene",
         "request": {
-          "UID": "${SCENE_UID}"
+          "uid": "${SCENE_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -384,7 +384,7 @@
         "api": "scene",
         "method": "updateScene",
         "request": {
-          "UID": "${SCENE_UID}",
+          "uid": "${SCENE_UID}",
           "body": {
             "name": "Scene_Update_MeshScale_Invalid",
             "use_tracker": true,
@@ -401,7 +401,7 @@
         "api": "scene",
         "method": "getScene",
         "request": {
-          "UID": "${SCENE_UID}"
+          "uid": "${SCENE_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -420,7 +420,7 @@
         "api": "scene",
         "method": "updateScene",
         "request": {
-          "UID": "${SCENE_UID}",
+          "uid": "${SCENE_UID}",
           "body": {
             "name": "Scene_Update_TrackerConfig_Invalid",
             "use_tracker": true,
@@ -437,7 +437,7 @@
         "api": "scene",
         "method": "getScene",
         "request": {
-          "UID": "${SCENE_UID}"
+          "uid": "${SCENE_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -456,7 +456,7 @@
         "api": "scene",
         "method": "updateScene",
         "request": {
-          "UID": "${SCENE_UID}",
+          "uid": "${SCENE_UID}",
           "body": {
             "name": "Scene_Invalid_UID",
             "use_tracker": true,
@@ -471,14 +471,14 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/16: Get scene by UID",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/16: Get scene by uid",
     "test_steps": [
       {
         "step_name": "Get Scene",
         "api": "scene",
         "method": "getScene",
         "request": {
-          "UID": "${SCENE_UID}"
+          "uid": "${SCENE_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -521,7 +521,7 @@
         "api": "scene",
         "method": "getScene",
         "request": {
-          "UID": "123"
+          "uid": "123"
         },
         "expected_status": {
           "status_code": 404
@@ -800,14 +800,14 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/20: Delete scene by UID",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/20: Delete scene by uid",
     "test_steps": [
       {
         "step_name": "Delete Scene",
         "api": "scene",
         "method": "deleteScene",
         "request": {
-          "UID": "${SCENE_UID}"
+          "uid": "${SCENE_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -818,7 +818,7 @@
         "api": "scene",
         "method": "getScene",
         "request": {
-          "UID": "${SCENE_UID}"
+          "uid": "${SCENE_UID}"
         },
         "expected_status": {
           "status_code": 404
@@ -834,7 +834,7 @@
         "api": "scene",
         "method": "deleteScene",
         "request": {
-          "UID": "123"
+          "uid": "123"
         },
         "expected_status": {
           "status_code": 404
