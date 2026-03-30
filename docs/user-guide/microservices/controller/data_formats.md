@@ -7,14 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Message Formats Overview
 
-| Message Format | Direction | MQTT Topic |
-|----------------|-----------|------------|
-| [Camera Input Message Format](#camera-input-message-format) | Subscribe | `scenescape/data/camera/{camera_id}` |
-| [Sensor Input Message Format](#sensor-input-message-format) | Subscribe | `scenescape/data/sensor/{sensor_id}` |
-| [Data Scene Output Message Format](#data-scene-output-message-format) | Publish | `scenescape/data/scene/{scene_id}/{thing_type}` |
-| [Regulated Scene Output Message Format](#regulated-scene-output-message-format) | Publish | `scenescape/regulated/scene/{scene_id}` |
-| [Region Event Output Message Format](#region-event-output-message-format) | Publish | `scenescape/event/region/{scene_id}/{region_id}/{event_type}` |
-| [Tripwire Event Output Message Format](#tripwire-event-output-message-format) | Publish | `scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}` |
+| Message Format                                                                  | Direction | MQTT Topic                                                        |
+| ------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------- |
+| [Camera Input Message Format](#camera-input-message-format)                     | Subscribe | `scenescape/data/camera/{camera_id}`                              |
+| [Sensor Input Message Format](#sensor-input-message-format)                     | Subscribe | `scenescape/data/sensor/{sensor_id}`                              |
+| [Data Scene Output Message Format](#data-scene-output-message-format)           | Publish   | `scenescape/data/scene/{scene_id}/{thing_type}`                   |
+| [Regulated Scene Output Message Format](#regulated-scene-output-message-format) | Publish   | `scenescape/regulated/scene/{scene_id}`                           |
+| [Region Event Output Message Format](#region-event-output-message-format)       | Publish   | `scenescape/event/region/{scene_id}/{region_id}/{event_type}`     |
+| [Tripwire Event Output Message Format](#tripwire-event-output-message-format)   | Publish   | `scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}` |
 
 ## Camera Input Message Format
 
@@ -25,40 +25,40 @@ against the `detector` definition in
 
 ### Top-Level Message Fields
 
-| Field | Type | Required | Description |
-|-------|------|:--------:|-------------|
-| `id` | string | Yes | Camera or sensor identifier |
-| `timestamp` | string (ISO 8601 UTC) | Yes | Acquisition time of the frame |
-| `objects` | object | Yes | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`) |
-| `rate` | number ≥ 0 | No | Camera framerate (frames per second) when the message was produced |
-| `sub_detections` | array of string | No | Sub-detection labels run on this frame (e.g. `["license_plate"]`) |
+| Field            | Type                  | Required | Description                                                                         |
+| ---------------- | --------------------- | :------: | ----------------------------------------------------------------------------------- |
+| `id`             | string                |   Yes    | Camera or sensor identifier                                                         |
+| `timestamp`      | string (ISO 8601 UTC) |   Yes    | Acquisition time of the frame                                                       |
+| `objects`        | object                |   Yes    | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`) |
+| `rate`           | number ≥ 0            |    No    | Camera framerate (frames per second) when the message was produced                  |
+| `sub_detections` | array of string       |    No    | Sub-detection labels run on this frame (e.g. `["license_plate"]`)                   |
 
 ### Detection Object Fields (`objects.<category>[*]`)
 
-| Field | Type | Required | Description |
-|-------|------|:--------:|-------------|
-| `category` | string | Yes | Object class label (e.g. `"person"`, `"car"`) |
-| `bounding_box` | object | One of ① | Normalized image-space bounding box (`x`, `y`, `width`, `height`) |
-| `bounding_box_px` | object | One of ① | Pixel-space bounding box (`x`, `y`, `width`, `height`; optional `z`, `depth`) |
-| `translation` | array[3] of number | One of ① | 3D world position (`x`, `y`, `z`) in metres |
-| `size` | array[3] of number | One of ① | 3D object dimensions (`x`, `y`, `z`) in metres |
-| `confidence` | number > 0 | No | Inference confidence score for this detection |
-| `id` | integer ≥ 0 | No | Per-frame detection index |
-| `rotation` | array[4] of number | No | Object orientation as a quaternion |
-| `center_of_mass` | object | No | Depth-estimation region of interest in pixels (`x`, `y`, `width`, `height`) |
-| `distance` | number | No | Distance from the camera to the detection in metres |
-| `metadata` | object | No | Semantic attribute bag (see [Semantic Metadata Fields](#semantic-metadata-fields)) |
+| Field             | Type               | Required | Description                                                                        |
+| ----------------- | ------------------ | :------: | ---------------------------------------------------------------------------------- |
+| `category`        | string             |   Yes    | Object class label (e.g. `"person"`, `"car"`)                                      |
+| `bounding_box`    | object             | One of ① | Normalized image-space bounding box (`x`, `y`, `width`, `height`)                  |
+| `bounding_box_px` | object             | One of ① | Pixel-space bounding box (`x`, `y`, `width`, `height`; optional `z`, `depth`)      |
+| `translation`     | array[3] of number | One of ① | 3D world position (`x`, `y`, `z`) in metres                                        |
+| `size`            | array[3] of number | One of ① | 3D object dimensions (`x`, `y`, `z`) in metres                                     |
+| `confidence`      | number > 0         |    No    | Inference confidence score for this detection                                      |
+| `id`              | integer ≥ 0        |    No    | Per-frame detection index                                                          |
+| `rotation`        | array[4] of number |    No    | Object orientation as a quaternion                                                 |
+| `center_of_mass`  | object             |    No    | Depth-estimation region of interest in pixels (`x`, `y`, `width`, `height`)        |
+| `distance`        | number             |    No    | Distance from the camera to the detection in metres                                |
+| `metadata`        | object             |    No    | Semantic attribute bag (see [Semantic Metadata Fields](#semantic-metadata-fields)) |
 
 > **① One-of constraint**: every detection must contain exactly one of:
 > `bounding_box` **or** `bounding_box_px` (2D image-based detection), **or** both `translation` and `size` (3D world-space detection).
 
 ### Semantic Metadata Fields (`objects.<category>[*].metadata.<attr>`)
 
-| Field | Type | Required | Description |
-|-------|------|:--------:|-------------|
-| `label` | any | Yes | Detected value for this attribute (e.g. `"Male"` for gender, `true` for a boolean) |
-| `model_name` | string | Yes | Name of the model that produced this attribute |
-| `confidence` | number [0, 1] | No | Confidence score for the detected attribute |
+| Field        | Type          | Required | Description                                                                        |
+| ------------ | ------------- | :------: | ---------------------------------------------------------------------------------- |
+| `label`      | any           |   Yes    | Detected value for this attribute (e.g. `"Male"` for gender, `true` for a boolean) |
+| `model_name` | string        |   Yes    | Name of the model that produced this attribute                                     |
+| `confidence` | number [0, 1] |    No    | Confidence score for the detected attribute                                        |
 
 ### Example Camera Detection Message
 
@@ -126,13 +126,13 @@ discrete identifier with a presence event.
 
 ### Sensor Message Fields
 
-| Field | Type | Required | Description |
-|-------|------|:--------:|-------------|
-| `id` | string | Yes | Sensor identifier; must match the provisioned sensor ID in Intel® SceneScape |
-| `timestamp` | string (ISO 8601 UTC) | Yes | Acquisition time of the reading |
-| `value` | any | Yes | Sensor reading — numeric scalar, string, boolean, or any JSON value |
-| `subtype` | string | No | Sensor subtype hint (e.g. `"temperature"`, `"humidity"`) |
-| `rate` | number ≥ 0 | No | Rate at which the sensor is producing readings (readings per second) |
+| Field       | Type                  | Required | Description                                                                  |
+| ----------- | --------------------- | :------: | ---------------------------------------------------------------------------- |
+| `id`        | string                |   Yes    | Sensor identifier; must match the provisioned sensor ID in Intel® SceneScape |
+| `timestamp` | string (ISO 8601 UTC) |   Yes    | Acquisition time of the reading                                              |
+| `value`     | any                   |   Yes    | Sensor reading — numeric scalar, string, boolean, or any JSON value          |
+| `subtype`   | string                |    No    | Sensor subtype hint (e.g. `"temperature"`, `"humidity"`)                     |
+| `rate`      | number ≥ 0            |    No    | Rate at which the sensor is producing readings (readings per second)         |
 
 The `id` field must match the last path segment of the MQTT topic:
 `scenescape/data/sensor/{sensor_id}`.
@@ -179,23 +179,23 @@ in the integration guide.
 All Scene Controller output messages include an `objects` array of tracked objects. Each
 tracked object contains the following fields:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string (UUID) | Persistent track identifier assigned by the controller |
-| `category` | string | Object class label (e.g. `"person"`) |
-| `confidence` | number | Inference confidence of the most recent contributing detection |
-| `translation` | array[3] of number | 3D world position (`x`, `y`, `z`) in metres |
-| `size` | array[3] of number | 3D object dimensions (`x`, `y`, `z`) in metres |
-| `velocity` | array[3] of number | Velocity vector (`x`, `y`, `z`) in metres per second |
-| `rotation` | array[4] of number | Orientation quaternion |
-| `visibility` | array of string | Camera IDs currently observing this object |
-| `center_of_mass` | object | Pixel-space ROI for depth estimation (`x`, `y`, `width`, `height`) |
-| `regions` | object | Map of region/sensor IDs to entry timestamps (`{id: {entered: timestamp}}`) |
-| `sensors` | object | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`) |
-| `similarity` | number or null | Re-ID similarity score; `null` when not computed |
-| `first_seen` | string (ISO 8601) | Timestamp when the track was first created |
-| `metadata` | object | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below. |
-| `camera_bounds` | object | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height}}`); may be empty (`{}`) when no camera currently observes the track |
+| Field            | Type               | Description                                                                                                                                                                              |
+| ---------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`             | string (UUID)      | Persistent track identifier assigned by the controller                                                                                                                                   |
+| `category`       | string             | Object class label (e.g. `"person"`)                                                                                                                                                     |
+| `confidence`     | number             | Inference confidence of the most recent contributing detection                                                                                                                           |
+| `translation`    | array[3] of number | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                              |
+| `size`           | array[3] of number | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                                           |
+| `velocity`       | array[3] of number | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                     |
+| `rotation`       | array[4] of number | Orientation quaternion                                                                                                                                                                   |
+| `visibility`     | array of string    | Camera IDs currently observing this object                                                                                                                                               |
+| `center_of_mass` | object             | Pixel-space ROI for depth estimation (`x`, `y`, `width`, `height`)                                                                                                                       |
+| `regions`        | object             | Map of region/sensor IDs to entry timestamps (`{id: {entered: timestamp}}`)                                                                                                              |
+| `sensors`        | object             | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`)                                                                                                            |
+| `similarity`     | number or null     | Re-ID similarity score; `null` when not computed                                                                                                                                         |
+| `first_seen`     | string (ISO 8601)  | Timestamp when the track was first created                                                                                                                                               |
+| `metadata`       | object             | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below. |
+| `camera_bounds`  | object             | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height}}`); may be empty (`{}`) when no camera currently observes the track                                                  |
 
 > **Note on `metadata` in track objects**: Each attribute follows the structure
 > `{label, model_name, confidence?}` — identical to [Semantic Metadata Fields](#semantic-metadata-fields)
@@ -214,14 +214,14 @@ objects of that category.
 
 ### Data Scene Top-Level Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Scene identifier (UUID) |
-| `timestamp` | string (ISO 8601 UTC) | Publication timestamp |
-| `name` | string | Scene name |
-| `rate` | number | Current scene processing rate in Hz |
-| `unique_detection_count` | integer | Cumulative count of unique detections since scene start |
-| `objects` | array | Tracked objects (see [Common Output Track Fields](#common-output-track-fields)) |
+| Field                    | Type                  | Description                                                                     |
+| ------------------------ | --------------------- | ------------------------------------------------------------------------------- |
+| `id`                     | string                | Scene identifier (UUID)                                                         |
+| `timestamp`              | string (ISO 8601 UTC) | Publication timestamp                                                           |
+| `name`                   | string                | Scene name                                                                      |
+| `rate`                   | number                | Current scene processing rate in Hz                                             |
+| `unique_detection_count` | integer               | Cumulative count of unique detections since scene start                         |
+| `objects`                | array                 | Tracked objects (see [Common Output Track Fields](#common-output-track-fields)) |
 
 ### Example Data Scene Message
 
@@ -237,18 +237,25 @@ objects of that category.
       "id": "65d49fa0-a855-46f8-bb41-4e92102c7c47",
       "category": "person",
       "confidence": 0.999,
-      "translation": [2.463, 3.610, 0.0],
+      "translation": [2.463, 3.61, 0.0],
       "size": [0.5, 0.5, 1.85],
       "velocity": [-0.045, 0.012, 0.0],
       "rotation": [0, 0, 0, 1],
       "visibility": ["atag-qcam1", "atag-qcam2"],
       "metadata": {
-        "age": {"label": "32", "model_name": "age_gender"},
-        "gender": {"label": "Male", "model_name": "age_gender", "confidence": 0.904},
-        "reid": {"embedding_vector": "<256-element float array>", "model_name": "torch-jit-export"}
+        "age": { "label": "32", "model_name": "age_gender" },
+        "gender": {
+          "label": "Male",
+          "model_name": "age_gender",
+          "confidence": 0.904
+        },
+        "reid": {
+          "embedding_vector": "<256-element float array>",
+          "model_name": "torch-jit-export"
+        }
       },
       "camera_bounds": {
-        "atag-qcam1": {"x": 169, "y": 4, "width": 96, "height": 168}
+        "atag-qcam1": { "x": 169, "y": 4, "width": 96, "height": 168 }
       },
       "regions": {
         "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
@@ -275,14 +282,14 @@ applications.
 
 ### Regulated Scene Top-Level Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Scene identifier (UUID) |
-| `timestamp` | string (ISO 8601 UTC) | Publication timestamp |
-| `name` | string | Scene name |
-| `scene_rate` | number | Regulated publication rate in Hz |
-| `rate` | object | Map of camera IDs to their current framerates (e.g. `{"cam1": 10.0}`) |
-| `objects` | array | Tracked objects (see [Common Output Track Fields](#common-output-track-fields)) |
+| Field        | Type                  | Description                                                                     |
+| ------------ | --------------------- | ------------------------------------------------------------------------------- |
+| `id`         | string                | Scene identifier (UUID)                                                         |
+| `timestamp`  | string (ISO 8601 UTC) | Publication timestamp                                                           |
+| `name`       | string                | Scene name                                                                      |
+| `scene_rate` | number                | Regulated publication rate in Hz                                                |
+| `rate`       | object                | Map of camera IDs to their current framerates (e.g. `{"cam1": 10.0}`)           |
+| `objects`    | array                 | Tracked objects (see [Common Output Track Fields](#common-output-track-fields)) |
 
 ### Example Regulated Scene Message
 
@@ -301,18 +308,25 @@ applications.
       "id": "0c373dbf-2a1d-49b7-ba2d-48711d189971",
       "category": "person",
       "confidence": 0.998,
-      "translation": [2.204, 3.290, 0.0],
+      "translation": [2.204, 3.29, 0.0],
       "size": [0.5, 0.5, 1.85],
-      "velocity": [-0.489, 0.250, 0.0],
+      "velocity": [-0.489, 0.25, 0.0],
       "rotation": [0, 0, 0, 1],
       "visibility": ["atag-qcam1", "atag-qcam2"],
       "metadata": {
-        "age": {"label": "41", "model_name": "age_gender"},
-        "gender": {"label": "Male", "model_name": "age_gender", "confidence": 0.963},
-        "reid": {"embedding_vector": "<256-element float array>", "model_name": "torch-jit-export"}
+        "age": { "label": "41", "model_name": "age_gender" },
+        "gender": {
+          "label": "Male",
+          "model_name": "age_gender",
+          "confidence": 0.963
+        },
+        "reid": {
+          "embedding_vector": "<256-element float array>",
+          "model_name": "torch-jit-export"
+        }
       },
       "camera_bounds": {
-        "atag-qcam2": {"x": 760, "y": 49, "width": 191, "height": 375}
+        "atag-qcam2": { "x": 760, "y": 49, "width": 191, "height": 375 }
       },
       "regions": {
         "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
@@ -341,15 +355,15 @@ interest changes. The `{event_type}` segment is typically `objects`.
 
 ### Region Event Top-Level Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `timestamp` | string (ISO 8601 UTC) | Event timestamp |
-| `scene_id` | string | Scene identifier (UUID) |
-| `scene_name` | string | Scene name |
-| `region_id` | string | Region identifier (UUID) |
-| `region_name` | string | Region name |
-| `counts` | object | Map of category to object count currently inside the region (e.g. `{"person": 2}`) |
-| `objects` | array | Tracked objects currently inside the region (see [Common Output Track Fields](#common-output-track-fields)) |
+| Field         | Type                  | Description                                                                                                 |
+| ------------- | --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `timestamp`   | string (ISO 8601 UTC) | Event timestamp                                                                                             |
+| `scene_id`    | string                | Scene identifier (UUID)                                                                                     |
+| `scene_name`  | string                | Scene name                                                                                                  |
+| `region_id`   | string                | Region identifier (UUID)                                                                                    |
+| `region_name` | string                | Region name                                                                                                 |
+| `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                          |
+| `objects`     | array                 | Tracked objects currently inside the region (see [Common Output Track Fields](#common-output-track-fields)) |
 
 ### Example Region Event Message
 
@@ -374,7 +388,7 @@ interest changes. The `{event_type}` segment is typically `objects`.
       "rotation": [0, 0, 0, 1],
       "visibility": ["atag-qcam1", "atag-qcam2"],
       "camera_bounds": {
-        "atag-qcam2": {"x": 799, "y": 14, "width": 169, "height": 397}
+        "atag-qcam2": { "x": 799, "y": 14, "width": 169, "height": 397 }
       },
       "sensors": {
         "temperature_1": [["2026-03-26T20:53:29.761Z", 48]]
@@ -396,18 +410,18 @@ field (`1` or `-1`) indicating which side of the wire it crossed toward.
 
 ### Tripwire Event Top-Level Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `timestamp` | string (ISO 8601 UTC) | Event timestamp |
-| `scene_id` | string | Scene identifier (UUID) |
-| `scene_name` | string | Scene name |
-| `tripwire_id` | string | Tripwire identifier (UUID) |
-| `tripwire_name` | string | Tripwire name |
-| `counts` | object | Map of category to crossing object count (e.g. `{"person": 1}`) |
-| `objects` | array | Objects that triggered the event; each carries a `direction` field in addition to [Common Output Track Fields](#common-output-track-fields) |
-| `entered` | array | Track IDs of objects that crossed in the positive direction |
-| `exited` | array | Track IDs of objects that crossed in the negative direction |
-| `metadata` | object | Tripwire geometry: `title`, `points` (array of `[x, y]` coordinates in metres), `uuid` |
+| Field           | Type                  | Description                                                                                                                                 |
+| --------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `timestamp`     | string (ISO 8601 UTC) | Event timestamp                                                                                                                             |
+| `scene_id`      | string                | Scene identifier (UUID)                                                                                                                     |
+| `scene_name`    | string                | Scene name                                                                                                                                  |
+| `tripwire_id`   | string                | Tripwire identifier (UUID)                                                                                                                  |
+| `tripwire_name` | string                | Tripwire name                                                                                                                               |
+| `counts`        | object                | Map of category to crossing object count (e.g. `{"person": 1}`)                                                                             |
+| `objects`       | array                 | Objects that triggered the event; each carries a `direction` field in addition to [Common Output Track Fields](#common-output-track-fields) |
+| `entered`       | array                 | Track IDs of objects that crossed in the positive direction                                                                                 |
+| `exited`        | array                 | Track IDs of objects that crossed in the negative direction                                                                                 |
+| `metadata`      | object                | Tripwire geometry: `title`, `points` (array of `[x, y]` coordinates in metres), `uuid`                                                      |
 
 ### Example Tripwire Event Message
 
@@ -432,7 +446,7 @@ field (`1` or `-1`) indicating which side of the wire it crossed toward.
       "rotation": [0, 0, 0, 1],
       "visibility": ["atag-qcam1", "atag-qcam2"],
       "camera_bounds": {
-        "atag-qcam2": {"x": 796, "y": 175, "width": 257, "height": 504}
+        "atag-qcam2": { "x": 796, "y": 175, "width": 257, "height": 504 }
       },
       "similarity": null,
       "first_seen": "2026-03-26T20:51:37.336Z",
@@ -443,7 +457,10 @@ field (`1` or `-1`) indicating which side of the wire it crossed toward.
   "exited": [],
   "metadata": {
     "title": "tripwire_1",
-    "points": [[3.745, 6.082], [0.878, 3.573]],
+    "points": [
+      [3.745, 6.082],
+      [0.878, 3.573]
+    ],
     "uuid": "5fc8df22-0497-411c-9a62-90218cb20d7d"
   }
 }
