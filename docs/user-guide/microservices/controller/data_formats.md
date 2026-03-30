@@ -198,7 +198,15 @@ tracked object contains the following fields:
 | `sensors` | object | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`) |
 | `similarity` | number or null | Re-ID similarity score; `null` when not computed |
 | `first_seen` | string (ISO 8601) | Timestamp when the track was first created |
-| `camera_bounds` | object | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height}}`) |
+| `metadata` | object | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below. |
+| `camera_bounds` | object | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height}}`); may be empty (`{}`) when no camera currently observes the track |
+
+> **Note on `metadata` in track objects**: Each attribute follows the structure
+> `{label, model_name, confidence?}` — identical to [Semantic Metadata Fields](#semantic-metadata-fields)
+> in camera input. The `reid` attribute is a special case: in scene output
+> `reid.embedding_vector` is a **2D float array** (`[[...numbers...]]`), whereas in
+> camera input it is a base64-encoded string. `metadata` is absent when no semantic
+> analytics pipeline is configured.
 
 ## Data Scene Output Message Format
 
@@ -238,6 +246,14 @@ objects of that category.
       "velocity": [-0.045, 0.012, 0.0],
       "rotation": [0, 0, 0, 1],
       "visibility": ["atag-qcam1", "atag-qcam2"],
+      "metadata": {
+        "age": {"label": "32", "model_name": "age_gender"},
+        "gender": {"label": "Male", "model_name": "age_gender", "confidence": 0.904},
+        "reid": {"embedding_vector": "<256-element float array>", "model_name": "torch-jit-export"}
+      },
+      "camera_bounds": {
+        "atag-qcam1": {"x": 169, "y": 4, "width": 96, "height": 168}
+      },
       "regions": {
         "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
           "entered": "2026-03-26T20:49:51.349Z"
@@ -294,6 +310,11 @@ applications.
       "velocity": [-0.489, 0.250, 0.0],
       "rotation": [0, 0, 0, 1],
       "visibility": ["atag-qcam1", "atag-qcam2"],
+      "metadata": {
+        "age": {"label": "41", "model_name": "age_gender"},
+        "gender": {"label": "Male", "model_name": "age_gender", "confidence": 0.963},
+        "reid": {"embedding_vector": "<256-element float array>", "model_name": "torch-jit-export"}
+      },
       "camera_bounds": {
         "atag-qcam2": {"x": 760, "y": 49, "width": 191, "height": 375}
       },

@@ -94,6 +94,10 @@ channels:
                 type: number
             objects:
               type: array
+              description: >-
+                Array of tracked scene objects. Each object includes fields such as
+                `id`, `translation`, `velocity`, `visibility`, `regions`, `sensors`,
+                `metadata`, and more.
               items:
                 type: object
 
@@ -128,6 +132,10 @@ channels:
               minimum: 0
             objects:
               type: array
+              description: >-
+                Array of tracked scene objects. Each object includes fields such as
+                `id`, `translation`, `velocity`, `visibility`, `regions`, `sensors`,
+                `metadata`, and more.
               items:
                 type: object
 
