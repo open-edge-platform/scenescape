@@ -8,7 +8,7 @@ markmap:
 
 ### MOT Tracking
 
-- **Role**: perform 2D->3D projection and n3D Multi-Object-Tracking
+- **Role**: perform 2D->3D projection and 3D Multi-Object-Tracking
 - **Input**: `data/camera` topics
 - **Output**: `data/scene` topics
   - passed-through:
@@ -25,24 +25,17 @@ markmap:
   - scenes and cameras
 - not aware of:
   - scene hierarchy
-  - non-localization sensors, regions, tripwires
+  - regions, tripwires, [?] sensors
 - technology: C++
 - latency-critical, highly optimized
-- time synchronization: TBD
+- time synchronization: timestamp correction with NTP server (configurable)
 - scalability
-    - vertical
-      - thread per (scene, category)
-      - OpenMP in tracking algorithm
-    - horizontal (sharding):
-      - exclusive subset of scenes
-      - dynamically allocated (mechanism distributed vs centralized - TBD)
-- **Opens**:
-  - how to provide feedback loop to dynamically provide input on detected objects:
-    - how to implement object permanence? how to provide input which tracks should be permanent
-    - in general: how to inject input from other sources (e.g. GPS, badge sensor) augmenting tracking input
-  - how to handle non camera detections like 3D sensors (e.g. LIDARs)
-  - whether to produce as output: unreliable and suspended (properly tagged)
-  - whether to produce as output: camera visibility (e.g. last frame camera only, cameras in the last second)
+  - vertical
+    - thread per (scene, category)
+    - OpenMP in tracking algorithm
+  - horizontal (sharding):
+    - exclusive subset of scenes
+    - dynamically allocated (mechanism distributed vs centralized - TBD)
 
 ### Scene Analytics
 
@@ -53,26 +46,26 @@ markmap:
   - `data/scene` topics
   - `data/sensor` topics
 - **Output**:
-  - `regulated/scene` and `data/scene` topics
+  - `regulated/scene` topic
     - passed-through:
       - [?] visibility by camera matches
       - semantic metadata from camera detections
     - produced:
-      - sensor attributes
-      - events (e.g. regions)
-      - visibility by camera view projection - this can use camera view projection to region with caching and reuse region optimized functions
+      - [?] sensor attributes
+      - events (e.g. regions, tripwire)
+      - visibility by camera view projection
   - `events/+` topics
     - produced: TBD
 - technology: Python and C++
-- time synchronization: TBD
+- time synchronization: None
 - latency-sensitive, most compute-expensive functions optimized (C++)
 - scalability
-    - vertical
-      - Process-based parallelism [Python multi-processing library](https://docs.python.org/3/library/multiprocessing.html)
-      - process per (scene) or (scene, category)
-    - horizontal (sharding):
-      - exclusive subset of scenes
-      - dynamically allocated (mechanism distributed vs centralized - TBD)
+  - vertical
+    - Process-based parallelism [Python multi-processing library](https://docs.python.org/3/library/multiprocessing.html)
+    - process per (scene) or (scene, category)
+  - horizontal (sharding):
+    - exclusive subset of scenes
+    - dynamically allocated (mechanism distributed vs centralized - TBD)
 
 ### UUID manager + ReID
 
@@ -92,3 +85,16 @@ markmap:
 
 - **Role**: Clustering analytics
 - to be merged with Scene Analytics
+
+## Opens
+
+- **Tracker / Analytics**:
+  - how to provide feedback loop to dynamically provide input on detected objects:
+    - how to implement object permanence? how to provide input which tracks should be permanent
+    - in general: how to inject input from other sources (e.g. GPS, badge sensor) augmenting tracking input
+  - how to handle non camera detections like 3D sensors (e.g. LIDARs)
+  - whether to produce as output: unreliable and suspended (properly tagged)
+  - how to generate camera visibility
+    - computed from based on matched detections (e.g. last frame camera only, cameras in the last second)
+    - computed from projecting camera field of view (as it is now)
+  - whether to handle sensor inputs in tracker service or analytics
