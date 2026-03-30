@@ -236,6 +236,7 @@ _ui-tests: \
   view-3d-glb-file \
   3d-scene-control-panel \
   3d-camera-control-panel \
+  auto-calibration-no-apriltags-ui \
 
 unit-tests: setup-pytest
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k

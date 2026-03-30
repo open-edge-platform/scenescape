@@ -32,8 +32,8 @@ Below are step-by-step instructions for enabling out-of-the-box scenes in IntelÂ
    If you have already deployed IntelÂ® SceneScape, use:
 
    ```sh
-   docker compose down --remove-orphans
-   docker compose up -d
+   docker compose --profile controller down --remove-orphans
+   docker compose --profile controller up -d
    ```
 
 ## Running on GPU
