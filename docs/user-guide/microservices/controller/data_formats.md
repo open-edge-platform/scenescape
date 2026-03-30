@@ -5,20 +5,16 @@ SPDX-License-Identifier: Apache-2.0
 
 # Scene Controller Data Formats
 
-## Contents
+## Message Formats Overview
 
-**Input Message Formats**
-
-- [Camera Input Message Format](#camera-input-message-format)
-- [Sensor Input Message Format](#sensor-input-message-format)
-
-**Output Message Formats**
-
-- [Common Output Track Fields](#common-output-track-fields)
-- [Data Scene Output Message Format](#data-scene-output-message-format)
-- [Regulated Scene Output Message Format](#regulated-scene-output-message-format)
-- [Region Event Output Message Format](#region-event-output-message-format)
-- [Tripwire Event Output Message Format](#tripwire-event-output-message-format)
+| Message Format | Direction | MQTT Topic |
+|----------------|-----------|------------|
+| [Camera Input Message Format](#camera-input-message-format) | Subscribe | `scenescape/data/camera/{camera_id}` |
+| [Sensor Input Message Format](#sensor-input-message-format) | Subscribe | `scenescape/data/sensor/{sensor_id}` |
+| [Data Scene Output Message Format](#data-scene-output-message-format) | Publish | `scenescape/data/scene/{scene_id}/{thing_type}` |
+| [Regulated Scene Output Message Format](#regulated-scene-output-message-format) | Publish | `scenescape/regulated/scene/{scene_id}` |
+| [Region Event Output Message Format](#region-event-output-message-format) | Publish | `scenescape/event/region/{scene_id}/{region_id}/{event_type}` |
+| [Tripwire Event Output Message Format](#tripwire-event-output-message-format) | Publish | `scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}` |
 
 ## Camera Input Message Format
 
