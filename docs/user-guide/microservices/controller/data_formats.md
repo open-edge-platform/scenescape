@@ -3,7 +3,14 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# SceneScape Controller Data Formats
+# Scene Controller Data Formats
+
+## Contents
+
+Input Message Formats
+
+- [Camera Input Message Format](#camera-input-message-format)
+- [Sensor Input Message Format](#sensor-input-message-format)
 
 ## Camera Input Message Format
 
@@ -126,7 +133,9 @@ discrete identifier with a presence event.
 The `id` field must match the last path segment of the MQTT topic:
 `scenescape/data/sensor/{sensor_id}`.
 
-### Example: Environmental Sensor (Temperature)
+### Example Sensor Input Message
+
+**Environmental Sensor (Temperature Reading)**
 
 ```json
 {
@@ -142,7 +151,7 @@ The `value` field carries the scalar reading (degrees Celsius in this case). Oth
 environmental sensors such as humidity or air-quality monitors follow the same structure,
 differing only in the `id` and the unit of the `value`.
 
-### Other Sensor Types
+**Other Sensor Types**
 
 The `singleton` schema is intentionally generic — `value` is untyped and accepts any JSON
 value. This makes it suitable for attribute sensors beyond simple scalars. For example:
