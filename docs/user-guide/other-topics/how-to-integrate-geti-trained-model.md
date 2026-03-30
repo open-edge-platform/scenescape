@@ -62,11 +62,11 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
 2. **Configuring DL Streamer Pipeline Server with new Geti Model**
    Follow documentation [here](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/microservices/dlstreamer-pipeline-server/docs/user-guide/get-started.md) to use the newly trained Geti model with gvadetect and the [How to Configure DL Streamer Video Pipline](how-to-configure-dlstreamer-video-pipeline.md) to add custom models and configure the entire pipeline for enabling ingestion by Intel® SceneScape.
 
-3. **Deploy Intel® SceneScape**:
+3. **Deploy Intel® SceneScape** (see [Docker Compose Profiles](../get-started.md#docker-compose-profiles) for details on choosing profiles):
 
    ```bash
-   docker compose down --remove-orphans
-   docker compose up -d
+   docker compose --profile controller down --remove-orphans
+   docker compose --profile controller up -d
    ```
 
    Log into the Intel® SceneScape UI and verify that bounding boxes appear correctly.
