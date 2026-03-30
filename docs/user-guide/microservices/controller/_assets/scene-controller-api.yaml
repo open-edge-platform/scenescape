@@ -81,21 +81,21 @@ channels:
             timestamp:
               type: string
               format: date-time
-            objects:
-              type: array
-              items:
-                type: object
             id:
               type: string
             name:
               type: string
             scene_rate:
-              type: float
+              type: number
+              minimum: 0
             rate:
-              type: string
-            last:
-              type: string
-              format: date-time
+              type: object
+              additionalProperties:
+                type: number
+            objects:
+              type: array
+              items:
+                type: object
 
   scenescape/data/scene/{scene_id}/{thing_type}:
     parameters:
@@ -116,6 +116,16 @@ channels:
             timestamp:
               type: string
               format: date-time
+            id:
+              type: string
+            name:
+              type: string
+            rate:
+              type: number
+              minimum: 0
+            unique_detection_count:
+              type: integer
+              minimum: 0
             objects:
               type: array
               items:
@@ -148,10 +158,52 @@ channels:
             timestamp:
               type: string
               format: date-time
+            scene_id:
+              type: string
+            scene_name:
+              type: string
+            region_id:
+              type: string
+              description: Present in region events
+            region_name:
+              type: string
+              description: Present in region events
+            tripwire_id:
+              type: string
+              description: Present in tripwire events
+            tripwire_name:
+              type: string
+              description: Present in tripwire events
+            counts:
+              type: object
+              additionalProperties:
+                type: integer
             objects:
               type: array
               items:
                 type: object
+            entered:
+              type: array
+              items:
+                type: object
+              description: >-
+                Objects that entered the region or crossed the tripwire in the positive
+                direction during this cycle. Each element has shape
+                {"object": <track>, "dwell": <seconds>}. May be empty.
+            exited:
+              type: array
+              items:
+                type: object
+              description: >-
+                Objects that exited the region or crossed the tripwire in the negative
+                direction during this cycle. Each element has shape
+                {"object": <track>, "dwell": <seconds>}. May be empty.
+            metadata:
+              type: object
+              description: >-
+                Region or tripwire geometry. Region events include: title, uuid, points
+                (polygon vertices), area, fromSensor. Tripwire events include: title,
+                uuid, points (two endpoints).
 
   scenescape/data/sensor/{sensor_id}:
     parameters:

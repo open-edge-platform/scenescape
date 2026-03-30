@@ -7,10 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Contents
 
-Input Message Formats
+**Input Message Formats**
 
 - [Camera Input Message Format](#camera-input-message-format)
 - [Sensor Input Message Format](#sensor-input-message-format)
+
+**Output Message Formats**
+
+- [Common Output Track Fields](#common-output-track-fields)
+- [Data Scene Output Message Format](#data-scene-output-message-format)
+- [Regulated Scene Output Message Format](#regulated-scene-output-message-format)
+- [Region Event Output Message Format](#region-event-output-message-format)
+- [Tripwire Event Output Message Format](#tripwire-event-output-message-format)
 
 ## Camera Input Message Format
 
@@ -169,3 +177,257 @@ For a broader description of how singleton sensors work and how the tagged data 
 scene objects, see
 [Singleton Sensor Data](../../using-intel-scenescape/how-to-integrate-cameras-and-sensors.md#singleton-sensor-data)
 in the integration guide.
+
+## Common Output Track Fields
+
+All Scene Controller output messages include an `objects` array of tracked objects. Each
+tracked object contains the following fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string (UUID) | Persistent track identifier assigned by the controller |
+| `category` | string | Object class label (e.g. `"person"`) |
+| `confidence` | number | Inference confidence of the most recent contributing detection |
+| `translation` | array[3] of number | 3D world position (`x`, `y`, `z`) in metres |
+| `size` | array[3] of number | 3D object dimensions (`x`, `y`, `z`) in metres |
+| `velocity` | array[3] of number | Velocity vector (`x`, `y`, `z`) in metres per second |
+| `rotation` | array[4] of number | Orientation quaternion |
+| `visibility` | array of string | Camera IDs currently observing this object |
+| `center_of_mass` | object | Pixel-space ROI for depth estimation (`x`, `y`, `width`, `height`) |
+| `regions` | object | Map of region/sensor IDs to entry timestamps (`{id: {entered: timestamp}}`) |
+| `sensors` | object | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`) |
+| `similarity` | number or null | Re-ID similarity score; `null` when not computed |
+| `first_seen` | string (ISO 8601) | Timestamp when the track was first created |
+| `camera_bounds` | object | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height}}`) |
+
+## Data Scene Output Message Format
+
+Published on MQTT topic: `scenescape/data/scene/{scene_id}/{thing_type}`
+
+The Scene Controller publishes unregulated (raw) tracking results, one message per object
+category per scene publication cycle. Each message contains the current state of all tracked
+objects of that category.
+
+### Data Scene Top-Level Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Scene identifier (UUID) |
+| `timestamp` | string (ISO 8601 UTC) | Publication timestamp |
+| `name` | string | Scene name |
+| `rate` | number | Current scene processing rate in Hz |
+| `unique_detection_count` | integer | Cumulative count of unique detections since scene start |
+| `objects` | array | Tracked objects (see [Common Output Track Fields](#common-output-track-fields)) |
+
+### Example Data Scene Message
+
+```json
+{
+  "id": "302cf49a-97ec-402d-a324-c5077b280b7b",
+  "timestamp": "2026-03-26T20:49:59.642Z",
+  "name": "Queuing",
+  "rate": 9.984,
+  "unique_detection_count": 91,
+  "objects": [
+    {
+      "id": "65d49fa0-a855-46f8-bb41-4e92102c7c47",
+      "category": "person",
+      "confidence": 0.999,
+      "translation": [2.463, 3.610, 0.0],
+      "size": [0.5, 0.5, 1.85],
+      "velocity": [-0.045, 0.012, 0.0],
+      "rotation": [0, 0, 0, 1],
+      "visibility": ["atag-qcam1", "atag-qcam2"],
+      "regions": {
+        "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
+          "entered": "2026-03-26T20:49:51.349Z"
+        }
+      },
+      "sensors": {
+        "temperature_1": [["2026-03-26T20:49:53.661Z", 70]]
+      },
+      "similarity": null,
+      "first_seen": "2026-03-26T20:49:49.339Z"
+    }
+  ]
+}
+```
+
+## Regulated Scene Output Message Format
+
+Published on MQTT topic: `scenescape/regulated/scene/{scene_id}`
+
+The Scene Controller publishes regulated (rate-controlled) tracking results aggregating all
+object categories into a single message. This is the primary output topic for downstream
+applications.
+
+### Regulated Scene Top-Level Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Scene identifier (UUID) |
+| `timestamp` | string (ISO 8601 UTC) | Publication timestamp |
+| `name` | string | Scene name |
+| `scene_rate` | number | Regulated publication rate in Hz |
+| `rate` | object | Map of camera IDs to their current framerates (e.g. `{"cam1": 10.0}`) |
+| `objects` | array | Tracked objects (see [Common Output Track Fields](#common-output-track-fields)) |
+
+### Example Regulated Scene Message
+
+```json
+{
+  "id": "302cf49a-97ec-402d-a324-c5077b280b7b",
+  "timestamp": "2026-03-26T20:48:50.149Z",
+  "name": "Queuing",
+  "scene_rate": 38.8,
+  "rate": {
+    "atag-qcam1": 9.998,
+    "atag-qcam2": 10.018
+  },
+  "objects": [
+    {
+      "id": "0c373dbf-2a1d-49b7-ba2d-48711d189971",
+      "category": "person",
+      "confidence": 0.998,
+      "translation": [2.204, 3.290, 0.0],
+      "size": [0.5, 0.5, 1.85],
+      "velocity": [-0.489, 0.250, 0.0],
+      "rotation": [0, 0, 0, 1],
+      "visibility": ["atag-qcam1", "atag-qcam2"],
+      "camera_bounds": {
+        "atag-qcam2": {"x": 760, "y": 49, "width": 191, "height": 375}
+      },
+      "regions": {
+        "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
+          "entered": "2026-03-26T20:48:46.344Z"
+        }
+      },
+      "sensors": {
+        "temperature_1": [
+          ["2026-03-26T20:48:45.629Z", 79],
+          ["2026-03-26T20:48:46.630Z", 14]
+        ]
+      },
+      "similarity": null,
+      "first_seen": "2026-03-26T20:48:42.857Z"
+    }
+  ]
+}
+```
+
+## Region Event Output Message Format
+
+Published on MQTT topic: `scenescape/event/region/{scene_id}/{region_id}/{event_type}`
+
+The Scene Controller publishes an event when the set of tracked objects inside a region of
+interest changes. The `{event_type}` segment is typically `objects`.
+
+### Region Event Top-Level Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `timestamp` | string (ISO 8601 UTC) | Event timestamp |
+| `scene_id` | string | Scene identifier (UUID) |
+| `scene_name` | string | Scene name |
+| `region_id` | string | Region identifier (UUID) |
+| `region_name` | string | Region name |
+| `counts` | object | Map of category to object count currently inside the region (e.g. `{"person": 2}`) |
+| `objects` | array | Tracked objects currently inside the region (see [Common Output Track Fields](#common-output-track-fields)) |
+
+### Example Region Event Message
+
+```json
+{
+  "timestamp": "2026-03-26T20:53:32.045Z",
+  "scene_id": "302cf49a-97ec-402d-a324-c5077b280b7b",
+  "scene_name": "Queuing",
+  "region_id": "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4",
+  "region_name": "region_2",
+  "counts": {
+    "person": 2
+  },
+  "objects": [
+    {
+      "id": "2d3c96d9-24bd-498b-ba1f-2fd54ab6c25b",
+      "category": "person",
+      "confidence": 0.999,
+      "translation": [2.557, 3.678, 0.0],
+      "size": [0.5, 0.5, 1.85],
+      "velocity": [-0.118, 0.186, 0.0],
+      "rotation": [0, 0, 0, 1],
+      "visibility": ["atag-qcam1", "atag-qcam2"],
+      "camera_bounds": {
+        "atag-qcam2": {"x": 799, "y": 14, "width": 169, "height": 397}
+      },
+      "sensors": {
+        "temperature_1": [["2026-03-26T20:53:29.761Z", 48]]
+      },
+      "similarity": null,
+      "first_seen": "2026-03-26T20:53:25.339Z"
+    }
+  ]
+}
+```
+
+## Tripwire Event Output Message Format
+
+Published on MQTT topic: `scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}`
+
+The Scene Controller publishes an event when a tracked object crosses a tripwire. The
+`{event_type}` segment is typically `objects`. Each crossing object carries a `direction`
+field (`1` or `-1`) indicating which side of the wire it crossed toward.
+
+### Tripwire Event Top-Level Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `timestamp` | string (ISO 8601 UTC) | Event timestamp |
+| `scene_id` | string | Scene identifier (UUID) |
+| `scene_name` | string | Scene name |
+| `tripwire_id` | string | Tripwire identifier (UUID) |
+| `tripwire_name` | string | Tripwire name |
+| `counts` | object | Map of category to crossing object count (e.g. `{"person": 1}`) |
+| `objects` | array | Objects that triggered the event; each carries a `direction` field in addition to [Common Output Track Fields](#common-output-track-fields) |
+| `entered` | array | Track IDs of objects that crossed in the positive direction |
+| `exited` | array | Track IDs of objects that crossed in the negative direction |
+| `metadata` | object | Tripwire geometry: `title`, `points` (array of `[x, y]` coordinates in metres), `uuid` |
+
+### Example Tripwire Event Message
+
+```json
+{
+  "timestamp": "2026-03-26T20:51:39.241Z",
+  "scene_id": "302cf49a-97ec-402d-a324-c5077b280b7b",
+  "scene_name": "Queuing",
+  "tripwire_id": "5fc8df22-0497-411c-9a62-90218cb20d7d",
+  "tripwire_name": "tripwire_1",
+  "counts": {
+    "person": 1
+  },
+  "objects": [
+    {
+      "id": "d62d8bbf-9008-40f5-84f8-9faca9e03d90",
+      "category": "person",
+      "confidence": 0.999,
+      "translation": [1.043, 3.542, 0.0],
+      "size": [0.5, 0.5, 1.85],
+      "velocity": [0.374, -0.824, 0.0],
+      "rotation": [0, 0, 0, 1],
+      "visibility": ["atag-qcam1", "atag-qcam2"],
+      "camera_bounds": {
+        "atag-qcam2": {"x": 796, "y": 175, "width": 257, "height": 504}
+      },
+      "similarity": null,
+      "first_seen": "2026-03-26T20:51:37.336Z",
+      "direction": -1
+    }
+  ],
+  "entered": [],
+  "exited": [],
+  "metadata": {
+    "title": "tripwire_1",
+    "points": [[3.745, 6.082], [0.878, 3.573]],
+    "uuid": "5fc8df22-0497-411c-9a62-90218cb20d7d"
+  }
+}
+```
