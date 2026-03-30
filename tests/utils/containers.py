@@ -58,8 +58,13 @@ def wait_for_services(docker, project_name, wait_for):
     logger.info("  %s is ready.", service)
 
 
-def collect_logs(docker, services=None):
-  # Log container output for the given services (or all if None).
+def collect_logs(docker, services=None, scan_for_tracebacks=False):
+  """Log container output for the given services (or all if None).
+
+  When scan_for_tracebacks is True, also checks each container's logs
+  for Python tracebacks in a single pass (avoids fetching logs twice).
+  """
+  tracebacks_found = []
   try:
     containers = docker.compose.ps()
     for container in containers:
@@ -69,25 +74,12 @@ def collect_logs(docker, services=None):
       logs = docker.container.logs(container.name)
       for line in logs.splitlines():
         logger.info("%s", line)
+      if scan_for_tracebacks and "Traceback" in logs:
+        tracebacks_found.append(container.name)
+        logger.warning("Found Traceback in %s!", container.name)
   except Exception as exc:
     logger.warning("Error collecting logs: %s", exc)
+  if tracebacks_found:
+    logger.warning("Tracebacks found in: %s", ", ".join(tracebacks_found))
+  return tracebacks_found
 
-
-def scan_tracebacks(docker):
-  """Scan all compose containers for Python tracebacks.
-
-  Returns a list of container names where tracebacks were found.
-  """
-  found = []
-  try:
-    containers = docker.compose.ps()
-    for container in containers:
-      logs = docker.container.logs(container.name)
-      if "Traceback" in logs:
-        found.append(container.name)
-        logger.warning("Found Traceback in %s!", container.name)
-        for line in logs.splitlines()[-50:]:  # last 50 lines
-          logger.warning("%s", line)
-  except Exception as exc:
-    logger.warning("Error scanning tracebacks: %s", exc)
-  return found

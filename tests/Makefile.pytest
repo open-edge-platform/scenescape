@@ -3,11 +3,11 @@
 #
 # Makefile for pytest-based E2E test orchestration.
 #
-# Usage (from repo root):
-#   make -f tests/Makefile.pytest -C tests setup          # Create venv
-#   make -f tests/Makefile.pytest -C tests all            # Run all tests
-#   make -f tests/Makefile.pytest -C tests functional     # Functional only
-#   make -f tests/Makefile.pytest -C tests unit           # Unit only
+# Usage (from tests/ directory):
+#   make -f Makefile.pytest setup              # Create venv
+#   make -f Makefile.pytest all                # Run all tests
+#   make -f Makefile.pytest functional         # Functional only
+#   make -f Makefile.pytest unit               # Unit only
 #
 # Run a single test by name (after setup):
 #   cd tests && .venv/bin/pytest -k rest_test -v
@@ -34,17 +34,17 @@ setup:
 
 all: setup
 	@mkdir -p $(LOG_DIR)
-	cd $(REPO_ROOT) && $(PYTEST) tests/test_functional.py tests/test_unit.py \
-		--log-file=$(LOG_DIR)/all-$(TIMESTAMP).log
+	$(PYTEST) --log-file=$(LOG_DIR)/all-$(TIMESTAMP).log
 
 functional: setup
 	@mkdir -p $(LOG_DIR)
-	cd $(REPO_ROOT) && $(PYTEST) tests/test_functional.py \
+	$(PYTEST) functional/ ../manager/tests/ ../controller/tests/ \
+		security/system/ system/stability/ \
 		--log-file=$(LOG_DIR)/functional-$(TIMESTAMP).log
 
 unit: setup
 	@mkdir -p $(LOG_DIR)
-	cd $(REPO_ROOT) && $(PYTEST) tests/test_unit.py \
+	$(PYTEST) sscape_tests/ \
 		--log-file=$(LOG_DIR)/unit-$(TIMESTAMP).log
 
 clean:

@@ -10,7 +10,12 @@
 .env
 .pytest_cache
 .vscode
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
 __pycache__
+*.egg-info
 admin-pass.txt
 apriltag-cam[0-9].json
 build
