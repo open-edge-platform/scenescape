@@ -7,6 +7,7 @@ import json
 import os
 import time
 import numpy as np
+from http import HTTPStatus
 
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
@@ -204,10 +205,12 @@ class GeospatialIngestPublish(FunctionalTest):
     self.waitForUpdate(False)
     print("Enabling lat_long_alt output")
     res = self.rest.updateScene(self.sceneUID, {'output_lla': True, 'map_corners_lla': json.dumps(MAP_CORNERS_LLA), 'map': (map_image, map_data)})
+    assert res.status_code == HTTPStatus.OK
     self.detectionValidator = _verifyLLA
     self.waitForUpdate(True)
     print("Disabling lat_long_alt output")
-    self.rest.updateScene(self.sceneUID, {'output_lla': False})
+    res = self.rest.updateScene(self.sceneUID, {'output_lla': False})
+    assert res.status_code == HTTPStatus.OK
     self.detectionValidator = None
     self.waitForUpdate(False)
     return
