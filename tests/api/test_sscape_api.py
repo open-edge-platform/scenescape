@@ -3,11 +3,19 @@
 
 import logging
 import os
+import sys
 import json
 import glob
+import time
 import inspect
 import pytest
+
+TESTS_API_DIR = os.path.dirname(__file__)
+if TESTS_API_DIR not in sys.path:
+  sys.path.insert(0, TESTS_API_DIR)
+
 from scene_common.rest_client import RESTClient
+from mapping_client import MappingClient
 
 # Logging Configuration
 LOG_FILE = os.path.join(os.path.dirname(__file__), "api_test.log")
@@ -33,10 +41,12 @@ logger.info(
 
 # Setup Base HTTP Client
 API_TOKEN = os.environ.get("API_TOKEN")
+
 BASE_URL = os.environ.get("API_BASE_URL", "https://localhost")
 
 http_client = RESTClient(url=f"{BASE_URL}/api/v1", token=API_TOKEN, verify_ssl=False)
 autocalib_client = RESTClient(url=f"{BASE_URL}/v1", token=API_TOKEN, verify_ssl=False)
+mapping_client = MappingClient(url=f"{BASE_URL}:8444", token=API_TOKEN, verify_ssl=False)
 
 saved_vars = {}
 
@@ -50,6 +60,7 @@ API_MAP = {
   "asset": http_client,
   "child": http_client,
   "autocalibration": autocalib_client,
+  "mapping": mapping_client,
 }
 
 
@@ -98,6 +109,16 @@ def substitute_variables(obj):
     return saved_vars.get(var_name, obj)
   return obj
 
+def resolve_file_paths(data):
+  """Resolve file paths in request data relative to the tests/api directory."""
+  if isinstance(data, dict):
+    return {k: resolve_file_paths(v) for k, v in data.items()}
+  elif isinstance(data, list):
+    return [resolve_file_paths(item) for item in data]
+  elif isinstance(data, str) and ("test_media/" in data):
+    resolved = os.path.join(TESTS_API_DIR, data)
+    return resolved
+  return data
 
 def build_call_kwargs(request_data):
   """
@@ -120,7 +141,7 @@ def build_call_kwargs(request_data):
         logger.warning(f"    'path_params' should be a dict, got {type(value).__name__}; skipping")
     elif key == "body":
       # Request body → "data" (RESTClient convention)
-      kwargs["data"] = value
+      kwargs["data"] = resolve_file_paths(value)
     else:
       # filter, uid, data, or any legacy flat key – pass through as-is
       kwargs[key] = value
@@ -214,7 +235,9 @@ def execute_step(step, step_number, total_steps):
   if not hasattr(api, method_name):
     return False, None, f"API {api_name} has no method {method_name}"
 
-  # Flatten structured request into call kwargs
+  # Normalize request keys to match RESTClient parameter names:
+  #   "body" -> "data"  (request body)
+  #   "path_params" -> extract and merge its contents into request_data
   call_kwargs = build_call_kwargs(raw_request)
 
   # If the method expects "filter" and it wasn't provided, default to None
@@ -223,9 +246,69 @@ def execute_step(step, step_number, total_steps):
   if "filter" in method_params and "filter" not in call_kwargs:
     call_kwargs["filter"] = None
 
+  poll_config = step.get("poll")
+
   # Execute API call
+
   try:
-    response = api_method(**call_kwargs)
+    if poll_config:
+      # Polling mode: repeat the call until a field matches `until`,
+      # or bail out early if `fail_if` matches, or timeout is reached.
+      interval_s = poll_config.get("interval_s", 2)
+      # default 1 minute timeout, can be overridden by scenario
+      timeout_s = poll_config.get("timeout_s", 60)
+      until_rules = poll_config.get("until", {})
+      fail_rules = poll_config.get("fail_if", {})
+
+      deadline = time.time() + timeout_s
+      response = None
+      while True:
+        response = api_method(**call_kwargs)
+        # RESTResult is a dict subclass; requests.Response has .json()
+        if isinstance(response, dict):
+          body = dict(response)
+        else:
+          try:
+            body = response.json()
+          except Exception:
+            body = {}
+
+        # Non-OK HTTP status
+        status = getattr(response, 'status_code', None) or getattr(response, 'statusCode', None)
+        if status is not None and status >= 400:
+          return False, response, (
+            f"Poll aborted: server returned HTTP {status}. "
+            f"Body: {json.dumps(body, indent=2) if isinstance(body, dict) else body}"
+          )
+
+        # Error fields in the response body
+        if isinstance(body, dict):
+          errors = body.get("errors") or body.get("error")
+          if errors:
+            return False, response, (
+              f"Poll aborted: response contains errors: {errors}"
+            )
+
+        # Check fail_if conditions first
+        if fail_rules:
+          _, fail_errors = validate_response(body, fail_rules)
+          if not fail_errors:   # all fail_if conditions matched → abort
+            return False, response, f"Poll aborted: fail_if condition matched {fail_rules}"
+
+        # Check until conditions
+        if until_rules:
+          _, until_errors = validate_response(body, until_rules)
+          if not until_errors:  # all until conditions matched → done
+            break
+
+        if time.time() >= deadline:
+          state = body.get("state", "unknown")
+          return False, response, f"Poll timed out after {timeout_s}s (last state: {state})"
+
+        logger.info(f"    Polling... (state={body.get('state', '?')})")
+        time.sleep(interval_s)
+    else:
+      response = api_method(**call_kwargs)
   except Exception as e:
     return False, None, f"API call failed: {str(e)}"
 
@@ -235,7 +318,12 @@ def execute_step(step, step_number, total_steps):
   except Exception:
     response_body = response.text
 
-  logger.debug(f"    Response Body: {json.dumps(response_body, indent=2) if isinstance(response_body, dict) else response_body}")
+  logger.debug(f"    Response Status: {response.status_code}")
+  logger.debug(f"    Response Body: {json.dumps(
+      response_body,
+      indent=2) if isinstance(
+      response_body,
+      dict) else response_body}")
 
   # Check status code
   expected_status = expected_status.get("status_code", 200)
@@ -254,7 +342,9 @@ def execute_step(step, step_number, total_steps):
 
   # Save variables from response
   for var_name, path in save_vars.items():
-    val = response_body if isinstance(response_body, (dict, list)) else response
+    val = response_body if isinstance(
+        response_body, (dict, list)) else response
+
     for key in path.split("."):
       if isinstance(val, dict):
         val = val.get(key)
