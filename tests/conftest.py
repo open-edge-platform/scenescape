@@ -295,7 +295,14 @@ def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
   profile = spec.profile
   project_name = f"test-{uuid.uuid4().hex[:8]}"
   exampledb = spec.exampledb or "tests/testdb.tar.bz2"
-  image_version = os.environ.get("IMAGE_VERSION", "latest")
+  env_path = Path(repo_root) / ".env"
+  env_text = env_path.read_text() if env_path.exists() else ""
+  env_ver = re.search(r"^VERSION=(.+)$", env_text, re.MULTILINE)
+  image_version = os.environ.get("IMAGE_VERSION",
+                                 env_ver.group(1) if env_ver else "latest")
+  # "2026.0.0-rc2" → "2026.0.0-ubuntu24-rc2", "2026.0.0" → "2026.0.0-ubuntu24"
+  dlstreamer_version = image_version.replace("-", "-ubuntu24-", 1) \
+    if "-" in image_version else f"{image_version}-ubuntu24"
 
   os.environ["SECRETSDIR"] = secrets_dir
 
@@ -322,6 +329,7 @@ def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
     f"SECRETSDIR={secrets_dir}\n"
     f"SUPASS={supass}\n"
     f"VERSION={image_version}\n"
+    f"DLSTREAMER_VERSION={dlstreamer_version}\n"
     f"CONTROLLER_AUTH={controller_auth}\n"
     f"DBROOT={tmp_path / 'db'}\n"
     f"EXAMPLEDB={exampledb}\n"

@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import shutil
 import time
 from selenium.webdriver import Firefox
 from selenium.webdriver.firefox.service import Service
@@ -27,7 +28,7 @@ class Browser(Firefox):
       options.add_argument('--headless')
 
     options.add_argument("--window-size=1080,1920")
-    s = Service("/usr/local/bin/geckodriver")
+    s = Service(shutil.which("geckodriver") or "/usr/local/bin/geckodriver")
     super().__init__(options=options, service=s)
     return
 
