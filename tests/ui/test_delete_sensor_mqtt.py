@@ -13,6 +13,13 @@ from scene_common.rest_client import RESTClient
 
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="delete_sensor_mqtt", profile=FULL_STACK,
+  require_password=True, auth=AUTH_CONTROLLER,
+)
 
 GOOD_DATA_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_media/good_data.txt')
 SENSOR_NAME = 'Scene_Sensor_to_be_Deleted'

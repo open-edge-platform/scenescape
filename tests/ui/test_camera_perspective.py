@@ -8,6 +8,13 @@ import time
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 from scene_common import log
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="camera_perspective", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 TEST_WAIT_TIME = 5
 

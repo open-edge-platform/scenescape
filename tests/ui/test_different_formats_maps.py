@@ -7,6 +7,13 @@ import os
 import time
 from tests.ui.browser import Browser, By, NoSuchElementException
 import tests.ui.common_ui_test_utils as common
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="different_formats_maps", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 def validate_image(browser, scene_name, image_name):
   """! Checks that a scene contains the expected scene map image_name.

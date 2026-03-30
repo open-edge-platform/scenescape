@@ -12,6 +12,13 @@ import pytest
 from markerless_camera_calibration import CameraCalibrationMonocularPoseEstimate, getPoseMatrix
 from scene_common.mesh_util import extractMeshFromGLB, extractMeshFromImage
 from scene_common.transform import convertToTransformMatrix
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import MARKERLESS
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="markerless_unit", profile=MARKERLESS,
+  require_password=False, auth="",
+)
 
 def test_extractMeshFromGLB(getGlbFile):
   """! Tests loading mesh from glb file. """

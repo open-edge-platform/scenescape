@@ -4,12 +4,21 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+import os
 import time
 from datetime import datetime, timedelta
 
 from scene_common.mqtt import PubSub
 from tests.ui.browser import Browser
 import tests.common_test_utils as common
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="system_stability", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  require_password=False, auth="",
+  extra_args=["--hours", os.environ.get("STABILITY_HOURS", "24")],
+)
 
 TEST_NAME="NEX-T10411"
 

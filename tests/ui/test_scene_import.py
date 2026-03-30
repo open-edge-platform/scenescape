@@ -28,6 +28,13 @@ from tests.ui import UserInterfaceTest
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="scene_import", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  auth=AUTH_CONTROLLER,
+)
 
 MAX_CONTROLLER_WAIT = 30  # seconds
 TEST_WAIT_TIME = 10

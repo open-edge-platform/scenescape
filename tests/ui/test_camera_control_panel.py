@@ -9,6 +9,13 @@ import tests.ui.common_ui_test_utils as common
 from scene_common import log
 from tests.ui import UserInterfaceTest
 from tests.ui.browser import By, NoSuchElementException, WebDriverException
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="3d_camera_control_panel", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 TEST_NAME = "NEX-T10475"
 WAIT_SEC = 1

@@ -7,6 +7,13 @@ import os
 import numpy as np
 from tests.functional.backend_functional import BackendFunctionalTest
 from scene_common import log
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import BROKER_VDMS_DB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="vdms_similarity_search", profile=BROKER_VDMS_DB,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T10516"
 

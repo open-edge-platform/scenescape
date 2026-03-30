@@ -6,6 +6,13 @@
 import tests.ui.common_ui_test_utils as common
 import os
 import cv2
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="view_3d_glb_file", profile=FULL_STACK,
+  require_password=True, auth="",
+)
 
 @common.mock_display
 @common.scenescape_login_headed

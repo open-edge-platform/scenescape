@@ -7,6 +7,13 @@ import os
 import time
 from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="scenes_summary", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 def test_scenes_summary_main(params, record_xml_attribute):
   """! Creates a second scene and checks that both scenes are both visible in

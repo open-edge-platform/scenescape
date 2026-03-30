@@ -7,6 +7,13 @@ import os
 import time
 from tests.ui.browser import Browser
 import tests.ui.common_ui_test_utils as common
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="delete_sensor_scene", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 def test_del_sensor_scene_main(params, record_xml_attribute):
   """! Checks that sensor can still be deleted after the scene the sensor was attached to is deleted.

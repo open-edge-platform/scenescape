@@ -21,6 +21,12 @@ from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
 from scene_common import log
 from controller.vdms_adapter import VDMSDatabase, vdms
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import REID_DATA_FLOW
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="reid_data_flow", profile=REID_DATA_FLOW,
+)
 
 
 def create_reid_embedding():

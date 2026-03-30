@@ -6,6 +6,13 @@
 import os, time
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="persistence_navigate", profile=FULL_STACK,
+  require_password=True, auth="",
+)
 
 def test_page_persistence_main(params, record_xml_attribute):
   """! Checks that a scene can be created and a camera added.

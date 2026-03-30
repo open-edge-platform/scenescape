@@ -26,9 +26,6 @@ auto-calibration-ui: # NEX-T15710
 bounding-box: # NEX-T10419
 	$(call pytest-recipe, bounding_box)
 
-timestamp-format: # NEX-XXX
-	$(call pytest-recipe, timestamp_format)
-
 calibrate-all-sensor-types: # NEX-T10457
 	$(call pytest-recipe, calibrate_all_sensor_types)
 

@@ -6,6 +6,12 @@
 # Import the shared test infrastructure from test_reid_unique_count
 from tests.functional.test_reid_unique_count import run_test
 from scene_common import log
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import REID_SEMANTIC
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="reid_semantic_unique_count", profile=REID_SEMANTIC,
+)
 
 def test_reid_semantic_unique_count(params, record_xml_attribute):
   """! Tests the unique count for each scene when RE-ID with

@@ -7,6 +7,13 @@ import time
 from scene_common import log
 import tests.ui.common_ui_test_utils as common
 from tests.ui.browser import By, Browser
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="3d_scene_control_panel", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 @common.mock_display
 def test_scene_control_panel(params, record_xml_attribute):

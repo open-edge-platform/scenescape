@@ -12,6 +12,13 @@ from tests.common_test_utils import check_event_contains_data
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time, get_epoch_time
 from scene_common.rest_client import RESTClient
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="mqtt_tripwire", profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T10406"
 TW_NAME = "Automated_Trip_Wire"

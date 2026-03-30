@@ -7,6 +7,13 @@ import os
 from tests.functional import FunctionalTest
 from http import HTTPStatus
 from scene_common.rest_client import RESTClient
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import WEB_ONLY
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="superuser_crud_operations_api", profile=WEB_ONLY,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T10418-API"
 

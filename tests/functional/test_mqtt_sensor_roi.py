@@ -10,6 +10,13 @@ from http import HTTPStatus
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time, get_epoch_time
 from tests.functional.common_scene_obj import SceneObjectMqtt
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="mqtt_sensor_roi", profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T10460"
 SENSOR_DELAY = 0.5

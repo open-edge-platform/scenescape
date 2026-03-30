@@ -6,6 +6,13 @@
 import logging
 import random
 from http import HTTPStatus
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import WEB_ONLY
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="object_crud_api", profile=WEB_ONLY,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T10429-API"
 

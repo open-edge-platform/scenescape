@@ -9,6 +9,13 @@ import tests.ui.common_ui_test_utils as common
 
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="sensor_area", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 def test_sensor_area_main(params, record_xml_attribute):
   """! Checks that a sensor covering the entire scene, a circular area, and a

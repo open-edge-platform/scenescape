@@ -9,6 +9,13 @@ import time
 import tests.common_test_utils as tests_common
 import tests.ui.common_ui_test_utils as common
 from tests.ui.browser import By, Browser
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="live_view_button", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  require_password=True, auth="",
+)
 
 TEST_WAIT_TIME = 5
 TEST_NAME = "NEX-T10434"

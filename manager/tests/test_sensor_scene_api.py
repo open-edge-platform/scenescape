@@ -5,6 +5,13 @@
 
 import logging
 from http import HTTPStatus
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import WEB_ONLY
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="sensor_scene_api", profile=WEB_ONLY,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T10396-API"
 

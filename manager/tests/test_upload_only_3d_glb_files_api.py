@@ -5,6 +5,13 @@
 
 import os
 import logging
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import WEB_ONLY
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="upload_only_3d_glb_files_api", profile=WEB_ONLY,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T10433-API"
 

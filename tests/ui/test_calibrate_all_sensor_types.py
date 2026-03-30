@@ -7,6 +7,13 @@ from scene_common import log
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 from abc import ABC, abstractmethod
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="calibrate_all_sensor_types", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 import time
 import re

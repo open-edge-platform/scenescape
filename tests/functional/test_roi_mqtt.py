@@ -4,6 +4,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from tests.functional.common_scene_obj import SceneObjectMqtt
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="mqtt_roi", profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T10404"
 

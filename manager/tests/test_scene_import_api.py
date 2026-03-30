@@ -11,6 +11,13 @@ import pytest
 from scene_common.rest_client import RESTClient
 from tests.common_test_utils import record_test_result
 from tests.functional import FunctionalTest
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import WEB_ONLY
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="scene_import_api", profile=WEB_ONLY,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T13967"
 

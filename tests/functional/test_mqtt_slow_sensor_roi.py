@@ -5,6 +5,13 @@
 
 import os
 from tests.functional.test_mqtt_sensor_roi import SensorMqttRoi
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="mqtt_slow_sensor_roi", profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
 # This test exercises the case for long delay between sensor updates
 TEST_NAME = "NEX-T10461"

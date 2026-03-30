@@ -7,6 +7,13 @@ import time
 import random
 from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="sensor_location", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 def change_sensor_location(browser, sensor_name):
   """! Changes a sensor location randomly.

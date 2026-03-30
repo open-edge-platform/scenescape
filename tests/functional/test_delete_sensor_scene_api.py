@@ -9,6 +9,13 @@ from http import HTTPStatus
 from scene_common import log
 from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="delete_sensor_scene_api", profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T10397"
 MAX_CONTROLLER_WAIT = 20  # seconds

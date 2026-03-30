@@ -10,6 +10,13 @@ import time
 
 import tests.common_test_utils as common
 from scene_common.mqtt import initializeMqttClient
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_AND_DB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="mqtt_auth", profile=BROKER_AND_DB,
+  require_password=False, auth="",
+)
 
 TEST_WAIT_TIME = 10
 TEST_MIN_DETECTIONS = TEST_WAIT_TIME * 20

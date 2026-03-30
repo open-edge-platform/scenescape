@@ -6,6 +6,13 @@
 import os
 from tests.ui import UserInterfaceTest
 from selenium.common.exceptions import WebDriverException
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="restricted_media_access", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 TEST_NAME = "NEX-T10494"
 MEDIA_PATH = "media/HazardZoneSceneLarge.png"

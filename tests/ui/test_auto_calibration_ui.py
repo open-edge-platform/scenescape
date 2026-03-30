@@ -11,6 +11,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from tests.ui.browser import By
 from tests.ui import UserInterfaceTest
 from tests.ui import common
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import AUTO_CALIBRATION_UI
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="auto_calibration_ui", profile=AUTO_CALIBRATION_UI,
+  require_password=True, auth="",
+  exampledb="sample_data/exampledb.tar.bz2",
+)
 
 def wait_for_calibration(browser, wait_time):
   """! Waits for the auto calibration to initialize.

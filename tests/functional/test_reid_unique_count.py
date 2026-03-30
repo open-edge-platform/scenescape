@@ -9,6 +9,12 @@ import tests.common_test_utils as common
 from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
 from scene_common import log
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import REID
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="reid_unique_count", profile=REID,
+)
 
 TEST_WAIT_TIME = 150
 connected = False

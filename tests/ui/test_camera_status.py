@@ -7,6 +7,13 @@ import time
 from tests.ui.browser import Browser, By
 from tests.mqtt_helper import mqtt_wait_for_detections
 import tests.ui.common_ui_test_utils as common
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="camera_status", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  require_password=True, auth="",
+)
 
 def test_camera_status_main(params, record_xml_attribute):
   """! Checks that the camera streams on the WebUI are updated, reporting success

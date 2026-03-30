@@ -8,6 +8,14 @@ import time
 import pytest
 from scene_common import log
 from tests.functional.common_camera_bounds import CameraBounds, test_wait_time, check_interval
+from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
+from tests.utils.profiles import FULL_STACK_WITH_VIDEO
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="visibility_regulated", profile=FULL_STACK_WITH_VIDEO,
+  auth=AUTH_BROWSER,
+  extra_args=["--visibility_topic", "regulated"],
+)
 
 
 class CameraBoundVisibilityRegulated(CameraBounds):

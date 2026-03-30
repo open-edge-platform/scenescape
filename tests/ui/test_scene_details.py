@@ -6,6 +6,13 @@
 import time
 from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="scene_details", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  require_password=True, auth="",
+)
 
 def test_scene_details_main(params, record_xml_attribute):
   """! Checks that the scene detail page is accessible from the scene summary page.

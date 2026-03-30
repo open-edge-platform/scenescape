@@ -9,6 +9,13 @@ import tests.ui.common_ui_test_utils as common
 
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="superuser_crud_operations", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 def create_user(browser, user_name, pwd):
   """! This function uses the admin page to create a Scenescape web UI user.

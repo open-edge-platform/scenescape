@@ -7,6 +7,13 @@ from scene_common import log
 from tests.ui.browser import Browser, By
 from selenium.webdriver.support.ui import Select
 import tests.ui.common_ui_test_utils as common
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="camera_deletion", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 def test_camera_deletion_main(params, record_xml_attribute):
   """! Checks that a camera which is not attached to a scene can be deleted.

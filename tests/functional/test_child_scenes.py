@@ -17,6 +17,13 @@ from scene_common.geometry import Point
 from controller.tools.analytics.library import metrics
 from scene_common.timestamp import get_iso_time
 import tests.common_test_utils as common
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="child_scenes", profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
 FRAME_RATE = 10
 MAX_DELAYS = 3

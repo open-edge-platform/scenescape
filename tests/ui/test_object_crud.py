@@ -8,6 +8,13 @@ from scene_common import log
 from selenium.webdriver.support.ui import Select
 from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="object_crud", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 
 def validate_object_crud(browser, file_path=None):

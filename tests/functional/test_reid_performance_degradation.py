@@ -21,7 +21,12 @@ except ImportError:
   from importlib import reload
   reload(site)
   import psutil
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import REID
 
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="reid_performance_degradation", profile=REID,
+)
 
 TEST_NAME = "NEX-T10541"
 TEST_WAIT_TIME = 2 * 60 * 60  # 2 hours in seconds

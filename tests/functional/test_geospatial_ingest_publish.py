@@ -14,6 +14,13 @@ from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
 from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints, convertXYZToLLA
 from tests.functional import FunctionalTest
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="geospatial_ingest_publish", profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T10490"
 CHILD_NAME = "Child"

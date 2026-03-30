@@ -15,6 +15,13 @@ from threading import Condition, Event
 from scene_common.timestamp import get_epoch_time
 from scene_common.mqtt import PubSub
 from selenium.common.exceptions import StaleElementReferenceException
+from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
+from tests.utils.profiles import FULL_STACK_WITH_VIDEO
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="out_of_box", profile=FULL_STACK_WITH_VIDEO,
+  auth=AUTH_BROWSER,
+)
 
 TEST_WAIT_TIME = 10
 UI_MARKS_DELAY = 3

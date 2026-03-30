@@ -5,6 +5,13 @@
 
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="camera_intrinsics", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 def enter_and_validate_parameters(browser, button_id, initial_value, step):
   """! Enters camera intrinsic and distortion parameters into the web UI.

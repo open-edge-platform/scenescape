@@ -66,13 +66,20 @@ define pytest-recipe =
 endef
 
 # Create the pytest virtualenv if it does not already exist.
+# Installs pip dependencies and builds the fast_geometry C++ extension.
 # Called automatically by functional-tests, unit-tests, and ui-tests groups.
 .PHONY: setup-pytest
 setup-pytest:
 	@if [ ! -d "$(CURDIR)/.venv" ]; then \
 		python3 -m venv $(CURDIR)/.venv; \
+    echo "Installing venv dependencies..."; \
 		$(CURDIR)/.venv/bin/pip install -q --upgrade pip; \
 		$(CURDIR)/.venv/bin/pip install -q -r $(CURDIR)/requirements.txt; \
+	fi
+	@if ! $(CURDIR)/.venv/bin/python3 -c "from fast_geometry import Point" 2>/dev/null; then \
+		echo "Building fast_geometry C++ extension..."; \
+		PATH="$(CURDIR)/.venv/bin:$$PATH" \
+			$(MAKE) -C $(CURDIR)/../scene_common/src/fast_geometry all install; \
 	fi
 
 # Not sorted alphabetically on purpose
@@ -229,7 +236,6 @@ _ui-tests: \
   view-3d-glb-file \
   3d-scene-control-panel \
   3d-camera-control-panel \
-  timestamp-format \
 
 unit-tests: setup-pytest
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k

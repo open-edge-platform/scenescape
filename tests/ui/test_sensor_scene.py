@@ -7,6 +7,13 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="sensor_scene", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 def test_sensor_scene_main(params, record_xml_attribute):
   """! Checks that user can create a sensor without attaching it to a scene.

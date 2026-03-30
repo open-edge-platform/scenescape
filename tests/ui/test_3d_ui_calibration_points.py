@@ -9,6 +9,13 @@ import time
 from scene_common import log
 import tests.ui.common_ui_test_utils as common
 from tests.ui import UserInterfaceTest
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="3d_ui_calibration_points", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  require_password=True, auth="",
+)
 
 POSITION_THRESHOLD = 0.001
 ROTATION_THRESHOLD = 0.001

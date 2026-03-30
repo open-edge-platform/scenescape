@@ -10,6 +10,13 @@ from scene_common import log
 from scene_common.mqtt import PubSub
 from tests.functional import FunctionalTest
 from scene_common.timestamp import get_iso_time
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import SCENE_NO_DB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="scene_import_json", profile=SCENE_NO_DB,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T15347"
 FRAMES_PER_SECOND = 10

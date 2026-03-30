@@ -12,6 +12,13 @@ import numpy as np
 
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import BROKER_WEB
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="manual_camera_calibration", profile=BROKER_WEB,
+  require_password=True, auth="",
+)
 
 TEST_WAIT_TIME = 5
 TEST_NAME = "NEX-T10426"

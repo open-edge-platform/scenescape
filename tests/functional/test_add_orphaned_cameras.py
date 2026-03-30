@@ -7,6 +7,13 @@ import os
 from scene_common import log
 from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="add_orphaned_cameras", profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T10402"
 MAX_CONTROLLER_WAIT = 20 # seconds

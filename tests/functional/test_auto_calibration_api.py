@@ -19,6 +19,14 @@ from contextlib import contextmanager
 from tests.functional import FunctionalTest
 from scene_common import log
 from scene_common.rest_client import RESTClient
+from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
+from tests.utils.profiles import FULL_STACK_CALIBRATION
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="auto_calibration_api", profile=FULL_STACK_CALIBRATION,
+  auth=AUTH_BROWSER,
+  exampledb="tests/calibrationdb.tar.bz2",
+)
 
 MAX_WAIT = 5
 BASE_URL = "https://autocalibration.scenescape.intel.com:8443"

@@ -9,6 +9,13 @@ from scene_common import log
 from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
 from tests.functional import FunctionalTest
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="camera_intrinsics_api", profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T10415"
 MAX_CONTROLLER_WAIT = 20  # seconds

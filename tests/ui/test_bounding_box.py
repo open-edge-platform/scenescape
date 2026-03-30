@@ -13,6 +13,13 @@ import tests.ui.common_ui_test_utils as common
 from scene_common import log
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_epoch_time
+from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
+from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="bounding_box", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  auth=AUTH_BROWSER,
+)
 
 TEST_WAIT_TIME = 10
 MAX_TEST_WAIT_TIME = 60

@@ -6,6 +6,13 @@
 from http import HTTPStatus
 from scene_common.rest_client import RESTClient
 from tests.common_test_utils import record_test_result
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  id="scene_details_api", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T10395-API"
 
