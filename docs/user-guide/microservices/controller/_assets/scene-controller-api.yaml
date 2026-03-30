@@ -10,13 +10,11 @@ info:
 
     Flow Description:
     - The Scene Controller `subscribes` to camera data from `scenescape/data/camera/{camera_id}`.
+    - It also `subscribes` to external `sensor data` from `scenescape/data/sensor/{sensor_id}` to enhance scene awareness.
     - It processes live camera detections into `scene objects`.
     - It `publishes` unregulated tracking results to `scenescape/data/scene/{scene_id}/{thing_type}` for each object type (e.g., person, vehicle).
     - It `publishes` regulated (filtered or validated) track results to `scenescape/regulated/scene/{scene_id}`.
-    - It also `subscribes` to external `sensor data` from `scenescape/data/sensor/{sensor_id}` to enhance scene awareness.
-    - Based on scene and sensor inputs, it **detects events** and **publishes** event notifications to `scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}` and `scenescape/region/<region_id>`.
-
-    These interactions follow a request/response communication pattern and will eventually be transitioned to REST API calls.
+    - Based on scene and sensor inputs, it **detects events** and **publishes** event notifications to `scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}` and `scenescape/region/{region_id}`.
 
 channels:
   scenescape/data/camera/{camera_id}:
