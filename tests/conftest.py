@@ -17,6 +17,7 @@ Tests without a SCENESCAPE_SPEC (unit tests) get a no-op.
 import logging
 import os
 import re
+import socket
 import subprocess
 import sys
 import uuid
@@ -209,42 +210,27 @@ def _docker_prune_at_exit():
 
 # Hostnames that must resolve to 127.0.0.1 for TLS cert verification.
 _HOST_ALIASES = ["broker.scenescape.intel.com", "web.scenescape.intel.com"]
-_HOSTS_MARKER = "# scenescape-test-aliases"
 
 @pytest.fixture(scope="session", autouse=True)
 def loopback_hosts():
-  """Ensure Docker service hostnames resolve to 127.0.0.1 on the host."""
+  """Resolve SceneScape service hostnames to loopback in this test process."""
   if not _ORCHESTRATION_AVAILABLE:
     yield
     return
 
-  hosts_path = Path("/etc/hosts")
-  entry = f"127.0.0.1 {' '.join(_HOST_ALIASES)}  {_HOSTS_MARKER}\n"
+  original_getaddrinfo = socket.getaddrinfo
 
+  def _loopback_getaddrinfo(host, *args, **kwargs):
+    if isinstance(host, str) and host in _HOST_ALIASES:
+      host = "127.0.0.1"
+    return original_getaddrinfo(host, *args, **kwargs)
+
+  logger.info("Using process-local loopback DNS for: %s", ", ".join(_HOST_ALIASES))
+  socket.getaddrinfo = _loopback_getaddrinfo
   try:
-    content = hosts_path.read_text()
-  except OSError:
-    logger.warning("/etc/hosts not readable; skipping alias setup")
     yield
-    return
-
-  if all(alias in content for alias in _HOST_ALIASES):
-    logger.info("Host aliases already present in /etc/hosts")
-    yield
-    return
-
-  try:
-    with hosts_path.open("a") as fh:
-      fh.write(entry)
-    logger.info("Added host aliases to /etc/hosts")
-  except OSError:
-    logger.warning(
-      "Cannot write /etc/hosts. Add manually:\n  %s", entry.strip()
-    )
-    yield
-    return
-
-  yield
+  finally:
+    socket.getaddrinfo = original_getaddrinfo
 
 
 # ---------------------------------------------------------------------------
