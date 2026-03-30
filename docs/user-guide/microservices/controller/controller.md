@@ -57,7 +57,7 @@ For detailed configuration guidance:
 - Tracker configuration: See [How to Configure the Tracker](./how-to-configure-tracker.md)
 - Re-ID configuration: See [Extended Re-ID](./Extended-ReID.md)
 
-## Controller Input/Output Message Formats
+## Input/Output Message Formats
 
 For details on the MQTT message formats accepted and produced by the Scene Controller, see [SceneScape Controller Data Formats](./data_formats.md).
 
