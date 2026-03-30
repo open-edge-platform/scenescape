@@ -53,10 +53,13 @@ markmap:
   - `data/scene` topics
   - `data/sensor` topics
 - **Output**:
-  - `regulated/scene` topics
+  - `regulated/scene` and `data/scene` topics
     - passed-through:
       - [?] visibility by camera matches
+      - semantic metadata from camera detections
     - produced:
+      - sensor attributes
+      - events (e.g. regions)
       - visibility by camera view projection - this can use camera view projection to region with caching and reuse region optimized functions
   - `events/+` topics
     - produced: TBD
@@ -85,8 +88,7 @@ markmap:
 
 - **Role**: Transform reliable tracks upstream across the scene hierarchy
 
-
 ### Clustering
 
 - **Role**: Clustering analytics
-- to be merged
+- to be merged with Scene Analytics
