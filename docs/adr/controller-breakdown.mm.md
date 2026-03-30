@@ -26,7 +26,9 @@ markmap:
 - not aware of:
   - scene hierarchy
   - non-localization sensors, regions, tripwires
+- technology: C++
 - latency-critical, highly optimized
+- time synchronization: TBD
 - scalability
     - vertical
       - thread per (scene, category)
@@ -58,6 +60,16 @@ markmap:
       - visibility by camera view projection - this can use camera view projection to region with caching and reuse region optimized functions
   - `events/+` topics
     - produced: TBD
+- technology: Python and C++
+- time synchronization: TBD
+- latency-sensitive, most compute-expensive functions optimized (C++)
+- scalability
+    - vertical
+      - Process-based parallelism [Python multi-processing library](https://docs.python.org/3/library/multiprocessing.html)
+      - process per (scene) or (scene, category)
+    - horizontal (sharding):
+      - exclusive subset of scenes
+      - dynamically allocated (mechanism distributed vs centralized - TBD)
 
 ### UUID manager + ReID
 
