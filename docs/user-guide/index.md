@@ -41,7 +41,8 @@ Figure 1: Architecture Diagram
 ### **Scene Controller**
 
 Processes input metadata from camera pipelines and sensors, performs multi-camera and multi-object tracking, maintains and updates the current state of the scene and produces tracked objects and scene analytic events as outputs. For more information, refer to [Scene Controller Microservice](./microservices/controller/controller.md).
-For details on the controller input message formats, see [Camera Input Message Format](./microservices/controller/data_formats.md#camera-input-message-format).
+
+For details on the controller input message formats, see [Scene Controller Message Formats](./microservices/controller/data_formats.md).
 
 ### **Deep Learning Streamer Pipeline Server**
 
