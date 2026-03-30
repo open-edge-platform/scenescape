@@ -9,6 +9,7 @@
 pytest>=7.4.0,<10.0.0
 pytest-cov>=4.1.0,<5.0.0
 pytest-mock>=3.11.1,<4.0.0
+trimesh>=4.0.0
 
 # Additional testing utilities
 pytest-xdist>=3.3.1,<4.0.0  # For parallel test execution
