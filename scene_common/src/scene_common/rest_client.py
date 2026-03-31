@@ -350,6 +350,24 @@ class RESTClient:
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
     return self._update(f"child/{uid}", data, files)
 
+  def getChildScene(self, filter):
+    """Gets all child scenes matching filter. If filter is None returns all child scenes.
+
+    @param      filter          dict with key/value pairs to filter matching objects
+    @return                     RESTResult with decoded objects on success,
+                                empty with `errors` set on failure
+    """
+    return self._get("scenes/child", filter)
+
+  def deleteChildSceneLink(self, uid):
+    """Deletes child scene link with `uid`
+
+    @param      uid             uid of child scene link to delete
+    @return                     RESTResult with deleted object's uid on success,
+                                empty with `errors` set on failure
+    """
+    return self._delete(f"child/{uid}")
+
   # Camera
   def getCameras(self, filter):
     """Gets all cameras matching filter. If filter is None returns all cameras.
@@ -595,19 +613,6 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     return self._delete(f"asset/{uid}")
-
-  # child
-  def getChildScene(self, filter):
-    """Gets all child scenes matching filter. If filter is None returns all child scenes.
-
-    @param      filter          dict with key/value pairs to filter matching objects
-    @return                     RESTResult with decoded objects on success,
-                                empty with `errors` set on failure
-    """
-    return self._get("scenes/child", filter)
-
-  def updateChildScene(self, uid, data):
-    return self._update(f"child/{uid}", data)
 
   # Users
   def getUsers(self, filter):
