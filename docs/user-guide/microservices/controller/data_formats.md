@@ -25,15 +25,15 @@ against the `detector` definition in
 
 ### Top-Level Message Fields
 
-| Field            | Type                  | Required | Description                                                                                                          |
-| ---------------- | --------------------- | :------: | -------------------------------------------------------------------------------------------------------------------- |
-| `id`             | string                |   Yes    | Camera identifier; must match the `{camera_id}` segment in the MQTT topic `scenescape/data/camera/{camera_id}`      |
-| `timestamp`      | string (ISO 8601 UTC) |   Yes    | Acquisition time of the frame                                                                                        |
-| `objects`        | object                |   Yes    | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`)                                  |
-| `rate`           | number ≥ 0            |    No    | Camera framerate (frames per second) when the message was produced                                                   |
-| `sub_detections` | array of string       |    No    | Sub-detection labels run on this frame (e.g. `["license_plate"]`)                                                    |
-| `intrinsics`     | object                |    No    | Camera intrinsic parameters (`fx`, `fy`, `cx`, `cy`); used to update camera calibration and compute image resolution |
-| `distortion`     | array of number       |    No    | Lens distortion coefficients; used alongside `intrinsics` to update camera calibration                               |
+| Field            | Type                  | Required | Description                                                                                                                         |
+| ---------------- | --------------------- | :------: | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `id`             | string                |   Yes    | Camera identifier; must match the `{camera_id}` segment in the MQTT topic identifier                                                |
+| `timestamp`      | string (ISO 8601 UTC) |   Yes    | Acquisition time of the frame                                                                                                       |
+| `objects`        | object                |   Yes    | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`)                                                 |
+| `rate`           | number ≥ 0            |    No    | Camera framerate (frames per second) when the message was produced                                                                  |
+| `sub_detections` | array of string       |    No    | Sub-detection labels run on this frame (e.g. `["license_plate"]`)                                                                   |
+| `intrinsics`     | object                |    No    | Camera intrinsic parameters (`fx`, `fy`, `cx`, `cy`); used to update camera calibration and compute image resolution                |
+| `distortion`     | object                |    No    | Lens distortion coefficients keyed by name (`k1`, `k2`, `p1`, `p2`, `k3`); used alongside `intrinsics` to update camera calibration |
 
 ### Detection Object Fields (`objects.<category>[*]`)
 
@@ -245,6 +245,7 @@ objects of that category.
     {
       "id": "65d49fa0-a855-46f8-bb41-4e92102c7c47",
       "category": "person",
+      "type": "person",
       "confidence": 0.999,
       "translation": [2.463, 3.61, 0.0],
       "size": [0.5, 0.5, 1.85],
@@ -316,6 +317,7 @@ applications.
     {
       "id": "0c373dbf-2a1d-49b7-ba2d-48711d189971",
       "category": "person",
+      "type": "person",
       "confidence": 0.998,
       "translation": [2.204, 3.29, 0.0],
       "size": [0.5, 0.5, 1.85],
@@ -393,6 +395,7 @@ interest changes. The `{event_type}` segment is typically `objects`.
     {
       "id": "2d3c96d9-24bd-498b-ba1f-2fd54ab6c25b",
       "category": "person",
+      "type": "person",
       "confidence": 0.999,
       "translation": [2.557, 3.678, 0.0],
       "size": [0.5, 0.5, 1.85],
@@ -413,6 +416,7 @@ interest changes. The `{event_type}` segment is typically `objects`.
     {
       "id": "2d3c96d9-24bd-498b-ba1f-2fd54ab6c25b",
       "category": "person",
+      "type": "person",
       "confidence": 0.999,
       "translation": [2.557, 3.678, 0.0],
       "size": [0.5, 0.5, 1.85],
@@ -428,6 +432,7 @@ interest changes. The `{event_type}` segment is typically `objects`.
       "object": {
         "id": "bbd07321-dbb9-4384-bf1b-4eb5d9a0aa05",
         "category": "person",
+        "type": "person",
         "confidence": 0.98,
         "translation": [0.893, 5.709, 0.0],
         "size": [0.5, 0.5, 1.85],
@@ -504,6 +509,7 @@ field (`1` or `-1`) indicating which side of the wire it crossed toward.
     {
       "id": "d62d8bbf-9008-40f5-84f8-9faca9e03d90",
       "category": "person",
+      "type": "person",
       "confidence": 0.999,
       "translation": [1.043, 3.542, 0.0],
       "size": [0.5, 0.5, 1.85],

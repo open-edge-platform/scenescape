@@ -60,9 +60,20 @@ channels:
                 cy:
                   type: number
             distortion:
-              type: array
-              items:
-                type: number
+              type: object
+              description: >-
+                Lens distortion coefficients keyed by name.
+              properties:
+                k1:
+                  type: number
+                k2:
+                  type: number
+                p1:
+                  type: number
+                p2:
+                  type: number
+                k3:
+                  type: number
 
   scenescape/regulated/scene/{scene_id}:
     parameters:
