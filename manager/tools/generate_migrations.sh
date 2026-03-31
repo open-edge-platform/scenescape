@@ -61,7 +61,7 @@ generate_migrations() {
   local container="scenescape-migrate-gen-$$"
 
   mkdir -p "${HOST_MIGRATIONS_DIR}"
-  docker run --name "${container}" \
+  docker run --rm --name "${container}" \
   --user "$(id -u):$(id -g)" \
   --network "${DB_NETWORK}" \
   -e DBHOST=pgserver \
@@ -77,7 +77,6 @@ generate_migrations() {
     cp /run/secrets/django/secrets.py /home/scenescape/SceneScape/manager/secrets.py
     python manage.py makemigrations manager
   '
-  docker rm -f "${container}" >/dev/null
   echo "==> Migrations can be found at ${HOST_MIGRATIONS_DIR}"
 }
 
