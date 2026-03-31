@@ -27,7 +27,7 @@ against the `detector` definition in
 
 | Field            | Type                  | Required | Description                                                                                                          |
 | ---------------- | --------------------- | :------: | -------------------------------------------------------------------------------------------------------------------- |
-| `id`             | string                |   Yes    | Camera or sensor identifier                                                                                          |
+| `id`             | string                |   Yes    | Camera identifier; must match the `{camera_id}` segment in the MQTT topic `scenescape/data/camera/{camera_id}`      |
 | `timestamp`      | string (ISO 8601 UTC) |   Yes    | Acquisition time of the frame                                                                                        |
 | `objects`        | object                |   Yes    | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`)                                  |
 | `rate`           | number ≥ 0            |    No    | Camera framerate (frames per second) when the message was produced                                                   |
