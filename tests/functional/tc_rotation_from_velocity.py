@@ -17,6 +17,7 @@ COLLECT_TIMEOUT = 10.0
 MIN_MESSAGES = 5
 PROPAGATION_DELAY = 0.5
 IDENTITY_QUAT = (0.0, 0.0, 0.0, 1.0)
+ALIGNMENT_PASS_RATIO = 0.98
 
 # turns a vector into a unit vector
 def normalize(v):
@@ -77,13 +78,12 @@ class RotationFromVelocityTest(FunctionalTest):
     )
 
     self.client.addCallback(self.topic, self.on_message)
-    self.client.subscribe(self.topic)
 
     # Runtime state
     self.rotations_before = []
     self.rotations_enabled = []
     self.rotations_disabled = []
-    self.collect_target = None  # "before" | "after" | "disabled"
+    self.collect_target = None  # "before" | "enabled" | "disabled"
     self.exitCode = 1
 
   # MQTT callback
@@ -110,7 +110,7 @@ class RotationFromVelocityTest(FunctionalTest):
       if self.collect_target == "before":
         self.rotations_before.append(tuple(quat))
       elif self.collect_target == "enabled":
-        self.rotations_enabled.append(tuple((quat, velocity)))
+        self.rotations_enabled.append((quat, velocity))
       elif self.collect_target == "disabled":
         self.rotations_disabled.append(tuple(quat))
 
@@ -139,6 +139,8 @@ class RotationFromVelocityTest(FunctionalTest):
     while time.time() - start < COLLECT_TIMEOUT and len(dest) < MIN_MESSAGES:
       time.sleep(0.05)
 
+    self.collect_target = None
+
     assert len(dest) >= MIN_MESSAGES, (
       f"Collected {len(dest)} messages for phase '{target_list_name}', "
       f"expected >= {MIN_MESSAGES} from topic '{self.topic}'"
@@ -153,7 +155,7 @@ class RotationFromVelocityTest(FunctionalTest):
       # collect BEFORE enabling rotation
       self.collect("before")
       before_set = set(self.rotations_before)
-      log.info(f"Rotation before changing settings (feature OFF):", before_set)
+      log.info("Rotation before changing settings (feature OFF):", before_set)
 
       assert all(all(abs(a - b) < 1e-6 for a, b in zip(q, IDENTITY_QUAT)) for q in before_set), \
         "Spec violation: When OFF, rotation must be the identity quaternion [0,0,0,1]"
@@ -165,12 +167,12 @@ class RotationFromVelocityTest(FunctionalTest):
       self.collect("enabled")
       FORWARD_AXIS = (1.0, 0.0, 0.0)
       MIN_SPEED = 0.05
-      MAX_ANGLE = 10.0
+      MAX_ANGLE = 5.0
 
       checked = 0
       aligned = 0
 
-      for quat, velocity in self.rotations_enabled:
+      for quat, velocity in list(self.rotations_enabled):
         speed = math.sqrt(sum(x * x for x in velocity))
         if speed < MIN_SPEED:
           continue
@@ -191,9 +193,13 @@ class RotationFromVelocityTest(FunctionalTest):
           aligned += 1
 
       assert checked > 0, "No moving objects found to verify velocity alignment"
+      alignment_ratio = aligned / checked
+      assert alignment_ratio >= ALIGNMENT_PASS_RATIO, (
+        f"Alignment ratio too low: {alignment_ratio:.2%} (expected >= {ALIGNMENT_PASS_RATIO:.0%})"
+      )
 
       log.info(
-        f"Rotation/velocity alignment: {aligned}/{checked} "
+        f"Rotation/velocity alignment: {aligned}/{checked} ({alignment_ratio:.2%}) "
         f"samples within {MAX_ANGLE} degrees"
       )
 
