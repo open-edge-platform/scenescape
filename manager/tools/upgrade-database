@@ -47,8 +47,6 @@ run_table_rename() {
   echo "Waiting $WAITFORDB seconds for DB to initialize..."
   sleep $WAITFORDB
 
-  docker exec -it $CONTAINER_NAME bash -c "bash manager/tools/migrate-rename-manager"
-
   echo "Stopping container..."
   docker stop $CONTAINER_NAME
 }
@@ -422,15 +420,6 @@ main() {
         echo "Media volume restored."
     else
         echo "Skipping restore: $MEDIA_TAR not found."
-    fi
-
-    if docker run --rm -v scenescape_vol-migrations-backup:/migrations alpine \
-        sh -c "grep -q 'sscape' /migrations/0001_initial.py"; then
-        echo "/migrations/0001_initial.py exists and contains 'sscape'. Renaming tables and sscape references in migration file..."
-        run_table_rename
-
-    else
-        echo "No 'sscape' reference found in /migrations/0001_initial.py, continuing upgrade..."
     fi
 
     # Parse command line arguments
