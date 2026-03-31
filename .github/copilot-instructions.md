@@ -107,6 +107,11 @@ make -C tests unit-tests                              # Unit tests only
 make -C tests geometry-unit                           # Specific test (e.g., geometry)
 ```
 
+### Completion Gate For Test Tasks (Critical)
+
+For runtime test verification requirements, use
+`.github/skills/test-verification-gate.md`.
+
 ## Code Patterns & Conventions
 
 **Python Packaging**:

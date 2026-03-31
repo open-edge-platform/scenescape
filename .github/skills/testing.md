@@ -15,6 +15,39 @@ This guide provides comprehensive instructions for AI agents to create high-qual
 - Each test should set up its own data and clean up after itself
 - Use mocking to isolate units from external dependencies
 
+## Verification Workflow For AI Agents (Mandatory)
+
+Use `.github/skills/test-verification-gate.md` for runtime verification,
+command selection, and completion reporting rules after creating or modifying
+tests.
+
+## Test Target Mapping Workflow (Mandatory)
+
+Run this workflow before executing any test command:
+
+1. Identify changed files.
+2. Classify each changed file scope: unit, functional, ui, perf, or integration.
+3. Resolve the concrete target from the relevant Makefile(s):
+   - `tests/Makefile`
+   - `tests/Makefile.functional`
+   - `tests/Makefile.user_interface`
+   - `tests/Makefile.sscape`
+4. Choose the narrowest target that directly validates the changed file(s).
+5. Run that target with required environment variables.
+
+### Anti-Miss Checklist
+
+- Do not treat unit target success as validation for functional test changes.
+- Do not run broad aggregate targets unless no narrow target exists or the user explicitly requests a sweep.
+- Do not report completion without runtime verification for the resolved target (unless blocked).
+- Always report: should-run target, whether it was run, exact command, and pass/fail summary (or blocker).
+
+### Quick Mapping Examples
+
+- `tests/functional/tc_sensors_send_mqtt_messages.py` -> `make -C tests sensors-send-events`
+- `tests/functional/tc_mqtt_sensor_roi.py` -> `make -C tests mqtt-sensor-roi`
+- `tests/functional/tc_tripwire_mqtt.py` -> `make -C tests mqtt-tripwire`
+
 ## Test Categories
 
 ### 1. Unit Tests
@@ -1047,13 +1080,16 @@ pytest -v -s  # -s shows print statements
 
 ## Test Checklist
 
-When creating a new test, verify:
+This checklist is mandatory before marking any testing task complete.
+If any item is not satisfied, the final response must explicitly state why.
+When creating or modifying tests, verify:
 
 - [ ] Test has Zephyr ID (NEX-T#####)
 - [ ] Test file named `test_*.py`
 - [ ] Test functions named `test_*`
 - [ ] Both positive and negative cases covered
 - [ ] Boundary conditions tested
+- [ ] At least one negative case exists per function or behavior under test, unless explicitly not applicable
 - [ ] Appropriate markers applied (`@pytest.mark.unit`, etc.)
 - [ ] Mocking used for external dependencies (unit tests)
 - [ ] Real data used for integration tests
@@ -1063,6 +1099,9 @@ When creating a new test, verify:
 - [ ] Test is independent (doesn't rely on other tests)
 - [ ] Fixtures used for shared data
 - [ ] Documentation strings explain what is being tested
+- [ ] Repo-preferred test command used for validation (prefer `make -C tests <target>` when available)
+- [ ] New or changed tests executed after the last code edit
+- [ ] Final response includes current pass/fail status and any warnings or known gaps
 
 ## Quick Reference
 
