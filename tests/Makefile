@@ -240,7 +240,6 @@ unit-tests:
 _unit-tests: \
   account-security-unit \
   autocamcalib-unit \
-  cache-manager-unit \
   cam-unit \
   geometry-unit \
   geospatial-unit \

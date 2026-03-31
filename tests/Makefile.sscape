@@ -43,9 +43,6 @@ autocamcalib-unit: # NEX-T10459
 account-security-unit:
 	$(call unit-recipe, account-security, $(IMAGE)-manager-test)
 
-cache-manager-unit:
-	$(call unit-recipe, scenescape, $(IMAGE)-controller-test)
-
 cam-unit:
 	$(call unit-recipe, cam, $(IMAGE)-manager-test)
 
@@ -88,7 +85,7 @@ vdms-adapter-unit: # NEX-T19885
 	$(call unit-recipe, vdms_adapter, $(IMAGE)-controller-test)
 
 scenescape-unit: # NEX-T10450
-	$(call unit-recipe, scenescape, $(IMAGE)-manager-test)
+	$(call unit-recipe, scenescape, $(IMAGE)-controller-test)
 
 schema-unit: # NEX-T10458
 	$(call unit-recipe, schema, $(IMAGE)-manager-test)
