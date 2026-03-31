@@ -116,8 +116,11 @@ class TestCacheManagerRefreshScenes:
     cache_mgr.tracker_config_data = {}
     cache_mgr.data_source = mock_data_source
 
-    # Should not raise, just return without updating cache
-    cache_mgr.refreshScenes()
+    with patch('controller.cache_manager.log.error') as mock_log_error:
+      # Should not raise, just return without updating cache
+      cache_mgr.refreshScenes()
+
+    mock_log_error.assert_called_once_with("Failed to get results, error code: ", 500)
 
     assert len(cache_mgr.cached_scenes_by_uid) == 0
 
