@@ -113,6 +113,8 @@ randomly-failing-tests: \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
+  pipeline-runner-people \
+  pipeline-runner-vehicles \
   out-of-box \
   geometry-conformance \
   metric-tests \
@@ -178,6 +180,7 @@ _functional-tests: \
   vdms-similarity-search \
   visibility-unregulated \
   visibility-none \
+  remove-child-scenes-link \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
@@ -228,6 +231,7 @@ _ui-tests: \
   view-3d-glb-file \
   3d-scene-control-panel \
   3d-camera-control-panel \
+  auto-calibration-no-apriltags-ui \
 
 unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k

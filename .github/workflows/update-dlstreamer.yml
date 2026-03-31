@@ -98,7 +98,8 @@ jobs:
 
           # Also scan all relevant YAML files for any DLStreamer version that isn't the latest
           # This catches new files or files with versions different from values.yaml
-          OUTDATED_FILES=$(find . -type f \( -name "*.yml" -o -name "*.yaml" \) 2>/dev/null | while read f; do
+          # Exclude .github/ to avoid the workflow file falsely matching its own PR body template
+          OUTDATED_FILES=$(find . -type f \( -name "*.yml" -o -name "*.yaml" \) -not -path './.github/*' 2>/dev/null | while read f; do
             if grep -qE "(docker\.io/)?intel/dlstreamer-pipeline-server:[^ \"']+" "$f" 2>/dev/null && \
                ! grep -qE "(docker\.io/)?intel/dlstreamer-pipeline-server:${LATEST}([[:space:]\"']|$)" "$f" 2>/dev/null; then
               echo "$f"
@@ -109,7 +110,11 @@ jobs:
             echo "update_needed=true" >> $GITHUB_OUTPUT
             echo "Update needed: ${CURRENT} -> ${LATEST}"
             [ -n "${OUTDATED_FILES}" ] && echo "Files with non-latest versions:" && echo "${OUTDATED_FILES}"
-            echo "outdated_files=${OUTDATED_FILES}" >> $GITHUB_OUTPUT
+            {
+              echo "outdated_files<<EOF"
+              echo "${OUTDATED_FILES}"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
           else
             echo "update_needed=false" >> $GITHUB_OUTPUT
             echo "No update needed. Already on latest version: ${CURRENT}"
@@ -138,14 +143,21 @@ jobs:
             sed -i "s|${OLD_VERSION}|${NEW_VERSION}|g" kubernetes/scenescape-chart/values.yaml
           fi
 
-          # Count files changed
-          CHANGED_FILES=$(git diff --name-only | wc -l)
+          # Capture changed files once; derive count and markdown list from the same variable
+          CHANGED_FILES_LIST=$(git diff --name-only)
+          CHANGED_FILES=$(echo "${CHANGED_FILES_LIST}" | grep -c . || true)
           echo "changed_files=${CHANGED_FILES}" >> $GITHUB_OUTPUT
           echo "Files changed: ${CHANGED_FILES}"
 
           if [ "${CHANGED_FILES}" -gt 0 ]; then
             echo "success=true" >> $GITHUB_OUTPUT
             echo "Update successful: ${CHANGED_FILES} files modified"
+            # Build markdown list of changed files for PR body
+            {
+              echo "changed_files_list<<EOF"
+              echo "${CHANGED_FILES_LIST}" | sed 's|^|- `|' | sed 's|$|`|'
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
           else
             echo "success=false" >> $GITHUB_OUTPUT
             echo "Warning: No files were changed"
@@ -173,16 +185,8 @@ jobs:
             - **Latest RC**: `${{ steps.dockerhub.outputs.latest_rc }}` (published: `${{ steps.dockerhub.outputs.rc_date }}`)
             - **Selected**: `${{ steps.dockerhub.outputs.latest_version }}` (${{ steps.dockerhub.outputs.selected_type }} - chosen as the newest available)
 
-            ### Changes
-            - Docker Compose files updated
-            - Helm chart values.yaml updated
-
             ### Files Updated
-            - `sample_data/docker-compose-*.yml`
-            - `tests/compose/dlstreamer/*.yml`
-            - `tests/perf_tests/compose/*.yml`
-            - `tools/ppl_runner/docker-compose-ppl.yaml`
-            - `kubernetes/scenescape-chart/values.yaml`
+            ${{ steps.update.outputs.changed_files_list }}
 
             ### DockerHub Reference
             - [Release Notes](https://hub.docker.com/r/intel/dlstreamer-pipeline-server/tags)

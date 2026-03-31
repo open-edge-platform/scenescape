@@ -98,30 +98,32 @@ All sensor and camera messages share two properties: timestamp and ID.
    {
      "timestamp": "2022-09-19T21:33:09.832Z",
      "id": "camera1",
-     "objects": [
-       {
-         "id": 1,
-         "category": "person",
-         "confidence": 0.9958761930465698,
-         "bounding_box": {
-           "x": 0.0017505188455242745,
-           "y": -0.4183740040803016,
-           "width": 0.16804980917033036,
-           "height": 0.40962140985268025
+     "objects": {
+       "person": [
+         {
+           "id": 1,
+           "category": "person",
+           "confidence": 0.9958761930465698,
+           "bounding_box": {
+             "x": 0.0017505188455242745,
+             "y": -0.4183740040803016,
+             "width": 0.16804980917033036,
+             "height": 0.40962140985268025
+           }
+         },
+         {
+           "id": 2,
+           "category": "person",
+           "confidence": 0.5717072486877441,
+           "bounding_box": {
+             "x": -0.29758820373912664,
+             "y": -0.03150933921943694,
+             "width": 0.09977957419488362,
+             "height": 0.34135117487723354
+           }
          }
-       },
-       {
-         "id": 2,
-         "category": "person",
-         "confidence": 0.5717072486877441,
-         "bounding_box": {
-           "x": -0.29758820373912664,
-           "y": -0.03150933921943694,
-           "width": 0.09977957419488362,
-           "height": 0.34135117487723354
-         }
-       }
-     ]
+       ]
+     }
    }
    ```
 
@@ -134,48 +136,52 @@ All sensor and camera messages share two properties: timestamp and ID.
    {
      "timestamp": "2024-05-22T22:10:56.649Z",
      "id": "camera1",
-     "objects": [
-       {
-         "category": "person",
-         "translation": [
-           1.8509220689711061, -1.1447132184500803, 15.646203419777198
-         ],
-         "rotation": [
-           0.0007493523329913518, 0.003771683635429448, 0.05213021598136364,
-           0.9986328922358665
-         ],
-         "size": [0.5, 0.5, 2.0],
-         "bounding_box": {
-           "x": 1.8509220689711061,
-           "y": -1.1447132184500803,
-           "z": 15.646203419777198,
-           "width": 100,
-           "height": 100,
-           "depth": 1
-         },
-         "id": 1000
-       },
-       {
-         "category": "car",
-         "translation": [
-           1.8509220689711061, -1.1447132184500803, 15.646203419777198
-         ],
-         "rotation": [
-           0.0007493523329913518, 0.003771683635429448, 0.05213021598136364,
-           0.9986328922358665
-         ],
-         "size": [0.5, 0.5, 2.0],
-         "bounding_box": {
-           "x": 1.8509220689711061,
-           "y": -1.1447132184500803,
-           "z": 15.646203419777198,
-           "width": 100,
-           "height": 100,
-           "depth": 1
-         },
-         "id": 1001
-       }
-     ]
+     "objects": {
+       "person": [
+         {
+           "category": "person",
+           "translation": [
+             1.8509220689711061, -1.1447132184500803, 15.646203419777198
+           ],
+           "rotation": [
+             0.0007493523329913518, 0.003771683635429448, 0.05213021598136364,
+             0.9986328922358665
+           ],
+           "size": [0.5, 0.5, 2.0],
+           "bounding_box": {
+             "x": 1.8509220689711061,
+             "y": -1.1447132184500803,
+             "z": 15.646203419777198,
+             "width": 100,
+             "height": 100,
+             "depth": 1
+           },
+           "id": 1000
+         }
+       ],
+       "car": [
+         {
+           "category": "car",
+           "translation": [
+             1.8509220689711061, -1.1447132184500803, 15.646203419777198
+           ],
+           "rotation": [
+             0.0007493523329913518, 0.003771683635429448, 0.05213021598136364,
+             0.9986328922358665
+           ],
+           "size": [0.5, 0.5, 2.0],
+           "bounding_box": {
+             "x": 1.8509220689711061,
+             "y": -1.1447132184500803,
+             "z": 15.646203419777198,
+             "width": 100,
+             "height": 100,
+             "depth": 1
+           },
+           "id": 1001
+         }
+       ]
+     }
    }
    ```
 
@@ -194,33 +200,40 @@ It is also important to keep in mind the orientation of a camera with no transla
 
 ## Detection Metadata
 
-Other metadata associated with each detection can also be tagged on the object and will be passed on to the scene update for that detection. For example, if a vision-based hat detector is used then a "hat" object could be added:
+Other metadata associated with each detection can also be tagged on the object and will be passed on to the scene update for that detection. Semantic attributes are placed inside the `metadata` property on each detection object. Each attribute must include a `label` (the detected value) and a `model_name` (the source model identifier), with an optional `confidence` score.
+
+For example, if a vision-based hat detector is used then a `"hat"` attribute could be added to the `metadata` of each person detection:
 
 ```json
 {
   "timestamp": "2022-09-19T21:33:09.832Z",
   "id": "camera1",
-  "objects": [
-    {
-      "id": 1,
-      "category": "person",
-      "confidence": 0.9958761930465698,
-      "bounding_box": {
-        "x": 0.0017505188455242745,
-        "y": -0.4183740040803016,
-        "width": 0.16804980917033036,
-        "height": 0.40962140985268025
-      },
-      "hat": {
-        "confidence": 0.9123,
-        "value": true
+  "objects": {
+    "person": [
+      {
+        "id": 1,
+        "category": "person",
+        "confidence": 0.9958761930465698,
+        "bounding_box": {
+          "x": 0.0017505188455242745,
+          "y": -0.4183740040803016,
+          "width": 0.16804980917033036,
+          "height": 0.40962140985268025
+        },
+        "metadata": {
+          "hat": {
+            "label": true,
+            "model_name": "hat-detector",
+            "confidence": 0.9123
+          }
+        }
       }
-    }
-  ]
+    ]
+  }
 }
 ```
 
-Metadata for camera-based detections can be validated against the [SceneScape metadata schema](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/controller/src/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
+Metadata for camera-based detections can be validated against the [SceneScape metadata schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
 
 ## Camera Calibration Methods
 
@@ -252,7 +265,7 @@ jpeg = base64.b64encode(jpeg).decode('utf-8')
 The command topic is `scenescape/cmd/camera/<sensorID>`. If the message "getimage" is published to this topic then the snapshot should be published to `scenescape/image/sensor/cam/<sensorID>`.
 
 **Snapshot sample code**
-For a complete example with MQTT connectivity, see [snapshot.py](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/tools/snapshot.py). It can be run by providing the required arguments from within an Intel® SceneScape container or you can adapt it for your own code.
+For a complete example with MQTT connectivity, see [snapshot.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py). It can be run by providing the required arguments from within an Intel® SceneScape container or you can adapt it for your own code.
 
 Here is its help output from inside Intel® SceneScape container:
 
@@ -304,7 +317,7 @@ The "id" should match the topic, which in this case would be:
 `scenescape/data/sensor/temperature1`
 
 **Singleton sample code**
-See [singleton.py](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/tools/singleton.py) for a sample of publishing random values to a singleton topic. You can run this sample by providing the required arguments from within an Intel® SceneScape container or adapt it to run in your own code.
+See [singleton.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/singleton.py) for a sample of publishing random values to a singleton topic. You can run this sample by providing the required arguments from within an Intel® SceneScape container or adapt it to run in your own code.
 
 > **Note:** Ensure that the broker service is running.
 
@@ -372,5 +385,5 @@ Using this data, a developer can easily write an application to trigger alerts o
 ## Supporting Resources
 
 - [SceneScape Auto Calibration Guide](../microservices/auto-calibration/auto-calibration.md)
-- [SceneScape Metadata Schema](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/controller/src/schema/metadata.schema.json)
-- [MQTT Snapshot Script](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/tools/snapshot.py)
+- [SceneScape Metadata Schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json)
+- [MQTT Snapshot Script](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py)
