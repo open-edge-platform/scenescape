@@ -595,8 +595,8 @@ class Scene(SceneModel):
 
           # Initialize sensor state based on type
           if region.singleton_type == "environmental":
-            # Use 'now' directly (already epoch time) to avoid precision loss from string conversion
 
+            # For environmental sensors, initialize state with current value if available
             with obj.chain_data._lock:
               if hasattr(region, 'value') and hasattr(region, 'lastWhen'):
                 # Sensor has cached value - initialize with it

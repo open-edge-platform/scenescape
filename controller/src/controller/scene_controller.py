@@ -391,13 +391,6 @@ class SceneController:
     """
     for event_type in scene.events:
       for region_name, region in scene.events[event_type]:
-        if hasattr(region, 'exited'):
-          for detectionType in region.exited:
-            for exit_data in region.exited[detectionType]:
-              obj = exit_data[0]
-              # Cleanup is now handled in _updateRegionEvents
-              # Environmental sensor state is already removed
-              # Attribute sensor events are intentionally preserved
         region.exited = {}
         region.entered = {}
     return

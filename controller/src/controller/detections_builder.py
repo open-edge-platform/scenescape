@@ -79,14 +79,20 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
         obj_dict['metadata']['reid']['model_name'] = aobj.reid['model_name']
 
   if hasattr(aobj, 'visibility'):
-    # In analytics-only mode, chain_data may be a SimpleNamespace without
-    # locking or sensor state attributes. Guard this path to avoid
-    # AttributeError when those fields are absent.
+    obj_dict['visibility'] = aobj.visibility
+    if update_visibility:
+      computeCameraBounds(scene, aobj, obj_dict)
+
+  if 'chain_data' in aobj:
+    chain_data = aobj.chain_data
+    if len(chain_data.regions):
+      obj_dict['regions'] = chain_data.regions
+
     if not (hasattr(chain_data, '_lock') and
             hasattr(chain_data, 'env_sensor_state') and
             hasattr(chain_data, 'attr_sensor_events')):
       pass
-    else:
+    elif include_sensors:
       sensors_output = {}
 
       # Copy sensor data while holding lock, then release
@@ -120,6 +126,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
 
       if sensors_output:
         obj_dict['sensors'] = sensors_output
+
   if hasattr(aobj, 'confidence'):
     obj_dict['confidence'] = aobj.confidence
   if hasattr(aobj, 'similarity'):
