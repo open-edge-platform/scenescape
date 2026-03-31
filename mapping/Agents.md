@@ -388,8 +388,8 @@ As an experimental service, mapping includes:
 
 ## Related Documentation
 
-- [Mapping Overview](docs/user-guide/overview.md): High-level introduction
+- [Mapping Overview](../docs/user-guide/microservices/mapping-service/mapping-service.md): High-level introduction
 - [Map-Anything Model](https://github.com/...): Upstream model documentation
 - [Scene Common](../scene_common/): Shared geometry utilities
-- [Testing Guide](../.github/instructions/testing.md): Test creation patterns
-- [Python Conventions](../.github/instructions/python.md): Python coding standards
+- [Testing Guide](../.github/skills/testing.md): Test creation patterns
+- [Python Conventions](../.github/skills/python.md): Python coding standards

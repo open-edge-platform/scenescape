@@ -1,3 +1,11 @@
+<!--hide_directive
+<div class="component_card_widget">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/cluster_analytics">
+     GitHub project
+  </a>
+</div>
+hide_directive-->
+
 # Cluster Analytics Service
 
 The Cluster Analytics service provides advanced object clustering and movement analysis capabilities for Intel® SceneScape using DBSCAN (Density-Based Spatial Clustering of Applications with Noise) algorithm combined with geometric shape detection and velocity pattern classification.

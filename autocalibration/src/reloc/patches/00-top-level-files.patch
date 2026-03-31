@@ -194,14 +194,14 @@
 +
 -torch>=1.1
 -torchvision>=0.3
-+torch==2.8.0
-+torchvision==0.23.0
++torch==2.10.0+cpu
++torchvision==0.25.0+cpu
 -numpy
 -opencv-python
-+numpy==1.26.4
-+opencv-python-headless==4.11.0.86
++numpy==2.2.6
++opencv-python-headless==4.12.0.88
 -tqdm>=4.36.0
-+tqdm==4.67.1
++tqdm==4.67.3
 -matplotlib
 -plotly
 -scipy
@@ -209,13 +209,13 @@
 -pycolmap>=3.13.0
 -kornia>=0.6.11
 -gdown
-+matplotlib==3.9.2
-+plotly==6.5.2
-+scipy==1.15.3
-+h5py==3.11.0
++matplotlib==3.10.8
++plotly==6.6.0
++scipy==1.16.3
++h5py==3.15.1
 +pycolmap==0.6.0
-+kornia==0.8.1
-+gdown==5.2.0
++kornia==0.8.2
++gdown==5.2.1
 -lightglue @ git+https://github.com/cvg/LightGlue
 
 --- /tmp/hloc-latest/setup.py	2026-01-16 16:13:56.852282750 -0700

@@ -48,10 +48,15 @@ updates:
       - "/controller/src/robot_vision"
       - "/mapping"
       - "/tracker"
+      - "/tracker/test/load"
     schedule:
       interval: "monthly"
     commit-message:
       prefix: "Dockerfile"
+    ignore:
+      - dependency-name: "python"
+        update-types:
+          ["version-update:semver-major", "version-update:semver-minor"]
     reviewers:
       - "saratpoluri"
       - "dmytroye"
@@ -66,6 +71,7 @@ updates:
       - "/tests/perf_tests/compose"
       - "/tools/ppl_runner"
       - "/tracker/test/service"
+      - "/tracker/test/load"
     schedule:
       interval: "monthly"
     commit-message:
@@ -90,10 +96,18 @@ updates:
       - "/mapping"
       - "/mapping/tests"
       - "/tracker/test/service"
+      - "/tracker/test/load"
     schedule:
       interval: "monthly"
     commit-message:
       prefix: "pip"
+    ignore:
+      - dependency-name: "numpy"
+        update-types:
+          ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "Django"
+        update-types:
+          ["version-update:semver-major", "version-update:semver-minor"]
     reviewers:
       - "saratpoluri"
       - "dmytroye"

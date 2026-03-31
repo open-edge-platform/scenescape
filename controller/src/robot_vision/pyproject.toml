@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+requires = ["scikit-build-core>=0.9"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "robot_vision"
+version = "1.1.0"
+description = "Algorithms for robot vision, tracking and fusion"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.7"
+dependencies = [
+    "numpy==2.2.6",
+    "networkx",
+    "scipy",
+]
+
+[tool.scikit-build]
+cmake.build-type = "Release"
+cmake.args = [
+    "-DBUILD_TESTING:BOOL=OFF",
+    "-DCMAKE_INSTALL_RPATH=$ORIGIN",
+    "-DCMAKE_BUILD_WITH_INSTALL_RPATH:BOOL=ON",
+    "-DCMAKE_INSTALL_RPATH_USE_LINK_PATH:BOOL=OFF",
+]
+wheel.packages = ["python/src/robot_vision"]

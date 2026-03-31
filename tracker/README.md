@@ -44,12 +44,36 @@ make build-relwithdebinfo
 
 #### Run
 
+The run targets are preconfigured to work with SceneScape demo. Start SceneScape first:
+
 ```bash
-# Run with default settings
+# From repository root
+docker compose up -d
+```
+
+Then run the tracker:
+
+```bash
+# Run release build
 make run
 
-# Debug build
+# Run debug build
 make run-debug
+```
+
+**Environment overrides:** The following variables can be overridden:
+
+| Variable                   | Default                                      | Description                   |
+| -------------------------- | -------------------------------------------- | ----------------------------- |
+| `TRACKER_MQTT_HOST`        | `localhost`                                  | MQTT broker hostname          |
+| `TRACKER_MQTT_PORT`        | `1883`                                       | MQTT broker port              |
+| `TRACKER_MQTT_INSECURE`    | `false`                                      | Disable TLS (for test broker) |
+| `TRACKER_MQTT_TLS_CA_CERT` | `../manager/secrets/certs/scenescape-ca.pem` | CA certificate path           |
+
+Example with insecure test broker:
+
+```bash
+make run TRACKER_MQTT_INSECURE=true
 ```
 
 **Manual execution:** If not using Make targets, you must source the Conan environment
@@ -69,7 +93,37 @@ make test-unit
 # Run with coverage report (90% line, 50% branch)
 make test-unit-coverage
 # Report: build-debug/coverage/html/index.html
+
+# Run load tests (requires Docker and compose stack running)
+make test-load
 ```
+
+**Load Testing**
+
+The tracker includes k6-based load testing to validate SLI performance under sustained load.
+
+**What the test does:**
+
+- Sends synthetic MQTT detection messages at configurable rates (default: 4 cameras × 15 FPS × 300 objects = 60 msg/s)
+- Measures end-to-end latency (p50, p99) and per-stage latency breakdown
+- Validates SLIs: dropped message rate < 0.1%, active track count, throughput
+
+**Test parameters** are configurable via environment variables:
+
+| Variable               | Default | Description                     |
+| ---------------------- | ------- | ------------------------------- |
+| `LOAD_TEST_DURATION_S` | `60`    | Duration of load test (seconds) |
+| `LOAD_TEST_CAMERAS`    | `4`     | Number of simulated cameras     |
+| `LOAD_TEST_FPS`        | `15`    | Frames per second per camera    |
+| `LOAD_TEST_OBJECTS`    | `300`   | Max objects per frame           |
+
+**Example: Run a 120-second test with 8 cameras at 30 FPS:**
+
+```bash
+make test-load LOAD_TEST_DURATION_S=120 LOAD_TEST_CAMERAS=8 LOAD_TEST_FPS=30
+```
+
+For full load test setup and troubleshooting, see [load test README](test/load/README.md).
 
 ### Docker
 
@@ -265,7 +319,8 @@ tracker/
 ├── inc/              # Headers
 ├── test/
 │   ├── unit/         # GoogleTest + GMock
-│   └── service/      # pytest integration tests
+│   ├── service/      # pytest integration tests
+│   └── load/         # pytest load tests + k6 generator
 ├── schema/           # JSON schemas
 ├── config/           # Default configuration
 ├── Dockerfile        # Multi-stage build

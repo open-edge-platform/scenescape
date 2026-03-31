@@ -3,10 +3,12 @@
 
 #include "message_handler.hpp"
 #include "logger.hpp"
+#include "metrics.hpp"
+#include "observability_context.hpp"
+#include "time_utils.hpp"
 #include "topic_utils.hpp"
 
 #include <chrono>
-#include <cstdio>
 #include <format>
 #include <fstream>
 #include <string_view>
@@ -90,10 +92,17 @@ MessageHandler::loadSchema(const std::filesystem::path& schema_path) {
     return std::make_unique<rapidjson::SchemaDocument>(schema_doc);
 }
 
+void MessageHandler::enableDynamicMode(ShutdownCallback callback) {
+    dynamic_mode_ = true;
+    shutdown_callback_ = std::move(callback);
+    LOG_INFO_ENTRY(LogEntry("Dynamic mode enabled - will subscribe to database update topic")
+                       .component("mqtt"));
+}
+
 void MessageHandler::start() {
-    // Set up message callback
+    // Set up message callback with topic-based routing
     mqtt_client_->setMessageCallback([this](const std::string& topic, const std::string& payload) {
-        handleCameraMessage(topic, payload);
+        routeMessage(topic, payload);
     });
 
     // Subscribe to each registered camera's topic
@@ -124,6 +133,14 @@ void MessageHandler::start() {
     LOG_INFO_ENTRY(LogEntry("Queued camera subscriptions")
                        .component("mqtt")
                        .operation(std::format("{} cameras", camera_ids.size())));
+
+    // In dynamic mode, subscribe to database update topic for config change notifications
+    if (dynamic_mode_) {
+        mqtt_client_->subscribe(TOPIC_DATABASE_UPDATE);
+        LOG_INFO_ENTRY(LogEntry("Queued database update subscription")
+                           .component("mqtt")
+                           .operation(TOPIC_DATABASE_UPDATE));
+    }
 }
 
 void MessageHandler::stop() {
@@ -140,19 +157,50 @@ void MessageHandler::stop() {
         auto topic = std::format(TOPIC_CAMERA_SUBSCRIBE_PATTERN, camera_id);
         mqtt_client_->unsubscribe(topic);
     }
+
+    // Unsubscribe from database update topic (dynamic mode)
+    if (dynamic_mode_) {
+        mqtt_client_->unsubscribe(TOPIC_DATABASE_UPDATE);
+    }
+
     mqtt_client_->setMessageCallback(nullptr);
 }
 
+void MessageHandler::routeMessage(const std::string& topic, const std::string& payload) {
+    if (dynamic_mode_ && topic == TOPIC_DATABASE_UPDATE) {
+        handleDatabaseUpdateMessage(topic, payload);
+    } else {
+        handleCameraMessage(topic, payload);
+    }
+}
+
+void MessageHandler::handleDatabaseUpdateMessage(const std::string& topic,
+                                                 [[maybe_unused]] const std::string& payload) {
+    LOG_INFO_ENTRY(LogEntry("Database update received, triggering restart")
+                       .component("message_handler")
+                       .mqtt({.topic = topic, .direction = "subscribe"}));
+
+    if (shutdown_callback_) {
+        shutdown_callback_();
+    } else {
+        LOG_WARN("Database update received but no shutdown callback registered");
+    }
+}
+
 void MessageHandler::handleCameraMessage(const std::string& topic, const std::string& payload) {
+    ObservabilityContext obs_ctx;
+    obs_ctx.captureReceiveTime();
     received_count_++;
 
     std::string_view camera_id_view = extractCameraId(topic);
     if (camera_id_view.empty()) {
         LOG_WARN("Failed to extract camera_id from topic: {}", topic);
         rejected_count_++;
+        obs_ctx.abort(kReasonRejectedParse);
         return;
     }
     std::string camera_id{camera_id_view}; // Single allocation for valid IDs only
+    obs_ctx.camera_id = camera_id;
 
     LOG_DEBUG_ENTRY(LogEntry("Received detection")
                         .component("message_handler")
@@ -167,8 +215,11 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                            .error({.type = "parse_error",
                                    .message = "Invalid JSON or schema validation failed"}));
         rejected_count_++;
+        obs_ctx.abort(kReasonRejectedSchema);
         return;
     }
+
+    obs_ctx.captureParseTime();
 
     // Log parsed message details (only compute total_detections if debug logging is enabled)
     if (Logger::should_log_debug()) {
@@ -192,27 +243,45 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                 .domain({.camera_id = camera_id})
                 .error({.type = "unknown_camera", .message = "Camera not in scene registry"}));
         rejected_count_++;
+        obs_ctx.abort(kReasonRejectedUnknownTopic);
+        return;
+    }
+
+    // Parse timestamp once (reused for lag check and batch storage)
+    auto msg_time = parseTimestamp(message->timestamp);
+    if (!msg_time) {
+        LOG_WARN("Failed to parse timestamp '{}' from camera '{}', dropping", message->timestamp,
+                 camera_id);
+        rejected_count_++;
+        obs_ctx.abort(kReasonRejectedParse);
         return;
     }
 
     // Check for lag
-    if (isMessageLagged(message->timestamp)) {
+    if (isMessageLagged(*msg_time)) {
         LOG_WARN_ENTRY(
             LogEntry("Dropping lagged message")
                 .component("message_handler")
                 .domain({.camera_id = camera_id, .scene_id = scene->uid})
                 .error({.type = "fell_behind", .message = "Message timestamp exceeds max_lag_s"}));
         lagged_count_++;
+        obs_ctx.abort(kReasonRejectedLag);
         return;
     }
 
-    // Push detections to buffer for each category
+    obs_ctx.scene_id = scene->uid;
+
+    // Push detections to buffer for each active scope in this scene.
+    // Active scopes are accumulated as new (scene, category) pairs are seen in messages.
+    // Empty batches (no detections) are created for scopes not present in the current message,
+    // allowing the Kalman filter to advance time-steps and age out stale tracks.
     auto receive_time = std::chrono::steady_clock::now();
-    for (auto& [category, detections] : message->objects) {
-        // Validate category on first use (cached to avoid per-frame overhead)
-        // Minimal critical section: only lock during cache access, not during publish
-        {
-            std::lock_guard<std::mutex> lock(categories_mutex_);
+
+    // Under lock: validate new categories, update active_scopes_, collect scene's active scopes.
+    std::vector<TrackingScope> scene_scopes;
+    {
+        std::lock_guard<std::mutex> lock(categories_mutex_);
+        for (const auto& [category, _] : message->objects) {
             auto [it, is_new] = validated_categories_.insert(category);
             if (is_new && !isValidTopicSegment(category)) {
                 validated_categories_.erase(it);
@@ -225,15 +294,32 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                                            "underscore, dot"}));
                 continue;
             }
-        } // Lock released before expensive operations
+            active_scopes_.insert(TrackingScope{scene->uid, category});
+        }
+        for (const auto& scope : active_scopes_) {
+            if (scope.scene_id == scene->uid) {
+                scene_scopes.push_back(scope);
+            }
+        }
+    } // Lock released before buffer operations
 
-        TrackingScope scope{scene->uid, category};
+    for (const auto& scope : scene_scopes) {
+        const auto& category = scope.category;
 
         DetectionBatch batch;
         batch.camera_id = camera_id;
         batch.receive_time = receive_time;
         batch.timestamp_iso = message->timestamp;
-        batch.detections = std::move(detections);
+        batch.timestamp = *msg_time;
+        batch.obs_ctx = obs_ctx; // Copy obs_ctx to allow reuse in next loop iteration
+        batch.obs_ctx.captureBufferTime();
+        batch.obs_ctx.category = category;
+
+        // Use detections from the message if present; empty batch otherwise (enables track aging).
+        auto det_it = message->objects.find(category);
+        if (det_it != message->objects.end()) {
+            batch.detections = std::move(det_it->second);
+        }
 
         buffer_.add(scope, camera_id, std::move(batch));
         buffered_count_++;
@@ -244,6 +330,11 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                 .domain(
                     {.camera_id = camera_id, .scene_id = scene->uid, .object_category = category}));
     }
+
+    // Record message accepted
+    Metrics::inc_messages({{kAttrScene, std::string(scene->uid)},
+                           {kAttrCameraId, camera_id},
+                           {kAttrReason, kReasonAccepted}});
 }
 
 std::string_view MessageHandler::extractCameraId(const std::string& topic) {
@@ -337,17 +428,15 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
             }
             // Note: Type checking (IsNumber) omitted - schema validation ensures correct types
 
-            detection.bounding_box_px.x = bbox_x->GetDouble();
-            detection.bounding_box_px.y = bbox_y->GetDouble();
-            detection.bounding_box_px.width = bbox_width->GetDouble();
-            detection.bounding_box_px.height = bbox_height->GetDouble();
+            detection.bounding_box_px = cv::Rect2f(static_cast<float>(bbox_x->GetDouble()),
+                                                   static_cast<float>(bbox_y->GetDouble()),
+                                                   static_cast<float>(bbox_width->GetDouble()),
+                                                   static_cast<float>(bbox_height->GetDouble()));
 
             detections.push_back(detection);
         }
 
-        if (!detections.empty()) {
-            message.objects[category] = std::move(detections);
-        }
+        message.objects[category] = std::move(detections);
     }
 
     return message;
@@ -369,51 +458,11 @@ bool MessageHandler::validateJson(const rapidjson::Document& doc,
     return true;
 }
 
-bool MessageHandler::isMessageLagged(const std::string& timestamp_iso) const {
-    auto msg_time = parseTimestamp(timestamp_iso);
-    if (!msg_time) {
-        // If we can't parse the timestamp, don't drop based on lag
-        LOG_DEBUG("Could not parse timestamp for lag check: {}", timestamp_iso);
-        return false;
-    }
-
+bool MessageHandler::isMessageLagged(std::chrono::system_clock::time_point msg_time) const {
     auto now = std::chrono::system_clock::now();
-    auto lag = std::chrono::duration<double>(now - *msg_time).count();
+    auto lag = std::chrono::duration<double>(now - msg_time).count();
 
     return lag > tracking_config_.max_lag_s;
-}
-
-std::optional<std::chrono::system_clock::time_point>
-MessageHandler::parseTimestamp(const std::string& timestamp_iso) {
-    // Parse ISO 8601 format: "2026-01-20T10:05:01.482Z"
-    // Using sscanf for simple parsing, C++20 chrono for portable UTC handling
-    int year, month, day, hour, minute, second, millis = 0;
-
-    // Try parsing with milliseconds (format: YYYY-MM-DDTHH:MM:SS.mmm)
-    int parsed = std::sscanf(timestamp_iso.c_str(), "%4d-%2d-%2dT%2d:%2d:%2d.%d", &year, &month,
-                             &day, &hour, &minute, &second, &millis);
-
-    if (parsed < 6) {
-        // Try with space separator instead of 'T'
-        parsed = std::sscanf(timestamp_iso.c_str(), "%4d-%2d-%2d %2d:%2d:%2d.%d", &year, &month,
-                             &day, &hour, &minute, &second, &millis);
-    }
-
-    if (parsed < 6) {
-        return std::nullopt;
-    }
-
-    // Construct time_point using C++20 chrono calendar types (UTC, no timezone conversion)
-    using namespace std::chrono;
-    auto ymd =
-        year_month_day{std::chrono::year{year}, std::chrono::month{static_cast<unsigned>(month)},
-                       std::chrono::day{static_cast<unsigned>(day)}};
-    if (!ymd.ok())
-        return std::nullopt;
-
-    auto tp =
-        sys_days{ymd} + hours{hour} + minutes{minute} + seconds{second} + milliseconds{millis};
-    return tp;
 }
 
 } // namespace tracker

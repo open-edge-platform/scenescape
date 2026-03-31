@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Allow datasets directory (negates top-level .gitignore)
+!datasets/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

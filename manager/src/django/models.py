@@ -117,7 +117,7 @@ class Scene(models.Model):
                             "mov", "mkv", "webm", "avi"]),
                                         validate_map_file])
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
-                            validators=[MinValueValidator(np.nextafter(0, 1))])
+                            validators=[MinValueValidator(5e-324)])
   use_tracker = models.BooleanField("Use tracker", choices=BOOLEAN_CHOICES, default=True, blank=True)
   rotation_x = models.FloatField("X Rotation (degrees)", default=0.0, null=True, blank=False)
   rotation_y = models.FloatField("Y Rotation (degrees)", default=0.0, null=True, blank=False)
@@ -278,6 +278,7 @@ class Scene(models.Model):
 
   def save(self, *args, **kwargs):
     updated_scene = self.id
+    send_update_command = kwargs.pop("send_update_command", True)
     self.dataset_dir = f"{os.getcwd()}/datasets/{self.name}"
     self.output_dir = f"{os.getcwd()}/datasets/{self.name}/output_dir"
     try:
@@ -333,7 +334,9 @@ class Scene(models.Model):
         super().save(*args, **kwargs)
     except FileNotFoundError as e:
       log.error(f"Failed to save scene , {str(e)}")
-    transaction.on_commit(partial(sendUpdateCommand, scene_id = updated_scene))
+
+    if send_update_command:
+      transaction.on_commit(partial(sendUpdateCommand, scene_id=updated_scene))
     return
 
   def delete(self, *args, **kwargs):

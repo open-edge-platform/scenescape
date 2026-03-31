@@ -36,7 +36,7 @@ SECRETSDIR ?= $(CURDIR)/manager/secrets
 CERTDOMAIN ?= scenescape.intel.com
 
 # Demo variables
-DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts)
+DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
 
 # Test variables
@@ -293,13 +293,30 @@ list-dependencies: $(BUILD_DIR)
 	@echo "==> Listing dependencies for all microservices..."
 	@set -e; \
 	for dir in $(IMAGE_FOLDERS); do \
-		$(MAKE) -C $$dir list-dependencies; \
+		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) list-dependencies; \
 	done
-	@-find . -type f -name '*-apt-deps.txt' -exec cat {} + | sort | uniq > $(BUILD_DIR)/scenescape-all-apt-deps.txt
-	@-find . -type f -name '*-pip-deps.txt' -exec cat {} + | sort | uniq > $(BUILD_DIR)/scenescape-all-pip-deps.txt
 	@echo "The following dependency lists have been generated:"
 	@find $(BUILD_DIR) -name '*-deps.txt' -print
 	@echo "DONE ==> Listing dependencies for all microservices"
+
+BUILDKIT_BUILDER_NAME := scenescape-buildkit-container
+
+# Generate SPDX SBOMs for all microservices using Docker BuildKit.
+# A temporary BuildKit container builder is created automatically and removed on completion.
+# Docs: https://www.docker.com/blog/generate-sboms-with-buildkit/
+.PHONY: generate-sboms
+generate-sboms: $(BUILD_DIR)
+	@echo "==> Generating SPDX SBOMs for all microservices..."
+	@echo "Creating BuildKit container builder..."
+	@docker buildx create --use --name=$(BUILDKIT_BUILDER_NAME) --driver=docker-container \
+		--driver-opt=env.http_proxy=$(http_proxy),env.https_proxy=$(https_proxy),env.HTTP_PROXY=$(HTTP_PROXY),env.HTTPS_PROXY=$(HTTPS_PROXY),default-load=true
+	@set -e; trap 'docker buildx rm $(BUILDKIT_BUILDER_NAME) 2>/dev/null || true' EXIT; \
+	for dir in $(IMAGE_FOLDERS); do \
+		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) generate-sbom; \
+	done
+	@echo "The following SBOMs have been generated in $(BUILD_DIR)/sboms:"
+	@echo "$$(ls $(BUILD_DIR)/sboms)"
+	@echo "DONE ==> Generating SPDX SBOMs for all microservices"
 
 .PHONY: build-sources-image
 build-sources-image: sources.Dockerfile
@@ -359,7 +376,7 @@ run_functional_tests: setup_tests
 	@echo "DONE ==> Running functional tests"
 
 .PHONY: run_non_functional_tests
-run_non_functional_tests: setup_tests
+run_non_functional_tests: init-secrets .env
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running non-functional tests..."
 	$(MAKE) -C tests non-functional-tests SUPASS=$(SUPASS) -k || (echo "Non-functional tests failed" && exit 1)
@@ -492,7 +509,7 @@ add-licensing:
 .PHONY: build-coverity
 build-coverity:
 	$(MAKE) -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
-	@export OpenCV_DIR=$${OpenCV_DIR:-$$(pkg-config --variable=pc_path opencv4 | cut -d':' -f1)} && cd controller/src/robot_vision && python3 setup.py bdist_wheel || (echo "robot vision build failed" && exit 1)
+	@export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" && pip3 install --no-cache-dir scikit-build-core && cd controller/src/robot_vision && pip3 install --no-cache-dir --no-build-isolation . || (echo "robot vision build failed" && exit 1)
 	$(MAKE) -C tracker build || (echo "tracker build failed" && exit 1)
 # ===================== Docker Compose Demo ==========================
 

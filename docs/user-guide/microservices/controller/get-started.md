@@ -28,15 +28,16 @@
   --network scenescape \
   -v scenescape_vol-media:/home/scenescape/SceneScape/media \
   -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
+  -v $(pwd)/controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
-  -v $(pwd)/manager/secrets/certs/scenescape-vdms-c.key:/run/secrets/certs/scenescape-vdms-c.key:ro \
-  -v $(pwd)/manager/secrets/certs/scenescape-vdms-c.crt:/run/secrets/certs/scenescape-vdms-c.crt:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
   scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
+  --tracker_config_file /home/scenescape/SceneScape/tracker-config.json \
+  --reid_config_file /home/scenescape/SceneScape/reid-config.json \
   --ntp ntpserv
   ```
 
@@ -114,7 +115,9 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   - The controller subscribes to tracked object data from MQTT topics published by the Tracker service
   - Analytics processing (regions, tripwires, sensors) continues to function normally
   - Child scenes are not supported in analytics-only mode
-  - Sensors in Scene not supported and attribute persistence across moving objects not supported on data/scene MQTT topic (data avaliable on events topic).
+  - Sensors in Scene not supported and attribute persistence across moving objects not supported on data/scene MQTT topic (data available on events topic)
+  - The following object fields are not available on `event` topic: `visibility`, `similarity`, `confidence`, `entered`, `exited`
+  - The following object fields are not available on `data/regulated` topic: `visibility`, `similarity`, `confidence`
 
 <!--hide_directive
 :::{toctree}

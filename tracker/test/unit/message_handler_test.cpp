@@ -16,11 +16,11 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
+#include <chrono>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -59,6 +59,21 @@ SceneRegistry createTestRegistry() {
     SceneRegistry registry;
     registry.register_scenes({scene});
     return registry;
+}
+
+/**
+ * @brief Generate ISO 8601 timestamp for a time in the past.
+ *
+ * Creates a UTC timestamp string (e.g., "2026-02-09T10:30:00.000Z") offset
+ * from the current time. Useful for testing lag detection without hardcoded dates.
+ *
+ * @param offset Duration to subtract from current time
+ * @return ISO 8601 formatted timestamp string
+ */
+std::string generate_past_iso_timestamp(std::chrono::seconds offset) {
+    auto past_time =
+        std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now() - offset);
+    return std::format("{:%Y-%m-%dT%H:%M:%S}.000Z", past_time);
 }
 
 /**
@@ -301,8 +316,101 @@ TEST_F(MessageHandlerTest, HandleMessage_AcceptsEmptyObjects) {
 
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 0);
-    // With empty objects, no categories to publish
+    // First empty message: no active scopes yet, so nothing buffered
     EXPECT_EQ(handler.getBufferedCount(), 0);
+}
+
+// Test that empty/partial messages produce empty batches for all previously seen scopes.
+//
+// Exercises three scenarios in sequence using the same accumulated active-scope state:
+//   1. Single scope: 'person' seen first; an empty message produces an empty batch for it.
+//   2. Multiple scopes: after 'car' is introduced, an empty message produces empty batches
+//      for both 'person' and 'car'.
+//   3. Partial message: a message that contains only 'person' detections still produces an
+//      empty batch for 'car', enabling Kalman filter aging for the absent category.
+TEST_F(MessageHandlerTest, EmptyObjects_AfterNonEmpty_CreatesEmptyBatchForPreviousScope) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    TrackingScope person_scope{"test-scene-001", "person"};
+    TrackingScope car_scope{"test-scene-001", "car"};
+
+    // --- Scenario 1: single known scope ---
+    // First message: establishes "person" scope; verify scope is registered with 1 detection.
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })");
+    {
+        auto first_data = test_buffer_.pop_all();
+        ASSERT_EQ(first_data.size(), 1u);
+        ASSERT_EQ(first_data.count(person_scope), 1u);
+        EXPECT_EQ(first_data.at(person_scope).at("cam1").detections.size(), 1u);
+    }
+
+    // Empty message: should produce an empty batch for "person" (enables track aging)
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:01.000Z",
+        "objects": {}
+    })");
+    {
+        auto buffer_data = test_buffer_.pop_all();
+        ASSERT_EQ(buffer_data.size(), 1u);
+        ASSERT_EQ(buffer_data.count(person_scope), 1u);
+        const auto& batch = buffer_data.at(person_scope).at("cam1");
+        EXPECT_EQ(batch.camera_id, "cam1");
+        EXPECT_TRUE(batch.detections.empty()); // Empty batch enables Kalman filter time-step
+    }
+
+    // --- Scenario 2: two known scopes, empty message ---
+    // Introduce "car" scope alongside "person"
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:02.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}],
+            "car":    [{"id": 2, "bounding_box_px": {"x": 200, "y": 300, "width": 80, "height": 60}}]
+        }
+    })");
+    auto _ = test_buffer_.pop_all(); // drain
+
+    // Empty message: should produce empty batches for both "person" and "car"
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:03.000Z",
+        "objects": {}
+    })");
+    {
+        auto buffer_data = test_buffer_.pop_all();
+        ASSERT_EQ(buffer_data.size(), 2u);
+        ASSERT_EQ(buffer_data.count(person_scope), 1u);
+        ASSERT_EQ(buffer_data.count(car_scope), 1u);
+        EXPECT_TRUE(buffer_data.at(person_scope).at("cam1").detections.empty());
+        EXPECT_TRUE(buffer_data.at(car_scope).at("cam1").detections.empty());
+    }
+
+    // --- Scenario 3: partial message with two known scopes ---
+    // A message that only contains "person" detections should still produce an empty batch
+    // for "car", ensuring that the absent category is aged by the Kalman filter.
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:04.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })");
+    {
+        auto buffer_data = test_buffer_.pop_all();
+        ASSERT_EQ(buffer_data.size(), 2u);
+        ASSERT_EQ(buffer_data.count(person_scope), 1u);
+        ASSERT_EQ(buffer_data.count(car_scope), 1u);
+        EXPECT_FALSE(buffer_data.at(person_scope).at("cam1").detections.empty()); // has detections
+        EXPECT_TRUE(buffer_data.at(car_scope).at("cam1").detections.empty());     // empty batch
+    }
 }
 
 // Test multiple objects categories are parsed correctly
@@ -383,6 +491,35 @@ TEST_F(MessageHandlerTest, Stop_CanBeCalled) {
     handler.start();
     handler.stop(); // Should not throw
     SUCCEED();
+}
+
+// Test that lagged messages are dropped (timestamp older than max_lag_s)
+TEST_F(MessageHandlerTest, HandleMessage_DropsLaggedMessages) {
+    // Use very small max_lag (1ms) - any timestamp more than 1ms old is considered lagged
+    TrackingConfig lag_config{.max_lag_s = 0.001, .time_chunking_rate_fps = 15, .max_workers = 100};
+
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, lag_config, false);
+    handler.start();
+
+    EXPECT_EQ(handler.getLaggedCount(), 0);
+
+    // Generate timestamp 1 hour in the past - guaranteed to exceed 1ms max_lag threshold
+    std::string past_timestamp = generate_past_iso_timestamp(std::chrono::hours(1));
+    std::string payload = std::format(R"({{
+        "id": "cam1",
+        "timestamp": "{}",
+        "objects": {{
+            "person": [{{"id": 1, "bounding_box_px": {{"x": 10, "y": 20, "width": 50, "height": 100}}}}]
+        }}
+    }})",
+                                      past_timestamp);
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getLaggedCount(), 1);
+    EXPECT_EQ(handler.getBufferedCount(), 0); // Message dropped, not buffered
+    EXPECT_EQ(handler.getRejectedCount(), 0); // Not rejected, just lagged
 }
 
 // Test that unknown camera messages are rejected
@@ -495,6 +632,7 @@ TEST_F(MessageHandlerTest, BufferKeepsLatest_WhenSameCameraSendsMultiple) {
 struct MalformedDetectionTestCase {
     std::string name;
     std::string payload;
+    bool expect_buffered; // true if empty batch should still be buffered
 };
 
 void PrintTo(const MalformedDetectionTestCase& tc, std::ostream* os) {
@@ -514,8 +652,19 @@ TEST_P(MalformedDetectionTest, SkipsMalformedDetectionAndNoPublish) {
     // Message is received and processed (malformed detections skipped)
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 0); // Message not rejected
-    // With per-category publishing, nothing is published if all detections are malformed
-    EXPECT_EQ(handler.getBufferedCount(), 0);
+
+    if (tc.expect_buffered) {
+        // Category exists but all detections were malformed -> empty batch buffered
+        // (tracker still needs the heartbeat for track aging)
+        EXPECT_EQ(handler.getBufferedCount(), 1);
+        auto buffer_data = test_buffer_.pop_all();
+        TrackingScope scope{"test-scene-001", "person"};
+        ASSERT_TRUE(buffer_data.count(scope));
+        EXPECT_TRUE(buffer_data.at(scope).at("cam1").detections.empty());
+    } else {
+        // Category itself was invalid (not an array) -> nothing buffered
+        EXPECT_EQ(handler.getBufferedCount(), 0);
+    }
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -523,22 +672,28 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(
         MalformedDetectionTestCase{
             "MissingBoundingBoxHeight",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50}}]}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50}}]}})",
+            true},
         MalformedDetectionTestCase{
             "NoBoundingBox",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1}]}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1}]}})",
+            true},
         MalformedDetectionTestCase{
             "BoundingBoxIsString",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": "not_an_object"}]}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": "not_an_object"}]}})",
+            true},
         MalformedDetectionTestCase{
             "BoundingBoxIsArray",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": [10, 20, 50, 100]}]}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": [{"id": 1, "bounding_box_px": [10, 20, 50, 100]}]}})",
+            true},
         MalformedDetectionTestCase{
             "CategoryIsNotArray",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": "not_an_array"}})"},
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": "not_an_array"}})",
+            false},
         MalformedDetectionTestCase{
             "DetectionIsNotObject",
-            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": ["not_an_object", 123, null]}})"}),
+            R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {"person": ["not_an_object", 123, null]}})",
+            true}),
     [](const ::testing::TestParamInfo<MalformedDetectionTestCase>& info) {
         return info.param.name;
     });
@@ -698,6 +853,160 @@ TEST_F(MessageHandlerTest, SchemaValidation_GracefulFallbackOnErrors) {
         })";
         mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
     });
+}
+
+//
+// Dynamic mode (database update) tests
+//
+
+// Test that dynamic mode subscribes to database update topic on start
+TEST_F(MessageHandlerTest, DynamicMode_SubscribesToDatabaseUpdateTopic) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+
+    bool callback_called = false;
+    handler.enableDynamicMode([&callback_called]() { callback_called = true; });
+
+    // Expect subscription to both camera and database update topics
+    EXPECT_CALL(*mock_client_, subscribe(std::format(MessageHandler::TOPIC_CAMERA_SUBSCRIBE_PATTERN,
+                                                     TEST_CAMERA_ID)))
+        .Times(1);
+    EXPECT_CALL(*mock_client_, subscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(1);
+
+    handler.start();
+}
+
+// Test that static mode does NOT subscribe to database update topic
+TEST_F(MessageHandlerTest, StaticMode_NoDatabaseUpdateSubscription) {
+    // Only camera subscription expected, no database update subscription
+    EXPECT_CALL(*mock_client_, subscribe(std::format(MessageHandler::TOPIC_CAMERA_SUBSCRIBE_PATTERN,
+                                                     TEST_CAMERA_ID)))
+        .Times(1);
+    EXPECT_CALL(*mock_client_, subscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(0);
+
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+}
+
+// Test dynamic mode with multiple scenes still subscribes to single database update topic
+TEST_F(MessageHandlerTest, DynamicMode_SingleDatabaseSubscriptionForMultipleScenes) {
+    Camera cam1, cam2;
+    cam1.uid = "cam-a";
+    cam1.name = "Camera A";
+    cam2.uid = "cam-b";
+    cam2.name = "Camera B";
+
+    Scene scene1;
+    scene1.uid = "scene-alpha";
+    scene1.name = "Scene Alpha";
+    scene1.cameras = {cam1};
+
+    Scene scene2;
+    scene2.uid = "scene-beta";
+    scene2.name = "Scene Beta";
+    scene2.cameras = {cam2};
+
+    SceneRegistry multi_registry;
+    multi_registry.register_scenes({scene1, scene2});
+
+    // Allow camera topic subscriptions
+    EXPECT_CALL(*mock_client_, subscribe(::testing::_)).Times(::testing::AnyNumber());
+    // Exactly one database update subscription regardless of scene count
+    EXPECT_CALL(*mock_client_, subscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(1);
+
+    MessageHandler handler(mock_client_, multi_registry, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([]() {});
+    handler.start();
+}
+
+// Test that receiving a database update message triggers the shutdown callback
+TEST_F(MessageHandlerTest, DynamicMode_DatabaseUpdateTriggersShutdown) {
+    bool callback_called = false;
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([&callback_called]() { callback_called = true; });
+    handler.start();
+
+    EXPECT_FALSE(callback_called);
+
+    mock_client_->simulateMessage(MessageHandler::TOPIC_DATABASE_UPDATE, "update");
+
+    EXPECT_TRUE(callback_called);
+}
+
+// Test that database update messages don't increment camera message counters
+TEST_F(MessageHandlerTest, DynamicMode_DatabaseUpdateDoesNotIncrementCounters) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([]() {});
+    handler.start();
+
+    mock_client_->simulateMessage(MessageHandler::TOPIC_DATABASE_UPDATE, "update");
+
+    EXPECT_EQ(handler.getReceivedCount(), 0);
+    EXPECT_EQ(handler.getRejectedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 0);
+}
+
+// Test that camera messages still work normally in dynamic mode
+TEST_F(MessageHandlerTest, DynamicMode_CameraMessagesStillWork) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([]() {});
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getRejectedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 1);
+}
+
+// Test that stop() unsubscribes from database update topic in dynamic mode
+TEST_F(MessageHandlerTest, DynamicMode_StopUnsubscribesFromDatabaseUpdateTopic) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.enableDynamicMode([]() {});
+    handler.start();
+
+    // Allow camera topic unsubscriptions (catch-all must precede specific expectation)
+    EXPECT_CALL(*mock_client_, unsubscribe(::testing::_)).Times(::testing::AnyNumber());
+    EXPECT_CALL(*mock_client_, unsubscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(1);
+
+    handler.stop();
+}
+
+// Test that stop() in static mode does NOT unsubscribe from database update topic
+TEST_F(MessageHandlerTest, StaticMode_StopDoesNotUnsubscribeDatabaseUpdate) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    // Allow camera topic unsubscriptions (catch-all must precede specific expectation)
+    EXPECT_CALL(*mock_client_, unsubscribe(::testing::_)).Times(::testing::AnyNumber());
+    EXPECT_CALL(*mock_client_, unsubscribe(std::string(MessageHandler::TOPIC_DATABASE_UPDATE)))
+        .Times(0);
+
+    handler.stop();
+}
+
+// Test that database update in static mode is treated as camera message (rejected)
+TEST_F(MessageHandlerTest, StaticMode_DatabaseUpdateTreatedAsCameraMessage) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    // In static mode, database update topic is routed to handleCameraMessage
+    // which rejects it because it doesn't match camera topic format
+    mock_client_->simulateMessage(MessageHandler::TOPIC_DATABASE_UPDATE, "update");
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getRejectedCount(), 1);
 }
 
 //

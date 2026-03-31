@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2019 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: 2019 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 # This file is licensed under Apache 2.0 License.
 
@@ -94,7 +94,12 @@ endif()
 # install
 #####################################################################
 
-install(TARGETS ${PROJECT_NAME} DESTINATION lib)
+# Install shared library alongside Python extensions so $ORIGIN RPATH resolves
+install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION robot_vision/extensions)
+
+if(BUILD_PYTHON_BINDINGS)
+  install(TARGETS tracking types LIBRARY DESTINATION robot_vision/extensions)
+endif()
 
 #####################################################################
 # tests

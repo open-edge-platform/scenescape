@@ -6,7 +6,7 @@ This guide provides step-by-step instructions to train and integrate a custom AI
 - Integrate the model into the Intel® SceneScape pipeline.
 - Validate inference results visually.
 
-This task is important for deploying and validating custom vision models in production scenarios using Intel® SceneScape. If you’re new to Intel® Geti™, review [Intel® Geti™](https://geti.intel.com)
+This task is important for deploying and validating custom vision models in production scenarios using Intel® SceneScape. If you’re new to Intel® Geti™, review [Intel® Geti™](https://www.intel.com/content/www/us/en/developer/tools/tiber/edge-platform/model-builder.html)
 
 ## Prerequisites
 
@@ -17,8 +17,8 @@ Before You Begin, ensure the following:
 
 This guide assumes familiarity with basic machine learning and Docker concepts. If needed, see:
 
-- [Intel® Geti™ Platform Guide](https://geti.intel.com/platform)
-- [OpenVINO™ Toolkit Overview](https://docs.openvino.ai/latest/index.html)
+- [Intel® Geti™ Platform Guide](https://docs.geti.intel.com/)
+- [OpenVINO™ Toolkit Overview](https://docs.openvino.ai/2026/index.html)
 
 ## Steps to Integrate Geti AI Models
 
@@ -62,11 +62,11 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
 2. **Configuring DL Streamer Pipeline Server with new Geti Model**
    Follow documentation [here](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/microservices/dlstreamer-pipeline-server/docs/user-guide/get-started.md) to use the newly trained Geti model with gvadetect and the [How to Configure DL Streamer Video Pipline](how-to-configure-dlstreamer-video-pipeline.md) to add custom models and configure the entire pipeline for enabling ingestion by Intel® SceneScape.
 
-3. **Deploy Intel® SceneScape**:
+3. **Deploy Intel® SceneScape** (see [Docker Compose Profiles](../get-started.md#docker-compose-profiles) for details on choosing profiles):
 
    ```bash
-   docker compose down --remove-orphans
-   docker compose up -d
+   docker compose --profile controller down --remove-orphans
+   docker compose --profile controller up -d
    ```
 
    Log into the Intel® SceneScape UI and verify that bounding boxes appear correctly.
@@ -75,4 +75,4 @@ This guide assumes familiarity with basic machine learning and Docker concepts. 
 ## Supporting Resources
 
 - [Intel® Geti™ Platform](https://geti.intel.com/platform)
-- [OpenVINO™ Model Server Docs](https://docs.openvino.ai/latest/ovms_what_is_openvino_model_server.html)
+- [OpenVINO™ Model Server Docs](https://docs.openvino.ai/2026/model-server/ovms_what_is_openvino_model_server.html)

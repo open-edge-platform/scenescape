@@ -3,6 +3,7 @@
 
 #include "time_chunk_scheduler.hpp"
 #include "logger.hpp"
+#include "metrics.hpp"
 
 #include <algorithm>
 #include <stdexcept>
@@ -113,9 +114,13 @@ void TimeChunkScheduler::dispatch(BufferMap&& snapshot) {
         auto* worker = get_or_create_worker(scope);
         if (worker == nullptr) {
             // Max workers reached, drop this scope's data
+            size_t msg_count = cameras.size();
             scope_limit_drops_.fetch_add(1);
-            LOG_WARN("Dropped chunk for scope {}/{}: max_workers limit ({}) reached",
-                     scope.scene_id, scope.category, config_.max_workers);
+            Metrics::inc_dropped_n(msg_count, {{kAttrScene, scope.scene_id},
+                                               {kAttrCategory, scope.category},
+                                               {kAttrReason, kReasonDroppedMaxWorkers}});
+            LOG_WARN("Dropped chunk for scope {}/{}: max_workers limit ({}) reached, messages={}",
+                     scope.scene_id, scope.category, config_.max_workers, msg_count);
             continue;
         }
 
@@ -141,18 +146,24 @@ TrackingWorker* TimeChunkScheduler::get_or_create_worker(const TrackingScope& sc
         return nullptr;
     }
 
-    // Look up scene display name (may fall back to scene_id if not found)
-    std::string scene_display_name = scope.scene_id;
+    // Look up scene display name and build camera map
+    std::string scene_display_name = scope.scene_id; // Default to ID if not found
+    std::unordered_map<std::string, Camera> cameras;
+
     if (const auto* scene = registry_.find_scene_by_id(scope.scene_id)) {
         scene_display_name = scene->name;
+        // Build camera map for this scene
+        for (const auto& camera : scene->cameras) {
+            cameras[camera.uid] = camera;
+        }
     }
 
-    // Create new worker
+    // Create new worker with tracking config and cameras
     auto worker = std::make_unique<TrackingWorker>(scope, scene_display_name, kWorkerQueueCapacity,
-                                                   publish_callback_);
+                                                   publish_callback_, config_, cameras);
 
-    LOG_INFO("Created TrackingWorker for scope {}/{} (total workers: {})", scope.scene_id,
-             scope.category, workers_.size() + 1);
+    LOG_INFO("Created TrackingWorker for scope {}/{} (total workers: {}, cameras: {})",
+             scope.scene_id, scope.category, workers_.size() + 1, cameras.size());
 
     auto* ptr = worker.get();
     workers_[scope] = std::move(worker);
@@ -176,6 +187,12 @@ Chunk TimeChunkScheduler::build_chunk(const TrackingScope& scope, CameraMap&& ca
               [](const DetectionBatch& a, const DetectionBatch& b) {
                   return a.receive_time < b.receive_time;
               });
+
+    // Propagate earliest batch's observability context to chunk level
+    if (!chunk.camera_batches.empty()) {
+        chunk.obs_ctx = chunk.camera_batches.front().obs_ctx;
+        chunk.obs_ctx.captureDispatchTime();
+    }
 
     return chunk;
 }

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "observability_context.hpp"
+
 #include <array>
 #include <chrono>
 #include <functional>
@@ -11,28 +13,20 @@
 #include <unordered_map>
 #include <vector>
 
-namespace tracker {
+#include <opencv2/core.hpp>
 
-/**
- * @brief Bounding box in pixel coordinates.
- *
- * Matches the input schema from camera-data.schema.json.
- */
-struct BoundingBoxPx {
-    double x;
-    double y;
-    double width;
-    double height;
-};
+namespace tracker {
 
 /**
  * @brief Single detection from camera frame.
  *
  * Represents one detected object in pixel coordinates before tracking.
+ * bounding_box_px uses cv::Rect2f to match OpenCV conventions and avoid
+ * manual conversion in the tracking pipeline.
  */
 struct Detection {
-    std::optional<int64_t> id; ///< Frame-local detection ID (optional)
-    BoundingBoxPx bounding_box_px;
+    std::optional<int32_t> id; ///< Frame-local detection ID (optional)
+    cv::Rect2f bounding_box_px;
 };
 
 /**
@@ -55,8 +49,10 @@ struct TrackingScope {
 struct DetectionBatch {
     std::string camera_id;
     std::chrono::steady_clock::time_point receive_time;
-    std::string timestamp_iso; ///< Original ISO 8601 timestamp from message
+    std::string timestamp_iso;                       ///< Original ISO 8601 timestamp from message
+    std::chrono::system_clock::time_point timestamp; ///< Parsed UTC timestamp
     std::vector<Detection> detections;
+    ObservabilityContext obs_ctx; ///< Pipeline observability context
 };
 
 /**
@@ -70,6 +66,7 @@ struct Chunk {
     std::string category;
     std::chrono::steady_clock::time_point chunk_time;
     std::vector<DetectionBatch> camera_batches; ///< Sorted by timestamp
+    ObservabilityContext obs_ctx;               ///< Earliest batch's observability context
 
     /**
      * @brief Check if this is a sentinel chunk (signals shutdown).
@@ -88,8 +85,8 @@ struct Chunk {
  * Matches the output schema from scene-data.schema.json.
  */
 struct Track {
-    std::string id;                    ///< Persistent track ID (UUID)
-    std::string category;              ///< Object category (e.g., person, vehicle)
+    std::string id;       ///< Persistent track ID (UUID v4, mapped from RobotVision ID)
+    std::string category; ///< Object category (e.g., person, vehicle)
     std::array<double, 3> translation; ///< World position [x, y, z] meters
     std::array<double, 3> velocity;    ///< Velocity [vx, vy, vz] m/s
     std::array<double, 3> size;        ///< Object size [length, width, height] meters

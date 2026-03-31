@@ -53,7 +53,7 @@ To start all services including both mapping and cluster analytics:
 SUPASS=your_password make demo-all
 ```
 
-For successive runs, you can use Docker Compose directly:
+For successive runs, you can use Docker Compose directly (see [Docker Compose Profiles](../get-started.md#docker-compose-profiles) for details on available profiles):
 
 ### Launch all cores services and experimental services
 
@@ -133,7 +133,7 @@ Once cameras are configured and streaming:
 1. On the scene details page, navigate to the scene settings page by clicking the "Edit" icon.
 2. Click **Generate Mesh** button at the bottom of the page
 
-> **Note**: The "Generate Mesh" button is only available when the mapping service is healthy. If you don't see this button:
+> **Note**: The "Generate Mesh" button is only available when the mapping service is healthy. If you do not see this button:
 >
 > - Verify the mapping service is running: `docker compose ps mapping`
 > - Check the mapping service logs: `docker compose logs mapping`
@@ -240,14 +240,16 @@ For optimal mesh generation results:
 To stop all Intel® SceneScape services:
 
 ```bash
-docker compose down
+docker compose --profile controller --profile experimental down
 ```
 
 To stop services and remove volumes (this will delete all data):
 
 ```bash
-docker compose down -v
+docker compose --profile controller --profile experimental down -v
 ```
+
+> **Note:** The `--profile` flags must match those used when starting the services. If you only started with `--profile controller`, omit `--profile experimental`. See [Docker Compose Profiles](../get-started.md#docker-compose-profiles) for details.
 
 ---
 
@@ -264,7 +266,7 @@ If the mapping service remains unhealthy:
 
 ### Generate Mesh Button Not Visible
 
-If you don't see the "Generate Mesh" button:
+If you do not see the "Generate Mesh" button:
 
 1. Verify mapping service is running: `docker compose ps | grep mapping`
 2. Ensure you're using the correct profile: `--profile mapping` or `--profile experimental`
@@ -286,5 +288,5 @@ If the generated mesh has issues:
 ## Supporting Resources
 
 - [How to Create and Configure a New Scene](how-to-create-new-scene.md)
-- [How to Configure DLStreamer Video Pipeline](../other-topics/how-to-configure-dlstreamer-video-pipeline.md)
+- [How to Configure DL Streamer Video Pipeline](../other-topics/how-to-configure-dlstreamer-video-pipeline.md)
 - [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)

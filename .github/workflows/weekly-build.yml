@@ -13,7 +13,7 @@ permissions: {}
 
 jobs:
   build:
-    name: "Build, Tag, Scan and Push Images"
+    name: "Build, Tag and Push Images"
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.determine-tag.outputs.image_tag }}
@@ -29,10 +29,12 @@ jobs:
             scenescape-autocalibration,
             scenescape-controller,
             scenescape-manager,
+            scenescape-tracker,
+            scenescape-sources,
           ]
     steps:
       - name: "Set up Docker Buildx"
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: "Checkout code"
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -42,8 +44,10 @@ jobs:
 
       - name: "Build image scene_common"
         run: |
-          echo "Building scene_common"
-          make -C scene_common
+          if [[ "${{ matrix.images }}" != "scenescape-sources" && "${{ matrix.images }}" != "scenescape-tracker" ]]; then
+            echo "Building scene_common"
+            make -C scene_common
+          fi
 
       - name: "Build image ${{ matrix.images }}"
         run: |
@@ -56,6 +60,15 @@ jobs:
           elif [[ "${{ matrix.images }}" == "scenescape-manager" ]]; then
             echo "Building ${{ matrix.images }}"
             make -C manager
+          elif [[ "${{ matrix.images }}" == "scenescape-tracker" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C tracker
+          elif [[ "${{ matrix.images }}" == "scenescape-sources" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make build-sources-image
+          else
+            echo "ERROR: Unexpected matrix.images value: '${{ matrix.images }}'"
+            exit 1
           fi
 
       - name: "Determine Image Tag"
@@ -97,37 +110,11 @@ jobs:
           echo "Tagged ${{ matrix.images }}:latest as ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
 
       - name: "Log in to GHCR"
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: "Scan Docker image with Trivy 🔍"
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@8b0ae64836f0395b21ff9dd7d9438284e8e8beda
-        with:
-          scan_target: "ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
-          severity: "HIGH"
-          scan_type: image
-          format: table
-          scan-scope: all
-          timeout: 20m
-          ignore_unfixed: true
-          report_suffix: "-${{ matrix.images }}"
-
-      - name: "Fail if vulnerabilities > 0 in Trivy results"
-        run: |
-          file=$(ls security-results/trivy/trivy-results-* | head -n 1)
-          echo "Checking Trivy results in file: $file"
-          cat $file
-          vuln_count=$(awk '/│/ && /Vulnerabilities/ {next} /│/ {gsub(/ /, "", $0); split($0, cols, "│"); print cols[4]}' "$file" | grep -v '-' | awk '{sum += $1} END {print sum}')
-          if [[ "$vuln_count" != "0" ]]; then
-            echo "❌ Vulnerabilities found: $vuln_count"
-            exit 1
-          else
-            echo "✅ No vulnerabilities found."
-          fi
-        shell: bash
 
       - name: "Push images"
         run: |
@@ -145,7 +132,7 @@ jobs:
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
 
       - name: "Install Cosign"
-        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
 
       - name: "Sign Docker images using Cosign (keyless)"
         run: |
