@@ -25,13 +25,15 @@ against the `detector` definition in
 
 ### Top-Level Message Fields
 
-| Field            | Type                  | Required | Description                                                                         |
-| ---------------- | --------------------- | :------: | ----------------------------------------------------------------------------------- |
-| `id`             | string                |   Yes    | Camera or sensor identifier                                                         |
-| `timestamp`      | string (ISO 8601 UTC) |   Yes    | Acquisition time of the frame                                                       |
-| `objects`        | object                |   Yes    | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`) |
-| `rate`           | number ≥ 0            |    No    | Camera framerate (frames per second) when the message was produced                  |
-| `sub_detections` | array of string       |    No    | Sub-detection labels run on this frame (e.g. `["license_plate"]`)                   |
+| Field            | Type                  | Required | Description                                                                                                          |
+| ---------------- | --------------------- | :------: | -------------------------------------------------------------------------------------------------------------------- |
+| `id`             | string                |   Yes    | Camera or sensor identifier                                                                                          |
+| `timestamp`      | string (ISO 8601 UTC) |   Yes    | Acquisition time of the frame                                                                                        |
+| `objects`        | object                |   Yes    | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`)                                  |
+| `rate`           | number ≥ 0            |    No    | Camera framerate (frames per second) when the message was produced                                                   |
+| `sub_detections` | array of string       |    No    | Sub-detection labels run on this frame (e.g. `["license_plate"]`)                                                    |
+| `intrinsics`     | object                |    No    | Camera intrinsic parameters (`fx`, `fy`, `cx`, `cy`); used to update camera calibration and compute image resolution |
+| `distortion`     | array of number       |    No    | Lens distortion coefficients; used alongside `intrinsics` to update camera calibration                               |
 
 ### Detection Object Fields (`objects.<category>[*]`)
 
@@ -41,6 +43,7 @@ against the `detector` definition in
 | `bounding_box`    | object             | One of ① | Normalized image-space bounding box (`x`, `y`, `width`, `height`)                  |
 | `bounding_box_px` | object             | One of ① | Pixel-space bounding box (`x`, `y`, `width`, `height`; optional `z`, `depth`)      |
 | `translation`     | array[3] of number | One of ① | 3D world position (`x`, `y`, `z`) in metres                                        |
+| `lat_long_alt`    | array[3] of number | One of ① | Geographic position (latitude, longitude, altitude); converted to ECEF internally  |
 | `size`            | array[3] of number | One of ① | 3D object dimensions (`x`, `y`, `z`) in metres                                     |
 | `confidence`      | number > 0         |    No    | Inference confidence score for this detection                                      |
 | `id`              | integer ≥ 0        |    No    | Per-frame detection index                                                          |
@@ -49,8 +52,13 @@ against the `detector` definition in
 | `distance`        | number             |    No    | Distance from the camera to the detection in metres                                |
 | `metadata`        | object             |    No    | Semantic attribute bag (see [Semantic Metadata Fields](#semantic-metadata-fields)) |
 
-> **① One-of constraint**: every detection must contain exactly one of:
-> `bounding_box` **or** `bounding_box_px` (2D image-based detection), **or** both `translation` and `size` (3D world-space detection).
+> **① Location constraint**: every detection must provide location in exactly one
+> of these forms (enforced by the schema's `oneOf`):
+>
+> - **2D image-based**: `bounding_box` and/or `bounding_box_px` (at least one required;
+>   both may be present — if so, `bounding_box` takes precedence)
+> - **3D world-space**: `translation` + `size`
+> - **Geographic**: `lat_long_alt` + `size` (converted to ECEF `translation` internally)
 
 ### Semantic Metadata Fields (`objects.<category>[*].metadata.<attr>`)
 
@@ -182,7 +190,7 @@ tracked object contains the following fields:
 | Field            | Type               | Description                                                                                                                                                                              |
 | ---------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id`             | string (UUID)      | Persistent track identifier assigned by the controller                                                                                                                                   |
-| `type`           | string             | Object type label; same value as `category` (e.g. `"person"`)                                                                                                                           |
+| `type`           | string             | Object type label; same value as `category` (e.g. `"person"`)                                                                                                                            |
 | `category`       | string             | Object class label (e.g. `"person"`)                                                                                                                                                     |
 | `confidence`     | number             | Inference confidence of the most recent contributing detection                                                                                                                           |
 | `translation`    | array[3] of number | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                              |
@@ -356,18 +364,18 @@ interest changes. The `{event_type}` segment is typically `objects`.
 
 ### Region Event Top-Level Fields
 
-| Field         | Type                  | Description                                                                                                 |
-| ------------- | --------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `timestamp`   | string (ISO 8601 UTC) | Event timestamp                                                                                             |
-| `scene_id`    | string                | Scene identifier (UUID)                                                                                     |
-| `scene_name`  | string                | Scene name                                                                                                  |
-| `region_id`   | string                | Region identifier (UUID)                                                                                    |
-| `region_name` | string                | Region name                                                                                                 |
-| `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                          |
-| `objects`     | array                 | Tracked objects currently inside the region (see [Common Output Track Fields](#common-output-track-fields)) |
-| `entered`     | array                 | Objects that entered the region during this cycle; each element is a bare track object. Empty when no entry occurred |
+| Field         | Type                  | Description                                                                                                                              |
+| ------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `timestamp`   | string (ISO 8601 UTC) | Event timestamp                                                                                                                          |
+| `scene_id`    | string                | Scene identifier (UUID)                                                                                                                  |
+| `scene_name`  | string                | Scene name                                                                                                                               |
+| `region_id`   | string                | Region identifier (UUID)                                                                                                                 |
+| `region_name` | string                | Region name                                                                                                                              |
+| `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                                                       |
+| `objects`     | array                 | Tracked objects currently inside the region (see [Common Output Track Fields](#common-output-track-fields))                              |
+| `entered`     | array                 | Objects that entered the region during this cycle; each element is a bare track object. Empty when no entry occurred                     |
 | `exited`      | array                 | Objects that exited the region during this cycle; each element is `{"object": <track>, "dwell": <seconds>}`. Empty when no exit occurred |
-| `metadata`    | object                | Region geometry: `title`, `uuid`, `points` (polygon vertices in metres), `area` (`"poly"`), `fromSensor` (boolean) |
+| `metadata`    | object                | Region geometry: `title`, `uuid`, `points` (polygon vertices in metres), `area` (`"poly"`), `fromSensor` (boolean)                       |
 
 ### Example Region Event Message
 
@@ -430,7 +438,7 @@ interest changes. The `{event_type}` segment is typically `objects`.
         "similarity": null,
         "first_seen": "2026-03-26T20:53:06.647Z",
         "camera_bounds": {
-          "atag-qcam2": {"x": 180, "y": 115, "width": 166, "height": 400}
+          "atag-qcam2": { "x": 180, "y": 115, "width": 166, "height": 400 }
         }
       },
       "dwell": 5.297
@@ -439,7 +447,13 @@ interest changes. The `{event_type}` segment is typically `objects`.
   "metadata": {
     "title": "region_2",
     "uuid": "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4",
-    "points": [[0.77, 6.528], [1.286, 2.363], [4.961, 1.101], [3.394, 4.828], [1.923, 6.261]],
+    "points": [
+      [0.77, 6.528],
+      [1.286, 2.363],
+      [4.961, 1.101],
+      [3.394, 4.828],
+      [1.923, 6.261]
+    ],
     "area": "poly",
     "fromSensor": false
   }
@@ -471,7 +485,7 @@ field (`1` or `-1`) indicating which side of the wire it crossed toward.
 | `counts`        | object                | Map of category to crossing object count (e.g. `{"person": 1}`)                                                                             |
 | `objects`       | array                 | Objects that triggered the event; each carries a `direction` field in addition to [Common Output Track Fields](#common-output-track-fields) |
 | `entered`       | array                 | Always empty (`[]`) in tripwire events; crossing objects appear in `objects` with a `direction` field instead                               |
-| `exited`        | array                 | Always empty (`[]`) in tripwire events                                                                                                     |
+| `exited`        | array                 | Always empty (`[]`) in tripwire events                                                                                                      |
 | `metadata`      | object                | Tripwire geometry: `title`, `points` (array of `[x, y]` coordinates in metres), `uuid`                                                      |
 
 ### Example Tripwire Event Message
