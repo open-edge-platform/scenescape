@@ -182,6 +182,7 @@ tracked object contains the following fields:
 | Field            | Type               | Description                                                                                                                                                                              |
 | ---------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id`             | string (UUID)      | Persistent track identifier assigned by the controller                                                                                                                                   |
+| `type`           | string             | Object type label; same value as `category` (e.g. `"person"`)                                                                                                                           |
 | `category`       | string             | Object class label (e.g. `"person"`)                                                                                                                                                     |
 | `confidence`     | number             | Inference confidence of the most recent contributing detection                                                                                                                           |
 | `translation`    | array[3] of number | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                              |
@@ -364,6 +365,9 @@ interest changes. The `{event_type}` segment is typically `objects`.
 | `region_name` | string                | Region name                                                                                                 |
 | `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                          |
 | `objects`     | array                 | Tracked objects currently inside the region (see [Common Output Track Fields](#common-output-track-fields)) |
+| `entered`     | array                 | Objects that entered the region during this cycle; each element is a bare track object. Empty when no entry occurred |
+| `exited`      | array                 | Objects that exited the region during this cycle; each element is `{"object": <track>, "dwell": <seconds>}`. Empty when no exit occurred |
+| `metadata`    | object                | Region geometry: `title`, `uuid`, `points` (polygon vertices in metres), `area` (`"poly"`), `fromSensor` (boolean) |
 
 ### Example Region Event Message
 
@@ -396,9 +400,56 @@ interest changes. The `{event_type}` segment is typically `objects`.
       "similarity": null,
       "first_seen": "2026-03-26T20:53:25.339Z"
     }
-  ]
+  ],
+  "entered": [
+    {
+      "id": "2d3c96d9-24bd-498b-ba1f-2fd54ab6c25b",
+      "category": "person",
+      "confidence": 0.999,
+      "translation": [2.557, 3.678, 0.0],
+      "size": [0.5, 0.5, 1.85],
+      "velocity": [-0.118, 0.186, 0.0],
+      "rotation": [0, 0, 0, 1],
+      "visibility": ["atag-qcam1", "atag-qcam2"],
+      "similarity": null,
+      "first_seen": "2026-03-26T20:53:25.339Z"
+    }
+  ],
+  "exited": [
+    {
+      "object": {
+        "id": "bbd07321-dbb9-4384-bf1b-4eb5d9a0aa05",
+        "category": "person",
+        "confidence": 0.98,
+        "translation": [0.893, 5.709, 0.0],
+        "size": [0.5, 0.5, 1.85],
+        "velocity": [0.005, -0.012, 0.0],
+        "rotation": [0, 0, 0, 1],
+        "visibility": ["atag-qcam2"],
+        "regions": {},
+        "similarity": null,
+        "first_seen": "2026-03-26T20:53:06.647Z",
+        "camera_bounds": {
+          "atag-qcam2": {"x": 180, "y": 115, "width": 166, "height": 400}
+        }
+      },
+      "dwell": 5.297
+    }
+  ],
+  "metadata": {
+    "title": "region_2",
+    "uuid": "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4",
+    "points": [[0.77, 6.528], [1.286, 2.363], [4.961, 1.101], [3.394, 4.828], [1.923, 6.261]],
+    "area": "poly",
+    "fromSensor": false
+  }
 }
 ```
+
+> **Note on `entered` vs `exited` element shape**: In region events, `entered` elements
+> are bare track objects, while `exited` elements are wrapped as
+> `{"object": <track>, "dwell": <seconds>}` where `dwell` is the time in seconds the
+> object spent inside the region.
 
 ## Tripwire Event Output Message Format
 
@@ -419,8 +470,8 @@ field (`1` or `-1`) indicating which side of the wire it crossed toward.
 | `tripwire_name` | string                | Tripwire name                                                                                                                               |
 | `counts`        | object                | Map of category to crossing object count (e.g. `{"person": 1}`)                                                                             |
 | `objects`       | array                 | Objects that triggered the event; each carries a `direction` field in addition to [Common Output Track Fields](#common-output-track-fields) |
-| `entered`       | array                 | Track IDs of objects that crossed in the positive direction                                                                                 |
-| `exited`        | array                 | Track IDs of objects that crossed in the negative direction                                                                                 |
+| `entered`       | array                 | Always empty (`[]`) in tripwire events; crossing objects appear in `objects` with a `direction` field instead                               |
+| `exited`        | array                 | Always empty (`[]`) in tripwire events                                                                                                     |
 | `metadata`      | object                | Tripwire geometry: `title`, `points` (array of `[x, y]` coordinates in metres), `uuid`                                                      |
 
 ### Example Tripwire Event Message
