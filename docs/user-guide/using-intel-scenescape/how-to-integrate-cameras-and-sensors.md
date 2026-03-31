@@ -233,7 +233,7 @@ For example, if a vision-based hat detector is used then a `"hat"` attribute cou
 }
 ```
 
-Metadata for camera-based detections can be validated against the [SceneScape metadata schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
+Metadata for camera-based detections can be validated against the [SceneScape metadata schema](../../../controller/src/schema/metadata.schema.json), which is extensible to allow for many kinds of data to be passed on to the scene.
 
 ## Camera Calibration Methods
 
