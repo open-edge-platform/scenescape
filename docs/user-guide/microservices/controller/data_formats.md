@@ -46,7 +46,7 @@ against the `detector` definition in
 | `lat_long_alt`    | array[3] of number | One of ① | Geographic position (latitude, longitude, altitude); converted to ECEF internally  |
 | `size`            | array[3] of number | One of ① | 3D object dimensions (`x`, `y`, `z`) in metres                                     |
 | `confidence`      | number > 0         |    No    | Inference confidence score for this detection                                      |
-| `id`              | integer ≥ 0        |    No    | Per-frame detection index                                                          |
+| `id`              | integer ≥ 0        |  Yes ②   | Per-frame detection index                                                          |
 | `rotation`        | array[4] of number |    No    | Object orientation as a quaternion                                                 |
 | `center_of_mass`  | object             |    No    | Depth-estimation region of interest in pixels (`x`, `y`, `width`, `height`)        |
 | `distance`        | number             |    No    | Distance from the camera to the detection in metres                                |
@@ -59,6 +59,11 @@ against the `detector` definition in
 >   both may be present — if so, `bounding_box` takes precedence)
 > - **3D world-space**: `translation` + `size`
 > - **Geographic**: `lat_long_alt` + `size` (converted to ECEF `translation` internally)
+
+> **② Schema vs runtime**: The JSON schema currently lists `id` as optional (only
+> `category` is in the schema's `required` array). However, the controller accesses
+> `id` unconditionally at runtime and will reject detections that omit it. Always
+> include `id` in every detection object.
 
 ### Semantic Metadata Fields (`objects.<category>[*].metadata.<attr>`)
 
