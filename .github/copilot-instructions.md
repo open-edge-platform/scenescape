@@ -4,19 +4,49 @@ Intel® SceneScape is a microservice-based spatial awareness framework for multi
 
 **Current Version**: Read from `version.txt` at repository root
 
-## Language-Specific Instructions
+## Licensing Requirements (Critical - All Files)
 
-For detailed language-specific guidance, refer to `.github/instructions/<language>.md`:
+**CRITICAL - All files must include:**
 
-- **Python**: `.github/instructions/python.md` - Python coding standards, patterns, and best practices
-  - **CRITICAL**: Use 2 spaces for indentation (never 4 spaces or tabs)
-- **JavaScript**: `.github/instructions/javascript.md` - Frontend development conventions
-- **Shell**: `.github/instructions/shell.md` - Bash scripting guidelines
-- **Makefile**: `.github/instructions/makefile.md` - Build system conventions
+- SPDX license header: `SPDX-License-Identifier: Apache-2.0`
+- Copyright line: `(C) <YEAR> Intel Corporation` (use current year for new files)
+- Example:
+  ```python
+  # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+  # SPDX-License-Identifier: Apache-2.0
+  ```
+- **Enforcement**: REUSE compliance checking in CI
+- Add to new files: `make add-licensing FILE=<filename>`
 
-Always consult the appropriate language-specific file when working with code in that language.
+## Language-Specific Skills (Load On-Demand)
 
-**Python Indentation Rule**: All Python code MUST use 2 spaces for indentation. This is enforced by `make indent-check` and is a hard requirement across the entire codebase.
+Consult these based on the code you're working with:
+
+- **Python** (`.github/skills/python.md`): Coding standards, imports, patterns
+  - **CRITICAL**: 2 spaces for indentation (checked by `make indent-check`)
+- **JavaScript** (`.github/skills/javascript.md`): Frontend conventions
+- **Shell** (`.github/skills/shell.md`): Bash scripting guidelines
+- **Makefile** (`.github/skills/makefile.md`): Build system conventions
+- **Testing** (`.github/skills/testing.md`): Test creation frameworks
+
+### Skills Caching Strategy
+
+Skills are loaded on-demand based on task context to optimize token usage:
+
+**Pre-Cached (Always Available)**:
+
+- `copilot-instructions.md` (this file, always loaded)
+- `python.md` (high frequency, pre-cached)
+- `documentation-how.md` (high frequency, pre-cached)
+
+**Loaded Automatically on Demand**:
+
+- `testing.md` - Loaded when task involves tests or `test` keyword detected
+- `javascript.md` - Loaded when `.js` files are being edited
+- `shell.md` - Loaded when `.sh` files are being edited
+- `makefile.md` - Loaded when Makefile or build system changes
+
+Skills are detected and loaded based on file type, task keywords, and context signals. Explicitly request a skill if the auto-detection doesn't load it.
 
 ## Architecture Overview
 
@@ -66,7 +96,7 @@ make rebuild-core                  # Clean + build (useful after code changes)
 
 ## Testing Framework
 
-**For comprehensive test creation guidance, see `.github/instructions/testing.md`** - detailed instructions on creating unit, functional, integration, UI, and smoke tests with both positive and negative cases.
+**For comprehensive test creation guidance, see `.github/skills/testing.md`** - detailed instructions on creating unit, functional, integration, UI, and smoke tests with both positive and negative cases.
 
 **Running Tests** (must have containers running via docker-compose):
 
@@ -167,9 +197,36 @@ pubsub.publish(topic, json_payload)
 - **`manager/secrets/`**: TLS certificates, auth tokens (never committed; generated per build)
 - **`tests/Makefile`** and **`tests/Makefile.sscape`**: Test orchestration with Zephyr ID tracking
 
-## Documentation Requirements
+## Documentation Requirements (Always-On)
 
-**ALWAYS read `.github/instructions/documentation.md` before making any code changes.** This file contains comprehensive documentation requirements and update procedures that must be followed for every agent request.
+### WHEN to Update Documentation
+
+**Update documentation IMMEDIATELY when making ANY of these changes:**
+
+- Adding new features, services, models, or options
+- Modifying APIs, endpoints, or request/response formats
+- Changing build targets, Makefile commands, or deployment procedures
+- Adding or removing configuration options or environment variables
+- Updating dependencies or system requirements
+- Changing default behaviors or conventions
+
+### HOW to Update Documentation
+
+**For detailed procedures, see `.github/skills/documentation-how.md`.**
+
+This skill contains:
+
+- Service-specific documentation locations (overview, build guides, API specs)
+- Detailed update checklist per component
+- Examples and patterns for each service type
+- Cross-service documentation guidelines
+
+**Quick reference - Key locations:**
+
+- `docs/user-guide/microservices/<service>/<service>.md` - Features and API endpoints
+- `docs/user-guide/microservices/<service>/get-started/build-from-source.md` - Build instructions
+- `<service>/README.md` - Quick start
+- `docs/user-guide/` - Cross-service documentation
 
 ## Quick Reference: New Service Checklist
 
@@ -183,17 +240,3 @@ When adding a new microservice:
 6. Create tests in `tests/sscape_tests/<service>/` with conftest.py fixtures
 7. Add test-build target in service Makefile
 8. **Update ALL relevant documentation** (overview, build guide, API docs, examples)
-
-## Licensing Requirements
-
-**All files must include:**
-
-- SPDX license headers: `SPDX-License-Identifier: Apache-2.0`
-- Copyright: Use current year `(C) <YEAR> Intel Corporation` (e.g., `(C) 2025 Intel Corporation` for files created in 2025)
-- **Enforcement**: REUSE compliance checking in CI
-
-**Add license to new files:**
-
-```bash
-make add-licensing FILE=<filename>
-```
