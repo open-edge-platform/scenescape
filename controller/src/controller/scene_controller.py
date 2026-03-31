@@ -346,7 +346,7 @@ class SceneController:
       num_objects += counts[otype]
       all_objects += objects
     event_data['counts'] = counts
-    detections_dict = buildDetectionsDict(all_objects, scene)
+    detections_dict = buildDetectionsDict(all_objects, scene, include_sensors=True)
     event_data['objects'] = list(detections_dict.values())
     return detections_dict, num_objects
 
