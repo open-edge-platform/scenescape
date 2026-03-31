@@ -72,9 +72,9 @@ endef
 setup-pytest:
 	@if [ ! -d "$(CURDIR)/.venv" ]; then \
 		python3 -m venv $(CURDIR)/.venv; \
-    echo "Installing venv dependencies..."; \
-		$(CURDIR)/.venv/bin/pip install -q --upgrade pip; \
-		$(CURDIR)/.venv/bin/pip install -q -r $(CURDIR)/requirements.txt; \
+		echo "Installing venv dependencies..."; \
+		$(CURDIR)/.venv/bin/pip install --progress-bar on --upgrade pip; \
+		$(CURDIR)/.venv/bin/pip install --progress-bar on -r $(CURDIR)/requirements.txt; \
 	fi
 	@if ! $(CURDIR)/.venv/bin/python3 -c "from fast_geometry import Point" 2>/dev/null; then \
 		echo "Building fast_geometry C++ extension..."; \

@@ -28,8 +28,9 @@ TIMESTAMP := $(shell date +%Y-%m-%d-%H:%M:%S)
 setup:
 	@if [ ! -d "$(PYTEST_VENV)" ]; then \
 		python3 -m venv $(PYTEST_VENV); \
-		$(PYTEST_VENV)/bin/pip install -q --upgrade pip; \
-		$(PYTEST_VENV)/bin/pip install -q -r $(CURDIR)/requirements.txt; \
+		echo "Installing venv dependencies..."; \
+		$(PYTEST_VENV)/bin/pip install --progress-bar on --upgrade pip; \
+		$(PYTEST_VENV)/bin/pip install --progress-bar on -r $(CURDIR)/requirements.txt; \
 	fi
 
 all: setup
