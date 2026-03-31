@@ -472,5 +472,5 @@ As an experimental service, cluster analytics includes:
 - [Get Started](../docs/user-guide/microservices/cluster-analytics/get-started.md): Step-by-step usage guide
 - [Build Instructions](../docs/user-guide/microservices/cluster-analytics/get-started/build-from-source.md): Deployment guide
 - [Scene Common](../scene_common/): Shared geometry and tracking utilities
-- [Testing Guide](../.github/instructions/testing.md): Test creation patterns
-- [Python Conventions](../.github/instructions/python.md): Python coding standards
+- [Testing Guide](../.github/skills/testing.md): Test creation patterns
+- [Python Conventions](../.github/skills/python.md): Python coding standards

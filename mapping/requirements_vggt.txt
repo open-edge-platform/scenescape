@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-torch==2.8.0
-torchvision==0.23.0
+torch==2.11.0
+torchvision==0.26.0

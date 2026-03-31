@@ -4,6 +4,7 @@
 """SceneControllerHarness implementation for running tracker in scene controller container."""
 
 import json
+import os
 import tempfile
 import shutil
 from pathlib import Path
@@ -226,6 +227,7 @@ class SceneControllerHarness(TrackerHarness):
         ],
         workdir="/workspace",
         entrypoint="python",
+        user=f"{os.getuid()}:{os.getgid()}",
         remove=True,
         stream=True
       )

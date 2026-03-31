@@ -117,11 +117,11 @@ autocalibration:
   restart: on-failure
 ```
 
-6. Restart Intel® SceneScape:
+6. Restart Intel® SceneScape (see [Docker Compose Profiles](../get-started.md#docker-compose-profiles) for details on choosing profiles):
 
 ```bash
-docker compose down
-docker compose up
+docker compose --profile controller down
+docker compose --profile controller up
 ```
 
 7. Navigate to the camera page and click **Auto Calibrate**.

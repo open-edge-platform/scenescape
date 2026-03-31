@@ -40,7 +40,9 @@ Figure 1: Architecture Diagram
 
 ### **Scene Controller**
 
-Maintains the current state of the scene, including tracked objects, cameras, and sensors. For more information, refer to [Scene Controller Microservice](./microservices/controller/controller.md).
+Processes input metadata from camera pipelines and sensors, performs multi-camera and multi-object tracking, maintains and updates the current state of the scene, and produces tracked objects and scene analytics events. For more information, refer to [Scene Controller Microservice](./microservices/controller/controller.md).
+
+For details on the controller input and output message formats, see [Scene Controller Message Formats](./microservices/controller/data_formats.md).
 
 ### **Deep Learning Streamer Pipeline Server**
 
@@ -77,9 +79,13 @@ PostgreSQL database server which stores static information used by the web UI an
 :hidden:
 
 get-started
-Using Intel® SceneScape <using-intel-scenescape/index.md>
-Calibrating Cameras <calibrating-cameras/index.md>
-Building a Scene <building-a-scene/index.md>
+Deploy Intel® SceneScape <./how-to-deploy-scenescape-using-prebuilt-containers.md>
+Build a Scene <building-a-scene/index.md>
+Use Intel(R) SceneScape UI and Online Documentation <./tutorial.md>
+Integrate Cameras and Sensors <./how-to-integrate-cameras-and-sensors.md>
+Use Intel(R) SceneScape 3D UI for Camera Calibration <./how-to-use-3D-UI.md>
+Calibrate Cameras <calibrating-cameras/index.md>
+Work with Spatial Analytics <./working-with-spatial-analytics-data.md>
 Other Topics <other-topics/index.md>
 Additional Resources <additional-resources/index.md>
 Microservices <./microservices/microservices.md>
