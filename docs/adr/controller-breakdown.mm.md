@@ -62,7 +62,7 @@ markmap:
 - scalability
   - vertical
     - Process-based parallelism [Python multi-processing library](https://docs.python.org/3/library/multiprocessing.html)
-    - process per (scene) or (scene, category)
+    - process per (scene), because output is aggregated for all categories
   - horizontal (sharding):
     - exclusive subset of scenes
     - dynamically allocated (mechanism distributed vs centralized - TBD)
