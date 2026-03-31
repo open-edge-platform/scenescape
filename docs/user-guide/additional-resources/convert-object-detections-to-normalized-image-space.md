@@ -54,7 +54,7 @@ Detection metadata is usually provided in pixel units. Here is an example of a d
 {
    "objects":[
       {
-         "type":"person",
+         "category":"person",
          "bounding_box":{
             "top":157,
             "left":221,
@@ -74,7 +74,7 @@ The output will look something like this, where the values are now floating poin
 {
    "objects":[
       {
-         "type":"person",
+         "category":"person",
          "bounding_box":{
             "x":-0.21945553,
             "y":-0.27470306,
