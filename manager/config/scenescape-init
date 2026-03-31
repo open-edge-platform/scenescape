@@ -235,9 +235,9 @@ if [ -n "$DBTYPE" ]; then
     CREATEDB=0
     MIGRATIONS_MARKER="${DBROOT}/migrations/__init__.py"
     if [ ! -e "${MIGRATIONS_MARKER}" ]; then
-    CREATEDB=1
-    mkdir -p "$(dirname "${MIGRATIONS_MARKER}")"
-    touch "${MIGRATIONS_MARKER}"
+        CREATEDB=1
+        mkdir -p "$(dirname "${MIGRATIONS_MARKER}")"
+        touch "${MIGRATIONS_MARKER}"
     fi
 
     # ALWAYS apply migrations
@@ -246,14 +246,14 @@ if [ -n "$DBTYPE" ]; then
     ./manage.py migrate --noinput
 
     if [ "${CREATEDB}" -eq 1 ] && [ -n "${EXAMPLEDB:-}" ]; then
-    echo "==> Preloading example DB..."
-    mkdir -p "${DBROOT}/media"
-    tar -C "${DBROOT}/media" -xf "${EXAMPLEDB}"
-    ./manage.py loaddata "${DBROOT}/media/data.json"
-    rm -f "${DBROOT}/media/data.json" "${DBROOT}/media/meta.json"
+        echo "==> Preloading example DB..."
+        mkdir -p "${DBROOT}/media"
+        tar -C "${DBROOT}/media" -xf "${EXAMPLEDB}"
+        ./manage.py loaddata "${DBROOT}/media/data.json"
+        rm -f "${DBROOT}/media/data.json" "${DBROOT}/media/meta.json"
     fi
-
     ./manage.py updatedbstatus --not-ready
+
     if [ -z "${OVERWRITE_USER_AUTH}" ]; then
         find -L ${RUNSECRETS} -name "*.auth" -print0 | xargs -0 -I {} bash -c '(./manage.py createuser --skip-existing "{}")'
     else
@@ -273,22 +273,6 @@ if [ -n "$DBTYPE" ]; then
             --no-input \
             --username=admin \
             --email=admin@domain.com)
-    fi
-
-    if [ ${CREATEDB} = 1 ] ; then
-        if [ -n "$EXAMPLEDB" ]; then
-            echo ''
-            echo '#############'
-            echo "Preloading example"
-            echo '#############'
-            echo ''
-            mkdir -p ${DBROOT}/media
-            echo "Extracting example database from: $EXAMPLEDB to ${DBROOT}/media"
-            tar -C ${DBROOT}/media -xf $EXAMPLEDB
-            echo "EXAMPLEDB is configured: $EXAMPLEDB"
-            (./manage.py loaddata ${DBROOT}/media/data.json)
-            rm -f ${DBROOT}/media/data.json ${DBROOT}/media/meta.json
-        fi
     fi
     (./manage.py updatedbstatus --ready)
 fi
