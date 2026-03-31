@@ -25,23 +25,23 @@ The **Manager** service is the Django-based web UI and REST API gateway for Inte
    - User authentication and authorization
    - PostgreSQL ORM models
 
-2. **REST API** (`src/manager/api/`):
+2. **REST API** (`src/manager/api.py`, `src/manager/serializers.py`, `src/manager/urls.py`):
    - RESTful endpoints for external integrations
    - Scene CRUD operations
    - Camera calibration triggers
    - Object query endpoints
 
-3. **Management Commands** (`src/management/`):
+3. **Management Commands** (`src/manager/management/commands/`):
    - Database migrations
    - Admin utilities
    - Data import/export tools
 
-4. **Static Assets** (`src/static/`):
+4. **Static Assets** (`src/manager/static/` and `src/static/`):
    - Frontend JavaScript/CSS
    - UI components
    - Visualization tools
 
-5. **Templates** (`src/templates/`):
+5. **Templates** (`src/manager/templates/`):
    - Django HTML templates
    - Web UI pages
 
@@ -158,7 +158,7 @@ docker compose exec manager python manage.py createsuperuser
 
 - `requirements-runtime.txt`: Python dependencies
 - `Dockerfile`: Container build instructions
-- `config/settings.py`: Django settings
+- `src/manager/settings.py`: Django settings
 - `secrets/`: TLS certificates, database credentials, Django secret
 
 ### Secrets Management
@@ -182,7 +182,7 @@ Secrets stored in `manager/secrets/`:
 ### Creating a New Django View
 
 ```python
-# In src/django/scenescape/views.py
+# In src/manager/views.py
 from django.views.generic import ListView
 from .models import Scene
 
@@ -195,7 +195,7 @@ class SceneListView(ListView):
 ### Adding REST API Endpoint
 
 ```python
-# In src/django/api/views.py
+# In src/manager/api.py
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
@@ -210,7 +210,7 @@ def scene_status(request, scene_id):
 ### Database Model
 
 ```python
-# In src/django/scenescape/models.py
+# In src/manager/models.py
 from django.db import models
 
 class Camera(models.Model):
@@ -238,15 +238,15 @@ class Camera(models.Model):
 
 ### Modifying Web UI
 
-1. Edit template in `src/templates/`
-2. Update static assets in `src/static/` (JS/CSS)
+1. Edit template in `src/manager/templates/`
+2. Update static assets in `src/manager/static/` (JS/CSS)
 3. No rebuild needed—Django auto-reloads in development
 4. For production, rebuild image to bundle assets
 
 ### Adding Management Command
 
 ```python
-# Create src/management/commands/export_scenes.py
+# Create src/manager/management/commands/export_scenes.py
 from django.core.management.base import BaseCommand
 
 class Command(BaseCommand):

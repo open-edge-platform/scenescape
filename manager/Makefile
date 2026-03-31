@@ -27,7 +27,7 @@ test-build: test/geckodriver.tar.gz
 
 # The 'remove-symlink' target removes a potentially dangling symlink to prevent build failures.
 remove-symlink:
-	rm -f ./src/django/secrets.py
+	rm -f ./src/manager/secrets.py
 
 define JSMEXAMPLES
 fonts/helvetiker_regular.typeface.json \
