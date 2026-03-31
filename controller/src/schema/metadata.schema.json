@@ -316,9 +316,6 @@
             "type": "string"
           },
           "examples": [["license_plate"], ["person", "vest", "apriltag"]]
-        },
-        "rate": {
-          "$ref": "#/definitions/rate"
         }
       },
       "required": ["timestamp", "id", "objects"]
