@@ -1,4 +1,4 @@
-# How to Integrate Cameras and Sensors into Intel® SceneScape
+# Integrate Cameras and Sensors into Intel® SceneScape
 
 This guide provides step-by-step instructions to integrate cameras and other sensors into Intel® SceneScape. By completing this guide, you will:
 
@@ -26,7 +26,7 @@ All sensors, from cameras to microphones to environmental sensors like temperatu
 
 A sensor system must acquire data, provide a timestamp, attach a sensor ID, and then publish this data to Intel® SceneScape in a recognized format. It must also know where to publish each message. This flow is shown in the top box of Figure 1.
 
-![Intel® SceneScape Basic Data Flow](../_assets/scenescape-basic.png)
+![Intel® SceneScape Basic Data Flow](./_assets/scenescape-basic.png)
 
 **Figure 1:** Intel® SceneScape basic data flow
 
@@ -41,7 +41,7 @@ Intel® SceneScape scene controller then picks up this data, utilizes informatio
 
 Figure 2 is a flow chart of how camera-based metadata is generated and published.
 
-![SceneScape Video Pipeline](../_assets/pipeline.png)
+![SceneScape Video Pipeline](./_assets/pipeline.png)
 
 **Figure 2:** Intel® SceneScape video pipeline
 
