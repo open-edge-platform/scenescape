@@ -8,6 +8,11 @@ import cv2
 import pytest
 import numpy as np
 import copy
+import threading
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+import controller.scene as scene_module
 
 from scene_common.timestamp import get_epoch_time
 from scene_common.geometry import Region, Point
@@ -199,7 +204,7 @@ def test_convert_pixel_bbox(scene_obj, objects):
     assert_bounding_box(obj, original_obj)
     # Verify bounding boxes for sub_detections
     for key in obj.get('sub_detections', []):
-      for sub_obj, original_sub_obj in zip(enumerate(obj[key]), enumerate(original_obj[key])):
+      for sub_obj, original_sub_obj in zip(obj[key], original_obj[key]):
         assert_bounding_box(sub_obj, original_sub_obj)
   return
 
@@ -216,3 +221,383 @@ def assert_bounding_box(obj, original_obj):
     assert 'height' in obj['bounding_box'], f"'height' missing in bounding box for object: {obj}"
   else:
     assert 'bounding_box' not in obj, f"Unexpected 'bounding_box' in object: {obj}"
+
+def _make_chain_data():
+  return SimpleNamespace(
+    regions={},
+    sensors={},
+    persist={},
+    publishedLocations=[],
+    active_sensors=set(),
+    env_sensor_state={},
+    attr_sensor_events={},
+    _lock=threading.Lock(),
+  )
+
+def _make_obj(gid="obj-1", frame_count=4, scene_loc=None, when=1.0):
+  if scene_loc is None:
+    scene_loc = Point(0.0, 0.0, 0.0)
+  return SimpleNamespace(
+    gid=gid,
+    frameCount=frame_count,
+    sceneLoc=scene_loc,
+    when=when,
+    chain_data=_make_chain_data(),
+  )
+
+def test_processCameraData_unknown_camera_returns_false(scene_obj):
+  payload = {
+    'id': 'unknown-camera',
+    'timestamp': '2023-05-16T21:22:58.388Z',
+    'objects': {'person': []}
+  }
+  assert scene_obj.processCameraData(payload) is False
+
+def test_processCameraData_camera_without_pose_returns_true(scene_obj):
+  scene_obj.cameras['camera1'] = SimpleNamespace(cameraID='camera1')
+  payload = {
+    'id': 'camera1',
+    'timestamp': '2023-05-16T21:22:58.388Z',
+    'objects': {'person': []}
+  }
+  assert scene_obj.processCameraData(payload) is True
+
+def test_processCameraData_intrinsics_present_skips_bbox_conversion(scene_obj, camera_obj, monkeypatch):
+  scene_obj.cameras[camera_obj.cameraID] = camera_obj
+  convert_mock = Mock()
+  monkeypatch.setattr(scene_obj, '_convertPixelBoundingBoxesToMeters', convert_mock)
+  monkeypatch.setattr(scene_obj, '_createMovingObjectsForDetection', lambda *args, **kwargs: [])
+  monkeypatch.setattr(scene_obj, '_finishProcessing', lambda *args, **kwargs: None)
+  payload = {
+    'id': camera_obj.cameraID,
+    'timestamp': '2023-05-16T21:22:58.388Z',
+    'intrinsics': {'fx': 1.0},
+    'objects': {'person': []}
+  }
+  assert scene_obj.processCameraData(payload) is True
+  convert_mock.assert_not_called()
+
+def test_processCameraData_ignore_time_flag_uses_now(scene_obj, camera_obj, monkeypatch):
+  scene_obj.cameras[camera_obj.cameraID] = camera_obj
+  captured = {}
+
+  def _capture_create(detection_type, detections, when_value, camera):
+    captured['when'] = when_value
+    return []
+
+  monkeypatch.setattr(scene_obj, '_createMovingObjectsForDetection', _capture_create)
+  monkeypatch.setattr(scene_obj, '_finishProcessing', lambda *args, **kwargs: None)
+  payload = {
+    'id': camera_obj.cameraID,
+    'timestamp': 'not-used',
+    'objects': {'person': []}
+  }
+  assert scene_obj.processCameraData(payload, when=None, ignoreTimeFlag=True) is True
+  assert 'when' in captured
+  assert isinstance(captured['when'], float)
+
+def test_updateTracker_only_reconfigures_on_change(scene_obj, monkeypatch):
+  set_tracker_mock = Mock()
+  monkeypatch.setattr(scene_obj, '_setTracker', set_tracker_mock)
+
+  scene_obj.updateTracker(scene_obj.max_unreliable_time,
+                          scene_obj.non_measurement_time_dynamic,
+                          scene_obj.non_measurement_time_static)
+  set_tracker_mock.assert_not_called()
+
+  scene_obj.trackerType = scene_module.Scene.DEFAULT_TRACKER
+  scene_obj.updateTracker(scene_obj.max_unreliable_time + 1.0,
+                          scene_obj.non_measurement_time_dynamic,
+                          scene_obj.non_measurement_time_static)
+  set_tracker_mock.assert_called_once_with(scene_obj.trackerType)
+
+def test_createMovingObjectsForDetection_propagates_scene_mesh(scene_obj):
+  scene_obj.map_triangle_mesh = 'mesh'
+  scene_obj.mesh_translation = [1, 2, 3]
+  scene_obj.mesh_rotation = [0, 0, 0, 1]
+  scene_obj.persist_attributes = {'person': {'foo': 'bar'}}
+  created = SimpleNamespace()
+  scene_obj.tracker = SimpleNamespace(createObject=lambda *args: created)
+
+  result = scene_obj._createMovingObjectsForDetection('person', [{'id': 'x'}], 1.23, SimpleNamespace())
+  assert len(result) == 1
+  assert result[0].map_triangle_mesh == 'mesh'
+  assert result[0].map_translation == [1, 2, 3]
+  assert result[0].map_rotation == [0, 0, 0, 1]
+
+def test_processSceneData_rejects_lat_long_alt_plus_translation(scene_obj, monkeypatch):
+  finish_mock = Mock()
+  monkeypatch.setattr(scene_obj, '_finishProcessing', finish_mock)
+  child = SimpleNamespace(name='child', retrack=True)
+  camera_pose = SimpleNamespace(pose_mat=np.eye(4))
+  payload = {'objects': [{'lat_long_alt': [0, 0, 0], 'translation': [1, 2, 3]}]}
+
+  assert scene_obj.processSceneData(payload, child, camera_pose, 'person', when=1.0) is True
+  finish_mock.assert_not_called()
+
+def test_processSceneData_splits_retracked_vs_child_objects(scene_obj, monkeypatch):
+  calls = []
+
+  def _create_object(detection_type, info, when, child_obj, persist):
+    assert 'reid' not in info
+    return SimpleNamespace(oid='oid-1', sceneLoc=Point(1.0, 2.0, 0.0), chain_data=_make_chain_data())
+
+  def _capture_finish(detection_type, when, objects, child_objects):
+    calls.append((objects, child_objects))
+
+  scene_obj.tracker = SimpleNamespace(createObject=_create_object)
+  monkeypatch.setattr(scene_obj, '_finishProcessing', _capture_finish)
+  child = SimpleNamespace(name='child', retrack=False)
+  camera_pose = SimpleNamespace(pose_mat=np.eye(4))
+  payload = {'objects': [{'translation': [1, 2, 3], 'reid': [0.1, 0.2]}]}
+
+  assert scene_obj.processSceneData(payload, child, camera_pose, 'person', when=1.0) is True
+  assert len(calls) == 1
+  assert len(calls[0][0]) == 0
+  assert len(calls[0][1]) == 1
+
+def test_finishProcessing_tracks_when_not_analytics_only(scene_obj, monkeypatch):
+  update_visible_mock = Mock()
+  update_events_mock = Mock()
+  track_mock = Mock()
+  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: False)
+  monkeypatch.setattr(scene_obj, '_updateVisible', update_visible_mock)
+  monkeypatch.setattr(scene_obj, '_updateEvents', update_events_mock)
+  scene_obj.tracker = SimpleNamespace(trackObjects=track_mock)
+
+  scene_obj._finishProcessing('person', 10.0, [], [])
+  update_visible_mock.assert_called_once()
+  track_mock.assert_called_once()
+  update_events_mock.assert_called_once_with('person', 10.0)
+
+def test_finishProcessing_skips_tracker_in_analytics_only(scene_obj, monkeypatch):
+  update_events_mock = Mock()
+  track_mock = Mock()
+  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
+  monkeypatch.setattr(scene_obj, '_updateVisible', lambda objects: None)
+  monkeypatch.setattr(scene_obj, '_updateEvents', update_events_mock)
+  scene_obj.tracker = SimpleNamespace(trackObjects=track_mock)
+
+  scene_obj._finishProcessing('person', 10.0, [], [])
+  track_mock.assert_not_called()
+  update_events_mock.assert_called_once_with('person', 10.0)
+
+def test_processSensorData_unknown_sensor_returns_false(scene_obj):
+  assert scene_obj.processSensorData({'id': 'nope', 'value': 1}, when=1.0) is False
+
+def test_processSensorData_discards_past_data(scene_obj):
+  sensor = SimpleNamespace(lastWhen=10.0)
+  scene_obj.sensors['sensor1'] = sensor
+  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 1}, when=9.0) is True
+
+def test_processSensorData_environmental_sensor_updates_state(scene_obj):
+  sensor = SimpleNamespace(
+    singleton_type='environmental',
+    area=Region.REGION_SCENE,
+    value=None,
+    lastValue=None,
+    lastWhen=None,
+  )
+  scene_obj.sensors['sensor1'] = sensor
+  obj = _make_obj(gid='obj-1', frame_count=4)
+  scene_obj.use_tracker = True
+  scene_obj.tracker = SimpleNamespace(
+    trackers={'person': object()},
+    currentObjects=lambda detection_type: [obj],
+  )
+
+  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 12.5}, when=11.0) is True
+  assert 'sensor1' in obj.chain_data.active_sensors
+  assert obj.chain_data.env_sensor_state['sensor1']['readings'][-1][1] == 12.5
+
+def test_processSensorData_attribute_sensor_updates_events(scene_obj):
+  sensor = SimpleNamespace(
+    singleton_type='attribute',
+    area=Region.REGION_SCENE,
+    value=None,
+    lastValue=None,
+    lastWhen=None,
+  )
+  scene_obj.sensors['sensor1'] = sensor
+  obj = _make_obj(gid='obj-1', frame_count=4)
+  scene_obj.use_tracker = True
+  scene_obj.tracker = SimpleNamespace(
+    trackers={'person': object()},
+    currentObjects=lambda detection_type: [obj],
+  )
+
+  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 'A'}, when=11.0) is True
+  assert 'sensor1' in obj.chain_data.attr_sensor_events
+  assert obj.chain_data.attr_sensor_events['sensor1'][-1][1] == 'A'
+
+def test_getTrackedObjects_analytics_mode_uses_cache(scene_obj, monkeypatch):
+  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
+  scene_obj.updateTrackedObjects('person', [{'id': '1', 'type': 'person', 'translation': [1, 2, 3]}])
+
+  objs = scene_obj.getTrackedObjects('person')
+  assert len(objs) == 1
+  assert objs[0].gid == '1'
+  assert objs[0].category == 'person'
+
+def test_getTrackedObjects_non_analytics_uses_tracker(scene_obj, monkeypatch):
+  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: False)
+  expected = [_make_obj(gid='direct-1')]
+  scene_obj.tracker = SimpleNamespace(currentObjects=lambda detection_type: expected)
+  assert scene_obj.getTrackedObjects('person') == expected
+
+def test_deserialize_sets_core_fields(monkeypatch):
+  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: False)
+  data = {
+    'uid': 'scene-1',
+    'name': 'scene-name',
+    'map': 'sample_data/HazardZoneSceneLarge.png',
+    'scale': 123,
+    'children': [{'name': 'child-1'}],
+    'use_tracker': True,
+    'tracker_config': [1.0, 2.0, 3.0],
+  }
+  scene = scene_module.Scene.deserialize(data)
+  assert scene.uid == 'scene-1'
+  assert scene.name == 'scene-name'
+  assert scene.scale == 123
+  assert scene.children == ['child-1']
+
+def test_updateScene_updates_fields_and_invokes_helpers(scene_obj, monkeypatch):
+  update_children_mock = Mock()
+  update_cameras_mock = Mock()
+  update_regions_mock = Mock()
+  update_tripwires_mock = Mock()
+  update_tracker_mock = Mock()
+  invalidate_mock = Mock()
+
+  monkeypatch.setattr(scene_obj, '_updateChildren', update_children_mock)
+  monkeypatch.setattr(scene_obj, 'updateCameras', update_cameras_mock)
+  monkeypatch.setattr(scene_obj, '_updateRegions', update_regions_mock)
+  monkeypatch.setattr(scene_obj, '_updateTripwires', update_tripwires_mock)
+  monkeypatch.setattr(scene_obj, 'updateTracker', update_tracker_mock)
+  monkeypatch.setattr(scene_obj, '_invalidate_trs_xyz_to_lla', invalidate_mock)
+
+  scene_obj._trs_xyz_to_lla = np.array([1])
+  scene_data = {
+    'name': 'new-name',
+    'children': [],
+    'cameras': [],
+    'regions': [],
+    'tripwires': [],
+    'sensors': [],
+    'use_tracker': False,
+    'tracker_config': [4.0, 5.0, 6.0],
+    'scale': 321,
+    'regulated_rate': 12,
+    'external_update_rate': 34,
+    'output_lla': False,
+    'map_corners_lla': None,
+  }
+  scene_obj.updateScene(scene_data)
+
+  assert scene_obj.name == 'new-name'
+  assert scene_obj.scale == 321
+  assert scene_obj.regulated_rate == 12
+  assert scene_obj.external_update_rate == 34
+  assert scene_obj.use_tracker is False
+  update_children_mock.assert_called_once()
+  update_cameras_mock.assert_called_once()
+  assert update_regions_mock.call_count == 2
+  update_tripwires_mock.assert_called_once()
+  update_tracker_mock.assert_called_once_with(4.0, 5.0, 6.0)
+  invalidate_mock.assert_called_once()
+
+def test_updateRegions_preserves_sensor_cache_and_state(scene_obj):
+  class FakeRegion:
+    def __init__(self):
+      self.name = 'old-name'
+      self.value = 10
+      self.lastValue = None
+      self.lastWhen = 99.0
+      self.entered = {'person': []}
+      self.exited = {'person': []}
+      self.objects = {'person': []}
+      self.when = 98.0
+      self.singleton_type = 'environmental'
+
+    def updatePoints(self, region_data):
+      self.points = region_data['points']
+
+    def updateSingletonType(self, region_data):
+      self.singleton_type = region_data.get('singleton_type', None)
+
+    def updateVolumetricInfo(self, region_data):
+      self.volumetric = region_data.get('volumetric', False)
+
+  existing = {'region-1': FakeRegion()}
+  new_regions = [{
+    'uid': 'region-1',
+    'name': 'new-name',
+    'points': [[0, 0], [1, 0], [1, 1], [0, 1]],
+    'singleton_type': 'attribute',
+  }]
+
+  scene_obj._updateRegions(existing, new_regions)
+  region = existing['region-1']
+  assert region.name == 'new-name'
+  assert region.value == 10
+  assert region.lastValue is None
+  assert region.lastWhen == 99.0
+  assert region.entered == {'person': []}
+  assert region.exited == {'person': []}
+  assert region.objects == {'person': []}
+  assert region.when == 98.0
+
+def test_updateTripwires_adds_and_removes(scene_obj):
+  scene_obj.tripwires = {'old-id': SimpleNamespace()}
+  scene_obj._updateTripwires([
+    {'uid': 'new-id', 'name': 'trip-1', 'points': [[0, 0], [1, 1]]}
+  ])
+  assert 'new-id' in scene_obj.tripwires
+  assert 'old-id' not in scene_obj.tripwires
+
+def test_updateEvents_inserts_published_locations(scene_obj, monkeypatch):
+  obj = _make_obj(gid='obj-1')
+  monkeypatch.setattr(scene_obj, '_updateRegionEvents', lambda *args, **kwargs: set())
+  monkeypatch.setattr(scene_obj, '_updateTripwireEvents', lambda *args, **kwargs: None)
+  scene_obj.tracker = SimpleNamespace(currentObjects=lambda detection_type: [obj])
+
+  scene_obj._updateEvents('person', now=50.0)
+  assert len(obj.chain_data.publishedLocations) == 1
+  assert obj.chain_data.publishedLocations[0] == obj.sceneLoc
+
+def test_updateTripwireEvents_emits_tripwire_event(scene_obj):
+  tripwire = SimpleNamespace(
+    objects={},
+    when=0.0,
+    lineCrosses=lambda line: 1,
+  )
+  scene_obj.tripwires = {'tw-1': tripwire}
+  scene_obj.events = {}
+  obj = _make_obj(gid='obj-1', frame_count=5)
+  obj.chain_data.publishedLocations = [Point(1.0, 1.0, 0.0), Point(0.0, 0.0, 0.0)]
+
+  scene_obj._updateTripwireEvents('person', now=2.0, curObjects=[obj])
+  assert 'objects' in scene_obj.events
+  assert scene_obj.events['objects'][0][0] == 'tw-1'
+
+def test_trs_xyz_to_lla_is_cached_and_invalidate_resets(scene_obj, monkeypatch):
+  calls = {'count': 0}
+
+  def _fake_calc(mesh_corners, map_corners_lla):
+    calls['count'] += 1
+    return np.array([[1.0]])
+
+  monkeypatch.setattr(scene_module, 'getMeshAxisAlignedProjectionToXY', lambda mesh: np.array([[0, 0, 0]]))
+  monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints', _fake_calc)
+  scene_obj.output_lla = True
+  scene_obj.map_corners_lla = [[0, 0, 0], [1, 1, 1]]
+
+  first = scene_obj.trs_xyz_to_lla
+  second = scene_obj.trs_xyz_to_lla
+  assert calls['count'] == 1
+  assert np.array_equal(first, second)
+
+  scene_obj._invalidate_trs_xyz_to_lla()
+  _ = scene_obj.trs_xyz_to_lla
+  assert calls['count'] == 2
