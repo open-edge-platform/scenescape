@@ -55,7 +55,7 @@ object-crud-api: # NEX-T10429-API
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_object_crud_api.py, 'pgserver web', true, /run/secrets/controller.auth)
 
-object-rotation: # NEX-T10543
+infer-rotation: # NEX-T10543
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(eval SERVICES := $(strip pgserver web retail-video scene))

@@ -156,6 +156,7 @@ _functional-tests: \
   delete-sensor-scene-api \
   delete-sensors-api \
   different-formats-maps-api \
+  infer-rotation \
   manual-camera-calibration-api \
   mqtt-auth \
   mqtt-cert \
@@ -164,7 +165,6 @@ _functional-tests: \
   mqtt-slow-sensor-roi \
   mqtt-tripwire \
   object-crud-api \
-  object-rotation \
   orphaned-sensor \
   persistence-api \
   rest-test \
