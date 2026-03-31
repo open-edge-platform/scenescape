@@ -1,4 +1,4 @@
-# Getting Started with Intel® SceneScape
+# Get Started with Intel® SceneScape
 
 - **Time to Complete:** 30-45 minutes
 
