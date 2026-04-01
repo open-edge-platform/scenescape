@@ -4,6 +4,26 @@ markmap:
   colorFreezeLevel: 2
 ---
 
+## Data Flow
+
+```
+cameras ──► data/camera/{camera-id} ──► MOT Tracking ──► data/scene/{scene-id}/{category} ──► Scene Analytics ──► regulated/scene/{scene-id}
+                                                │                       │                            │
+sensors ──► data/sensor/{sensor-id} ──► [?] ────┘                       │                            ├──► events/+
+                                                                        │                            │
+                                                                        ▼                            ▼
+                                                                  Scene Hierarchy             UUID Manager + ReID
+                                                                        │                     (sync query-response,
+                                                                        │                      called by Analytics)
+                                                                        ▼
+                                                              external/scene/{parent-scene-id}
+                                                                        │
+                                                                        ▼
+                                                              Scene Analytics (parent scene)
+```
+
+**[?] markers** indicate open questions, typically about which component is responsible when the same data could be handled in multiple places (e.g., sensors could be in MOT or Analytics). See [Opens](#opens) section.
+
 ## Functionalities
 
 ### MOT Tracking
@@ -13,27 +33,27 @@ markmap:
 - **Communication Model**: Asynchronous, one-directional (messages)
 - **Input**:
   - `data/camera/{camera-id}` topics
-  - `data/sensor/{sensor-id}` topics [?]
+  - `data/sensor/{sensor-id}` topics [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
 - **Output**: `data/scene/{scene-id}/{category}` topics
   - passed-through:
     - detection metadata
       - cross-camera fusion: TBD
-      - cross-frame carry-over: TBD
+      - cross-frame carry-over (retaining attributes across frames for the same tracked object): TBD
     - camera timestamp (with optional correction)
   - produced:
-    - sensors [?]
+    - sensors [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
     - object location projection to 3D scene
     - reliable tracks with local ID (unique per scene)
-    - [?] visibility by camera matches
+    - visibility by camera matches [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
 - configuration:
   - tracker config
   - scenes and cameras
 - not aware of:
-  - scene hierarchy
+  - scene hierarchy (unless we decide to re-track in parent scene, see [Opens](#opens))
   - regions, tripwires
 - technology: C++
 - latency-critical, highly optimized
-- time synchronization: timestamp correction with NTP server (configurable) [?]
+- time synchronization: timestamp correction with NTP server (configurable) [?] (see [Opens](#opens): NTP synchronization approach)
 - scalability
   - vertical
     - thread per (scene, category)
@@ -51,21 +71,21 @@ markmap:
 - **Responsible Component**: Not Decided Yet
 - **Input**:
   - `data/scene/{scene-id}/{category}` topics
-  - `data/sensor/{sensor-id}` topics [?]
+  - `data/sensor/{sensor-id}` topics [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
   - `external/scene/{scene-id}` topics
 - **Output**:
   - `regulated/scene/{scene-id}` topic
     - passed-through:
-      - visibility by camera matches [?]
+      - visibility by camera matches [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
       - semantic metadata from camera detections
     - produced:
-      - sensors [?]
+      - sensors [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
       - events (e.g. regions, tripwire)
       - visibility by camera view projection
   - `events/+` topics
     - produced: as today
-- not aware of:
-  - scene hierarchy (no hierarchy for scene analytics)
+- not responsible for:
+  - scene hierarchy management (receives hierarchy data via `external/` topics but does not manage parent-child relationships)
 - technology: Python and C++
 - time synchronization: None
 - latency-sensitive, most compute-expensive functions optimized (C++)
@@ -83,6 +103,7 @@ markmap:
   - Assign a global unique ID to objects with re-identification across scenes
 - **Responsible Component**: Not Decided Yet
 - **Communication Model**: Synchronous, two-directional (query-response)
+- **Called by**: Scene Analytics (queries UUID Manager during output generation)
 - **Input**: REST API / gRPC requests
   - track local UUID
   - scene, category
@@ -95,19 +116,32 @@ markmap:
 - **Role**: Transform reliable tracks upstream across the scene hierarchy
 - **Input**: `data/scene/{scene-id}` topics of child scenes
 - **Output**: `external/scene/{parent-scene-id}` topics
+- **Communication Model**: Asynchronous, one-directional (messages)
+- **Responsible Component**: Not Decided Yet
 - Configuration
   - child - parent relationship and coordinate system transformations
   - broker instance endpoint
   - additional parameters (update rate etc.)
+- technology: Python and C++
+- time synchronization: None
+- latency-sensitive, most compute-expensive functions optimized (C++)
+- scalability: TBD
 
 ### Clustering
 
-- **Role**: Clustering detected objects
+- **Role**: Spatial clustering of detected objects with tracking, shape detection, and movement analysis
 - **Responsible Component**: Not Decided Yet
+- **Current implementation** (`cluster_analytics/`):
+  - DBSCAN clustering with category-specific density parameters (e.g., person: eps=2, vehicle: eps=4)
+  - Multi-frame cluster tracking with 5-state lifecycle (NEW → ACTIVE → STABLE → FADING → LOST) using Hungarian Algorithm matching
+  - ML-based shape detection (circle, rectangle, line, irregular) with size/area measurements
+  - Velocity analysis: stationary, coordinated_parallel, converging, diverging, loosely_coordinated, chaotic
+  - Runtime reconfiguration via WebUI SocketIO
+- **Communication Model**: Asynchronous, one-directional (messages)
 - **Input**:
-  - TBD
+  - `regulated/scene/{scene-id}` topics (objects with world coordinates and velocity vectors)
 - **Output**:
-  - TBD
+  - `analytics/clusters/{scene-id}` topics (tracked clusters with UUID, state, confidence, centroid, shape, velocity analysis)
 
 ## Opens
 
@@ -115,8 +149,8 @@ markmap:
   - do we need to implement object permanence? if so, how to provide input which tracks should be permanent
   - how to handle non camera detections like 3D sensors (e.g. LIDARs)
   - whether to produce as output: unreliable and suspended (properly tagged)
-  - how to generate camera visibility
-    - computed from based on matched detections (e.g. last frame camera only, cameras in the last second)
+  - how to generate camera visibility (two complementary approaches, can be used together)
+    - computed based on matched detections (e.g. last frame camera only, cameras in the last second)
     - computed from projecting camera field of view (as it is now)
   - whether to handle sensor inputs in tracker service or analytics?
     - if in tracker service then
@@ -128,7 +162,10 @@ markmap:
   - whether to extend cluster analytics with scene analytics or to implement new service
 - **Scene Hierarchy**
   - give up re-tracking in parent scene? (only tracks are sent to parent) - would simplify a lot
+    - if yes, MOT Tracker stays unaware of scene hierarchy
+    - if no, MOT Tracker needs `external/` topics as additional input
   - only tracks are sent to parent, not events?
     - in future how to make regions and tripwires shared across scene hierarchy (increases complexity)
-  - NTP - whether to internally synchronize timestamps with external NTP service vs rely on system-level clock synchronization (and shift the responsibility onto the user)?
+- **NTP synchronization** (affects MOT Tracking `[?]` on time sync)
+  - whether to internally synchronize timestamps with external NTP service vs rely on system-level clock synchronization (and shift the responsibility onto the user)?
     - relying on system clock NTP synchronization simplifies tracker implementation and the pipeline (we can use GStreamer timestamper then which takes time from system clock, gvapython may become deprecated), potentially decreasing pipeline latency
