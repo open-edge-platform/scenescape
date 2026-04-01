@@ -530,7 +530,8 @@ class VGGTModel(ReconstructionModel):
       # Median is robust to occasional bad pose entries
       return float(np.median(distances))
 
-    except Exception:
+    except Exception as e:
+      log.exception(f"Failed to compute baseline from camera_locations: {e}")
       return 0.0
 
   def _processOutputs(self, predictions: Dict[str, Any], original_sizes: List[tuple],

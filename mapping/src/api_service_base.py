@@ -245,7 +245,10 @@ def reconstruct3D():
       if camera_locations and idx < len(camera_locations):
         try:
           cam_loc = json.loads(camera_locations[idx])
-        except Exception:
+        except Exception as e:
+          log.warning(
+                f"Invalid JSON camera location for camera {idx} | error: {e}"
+          )
           cam_loc = None
 
       images.append({

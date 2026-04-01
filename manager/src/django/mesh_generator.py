@@ -209,14 +209,12 @@ class MappingServiceClient:
             files.append(("camera_ids", (None, camera_id)))
             cam_loc = camera_loc_by_id.get(camera_id)
             if cam_loc is not None:
-              cam_loc = camera_loc_by_id.get(camera_id)
-              if cam_loc is not None:
-                cam_loc_clean = {
-                  "translation": list(cam_loc["translation"]),
-                  "rotation": list(cam_loc["rotation"]),
-                  "scale": list(cam_loc.get("scale", [1.0, 1.0, 1.0])),
-                }
-                files.append(("camera_locations", (None, json.dumps(cam_loc_clean))))
+              cam_loc_clean = {
+                "translation": list(cam_loc["translation"]),
+                "rotation": list(cam_loc["rotation"]),
+                "scale": list(cam_loc.get("scale", [1.0, 1.0, 1.0])),
+              }
+              files.append(("camera_locations", (None, json.dumps(cam_loc_clean))))
             else:
               log.warning(f"No camera location for {camera_id}")
           else:

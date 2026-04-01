@@ -21,6 +21,7 @@ import time
 
 # Disable SSL warnings when using --insecure flag
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+POLL_TIMEOUT = 900
 
 def encodeImageToBase64(image_path: str) -> str:
   """Encode image file to base64 string"""
@@ -166,7 +167,7 @@ def checkAPIHealth(api_url: str, verify_ssl: bool = True):
     return False
 
 def wait_for_result(api_url: str, request_id: str, verify_ssl: bool,
-                    timeout_s: int = 15 * 60, poll_s: float = 1.5):
+                    timeout_s: int = POLL_TIMEOUT, poll_s: float = 1.5):
   """Poll /reconstruction/status/<id> until complete/failed or timeout."""
   deadline = time.time() + timeout_s
   status_url = f"{api_url}/reconstruction/status/{request_id}"
