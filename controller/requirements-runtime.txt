@@ -11,7 +11,7 @@ orjson==3.11.6
 paho-mqtt==2.1.0
 scipy==1.17.1
 shapely==2.1.1
-trimesh==4.11.2
+trimesh==4.11.5
 vdms==0.0.22
 opentelemetry-api==1.38.0
 opentelemetry-sdk==1.38.0
