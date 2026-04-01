@@ -4,7 +4,7 @@
 [requires]
 quill/11.0.2
 cli11/2.6.0
-cpp-httplib/0.28.0
+cpp-httplib/0.39.0
 rapidjson/cci.20230929
 gtest/1.17.0
 stduuid/1.2.3
