@@ -37,7 +37,9 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
   if not velocity.is3D:
     velocity = Point(velocity.x, velocity.y, DEFAULTZ)
 
-  obj_dict = aobj.info
+  # Build a fresh top-level dict per serialization so optional fields like
+  # sensors do not leak between scene, regulated, and external outputs.
+  obj_dict = dict(aobj.info)
   obj_dict.update({
     'id': aobj.gid, # gid is the global ID - computed by SceneScape server.
     'type': otype,

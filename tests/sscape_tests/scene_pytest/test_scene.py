@@ -430,6 +430,26 @@ def test_processSensorData_attribute_sensor_updates_events(scene_obj):
   assert 'sensor1' in obj.chain_data.attr_sensor_events
   assert obj.chain_data.attr_sensor_events['sensor1'][-1][1] == 'A'
 
+def test_processSensorData_scene_wide_skips_immature_objects(scene_obj):
+  sensor = SimpleNamespace(
+    singleton_type='environmental',
+    area=Region.REGION_SCENE,
+    value=None,
+    lastValue=None,
+    lastWhen=None,
+  )
+  scene_obj.sensors['sensor1'] = sensor
+  obj = _make_obj(gid='obj-1', frame_count=3)
+  scene_obj.use_tracker = True
+  scene_obj.tracker = SimpleNamespace(
+    trackers={'person': object()},
+    currentObjects=lambda detection_type: [obj],
+  )
+
+  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 12.5}, when=11.0) is True
+  assert 'sensor1' not in obj.chain_data.active_sensors
+  assert obj.chain_data.env_sensor_state == {}
+
 def test_getTrackedObjects_analytics_mode_uses_cache(scene_obj, monkeypatch):
   monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
   scene_obj.updateTrackedObjects('person', [{'id': '1', 'type': 'person', 'translation': [1, 2, 3]}])

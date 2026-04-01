@@ -111,6 +111,16 @@ class TestDetectionsBuilder:
     assert 'sensors' not in detections[0]
     assert detections[0]['regions'] == ['region-a']
 
+  def test_build_detections_list_does_not_leak_sensors_between_calls(self):
+    obj = _build_object(velocity=Point(4.0, 5.0))
+    scene = SimpleNamespace(output_lla=False)
+
+    with_sensors = buildDetectionsList([obj], scene, include_sensors=True)
+    without_sensors = buildDetectionsList([obj], scene, include_sensors=False)
+
+    assert 'sensors' in with_sensors[0]
+    assert 'sensors' not in without_sensors[0]
+
   def test_build_detections_dict_handles_tripwire_and_defaults_missing_velocity(self):
     obj = _build_object(velocity=None, include_sensor_payload=False)
     scene = SimpleNamespace(output_lla=False)
