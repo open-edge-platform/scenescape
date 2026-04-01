@@ -156,6 +156,7 @@ _functional-tests: \
   delete-sensor-scene-api \
   delete-sensors-api \
   different-formats-maps-api \
+  infer-rotation \
   manual-camera-calibration-api \
   mqtt-auth \
   mqtt-cert \
@@ -180,6 +181,7 @@ _functional-tests: \
   vdms-similarity-search \
   visibility-unregulated \
   visibility-none \
+  remove-child-scenes-link \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k

@@ -397,5 +397,5 @@ When modifying the service, verify:
 
 - [Django Documentation](https://docs.djangoproject.com/): Official Django docs
 - [Scene Controller API](../docs/user-guide/microservices/controller/_assets/scene-controller-api.yaml): Backend API reference
-- [Testing Guide](../.github/instructions/testing.md): Test creation patterns
-- [Python Conventions](../.github/instructions/python.md): Python coding standards
+- [Testing Guide](../.github/skills/testing.md): Test creation patterns
+- [Python Conventions](../.github/skills/python.md): Python coding standards
