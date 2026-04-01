@@ -9,7 +9,6 @@ a linked child scene via SceneController.republishEvents."""
 
 import json
 import time
-import pytest
 
 from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
