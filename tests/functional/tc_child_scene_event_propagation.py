@@ -603,18 +603,18 @@ def test_child_event_propagation_is_timely(objData, record_xml_attribute, params
   try:
     _send_detections(client, objData, OBJ_Y_LOCATIONS)
 
-    # Measure wall-clock delay between first child and first parent ROI event
+    # Measure wall-clock delay from first child ROI wait start to first parent ROI receipt
+    t_start = time.time()
     child_appeared = _wait_for_events("child_roi_events", timeout=MAX_WAIT)
     assert child_appeared, f"No child ROI events received within {MAX_WAIT}s"
 
-    t_child = time.time()
     parent_appeared = _wait_for_events("parent_roi_events", timeout=MAX_WAIT)
-    t_parent = time.time()
+    t_end = time.time()
 
     assert parent_appeared, (
       f"No parent ROI events received within {MAX_WAIT}s of child events")
 
-    propagation_delay = t_parent - t_child
+    propagation_delay = t_end - t_start
     log.info(f"Propagation delay: {propagation_delay:.2f}s")
     assert propagation_delay <= MAX_WAIT, (
       f"Event propagation delay {propagation_delay:.2f}s exceeds limit {MAX_WAIT}s")
