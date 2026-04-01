@@ -16,7 +16,6 @@
       matchManagers: ["conan"],
       matchUpdateTypes: ["patch"],
       groupName: "tracker conan patch updates",
-      schedule: ["at any time"],
       prPriority: 15,
       automerge: false,
     },
