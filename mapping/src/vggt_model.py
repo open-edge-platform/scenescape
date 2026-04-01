@@ -17,7 +17,6 @@ import numpy as np
 import torch
 from PIL import Image
 import torchvision.transforms as tvf
-import torchvision.transforms.functional as F
 
 
 import tempfile
