@@ -449,27 +449,6 @@ class VGGTModel(ReconstructionModel):
     model_size = (target, target)
     return images_tensor, model_size
 
-  def _invert_intrinsics_letterbox(self, K_518: np.ndarray, meta: dict) -> np.ndarray:
-    """
-    K_518: intrinsics in the final 518x518 padded image coords.
-    Invert: unpad -> unscale, to get original image coords.
-    """
-    K = K_518.copy().astype(np.float32)
-
-    # Undo padding: move principal point back into resized-image coords
-    K[0, 2] -= float(meta["pad_left"])
-    K[1, 2] -= float(meta["pad_top"])
-
-    # Undo resize
-    inv = 1.0 / float(meta["scale"])
-    K[0, 0] *= inv
-    K[1, 1] *= inv
-    K[0, 2] *= inv
-    K[1, 2] *= inv
-
-    print("scaled: ", K)
-    return K
-
   def _runModelInference(self, images_tensor: torch.Tensor) -> Dict[str, Any]:
     """
     Run the VGGT model inference.
