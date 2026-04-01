@@ -1,0 +1,64 @@
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+// # SPDX-License-Identifier: Apache-2.0
+
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["config:base"],
+  description: "Renovate configuration for Tracker Service Conan C++ dependencies",
+  enabledManagers: ["conan"],
+  labels: ["dependencies", "renovate", "tracker"],
+  schedule: ["before 10am on the first day of the month"],
+  timezone: "UTC",
+  reviewers: ["saratpoluri", "dmytroye", "tdorauintc", "ltalarcz"],
+  packageRules: [
+    {
+      description: "Conan dependencies - group patch updates (including security fixes)",
+      matchManagers: ["conan"],
+      matchUpdateTypes: ["patch"],
+      groupName: "tracker conan patch updates",
+      schedule: ["at any time"],
+      prPriority: 15,
+      automerge: false,
+    },
+    {
+      description: "Conan dependencies - group minor updates",
+      matchManagers: ["conan"],
+      matchUpdateTypes: ["minor"],
+      groupName: "tracker conan minor updates",
+    },
+    {
+      description: "Conan dependencies - handle major updates individually",
+      matchManagers: ["conan"],
+      matchUpdateTypes: ["major"],
+      groupName: null,
+      labels: ["dependencies", "major-update", "tracker"],
+    },
+    {
+      description: "OpenCV updates - needs careful testing",
+      matchPackageNames: ["opencv"],
+      matchManagers: ["conan"],
+      labels: ["dependencies", "opencv", "needs-testing", "tracker"],
+      prPriority: 10,
+      commitMessagePrefix: "Tracker:",
+      commitMessageTopic: "OpenCV",
+    },
+  ],
+  conan: {
+    enabled: true,
+    fileMatch: ["tracker/conanfile.txt$"],
+  },
+  prConcurrentLimit: 5,
+  prHourlyLimit: 2,
+  commitMessagePrefix: "Tracker Conan:",
+  semanticCommits: "enabled",
+  platformAutomerge: false,
+  rebaseWhen: "behind-base-branch",
+  separateMajorMinor: true,
+  separateMinorPatch: false,
+  rangeStrategy: "pin",
+  vulnerabilityAlerts: {
+    enabled: true,
+    labels: ["security", "tracker"],
+  },
+  osvVulnerabilityAlerts: true,
+}
