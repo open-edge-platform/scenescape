@@ -90,7 +90,7 @@ _Figure 2: Scene Controller Sequence diagram_
 get-started.md
 how-to-configure-tracker.md
 Extended-ReID.md
-api-reference.md
+API Reference <api-reference.md>
 data_formats.md
 
 :::
