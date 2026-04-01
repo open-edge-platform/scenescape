@@ -390,3 +390,5 @@ mqtt-event-propagation: # NEX-T10530
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_child_scene_event_propagation.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+	$(eval override BASE_IMAGE := $(IMAGE_OLD))
+	
