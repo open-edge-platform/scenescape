@@ -139,10 +139,11 @@ class RegionOccupancyThresholdSerializer(serializers.ModelSerializer):
 
   @staticmethod
   def linkRegionOccupancyThreshold(instance, color_range):
-    if hasattr(instance, 'roi_occupancy_threshold'):
-      instance.roi_occupancy_threshold.delete()
-    RegionOccupancyThreshold.objects.create(region=instance, sectors=color_range['sectors'],
-                                              range_max=color_range['range_max'])
+    RegionOccupancyThreshold.objects.update_or_create(
+      region=instance,
+      defaults={'sectors': color_range['sectors'], 'range_max': color_range['range_max']}
+    )
+    instance.__dict__.pop('roi_occupancy_threshold', None)
     return
 
   class Meta:
@@ -157,10 +158,11 @@ class SingletonScalarThresholdSerializer(RegionOccupancyThresholdSerializer):
 
   @staticmethod
   def linkSingletonScalarThreshold(instance, color_range):
-    if hasattr(instance, 'singleton_scalar_threshold'):
-      instance.singleton_scalar_threshold.delete()
-    SingletonScalarThreshold.objects.create(singleton=instance, sectors=color_range['sectors'],
-                                              range_max=color_range['range_max'])
+    SingletonScalarThreshold.objects.update_or_create(
+      singleton=instance,
+      defaults={'sectors': color_range['sectors'], 'range_max': color_range['range_max']}
+    )
+    instance.__dict__.pop('singleton_scalar_threshold', None)
     return
 
 class SingletonSerializer(NonNullSerializer):
@@ -190,7 +192,7 @@ class SingletonSerializer(NonNullSerializer):
       else:
         raise serializers.ValidationError(f"orphaned sensor with the name '{name}' already exists.")
 
-    if area not in [x[0] for x in AREA_CHOICES]:
+    if area is not None and area not in [x[0] for x in AREA_CHOICES]:
       raise serializers.ValidationError({"area": "invalid area: \"" + str(area) + "\""})
     required = None
     if area == "circle":
@@ -202,8 +204,8 @@ class SingletonSerializer(NonNullSerializer):
         val = data.get(field)
         if val is None:
           raise serializers.ValidationError({field: "required"})
-    if 'color_ranges' in data:
-      SingletonScalarThresholdSerializer.validateColorRanges(data['color_ranges'])
+    if 'singleton_scalar_threshold' in data:
+      SingletonScalarThresholdSerializer.validateColorRanges(data['singleton_scalar_threshold'])
     return data
 
   def create_update(self, validated_data, instance=None):
