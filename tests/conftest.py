@@ -300,9 +300,19 @@ def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
   env_ver = re.search(r"^VERSION=(.+)$", env_text, re.MULTILINE)
   image_version = os.environ.get("IMAGE_VERSION",
                                  env_ver.group(1) if env_ver else "latest")
-  # "2026.0.0-rc2" → "2026.0.0-ubuntu24-rc2", "2026.0.0" → "2026.0.0-ubuntu24"
-  dlstreamer_version = image_version.replace("-", "-ubuntu24-", 1) \
-    if "-" in image_version else f"{image_version}-ubuntu24"
+
+  # Detect the latest local dlstreamer-pipeline-server image tag.
+  dlstreamer_version = os.environ.get("DLSTREAMER_VERSION", "")
+  if not dlstreamer_version:
+    _dls_images = DockerClient().image.list("intel/dlstreamer-pipeline-server")
+    _dls_tags = [
+      t.split(":")[-1]
+      for img in _dls_images
+      for t in img.repo_tags
+      if t.startswith("intel/dlstreamer-pipeline-server:")
+    ]
+    if _dls_tags:
+      dlstreamer_version = sorted(_dls_tags)[-1]
 
   os.environ["SECRETSDIR"] = secrets_dir
 
@@ -325,11 +335,10 @@ def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
     database_password = supass
 
   env_file = tmp_path / ".env"
-  env_file.write_text(
+  env_lines = (
     f"SECRETSDIR={secrets_dir}\n"
     f"SUPASS={supass}\n"
     f"VERSION={image_version}\n"
-    f"DLSTREAMER_VERSION={dlstreamer_version}\n"
     f"CONTROLLER_AUTH={controller_auth}\n"
     f"DBROOT={tmp_path / 'db'}\n"
     f"EXAMPLEDB={exampledb}\n"
@@ -339,6 +348,10 @@ def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
     f"VISIBILITY=regulated\n"
     f"VISIBILITY_TOPIC=regulated\n"
   )
+  # Only set DLSTREAMER_VERSION when detected; omitting lets compose defaults apply.
+  if dlstreamer_version:
+    env_lines += f"DLSTREAMER_VERSION={dlstreamer_version}\n"
+  env_file.write_text(env_lines)
   (tmp_path / "db").mkdir(exist_ok=True)
 
   docker = DockerClient(
