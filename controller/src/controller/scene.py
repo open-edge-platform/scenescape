@@ -618,9 +618,6 @@ class Scene(SceneModel):
 
       # For all singleton sensors, handle entry tracking
       if region.singleton_type is not None:
-        # Store objects by detection type (processSensorData will check all types when MQTT arrives)
-        region.objects[detectionType] = objects
-
         # Mark sensor as active for new objects
         for obj in newObjects:
           obj.chain_data.active_sensors.add(key)
@@ -649,7 +646,8 @@ class Scene(SceneModel):
               if key not in obj.chain_data.attr_sensor_events:
                 obj.chain_data.attr_sensor_events[key] = []
 
-      if (len(new) or len(old)) and now - region.when > DEBOUNCE_DELAY:
+      emit_region_event = (len(new) or len(old)) and now - region.when > DEBOUNCE_DELAY
+      if emit_region_event:
         log.debug("REGION EVENT", key, now_str, regionObjects, len(objects))
         entered = []
         for obj in objects:
@@ -682,22 +680,23 @@ class Scene(SceneModel):
             self.events['count'] = []
           self.events['count'].append((key, region))
 
-      # Always clean up exited objects, even if debounce prevented event emission
-      for obj in regionObjects:
-        if obj.gid in old:
-          with obj.chain_data._lock:
-            obj.chain_data.regions.pop(key, None)
+        # Clean up exited objects only after an exit event can be emitted,
+        # so entered timestamps remain available for dwell-time calculation.
+        for obj in regionObjects:
+          if obj.gid in old:
+            with obj.chain_data._lock:
+              obj.chain_data.regions.pop(key, None)
 
-            # Clean up sensor tracking on exit
-            if region.singleton_type is not None:
-              obj.chain_data.active_sensors.discard(key)
+              # Clean up sensor tracking on exit
+              if region.singleton_type is not None:
+                obj.chain_data.active_sensors.discard(key)
 
-              # Environmental sensors: clear state on exit (data doesn't persist)
-              if region.singleton_type == "environmental":
-                obj.chain_data.env_sensor_state.pop(key, None)
+                # Environmental sensors: clear state on exit (data doesn't persist)
+                if region.singleton_type == "environmental":
+                  obj.chain_data.env_sensor_state.pop(key, None)
 
-              # Attribute sensors: keep event history (data persists after exit)
-              # attr_sensor_events[key] intentionally not removed
+                # Attribute sensors: keep event history (data persists after exit)
+                # attr_sensor_events[key] intentionally not removed
 
     return updated
 

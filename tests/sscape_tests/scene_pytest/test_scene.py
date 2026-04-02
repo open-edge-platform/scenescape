@@ -859,7 +859,9 @@ def test_updateRegionEvents_attribute_sensor_exit_preserves_history(scene_obj):
   assert obj.chain_data.attr_sensor_events['sensor1'] == [('2026-03-26T20:53:29.761Z', 'red')]
   assert region.objects['person'] == []
 
-def test_updateRegionEvents_debounce_still_cleans_up_exited_sensor_state(scene_obj):
+def test_updateRegionEvents_debounce_preserves_exit_state_until_event_emits(scene_obj, monkeypatch):
+  monkeypatch.setattr(scene_module, 'DEBOUNCE_DELAY', 0.5)
+
   obj = _make_obj(gid='obj-1', frame_count=4, when=1.0)
   obj.chain_data.regions['sensor1'] = {'entered': '2026-03-26T20:53:29.761Z'}
   obj.chain_data.active_sensors.add('sensor1')
@@ -878,10 +880,42 @@ def test_updateRegionEvents_debounce_still_cleans_up_exited_sensor_state(scene_o
   updated = scene_obj._updateRegionEvents('person', {'sensor1': region}, 2.0, '2026-03-26T20:53:31.761Z', [])
 
   assert updated == set()
-  assert 'sensor1' not in obj.chain_data.regions
-  assert 'sensor1' not in obj.chain_data.active_sensors
-  assert 'sensor1' not in obj.chain_data.env_sensor_state
+  assert obj.chain_data.regions['sensor1']['entered'] == '2026-03-26T20:53:29.761Z'
+  assert 'sensor1' in obj.chain_data.active_sensors
+  assert 'sensor1' in obj.chain_data.env_sensor_state
   assert scene_obj.events == {}
+  assert region.objects['person'] == [obj]
+
+def test_updateRegionEvents_emits_delayed_exit_with_dwell_and_then_cleans_up(scene_obj, monkeypatch):
+  monkeypatch.setattr(scene_module, 'DEBOUNCE_DELAY', 0.5)
+
+  obj = _make_obj(gid='obj-1', frame_count=4, when=1.0)
+  entered_ts = '2026-03-26T20:53:29.761Z'
+  obj.chain_data.regions['region1'] = {'entered': entered_ts}
+  region = SimpleNamespace(
+    objects={'person': [obj]},
+    when=1.9,
+    singleton_type=None,
+    entered={},
+    exited={},
+    isPointWithin=lambda scene_loc: False,
+    compute_intersection=False,
+  )
+  scene_obj.events = {}
+
+  # Debounce suppresses immediate event emission.
+  updated = scene_obj._updateRegionEvents('person', {'region1': region}, 2.0, '2026-03-26T20:53:31.761Z', [])
+  assert updated == set()
+  assert 'region1' in obj.chain_data.regions
+
+  # Once debounce delay has passed, emit exit and compute dwell from preserved entered timestamp.
+  scene_obj._updateRegionEvents('person', {'region1': region}, 2.6, '2026-03-26T20:53:32.361Z', [])
+
+  assert region.exited['person']
+  exited_obj, dwell = region.exited['person'][0]
+  assert exited_obj == obj
+  assert dwell == pytest.approx(2.6 - get_epoch_time(entered_ts))
+  assert 'region1' not in obj.chain_data.regions
   assert region.objects['person'] == []
 
 def test_isIntersecting_createObjectMesh_value_error_returns_false(scene_obj, monkeypatch):
