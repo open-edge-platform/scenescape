@@ -6,7 +6,7 @@ from pytest_kubernetes.options import ClusterOptions
 import subprocess
 import os
 from python_on_whales import docker
-
+import json
 
 kind_config_path = Path(__file__).parent / Path("config/kind_config.yaml")
 ingress = Path(__file__).parent / Path("config/ingress.yaml")
@@ -26,8 +26,8 @@ def kind_cluster(k8s_manager):
   k8s.apply(ingress)
 
   # Patch kubernetes api service for kubeclient
-  k8s.wait("svc/kubernetes", "jsonpath='{.status.phase}'!=<none>", timeout=120)
-  k8s.kubectl("patch", "service", "kubernetes", "--type=merge", "-p", '{"spec": {"ports": [{"name": "https", "port": 6443, "targetPort": 6443}]}}')
+  patch = json.dumps({"spec": {"ports": [{"name": "https", "port": 6443, "targetPort": 6443}]}})
+  k8s.kubectl(["patch", "svc", "kubernetes", "--type=merge", "-p=" + patch])
 
   # Install Nginx Ingress Controller
   k8s.apply()
