@@ -1,7 +1,7 @@
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/release-2026.0/autocalibration">
-     GitHub project
+     GitHub
   </a>
   <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/release-2026.0/autocalibration/README.md">
      Readme
