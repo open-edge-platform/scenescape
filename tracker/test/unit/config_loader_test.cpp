@@ -1364,5 +1364,86 @@ TEST(ConfigLoaderTest, PositiveDoubleEnvOverride_OutOfRange) {
     EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
 }
 
+//
+// ntp_server config tests
+//
+
+/// Config with ntp_server set
+std::string config_with_ntp_server(const std::string& ntp_server) {
+    return R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "scenes": {
+        "source": "file",
+        "file_path": ")" +
+           empty_scenes_path() + R"("
+      },
+      "tracking": {
+        "ntp_server": ")" +
+           ntp_server + R"("
+      }
+    })";
+}
+
+TEST(ConfigLoaderTest, NtpServer_ParsedFromJson) {
+    TempFile config_file(config_with_ntp_server("pool.ntp.org"));
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.tracking.ntp_server.has_value());
+    EXPECT_EQ(*config.tracking.ntp_server, "pool.ntp.org");
+}
+
+TEST(ConfigLoaderTest, NtpServer_EmptyString_IsNullopt) {
+    TempFile config_file(config_with_ntp_server(""));
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_FALSE(config.tracking.ntp_server.has_value());
+}
+
+TEST(ConfigLoaderTest, NtpServer_AbsentFromJson_IsNullopt) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_FALSE(config.tracking.ntp_server.has_value());
+}
+
+TEST(ConfigLoaderTest, NtpServer_EnvVarOverrides) {
+    TempFile config_file(MINIMAL_CONFIG());
+    ScopedEnv env(tracker::env::NTP_SERVER, "time.google.com");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.tracking.ntp_server.has_value());
+    EXPECT_EQ(*config.tracking.ntp_server, "time.google.com");
+}
+
+TEST(ConfigLoaderTest, NtpServer_EnvVarOverrides_JsonValue) {
+    // JSON has a server set; env var overrides to a different server.
+    TempFile config_file(config_with_ntp_server("pool.ntp.org"));
+    ScopedEnv env(tracker::env::NTP_SERVER, "time.cloudflare.com");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.tracking.ntp_server.has_value());
+    EXPECT_EQ(*config.tracking.ntp_server, "time.cloudflare.com");
+}
+
+TEST(ConfigLoaderTest, NtpServer_EnvVarEmpty_DoesNotOverrideJsonValue) {
+    // get_env() returns nullopt for empty strings, so an empty env var
+    // leaves the JSON-configured value untouched.
+    TempFile config_file(config_with_ntp_server("pool.ntp.org"));
+    ScopedEnv env(tracker::env::NTP_SERVER, "");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    // JSON value preserved because empty env var is treated as "not set"
+    ASSERT_TRUE(config.tracking.ntp_server.has_value());
+    EXPECT_EQ(*config.tracking.ntp_server, "pool.ntp.org");
+}
+
 } // namespace
 } // namespace tracker

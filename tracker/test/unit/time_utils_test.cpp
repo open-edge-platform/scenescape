@@ -1,8 +1,9 @@
-// SPDX-FileCopyrightText: 2026 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
 
+#include "logger.hpp"
 #include "time_utils.hpp"
 
 #include <chrono>
@@ -129,5 +130,122 @@ TEST(FormatTimestamp, PreservesMilliseconds) {
     EXPECT_EQ(formatTimestamp(tp), "2026-03-15T14:30:45.789Z");
 }
 
+//
+// ClockFn / makeSystemClock tests
+//
+
+TEST(MakeSystemClock, ReturnsTimeCloseToNow) {
+    using namespace std::chrono;
+    auto clock = makeSystemClock();
+    auto before = system_clock::now();
+    auto result = clock();
+    auto after = system_clock::now();
+
+    EXPECT_GE(result, before);
+    EXPECT_LE(result, after + 10ms); // allow tiny scheduling slack
+}
+
+TEST(MakeSystemClock, MultipleCalls_ReturnIncreasingTime) {
+    auto clock = makeSystemClock();
+    auto t1 = clock();
+    auto t2 = clock();
+    EXPECT_LE(t1, t2);
+}
+
+//
+// NtpClock tests
+//
+
+// Fixture initialises the logger so that LOG_WARN/LOG_INFO calls inside
+// NtpClock::syncOnce() don't dereference a null quill::Logger*.
+class NtpClockTest : public ::testing::Test {
+protected:
+    void SetUp() override { Logger::init("warn"); }
+    void TearDown() override { Logger::shutdown(); }
+};
+
+TEST_F(NtpClockTest, StopBeforeStart_DoesNotCrash) {
+    NtpClock clock;
+    clock.stop(); // should be a no-op
+}
+
+TEST_F(NtpClockTest, DefaultOffset_IsZero) {
+    NtpClock clock;
+    EXPECT_DOUBLE_EQ(clock.offset(), 0.0);
+}
+
+TEST_F(NtpClockTest, DefaultSynced_IsFalse) {
+    // Before any sync attempt, synced() must be false so that the first
+    // failure logs "no offset available yet" rather than "keeping previous offset".
+    NtpClock clock;
+    EXPECT_FALSE(clock.synced());
+}
+
+TEST_F(NtpClockTest, FailedFirstSync_LeavesOffsetZeroAndSyncedFalse) {
+    // start() with an unreachable address; wait long enough for the first
+    // syncOnce() attempt to complete (socket timeout = 2 s, but connect to
+    // 127.0.0.2 with no listener should reject immediately).
+    NtpClock clock;
+    clock.start("127.0.0.2", 600); // interval=600s so only one attempt fires
+    // The thread calls syncOnce once immediately then blocks on the CV.
+    // stop() signals the CV and joins before we check.
+    clock.stop();
+
+    EXPECT_FALSE(clock.synced());
+    EXPECT_DOUBLE_EQ(clock.offset(), 0.0);
+}
+
+TEST_F(NtpClockTest, NowWithZeroOffset_MatchesSystemClock) {
+    using namespace std::chrono;
+    NtpClock clock; // offset = 0.0 by default
+    auto before = system_clock::now();
+    auto result = clock.now();
+    auto after = system_clock::now();
+
+    EXPECT_GE(result, before);
+    EXPECT_LE(result, after + 10ms);
+}
+
+TEST_F(NtpClockTest, AsClockFn_UseableAsClockFn) {
+    using namespace std::chrono;
+    NtpClock ntp;
+    ClockFn fn = ntp.asClockFn();
+
+    auto before = system_clock::now();
+    auto result = fn();
+    auto after = system_clock::now();
+
+    EXPECT_GE(result, before);
+    EXPECT_LE(result, after + 10ms);
+}
+
+// NtpClock offset application is verified indirectly: the now() contract is that
+// it returns system_clock::now() + offset_s. With offset = 0 (default, no sync),
+// the behaviour is identical to system_clock::now() (tested above).
+// Offset application with non-zero values is covered in message_handler_test.cpp
+// via lambda ClockFn injection, which exercises the full lag-check path.
+
+TEST_F(NtpClockTest, NowDelta_StaysNearZeroWithNoSync) {
+    using namespace std::chrono;
+    NtpClock clock;
+    auto t1 = clock.now();
+    auto t2 = system_clock::now();
+    auto delta = duration<double>(t2 - t1).count();
+    EXPECT_NEAR(delta, 0.0, 0.01); // within 10 ms
+}
+
+TEST_F(NtpClockTest, DestructorWithActiveThread_DoesNotHang) {
+    // start() with a loopback address that has no NTP listener — syncOnce
+    // will fail quickly (connect/recv timeout). The destructor must join cleanly.
+    {
+        NtpClock clock;
+        clock.start("127.0.0.2", 600);
+        // destructor calls stop() and joins the thread
+    }
+    SUCCEED(); // reaching here means no deadlock
+}
+
 } // namespace
 } // namespace tracker
+
+

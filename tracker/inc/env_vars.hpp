@@ -58,6 +58,9 @@ constexpr const char* NON_MEASUREMENT_TIME_DYNAMIC_S = "TRACKER_NON_MEASUREMENT_
 /// seconds, >= 0 - RobotVision tracker parameter
 constexpr const char* NON_MEASUREMENT_TIME_STATIC_S = "TRACKER_NON_MEASUREMENT_TIME_STATIC_S";
 
+/// NTP server hostname or IP for clock offset correction (empty = disabled)
+constexpr const char* NTP_SERVER = "TRACKER_NTP_SERVER";
+
 // Manager API overrides
 
 /// Manager API base URL

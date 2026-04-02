@@ -21,6 +21,7 @@
 #include "telemetry.hpp"
 #include "time_chunk_buffer.hpp"
 #include "time_chunk_scheduler.hpp"
+#include "time_utils.hpp"
 #include "track_publisher.hpp"
 
 /// Exit code for scene update restart (non-zero triggers Docker restart: on-failure)
@@ -125,6 +126,15 @@ int main(int argc, char* argv[]) {
     // Initialize time chunk buffer and tracking pipeline
     tracker::TimeChunkBuffer chunk_buffer;
 
+    // Optionally start NTP clock synchronization
+    tracker::NtpClock ntp_clock;
+    tracker::ClockFn clock_fn = tracker::makeSystemClock();
+    if (config.tracking.ntp_server.has_value()) {
+        LOG_INFO("NTP clock sync enabled (server={})", *config.tracking.ntp_server);
+        ntp_clock.start(*config.tracking.ntp_server);
+        clock_fn = ntp_clock.asClockFn();
+    }
+
     // Initialize track publisher
     auto track_publisher = std::make_shared<tracker::TrackPublisher>(g_mqtt_client);
 
@@ -143,7 +153,8 @@ int main(int argc, char* argv[]) {
     // Initialize message handler with buffer integration
     auto message_handler = std::make_unique<tracker::MessageHandler>(
         g_mqtt_client, scene_registry, chunk_buffer, config.tracking,
-        config.infrastructure.tracker.schema_validation, cli_config.schema_path.parent_path());
+        config.infrastructure.tracker.schema_validation, cli_config.schema_path.parent_path(),
+        clock_fn);
 
     // In dynamic mode (API source), enable database update notifications.
     // On receiving any database change (scene create/update/delete, camera change, etc.),

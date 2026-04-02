@@ -3,11 +3,115 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
+#include <condition_variable>
+#include <functional>
+#include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 
 namespace tracker {
+
+/**
+ * @brief Callable that returns the current NTP-adjusted UTC time.
+ *
+ * Use makeSystemClock() for the unadjusted default. Inject a lambda in
+ * tests to control time without spawning real threads.
+ */
+using ClockFn = std::function<std::chrono::system_clock::time_point()>;
+
+/**
+ * @brief Return a ClockFn that delegates to system_clock::now().
+ *
+ * This is the default used when no NTP server is configured. The
+ * returned function is stateless and zero-overhead.
+ */
+ClockFn makeSystemClock();
+
+/**
+ * @brief Periodically synchronises a clock offset against an NTP server.
+ *
+ * Sends a minimal 48-byte NTP request (RFC 5905 client mode) to the
+ * configured server every @p interval_s seconds and atomically updates
+ * the measured offset. On failure the previous offset is preserved and
+ * a warning is logged.
+ *
+ * Usage:
+ *   NtpClock ntp;
+ *   ntp.start("pool.ntp.org", 300);           // background sync
+ *   MessageHandler h(..., ntp.asClockFn());   // inject into handler
+ *   // ...
+ *   ntp.stop();                               // clean shutdown
+ *
+ * Thread-safety: all public methods are thread-safe.
+ */
+class NtpClock {
+public:
+    NtpClock() = default;
+    ~NtpClock();
+
+    // Non-copyable, non-movable (owns a thread)
+    NtpClock(const NtpClock&) = delete;
+    NtpClock& operator=(const NtpClock&) = delete;
+    NtpClock(NtpClock&&) = delete;
+    NtpClock& operator=(NtpClock&&) = delete;
+
+    /**
+     * @brief Start background NTP sync thread.
+     *
+     * Performs an initial sync immediately then repeats every @p interval_s
+     * seconds. Calling start() twice without an intervening stop() is safe
+     * — the second call is a no-op.
+     *
+     * @param host  NTP server hostname or IP (e.g. "pool.ntp.org")
+     * @param interval_s  Re-sync interval in seconds (default: 300)
+     */
+    void start(const std::string& host, int interval_s = 300);
+
+    /**
+     * @brief Stop background sync thread and join it.
+     *
+     * Safe to call even if start() was never called.
+     */
+    void stop();
+
+    /**
+     * @brief Return NTP-adjusted current time.
+     */
+    [[nodiscard]] std::chrono::system_clock::time_point now() const;
+
+    /**
+     * @brief Return a ClockFn that calls now() on this instance.
+     *
+     * The returned function holds a raw pointer to *this. Ensure the
+     * NtpClock outlives any object that uses the ClockFn.
+     */
+    [[nodiscard]] ClockFn asClockFn();
+
+    /**
+     * @brief Return the current NTP offset in seconds (for logging/metrics).
+     */
+    [[nodiscard]] double offset() const { return offset_s_.load(std::memory_order_relaxed); }
+
+    /**
+     * @brief Return true if at least one successful NTP sync has completed.
+     */
+    [[nodiscard]] bool synced() const { return synced_.load(std::memory_order_relaxed); }
+
+private:
+    void syncOnce(const std::string& host);
+    void runLoop(const std::string& host, int interval_s);
+
+    std::atomic<double> offset_s_{0.0};
+    std::atomic<bool> synced_{false};
+    std::atomic<bool> stop_requested_{false};
+    std::atomic<bool> running_{false};
+    std::thread sync_thread_;
+    std::mutex cv_mutex_;
+    std::condition_variable cv_;
+};
 
 /**
  * @brief Parse ISO 8601 UTC timestamp to system_clock time_point.

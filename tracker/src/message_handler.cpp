@@ -44,9 +44,10 @@ static const rapidjson::Pointer PTR_BBOX_HEIGHT("/bounding_box_px/height");
 MessageHandler::MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
                                const SceneRegistry& scene_registry, TimeChunkBuffer& buffer,
                                const TrackingConfig& tracking_config, bool schema_validation,
-                               const std::filesystem::path& schema_dir)
+                               const std::filesystem::path& schema_dir, ClockFn clock_fn)
     : mqtt_client_(std::move(mqtt_client)), scene_registry_(scene_registry), buffer_(buffer),
-      tracking_config_(tracking_config), schema_validation_(schema_validation) {
+      tracking_config_(tracking_config), schema_validation_(schema_validation),
+      clock_fn_(std::move(clock_fn)) {
     if (schema_validation_) {
         auto camera_schema_path = schema_dir / CAMERA_SCHEMA_FILE;
         auto scene_schema_path = schema_dir / SCENE_SCHEMA_FILE;
@@ -335,6 +336,15 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
     Metrics::inc_messages({{kAttrScene, std::string(scene->uid)},
                            {kAttrCameraId, camera_id},
                            {kAttrReason, kReasonAccepted}});
+
+    // Record message latency: delta between message timestamp and adjusted now.
+    // Reflects combined pipeline processing time and any residual clock drift.
+    auto latency_ms = std::chrono::duration<double, std::milli>(
+                          clock_fn_() - std::chrono::system_clock::time_point(*msg_time))
+                          .count();
+    Metrics::record_message_latency(latency_ms,
+                                    {{kAttrScene, std::string(scene->uid)},
+                                     {kAttrCameraId, camera_id}});
 }
 
 std::string_view MessageHandler::extractCameraId(const std::string& topic) {
@@ -459,10 +469,14 @@ bool MessageHandler::validateJson(const rapidjson::Document& doc,
 }
 
 bool MessageHandler::isMessageLagged(std::chrono::system_clock::time_point msg_time) const {
-    auto now = std::chrono::system_clock::now();
+    auto now = clock_fn_();
     auto lag = std::chrono::duration<double>(now - msg_time).count();
-
-    return lag > tracking_config_.max_lag_s;
+    if (lag > tracking_config_.max_lag_s) {
+        LOG_DEBUG("Message lag check: lag={:.3f}s, max_lag={:.3f}s", lag,
+                  tracking_config_.max_lag_s);
+        return true;
+    }
+    return false;
 }
 
 } // namespace tracker

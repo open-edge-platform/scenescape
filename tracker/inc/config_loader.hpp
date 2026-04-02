@@ -119,7 +119,8 @@ constexpr double kDefaultNonMeasurementTimeDynamicS = 0.8;
 constexpr double kDefaultNonMeasurementTimeStaticS = 1.6;
 
 struct TrackingConfig {
-    double max_lag_s = kDefaultMaxLagS; ///< Max lag for detection frames (seconds)
+    double max_lag_s = kDefaultMaxLagS;               ///< Max lag for detection frames (seconds)
+    std::optional<std::string> ntp_server;            ///< NTP server host (empty = use OS clock)
     int time_chunking_rate_fps =
         kDefaultTimeChunkingRateFps;      ///< Chunk dispatch rate (frames per second)
     int max_workers = kDefaultMaxWorkers; ///< DoS protection: max worker threads (scene+category)
@@ -170,6 +171,7 @@ constexpr char TRACKING_MAX_UNRELIABLE_TIME_S[] = "/tracking/max_unreliable_time
 constexpr char TRACKING_NON_MEASUREMENT_TIME_DYNAMIC_S[] =
     "/tracking/non_measurement_time_dynamic_s";
 constexpr char TRACKING_NON_MEASUREMENT_TIME_STATIC_S[] = "/tracking/non_measurement_time_static_s";
+constexpr char TRACKING_NTP_SERVER[] = "/tracking/ntp_server";
 
 // Manager
 constexpr char INFRASTRUCTURE_MANAGER[] = "/infrastructure/manager";

@@ -233,7 +233,7 @@ flamegraph:
 
 test-unit: build-debug
 	@echo "Running unit tests..."
-	. build-debug/conanrun.sh && cd build-debug && ctest --output-on-failure
+	. build-debug/conanrun.sh && cd build-debug && ctest --output-on-failure $(ARGS)
 
 test-unit-coverage: build-debug
 	@echo "Running unit tests with coverage..."

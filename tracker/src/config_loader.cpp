@@ -312,6 +312,13 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                                      kDefaultNonMeasurementTimeStaticS)
             .GetDouble();
 
+    // ntp_server is optional; empty string in JSON means disabled
+    if (auto* val = GetValueByPointer(config_doc, json::TRACKING_NTP_SERVER)) {
+        if (val->IsString() && val->GetStringLength() > 0) {
+            config.tracking.ntp_server = val->GetString();
+        }
+    }
+
     // Apply environment variable overrides
     apply_env(config.observability.logging.level, tracker::env::LOG_LEVEL, parse_log_level);
     apply_env(config.infrastructure.tracker.healthcheck.port, tracker::env::HEALTHCHECK_PORT,
@@ -385,6 +392,15 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
               tracker::env::NON_MEASUREMENT_TIME_DYNAMIC_S, parse_positive_double);
     apply_env(config.tracking.non_measurement_time_static_s,
               tracker::env::NON_MEASUREMENT_TIME_STATIC_S, parse_positive_double);
+
+    // NTP server override: env var takes precedence; empty string clears the setting
+    if (auto val = get_env(tracker::env::NTP_SERVER); val.has_value()) {
+        if (val->empty()) {
+            config.tracking.ntp_server = std::nullopt;
+        } else {
+            config.tracking.ntp_server = val.value();
+        }
+    }
 
     // Scenes overrides
     if (auto val = get_env(tracker::env::SCENES_SOURCE); val.has_value()) {

@@ -239,6 +239,10 @@
           "description": "DoS protection: maximum worker threads (one per scene+category). Limits resource exhaustion from unexpected categories.",
           "default": 50,
           "minimum": 1
+        },
+        "ntp_server": {
+          "type": "string",
+          "description": "NTP server hostname or IP for clock offset correction (e.g. 'pool.ntp.org'). When set, the tracker periodically queries this server to correct for local clock drift before evaluating message lag. Leave empty or omit to rely on the OS clock discipline (chronyd/ntpd)."
         }
       }
     },

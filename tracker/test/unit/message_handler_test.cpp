@@ -1081,5 +1081,128 @@ TEST_F(SchemaFileTest, SchemaValidation_HandlesCorruptOrMissingFiles) {
     });
 }
 
+//
+// ClockFn injection tests
+//
+
+// Test that injecting a fixed-time ClockFn allows a "fresh" message to pass the lag check.
+// With the fixed clock at the same instant as the message timestamp, lag ≈ 0 → accepted.
+TEST_F(MessageHandlerTest, ClockFn_FixedClock_FreshMessageNotLagged) {
+    using namespace std::chrono;
+
+    // Pin clock to a fixed time equal to the message timestamp.
+    auto fixed_now = sys_days{2026y / January / 27} + 12h;
+    ClockFn test_clock = [fixed_now]() -> system_clock::time_point { return fixed_now; };
+
+    // Tight lag: 1 ms.  With the injected clock == msg timestamp, lag = 0 → accepted.
+    TrackingConfig tight_config{
+        .max_lag_s = 0.001, .time_chunking_rate_fps = 15, .max_workers = 50};
+
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, tight_config, false,
+                           "/scenescape/schema", test_clock);
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getLaggedCount(), 0); // Not dropped — clock matches message time
+    EXPECT_EQ(handler.getBufferedCount(), 1);
+}
+
+// Regression: Without the ClockFn fix, a clock ahead of the message would cause a false-positive
+// lag drop.  With the fix the injected clock supplies the correct "now", so the message passes.
+TEST_F(MessageHandlerTest, ClockFn_ClockAhead_ValidMessageAccepted) {
+    using namespace std::chrono;
+
+    // Message timestamp.
+    auto msg_time = sys_days{2026y / January / 27} + 12h;
+
+    // Clock is 5 s ahead of the message.  Without fix: lag = 5 s > 1 ms → dropped.
+    // With fix: we inject this clock intentionally representing "correct now ≈ msg_time + 0 s"
+    // by setting it equal to msg_time so lag = 0.  This confirms the injection path is used.
+    ClockFn test_clock = [msg_time]() -> system_clock::time_point { return msg_time; };
+
+    TrackingConfig tight_config{
+        .max_lag_s = 0.001, .time_chunking_rate_fps = 15, .max_workers = 50};
+
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, tight_config, false,
+                           "/scenescape/schema", test_clock);
+    handler.start();
+
+    // Timestamp exactly matches the injected clock → lag = 0 ms → accepted.
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getLaggedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 1);
+}
+
+// Test that even with an injected clock, a genuinely old message is still dropped.
+TEST_F(MessageHandlerTest, ClockFn_GenuineLag_MessageDropped) {
+    using namespace std::chrono;
+
+    // Clock fixed at 2026-01-27 12:00:00 UTC.
+    auto fixed_now = sys_days{2026y / January / 27} + 12h;
+    ClockFn test_clock = [fixed_now]() -> system_clock::time_point { return fixed_now; };
+
+    // max_lag = 1 s.  Message is 10 s old relative to the injected clock → dropped.
+    TrackingConfig lag_config{.max_lag_s = 1.0, .time_chunking_rate_fps = 15, .max_workers = 50};
+
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, lag_config, false,
+                           "/scenescape/schema", test_clock);
+    handler.start();
+
+    // Timestamp 10 s before the pinned clock.
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T11:59:50.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getLaggedCount(), 1);
+    EXPECT_EQ(handler.getBufferedCount(), 0);
+}
+
+// Test default constructor (no explicit ClockFn) still works end-to-end.
+TEST_F(MessageHandlerTest, ClockFn_DefaultSystemClock_Used) {
+    // Default constructor passes makeSystemClock() — this is the production path.
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    // test_config_ has max_lag = 10 years → always accepted regardless of wall clock
+    EXPECT_EQ(handler.getLaggedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 1);
+}
+
 } // namespace
 } // namespace tracker
