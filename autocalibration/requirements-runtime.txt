@@ -10,7 +10,7 @@ onvif-zeep==0.2.12
 open3d-cpu[headless]==0.19.0
 opencv-python-headless==4.13.0.92
 paho-mqtt==2.1.0
-pillow==12.1.1
+pillow==12.2.0
 PyYAML==6.0.3
 scipy==1.17.1
 torch==2.11.0+cpu
