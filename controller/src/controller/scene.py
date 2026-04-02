@@ -340,52 +340,63 @@ class Scene(SceneModel):
         # in long-running scenarios. Consider: max size with FIFO eviction, time-based
         # cleanup, or periodic consolidation. Currently, unchanged values update timestamps
         # instead of appending, but frequent value changes can still cause unbounded growth.
-        try:
-          cur_value_float = float(cur_value)
-        except (ValueError, TypeError):
-          log.error("Invalid sensor value", sensor_id, cur_value)
+        if not self._updateEnvironmentalSensorReadings(objects_in_sensor, sensor_id, cur_value, timestamp_str):
           return False
-
-        for obj in objects_in_sensor:
-          with obj.chain_data._lock:
-            if sensor_id in obj.chain_data.env_sensor_state:
-              state = obj.chain_data.env_sensor_state[sensor_id]
-
-              # Update readings array: append if value changed, update timestamp if same
-              if 'readings' not in state:
-                state['readings'] = []
-              if state['readings'] and state['readings'][-1][1] == cur_value_float:
-                # Value unchanged - update timestamp
-                state['readings'][-1] = (timestamp_str, cur_value_float)
-              else:
-                # Value changed - append new reading
-                state['readings'].append((timestamp_str, cur_value_float))
-            else:
-              # First reading - initialize readings array
-              obj.chain_data.env_sensor_state[sensor_id] = {
-                'readings': [(timestamp_str, cur_value_float)]
-              }
 
       elif sensor.singleton_type == "attribute":
         # Event history tracking - append discrete events (or update timestamp if value unchanged)
         # TODO: Implement bounded cache for attr_sensor_events to prevent memory exhaustion
         # in long-running scenarios with frequent attribute changes.
-        # Convert to string for consistent type comparison (attributes can be non-numeric)
-        cur_value_str = str(cur_value)
-        for obj in objects_in_sensor:
-          with obj.chain_data._lock:
-            if sensor_id not in obj.chain_data.attr_sensor_events:
-              obj.chain_data.attr_sensor_events[sensor_id] = []
-
-            events = obj.chain_data.attr_sensor_events[sensor_id]
-            if events and events[-1][1] == cur_value_str:
-              # Value unchanged - update timestamp of last event instead of appending
-              events[-1] = (timestamp_str, cur_value_str)
-            else:
-              # Value changed - append new event
-              events.append((timestamp_str, cur_value_str))
+        self._updateAttributeSensorEvents(objects_in_sensor, sensor_id, cur_value, timestamp_str)
 
     return True
+
+  def _updateEnvironmentalSensorReadings(self, objects_in_sensor, sensor_id, cur_value, timestamp_str):
+    try:
+      cur_value_float = float(cur_value)
+    except (ValueError, TypeError):
+      log.error("Invalid sensor value", sensor_id, cur_value)
+      return False
+
+    for obj in objects_in_sensor:
+      with obj.chain_data._lock:
+        if sensor_id in obj.chain_data.env_sensor_state:
+          state = obj.chain_data.env_sensor_state[sensor_id]
+
+          # Update readings array: append if value changed, update timestamp if same
+          if 'readings' not in state:
+            state['readings'] = []
+          if state['readings'] and state['readings'][-1][1] == cur_value_float:
+            # Value unchanged - update timestamp
+            state['readings'][-1] = (timestamp_str, cur_value_float)
+          else:
+            # Value changed - append new reading
+            state['readings'].append((timestamp_str, cur_value_float))
+        else:
+          # First reading - initialize readings array
+          obj.chain_data.env_sensor_state[sensor_id] = {
+            'readings': [(timestamp_str, cur_value_float)]
+          }
+
+    return True
+
+  def _updateAttributeSensorEvents(self, objects_in_sensor, sensor_id, cur_value, timestamp_str):
+    # Convert to string for consistent type comparison (attributes can be non-numeric)
+    cur_value_str = str(cur_value)
+    for obj in objects_in_sensor:
+      with obj.chain_data._lock:
+        if sensor_id not in obj.chain_data.attr_sensor_events:
+          obj.chain_data.attr_sensor_events[sensor_id] = []
+
+        events = obj.chain_data.attr_sensor_events[sensor_id]
+        if events and events[-1][1] == cur_value_str:
+          # Value unchanged - update timestamp of last event instead of appending
+          events[-1] = (timestamp_str, cur_value_str)
+        else:
+          # Value changed - append new event
+          events.append((timestamp_str, cur_value_str))
+
+    return
 
   def updateTrackedObjects(self, detection_type, objects):
     """
