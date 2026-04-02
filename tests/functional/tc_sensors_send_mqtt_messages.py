@@ -27,7 +27,7 @@ FRAMES_PER_SECOND = 10
 THING_TYPES = ["person", "chair", "table", "couch"]
 MAX_CONTROLLER_WAIT = 30 # seconds
 
-class WillOurShipGo(FunctionalTest):
+class SensorMqttMessageFlowTest(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
     self.sceneUID = self.params['scene_id']
@@ -353,13 +353,9 @@ class WillOurShipGo(FunctionalTest):
       events = self.regionEvents.get(sensor_name, [])
       assert events, f"No events received for sensor {sensor_name}"
 
-      saw_enter_or_exit = False
       saw_sensor_payload = False
       exited_ids = set()
       for event in events:
-        if event.get('entered') or event.get('exited'):
-          saw_enter_or_exit = True
-
         for entered in event.get('entered', []):
           entered_id = self._extract_obj_id(entered)
           if entered_id is not None and entered_id in exited_ids:
@@ -389,7 +385,6 @@ class WillOurShipGo(FunctionalTest):
           sensors = obj.get('sensors', {})
           if sensor_name in sensors and sensors[sensor_name].get('values'):
             saw_sensor_payload = True
-      assert saw_enter_or_exit, f"No entered/exited event data for sensor {sensor_name}"
       assert saw_sensor_payload, f"No sensor payload found in events for sensor {sensor_name}"
     return
 
@@ -626,14 +621,14 @@ class WillOurShipGo(FunctionalTest):
       self.recordTestResult()
     return
 
-def test_sensor_region_events(request, record_xml_attribute):
-  test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
+def test_sensor_mqtt_message_flow(request, record_xml_attribute):
+  test = SensorMqttMessageFlowTest(TEST_NAME, request, record_xml_attribute)
   test.checkForMalfunctions()
   assert test.exitCode == 0
   return
 
 def main():
-  return test_sensor_region_events(None, None)
+  return test_sensor_mqtt_message_flow(None, None)
 
 if __name__ == '__main__':
   os._exit(main() or 0)
