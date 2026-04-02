@@ -90,11 +90,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
     if len(chain_data.regions):
       obj_dict['regions'] = chain_data.regions
 
-    if not (hasattr(chain_data, '_lock') and
-            hasattr(chain_data, 'env_sensor_state') and
-            hasattr(chain_data, 'attr_sensor_events')):
-      pass
-    elif include_sensors:
+    if include_sensors:
       sensors_output = {}
 
       # Copy sensor data while holding lock, then release

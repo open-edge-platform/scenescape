@@ -3,16 +3,15 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import enum
 import cv2
 import pytest
 import numpy as np
 import copy
-import threading
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import controller.scene as scene_module
+from controller.moving_object import ChainData
 
 from scene_common.timestamp import get_epoch_time
 from scene_common.geometry import Region, Point
@@ -223,15 +222,10 @@ def assert_bounding_box(obj, original_obj):
     assert 'bounding_box' not in obj, f"Unexpected 'bounding_box' in object: {obj}"
 
 def _make_chain_data():
-  return SimpleNamespace(
+  return ChainData(
     regions={},
-    sensors={},
     persist={},
     publishedLocations=[],
-    active_sensors=set(),
-    env_sensor_state={},
-    attr_sensor_events={},
-    _lock=threading.Lock(),
   )
 
 def _make_obj(gid="obj-1", frame_count=4, scene_loc=None, when=1.0):
@@ -465,6 +459,109 @@ def test_getTrackedObjects_non_analytics_uses_tracker(scene_obj, monkeypatch):
   scene_obj.tracker = SimpleNamespace(currentObjects=lambda detection_type: expected)
   assert scene_obj.getTrackedObjects('person') == expected
 
+def test_deserializeTrackedObjects_environmental_sensor(scene_obj, monkeypatch):
+  """Test deserialization of objects with environmental sensor data."""
+  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
+  obj_data = {
+    'id': 'obj-1',
+    'type': 'person',
+    'translation': [1.0, 2.0, 3.0],
+    'sensors': {
+      'temp_sensor': {
+        'values': [
+          ('2026-03-26T20:53:29.761Z', 48.5),
+          ('2026-03-26T20:53:30.761Z', 49.2),
+        ]
+      }
+    }
+  }
+  scene_obj.updateTrackedObjects('person', [obj_data])
+
+  objs = scene_obj.getTrackedObjects('person')
+  assert len(objs) == 1
+  assert objs[0].gid == 'obj-1'
+  assert 'temp_sensor' in objs[0].chain_data.env_sensor_state
+  assert objs[0].chain_data.env_sensor_state['temp_sensor']['readings'][0] == ('2026-03-26T20:53:29.761Z', 48.5)
+  assert objs[0].chain_data.env_sensor_state['temp_sensor']['readings'][1] == ('2026-03-26T20:53:30.761Z', 49.2)
+
+def test_deserializeTrackedObjects_attribute_sensor(scene_obj, monkeypatch):
+  """Test deserialization of objects with attribute sensor data."""
+  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
+  obj_data = {
+    'id': 'obj-2',
+    'type': 'person',
+    'translation': [2.0, 3.0, 4.0],
+    'sensors': {
+      'color_sensor': {
+        'values': [
+          ('2026-03-26T20:53:29.761Z', 'red'),
+          ('2026-03-26T20:53:30.761Z', 'blue'),
+        ]
+      }
+    }
+  }
+  scene_obj.updateTrackedObjects('person', [obj_data])
+
+  objs = scene_obj.getTrackedObjects('person')
+  assert len(objs) == 1
+  assert objs[0].gid == 'obj-2'
+  assert 'color_sensor' in objs[0].chain_data.attr_sensor_events
+  assert objs[0].chain_data.attr_sensor_events['color_sensor'][0] == ('2026-03-26T20:53:29.761Z', 'red')
+  assert objs[0].chain_data.attr_sensor_events['color_sensor'][1] == ('2026-03-26T20:53:30.761Z', 'blue')
+
+def test_deserializeTrackedObjects_mixed_sensors(scene_obj, monkeypatch):
+  """Test deserialization with both environmental and attribute sensors."""
+  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
+  obj_data = {
+    'id': 'obj-3',
+    'type': 'person',
+    'translation': [3.0, 4.0, 5.0],
+    'sensors': {
+      'temperature': {
+        'values': [('2026-03-26T20:53:29.761Z', 25.5)]
+      },
+      'status': {
+        'values': [('2026-03-26T20:53:29.761Z', 'active')]
+      },
+      'humidity': {
+        'values': [
+          ('2026-03-26T20:53:29.761Z', 65.0),
+          ('2026-03-26T20:53:30.761Z', 67.0),
+        ]
+      },
+    }
+  }
+  scene_obj.updateTrackedObjects('person', [obj_data])
+
+  objs = scene_obj.getTrackedObjects('person')
+  assert len(objs) == 1
+  assert 'temperature' in objs[0].chain_data.env_sensor_state
+  assert 'humidity' in objs[0].chain_data.env_sensor_state
+  assert 'status' in objs[0].chain_data.attr_sensor_events
+  assert objs[0].chain_data.env_sensor_state['temperature']['readings'][0][1] == 25.5
+  assert objs[0].chain_data.attr_sensor_events['status'][0][1] == 'active'
+  assert len(objs[0].chain_data.env_sensor_state['humidity']['readings']) == 2
+
+def test_deserializeTrackedObjects_empty_sensors(scene_obj, monkeypatch):
+  """Test deserialization with empty sensor values."""
+  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
+  obj_data = {
+    'id': 'obj-4',
+    'type': 'person',
+    'translation': [4.0, 5.0, 6.0],
+    'sensors': {
+      'empty_sensor': {'values': []},
+      'normal_sensor': {'values': [('2026-03-26T20:53:29.761Z', 10)]}
+    }
+  }
+  scene_obj.updateTrackedObjects('person', [obj_data])
+
+  objs = scene_obj.getTrackedObjects('person')
+  assert len(objs) == 1
+  assert 'empty_sensor' not in objs[0].chain_data.env_sensor_state
+  assert 'empty_sensor' not in objs[0].chain_data.attr_sensor_events
+  assert 'normal_sensor' in objs[0].chain_data.env_sensor_state
+
 def test_deserialize_sets_core_fields(monkeypatch):
   monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: False)
   data = {
@@ -621,3 +718,178 @@ def test_trs_xyz_to_lla_is_cached_and_invalidate_resets(scene_obj, monkeypatch):
   scene_obj._invalidate_trs_xyz_to_lla()
   _ = scene_obj.trs_xyz_to_lla
   assert calls['count'] == 2
+
+def test_setTracker_invalid_type_keeps_existing_tracker(scene_obj):
+  original_tracker = scene_obj.tracker
+  original_tracker_type = scene_obj.trackerType
+
+  scene_obj._setTracker('missing-tracker')
+
+  assert scene_obj.tracker is original_tracker
+  assert scene_obj.trackerType == original_tracker_type
+
+def test_processCameraData_processes_each_detection_type(scene_obj, camera_obj, monkeypatch):
+  scene_obj.cameras[camera_obj.cameraID] = camera_obj
+  converted = []
+  created = []
+  finished = []
+
+  def _capture_convert(detections, intrinsics_matrix, distortion_matrix):
+    converted.append(detections)
+
+  def _capture_create(detection_type, detections, when, camera):
+    created.append((detection_type, detections, camera.cameraID))
+    return [detection_type]
+
+  def _capture_finish(detection_type, when, objects, child_objects=[]):
+    finished.append((detection_type, objects, child_objects))
+
+  monkeypatch.setattr(scene_obj, '_convertPixelBoundingBoxesToMeters', _capture_convert)
+  monkeypatch.setattr(scene_obj, '_createMovingObjectsForDetection', _capture_create)
+  monkeypatch.setattr(scene_obj, '_finishProcessing', _capture_finish)
+
+  payload = {
+    'id': camera_obj.cameraID,
+    'timestamp': '2023-05-16T21:22:58.388Z',
+    'objects': {
+      'person': [{'id': 'p-1'}],
+      'vehicle': [{'id': 'v-1'}],
+    }
+  }
+
+  assert scene_obj.processCameraData(payload) is True
+  assert converted == [payload['objects']['person'], payload['objects']['vehicle']]
+  assert [call[0] for call in created] == ['person', 'vehicle']
+  assert [call[0] for call in finished] == ['person', 'vehicle']
+  assert finished[0][1] == ['person']
+  assert finished[1][1] == ['vehicle']
+
+def test_processSensorData_invalid_environmental_value_returns_false(scene_obj):
+  sensor = SimpleNamespace(
+    singleton_type='environmental',
+    area=Region.REGION_SCENE,
+    value=None,
+    lastValue=None,
+    lastWhen=None,
+  )
+  scene_obj.sensors['sensor1'] = sensor
+  obj = _make_obj(gid='obj-1', frame_count=4)
+  scene_obj.use_tracker = True
+  scene_obj.tracker = SimpleNamespace(
+    trackers={'person': object()},
+    currentObjects=lambda detection_type: [obj],
+  )
+
+  assert scene_obj.processSensorData({'id': 'sensor1', 'value': 'not-a-number'}, when=11.0) is False
+  assert obj.chain_data.env_sensor_state == {}
+
+def test_deserializeTrackedObjects_uses_cached_first_seen(scene_obj):
+  scene_obj.object_history_cache['obj-1'] = {
+    'first_seen': 12.5,
+    'publishedLocations': [Point(9.0, 8.0, 7.0)],
+  }
+
+  objs = scene_obj._deserializeTrackedObjects([
+    {'id': 'obj-1', 'type': 'person', 'translation': [1.0, 2.0, 3.0]}
+  ])
+
+  assert len(objs) == 1
+  assert objs[0].when == 12.5
+  assert objs[0].first_seen == 12.5
+  assert objs[0].chain_data.publishedLocations[0] == Point(9.0, 8.0, 7.0)
+
+def test_deserializeTrackedObjects_missing_first_seen_uses_current_time(scene_obj, monkeypatch):
+  monkeypatch.setattr(scene_module, 'get_epoch_time', lambda *args, **kwargs: 77.0)
+
+  objs = scene_obj._deserializeTrackedObjects([
+    {'id': 'obj-2', 'type': 'person', 'translation': [1.0, 2.0, 3.0]}
+  ])
+
+  assert len(objs) == 1
+  assert objs[0].when == 77.0
+  assert objs[0].first_seen == 77.0
+  assert scene_obj.object_history_cache['obj-2']['first_seen'] == 77.0
+
+def test_updateRegionEvents_environmental_sensor_exit_clears_state(scene_obj):
+  obj = _make_obj(gid='obj-1', frame_count=4, when=1.0)
+  obj.chain_data.regions['sensor1'] = {'entered': '2026-03-26T20:53:29.761Z'}
+  obj.chain_data.active_sensors.add('sensor1')
+  obj.chain_data.env_sensor_state['sensor1'] = {'readings': [('2026-03-26T20:53:29.761Z', 21.5)]}
+  region = SimpleNamespace(
+    objects={'person': [obj]},
+    when=0.0,
+    singleton_type='environmental',
+    entered={},
+    exited={},
+    isPointWithin=lambda scene_loc: False,
+    compute_intersection=False,
+  )
+  scene_obj.events = {}
+
+  updated = scene_obj._updateRegionEvents('person', {'sensor1': region}, 2.0, '2026-03-26T20:53:31.761Z', [])
+
+  assert updated == {'sensor1'}
+  assert 'sensor1' not in obj.chain_data.regions
+  assert 'sensor1' not in obj.chain_data.active_sensors
+  assert 'sensor1' not in obj.chain_data.env_sensor_state
+  assert region.objects['person'] == []
+  assert scene_obj.events['objects'][0][0] == 'sensor1'
+
+def test_updateRegionEvents_attribute_sensor_exit_preserves_history(scene_obj):
+  obj = _make_obj(gid='obj-1', frame_count=4, when=1.0)
+  obj.chain_data.regions['sensor1'] = {'entered': '2026-03-26T20:53:29.761Z'}
+  obj.chain_data.active_sensors.add('sensor1')
+  obj.chain_data.attr_sensor_events['sensor1'] = [('2026-03-26T20:53:29.761Z', 'red')]
+  region = SimpleNamespace(
+    objects={'person': [obj]},
+    when=0.0,
+    singleton_type='attribute',
+    entered={},
+    exited={},
+    isPointWithin=lambda scene_loc: False,
+    compute_intersection=False,
+  )
+  scene_obj.events = {}
+
+  updated = scene_obj._updateRegionEvents('person', {'sensor1': region}, 2.0, '2026-03-26T20:53:31.761Z', [])
+
+  assert updated == {'sensor1'}
+  assert 'sensor1' not in obj.chain_data.regions
+  assert 'sensor1' not in obj.chain_data.active_sensors
+  assert obj.chain_data.attr_sensor_events['sensor1'] == [('2026-03-26T20:53:29.761Z', 'red')]
+  assert region.objects['person'] == []
+
+def test_updateRegionEvents_debounce_still_cleans_up_exited_sensor_state(scene_obj):
+  obj = _make_obj(gid='obj-1', frame_count=4, when=1.0)
+  obj.chain_data.regions['sensor1'] = {'entered': '2026-03-26T20:53:29.761Z'}
+  obj.chain_data.active_sensors.add('sensor1')
+  obj.chain_data.env_sensor_state['sensor1'] = {'readings': [('2026-03-26T20:53:29.761Z', 21.5)]}
+  region = SimpleNamespace(
+    objects={'person': [obj]},
+    when=1.9,
+    singleton_type='environmental',
+    entered={},
+    exited={},
+    isPointWithin=lambda scene_loc: False,
+    compute_intersection=False,
+  )
+  scene_obj.events = {}
+
+  updated = scene_obj._updateRegionEvents('person', {'sensor1': region}, 2.0, '2026-03-26T20:53:31.761Z', [])
+
+  assert updated == set()
+  assert 'sensor1' not in obj.chain_data.regions
+  assert 'sensor1' not in obj.chain_data.active_sensors
+  assert 'sensor1' not in obj.chain_data.env_sensor_state
+  assert scene_obj.events == {}
+  assert region.objects['person'] == []
+
+def test_isIntersecting_createObjectMesh_value_error_returns_false(scene_obj, monkeypatch):
+  def _raise_value_error(obj):
+    raise ValueError('invalid object geometry')
+
+  monkeypatch.setattr(scene_module, 'createObjectMesh', _raise_value_error)
+  region = SimpleNamespace(compute_intersection=True, mesh=object())
+  obj = SimpleNamespace()
+
+  assert scene_obj.isIntersecting(obj, region) is False

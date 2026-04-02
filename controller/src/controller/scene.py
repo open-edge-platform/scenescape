@@ -7,6 +7,7 @@ from typing import Optional
 import numpy as np
 import robot_vision as rv
 from controller.controller_mode import ControllerMode
+from controller.moving_object import ChainData
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
@@ -342,8 +343,8 @@ class Scene(SceneModel):
         try:
           cur_value_float = float(cur_value)
         except (ValueError, TypeError):
-            log.error("Invalid sensor value", sensor_id, cur_value)
-            return False
+          log.error("Invalid sensor value", sensor_id, cur_value)
+          return False
 
         for obj in objects_in_sensor:
           with obj.chain_data._lock:
@@ -498,10 +499,36 @@ class Scene(SceneModel):
       else:
         obj._camera_bounds = None
 
-      obj.chain_data = SimpleNamespace()
-      obj.chain_data.regions = obj_data.get('regions', {})
-      obj.chain_data.sensors = obj_data.get('sensors', {})
-      obj.chain_data.persist = obj_data.get('persistent_data', {})
+      # Deserialize chain_data: convert sensors into env_sensor_state and attr_sensor_events
+      obj.chain_data = ChainData(
+        regions=obj_data.get('regions', {}),
+        publishedLocations=[],
+        persist=obj_data.get('persistent_data', {}),
+      )
+
+      # Convert serialized sensors into env_sensor_state and attr_sensor_events
+      sensors_data = obj_data.get('sensors', {})
+      for sensor_id, sensor_info in sensors_data.items():
+        values = sensor_info.get('values', [])
+        if not values:
+          continue
+
+        # Determine sensor type based on value content
+        # Environmental: [('2026-03-26T20:53:29.761Z', 48), ...] (numeric values)
+        # Attribute: [('2026-03-26T20:53:29.761Z', 'value'), ...] (string values)
+        is_environmental = False
+        if values and len(values) > 0:
+          _, first_value = values[0]
+          try:
+            float(first_value)
+            is_environmental = True
+          except (ValueError, TypeError):
+            is_environmental = False
+
+        if is_environmental:
+          obj.chain_data.env_sensor_state[sensor_id] = {'readings': values}
+        else:
+          obj.chain_data.attr_sensor_events[sensor_id] = values
 
       obj_id = obj.gid
       if obj_id in self.object_history_cache:

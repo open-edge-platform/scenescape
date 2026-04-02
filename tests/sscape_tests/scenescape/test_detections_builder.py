@@ -3,7 +3,6 @@
 
 import sys
 from pathlib import Path
-from threading import Lock
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -20,26 +19,21 @@ sys.path.insert(0, str(scene_common_src))
 
 from controller.detections_builder import buildDetectionsDict, buildDetectionsList, prepareObjDict
 from controller.scene import TripwireEvent
+from controller.moving_object import ChainData
 from scene_common.geometry import Point
 from scene_common.timestamp import get_iso_time
 
 
 def _build_object(*, velocity=None, include_sensor_payload=True):
-  chain_data = SimpleNamespace(
+  chain_data = ChainData(
     regions={'region-a': {'entered': '2026-03-31T10:00:00Z'}},
-    _lock=Lock(),
-    env_sensor_state={
-      'temp-1': {'readings': [('2026-03-31T10:00:00Z', 21.5)]}
-    },
-    attr_sensor_events={
-      'badge-1': [('2026-03-31T10:00:00Z', 'authorized')]
-    },
-    persist={'asset_tag': 'forklift-7'}
+    publishedLocations=[],
+    persist={'asset_tag': 'forklift-7'},
   )
 
-  if not include_sensor_payload:
-    chain_data.env_sensor_state = {}
-    chain_data.attr_sensor_events = {}
+  if include_sensor_payload:
+    chain_data.env_sensor_state['temp-1'] = {'readings': [('2026-03-31T10:00:00Z', 21.5)]}
+    chain_data.attr_sensor_events['badge-1'] = [('2026-03-31T10:00:00Z', 'authorized')]
 
   return SimpleNamespace(
     category='person',
@@ -144,7 +138,7 @@ class TestDetectionsBuilder:
 
   def test_prepare_obj_dict_handles_chain_data_without_sensor_fields(self):
     obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
-    obj.chain_data = SimpleNamespace(regions=[], persist={})
+    obj.chain_data = ChainData(regions=[], persist={}, publishedLocations=[])
 
     detection = prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False, include_sensors=True)
 
