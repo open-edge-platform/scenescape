@@ -48,6 +48,13 @@ Skills are loaded on-demand based on task context to optimize token usage:
 
 Skills are detected and loaded based on file type, task keywords, and context signals. Explicitly request a skill if the auto-detection doesn't load it.
 
+### Instruction Placement Policy (Critical)
+
+- Prefer skill files under `.github/skills/` for detailed procedural rules.
+- Keep this file focused on high-level routing and references to canonical skill documents.
+- Avoid duplicating policy/checklist text across this file and skills.
+- If overlap is found, retain one canonical source and replace duplicates with a short pointer.
+
 ## Architecture Overview
 
 **Core Components:**
@@ -111,6 +118,15 @@ make -C tests geometry-unit                           # Specific test (e.g., geo
 
 For runtime test verification requirements, use
 `.github/skills/test-verification-gate.md`.
+
+### Containerized Test Image Freshness Gate (Critical)
+
+Use `.github/skills/test-verification-gate.md` as the single source of truth
+for image freshness checks, rebuild-before-test requirements, and retry policy
+for containerized test targets.
+
+Service-specific examples belong in each service guide (for controller, see
+`controller/Agents.md`).
 
 ## Code Patterns & Conventions
 

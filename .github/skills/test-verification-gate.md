@@ -17,9 +17,24 @@ Ensure runtime verification is completed and reported consistently.
 2. Prefer a root target when practical (for example, `make run_unit_tests`).
 3. Otherwise select the narrowest scoped target in `tests/Makefile`
    (for example, `make -C tests scenescape-unit`).
-4. Execute the target.
-5. If failures occur, fix and rerun the same target.
-6. Report exact command and concise pass/fail summary.
+4. If the selected target runs in a service `...-test` container image,
+   rebuild images for changed services before executing tests.
+5. Execute the target.
+6. If failures occur, confirm image freshness before code-level debugging:
+   - Rebuild the impacted service runtime and test images if not rebuilt.
+   - Rerun the same target once on fresh images.
+7. If still failing, fix and rerun the same target.
+8. Report exact command and concise pass/fail summary.
+
+## Image Freshness Mapping (Common)
+
+- Changed `controller/src/**` + `make -C tests scene-unit`:
+  - `make controller`
+  - `make -C controller test-build`
+  - then run `make -C tests scene-unit SUPASS=<password>`
+
+Apply the same pattern to other services: rebuild runtime + test image before
+running containerized test targets.
 
 ## Blocked Execution Policy
 
@@ -35,5 +50,6 @@ runtime), report:
 - Lint success only
 - Syntax-only checks
 - IDE static errors only
+- Repeated reruns against stale container images
 
 These checks are useful but do not replace runtime test execution.
