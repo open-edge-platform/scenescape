@@ -339,7 +339,12 @@ class Scene(SceneModel):
         # in long-running scenarios. Consider: max size with FIFO eviction, time-based
         # cleanup, or periodic consolidation. Currently, unchanged values update timestamps
         # instead of appending, but frequent value changes can still cause unbounded growth.
-        cur_value_float = float(cur_value)
+        try:
+          cur_value_float = float(cur_value)
+        except (ValueError, TypeError):
+            log.error("Invalid sensor value", sensor_id, cur_value)
+            return False
+
         for obj in objects_in_sensor:
           with obj.chain_data._lock:
             if sensor_id in obj.chain_data.env_sensor_state:

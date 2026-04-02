@@ -26,13 +26,13 @@ from scene_common.timestamp import get_iso_time
 
 def _build_object(*, velocity=None, include_sensor_payload=True):
   chain_data = SimpleNamespace(
-    regions=['region-a'],
+    regions={'region-a': {'entered': '2026-03-31T10:00:00Z'}},
     _lock=Lock(),
     env_sensor_state={
-      'temp-1': {'readings': [{'timestamp': '2026-03-31T10:00:00Z', 'value': 21.5}]}
+      'temp-1': {'readings': [('2026-03-31T10:00:00Z', 21.5)]}
     },
     attr_sensor_events={
-      'badge-1': [{'timestamp': '2026-03-31T10:00:00Z', 'event': 'authorized'}]
+      'badge-1': [('2026-03-31T10:00:00Z', 'authorized')]
     },
     persist={'asset_tag': 'forklift-7'}
   )
@@ -94,9 +94,9 @@ class TestDetectionsBuilder:
     assert detection['metadata']['age'] == 'adult'
     assert np.allclose(detection['metadata']['reid']['embedding_vector'], [0.1, 0.2])
     assert detection['metadata']['reid']['model_name'] == 'reid-model'
-    assert detection['sensors']['temp-1']['values'][0]['value'] == 21.5
-    assert detection['sensors']['badge-1']['values'][0]['event'] == 'authorized'
-    assert detection['regions'] == ['region-a']
+    assert detection['sensors']['temp-1']['values'][0][1] == 21.5
+    assert detection['sensors']['badge-1']['values'][0][1] == 'authorized'
+    assert detection['regions'] == {'region-a': {'entered': '2026-03-31T10:00:00Z'}}
     assert detection['camera_bounds'] == {'cam-1': {'x': 10, 'y': 20, 'width': 30, 'height': 40}}
     assert detection['persistent_data'] == {'asset_tag': 'forklift-7'}
     assert detection['first_seen'] == get_iso_time(obj.first_seen)
@@ -109,7 +109,7 @@ class TestDetectionsBuilder:
 
     assert len(detections) == 1
     assert 'sensors' not in detections[0]
-    assert detections[0]['regions'] == ['region-a']
+    assert detections[0]['regions'] == {'region-a': {'entered': '2026-03-31T10:00:00Z'}}
 
   def test_build_detections_list_does_not_leak_sensors_between_calls(self):
     obj = _build_object(velocity=Point(4.0, 5.0))
