@@ -24,7 +24,7 @@
   <!-- AGENT: PREREQ - Must run before first container start. -->
 
   ```bash
-  make build-secrets
+  make init-secrets
   ```
 
   **Expected output:** Required secret files and certificates are generated.
