@@ -40,7 +40,7 @@
   --cap-add=SYS_ADMIN \
   --device=/dev/fuse \
   --security-opt apparmor:unconfined \
-  --network scenescape \
+  --network <COMPOSE_PROJECT_NAME>_scenescape \
   -e EGL_PLATFORM=surfaceless \
   -e DBROOT \
   -v scenescape_vol-media:/workspace/media \

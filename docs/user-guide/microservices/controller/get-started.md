@@ -37,7 +37,7 @@
   ```bash
   docker run --rm \
   --init \
-  --network scenescape \
+  --network <COMPOSE_PROJECT_NAME>_scenescape \
   -v scenescape_vol-media:/home/scenescape/SceneScape/media \
   -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
   -v $(pwd)/controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json \
@@ -103,7 +103,7 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   ```bash
   docker run --rm \
   --init \
-  --network scenescape \
+  --network <COMPOSE_PROJECT_NAME>_scenescape \
   -v scenescape_vol-media:/home/scenescape/SceneScape/media \
   -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
@@ -124,7 +124,7 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   ```bash
   docker run --rm \
   --init \
-  --network scenescape \
+  --network <COMPOSE_PROJECT_NAME>_scenescape \
   -e CONTROLLER_ENABLE_ANALYTICS_ONLY=true \
   -v scenescape_vol-media:/home/scenescape/SceneScape/media \
   -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \

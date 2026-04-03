@@ -35,8 +35,8 @@ To build it independently, refer to [Build from Source](./get-started/build-from
 
 The service is implemented as a Django application with:
 
-- API endpoints under `manager/src/django/api/`
-- models and business logic under `manager/src/django/scenescape/`
+- API endpoints under `manager/src/manager/api/`
+- models and business logic under `manager/src/manager/scenescape/`
 - templates and static UI assets under `manager/src/templates/` and `manager/src/static/`
 
 The Manager service communicates with Scene Controller through authenticated REST calls and stores

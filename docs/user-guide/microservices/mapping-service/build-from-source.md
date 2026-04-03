@@ -87,7 +87,7 @@ See `docs/mapping-api.yaml` for REST API details. The `/reconstruction` endpoint
 ```bash
 docker run -d \
     --name mapping \
-    --network scenescape \
+    --network <COMPOSE_PROJECT_NAME>_scenescape \
     --hostname mapping.scenescape.intel.com \
   -p 8444:8444 \
     -v vol-mapping-model-weights:/workspace/model_weights \

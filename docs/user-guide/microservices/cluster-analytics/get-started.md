@@ -48,7 +48,7 @@ docker run --rm \
   --cap-add=SYS_ADMIN \
   --device=/dev/fuse \
   --security-opt apparmor:unconfined \
-  --network scenescape_scenescape \
+  --network <COMPOSE_PROJECT_NAME>_scenescape \
   -e EGL_PLATFORM=surfaceless \
   -e DBROOT \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \

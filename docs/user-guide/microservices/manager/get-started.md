@@ -37,7 +37,7 @@ docker compose logs manager -f
 
 <!-- AGENT: VERIFY - Status should be `Up` with no startup errors in logs. -->
 
-**Expected output:** Status column shows "Up", startup logs show "Application startup complete"
+**Expected output:** Status column shows "Up", and startup logs show no errors
 
 <!-- AGENT: RUN - Stop service for cleanup. -->
 

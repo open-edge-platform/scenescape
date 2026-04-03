@@ -139,6 +139,10 @@ the service from source and running it.
 import base64
 import requests
 
+# For production deployments, replace verify=False with the path to the
+# SceneScape CA certificate (e.g., verify="/path/to/scenescape-ca.crt").
+# verify=False disables TLS certificate verification and should only be
+# used locally with the default self-signed certificate during development.
 with open("image1.jpg", "rb") as image1, open("image2.jpg", "rb") as image2:
   files = [
     ("images", ("image1.jpg", image1, "image/jpeg")),

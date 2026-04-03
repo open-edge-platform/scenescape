@@ -121,7 +121,7 @@ Note that if multiple systems or virtual machines need to connect a given Intel�
 | SECRET_KEY        | Django-specific key to protect the Django instance |
 | DATABASE_PASSWORD | Password for the SQL database user used by Django  |
 
-The Django passwords are generated during execution of the `build-all` and `build-secrets` make targets or when running `deploy.sh`. The specific code resides in `manager/Makefile` file.
+The Django passwords are generated during execution of the `build-all` and `init-secrets` make targets or when running `deploy.sh`. The specific code resides in `manager/Makefile` file.
 
 For `SECRET_KEY` the following short Python script is used:
 
@@ -147,7 +147,7 @@ Alternatively, the `DATABASE_PASSWORD` can be set by the customer by setting a `
 
 The Intel® SceneScape Mosquitto MQTT broker requires clients to authenticate with their username and password before connecting. Intel® SceneScape components which need to access the broker internally are provisioned service accounts at deploy time.
 
-The JSON credential files `*.auth` are generated during execution of the `build-all` and `build-secrets` make targets or when running `deploy.sh`. The code to generate them resides in the top level `Makefile`. At runtime, the `scenescape-init` script reads these files and creates users matching these credentials in the Django accounts system. Broker authentication then happens against the Django database via the web API.
+The JSON credential files `*.auth` are generated during execution of the `build-all` and `init-secrets` make targets or when running `deploy.sh`. The code to generate them resides in the top level `Makefile`. At runtime, the `scenescape-init` script reads these files and creates users matching these credentials in the Django accounts system. Broker authentication then happens against the Django database via the web API.
 
 The table below shows which files are created, the usernames of the service accounts contained in the files, and the purpose of the account.
 
