@@ -21,6 +21,35 @@ Use `.github/skills/test-verification-gate.md` for runtime verification,
 command selection, and completion reporting rules after creating or modifying
 tests.
 
+## Test Import Path Policy (Mandatory)
+
+Before adding imports or path setup in any new or modified test file, run this
+discovery workflow:
+
+1. Check shared pytest bootstrap files first:
+   - `tests/conftest.py`
+   - nearest local `conftest.py` in the target test directory tree
+2. Verify whether the required modules are already importable via existing
+   fixtures/path setup.
+3. Use direct imports (for example `from controller...`) when existing
+   `conftest.py` already establishes paths.
+4. Only add path manipulation if no appropriate shared bootstrap exists.
+5. If path setup is genuinely required, prefer adding it once in the nearest
+   relevant `conftest.py` rather than per-test-file setup.
+
+### Prohibited Pattern
+
+- Do not add `sys.path.insert(...)` blocks in individual test modules when
+  equivalent setup can live in shared `conftest.py`.
+
+### Completion Check For Test Authoring
+
+When creating or updating tests, report this explicitly:
+
+- whether `conftest.py` files were checked
+- where import-path setup is defined (file path)
+- confirmation that no unnecessary per-file `sys.path.insert` was introduced
+
 ## Test Target Mapping Workflow (Mandatory)
 
 Run this workflow before executing any test command:

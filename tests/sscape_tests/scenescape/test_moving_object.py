@@ -3,20 +3,10 @@
 
 import base64
 import datetime
-import sys
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
-
-# Add controller/src to path so controller module imports work correctly.
-controller_src = Path(__file__).resolve().parents[3] / 'controller' / 'src'
-sys.path.insert(0, str(controller_src))
-
-# Add scene_common/src for direct package imports used by controller modules.
-scene_common_src = Path(__file__).resolve().parents[3] / 'scene_common' / 'src'
-sys.path.insert(0, str(scene_common_src))
 
 from controller.moving_object import ChainData, Chronoloc, MovingObject
 from scene_common.geometry import Point, Rectangle

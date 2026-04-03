@@ -3,16 +3,6 @@
 
 import pytest
 from unittest.mock import Mock, MagicMock, patch
-import sys
-from pathlib import Path
-
-# Add controller/src to path so controller module imports work correctly
-controller_src = Path(__file__).resolve().parents[3] / 'controller' / 'src'
-sys.path.insert(0, str(controller_src))
-
-# Add repo root for scene_common imports
-repo_root = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(repo_root))
 
 from controller.cache_manager import CacheManager
 from controller.data_source import FileSceneDataSource, RestSceneDataSource

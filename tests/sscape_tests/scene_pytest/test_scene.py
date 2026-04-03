@@ -271,6 +271,84 @@ def test_processCameraData_intrinsics_present_skips_bbox_conversion(scene_obj, c
   assert scene_obj.processCameraData(payload) is True
   convert_mock.assert_not_called()
 
+def test_deserialize_tracked_objects_uses_configured_attribute_singleton_type():
+  """Configured attribute sensors stay in attr_sensor_events even for numeric-like values."""
+  scene = scene_module.Scene.__new__(scene_module.Scene)
+  scene.sensors = {
+    'weight-sensor': SimpleNamespace(singleton_type='attribute')
+  }
+  scene.object_history_cache = {}
+
+  objects = scene._deserializeTrackedObjects([
+    {
+      'id': 'object-1',
+      'translation': [1, 2, 3],
+      'sensors': {
+        'weight-sensor': {
+          'values': [('2026-03-26T20:53:29.761Z', '48')],
+        }
+      },
+    }
+  ])
+
+  assert len(objects) == 1
+  assert 'weight-sensor' not in objects[0].chain_data.env_sensor_state
+  assert objects[0].chain_data.attr_sensor_events['weight-sensor'] == [
+    ('2026-03-26T20:53:29.761Z', '48')
+  ]
+
+
+def test_deserialize_tracked_objects_defaults_unknown_sensor_to_environmental():
+  """Unknown sensors deserialize as environmental when no metadata is available."""
+  scene = scene_module.Scene.__new__(scene_module.Scene)
+  scene.sensors = {}
+  scene.object_history_cache = {}
+
+  objects = scene._deserializeTrackedObjects([
+    {
+      'id': 'object-1',
+      'translation': [1, 2, 3],
+      'sensors': {
+        'unknown-sensor': {
+          'values': [('2026-03-26T20:53:29.761Z', '48')],
+        }
+      },
+    }
+  ])
+
+  assert len(objects) == 1
+  assert objects[0].chain_data.env_sensor_state['unknown-sensor'] == {
+    'readings': [('2026-03-26T20:53:29.761Z', '48')]
+  }
+  assert 'unknown-sensor' not in objects[0].chain_data.attr_sensor_events
+
+
+def test_deserialize_tracked_objects_defaults_missing_singleton_type_to_environmental():
+  """Sensors with missing singleton_type also default to environmental storage."""
+  scene = scene_module.Scene.__new__(scene_module.Scene)
+  scene.sensors = {
+    'sensor-without-type': SimpleNamespace(singleton_type=None)
+  }
+  scene.object_history_cache = {}
+
+  objects = scene._deserializeTrackedObjects([
+    {
+      'id': 'object-1',
+      'translation': [1, 2, 3],
+      'sensors': {
+        'sensor-without-type': {
+          'values': [('2026-03-26T20:53:29.761Z', 'not-a-number')],
+        }
+      },
+    }
+  ])
+
+  assert len(objects) == 1
+  assert objects[0].chain_data.env_sensor_state['sensor-without-type'] == {
+    'readings': [('2026-03-26T20:53:29.761Z', 'not-a-number')]
+  }
+  assert 'sensor-without-type' not in objects[0].chain_data.attr_sensor_events
+
 def test_processCameraData_ignore_time_flag_uses_now(scene_obj, camera_obj, monkeypatch):
   scene_obj.cameras[camera_obj.cameraID] = camera_obj
   captured = {}
@@ -459,59 +537,14 @@ def test_getTrackedObjects_non_analytics_uses_tracker(scene_obj, monkeypatch):
   scene_obj.tracker = SimpleNamespace(currentObjects=lambda detection_type: expected)
   assert scene_obj.getTrackedObjects('person') == expected
 
-def test_deserializeTrackedObjects_environmental_sensor(scene_obj, monkeypatch):
-  """Test deserialization of objects with environmental sensor data."""
+def test_deserializeTrackedObjects_uses_configured_sensor_types(scene_obj, monkeypatch):
+  """Analytics deserialization uses scene sensor metadata for mixed sensor payloads."""
   monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
-  obj_data = {
-    'id': 'obj-1',
-    'type': 'person',
-    'translation': [1.0, 2.0, 3.0],
-    'sensors': {
-      'temp_sensor': {
-        'values': [
-          ('2026-03-26T20:53:29.761Z', 48.5),
-          ('2026-03-26T20:53:30.761Z', 49.2),
-        ]
-      }
-    }
+  scene_obj.sensors = {
+    'temperature': SimpleNamespace(singleton_type='environmental'),
+    'status': SimpleNamespace(singleton_type='attribute'),
+    'humidity': SimpleNamespace(singleton_type='environmental')
   }
-  scene_obj.updateTrackedObjects('person', [obj_data])
-
-  objs = scene_obj.getTrackedObjects('person')
-  assert len(objs) == 1
-  assert objs[0].gid == 'obj-1'
-  assert 'temp_sensor' in objs[0].chain_data.env_sensor_state
-  assert objs[0].chain_data.env_sensor_state['temp_sensor']['readings'][0] == ('2026-03-26T20:53:29.761Z', 48.5)
-  assert objs[0].chain_data.env_sensor_state['temp_sensor']['readings'][1] == ('2026-03-26T20:53:30.761Z', 49.2)
-
-def test_deserializeTrackedObjects_attribute_sensor(scene_obj, monkeypatch):
-  """Test deserialization of objects with attribute sensor data."""
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
-  obj_data = {
-    'id': 'obj-2',
-    'type': 'person',
-    'translation': [2.0, 3.0, 4.0],
-    'sensors': {
-      'color_sensor': {
-        'values': [
-          ('2026-03-26T20:53:29.761Z', 'red'),
-          ('2026-03-26T20:53:30.761Z', 'blue'),
-        ]
-      }
-    }
-  }
-  scene_obj.updateTrackedObjects('person', [obj_data])
-
-  objs = scene_obj.getTrackedObjects('person')
-  assert len(objs) == 1
-  assert objs[0].gid == 'obj-2'
-  assert 'color_sensor' in objs[0].chain_data.attr_sensor_events
-  assert objs[0].chain_data.attr_sensor_events['color_sensor'][0] == ('2026-03-26T20:53:29.761Z', 'red')
-  assert objs[0].chain_data.attr_sensor_events['color_sensor'][1] == ('2026-03-26T20:53:30.761Z', 'blue')
-
-def test_deserializeTrackedObjects_mixed_sensors(scene_obj, monkeypatch):
-  """Test deserialization with both environmental and attribute sensors."""
-  monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
   obj_data = {
     'id': 'obj-3',
     'type': 'person',

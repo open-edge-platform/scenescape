@@ -289,13 +289,13 @@ class Scene(SceneModel):
 
     if sensor_id in self.sensors:
       sensor = self.sensors[sensor_id]
-      log.info("SENSOR DATA RECEIVED", sensor_id, jdata.get('value'), "type:", getattr(sensor, 'singleton_type', 'NONE'))
+      log.debug("SENSOR DATA RECEIVED", sensor_id, jdata.get('value'), "type:", getattr(sensor, 'singleton_type', 'NONE'))
     else:
       log.error("Unknown sensor", sensor_id, self.sensors)
       return False
 
     if hasattr(sensor, 'lastWhen') and sensor.lastWhen is not None and when <= sensor.lastWhen:
-      log.info("DISCARDING PAST DATA", sensor_id, when)
+      log.debug("DISCARDING PAST DATA", sensor_id, when)
       return True
 
     # Initialize events dict if needed, but don't clear existing events
@@ -330,7 +330,7 @@ class Scene(SceneModel):
           # Ensure active_sensors is updated (handles scene-wide sensors or objects existing before sensor creation)
           obj.chain_data.active_sensors.add(sensor_id)
 
-    log.info("SENSOR OBJECTS FOUND", sensor_id, len(objects_in_sensor), "type:", sensor.singleton_type)
+    log.debug("SENSOR OBJECTS FOUND", sensor_id, len(objects_in_sensor), "type:", sensor.singleton_type)
 
     # Update sensor data on objects based on sensor type
     if objects_in_sensor:
@@ -524,17 +524,7 @@ class Scene(SceneModel):
         if not values:
           continue
 
-        # Determine sensor type based on value content
-        # Environmental: [('2026-03-26T20:53:29.761Z', 48), ...] (numeric values)
-        # Attribute: [('2026-03-26T20:53:29.761Z', 'value'), ...] (string values)
-        is_environmental = False
-        if values and len(values) > 0:
-          _, first_value = values[0]
-          try:
-            float(first_value)
-            is_environmental = True
-          except (ValueError, TypeError):
-            is_environmental = False
+        is_environmental = self._isEnvironmentalSensor(sensor_id, values)
 
         if is_environmental:
           obj.chain_data.env_sensor_state[sensor_id] = {'readings': values}
@@ -555,6 +545,13 @@ class Scene(SceneModel):
       objects.append(obj)
 
     return objects
+
+  def _isEnvironmentalSensor(self, sensor_id, values):
+    sensor = self.sensors.get(sensor_id)
+    if sensor is not None and getattr(sensor, 'singleton_type', None) is not None:
+      return sensor.singleton_type == "environmental"
+
+    return True
 
   def _updateEvents(self, detectionType, now, curObjects=None):
     # Preserve existing events (e.g., sensor 'value' events) instead of clearing
@@ -638,7 +635,10 @@ class Scene(SceneModel):
 
             # For environmental sensors, initialize state with current value if available
             with obj.chain_data._lock:
-              if hasattr(region, 'value') and hasattr(region, 'lastWhen'):
+              if (hasattr(region, 'value') and
+                  hasattr(region, 'lastWhen') and
+                  region.value is not None and
+                  region.lastWhen is not None):
                 # Sensor has cached value - initialize with it
                 ts_str = get_iso_time(region.lastWhen)
                 obj.chain_data.env_sensor_state[key] = {
@@ -840,7 +840,7 @@ class Scene(SceneModel):
         existingRegions[region_uuid] = region
         # Log sensor configuration for debugging
         if hasattr(region, 'singleton_type') and region.singleton_type:
-          log.info("SENSOR LOADED", region_name, "area:", region.area, "singleton_type:", region.singleton_type)
+          log.debug("SENSOR LOADED", region_name, "area:", region.area, "singleton_type:", region.singleton_type)
     deleted = old - new
     for region_uuid in deleted:
       existingRegions.pop(region_uuid)
