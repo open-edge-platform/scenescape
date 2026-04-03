@@ -430,6 +430,10 @@ class Scene(models.Model):
     if hasattr(region, 'radius') and region.radius is not None:
       info['radius'] = region.radius
 
+    # Pass singleton_type from database to runtime for singleton sensors
+    if hasattr(region, 'singleton_type'):
+      info['singleton_type'] = region.singleton_type
+
     uiPoints = region.points.all()
     if len(uiPoints):
       info['points'] = [(pt.x, pt.y) for pt in uiPoints]
