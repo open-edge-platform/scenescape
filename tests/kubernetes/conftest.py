@@ -27,16 +27,16 @@ def kind_cluster(k8s_manager):
 
   # Patch kubernetes api service for kubeclient
   patch = json.dumps({"spec": {"ports": [{"name": "https", "port": 6443, "targetPort": 6443}]}})
-  k8s.kubectl(["patch", "svc", "kubernetes", "--type=merge", "-p=" + patch])
+  k8s.kubectl(["patch", "svc", "kubernetes", "--type=merge", f"-p='{patch}'"])
 
   # Install Nginx Ingress Controller
-  k8s.apply()
+  k8s.apply(ingress_controller)
 
   k8s.apply(certmanager_path)
   yield k8s
 
   logging.info("Deleting kind cluster...")
-#   k8s.delete()
+  # k8s.delete()
 
 @pytest.fixture(scope='session')
 def scenescape_deployment(kind_cluster, values_file):
@@ -58,7 +58,7 @@ def scenescape_deployment(kind_cluster, values_file):
           "--namespace", namespace,
           "--kubeconfig", kubeconfig,
           "--wait",
-          "--timeout", "1200s",
+          "--timeout", "1500s",
           "-f", values_file
       ]
 
@@ -77,19 +77,19 @@ def scenescape_deployment(kind_cluster, values_file):
       yield deployment_info
 
   finally:
-     logging.info("Cleaning up Helm release and namespace...")
-#       subprocess.run([
-#           "kubectl", "get", "pod", "-A", "--kubeconfig", kubeconfig
-#       ], check=False)
-#       # Cleanup: Uninstall the Helm chart
-#       subprocess.run([
-#           "helm", "uninstall", release_name, "--namespace", namespace, "--kubeconfig", kubeconfig
-#       ], check=False)
+    logging.info("Cleaning up Helm release and namespace...")
+    # subprocess.run([
+    #     "kubectl", "get", "pod", "-A", "--kubeconfig", kubeconfig
+    # ], check=False)
+    # # Cleanup: Uninstall the Helm chart
+    # subprocess.run([
+    #     "helm", "uninstall", release_name, "--namespace", namespace, "--kubeconfig", kubeconfig
+    # ], check=False)
 
-#       # Optionally delete the namespace
-#       subprocess.run([
-#           "kubectl", "delete", "namespace", namespace, "--ignore-not-found=true", "--kubeconfig", kubeconfig
-#       ], check=False)
+    # # Optionally delete the namespace
+    # subprocess.run([
+    #     "kubectl", "delete", "namespace", namespace, "--ignore-not-found=true", "--kubeconfig", kubeconfig
+    # ], check=False)
 
 def load_scenescape_images(kind_cluster):
     # Load the Docker images into the kind cluster
