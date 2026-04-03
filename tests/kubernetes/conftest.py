@@ -144,7 +144,7 @@ def root_cert(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterMan
   namespace = scenescape_deployment.namespace
 
   cert_secret = kind_cluster.kubectl(["get", "secret", f"{scenescape_deployment.release_name}-scenescape-ca.pem", "-n", namespace], as_dict = True)
-  cert_encoded = cert_secret["data"]["scenescape.ca.pem"]
+  cert_encoded = cert_secret["data"]["ca.crt"]
 
   cert = base64.b64decode(cert_encoded).decode("utf-8")
   return cert
@@ -152,13 +152,13 @@ def root_cert(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterMan
 @pytest.fixture(scope='session')
 def web_app_port(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterManager) -> int:
   namespace = scenescape_deployment.namespace
-  port_forwarding : PortForwarding = kind_cluster.port_forwarding(target="svc/web", namespace=namespace, source_port=8443, target_port=443)
+  port_forwarding : PortForwarding = kind_cluster.port_forwarding(target="svc/web", namespace=namespace, source_port=9443, target_port=443)
   try:
     port_forwarding.start()
-    starded = True
+    started = True
     yield port_forwarding._ports[0]
   finally:
-    if starded:
+    if started:
       port_forwarding.stop()
 
 @pytest.fixture(scope='session')
@@ -167,10 +167,10 @@ def autocalibration_port(scenescape_deployment : DeploymentInfo, kind_cluster : 
   port_forwarding : PortForwarding = kind_cluster.port_forwarding(target="svc/autocalibration", namespace=namespace, source_port=8443, target_port=8443)
   try:
     port_forwarding.start()
-    starded = True
+    started = True
     yield port_forwarding._ports[0]
   finally:
-    if starded:
+    if started:
       port_forwarding.stop()
 
 @pytest.fixture(scope='session')
@@ -179,10 +179,10 @@ def mqtt_port(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterMan
   port_forwarding : PortForwarding = kind_cluster.port_forwarding(target="svc/broker", namespace=namespace, source_port=1883, target_port=1883)
   try:
     port_forwarding.start()
-    starded = True
+    started = True
     yield port_forwarding._ports[0]
   finally:
-    if starded:
+    if started:
       port_forwarding.stop()
 
 @pytest.fixture(scope='session')
@@ -191,9 +191,9 @@ def mqtt_insecure_port(scenescape_deployment : DeploymentInfo, kind_cluster : AC
   port_forwarding : PortForwarding = kind_cluster.port_forwarding(target="svc/broker", namespace=namespace, source_port=1884, target_port=1884)
   try:
     port_forwarding.start()
-    starded = True
+    started = True
     yield port_forwarding._ports[0]
   finally:
-    if starded:
+    if started:
       port_forwarding.stop()
 

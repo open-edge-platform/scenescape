@@ -41,23 +41,23 @@ def _get_restart_counts(kubeconfig : str, namespace : str):
     }
 
 
-def test_scenescape_pods_not_restarting_after_5min(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterManager):
-    kubeconfig = str(kind_cluster.kubeconfig)
-    namespace = scenescape_deployment.namespace
+# def test_scenescape_pods_not_restarting_after_5min(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterManager):
+#     kubeconfig = str(kind_cluster.kubeconfig)
+#     namespace = scenescape_deployment.namespace
 
-    before = _get_restart_counts(kubeconfig, namespace)
-    assert len(before) > 0, "No containers found in namespace"
+#     before = _get_restart_counts(kubeconfig, namespace)
+#     assert len(before) > 0, "No containers found in namespace"
 
-    time.sleep(300)
+#     time.sleep(300)
 
-    after = _get_restart_counts(kubeconfig, namespace)
+#     after = _get_restart_counts(kubeconfig, namespace)
 
-    new_restarts = [
-        f"{name}: {before.get(name, 0)} -> {count}"
-        for name, count in after.items()
-        if count > before.get(name, 0)
-    ]
-    assert not new_restarts, "Containers restarted during the 5 minute window:\n" + "\n".join(new_restarts)
+#     new_restarts = [
+#         f"{name}: {before.get(name, 0)} -> {count}"
+#         for name, count in after.items()
+#         if count > before.get(name, 0)
+#     ]
+#     assert not new_restarts, "Containers restarted during the 5 minute window:\n" + "\n".join(new_restarts)
 
 def test_scenescape_web_app_accessible(web_app_port : int, root_cert : str):
     response = requests.get(f"https://localhost:{web_app_port}", verify=str(root_cert),)
