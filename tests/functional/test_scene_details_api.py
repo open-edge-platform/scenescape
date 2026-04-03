@@ -37,7 +37,7 @@ def test_scene_details_api(params, record_xml_attribute):
     assert scenes, f"Scene '{scene_name}' not found"
     scene = scenes[0]
     scene_uid = scene["uid"]
-    logger.info("Scene '%s' found with UID: %s", scene_name, scene_uid)
+    logger.info(f"Scene '{scene_name}' found with UID: {scene_uid}")
 
     # Fetch scene details
     res = rest.getScene(scene_uid)
