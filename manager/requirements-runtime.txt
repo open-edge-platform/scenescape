@@ -16,12 +16,12 @@ onvif-zeep==0.2.12
 open3d-cpu==0.19.0
 opencv-python-headless==4.13.0.92
 paho-mqtt==2.1.0
-pillow==12.1.1
+pillow==12.2.0
 plyfile==1.0.3
 psycopg2-binary==2.9.11
 PyYAML==6.0.3
 requests==2.33.0
 scipy==1.17.1
-trimesh==4.11.2
+trimesh==4.11.5
 urllib3==2.6.3
 websockets==15.0.1
