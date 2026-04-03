@@ -1,7 +1,7 @@
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/release-2026.0/cluster_analytics">
-     GitHub project
+     GitHub
   </a>
 </div>
 hide_directive-->
