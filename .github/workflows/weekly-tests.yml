@@ -16,7 +16,7 @@ jobs:
   run_test_on_branch:
     strategy:
       matrix:
-        ref: [main, release-2025.2]
+        ref: [main, release-2025.2, release-2026.0]
       fail-fast: false
     uses: ./.github/workflows/tests-all.yml
     with:
