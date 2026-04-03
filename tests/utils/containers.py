@@ -10,12 +10,20 @@ Replicates the wait_for_container() function from tests/test_utils.sh
 and the log/traceback scanning from tests/runtest.
 """
 
-import logging
 import re
+from pathlib import Path
 
 from waiting import wait
 
-logger = logging.getLogger("test.containers")
+from utils.log import get_logger
+
+logger = get_logger(__name__)
+
+
+def _get_log_dir():
+  """Return per-test log directory created by utils.log.setup()."""
+  root_logger = get_logger()
+  return getattr(root_logger, "_log_dir", None)
 
 
 def container_is_ready(docker, project_name, service, log_pattern):
@@ -65,6 +73,10 @@ def collect_logs(docker, services=None, scan_for_tracebacks=False):
   for Python tracebacks in a single pass (avoids fetching logs twice).
   """
   tracebacks_found = []
+  log_dir = _get_log_dir()
+  if log_dir is None:
+    logger.warning("Test log directory is not configured; skipping container log file export")
+
   try:
     containers = docker.compose.ps()
     for container in containers:
@@ -72,8 +84,13 @@ def collect_logs(docker, services=None, scan_for_tracebacks=False):
         continue
       logger.info("\n--- logs: %s ---", container.name)
       logs = docker.container.logs(container.name)
-      for line in logs.splitlines():
-        logger.info("%s", line)
+
+      if log_dir is not None:
+        container_log_name = f"{container.name}.log"
+        log_file = Path(log_dir) / container_log_name
+        with open(log_file, "w") as f:
+          f.write(logs)
+        logger.info("[DOCKER] Logs saved: %s", log_file)
       if scan_for_tracebacks and "Traceback" in logs:
         tracebacks_found.append(container.name)
         logger.warning("Found Traceback in %s!", container.name)

@@ -109,17 +109,18 @@ def setup(test_name: str, group: str = "functional", log_base: Path | None = Non
   else:
     log_base = Path(log_base)
 
-  log_dir = log_base / group
-  log_dir.mkdir(parents=True, exist_ok=True)
-
   timestamp = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+  log_dir = log_base / group / f"{test_name}-{timestamp}"
+  log_dir.mkdir(parents=True, exist_ok=True)
+  root_log._log_dir = log_dir
+
   log_path = log_dir / f"{test_name}-{timestamp}.log"
 
   _file_handler = logging.FileHandler(str(log_path))
   _file_handler.setLevel(logging.DEBUG)
   _file_handler.setFormatter(
     logging.Formatter(
-      "%(asctime)s %(name)s %(levelname)s %(message)s",
+      "%(asctime)s %(name)s [%(levelname)s] %(message)s",
       datefmt="%Y-%m-%d %H:%M:%S",
     )
   )
