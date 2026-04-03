@@ -1,3 +1,4 @@
-pytest
-pytest-kubernetes
-python-on-whales
+pytest==8.4.2
+pytest-kubernetes==0.7.2
+python-on-whales==0.81.0
+requests==2.33.1

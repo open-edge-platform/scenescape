@@ -13,16 +13,6 @@ nodes:
     nodeRegistration:
       kubeletExtraArgs:
         node-labels: "ingress-ready=true"
-  extraPortMappings:
-  - containerPort: 443
-    hostPort: 443
-    protocol: TCP
-  - containerPort: 31883
-    hostPort: 1883
-    protocol: TCP
-  - containerPort: 30700
-    hostPort: 8080
-    protocol: TCP
   extraMounts:
   - hostPath: /dev/dri
     containerPath: /dev/dri
