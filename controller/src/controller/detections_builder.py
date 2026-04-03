@@ -9,21 +9,21 @@ from scene_common.geometry import DEFAULTZ, Point, Size
 from scene_common.timestamp import get_iso_time
 
 
-def buildDetectionsDict(objects, scene):
+def buildDetectionsDict(objects, scene, include_sensors=False):
   result_dict = {}
   for obj in objects:
-    obj_dict = prepareObjDict(scene, obj, False)
+    obj_dict = prepareObjDict(scene, obj, False, include_sensors)
     result_dict[obj_dict['id']] = obj_dict
   return result_dict
 
-def buildDetectionsList(objects, scene, update_visibility=False):
+def buildDetectionsList(objects, scene, update_visibility=False, include_sensors=False):
   result_list = []
   for obj in objects:
-    obj_dict = prepareObjDict(scene, obj, update_visibility)
+    obj_dict = prepareObjDict(scene, obj, update_visibility, include_sensors)
     result_list.append(obj_dict)
   return result_list
 
-def prepareObjDict(scene, obj, update_visibility):
+def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
   aobj = obj
   if isinstance(obj, TripwireEvent):
     aobj = obj.object
@@ -37,7 +37,9 @@ def prepareObjDict(scene, obj, update_visibility):
   if not velocity.is3D:
     velocity = Point(velocity.x, velocity.y, DEFAULTZ)
 
-  obj_dict = aobj.info
+  # Build a fresh top-level dict per serialization so optional fields like
+  # sensors do not leak between scene, regulated, and external outputs.
+  obj_dict = dict(aobj.info)
   obj_dict.update({
     'id': aobj.gid, # gid is the global ID - computed by SceneScape server.
     'type': otype,
@@ -83,11 +85,37 @@ def prepareObjDict(scene, obj, update_visibility):
     if update_visibility:
       computeCameraBounds(scene, aobj, obj_dict)
 
-  chain_data = aobj.chain_data
-  if len(chain_data.regions):
-    obj_dict['regions'] = chain_data.regions
-  if len(chain_data.sensors):
-    obj_dict['sensors'] = chain_data.sensors
+  if hasattr(aobj, 'chain_data'):
+    chain_data = aobj.chain_data
+    if len(chain_data.regions):
+      obj_dict['regions'] = chain_data.regions
+
+    if include_sensors:
+      sensors_output = {}
+
+      # Copy sensor data while holding lock, then release
+      with chain_data._lock:
+        env_state_copy = dict(chain_data.env_sensor_state)
+        attr_events_copy = dict(chain_data.attr_sensor_events)
+
+      # Environmental sensors: timestamped readings
+      for sensor_id, state in env_state_copy.items():
+        values = state['readings'] if 'readings' in state and state['readings'] else []
+
+        sensors_output[sensor_id] = {
+          'values': values
+        }
+
+      # Attribute sensors: events as structured object
+      for sensor_id, events in attr_events_copy.items():
+        if events:
+          sensors_output[sensor_id] = {
+            'values': events
+          }
+
+      if sensors_output:
+        obj_dict['sensors'] = sensors_output
+
   if hasattr(aobj, 'confidence'):
     obj_dict['confidence'] = aobj.confidence
   if hasattr(aobj, 'similarity'):
