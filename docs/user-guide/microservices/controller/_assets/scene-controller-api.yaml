@@ -10,13 +10,11 @@ info:
 
     Flow Description:
     - The Scene Controller `subscribes` to camera data from `scenescape/data/camera/{camera_id}`.
+    - It also `subscribes` to external `sensor data` from `scenescape/data/sensor/{sensor_id}` to enhance scene awareness.
     - It processes live camera detections into `scene objects`.
     - It `publishes` unregulated tracking results to `scenescape/data/scene/{scene_id}/{thing_type}` for each object type (e.g., person, vehicle).
     - It `publishes` regulated (filtered or validated) track results to `scenescape/regulated/scene/{scene_id}`.
-    - It also `subscribes` to external `sensor data` from `scenescape/data/sensor/{sensor_id}` to enhance scene awareness.
-    - Based on scene and sensor inputs, it **detects events** and **publishes** event notifications to `scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}` and `scenescape/region/<region_id>`.
-
-    These interactions follow a request/response communication pattern and will eventually be transitioned to REST API calls.
+    - Based on scene and sensor inputs, it **detects events** and **publishes** event notifications to `scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}`.
 
 channels:
   scenescape/data/camera/{camera_id}:
@@ -42,21 +40,40 @@ channels:
             id:
               type: string
             objects:
-              type: array
-              items:
-                type: object
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  type: object
             rate:
-              type: string
+              type: number
+              minimum: 0
             intrinsics:
-              type: array
-              items:
-                type: array
+              type: object
+              properties:
+                fx:
+                  type: number
+                fy:
+                  type: number
+                cx:
+                  type: number
+                cy:
+                  type: number
             distortion:
-              type: array
-              items:
-                type: array
-            frame_rate:
-              type: string
+              type: object
+              description: >-
+                Lens distortion coefficients keyed by name.
+              properties:
+                k1:
+                  type: number
+                k2:
+                  type: number
+                p1:
+                  type: number
+                p2:
+                  type: number
+                k3:
+                  type: number
 
   scenescape/regulated/scene/{scene_id}:
     parameters:
@@ -73,21 +90,25 @@ channels:
             timestamp:
               type: string
               format: date-time
-            objects:
-              type: array
-              items:
-                type: object
             id:
               type: string
             name:
               type: string
             scene_rate:
-              type: float
+              type: number
+              minimum: 0
             rate:
-              type: string
-            last:
-              type: string
-              format: date-time
+              type: object
+              additionalProperties:
+                type: number
+            objects:
+              type: array
+              description: >-
+                Array of tracked scene objects. Each object includes fields such as
+                `id`, `translation`, `velocity`, `visibility`, `regions`, `sensors`,
+                `metadata`, and more.
+              items:
+                type: object
 
   scenescape/data/scene/{scene_id}/{thing_type}:
     parameters:
@@ -108,8 +129,22 @@ channels:
             timestamp:
               type: string
               format: date-time
+            id:
+              type: string
+            name:
+              type: string
+            rate:
+              type: number
+              minimum: 0
+            unique_detection_count:
+              type: integer
+              minimum: 0
             objects:
               type: array
+              description: >-
+                Array of tracked scene objects. Each object includes fields such as
+                `id`, `translation`, `velocity`, `visibility`, `regions`, `sensors`,
+                `metadata`, and more.
               items:
                 type: object
 
@@ -140,10 +175,53 @@ channels:
             timestamp:
               type: string
               format: date-time
+            scene_id:
+              type: string
+            scene_name:
+              type: string
+            region_id:
+              type: string
+              description: Present in region events
+            region_name:
+              type: string
+              description: Present in region events
+            tripwire_id:
+              type: string
+              description: Present in tripwire events
+            tripwire_name:
+              type: string
+              description: Present in tripwire events
+            counts:
+              type: object
+              additionalProperties:
+                type: integer
             objects:
               type: array
               items:
                 type: object
+            entered:
+              type: array
+              items:
+                type: object
+              description: >-
+                Objects that entered the region during this cycle. In region events, each element is a bare
+                track object. In tripwire events, this array is always empty. May be
+                empty in region events when no entry occurred.
+            exited:
+              type: array
+              items:
+                type: object
+              description: >-
+                Objects that exited the region during this cycle. In region events, each element has shape
+                {"object": <track>, "dwell": <seconds>}. In tripwire events, this
+                array is always empty. May be empty in region events when no exit
+                occurred.
+            metadata:
+              type: object
+              description: >-
+                Region or tripwire geometry. Region events include: title, uuid, points
+                (polygon vertices), area, fromSensor. Tripwire events include: title,
+                uuid, points (two endpoints).
 
   scenescape/data/sensor/{sensor_id}:
     parameters:
@@ -160,5 +238,13 @@ channels:
             timestamp:
               type: string
               format: date-time
-            sensor_type:
+            id:
               type: string
+            value:
+              description: >-
+                Sensor reading — numeric scalar, string, boolean, or any JSON value.
+            subtype:
+              type: string
+            rate:
+              type: number
+              minimum: 0

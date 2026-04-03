@@ -1,4 +1,4 @@
-# Intel® SceneScape Deployment Guide (Prebuilt Containers)
+# Deploy Intel® SceneScape (Prebuilt Containers)
 
 This guide explains how to deploy Intel® SceneScape using prebuilt Docker images, primarily from Docker Hub.
 

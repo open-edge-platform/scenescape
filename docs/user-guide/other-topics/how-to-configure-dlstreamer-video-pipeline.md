@@ -226,6 +226,36 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 - **Model Config Issues**: verify the model configuration file exists in the Models page and model(s) used in the **Camera Chain** field are defined in the model config file.
 - **Video Source Problems**: ensure the Camera (Video Source) field contains a valid video source URL or a device path.
 - **Deployment Failures**: if the camera goes offline after an update or creation, check the Kubernetes logs of the corresponding video pipeline Pod for detailed error information. Video pipeline Pod names follow the format `<release-name>-videoppl-<sensor_id>-<sensor-id-hash>-<replicaset-hash>-<pod-hash>`. Look for log entries containing `ERROR`, for example: `kubectl logs -n scenescape scenescape-release-1-videoppl-atag-qcam1-de57f-bdc45859c-mfjpn | grep ERROR`.
+  **Expected output:** Matching error log lines are printed when pipeline/deployment issues exist; no output usually indicates there are no `ERROR` entries in the selected Pod logs.
+
+#### Validation Commands (DL Streamer Pipeline Server)
+
+The following checks align with DL Streamer Pipeline Server behavior documented in the upstream edge-ai-libraries repository and are useful for agent/human verification.
+
+- Check active pipeline instances:
+
+  ```bash
+  curl --location -X GET http://localhost:8080/pipelines/status
+  ```
+
+  **Expected output:** A JSON response is returned. If a pipeline is running, the response includes one or more pipeline instance entries with status information.
+
+- Validate metadata output file streaming (when destination metadata is configured as json-lines file):
+
+  ```bash
+  tail -f /tmp/results.jsonl
+  ```
+
+  **Expected output:** New JSON lines appear while frames are processed. If no frames are being processed yet, the command waits without printing new lines.
+
+- Reload pipeline server configuration after config updates (run from DL Streamer Pipeline Server `docker/` directory):
+
+  ```bash
+  docker compose down
+  docker compose up
+  ```
+
+  **Expected output:** Existing DL Streamer Pipeline Server containers stop cleanly, then restart and load the updated pipeline configuration.
 
 ## Manual Video Pipeline Configuration (in Docker Compose deployment)
 

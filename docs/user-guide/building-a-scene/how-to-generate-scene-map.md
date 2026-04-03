@@ -57,7 +57,7 @@ SUPASS=your_password make demo-all
 
 **Expected output:** Full stack starts with mapping and cluster analytics services enabled.
 
-For successive runs, you can use Docker Compose directly:
+For successive runs, you can use Docker Compose directly (see [Docker Compose Profiles](../get-started.md#docker-compose-profiles) for details on available profiles):
 
 ### Launch all cores services and experimental services
 
@@ -250,7 +250,7 @@ For optimal mesh generation results:
 To stop all Intel® SceneScape services:
 
 ```bash
-docker compose down
+docker compose --profile controller --profile experimental down
 ```
 
 **Expected output:** All SceneScape services are stopped and removed.
@@ -258,10 +258,11 @@ docker compose down
 To stop services and remove volumes (this will delete all data):
 
 ```bash
-docker compose down -v
+docker compose --profile controller --profile experimental down -v
 ```
 
 **Expected output:** All services are stopped and named volumes are removed.
+**Note:** The `--profile` flags must match those used when starting the services. If you only started with `--profile controller`, omit `--profile experimental`. See [Docker Compose Profiles](../get-started.md#docker-compose-profiles) for details.
 
 ---
 

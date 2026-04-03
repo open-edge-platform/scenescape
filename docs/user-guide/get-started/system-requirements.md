@@ -44,4 +44,12 @@ File an issue on github if you encounter a compatibility issue with the latest p
 
 ## Validation
 
+- Verify required tools are available:
+
+	```bash
+	docker --version && git --version && curl --version && make --version && openssl version && unzip -v
+	```
+
+	**Expected output:** Version information is printed for each tool, with no "command not found" errors.
+
 - Ensure all dependencies are installed and configured before proceeding to [Get Started](../get-started.md).

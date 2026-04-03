@@ -30,6 +30,8 @@ make cluster_analytics
 docker compose up -d cluster-analytics
 ```
 
+**Expected output:** The `scenescape-cluster_analytics` image builds successfully, and the `cluster-analytics` service starts in detached mode without immediate startup errors.
+
 ## License
 
 Apache 2.0 License - See LICENSE file for details

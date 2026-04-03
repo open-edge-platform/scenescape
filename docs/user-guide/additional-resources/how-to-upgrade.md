@@ -22,11 +22,15 @@ Before You Begin, ensure the following:
    git checkout main
    ```
 
+   **Expected output:** Working tree switches to the `main` branch.
+
 2. **Back up old database**:
 
    ```bash
    make backupdb
    ```
+
+   **Expected output:** Backup artifacts are created successfully for the current database volume.
 
 3. **Build the New Release**:
 
@@ -34,17 +38,23 @@ Before You Begin, ensure the following:
    make rebuild-all
    ```
 
+   **Expected output:** SceneScape images are rebuilt successfully with no build failures.
+
 4. **Run the upgrade-database script**:
 
    ```bash
    bash manager/tools/upgrade-database
    ```
 
+   **Expected output:** Database migration/upgrade steps complete without errors.
+
 5. **Bring up services to verify upgrade**:
 
    ```bash
    SUPASS=<password> make demo
    ```
+
+   **Expected output:** Core services start successfully and return to a healthy running state.
 
 6. **Log in to the Web UI** and verify that data and configurations are intact.
 
@@ -73,4 +83,5 @@ If upgrading from a version that used host filesystem model storage (`model_inst
      ```bash
      docker stop $(docker ps -q)
      ```
+   - **Expected output:** Running containers are stopped; no active containers remain.
    - Re-run the above steps for upgrade.

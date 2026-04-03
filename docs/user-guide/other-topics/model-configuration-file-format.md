@@ -13,6 +13,8 @@ Model configuration files are JSON documents stored in the `<Models Volume>/mode
 - Through the Intel® SceneScape Models page, accessible via the link in the top menu. Each file contains model definitions with unique identifiers that can be referenced in the Camera Chain field.
 - By accessing the models volume directly using `kubectl` tool (see the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide for detailed instructions).
 
+**Expected output:** You can list, inspect, and copy model configuration JSON files under `<Models Volume>/models/model_configs` using either the Models UI or Kubernetes volume access workflow.
+
 ### Usage
 
 The Intel® SceneScape model installer automatically generates the default model configuration file at the location `<Models Volume>/models/model_configs/model_config.json` for the set of models being downloaded.
