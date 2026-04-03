@@ -22,12 +22,14 @@ manager/src/static/assets
 manager/src/static/bootstrap*
 manager/src/static/examples
 manager/secrets
-manager/src/django/secrets.py
+manager/src/manager/secrets.py
 docker-compose.yml
 kubernetes/setup/
 kubernetes/manager
 media
-migrations
+# Ignore runtime migrations directory (not Django source migrations)
+/migrations
+**/workspace/migrations
 pvd-mqtt/detect
 sample_data/xREF_*
 test_data
