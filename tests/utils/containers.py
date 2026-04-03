@@ -82,7 +82,6 @@ def collect_logs(docker, services=None, scan_for_tracebacks=False):
     for container in containers:
       if services and not any(svc in container.name for svc in services):
         continue
-      logger.info("\n--- logs: %s ---", container.name)
       logs = docker.container.logs(container.name)
 
       if log_dir is not None:
