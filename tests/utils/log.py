@@ -8,7 +8,7 @@ Logging configuration for end-to-end test orchestration.
 
 All test orchestration code should obtain loggers via get_logger() so
 that their records flow through the single "test" hierarchy and are
-handled by exactly one console handler and one per-test file handler.
+handled by exactly one console handler and phase-specific file handlers.
 
 Typical usage in fixtures / utilities::
 
@@ -40,6 +40,7 @@ LVL_DEBUG = logging.DEBUG
 _ROOT = "test"
 
 _console_handler: logging.Handler | None = None
+_setup_file_handler: logging.Handler | None = None
 _file_handler: logging.Handler | None = None
 
 # Silence the Python "last resort" stderr handler for our hierarchy so
@@ -70,9 +71,11 @@ def setup(test_name: str, group: str = "functional", log_base: Path | None = Non
 
   - A **console handler** at INFO level so setup and execution output
     appears in the terminal during the test.
-  - A **file handler** at DEBUG level that captures everything,
-    including teardown output that is suppressed from the terminal via
-    silence_console().
+  - A **setup file handler** at DEBUG level writing to
+    ``test_setup.log`` in the per-test directory.
+  - A **test file handler** at DEBUG level for runtime + teardown
+    output. This handler is attached when begin_test_phase() is called
+    from pytest_runtest_call.
 
   Args:
     test_name: Test identifier used as the log file stem (e.g. "mqtt_roi").
@@ -83,10 +86,17 @@ def setup(test_name: str, group: str = "functional", log_base: Path | None = Non
   Returns:
     Path to the newly created log file.
   """
-  global _console_handler, _file_handler
+  global _console_handler, _setup_file_handler, _file_handler
 
   root_log = logging.getLogger(_ROOT)
   root_log.setLevel(logging.DEBUG)
+
+  if _setup_file_handler is not None:
+    _setup_file_handler.close()
+    _setup_file_handler = None
+  if _file_handler is not None:
+    _file_handler.close()
+    _file_handler = None
 
   # Remove handlers left over from the previous test
   for h in list(root_log.handlers):
@@ -102,7 +112,7 @@ def setup(test_name: str, group: str = "functional", log_base: Path | None = Non
   )
   root_log.addHandler(_console_handler)
 
-  # ── File handler (DEBUG+, everything including teardown) ─────────────────
+  # ── File handlers (DEBUG+, split by setup vs test phase) ────────────────
   if log_base is None:
     # tests/utils/log.py → parents[1] = tests/, then test_logs/
     log_base = Path(__file__).parents[1] / "test_logs"
@@ -113,8 +123,20 @@ def setup(test_name: str, group: str = "functional", log_base: Path | None = Non
   log_dir = log_base / group / f"{test_name}-{timestamp}"
   log_dir.mkdir(parents=True, exist_ok=True)
   root_log._log_dir = log_dir
+  root_log._setup_log_path = log_dir / "test_setup.log"
 
   log_path = log_dir / f"{test_name}-{timestamp}.log"
+  root_log._test_log_path = log_path
+
+  _setup_file_handler = logging.FileHandler(str(root_log._setup_log_path))
+  _setup_file_handler.setLevel(logging.DEBUG)
+  _setup_file_handler.setFormatter(
+    logging.Formatter(
+      "%(asctime)s %(name)s [%(levelname)s] %(message)s",
+      datefmt="%Y-%m-%d %H:%M:%S",
+    )
+  )
+  root_log.addHandler(_setup_file_handler)
 
   _file_handler = logging.FileHandler(str(log_path))
   _file_handler.setLevel(logging.DEBUG)
@@ -124,9 +146,23 @@ def setup(test_name: str, group: str = "functional", log_base: Path | None = Non
       datefmt="%Y-%m-%d %H:%M:%S",
     )
   )
-  root_log.addHandler(_file_handler)
 
   return log_path
+
+
+def begin_test_phase() -> None:
+  """Switch file logging from setup log to test log for call/teardown."""
+  global _setup_file_handler
+
+  root_log = logging.getLogger(_ROOT)
+
+  if _setup_file_handler is not None and _setup_file_handler in root_log.handlers:
+    root_log.removeHandler(_setup_file_handler)
+    _setup_file_handler.close()
+    _setup_file_handler = None
+
+  if _file_handler is not None and _file_handler not in root_log.handlers:
+    root_log.addHandler(_file_handler)
 
 
 def silence_console() -> None:
