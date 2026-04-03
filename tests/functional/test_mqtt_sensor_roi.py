@@ -10,8 +10,11 @@ from http import HTTPStatus
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time, get_epoch_time
 from tests.functional.common_scene_obj import SceneObjectMqtt
+from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+
+logger = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="mqtt_sensor_roi", profile=FULL_STACK,
@@ -70,7 +73,7 @@ class SensorMqttRoi(SceneObjectMqtt):
     return
 
   def runSceneObjMqttVerifyPassedExtra(self):
-    print("Verifying test parameters")
+    logger.info("Verifying test parameters")
     assert not self.errorInSensor
     assert self.enteredDetected
     assert self.exitedDetected
@@ -124,7 +127,7 @@ class SensorMqttRoi(SceneObjectMqtt):
           self.entered = False
           self.exitedDetected = True
           self.exitedTimestamp = scene_message_ts
-          print('object exited region')
+          logger.info("object exited region")
         self.handleSceneSensorData(obj, scene_message_ts, self.exitedTimestamp)
         if self.exited:
           self.exitedTimestamp = None
@@ -152,8 +155,8 @@ class SensorMqttRoi(SceneObjectMqtt):
     )
     error_code = result[0]
     if error_code != 0:
-      print(f"Failed to send sensor {sensor_name} value!")
-      print(result.is_published())
+      logger.error(f"Failed to send sensor {sensor_name} value!")
+      logger.error(f"publish result: {result.is_published()}")
     return error_code == 0
 
   def runROIMqtt(self):
@@ -181,14 +184,14 @@ class SensorMqttRoi(SceneObjectMqtt):
 
   def handleRegionData(self, region_data):
     if not 'objects' in region_data:
-      print("No objects in region!")
+      logger.warning("No objects in region!")
 
     current_point = region_data['objects'][0]['translation']
     region_message_ts = get_epoch_time(region_data['timestamp'])
     if self.isWithinRectangle(self.roiPoints[1], self.roiPoints[3], (current_point[0], current_point[1])):
       self.entered = True
       self.enteredDetected = True
-      print('object entered region')
+      logger.info("object entered region")
       if self.enteredTimestamp is None:
         self.enteredTimestamp = region_message_ts
 
@@ -197,14 +200,14 @@ class SensorMqttRoi(SceneObjectMqtt):
         self.enteredTimestamp, region_message_ts, self.exitedTimestamp)
       if not self.handleEnteredExitedObjects(region_data['entered'],
                                             self.sensorHistory[start_idx:end_idx]):
-        print("Found error in 'entered' objects!")
+        logger.error("Found error in 'entered' objects!")
         self.errorInSensor = True
       else:
         self.checkedEntered += 1
 
       if not self.handleEnteredExitedObjects(region_data['exited'],
                                             self.sensorHistory[start_idx:end_idx]):
-        print("Found error in 'exited' objects!")
+        logger.error("Found error in 'exited' objects!")
         self.errorInSensor = True
       else:
         self.checkedExited += 1
@@ -215,8 +218,9 @@ class SensorMqttRoi(SceneObjectMqtt):
     for cur_sensor in sensor_list:
       found = self.findSensorInObj(obj, cur_sensor, self.roiName)
       if not found:
-        print("Warning: failed to find expected sensor value {} (TS {})".format(
-          cur_sensor['value'], cur_sensor['timestamp']))
+        logger.warning(
+          f"Failed to find expected sensor value {cur_sensor['value']} (TS {cur_sensor['timestamp']})"
+        )
         found_all = False
       else:
         self.foundValid += 1
@@ -228,7 +232,7 @@ class SensorMqttRoi(SceneObjectMqtt):
     expected_sensor_value = sensor_entry['value']
 
     if not 'sensors' in obj:
-      print("Object missing sensor data {}".format(obj))
+      logger.error(f"Object missing sensor data {obj}")
       return False
 
     for sensor_info in obj['sensors'][sensor_name]:
@@ -254,7 +258,7 @@ class SensorMqttRoi(SceneObjectMqtt):
         # but it will on subsequent messages, so allow to check it later
         if self.missedValues:
           self.errorInSensor = True
-          print("Had previously Failed to find some expected sensor values!")
+          logger.error("Had previously failed to find some expected sensor values!")
         else:
           self.missedValues += 1
 

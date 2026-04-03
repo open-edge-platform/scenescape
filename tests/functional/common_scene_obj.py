@@ -13,6 +13,7 @@ from scene_common.timestamp import get_iso_time, get_epoch_time
 
 from tests.common_test_utils import check_event_contains_data
 from tests.functional import FunctionalTest
+from tests.utils.log import get_logger
 
 ROI_NAME = "Automated_ROI"
 FRAMES_PER_SECOND = 10
@@ -20,6 +21,8 @@ PERSON = "person"
 REGION = "region"
 MAX_CONTROLLER_WAIT = 30 # seconds
 MAX_ATTEMPTS = 3
+
+logger = get_logger(__name__)
 
 class SceneObjectMqtt(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
@@ -47,7 +50,7 @@ class SceneObjectMqtt(FunctionalTest):
 
     if getattr(self, "roi_deleted", False):
       self.message_received_after_delete = True
-      print("Event received after ROI deletion (unexpected)")
+      logger.warning("Event received after ROI deletion (unexpected)")
       return
 
     for regionObj in regionData['objects']:
@@ -70,7 +73,7 @@ class SceneObjectMqtt(FunctionalTest):
             self.expectedExit.append(event['id'])
             self.expectedEnter.remove(event['id'])
             self.entered = True
-            print("object with id {} entered region\n".format(event['id']))
+            logger.info(f"object with id {event['id']} entered region")
 
     if len(regionEvent['exited']) > 0:
       for event in regionEvent['exited']:
@@ -78,7 +81,7 @@ class SceneObjectMqtt(FunctionalTest):
         if event['object']['id'] in self.expectedExit:
           self.expectedExit.remove(event['object']['id'])
           self.exited = True
-          print("object with id {} exited region\n".format(event['object']['id']))
+          logger.info(f"object with id {event['object']['id']} exited region")
     return
 
   def isWithinRectangle(self, bl, tr, curr_point):
@@ -104,7 +107,7 @@ class SceneObjectMqtt(FunctionalTest):
   def deleteROI(self, roi_uid):
     res = self.rest.deleteRegion(roi_uid)
     assert res.statusCode == HTTPStatus.OK, (res.statusCode, res.errors)
-    print(f"ROI {roi_uid} deleted successfully")
+    logger.info(f"ROI {roi_uid} deleted successfully")
     self.roi_deleted = True
     return
 
@@ -146,7 +149,7 @@ class SceneObjectMqtt(FunctionalTest):
       if ready:
         break
     else:
-      print('reached max number of attemps to wait for scene controller')
+      logger.warning("reached max number of attempts to wait for scene controller")
     return
 
   def regulatedReceived(self, pahoClient, userdata, message):
@@ -173,8 +176,8 @@ class SceneObjectMqtt(FunctionalTest):
     topic_regulated = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=self.sceneUID)
     self.pubsub.addCallback(topic_regulated, self.regulatedReceived)
 
-    print("BottomLeft: ", points[1])
-    print("TopRight: ", points[3])
+    logger.info(f"BottomLeft: {points[1]}")
+    logger.info(f"TopRight: {points[3]}")
     return
 
   def runSceneObjMqttPrepareExtra(self):
@@ -183,8 +186,8 @@ class SceneObjectMqtt(FunctionalTest):
   def runROIMqttExecute(self):
     objLocation = self.getLocations()
     self.sendDetections(objLocation, self.frameRate)
-    print("Expected entered list: ", self.expectedEnter)
-    print("Expected exited list: ", self.expectedExit)
+    logger.info(f"Expected entered list: {self.expectedEnter}")
+    logger.info(f"Expected exited list: {self.expectedExit}")
     return
 
   def runROIMqttDelete(self):
@@ -203,9 +206,9 @@ class SceneObjectMqtt(FunctionalTest):
 
     time.sleep(2)
     if self.message_received_after_delete:
-      print("Still receiving message from ROI!")
+      logger.warning("Still receiving message from ROI!")
       return False
-    print("No events published after ROI deletion")
+    logger.info("No events published after ROI deletion")
     return True
 
   def runSceneObjMqttVerifyPassedExtra(self):

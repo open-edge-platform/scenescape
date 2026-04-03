@@ -20,8 +20,11 @@ from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.geometry import Point
+from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+
+logger = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="sensors_send_events", profile=FULL_STACK,
@@ -161,7 +164,7 @@ class WillOurShipGo(FunctionalTest):
 
         positionLast = positionNow
 
-      print("Received events from sensors:", sensorsReceived)
+      logger.info(f"Received events from sensors: {sensorsReceived}")
     finally:
       self.recordTestResult()
     return
