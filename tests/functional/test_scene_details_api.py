@@ -54,7 +54,7 @@ def test_scene_details_api(params, record_xml_attribute):
     assert res_cameras.statusCode == HTTPStatus.OK, f"Failed to fetch cameras: {res_cameras.errors}"
     cameras = res_cameras["results"]
     assert cameras, "No cameras found in scene"
-    logger.info("%d camera(s) found in scene.", len(cameras))
+    logger.info(f"{len(cameras)} camera(s) found in scene.")
 
     exit_code = 0
   finally:
