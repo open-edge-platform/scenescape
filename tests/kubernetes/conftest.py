@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+import base64
 import logging
 import pytest
 from pytest_kubernetes.providers.base import AClusterManager
@@ -8,6 +12,7 @@ import os
 from python_on_whales import docker
 import json
 from pytest_kubernetes.portforwarding import PortForwarding
+import base64
 
 kind_config_path = Path(__file__).parent / Path("config/kind_config.yaml")
 ingress = Path(__file__).parent / Path("config/ingress.yaml")
@@ -127,8 +132,10 @@ def controller_auth(scenescape_deployment : DeploymentInfo, kind_cluster : AClus
   kubeconfig = str(kind_cluster.kubeconfig)
   namespace = scenescape_deployment.namespace
 
-  auth = kind_cluster.kubectl(["get", "secret", f"{scenescape_deployment.release_name}-controller.auth", "-n", namespace, "-o", "jsonpath={.data['controller\\.auth']}"], capture_output=True, text=True, check=True)
+  auth_secret = kind_cluster.kubectl(["get", "secret", f"{scenescape_deployment.release_name}-controller.auth", "-n", namespace], as_dict = True)
+  auth_encoded = auth_secret["data"]["controller.auth"]
 
+  auth = base64.b64decode(auth_encoded).decode("utf-8")
   return auth
 
 @pytest.fixture(scope='session')
@@ -136,33 +143,57 @@ def root_cert(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterMan
   kubeconfig = str(kind_cluster.kubeconfig)
   namespace = scenescape_deployment.namespace
 
-  cert = kind_cluster.kubectl(["get", "secret", f"{scenescape_deployment.release_name}-scenescape-ca.pem", "-n", namespace, "-o", "jsonpath={.data['scenescape\\.ca\\.pem']}"], capture_output=True, text=True, check=True)
+  cert_secret = kind_cluster.kubectl(["get", "secret", f"{scenescape_deployment.release_name}-scenescape-ca.pem", "-n", namespace], as_dict = True)
+  cert_encoded = cert_secret["data"]["scenescape.ca.pem"]
 
+  cert = base64.b64decode(cert_encoded).decode("utf-8")
   return cert
 
 @pytest.fixture(scope='session')
 def web_app_port(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterManager) -> int:
   namespace = scenescape_deployment.namespace
-  port_forwarding : PortForwarding = kind_cluster.port_forwarding(target="svc/web", namespace=namespace, source_port=443, target_port=443)
-  return port_forwarding._ports[0]
+  port_forwarding : PortForwarding = kind_cluster.port_forwarding(target="svc/web", namespace=namespace, source_port=8443, target_port=443)
+  try:
+    port_forwarding.start()
+    starded = True
+    yield port_forwarding._ports[0]
+  finally:
+    if starded:
+      port_forwarding.stop()
 
 @pytest.fixture(scope='session')
 def autocalibration_port(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterManager) -> int:
   namespace = scenescape_deployment.namespace
   port_forwarding : PortForwarding = kind_cluster.port_forwarding(target="svc/autocalibration", namespace=namespace, source_port=8443, target_port=8443)
-  return port_forwarding._ports[0]
+  try:
+    port_forwarding.start()
+    starded = True
+    yield port_forwarding._ports[0]
+  finally:
+    if starded:
+      port_forwarding.stop()
 
 @pytest.fixture(scope='session')
 def mqtt_port(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterManager) -> int:
   namespace = scenescape_deployment.namespace
   port_forwarding : PortForwarding = kind_cluster.port_forwarding(target="svc/broker", namespace=namespace, source_port=1883, target_port=1883)
-  return port_forwarding._ports[0]
+  try:
+    port_forwarding.start()
+    starded = True
+    yield port_forwarding._ports[0]
+  finally:
+    if starded:
+      port_forwarding.stop()
 
 @pytest.fixture(scope='session')
 def mqtt_insecure_port(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterManager) -> int:
   namespace = scenescape_deployment.namespace
   port_forwarding : PortForwarding = kind_cluster.port_forwarding(target="svc/broker", namespace=namespace, source_port=1884, target_port=1884)
-  return port_forwarding._ports[0]
-
-
+  try:
+    port_forwarding.start()
+    starded = True
+    yield port_forwarding._ports[0]
+  finally:
+    if starded:
+      port_forwarding.stop()
 
