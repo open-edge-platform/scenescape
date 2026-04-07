@@ -684,15 +684,17 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
 
   _reset_state()
 
-  # Deliberately do NOT link a parent – we only create ROI/tripwire in the Demo scene
+  parent_scene = rest_client.createScene({"name": "unlinked_parent_event_test"})
+  assert parent_scene.statusCode == 201, (
+    f"Expected 201 creating parent scene, got {parent_scene.statusCode}: {parent_scene.errors}")
+  _state["parent_id"] = parent_scene["uid"]
+  log.info(f"[SETUP] Unlinked parent scene uid={_state['parent_id']}")
+
   scenes = rest_client.getScenes({"name": "Demo"})
   assert scenes["count"] > 0, "Demo scene not found"
   child_id = scenes["results"][0]["uid"]
   _state["child_id"] = child_id
-
-  # Use a random non-existent parent UID as a dummy subscription target
-  fake_parent_id = "00000000-0000-0000-0000-000000000000"
-  _state["parent_id"] = fake_parent_id
+  log.info(f"[SETUP] Child scene uid={child_id} (not linked to parent)")
 
   roi_points = ((1.38, 5.94), (1.17, 0.8), (7.41, 0.83), (7.35, 6.01))
   roi_res = rest_client.createRegion({
@@ -700,7 +702,8 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
     "name": "UnlinkedROI_test",
     "points": roi_points,
   })
-  assert roi_res.statusCode == 201
+  assert roi_res.statusCode == 201, (
+    f"Expected 201 creating ROI, got {roi_res.statusCode}: {roi_res.errors}")
   _state["roi_uid"] = roi_res["uid"]
 
   tw_res = rest_client.createTripwire({
@@ -708,7 +711,8 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
     "name": "UnlinkedTripwire_test",
     "points": ((0.9, 3.215), (8.1, 3.215)),
   })
-  assert tw_res.statusCode == 201
+  assert tw_res.statusCode == 201, (
+    f"Expected 201 creating tripwire, got {tw_res.statusCode}: {tw_res.errors}")
   _state["tripwire_uid"] = tw_res["uid"]
 
   client = _connect_mqtt_and_wait(params)
@@ -729,17 +733,18 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
     assert len(_state["parent_tripwire_events"]) == 0, (
       "Tripwire events must NOT appear on parent topic when no parent link exists")
 
-    log.info("PASS: No events appeared on (fake) parent topic without parent link")
+    log.info("PASS: No events appeared on unlinked parent topic without parent link")
     exit_code = 0
   finally:
     stop_event.set()
     send_thread.join()
     client.loopStop()
-    # Cleanup only the analytics objects created for this test
     if _state.get("roi_uid"):
       rest_client.deleteRegion(_state["roi_uid"])
     if _state.get("tripwire_uid"):
       rest_client.deleteTripwire(_state["tripwire_uid"])
+    if _state.get("parent_id"):
+      rest_client.deleteScene(_state["parent_id"])
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
