@@ -201,13 +201,13 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 ### Learn how to use Intel® SceneScape
 
-- [Deployment Guide](./using-intel-scenescape/how-to-deploy-scenescape-using-prebuilt-containers.md)
+- [Deployment Guide](./how-to-deploy-scenescape-using-prebuilt-containers.md)
 
-- [Tutorial](./using-intel-scenescape/tutorial.md): Follow examples to become familiar with the core functionality of Intel® SceneScape.
+- [Tutorial](./tutorial.md): Follow examples to become familiar with the core functionality of Intel® SceneScape.
 
-- [How to use 3D UI](./using-intel-scenescape/how-to-use-3D-UI.md): Explore Intel® SceneScape's powerful 3D UI
+- [How to use 3D UI](./how-to-use-3D-UI.md): Explore Intel® SceneScape's powerful 3D UI
 
-- [How to Integrate Cameras and Sensors into Intel® SceneScape](./using-intel-scenescape/how-to-integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow
+- [How to Integrate Cameras and Sensors into Intel® SceneScape](./how-to-integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow
 
 ### Build a Scene in Intel® SceneScape
 
