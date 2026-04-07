@@ -546,8 +546,9 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
 
 
 def test_parent_event_attributes_match_child_event(objData, record_xml_attribute, params):
-  """! Verify that attributes (region_id, region_name, objects, counts) in the
-  parent's republished events match those in the child's original events.
+  """! Verify that region_id, region_name, count category keys and values, and
+  the from_child_scene metadata attribution in the parent's republished event
+  match those in the child's original event.
 
   @param    objData                 Pytest fixture with detection data.
   @param    record_xml_attribute    Pytest fixture recording the test name.
@@ -589,11 +590,11 @@ def test_parent_event_attributes_match_child_event(objData, record_xml_attribute
     assert child_evt.get("region_name") == parent_evt.get("region_name"), (
       "region_name mismatch between child and parent events")
 
-    # Object counts must be equal for matching events
+    # Object counts must match in both keys and values
     child_counts = child_evt.get("counts", {})
     parent_counts = parent_evt.get("counts", {})
-    assert child_counts.keys() == parent_counts.keys(), (
-      "Object category keys differ between child and parent event counts")
+    assert child_counts == parent_counts, (
+      f"Count mismatch between child and parent events: {child_counts} vs {parent_counts}")
 
     # parent event must carry 'metadata' with from_child_scene set
     assert "metadata" in parent_evt, "Parent event missing 'metadata' field"
