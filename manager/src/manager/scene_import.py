@@ -31,7 +31,7 @@ class ImportScene:
     for cam in json_data.get("cameras", []):
       cam_data = {
         "sensor_id": cam.get("uid"),
-        **{field: cam.get(field) for field in CAM_COMMON_FIELDS  if field in cam},
+        **{field: cam.get(field) for field in CAM_COMMON_FIELDS if field in cam},
       }
 
       transform_type = cam.get("transform_type")
