@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -9,19 +9,9 @@ import aiofiles
 
 from scene_common.rest_client import RESTClient
 from scene_common.options import POINT_CORRESPONDENCE, EULER
+from scene_common.cam_fields import CAM_COMMON_FIELDS
 from scene_common import log
 
-COMMON_CAMERA_FIELDS = (
-    "name",
-    "scale",
-    "intrinsics",
-    "command",
-    "cv_subsystem",
-    "camerachain",
-    "undistort",
-    "modelconfig",
-    "use_camera_pipeline",
-)
 
 class ImportScene:
   def __init__(self, zip_path, token):
@@ -41,7 +31,7 @@ class ImportScene:
     for cam in json_data.get("cameras", []):
       cam_data = {
         "sensor_id": cam.get("uid"),
-        **{field: cam.get(field) for field in COMMON_CAMERA_FIELDS if field in cam},
+        **{field: cam.get(field) for field in CAM_COMMON_FIELDS if field in cam},
       }
 
       transform_type = cam.get("transform_type")
