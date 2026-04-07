@@ -20,6 +20,7 @@ from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene,
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
+from scene_common.cam_fields import CAM_SERIALIZER_FIELDS
 
 
 class CustomAuthTokenSerializer(serializers.Serializer):
@@ -477,8 +478,7 @@ class CamSerializer(NonNullSerializer):
 
   class Meta:
     model = Cam
-    fields = ['uid', 'name', 'sensor_id', 'intrinsics', 'transform_type', 'transforms', 'distortion', 'translation', 'rotation', 'scale',
-              'resolution', 'scene', 'command', 'camerachain', 'threshold', 'aspect', 'cv_subsystem', 'undistort', 'modelconfig', 'use_camera_pipeline', 'camera_pipeline']
+    fields = CAM_SERIALIZER_FIELDS
 
 class RegionSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
