@@ -80,11 +80,11 @@ PostgreSQL database server which stores static information used by the web UI an
 
 get-started
 Deploy Intel® SceneScape <./how-to-deploy-scenescape-using-prebuilt-containers.md>
-Build a Scene <building-a-scene/index.md>
 Use Intel(R) SceneScape UI and Online Documentation <./tutorial.md>
 Integrate Cameras and Sensors <./how-to-integrate-cameras-and-sensors.md>
 Use Intel(R) SceneScape 3D UI for Camera Calibration <./how-to-use-3D-UI.md>
 Calibrate Cameras <calibrating-cameras/index.md>
+Build a Scene <building-a-scene/index.md>
 Work with Spatial Analytics <./working-with-spatial-analytics-data.md>
 Other Topics <other-topics/index.md>
 Additional Resources <additional-resources/index.md>

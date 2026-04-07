@@ -199,8 +199,8 @@ You can upload custom models or input video files and use them in DL Streamer Vi
 
 You can upload custom models to the Models Volume using the Models page. The Models page is accessible in the top menu of the Intel® SceneScape UI. Alternatively, use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide to do it from the command line.
 
-1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) on the Models Volume folder structure.
-2. Update the model configuration file or upload a new one so that it includes the newly added model(s). See [Model Configuration File Format](model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
+1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](https://github.com/open-edge-platform/scenescape/blob/main/model_installer/src/README.md) on the Models Volume folder structure.
+2. Update the model configuration file or upload a new one so that it includes the newly added model(s). See [Model Configuration File Format](./model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
 3. Reference the model in the camera pipeline configuration: use the short model name in the **Camera Chain** and the custom model configuration file name in the **Model Config** field.
 
 #### Uploading custom video files
@@ -378,7 +378,7 @@ You can upload custom models or input video files and use them in DL Streamer Vi
 
 You can upload custom models to the Models Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
 
-1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](../../../model_installer/src/README.md) for the Models Volume folder structure.
+1. Upload the model in OpenVINO IR format with desired precision(s). Refer to the instructions in the [`model_installer` documentation](https://github.com/open-edge-platform/scenescape/blob/main/model_installer/src/README.md) for the Models Volume folder structure.
 2. Reference the model in the video pipeline inference element (e.g. `gvadetect`).
 
 #### Uploading custom video files to Docker volumes

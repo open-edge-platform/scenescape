@@ -184,7 +184,7 @@ value. This makes it suitable for attribute sensors beyond simple scalars. For e
 
 For a broader description of how singleton sensors work and how the tagged data appears on
 scene objects, see
-[Singleton Sensor Data](../../using-intel-scenescape/how-to-integrate-cameras-and-sensors.md#singleton-sensor-data)
+[Singleton Sensor Data](../../how-to-integrate-cameras-and-sensors.md#singleton-sensor-data)
 in the integration guide.
 
 ## Common Output Track Fields

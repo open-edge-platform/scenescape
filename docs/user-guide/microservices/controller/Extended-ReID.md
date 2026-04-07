@@ -7,11 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Overview
 
-This document describes the implementation of 2-tier hybrid search for Re-ID (Re-Identification) in the Scene Controller, as specified in [ADR-0010](../../../adr/0010-reid-metadata-storage-architecture.md).
+This document describes the implementation of 2-tier hybrid search for Re-ID (Re-Identification) in the Scene Controller, as specified in [ADR-0010](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0010-reid-metadata-storage-architecture.md).
 
 **Architecture**: TIER 1 (metadata filtering) + TIER 2 (vector similarity)
 
-```
+```text
 VDMS Query Flow:
 
   sscape_object with semantic metadata (age, gender, color, etc.)
@@ -35,7 +35,7 @@ VDMS Query Flow:
 
 The 2-tier implementation uses metadata confidence scores to determine which constraints are applied in TIER 1 filtering. **Only high-confidence (≥ 0.8) constraints are used for strict AND filtering**. Low-confidence constraints are skipped in TIER 1, allowing TIER 2 vector similarity to handle flexible matching:
 
-```
+```text
 High Confidence (≥ 0.8)        Low Confidence (< 0.8)
         ↓                                ↓
     AND Constraint          IGNORED (rely on TIER 2)
@@ -64,7 +64,7 @@ High Confidence (≥ 0.8)        Low Confidence (< 0.8)
 
 **Example**:
 
-```
+```text
 Query: Person with age=25 (conf 0.92), gender=Male (conf 0.90), eyewear=glasses (conf 0.55)
 
 TIER 1 Filtering: age=25 AND gender=Male (high confidence applied)
