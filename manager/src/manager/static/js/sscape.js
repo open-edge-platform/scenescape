@@ -1984,11 +1984,15 @@ $(document).ready(function () {
           $("#id_sensor_x").val(sensor_x);
           $("#id_sensor_y").val(sensor_y);
         }
-        if (!sensor_r | (sensor_r == "None")) {
+        if (!sensor_r || sensor_r == "None") {
           sensor_r = parseInt(scene_y_max / 2);
         }
 
-        var sensor_px = metersToPixels([sensor_x, sensor_y], scale, scene_y_max);
+        var sensor_px = metersToPixels(
+          [sensor_x, sensor_y],
+          scale,
+          scene_y_max,
+        );
         sensor_x = sensor_px[0];
         sensor_y = sensor_px[1];
 
