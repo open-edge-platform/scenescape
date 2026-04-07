@@ -55,7 +55,6 @@ def objData():
         "category": "person",
         "confidence": 1,
         "bounding_box": point,
-        "center_of_mass": point,
         "bounding_box_px": point}
   jdata['objects']['person'] = [obj]
   return jdata
