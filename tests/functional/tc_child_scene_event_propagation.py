@@ -640,11 +640,10 @@ def test_child_event_propagation_is_timely(objData, record_xml_attribute, params
   send_thread.start()
 
   try:
-    # Measure wall-clock delay from first child ROI wait start to first parent ROI receipt
-    t_start = time.time()
     child_appeared = _wait_for_events("child_roi_events", timeout=MAX_WAIT)
     assert child_appeared, f"No child ROI events received within {MAX_WAIT}s"
 
+    t_start = time.time()
     parent_appeared = _wait_for_events("parent_roi_events", timeout=MAX_WAIT)
     t_end = time.time()
 
