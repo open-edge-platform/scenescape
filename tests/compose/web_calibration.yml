@@ -34,9 +34,6 @@ services:
       - "443:443"
     command: >
       webserver
-      --dbhost pgserver
-      --dbtype postgres
-      --dbport 5432
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/browser.auth
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
@@ -48,6 +45,9 @@ services:
       start_period: 10s
     environment:
       - "EXAMPLEDB=/home/scenescape/SceneScape/tests/calibrationdb.tar.bz2"
+      - "DBHOST=pgserver"
+      - "DBPORT=5432"
+      - "DBTYPE=postgres"
       - "DBROOT"
       - "SUPASS"
     cap_add:

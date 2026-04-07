@@ -13,29 +13,20 @@ from django.forms import ModelForm, ValidationError
 from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
 from manager.validators import validate_zip_file
 from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES, CV_SUBSYSTEM_CHOICES
+from scene_common.cam_fields import (
+    CAM_FORM_FIELDS, CAM_FORM_ONLY_FIELDS,
+    CAM_KUBERNETES_FIELDS, CAM_ADVANCED_FIELDS
+)
 
 class CamCalibrateForm(forms.ModelForm):
   class Meta:
     model = Cam
-    fields = [
-      'name', 'sensor_id', 'scene', 'command', 'camerachain', 'threshold', 'aspect',
-      'cv_subsystem', 'undistort', 'transforms', 'transform_type', 'width', 'height',
-      'intrinsics_fx', 'intrinsics_fy', 'intrinsics_cx', 'intrinsics_cy',
-      'distortion_k1', 'distortion_k2', 'distortion_p1', 'distortion_p2', 'distortion_k3',
-      'sensor', 'sensorchain', 'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug',
-      'override_saved_intrinstics', 'frames', 'stats', 'waitforstable', 'preprocess', 'realtime',
-      'faketime', 'modelconfig', 'rootcert', 'cert', 'cvcores', 'ovcores', 'unwarp', 'ovmshost',
-      'framerate', 'maxcache', 'filter', 'disable_rotation', 'maxdistance', 'use_camera_pipeline', 'camera_pipeline', 'detection_labels'
-    ]
+    fields = CAM_FORM_FIELDS
 
   def __init__(self, *args, **kwargs):
-    self.advanced_fields = ['cv_subsystem', 'undistort', 'modelconfig', 'use_camera_pipeline' , 'detection_labels']
-    self.unsupported_fields = ['threshold', 'aspect', 'sensor', 'sensorchain',
-                            'sensorattrib', 'window', 'usetimestamps', 'virtual', 'debug', 'override_saved_intrinstics',
-                            'frames', 'stats', 'waitforstable', 'preprocess', 'realtime', 'faketime',
-                            'rootcert', 'cert', 'cvcores', 'ovcores', 'unwarp', 'ovmshost', 'framerate', 'maxcache',
-                            'filter', 'disable_rotation', 'maxdistance']
-    self.kubernetes_fields = ['command', 'camerachain', 'camera_pipeline'] + self.advanced_fields
+    self.advanced_fields = CAM_ADVANCED_FIELDS
+    self.unsupported_fields = CAM_FORM_ONLY_FIELDS
+    self.kubernetes_fields = CAM_KUBERNETES_FIELDS + CAM_ADVANCED_FIELDS
     super().__init__(*args, **kwargs)
 
     # Set defaults
