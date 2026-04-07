@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # Fields shared between the form, serializer, and scene import
