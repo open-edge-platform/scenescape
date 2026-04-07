@@ -35,9 +35,7 @@ _across = np.flip(_opposite)[2:]
 OBJ_Y_LOCATIONS = np.concatenate((_opposite, _across))
 
 
-# ---------------------------------------------------------------------------
 # Module-level state shared across callbacks
-# ---------------------------------------------------------------------------
 _state = {
   "parent_id": None,
   "child_id": None,
@@ -56,9 +54,6 @@ _state = {
 }
 
 
-# ---------------------------------------------------------------------------
-# MQTT callbacks
-# ---------------------------------------------------------------------------
 def _on_connect(mqttc, obj, flags, rc):
   """Subscribe to all relevant event topics once connected."""
   if rc != 0:
