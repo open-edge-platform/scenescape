@@ -8,6 +8,7 @@ receives and republishes events (ROIs, tripwires, sensors) originating from
 a linked child scene via SceneController.republishEvents."""
 
 import json
+import threading
 import time
 
 from scene_common.rest_client import RESTClient
@@ -262,12 +263,17 @@ def _teardown_scenes(rest_client):
     log.info(f"[TEARDOWN] Deleted parent scene uid={parent_id}: {res.statusCode}")
 
 
-def _send_detections(client, obj_data, y_locations):
-  """Publish person detections through a y-sweep to trigger enter/exit events."""
+def _send_detections(client, obj_data, y_locations, stop_event):
+  """Publish person detections through a y-sweep to trigger enter/exit events.
+
+  Stops early if *stop_event* is set, allowing the caller to terminate
+  publishing as soon as the events under test have been received."""
   cam_id = obj_data["id"]
   topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=cam_id)
   for _ in range(NUM_PUBLISH_ITERATIONS):
     for y in y_locations:
+      if stop_event.is_set():
+        return
       obj_data["timestamp"] = get_iso_time()
       obj_data["objects"][PERSON][0]["bounding_box"]["y"] = float(y)
       obj_data["objects"][PERSON][0]["category"] = PERSON
@@ -355,11 +361,16 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
   _setup_scenes(rest_client)
 
   client = _connect_mqtt_and_wait(params)
+  stop_event = threading.Event()
+  send_thread = threading.Thread(
+    target=_send_detections,
+    args=(client, objData, OBJ_Y_LOCATIONS, stop_event),
+    daemon=True)
+  send_thread.start()
 
   try:
-    _send_detections(client, objData, OBJ_Y_LOCATIONS)
-
-    # Wait for the controller to process events and republish
+    # Wait for the controller to process events and republish; stop sending
+    # early once the target events have arrived.
     roi_appeared = _wait_for_events("parent_roi_events")
     assert roi_appeared, (
       f"Timed out after {MAX_WAIT}s: no ROI events arrived on parent scene topic")
@@ -388,6 +399,8 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
     log.info(f"PASS: {len(parent_events)} ROI events correctly propagated to parent scene")
     exit_code = 0
   finally:
+    stop_event.set()
+    send_thread.join()
     client.loopStop()
     _teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
@@ -415,10 +428,14 @@ def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute
   _setup_scenes(rest_client)
 
   client = _connect_mqtt_and_wait(params)
+  stop_event = threading.Event()
+  send_thread = threading.Thread(
+    target=_send_detections,
+    args=(client, objData, OBJ_Y_LOCATIONS, stop_event),
+    daemon=True)
+  send_thread.start()
 
   try:
-    _send_detections(client, objData, OBJ_Y_LOCATIONS)
-
     tw_appeared = _wait_for_events("parent_tripwire_events")
     assert tw_appeared, (
       f"Timed out after {MAX_WAIT}s: no tripwire events arrived on parent scene topic")
@@ -441,6 +458,8 @@ def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute
     log.info(f"PASS: {len(parent_events)} tripwire events correctly propagated to parent scene")
     exit_code = 0
   finally:
+    stop_event.set()
+    send_thread.join()
     client.loopStop()
     _teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
@@ -473,11 +492,18 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
   _setup_scenes(rest_client)
 
   client = _connect_mqtt_and_wait(params)
+  stop_event = threading.Event()
+  send_thread = threading.Thread(
+    target=_send_detections,
+    args=(client, objData, OBJ_Y_LOCATIONS, stop_event),
+    daemon=True)
+  send_thread.start()
 
   try:
-    # Step 1: send detections to place an object inside the sensor circle
-    # (center=(4.5,3.22), radius=3.21 m – covers most of the scene floor plan)
-    _send_detections(client, objData, OBJ_Y_LOCATIONS)
+    # Wait until an object is being tracked (child ROI event confirms controller
+    # has processed at least one frame) before publishing sensor readings.
+    obj_tracked = _wait_for_events("child_roi_events")
+    assert obj_tracked, f"Object not tracked within {MAX_WAIT}s – cannot trigger sensor events"
 
     # Step 2: publish several sensor readings; the controller will emit a
     # region EVENT each time a value is received while objects are present
@@ -510,6 +536,8 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
     log.info(f"PASS: {len(parent_events)} sensor events correctly propagated to parent scene")
     exit_code = 0
   finally:
+    stop_event.set()
+    send_thread.join()
     client.loopStop()
     _teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
@@ -537,11 +565,15 @@ def test_parent_event_attributes_match_child_event(objData, record_xml_attribute
   _setup_scenes(rest_client)
 
   client = _connect_mqtt_and_wait(params)
+  stop_event = threading.Event()
+  send_thread = threading.Thread(
+    target=_send_detections,
+    args=(client, objData, OBJ_Y_LOCATIONS, stop_event),
+    daemon=True)
+  send_thread.start()
 
   try:
-    _send_detections(client, objData, OBJ_Y_LOCATIONS)
-
-    # Wait for both child and parent events
+    # Wait for both child and parent events; stop sending once both have arrived.
     child_roi_ok = _wait_for_events("child_roi_events")
     parent_roi_ok = _wait_for_events("parent_roi_events")
 
@@ -571,6 +603,8 @@ def test_parent_event_attributes_match_child_event(objData, record_xml_attribute
     log.info(f"PASS: Parent event attributes match child event attributes")
     exit_code = 0
   finally:
+    stop_event.set()
+    send_thread.join()
     client.loopStop()
     _teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
@@ -598,10 +632,14 @@ def test_child_event_propagation_is_timely(objData, record_xml_attribute, params
   _setup_scenes(rest_client)
 
   client = _connect_mqtt_and_wait(params)
+  stop_event = threading.Event()
+  send_thread = threading.Thread(
+    target=_send_detections,
+    args=(client, objData, OBJ_Y_LOCATIONS, stop_event),
+    daemon=True)
+  send_thread.start()
 
   try:
-    _send_detections(client, objData, OBJ_Y_LOCATIONS)
-
     # Measure wall-clock delay from first child ROI wait start to first parent ROI receipt
     t_start = time.time()
     child_appeared = _wait_for_events("child_roi_events", timeout=MAX_WAIT)
@@ -620,6 +658,8 @@ def test_child_event_propagation_is_timely(objData, record_xml_attribute, params
 
     exit_code = 0
   finally:
+    stop_event.set()
+    send_thread.join()
     client.loopStop()
     _teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
@@ -673,11 +713,15 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
   _state["tripwire_uid"] = tw_res["uid"]
 
   client = _connect_mqtt_and_wait(params)
+  stop_event = threading.Event()
+  send_thread = threading.Thread(
+    target=_send_detections,
+    args=(client, objData, OBJ_Y_LOCATIONS, stop_event),
+    daemon=True)
+  send_thread.start()
 
   try:
-    _send_detections(client, objData, OBJ_Y_LOCATIONS)
-
-    # Allow time for any erroneous propagation
+    # Allow time for any erroneous propagation; detections run concurrently.
     wait_duration = 10  # seconds – intentionally shorter than MAX_WAIT
     time.sleep(wait_duration)
 
@@ -689,6 +733,8 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
     log.info("PASS: No events appeared on (fake) parent topic without parent link")
     exit_code = 0
   finally:
+    stop_event.set()
+    send_thread.join()
     client.loopStop()
     # Cleanup only the analytics objects created for this test
     if _state.get("roi_uid"):
@@ -719,9 +765,14 @@ def test_event_region_id_matches_child_definition(objData, record_xml_attribute,
   _setup_scenes(rest_client)
 
   client = _connect_mqtt_and_wait(params)
+  stop_event = threading.Event()
+  send_thread = threading.Thread(
+    target=_send_detections,
+    args=(client, objData, OBJ_Y_LOCATIONS, stop_event),
+    daemon=True)
+  send_thread.start()
 
   try:
-    _send_detections(client, objData, OBJ_Y_LOCATIONS)
     ok = _wait_for_events("parent_roi_events")
     assert ok, f"No parent ROI events within {MAX_WAIT}s"
 
@@ -733,6 +784,8 @@ def test_event_region_id_matches_child_definition(objData, record_xml_attribute,
     log.info("PASS: Parent event region_id correctly references child ROI uid")
     exit_code = 0
   finally:
+    stop_event.set()
+    send_thread.join()
     client.loopStop()
     _teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
@@ -760,13 +813,22 @@ def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params)
 
   client = _connect_mqtt_and_wait(params)
 
+  # Phase-1 detection thread; replaced by phase-2 thread after unlinking.
+  stop_event = threading.Event()
+  send_thread = threading.Thread(
+    target=_send_detections,
+    args=(client, objData, OBJ_Y_LOCATIONS, stop_event),
+    daemon=True)
+  send_thread.start()
+
   try:
-    # Step 1 – Confirm events do propagate while linked
+    # Step 1 – Confirm events do propagate while linked; stop sending early.
     log.info("Step 1: Publishing while child is linked to parent")
-    _send_detections(client, objData, OBJ_Y_LOCATIONS)
     linked_ok = _wait_for_events("parent_roi_events")
     assert linked_ok, "Prerequisite failed: no events received while child is linked"
     log.info(f"Events while linked: {len(_state['parent_roi_events'])}")
+    stop_event.set()
+    send_thread.join()
 
     # Step 2 – Unlink child from parent
     log.info("Step 2: Unlinking child from parent")
@@ -774,12 +836,18 @@ def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params)
     assert res.statusCode == 200, (
       f"Expected 200 deleting child link, got {res.statusCode}: {res.errors}")
 
-    # Clear accumulators and send more detections
+    # Clear accumulators, then send more detections concurrently with the quiesce
+    # sleep so the negative check finishes in quiesce seconds, not quiesce + sweep.
     _state["parent_roi_events"].clear()
     _state["parent_tripwire_events"].clear()
 
     log.info("Step 3: Publishing after unlink – no events should appear on parent topic")
-    _send_detections(client, objData, OBJ_Y_LOCATIONS)
+    stop_event = threading.Event()
+    send_thread = threading.Thread(
+      target=_send_detections,
+      args=(client, objData, OBJ_Y_LOCATIONS, stop_event),
+      daemon=True)
+    send_thread.start()
 
     # Wait briefly; events must not arrive
     quiesce = 10  # seconds
@@ -793,6 +861,8 @@ def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params)
     log.info("PASS: Events stopped propagating after child was unlinked")
     exit_code = 0
   finally:
+    stop_event.set()
+    send_thread.join()
     client.loopStop()
     # teardown: child already unlinked above; clean analytics objects and parent
     for uid, fn in [
