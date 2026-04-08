@@ -312,10 +312,20 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                                      kDefaultNonMeasurementTimeStaticS)
             .GetDouble();
 
-    // ntp_server is optional; empty string in JSON means disabled
-    if (auto* val = GetValueByPointer(config_doc, json::TRACKING_NTP_SERVER)) {
-        if (val->IsString() && val->GetStringLength() > 0) {
-            config.tracking.ntp_server = val->GetString();
+    // NTP configuration (optional; server empty/missing = use OS clock)
+    if (GetValueByPointer(config_doc, json::INFRASTRUCTURE_NTP)) {
+        NtpConfig ntp_config;
+        if (auto* val = GetValueByPointer(config_doc, json::INFRASTRUCTURE_NTP_SERVER)) {
+            if (val->IsString() && val->GetStringLength() > 0) {
+                ntp_config.server = val->GetString();
+            }
+        }
+        ntp_config.sync_interval_s =
+            GetValueByPointerWithDefault(config_doc, json::INFRASTRUCTURE_NTP_SYNC_INTERVAL_S,
+                                         kDefaultNtpSyncIntervalS)
+                .GetInt();
+        if (!ntp_config.server.empty()) {
+            config.infrastructure.ntp = ntp_config;
         }
     }
 
@@ -393,13 +403,32 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
     apply_env(config.tracking.non_measurement_time_static_s,
               tracker::env::NON_MEASUREMENT_TIME_STATIC_S, parse_positive_double);
 
-    // NTP server override: env var takes precedence; empty string clears the setting
+    // NTP overrides: env vars take precedence; empty server string clears the setting
     if (auto val = get_env(tracker::env::NTP_SERVER); val.has_value()) {
-        if (val->empty()) {
-            config.tracking.ntp_server = std::nullopt;
-        } else {
-            config.tracking.ntp_server = val.value();
+        if (!config.infrastructure.ntp.has_value()) {
+            config.infrastructure.ntp = NtpConfig{};
         }
+        config.infrastructure.ntp->server = val.value();
+    }
+    if (auto val = get_env(tracker::env::NTP_SYNC_INTERVAL_S); val.has_value()) {
+        try {
+            int interval = std::stoi(*val);
+            if (interval < 60) {
+                throw std::runtime_error(std::string(tracker::env::NTP_SYNC_INTERVAL_S) +
+                                         " must be >= 60: " + *val);
+            }
+            if (!config.infrastructure.ntp.has_value()) {
+                config.infrastructure.ntp = NtpConfig{};
+            }
+            config.infrastructure.ntp->sync_interval_s = interval;
+        } catch (const std::invalid_argument&) {
+            throw std::runtime_error("Invalid " + std::string(tracker::env::NTP_SYNC_INTERVAL_S) +
+                                     ": " + *val);
+        }
+    }
+    // Discard an ntp config that has no server (can happen when only the interval env var is set).
+    if (config.infrastructure.ntp.has_value() && config.infrastructure.ntp->server.empty()) {
+        config.infrastructure.ntp = std::nullopt;
     }
 
     // Scenes overrides

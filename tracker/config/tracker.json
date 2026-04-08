@@ -9,6 +9,10 @@
         "verify_server": true
       }
     },
+    "ntp": {
+      "server": "ntpserv",
+      "sync_interval_s": 300
+    },
     "tracker": {
       "healthcheck": {
         "port": 8080
@@ -42,8 +46,7 @@
     "max_workers": 50,
     "max_unreliable_time_s": 1.0,
     "non_measurement_time_dynamic_s": 0.8,
-    "non_measurement_time_static_s": 1.6,
-    "ntp_server": "ntpserv"
+    "non_measurement_time_static_s": 1.6
   },
   "scenes": {
     "source": "api"
