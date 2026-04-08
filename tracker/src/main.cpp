@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
     // Optionally start NTP clock synchronization
     tracker::NtpClock ntp_clock;
     tracker::ClockFn clock_fn = tracker::makeSystemClock();
-    if (config.infrastructure.ntp.has_value() && !config.infrastructure.ntp->server.empty()) {
+    if (config.infrastructure.ntp.has_value()) {
         const auto& ntp_cfg = *config.infrastructure.ntp;
         LOG_INFO("NTP clock sync enabled (server={}, interval={}s)", ntp_cfg.server,
                  ntp_cfg.sync_interval_s);

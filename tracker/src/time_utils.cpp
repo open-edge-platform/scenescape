@@ -32,7 +32,6 @@ namespace {
 
 /// NTP epoch is 1 January 1900; Unix epoch is 1 January 1970.
 constexpr uint32_t kNtpUnixDeltaSeconds = 2208988800U;
-constexpr int kNtpPort = 123;
 constexpr int kNtpPacketSize = 48;
 constexpr int kNtpSocketTimeoutMs = 2000;
 
@@ -201,7 +200,7 @@ void NtpClock::stop() {
 }
 
 void NtpClock::syncOnce(const std::string& host) {
-    auto result = detail::queryNtp(host, kNtpPort);
+    auto result = detail::queryNtp(host);
     if (result) {
         offset_s_.store(*result, std::memory_order_relaxed);
         synced_.store(true, std::memory_order_relaxed);

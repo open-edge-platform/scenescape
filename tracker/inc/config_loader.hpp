@@ -62,7 +62,7 @@ struct ManagerConfig {
 constexpr int kDefaultNtpSyncIntervalS = 300;
 
 struct NtpConfig {
-    std::string server;              ///< NTP server hostname or IP
+    std::string server;                             ///< NTP server hostname or IP
     int sync_interval_s = kDefaultNtpSyncIntervalS; ///< Re-sync interval in seconds
 };
 
@@ -130,7 +130,7 @@ constexpr double kDefaultNonMeasurementTimeDynamicS = 0.8;
 constexpr double kDefaultNonMeasurementTimeStaticS = 1.6;
 
 struct TrackingConfig {
-    double max_lag_s = kDefaultMaxLagS;   ///< Max lag for detection frames (seconds)
+    double max_lag_s = kDefaultMaxLagS; ///< Max lag for detection frames (seconds)
     int time_chunking_rate_fps =
         kDefaultTimeChunkingRateFps;      ///< Chunk dispatch rate (frames per second)
     int max_workers = kDefaultMaxWorkers; ///< DoS protection: max worker threads (scene+category)

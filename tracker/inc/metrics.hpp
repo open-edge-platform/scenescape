@@ -46,9 +46,6 @@ inline constexpr const char* kMetricStageTransform = "tracker.stage.transform_du
 inline constexpr const char* kMetricStageTrack = "tracker.stage.track_duration";
 inline constexpr const char* kMetricStagePublish = "tracker.stage.publish_duration";
 
-/// Message timestamp-to-receive latency (wall-clock delta between stamped time and arrival)
-inline constexpr const char* kMetricMessageLatency = "tracker.message.latency";
-
 // Meter scope name
 inline constexpr const char* kMeterName = "tracker";
 
@@ -87,25 +84,13 @@ public:
     static void record_latency(double ms, MetricAttributes attrs = {});
 
     /**
-     * @brief Record per-stage latency histogram.
+     * @brief Record a per-stage latency histogram.
      * @param metric_name One of kMetricStage{Parse,Buffer,Queue,Track,Publish}
      * @param ms Duration in milliseconds
      * @param attrs Attributes (scene, camera_id or category)
      */
     static void record_stage_latency(const char* metric_name, double ms,
                                      MetricAttributes attrs = {});
-
-    /**
-     * @brief Record message timestamp-to-receive latency.
-     *
-     * Records the delta between the message's embedded timestamp and the
-     * clock_fn-adjusted receive time. Use this to observe pipeline latency
-     * and detect clock drift between the pipeline node and the tracker.
-     *
-     * @param ms Latency in milliseconds (can be negative if clocks diverge)
-     * @param attrs Attributes (camera_id, scene)
-     */
-    static void record_message_latency(double ms, MetricAttributes attrs = {});
 
     /**
      * @brief Increment the received messages counter.

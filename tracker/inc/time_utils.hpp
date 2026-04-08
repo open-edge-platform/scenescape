@@ -66,9 +66,9 @@ public:
      * — the second call is a no-op.
      *
      * @param host  NTP server hostname or IP (e.g. "pool.ntp.org")
-     * @param interval_s  Re-sync interval in seconds (default: 300)
+     * @param interval_s  Re-sync interval in seconds
      */
-    void start(const std::string& host, int interval_s = 300);
+    void start(const std::string& host, int interval_s);
 
     /**
      * @brief Stop background sync thread and join it.
