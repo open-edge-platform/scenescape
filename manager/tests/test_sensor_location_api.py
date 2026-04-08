@@ -7,10 +7,10 @@ import random
 import logging
 from http import HTTPStatus
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import WEB_ONLY
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="sensor_location_api", profile=WEB_ONLY,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 

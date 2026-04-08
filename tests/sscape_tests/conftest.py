@@ -60,6 +60,16 @@ if "manager" not in sys.modules and _manager_django_src.is_dir():
     sys.modules["manager.secrets"] = sec_mod
     sec_spec.loader.exec_module(sec_mod)
 
+  # templatetags live at manager/src/templatetags/ on the host but Django
+  # expects them at manager/templatetags/ (as a sub-package of the app).
+  _templatetags_dir = _repo_root / "manager" / "src" / "templatetags"
+  if _templatetags_dir.is_dir() and "manager.templatetags" not in sys.modules:
+    import types
+    tt_mod = types.ModuleType("manager.templatetags")
+    tt_mod.__path__ = [str(_templatetags_dir)]
+    tt_mod.__package__ = "manager.templatetags"
+    sys.modules["manager.templatetags"] = tt_mod
+
 os.environ.setdefault(
   "DJANGO_SETTINGS_MODULE",
   "tests.sscape_tests.settings_unittest",
@@ -72,3 +82,4 @@ except Exception:
   # Django setup may fail if optional deps are missing; let pytest
   # report the error per-test rather than blocking all collection.
   pass
+

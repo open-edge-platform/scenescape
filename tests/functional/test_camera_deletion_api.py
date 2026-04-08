@@ -12,7 +12,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="camera_deletion_api", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -135,7 +135,7 @@ class CameraDeletionTest(FunctionalTest):
 
     return
 
-def test_camera_deletion_main(request, record_xml_attribute):
+def test_camera_deletion_main(scenescape_env, request, record_xml_attribute):
   test = CameraDeletionTest(TEST_NAME, request, record_xml_attribute)
   test.testCameraDeletion()
   assert test.exitCode == 0

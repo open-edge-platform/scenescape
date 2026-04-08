@@ -13,10 +13,10 @@ import numpy as np
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import BROKER_WEB
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="manual_camera_calibration", profile=BROKER_WEB,
+  profile=FULL_STACK,
   require_password=True, auth="",
 )
 

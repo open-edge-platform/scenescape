@@ -14,7 +14,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import SCENE_NO_DB
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="scene_import_json", profile=SCENE_NO_DB,
+  profile=SCENE_NO_DB,
   auth=AUTH_CONTROLLER,
 )
 
@@ -97,6 +97,6 @@ class SceneControllerImportJSON(FunctionalTest):
 
     return self.exitCode
 
-def test_scene_controller_import_json(request, record_xml_attribute):
+def test_scene_controller_import_json(scenescape_env, request, record_xml_attribute):
   test = SceneControllerImportJSON(TEST_NAME, request, record_xml_attribute)
   assert test.runTest() == 0

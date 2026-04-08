@@ -9,10 +9,10 @@ from scene_common import log
 from tests.ui import UserInterfaceTest
 from tests.ui.browser import By
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import AUTO_CALIBRATION_UI
+from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="calibrate_camera_3d_ui_2d_ui", profile=AUTO_CALIBRATION_UI,
+  profile=FULL_STACK_AUTOCALIBRATION,
   require_password=True, auth="",
 )
 
@@ -132,7 +132,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
     return
 
 @common.mock_display
-def test_calibrate_camera_3d_ui_2d_ui(request, record_xml_attribute):
+def test_calibrate_camera_3d_ui_2d_ui(scenescape_env, request, record_xml_attribute):
   """! Test to calibrate camera in 3D first and calibrate again camera in 2D using April Tag.
   @param    request                 List of test parameters.
   @param    record_xml_attribute    Function for recording test name.

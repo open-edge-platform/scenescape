@@ -25,7 +25,7 @@ from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import REID
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="reid_performance_degradation", profile=REID,
+  profile=REID,
 )
 
 TEST_NAME = "NEX-T10541"
@@ -172,7 +172,7 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
       self.recordTestResult()
     return
 
-def test_reid_performance_degradation(request, record_xml_attribute):
+def test_reid_performance_degradation(scenescape_env, request, record_xml_attribute):
   """! Test that the system hasn't suffered a significant performance degradation.
   @param    request                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.

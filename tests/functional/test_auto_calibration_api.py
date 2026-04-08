@@ -20,10 +20,10 @@ from tests.functional import FunctionalTest
 from scene_common import log
 from scene_common.rest_client import RESTClient
 from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
-from tests.utils.profiles import FULL_STACK_CALIBRATION
+from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="auto_calibration_api", profile=FULL_STACK_CALIBRATION,
+  profile=FULL_STACK_AUTOCALIBRATION,
   auth=AUTH_BROWSER,
   exampledb="tests/calibrationdb.tar.bz2",
 )
@@ -93,12 +93,12 @@ EXPECTED_RESULT_4 = {
 class AutoCalibration(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute,
                nTags, randomSelect, expected, expectedResult,
-               intrinsics=None):
+               intrinsics=None, repo_root=""):
     super().__init__(testName, request, recordXMLAttribute)
     self.scene_name = "Queuing"
     self.scene_id = '302cf49a-97ec-402d-a324-c5077b280b7b'
     self.camera_id = "atag-qcam1"
-    self.frame = "/workspace/tests/ui/test_media/atag-qcam1-frame.png"
+    self.frame = f"{repo_root}/tests/ui/test_media/atag-qcam1-frame.png"
     self.exitCode = 1
     self.nTags = nTags
     self.randomSelect = randomSelect
@@ -293,12 +293,12 @@ class AutoCalibration(FunctionalTest):
      [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
   ]
 )
-def test_auto_calibration(request, record_xml_attribute,
+def test_auto_calibration(scenescape_env, request, record_xml_attribute,
               test_name, n_tags, random_select,
-              expect_status, expected_result, intrinsics):
+              expect_status, expected_result, intrinsics, repo_root):
   test = AutoCalibration(test_name, request, record_xml_attribute,
              n_tags, random_select, expect_status,
-             expected_result, intrinsics=intrinsics)
+             expected_result, intrinsics=intrinsics, repo_root=repo_root)
   test.runAutoCalibration()
   assert test.exitCode == 0
   return test.exitCode

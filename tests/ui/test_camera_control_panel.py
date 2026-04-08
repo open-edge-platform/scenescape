@@ -10,10 +10,10 @@ from scene_common import log
 from tests.ui import UserInterfaceTest
 from tests.ui.browser import By, NoSuchElementException, WebDriverException
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import BROKER_WEB
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="3d_camera_control_panel", profile=BROKER_WEB,
+  profile=FULL_STACK,
   require_password=True, auth="",
 )
 
@@ -114,7 +114,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
     return
 
 @common.mock_display
-def test_switch_3d_camera_scene_camera(request, record_xml_attribute):
+def test_switch_3d_camera_scene_camera(scenescape_env, request, record_xml_attribute):
   """! Test toggle scene camera under 3D camera control.
   @param    request                 List of test parameters.
   @param    record_xml_attribute    Function for recording test name.

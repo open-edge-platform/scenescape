@@ -10,7 +10,7 @@ from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="view_3d_glb_file", profile=FULL_STACK,
+  profile=FULL_STACK,
   require_password=True, auth="",
 )
 

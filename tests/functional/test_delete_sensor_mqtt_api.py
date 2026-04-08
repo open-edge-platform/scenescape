@@ -14,7 +14,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="delete_sensor_mqtt_api", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -102,7 +102,7 @@ class SensorDeleteMqtt(SceneObjectMqtt):
       print(result.is_published())
     return error_code == 0
 
-def test_sensor_delete_mqtt(request, record_xml_attribute):
+def test_sensor_delete_mqtt(scenescape_env, request, record_xml_attribute):
   test = SensorDeleteMqtt(TEST_NAME, request, record_xml_attribute)
   test.runSensorMqttDelete()
   assert test.exitCode == 0

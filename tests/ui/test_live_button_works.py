@@ -13,7 +13,7 @@ from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="live_view_button", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
   require_password=True, auth="",
 )
 

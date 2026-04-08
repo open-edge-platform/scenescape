@@ -20,7 +20,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="show_telemetry_button", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
   auth=AUTH_CONTROLLER,
 )
 
@@ -80,7 +80,7 @@ class WillOurShipGo(UserInterfaceTest):
       self.recordTestResult()
     return
 
-def test_telemetry_button(request, record_xml_attribute):
+def test_telemetry_button(scenescape_env, request, record_xml_attribute):
   test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
   test.checkForMalfunctions()
   assert test.exitCode == 0

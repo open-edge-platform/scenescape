@@ -13,7 +13,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="camera_intrinsics_api", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -179,7 +179,7 @@ class CameraIntrinsicsTest(FunctionalTest):
 
     return
 
-def test_camera_intrinsics(request, record_xml_attribute):
+def test_camera_intrinsics(scenescape_env, request, record_xml_attribute):
   test = CameraIntrinsicsTest(TEST_NAME, request, record_xml_attribute)
   test.testCameraIntrinsics()
   assert test.exitCode == 0

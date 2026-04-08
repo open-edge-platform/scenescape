@@ -8,7 +8,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="mqtt_roi", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -27,7 +27,7 @@ def runROIMqttCreate(self):
     self.runSceneObjMqttFinally()
   return
 
-def test_roi_create(request, record_xml_attribute):
+def test_roi_create(scenescape_env, request, record_xml_attribute):
   test = SceneObjectMqtt(TEST_NAME, request, record_xml_attribute)
   runROIMqttCreate(test)
   assert test.exitCode == 0

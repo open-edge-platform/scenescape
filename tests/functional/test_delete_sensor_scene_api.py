@@ -13,7 +13,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="delete_sensor_scene_api", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -181,7 +181,7 @@ class DeleteSensorSceneTest(FunctionalTest):
 
     return
 
-def test_del_sensor_scene(request, record_xml_attribute):
+def test_del_sensor_scene(scenescape_env, request, record_xml_attribute):
   test = DeleteSensorSceneTest(TEST_NAME, request, record_xml_attribute)
   test.testDeleteSensorScene()
   assert test.exitCode == 0

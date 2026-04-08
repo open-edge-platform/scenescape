@@ -9,10 +9,10 @@ import pytest
 from scene_common import log
 from tests.functional.common_camera_bounds import CameraBounds, test_wait_time, check_interval
 from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
-from tests.utils.profiles import FULL_STACK_WITH_VIDEO
+from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="visibility_none", profile=FULL_STACK_WITH_VIDEO,
+  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
   auth=AUTH_BROWSER,
   extra_args=["--visibility_topic", "none"],
 )

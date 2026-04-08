@@ -17,7 +17,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="bounding_box", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
   auth=AUTH_BROWSER,
 )
 

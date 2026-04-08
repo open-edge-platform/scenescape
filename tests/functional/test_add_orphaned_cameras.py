@@ -11,7 +11,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="add_orphaned_cameras", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -91,7 +91,7 @@ class OrphanedCameraTest(FunctionalTest):
 
     return
 
-def test_orphaned_cameras(request, record_xml_attribute):
+def test_orphaned_cameras(scenescape_env, request, record_xml_attribute):
   test = OrphanedCameraTest(TEST_NAME, request, record_xml_attribute)
   test.verifyOrphanedCameras()
   assert test.exitCode == 0

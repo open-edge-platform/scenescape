@@ -22,10 +22,10 @@ from scene_common.timestamp import get_iso_time
 from scene_common import log
 from controller.vdms_adapter import VDMSDatabase, vdms
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import REID_DATA_FLOW
+from tests.utils.profiles import REID
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="reid_data_flow", profile=REID_DATA_FLOW,
+  profile=REID,
 )
 
 

@@ -7,17 +7,17 @@ import logging
 import random
 from http import HTTPStatus
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import WEB_ONLY
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="object_crud_api", profile=WEB_ONLY,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
 TEST_NAME = "NEX-T10429-API"
 
-def test_object_crud_api(rest, result_recorder):
-  file_paths = ["/workspace/tests/ui/test_media/box.glb", None]
+def test_object_crud_api(rest, result_recorder, repo_root):
+  file_paths = [f"{repo_root}/tests/ui/test_media/box.glb", None]
 
   for file_path in file_paths:
     object_name = "Test 3D Object"

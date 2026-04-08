@@ -11,10 +11,10 @@ import time
 import tests.common_test_utils as common
 from scene_common.mqtt import initializeMqttClient
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import BROKER_AND_DB
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="mqtt_auth", profile=BROKER_AND_DB,
+  profile=FULL_STACK,
   require_password=False, auth="",
 )
 
@@ -39,7 +39,7 @@ def on_message(mqttc, obj, msg):
   objects_detected += 1
 
 
-def test_mqtt_insecure_auth(record_xml_attribute):
+def test_mqtt_insecure_auth(scenescape_env, record_xml_attribute):
 
   TEST_NAME = "NEX-T10423_MQTT_INSECURE_AUTH"
   record_xml_attribute("name", TEST_NAME)

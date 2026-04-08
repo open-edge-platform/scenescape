@@ -6,18 +6,18 @@
 from http import HTTPStatus
 import logging
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import WEB_ONLY
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="add_delete_3d_object_api", profile=WEB_ONLY,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
 TEST_NAME = "NEX-T10428-API"
 
-def test_add_delete_3d_object_api(rest, result_recorder):
+def test_add_delete_3d_object_api(rest, result_recorder, repo_root):
   object_name = "3D Object"
-  file_path = "/workspace/tests/ui/test_media/box.glb"
+  file_path = f"{repo_root}/tests/ui/test_media/box.glb"
 
   # Create a 3d asset
   with open(file_path, "rb") as f:

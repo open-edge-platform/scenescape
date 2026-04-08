@@ -17,7 +17,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="delete_sensor_mqtt", profile=FULL_STACK,
+  profile=FULL_STACK,
   require_password=True, auth=AUTH_CONTROLLER,
 )
 

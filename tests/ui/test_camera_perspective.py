@@ -9,10 +9,10 @@ from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 from scene_common import log
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import BROKER_WEB
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="camera_perspective", profile=BROKER_WEB,
+  profile=FULL_STACK,
   require_password=True, auth="",
 )
 

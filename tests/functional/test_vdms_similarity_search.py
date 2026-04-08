@@ -8,10 +8,10 @@ import numpy as np
 from tests.functional.backend_functional import BackendFunctionalTest
 from scene_common import log
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import BROKER_VDMS_DB
+from tests.utils.profiles import REID
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="vdms_similarity_search", profile=BROKER_VDMS_DB,
+  profile=REID,
   auth=AUTH_CONTROLLER,
 )
 
@@ -83,7 +83,7 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
       "There should be only 2 entities returned!"
     return
 
-def test_vdms_similarity_search(request, record_xml_attribute):
+def test_vdms_similarity_search(scenescape_env, request, record_xml_attribute):
   """! Verify similarity search with RE-ID vectors using VDMS.
   @param    request                 Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.

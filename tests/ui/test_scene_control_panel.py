@@ -8,10 +8,10 @@ from scene_common import log
 import tests.ui.common_ui_test_utils as common
 from tests.ui.browser import By, Browser
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import BROKER_WEB
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="3d_scene_control_panel", profile=BROKER_WEB,
+  profile=FULL_STACK,
   require_password=True, auth="",
 )
 

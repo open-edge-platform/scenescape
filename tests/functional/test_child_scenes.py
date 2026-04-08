@@ -21,7 +21,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="child_scenes", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -232,7 +232,8 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
                                              child, \
                                              parent, \
                                              obj_cat, \
-                                             params):
+                                             params, \
+                                             repo_root):
   """! This function creates and updates the child scene. It also verifies that
   the data received from the parent is correct after applying different transforms based on the test
   cases provided above.
@@ -280,7 +281,7 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
   client.onMessage = on_message
   client.connect()
 
-  map_image = "/workspace/sample_data/HazardZoneSceneLarge.png"
+  map_image = f"{repo_root}/sample_data/HazardZoneSceneLarge.png"
   assert os.path.exists(map_image)
 
   try:

@@ -18,7 +18,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="geospatial_ingest_publish", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -41,8 +41,9 @@ MAP_RESOLUTION = [900, 643]
 MAP_SCALE = 100.0
 
 class GeospatialIngestPublish(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
+  def __init__(self, testName, request, recordXMLAttribute, repo_root):
     super().__init__(testName, request, recordXMLAttribute)
+    self.repoRoot = repo_root
 
     self.exitCode = 1
     self.outputLLA = False
@@ -205,7 +206,7 @@ class GeospatialIngestPublish(FunctionalTest):
     return
 
   def verifyPublish(self):
-    map_image = "/workspace/sample_data/HazardZoneSceneLarge.png"
+    map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
     with open(map_image, "rb") as f:
       map_data = f.read()
     print("Verifying base output has no lat_long_alt")
@@ -263,8 +264,8 @@ def _verifyLLA(detected_object):
   if not np.allclose(detected_object['lat_long_alt'], EXPECTED_DETECTION_LLA, rtol=1e-6):
     raise ValueError(f"LLA verification failed! Expected LLA: {EXPECTED_DETECTION_LLA}, got: {detected_object['lat_long_alt']}")
 
-def test_geospatial_ingest_publish(request, record_xml_attribute):
-  test = GeospatialIngestPublish(TEST_NAME, request, record_xml_attribute)
+def test_geospatial_ingest_publish(scenescape_env, request, record_xml_attribute, repo_root):
+  test = GeospatialIngestPublish(TEST_NAME, request, record_xml_attribute, repo_root)
   test.verifyFunction()
   assert test.exitCode == 0
   return

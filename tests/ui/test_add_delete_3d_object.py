@@ -6,14 +6,14 @@
 from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import BROKER_WEB
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="add_delete_3d_object", profile=BROKER_WEB,
+  profile=FULL_STACK,
   require_password=True, auth="",
 )
 
-def test_add_delete_3d_object(params, record_xml_attribute):
+def test_add_delete_3d_object(params, record_xml_attribute, repo_root):
   """! Checks that a 3D object can be both created and deleted using the web UI.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.
@@ -23,7 +23,7 @@ def test_add_delete_3d_object(params, record_xml_attribute):
   record_xml_attribute("name", TEST_NAME)
   PAGE_NAME = "Object Library"
   OBJECT_NAME = '3D Object'
-  FILE_TO_UPLOAD = "/workspace/tests/ui/test_media/box.glb"
+  FILE_TO_UPLOAD = f"{repo_root}/tests/ui/test_media/box.glb"
   exit_code = 1
   try:
     print("Executing: " + TEST_NAME)

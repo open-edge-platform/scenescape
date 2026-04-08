@@ -13,7 +13,7 @@ from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import REID
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="reid_unique_count", profile=REID,
+  profile=REID,
 )
 
 TEST_WAIT_TIME = 150

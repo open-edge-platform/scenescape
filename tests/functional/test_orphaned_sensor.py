@@ -12,7 +12,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="orphaned_sensor", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -91,7 +91,7 @@ class OrphanedSensorTest(FunctionalTest):
 
     return
 
-def test_orphaned_sensors(request, record_xml_attribute):
+def test_orphaned_sensors(scenescape_env, request, record_xml_attribute):
   test = OrphanedSensorTest(TEST_NAME, request, record_xml_attribute)
   test.verifyOrphanedSensors()
   assert test.exitCode == 0

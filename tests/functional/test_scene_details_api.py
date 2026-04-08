@@ -10,7 +10,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="scene_details_api", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
   auth=AUTH_CONTROLLER,
 )
 

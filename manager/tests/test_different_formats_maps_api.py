@@ -7,10 +7,10 @@ import os
 import logging
 from http import HTTPStatus
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import WEB_ONLY
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="different_formats_maps_api", profile=WEB_ONLY,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 

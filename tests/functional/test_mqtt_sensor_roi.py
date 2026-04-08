@@ -14,7 +14,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="mqtt_sensor_roi", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -281,7 +281,7 @@ class SensorMqttRoi(SceneObjectMqtt):
       end_idx += 1
     return start_idx, end_idx
 
-def test_sensor_roi_mqtt(request, record_xml_attribute):
+def test_sensor_roi_mqtt(scenescape_env, request, record_xml_attribute):
   test = SensorMqttRoi(TEST_NAME, request, SENSOR_DELAY, record_xml_attribute)
   test.runROIMqtt()
   assert test.exitCode == 0

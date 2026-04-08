@@ -16,7 +16,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="mqtt_tripwire", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -188,7 +188,7 @@ class WillOurShipGo(SceneObjectMqtt):
       self.recordTestResult()
     return
 
-def test_sensor_region_events(request, record_xml_attribute):
+def test_sensor_region_events(scenescape_env, request, record_xml_attribute):
   test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
   test.checkForMalfunctions()
   assert test.exitCode == 0

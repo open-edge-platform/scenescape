@@ -8,18 +8,19 @@ from tests.functional import FunctionalTest
 from http import HTTPStatus
 from scene_common.rest_client import RESTClient
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import WEB_ONLY
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="superuser_crud_operations_api", profile=WEB_ONLY,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
 TEST_NAME = "NEX-T10418-API"
 
 class CRUDPermissionsTest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
+  def __init__(self, testName, request, recordXMLAttribute, repo_root):
     super().__init__(testName, request, recordXMLAttribute)
+    self.repoRoot = repo_root
     self.scene_uid = None
     self.camera_uid = None
     self.test_user = "testuser"
@@ -44,7 +45,7 @@ class CRUDPermissionsTest(FunctionalTest):
     if existing:
       self.rest_admin.deleteScene(existing[0]["uid"])
 
-    map_image = "/workspace/sample_data/HazardZoneSceneLarge.png"
+    map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
     assert os.path.exists(map_image), f"Map image not found: {map_image}"
     with open(map_image, "rb") as f:
       map_data = f.read()
@@ -144,8 +145,8 @@ class CRUDPermissionsTest(FunctionalTest):
     finally:
       self.tearDown()
 
-def test_crud_operations_api(request, record_xml_attribute):
-  test = CRUDPermissionsTest(TEST_NAME, request, record_xml_attribute)
+def test_crud_operations_api(scenescape_env, request, record_xml_attribute, repo_root):
+  test = CRUDPermissionsTest(TEST_NAME, request, record_xml_attribute, repo_root)
   record_xml_attribute("name", TEST_NAME)
   ok = False
   try:
