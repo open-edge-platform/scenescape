@@ -6,8 +6,14 @@
 #include "logger.hpp"
 #include "time_utils.hpp"
 
+#include <arpa/inet.h>
 #include <chrono>
+#include <cstring>
+#include <netinet/in.h>
 #include <string>
+#include <sys/socket.h>
+#include <thread>
+#include <unistd.h>
 
 namespace tracker {
 namespace {
@@ -243,6 +249,246 @@ TEST_F(NtpClockTest, DestructorWithActiveThread_DoesNotHang) {
         // destructor calls stop() and joins the thread
     }
     SUCCEED(); // reaching here means no deadlock
+}
+
+// ---------------------------------------------------------------------------
+// FakeNtpServer — minimal UDP NTP server for unit testing queryNtp
+// ---------------------------------------------------------------------------
+
+/// NTP epoch offset: seconds between 1900-01-01 and 1970-01-01
+constexpr uint32_t kNtpUnixDelta = 2208988800U;
+
+/**
+ * @brief Build a 48-byte NTP reply packet with the given stratum and server timestamps.
+ *
+ * @param stratum  NTP stratum byte (0 = KoD, 1-15 = valid, 16 = unsynchronized)
+ * @param t2_unix  Server receive timestamp (Unix seconds, double)
+ * @param t3_unix  Server transmit timestamp (Unix seconds, double)
+ */
+std::array<uint8_t, 48> make_ntp_reply(uint8_t stratum, double t2_unix, double t3_unix) {
+    std::array<uint8_t, 48> pkt{};
+    pkt[0] = 0x24; // LI=0, VN=4, Mode=4 (server)
+    pkt[1] = stratum;
+
+    auto encode = [](uint8_t* dst, double unix_time) {
+        double ntp_time = unix_time + static_cast<double>(kNtpUnixDelta);
+        uint32_t sec = static_cast<uint32_t>(ntp_time);
+        uint32_t frac = static_cast<uint32_t>((ntp_time - sec) * 4294967296.0);
+        // Write big-endian (network byte order)
+        dst[0] = (sec >> 24) & 0xFF;
+        dst[1] = (sec >> 16) & 0xFF;
+        dst[2] = (sec >> 8) & 0xFF;
+        dst[3] = sec & 0xFF;
+        dst[4] = (frac >> 24) & 0xFF;
+        dst[5] = (frac >> 16) & 0xFF;
+        dst[6] = (frac >> 8) & 0xFF;
+        dst[7] = frac & 0xFF;
+    };
+
+    encode(pkt.data() + 32, t2_unix); // T2: server receive timestamp
+    encode(pkt.data() + 40, t3_unix); // T3: server transmit timestamp
+    return pkt;
+}
+
+/**
+ * @brief Minimal single-shot fake NTP UDP server for testing queryNtp.
+ *
+ * Binds on 127.0.0.1:0 (OS picks a free port), waits for one incoming
+ * NTP request, and replies with the injected packet. Runs in a background
+ * thread. Call join() before destroying.
+ */
+class FakeNtpServer {
+public:
+    FakeNtpServer() {
+        sock_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        EXPECT_GE(sock_, 0);
+
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        addr.sin_port = 0; // OS picks free port
+        EXPECT_EQ(bind(sock_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)), 0);
+
+        socklen_t len = sizeof(addr);
+        EXPECT_EQ(getsockname(sock_, reinterpret_cast<sockaddr*>(&addr), &len), 0);
+        port_ = ntohs(addr.sin_port);
+    }
+
+    ~FakeNtpServer() {
+        if (sock_ >= 0) close(sock_);
+    }
+
+    int port() const { return port_; }
+
+    /// Start background thread that receives one request and sends reply.
+    void serve_once(std::array<uint8_t, 48> reply) {
+        thread_ = std::thread([this, reply]() {
+            uint8_t buf[48];
+            sockaddr_in client{};
+            socklen_t clen = sizeof(client);
+            ssize_t n = recvfrom(sock_, buf, sizeof(buf), 0,
+                                 reinterpret_cast<sockaddr*>(&client), &clen);
+            if (n > 0) {
+                sendto(sock_, reply.data(), 48, 0,
+                       reinterpret_cast<sockaddr*>(&client), clen);
+            }
+        });
+    }
+
+    void join() {
+        if (thread_.joinable()) thread_.join();
+    }
+
+private:
+    int sock_ = -1;
+    int port_ = 0;
+    std::thread thread_;
+};
+
+// ---------------------------------------------------------------------------
+// queryNtp — stratum guard tests
+// ---------------------------------------------------------------------------
+
+class QueryNtpTest : public ::testing::Test {
+protected:
+    void SetUp() override { Logger::init("warn"); }
+    void TearDown() override { Logger::shutdown(); }
+};
+
+TEST_F(QueryNtpTest, KoD_Stratum0_ReturnsNullopt) {
+    double now = std::chrono::duration<double>(
+                     std::chrono::system_clock::now().time_since_epoch()).count();
+    FakeNtpServer srv;
+    srv.serve_once(make_ntp_reply(0, now, now));
+    auto result = detail::queryNtp("127.0.0.1", srv.port());
+    srv.join();
+    EXPECT_FALSE(result.has_value()) << "Stratum 0 (KoD) should be rejected";
+}
+
+TEST_F(QueryNtpTest, ValidStratum1_ReturnsOffset) {
+    double now = std::chrono::duration<double>(
+                     std::chrono::system_clock::now().time_since_epoch()).count();
+    FakeNtpServer srv;
+    srv.serve_once(make_ntp_reply(1, now, now));
+    auto result = detail::queryNtp("127.0.0.1", srv.port());
+    srv.join();
+    ASSERT_TRUE(result.has_value()) << "Stratum 1 should be accepted";
+    EXPECT_NEAR(*result, 0.0, 0.5); // on loopback, offset ≈ 0
+}
+
+TEST_F(QueryNtpTest, ValidStratum15_ReturnsOffset) {
+    double now = std::chrono::duration<double>(
+                     std::chrono::system_clock::now().time_since_epoch()).count();
+    FakeNtpServer srv;
+    srv.serve_once(make_ntp_reply(15, now, now));
+    auto result = detail::queryNtp("127.0.0.1", srv.port());
+    srv.join();
+    ASSERT_TRUE(result.has_value()) << "Stratum 15 (upper valid boundary) should be accepted";
+    EXPECT_NEAR(*result, 0.0, 0.5);
+}
+
+TEST_F(QueryNtpTest, Unsynchronized_Stratum16_ReturnsOffset) {
+    // Stratum 16 = no upstream reference, but server still serves its own
+    // system clock. Valid for inter-container alignment (e.g. chrony without
+    // internet access). Must NOT be rejected.
+    double now = std::chrono::duration<double>(
+                     std::chrono::system_clock::now().time_since_epoch()).count();
+    FakeNtpServer srv;
+    srv.serve_once(make_ntp_reply(16, now, now));
+    auto result = detail::queryNtp("127.0.0.1", srv.port());
+    srv.join();
+    ASSERT_TRUE(result.has_value()) << "Stratum 16 should be accepted (local clock reference)";
+    EXPECT_NEAR(*result, 0.0, 0.5);
+}
+
+TEST_F(QueryNtpTest, Unsynchronized_Stratum17_ReturnsNullopt) {
+    // Stratum > 16 is undefined / garbage in RFC 5905
+    double now = std::chrono::duration<double>(
+                     std::chrono::system_clock::now().time_since_epoch()).count();
+    FakeNtpServer srv;
+    srv.serve_once(make_ntp_reply(17, now, now));
+    auto result = detail::queryNtp("127.0.0.1", srv.port());
+    srv.join();
+    EXPECT_FALSE(result.has_value()) << "Stratum 17 (undefined) should be rejected";
+}
+
+// ---------------------------------------------------------------------------
+// queryNtp — offset sanity guard tests
+// ---------------------------------------------------------------------------
+
+TEST_F(QueryNtpTest, HugePositiveOffset_ReturnsNullopt) {
+    // T2/T3 set ~25 years in the future — exceeds 1-year sanity limit
+    double now = std::chrono::duration<double>(
+                     std::chrono::system_clock::now().time_since_epoch()).count();
+    double far_future = now + 25.0 * 365.25 * 24 * 3600;
+    FakeNtpServer srv;
+    srv.serve_once(make_ntp_reply(1, far_future, far_future));
+    auto result = detail::queryNtp("127.0.0.1", srv.port());
+    srv.join();
+    EXPECT_FALSE(result.has_value()) << "Offset > 1 year should be rejected";
+}
+
+TEST_F(QueryNtpTest, HugeNegativeOffset_ReturnsNullopt) {
+    // T2/T3 set ~25 years in the past — exceeds 1-year sanity limit
+    double now = std::chrono::duration<double>(
+                     std::chrono::system_clock::now().time_since_epoch()).count();
+    double far_past = now - 25.0 * 365.25 * 24 * 3600;
+    FakeNtpServer srv;
+    srv.serve_once(make_ntp_reply(1, far_past, far_past));
+    auto result = detail::queryNtp("127.0.0.1", srv.port());
+    srv.join();
+    EXPECT_FALSE(result.has_value()) << "Offset < -1 year should be rejected";
+}
+
+TEST_F(QueryNtpTest, JustUnderOneYear_ReturnsOffset) {
+    // T2/T3 set 364 days ahead — within the 1-year limit, should be accepted
+    double now = std::chrono::duration<double>(
+                     std::chrono::system_clock::now().time_since_epoch()).count();
+    double nearly_a_year = now + 364.0 * 24 * 3600;
+    FakeNtpServer srv;
+    srv.serve_once(make_ntp_reply(1, nearly_a_year, nearly_a_year));
+    auto result = detail::queryNtp("127.0.0.1", srv.port());
+    srv.join();
+    ASSERT_TRUE(result.has_value()) << "Offset just under 1 year should be accepted";
+    EXPECT_NEAR(*result, 364.0 * 24 * 3600, 1.0);
+}
+
+// NOTE: The T4 < T1 clock-discontinuity guard cannot be reliably triggered
+// via the fake server because T1 and T4 are real system_clock captures that
+// bracket the actual socket send/recv. Testing this path requires injecting
+// a controllable clock into queryNtp — deferred as a future refactor.
+
+// ---------------------------------------------------------------------------
+// queryNtp — end-to-end offset calculation (simulated time drift)
+// ---------------------------------------------------------------------------
+
+TEST_F(QueryNtpTest, OffsetCalculation_SystemBehindNtp) {
+    // Simulate: NTP server clock is 5 seconds ahead of local clock.
+    // The server stamps T2=T3=local_now+5. With negligible loopback RTT,
+    // offset = ((T2-T1) + (T3-T4)) / 2 ≈ +5.0 s.
+    double now = std::chrono::duration<double>(
+                     std::chrono::system_clock::now().time_since_epoch()).count();
+    double server_time = now + 5.0;
+    FakeNtpServer srv;
+    srv.serve_once(make_ntp_reply(1, server_time, server_time));
+    auto result = detail::queryNtp("127.0.0.1", srv.port());
+    srv.join();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_NEAR(*result, 5.0, 0.1) << "Local clock 5s behind NTP: offset should be ~+5s";
+}
+
+TEST_F(QueryNtpTest, OffsetCalculation_SystemAheadOfNtp) {
+    // Simulate: NTP server clock is 5 seconds behind local clock.
+    // The server stamps T2=T3=local_now-5. Offset ≈ -5.0 s.
+    double now = std::chrono::duration<double>(
+                     std::chrono::system_clock::now().time_since_epoch()).count();
+    double server_time = now - 5.0;
+    FakeNtpServer srv;
+    srv.serve_once(make_ntp_reply(1, server_time, server_time));
+    auto result = detail::queryNtp("127.0.0.1", srv.port());
+    srv.join();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_NEAR(*result, -5.0, 0.1) << "Local clock 5s ahead of NTP: offset should be ~-5s";
 }
 
 } // namespace

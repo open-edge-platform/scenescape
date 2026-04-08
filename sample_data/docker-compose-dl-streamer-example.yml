@@ -107,6 +107,10 @@ services:
     #   - 123:123/udp
     restart: unless-stopped
     pids_limit: 1000
+    environment:
+      # Fallback to local system clock (stratum 10) when external NTP pools are unreachable.
+      # Chrony automatically prioritizes: external pools first, then local stratum if external fails.
+      - NTP_DIRECTIVES=local stratum 10
 
   broker:
     image: eclipse-mosquitto:2.0.22

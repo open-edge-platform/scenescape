@@ -4,7 +4,6 @@
 #include "time_utils.hpp"
 #include "logger.hpp"
 
-#include <arpa/inet.h>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -37,6 +36,10 @@ constexpr int kNtpPort = 123;
 constexpr int kNtpPacketSize = 48;
 constexpr int kNtpSocketTimeoutMs = 2000;
 
+} // namespace
+
+namespace detail {
+
 /**
  * @brief Perform a single NTP exchange and return the measured offset in seconds.
  *
@@ -45,9 +48,10 @@ constexpr int kNtpSocketTimeoutMs = 2000;
  *   offset = ((T2 - T1) + (T3 - T4)) / 2
  *
  * @param host NTP server hostname or IP
+ * @param port NTP server UDP port (default: 123)
  * @return Offset in seconds (positive = local clock is behind), or nullopt on error
  */
-std::optional<double> queryNtp(const std::string& host) {
+std::optional<double> queryNtp(const std::string& host, int port) {
     // Resolve hostname
     addrinfo hints{};
     hints.ai_family = AF_INET;
@@ -55,8 +59,9 @@ std::optional<double> queryNtp(const std::string& host) {
     hints.ai_protocol = IPPROTO_UDP;
 
     addrinfo* res = nullptr;
-    if (getaddrinfo(host.c_str(), std::to_string(kNtpPort).c_str(), &hints, &res) != 0 ||
+    if (getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &res) != 0 ||
         res == nullptr) {
+        LOG_DEBUG("NTP query failed: cannot resolve host '{}' (port={})", host, port);
         return std::nullopt;
     }
     // RAII cleanup
@@ -67,6 +72,7 @@ std::optional<double> queryNtp(const std::string& host) {
 
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock < 0) {
+        LOG_DEBUG("NTP query failed: cannot create UDP socket (errno={})", errno);
         return std::nullopt;
     }
 
@@ -84,6 +90,7 @@ std::optional<double> queryNtp(const std::string& host) {
     auto t1 = std::chrono::system_clock::now();
 
     if (sendto(sock, packet, kNtpPacketSize, 0, res->ai_addr, res->ai_addrlen) < 0) {
+        LOG_DEBUG("NTP query failed: sendto error (errno={})", errno);
         close(sock);
         return std::nullopt;
     }
@@ -95,24 +102,42 @@ std::optional<double> queryNtp(const std::string& host) {
     close(sock);
 
     if (n < kNtpPacketSize) {
+        LOG_DEBUG("NTP query failed: short/no reply (got {} bytes, expected {}, errno={})",
+                  n, kNtpPacketSize, errno);
         return std::nullopt;
     }
 
-    // Extract T2 (receive timestamp at server) from bytes 32-39
-    uint32_t t2_sec = ntohl(static_cast<uint32_t>(reply[32]) << 24 |
-                            static_cast<uint32_t>(reply[33]) << 16 |
-                            static_cast<uint32_t>(reply[34]) << 8 | reply[35]);
-    uint32_t t2_frac = ntohl(static_cast<uint32_t>(reply[36]) << 24 |
-                             static_cast<uint32_t>(reply[37]) << 16 |
-                             static_cast<uint32_t>(reply[38]) << 8 | reply[39]);
+    // Stratum 0 = Kiss-o'-Death: the server explicitly says "do not use my time".
+    // Stratum 1-15 = normal primary or secondary reference clocks.
+    // Stratum 16 means the server has no upstream reference but still serves its
+    // own system clock — valid for inter-container alignment where ntpserv acts
+    // as the shared reference rather than a public internet NTP source.
+    // Stratum 17+ = undefined/garbage per RFC 5905 — reject these.
+    uint8_t stratum = reply[1];
+    LOG_INFO("NTP server {} responded with stratum={}", host, stratum);
+    if (stratum == 0 || stratum > 16) {
+        LOG_DEBUG("NTP query failed: invalid stratum={} (0=KoD, >16=undefined), host={}", stratum, host);
+        return std::nullopt;
+    }
+
+    // Extract T2 (receive timestamp at server) from bytes 32-39.
+    // The manual bit-shift construction already converts from network (big-endian)
+    // byte order to host byte order — do NOT apply ntohl() here, that would
+    // double-swap on little-endian (x86) and produce a ~20-year offset error.
+    uint32_t t2_sec = static_cast<uint32_t>(reply[32]) << 24 |
+                      static_cast<uint32_t>(reply[33]) << 16 |
+                      static_cast<uint32_t>(reply[34]) << 8 | reply[35];
+    uint32_t t2_frac = static_cast<uint32_t>(reply[36]) << 24 |
+                       static_cast<uint32_t>(reply[37]) << 16 |
+                       static_cast<uint32_t>(reply[38]) << 8 | reply[39];
 
     // Extract T3 (transmit timestamp at server) from bytes 40-47
-    uint32_t t3_sec = ntohl(static_cast<uint32_t>(reply[40]) << 24 |
-                            static_cast<uint32_t>(reply[41]) << 16 |
-                            static_cast<uint32_t>(reply[42]) << 8 | reply[43]);
-    uint32_t t3_frac = ntohl(static_cast<uint32_t>(reply[44]) << 24 |
-                             static_cast<uint32_t>(reply[45]) << 16 |
-                             static_cast<uint32_t>(reply[46]) << 8 | reply[47]);
+    uint32_t t3_sec = static_cast<uint32_t>(reply[40]) << 24 |
+                      static_cast<uint32_t>(reply[41]) << 16 |
+                      static_cast<uint32_t>(reply[42]) << 8 | reply[43];
+    uint32_t t3_frac = static_cast<uint32_t>(reply[44]) << 24 |
+                       static_cast<uint32_t>(reply[45]) << 16 |
+                       static_cast<uint32_t>(reply[46]) << 8 | reply[47];
 
     // Convert NTP timestamps to seconds since Unix epoch
     auto ntp_to_unix = [](uint32_t sec, uint32_t frac) -> double {
@@ -125,11 +150,28 @@ std::optional<double> queryNtp(const std::string& host) {
     double d_t3 = ntp_to_unix(t3_sec, t3_frac);
     double d_t4 = std::chrono::duration<double>(t4.time_since_epoch()).count();
 
+    // Detect local clock discontinuity during the exchange (e.g. Chrony step correction).
+    // If T4 < T1 the system clock jumped backwards; the RTT and offset are meaningless.
+    if (d_t4 < d_t1) {
+        LOG_DEBUG("NTP query failed: clock jumped backwards during exchange (T4<T1), host={}", host);
+        return std::nullopt;
+    }
+
     // RFC 5905 offset formula: offset = ((T2 - T1) + (T3 - T4)) / 2
-    return ((d_t2 - d_t1) + (d_t3 - d_t4)) / 2.0;
+    double offset = ((d_t2 - d_t1) + (d_t3 - d_t4)) / 2.0;
+
+    // Sanity-check: reject offsets implausibly large (> 1 year).
+    // Values this extreme indicate a misconfigured or unsynchronized NTP server.
+    constexpr double kMaxPlausibleOffsetS = 365.25 * 24 * 3600; // 1 year in seconds
+    if (std::abs(offset) > kMaxPlausibleOffsetS) {
+        LOG_DEBUG("NTP query failed: offset={:.1f}s exceeds 1-year sanity limit, host={}", offset, host);
+        return std::nullopt;
+    }
+
+    return offset;
 }
 
-} // namespace
+} // namespace detail
 
 NtpClock::~NtpClock() {
     stop();
@@ -159,7 +201,7 @@ void NtpClock::stop() {
 }
 
 void NtpClock::syncOnce(const std::string& host) {
-    auto result = queryNtp(host);
+    auto result = detail::queryNtp(host, kNtpPort);
     if (result) {
         offset_s_.store(*result, std::memory_order_relaxed);
         synced_.store(true, std::memory_order_relaxed);

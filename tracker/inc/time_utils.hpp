@@ -140,4 +140,16 @@ parseTimestamp(const std::string& timestamp_iso);
  */
 std::string formatTimestamp(std::chrono::system_clock::time_point tp);
 
+/**
+ * @brief Internal NTP query implementation — exposed for unit testing.
+ *
+ * Performs a single NTP exchange with the given host:port and returns the
+ * clock offset in seconds (positive = local clock is behind the server).
+ * Returns nullopt on any network error, KoD response, clock discontinuity,
+ * or implausibly large offset.
+ */
+namespace detail {
+std::optional<double> queryNtp(const std::string& host, int port = 123);
+} // namespace detail
+
 } // namespace tracker
