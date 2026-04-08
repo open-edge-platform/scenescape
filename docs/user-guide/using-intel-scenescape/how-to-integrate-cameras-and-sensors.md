@@ -125,7 +125,7 @@ All sensor and camera messages share two properties: timestamp and ID.
    }
    ```
 
-   > **Note:** Bounding boxes are in normalized image space. For more information on how to transform pixel-based bounding boxes, see [convert-object-detections-to-normalized-image-space.md](../additional-resources/convert-object-detections-to-normalized-image-space.md).
+   > **Note:** Bounding boxes are in normalized image space. For more information on how to transform pixel-based bounding boxes, see [how Intel® SceneScape converts Pixel-Based Bounding Boxes to Normalized Image Space](../additional-resources/convert-object-detections-to-normalized-image-space.md).
 
 2. **3D Detections from Cameras and Other Sensors**
    Sometimes sensors and AI models provide 3D detections instead of 2D detections. 3D detections may be directly measured by sensors (e.g. GPS), inferred from 2D data (e.g. monocular images), and/or inferred from 3D data (e.g. point clouds). In those cases a 3D bounding box (i.e. cuboid) can be provided like in the example below:
