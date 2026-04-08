@@ -1,250 +1,1199 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-asyncapi: "2.6.0"
+asyncapi: 3.1.0
+
 info:
-  title: Scenescape MQTT API - Scene Controller Service
-  version: "1.0.0"
+  title: Intel SceneScape MQTT API - Scene Controller Service
+  version: 1.0.0
   description: |
-    The Scene Controller service is responsible for real-time scene tracking and event generation.
+    The **Scene Controller** is the real-time tracking and event-generation
+    core of Intel® SceneScape. It fuses camera detections and sensor readings
+    into a unified 3-D scene model and publishes tracked objects and events
+    over MQTT.
 
-    Flow Description:
-    - The Scene Controller `subscribes` to camera data from `scenescape/data/camera/{camera_id}`.
-    - It also `subscribes` to external `sensor data` from `scenescape/data/sensor/{sensor_id}` to enhance scene awareness.
-    - It processes live camera detections into `scene objects`.
-    - It `publishes` unregulated tracking results to `scenescape/data/scene/{scene_id}/{thing_type}` for each object type (e.g., person, vehicle).
-    - It `publishes` regulated (filtered or validated) track results to `scenescape/regulated/scene/{scene_id}`.
-    - Based on scene and sensor inputs, it **detects events** and **publishes** event notifications to `scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}`.
+    ### Data Flow
 
+    1. **Receive** camera detections on `scenescape/data/camera/{camera_id}`.
+    2. **Receive** sensor readings on `scenescape/data/sensor/{sensor_id}`.
+    3. **Publish** per-category tracking results (unregulated) on
+       `scenescape/data/scene/{scene_id}/{thing_type}`.
+    4. **Publish** rate-controlled tracking results (regulated) on
+       `scenescape/regulated/scene/{scene_id}`.
+    5. **Publish** region / tripwire events on
+       `scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}`.
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+  tags:
+    - name: input
+      description: Messages received by the Scene Controller
+    - name: tracking
+      description: Tracked-object output messages
+    - name: events
+      description: Region and tripwire event notifications
+  externalDocs:
+    description: Scene Controller Data Formats reference
+    url: https://github.com/open-edge-platform/scenescape/blob/main/docs/user-guide/microservices/controller/data_formats.md
+
+defaultContentType: application/json
+
+servers:
+  mosquitto:
+    host: "{broker_host}:{broker_port}"
+    protocol: mqtt
+    protocolVersion: "3.1.1"
+    description: >-
+      Mosquitto MQTT broker used by SceneScape services. TLS is required in
+      production; certificates are generated via `make init-secrets`.
+    variables:
+      broker_host:
+        default: broker
+        description: Hostname of the MQTT broker container.
+      broker_port:
+        default: "1883"
+        description: MQTT listener port (1883 plain, 8883 TLS).
+    security:
+      - $ref: "#/components/securitySchemes/x509"
+
+# ---------------------------------------------------------------------------
+# Channels
+# ---------------------------------------------------------------------------
 channels:
-  scenescape/data/camera/{camera_id}:
+  # ---- Input channels (Scene Controller subscribes) ----
+
+  cameraData:
+    address: scenescape/data/camera/{camera_id}
+    title: Camera Detection Input
+    summary: Per-camera detection metadata from visual-analytics pipelines.
+    description: |
+      The Scene Controller subscribes to this channel to receive object
+      detections produced by DL Streamer or equivalent inference pipelines.
+
+      Messages are validated against the `detector` definition in
+      [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
     parameters:
       camera_id:
-        description: Camera identifier
-        schema:
-          type: string
-    subscribe:
-      summary: Scene Controller subscribes to live camera data
-      message:
-        payload:
-          type: object
-          properties:
-            timestamp:
-              type: string
-              format: date-time
-            debug_timestamp_end:
-              type: string
-              format: date-time
-            debug_mac:
-              type: string
-            id:
-              type: string
-            objects:
-              type: object
-              additionalProperties:
-                type: array
-                items:
-                  type: object
-            rate:
-              type: number
-              minimum: 0
-            intrinsics:
-              type: object
-              properties:
-                fx:
-                  type: number
-                fy:
-                  type: number
-                cx:
-                  type: number
-                cy:
-                  type: number
-            distortion:
-              type: object
-              description: >-
-                Lens distortion coefficients keyed by name.
-              properties:
-                k1:
-                  type: number
-                k2:
-                  type: number
-                p1:
-                  type: number
-                p2:
-                  type: number
-                k3:
-                  type: number
+        description: >-
+          Camera identifier. Must match the camera ID provisioned in the
+          SceneScape Manager.
+        examples:
+          - atag-qcam1
+          - cam-lobby-north
+    messages:
+      cameraDetectionMessage:
+        $ref: "#/components/messages/cameraDetectionMessage"
+    tags:
+      - $ref: "#/components/tags/input"
 
-  scenescape/regulated/scene/{scene_id}:
-    parameters:
-      scene_id:
-        description: Scene identifier
-        schema:
-          type: string
-    publish:
-      summary: Scene Controller publishes regulated track data
-      message:
-        payload:
-          type: object
-          properties:
-            timestamp:
-              type: string
-              format: date-time
-            id:
-              type: string
-            name:
-              type: string
-            scene_rate:
-              type: number
-              minimum: 0
-            rate:
-              type: object
-              additionalProperties:
-                type: number
-            objects:
-              type: array
-              description: >-
-                Array of tracked scene objects. Each object includes fields such as
-                `id`, `translation`, `velocity`, `visibility`, `regions`, `sensors`,
-                `metadata`, and more.
-              items:
-                type: object
+  sensorData:
+    address: scenescape/data/sensor/{sensor_id}
+    title: Sensor Reading Input
+    summary: Scalar sensor readings from physical or virtual sensors.
+    description: |
+      The Scene Controller subscribes to this channel to receive sensor data
+      (temperature, humidity, badge swipes, etc.). Sensor values are tagged
+      onto tracked objects that overlap the sensor's configured measurement
+      area.
 
-  scenescape/data/scene/{scene_id}/{thing_type}:
-    parameters:
-      scene_id:
-        description: Scene identifier
-        schema:
-          type: string
-      thing_type:
-        description: Type of object (e.g., person, car)
-        schema:
-          type: string
-    publish:
-      summary: Scene Controller publishes unregulated track data
-      message:
-        payload:
-          type: object
-          properties:
-            timestamp:
-              type: string
-              format: date-time
-            id:
-              type: string
-            name:
-              type: string
-            rate:
-              type: number
-              minimum: 0
-            unique_detection_count:
-              type: integer
-              minimum: 0
-            objects:
-              type: array
-              description: >-
-                Array of tracked scene objects. Each object includes fields such as
-                `id`, `translation`, `velocity`, `visibility`, `regions`, `sensors`,
-                `metadata`, and more.
-              items:
-                type: object
-
-  scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}:
-    parameters:
-      region_type:
-        description: Region, sensor, or tripwire type
-        schema:
-          type: string
-      scene_id:
-        description: Scene identifier
-        schema:
-          type: string
-      region_id:
-        description: Region, sensor, or tripwire identifier
-        schema:
-          type: string
-      event_type:
-        description: Event type
-        schema:
-          type: string
-    publish:
-      summary: Scene Controller publishes scene event messages
-      message:
-        payload:
-          type: object
-          properties:
-            timestamp:
-              type: string
-              format: date-time
-            scene_id:
-              type: string
-            scene_name:
-              type: string
-            region_id:
-              type: string
-              description: Present in region events
-            region_name:
-              type: string
-              description: Present in region events
-            tripwire_id:
-              type: string
-              description: Present in tripwire events
-            tripwire_name:
-              type: string
-              description: Present in tripwire events
-            counts:
-              type: object
-              additionalProperties:
-                type: integer
-            objects:
-              type: array
-              items:
-                type: object
-            entered:
-              type: array
-              items:
-                type: object
-              description: >-
-                Objects that entered the region during this cycle. In region events, each element is a bare
-                track object. In tripwire events, this array is always empty. May be
-                empty in region events when no entry occurred.
-            exited:
-              type: array
-              items:
-                type: object
-              description: >-
-                Objects that exited the region during this cycle. In region events, each element has shape
-                {"object": <track>, "dwell": <seconds>}. In tripwire events, this
-                array is always empty. May be empty in region events when no exit
-                occurred.
-            metadata:
-              type: object
-              description: >-
-                Region or tripwire geometry. Region events include: title, uuid, points
-                (polygon vertices), area, fromSensor. Tripwire events include: title,
-                uuid, points (two endpoints).
-
-  scenescape/data/sensor/{sensor_id}:
+      Messages are validated against the `singleton` definition in
+      [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
     parameters:
       sensor_id:
-        description: Sensor identifier
-        schema:
-          type: string
-    subscribe:
-      summary: Scene Controller subscribes to sensor data
-      message:
-        payload:
-          type: object
-          properties:
-            timestamp:
-              type: string
-              format: date-time
-            id:
-              type: string
-            value:
-              description: >-
-                Sensor reading — numeric scalar, string, boolean, or any JSON value.
-            subtype:
-              type: string
+        description: >-
+          Sensor identifier. Must match the sensor ID provisioned in the
+          SceneScape Manager.
+        examples:
+          - temperature1
+          - badge-reader-entrance
+    messages:
+      sensorReadingMessage:
+        $ref: "#/components/messages/sensorReadingMessage"
+    tags:
+      - $ref: "#/components/tags/input"
+
+  # ---- Output channels (Scene Controller publishes) ----
+
+  dataScene:
+    address: scenescape/data/scene/{scene_id}/{thing_type}
+    title: Unregulated Scene Data
+    summary: Per-category tracked-object output (unregulated).
+    description: |
+      The Scene Controller publishes one message per object category per
+      processing cycle, containing the current state of all tracked objects
+      of that category. These are *unregulated* (raw) results — published
+      as soon as a camera frame is processed.
+    parameters:
+      scene_id:
+        description: Scene identifier (UUID).
+        examples:
+          - 302cf49a-97ec-402d-a324-c5077b280b7b
+      thing_type:
+        description: >-
+          Object category label (e.g. `person`, `vehicle`). Each category
+          is published on its own sub-topic.
+        examples:
+          - person
+          - vehicle
+    messages:
+      dataSceneMessage:
+        $ref: "#/components/messages/dataSceneMessage"
+    tags:
+      - $ref: "#/components/tags/tracking"
+
+  regulatedScene:
+    address: scenescape/regulated/scene/{scene_id}
+    title: Regulated Scene Data
+    summary: Rate-controlled tracked-object output aggregating all categories.
+    description: |
+      The Scene Controller publishes regulated (rate-controlled) tracking
+      results that aggregate all object categories into a single message.
+      This is the primary output topic for downstream applications.
+    parameters:
+      scene_id:
+        description: Scene identifier (UUID).
+        examples:
+          - 302cf49a-97ec-402d-a324-c5077b280b7b
+    messages:
+      regulatedSceneMessage:
+        $ref: "#/components/messages/regulatedSceneMessage"
+    tags:
+      - $ref: "#/components/tags/tracking"
+
+  sceneEvent:
+    address: scenescape/event/{region_type}/{scene_id}/{region_id}/{event_type}
+    title: Scene Event Notification
+    summary: Region-enter / region-exit / tripwire-crossing events.
+    description: |
+      The Scene Controller publishes an event when a tracked object enters
+      or exits a region of interest, or crosses a tripwire. The message
+      shape differs slightly between region events and tripwire events —
+      see the `regionEventMessage` and `tripwireEventMessage` definitions.
+    parameters:
+      region_type:
+        description: >-
+          Discriminator for the event source geometry. `region` for polygon
+          regions, `tripwire` for line-based tripwires.
+        enum:
+          - region
+          - tripwire
+      scene_id:
+        description: Scene identifier (UUID).
+        examples:
+          - 302cf49a-97ec-402d-a324-c5077b280b7b
+      region_id:
+        description: >-
+          Region or tripwire identifier (UUID).
+        examples:
+          - ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4
+          - 5fc8df22-0497-411c-9a62-90218cb20d7d
+      event_type:
+        description: >-
+          Event type label. Typically `objects`.
+        default: objects
+        examples:
+          - objects
+    messages:
+      regionEventMessage:
+        $ref: "#/components/messages/regionEventMessage"
+      tripwireEventMessage:
+        $ref: "#/components/messages/tripwireEventMessage"
+    tags:
+      - $ref: "#/components/tags/events"
+
+# ---------------------------------------------------------------------------
+# Operations
+# ---------------------------------------------------------------------------
+operations:
+  receiveCameraDetections:
+    action: receive
+    channel:
+      $ref: "#/channels/cameraData"
+    title: Receive camera detections
+    summary: >-
+      Ingest per-frame object detections from a visual-analytics pipeline.
+    description: |
+      The Scene Controller validates each incoming message against the
+      `detector` JSON schema, projects 2-D bounding boxes into 3-D scene
+      coordinates using the camera's calibration, and feeds detections into
+      the multi-object tracker.
+    tags:
+      - $ref: "#/components/tags/input"
+
+  receiveSensorReadings:
+    action: receive
+    channel:
+      $ref: "#/channels/sensorData"
+    title: Receive sensor readings
+    summary: >-
+      Ingest scalar sensor data (temperature, badge, etc.) for tagging
+      tracked objects.
+    description: |
+      The Scene Controller validates each incoming message against the
+      `singleton` JSON schema and tags tracked objects that fall within the
+      sensor's configured measurement area.
+    tags:
+      - $ref: "#/components/tags/input"
+
+  publishDataScene:
+    action: send
+    channel:
+      $ref: "#/channels/dataScene"
+    title: Publish unregulated scene data
+    summary: >-
+      Emit per-category tracking results immediately after processing a
+      camera frame.
+    tags:
+      - $ref: "#/components/tags/tracking"
+
+  publishRegulatedScene:
+    action: send
+    channel:
+      $ref: "#/channels/regulatedScene"
+    title: Publish regulated scene data
+    summary: >-
+      Emit rate-controlled tracking results aggregating all categories.
+    tags:
+      - $ref: "#/components/tags/tracking"
+
+  publishSceneEvent:
+    action: send
+    channel:
+      $ref: "#/channels/sceneEvent"
+    title: Publish scene event
+    summary: >-
+      Emit region or tripwire events when tracked objects interact with
+      configured zones.
+    tags:
+      - $ref: "#/components/tags/events"
+
+# ---------------------------------------------------------------------------
+# Components
+# ---------------------------------------------------------------------------
+components:
+
+  # -------------------------------------------------------------------------
+  # Tags (reusable)
+  # -------------------------------------------------------------------------
+  tags:
+    input:
+      name: input
+      description: Messages received by the Scene Controller
+    tracking:
+      name: tracking
+      description: Tracked-object output messages
+    events:
+      name: events
+      description: Region and tripwire event notifications
+
+  # -------------------------------------------------------------------------
+  # Security Schemes
+  # -------------------------------------------------------------------------
+  securitySchemes:
+    x509:
+      type: X509
+      description: >-
+        Mutual TLS using X.509 certificates generated by
+        `make init-secrets`. Client and root certificates are mounted from
+        `manager/secrets/certs/`.
+
+  # -------------------------------------------------------------------------
+  # Messages
+  # -------------------------------------------------------------------------
+  messages:
+
+    # -- Camera Detection Input --
+    cameraDetectionMessage:
+      name: CameraDetection
+      title: Camera Detection Message
+      summary: >-
+        Per-frame detection metadata from a visual-analytics pipeline.
+      description: |
+        Contains all objects detected in a single camera frame, grouped by
+        category. Validated against the `detector` schema in
+        `metadata.schema.json`.
+      payload:
+        $ref: "#/components/schemas/cameraDetectionPayload"
+      examples:
+        - name: singlePersonDetection
+          summary: A single person detected with semantic metadata
+          payload:
+            id: atag-qcam1
+            timestamp: "2026-03-26T21:01:31.486Z"
+            rate: 10.03
+            objects:
+              person:
+                - id: 1
+                  category: person
+                  confidence: 0.998
+                  bounding_box_px:
+                    x: 419
+                    y: 64
+                    width: 192
+                    height: 411
+                  center_of_mass:
+                    x: 482
+                    y: 165
+                    width: 64
+                    height: 102.75
+                  metadata:
+                    age:
+                      label: "39"
+                      model_name: age_gender
+                    gender:
+                      label: Male
+                      model_name: age_gender
+                      confidence: 0.979
+                    reid:
+                      embedding_vector: "<base64-encoded string>"
+                      model_name: torch-jit-export
+
+    # -- Sensor Reading Input --
+    sensorReadingMessage:
+      name: SensorReading
+      title: Sensor Reading Message
+      summary: Scalar sensor reading from a physical or virtual sensor.
+      description: |
+        The `singleton` schema is intentionally generic — `value` accepts
+        any JSON type, supporting environmental sensors (numeric),
+        badge/access-control sensors (string), and more.
+      payload:
+        $ref: "#/components/schemas/sensorReadingPayload"
+      examples:
+        - name: temperatureReading
+          summary: Environmental temperature sensor reading
+          payload:
+            id: temperature1
+            timestamp: "2022-09-19T21:33:09.832Z"
+            value: 22.5
+        - name: badgeSwipe
+          summary: Badge reader sensor value
+          payload:
+            id: badge-reader-entrance
+            timestamp: "2026-03-26T20:50:00.000Z"
+            value: "BADGE-00421"
+
+    # -- Data Scene Output --
+    dataSceneMessage:
+      name: DataScene
+      title: Unregulated Scene Data Message
+      summary: >-
+        Per-category tracked-object snapshot published every processing
+        cycle.
+      payload:
+        $ref: "#/components/schemas/dataScenePayload"
+      examples:
+        - name: personTracking
+          summary: One tracked person in a queuing scene
+          payload:
+            id: 302cf49a-97ec-402d-a324-c5077b280b7b
+            timestamp: "2026-03-26T20:49:59.642Z"
+            name: Queuing
+            rate: 9.984
+            unique_detection_count: 91
+            objects:
+              - id: 65d49fa0-a855-46f8-bb41-4e92102c7c47
+                category: person
+                type: person
+                confidence: 0.999
+                translation: [2.463, 3.61, 0.0]
+                size: [0.5, 0.5, 1.85]
+                velocity: [-0.045, 0.012, 0.0]
+                rotation: [0, 0, 0, 1]
+                visibility: ["atag-qcam1", "atag-qcam2"]
+                similarity: null
+                first_seen: "2026-03-26T20:49:49.339Z"
+
+    # -- Regulated Scene Output --
+    regulatedSceneMessage:
+      name: RegulatedScene
+      title: Regulated Scene Data Message
+      summary: >-
+        Rate-controlled tracking snapshot aggregating all object categories.
+      payload:
+        $ref: "#/components/schemas/regulatedScenePayload"
+      examples:
+        - name: regulatedPersonTracking
+          summary: Regulated output with per-camera rates
+          payload:
+            id: 302cf49a-97ec-402d-a324-c5077b280b7b
+            timestamp: "2026-03-26T20:48:50.149Z"
+            name: Queuing
+            scene_rate: 38.8
             rate:
+              atag-qcam1: 9.998
+              atag-qcam2: 10.018
+            objects:
+              - id: 0c373dbf-2a1d-49b7-ba2d-48711d189971
+                category: person
+                type: person
+                confidence: 0.998
+                translation: [2.204, 3.29, 0.0]
+                size: [0.5, 0.5, 1.85]
+                velocity: [-0.489, 0.25, 0.0]
+                rotation: [0, 0, 0, 1]
+                visibility: ["atag-qcam1", "atag-qcam2"]
+                similarity: null
+                first_seen: "2026-03-26T20:48:42.857Z"
+
+    # -- Region Event Output --
+    regionEventMessage:
+      name: RegionEvent
+      title: Region Event Message
+      summary: >-
+        Notification when tracked objects enter, exit, or occupy a region.
+      description: |
+        Published on `scenescape/event/region/{scene_id}/{region_id}/objects`.
+
+        `entered` contains bare track objects that moved into the region
+        during this cycle. `exited` contains wrapped objects
+        `{"object": <track>, "dwell": <seconds>}` indicating how long each
+        object was inside the region.
+      payload:
+        $ref: "#/components/schemas/regionEventPayload"
+      examples:
+        - name: personEnteredRegion
+          summary: Person enters a monitored region
+          payload:
+            timestamp: "2026-03-26T20:53:32.045Z"
+            scene_id: 302cf49a-97ec-402d-a324-c5077b280b7b
+            scene_name: Queuing
+            region_id: ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4
+            region_name: region_2
+            counts:
+              person: 2
+            objects:
+              - id: 2d3c96d9-24bd-498b-ba1f-2fd54ab6c25b
+                category: person
+                type: person
+                confidence: 0.999
+                translation: [2.557, 3.678, 0.0]
+                size: [0.5, 0.5, 1.85]
+                velocity: [-0.118, 0.186, 0.0]
+            entered:
+              - id: 2d3c96d9-24bd-498b-ba1f-2fd54ab6c25b
+                category: person
+                type: person
+            exited:
+              - object:
+                  id: bbd07321-dbb9-4384-bf1b-4eb5d9a0aa05
+                  category: person
+                  type: person
+                dwell: 5.297
+            metadata:
+              title: region_2
+              uuid: ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4
+              points: [[0.77, 6.528], [1.286, 2.363], [4.961, 1.101], [3.394, 4.828], [1.923, 6.261]]
+              area: poly
+              fromSensor: false
+
+    # -- Tripwire Event Output --
+    tripwireEventMessage:
+      name: TripwireEvent
+      title: Tripwire Event Message
+      summary: >-
+        Notification when a tracked object crosses a tripwire.
+      description: |
+        Published on `scenescape/event/tripwire/{scene_id}/{tripwire_id}/objects`.
+
+        Each crossing object carries a `direction` field (1 or −1) that
+        indicates which side of the wire it crossed toward.
+        `entered` and `exited` arrays are always empty for tripwire events.
+      payload:
+        $ref: "#/components/schemas/tripwireEventPayload"
+      examples:
+        - name: personCrossedTripwire
+          summary: Person crosses a tripwire
+          payload:
+            timestamp: "2026-03-26T20:51:39.241Z"
+            scene_id: 302cf49a-97ec-402d-a324-c5077b280b7b
+            scene_name: Queuing
+            tripwire_id: 5fc8df22-0497-411c-9a62-90218cb20d7d
+            tripwire_name: tripwire_1
+            counts:
+              person: 1
+            objects:
+              - id: d62d8bbf-9008-40f5-84f8-9faca9e03d90
+                category: person
+                type: person
+                confidence: 0.999
+                translation: [1.043, 3.542, 0.0]
+                size: [0.5, 0.5, 1.85]
+                velocity: [0.374, -0.824, 0.0]
+                direction: -1
+            entered: []
+            exited: []
+            metadata:
+              title: tripwire_1
+              points: [[3.745, 6.082], [0.878, 3.573]]
+              uuid: 5fc8df22-0497-411c-9a62-90218cb20d7d
+
+  # -------------------------------------------------------------------------
+  # Schemas
+  # -------------------------------------------------------------------------
+  schemas:
+
+    # ===== Reusable Primitives =====
+
+    timestamp:
+      type: string
+      format: date-time
+      description: Timestamp in ISO 8601 UTC format.
+      examples:
+        - "2026-03-26T21:01:31.486Z"
+
+    objectId:
+      type: string
+      description: >-
+        Unique identifier — camera ID, sensor ID, scene UUID, etc.
+      examples:
+        - atag-qcam1
+        - temperature1
+
+    rate:
+      type: number
+      minimum: 0
+      description: Data-production or processing rate (Hz or fps).
+
+    # ===== Geometry / Bounding-Box Types =====
+
+    boundingBox:
+      type: object
+      title: Normalized Bounding Box
+      description: >-
+        Bounding box in **normalized** camera coordinates (0 – 1 range).
+      required: [x, y, width, height]
+      properties:
+        x:
+          type: number
+          description: X coordinate of the top-left corner.
+        y:
+          type: number
+          description: Y coordinate of the top-left corner.
+        width:
+          type: number
+          minimum: 0
+          description: Horizontal extent.
+        height:
+          type: number
+          minimum: 0
+          description: Vertical extent.
+
+    boundingBoxPx:
+      type: object
+      title: Pixel-Space Bounding Box
+      description: >-
+        Bounding box in **pixel** coordinates. Optional `z` and `depth`
+        fields are used for 3-D bounding boxes (e.g. from LiDAR).
+      required: [x, y, width, height]
+      properties:
+        x:
+          type: number
+          description: X coordinate (pixels from left).
+        y:
+          type: number
+          description: Y coordinate (pixels from top).
+        z:
+          type: number
+          description: Z coordinate (optional depth component).
+        width:
+          type: number
+          minimum: 0
+          description: Horizontal extent in pixels.
+        height:
+          type: number
+          minimum: 0
+          description: Vertical extent in pixels.
+        depth:
+          type: number
+          minimum: 0
+          description: Depth extent (optional).
+
+    centerOfMass:
+      type: object
+      title: Center-of-Mass ROI
+      description: >-
+        Pixel-space region used for depth-estimation averaging (e.g.
+        RealSense).
+      required: [x, y, width, height]
+      properties:
+        x:
+          type: number
+          description: Horizontal offset in pixels.
+        y:
+          type: number
+          description: Vertical offset in pixels.
+        width:
+          type: number
+          minimum: 0
+          description: Width in pixels.
+        height:
+          type: number
+          minimum: 0
+          description: Height in pixels.
+
+    translation3D:
+      type: array
+      description: 3-D position (x, y, z) in metres.
+      items:
+        type: number
+      minItems: 3
+      maxItems: 3
+
+    size3D:
+      type: array
+      description: 3-D dimensions (x, y, z) in metres.
+      items:
+        type: number
+        exclusiveMinimum: 0
+      minItems: 3
+      maxItems: 3
+
+    velocity3D:
+      type: array
+      description: Velocity vector (x, y, z) in metres per second.
+      items:
+        type: number
+      minItems: 3
+      maxItems: 3
+
+    quaternion:
+      type: array
+      description: Orientation quaternion (x, y, z, w).
+      items:
+        type: number
+      minItems: 4
+      maxItems: 4
+
+    latLongAlt:
+      type: array
+      description: >-
+        Geographic position (latitude, longitude, altitude). Converted to
+        ECEF internally.
+      items:
+        type: number
+      minItems: 3
+      maxItems: 3
+
+    # ===== Semantic Metadata =====
+
+    semanticMetadataAttribute:
+      type: object
+      title: Semantic Metadata Attribute
+      description: >-
+        A single semantic attribute detected by an analytics model.
+      required: [label, model_name]
+      properties:
+        label:
+          description: >-
+            Detected value (e.g. `"Male"` for gender, `true` for boolean
+            attributes, `"39"` for age).
+        model_name:
+          type: string
+          description: >-
+            Name of the analytics model that produced this attribute.
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Confidence score (0.0 – 1.0).
+
+    semanticMetadata:
+      type: object
+      title: Semantic Metadata
+      description: >-
+        Extensible map of semantic attributes describing what an object is
+        (age, gender, Re-ID embedding, etc.). Each value is either a
+        `semanticMetadataAttribute` or a Re-ID embedding object.
+      additionalProperties:
+        oneOf:
+          - $ref: "#/components/schemas/semanticMetadataAttribute"
+          - type: object
+            description: >-
+              Re-ID embedding (special case). `embedding_vector` is
+              base64-encoded in camera input and a 2-D float array in scene
+              output.
+            required: [embedding_vector, model_name]
+            properties:
+              embedding_vector: {}
+              model_name:
+                type: string
+
+    # ===== Camera Intrinsics / Distortion =====
+
+    cameraIntrinsics:
+      type: object
+      title: Camera Intrinsic Parameters
+      description: >-
+        Focal length and principal-point offsets used to update camera
+        calibration at runtime and compute image resolution.
+      properties:
+        fx:
+          type: number
+          description: Focal length in x (pixels).
+        fy:
+          type: number
+          description: Focal length in y (pixels).
+        cx:
+          type: number
+          description: Principal-point x offset (pixels).
+        cy:
+          type: number
+          description: Principal-point y offset (pixels).
+
+    lensDistortion:
+      type: object
+      title: Lens Distortion Coefficients
+      description: >-
+        Radial and tangential distortion coefficients. Used alongside
+        `intrinsics` to update camera calibration.
+      properties:
+        k1:
+          type: number
+          description: Radial distortion coefficient k1.
+        k2:
+          type: number
+          description: Radial distortion coefficient k2.
+        p1:
+          type: number
+          description: Tangential distortion coefficient p1.
+        p2:
+          type: number
+          description: Tangential distortion coefficient p2.
+        k3:
+          type: number
+          description: Radial distortion coefficient k3.
+
+    # ===== Detection Object =====
+
+    detection:
+      type: object
+      title: Object Detection
+      description: |
+        A single object detected in a camera frame.
+
+        **Location constraint (oneOf):** every detection must provide
+        location in exactly one of these forms:
+        - **2-D image-based:** `bounding_box` and/or `bounding_box_px`
+        - **3-D world-space:** `translation` + `size`
+        - **Geographic:** `lat_long_alt` + `size`
+
+        > The JSON schema lists only `category` as required, but the
+        > controller accesses `id` unconditionally at runtime. Always
+        > include both `category` and `id`.
+      required: [category]
+      properties:
+        category:
+          type: string
+          description: Object class label.
+          examples:
+            - person
+            - vehicle
+        id:
+          type: integer
+          minimum: 0
+          description: >-
+            Per-frame detection index. Required at runtime even though the
+            JSON schema lists it as optional.
+        confidence:
+          type: number
+          exclusiveMinimum: 0
+          description: Inference confidence score.
+        bounding_box:
+          $ref: "#/components/schemas/boundingBox"
+        bounding_box_px:
+          $ref: "#/components/schemas/boundingBoxPx"
+        translation:
+          $ref: "#/components/schemas/translation3D"
+        lat_long_alt:
+          $ref: "#/components/schemas/latLongAlt"
+        size:
+          $ref: "#/components/schemas/size3D"
+        rotation:
+          $ref: "#/components/schemas/quaternion"
+        center_of_mass:
+          $ref: "#/components/schemas/centerOfMass"
+        distance:
+          type: number
+          description: >-
+            Distance from the camera to the detection in metres (e.g.
+            from RealSense or LiDAR).
+        metadata:
+          $ref: "#/components/schemas/semanticMetadata"
+      oneOf:
+        - required: [translation, size]
+        - required: [lat_long_alt, size]
+        - anyOf:
+            - required: [bounding_box]
+            - required: [bounding_box_px]
+
+    # ===== Tracked Object (Output) =====
+
+    trackedObject:
+      type: object
+      title: Tracked Scene Object
+      description: >-
+        A tracked object in the scene, emitted in all output messages.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Persistent track identifier assigned by the controller.
+        type:
+          type: string
+          description: >-
+            Object type label (same as `category`).
+          examples:
+            - person
+        category:
+          type: string
+          description: Object class label.
+          examples:
+            - person
+        confidence:
+          type: number
+          description: >-
+            Inference confidence of the most recent contributing detection.
+        translation:
+          $ref: "#/components/schemas/translation3D"
+        size:
+          $ref: "#/components/schemas/size3D"
+        velocity:
+          $ref: "#/components/schemas/velocity3D"
+        rotation:
+          $ref: "#/components/schemas/quaternion"
+        visibility:
+          type: array
+          items:
+            type: string
+          description: Camera IDs currently observing this object.
+        center_of_mass:
+          $ref: "#/components/schemas/centerOfMass"
+        regions:
+          type: object
+          description: >-
+            Map of region/sensor IDs to entry timestamps.
+            `{ "<region_id>": { "entered": "<ISO-8601>" } }`
+          additionalProperties:
+            type: object
+            properties:
+              entered:
+                type: string
+                format: date-time
+        sensors:
+          type: object
+          description: >-
+            Map of sensor IDs to timestamped readings.
+            `{ "<sensor_id>": [ ["<ISO-8601>", <value>], ... ] }`
+          additionalProperties:
+            type: array
+            items:
+              type: array
+              description: "[timestamp, value] tuple."
+              minItems: 2
+              maxItems: 2
+        similarity:
+          description: >-
+            Re-ID similarity score. `null` when not computed.
+          oneOf:
+            - type: number
+            - type: "null"
+        first_seen:
+          type: string
+          format: date-time
+          description: Timestamp when the track was first created.
+        metadata:
+          $ref: "#/components/schemas/semanticMetadata"
+        camera_bounds:
+          type: object
+          description: >-
+            Per-camera pixel bounding boxes. May be empty (`{}`) when no
+            camera currently observes the track.
+          additionalProperties:
+            $ref: "#/components/schemas/boundingBoxPx"
+
+    # ===== Input Payloads =====
+
+    cameraDetectionPayload:
+      type: object
+      title: Camera Detection Payload
+      required: [timestamp, id, objects]
+      properties:
+        id:
+          $ref: "#/components/schemas/objectId"
+        timestamp:
+          $ref: "#/components/schemas/timestamp"
+        objects:
+          type: object
+          title: Detected Objects by Category
+          description: >-
+            Category-keyed map; each value is an array of detections
+            (e.g. `{"person": [...], "vehicle": [...]}`).
+          additionalProperties:
+            type: array
+            items:
+              $ref: "#/components/schemas/detection"
+        rate:
+          $ref: "#/components/schemas/rate"
+        sub_detections:
+          type: array
+          description: >-
+            Sub-detection labels run on this frame (e.g. `["license_plate"]`).
+          items:
+            type: string
+          examples:
+            - ["license_plate"]
+            - ["person", "vest", "apriltag"]
+        intrinsics:
+          $ref: "#/components/schemas/cameraIntrinsics"
+        distortion:
+          $ref: "#/components/schemas/lensDistortion"
+
+    sensorReadingPayload:
+      type: object
+      title: Sensor Reading Payload
+      required: [timestamp, id, value]
+      properties:
+        id:
+          $ref: "#/components/schemas/objectId"
+        timestamp:
+          $ref: "#/components/schemas/timestamp"
+        value:
+          description: >-
+            Sensor reading — numeric scalar, string, boolean, or any JSON
+            value.
+        subtype:
+          type: string
+          description: >-
+            Sensor subtype hint (e.g. `"temperature"`, `"humidity"`).
+          examples:
+            - temperature
+            - humidity
+        rate:
+          $ref: "#/components/schemas/rate"
+
+    # ===== Output Payloads =====
+
+    dataScenePayload:
+      type: object
+      title: Data Scene Payload
+      properties:
+        id:
+          type: string
+          description: Scene identifier (UUID).
+        timestamp:
+          $ref: "#/components/schemas/timestamp"
+        name:
+          type: string
+          description: Scene name.
+        rate:
+          type: number
+          description: Current scene processing rate in Hz.
+        unique_detection_count:
+          type: integer
+          minimum: 0
+          description: >-
+            Cumulative count of unique detections since scene start.
+        objects:
+          type: array
+          description: Tracked objects of this category.
+          items:
+            $ref: "#/components/schemas/trackedObject"
+
+    regulatedScenePayload:
+      type: object
+      title: Regulated Scene Payload
+      properties:
+        id:
+          type: string
+          description: Scene identifier (UUID).
+        timestamp:
+          $ref: "#/components/schemas/timestamp"
+        name:
+          type: string
+          description: Scene name.
+        scene_rate:
+          type: number
+          minimum: 0
+          description: Regulated publication rate in Hz.
+        rate:
+          type: object
+          description: >-
+            Map of camera IDs to their current framerates (Hz).
+          additionalProperties:
+            type: number
+        objects:
+          type: array
+          description: Tracked objects across all categories.
+          items:
+            $ref: "#/components/schemas/trackedObject"
+
+    # ===== Event Payloads =====
+
+    regionEventPayload:
+      type: object
+      title: Region Event Payload
+      description: >-
+        Published when tracked objects enter, exit, or remain in a polygon
+        region.
+      properties:
+        timestamp:
+          $ref: "#/components/schemas/timestamp"
+        scene_id:
+          type: string
+          description: Scene identifier (UUID).
+        scene_name:
+          type: string
+          description: Scene name.
+        region_id:
+          type: string
+          description: Region identifier (UUID).
+        region_name:
+          type: string
+          description: Region name.
+        counts:
+          type: object
+          description: >-
+            Map of category to object count currently inside the region.
+          additionalProperties:
+            type: integer
+        objects:
+          type: array
+          description: Tracked objects currently inside the region.
+          items:
+            $ref: "#/components/schemas/trackedObject"
+        entered:
+          type: array
+          description: >-
+            Objects that entered the region during this cycle. Each element
+            is a bare track object. Empty when no entry occurred.
+          items:
+            $ref: "#/components/schemas/trackedObject"
+        exited:
+          type: array
+          description: >-
+            Objects that exited the region during this cycle. Each element
+            is `{"object": <track>, "dwell": <seconds>}`. Empty when no
+            exit occurred.
+          items:
+            type: object
+            properties:
+              object:
+                $ref: "#/components/schemas/trackedObject"
+              dwell:
+                type: number
+                description: Time in seconds the object spent inside the region.
+        metadata:
+          $ref: "#/components/schemas/regionMetadata"
+
+    tripwireEventPayload:
+      type: object
+      title: Tripwire Event Payload
+      description: >-
+        Published when a tracked object crosses a tripwire line.
+      properties:
+        timestamp:
+          $ref: "#/components/schemas/timestamp"
+        scene_id:
+          type: string
+          description: Scene identifier (UUID).
+        scene_name:
+          type: string
+          description: Scene name.
+        tripwire_id:
+          type: string
+          description: Tripwire identifier (UUID).
+        tripwire_name:
+          type: string
+          description: Tripwire name.
+        counts:
+          type: object
+          description: >-
+            Map of category to crossing object count.
+          additionalProperties:
+            type: integer
+        objects:
+          type: array
+          description: >-
+            Objects that crossed the tripwire. Each carries a `direction`
+            field (`1` or `-1`).
+          items:
+            allOf:
+              - $ref: "#/components/schemas/trackedObject"
+              - type: object
+                properties:
+                  direction:
+                    type: integer
+                    enum: [-1, 1]
+                    description: >-
+                      Crossing direction relative to the tripwire.
+                      `1` or `-1` indicating which side.
+        entered:
+          type: array
+          description: Always empty for tripwire events.
+          items: {}
+          maxItems: 0
+        exited:
+          type: array
+          description: Always empty for tripwire events.
+          items: {}
+          maxItems: 0
+        metadata:
+          $ref: "#/components/schemas/tripwireMetadata"
+
+    # ===== Event Geometry Metadata =====
+
+    regionMetadata:
+      type: object
+      title: Region Geometry Metadata
+      description: Geometry and identity of the region that triggered the event.
+      properties:
+        title:
+          type: string
+          description: Region display name.
+        uuid:
+          type: string
+          description: Region identifier (UUID).
+        points:
+          type: array
+          description: >-
+            Polygon vertices in metres, as `[[x, y], ...]`.
+          items:
+            type: array
+            items:
               type: number
-              minimum: 0
+            minItems: 2
+            maxItems: 2
+        area:
+          type: string
+          description: >-
+            Region shape type (e.g. `"poly"` for polygon).
+        fromSensor:
+          type: boolean
+          description: >-
+            Whether this region was auto-generated from a sensor
+            measurement area.
+
+    tripwireMetadata:
+      type: object
+      title: Tripwire Geometry Metadata
+      description: Geometry and identity of the tripwire that triggered the event.
+      properties:
+        title:
+          type: string
+          description: Tripwire display name.
+        uuid:
+          type: string
+          description: Tripwire identifier (UUID).
+        points:
+          type: array
+          description: >-
+            Tripwire endpoints in metres, as `[[x, y], [x, y]]`.
+          items:
+            type: array
+            items:
+              type: number
+            minItems: 2
+            maxItems: 2
+          minItems: 2
+          maxItems: 2
