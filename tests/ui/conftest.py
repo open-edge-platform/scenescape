@@ -6,6 +6,7 @@
 import os
 import pytest
 from pathlib import Path
+import kubernetes.conftest
 
 def pytest_addoption(parser):
   parser.addoption("--user", required=True, help="user to log into REST server")

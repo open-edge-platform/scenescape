@@ -48,7 +48,7 @@ def kind_cluster(k8s_manager) -> AClusterManager:
   yield k8s
 
   logging.info("Deleting kind cluster...")
-  # k8s.delete()
+  k8s.delete()
 
 @pytest.fixture(scope='session')
 def scenescape_deployment(kind_cluster : AClusterManager, values_file : str) -> DeploymentInfo:
@@ -128,7 +128,7 @@ def values_file(tmp_path_factory) -> str:
   yield str(values_file)
 
 @pytest.fixture(scope='session')
-def controller_auth(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterManager) -> str:
+def controller_auth(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterManager, tmp_path_factory) -> str:
   kubeconfig = str(kind_cluster.kubeconfig)
   namespace = scenescape_deployment.namespace
 
@@ -136,10 +136,13 @@ def controller_auth(scenescape_deployment : DeploymentInfo, kind_cluster : AClus
   auth_encoded = auth_secret["data"]["controller.auth"]
 
   auth = base64.b64decode(auth_encoded).decode("utf-8")
-  return auth
+
+  auth_file = tmp_path_factory.mktemp("scenescape") / "controller.auth"
+  auth_file.write_text(auth)
+  return str(auth_file)
 
 @pytest.fixture(scope='session')
-def root_cert(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterManager) -> str:
+def root_cert(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterManager, tmp_path_factory ) -> str:
   kubeconfig = str(kind_cluster.kubeconfig)
   namespace = scenescape_deployment.namespace
 
@@ -147,7 +150,10 @@ def root_cert(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterMan
   cert_encoded = cert_secret["data"]["ca.crt"]
 
   cert = base64.b64decode(cert_encoded).decode("utf-8")
-  return cert
+
+  cert_file = tmp_path_factory.mktemp("scenescape") / "ca.pem"
+  cert_file.write_text(cert)
+  return str(cert_file)
 
 @pytest.fixture(scope='session')
 def web_app_port(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterManager) -> int:
@@ -159,7 +165,8 @@ def web_app_port(scenescape_deployment : DeploymentInfo, kind_cluster : ACluster
     yield port_forwarding._ports[0]
   finally:
     if started:
-      port_forwarding.stop()
+      # port_forwarding.stop()
+      logging.debug("Stopping port forwarding for web app")
 
 @pytest.fixture(scope='session')
 def autocalibration_port(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterManager) -> int:
@@ -171,7 +178,8 @@ def autocalibration_port(scenescape_deployment : DeploymentInfo, kind_cluster : 
     yield port_forwarding._ports[0]
   finally:
     if started:
-      port_forwarding.stop()
+      # port_forwarding.stop()
+      logging.debug("Stopping port forwarding for autocalibration")
 
 @pytest.fixture(scope='session')
 def mqtt_port(scenescape_deployment : DeploymentInfo, kind_cluster : AClusterManager) -> int:
