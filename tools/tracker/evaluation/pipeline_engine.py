@@ -15,7 +15,7 @@ tracker evaluation workflow:
 import sys
 import yaml
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 import importlib
 from datetime import datetime
 
@@ -57,7 +57,11 @@ class PipelineEngine:
   where <run-ID> is a timestamp in format YYYYMMDD_HHMMSS.
 
   Evaluator results are saved to:
-    <pipeline.output.path>/<run-ID>/<evaluator-class-name>/results/
+    <pipeline.output.path>/<run-ID>/evaluators/<evaluator-class-name>/
+
+  When multiple evaluators are configured, each runs independently against
+  the same tracker outputs. Results are returned as a dict keyed by
+  evaluator class name.
   """
 
   def __init__(self):
@@ -65,7 +69,7 @@ class PipelineEngine:
     self._config: Optional[Dict[str, Any]] = None
     self._dataset = None
     self._harness = None
-    self._evaluator = None
+    self._evaluators: List = []
     self._tracker_outputs = None
     self._run_id: Optional[str] = None
     self._output_path: Optional[Path] = None
@@ -112,8 +116,10 @@ class PipelineEngine:
     try:
       self._dataset = self._create_component('dataset')
       self._harness = self._create_component('harness')
-      # Phase 1: Use first (and only) evaluator from list
-      self._evaluator = self._create_component('evaluators', index=0)
+      self._evaluators = [
+        self._create_component('evaluators', index=i)
+        for i in range(len(self._config['evaluators']))
+      ]
     except Exception as e:
       raise RuntimeError(f"Failed to create components: {e}") from e
 
@@ -121,7 +127,7 @@ class PipelineEngine:
     try:
       self._configure_dataset()
       self._configure_harness()
-      self._configure_evaluator()
+      self._configure_evaluators()
     except Exception as e:
       raise RuntimeError(f"Failed to configure components: {e}") from e
 
@@ -160,14 +166,15 @@ class PipelineEngine:
     except Exception as e:
       raise RuntimeError(f"Tracker execution failed: {e}") from e
 
-  def evaluate(self) -> Dict[str, float]:
+  def evaluate(self) -> Dict[str, Dict[str, float]]:
     """Evaluate metrics based on dataset ground-truth.
 
-    Computes tracking quality metrics by comparing tracker outputs
-    against ground-truth data from the dataset.
+    Runs all configured evaluators against the same tracker outputs.
 
     Returns:
-      Dictionary mapping metric names to computed values.
+      Dictionary mapping evaluator class name to its metrics dict.
+      Example: {'TrackEvalEvaluator': {'HOTA': 0.8, ...},
+                'JitterEvaluator': {'rms_jerk': 0.02, ...}}
 
     Raises:
       RuntimeError: If tracker hasn't been run or evaluation fails.
@@ -177,25 +184,24 @@ class PipelineEngine:
         "Tracker outputs not available. Call run() first."
       )
 
-    if self._evaluator is None:
+    if not self._evaluators:
       raise RuntimeError(
-        "Evaluator not configured. Call load_configuration() first."
+        "No evaluators configured. Call load_configuration() first."
       )
 
     try:
-      # Get ground truth from dataset
       ground_truth = self._dataset.get_ground_truth()
+      all_metrics: Dict[str, Dict[str, float]] = {}
 
-      # Process tracker outputs and ground truth
-      self._evaluator.process_tracker_outputs(
-        tracker_outputs=self._tracker_outputs,
-        ground_truth=ground_truth
-      )
+      for i, evaluator in enumerate(self._evaluators):
+        evaluator_class_name = self._config['evaluators'][i]['class'].split('.')[-1]
+        evaluator.process_tracker_outputs(
+          tracker_outputs=self._tracker_outputs,
+          ground_truth=ground_truth
+        )
+        all_metrics[evaluator_class_name] = evaluator.evaluate_metrics()
 
-      # Evaluate metrics
-      metrics = self._evaluator.evaluate_metrics()
-
-      return metrics
+      return all_metrics
 
     except Exception as e:
       raise RuntimeError(f"Metric evaluation failed: {e}") from e
@@ -228,11 +234,6 @@ class PipelineEngine:
           raise ValueError(f"Section 'evaluators' must be a list")
         if len(self._config[section]) == 0:
           raise ValueError(f"Section 'evaluators' must contain at least one evaluator")
-        if len(self._config[section]) > 1:
-          raise ValueError(
-            f"Currently only a single evaluator is supported, but {len(self._config[section])} "
-            f"evaluators are configured. Multiple evaluators will be supported in future phases."
-          )
         # Validate each evaluator entry
         for evaluator_config in self._config[section]:
           if 'class' not in evaluator_config:
@@ -375,23 +376,21 @@ class PipelineEngine:
     self._output_path = base_output_path / self._run_id
     self._output_path.mkdir(parents=True, exist_ok=True)
 
-  def _configure_evaluator(self):
-    """Configure evaluator component.
+  def _configure_evaluators(self):
+    """Configure all evaluator components.
 
-    Sets evaluator result folder to:
-      <pipeline.output.path>/<run-ID>/<evaluator-class-name>/results/
+    Sets each evaluator's result folder to:
+      <pipeline.output.path>/<run-ID>/evaluators/<evaluator-class-name>/
     """
-    # Phase 1: Use first (and only) evaluator from list
-    config = self._config['evaluators'][0]['config']
-    evaluator_class_name = self._config['evaluators'][0]['class'].split('.')[-1]
+    for i, evaluator in enumerate(self._evaluators):
+      config = self._config['evaluators'][i]['config']
+      evaluator_class_name = self._config['evaluators'][i]['class'].split('.')[-1]
 
-    # Configure metrics if specified
-    if 'metrics' in config:
-      self._evaluator.configure_metrics(config['metrics'])
+      if 'metrics' in config:
+        evaluator.configure_metrics(config['metrics'])
 
-    # Set result folder to run-specific path
-    evaluator_output_path = self._output_path / 'evaluators' / evaluator_class_name
-    self._evaluator.set_output_folder(evaluator_output_path)
+      evaluator_output_path = self._output_path / 'evaluators' / evaluator_class_name
+      evaluator.set_output_folder(evaluator_output_path)
 
 def main():
   """Main entry point for running pipeline from command line.
@@ -423,8 +422,10 @@ def main():
 
     # Print results
     print("\n=== Evaluation Results ===")
-    for metric_name, metric_value in metrics.items():
-      print(f"{metric_name}: {metric_value:.4f}")
+    for evaluator_name, evaluator_metrics in metrics.items():
+      print(f"\n[{evaluator_name}]")
+      for metric_name, metric_value in evaluator_metrics.items():
+        print(f"  {metric_name}: {metric_value:.4f}")
 
     # Print output location
     print(f"\nResults saved to: {engine._output_path}")

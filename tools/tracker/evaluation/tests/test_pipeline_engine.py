@@ -90,7 +90,7 @@ class TestInitialization:
     assert engine._config is None
     assert engine._dataset is None
     assert engine._harness is None
-    assert engine._evaluator is None
+    assert engine._evaluators == []
     assert engine._tracker_outputs is None
 
 
@@ -105,7 +105,7 @@ class TestLoadConfiguration:
     assert engine._config is not None
     assert engine._dataset is not None
     assert engine._harness is not None
-    assert engine._evaluator is not None
+    assert len(engine._evaluators) == 1
 
   def test_load_configuration_file_not_found(self, engine):
     """Test configuration loading with non-existent file."""
@@ -305,8 +305,8 @@ class TestLoadConfiguration:
     finally:
       Path(temp_file.name).unlink()
 
-  def test_load_configuration_multiple_evaluators_fails(self, engine, temp_output_dir):
-    """Test that multiple evaluators fail in Phase 1."""
+  def test_load_configuration_multiple_evaluators_succeeds(self, engine, temp_output_dir):
+    """Test that multiple evaluators are accepted."""
     config = {
       'pipeline': {
         'output': {
@@ -315,11 +315,18 @@ class TestLoadConfiguration:
       },
       'dataset': {
         'class': 'datasets.metric_test_dataset.MetricTestDataset',
-        'config': {}
+        'config': {
+          'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
+          'cameras': ['x1', 'x2'],
+          'camera_fps': 30
+        }
       },
       'harness': {
         'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
-        'config': {}
+        'config': {
+          'container_image': 'scenescape-controller:latest',
+          'tracker_config_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset' / 'tracker-config.json')
+        }
       },
       'evaluators': [
         {
@@ -327,7 +334,7 @@ class TestLoadConfiguration:
           'config': {}
         },
         {
-          'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
+          'class': 'evaluators.jitter_evaluator.JitterEvaluator',
           'config': {}
         }
       ]
@@ -338,8 +345,8 @@ class TestLoadConfiguration:
     temp_file.close()
 
     try:
-      with pytest.raises(ValueError, match="only a single evaluator is supported"):
-        engine.load_configuration(temp_file.name)
+      engine.load_configuration(temp_file.name)
+      assert len(engine._evaluators) == 2
     finally:
       Path(temp_file.name).unlink()
 
@@ -382,10 +389,12 @@ class TestEvaluate:
     metrics = engine.evaluate()
 
     assert isinstance(metrics, dict)
-    assert 'HOTA' in metrics
-    assert 'MOTA' in metrics
-    assert 'IDF1' in metrics
-    assert all(isinstance(v, float) for v in metrics.values())
+    assert 'TrackEvalEvaluator' in metrics
+    evaluator_metrics = metrics['TrackEvalEvaluator']
+    assert 'HOTA' in evaluator_metrics
+    assert 'MOTA' in evaluator_metrics
+    assert 'IDF1' in evaluator_metrics
+    assert all(isinstance(v, float) for v in evaluator_metrics.values())
 
 
 class TestMethodChaining:
@@ -419,5 +428,7 @@ class TestIntegration:
 
     # Verify results
     assert isinstance(metrics, dict)
-    assert len(metrics) == 3
-    assert all(k in metrics for k in ['HOTA', 'MOTA', 'IDF1'])
+    assert 'TrackEvalEvaluator' in metrics
+    evaluator_metrics = metrics['TrackEvalEvaluator']
+    assert len(evaluator_metrics) == 3
+    assert all(k in evaluator_metrics for k in ['HOTA', 'MOTA', 'IDF1'])
