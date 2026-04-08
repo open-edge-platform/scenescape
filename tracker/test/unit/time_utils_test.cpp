@@ -493,5 +493,3 @@ TEST_F(QueryNtpTest, OffsetCalculation_SystemAheadOfNtp) {
 
 } // namespace
 } // namespace tracker
-
-

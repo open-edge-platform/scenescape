@@ -30,9 +30,6 @@ opentelemetry::nostd::unique_ptr<metrics_api::Histogram<double>> stage_transform
 opentelemetry::nostd::unique_ptr<metrics_api::Histogram<double>> stage_track_histogram;
 opentelemetry::nostd::unique_ptr<metrics_api::Histogram<double>> stage_publish_histogram;
 
-// Message timestamp-to-receive latency (pipeline + clock drift)
-opentelemetry::nostd::unique_ptr<metrics_api::Histogram<double>> message_latency_histogram;
-
 /**
  * @brief Get the histogram for a given metric name.
  * @param metric_name One of kMetricStageXxx constants
@@ -96,12 +93,6 @@ void Metrics::ensure_initialized() {
             kMetricStageTrack, "Hungarian matching and Kalman filter duration", "ms");
         stage_publish_histogram = meter->CreateDoubleHistogram(
             kMetricStagePublish, "MQTT serialize and publish duration", "ms");
-
-        message_latency_histogram = meter->CreateDoubleHistogram(
-            kMetricMessageLatency,
-            "Message timestamp-to-receive latency: delta between embedded timestamp and "
-            "NTP-adjusted clock at receive. Reflects pipeline latency and clock drift.",
-            "ms");
 
         active_tracks_gauge->AddCallback(
             [](metrics_api::ObserverResult result, void* /* state */) {
@@ -185,15 +176,6 @@ void Metrics::set_active_tracks(const std::string& scene_id, const std::string& 
     active_tracks_[key] = count;
 }
 
-void Metrics::record_message_latency(double ms, MetricAttributes attrs) {
-    ensure_initialized();
-    if (message_latency_histogram) {
-        message_latency_histogram->Record(
-            ms, opentelemetry::common::KeyValueIterableView<MetricAttributes>(attrs),
-            opentelemetry::context::Context{});
-    }
-}
-
 void Metrics::reset() {
     // Reset the once_flag using std::destroy_at and std::construct_at for safety
     std::destroy_at(&init_flag);
@@ -209,7 +191,6 @@ void Metrics::reset() {
     stage_queue_histogram = nullptr;
     stage_track_histogram = nullptr;
     stage_publish_histogram = nullptr;
-    message_latency_histogram = nullptr;
 
     // Clear gauge state
     std::lock_guard<std::mutex> lock(gauge_mutex_);
