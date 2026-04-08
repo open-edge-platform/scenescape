@@ -96,6 +96,51 @@ print(f"IDF1: {metrics['IDF1']:.3f}")
 
 **Tests**: See [tests/test_trackeval_evaluator.py](tests/test_trackeval_evaluator.py) for comprehensive test suite with 16 test cases covering configuration, processing, evaluation, and integration workflows.
 
+### JitterEvaluator
+
+**Purpose**: Evaluate tracker smoothness by measuring positional jitter in tracked object trajectories.
+
+**Status**: **PARTIALLY IMPLEMENTED** — Data processing and pipeline integration are complete; metric calculation stubs (`_compute_jitter_per_track`, `_aggregate_mean`, `_aggregate_std`, `_aggregate_max`) raise `NotImplementedError` and must be filled in.
+
+**Supported Metrics**:
+
+- **rms_jerk**: Root mean square jerk across all tracks.
+- **acceleration_variance**: Variance of acceleration magnitudes across all tracks.
+
+**Key Features**:
+
+- Builds per-track position histories from canonical tracker output format.
+- Deduplicates frames with identical timestamps (mirrors `TrackEvalEvaluator` behaviour).
+- Sorts each track's positions by timestamp before metric computation.
+- Saves a plain-text ``jitter_results.txt`` summary to the configured output folder.
+
+**Usage Example**:
+
+```python
+from pathlib import Path
+from evaluators.jitter_evaluator import JitterEvaluator
+
+evaluator = JitterEvaluator()
+evaluator.configure_metrics(['jitter_mean', 'jitter_max'])
+evaluator.set_output_folder(Path('/path/to/results'))
+evaluator.process_tracker_outputs(tracker_outputs, ground_truth=None)
+metrics = evaluator.evaluate_metrics()
+print(metrics)
+```
+
+**Pipeline Configuration**:
+
+```yaml
+evaluators:
+  - class: evaluators.jitter_evaluator.JitterEvaluator
+    config:
+      metrics: [rms_jerk, acceleration_variance]
+```
+
+**Implementation**: [jitter_evaluator.py](jitter_evaluator.py)
+
+**Tests**: See [tests/test_jitter_evaluator.py](tests/test_jitter_evaluator.py).
+
 ## Adding New Evaluators
 
 To add support for a new metric computation library:
