@@ -159,8 +159,9 @@ class PipelineEngine:
       scene_config = self._dataset.get_scene_config()
       self._harness.set_scene_config(scene_config)
 
-      # Run tracker
-      self._tracker_outputs = self._harness.process_inputs(inputs)
+      # Run tracker — materialise into a list once so evaluate() can
+      # pass the same list to multiple evaluators without re-consuming an iterator.
+      self._tracker_outputs = list(self._harness.process_inputs(inputs))
 
       return self
 
@@ -194,13 +195,10 @@ class PipelineEngine:
       ground_truth = self._dataset.get_ground_truth()
       all_metrics: Dict[str, Dict[str, float]] = {}
 
-      # Materialise outputs once so each evaluator receives a fresh iterator.
-      tracker_outputs_list = list(self._tracker_outputs)
-
       for i, evaluator in enumerate(self._evaluators):
         evaluator_key = self._get_evaluator_key(i)
         evaluator.process_tracker_outputs(
-          tracker_outputs=iter(tracker_outputs_list),
+          tracker_outputs=self._tracker_outputs,
           ground_truth=ground_truth
         )
         all_metrics[evaluator_key] = evaluator.evaluate_metrics()
