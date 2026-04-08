@@ -8,7 +8,7 @@ import os
 import tempfile
 import shutil
 from pathlib import Path
-from typing import Iterator, Dict, Any, Optional
+from typing import Dict, Any, Iterator, List, Optional
 from python_on_whales import docker
 import sys
 
@@ -112,7 +112,7 @@ class SceneControllerHarness(TrackerHarness):
     self._output_folder = path
     return self
 
-  def process_inputs(self, inputs: Iterator[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
+  def process_inputs(self, inputs: Iterator[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Process input detections through the tracker synchronously.
 
     All inputs are consumed and processed in a single container execution.
@@ -166,7 +166,7 @@ class SceneControllerHarness(TrackerHarness):
         self._persist_artifact(output_file, "outputs.json")
         with open(output_file, 'r') as f:
           outputs = json.load(f)
-        return iter(outputs)
+        return outputs
       else:
         raise RuntimeError("Tracker execution completed but no output file generated")
 

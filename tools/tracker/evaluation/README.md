@@ -88,10 +88,38 @@ python -m pipeline_engine config.yaml
       ├── dataset/                     # Dataset-specific caches or exports
       ├── harness/                     # Harness logs or artifacts
       └── evaluators/
-          └── <evaluator-class-name>/  # Evaluated metrics
+          └── <evaluator-key>/         # One folder per evaluator
 ```
 
-Example: `/tmp/tracker-evaluation/20260211_142530/evaluators/TrackEvalEvaluator/`
+The `<evaluator-key>` is the evaluator class name (e.g., `TrackEvalEvaluator`). When two evaluators
+share the same class name, an index suffix is appended to keep keys unique
+(e.g., `TrackEvalEvaluator_0/`, `TrackEvalEvaluator_1/`).
+
+Example with a single evaluator:
+
+```
+/tmp/tracker-evaluation/20260211_142530/evaluators/TrackEvalEvaluator/
+```
+
+Example with two evaluators of the same class:
+
+```
+/tmp/tracker-evaluation/20260211_142530/evaluators/TrackEvalEvaluator_0/
+/tmp/tracker-evaluation/20260211_142530/evaluators/TrackEvalEvaluator_1/
+```
+
+**Multiple evaluators**: The `evaluators` list accepts any number of entries. Each evaluator runs
+against the same tracker outputs independently:
+
+```yaml
+evaluators:
+  - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
+    config:
+      metrics: [HOTA, MOTA]
+  - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
+    config:
+      metrics: [IDF1]
+```
 
 ## Directory Structure
 
