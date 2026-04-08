@@ -57,11 +57,12 @@ class PipelineEngine:
   where <run-ID> is a timestamp in format YYYYMMDD_HHMMSS.
 
   Evaluator results are saved to:
-    <pipeline.output.path>/<run-ID>/evaluators/<evaluator-class-name>/
+    <pipeline.output.path>/<run-ID>/evaluators/<evaluator-key>/
 
   When multiple evaluators are configured, each runs independently against
   the same tracker outputs. Results are returned as a dict keyed by
-  evaluator class name.
+  evaluator key. The evaluator key may be disambiguated with an index
+  suffix when needed, for example `TrackEvalEvaluator_0`.
   """
 
   def __init__(self):
