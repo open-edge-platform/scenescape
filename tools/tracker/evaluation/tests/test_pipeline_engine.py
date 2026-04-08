@@ -76,6 +76,57 @@ def temp_config_file(temp_output_dir):
 
 
 @pytest.fixture
+def temp_multi_evaluator_config_file(temp_output_dir):
+  """Create temporary YAML config with two evaluators using distinct metric sets."""
+  config = {
+    'pipeline': {
+      'output': {
+        'path': temp_output_dir
+      }
+    },
+    'dataset': {
+      'class': 'datasets.metric_test_dataset.MetricTestDataset',
+      'config': {
+        'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
+        'cameras': ['x1', 'x2'],
+        'camera_fps': 30,
+        'start_time': TEST_TIME_RANGE_START,
+        'end_time': TEST_TIME_RANGE_END
+      }
+    },
+    'harness': {
+      'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
+      'config': {
+        'container_image': 'scenescape-controller:latest',
+        'tracker_config_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset' / 'tracker-config-time-chunking.json')
+      }
+    },
+    'evaluators': [
+      {
+        'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
+        'config': {
+          'metrics': ['HOTA', 'MOTA']
+        }
+      },
+      {
+        'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
+        'config': {
+          'metrics': ['IDF1']
+        }
+      }
+    ]
+  }
+
+  temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
+  yaml.dump(config, temp_file)
+  temp_file.close()
+
+  yield temp_file.name
+
+  Path(temp_file.name).unlink()
+
+
+@pytest.fixture
 def engine():
   """Create PipelineEngine instance."""
   return PipelineEngine()
@@ -432,3 +483,50 @@ class TestIntegration:
     evaluator_metrics = metrics['TrackEvalEvaluator']
     assert len(evaluator_metrics) == 3
     assert all(k in evaluator_metrics for k in ['HOTA', 'MOTA', 'IDF1'])
+
+
+class TestMultipleEvaluators:
+  """Tests for multi-evaluator pipeline behavior."""
+
+  @pytest.mark.integration
+  def test_evaluate_returns_one_entry_per_evaluator(self, engine, temp_multi_evaluator_config_file):
+    """Test that evaluate() returns exactly one result entry per configured evaluator."""
+    engine.load_configuration(temp_multi_evaluator_config_file)
+    engine.run()
+    metrics = engine.evaluate()
+
+    assert isinstance(metrics, dict)
+    assert len(metrics) == 2
+
+  @pytest.mark.integration
+  def test_evaluate_result_keys_are_unique(self, engine, temp_multi_evaluator_config_file):
+    """Test that result keys are unique across all evaluators."""
+    engine.load_configuration(temp_multi_evaluator_config_file)
+    engine.run()
+    metrics = engine.evaluate()
+
+    assert len(metrics) == len(set(metrics.keys()))
+
+  @pytest.mark.integration
+  def test_evaluate_result_values_are_metric_dicts(self, engine, temp_multi_evaluator_config_file):
+    """Test that each evaluator result is a non-empty dict of float values."""
+    engine.load_configuration(temp_multi_evaluator_config_file)
+    engine.run()
+    metrics = engine.evaluate()
+
+    for evaluator_name, evaluator_metrics in metrics.items():
+      assert isinstance(evaluator_metrics, dict)
+      assert len(evaluator_metrics) >= 1
+      assert all(isinstance(v, float) for v in evaluator_metrics.values())
+
+  @pytest.mark.integration
+  def test_evaluate_creates_separate_output_folders(self, engine, temp_multi_evaluator_config_file):
+    """Test that each evaluator gets a distinct output folder under evaluators/."""
+    engine.load_configuration(temp_multi_evaluator_config_file)
+    engine.run()
+    engine.evaluate()
+
+    evaluators_dir = engine._output_path / 'evaluators'
+    assert evaluators_dir.exists()
+    output_folders = [p for p in evaluators_dir.iterdir() if p.is_dir()]
+    assert len(output_folders) == 2

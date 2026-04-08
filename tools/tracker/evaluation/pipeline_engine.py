@@ -193,13 +193,16 @@ class PipelineEngine:
       ground_truth = self._dataset.get_ground_truth()
       all_metrics: Dict[str, Dict[str, float]] = {}
 
+      # Materialise outputs once so each evaluator receives a fresh iterator.
+      tracker_outputs_list = list(self._tracker_outputs)
+
       for i, evaluator in enumerate(self._evaluators):
-        evaluator_class_name = self._config['evaluators'][i]['class'].split('.')[-1]
+        evaluator_key = self._get_evaluator_key(i)
         evaluator.process_tracker_outputs(
-          tracker_outputs=self._tracker_outputs,
+          tracker_outputs=iter(tracker_outputs_list),
           ground_truth=ground_truth
         )
-        all_metrics[evaluator_class_name] = evaluator.evaluate_metrics()
+        all_metrics[evaluator_key] = evaluator.evaluate_metrics()
 
       return all_metrics
 
@@ -376,20 +379,35 @@ class PipelineEngine:
     self._output_path = base_output_path / self._run_id
     self._output_path.mkdir(parents=True, exist_ok=True)
 
+  def _get_evaluator_key(self, index: int) -> str:
+    """Return a unique string key for the evaluator at the given index.
+
+    Returns the bare class name when that name is used only once, or
+    '<ClassName>_<index>' when the same class name appears more than once.
+    """
+    class_name = self._config['evaluators'][index]['class'].split('.')[-1]
+    count = sum(
+      1 for cfg in self._config['evaluators']
+      if cfg['class'].split('.')[-1] == class_name
+    )
+    return f"{class_name}_{index}" if count > 1 else class_name
+
   def _configure_evaluators(self):
     """Configure all evaluator components.
 
     Sets each evaluator's result folder to:
-      <pipeline.output.path>/<run-ID>/evaluators/<evaluator-class-name>/
+      <pipeline.output.path>/<run-ID>/evaluators/<evaluator-key>/
+    where <evaluator-key> is the class name, disambiguated with an index
+    suffix when multiple evaluators share the same class name.
     """
     for i, evaluator in enumerate(self._evaluators):
       config = self._config['evaluators'][i]['config']
-      evaluator_class_name = self._config['evaluators'][i]['class'].split('.')[-1]
+      evaluator_key = self._get_evaluator_key(i)
 
       if 'metrics' in config:
         evaluator.configure_metrics(config['metrics'])
 
-      evaluator_output_path = self._output_path / 'evaluators' / evaluator_class_name
+      evaluator_output_path = self._output_path / 'evaluators' / evaluator_key
       evaluator.set_output_folder(evaluator_output_path)
 
 def main():
