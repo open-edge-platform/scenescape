@@ -75,6 +75,11 @@ std::optional<double> queryNtp(const std::string& host, int port) {
         return std::nullopt;
     }
 
+    struct SocketGuard {
+        int fd;
+        ~SocketGuard() { close(fd); }
+    } sock_guard{sock};
+
     // Set receive timeout
     timeval tv{};
     tv.tv_sec = kNtpSocketTimeoutMs / 1000;
@@ -90,7 +95,6 @@ std::optional<double> queryNtp(const std::string& host, int port) {
 
     if (sendto(sock, packet, kNtpPacketSize, 0, res->ai_addr, res->ai_addrlen) < 0) {
         LOG_DEBUG("NTP query failed: sendto error (errno={})", errno);
-        close(sock);
         return std::nullopt;
     }
 
@@ -98,7 +102,6 @@ std::optional<double> queryNtp(const std::string& host, int port) {
     ssize_t n = recv(sock, reply, kNtpPacketSize, 0);
     // Capture T4 (destination timestamp) immediately after receive
     auto t4 = std::chrono::system_clock::now();
-    close(sock);
 
     if (n < kNtpPacketSize) {
         LOG_DEBUG("NTP query failed: short/no reply (got {} bytes, expected {}, errno={})",
