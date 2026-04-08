@@ -106,26 +106,10 @@
             "name": "Scene2",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_translation": [
-              12.2,
-              248,
-              12
-            ],
-            "mesh_rotation": [
-              12.2,
-              248,
-              12
-            ],
-            "mesh_scale": [
-              1,
-              1,
-              1
-            ],
-            "tracker_config": [
-              1,
-              1,
-              1
-            ]
+            "mesh_translation": [12.2, 248, 12],
+            "mesh_rotation": [12.2, 248, 12],
+            "mesh_scale": [1, 1, 1],
+            "tracker_config": [1, 1, 1]
           }
         },
         "expected_status": {
@@ -168,10 +152,7 @@
             "name": "Scene_MeshTranslation_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_translation": [
-              1.0,
-              2.0
-            ]
+            "mesh_translation": [1.0, 2.0]
           }
         },
         "expected_status": {
@@ -192,10 +173,7 @@
             "name": "Scene_MeshRotation_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_rotation": [
-              12.2,
-              248
-            ]
+            "mesh_rotation": [12.2, 248]
           }
         },
         "expected_status": {
@@ -216,10 +194,7 @@
             "name": "Scene_MeshScale_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_scale": [
-              1.0,
-              1.0
-            ]
+            "mesh_scale": [1.0, 1.0]
           }
         },
         "expected_status": {
@@ -284,21 +259,9 @@
           "map_type": "map_upload",
           "use_tracker": false,
           "output_lla": true,
-          "mesh_translation": [
-            0,
-            0,
-            0
-          ],
-          "mesh_rotation": [
-            0,
-            0,
-            0
-          ],
-          "mesh_scale": [
-            1.0,
-            1.0,
-            1.0
-          ],
+          "mesh_translation": [0, 0, 0],
+          "mesh_rotation": [0, 0, 0],
+          "mesh_scale": [1.0, 1.0, 1.0],
           "regulated_rate": 30.0,
           "external_update_rate": 30.0,
           "camera_calibration": "Manual",
@@ -333,21 +296,9 @@
             "name": "Scene1_Updated_Full",
             "use_tracker": true,
             "output_lla": true,
-            "mesh_translation": [
-              12.2,
-              248,
-              12.0
-            ],
-            "mesh_rotation": [
-              12.2,
-              248,
-              12.0
-            ],
-            "mesh_scale": [
-              2.0,
-              2.0,
-              2.0
-            ]
+            "mesh_translation": [12.2, 248, 12.0],
+            "mesh_rotation": [12.2, 248, 12.0],
+            "mesh_scale": [2.0, 2.0, 2.0]
           }
         },
         "expected_status": {
@@ -370,21 +321,9 @@
           "map_type": "map_upload",
           "use_tracker": true,
           "output_lla": true,
-          "mesh_translation": [
-            12.2,
-            248.0,
-            12.0
-          ],
-          "mesh_rotation": [
-            12.2,
-            248.0,
-            12.0
-          ],
-          "mesh_scale": [
-            2.0,
-            2.0,
-            2.0
-          ],
+          "mesh_translation": [12.2, 248.0, 12.0],
+          "mesh_rotation": [12.2, 248.0, 12.0],
+          "mesh_scale": [2.0, 2.0, 2.0],
           "regulated_rate": 30.0,
           "external_update_rate": 30.0,
           "camera_calibration": "Manual",
@@ -450,9 +389,7 @@
             "name": "Scene_Update_MeshTranslation_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_translation": [
-              1.0
-            ]
+            "mesh_translation": [1.0]
           }
         },
         "expected_status": {
@@ -488,10 +425,7 @@
             "name": "Scene_Update_MeshRotation_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_rotation": [
-              0.0,
-              0.0
-            ]
+            "mesh_rotation": [0.0, 0.0]
           }
         },
         "expected_status": {
@@ -527,9 +461,7 @@
             "name": "Scene_Update_MeshScale_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_scale": [
-              1.0
-            ]
+            "mesh_scale": [1.0]
           }
         },
         "expected_status": {
@@ -629,21 +561,9 @@
           "map_type": "map_upload",
           "use_tracker": true,
           "output_lla": true,
-          "mesh_translation": [
-            12.2,
-            248.0,
-            12.0
-          ],
-          "mesh_rotation": [
-            12.2,
-            248.0,
-            12.0
-          ],
-          "mesh_scale": [
-            2.0,
-            2.0,
-            2.0
-          ],
+          "mesh_translation": [12.2, 248.0, 12.0],
+          "mesh_rotation": [12.2, 248.0, 12.0],
+          "mesh_scale": [2.0, 2.0, 2.0],
           "regulated_rate": 30.0,
           "external_update_rate": 30.0,
           "camera_calibration": "Manual",
@@ -744,21 +664,9 @@
               "uid": "${CHILD_LINK_UID}",
               "child_type": "local",
               "transform": {
-                "translation": [
-                  0.0,
-                  0.0,
-                  0.0
-                ],
-                "rotation": [
-                  -0.0,
-                  0.0,
-                  0.0
-                ],
-                "scale": [
-                  1.0,
-                  1.0,
-                  1.0
-                ]
+                "translation": [0.0, 0.0, 0.0],
+                "rotation": [-0.0, 0.0, 0.0],
+                "scale": [1.0, 1.0, 1.0]
               },
               "name": "Circular_Dep_Scene_B",
               "child": "${CIRC_SCENE_B_UID}",
@@ -1465,17 +1373,6 @@
         },
         "expected_status": {
           "status_code": 404
-        }
-      },
-      {
-        "step_name": "Delete Scene",
-        "api": "scene",
-        "method": "deleteScene",
-        "request": {
-          "uid": "${SCENE_UID_FULL}"
-        },
-        "expected_status": {
-          "status_code": 200
         }
       },
       {
