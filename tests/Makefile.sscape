@@ -46,6 +46,34 @@ account-security-unit:
 cam-unit:
 	$(call unit-recipe, cam, $(IMAGE)-manager-test)
 
+django-integration-unit:
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
+
+_django-integration-unit: \
+	account-security-unit \
+	cam-unit \
+	scene-django-unit \
+	singleton-sensor-unit \
+	views-unit \
+
+logic-unit-tests:
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
+
+_logic-unit-tests: \
+	autocamcalib-unit \
+	geometry-unit \
+	geospatial-unit \
+	mapping-unit \
+	markerless-unit \
+	robot-vision-unit \
+	scene-unit \
+	scenescape-unit \
+	schema-unit \
+	timestamp-unit \
+	transform-unit \
+	uuid-manager-unit \
+	vdms-adapter-unit \
+
 geometry-unit: # NEX-T10454
 	$(call unit-recipe, geometry, $(IMAGE)-manager-test)
 
@@ -75,6 +103,9 @@ mesh-util-unit:
 robot-vision-unit:
 	$(call unit-recipe, robot_vision, $(IMAGE)-controller-test)
 
+scene-django-unit:
+	$(call unit-recipe, scene, $(IMAGE)-manager-test)
+
 scene-unit: # NEX-T10451
 	$(call unit-recipe, scene_pytest, $(IMAGE)-controller-test)
 
@@ -85,7 +116,7 @@ vdms-adapter-unit: # NEX-T19885
 	$(call unit-recipe, vdms_adapter, $(IMAGE)-controller-test)
 
 scenescape-unit: # NEX-T10450
-	$(call unit-recipe, scenescape, $(IMAGE)-manager-test)
+	$(call unit-recipe, scenescape, $(IMAGE)-controller-test)
 
 schema-unit: # NEX-T10458
 	$(call unit-recipe, schema, $(IMAGE)-manager-test)

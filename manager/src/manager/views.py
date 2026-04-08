@@ -661,11 +661,9 @@ def cameraCalibrate(request, sensor_id):
 @superuser_required
 def genericCalibrate(request, sensor_id):
   obj_inst = get_object_or_404(SingletonSensor, pk=sensor_id)
-  size = None
   scene = SceneModel(obj_inst.scene.name, obj_inst.scene.map.path if
                      obj_inst.scene.map else None, obj_inst.scene.scale)
-  if scene.background is not None:
-    size = scene.background.shape[1::-1]
+
   if request.method == 'POST' and 'save_sensor_details' not in request.POST:
     form = SingletonForm(request.POST, request.FILES)
     detail_form  = SingletonDetailsForm(instance=obj_inst)
@@ -688,13 +686,8 @@ def genericCalibrate(request, sensor_id):
         obj_inst.icon = request.FILES['icon']
 
       if (x != '') and (y != ''):
+        # sensor_x/sensor_y are meters in form fields
         obj_inst.map_x, obj_inst.map_y = float(x), float(y)
-        obj_inst.map_x = obj_inst.map_x / obj_inst.scene.scale
-
-        if size:
-          obj_inst.map_y = (size[1] - obj_inst.map_y) / obj_inst.scene.scale
-        else:
-          obj_inst.map_y = obj_inst.map_y / obj_inst.scene.scale
 
       if (radius != ''):
         obj_inst.radius = float(radius) / obj_inst.scene.scale
@@ -753,12 +746,9 @@ def genericCalibrate(request, sensor_id):
     radius = None
 
     if obj_inst.map_x is not None:
-      sensor_x = obj_inst.map_x * obj_inst.scene.scale
+      sensor_x = obj_inst.map_x
     if obj_inst.map_y is not None:
-      if size:
-        sensor_y = (size[1] - (obj_inst.map_y * obj_inst.scene.scale))
-      else:
-        sensor_y = obj_inst.map_y * obj_inst.scene.scale
+      sensor_y = obj_inst.map_y
     if obj_inst.radius:
       radius = obj_inst.radius * obj_inst.scene.scale
 

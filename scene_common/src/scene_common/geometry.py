@@ -37,11 +37,30 @@ class Region:
     return
 
   def updatePoints(self, info):
-    if (not self.hasPointsArray(info) and 'center' in info):
+    # Set center if provided (needed for circles and other centered regions)
+    if 'center' in info and info['center'] is not None:
       pt = info['center']
       self.center = pt if isinstance(pt, Point) else Point(pt)
 
-    if (self.hasPointsArray(info)) or ('area' in info and info['area'] == "poly"):
+    # Check explicit area type first - respect explicit configuration over inferred types
+    if 'area' in info and info['area'] == "circle":
+      if not hasattr(self, 'center') or self.center is None:
+        raise ValueError(f"Circle region '{self.name}' has invalid center value")
+      if 'radius' not in info or info['radius'] is None:
+        raise ValueError(f"Circle region '{self.name}' requires a positive 'radius' value")
+      try:
+        radius = float(info['radius'])
+      except (TypeError, ValueError):
+        raise ValueError(f"Circle region '{self.name}' requires a numeric 'radius' value")
+      if radius <= 0:
+        raise ValueError(f"Circle region '{self.name}' requires a positive 'radius' value")
+      self.area = Region.REGION_CIRCLE
+      self.radius = radius
+      self.boundingBox = Rectangle(self.center - (self.radius, self.radius),
+                                   self.center + (self.radius, self.radius))
+    elif 'area' in info and info['area'] == "scene":
+      self.area = Region.REGION_SCENE
+    elif (self.hasPointsArray(info)) or ('area' in info and info['area'] == "poly"):
       self.area = Region.REGION_POLY
       self.points = []
       if not isarray(info):
@@ -52,14 +71,6 @@ class Region:
       self.points_list = [x.as2Dxy.asCartesianVector for x in self.points]
       if len(self.points_list) > 2:
         self.polygon = Polygon(self.points_list)
-    elif 'area' in info and info['area'] == "circle":
-      self.area = Region.REGION_CIRCLE
-      self.radius = info['radius']
-      # Rectangle is created using Point, Point constructor.
-      self.boundingBox = Rectangle(self.center - (self.radius, self.radius),
-                                   self.center + (self.radius, self.radius))
-    elif 'area' in info and info['area'] == "scene":
-      self.area = Region.REGION_SCENE
     else:
       raise ValueError("Unrecognized point data", info)
     return

@@ -1,7 +1,7 @@
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/controller">
-     GitHub project
+     GitHub
   </a>
   <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/controller/README.md">
      Readme
@@ -90,7 +90,7 @@ _Figure 2: Scene Controller Sequence diagram_
 get-started.md
 how-to-configure-tracker.md
 Extended-ReID.md
-api-reference.md
+API Reference <api-reference.md>
 data_formats.md
 
 :::
