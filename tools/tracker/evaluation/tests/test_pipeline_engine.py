@@ -334,7 +334,7 @@ class TestLoadConfiguration:
           'config': {}
         },
         {
-          'class': 'evaluators.jitter_evaluator.JitterEvaluator',
+          'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
           'config': {}
         }
       ]
