@@ -104,8 +104,8 @@ std::optional<double> queryNtp(const std::string& host, int port) {
     auto t4 = std::chrono::system_clock::now();
 
     if (n < kNtpPacketSize) {
-        LOG_DEBUG("NTP query failed: short/no reply (got {} bytes, expected {}, errno={})",
-                  n, kNtpPacketSize, errno);
+        LOG_DEBUG("NTP query failed: short/no reply (got {} bytes, expected {}, errno={})", n,
+                  kNtpPacketSize, errno);
         return std::nullopt;
     }
 
@@ -118,7 +118,8 @@ std::optional<double> queryNtp(const std::string& host, int port) {
     uint8_t stratum = reply[1];
     LOG_INFO("NTP server {} responded with stratum={}", host, stratum);
     if (stratum == 0 || stratum > 16) {
-        LOG_DEBUG("NTP query failed: invalid stratum={} (0=KoD, >16=undefined), host={}", stratum, host);
+        LOG_DEBUG("NTP query failed: invalid stratum={} (0=KoD, >16=undefined), host={}", stratum,
+                  host);
         return std::nullopt;
     }
 
@@ -155,7 +156,8 @@ std::optional<double> queryNtp(const std::string& host, int port) {
     // Detect local clock discontinuity during the exchange (e.g. Chrony step correction).
     // If T4 < T1 the system clock jumped backwards; the RTT and offset are meaningless.
     if (d_t4 < d_t1) {
-        LOG_DEBUG("NTP query failed: clock jumped backwards during exchange (T4<T1), host={}", host);
+        LOG_DEBUG("NTP query failed: clock jumped backwards during exchange (T4<T1), host={}",
+                  host);
         return std::nullopt;
     }
 
@@ -229,7 +231,8 @@ std::chrono::system_clock::time_point NtpClock::now() const {
     using namespace std::chrono;
     auto raw = system_clock::now();
     // Convert double seconds offset to nanoseconds for precision
-    auto offset_ns = duration_cast<nanoseconds>(duration<double>(offset_s_.load(std::memory_order_relaxed)));
+    auto offset_ns =
+        duration_cast<nanoseconds>(duration<double>(offset_s_.load(std::memory_order_relaxed)));
     return raw + offset_ns;
 }
 

@@ -342,9 +342,8 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
     auto latency_ms = std::chrono::duration<double, std::milli>(
                           clock_fn_() - std::chrono::system_clock::time_point(*msg_time))
                           .count();
-    Metrics::record_message_latency(latency_ms,
-                                    {{kAttrScene, std::string(scene->uid)},
-                                     {kAttrCameraId, camera_id}});
+    Metrics::record_message_latency(
+        latency_ms, {{kAttrScene, std::string(scene->uid)}, {kAttrCameraId, camera_id}});
 }
 
 std::string_view MessageHandler::extractCameraId(const std::string& topic) {

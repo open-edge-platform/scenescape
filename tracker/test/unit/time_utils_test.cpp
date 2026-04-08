@@ -315,7 +315,8 @@ public:
     }
 
     ~FakeNtpServer() {
-        if (sock_ >= 0) close(sock_);
+        if (sock_ >= 0)
+            close(sock_);
     }
 
     int port() const { return port_; }
@@ -326,17 +327,17 @@ public:
             uint8_t buf[48];
             sockaddr_in client{};
             socklen_t clen = sizeof(client);
-            ssize_t n = recvfrom(sock_, buf, sizeof(buf), 0,
-                                 reinterpret_cast<sockaddr*>(&client), &clen);
+            ssize_t n =
+                recvfrom(sock_, buf, sizeof(buf), 0, reinterpret_cast<sockaddr*>(&client), &clen);
             if (n > 0) {
-                sendto(sock_, reply.data(), 48, 0,
-                       reinterpret_cast<sockaddr*>(&client), clen);
+                sendto(sock_, reply.data(), 48, 0, reinterpret_cast<sockaddr*>(&client), clen);
             }
         });
     }
 
     void join() {
-        if (thread_.joinable()) thread_.join();
+        if (thread_.joinable())
+            thread_.join();
     }
 
 private:
@@ -356,8 +357,8 @@ protected:
 };
 
 TEST_F(QueryNtpTest, KoD_Stratum0_ReturnsNullopt) {
-    double now = std::chrono::duration<double>(
-                     std::chrono::system_clock::now().time_since_epoch()).count();
+    double now =
+        std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
     FakeNtpServer srv;
     srv.serve_once(make_ntp_reply(0, now, now));
     auto result = detail::queryNtp("127.0.0.1", srv.port());
@@ -366,8 +367,8 @@ TEST_F(QueryNtpTest, KoD_Stratum0_ReturnsNullopt) {
 }
 
 TEST_F(QueryNtpTest, ValidStratum1_ReturnsOffset) {
-    double now = std::chrono::duration<double>(
-                     std::chrono::system_clock::now().time_since_epoch()).count();
+    double now =
+        std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
     FakeNtpServer srv;
     srv.serve_once(make_ntp_reply(1, now, now));
     auto result = detail::queryNtp("127.0.0.1", srv.port());
@@ -377,8 +378,8 @@ TEST_F(QueryNtpTest, ValidStratum1_ReturnsOffset) {
 }
 
 TEST_F(QueryNtpTest, ValidStratum15_ReturnsOffset) {
-    double now = std::chrono::duration<double>(
-                     std::chrono::system_clock::now().time_since_epoch()).count();
+    double now =
+        std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
     FakeNtpServer srv;
     srv.serve_once(make_ntp_reply(15, now, now));
     auto result = detail::queryNtp("127.0.0.1", srv.port());
@@ -391,8 +392,8 @@ TEST_F(QueryNtpTest, Unsynchronized_Stratum16_ReturnsOffset) {
     // Stratum 16 = no upstream reference, but server still serves its own
     // system clock. Valid for inter-container alignment (e.g. chrony without
     // internet access). Must NOT be rejected.
-    double now = std::chrono::duration<double>(
-                     std::chrono::system_clock::now().time_since_epoch()).count();
+    double now =
+        std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
     FakeNtpServer srv;
     srv.serve_once(make_ntp_reply(16, now, now));
     auto result = detail::queryNtp("127.0.0.1", srv.port());
@@ -403,8 +404,8 @@ TEST_F(QueryNtpTest, Unsynchronized_Stratum16_ReturnsOffset) {
 
 TEST_F(QueryNtpTest, Unsynchronized_Stratum17_ReturnsNullopt) {
     // Stratum > 16 is undefined / garbage in RFC 5905
-    double now = std::chrono::duration<double>(
-                     std::chrono::system_clock::now().time_since_epoch()).count();
+    double now =
+        std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
     FakeNtpServer srv;
     srv.serve_once(make_ntp_reply(17, now, now));
     auto result = detail::queryNtp("127.0.0.1", srv.port());
@@ -425,8 +426,8 @@ TEST_F(QueryNtpTest, OffsetCalculation_SystemBehindNtp) {
     // Simulate: NTP server clock is 5 seconds ahead of local clock.
     // The server stamps T2=T3=local_now+5. With negligible loopback RTT,
     // offset = ((T2-T1) + (T3-T4)) / 2 ≈ +5.0 s.
-    double now = std::chrono::duration<double>(
-                     std::chrono::system_clock::now().time_since_epoch()).count();
+    double now =
+        std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
     double server_time = now + 5.0;
     FakeNtpServer srv;
     srv.serve_once(make_ntp_reply(1, server_time, server_time));
@@ -439,8 +440,8 @@ TEST_F(QueryNtpTest, OffsetCalculation_SystemBehindNtp) {
 TEST_F(QueryNtpTest, OffsetCalculation_SystemAheadOfNtp) {
     // Simulate: NTP server clock is 5 seconds behind local clock.
     // The server stamps T2=T3=local_now-5. Offset ≈ -5.0 s.
-    double now = std::chrono::duration<double>(
-                     std::chrono::system_clock::now().time_since_epoch()).count();
+    double now =
+        std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
     double server_time = now - 5.0;
     FakeNtpServer srv;
     srv.serve_once(make_ntp_reply(1, server_time, server_time));
