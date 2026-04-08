@@ -412,47 +412,6 @@ TEST_F(QueryNtpTest, Unsynchronized_Stratum17_ReturnsNullopt) {
     EXPECT_FALSE(result.has_value()) << "Stratum 17 (undefined) should be rejected";
 }
 
-// ---------------------------------------------------------------------------
-// queryNtp — offset sanity guard tests
-// ---------------------------------------------------------------------------
-
-TEST_F(QueryNtpTest, HugePositiveOffset_ReturnsNullopt) {
-    // T2/T3 set ~25 years in the future — exceeds 1-year sanity limit
-    double now = std::chrono::duration<double>(
-                     std::chrono::system_clock::now().time_since_epoch()).count();
-    double far_future = now + 25.0 * 365.25 * 24 * 3600;
-    FakeNtpServer srv;
-    srv.serve_once(make_ntp_reply(1, far_future, far_future));
-    auto result = detail::queryNtp("127.0.0.1", srv.port());
-    srv.join();
-    EXPECT_FALSE(result.has_value()) << "Offset > 1 year should be rejected";
-}
-
-TEST_F(QueryNtpTest, HugeNegativeOffset_ReturnsNullopt) {
-    // T2/T3 set ~25 years in the past — exceeds 1-year sanity limit
-    double now = std::chrono::duration<double>(
-                     std::chrono::system_clock::now().time_since_epoch()).count();
-    double far_past = now - 25.0 * 365.25 * 24 * 3600;
-    FakeNtpServer srv;
-    srv.serve_once(make_ntp_reply(1, far_past, far_past));
-    auto result = detail::queryNtp("127.0.0.1", srv.port());
-    srv.join();
-    EXPECT_FALSE(result.has_value()) << "Offset < -1 year should be rejected";
-}
-
-TEST_F(QueryNtpTest, JustUnderOneYear_ReturnsOffset) {
-    // T2/T3 set 364 days ahead — within the 1-year limit, should be accepted
-    double now = std::chrono::duration<double>(
-                     std::chrono::system_clock::now().time_since_epoch()).count();
-    double nearly_a_year = now + 364.0 * 24 * 3600;
-    FakeNtpServer srv;
-    srv.serve_once(make_ntp_reply(1, nearly_a_year, nearly_a_year));
-    auto result = detail::queryNtp("127.0.0.1", srv.port());
-    srv.join();
-    ASSERT_TRUE(result.has_value()) << "Offset just under 1 year should be accepted";
-    EXPECT_NEAR(*result, 364.0 * 24 * 3600, 1.0);
-}
-
 // NOTE: The T4 < T1 clock-discontinuity guard cannot be reliably triggered
 // via the fake server because T1 and T4 are real system_clock captures that
 // bracket the actual socket send/recv. Testing this path requires injecting

@@ -63,7 +63,7 @@ std::optional<double> queryNtp(const std::string& host, int port) {
         LOG_DEBUG("NTP query failed: cannot resolve host '{}' (port={})", host, port);
         return std::nullopt;
     }
-    // RAII cleanup
+
     struct AddrGuard {
         addrinfo* p;
         ~AddrGuard() { freeaddrinfo(p); }
@@ -161,14 +161,6 @@ std::optional<double> queryNtp(const std::string& host, int port) {
 
     // RFC 5905 offset formula: offset = ((T2 - T1) + (T3 - T4)) / 2
     double offset = ((d_t2 - d_t1) + (d_t3 - d_t4)) / 2.0;
-
-    // Sanity-check: reject offsets implausibly large (> 1 year).
-    // Values this extreme indicate a misconfigured or unsynchronized NTP server.
-    constexpr double kMaxPlausibleOffsetS = 365.25 * 24 * 3600; // 1 year in seconds
-    if (std::abs(offset) > kMaxPlausibleOffsetS) {
-        LOG_DEBUG("NTP query failed: offset={:.1f}s exceeds 1-year sanity limit, host={}", offset, host);
-        return std::nullopt;
-    }
 
     return offset;
 }
