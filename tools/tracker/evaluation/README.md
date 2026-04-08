@@ -96,11 +96,13 @@ share the same class name, an index suffix is appended to keep keys unique
 (e.g., `TrackEvalEvaluator_0/`, `TrackEvalEvaluator_1/`).
 
 Example with a single evaluator:
+
 ```
 /tmp/tracker-evaluation/20260211_142530/evaluators/TrackEvalEvaluator/
 ```
 
 Example with two evaluators of the same class:
+
 ```
 /tmp/tracker-evaluation/20260211_142530/evaluators/TrackEvalEvaluator_0/
 /tmp/tracker-evaluation/20260211_142530/evaluators/TrackEvalEvaluator_1/
