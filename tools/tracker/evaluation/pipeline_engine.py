@@ -69,7 +69,7 @@ class PipelineEngine:
     self._config: Optional[Dict[str, Any]] = None
     self._dataset = None
     self._harness = None
-    self._evaluators: List = []
+    self._evaluators: List[Any] = []
     self._tracker_outputs = None
     self._run_id: Optional[str] = None
     self._output_path: Optional[Path] = None
