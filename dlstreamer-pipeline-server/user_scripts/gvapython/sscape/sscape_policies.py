@@ -25,9 +25,8 @@ def detection3DPolicy(pobj, item, fw, fh):
     'confidence': item['detection']['confidence'],
   })
 
-  pobj.update({
-    'bounding_box_px': {'x': item['x'], 'y': item['y'], 'width': item['w'], 'height': item['h']}
-  })
+  computeObjBoundingBoxParams3D(pobj, item)
+
   if not ('bounding_box_px' in pobj or 'rotation' in pobj):
     print(f"Warning: No bounding box or rotation data found in item {item}")
   return
@@ -85,27 +84,28 @@ def ocrPolicy(pobj, item, fw, fh):
 ## Utility functions
 
 def computeObjBoundingBoxParams3D(pobj, item):
-  pobj.update({
-    'translation': item['extra_params']['translation'],
-    'rotation': item['extra_params']['rotation'],
-    'size': item['extra_params']['dimension']
-  })
+  if 'extra_params' in item and all(k in item['extra_params'] for k in ['translation', 'rotation', 'dimension']):
+    pobj.update({
+      'translation': item['extra_params']['translation'],
+      'rotation': item['extra_params']['rotation'],
+      'size': item['extra_params']['dimension']
+    })
 
-  x_min, y_min, z_min = pobj['translation']
-  x_size, y_size, z_size = pobj['size']
-  x_max, y_max, z_max = x_min + x_size, y_min + y_size, z_min + z_size
+    x_min, y_min, z_min = pobj['translation']
+    x_size, y_size, z_size = pobj['size']
+    x_max, y_max, z_max = x_min + x_size, y_min + y_size, z_min + z_size
 
-  bbox_width = x_max - x_min
-  bbox_height = y_max - y_min
-  bbox_depth = z_max - z_min
+    bbox_width = x_max - x_min
+    bbox_height = y_max - y_min
+    bbox_depth = z_max - z_min
 
-  pobj['bounding_box_3D'] = {
-    'x': x_min,
-    'y': y_min,
-    'z': z_min,
-    'width': bbox_width,
-    'height': bbox_height,
-    'depth': bbox_depth
-  }
+    pobj['bounding_box_3D'] = {
+      'x': x_min,
+      'y': y_min,
+      'z': z_min,
+      'width': bbox_width,
+      'height': bbox_height,
+      'depth': bbox_depth
+    }
 
   return
