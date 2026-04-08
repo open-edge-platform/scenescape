@@ -5,6 +5,7 @@
 
 import os
 import pytest
+from unittest.mock import Mock
 
 from scene_common.scenescape import SceneLoader
 import tests.common_test_utils as common
@@ -31,3 +32,26 @@ def manager():
   """! Creates a scenescape class object as a fixture. """
 
   return SceneLoader(CONFIG_FULLPATH)
+
+
+@pytest.fixture
+def mock_rest_client():
+  """Create a mock REST client for testing."""
+  mock_client = Mock()
+  mock_client.getScenes.return_value = {
+    'results': [
+      {
+        'uid': 'scene-1',
+        'name': 'Test Scene',
+        'map_file': 'map.obj',
+        'cameras': [],
+        'sensors': [],
+        'children': [],
+        'objects': []
+      }
+    ]
+  }
+  mock_client.updateCamera.return_value = True
+  mock_client.getCamera.return_value = {'uid': 'cam-1'}
+
+  return mock_client

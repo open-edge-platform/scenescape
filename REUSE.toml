@@ -7,7 +7,7 @@ version = 1
 path = [
   "docs/doxygen/Doxyfile.common",
   "docs/doxygen/api_docs",
-  "manager/src/static/site.webmanifest",
+  "manager/src/manager/static/site.webmanifest",
   "tests/security/fuzzing/token",
   "**/*.env",
   "**/mp4",

@@ -6,7 +6,7 @@ TARGET = scenescape-manager-runtime
 USES_SCENE_COMMON = yes
 SHELL = /bin/bash
 CERTDOMAIN = scenescape.intel.com
-JSLIBDIR = src/static
+JSLIBDIR = src/manager/static
 CURL_FLAGS = --connect-timeout 5 --max-time 120 --retry 5 --retry-delay 0
 FORCE_VAAPI ?= 0
 THREEJS_VERSION = 168
@@ -27,7 +27,7 @@ test-build: test/geckodriver.tar.gz
 
 # The 'remove-symlink' target removes a potentially dangling symlink to prevent build failures.
 remove-symlink:
-	rm -f ./src/django/secrets.py
+	rm -f ./src/manager/secrets.py
 
 define JSMEXAMPLES
 fonts/helvetiker_regular.typeface.json \

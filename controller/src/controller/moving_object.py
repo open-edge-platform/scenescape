@@ -5,7 +5,7 @@ import base64
 import datetime
 import struct
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from threading import Lock
 from typing import Dict, List
 
@@ -31,8 +31,11 @@ SPEED_THRESHOLD = 0.1
 class ChainData:
   regions: Dict
   publishedLocations: List[Point]
-  sensors: Dict
   persist: Dict
+  active_sensors: set = field(default_factory=set)
+  env_sensor_state: Dict = field(default_factory=dict)  # {'sensor_id': {'readings': [(ts, val), ...]}}
+  attr_sensor_events: Dict = field(default_factory=dict)  # {'sensor_id': [(ts, val), ...]}
+  _lock: Lock = field(default_factory=Lock)
 
 class Chronoloc:
   def __init__(self, point: Point, when: datetime, bounds: Rectangle):
@@ -166,7 +169,7 @@ class MovingObject:
     @param  persist_attributes  List of attributes to persist (may include sub-attributes)
     """
     if self.chain_data is None:
-      self.chain_data = ChainData(regions={}, publishedLocations=[], sensors={}, persist={})
+      self.chain_data = ChainData(regions={}, publishedLocations=[], persist={})
     for attribute in persist_attributes:
       attr, sub_attrs = (list(attribute.items())[0] if isinstance(attribute, dict) else (attribute, None))
       if attr in info:
@@ -189,7 +192,7 @@ class MovingObject:
 
   def setGID(self, gid):
     if self.chain_data is None:
-      self.chain_data = ChainData(regions={}, publishedLocations=[], sensors={}, persist={})
+      self.chain_data = ChainData(regions={}, publishedLocations=[], persist={})
     self.gid = gid
     self.first_seen = self.when
     return
