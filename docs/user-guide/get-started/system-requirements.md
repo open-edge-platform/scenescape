@@ -44,4 +44,5 @@ File an issue on github if you encounter a compatibility issue with the latest p
 
 ## Validation
 
-- Ensure all dependencies are installed and configured before proceeding to [Get Started](../get-started.md).
+- Install the required software and dependencies on your system; refer to the [Prerequisites](./prerequisites.md) for details.
+- Once all dependencies are installed and configured, proceed to [Get Started](../get-started.md#step-1-get-intel-scenescape).

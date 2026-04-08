@@ -6,45 +6,15 @@
 
 ### Prerequisites
 
-Check [System Requirements](./get-started/system-requirements.md) before proceeding with rest of the steps in this documentation.
+- Verify you meet the [System Requirements](./get-started/system-requirements.md).
 
-### Step 1: Install Prerequisites
+- Install [Prerequisites](./get-started/prerequisites.md) such as Docker and other required software.
 
-The prerequisite software can be installed via the following commands on the Ubuntu host OS:
+### Step 1: Get Intel® SceneScape
 
-```console
-sudo apt update
-sudo apt install -y \
-  curl \
-  git \
-  make \
-  openssl \
-  unzip \
-  rsync
-```
-
-**Installing Docker on your system:**
-
-1. Install Docker using the official installation guide for Ubuntu:
-   [Docker Installation Guide for Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
-
-2. Configure Docker to start on boot and add your user to the Docker group:
-
-   ```console
-   sudo systemctl enable docker
-   sudo usermod -aG docker $USER
-   ```
-
-3. Log out and log back in for group membership changes to take effect.
-
-4. Verify Docker is working properly:
-
-   ```console
-   docker --version
-   docker run hello-world
-   ```
-
-### Step 2: Download and extract code of a Intel® SceneScape release
+<!--hide_directive
+::::{tab-set}
+:::{tab-item} hide_directive--> **Download a release**
 
 > **Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
 
@@ -56,19 +26,16 @@ sudo apt install -y \
    cd scenescape-<version>/
    ```
 
-3. When downloading older Intel® SceneScape releases, follow instructions in `Getting-Started-Guide` specific to that version.
+> **Note:** When downloading older Intel® SceneScape releases, follow instructions in `Getting-Started-Guide` specific to that version.
 
-#### Alternatively, get the Intel® SceneScape source code
+<!--hide_directive
+:::
+:::{tab-item} hide_directive--> **Get the source code**
 
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/open-edge-platform/scenescape.git
-   ```
-
-2. Change directories to the cloned repository:
+1. Clone the repository and change directories to the cloned repository:
 
    ```bash
+   git clone https://github.com/open-edge-platform/scenescape.git &&
    cd scenescape/
    ```
 
@@ -79,7 +46,12 @@ sudo apt install -y \
    git checkout <tag-version>
    ```
 
-### Step 3: Build Intel® SceneScape container images
+<!--hide_directive
+:::
+::::
+hide_directive-->
+
+### Step 2: Build Intel® SceneScape container images
 
 Build container images:
 
@@ -97,7 +69,7 @@ Optionally, the number of jobs can be adjusted by setting the `JOBS` variable, e
 make JOBS=1
 ```
 
-### Step 4 (Optional): Build dependency list of Intel® SceneScape container images
+#### (Optional): Build dependency list of Intel® SceneScape container images
 
 ```bash
 make list-dependencies
@@ -105,7 +77,7 @@ make list-dependencies
 
 This step generates dependency lists. Two separate files are created for system packages and Python packages per each microservice image.
 
-### Step 5: Deploy Intel® SceneScape demo to the target system
+### Step 3: Deploy Intel® SceneScape demo to the target system
 
 Before deploying the demo of Intel® SceneScape for the first time, please set the environment variable SUPASS with the super user password for logging into Intel® SceneScape.
 Important: This should be different than the password for your system user.
@@ -118,9 +90,9 @@ export SUPASS=<password>
 make demo
 ```
 
-### Step 6: Verify a successful deployment
+### Step 4: Verify a successful deployment
 
-If you are running remotely, connect using `"https://<ip_address>"` or `"https://<hostname>"`, using the correct IP address or hostname of the remote Intel® SceneScape system. If accessing on a local system use `"https://localhost"`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
+If you are running remotely, connect using `https://<ip_address>` or `https://<hostname>`, using the correct IP address or hostname of the remote Intel® SceneScape system. If accessing on a local system use `https://localhost`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
 
 > **Note:** These certificate warnings are expected due to the use of a self-signed certificate for initial deployment purposes. This certificate is generated at deploy time and is unique to the instance.
 
@@ -193,7 +165,8 @@ docker compose --profile controller up -d
 ## Summary
 
 Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system. Using the web user interface, Intel® SceneScape provides two scenes by default that can be explored running from stored video data.
-![SceneScape WebUI Homepage](./_assets/ui/homepage.png)
+
+![SceneScape WebUI Homepage](./_assets/ui/homepage.png "SceneScape WebUI Homepage")
 
 > **Note:** The “Documentation” menu option allows you to view Intel® SceneScape HTML version of the documentation in the browser.
 
@@ -257,7 +230,7 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 - [Hardening Guide for Custom TLS](./additional-resources/hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation
 
-- [Release Notes](./additional-resources/release-notes.md)
+- [Release Notes](./release-notes.md)
 
 - [How Intel® SceneScape converts Pixel-Based Bounding Boxes to Normalized Image Space](./additional-resources/convert-object-detections-to-normalized-image-space.md)
 
@@ -265,7 +238,8 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 :::{toctree}
 :hidden:
 
-get-started/system-requirements
+./get-started/system-requirements.md
+./get-started/prerequisites.md
 
 :::
 hide_directive-->
