@@ -7,7 +7,7 @@ Evaluates tracker output quality by measuring positional jitter —
 the degree of unwanted high-frequency variation in tracked object trajectories.
 """
 
-from typing import Iterator, List, Dict, Any
+from typing import Iterator, List, Dict, Any, Optional, Union
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
@@ -52,7 +52,7 @@ class JitterEvaluator(TrackerEvaluator):
   def __init__(self):
     """Initialize JitterEvaluator."""
     self._metrics: List[str] = []
-    self._output_folder: Path = None
+    self._output_folder: Optional[Path] = None
     self._processed: bool = False
 
     # Per-track position history: {track_uuid: [(timestamp, [x, y, z]), ...]}
@@ -89,7 +89,7 @@ class JitterEvaluator(TrackerEvaluator):
     self._metrics = list(metrics)
     return self
 
-  def set_output_folder(self, path: Path) -> 'JitterEvaluator':
+  def set_output_folder(self, path: Union[Path, str]) -> 'JitterEvaluator':
     """Set folder where evaluation outputs should be stored.
 
     Args:
@@ -110,7 +110,7 @@ class JitterEvaluator(TrackerEvaluator):
   def process_tracker_outputs(
     self,
     tracker_outputs: Iterator[Dict[str, Any]],
-    ground_truth: Iterator[Dict[str, Any]]
+    ground_truth: Optional[Union[str, Iterator[str]]]
   ) -> 'JitterEvaluator':
     """Process tracker outputs and build per-track position histories.
 
@@ -120,8 +120,11 @@ class JitterEvaluator(TrackerEvaluator):
     Args:
       tracker_outputs: Iterator of tracker output dicts in canonical
         Tracker Output Format (see tools/tracker/evaluation/README.md).
-      ground_truth: Path to ground-truth CSV file in MOTChallenge 3D format
-        (frame,id,x,y,z,conf,class,visibility). Pass None to skip GT metrics.
+      ground_truth: Path to a MOTChallenge 3D CSV file
+        (frame,id,x,y,z,conf,class,visibility), or an iterator whose first
+        element is such a path string, or None to skip GT metrics.
+        NOTE: The base class signature requires Iterator, but in practice
+        this is a file path string returned by dataset.get_ground_truth().
 
     Returns:
       Self for method chaining.
@@ -285,7 +288,7 @@ class JitterEvaluator(TrackerEvaluator):
         'jerk_magnitudes':         np.ndarray of scalar jerk magnitudes (m/s³).
                                    Empty array if fewer than 4 points.
         'acceleration_magnitudes': np.ndarray of scalar acceleration magnitudes (m/s²).
-                                   Empty array if fewer than 3 points.
+                                   Non-empty for all included tracks (minimum 3 points).
     """
     result: Dict[str, Any] = {}
 
