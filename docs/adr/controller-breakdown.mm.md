@@ -7,32 +7,47 @@ markmap:
 ## Data Flow
 
 ```
-cameras ──► data/camera/{camera-id} ──► MOT Tracking ──► data/scene/{scene-id}/{category} ──► Scene Analytics ──► regulated/scene/{scene-id}
-                                                │                       │                            │
-sensors ──► data/sensor/{sensor-id} ──► [?] ────┘                       │                            ├──► events/+
-                                                                        │                            │
-                                                                        ▼                            ▼
-                                                                  Scene Hierarchy             UUID Manager + ReID
-                                                                        │                     (sync query-response,
-                                                                        │                      called by Analytics)
-                                                                        ▼
-                                                              external/scene/{parent-scene-id}
-                                                                        │
-                                                                        ▼
-                                                              Scene Analytics (parent scene)
+cameras ──► data/camera/{camera-id} ──► Projection ──► MOT Tracking ──► data/scene/{scene-id}/{category} ──► Scene Analytics ──► regulated/scene/{scene-id}
+                                                              │                       │                            │
+sensors ──► data/sensor/{sensor-id} ──► [?] ──────────────────┘                       │                            ├──► events/+
+                                                                                      │                            │
+                                                                                      ▼                            ▼
+                                                                                Scene Hierarchy             UUID Manager + ReID
+                                                                                      │                     (sync query-response,
+                                                                                      │                      called by Analytics)
+                                                                                      ▼
+                                                                            external/scene/{parent-scene-id}
+                                                                                      │
+                                                                                      ▼
+                                                                            Scene Analytics (parent scene)
 ```
 
 **[?] markers** indicate open questions, typically about which component is responsible when the same data could be handled in multiple places (e.g., sensors could be in MOT or Analytics). See [Opens](#opens) section.
 
 ## Functionalities
 
+### Projection
+
+- **Role**: perform 2D->3D projection
+- **Responsible Component**: not decided yet (currently Tracker Service)
+- **Communication Model**: Asynchronous, one-directional (messages)
+- **Input**: `data/camera/{camera-id}` topics
+- **Output**: currently Tracker Service internal buffer (to be changed to MQTT topic if it becomes a separate service, e.g. `data/projections/{scene-id}/{category}` topics)
+- configuration:
+  - scenes and cameras
+- not aware of:
+  - regions, tripwires
+- technology: C++
+- latency-critical, highly optimized
+- scalability TBD
+
 ### MOT Tracking
 
-- **Role**: perform 2D->3D projection and 3D Multi-Object-Tracking
+- **Role**: 3D Multi-Object-Tracking
 - **Responsible Component**: Tracker Service
 - **Communication Model**: Asynchronous, one-directional (messages)
 - **Input**:
-  - `data/camera/{camera-id}` topics
+  - currently Tracker Service internal buffer (to be changed to MQTT topic if it becomes a separate service, e.g. `data/projections/{scene-id}/{category}` topics)
   - `data/sensor/{sensor-id}` topics [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
 - **Output**: `data/scene/{scene-id}/{category}` topics
   - passed-through:
@@ -47,7 +62,6 @@ sensors ──► data/sensor/{sensor-id} ──► [?] ────┘         
     - visibility by camera matches [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
 - configuration:
   - tracker config
-  - scenes and cameras
 - not aware of:
   - scene hierarchy (unless we decide to re-track in parent scene, see [Opens](#opens))
   - regions, tripwires
