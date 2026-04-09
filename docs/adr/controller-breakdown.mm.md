@@ -48,7 +48,6 @@ sensors ──► data/sensor/{sensor-id} ──► [?] ────────
 - **Communication Model**: Asynchronous, one-directional (messages)
 - **Input**:
   - currently Tracker Service internal buffer (to be changed to MQTT topic if it becomes a separate service, e.g. `data/projections/{scene-id}/{category}` topics)
-  - `data/sensor/{sensor-id}` topics [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
 - **Output**: `data/scene/{scene-id}/{category}` topics
   - passed-through:
     - detection metadata
@@ -56,7 +55,6 @@ sensors ──► data/sensor/{sensor-id} ──► [?] ────────
       - cross-frame carry-over (retaining attributes across frames for the same tracked object): TBD
     - camera timestamp (with optional correction)
   - produced:
-    - sensors [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
     - object location projection to 3D scene
     - reliable tracks with local ID (unique per scene)
     - ~~visibility by camera matches [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)~~
@@ -85,21 +83,23 @@ sensors ──► data/sensor/{sensor-id} ──► [?] ────────
 - **Responsible Component**: Not Decided Yet
 - **Input**:
   - `data/scene/{scene-id}/{category}` topics
-  - `data/sensor/{sensor-id}` topics [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
+  - `data/sensor/{sensor-id}` topics
   - `external/scene/{scene-id}` topics
+  - **Note:** There are use cases (ex: wipro), in which the tracker is skipped and only analytics are used. And thus analytics should accept data from other sources apart from MOT (It needs to have its own input schema)
 - **Output**:
   - `regulated/scene/{scene-id}` topic
     - passed-through:
-      - visibility by camera matches [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
+      - ~~visibility by camera matches [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)~~
       - semantic metadata from camera detections
     - produced:
-      - sensors [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
+      - sensor attributes
       - events (e.g. regions, tripwire)
       - visibility by camera view projection
   - `events/+` topics
     - produced: as today
-- not responsible for:
-  - scene hierarchy management (receives hierarchy data via `external/` topics but does not manage parent-child relationships)
+- hierarchy handling (alternative approaches - one of):
+  - receives hierarchy data via `external/` topics from tracker
+  - analytics is the publisher to external topic and not tracker
 - technology: Python and C++
 - time synchronization: None
 - latency-sensitive, most compute-expensive functions optimized (C++)
@@ -163,27 +163,27 @@ sensors ──► data/sensor/{sensor-id} ──► [?] ────────
 
 ## Opens
 
-- **Tracker / Analytics / Clustering**:
-  - do we need to implement object permanence? if so, how to provide input which tracks should be permanent
-  - how to handle non camera detections like 3D sensors (e.g. LIDARs)
-  - whether to produce as output: unreliable and suspended (properly tagged)
-  - how to generate camera visibility (two complementary approaches, can be used together)
+- **Projection / Tracker / Analytics / Clustering**:
+  - Whether Projection should be a separate service or part of Tracker Service.
+  - **DONE** ~~do we need to implement object permanence? if so, how to provide input which tracks should be permanent~~ **NO**
+  - **DONE** how to handle non camera detections like 3D sensors (e.g. LIDARs)
+    - Expected to align to the metadata that tracker expects for object detections.
+    - We will eventually provide Lidar calibration methods to position the sensor so that the detections from the lidar can be correctly positioned in the shared coordinate system.
+  - **DONE** ~~whether to produce as output: unreliable and suspended (properly tagged)~~ **NO**
+  - **DONE** how to generate camera visibility (two complementary approaches, can be used together)
     - ~~computed based on matched detections (e.g. last frame camera only, cameras in the last second)~~
-    - computed from projecting camera field of view (as it is now)
-  - whether to handle sensor inputs in tracker service or analytics?
-    - if in tracker service then
-      - sensor readings go to data/scene topics (as it is now)
-      - can be sent to parent (as it is now)
-    - if in analytics service then
-      - sensor readings go to regulated/scene topics
-      - not sent to parent (breaking change)
-  - whether to extend cluster analytics with scene analytics or to implement new service
+    - computed from projecting camera field of view (as it is now) in scene analytics
+  - **DONE** ~~whether to handle sensor inputs in tracker service or analytics?~~ **in analytics**
+  - **DONE** ~~whether to extend cluster analytics with scene analytics or to implement new service~~ **NO, we will create new service**
 - **Scene Hierarchy**
-  - give up re-tracking in parent scene? (only tracks are sent to parent) - would simplify a lot
-    - if yes, MOT Tracker stays unaware of scene hierarchy
-    - if no, MOT Tracker needs `external/` topics as additional input
-  - only tracks are sent to parent, not events?
-    - in future how to make regions and tripwires shared across scene hierarchy (increases complexity)
+  - whether it should be a separate service or part of tracker or/and analytics?
+    - if part of tracker / analytics, then should only analytics be aware of hierarchy or both?
+  - which of the following should flow from child to parent:
+    - camera detections
+    - raw tracks (tracker outputs)
+    - fused tracks (analytics outputs)
+    - analytics events
+  - in future how to make regions and tripwires shared across scene hierarchy (increases complexity) **need to check with Rob on the priority of this.**
 - **NTP synchronization** (affects MOT Tracking `[?]` on time sync)
   - whether to internally synchronize timestamps with external NTP service vs rely on system-level clock synchronization (and shift the responsibility onto the user)?
     - relying on system clock NTP synchronization simplifies tracker implementation and the pipeline (we can use GStreamer timestamper then which takes time from system clock, gvapython may become deprecated), potentially decreasing pipeline latency
