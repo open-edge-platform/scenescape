@@ -28,4 +28,11 @@ evaluators:
   - class: evaluators.jitter_evaluator.JitterEvaluator
     config:
       metrics:
-        [rms_jerk, rms_jerk_gt, rms_jerk_ratio, acceleration_variance, acceleration_variance_gt, acceleration_variance_ratio]
+        [
+          rms_jerk,
+          rms_jerk_gt,
+          rms_jerk_ratio,
+          acceleration_variance,
+          acceleration_variance_gt,
+          acceleration_variance_ratio,
+        ]
