@@ -433,6 +433,48 @@ class TestGTMetrics:
     metrics = evaluator.evaluate_metrics()
     assert metrics['rms_jerk_gt'] < 0.05
 
+  def test_ratio_metrics_in_supported_metrics(self):
+    assert 'rms_jerk_ratio' in JitterEvaluator.SUPPORTED_METRICS
+    assert 'acceleration_variance_ratio' in JitterEvaluator.SUPPORTED_METRICS
+
+  def test_ratio_metrics_return_float(self, evaluator, mock_tracker_outputs, mock_gt_csv):
+    evaluator.configure_metrics(['rms_jerk_ratio', 'acceleration_variance_ratio'])
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=mock_gt_csv)
+    metrics = evaluator.evaluate_metrics()
+    assert isinstance(metrics['rms_jerk_ratio'], float)
+    assert isinstance(metrics['acceleration_variance_ratio'], float)
+
+  def test_ratio_metrics_positive_when_gt_nonzero(self, evaluator, mock_tracker_outputs, mock_gt_csv):
+    evaluator.configure_metrics(['rms_jerk_ratio', 'acceleration_variance_ratio'])
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=mock_gt_csv)
+    metrics = evaluator.evaluate_metrics()
+    assert metrics['rms_jerk_ratio'] >= 0.0
+    assert metrics['acceleration_variance_ratio'] >= 0.0
+
+  def test_ratio_metrics_zero_when_no_gt(self, evaluator, mock_tracker_outputs):
+    """With no GT, denominator is 0 → ratio returns 0.0."""
+    evaluator.configure_metrics(['rms_jerk_ratio', 'acceleration_variance_ratio'])
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
+    metrics = evaluator.evaluate_metrics()
+    assert metrics['rms_jerk_ratio'] == 0.0
+    assert metrics['acceleration_variance_ratio'] == 0.0
+
+  def test_ratio_equals_tracker_over_gt(self, evaluator, mock_tracker_outputs, mock_gt_csv):
+    """ratio must equal the independently computed tracker / GT values."""
+    evaluator.configure_metrics([
+      'rms_jerk', 'rms_jerk_gt', 'rms_jerk_ratio',
+      'acceleration_variance', 'acceleration_variance_gt', 'acceleration_variance_ratio',
+    ])
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=mock_gt_csv)
+    metrics = evaluator.evaluate_metrics()
+    if metrics['rms_jerk_gt'] != 0.0:
+      assert abs(metrics['rms_jerk_ratio'] - metrics['rms_jerk'] / metrics['rms_jerk_gt']) < 1e-9
+    if metrics['acceleration_variance_gt'] != 0.0:
+      assert abs(
+        metrics['acceleration_variance_ratio']
+        - metrics['acceleration_variance'] / metrics['acceleration_variance_gt']
+      ) < 1e-9
+
   def test_gt_csv_not_found_raises(self, evaluator, mock_tracker_outputs):
     evaluator.configure_metrics(['rms_jerk_gt'])
     with pytest.raises(RuntimeError, match="Cannot read ground-truth CSV"):

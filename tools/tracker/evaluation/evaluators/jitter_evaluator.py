@@ -21,13 +21,17 @@ class JitterEvaluator(TrackerEvaluator):
   by analysing frame-to-frame position changes for each track.
 
   Supported Metrics:
-    - rms_jerk:              Root mean square jerk across all tracker output tracks.
-    - acceleration_variance: Variance of acceleration magnitudes across all tracker output tracks.
+    - rms_jerk:                  Root mean square jerk across all tracker output tracks.
+    - acceleration_variance:     Variance of acceleration magnitudes across tracker output tracks.
     - rms_jerk_gt:              Same as rms_jerk but computed on ground-truth tracks.
     - acceleration_variance_gt: Same as acceleration_variance but on ground-truth tracks.
+    - rms_jerk_ratio:           rms_jerk / rms_jerk_gt — tracker jitter relative to GT.
+    - acceleration_variance_ratio: acceleration_variance / acceleration_variance_gt.
 
   Comparing ``rms_jerk`` with ``rms_jerk_gt`` shows how much jitter the tracker
-  adds on top of any jitter already present in the test data.
+  adds on top of any jitter already present in the test data. The ratio metrics
+  express this as a single scalar: 1.0 means equal jitter, >1.0 means the tracker
+  is noisier than the ground truth. Returns 0.0 when the GT denominator is zero.
 
   Usage::
 
@@ -35,7 +39,9 @@ class JitterEvaluator(TrackerEvaluator):
     from evaluators.jitter_evaluator import JitterEvaluator
 
     evaluator = JitterEvaluator()
-    evaluator.configure_metrics(['rms_jerk', 'acceleration_variance', 'rms_jerk_gt', 'acceleration_variance_gt'])
+    evaluator.configure_metrics(['rms_jerk', 'rms_jerk_gt', 'rms_jerk_ratio',
+                             'acceleration_variance', 'acceleration_variance_gt',
+                             'acceleration_variance_ratio'])
     evaluator.set_output_folder(Path('/path/to/results'))
     evaluator.process_tracker_outputs(tracker_outputs, ground_truth)
     metrics = evaluator.evaluate_metrics()
@@ -47,6 +53,8 @@ class JitterEvaluator(TrackerEvaluator):
     'acceleration_variance',
     'rms_jerk_gt',
     'acceleration_variance_gt',
+    'rms_jerk_ratio',
+    'acceleration_variance_ratio',
   ]
 
   def __init__(self):
@@ -70,9 +78,10 @@ class JitterEvaluator(TrackerEvaluator):
     """Configure which jitter metrics to evaluate.
 
     Args:
-      metrics: List of metric names to compute.
-                Supported: 'rms_jerk', 'acceleration_variance',
-                'rms_jerk_gt', 'acceleration_variance_gt'.
+      metrics: List of metric names to compute. Supported values are listed
+                in ``SUPPORTED_METRICS``: 'rms_jerk', 'acceleration_variance',
+                'rms_jerk_gt', 'acceleration_variance_gt', 'rms_jerk_ratio',
+                'acceleration_variance_ratio'.
 
     Returns:
       Self for method chaining.
@@ -97,9 +106,6 @@ class JitterEvaluator(TrackerEvaluator):
 
     Returns:
       Self for method chaining.
-
-    Raises:
-      ValueError: If path is invalid.
     """
     if not isinstance(path, Path):
       path = Path(path)
@@ -226,18 +232,34 @@ class JitterEvaluator(TrackerEvaluator):
 
     jitter_per_track = self._compute_jitter_per_track(self._track_histories)
 
+    gt_metrics = {
+      'rms_jerk_gt', 'acceleration_variance_gt',
+      'rms_jerk_ratio', 'acceleration_variance_ratio',
+    }
+    needs_gt = any(m in gt_metrics for m in self._metrics)
+    jitter_per_track_gt = (
+      self._compute_jitter_per_track(self._gt_track_histories)
+      if needs_gt else {}
+    )
+
     results = {}
     for metric in self._metrics:
       if metric == 'rms_jerk':
         results[metric] = self._compute_rms_jerk(jitter_per_track)
       elif metric == 'acceleration_variance':
         results[metric] = self._compute_acceleration_variance(jitter_per_track)
-      elif metric in ('rms_jerk_gt', 'acceleration_variance_gt'):
-        jitter_per_track_gt = self._compute_jitter_per_track(self._gt_track_histories)
-        if metric == 'rms_jerk_gt':
-          results[metric] = self._compute_rms_jerk(jitter_per_track_gt)
-        else:
-          results[metric] = self._compute_acceleration_variance(jitter_per_track_gt)
+      elif metric == 'rms_jerk_gt':
+        results[metric] = self._compute_rms_jerk(jitter_per_track_gt)
+      elif metric == 'acceleration_variance_gt':
+        results[metric] = self._compute_acceleration_variance(jitter_per_track_gt)
+      elif metric == 'rms_jerk_ratio':
+        tracker_val = self._compute_rms_jerk(jitter_per_track)
+        gt_val = self._compute_rms_jerk(jitter_per_track_gt)
+        results[metric] = tracker_val / gt_val if gt_val != 0.0 else 0.0
+      elif metric == 'acceleration_variance_ratio':
+        tracker_val = self._compute_acceleration_variance(jitter_per_track)
+        gt_val = self._compute_acceleration_variance(jitter_per_track_gt)
+        results[metric] = tracker_val / gt_val if gt_val != 0.0 else 0.0
 
     if self._output_folder is not None:
       self._save_results(results)
@@ -259,7 +281,7 @@ class JitterEvaluator(TrackerEvaluator):
     return self
 
   # ------------------------------------------------------------------
-  # Internal helpers — metric calculation stubs
+  # Internal helpers
   # ------------------------------------------------------------------
 
   def _compute_jitter_per_track(self, histories: Dict[str, List[tuple]]) -> Dict[str, Any]:
