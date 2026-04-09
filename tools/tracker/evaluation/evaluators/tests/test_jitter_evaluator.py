@@ -77,6 +77,8 @@ class TestInitialization:
     assert ev._output_folder is None
     assert ev._processed is False
     assert ev._track_histories == {}
+    assert ev._gt_track_histories == {}
+    assert ev._camera_fps == 30.0
 
 
 class TestConfigureMetrics:
@@ -191,6 +193,27 @@ class TestProcessTrackerOutputs:
   def test_accepts_iterator(self, evaluator, mock_tracker_outputs):
     evaluator.process_tracker_outputs(iter(mock_tracker_outputs), ground_truth=None)
     assert evaluator._processed is True
+
+  def test_fps_derived_from_multi_frame_outputs(self, evaluator, mock_tracker_outputs):
+    """FPS is computed from tracker output timestamps when more than one frame exists."""
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
+    # mock_tracker_outputs spans ~0.067s over 3 frames → ~29.9 FPS
+    assert evaluator._camera_fps > 0
+    assert evaluator._camera_fps != 30.0  # not the default fallback
+
+  def test_fps_defaults_to_30_for_single_frame(self, evaluator):
+    """Single-frame output cannot derive FPS — falls back to 30.0."""
+    outputs = [{"timestamp": "2024-01-01T00:00:00.000Z", "objects": [
+      {"id": "track-A", "translation": [0.0, 0.0, 0.0]}]}]
+    evaluator.process_tracker_outputs(outputs, ground_truth=None)
+    assert evaluator._camera_fps == 30.0
+
+  def test_gt_accepts_iterator_of_path(self, evaluator, mock_tracker_outputs, mock_gt_csv):
+    """ground_truth passed as an iterator whose first element is the CSV path."""
+    evaluator.process_tracker_outputs(
+      mock_tracker_outputs, ground_truth=iter([mock_gt_csv])
+    )
+    assert len(evaluator._gt_track_histories) == 2
 
 
 class TestEvaluateMetrics:
@@ -416,6 +439,21 @@ class TestGTMetrics:
       evaluator.process_tracker_outputs(
         mock_tracker_outputs, ground_truth="/nonexistent/gt.txt"
       )
+
+  def test_gt_csv_single_row(self, evaluator, mock_tracker_outputs, tmp_path):
+    """CSV with a single detection row (numpy loads as 1-D array — must be reshaped)."""
+    gt_file = tmp_path / "gt_single.txt"
+    gt_file.write_text("1,1,0.0,0.0,0.0,1.0,1,1\n")
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=str(gt_file))
+    assert '1' in evaluator._gt_track_histories
+    assert len(evaluator._gt_track_histories['1']) == 1
+
+  def test_gt_csv_too_few_columns_raises(self, evaluator, mock_tracker_outputs, tmp_path):
+    """CSV with fewer than 5 columns raises a descriptive RuntimeError."""
+    gt_file = tmp_path / "gt_bad.txt"
+    gt_file.write_text("1,1,0.0,0.0\n")  # only 4 columns
+    with pytest.raises(RuntimeError, match="fewer than 5 columns"):
+      evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=str(gt_file))
 
   def test_reset_clears_gt_histories(self, evaluator, mock_tracker_outputs, mock_gt_csv):
     evaluator.configure_metrics(['rms_jerk_gt'])
