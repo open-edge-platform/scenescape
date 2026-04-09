@@ -22,17 +22,6 @@ harness:
     tracker_config_path: ../../../tests/system/metric/dataset/tracker-config.json
 
 evaluators:
-  - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
+  - class: evaluators.diagnostic_evaluator.DiagnosticEvaluator
     config:
-      metrics: [HOTA, MOTA, IDF1]
-  - class: evaluators.jitter_evaluator.JitterEvaluator
-    config:
-      metrics:
-        [
-          rms_jerk,
-          rms_jerk_gt,
-          rms_jerk_ratio,
-          acceleration_variance,
-          acceleration_variance_gt,
-          acceleration_variance_ratio,
-        ]
+      metrics: [LOC_T_X, LOC_T_Y, DIST_T]
