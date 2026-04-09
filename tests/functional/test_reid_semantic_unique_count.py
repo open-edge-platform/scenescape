@@ -5,9 +5,11 @@
 
 # Import the shared test infrastructure from test_reid_unique_count
 from tests.functional.test_reid_unique_count import run_test
-from scene_common import log
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import REID_SEMANTIC
+from tests.utils.log import get_logger
+
+logger = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="reid_semantic_unique_count", profile=REID_SEMANTIC,
@@ -22,8 +24,8 @@ def test_reid_semantic_unique_count(params, record_xml_attribute):
   """
   TEST_NAME = "NEX-T19882"
   record_xml_attribute("name", TEST_NAME)
-  log.info("Executing: " + TEST_NAME)
-  log.info("Test the unique count for each scene when RE-ID with semantic classification is enabled.")
+  logger.info("Executing: " + TEST_NAME)
+  logger.info("Test the unique count for each scene when RE-ID with semantic classification is enabled.")
 
   scene_config = {
     "302cf49a-97ec-402d-a324-c5077b280b7b": {

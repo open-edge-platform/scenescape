@@ -4,8 +4,10 @@
 import numpy as np
 import random
 from tests.functional import FunctionalTest
-from scene_common import log
 from controller.vdms_adapter import VDMSDatabase, vdms
+from tests.utils.log import get_logger
+
+logger = get_logger(__name__)
 
 class BackendFunctionalTest(FunctionalTest):
   def vdms_connect(self, use_tls=True):
@@ -28,7 +30,7 @@ class BackendFunctionalTest(FunctionalTest):
     """
 
     assert isinstance(reid_vectors, list) or isinstance(reid_vectors, int), \
-      log.error("reid_vectors is neither a list nor an integer!")
+      logger.error("reid_vectors is neither a list nor an integer!")
 
     if type(reid_vectors) == int:
       iterations = reid_vectors

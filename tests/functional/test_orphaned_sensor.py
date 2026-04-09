@@ -4,12 +4,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from scene_common import log
 from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
 from tests.functional.rest_test_cases import testCases
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+from tests.utils.log import get_logger
+
+logger = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="orphaned_sensor", profile=FULL_STACK,
@@ -53,25 +55,25 @@ class OrphanedSensorTest(FunctionalTest):
       * Get the entire list of sensors and verify that the new sensor has the new scene ID
     """
 
-    log.info("Make sure that the SceneScape is up and running")
+    logger.info("Make sure that the SceneScape is up and running")
     assert self.sceneScapeReady(MAX_ATTEMPTS, MAX_CONTROLLER_WAIT)
 
     try:
-      log.info(f"Generating a new scene: {self.newSceneName}")
+      logger.info(f"Generating a new scene: {self.newSceneName}")
       newScene = self.rest.createScene({'name': self.newSceneName})
       assert newScene, (newScene.statusCode, newScene.errors)
 
       sensorData = testCases['Sensor']['create'][0][0]
-      log.info(f"Generating a new sensor with the following data: {sensorData}")
+      logger.info(f"Generating a new sensor with the following data: {sensorData}")
       sensorData['scene'] = newScene['uid']
       newSensor = self.rest.createSensor(sensorData)
       assert newSensor, (newSensor.statusCode, newSensor.errors)
 
-      log.info(f"Make sure the sensor is available in the sensor list after deleting associated scene")
+      logger.info(f"Make sure the sensor is available in the sensor list after deleting associated scene")
       assert self.rest.deleteScene(newScene['uid'])
       assert self._isSensorAvailable(newSensor['uid'])
 
-      log.info(f"Assign the orphaned sensor to an existing scene")
+      logger.info(f"Assign the orphaned sensor to an existing scene")
       existingScene = self.rest.getScenes({'id': self.existingSceneUID})
       assert existingScene['results'], (existingScene.statusCode, existingScene.errors)
       sceneID = existingScene['results'][0]['uid']
@@ -81,7 +83,7 @@ class OrphanedSensorTest(FunctionalTest):
       assert updateNewSensor and updateNewSensor['scene'] == sceneID, \
         (updateNewSensor.statusCode, updateNewSensor.errors)
 
-      log.info("Make sure that the sensor is still available")
+      logger.info("Make sure that the sensor is still available")
       assert self._isSensorAvailable(newSensor['uid'])
 
       self.exitCode = 0

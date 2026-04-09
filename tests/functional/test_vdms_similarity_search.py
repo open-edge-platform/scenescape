@@ -6,9 +6,11 @@
 import os
 import numpy as np
 from tests.functional.backend_functional import BackendFunctionalTest
-from scene_common import log
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import BROKER_VDMS_DB
+from tests.utils.log import get_logger
+
+logger = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="vdms_similarity_search", profile=BROKER_VDMS_DB,
@@ -25,7 +27,7 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
     self.thing_2_match = self.generate_random_vector()
 
   def descriptor_set_reid(self):
-    log.info("Add the descriptor set for RE-ID data")
+    logger.info("Add the descriptor set for RE-ID data")
     descriptor_set = {
       "AddDescriptorSet": {
         "name": "reid_vectors",
@@ -37,12 +39,12 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
     all_queries.append(descriptor_set)
 
     response, res_arr = self.vdb.db.query(all_queries)
-    log.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
+    logger.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
     assert response[0]['AddDescriptorSet']['status'] == 0, "The response status for the descriptor set should be 0!"
     return
 
   def descriptor_objects(self):
-    log.info("Add descriptors for two distinct objects")
+    logger.info("Add descriptors for two distinct objects")
     blob_1 = np.array(self.thing_1, dtype="float32")
     blob_2 = np.array(self.thing_2, dtype="float32")
 
@@ -70,15 +72,15 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
 
     response, res_arr = self.vdb.db.query(all_queries, [descriptor_blob])
 
-    log.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
+    logger.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
     assert response[0]['AddDescriptor']['status'] == 0 and response[1]['AddDescriptor']['status'] == 0, \
       "The response status for both descriptors should be 0!"
     return
 
   def get_similarity(self):
-    log.info("Pass a third RE-ID vector from one of the two initial objects and get a similarity search comparison. It should have low distance from one of the entries.")
+    logger.info("Pass a third RE-ID vector from one of the two initial objects and get a similarity search comparison. It should have low distance from one of the entries.")
     response, res_arr = self.get_similarity_comparison([self.thing_2_match])
-    log.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
+    logger.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
     assert response[0]['FindDescriptor']['returned'] == 2, \
       "There should be only 2 entities returned!"
     return

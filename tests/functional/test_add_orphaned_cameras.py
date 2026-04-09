@@ -4,11 +4,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from scene_common import log
 from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+from tests.utils.log import get_logger
+
+logger = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="add_orphaned_cameras", profile=FULL_STACK,
@@ -51,27 +53,27 @@ class OrphanedCameraTest(FunctionalTest):
       * Get the entire list of cameras and verify that the new camera is has the new scene ID
     """
 
-    log.info("Make sure that the SceneScape is up and running")
+    logger.info("Make sure that the SceneScape is up and running")
     assert self.sceneScapeReady(MAX_ATTEMPTS, MAX_CONTROLLER_WAIT)
 
     try:
-      log.info(f"Generating a new scene: {self.newSceneName}")
+      logger.info(f"Generating a new scene: {self.newSceneName}")
       newScene = self.rest.createScene({'name': self.newSceneName})
       assert newScene, (newScene.statusCode, newScene.errors)
 
-      log.info(f"Generating a new camera: {self.newCameraName} and adding it to scene: {newScene['uid']}")
+      logger.info(f"Generating a new camera: {self.newCameraName} and adding it to scene: {newScene['uid']}")
       newCamera = self.rest.createCamera({'name': self.newCameraName, 'scene': newScene['uid']})
       assert newCamera, (newCamera.statusCode, newCamera.errors)
 
-      log.info(f"Delete the newly created scene: {newScene['uid']}")
+      logger.info(f"Delete the newly created scene: {newScene['uid']}")
       assert self.rest.deleteScene(newScene['uid'])
 
-      log.info("Make sure the camera is available in the camera list after deleting associated scene")
+      logger.info("Make sure the camera is available in the camera list after deleting associated scene")
       getAllCameras = self.rest.getCameras({})
       assert len(getAllCameras['results']) >= 1 \
         and self._isCameraAvailable(getAllCameras['results'], newCamera['uid'])
 
-      log.info("Assign the orphaned camera to an existing scene")
+      logger.info("Assign the orphaned camera to an existing scene")
       existingScene = self.rest.getScenes({'id': self.existingSceneUID})
       assert existingScene['results'], (existingScene.statusCode, existingScene.errors)
       sceneID = existingScene['results'][0]['uid']
@@ -79,7 +81,7 @@ class OrphanedCameraTest(FunctionalTest):
       assert updateNewCamera and updateNewCamera['scene'] == sceneID, \
         (updateNewCamera.statusCode, updateNewCamera.errors)
 
-      log.info("Make sure that the camera is still available")
+      logger.info("Make sure that the camera is still available")
       getAllCameras = self.rest.getCameras({})
       assert len(getAllCameras['results']) >= 1 \
         and self._isCameraAvailable(getAllCameras['results'], newCamera['uid'])

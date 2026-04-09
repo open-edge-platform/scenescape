@@ -8,7 +8,9 @@ import time
 import os
 from tests.functional.backend_functional import BackendFunctionalTest
 from scene_common.mqtt import PubSub
-from scene_common import log
+from tests.utils.log import get_logger
+
+logger = get_logger(__name__)
 
 try:
   import psutil
@@ -62,11 +64,11 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
     @param    rc        The connection result.
     """
     self.connected = True
-    log.info("Connected to MQTT Broker")
+    logger.info("Connected to MQTT Broker")
     for sc_uid in self.scenes_updates:
       topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=sc_uid, thing_type="person")
       mqttc.subscribe(topic, 0)
-      log.info("Subscribed to the topic {}".format(topic))
+      logger.info("Subscribed to the topic {}".format(topic))
     return
 
   def get_sys_info(self):
@@ -85,7 +87,7 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
     cpu_usage, memory_usage, disk_usage = self.get_sys_info()
     vdms_time = self.get_vdms_time()
     self.performance_db.append([test_time, cpu_usage, memory_usage, disk_usage, vdms_time])
-    log.info(f"{test_time}, {cpu_usage}, {memory_usage}, {disk_usage}, {vdms_time}")
+    logger.info(f"{test_time}, {cpu_usage}, {memory_usage}, {disk_usage}, {vdms_time}")
     return
 
   def on_scene_message(self, mqttc, condlock, msg):
@@ -111,27 +113,27 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
     return_value = True
 
     cpu_averages = self.get_average_values(1)
-    log.info(f"-> CPU: Start - {cpu_averages[0]}, End - {cpu_averages[1]}, Avg - {cpu_averages[2]}")
+    logger.info(f"-> CPU: Start - {cpu_averages[0]}, End - {cpu_averages[1]}, Avg - {cpu_averages[2]}")
     if (cpu_averages[1] >= cpu_averages[0] * 1.2):
-      log.error("The final CPU average shouldn't be 20% greater than the initial one!")
+      logger.error("The final CPU average shouldn't be 20% greater than the initial one!")
       return_value = False
 
     mem_averages = self.get_average_values(2)
-    log.info(f"-> Memory: Start - {mem_averages[0]}, End - {mem_averages[1]}, Avg - {mem_averages[2]}")
+    logger.info(f"-> Memory: Start - {mem_averages[0]}, End - {mem_averages[1]}, Avg - {mem_averages[2]}")
     if (mem_averages[1] >= mem_averages[0] * 1.1):
-      log.error("The final Memory average shouldn't be 10% greater than the initial one!")
+      logger.error("The final Memory average shouldn't be 10% greater than the initial one!")
       return_value = False
 
     disk_averages = self.get_average_values(3)
-    log.info(f"-> Disk Usage: Start - {disk_averages[0]}, End - {disk_averages[1]}, Avg - {disk_averages[2]}")
+    logger.info(f"-> Disk Usage: Start - {disk_averages[0]}, End - {disk_averages[1]}, Avg - {disk_averages[2]}")
     if (disk_averages[1] >= disk_averages[0] * 1.1):
-      log.error("The final Disk Usage average shouldn't be 10% greater than the initial one!")
+      logger.error("The final Disk Usage average shouldn't be 10% greater than the initial one!")
       return_value = False
 
     query_averages = self.get_average_values(4)
-    log.info(f"-> Query time: Start - {query_averages[0]}, End - {query_averages[1]}, Avg - {query_averages[2]}")
+    logger.info(f"-> Query time: Start - {query_averages[0]}, End - {query_averages[1]}, Avg - {query_averages[2]}")
     if (query_averages[1] >= query_averages[0] * 3):
-      log.error("The final Query time average shouldn't be 3 times greater than the initial one!")
+      logger.error("The final Query time average shouldn't be 3 times greater than the initial one!")
       return_value = False
 
     return return_value
@@ -144,8 +146,8 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
     start_time = time.time()
     updated = False  # Compute only once the performance data
 
-    log.info(f"The test will run for {TEST_WAIT_TIME} seconds and will print an update aproximately every {interval} seconds.")
-    log.info("Timestamp, CPU Usage, Memory Usage, Disk Usage, Query time")
+    logger.info(f"The test will run for {TEST_WAIT_TIME} seconds and will print an update aproximately every {interval} seconds.")
+    logger.info("Timestamp, CPU Usage, Memory Usage, Disk Usage, Query time")
 
     while time.time() - start_time < TEST_WAIT_TIME:
       time.sleep(interval)
@@ -155,12 +157,12 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
           updated = True
           self.scenes_updates[scene]["updated"] = False
         else:
-          log.error(f"-> The {scene} scene hasn't sent any update in the past {interval} seconds! Aborting the test!")
+          logger.error(f"-> The {scene} scene hasn't sent any update in the past {interval} seconds! Aborting the test!")
           return False
       if updated:
         self.store_performance_results(time_interval)
 
-    log.info("Calculate if there was any performance degradation...")
+    logger.info("Calculate if there was any performance degradation...")
     return self.check_returned_values()
 
   def verifyThings(self):

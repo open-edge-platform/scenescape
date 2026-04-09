@@ -6,10 +6,12 @@
 import time
 
 import pytest
-from scene_common import log
 from tests.functional.common_camera_bounds import CameraBounds, test_wait_time, check_interval
 from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO
+from tests.utils.log import get_logger
+
+logger = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="visibility_regulated", profile=FULL_STACK_WITH_VIDEO,
@@ -26,13 +28,13 @@ class CameraBoundVisibilityRegulated(CameraBounds):
       with self.message_lock:
         if self.visibility_topic == "regulated":
           if self.regulated_has_camera_bounds and not self.unregulated_has_camera_bounds:
-            log.info(
+            logger.info(
                 "PASS: camera_bounds for the tracked objects are published only into regulated topic")
             return
         else:
           raise ValueError(f"Unknown visibility_topic: {self.visibility_topic}")
 
-      log.info(
+      logger.info(
           f"Waiting for validation "
           f"(visibility={self.visibility_topic})..."
       )

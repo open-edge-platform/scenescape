@@ -11,7 +11,6 @@ import pytest
 
 from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
-from scene_common import log
 from scene_common.transform import CameraPose
 from scene_common.geometry import Point
 from controller.tools.analytics.library import metrics
@@ -19,6 +18,9 @@ from scene_common.timestamp import get_iso_time
 import tests.common_test_utils as common
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+from tests.utils.log import get_logger
+
+logger = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="child_scenes", profile=FULL_STACK,
@@ -50,7 +52,7 @@ def on_connect(mqttc, obj, flags, rc):
   @return   None
   """
   global connected, parent_id, child_id
-  log.info("Connected!")
+  logger.info("Connected!")
   connected = True
   topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=parent_id)
   mqttc.subscribe(topic)
@@ -104,7 +106,7 @@ def verify_linking_children(parent_scene, children, rest_client, pose):
   @param    pose                        The scene pose information.
   @return   None
   """
-  log.info("Verifying linking multiple children to parent")
+  logger.info("Verifying linking multiple children to parent")
   for child in children:
     child_scene = rest_client.createScene({'name': child})
     res = rest_client.updateScene(child_scene['uid'], {
@@ -123,14 +125,14 @@ def verify_circular_linking_fails(parent_scene, children, rest_client):
   @param    rest_client                 The rest client.
   @return   None
   """
-  log.info("Verifying linking B->A fails with existing A->B")
+  logger.info("Verifying linking B->A fails with existing A->B")
   for child in children:
     child_scene = rest_client.getScenes({'name': child})['results'][0]
     res = rest_client.updateScene(parent_scene['uid'], {'parent': child_scene['uid']})
     assert res.statusCode == 400, f"Expected status code 400, got {res.statusCode}"
     assert 'circular dependency' in res.errors[0]
 
-  log.info("Verifying that linking C->A fails with existing A->B->C")
+  logger.info("Verifying that linking C->A fails with existing A->B->C")
   sub_child = rest_client.createScene({'name': 'sc1'})
   res = rest_client.updateScene(sub_child['uid'], {'parent': child_scene['uid']})
   assert res
@@ -149,7 +151,7 @@ def verify_unique_parent(child_scene, parents, rest_client, pose):
   @param    pose                       The scene pose information.
   @return   None
   """
-  log.info("Verifying linking child to multiple parents fails")
+  logger.info("Verifying linking child to multiple parents fails")
   for parent in parents:
     parent_scene = rest_client.createScene({'name': parent})
     res = rest_client.updateScene(child_scene['uid'], {
@@ -184,9 +186,9 @@ def transform_data(data, parent_translation, cur_category, count, pose):
     parent_translation['predicted_y'].append(data[1]["translation"][1])
 
     if count < DEBUG_MSGS:
-      log.info('expected parent translation: ({},{})'.format(round(expected_translation[0], 2), \
+      logger.info('expected parent translation: ({},{})'.format(round(expected_translation[0], 2), \
                                                              round(expected_translation[1], 2)))
-      log.info('actual parent translation: ({},{})'.format(round(data[1]['translation'][0], 2), \
+      logger.info('actual parent translation: ({},{})'.format(round(data[1]['translation'][0], 2), \
                                                            round(data[1]['translation'][1], 2)))
   return
 
@@ -272,7 +274,7 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
 
   TEST_NAME = "NEX-T10439"
   record_xml_attribute("name", TEST_NAME)
-  log.info("Executing: " + TEST_NAME)
+  logger.info("Executing: " + TEST_NAME)
   pose = CameraPose(transform, None)
   client = PubSub(params["auth"], None, params["rootcert"],
                   params["broker_url"], params["broker_port"], userdata=pose)
@@ -291,7 +293,7 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
       map_data = f.read()
     parent_scene = rest_client.createScene({'name': parent, 'map': (map_image, map_data)})
     parent_id = parent_scene['uid']
-    log.info("Parent scene:", parent, parent_scene)
+    logger.info("Parent scene:", parent, parent_scene)
     assert parent_scene
     scenes = rest_client.getScenes({'name': child})
     assert scenes['results']
@@ -308,7 +310,7 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
     mse = calculate_mse(parent_translation)
 
     assert mse is not None
-    log.info("MSE: ", round(mse["euclidean_mse"], 2))
+    logger.info("MSE: ", round(mse["euclidean_mse"], 2))
     assert mse["euclidean_mse"] <= ERROR, f"The MSE is not within limit (max: {ERROR})!"
 
     verify_unique_parent(child_scene, parents, rest_client, pose)

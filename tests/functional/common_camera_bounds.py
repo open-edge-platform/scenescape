@@ -8,9 +8,9 @@ import threading
 
 import tests.common_test_utils as common
 from scene_common.mqtt import PubSub
-from scene_common import log
+from tests.utils.log import get_logger
 
-
+logger = get_logger(__name__)
 test_wait_time = 20  # seconds
 check_interval = 1   # seconds
 
@@ -49,7 +49,7 @@ class CameraBounds:
     return found
 
   def on_connect(self, mqttc, _data, _flags, _rc):
-    log.info("Connected to MQTT broker")
+    logger.info("Connected to MQTT broker")
     for scene_id in scenes:
       regulated_topic = PubSub.formatTopic(
           PubSub.DATA_REGULATED,
@@ -69,8 +69,8 @@ class CameraBounds:
       mqttc.subscribe(regulated_topic, 0)
       mqttc.subscribe(unregulated_topic, 0)
 
-      log.info(f"Subscribed to: {regulated_topic}")
-      log.info(f"Subscribed to: {unregulated_topic}")
+      logger.info(f"Subscribed to: {regulated_topic}")
+      logger.info(f"Subscribed to: {unregulated_topic}")
 
   def on_message(self, _mqttc, _userdata, msg):
     json_data = json.loads(msg.payload.decode())
@@ -88,8 +88,8 @@ class CameraBounds:
 
   def run(self, params, visibility_topic, test_name):
     self.visibility_topic = visibility_topic.lower()
-    log.info(f"Test parameter visibility_topic: {self.visibility_topic}")
-    log.info(f"Executing: {test_name}")
+    logger.info(f"Test parameter visibility_topic: {self.visibility_topic}")
+    logger.info(f"Executing: {test_name}")
 
     exit_code = 1
     client = None
