@@ -7,9 +7,12 @@ markmap:
 ## Data Flow
 
 ```
+sensors ────────────────────────────────────────────────────────────────────────────────────────────────► data/sensor/{sensor-id}
+                                                                                                                   │
+                                                                                                                   ▼
 cameras ──► data/camera/{camera-id} ──► Projection ──► MOT Tracking ──► data/scene/{scene-id}/{category} ──► Scene Analytics ──► regulated/scene/{scene-id}
-                                                              │                       │                            │
-sensors ──► data/sensor/{sensor-id} ──► ──────────────────────┘                       │                            ├──► events/+
+                                                                                      │                            │
+                                                                                      │                            ├──► events/+
                                                                                       │                            │
                                                                                       ▼                            ▼
                                                                                 Scene Hierarchy             UUID Manager + ReID
