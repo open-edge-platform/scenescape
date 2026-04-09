@@ -10,8 +10,8 @@ Replicates the wait_for_container() function from tests/test_utils.sh
 and the log/traceback scanning from tests/runtest.
 """
 
+import os
 import re
-from pathlib import Path
 
 from waiting import wait
 
@@ -66,8 +66,12 @@ def wait_for_services(docker, project_name, wait_for):
     logger.info("  %s is ready.", service)
 
 
-def collect_logs(docker, services=None, scan_for_tracebacks=False):
-  """Log container output for the given services (or all if None).
+def collect_logs(docker, containers=None, scan_for_tracebacks=False):
+  """Log container output for selected container name patterns.
+
+  If containers is None, logs are collected for all containers.
+  Otherwise each value is treated as a substring filter against the
+  full container name (e.g. "web" matches "test-xxxx-web-1").
 
   When scan_for_tracebacks is True, also checks each container's logs
   for Python tracebacks in a single pass (avoids fetching logs twice).
@@ -77,16 +81,22 @@ def collect_logs(docker, services=None, scan_for_tracebacks=False):
   if log_dir is None:
     logger.warning("Test log directory is not configured; skipping container log file export")
 
+  container_filters = None
+  if containers is not None:
+    if isinstance(containers, str):
+      container_filters = {containers}
+    else:
+      container_filters = set(containers)
+
   try:
-    containers = docker.compose.ps()
-    for container in containers:
-      if services and not any(svc in container.name for svc in services):
+    compose_containers = docker.compose.ps()
+    for container in compose_containers:
+      if container_filters and not any(f in container.name for f in container_filters):
         continue
       logs = docker.container.logs(container.name)
 
       if log_dir is not None:
-        container_log_name = f"{container.name}.log"
-        log_file = Path(log_dir) / container_log_name
+        log_file = os.path.join(log_dir, f"{container.name}.log")
         with open(log_file, "w") as f:
           f.write(logs)
         logger.info("[DOCKER] Logs saved: %s", log_file)
