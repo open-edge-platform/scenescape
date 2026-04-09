@@ -22,6 +22,6 @@ harness:
     tracker_config_path: ../../../tests/system/metric/dataset/tracker-config.json
 
 evaluators:
-  - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
+  - class: evaluators.diagnostic_evaluator.DiagnosticEvaluator
     config:
-      metrics: [HOTA, MOTA, IDF1]
+      metrics: [LOC_T_X, LOC_T_Y, DIST_T]
