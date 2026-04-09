@@ -195,11 +195,80 @@ class TestEvaluateMetrics:
     with pytest.raises(RuntimeError, match="No metrics configured"):
       evaluator.evaluate_metrics()
 
-  def test_raises_not_implemented(self, evaluator, mock_tracker_outputs):
+  def test_rms_jerk_returns_float(self, evaluator, mock_tracker_outputs):
     evaluator.configure_metrics(['rms_jerk'])
     evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
-    with pytest.raises(NotImplementedError):
-      evaluator.evaluate_metrics()
+    metrics = evaluator.evaluate_metrics()
+    assert 'rms_jerk' in metrics
+    assert isinstance(metrics['rms_jerk'], float)
+    assert metrics['rms_jerk'] >= 0.0
+
+  def test_acceleration_variance_returns_float(self, evaluator, mock_tracker_outputs):
+    evaluator.configure_metrics(['acceleration_variance'])
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
+    metrics = evaluator.evaluate_metrics()
+    assert 'acceleration_variance' in metrics
+    assert isinstance(metrics['acceleration_variance'], float)
+    assert metrics['acceleration_variance'] >= 0.0
+
+  def test_both_metrics_together(self, evaluator, mock_tracker_outputs):
+    evaluator.configure_metrics(['rms_jerk', 'acceleration_variance'])
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
+    metrics = evaluator.evaluate_metrics()
+    assert set(metrics.keys()) == {'rms_jerk', 'acceleration_variance'}
+
+  def test_constant_velocity_has_zero_rms_jerk(self, evaluator):
+    """A track with perfectly constant velocity has near-zero jerk.
+
+    Three levels of finite differentiation on floating-point Unix timestamps
+    accumulate rounding errors, so we allow a small numerical tolerance.
+    """
+    # positions increase by exactly 1.0 m each 0.1 s → constant velocity
+    outputs = [
+      {"timestamp": f"2024-01-01T00:00:00.{i * 100:03d}Z",
+       "objects": [{"id": "track-A",
+                    "translation": [float(i), 0.0, 0.0]}]}
+      for i in range(6)
+    ]
+    evaluator.configure_metrics(['rms_jerk'])
+    evaluator.process_tracker_outputs(outputs, ground_truth=None)
+    metrics = evaluator.evaluate_metrics()
+    assert metrics['rms_jerk'] < 0.05  # numerical tolerance for 3-level differentiation
+
+  def test_constant_velocity_has_zero_acceleration_variance(self, evaluator):
+    """A track with perfectly constant velocity has zero acceleration variance."""
+    outputs = [
+      {"timestamp": f"2024-01-01T00:00:00.{i * 100:03d}Z",
+       "objects": [{"id": "track-A",
+                    "translation": [float(i), 0.0, 0.0]}]}
+      for i in range(5)
+    ]
+    evaluator.configure_metrics(['acceleration_variance'])
+    evaluator.process_tracker_outputs(outputs, ground_truth=None)
+    metrics = evaluator.evaluate_metrics()
+    assert abs(metrics['acceleration_variance']) < 1e-6
+
+  def test_returns_zero_when_tracks_too_short_for_jerk(self, evaluator):
+    """Tracks with fewer than 4 points yield rms_jerk == 0."""
+    outputs = [
+      {"timestamp": "2024-01-01T00:00:00.000Z", "objects": [
+        {"id": "track-A", "translation": [0.0, 0.0, 0.0]}]},
+      {"timestamp": "2024-01-01T00:00:00.033Z", "objects": [
+        {"id": "track-A", "translation": [1.0, 0.0, 0.0]}]},
+      {"timestamp": "2024-01-01T00:00:00.067Z", "objects": [
+        {"id": "track-A", "translation": [2.0, 0.0, 0.0]}]},
+    ]
+    evaluator.configure_metrics(['rms_jerk'])
+    evaluator.process_tracker_outputs(outputs, ground_truth=None)
+    metrics = evaluator.evaluate_metrics()
+    assert metrics['rms_jerk'] == 0.0
+
+  def test_saves_results_file(self, evaluator, mock_tracker_outputs, tmp_path):
+    evaluator.configure_metrics(['rms_jerk', 'acceleration_variance'])
+    evaluator.set_output_folder(tmp_path)
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
+    evaluator.evaluate_metrics()
+    assert (tmp_path / 'jitter_results.txt').exists()
 
 
 class TestReset:

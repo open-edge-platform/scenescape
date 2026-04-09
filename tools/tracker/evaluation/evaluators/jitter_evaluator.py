@@ -12,6 +12,8 @@ from pathlib import Path
 from datetime import datetime
 import sys
 
+import numpy as np
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from base.tracker_evaluator import TrackerEvaluator
@@ -122,7 +124,7 @@ class JitterEvaluator(TrackerEvaluator):
       if not outputs:
         raise RuntimeError("No tracker outputs provided")
 
-      # Deduplicate by timestamp (same behaviour as TrackEvalEvaluator)
+      # Deduplicate by timestamp
       seen_timestamps: set = set()
       deduplicated = []
       for frame in outputs:
@@ -217,47 +219,119 @@ class JitterEvaluator(TrackerEvaluator):
   def _compute_jitter_per_track(self) -> Dict[str, Any]:
     """Compute per-track kinematic data from position histories.
 
-    Derives acceleration and jerk vectors for each track from
-    self._track_histories, which are consumed by the metric methods.
+    Applies sequential forward finite differences on positions to derive
+    velocity, acceleration, and jerk vectors for each track, accounting
+    for variable time steps between consecutive frames.
 
-    Args:
-      (uses self._track_histories)
+    Minimum track lengths required:
+      - 2 points: velocity
+      - 3 points: acceleration
+      - 4 points: jerk
+
+    Tracks with fewer than 4 points are skipped (no jerk can be calculated).
 
     Returns:
-      Dictionary mapping track UUID to per-track kinematic data
-      (structure defined by the metric implementations).
-
-    Raises:
-      NotImplementedError: Calculation is not yet implemented.
+      Dict mapping track UUID to a dict with keys:
+        'jerk_magnitudes':         np.ndarray of scalar jerk magnitudes (m/s³).
+                                   Empty array if fewer than 4 points.
+        'acceleration_magnitudes': np.ndarray of scalar acceleration magnitudes (m/s²).
+                                   Empty array if fewer than 3 points.
     """
-    raise NotImplementedError(
-      "_compute_jitter_per_track() is not yet implemented. "
-      "Implement this method to derive per-track kinematics from "
-      "self._track_histories."
-    )
+    result: Dict[str, Any] = {}
+
+    for track_id, history in self._track_histories.items():
+      if len(history) < 3:
+        continue
+
+      times = np.array([
+        ts.timestamp() for ts, _ in history
+      ], dtype=float)  # seconds since epoch
+
+      positions = np.array(
+        [pos for _, pos in history], dtype=float
+      )  # shape (n, 3)
+
+      # --- velocity: forward difference on positions ---
+      # v[i] = (p[i+1] - p[i]) / dt[i],  shape (n-1, 3)
+      dt_pos = np.diff(times)              # shape (n-1,)
+      velocity = np.diff(positions, axis=0) / dt_pos[:, np.newaxis]
+
+      # midpoint times for velocity samples
+      times_v = (times[:-1] + times[1:]) / 2  # shape (n-1,)
+
+      # --- acceleration: forward difference on velocity ---
+      # a[i] = (v[i+1] - v[i]) / dt_v[i],  shape (n-2, 3)
+      dt_vel = np.diff(times_v)            # shape (n-2,)
+      acceleration = np.diff(velocity, axis=0) / dt_vel[:, np.newaxis]
+      accel_magnitudes = np.linalg.norm(acceleration, axis=1)  # shape (n-2,)
+
+      # midpoint times for acceleration samples
+      times_a = (times_v[:-1] + times_v[1:]) / 2  # shape (n-2,)
+
+      # --- jerk: forward difference on acceleration ---
+      # j[i] = (a[i+1] - a[i]) / dt_a[i],  shape (n-3, 3)
+      jerk_magnitudes: np.ndarray
+      if len(acceleration) >= 2:
+        dt_acc = np.diff(times_a)          # shape (n-3,)
+        jerk = np.diff(acceleration, axis=0) / dt_acc[:, np.newaxis]
+        jerk_magnitudes = np.linalg.norm(jerk, axis=1)  # shape (n-3,)
+      else:
+        jerk_magnitudes = np.empty(0)
+
+      result[track_id] = {
+        'jerk_magnitudes': jerk_magnitudes,
+        'acceleration_magnitudes': accel_magnitudes,
+      }
+
+    return result
 
   def _compute_rms_jerk(self, jitter_per_track: Dict[str, Any]) -> float:
     """Compute root mean square jerk across all tracks.
 
-    Jerk is the rate of change of acceleration. RMS jerk aggregates
-    the magnitude of jerk vectors over all frames and all tracks.
+    Collects every jerk magnitude sample from all tracks and returns
+    sqrt(mean(jerk²)).
 
-    Raises:
-      NotImplementedError: Calculation is not yet implemented.
+    Args:
+      jitter_per_track: Output of _compute_jitter_per_track().
+
+    Returns:
+      RMS jerk in m/s³, or 0.0 if no jerk samples are available.
     """
-    raise NotImplementedError(
-      "_compute_rms_jerk() is not yet implemented."
-    )
+    non_empty = [
+      data['jerk_magnitudes']
+      for data in jitter_per_track.values()
+      if len(data['jerk_magnitudes']) > 0
+    ]
+    all_jerks = np.concatenate(non_empty) if non_empty else np.empty(0)
+
+    if all_jerks.size == 0:
+      return 0.0
+
+    return float(np.sqrt(np.mean(all_jerks ** 2)))
 
   def _compute_acceleration_variance(self, jitter_per_track: Dict[str, Any]) -> float:
     """Compute variance of acceleration magnitudes across all tracks.
 
-    Raises:
-      NotImplementedError: Calculation is not yet implemented.
+    Collects every acceleration magnitude sample from all tracks and
+    returns their variance.
+
+    Args:
+      jitter_per_track: Output of _compute_jitter_per_track().
+
+    Returns:
+      Acceleration magnitude variance in (m/s²)², or 0.0 if no samples.
     """
-    raise NotImplementedError(
-      "_compute_acceleration_variance() is not yet implemented."
-    )
+    non_empty = [
+      data['acceleration_magnitudes']
+      for data in jitter_per_track.values()
+      if len(data['acceleration_magnitudes']) > 0
+    ]
+    all_accels = np.concatenate(non_empty) if non_empty else np.empty(0)
+
+    if all_accels.size == 0:
+      return 0.0
+
+    return float(np.var(all_accels))
 
   def _save_results(self, results: Dict[str, float]) -> None:
     """Save metric results to the output folder.

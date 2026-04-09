@@ -100,19 +100,33 @@ print(f"IDF1: {metrics['IDF1']:.3f}")
 
 **Purpose**: Evaluate tracker smoothness by measuring positional jitter in tracked object trajectories.
 
-**Status**: **PARTIALLY IMPLEMENTED** — Data processing and pipeline integration are complete; metric calculation stubs (`_compute_jitter_per_track`, `_aggregate_mean`, `_aggregate_std`, `_aggregate_max`) raise `NotImplementedError` and must be filled in.
+**Status**: **FULLY IMPLEMENTED** — Computes RMS jerk and acceleration variance from tracker outputs using numerical differentiation.
 
 **Supported Metrics**:
 
-- **rms_jerk**: Root mean square jerk across all tracks.
-- **acceleration_variance**: Variance of acceleration magnitudes across all tracks.
+- **rms_jerk**: Root mean square jerk across all tracks (m/s³).
+  Jerk is the rate of change of acceleration. Lower values indicate smoother trajectories.
+- **acceleration_variance**: Variance of acceleration magnitudes across all tracks (m/s²)².
+  Lower values indicate more consistent motion with fewer abrupt speed changes.
+
+**Algorithm**:
+
+Both metrics are derived by applying three sequential layers of forward finite differences to 3D positions, accounting for variable time steps between frames:
+
+$$v_i = \frac{p_{i+1} - p_i}{\Delta t_i}, \quad a_i = \frac{v_{i+1} - v_i}{\Delta t_{v,i}}, \quad j_i = \frac{a_{i+1} - a_i}{\Delta t_{a,i}}$$
+
+- **rms_jerk**: $\sqrt{\frac{1}{N}\sum |j_i|^2}$ over all jerk samples from all tracks.
+- **acceleration_variance**: $\text{Var}(|a_i|)$ over all acceleration magnitude samples from all tracks.
+
+Minimum track length: 3 points for acceleration, 4 points for jerk. Shorter tracks are skipped; if no eligible tracks exist, the metric returns 0.0.
 
 **Key Features**:
 
 - Builds per-track position histories from canonical tracker output format.
+- Supports variable frame rates — time deltas are computed from actual timestamps.
 - Deduplicates frames with identical timestamps (mirrors `TrackEvalEvaluator` behaviour).
 - Sorts each track's positions by timestamp before metric computation.
-- Saves a plain-text ``jitter_results.txt`` summary to the configured output folder.
+- Saves a plain-text `jitter_results.txt` summary to the configured output folder.
 
 **Usage Example**:
 
@@ -121,11 +135,12 @@ from pathlib import Path
 from evaluators.jitter_evaluator import JitterEvaluator
 
 evaluator = JitterEvaluator()
-evaluator.configure_metrics(['jitter_mean', 'jitter_max'])
+evaluator.configure_metrics(['rms_jerk', 'acceleration_variance'])
 evaluator.set_output_folder(Path('/path/to/results'))
 evaluator.process_tracker_outputs(tracker_outputs, ground_truth=None)
 metrics = evaluator.evaluate_metrics()
-print(metrics)
+print(f"RMS Jerk: {metrics['rms_jerk']:.4f} m/s³")
+print(f"Acceleration Variance: {metrics['acceleration_variance']:.4f} (m/s²)²")
 ```
 
 **Pipeline Configuration**:
