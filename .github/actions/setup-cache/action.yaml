@@ -1,0 +1,17 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "Setup Cache Targets"
+description: "Setup environment variables for caching image layers"
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Cache Targets
+      shell: bash
+      run: |
+        export CACHE_TAG=${{ github.head_ref || github.ref_name }}
+        export CACHE_TAG=$(echo $CACHE_TAG | tr '/' '_' | tr '-' '_')
+        echo "CACHE_REGISTRY=${{ github.repository }}" >> $GITHUB_ENV
+        echo "CACHE_TAG=${CACHE_TAG}" >> $GITHUB_ENV
+        echo "GITHUB_ACTIONS_CACHE=true" >> $GITHUB_ENV
