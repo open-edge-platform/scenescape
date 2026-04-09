@@ -19,5 +19,9 @@ pytest-cov>=4.1.0
 # Evaluation toolkit
 trackeval>=1.0.0
 
+# Diagnostic evaluator dependencies
+scipy>=1.9.0
+matplotlib>=3.5.0
+
 # Optional: for future dataset support
 # huggingface_hub>=0.19.0
