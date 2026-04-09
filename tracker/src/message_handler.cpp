@@ -337,13 +337,6 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                            {kAttrCameraId, camera_id},
                            {kAttrReason, kReasonAccepted}});
 
-    // Record message latency: delta between message timestamp and adjusted now.
-    // Reflects combined pipeline processing time and any residual clock drift.
-    auto latency_ms = std::chrono::duration<double, std::milli>(
-                          clock_fn_() - std::chrono::system_clock::time_point(*msg_time))
-                          .count();
-    Metrics::record_message_latency(
-        latency_ms, {{kAttrScene, std::string(scene->uid)}, {kAttrCameraId, camera_id}});
 }
 
 std::string_view MessageHandler::extractCameraId(const std::string& topic) {
