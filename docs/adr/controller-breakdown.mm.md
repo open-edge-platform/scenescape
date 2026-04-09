@@ -142,7 +142,8 @@ sensors ──► data/sensor/{sensor-id} ──► [?] ────────
 - technology: Python and C++
 - time synchronization: None
 - latency-sensitive, most compute-expensive functions optimized (C++)
-- scalability: TBD
+- scalability:
+  - horizontal: one instance per parent scene or one instance per parent-child pair
 
 ### Clustering
 
