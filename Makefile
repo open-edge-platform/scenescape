@@ -339,7 +339,7 @@ install-models:
 # =========================== Run Tests ==============================
 
 .PHONY: setup_tests
-setup_tests: build-all-images init-secrets .env
+setup_tests: build-core-images init-secrets .env
 	@echo "Setting up test environment..."
 	for dir in $(TEST_IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir test-build; \

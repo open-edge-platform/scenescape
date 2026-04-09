@@ -143,9 +143,14 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Setup Cache Targets"
+        id: setup-cache
         uses: ./.github/actions/setup-cache
 
       - name: "Run Basic Acceptance Tests (BAT)"
+        env:
+          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
           make clean-all
           git clean -fdx
@@ -188,9 +193,14 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Setup Cache Targets"
+        id: setup-cache
         uses: ./.github/actions/setup-cache
 
       - name: Install chart with timeout
+        env:
+          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
           KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
 
