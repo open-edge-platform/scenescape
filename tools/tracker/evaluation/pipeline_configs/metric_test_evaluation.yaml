@@ -25,3 +25,6 @@ evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
     config:
       metrics: [HOTA, MOTA, IDF1]
+  - class: evaluators.jitter_evaluator.JitterEvaluator
+    config:
+      metrics: [rms_jerk, acceleration_variance]

@@ -72,6 +72,9 @@ evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
     config:
       metrics: [HOTA, MOTA, IDF1]
+  - class: evaluators.jitter_evaluator.JitterEvaluator
+    config:
+      metrics: [rms_jerk, acceleration_variance]
 ```
 
 Run the pipeline:
@@ -150,6 +153,13 @@ evaluation/
 
 1. Create a new file in `evaluators/` (e.g., `custom_evaluator.py`)
 2. Implement the `TrackerEvaluator` ABC from `base/tracker_evaluator.py`
+
+### Available Evaluators
+
+| Evaluator | Metrics | Description |
+|---|---|---|
+| `TrackEvalEvaluator` | HOTA, MOTA, IDF1, and more | Industry-standard tracking accuracy metrics via the TrackEval library |
+| `JitterEvaluator` | `rms_jerk`, `acceleration_variance` | Trajectory smoothness metrics based on numerical differentiation of 3D positions |
 
 ## Canonical Data Formats
 
@@ -272,7 +282,7 @@ pytest . -v -m integration
 pytest tests/ -v                     # Integration tests
 pytest datasets/tests/ -v            # Dataset unit tests
 pytest harnesses/tests/ -v           # Harness unit tests
-pytest evaluators/tests/ -v           # Evaluators unit tests
+pytest evaluators/tests/ -v          # Evaluators unit tests
 ```
 
 **Run tests from a specific file**:
