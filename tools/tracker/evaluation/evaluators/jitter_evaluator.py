@@ -10,15 +10,10 @@ the degree of unwanted high-frequency variation in tracked object trajectories.
 from typing import Iterator, List, Dict, Any
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
-import sys
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from base.tracker_evaluator import TrackerEvaluator
-
-
+from ..base.tracker_evaluator import TrackerEvaluator
 class JitterEvaluator(TrackerEvaluator):
   """Evaluator for tracker smoothness metrics based on positional jitter.
 
