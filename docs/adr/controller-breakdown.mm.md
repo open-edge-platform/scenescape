@@ -9,7 +9,7 @@ markmap:
 ```
 cameras ──► data/camera/{camera-id} ──► Projection ──► MOT Tracking ──► data/scene/{scene-id}/{category} ──► Scene Analytics ──► regulated/scene/{scene-id}
                                                               │                       │                            │
-sensors ──► data/sensor/{sensor-id} ──► [?] ──────────────────┘                       │                            ├──► events/+
+sensors ──► data/sensor/{sensor-id} ──► ──────────────────────┘                       │                            ├──► events/+
                                                                                       │                            │
                                                                                       ▼                            ▼
                                                                                 Scene Hierarchy             UUID Manager + ReID
