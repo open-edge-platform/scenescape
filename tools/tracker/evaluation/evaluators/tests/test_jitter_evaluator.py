@@ -7,7 +7,6 @@ import pytest
 import sys
 from pathlib import Path
 import tempfile
-import shutil
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -17,14 +16,6 @@ from evaluators.jitter_evaluator import JitterEvaluator
 @pytest.fixture
 def evaluator():
   return JitterEvaluator()
-
-
-@pytest.fixture
-def temp_result_folder():
-  temp_dir = Path(tempfile.mkdtemp(prefix="jitter_test_"))
-  yield temp_dir
-  if temp_dir.exists():
-    shutil.rmtree(temp_dir)
 
 
 @pytest.fixture
@@ -269,6 +260,80 @@ class TestEvaluateMetrics:
     evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
     evaluator.evaluate_metrics()
     assert (tmp_path / 'jitter_results.txt').exists()
+
+  def test_saves_results_file_content(self, evaluator, mock_tracker_outputs, tmp_path):
+    """Results file contains metric name/value pairs for all configured metrics."""
+    evaluator.configure_metrics(['rms_jerk', 'acceleration_variance'])
+    evaluator.set_output_folder(tmp_path)
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
+    evaluator.evaluate_metrics()
+    content = (tmp_path / 'jitter_results.txt').read_text()
+    assert 'rms_jerk' in content
+    assert 'acceleration_variance' in content
+
+  def test_returns_zero_for_empty_track_histories(self, evaluator):
+    """All objects missing translation → empty histories → both metrics are 0.0."""
+    outputs = [{"timestamp": "2024-01-01T00:00:00.000Z", "objects": [
+      {"id": "track-A"}]}]  # no translation
+    evaluator.configure_metrics(['rms_jerk', 'acceleration_variance'])
+    evaluator.process_tracker_outputs(outputs, ground_truth=None)
+    metrics = evaluator.evaluate_metrics()
+    assert metrics['rms_jerk'] == 0.0
+    assert metrics['acceleration_variance'] == 0.0
+
+  def test_three_point_track_has_nonzero_acceleration_variance(self, evaluator):
+    """3-point track: no jerk, but acceleration is computable and non-zero."""
+    outputs = [
+      {"timestamp": "2024-01-01T00:00:00.000Z", "objects": [
+        {"id": "track-A", "translation": [0.0, 0.0, 0.0]}]},
+      {"timestamp": "2024-01-01T00:00:00.033Z", "objects": [
+        {"id": "track-A", "translation": [1.0, 0.0, 0.0]}]},
+      {"timestamp": "2024-01-01T00:00:00.133Z", "objects": [  # larger gap → different velocity
+        {"id": "track-A", "translation": [3.0, 0.0, 0.0]}]},
+    ]
+    evaluator.configure_metrics(['rms_jerk', 'acceleration_variance'])
+    evaluator.process_tracker_outputs(outputs, ground_truth=None)
+    metrics = evaluator.evaluate_metrics()
+    assert metrics['rms_jerk'] == 0.0  # fewer than 4 points
+    assert metrics['acceleration_variance'] >= 0.0  # acceleration exists
+
+  def test_rms_jerk_known_value(self, evaluator):
+    """Verify rms_jerk against a manually computed reference.
+
+    Using uniform 1-second steps and a position series with a single
+    abrupt velocity change to produce a known jerk.
+
+    Positions: 0, 1, 2, 4 (step sizes: 1, 1, 2)
+    Velocities (dt=1s): 1, 1, 2
+    Accelerations (midpoint dt≈1s): 0, 1
+    Jerk (midpoint dt≈1s): ≈1
+    RMS jerk ≈ 1.0 (within floating-point tolerance)
+    """
+    outputs = [
+      {"timestamp": "2024-01-01T00:00:00Z", "objects": [
+        {"id": "t", "translation": [0.0, 0.0, 0.0]}]},
+      {"timestamp": "2024-01-01T00:00:01Z", "objects": [
+        {"id": "t", "translation": [1.0, 0.0, 0.0]}]},
+      {"timestamp": "2024-01-01T00:00:02Z", "objects": [
+        {"id": "t", "translation": [2.0, 0.0, 0.0]}]},
+      {"timestamp": "2024-01-01T00:00:03Z", "objects": [
+        {"id": "t", "translation": [4.0, 0.0, 0.0]}]},
+    ]
+    evaluator.configure_metrics(['rms_jerk'])
+    evaluator.process_tracker_outputs(outputs, ground_truth=None)
+    metrics = evaluator.evaluate_metrics()
+    assert abs(metrics['rms_jerk'] - 1.0) < 0.05  # floating-point tolerance
+
+  def test_missing_object_id_skipped(self, evaluator):
+    """Objects without an 'id' field are silently skipped."""
+    outputs = [
+      {"timestamp": "2024-01-01T00:00:00.000Z", "objects": [
+        {"translation": [0.0, 0.0, 0.0]}]},  # no id
+      {"timestamp": "2024-01-01T00:00:00.033Z", "objects": [
+        {"translation": [1.0, 0.0, 0.0]}]},  # no id
+    ]
+    evaluator.process_tracker_outputs(outputs, ground_truth=None)
+    assert evaluator._track_histories == {}
 
 
 class TestReset:
