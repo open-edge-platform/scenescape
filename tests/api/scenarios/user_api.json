@@ -128,10 +128,10 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/USER/07: Create user with invalid scene UID",
+    "test_name": "Vision_AI/SSCAPE/API/USER/07: Create user with invalid scene uid",
     "test_steps": [
       {
-        "step_name": "Create user with invalid scene UID",
+        "step_name": "Create user with invalid scene uid",
         "api": "user",
         "method": "createUser",
         "request": {

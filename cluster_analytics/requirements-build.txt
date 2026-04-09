@@ -3,6 +3,6 @@
 # This file is licensed under Apache 2.0 License.
 
 # Build-time dependencies with SHA256 hashes for supply chain security
-pybind11==3.0.2 \
-    --hash=sha256:432f01aeb68e361a3a7fc7575c2c7f497595bf640f747acd909ff238dd766e06 \
-    --hash=sha256:f8a6500548919cc33bcd220d5f984688326f574fa97f1107f2f4fdb4c6fb019f
+pybind11==3.0.3 \
+    --hash=sha256:00471cdb816882c484708bc5dde80815c8c11cea540ab2cc6410f5ddea434755 \
+    --hash=sha256:fb5f8e4a64946b4dcc0451c83a8c384f803bc0a62dd1ba02f199e97dbc9aad4c

@@ -156,6 +156,7 @@ _functional-tests: \
   delete-sensor-scene-api \
   delete-sensors-api \
   different-formats-maps-api \
+  infer-rotation \
   manual-camera-calibration-api \
   mqtt-auth \
   mqtt-cert \
@@ -180,6 +181,7 @@ _functional-tests: \
   vdms-similarity-search \
   visibility-unregulated \
   visibility-none \
+  remove-child-scenes-link \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
@@ -230,28 +232,14 @@ _ui-tests: \
   view-3d-glb-file \
   3d-scene-control-panel \
   3d-camera-control-panel \
+  auto-calibration-no-apriltags-ui \
 
 unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _unit-tests: \
-  account-security-unit \
-  autocamcalib-unit \
-  cam-unit \
-  geometry-unit \
-  geospatial-unit \
-  mapping-unit \
-  markerless-unit \
-  robot-vision-unit \
-  scene-unit \
-  scenescape-unit \
-  schema-unit \
-  singleton-sensor-unit \
-  timestamp-unit \
-  transform-unit \
-  uuid-manager-unit \
-  vdms-adapter-unit \
-  views-unit \
+  django-integration-unit \
+  logic-unit-tests \
 
 include Makefile.sscape Makefile.functional Makefile.perf \
         Makefile.reports Makefile.user_interface Makefile.metric

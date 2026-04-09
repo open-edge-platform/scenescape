@@ -111,13 +111,13 @@ Using a mapping tool, it is possible to measure various distances between points
 
 ##### Adding the new scene and cameras
 
-From the Intel® SceneScape working directory on the scene controller, bring up the system with the new configuration:
+From the Intel® SceneScape working directory on the scene controller, bring up the system with the new configuration (see [Docker Compose Profiles](../get-started.md#docker-compose-profiles) for details on choosing profiles):
 
 ```bash
-docker compose up
+docker compose --profile controller up
 ```
 
-If you are using Configuration 2, also run `docker compose up` on each additional computer.
+If you are using Configuration 2, also run `docker compose --profile controller up` on each additional computer.
 
 Launch Intel® SceneScape and log in. Create a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ New Scene". Give your scene a name, select your floor plan file, and enter the scene's scale. Using the above parking lot example, it might look something like this:
 

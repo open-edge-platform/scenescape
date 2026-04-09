@@ -14,7 +14,7 @@ secrets:
 
 services:
   mediaserver:
-    image: bluenviron/mediamtx:1.16.1
+    image: bluenviron/mediamtx:1.16.3
     profiles:
       - rtsp
     networks:
@@ -88,7 +88,7 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
 
   video-pipeline:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-20260407-weekly-ubuntu24
     networks:
       ppl_runner:
     tty: true
