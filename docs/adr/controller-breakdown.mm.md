@@ -59,7 +59,7 @@ sensors ──► data/sensor/{sensor-id} ──► [?] ────────
     - sensors [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
     - object location projection to 3D scene
     - reliable tracks with local ID (unique per scene)
-    - visibility by camera matches [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)
+    - ~~visibility by camera matches [?] (see [Opens](#opens): whether sensor inputs are handled in tracker or analytics)~~
 - configuration:
   - tracker config
 - not aware of:
@@ -164,7 +164,7 @@ sensors ──► data/sensor/{sensor-id} ──► [?] ────────
   - how to handle non camera detections like 3D sensors (e.g. LIDARs)
   - whether to produce as output: unreliable and suspended (properly tagged)
   - how to generate camera visibility (two complementary approaches, can be used together)
-    - computed based on matched detections (e.g. last frame camera only, cameras in the last second)
+    - ~~computed based on matched detections (e.g. last frame camera only, cameras in the last second)~~
     - computed from projecting camera field of view (as it is now)
   - whether to handle sensor inputs in tracker service or analytics?
     - if in tracker service then
