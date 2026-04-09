@@ -118,6 +118,9 @@ sensors ──► data/sensor/{sensor-id} ──► [?] ────────
 - **Responsible Component**: Not Decided Yet
 - **Communication Model**: Synchronous, two-directional (query-response)
 - **Called by**: Scene Analytics (queries UUID Manager during output generation)
+  - Publish local UUID when Re-ID is enabled and when enough embeddings to reliably Re-ID are not yet collected.
+  - If the collection is done, query and from that point on use the global UUID
+  - This approach enables async behavior and prioritizes latency in exchange for slight complexity.
 - **Input**: REST API / gRPC requests
   - track local UUID
   - scene, category
