@@ -94,12 +94,6 @@ omitted; `embedding_vector` truncated for readability):
           "width": 192,
           "height": 411
         },
-        "center_of_mass": {
-          "x": 482,
-          "y": 165,
-          "width": 64,
-          "height": 102.75
-        },
         "metadata": {
           "age": {
             "label": "39",
@@ -138,13 +132,13 @@ discrete identifier with a presence event.
 
 ### Sensor Message Fields
 
-| Field       | Type                  | Required | Description                                                                   |
-| ----------- | --------------------- | :------: | ----------------------------------------------------------------------------- |
+| Field       | Type                  | Required | Description                                                                  |
+| ----------- | --------------------- | :------: | ---------------------------------------------------------------------------- |
 | `id`        | string                |   Yes    | Sensor identifier; must match the provisioned sensor ID in Intel® SceneScape |
-| `timestamp` | string (ISO 8601 UTC) |   Yes    | Acquisition time of the reading                                               |
-| `value`     | any                   |   Yes    | Sensor reading — numeric scalar, string, boolean, or any JSON value           |
-| `subtype`   | string                |    No    | Sensor subtype hint (e.g. `"temperature"`, `"humidity"`)                      |
-| `rate`      | number ≥ 0            |    No    | Rate at which the sensor is producing readings (readings per second)          |
+| `timestamp` | string (ISO 8601 UTC) |   Yes    | Acquisition time of the reading                                              |
+| `value`     | any                   |   Yes    | Sensor reading — numeric scalar, string, boolean, or any JSON value          |
+| `subtype`   | string                |    No    | Sensor subtype hint (e.g. `"temperature"`, `"humidity"`)                     |
+| `rate`      | number ≥ 0            |    No    | Rate at which the sensor is producing readings (readings per second)         |
 
 The `id` field must match the last path segment of the MQTT topic:
 `scenescape/data/sensor/{sensor_id}`.
