@@ -35,7 +35,7 @@ class JitterEvaluator(TrackerEvaluator):
     from evaluators.jitter_evaluator import JitterEvaluator
 
     evaluator = JitterEvaluator()
-    evaluator.configure_metrics(['jitter_mean', 'jitter_max'])
+    evaluator.configure_metrics(['rms_jerk', 'acceleration_variance', 'rms_jerk_gt', 'acceleration_variance_gt'])
     evaluator.set_output_folder(Path('/path/to/results'))
     evaluator.process_tracker_outputs(tracker_outputs, ground_truth)
     metrics = evaluator.evaluate_metrics()
