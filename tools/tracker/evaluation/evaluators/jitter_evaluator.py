@@ -71,7 +71,8 @@ class JitterEvaluator(TrackerEvaluator):
 
     Args:
       metrics: List of metric names to compute.
-                Supported: 'rms_jerk', 'acceleration_variance'.
+                Supported: 'rms_jerk', 'acceleration_variance',
+                'rms_jerk_gt', 'acceleration_variance_gt'.
 
     Returns:
       Self for method chaining.
@@ -129,7 +130,11 @@ class JitterEvaluator(TrackerEvaluator):
       RuntimeError: If no tracker outputs are provided or processing fails.
     """
     try:
-      outputs = list(tracker_outputs)
+      outputs = (
+        tracker_outputs
+        if isinstance(tracker_outputs, list)
+        else list(tracker_outputs)
+      )
       if not outputs:
         raise RuntimeError("No tracker outputs provided")
 
@@ -206,7 +211,6 @@ class JitterEvaluator(TrackerEvaluator):
 
     Raises:
       RuntimeError: If no data has been processed or no metrics configured.
-      NotImplementedError: Jitter calculation is not yet implemented.
     """
     if not self._processed:
       raise RuntimeError(
@@ -267,7 +271,9 @@ class JitterEvaluator(TrackerEvaluator):
       - 3 points: acceleration
       - 4 points: jerk
 
-    Tracks with fewer than 4 points are skipped (no jerk can be calculated).
+    Tracks with fewer than 3 points are skipped. Tracks with exactly 3
+    points are included so acceleration can be calculated, while jerk
+    magnitudes are returned as an empty array.
 
     Args:
       histories: Per-track position histories in the form
