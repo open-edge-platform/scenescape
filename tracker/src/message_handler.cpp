@@ -336,7 +336,6 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
     Metrics::inc_messages({{kAttrScene, std::string(scene->uid)},
                            {kAttrCameraId, camera_id},
                            {kAttrReason, kReasonAccepted}});
-
 }
 
 std::string_view MessageHandler::extractCameraId(const std::string& topic) {
