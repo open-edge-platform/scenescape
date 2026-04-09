@@ -96,6 +96,56 @@ print(f"IDF1: {metrics['IDF1']:.3f}")
 
 **Tests**: See [tests/test_trackeval_evaluator.py](tests/test_trackeval_evaluator.py) for comprehensive test suite with 16 test cases covering configuration, processing, evaluation, and integration workflows.
 
+### DiagnosticEvaluator
+
+**Purpose**: Per-frame location comparison and error analysis between matched output tracks and ground-truth tracks.
+
+**Status**: **FULLY IMPLEMENTED** - Bipartite track matching with per-frame location and distance CSV/plot outputs.
+
+**Supported Metrics**:
+
+- **LOC_T_X**: Per-frame X position of each matched (output, GT) track pair
+- **LOC_T_Y**: Per-frame Y position of each matched (output, GT) track pair
+- **DIST_T**: Per-frame Euclidean distance error between each matched pair
+
+**Key Features**:
+
+- **Track Matching**: Bipartite assignment (Hungarian algorithm) minimizing mean Euclidean distance over overlapping frames. Requires a minimum of 10 overlapping frames (`MIN_OVERLAP_FRAMES`).
+- **Missing Frame Handling**: Frames where only one side (output or GT) has data produce `NaN` in CSV output, preserving full temporal context.
+- **CSV Output**: Per-metric CSV files with headers:
+  - LOC_T_X / LOC_T_Y: `[frame_id, track_id, gt_id, value_track, value_gt]`
+  - DIST_T: `[frame_id, track_id, gt_id, distance]`
+- **Plot Output**: One matplotlib figure per metric with all matched pairs overlaid.
+- **Summary Scalars**: `evaluate_metrics()` returns `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, and `num_matches`.
+
+**Usage Example**:
+
+```python
+from evaluators.diagnostic_evaluator import DiagnosticEvaluator
+from pathlib import Path
+
+evaluator = DiagnosticEvaluator()
+metrics = (evaluator
+           .configure_metrics(['LOC_T_X', 'LOC_T_Y', 'DIST_T'])
+           .set_output_folder(Path('/path/to/results'))
+           .process_tracker_outputs(tracker_outputs, gt_file_path)
+           .evaluate_metrics())
+print(f"Mean distance: {metrics['DIST_T_mean']:.3f}")
+print(f"X MAE: {metrics['LOC_T_X_mae']:.3f}")
+print(f"Y MAE: {metrics['LOC_T_Y_mae']:.3f}")
+print(f"Matched pairs: {int(metrics['num_matches'])}")
+```
+
+**Current Limitations**:
+
+- Uses only X and Y coordinates (Z ignored)
+- Single-sequence evaluation only
+- No configurable overlap threshold (fixed at 10 frames)
+
+**Implementation**: [diagnostic_evaluator.py](diagnostic_evaluator.py)
+
+**Tests**: See [tests/test_diagnostic_evaluator.py](tests/test_diagnostic_evaluator.py) for unit tests covering track matching, scalar metrics, CSV output, and reset workflows.
+
 ## Adding New Evaluators
 
 To add support for a new metric computation library:
