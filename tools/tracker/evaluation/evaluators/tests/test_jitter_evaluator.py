@@ -19,6 +19,24 @@ def evaluator():
 
 
 @pytest.fixture
+def mock_gt_csv(tmp_path):
+  """Ground-truth CSV with two tracks, 4 frames each (MOTChallenge 3D format)."""
+  gt_file = tmp_path / "gt.txt"
+  # frame,id,x,y,z,conf,class,visibility — constant velocity so low jitter
+  gt_file.write_text(
+    "1,1,0.0,0.0,0.0,1.0,1,1\n"
+    "1,2,5.0,5.0,0.0,1.0,1,1\n"
+    "2,1,1.0,0.0,0.0,1.0,1,1\n"
+    "2,2,5.1,5.0,0.0,1.0,1,1\n"
+    "3,1,2.0,0.0,0.0,1.0,1,1\n"
+    "3,2,5.2,5.0,0.0,1.0,1,1\n"
+    "4,1,3.0,0.0,0.0,1.0,1,1\n"
+    "4,2,5.3,5.0,0.0,1.0,1,1\n"
+  )
+  return str(gt_file)
+
+
+@pytest.fixture
 def mock_tracker_outputs():
   """Three-frame tracker output for two tracks."""
   return [
@@ -334,6 +352,77 @@ class TestEvaluateMetrics:
     ]
     evaluator.process_tracker_outputs(outputs, ground_truth=None)
     assert evaluator._track_histories == {}
+
+
+class TestGTMetrics:
+  """Tests for ground-truth jitter metrics (rms_jerk_gt, acceleration_variance_gt)."""
+
+  def test_gt_metrics_in_supported_metrics(self):
+    assert 'rms_jerk_gt' in JitterEvaluator.SUPPORTED_METRICS
+    assert 'acceleration_variance_gt' in JitterEvaluator.SUPPORTED_METRICS
+
+  def test_gt_metrics_configured(self, evaluator):
+    evaluator.configure_metrics(['rms_jerk_gt', 'acceleration_variance_gt'])
+    assert evaluator._metrics == ['rms_jerk_gt', 'acceleration_variance_gt']
+
+  def test_gt_metrics_return_float(self, evaluator, mock_tracker_outputs, mock_gt_csv):
+    evaluator.configure_metrics(['rms_jerk_gt', 'acceleration_variance_gt'])
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=mock_gt_csv)
+    metrics = evaluator.evaluate_metrics()
+    assert isinstance(metrics['rms_jerk_gt'], float)
+    assert isinstance(metrics['acceleration_variance_gt'], float)
+    assert metrics['rms_jerk_gt'] >= 0.0
+    assert metrics['acceleration_variance_gt'] >= 0.0
+
+  def test_gt_histories_populated(self, evaluator, mock_tracker_outputs, mock_gt_csv):
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=mock_gt_csv)
+    assert len(evaluator._gt_track_histories) == 2
+    assert '1' in evaluator._gt_track_histories
+    assert '2' in evaluator._gt_track_histories
+
+  def test_gt_histories_sorted_by_frame(self, evaluator, mock_tracker_outputs, mock_gt_csv):
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=mock_gt_csv)
+    positions = [pos for _, pos in evaluator._gt_track_histories['1']]
+    assert positions[0] == [0.0, 0.0, 0.0]
+    assert positions[-1] == [3.0, 0.0, 0.0]
+
+  def test_gt_histories_empty_when_no_gt(self, evaluator, mock_tracker_outputs):
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
+    assert evaluator._gt_track_histories == {}
+
+  def test_gt_metrics_zero_when_no_gt(self, evaluator, mock_tracker_outputs):
+    evaluator.configure_metrics(['rms_jerk_gt', 'acceleration_variance_gt'])
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
+    metrics = evaluator.evaluate_metrics()
+    assert metrics['rms_jerk_gt'] == 0.0
+    assert metrics['acceleration_variance_gt'] == 0.0
+
+  def test_all_four_metrics_together(self, evaluator, mock_tracker_outputs, mock_gt_csv):
+    evaluator.configure_metrics(JitterEvaluator.SUPPORTED_METRICS)
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=mock_gt_csv)
+    metrics = evaluator.evaluate_metrics()
+    assert set(metrics.keys()) == set(JitterEvaluator.SUPPORTED_METRICS)
+
+  def test_gt_constant_velocity_low_rms_jerk(self, evaluator, mock_tracker_outputs, mock_gt_csv):
+    """GT tracks have constant velocity → GT rms_jerk should be near zero."""
+    evaluator.configure_metrics(['rms_jerk_gt'])
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=mock_gt_csv)
+    metrics = evaluator.evaluate_metrics()
+    assert metrics['rms_jerk_gt'] < 0.05
+
+  def test_gt_csv_not_found_raises(self, evaluator, mock_tracker_outputs):
+    evaluator.configure_metrics(['rms_jerk_gt'])
+    with pytest.raises(RuntimeError, match="Cannot read ground-truth CSV"):
+      evaluator.process_tracker_outputs(
+        mock_tracker_outputs, ground_truth="/nonexistent/gt.txt"
+      )
+
+  def test_reset_clears_gt_histories(self, evaluator, mock_tracker_outputs, mock_gt_csv):
+    evaluator.configure_metrics(['rms_jerk_gt'])
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=mock_gt_csv)
+    evaluator.reset()
+    assert evaluator._gt_track_histories == {}
+    assert evaluator._camera_fps == 30.0
 
 
 class TestReset:

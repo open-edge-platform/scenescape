@@ -27,4 +27,5 @@ evaluators:
       metrics: [HOTA, MOTA, IDF1]
   - class: evaluators.jitter_evaluator.JitterEvaluator
     config:
-      metrics: [rms_jerk, acceleration_variance]
+      metrics:
+        [rms_jerk, rms_jerk_gt, acceleration_variance, acceleration_variance_gt]

@@ -9,7 +9,7 @@ the degree of unwanted high-frequency variation in tracked object trajectories.
 
 from typing import Iterator, List, Dict, Any
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import sys
 
 import numpy as np
@@ -26,8 +26,13 @@ class JitterEvaluator(TrackerEvaluator):
   by analysing frame-to-frame position changes for each track.
 
   Supported Metrics:
-    - rms_jerk:              Root mean square jerk across all tracks.
-    - acceleration_variance: Variance of acceleration magnitudes across all tracks.
+    - rms_jerk:              Root mean square jerk across all tracker output tracks.
+    - acceleration_variance: Variance of acceleration magnitudes across all tracker output tracks.
+    - rms_jerk_gt:              Same as rms_jerk but computed on ground-truth tracks.
+    - acceleration_variance_gt: Same as acceleration_variance but on ground-truth tracks.
+
+  Comparing ``rms_jerk`` with ``rms_jerk_gt`` shows how much jitter the tracker
+  adds on top of any jitter already present in the test data.
 
   Usage::
 
@@ -42,7 +47,12 @@ class JitterEvaluator(TrackerEvaluator):
     print(metrics)
   """
 
-  SUPPORTED_METRICS: List[str] = ['rms_jerk', 'acceleration_variance']
+  SUPPORTED_METRICS: List[str] = [
+    'rms_jerk',
+    'acceleration_variance',
+    'rms_jerk_gt',
+    'acceleration_variance_gt',
+  ]
 
   def __init__(self):
     """Initialize JitterEvaluator."""
@@ -52,6 +62,10 @@ class JitterEvaluator(TrackerEvaluator):
 
     # Per-track position history: {track_uuid: [(timestamp, [x, y, z]), ...]}
     self._track_histories: Dict[str, List[tuple]] = {}
+    # Ground-truth per-track histories (populated when GT CSV is provided)
+    self._gt_track_histories: Dict[str, List[tuple]] = {}
+    # FPS derived from tracker output timestamps (used to convert GT frame → time)
+    self._camera_fps: float = 30.0
 
   # ------------------------------------------------------------------
   # TrackerEvaluator interface
@@ -110,8 +124,8 @@ class JitterEvaluator(TrackerEvaluator):
     Args:
       tracker_outputs: Iterator of tracker output dicts in canonical
         Tracker Output Format (see tools/tracker/evaluation/README.md).
-      ground_truth: Ground-truth data (not used by jitter metrics but
-        required by the base-class signature).
+      ground_truth: Path to ground-truth CSV file in MOTChallenge 3D format
+        (frame,id,x,y,z,conf,class,visibility). Pass None to skip GT metrics.
 
     Returns:
       Self for method chaining.
@@ -159,6 +173,28 @@ class JitterEvaluator(TrackerEvaluator):
         track_histories[track_id].sort(key=lambda entry: entry[0])
 
       self._track_histories = track_histories
+
+      # Derive FPS from tracker output timestamps
+      all_timestamps = sorted(
+        datetime.fromisoformat(f.get('timestamp', '').replace('Z', '+00:00'))
+        for f in deduplicated
+      )
+      if len(all_timestamps) > 1:
+        span = (all_timestamps[-1] - all_timestamps[0]).total_seconds()
+        self._camera_fps = (len(all_timestamps) - 1) / span if span > 0 else 30.0
+      else:
+        self._camera_fps = 30.0
+
+      # Parse ground-truth CSV if provided
+      self._gt_track_histories = {}
+      if ground_truth is not None:
+        gt_path = ground_truth if isinstance(ground_truth, str) else None
+        if gt_path is None:
+          gt_items = list(ground_truth)
+          gt_path = gt_items[0] if gt_items and isinstance(gt_items[0], str) else None
+        if gt_path is not None:
+          self._gt_track_histories = self._parse_gt_csv(gt_path, self._camera_fps)
+
       self._processed = True
       return self
 
@@ -186,7 +222,7 @@ class JitterEvaluator(TrackerEvaluator):
         "No metrics configured. Call configure_metrics() first."
       )
 
-    jitter_per_track = self._compute_jitter_per_track()
+    jitter_per_track = self._compute_jitter_per_track(self._track_histories)
 
     results = {}
     for metric in self._metrics:
@@ -194,6 +230,12 @@ class JitterEvaluator(TrackerEvaluator):
         results[metric] = self._compute_rms_jerk(jitter_per_track)
       elif metric == 'acceleration_variance':
         results[metric] = self._compute_acceleration_variance(jitter_per_track)
+      elif metric in ('rms_jerk_gt', 'acceleration_variance_gt'):
+        jitter_per_track_gt = self._compute_jitter_per_track(self._gt_track_histories)
+        if metric == 'rms_jerk_gt':
+          results[metric] = self._compute_rms_jerk(jitter_per_track_gt)
+        else:
+          results[metric] = self._compute_acceleration_variance(jitter_per_track_gt)
 
     if self._output_folder is not None:
       self._save_results(results)
@@ -210,13 +252,15 @@ class JitterEvaluator(TrackerEvaluator):
     self._output_folder = None
     self._processed = False
     self._track_histories = {}
+    self._gt_track_histories = {}
+    self._camera_fps = 30.0
     return self
 
   # ------------------------------------------------------------------
   # Internal helpers — metric calculation stubs
   # ------------------------------------------------------------------
 
-  def _compute_jitter_per_track(self) -> Dict[str, Any]:
+  def _compute_jitter_per_track(self, histories: Dict[str, List[tuple]]) -> Dict[str, Any]:
     """Compute per-track kinematic data from position histories.
 
     Applies sequential forward finite differences on positions to derive
@@ -230,6 +274,11 @@ class JitterEvaluator(TrackerEvaluator):
 
     Tracks with fewer than 4 points are skipped (no jerk can be calculated).
 
+    Args:
+      histories: Per-track position histories in the form
+        ``{track_id: [(datetime, [x, y, z]), ...]}``, as stored in
+        ``self._track_histories`` or ``self._gt_track_histories``.
+
     Returns:
       Dict mapping track UUID to a dict with keys:
         'jerk_magnitudes':         np.ndarray of scalar jerk magnitudes (m/s³).
@@ -239,7 +288,7 @@ class JitterEvaluator(TrackerEvaluator):
     """
     result: Dict[str, Any] = {}
 
-    for track_id, history in self._track_histories.items():
+    for track_id, history in histories.items():
       if len(history) < 3:
         continue
 
@@ -284,6 +333,53 @@ class JitterEvaluator(TrackerEvaluator):
       }
 
     return result
+
+  def _parse_gt_csv(self, gt_path: str, fps: float) -> Dict[str, List[tuple]]:
+    """Parse a MOTChallenge 3D CSV ground-truth file into per-track histories.
+
+    CSV columns (no header): frame, id, x, y, z, conf, class, visibility
+    Frame numbers are 1-indexed integers; they are converted to relative
+    timestamps using ``fps`` so that the same kinematic calculations apply.
+
+    Args:
+      gt_path: Path to the ground-truth CSV file.
+      fps:     Frames per second used to map frame number → time in seconds.
+
+    Returns:
+      Per-track position histories in the same format as ``_track_histories``.
+
+    Raises:
+      RuntimeError: If the file cannot be read or is malformed.
+    """
+    try:
+      data = np.loadtxt(gt_path, delimiter=',')
+      if data.ndim == 1:
+        data = data[np.newaxis, :]  # single-row file
+    except Exception as exc:
+      raise RuntimeError(f"Cannot read ground-truth CSV '{gt_path}': {exc}") from exc
+
+    if data.shape[1] < 5:
+      raise RuntimeError(
+        f"Ground-truth CSV '{gt_path}' has fewer than 5 columns; "
+        "expected frame,id,x,y,z,..."
+      )
+
+    histories: Dict[str, List[tuple]] = {}
+    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    for row in data:
+      frame = int(row[0])
+      track_id = str(int(row[1]))
+      x, y, z = float(row[2]), float(row[3]), float(row[4])
+      ts = epoch + timedelta(seconds=(frame - 1) / fps)
+      if track_id not in histories:
+        histories[track_id] = []
+      histories[track_id].append((ts, [x, y, z]))
+
+    # Sort by timestamp (frame order)
+    for track_id in histories:
+      histories[track_id].sort(key=lambda e: e[0])
+
+    return histories
 
   def _compute_rms_jerk(self, jitter_per_track: Dict[str, Any]) -> float:
     """Compute root mean square jerk across all tracks.
