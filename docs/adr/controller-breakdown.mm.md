@@ -35,7 +35,7 @@ cameras ──► data/camera/{camera-id} ──► Projection ──► MOT Tra
 - **Responsible Component**: not decided yet (currently Tracker Service)
 - **Communication Model**: Asynchronous, one-directional (messages)
 - **Input**: `data/camera/{camera-id}` topics
-- **Output**: currently Tracker Service internal buffer (to be changed to MQTT topic if it becomes a separate service, e.g. `data/projections/{scene-id}/{category}` topics)
+- **Output**: currently Tracker Service internal buffer (to be changed to MQTT topic or gRPC endpoint if it becomes a separate service, e.g. `data/projections/{scene-id}/{category}` topics)
 - configuration:
   - scenes and cameras
 - not aware of:
@@ -50,7 +50,7 @@ cameras ──► data/camera/{camera-id} ──► Projection ──► MOT Tra
 - **Responsible Component**: Tracker Service
 - **Communication Model**: Asynchronous, one-directional (messages)
 - **Input**:
-  - currently Tracker Service internal buffer (to be changed to MQTT topic if it becomes a separate service, e.g. `data/projections/{scene-id}/{category}` topics)
+  - currently Tracker Service internal buffer (to be changed to MQTT topic or gRPC endpoint if Projection becomes a separate service, e.g. `data/projections/{scene-id}/{category}` topics)
 - **Output**: `data/scene/{scene-id}/{category}` topics
   - passed-through:
     - detection metadata
