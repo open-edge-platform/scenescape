@@ -75,7 +75,14 @@ evaluators:
   - class: evaluators.jitter_evaluator.JitterEvaluator
     config:
       metrics:
-        [rms_jerk, rms_jerk_gt, acceleration_variance, acceleration_variance_gt]
+        [
+          rms_jerk,
+          rms_jerk_gt,
+          rms_jerk_ratio,
+          acceleration_variance,
+          acceleration_variance_gt,
+          acceleration_variance_ratio,
+        ]
 ```
 
 Run the pipeline:
@@ -157,10 +164,10 @@ evaluation/
 
 ### Available Evaluators
 
-| Evaluator            | Metrics                                                                        | Description                                                                                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TrackEvalEvaluator` | HOTA, MOTA, IDF1, and more                                                     | Industry-standard tracking accuracy metrics via the TrackEval library                                                                                       |
-| `JitterEvaluator`    | `rms_jerk`, `rms_jerk_gt`, `acceleration_variance`, `acceleration_variance_gt` | Trajectory smoothness metrics based on numerical differentiation of 3D positions; GT variants allow comparing tracker-added jitter against test-data jitter |
+| Evaluator            | Metrics                                                                                                                         | Description                                                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TrackEvalEvaluator` | HOTA, MOTA, IDF1, and more                                                                                                      | Industry-standard tracking accuracy metrics via the TrackEval library                                                                                                 |
+| `JitterEvaluator`    | `rms_jerk`, `rms_jerk_gt`, `rms_jerk_ratio`, `acceleration_variance`, `acceleration_variance_gt`, `acceleration_variance_ratio` | Trajectory smoothness metrics based on numerical differentiation of 3D positions; GT and ratio variants allow comparing tracker-added jitter against test-data jitter |
 
 ## Canonical Data Formats
 

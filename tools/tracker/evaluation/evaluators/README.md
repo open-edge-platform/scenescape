@@ -104,12 +104,14 @@ print(f"IDF1: {metrics['IDF1']:.3f}")
 
 **Supported Metrics**:
 
-| Metric                     | Source         | Description                                                                  |
-| -------------------------- | -------------- | ---------------------------------------------------------------------------- |
-| `rms_jerk`                 | Tracker output | RMS jerk across all tracker output tracks (m/s³)                             |
-| `acceleration_variance`    | Tracker output | Variance of acceleration magnitudes across all tracker output tracks (m/s²)² |
-| `rms_jerk_gt`              | Ground truth   | Same as `rms_jerk` computed on ground-truth tracks                           |
-| `acceleration_variance_gt` | Ground truth   | Same as `acceleration_variance` computed on ground-truth tracks              |
+| Metric                        | Source         | Description                                                                  |
+| ----------------------------- | -------------- | ---------------------------------------------------------------------------- |
+| `rms_jerk`                    | Tracker output | RMS jerk across all tracker output tracks (m/s³)                             |
+| `acceleration_variance`       | Tracker output | Variance of acceleration magnitudes across all tracker output tracks (m/s²)² |
+| `rms_jerk_gt`                 | Ground truth   | Same as `rms_jerk` computed on ground-truth tracks                           |
+| `acceleration_variance_gt`    | Ground truth   | Same as `acceleration_variance` computed on ground-truth tracks              |
+| `rms_jerk_ratio`              | Tracker / GT   | `rms_jerk` / `rms_jerk_gt` — tracker jitter relative to GT (1.0 = equal)     |
+| `acceleration_variance_ratio` | Tracker / GT   | `acceleration_variance` / `acceleration_variance_gt`                         |
 
 Comparing `rms_jerk` with `rms_jerk_gt` shows how much jitter the tracker
 adds on top of any jitter already present in the test data.
@@ -122,6 +124,7 @@ $$v_i = \frac{p_{i+1} - p_i}{\Delta t_i}, \quad a_i = \frac{v_{i+1} - v_i}{\Delt
 
 - **rms_jerk / rms_jerk_gt**: $\sqrt{\frac{1}{N}\sum |j_i|^2}$ over all jerk samples from all tracks.
 - **acceleration_variance / acceleration_variance_gt**: $\text{Var}(|a_i|)$ over all acceleration magnitude samples from all tracks.
+- **rms_jerk_ratio / acceleration_variance_ratio**: tracker metric divided by the corresponding GT metric. Returns 0.0 when the GT denominator is zero. Values >1.0 indicate the tracker adds more jitter than is inherent in the ground truth.
 
 Minimum track length: 3 points for acceleration, 4 points for jerk. Shorter tracks are skipped; if no eligible tracks exist, the metric returns 0.0.
 
@@ -143,7 +146,9 @@ from pathlib import Path
 from evaluators.jitter_evaluator import JitterEvaluator
 
 evaluator = JitterEvaluator()
-evaluator.configure_metrics(['rms_jerk', 'rms_jerk_gt', 'acceleration_variance', 'acceleration_variance_gt'])
+evaluator.configure_metrics(['rms_jerk', 'rms_jerk_gt', 'rms_jerk_ratio',
+                             'acceleration_variance', 'acceleration_variance_gt',
+                             'acceleration_variance_ratio'])
 evaluator.set_output_folder(Path('/path/to/results'))
 
 # Pass ground_truth=None to skip GT metrics
@@ -152,7 +157,7 @@ metrics = evaluator.evaluate_metrics()
 
 print(f"RMS Jerk (tracker): {metrics['rms_jerk']:.4f} m/s³")
 print(f"RMS Jerk (GT):      {metrics['rms_jerk_gt']:.4f} m/s³")
-print(f"Tracker added jitter: {metrics['rms_jerk'] - metrics['rms_jerk_gt']:.4f} m/s³")
+print(f"RMS Jerk ratio:     {metrics['rms_jerk_ratio']:.4f}  (1.0 = equal jitter)")
 ```
 
 **Pipeline Configuration**:
@@ -162,7 +167,14 @@ evaluators:
   - class: evaluators.jitter_evaluator.JitterEvaluator
     config:
       metrics:
-        [rms_jerk, rms_jerk_gt, acceleration_variance, acceleration_variance_gt]
+        [
+          rms_jerk,
+          rms_jerk_gt,
+          rms_jerk_ratio,
+          acceleration_variance,
+          acceleration_variance_gt,
+          acceleration_variance_ratio,
+        ]
 ```
 
 **Implementation**: [jitter_evaluator.py](jitter_evaluator.py)
