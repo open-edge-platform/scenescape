@@ -10,7 +10,7 @@ runs:
     - name: Setup Cache Targets
       shell: bash
       run: |
-        export CACHE_TAG=${{ github.head_ref || github.ref_name }}
+        export CACHE_TAG="${{ github.head_ref || github.ref_name }}"
         export CACHE_TAG=$(echo $CACHE_TAG | tr '/' '_' | tr '-' '_')
         echo "CACHE_REGISTRY=${{ github.repository }}" >> $GITHUB_ENV
         echo "CACHE_TAG=${CACHE_TAG}" >> $GITHUB_ENV

@@ -43,9 +43,6 @@ concurrency:
 env:
   DOCKER_BUILDKIT: 1
   SUPASS: demo
-  GITHUB_ACTIONS_CACHE: true
-  CACHE_REGISTRY: ${{ github.repository }}
-  CACHE_TAG: ${{ github.head_ref || github.ref_name }}
 
 permissions:
   contents: read
@@ -81,6 +78,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Setup Cache Targets"
+        uses: ./.github/actions/setup-cache
 
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
@@ -129,6 +129,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Setup Cache Targets"
+        uses: ./.github/actions/setup-cache
+
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
@@ -175,6 +178,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Setup Cache Targets"
+        uses: ./.github/actions/setup-cache
 
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
@@ -223,6 +229,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Setup Cache Targets"
+        uses: ./.github/actions/setup-cache
+
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
@@ -269,6 +278,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Setup Cache Targets"
+        uses: ./.github/actions/setup-cache
 
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
