@@ -16,7 +16,7 @@
 ::::{tab-set}
 :::{tab-item} hide_directive--> **Download a release**
 
-> **Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
+Note that these operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
 
 1. Download the Intel® SceneScape software archive from <https://github.com/open-edge-platform/scenescape/releases>.
 
@@ -26,25 +26,23 @@
    cd scenescape-<version>
    ```
 
-> **Note:** When downloading older Intel® SceneScape releases, follow instructions in `Getting-Started-Guide` specific to that version.
-
 <!--hide_directive
 :::
 :::{tab-item} hide_directive--> **Get the source code**
 
-- Clone the repository and change directories to the cloned repository:
+Clone the repository and change directories to the cloned repository:
 
-   ```bash
-   git clone https://github.com/open-edge-platform/scenescape.git &&
-   cd scenescape/
-   ```
+```bash
+git clone https://github.com/open-edge-platform/scenescape.git &&
+cd scenescape/
+```
 
 **Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
 
-   ```bash
-   git tag
-   git checkout <tag-version>
-   ```
+```bash
+git tag
+git checkout <tag-version>
+```
 
 <!--hide_directive
 :::
