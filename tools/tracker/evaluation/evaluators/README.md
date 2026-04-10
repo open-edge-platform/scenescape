@@ -139,28 +139,6 @@ For GT metrics, ground-truth frame numbers are converted to relative timestamps 
 - Sorts each track's positions by timestamp before metric computation.
 - Saves a plain-text `jitter_results.txt` summary to the configured output folder.
 
-### DiagnosticEvaluator
-
-**Purpose**: Per-frame location comparison and error analysis between matched output tracks and ground-truth tracks.
-
-**Status**: **FULLY IMPLEMENTED** - Bipartite track matching with per-frame location and distance CSV/plot outputs.
-
-**Supported Metrics**:
-
-- **LOC_T_X**: Per-frame X position of each matched (output, GT) track pair
-- **LOC_T_Y**: Per-frame Y position of each matched (output, GT) track pair
-- **DIST_T**: Per-frame Euclidean distance error between each matched pair
-
-**Key Features**:
-
-- **Track Matching**: Bipartite assignment (Hungarian algorithm) minimizing mean Euclidean distance over overlapping frames. Requires a minimum of 10 overlapping frames (`MIN_OVERLAP_FRAMES`).
-- **Missing Frame Handling**: Frames where only one side (output or GT) has data produce `NaN` in CSV output, preserving full temporal context.
-- **CSV Output**: Per-metric CSV files with headers:
-  - LOC_T_X / LOC_T_Y: `[frame_id, track_id, gt_id, value_track, value_gt]`
-  - DIST_T: `[frame_id, track_id, gt_id, distance]`
-- **Plot Output**: One matplotlib figure per metric with all matched pairs overlaid.
-- **Summary Scalars**: `evaluate_metrics()` returns `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, and `num_matches`.
-
 **Usage Example**:
 
 ```python
@@ -202,21 +180,46 @@ evaluators:
 **Implementation**: [jitter_evaluator.py](jitter_evaluator.py)
 
 **Tests**: See [tests/test_jitter_evaluator.py](tests/test_jitter_evaluator.py).
+
+### DiagnosticEvaluator
+
+**Purpose**: Per-frame location comparison and error analysis between matched output tracks and ground-truth tracks.
+
+**Status**: **FULLY IMPLEMENTED** - Bipartite track matching with per-frame location and distance CSV/plot outputs.
+
+**Supported Metrics**:
+
+- **LOC_T_X**: Per-frame X position of each matched (output, GT) track pair
+- **LOC_T_Y**: Per-frame Y position of each matched (output, GT) track pair
+- **DIST_T**: Per-frame Euclidean distance error between each matched pair
+
+**Key Features**:
+
+- **Track Matching**: Bipartite assignment (Hungarian algorithm) minimizing mean Euclidean distance over overlapping frames. Requires a minimum of 10 overlapping frames (`MIN_OVERLAP_FRAMES`).
+- **Missing Frame Handling**: Frames where only one side (output or GT) has data produce `NaN` in CSV output, preserving full temporal context.
+- **CSV Output**: Per-metric CSV files with headers:
+  - LOC_T_X / LOC_T_Y: `[frame_id, track_id, gt_id, value_track, value_gt]`
+  - DIST_T: `[frame_id, track_id, gt_id, distance]`
+- **Plot Output**: One matplotlib figure per metric with all matched pairs overlaid.
+- **Summary Scalars**: `evaluate_metrics()` returns `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, and `num_matches`.
+
+**Usage Example**:
+
+```python
 from evaluators.diagnostic_evaluator import DiagnosticEvaluator
 from pathlib import Path
 
 evaluator = DiagnosticEvaluator()
 metrics = (evaluator
-.configure_metrics(['LOC_T_X', 'LOC_T_Y', 'DIST_T'])
-.set_output_folder(Path('/path/to/results'))
-.process_tracker_outputs(tracker_outputs, gt_file_path)
-.evaluate_metrics())
+           .configure_metrics(['LOC_T_X', 'LOC_T_Y', 'DIST_T'])
+           .set_output_folder(Path('/path/to/results'))
+           .process_tracker_outputs(tracker_outputs, gt_file_path)
+           .evaluate_metrics())
 print(f"Mean distance: {metrics['DIST_T_mean']:.3f}")
 print(f"X MAE: {metrics['LOC_T_X_mae']:.3f}")
 print(f"Y MAE: {metrics['LOC_T_Y_mae']:.3f}")
 print(f"Matched pairs: {int(metrics['num_matches'])}")
-
-````
+```
 
 **Current Limitations**:
 
@@ -262,7 +265,7 @@ metrics = (evaluator
            .set_output_folder(Path('/results'))
            .process_tracker_outputs(outputs, gt)
            .evaluate_metrics())
-````
+```
 
 **Ground-truth format**:
 Evaluators receive ground-truth in **MOTChallenge 3D CSV format**: See [Canonical Data Formats](../README.md#canonical-data-formats)
