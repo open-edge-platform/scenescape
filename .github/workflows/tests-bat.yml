@@ -1,5 +1,5 @@
 ---
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 name: "[Tests] Basic Acceptance Tests"
@@ -44,9 +44,6 @@ concurrency:
 env:
   DOCKER_BUILDKIT: 1
   SUPASS: demo
-  GITHUB_ACTIONS_CACHE: true
-  CACHE_REGISTRY: ${{ github.repository }}
-  CACHE_TAG: ${{ github.head_ref || github.ref_name }}
 
 permissions:
   contents: read
@@ -145,9 +142,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Setup Cache Targets"
+        id: setup-cache
+        uses: ./.github/actions/setup-cache
+
       - name: "Run Basic Acceptance Tests (BAT)"
+        env:
+          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
-          export CACHE_TAG=$(echo $CACHE_TAG | tr '/' '_')
           make clean-all
           git clean -fdx
           make run_basic_acceptance_tests
@@ -188,9 +192,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Setup Cache Targets"
+        id: setup-cache
+        uses: ./.github/actions/setup-cache
+
       - name: Install chart with timeout
+        env:
+          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
-          export CACHE_TAG=$(echo $CACHE_TAG | tr '/' '_')
           KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
 
       - name: Stability test (2m)
