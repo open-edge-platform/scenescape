@@ -4,7 +4,7 @@
 """Base class for tracker harness implementations."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Iterator, List
+from typing import Dict, Any, Iterator
 from pathlib import Path
 
 
@@ -71,7 +71,7 @@ class TrackerHarness(ABC):
     pass
 
   @abstractmethod
-  def process_inputs(self, inputs: Iterator[Dict[str, Any]]) -> List[Dict[str, Any]]:
+  def process_inputs(self, inputs: Iterator[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
     """Process input detections through the tracker synchronously.
 
     This is the default (synchronous) mode. Processes all inputs and returns outputs.
@@ -82,7 +82,7 @@ class TrackerHarness(ABC):
         (see tools/tracker/evaluation/README.md#canonical-data-formats).
 
     Returns:
-      List of tracker outputs in canonical Tracker Output Format.
+      Iterator of tracker outputs in canonical Tracker Output Format.
 
     Raises:
       RuntimeError: If processing fails.
