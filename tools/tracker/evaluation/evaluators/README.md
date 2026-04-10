@@ -138,6 +138,7 @@ For GT metrics, ground-truth frame numbers are converted to relative timestamps 
 - Deduplicates frames with identical timestamps (mirrors `TrackEvalEvaluator` behaviour).
 - Sorts each track's positions by timestamp before metric computation.
 - Saves a plain-text `jitter_results.txt` summary to the configured output folder.
+
 ### DiagnosticEvaluator
 
 **Purpose**: Per-frame location comparison and error analysis between matched output tracks and ground-truth tracks.
