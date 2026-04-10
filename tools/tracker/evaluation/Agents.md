@@ -63,6 +63,12 @@ Check `harnesses/README.md` for more details
 - **TrackEvalEvaluator**: `evaluators/trackeval_evaluator.py`
   Wraps TrackEval library, provides tracker output format conversion and delivers state of the art tracking metrics.
 
+- **DiagnosticEvaluator**: `evaluators/diagnostic_evaluator.py`
+  Per-frame location and distance error analysis between bipartite-matched tracker output tracks and ground-truth tracks. Produces CSV and plot outputs alongside summary scalar metrics (`DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `num_matches`).
+
+- **JitterEvaluator**: `evaluators/jitter_evaluator.py`
+  Measures trajectory smoothness via RMS jerk and acceleration variance, computed from both tracker outputs and ground-truth tracks. Supports GT and ratio variants to isolate tracker-added jitter from dataset-inherent jitter.
+
 Multiple evaluators can be configured in a single YAML pipeline; each runs independently against the same tracker outputs and writes results to its own subfolder under the run output directory.
 
 Check `evaluators/README.md` for more details
@@ -75,6 +81,8 @@ Check `evaluators/README.md` for more details
   - Harness: [base/tracker_harness.py](base/tracker_harness.py)
   - Evaluator: [base/tracker_evaluator.py](base/tracker_evaluator.py)
 - **TrackEval adapter & helpers**: [evaluators/trackeval_evaluator.py](evaluators/trackeval_evaluator.py), [utils/format_converters/](./utils/format_converters.py).
+- **Jitter adapter**: [evaluators/jitter_evaluator.py](evaluators/jitter_evaluator.py).
+- **Diagnostic adapter**: [evaluators/diagnostic_evaluator.py](evaluators/diagnostic_evaluator.py).
 
 ## Guidelines for Adding New Component or Updating Existing One
 

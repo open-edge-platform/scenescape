@@ -18,10 +18,24 @@ dataset:
 harness:
   class: harnesses.scene_controller_harness.SceneControllerHarness
   config:
-    container_image: scenescape-controller:2026.0.0-dev
+    container_image: scenescape-controller:2026.1.0-dev
     tracker_config_path: ../../../tests/system/metric/dataset/tracker-config.json
 
 evaluators:
+  - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
+    config:
+      metrics: [HOTA, MOTA, IDF1]
   - class: evaluators.diagnostic_evaluator.DiagnosticEvaluator
     config:
       metrics: [LOC_T_X, LOC_T_Y, DIST_T]
+  - class: evaluators.jitter_evaluator.JitterEvaluator
+    config:
+      metrics:
+        [
+          rms_jerk,
+          rms_jerk_gt,
+          rms_jerk_ratio,
+          acceleration_variance,
+          acceleration_variance_gt,
+          acceleration_variance_ratio,
+        ]
