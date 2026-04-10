@@ -24,7 +24,4 @@ harness:
 evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
     config:
-      metrics: [HOTA, MOTA]
-  - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
-    config:
-      metrics: [IDF1]
+      metrics: [HOTA, MOTA, IDF1]
