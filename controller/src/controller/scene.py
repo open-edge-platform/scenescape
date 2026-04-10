@@ -610,6 +610,12 @@ class Scene(SceneModel):
 
   @staticmethod
   def _getTripwireEvents(tripwires : list[Tripwire], object_locations : list[list[Point]]):
+    """Detect line crossings between object movement segments and tripwires.
+
+    @param tripwires         List of Tripwire objects to check against
+    @param object_locations  List of location pairs (current, previous) per object
+    @return Dict mapping tripwire index to list of (object_index, direction) tuples
+    """
     tripwire_events = {}
     for tw_idx, tripwire in enumerate(tripwires):
       event_matches = []
@@ -623,6 +629,12 @@ class Scene(SceneModel):
 
   @staticmethod
   def _getRegionEvents(regions : list[Region], object_locations : list[Point]):
+    """Determine which objects are within each region using point containment.
+
+    @param regions           List of Region objects to check against
+    @param object_locations  List of object positions (Point) to test
+    @return Dict mapping region index to list of object indices within that region
+    """
     region_events = {}
     for rg_idx, region in enumerate(regions):
       region_objects = []
@@ -644,12 +656,12 @@ class Scene(SceneModel):
     ]
 
     object_locations = [obj.sceneLoc for obj in reliable_objects]
-    point_within_events = self._getRegionEvents(
+    objects_within_region = self._getRegionEvents(
       list(regions.values()), object_locations
     )
 
     for rg_idx, (key, region) in enumerate(regions.items()):
-      matched_indices = set(point_within_events.get(rg_idx, []))
+      matched_indices = set(objects_within_region.get(rg_idx, []))
       # Also include objects matched by mesh intersection (requires self)
       for obj_idx, obj in enumerate(reliable_objects):
         if obj_idx not in matched_indices and self.isIntersecting(obj, region):
