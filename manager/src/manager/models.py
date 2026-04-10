@@ -51,8 +51,8 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
     client = PubSub(auth, cert, rootcert, broker)
     try:
       client.connect()
-    except socket.gaierror as e:
-      log.error("Unable to connect", e)
+    except (socket.gaierror, ConnectionRefusedError) as e:
+      log.error("Unable to connect: %s", e)
     else:
       if scene_id:
         client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
