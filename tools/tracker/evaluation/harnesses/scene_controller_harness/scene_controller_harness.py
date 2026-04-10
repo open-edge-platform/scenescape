@@ -8,7 +8,7 @@ import os
 import tempfile
 import shutil
 from pathlib import Path
-from typing import Dict, Any, Iterator, Optional
+from typing import Iterator, Dict, Any, Optional
 from python_on_whales import docker
 import sys
 
