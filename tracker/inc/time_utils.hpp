@@ -26,7 +26,7 @@ using ClockFn = std::function<std::chrono::system_clock::time_point()>;
  * @brief Return a ClockFn that delegates to system_clock::now().
  *
  * This is the default used when no NTP server is configured. The
- * returned function is stateless and zero-overhead.
+ * returned function is stateless.
  */
 ClockFn makeSystemClock();
 
@@ -145,8 +145,7 @@ std::string formatTimestamp(std::chrono::system_clock::time_point tp);
  *
  * Performs a single NTP exchange with the given host:port and returns the
  * clock offset in seconds (positive = local clock is behind the server).
- * Returns nullopt on any network error, KoD response, clock discontinuity,
- * or implausibly large offset.
+ * Returns nullopt on any network error, KoD response, clock discontinuity.
  */
 namespace detail {
 std::optional<double> queryNtp(const std::string& host, int port = 123);

@@ -403,7 +403,7 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
     apply_env(config.tracking.non_measurement_time_static_s,
               tracker::env::NON_MEASUREMENT_TIME_STATIC_S, parse_positive_double);
 
-    // NTP overrides: env vars take precedence; empty server string clears the setting
+    // NTP overrides: env vars take precedence;
     if (auto val = get_env(tracker::env::NTP_SERVER); val.has_value()) {
         if (!config.infrastructure.ntp.has_value()) {
             config.infrastructure.ntp = NtpConfig{};

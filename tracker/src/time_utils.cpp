@@ -4,6 +4,7 @@
 #include "time_utils.hpp"
 #include "logger.hpp"
 
+#include <cerrno>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -12,6 +13,7 @@
 #include <netdb.h>
 #include <string_view>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 namespace tracker {
@@ -141,6 +143,16 @@ std::optional<double> queryNtp(const std::string& host, int port) {
     uint32_t t3_frac = static_cast<uint32_t>(reply[44]) << 24 |
                        static_cast<uint32_t>(reply[45]) << 16 |
                        static_cast<uint32_t>(reply[46]) << 8 | reply[47];
+
+    // Guard: reject timestamps that predate the Unix epoch — a zero or pre-1900
+    // NTP seconds field indicates an uninitialized or malformed server response.
+    if (t2_sec < kNtpUnixDeltaSeconds || t3_sec < kNtpUnixDeltaSeconds) {
+        LOG_DEBUG(
+            "NTP query failed: server timestamp predates Unix epoch "
+            "(t2_sec={}, t3_sec={}, delta={}), host={}",
+            t2_sec, t3_sec, kNtpUnixDeltaSeconds, host);
+        return std::nullopt;
+    }
 
     // Convert NTP timestamps to seconds since Unix epoch
     auto ntp_to_unix = [](uint32_t sec, uint32_t frac) -> double {

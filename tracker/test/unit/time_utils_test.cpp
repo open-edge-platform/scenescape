@@ -7,11 +7,13 @@
 #include "time_utils.hpp"
 
 #include <arpa/inet.h>
+#include <array>
 #include <chrono>
 #include <cstring>
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <thread>
 #include <unistd.h>
 
@@ -312,9 +314,21 @@ public:
         socklen_t len = sizeof(addr);
         EXPECT_EQ(getsockname(sock_, reinterpret_cast<sockaddr*>(&addr), &len), 0);
         port_ = ntohs(addr.sin_port);
+
+        // Bound receive timeout so the serve thread never hangs indefinitely
+        // if the client request never arrives (e.g. early test failure).
+        timeval tv{};
+        tv.tv_sec = 5;
+        tv.tv_usec = 0;
+        setsockopt(sock_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     }
 
     ~FakeNtpServer() {
+        // Ensure the serve thread finishes before the socket is closed.
+        // A receive timeout on the socket (set in the constructor) guarantees
+        // the thread unblocks even if the client never sends a request.
+        if (thread_.joinable())
+            thread_.join();
         if (sock_ >= 0)
             close(sock_);
     }
@@ -411,6 +425,22 @@ TEST_F(QueryNtpTest, Unsynchronized_Stratum17_ReturnsNullopt) {
     auto result = detail::queryNtp("127.0.0.1", srv.port());
     srv.join();
     EXPECT_FALSE(result.has_value()) << "Stratum 17 (undefined) should be rejected";
+}
+
+TEST_F(QueryNtpTest, ZeroServerTimestamp_ReturnsNullopt) {
+    // A zero NTP timestamp (t2_sec=0 / t3_sec=0) predates the Unix epoch.
+    // Subtracting kNtpUnixDeltaSeconds would underflow uint32_t and produce a
+    // huge Unix time, corrupting the offset calculation. Must be rejected.
+    FakeNtpServer srv;
+    std::array<uint8_t, 48> pkt{};
+    pkt[0] = 0x24; // LI=0, VN=4, Mode=4 (server)
+    pkt[1] = 1;    // stratum 1 — valid, so the only rejection cause is the zero timestamps
+    // T2 and T3 bytes (offsets 32-47) remain zero (uninitialized server response)
+    srv.serve_once(pkt);
+    auto result = detail::queryNtp("127.0.0.1", srv.port());
+    srv.join();
+    EXPECT_FALSE(result.has_value())
+        << "Zero server timestamps predate Unix epoch and must be rejected";
 }
 
 // NOTE: The T4 < T1 clock-discontinuity guard cannot be reliably triggered

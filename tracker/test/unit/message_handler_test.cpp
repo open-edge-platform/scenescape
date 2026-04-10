@@ -1118,7 +1118,8 @@ TEST_F(MessageHandlerTest, ClockFn_FixedClock_FreshMessageNotLagged) {
 }
 
 // Regression: Without the ClockFn fix, a clock ahead of the message would cause a false-positive
-// lag drop.  With the fix the injected clock supplies the correct "now", so the message passes.
+// lag drop. With the fix, the injected clock supplies the correct "now" (aligned with the message
+// timestamp), ensuring the message is accepted. This confirms the injection path is used.
 TEST_F(MessageHandlerTest, ClockFn_ClockAhead_ValidMessageAccepted) {
     using namespace std::chrono;
 

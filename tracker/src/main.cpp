@@ -237,6 +237,9 @@ int main(int argc, char* argv[]) {
     // Flush and shut down OpenTelemetry SDK before logger
     tracker::Telemetry::shutdown();
 
+    // Stop NTP clock sync thread before logger shutdown to prevent logging after shutdown
+    ntp_clock.stop();
+
     // Stop healthcheck server
     g_liveness = false;
     health_server.stop();
