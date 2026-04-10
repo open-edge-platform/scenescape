@@ -130,6 +130,8 @@ class TimeChunkProcessor(threading.Thread):
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   """Time-chunked version of IntelLabsTracking."""
 
+  EMPTY_FRAME_CAMERA_ID = "__empty_frame__"
+
   def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, reid_config_data=None):
     # Call parent constructor to initialize IntelLabsTracking
     super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps, suspended_track_timeout_secs, reid_config_data)
@@ -150,18 +152,19 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     # Create IntelLabs trackers if not already created
     self._createIlabsTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
 
-    if len(objects) == 0:
-      return
-
     if not categories:
       categories = self.trackers.keys()
 
     # Extract camera_id from objects - required for time chunking
-    try:
-      camera_id = objects[0].camera.cameraID
-    except (AttributeError, IndexError):
-      log.warning("No camera ID found in objects, skipping time chunking processing")
-      return
+    if len(objects) > 0:
+      try:
+        camera_id = objects[0].camera.cameraID
+      except (AttributeError, IndexError):
+        log.warning("No camera ID found in objects, skipping time chunking processing")
+        return
+    else:
+      # Keep retirement moving when a camera/category has no detections.
+      camera_id = self.EMPTY_FRAME_CAMERA_ID
 
     for category in categories:
       # Use time chunking

@@ -205,12 +205,6 @@ function createBaseMessage(objectCount) {
     objectArray.push({
       category: "person",
       confidence: movementState.confidence,
-      center_of_mass: {
-        x: 0,
-        y: 0,
-        width: 65,
-        height: 90,
-      },
       bounding_box_px: {
         x: 0,
         y: 0,
@@ -250,12 +244,6 @@ function updatePositions(baseMessage) {
 
     // Update person's position based on movement pattern
     updatePersonPosition(movementState, currentTime);
-
-    // Update center of mass
-    person.center_of_mass.x = movementState.currentX;
-    person.center_of_mass.y = movementState.currentY;
-    person.center_of_mass.width = movementState.width;
-    person.center_of_mass.height = movementState.height;
 
     // Update bounding box (fixed size)
     const bboxWidth = 195; // Fixed bounding box width
