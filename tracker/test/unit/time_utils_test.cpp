@@ -441,8 +441,7 @@ TEST_F(QueryNtpTest, ZeroServerTimestamp_ReturnsNullopt) {
 // Parameterized test: verifies offset calculation for both directions of clock skew.
 // server_bias > 0: local clock is behind NTP (positive offset expected).
 // server_bias < 0: local clock is ahead of NTP (negative offset expected).
-class OffsetCalculationTest : public QueryNtpTest,
-                              public ::testing::WithParamInterface<double> {};
+class OffsetCalculationTest : public QueryNtpTest, public ::testing::WithParamInterface<double> {};
 
 TEST_P(OffsetCalculationTest, OffsetCalculation_MatchesServerBias) {
     double bias = GetParam();
@@ -456,8 +455,7 @@ TEST_P(OffsetCalculationTest, OffsetCalculation_MatchesServerBias) {
     EXPECT_NEAR(*result, bias, 0.5) << "Expected offset ~ " << bias << "s";
 }
 
-INSTANTIATE_TEST_SUITE_P(OffsetDirections, OffsetCalculationTest,
-                         ::testing::Values(5.0, -5.0));
+INSTANTIATE_TEST_SUITE_P(OffsetDirections, OffsetCalculationTest, ::testing::Values(5.0, -5.0));
 
 } // namespace
 } // namespace tracker

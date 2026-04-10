@@ -1193,5 +1193,15 @@ TEST_F(MessageHandlerTest, ClockFn_DefaultSystemClock_Used) {
     EXPECT_EQ(handler.getBufferedCount(), 1);
 }
 
+// Test that handler does not subscribe when registry is empty
+TEST_F(MessageHandlerTest, Start_NoSubscriptionsWithEmptyRegistry) {
+    SceneRegistry empty_registry;
+
+    EXPECT_CALL(*mock_client_, subscribe(_)).Times(0);
+
+    MessageHandler handler(mock_client_, empty_registry, test_buffer_, test_config_, false);
+    handler.start();
+}
+
 } // namespace
 } // namespace tracker

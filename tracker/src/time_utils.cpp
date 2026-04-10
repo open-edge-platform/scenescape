@@ -123,7 +123,7 @@ std::optional<double> queryNtp(const std::string& host, int port) {
     // as the shared reference rather than a public internet NTP source.
     // Stratum 17+ = undefined/garbage per RFC 5905 — reject these.
     uint8_t stratum = reply[1];
-    LOG_INFO("NTP server {} responded with stratum={}", host, stratum);
+    LOG_DEBUG("NTP server {} responded with stratum={}", host, stratum);
     if (stratum == 0 || stratum > 16) {
         LOG_DEBUG("NTP query failed: invalid stratum={} (0=KoD, >16=undefined), host={}", stratum,
                   host);
