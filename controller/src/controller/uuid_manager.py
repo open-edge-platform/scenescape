@@ -8,7 +8,7 @@ import threading
 import time
 from unittest import result
 
-from controller.vdms_adapter import VDMSDatabase
+from controller.vdms_adapter import VDMSDatabase, DIMENSIONS
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
 
@@ -35,15 +35,17 @@ class UUIDManager:
     self.features_for_database_timestamps = {}  # Track when features were added
     self.quality_features = {}
     self.unique_id_count = 0
-    self.reid_database = available_databases[database]()
+    # Extract vector dimensions from reid config, pass to database
+    if reid_config_data is None:
+      reid_config_data = {}
+    vector_dimensions = reid_config_data.get('vector_dimensions', DIMENSIONS)
+    self.reid_database = available_databases[database](dimensions=vector_dimensions)
     self.pool = concurrent.futures.ThreadPoolExecutor()
     self.similarity_query_times = collections.deque(
       maxlen=DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED)
     self.similarity_query_times_lock = threading.Lock()
     self.reid_enabled = True
     # Extract stale feature timeout from reid config, use default if not provided
-    if reid_config_data is None:
-      reid_config_data = {}
     self.stale_feature_timeout_secs = reid_config_data.get('stale_feature_timeout_secs', DEFAULT_STALE_FEATURE_TIMEOUT_SECS)
     self.stale_feature_check_interval_secs = reid_config_data.get('stale_feature_check_interval_secs', DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS)
     self.stale_feature_timer = None

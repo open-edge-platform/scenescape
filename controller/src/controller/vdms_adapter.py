@@ -145,10 +145,10 @@ class VDMSDatabase(ReIDDatabase):
     add_query = []
     for reid_vector in reid_vectors:
       # Ensure vector is properly formatted as 1D array of float32
-      # reid_vector might be shape (1, 256) from moving_object, need to flatten to (256,)
+      # reid_vector might be shape (N,) from moving_object, need to flatten to (N,)
       vec_array = np.asarray(reid_vector, dtype="float32").flatten()
-      if vec_array.shape[0] != 256:
-        log.warning(f"addEntry: Expected vector shape (256,) but got {vec_array.shape}, skipping this vector")
+      if vec_array.shape[0] != self.dimensions:
+        log.warning(f"addEntry: Expected vector shape ({self.dimensions},) but got {vec_array.shape}, skipping this vector")
         continue
       descriptor_blobs.append(vec_array.tobytes())
       # Create query dict for each vector
