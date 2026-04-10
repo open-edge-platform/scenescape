@@ -4,7 +4,7 @@
 """Base class for tracker harness implementations."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Iterator
+from typing import Iterator, Dict, Any
 from pathlib import Path
 
 
