@@ -6,7 +6,6 @@
 import pytest
 import sys
 from pathlib import Path
-import tempfile
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -506,10 +505,10 @@ class TestGTMetrics:
 
 
 class TestReset:
-  def test_reset_clears_state(self, evaluator, mock_tracker_outputs):
+  def test_reset_clears_state(self, evaluator, mock_tracker_outputs, tmp_path):
     evaluator.configure_metrics(['rms_jerk'])
     evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
-    evaluator.set_output_folder(Path(tempfile.mkdtemp()))
+    evaluator.set_output_folder(tmp_path)
 
     evaluator.reset()
 
