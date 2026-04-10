@@ -104,13 +104,13 @@ print(f"IDF1: {metrics['IDF1']:.3f}")
 
 **Supported Metrics**:
 
-| Metric                        | Source         | Description                                                                  |
-| ----------------------------- | -------------- | ---------------------------------------------------------------------------- |
-| `rms_jerk`                    | Tracker output | RMS jerk across all tracker output tracks (m/s³)                             |
-| `acceleration_variance`       | Tracker output | Variance of acceleration magnitudes across all tracker output tracks (m/s²)² |
-| `rms_jerk_gt`                 | Ground truth   | Same as `rms_jerk` computed on ground-truth tracks                           |
-| `acceleration_variance_gt`    | Ground truth   | Same as `acceleration_variance` computed on ground-truth tracks              |
-| `rms_jerk_ratio`              | Tracker / GT   | `rms_jerk` / `rms_jerk_gt` — tracker jitter relative to GT (1.0 = equal)     |
+| Metric                        | Source         | Description                                                                                                       |
+| ----------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `rms_jerk`                    | Tracker output | RMS jerk across all tracker output tracks (m/s³)                                                                  |
+| `acceleration_variance`       | Tracker output | Variance of acceleration magnitudes across all tracker output tracks (m/s²)²                                      |
+| `rms_jerk_gt`                 | Ground truth   | Same as `rms_jerk` computed on ground-truth tracks                                                                |
+| `acceleration_variance_gt`    | Ground truth   | Same as `acceleration_variance` computed on ground-truth tracks                                                   |
+| `rms_jerk_ratio`              | Tracker / GT   | `rms_jerk` / `rms_jerk_gt` — tracker jitter relative to GT (1.0 = equal)                                          |
 | `acceleration_variance_ratio` | Tracker / GT   | `acceleration_variance` / `acceleration_variance_gt` — tracker acceleration variance relative to GT (1.0 = equal) |
 
 Comparing `rms_jerk` with `rms_jerk_gt` shows how much jitter the tracker
@@ -207,15 +207,16 @@ from pathlib import Path
 
 evaluator = DiagnosticEvaluator()
 metrics = (evaluator
-           .configure_metrics(['LOC_T_X', 'LOC_T_Y', 'DIST_T'])
-           .set_output_folder(Path('/path/to/results'))
-           .process_tracker_outputs(tracker_outputs, gt_file_path)
-           .evaluate_metrics())
+.configure_metrics(['LOC_T_X', 'LOC_T_Y', 'DIST_T'])
+.set_output_folder(Path('/path/to/results'))
+.process_tracker_outputs(tracker_outputs, gt_file_path)
+.evaluate_metrics())
 print(f"Mean distance: {metrics['DIST_T_mean']:.3f}")
 print(f"X MAE: {metrics['LOC_T_X_mae']:.3f}")
 print(f"Y MAE: {metrics['LOC_T_Y_mae']:.3f}")
 print(f"Matched pairs: {int(metrics['num_matches'])}")
-```
+
+````
 
 **Current Limitations**:
 
@@ -261,7 +262,7 @@ metrics = (evaluator
            .set_output_folder(Path('/results'))
            .process_tracker_outputs(outputs, gt)
            .evaluate_metrics())
-```
+````
 
 **Ground-truth format**:
 Evaluators receive ground-truth in **MOTChallenge 3D CSV format**: See [Canonical Data Formats](../README.md#canonical-data-formats)
