@@ -13,7 +13,6 @@ SPDX-License-Identifier: Apache-2.0
 ## Constraints
 
 - Phase 1 constraints:
-  - configuration may list multiple evaluators, but only the first entry is executed. Fail fast if more than one evaluator is configured.
   - only batch mode is supported (read/process/write all data at once), although class interfaces and I/O utilities may use streaming API underneath
   - the only supported dataset is Metric Test Dataset
 
@@ -63,6 +62,8 @@ Check `harnesses/README.md` for more details
 
 - **TrackEvalEvaluator**: `evaluators/trackeval_evaluator.py`
   Wraps TrackEval library, provides tracker output format conversion and delivers state of the art tracking metrics.
+
+Multiple evaluators can be configured in a single YAML pipeline; each runs independently against the same tracker outputs and writes results to its own subfolder under the run output directory.
 
 Check `evaluators/README.md` for more details
 
