@@ -1,6 +1,6 @@
 # How-to Guides
 
-## Learn how to use Intel® SceneScape
+## Learn How to Use Intel® SceneScape
 
 - [Deployment Guide](./how-to-guides/deploy-scenescape-using-prebuilt-containers.md): Step-by-step guide for deploying Intel® SceneScape using prebuilt containers.
 
@@ -8,7 +8,7 @@
 
 ## Build a Scene in Intel® SceneScape
 
-- [Create and Configure a New Scene](./how-to-guides/build-a-scene/create-new-scene.md): Step-by-step guide on how to create a live scene in Intel® SceneScape
+- [Create and Configure a New Scene](./how-to-guides/build-a-scene/create-new-scene.md): Step-by-step guide on how to create a live scene in Intel® SceneScape.
 
 - [Use Sensor types](./how-to-guides/build-a-scene/use-sensor-types.md): Step-by-step guide to getting started with sensor types.
 
@@ -22,9 +22,9 @@
 
 - [Configure Spatial Analytics](./how-to-guides/build-a-scene/configure-spatial-analytics.md): Step-by-step guide to set up and use Regions of Interest (ROIs) and Tripwires.
 
-## Integrate and calibrate cameras for Intel® SceneScape
+## Integrate and Calibrate Cameras for Intel® SceneScape
 
-- [Integrate Cameras and Sensors into Intel® SceneScape](./how-to-guides/integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow
+- [Integrate Cameras and Sensors into Intel® SceneScape](./how-to-guides/integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow.
 
 - [Manually calibrate cameras](./how-to-guides/calibrate-cameras/manually-calibrate-cameras.md): Step-by-step guide to performing Manual Camera Calibration.
 
@@ -34,7 +34,7 @@
 
 - [Autocalibrate cameras using Apriltags](./how-to-guides/calibrate-cameras/autocalibrate-cameras-using-apriltags.md): Step-by-step guide to performing Auto Camera Calibration using Apriltags.
 
-## Work with spatial analytics data
+## Work with Spatial Analytics Data
 
 - [Configure Spatial Analytics](./how-to-guides/work-with-spatial-analytics-data.md): Step-by-step guide to use and consume spatial analytics event data.
 
