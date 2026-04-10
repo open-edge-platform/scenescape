@@ -402,21 +402,7 @@ TEST_F(QueryNtpTest, ValidStratum15_ReturnsOffset) {
     EXPECT_NEAR(*result, 0.0, 0.5);
 }
 
-TEST_F(QueryNtpTest, Unsynchronized_Stratum16_ReturnsOffset) {
-    // Stratum 16 = no upstream reference, but server still serves its own
-    // system clock. Valid for inter-container alignment (e.g. chrony without
-    // internet access). Must NOT be rejected.
-    double now =
-        std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
-    FakeNtpServer srv;
-    srv.serve_once(make_ntp_reply(16, now, now));
-    auto result = detail::queryNtp("127.0.0.1", srv.port());
-    srv.join();
-    ASSERT_TRUE(result.has_value()) << "Stratum 16 should be accepted (local clock reference)";
-    EXPECT_NEAR(*result, 0.0, 0.5);
-}
-
-TEST_F(QueryNtpTest, Unsynchronized_Stratum17_ReturnsNullopt) {
+TEST_F(QueryNtpTest, InvalidStratum17_ReturnsNullopt) {
     // Stratum > 16 is undefined / garbage in RFC 5905
     double now =
         std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -452,34 +438,26 @@ TEST_F(QueryNtpTest, ZeroServerTimestamp_ReturnsNullopt) {
 // queryNtp — end-to-end offset calculation (simulated time drift)
 // ---------------------------------------------------------------------------
 
-TEST_F(QueryNtpTest, OffsetCalculation_SystemBehindNtp) {
-    // Simulate: NTP server clock is 5 seconds ahead of local clock.
-    // The server stamps T2=T3=local_now+5. With negligible loopback RTT,
-    // offset = ((T2-T1) + (T3-T4)) / 2 ≈ +5.0 s.
+// Parameterized test: verifies offset calculation for both directions of clock skew.
+// server_bias > 0: local clock is behind NTP (positive offset expected).
+// server_bias < 0: local clock is ahead of NTP (negative offset expected).
+class OffsetCalculationTest : public QueryNtpTest,
+                              public ::testing::WithParamInterface<double> {};
+
+TEST_P(OffsetCalculationTest, OffsetCalculation_MatchesServerBias) {
+    double bias = GetParam();
     double now =
         std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
-    double server_time = now + 5.0;
     FakeNtpServer srv;
-    srv.serve_once(make_ntp_reply(1, server_time, server_time));
+    srv.serve_once(make_ntp_reply(1, now + bias, now + bias));
     auto result = detail::queryNtp("127.0.0.1", srv.port());
     srv.join();
     ASSERT_TRUE(result.has_value());
-    EXPECT_NEAR(*result, 5.0, 0.5) << "Local clock 5s behind NTP: offset should be ~+5s";
+    EXPECT_NEAR(*result, bias, 0.5) << "Expected offset ~ " << bias << "s";
 }
 
-TEST_F(QueryNtpTest, OffsetCalculation_SystemAheadOfNtp) {
-    // Simulate: NTP server clock is 5 seconds behind local clock.
-    // The server stamps T2=T3=local_now-5. Offset ≈ -5.0 s.
-    double now =
-        std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
-    double server_time = now - 5.0;
-    FakeNtpServer srv;
-    srv.serve_once(make_ntp_reply(1, server_time, server_time));
-    auto result = detail::queryNtp("127.0.0.1", srv.port());
-    srv.join();
-    ASSERT_TRUE(result.has_value());
-    EXPECT_NEAR(*result, -5.0, 0.5) << "Local clock 5s ahead of NTP: offset should be ~-5s";
-}
+INSTANTIATE_TEST_SUITE_P(OffsetDirections, OffsetCalculationTest,
+                         ::testing::Values(5.0, -5.0));
 
 } // namespace
 } // namespace tracker

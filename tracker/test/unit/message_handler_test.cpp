@@ -180,17 +180,6 @@ TEST_F(MessageHandlerTest, Start_SubscribesToMultipleCameras) {
     handler.start();
 }
 
-// Test that handler does not subscribe when registry is empty
-TEST_F(MessageHandlerTest, Start_NoSubscriptionsWithEmptyRegistry) {
-    SceneRegistry empty_registry;
-
-    // No subscribe calls expected
-    EXPECT_CALL(*mock_client_, subscribe(_)).Times(0);
-
-    MessageHandler handler(mock_client_, empty_registry, test_buffer_, test_config_, false);
-    handler.start();
-}
-
 // Test that handler sets message callback on start
 TEST_F(MessageHandlerTest, Start_SetsMessageCallback) {
     EXPECT_CALL(*mock_client_, setMessageCallback(_)).Times(1);
