@@ -85,9 +85,6 @@ PostgreSQL database server which stores static information used by the web UI an
 
 Get Started <./get-started.md>
 How to Guides <./how-to-guides.md>
-Use the 3D UI for Camera Calibration <./how-to-use-3D-UI.md>
-Calibrate Cameras <calibrating-cameras/index.md>
-Work with Spatial Analytics <./working-with-spatial-analytics-data.md>
 Other Topics <other-topics/index.md>
 Additional Resources <additional-resources/index.md>
 Microservices <./microservices/microservices.md>

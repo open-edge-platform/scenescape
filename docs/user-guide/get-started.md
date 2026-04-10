@@ -174,40 +174,6 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 - Check the [How-to Guides](./how-to-guides.md) for step-by-step instructions on how to perform specific tasks in Intel® SceneScape.
 
-### Learn how to use Intel® SceneScape
-
-- [Deployment Guide](./how-to-guides/deploy-scenescape-using-prebuilt-containers.md): Step-by-step guide for deploying Intel® SceneScape using prebuilt containers.
-
-- [UI and Online Documentation Tutorial](./how-to-guides/ui-tutorial.md): Become familiar with Intel® SceneScape UI.
-
-- [How to use 3D UI](./how-to-use-3D-UI.md): Explore Intel® SceneScape's powerful 3D UI
-
-- [How to Integrate Cameras and Sensors into Intel® SceneScape](./how-to-integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow
-
-### Build a Scene in Intel® SceneScape
-
-- [How to Create and Configure a New Scene](./building-a-scene/how-to-create-new-scene.md): Step-by-step guide on how to create a live scene in Intel® SceneScape
-
-- [How to use Sensor types](./building-a-scene/how-to-use-sensor-types.md): Step-by-step guide to getting started with sensor types.
-
-- [How to visualize regions](./building-a-scene/how-to-visualize-regions.md): Step-by-step guide to getting started with visualizing regions.
-
-- [How to configure a hierarchy of scenes](./building-a-scene/how-to-configure-a-hierarchy-of-scenes.md): Step-by-step guide to configuring a hierarchy of scenes.
-
-- [How to Configure Geospatial Coordinates for a Scene](./building-a-scene/how-to-configure-geospatial-coordinates.md): Step-by-step guide for configuring geographic coordinates output in object detections.
-
-- [How to Configure Geospatial Map Service API Keys](./building-a-scene/how-to-configure-geospatial-map-service-api-keys.md): Step-by-step guide for configuring Google Maps or Mapbox API keys for geospatial mapping functionality.
-
-- [How to Configure Spatial Analytics](./building-a-scene/how-to-configure-spatial-analytics.md): Step-by-step guide to set up and use Regions of Interest (ROIs) and Tripwires.
-
-### Learn how to calibrate cameras for Intel® SceneScape
-
-- [How to manually calibrate cameras](./calibrating-cameras/how-to-manually-calibrate-cameras.md): Step-by-step guide to performing Manual Camera Calibration.
-
-- [How to autocalibrate cameras using visual features](./calibrating-cameras/how-to-autocalibrate-cameras-using-visual-features.md): Step-by-step guide to performing Auto Camera Calibration using Visual Features.
-
-- [How to autocalibrate cameras using Apriltags](./calibrating-cameras/how-to-autocalibrate-cameras-using-apriltags.md): Step-by-step guide to performing Auto Camera Calibration using Apriltags.
-
 ### Explore other topics
 
 - [How to Define Object Properties](./other-topics/how-to-define-object-properties.md): Step-by-step guide for configuring the properties of an object class.
