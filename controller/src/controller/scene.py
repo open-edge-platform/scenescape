@@ -587,11 +587,11 @@ class Scene(SceneModel):
     ]
 
     crossing_events = self._getTripwireEvents(
-      list(self.tripwires.values()), object_locations
+      self.tripwires, object_locations
     )
 
-    for tw_idx, (key, tripwire) in enumerate(self.tripwires.items()):
-      event_matches = crossing_events.get(tw_idx, [])
+    for key, tripwire in self.tripwires.items():
+      event_matches = crossing_events.get(key, [])
       previous_objects = tripwire.objects.get(detectionType, [])
       crossed_objects = [
         TripwireEvent(reliable_objects[obj_idx], direction)
@@ -609,39 +609,39 @@ class Scene(SceneModel):
     return
 
   @staticmethod
-  def _getTripwireEvents(tripwires : list[Tripwire], object_locations : list[list[Point]]):
+  def _getTripwireEvents(tripwires : dict, object_locations : list[list[Point]]):
     """Detect line crossings between object movement segments and tripwires.
 
-    @param tripwires         List of Tripwire objects to check against
+    @param tripwires         Dict of {key: Tripwire} to check against
     @param object_locations  List of location pairs (current, previous) per object
-    @return Dict mapping tripwire index to list of (object_index, direction) tuples
+    @return Dict mapping tripwire key to list of (object_index, direction) tuples
     """
     tripwire_events = {}
-    for tw_idx, tripwire in enumerate(tripwires):
+    for key, tripwire in tripwires.items():
       event_matches = []
       for obj_idx, obj_locations in enumerate(object_locations):
         d = tripwire.lineCrosses(Line(obj_locations[0].as2Dxy,
                                       obj_locations[1].as2Dxy))
         if d != 0:
           event_matches.append((obj_idx, -d))
-      tripwire_events[tw_idx] = event_matches
+      tripwire_events[key] = event_matches
     return tripwire_events
 
   @staticmethod
-  def _getRegionEvents(regions : list[Region], object_locations : list[Point]):
+  def _getRegionEvents(regions : dict, object_locations : list[Point]):
     """Determine which objects are within each region using point containment.
 
-    @param regions           List of Region objects to check against
+    @param regions           Dict of {key: Region} to check against
     @param object_locations  List of object positions (Point) to test
-    @return Dict mapping region index to list of object indices within that region
+    @return Dict mapping region key to list of object indices within that region
     """
     region_events = {}
-    for rg_idx, region in enumerate(regions):
+    for key, region in regions.items():
       region_objects = []
       for obj_idx, obj_location in enumerate(object_locations):
         if region.isPointWithin(obj_location):
           region_objects.append(obj_idx)
-      region_events[rg_idx] = region_objects
+      region_events[key] = region_objects
     return region_events
 
   def _updateRegionEvents(self, detectionType, regions, now, now_str, curObjects):
@@ -657,11 +657,11 @@ class Scene(SceneModel):
 
     object_locations = [obj.sceneLoc for obj in reliable_objects]
     objects_within_region = self._getRegionEvents(
-      list(regions.values()), object_locations
+      regions, object_locations
     )
 
-    for rg_idx, (key, region) in enumerate(regions.items()):
-      matched_indices = set(objects_within_region.get(rg_idx, []))
+    for key, region in regions.items():
+      matched_indices = set(objects_within_region.get(key, []))
       # Also include objects matched by mesh intersection (requires self)
       for obj_idx, obj in enumerate(reliable_objects):
         if obj_idx not in matched_indices and self.isIntersecting(obj, region):
