@@ -111,7 +111,7 @@ print(f"IDF1: {metrics['IDF1']:.3f}")
 | `rms_jerk_gt`                 | Ground truth   | Same as `rms_jerk` computed on ground-truth tracks                           |
 | `acceleration_variance_gt`    | Ground truth   | Same as `acceleration_variance` computed on ground-truth tracks              |
 | `rms_jerk_ratio`              | Tracker / GT   | `rms_jerk` / `rms_jerk_gt` — tracker jitter relative to GT (1.0 = equal)     |
-| `acceleration_variance_ratio` | Tracker / GT   | `acceleration_variance` / `acceleration_variance_gt`                         |
+| `acceleration_variance_ratio` | Tracker / GT   | `acceleration_variance` / `acceleration_variance_gt` — tracker acceleration variance relative to GT (1.0 = equal) |
 
 Comparing `rms_jerk` with `rms_jerk_gt` shows how much jitter the tracker
 adds on top of any jitter already present in the test data.

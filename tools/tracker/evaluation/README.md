@@ -72,6 +72,9 @@ evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
     config:
       metrics: [HOTA, MOTA, IDF1]
+  - class: evaluators.diagnostic_evaluator.DiagnosticEvaluator
+    config:
+      metrics: [LOC_T_X, LOC_T_Y, DIST_T]
   - class: evaluators.jitter_evaluator.JitterEvaluator
     config:
       metrics:
