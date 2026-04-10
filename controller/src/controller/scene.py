@@ -621,18 +621,42 @@ class Scene(SceneModel):
       tripwire_events[tw_idx] = event_matches
     return tripwire_events
 
+  @staticmethod
+  def _getRegionEvents(regions : list[Region], object_locations : list[Point]):
+    region_events = {}
+    for rg_idx, region in enumerate(regions):
+      region_objects = []
+      for obj_idx, obj_location in enumerate(object_locations):
+        if region.isPointWithin(obj_location):
+          region_objects.append(obj_idx)
+      region_events[rg_idx] = region_objects
+    return region_events
+
   def _updateRegionEvents(self, detectionType, regions, now, now_str, curObjects):
     updated = set()
-    for key in regions:
-      region = regions[key]
+
+    # Filter to reliable objects.
+    # When tracker is disabled, skip the frameCount check and consider all objects;
+    # otherwise, only consider objects with frameCount > 3 as reliable.
+    reliable_objects = [
+      obj for obj in curObjects
+      if obj.frameCount > 3 or ControllerMode.isAnalyticsOnly()
+    ]
+
+    object_locations = [obj.sceneLoc for obj in reliable_objects]
+    point_within_events = self._getRegionEvents(
+      list(regions.values()), object_locations
+    )
+
+    for rg_idx, (key, region) in enumerate(regions.items()):
+      matched_indices = set(point_within_events.get(rg_idx, []))
+      # Also include objects matched by mesh intersection (requires self)
+      for obj_idx, obj in enumerate(reliable_objects):
+        if obj_idx not in matched_indices and self.isIntersecting(obj, region):
+          matched_indices.add(obj_idx)
+
+      objects = [reliable_objects[i] for i in sorted(matched_indices)]
       regionObjects = region.objects.get(detectionType, [])
-      objects = []
-      for obj in curObjects:
-        # When tracker is disabled, skip the frameCount check and consider all objects;
-        # otherwise, only consider objects with frameCount > 3 as reliable.
-        if (obj.frameCount > 3 or ControllerMode.isAnalyticsOnly()) \
-           and (region.isPointWithin(obj.sceneLoc) or self.isIntersecting(obj, region)):
-          objects.append(obj)
 
       cur = set(x.gid for x in objects)
       prev = set(x.gid for x in regionObjects)
