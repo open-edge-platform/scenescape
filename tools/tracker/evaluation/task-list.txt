@@ -11,7 +11,10 @@ Design:
 
 Improvements:
 
-- resolving multiple tracker frames into a single frame per ground-truth frame when time-chunking is disabled (or chunking frame rate is higher than camera FPS)
+1. unify evaluator.process_tracker_outputs arguments (path instead of iterator)
+2. configure FPS in evaluator, then do not infer it from tracker output timestamps (may be incomplete)
+3. resolving multiple tracker frames into a single frame per ground-truth frame when time-chunking is disabled (or chunking frame rate is higher than camera FPS) - deduplication
+4. copy configuration file to output folder
 
 -----------------------
 
