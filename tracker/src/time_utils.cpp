@@ -147,10 +147,9 @@ std::optional<double> queryNtp(const std::string& host, int port) {
     // Guard: reject timestamps that predate the Unix epoch — a zero or pre-1900
     // NTP seconds field indicates an uninitialized or malformed server response.
     if (t2_sec < kNtpUnixDeltaSeconds || t3_sec < kNtpUnixDeltaSeconds) {
-        LOG_DEBUG(
-            "NTP query failed: server timestamp predates Unix epoch "
-            "(t2_sec={}, t3_sec={}, delta={}), host={}",
-            t2_sec, t3_sec, kNtpUnixDeltaSeconds, host);
+        LOG_DEBUG("NTP query failed: server timestamp predates Unix epoch "
+                  "(t2_sec={}, t3_sec={}, delta={}), host={}",
+                  t2_sec, t3_sec, kNtpUnixDeltaSeconds, host);
         return std::nullopt;
     }
 
