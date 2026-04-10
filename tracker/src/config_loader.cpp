@@ -424,6 +424,9 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
         } catch (const std::invalid_argument&) {
             throw std::runtime_error("Invalid " + std::string(tracker::env::NTP_SYNC_INTERVAL_S) +
                                      ": " + *val);
+        } catch (const std::out_of_range&) {
+            throw std::runtime_error("Value out of range for " +
+                                     std::string(tracker::env::NTP_SYNC_INTERVAL_S) + ": " + *val);
         }
     }
     // Discard an ntp config that has no server (can happen when only the interval env var is set).

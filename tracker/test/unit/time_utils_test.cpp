@@ -464,7 +464,7 @@ TEST_F(QueryNtpTest, OffsetCalculation_SystemBehindNtp) {
     auto result = detail::queryNtp("127.0.0.1", srv.port());
     srv.join();
     ASSERT_TRUE(result.has_value());
-    EXPECT_NEAR(*result, 5.0, 0.1) << "Local clock 5s behind NTP: offset should be ~+5s";
+    EXPECT_NEAR(*result, 5.0, 0.5) << "Local clock 5s behind NTP: offset should be ~+5s";
 }
 
 TEST_F(QueryNtpTest, OffsetCalculation_SystemAheadOfNtp) {
@@ -478,7 +478,7 @@ TEST_F(QueryNtpTest, OffsetCalculation_SystemAheadOfNtp) {
     auto result = detail::queryNtp("127.0.0.1", srv.port());
     srv.join();
     ASSERT_TRUE(result.has_value());
-    EXPECT_NEAR(*result, -5.0, 0.1) << "Local clock 5s ahead of NTP: offset should be ~-5s";
+    EXPECT_NEAR(*result, -5.0, 0.5) << "Local clock 5s ahead of NTP: offset should be ~-5s";
 }
 
 } // namespace

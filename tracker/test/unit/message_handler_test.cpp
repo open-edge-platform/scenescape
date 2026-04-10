@@ -1117,18 +1117,17 @@ TEST_F(MessageHandlerTest, ClockFn_FixedClock_FreshMessageNotLagged) {
     EXPECT_EQ(handler.getBufferedCount(), 1);
 }
 
-// Regression: Without the ClockFn fix, a clock ahead of the message would cause a false-positive
-// lag drop. With the fix, the injected clock supplies the correct "now" (aligned with the message
-// timestamp), ensuring the message is accepted. This confirms the injection path is used.
-TEST_F(MessageHandlerTest, ClockFn_ClockAhead_ValidMessageAccepted) {
+// Verify the injected ClockFn is used when evaluating message lag.
+// The injected clock is aligned with the message timestamp, so lag is zero and the
+// message should be accepted and buffered.
+TEST_F(MessageHandlerTest, ClockFn_InjectedClockAligned_ValidMessageAccepted) {
     using namespace std::chrono;
 
-    // Message timestamp.
+    // Message timestamp and injected clock are intentionally identical.
     auto msg_time = sys_days{2026y / January / 27} + 12h;
 
-    // Clock is 5 s ahead of the message.  Without fix: lag = 5 s > 1 ms → dropped.
-    // With fix: we inject this clock intentionally representing "correct now ≈ msg_time + 0 s"
-    // by setting it equal to msg_time so lag = 0.  This confirms the injection path is used.
+    // Return the same time as the message timestamp so this test validates the
+    // injected-clock path with zero lag.
     ClockFn test_clock = [msg_time]() -> system_clock::time_point { return msg_time; };
 
     TrackingConfig tight_config{

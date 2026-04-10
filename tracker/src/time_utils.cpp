@@ -88,6 +88,11 @@ std::optional<double> queryNtp(const std::string& host, int port) {
     tv.tv_usec = (kNtpSocketTimeoutMs % 1000) * 1000;
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
+    if (connect(sock, res->ai_addr, res->ai_addrlen) < 0) {
+        LOG_DEBUG("NTP query failed: cannot connect UDP socket (errno={})", errno);
+        return std::nullopt;
+    }
+
     // Build NTP request packet (LI=0, VN=4, Mode=3 client)
     uint8_t packet[kNtpPacketSize] = {};
     packet[0] = 0x23; // LI=0, VN=4, Mode=3
@@ -95,8 +100,8 @@ std::optional<double> queryNtp(const std::string& host, int port) {
     // Capture T1 (originate timestamp) just before sending
     auto t1 = std::chrono::system_clock::now();
 
-    if (sendto(sock, packet, kNtpPacketSize, 0, res->ai_addr, res->ai_addrlen) < 0) {
-        LOG_DEBUG("NTP query failed: sendto error (errno={})", errno);
+    if (send(sock, packet, kNtpPacketSize, 0) < 0) {
+        LOG_DEBUG("NTP query failed: send error (errno={})", errno);
         return std::nullopt;
     }
 
