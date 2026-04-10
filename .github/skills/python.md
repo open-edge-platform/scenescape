@@ -147,12 +147,15 @@ result = client.getScene(scene_id)
 
 ### Logging
 
+- Use f-strings for interpolated log messages.
+- Do not use printf-style placeholders (for example `%s`, `%d`) in log statements.
+
 ```python
 from scene_common import log
 
 log.info("Processing started")
-log.error("Failed to process")
-log.debug("Debug information")
+log.error(f"Failed to process scene {scene_id}")
+log.debug(f"Debug information: {debug_payload}")
 ```
 
 ## Type Hints

@@ -148,9 +148,8 @@ def computeCameraBounds(scene, aobj, obj_dict):
       projected = False
       if bounds is None:
         log.debug(
-          "computeCameraBounds: source camera %s has no boundingBoxPixels; "
-          "falling back to projected bounds when possible.",
-          cameraID
+          f"computeCameraBounds: source camera {cameraID} has no boundingBoxPixels; "
+          "falling back to projected bounds when possible."
         )
 
     # For non-source cameras (or source camera without pixel bbox), project
@@ -159,14 +158,12 @@ def computeCameraBounds(scene, aobj, obj_dict):
       camera = scene.cameraWithID(cameraID)
       if camera is None:
         log.debug(
-          "computeCameraBounds: camera %s not found in scene; cannot project bounds.",
-          cameraID
+          f"computeCameraBounds: camera {cameraID} not found in scene; cannot project bounds."
         )
         continue
       elif 'bb_meters' not in obj_dict and (not aobj or not hasattr(aobj, 'bbMeters') or aobj.bbMeters is None):
         log.debug(
-          "computeCameraBounds: missing bb_meters for camera %s; cannot project bounds.",
-          cameraID
+          f"computeCameraBounds: missing bb_meters for camera {cameraID}; cannot project bounds."
         )
         continue
 
