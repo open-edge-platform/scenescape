@@ -582,17 +582,16 @@ class Scene(SceneModel):
       and len(obj.chain_data.publishedLocations) > 1
     ]
 
-    tripwire_keys = list(self.tripwires.keys())
-    tripwires = [self.tripwires[key] for key in tripwire_keys]
     object_locations = [
       obj.chain_data.publishedLocations[:2] for obj in reliable_objects
     ]
 
-    crossing_events = self._getTripwireEvents(tripwires, object_locations)
+    crossing_events = self._getTripwireEvents(
+      list(self.tripwires.values()), object_locations
+    )
 
-    for tw_idx, event_matches in crossing_events.items():
-      key = tripwire_keys[tw_idx]
-      tripwire = tripwires[tw_idx]
+    for tw_idx, (key, tripwire) in enumerate(self.tripwires.items()):
+      event_matches = crossing_events.get(tw_idx, [])
       previous_objects = tripwire.objects.get(detectionType, [])
       crossed_objects = [
         TripwireEvent(reliable_objects[obj_idx], direction)
