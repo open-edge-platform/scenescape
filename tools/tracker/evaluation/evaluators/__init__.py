@@ -3,7 +3,7 @@
 
 """Evaluator implementations for tracker evaluation."""
 from .trackeval_evaluator import TrackEvalEvaluator
-from .jitter_evaluator import JitterEvaluator
 from .diagnostic_evaluator import DiagnosticEvaluator
+from .jitter_evaluator import JitterEvaluator
 
 __all__ = ['TrackEvalEvaluator', 'DiagnosticEvaluator', 'JitterEvaluator']
