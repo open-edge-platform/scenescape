@@ -11,12 +11,12 @@ from controller.detections_builder import buildDetectionsDict, buildDetectionsLi
 from controller.scene import TripwireEvent
 from controller.moving_object import ChainData
 from scene_common.geometry import Point
-from scene_common.timestamp import get_iso_time
+from scene_common.timestamp import get_epoch_time, get_iso_time
 
 
 def _build_object(*, velocity=None, include_sensor_payload=True):
   chain_data = ChainData(
-    regions={'region-a': {'entered': '2026-03-31T10:00:00Z'}},
+    regions={'region-a': {'entered': '2026-03-31T10:00:00.000Z'}},
     publishedLocations=[],
     persist={'asset_tag': 'forklift-7'},
   )
@@ -80,12 +80,23 @@ class TestDetectionsBuilder:
     assert detection['metadata']['reid']['model_name'] == 'reid-model'
     assert detection['sensors']['temp-1']['values'][0][1] == 21.5
     assert detection['sensors']['badge-1']['values'][0][1] == 'authorized'
-    assert detection['regions'] == {'region-a': {'entered': '2026-03-31T10:00:00Z'}}
+    assert detection['regions'] == {'region-a': {'entered': '2026-03-31T10:00:00.000Z'}}
     assert detection['camera_bounds'] == {
       'cam-1': {'x': 10, 'y': 20, 'width': 30, 'height': 40, 'projected': False}
     }
     assert detection['persistent_data'] == {'asset_tag': 'forklift-7'}
     assert detection['first_seen'] == get_iso_time(obj.first_seen)
+
+  def test_build_detections_list_adds_region_dwell_when_requested(self):
+    obj = _build_object(velocity=Point(4.0, 5.0))
+    scene = SimpleNamespace(output_lla=False)
+
+    detections = buildDetectionsList(
+      [obj], scene, include_sensors=True,
+      include_region_dwell=True, current_time=get_epoch_time('2026-03-31T10:00:05.000Z'))
+
+    assert detections[0]['regions']['region-a']['entered'] == '2026-03-31T10:00:00.000Z'
+    assert detections[0]['regions']['region-a']['dwell'] == pytest.approx(5.0)
 
   def test_build_detections_list_omits_sensor_data_when_disabled(self):
     obj = _build_object(velocity=Point(4.0, 5.0))
@@ -95,7 +106,7 @@ class TestDetectionsBuilder:
 
     assert len(detections) == 1
     assert 'sensors' not in detections[0]
-    assert detections[0]['regions'] == {'region-a': {'entered': '2026-03-31T10:00:00Z'}}
+    assert detections[0]['regions'] == {'region-a': {'entered': '2026-03-31T10:00:00.000Z'}}
 
   def test_build_detections_list_does_not_leak_sensors_between_calls(self):
     obj = _build_object(velocity=Point(4.0, 5.0))
@@ -106,6 +117,8 @@ class TestDetectionsBuilder:
 
     assert 'sensors' in with_sensors[0]
     assert 'sensors' not in without_sensors[0]
+    assert 'dwell' not in with_sensors[0]['regions']['region-a']
+    assert 'dwell' not in without_sensors[0]['regions']['region-a']
 
   def test_build_detections_dict_handles_tripwire_and_defaults_missing_velocity(self):
     obj = _build_object(velocity=None, include_sensor_payload=False)
