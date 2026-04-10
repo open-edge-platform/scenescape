@@ -573,31 +573,54 @@ class Scene(SceneModel):
     return
 
   def _updateTripwireEvents(self, detectionType, now, curObjects):
-    for key in self.tripwires:
-      tripwire = self.tripwires[key]
-      tripwireObjects = tripwire.objects.get(detectionType, [])
-      objects = []
-      for obj in curObjects:
-        age = now - obj.when
-        # When tracker is disabled, skip the frameCount check and consider all objects;
-        # otherwise, only consider objects with frameCount > 3 as reliable.
-        if (obj.frameCount > 3 or ControllerMode.isAnalyticsOnly()) \
-          and len(obj.chain_data.publishedLocations) > 1:
-          d = tripwire.lineCrosses(Line(obj.chain_data.publishedLocations[0].as2Dxy,
-                                        obj.chain_data.publishedLocations[1].as2Dxy))
-          if d != 0:
-            event = TripwireEvent(obj, -d)
-            objects.append(event)
+    # Filter to reliable objects with enough location history for crossing detection.
+    # When tracker is disabled, skip the frameCount check and consider all objects;
+    # otherwise, only consider objects with frameCount > 3 as reliable.
+    reliable_objects = [
+      obj for obj in curObjects
+      if (obj.frameCount > 3 or ControllerMode.isAnalyticsOnly())
+      and len(obj.chain_data.publishedLocations) > 1
+    ]
 
-      if len(tripwireObjects) != len(objects) \
+    tripwire_keys = list(self.tripwires.keys())
+    tripwires = [self.tripwires[key] for key in tripwire_keys]
+    object_locations = [
+      obj.chain_data.publishedLocations[:2] for obj in reliable_objects
+    ]
+
+    crossing_events = self._getTripwireEvents(tripwires, object_locations)
+
+    for tw_idx, event_matches in crossing_events.items():
+      key = tripwire_keys[tw_idx]
+      tripwire = tripwires[tw_idx]
+      previous_objects = tripwire.objects.get(detectionType, [])
+      crossed_objects = [
+        TripwireEvent(reliable_objects[obj_idx], direction)
+        for obj_idx, direction in event_matches
+      ]
+
+      if len(previous_objects) != len(crossed_objects) \
          and now - tripwire.when > DEBOUNCE_DELAY:
-        log.debug("TRIPWIRE EVENT", tripwireObjects, len(objects))
-        tripwire.objects[detectionType] = objects
+        log.debug("TRIPWIRE EVENT", previous_objects, len(crossed_objects))
+        tripwire.objects[detectionType] = crossed_objects
         tripwire.when = now
         if 'objects' not in self.events:
           self.events['objects'] = []
         self.events['objects'].append((key, tripwire))
     return
+
+  @staticmethod
+  def _getTripwireEvents(tripwires : list[Tripwire], object_locations : list[list[Point]]):
+    tripwire_events = {}
+    for tw_idx, tripwire in enumerate(tripwires):
+      event_matches = []
+      for obj_idx, obj_locations in enumerate(object_locations):
+        d = tripwire.lineCrosses(Line(obj_locations[0].as2Dxy,
+                                      obj_locations[1].as2Dxy))
+        if d != 0:
+          event_matches.append((obj_idx, -d))
+      tripwire_events[tw_idx] = event_matches
+    return tripwire_events
 
   def _updateRegionEvents(self, detectionType, regions, now, now_str, curObjects):
     updated = set()
