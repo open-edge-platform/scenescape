@@ -9,6 +9,7 @@ import time
 from unittest import result
 
 from controller.vdms_adapter import VDMSDatabase
+from controller.moving_object import ReidState, MovingObject
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
 
@@ -248,8 +249,8 @@ class UUIDManager:
     """
     Checks if there is a value for the database ID corresponding to the active track for a
     Scenescape object in the active tracks dictionary. If one does exist, we set the gid and
-    similarity of the object to the values in the dictionary. Otherwise, we keep the gid from
-    the tracker.
+    similarity of the object to the values in the dictionary. Also updates reid_state if a
+    query has been made.
 
     Also stores semantic metadata for future database storage.
 
@@ -257,17 +258,28 @@ class UUIDManager:
     """
     # LOOKUP ID IN DICT
     result = self.active_ids.get(sscape_object.rv_id, None)
-    # DATABASE ID IS NOT NULL
+    # DATABASE ID IS NOT NULL (query has been made and completed)
     if result and result[0] is not None:
       sscape_object.gid = result[0]
       sscape_object.similarity = result[1]
+      
+      # Update reid_state based on similarity (whether it was a match or not)
+      if sscape_object.reid_state == ReidState.PENDING_COLLECTION:
+        # Only update if query has been made (indicated by non-None result[0])
+        if result[1] is not None:
+          # result[1] has a similarity score, so this was a match
+          sscape_object.reid_state = ReidState.MATCHED
+        else:
+          # result[1] is None, so no match found
+          sscape_object.reid_state = ReidState.QUERY_NO_MATCH
+      
       reid_embedding = self._extractReidEmbedding(sscape_object)
 
       if reid_embedding is not None:
         if sscape_object.rv_id in self.features_for_database:
           self.features_for_database[sscape_object.rv_id]['reid_vectors'].append(
             reid_embedding)
-    # DATABASE ID IS NULL
+    # DATABASE ID IS NULL (query not yet made or active_ids not yet initialized)
     else:
       sscape_object.similarity = None
     return
@@ -293,13 +305,18 @@ class UUIDManager:
 
     @param  sscape_object  The current Scenescape object
     """
+    # Mark that we're about to attempt a query (transition from PENDING_COLLECTION)
+    # This allows downstream logic to distinguish "never queried" from "query made"
+    start_time = get_epoch_time()
+    
     similarity_scores = self.sendSimilarityQuery(sscape_object)
     database_id, similarity = self.parseQueryResults(similarity_scores)
+    
     with self.active_ids_lock:
       # Make sure object is still in active_ids before updating since there is a chance
       # that the similiarity search does not complete until after the object leaves
       if sscape_object.rv_id in self.active_ids:
-        self.updateActiveDict(sscape_object, database_id, similarity)
+        self.updateActiveDict(sscape_object, database_id, similarity, query_timestamp=start_time)
       else:
         log.warning(
           f"Track {sscape_object.rv_id} left scene before ID query finished")
@@ -385,32 +402,64 @@ class UUIDManager:
       return (minimum_distance_entity['uuid'], minimum_distance_entity['_distance'])
     return (None, None)
 
-  def updateActiveDict(self, sscape_object, database_id, similarity):
+  def updateActiveDict(self, sscape_object, database_id, similarity, query_timestamp=None):
     """
     Updates the dictionary tracking the active tracker IDs and their corresponding database
     IDs. Also creates an entry in the features_for_database dictionary with semantic metadata
     to be added to the database when the track leaves the scene.
+    
+    Updates object's reid_state and records ID changes in previous_ids_chain for post-mortem
+    stitching analysis.
 
-    @param  sscape_object  The current Scenescape object
-    @param  database_id    The ID from the database
-    @param  similarity     The similarity score from the database
+    @param  sscape_object    The current Scenescape object
+    @param  database_id      The ID from the database (or newly generated if no match)
+    @param  similarity       The similarity score from the database (None if no match)
+    @param  query_timestamp  When the query was initiated (for chain recording)
     """
+    if query_timestamp is None:
+      query_timestamp = get_epoch_time()
+    
     # MATCH FOUND - YES + DB ID ALREADY IN DICT - NO
     if database_id and self.isNewID(database_id):
-      self.active_ids[sscape_object.rv_id] = [database_id, similarity]
+      # Query succeeded and found a match -> update state to MATCHED
+      sscape_object.reid_state = ReidState.MATCHED
+      sscape_object.gid = database_id
+      sscape_object.similarity = similarity
+      # Record the matched ID in chain with similarity score
+      sscape_object.record_id_change(database_id, similarity_score=similarity, timestamp=query_timestamp)
+      
       log.debug(
-        f"updateActiveDict: Match found for {sscape_object.rv_id}: {database_id},{similarity}")
-    # MATCH FOUND - NO / DB ID ALREADY IN DICT - YES
+        f"updateActiveDict: Match found for {sscape_object.rv_id}: {database_id}, similarity={similarity}, state={ReidState.MATCHED.value}")
+      self.active_ids[sscape_object.rv_id] = [database_id, similarity]
+      
+      reid_embedding = self._extractReidEmbedding(sscape_object)
+      if reid_embedding is not None:
+        if sscape_object.rv_id in self.features_for_database:
+          self.features_for_database[sscape_object.rv_id]['reid_vectors'].append(
+            reid_embedding)
+    
+    # MATCH FOUND - NO / NEW OBJECT
     else:
+      # Query made but no match -> state is now QUERY_NO_MATCH (distinguishes from PENDING_COLLECTION)
+      sscape_object.reid_state = ReidState.QUERY_NO_MATCH
+      # Generate new ID if not already assigned
+      if database_id is None:
+        with MovingObject.gid_lock:
+          database_id = MovingObject.gid_counter
+          MovingObject.gid_counter += 1
+      sscape_object.gid = database_id
+      sscape_object.similarity = None
+      # Record the new ID in chain with no match (None similarity indicates no match)
+      sscape_object.record_id_change(database_id, similarity_score=None, timestamp=query_timestamp)
+      
+      log.debug(f"updateActiveDict: No match, assigned new gid={database_id} for track {sscape_object.rv_id}, state={ReidState.QUERY_NO_MATCH.value}")
       self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
-      database_id = sscape_object.gid
-      log.debug(f"updateActiveDict: No match, using gid={database_id} for track {sscape_object.rv_id}")
 
     # Store features with semantic metadata for TIER 1 filtering in future queries
     num_features = len(self.quality_features.get(sscape_object.rv_id, []))
     log.debug(f"updateActiveDict: Storing {num_features} features for track {sscape_object.rv_id} to features_for_database")
     self.features_for_database[sscape_object.rv_id] = {
-      'gid': database_id,
+      'gid': sscape_object.gid,
       'category': sscape_object.category,
       'reid_vectors': self.quality_features[sscape_object.rv_id],
       'metadata': self._extractSemanticMetadata(sscape_object)
