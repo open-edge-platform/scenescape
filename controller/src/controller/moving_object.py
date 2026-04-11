@@ -34,10 +34,12 @@ class ReidState(Enum):
   PENDING_COLLECTION: Collecting embeddings, query not yet made
   QUERY_NO_MATCH: Query made but no match found (new object)
   MATCHED: Successfully matched to previous object (reID)
+  REID_DISABLED: ReID system is disabled, no query will be made
   """
   PENDING_COLLECTION = "pending_collection"
   QUERY_NO_MATCH = "query_no_match"
   MATCHED = "matched"
+  REID_DISABLED = "reid_disabled"
 
 @dataclass
 class ChainData:

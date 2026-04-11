@@ -493,6 +493,10 @@ class UUIDManager:
       with self.active_ids_lock:
         self.active_ids.setdefault(sscape_object.rv_id, [None, None])
 
+    # If reid is disabled, mark object state immediately (no query will be made)
+    if not self.reid_enabled:
+      sscape_object.reid_state = ReidState.REID_DISABLED
+
     # Continue gathering features until we have enough or query is already submitted
     if sscape_object.rv_id not in self.active_query and self.reid_enabled:
       self.gatherQualityVisualFeatures(sscape_object)
