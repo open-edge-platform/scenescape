@@ -88,8 +88,8 @@ Sensors → MQTT (broker) → Scene Controller → Manager/Web UI
 **Key Targets** (from root `Makefile`):
 
 ```bash
-make build-core                    # Default: core services (autocalibration, controller, manager, model_installer)
-make build-all                     # Includes experimental (mapping + cluster_analytics)
+make build-core                    # Default: core services
+make build-all                     # Includes experimental
 make build-experimental            # Mapping + cluster_analytics only
 make rebuild-core                  # Clean + build (useful after code changes)
 ```
@@ -105,14 +105,23 @@ make rebuild-core                  # Clean + build (useful after code changes)
 
 **For comprehensive test creation guidance, see `.github/skills/testing.md`** - detailed instructions on creating unit, functional, integration, UI, and smoke tests with both positive and negative cases.
 
-**Running Tests** (must have containers running via docker-compose):
+**Test Prerequisites** (required before running any tests):
 
 ```bash
-SUPASS=<password> make setup_tests                    # Build test images
-make run_basic_acceptance_tests                       # Quick acceptance tests
-make -C tests unit-tests                              # Unit tests only
-make -C tests geometry-unit                           # Specific test (e.g., geometry)
+make setup_tests SUPASS=<password>  # Rebuilds ALL images (runtime + test), initializes secrets & .env
+                                    # MUST run after code changes to pick them up
 ```
+
+**Running Tests**:
+
+```bash
+make run_unit_tests                 # All unit tests (requires setup_tests first)
+make -C tests reid-unique-count     # Specific functional test (requires setup_tests first)
+make -C tests geometry-unit         # Specific unit test (requires setup_tests first)
+make run_basic_acceptance_tests     # Quick acceptance/smoke tests (requires setup_tests first)
+```
+
+**Key Point**: Always run `make setup_tests` after code changes - it rebuilds Docker images to pick up your modifications.
 
 ### Completion Gate For Test Tasks (Critical)
 
@@ -167,21 +176,23 @@ pubsub.publish(topic, json_payload)
 **Modifying a Microservice** (e.g., controller):
 
 1. Edit source in `controller/src/`
-2. Rebuild: `make rebuild-controller` (cleans old image, rebuilds)
-3. Restart containers: `docker compose up -d scene` (or full `docker compose up`)
+2. Rebuild: `make rebuild-core` (from root) or per-service builds (see service's Agents.md for commands)
+3. For testing: `make setup_tests SUPASS=<password>` - Rebuilds ALL runtime + test images
 4. Check logs: `docker compose logs scene -f`
 
 **Adding Dependencies**:
 
-- Python: Update `requirements-runtime.txt`, rebuild image
+- Python: Update `requirements-runtime.txt` in service folder
 - System: Add to `Dockerfile` RUN section (apt packages)
-- Shared lib changes: Rebuild `scene_common`, then dependent services
+- Shared lib (scene_common): Use `make rebuild-core` to propagate changes
 
-**Debugging Tests**:
+**Running Tests After Code Changes**:
 
-- Use `debugtest.py` for running tests without pytest harness (useful in containers)
-- View test output: `docker compose exec <service> cat <logfile>`
-- Specific test: `pytest tests/sscape_tests/geometry/test_point.py::TestPoint::test_constructor -v`
+1. `make setup_tests SUPASS=<password>` (required before any tests)
+2. Run specific test targets (e.g., `make -C tests reid-unique-count`)
+3. See `.github/skills/testing.md` for detailed test creation and debugging
+
+**Service-Specific Commands**: Check each service's `Agents.md` file for build and test details.
 
 ## Integration Points & Dependencies
 

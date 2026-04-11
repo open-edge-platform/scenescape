@@ -74,22 +74,30 @@ The **Auto Camera Calibration** service (formerly `camcalibration`) computes cam
 ### Building the Service
 
 ```bash
-# From root directory
-make autocalibration                    # Build image
-make rebuild-autocalibration            # Clean + rebuild
+# From repo root
+make -C autocalibration                 # Build autocalibration
+make -C autocalibration test-build      # Build autocalibration + test image
 
-# Build with dependencies
-make build-core                         # Includes autocalibration
+# OR from autocalibration/ directory
+cd autocalibration && make              # Build autocalibration
+cd autocalibration && make test-build   # Build autocalibration + test image
+
+# Root-level builds (handles all dependencies)
+make rebuild-core                       # Rebuild all core services with dependencies
+make build-core                         # Build all core services
+make setup_tests SUPASS=<password>      # Full test environment setup
 ```
 
 ### Testing
 
 ```bash
+# Setup test images first
+make setup_tests SUPASS=<password>
+
 # Unit tests
 make -C tests autocalibration-unit
 
-# Functional tests (requires running containers)
-SUPASS=<password> make setup_tests
+# Functional tests
 make -C tests autocalibration-functional
 ```
 

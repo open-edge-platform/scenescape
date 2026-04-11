@@ -95,12 +95,16 @@ The **Manager** service is the Django-based web UI and REST API gateway for Inte
 ### Building the Service
 
 ```bash
-# From root directory
-make manager                            # Build image
-make rebuild-manager                    # Clean + rebuild
+# From repo root
+make -C manager                         # Build manager
 
-# Build with dependencies
-make build-core                         # Includes manager
+# OR from manager/ directory
+cd manager && make                      # Build manager
+
+# Root-level builds (handles all dependencies)
+make rebuild-core                       # Rebuild all core services with dependencies
+make build-core                         # Build all core services
+make setup_tests SUPASS=<password>      # Full test environment setup
 ```
 
 ### Database Migrations
@@ -119,11 +123,13 @@ docker compose exec manager python manage.py showmigrations
 ### Testing
 
 ```bash
+# Setup test images first
+make setup_tests SUPASS=<password>
+
 # Django unit tests
 docker compose exec manager python manage.py test
 
 # External acceptance tests
-SUPASS=<password> make setup_tests
 make -C tests manager-functional
 ```
 
