@@ -141,6 +141,8 @@ When an object is first detected, it is assigned a UUID and no similarity score.
 - **Match Found**: The object is reassigned a matching UUID and given a similarity score.
 - **No Match**: The object retains its original UUID.
 
+The scene output includes `reid_state` for each tracked object. For canonical state definitions and lifecycle transitions, see [2-Tier Hybrid Search Implementation](../microservices/controller/Extended-ReID.md#reid-object-states). For output field contract details, see [Scene Controller Data Formats](../microservices/controller/data_formats.md#common-output-track-fields).
+
 > **Known Issue**: Current VDMS implementation does not support feature expiration, leading to degraded performance over time. This will be addressed in a future release.
 
 ---

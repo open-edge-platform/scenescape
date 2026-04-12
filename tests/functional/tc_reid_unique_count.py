@@ -67,6 +67,14 @@ def check_unique_detections():
         return False
 
   for scene in detection_count:
+    minimum = detection_count[scene].get("minimum", 1)
+    if detection_count[scene]["current"] < minimum:
+      log.error(
+        f"The unique detection counter for {scene} is below minimum: "
+        f"{detection_count[scene]['current']} (min: {minimum})!"
+      )
+      return False
+
     if detection_count[scene]["current"] <= 0:
       log.error(f"The unique detection counter for {scene} shouldn't be 0!")
       return False
@@ -123,11 +131,13 @@ def test_reid_unique_count(params, record_xml_attribute):
     "3bc091c7-e449-46a0-9540-29c499bca18c": {
       "error": False,
       "current": 0,
+      "minimum": 2,
       "maximum": 20
     },
     "302cf49a-97ec-402d-a324-c5077b280b7b": {
       "error": False,
       "current": 0,
+      "minimum": 3,
       "maximum": 10
     }
   }

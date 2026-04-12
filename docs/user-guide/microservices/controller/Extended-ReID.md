@@ -114,6 +114,22 @@ Result: "Find strong age-gender matches, refined by vector similarity"
   - Valid range: 0.0 to 1.0
   - Example: Set to `0.7` to include more metadata filters, `0.9` for stricter filtering
 
+## ReID Object States
+
+Each tracked object carries a `reid_state` field in scene output, indicating where it is in the ReID lifecycle:
+
+- `pending_collection`: ReID features are still being accumulated; query not submitted yet.
+- `query_no_match`: Query was submitted and no candidate passed matching threshold.
+- `matched`: Query succeeded and object was matched to an existing database identity.
+- `reid_disabled`: ReID is disabled and query is skipped.
+
+Typical transitions:
+
+- ReID enabled: `pending_collection` → `matched` or `query_no_match`
+- ReID disabled: `reid_disabled`
+
+For payload-level field formatting in published messages, see [Scene Controller Data Formats](data_formats.md#common-output-track-fields).
+
 ## Configuring Confidence Threshold
 
 The confidence threshold determines which metadata constraints are applied in TIER 1 filtering. Only constraints meeting or exceeding the threshold are used. Constraints below the threshold are skipped, allowing vector similarity in TIER 2 to handle the matching:

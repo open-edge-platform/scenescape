@@ -3,10 +3,8 @@
 
 import collections
 import concurrent.futures
-import json
 import threading
 import time
-from unittest import result
 
 from controller.vdms_adapter import VDMSDatabase
 from controller.moving_object import ReidState, MovingObject
@@ -181,9 +179,6 @@ class UUIDManager:
       self.active_query.pop(track_id, None)
       self.quality_features.pop(track_id, None)
       self.features_for_database_timestamps.pop(track_id, None)
-      # Increment the unique id counter for tracks where no match was found (similarity=None)
-      if data[1] is None:
-        self.unique_id_count += 1
       self._addNewFeaturesToDatabase(track_id)
     return
 
@@ -452,6 +447,8 @@ class UUIDManager:
       # Record the new ID in chain with no match (None similarity indicates no match)
       sscape_object.record_id_change(database_id, similarity_score=None, timestamp=query_timestamp)
       
+      # Increment counter for unique objects with actual query attempts that found no match
+      self.unique_id_count += 1
       log.debug(f"updateActiveDict: No match, assigned new gid={database_id} for track {sscape_object.rv_id}, state={ReidState.QUERY_NO_MATCH.value}")
       self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
 
