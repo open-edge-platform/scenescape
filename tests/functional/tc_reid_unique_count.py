@@ -66,6 +66,8 @@ def check_unique_detections():
         log.error(f"The unique detection counter for {scene} somehow got decremented!")
         return False
 
+      minimum = detection_count[scene].get("minimum", 1)
+
   for scene in detection_count:
     minimum = detection_count[scene].get("minimum", 1)
     if detection_count[scene]["current"] < minimum:
@@ -132,13 +134,13 @@ def test_reid_unique_count(params, record_xml_attribute):
       "error": False,
       "current": 0,
       "minimum": 2,
-      "maximum": 20
+      "maximum": 10
     },
     "302cf49a-97ec-402d-a324-c5077b280b7b": {
       "error": False,
       "current": 0,
       "minimum": 3,
-      "maximum": 10
+      "maximum": 6
     }
   }
 

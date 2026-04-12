@@ -24,7 +24,7 @@ def test_reid_semantic_unique_count(params, record_xml_attribute):
       "error": False,
       "current": 0,
       "minimum": 3,
-      "maximum": 10
+      "maximum": 6
     }
   }
 
