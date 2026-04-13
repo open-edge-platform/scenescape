@@ -60,11 +60,14 @@ def test_no_crossing_collinear():
   assert result["tw"] == []
 
 
-def test_no_crossing_endpoint_on_tripwire():
+
+
+# --- Positive tests: endpoint on tripwire ---
+
+def test_crossing_when_endpoint_on_tripwire():
   """! Verify that endpoint landing exactly on the tripwire counts as a crossing. """
   tripwire = Tripwire(UUID, "tw", {"points": [[0, 0], [10, 0]]})
   result = get_tripwire_events({"tw": tripwire}, [(Point(5, 0), Point(5, -5))])
-  # Implementation treats touching the tripwire as a crossing event
   assert len(result["tw"]) == 1
   assert result["tw"][0][0] == 0
 
