@@ -90,32 +90,6 @@
       },
       "required": ["x", "y", "width", "height"]
     },
-    "center_of_mass": {
-      "title": "Center of Mass",
-      "type": "object",
-      "description": "Center of mass region of a detected object in pixel coordinates of a detected object in an image frame. It is a smaller bounding box that is used for determining average distance from the camera when using RealSense, for example.",
-      "properties": {
-        "x": {
-          "type": "number",
-          "description": "Number of horizontal pixels from the left side of the image to the center of mass bounding box."
-        },
-        "y": {
-          "type": "number",
-          "description": "Number of vertical pixels from the top of the image to the center of mass bounding box."
-        },
-        "width": {
-          "type": "number",
-          "description": "Horizontal width of the center of mass bounding box in pixels.",
-          "minimum": 0
-        },
-        "height": {
-          "type": "number",
-          "description": "Vertical height of the center of mass bounding box in pixels.",
-          "minimum": 0
-        }
-      },
-      "required": ["x", "y", "width", "height"]
-    },
     "semantic_metadata_attribute": {
       "type": "object",
       "title": "Semantic Metadata Attribute",
@@ -232,9 +206,6 @@
         "metadata": {
           "$ref": "#/definitions/semantic_metadata",
           "description": "Semantic metadata describing what an object is (age, gender, clothing, embedding vectors, etc)."
-        },
-        "center_of_mass": {
-          "$ref": "#/definitions/center_of_mass"
         },
         "distance": {
           "title": "Distance to Object",
