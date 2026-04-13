@@ -194,7 +194,7 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 - [How Intel® SceneScape converts Pixel-Based Bounding Boxes to Normalized Image Space](./additional-resources/convert-object-detections-to-normalized-image-space.md)
 
-- [Hardening Guide for Custom TLS](./additional-resources/hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation
+- [Hardening Guide for Custom TLS](./additional-resources/hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation.
 
 - [Release Notes](./release-notes.md)
 
