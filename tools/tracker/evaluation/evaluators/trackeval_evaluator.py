@@ -304,8 +304,8 @@ class TrackEvalEvaluator(TrackerEvaluator):
       self._temp_dir = tempfile.TemporaryDirectory()
       temp_path = Path(self._temp_dir.name)
 
-      # Convert tracker outputs to list for processing
-      tracker_output_list = list(tracker_outputs)
+      # Avoid copying when the caller already supplies a list.
+      tracker_output_list = tracker_outputs if isinstance(tracker_outputs, list) else list(tracker_outputs)
       if not tracker_output_list:
         raise RuntimeError("No tracker outputs provided")
 
