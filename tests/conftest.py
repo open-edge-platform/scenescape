@@ -123,6 +123,14 @@ def pytest_addoption(parser):
     ("--analytics-only",   dict(action="store_true", default=False,
                                 help="Enable analytics-only mode for tests")),
   ]
+  _opts.append(
+    ("--env-profiles",     dict(default=None,
+                                help=(
+                                  "Comma-separated profile names to run tests against."
+                                  "When set, tests with SCENESCAPE_SPEC are parametrized "
+                                  "across the listed profiles."
+                                ))),
+  )
   for name, kw in _opts:
     try:
       parser.addoption(name, **kw)
@@ -272,12 +280,78 @@ def _inject_options(config, spec, secrets_dir, supass):
         i += 1
 
 
+class _ActiveEnv:
+  """Tracks the currently active Docker Compose environment."""
+  def __init__(self):
+    self.profile_name = None  # Current profile.name
+    self.docker = None  # Current DockerClient
+    self.project_name = None  # Current project_name
+    self.saved_env = {}  # Environment variables to restore
+
+_active_env = _ActiveEnv()
+
+
+def _teardown_active_env():
+  """Tear down the currently active Docker environment."""
+  if _active_env.docker is None:
+    return
+
+  try:
+    logger.info(f"Tearing down active environment: {_active_env.project_name}")
+
+    # Restore environment variables
+    for key, orig in _active_env.saved_env.items():
+      if orig is None:
+        os.environ.pop(key, None)
+      else:
+        os.environ[key] = orig
+    _active_env.saved_env = {}
+
+    if _testlog is not None:
+      _testlog.silence_console()
+
+    collect_logs(_active_env.docker, scan_for_tracebacks=True)
+
+    try:
+      _active_env.docker.compose.down(remove_orphans=True, volumes=True)
+    except Exception as exc:
+      logger.warning(f"compose down failed: {exc}")
+
+    bare_docker = DockerClient()
+    for vol in [
+      f"{_active_env.project_name}_vol-models",
+      f"{_active_env.project_name}_vol-db",
+      f"{_active_env.project_name}_vol-migrations",
+      f"{_active_env.project_name}_vol-sample-data",
+      f"{_active_env.project_name}_vol-media",
+    ]:
+      try:
+        bare_docker.volume.remove(vol)
+      except Exception:
+        pass
+
+    logger.info(f"Cleanup complete: {_active_env.project_name}")
+  except Exception as exc:
+    logger.error(f"Error tearing down environment: {exc}")
+  finally:
+    _active_env.profile_name = None
+    _active_env.docker = None
+    _active_env.project_name = None
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _cleanup_active_env_at_session_end():
+  """Ensure active environment is torn down at the end of the session."""
+  yield
+  _teardown_active_env()
+
+
 # ---------------------------------------------------------------------------
 # Function-scoped autouse fixture: compose lifecycle + option injection
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="function", autouse=True)
-def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
+def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path, _env_matrix_setup):
   """Start Docker Compose for tests in the registry; no-op for others.
 
   After compose is ready, injects CLI option values into
@@ -293,6 +367,23 @@ def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
     pytest.skip("python-on-whales not installed; run from host venv")
 
   profile = spec.profile
+
+  # Reuse active environment if profile hasn't changed
+  if _active_env.profile_name == profile.name and _active_env.docker is not None:
+    logger.info("Reusing active environment for profile: %s", profile.name)
+    _inject_options(request.config, spec, secrets_dir, supass)
+    yield ScenescapeEnv(
+      docker=_active_env.docker,
+      project_name=_active_env.project_name,
+      network=f"{_active_env.project_name}_scenescape-test",
+      repo_root=repo_root,
+      secrets_dir=secrets_dir,
+      supass=supass,
+    )
+    return
+
+  # Profile changed: tear down old environment and setup new one
+  _teardown_active_env()
   project_name = f"test-{uuid.uuid4().hex[:8]}"
   exampledb = spec.exampledb or "tests/testdb.tar.bz2"
   env_path = Path(repo_root) / ".env"
@@ -362,13 +453,16 @@ def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
   )
 
   network = f"{project_name}_scenescape-test"
-  _saved_env = {}
 
   try:
     logger.info("=" * 60)
     logger.info("Starting test environment: %s", project_name)
     logger.info("Profile: %s", profile.name)
     logger.info("=" * 60)
+
+    # Update active environment tracker
+    _active_env.profile_name = profile.name
+    _active_env.project_name = project_name
 
     skip_init = request.node.get_closest_marker("skip_init")
     if not skip_init:
@@ -385,15 +479,16 @@ def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
     if profile.wait_for:
       wait_for_services(docker, project_name, profile.wait_for)
 
-    # Inject CLI option values before the test body runs.
-    _inject_options(request.config, spec, secrets_dir, supass)
-
-    # Apply extra_env to os.environ, saving originals for cleanup.
-    _saved_env = {}
+    # Store docker and save environment state for cleanup (deferred via _active_env)
+    _active_env.docker = docker
+    _active_env.saved_env = {}
     if spec.extra_env:
       for key in spec.extra_env:
-        _saved_env[key] = os.environ.get(key)
+        _active_env.saved_env[key] = os.environ.get(key)
       os.environ.update(spec.extra_env)
+
+    # Inject CLI option values before the test body runs.
+    _inject_options(request.config, spec, secrets_dir, supass)
 
     yield ScenescapeEnv(
       docker=docker,
@@ -403,43 +498,13 @@ def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
       secrets_dir=secrets_dir,
       supass=supass,
     )
+    # Note: Cleanup is deferred until profile changes or session ends
+    # via _teardown_active_env() called in the session fixture
 
-  finally:
-    # Restore environment variables modified by extra_env.
-    for key, orig in _saved_env.items():
-      if orig is None:
-        os.environ.pop(key, None)
-      else:
-        os.environ[key] = orig
-
-    # Silence terminal output immediately — teardown logs go to file only.
-    if _testlog is not None:
-      _testlog.silence_console()
-
-    # Collect logs and scan for tracebacks in a single pass.
-    logger.info("Collecting container logs: %s", project_name)
-    collect_logs(docker, scan_for_tracebacks=True)
-
-    logger.info("Cleaning up: %s", project_name)
-    try:
-      docker.compose.down(remove_orphans=True, volumes=True)
-    except Exception as exc:
-      logger.warning("compose down failed: %s", exc)
-
-    bare_docker = DockerClient()
-    for vol in [
-      f"{project_name}_vol-models",
-      f"{project_name}_vol-db",
-      f"{project_name}_vol-migrations",
-      f"{project_name}_vol-sample-data",
-      f"{project_name}_vol-media",
-    ]:
-      try:
-        bare_docker.volume.remove(vol)
-      except Exception:
-        pass
-
-    logger.info("Cleanup complete: %s", project_name)
+  except Exception as exc:
+    # On error during setup, clean up this failed environment
+    _teardown_active_env()
+    raise
 
 
 # ---------------------------------------------------------------------------
@@ -450,11 +515,48 @@ def scenescape_env(request, repo_root, secrets_dir, supass, tmp_path):
 _LOG_BASE = Path(__file__).parent / "test_logs"
 
 def pytest_collection_modifyitems(config, items):
-  """Attach FuncTestSpec to each collected item from its module."""
+  """Attach FuncTestSpec and group matrix tests by profile order.
+
+  When --env-profiles is set, pytest parametrization typically interleaves
+  node order by test function first (test1[p1], test1[p2], test2[p1], ...).
+  Grouping by profile ensures environment reuse behaves as intended:
+  setup once per profile, run all tests for that profile, then switch.
+  """
   for item in items:
     spec = getattr(item.module, 'SCENESCAPE_SPEC', None)
     if spec is not None:
       item._scenescape_spec = spec
+
+  env_profiles_arg = config.getoption("--env-profiles", default=None)
+  if not env_profiles_arg:
+    return
+
+  requested_profiles = [p.strip() for p in env_profiles_arg.split(",") if p.strip()]
+  profile_rank = {name: idx for idx, name in enumerate(requested_profiles)}
+
+  # Keep deterministic within-profile order by original collection index.
+  original_index = {id(item): idx for idx, item in enumerate(items)}
+
+  def _item_profile_rank(item):
+    if hasattr(item, 'callspec') and '_env_matrix_setup' in item.callspec.params:
+      spec = item.callspec.params['_env_matrix_setup']
+      profile_name = getattr(getattr(spec, 'profile', None), 'name', None)
+      if profile_name in profile_rank:
+        return (0, profile_rank[profile_name])
+    return (1, 10**9)
+
+  items.sort(key=lambda item: (*_item_profile_rank(item), original_index[id(item)]))
+
+
+@pytest.fixture
+def _env_matrix_setup(request):
+  """No-op base fixture; overridden per-directory in sub-conftest files.
+
+  When --env-profiles is used, the functional conftest override receives
+  a FuncTestSpec via indirect parametrize and injects it into the node
+  before scenescape_env reads it.
+  """
+  pass
 
 def pytest_runtest_setup(item):
   """Create a per-test log file before the fixture setup phase runs."""
