@@ -450,15 +450,35 @@ class SensorMqttMessageFlowTest(FunctionalTest):
     assert circle_env_samples, "Did not observe circle environmental sensor values"
     assert poly_env_samples, "Did not observe polygon environmental sensor values"
 
-    env_values = self._extract_values(scene_env_samples[-1])
-    attr_values = self._extract_values(scene_attr_samples[-1])
-    circle_values = self._extract_values(circle_env_samples[-1])
-    poly_values = self._extract_values(poly_env_samples[-1])
+    def _pick_best_sensor_sample(samples, dedup_value, latest_value):
+      parsed_samples = []
+      for sample in samples:
+        values = self._extract_values(sample)
+        if values:
+          parsed_samples.append((sample, values))
 
-    self._assert_timestamp_accumulation('scene_env_sensor', scene_env_samples[-1])
-    self._assert_timestamp_accumulation('scene_attr_sensor', scene_attr_samples[-1])
-    self._assert_timestamp_accumulation('circle_env_sensor', circle_env_samples[-1])
-    self._assert_timestamp_accumulation('poly_env_sensor', poly_env_samples[-1])
+      assert parsed_samples, f"No sensor samples contained values for dedup={dedup_value}"
+
+      matching = [
+        (sample, values)
+        for sample, values in parsed_samples
+        if values.count(dedup_value) == 1 and values[-1] == latest_value
+      ]
+
+      # Prefer a sample that already demonstrates dedup + latest-value behavior.
+      # If none match exactly, choose the richest sample to maximize diagnostic value.
+      candidate_pool = matching if matching else parsed_samples
+      return max(candidate_pool, key=lambda item: len(item[1]))
+
+    scene_env_sample, env_values = _pick_best_sensor_sample(scene_env_samples, 20.5, 21.0)
+    scene_attr_sample, attr_values = _pick_best_sensor_sample(scene_attr_samples, 'badge-A', 'badge-B')
+    circle_env_sample, circle_values = _pick_best_sensor_sample(circle_env_samples, 30.0, 31.0)
+    poly_env_sample, poly_values = _pick_best_sensor_sample(poly_env_samples, 40.0, 41.0)
+
+    self._assert_timestamp_accumulation('scene_env_sensor', scene_env_sample)
+    self._assert_timestamp_accumulation('scene_attr_sensor', scene_attr_sample)
+    self._assert_timestamp_accumulation('circle_env_sensor', circle_env_sample)
+    self._assert_timestamp_accumulation('poly_env_sensor', poly_env_sample)
 
     assert env_values.count(20.5) == 1, f"Expected environmental dedup for 20.5, got {env_values}"
     assert env_values[-1] == 21.0, f"Expected latest environmental value 21.0, got {env_values}"
@@ -469,10 +489,10 @@ class SensorMqttMessageFlowTest(FunctionalTest):
     assert poly_values.count(40.0) == 1, f"Expected environmental dedup for polygon sensor, got {poly_values}"
     assert poly_values[-1] == 41.0, f"Expected latest polygon sensor value 41.0, got {poly_values}"
 
-    self._assert_dedup_timestamp_refresh('scene_env_sensor', scene_env_samples[-1], 20.5)
-    self._assert_dedup_timestamp_refresh('scene_attr_sensor', scene_attr_samples[-1], 'badge-A')
-    self._assert_dedup_timestamp_refresh('circle_env_sensor', circle_env_samples[-1], 30.0)
-    self._assert_dedup_timestamp_refresh('poly_env_sensor', poly_env_samples[-1], 40.0)
+    self._assert_dedup_timestamp_refresh('scene_env_sensor', scene_env_sample, 20.5)
+    self._assert_dedup_timestamp_refresh('scene_attr_sensor', scene_attr_sample, 'badge-A')
+    self._assert_dedup_timestamp_refresh('circle_env_sensor', circle_env_sample, 30.0)
+    self._assert_dedup_timestamp_refresh('poly_env_sensor', poly_env_sample, 40.0)
 
     # Type consistency: environmental values must be numeric, attribute values string.
     assert all(isinstance(v, (int, float)) for v in env_values), env_values

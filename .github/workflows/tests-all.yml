@@ -43,9 +43,6 @@ concurrency:
 env:
   DOCKER_BUILDKIT: 1
   SUPASS: demo
-  GITHUB_ACTIONS_CACHE: true
-  CACHE_REGISTRY: ${{ github.repository }}
-  CACHE_TAG: ${{ github.head_ref || github.ref_name }}
 
 permissions:
   contents: read
@@ -82,10 +79,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Setup Cache Targets"
+        id: setup-cache
+        uses: ./.github/actions/setup-cache
+
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
       - name: Run Functional Tests
+        env:
+          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
           make clean-all
           make run_functional_tests
@@ -129,10 +134,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Setup Cache Targets"
+        id: setup-cache
+        uses: ./.github/actions/setup-cache
+
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
       - name: Run Non-Functional Tests
+        env:
+          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
           make clean-all
           make run_non_functional_tests
@@ -176,10 +189,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Setup Cache Targets"
+        id: setup-cache
+        uses: ./.github/actions/setup-cache
+
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
       - name: Run Metric Tests
+        env:
+          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
           make clean-all
           make run_metric_tests
@@ -223,10 +244,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Setup Cache Targets"
+        id: setup-cache
+        uses: ./.github/actions/setup-cache
+
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
       - name: Run UI Tests
+        env:
+          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
           make clean-all
           make run_ui_tests
@@ -270,10 +299,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Setup Cache Targets"
+        id: setup-cache
+        uses: ./.github/actions/setup-cache
+
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
       - name: Run Unit Tests
+        env:
+          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
           make clean-all
           make run_unit_tests

@@ -81,7 +81,9 @@ class TestDetectionsBuilder:
     assert detection['sensors']['temp-1']['values'][0][1] == 21.5
     assert detection['sensors']['badge-1']['values'][0][1] == 'authorized'
     assert detection['regions'] == {'region-a': {'entered': '2026-03-31T10:00:00Z'}}
-    assert detection['camera_bounds'] == {'cam-1': {'x': 10, 'y': 20, 'width': 30, 'height': 40}}
+    assert detection['camera_bounds'] == {
+      'cam-1': {'x': 10, 'y': 20, 'width': 30, 'height': 40, 'projected': False}
+    }
     assert detection['persistent_data'] == {'asset_tag': 'forklift-7'}
     assert detection['first_seen'] == get_iso_time(obj.first_seen)
 
