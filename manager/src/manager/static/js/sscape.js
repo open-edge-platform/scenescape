@@ -795,13 +795,20 @@ function stop() {
 function stop1() {
   dragging = false;
 
+  var sensor_px = [];
   if (this.type === "circle") {
-    $("#id_sensor_x").val(this.attr("cx"));
-    $("#id_sensor_y").val(this.attr("cy"));
+    sensor_px = [parseFloat(this.attr("cx")), parseFloat(this.attr("cy"))];
   } else {
-    $("#id_sensor_x").val(parseInt(this.attr("x")) + icon_size / 2);
-    $("#id_sensor_y").val(parseInt(this.attr("y")) + icon_size / 2);
+    sensor_px = [
+      parseInt(this.attr("x")) + icon_size / 2,
+      parseInt(this.attr("y")) + icon_size / 2,
+    ];
   }
+
+  // Persist sensor location in meters in form fields
+  var sensor_m = pixelsToMeters(sensor_px, scale, scene_y_max);
+  $("#id_sensor_x").val(sensor_m[0]);
+  $("#id_sensor_y").val(sensor_m[1]);
 }
 
 function dragTripwire(dx, dy) {
@@ -1960,23 +1967,34 @@ $(document).ready(function () {
 
       // Add circle for singleton sensors
       if ($("#map").hasClass("singletonCal")) {
-        var sensor_x = $("#id_sensor_x").val();
-        var sensor_y = $("#id_sensor_y").val();
+        var sensor_x = parseFloat($("#id_sensor_x").val());
+        var sensor_y = parseFloat($("#id_sensor_y").val());
         // Bug in slider -- .val() doesn't work right and seems to max at 100
         var sensor_r = $("#id_sensor_r").attr("value");
 
-        // Place sensor in the middle of the scene by default
-        if (!sensor_x | (sensor_x == "None")) {
-          sensor_x = parseInt(image_w / 2);
+        // Form fields store meters. Default to scene center if values missing.
+        if (isNaN(sensor_x) || isNaN(sensor_y)) {
+          var center_m = pixelsToMeters(
+            [parseInt(image_w / 2), parseInt(scene_y_max / 2)],
+            scale,
+            scene_y_max,
+          );
+          sensor_x = center_m[0];
+          sensor_y = center_m[1];
           $("#id_sensor_x").val(sensor_x);
-        }
-        if (!sensor_y | (sensor_y == "None")) {
-          sensor_y = parseInt(scene_y_max / 2);
           $("#id_sensor_y").val(sensor_y);
         }
-        if (!sensor_r | (sensor_r == "None")) {
+        if (!sensor_r || sensor_r == "None") {
           sensor_r = parseInt(scene_y_max / 2);
         }
+
+        var sensor_px = metersToPixels(
+          [sensor_x, sensor_y],
+          scale,
+          scene_y_max,
+        );
+        sensor_x = sensor_px[0];
+        sensor_y = sensor_px[1];
 
         // Set max on sensor_r slider to half of the image width
         $("#id_sensor_r").attr({

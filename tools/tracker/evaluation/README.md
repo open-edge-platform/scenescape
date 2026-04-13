@@ -72,6 +72,20 @@ evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
     config:
       metrics: [HOTA, MOTA, IDF1]
+  - class: evaluators.diagnostic_evaluator.DiagnosticEvaluator
+    config:
+      metrics: [LOC_T_X, LOC_T_Y, DIST_T]
+  - class: evaluators.jitter_evaluator.JitterEvaluator
+    config:
+      metrics:
+        [
+          rms_jerk,
+          rms_jerk_gt,
+          rms_jerk_ratio,
+          acceleration_variance,
+          acceleration_variance_gt,
+          acceleration_variance_ratio,
+        ]
 ```
 
 Run the pipeline:
@@ -88,10 +102,15 @@ python -m pipeline_engine config.yaml
       ├── dataset/                     # Dataset-specific caches or exports
       ├── harness/                     # Harness logs or artifacts
       └── evaluators/
-          └── <evaluator-class-name>/  # Evaluated metrics
+          └── <evaluator-key>/         # One folder per evaluator
 ```
 
-Example: `/tmp/tracker-evaluation/20260211_142530/evaluators/TrackEvalEvaluator/`
+The `<evaluator-key>` is the evaluator class name (e.g., `TrackEvalEvaluator`). When two evaluators
+share the same class name, an index suffix is appended to keep keys unique
+(e.g., `TrackEvalEvaluator_0/`, `TrackEvalEvaluator_1/`).
+
+**Multiple evaluators**: The `evaluators` list accepts any number of entries. Each evaluator runs
+against the same tracker outputs independently.
 
 ## Directory Structure
 
@@ -122,6 +141,14 @@ evaluation/
 
 1. Create a new file in `evaluators/` (e.g., `custom_evaluator.py`)
 2. Implement the `TrackerEvaluator` ABC from `base/tracker_evaluator.py`
+
+### Available Evaluators
+
+| Evaluator             | Metrics                                                                                                                         | Description                                                                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TrackEvalEvaluator`  | HOTA, MOTA, IDF1, and more                                                                                                      | Industry-standard tracking accuracy metrics via the TrackEval library                                                                                                 |
+| `DiagnosticEvaluator` | `LOC_T_X`, `LOC_T_Y`, `DIST_T` → summary scalars: `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `num_matches`                    | Per-frame location and distance error between matched tracker output tracks and ground-truth tracks; uses bipartite (Hungarian) assignment over overlapping frames    |
+| `JitterEvaluator`     | `rms_jerk`, `rms_jerk_gt`, `rms_jerk_ratio`, `acceleration_variance`, `acceleration_variance_gt`, `acceleration_variance_ratio` | Trajectory smoothness metrics based on numerical differentiation of 3D positions; GT and ratio variants allow comparing tracker-added jitter against test-data jitter |
 
 ## Canonical Data Formats
 
@@ -244,7 +271,7 @@ pytest . -v -m integration
 pytest tests/ -v                     # Integration tests
 pytest datasets/tests/ -v            # Dataset unit tests
 pytest harnesses/tests/ -v           # Harness unit tests
-pytest evaluators/tests/ -v           # Evaluators unit tests
+pytest evaluators/tests/ -v          # Evaluators unit tests
 ```
 
 **Run tests from a specific file**:

@@ -58,12 +58,6 @@ Follow the steps in the [Get Started Guide](../get-started.md) to bring up an in
         {
             "category": "person",
             "confidence": 0.9964306950569153,
-            "center_of_mass": {
-                "x": 873.1902567545573,
-                "y": 98.25730884776397,
-                "width": 53.51023356119788,
-                "height": 91.01821394527661
-            },
             "id": "67c4eee3-7e5e-4bd7-ac5c-559cb41f2338",
             "type": "person",
             "translation": [
@@ -104,12 +98,6 @@ Follow the steps in the [Get Started Guide](../get-started.md) to bring up an in
         {
             "category": "person",
             "confidence": 0.9964306950569153,
-            "center_of_mass": {
-                "x": 873.1902567545573,
-                "y": 98.25730884776397,
-                "width": 53.51023356119788,
-                "height": 91.01821394527661
-            },
             "id": "67c4eee3-7e5e-4bd7-ac5c-559cb41f2338",
             "type": "person",
             "translation": [
@@ -151,12 +139,6 @@ Follow the steps in the [Get Started Guide](../get-started.md) to bring up an in
             "object": {
                 "category": "person",
                 "confidence": 0.9963177442550659,
-                "center_of_mass": {
-                    "x": 486.91266377766925,
-                    "y": 167.66232883228977,
-                    "width": 38.757527669270814,
-                    "height": 103.58497395234949
-                },
                 "id": "adf2932f-979e-4bd7-91b2-7909f355fbcb",
                 "type": "person",
                 "translation": [
@@ -263,12 +245,6 @@ By default, Regions of Interest trigger events when the center point of each obj
         {
             "category": "person",
             "confidence": 0.9964306950569153,
-            "center_of_mass": {
-                "x": 873.1902567545573,
-                "y": 98.25730884776397,
-                "width": 53.51023356119788,
-                "height": 91.01821394527661
-            },
             "id": "67c4eee3-7e5e-4bd7-ac5c-559cb41f2338",
             "type": "person",
             "translation": [
@@ -309,12 +285,6 @@ By default, Regions of Interest trigger events when the center point of each obj
         {
             "category": "person",
             "confidence": 0.9964306950569153,
-            "center_of_mass": {
-                "x": 873.1902567545573,
-                "y": 98.25730884776397,
-                "width": 53.51023356119788,
-                "height": 91.01821394527661
-            },
             "id": "67c4eee3-7e5e-4bd7-ac5c-559cb41f2338",
             "type": "person",
             "translation": [
@@ -356,12 +326,6 @@ By default, Regions of Interest trigger events when the center point of each obj
             "object": {
                 "category": "person",
                 "confidence": 0.9963177442550659,
-                "center_of_mass": {
-                    "x": 486.91266377766925,
-                    "y": 167.66232883228977,
-                    "width": 38.757527669270814,
-                    "height": 103.58497395234949
-                },
                 "id": "adf2932f-979e-4bd7-91b2-7909f355fbcb",
                 "type": "person",
                 "translation": [
@@ -472,12 +436,6 @@ By default, Regions of Interest trigger events when the center point of each obj
         {
             "category": "vehicle",
             "confidence": 0.9130859375,
-            "center_of_mass": {
-                "x": 1150,
-                "y": 291,
-                "width": 65.0,
-                "height": 37.0
-            },
             "id": "5559c880-2b13-4d43-b856-8be8d8eac43a",
             "type": "vehicle",
             "translation": [

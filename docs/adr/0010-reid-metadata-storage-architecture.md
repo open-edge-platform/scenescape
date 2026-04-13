@@ -28,13 +28,13 @@ We will implement a **2-tier hybrid search architecture** using VDMS schema-less
 
 ### Architecture Overview
 
-```
+```text
 Detection → Metadata Extraction → Vector Generation → Storage
                                        ↓
                               VDMS Descriptor Entry
                          ┌─────────────────────────┐
                          │ Properties (Metadata)   │
-                         │ • uuid, type      │
+                         │ • uuid, type            │
                          │ • make, model           │
                          │ • color (optional)      │
                          │ • license_plate         │
