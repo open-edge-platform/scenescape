@@ -224,7 +224,17 @@ class SensorMqttRoi(SceneObjectMqtt):
       print("Object missing sensor data {}".format(obj))
       return False
 
-    for sensor_info in obj['sensors'][sensor_name]:
+    sensor_payload = obj['sensors'].get(sensor_name)
+    if sensor_payload is None:
+      print("Object missing expected sensor '{}' data {}".format(sensor_name, obj))
+      return False
+
+    if isinstance(sensor_payload, dict):
+      sensor_values = sensor_payload.get('values', [])
+    else:
+      sensor_values = sensor_payload
+
+    for sensor_info in sensor_values:
       if get_epoch_time(sensor_info[0]) == expected_sensor_ts \
               and sensor_info[1] == expected_sensor_value:
         found = True
