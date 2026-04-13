@@ -23,6 +23,7 @@ performance_tests:
 _performance_tests: \
   inference-performance \
   geometry-conformance \
+	scene-performance-full \
 
 geometry-conformance: \
   point-conformance \
