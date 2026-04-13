@@ -502,9 +502,6 @@ class Scene(SceneModel):
         'confidence': obj.confidence,
       }
 
-      if 'center_of_mass' in obj_data:
-        obj.info['center_of_mass'] = obj_data['center_of_mass']
-
       if 'camera_bounds' in obj_data and obj_data['camera_bounds']:
         obj._camera_bounds = obj_data['camera_bounds']
       else:
