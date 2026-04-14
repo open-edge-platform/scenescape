@@ -30,7 +30,7 @@ SPEED_THRESHOLD = 0.1
 
 class ReidState(Enum):
   """State of ReID query and matching for an object.
-  
+
   PENDING_COLLECTION: Collecting embeddings, query not yet made
   QUERY_NO_MATCH: Query made but no match found (new object)
   MATCHED: Successfully matched to previous object (reID)
@@ -234,6 +234,9 @@ class MovingObject:
     self.gid = otherObj.gid
     self.first_seen = otherObj.first_seen
     self.frameCount = otherObj.frameCount + 1
+    self.reid_state = otherObj.reid_state
+    self.similarity = otherObj.similarity
+    self.previous_ids_chain = otherObj.previous_ids_chain.copy()
 
     del self.chain_data.publishedLocations[LOCATION_LIMIT:]
 
@@ -321,7 +324,7 @@ class MovingObject:
 
   def record_id_change(self, new_id, similarity_score=None, timestamp=None):
     """Record a change in object ID (for post-mortem stitching analysis).
-    
+
     @param new_id: The new global ID assigned to this object
     @param similarity_score: Similarity score from reID matching (if matched), or None if new object
     @param timestamp: When the change occurred (epoch time), defaults to current time
@@ -329,7 +332,7 @@ class MovingObject:
     if timestamp is None:
       import time
       timestamp = time.time()
-    
+
     self.previous_ids_chain.append({
       'id': new_id,
       'timestamp': timestamp,
@@ -340,14 +343,14 @@ class MovingObject:
 
   def is_reided(self):
     """Check if this object resulted from successful reID matching.
-    
+
     @return: True if object was matched to a previous object, False otherwise
     """
     return self.reid_state == ReidState.MATCHED
 
   def get_previous_ids(self):
     """Get chain of previous IDs for this object.
-    
+
     @return: List of dicts with 'id', 'timestamp', 'similarity_score' for post-mortem analysis
     """
     return self.previous_ids_chain.copy()

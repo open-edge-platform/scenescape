@@ -123,15 +123,15 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
     obj_dict['similarity'] = aobj.similarity
   if hasattr(aobj, 'first_seen'):
     obj_dict['first_seen'] = get_iso_time(aobj.first_seen)
-  
+
   # Add reid state for downstream business logic to distinguish "never queried" from "query made"
   if hasattr(aobj, 'reid_state'):
     obj_dict['reid_state'] = aobj.reid_state.value  # Convert enum to string
-  
+
   # Add previous IDs chain for post-mortem object stitching analysis
   if hasattr(aobj, 'previous_ids_chain') and aobj.previous_ids_chain:
     obj_dict['previous_ids_chain'] = aobj.previous_ids_chain
-  
+
   if isinstance(obj, TripwireEvent):
     obj_dict['direction'] = obj.direction
   if hasattr(aobj, 'asset_scale'):

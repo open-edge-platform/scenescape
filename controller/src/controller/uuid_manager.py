@@ -257,7 +257,7 @@ class UUIDManager:
     if result and result[0] is not None:
       sscape_object.gid = result[0]
       sscape_object.similarity = result[1]
-      
+
       # Update reid_state based on similarity (whether it was a match or not)
       if sscape_object.reid_state == ReidState.PENDING_COLLECTION:
         # Only update if query has been made (indicated by non-None result[0])
@@ -267,7 +267,7 @@ class UUIDManager:
         else:
           # result[1] is None, so no match found
           sscape_object.reid_state = ReidState.QUERY_NO_MATCH
-      
+
       reid_embedding = self._extractReidEmbedding(sscape_object)
 
       if reid_embedding is not None:
@@ -303,10 +303,10 @@ class UUIDManager:
     # Mark that we're about to attempt a query (transition from PENDING_COLLECTION)
     # This allows downstream logic to distinguish "never queried" from "query made"
     start_time = get_epoch_time()
-    
+
     similarity_scores = self.sendSimilarityQuery(sscape_object)
     database_id, similarity = self.parseQueryResults(similarity_scores)
-    
+
     with self.active_ids_lock:
       # Make sure object is still in active_ids before updating since there is a chance
       # that the similiarity search does not complete until after the object leaves
@@ -402,7 +402,7 @@ class UUIDManager:
     Updates the dictionary tracking the active tracker IDs and their corresponding database
     IDs. Also creates an entry in the features_for_database dictionary with semantic metadata
     to be added to the database when the track leaves the scene.
-    
+
     Updates object's reid_state and records ID changes in previous_ids_chain for post-mortem
     stitching analysis.
 
@@ -415,7 +415,7 @@ class UUIDManager:
       query_timestamp = get_epoch_time()
     matched_new_id = database_id is not None and self.isNewID(database_id)
     database_id_collision = database_id is not None and not matched_new_id
-    
+
     # MATCH FOUND - YES + DB ID ALREADY IN DICT - NO
     if matched_new_id:
       # Query succeeded and found a match -> update state to MATCHED
@@ -424,17 +424,17 @@ class UUIDManager:
       sscape_object.similarity = similarity
       # Record the matched ID in chain with similarity score
       sscape_object.record_id_change(database_id, similarity_score=similarity, timestamp=query_timestamp)
-      
+
       log.debug(
         f"updateActiveDict: Match found for {sscape_object.rv_id}: {database_id}, similarity={similarity}, state={ReidState.MATCHED.value}")
       self.active_ids[sscape_object.rv_id] = [database_id, similarity]
-      
+
       reid_embedding = self._extractReidEmbedding(sscape_object)
       if reid_embedding is not None:
         if sscape_object.rv_id in self.features_for_database:
           self.features_for_database[sscape_object.rv_id]['reid_vectors'].append(
             reid_embedding)
-    
+
     # MATCH FOUND - NO / NEW OBJECT
     else:
       if database_id_collision:
@@ -454,7 +454,7 @@ class UUIDManager:
       sscape_object.similarity = None
       # Record the new ID in chain with no match (None similarity indicates no match)
       sscape_object.record_id_change(database_id, similarity_score=None, timestamp=query_timestamp)
-      
+
       # Increment counter for unique objects with actual query attempts that found no match
       self.unique_id_count += 1
       log.debug(f"updateActiveDict: No match, assigned new gid={database_id} for track {sscape_object.rv_id}, state={ReidState.QUERY_NO_MATCH.value}")

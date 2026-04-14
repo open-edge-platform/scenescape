@@ -555,7 +555,7 @@ class TestAssignIDUniqueCountNoReid:
     self.mock_db.connect = Mock()
     with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
       self.manager = UUIDManager(database='VDMS')
-    
+
     # Mock camera for moving objects
     self.mock_camera = Mock()
     self.mock_camera.pose = Mock()
@@ -566,16 +566,16 @@ class TestAssignIDUniqueCountNoReid:
     """Verify unique_count increments immediately when object has no reid vector."""
     from controller.moving_object import MovingObject, ReidState
     import time
-    
+
     # Create object with no reid vector
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = None  # No reid vector
-    
+
     initial_count = self.manager.unique_id_count
     self.manager.assignID(obj)
-    
+
     # Should increment since no reid vector means instant unique object
     assert self.manager.unique_id_count == initial_count + 1
 
@@ -583,19 +583,19 @@ class TestAssignIDUniqueCountNoReid:
     """Verify assignID() doesn't increment for same track on subsequent calls."""
     from controller.moving_object import MovingObject
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = None
-    
+
     self.manager.assignID(obj)
     count_after_first = self.manager.unique_id_count
-    
+
     # Call assignID() again with same object (same rv_id)
     self.manager.assignID(obj)
     count_after_second = self.manager.unique_id_count
-    
+
     # Should NOT increment again (already tracked)
     assert count_after_second == count_after_first
 
@@ -603,17 +603,17 @@ class TestAssignIDUniqueCountNoReid:
     """Verify each new object without reid increments counter."""
     from controller.moving_object import MovingObject
     import time
-    
+
     initial_count = self.manager.unique_id_count
-    
+
     for i in range(3):
       info = {'id': str(i), 'confidence': 0.95}
       obj = MovingObject(info, time.time(), self.mock_camera)
       obj.rv_id = i
       obj.reid = None
-      
+
       self.manager.assignID(obj)
-    
+
     # Each object should have incremented counter
     assert self.manager.unique_id_count == initial_count + 3
 
@@ -627,7 +627,7 @@ class TestAssignIDWithReidVector:
     self.mock_db.connect = Mock()
     with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
       self.manager = UUIDManager(database='VDMS')
-    
+
     self.mock_camera = Mock()
     self.mock_camera.pose = Mock()
     self.mock_camera.pose.intrinsics = Mock()
@@ -637,16 +637,16 @@ class TestAssignIDWithReidVector:
     """Verify assignID() does NOT increment when object has reid vector (pending query)."""
     from controller.moving_object import MovingObject
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]  # Has reid vector
     obj.boundingBoxPixels = Mock(area=10000)  # Large enough bbox
-    
+
     initial_count = self.manager.unique_id_count
     self.manager.assignID(obj)
-    
+
     # Should NOT increment (waiting for query result)
     assert self.manager.unique_id_count == initial_count
 
@@ -654,16 +654,16 @@ class TestAssignIDWithReidVector:
     """Verify object state remains PENDING_COLLECTION when gathering features."""
     from controller.moving_object import MovingObject, ReidState
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.boundingBoxPixels = Mock(area=10000)
     obj.category = 'person'
-    
+
     self.manager.assignID(obj)
-    
+
     # State should still be PENDING_COLLECTION (query not submitted yet, insufficient features)
     assert obj.reid_state == ReidState.PENDING_COLLECTION
 
@@ -677,7 +677,7 @@ class TestUpdateActiveDictQueryNoMatch:
     self.mock_db.connect = Mock()
     with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
       self.manager = UUIDManager(database='VDMS')
-    
+
     self.mock_camera = Mock()
     self.mock_camera.pose = Mock()
     self.mock_camera.pose.intrinsics = Mock()
@@ -687,26 +687,26 @@ class TestUpdateActiveDictQueryNoMatch:
     """Verify unique_count increments when query is made but no match found."""
     from controller.moving_object import MovingObject, ReidState
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
     obj.boundingBoxPixels = Mock(area=10000)
-    
+
     # Initialize active_ids entry
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj.rv_id] = [None, None]
-    
+
     # Add quality features to simulate gathered features
     self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-    
+
     initial_count = self.manager.unique_id_count
-    
+
     # Simulate query that found no match
     self.manager.updateActiveDict(obj, database_id=None, similarity=None)
-    
+
     # Should increment (new unique object, no match in database)
     assert self.manager.unique_id_count == initial_count + 1
     # State should be QUERY_NO_MATCH
@@ -716,21 +716,21 @@ class TestUpdateActiveDictQueryNoMatch:
     """Verify new GID is assigned when query finds no match."""
     from controller.moving_object import MovingObject
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj.rv_id] = [None, None]
-    
+
     self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-    
+
     # No match found
     self.manager.updateActiveDict(obj, database_id=None, similarity=None)
-    
+
     # GID should be assigned
     assert obj.gid is not None
     # Similarity should be None (no match)
@@ -743,24 +743,24 @@ class TestUpdateActiveDictQueryNoMatch:
     """Verify multiple QUERY_NO_MATCH objects each increment counter."""
     from controller.moving_object import MovingObject
     import time
-    
+
     initial_count = self.manager.unique_id_count
-    
+
     for i in range(3):
       info = {'id': str(i), 'confidence': 0.95}
       obj = MovingObject(info, time.time(), self.mock_camera)
       obj.rv_id = i
       obj.reid = [0.1, 0.2, 0.3]
       obj.category = 'person'
-      
+
       with self.manager.active_ids_lock:
         self.manager.active_ids[obj.rv_id] = [None, None]
-      
+
       self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-      
+
       # Query found no match
       self.manager.updateActiveDict(obj, database_id=None, similarity=None)
-    
+
     # Each no-match should increment counter
     assert self.manager.unique_id_count == initial_count + 3
 
@@ -774,7 +774,7 @@ class TestUpdateActiveDictMatched:
     self.mock_db.connect = Mock()
     with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
       self.manager = UUIDManager(database='VDMS')
-    
+
     self.mock_camera = Mock()
     self.mock_camera.pose = Mock()
     self.mock_camera.pose.intrinsics = Mock()
@@ -784,26 +784,26 @@ class TestUpdateActiveDictMatched:
     """Verify unique_count does NOT increment when query finds a match."""
     from controller.moving_object import MovingObject, ReidState
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
-    
+
     # Initialize active_ids
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj.rv_id] = [None, None]
-    
+
     self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-    
+
     initial_count = self.manager.unique_id_count
-    
+
     # Simulate query that found a match in database
     matched_gid = "database_gid_existing_123"
     similarity_score = 0.92
     self.manager.updateActiveDict(obj, database_id=matched_gid, similarity=similarity_score)
-    
+
     # Should NOT increment (object already existed in database)
     assert self.manager.unique_id_count == initial_count
     # State should be MATCHED
@@ -817,9 +817,9 @@ class TestUpdateActiveDictMatched:
     """Verify matched objects don't change unique_count."""
     from controller.moving_object import MovingObject
     import time
-    
+
     initial_count = self.manager.unique_id_count
-    
+
     # Simulate multiple matched objects
     for i in range(3):
       info = {'id': str(i), 'confidence': 0.95}
@@ -827,15 +827,15 @@ class TestUpdateActiveDictMatched:
       obj.rv_id = i
       obj.reid = [0.1, 0.2, 0.3]
       obj.category = 'person'
-      
+
       with self.manager.active_ids_lock:
         self.manager.active_ids[obj.rv_id] = [None, None]
-      
+
       self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-      
+
       # All found matches in database
       self.manager.updateActiveDict(obj, database_id=f"existing_gid_{i}", similarity=0.85 + i*0.01)
-    
+
     # Matched objects should NOT increase counter
     assert self.manager.unique_id_count == initial_count
 
@@ -849,7 +849,7 @@ class TestReidDisabledScenario:
     self.mock_db.connect = Mock()
     with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
       self.manager = UUIDManager(database='VDMS')
-    
+
     self.mock_camera = Mock()
     self.mock_camera.pose = Mock()
     self.mock_camera.pose.intrinsics = Mock()
@@ -859,19 +859,19 @@ class TestReidDisabledScenario:
     """Verify REID_DISABLED state set without incrementing unique_count."""
     from controller.moving_object import MovingObject, ReidState
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]  # Has reid vector
     obj.boundingBoxPixels = Mock(area=10000)
-    
+
     # Disable reid
     self.manager.reid_enabled = False
-    
+
     initial_count = self.manager.unique_id_count
     self.manager.assignID(obj)
-    
+
     # State should be REID_DISABLED
     assert obj.reid_state == ReidState.REID_DISABLED
     # Count should NOT increment (system disabled, no query attempted)
@@ -881,18 +881,18 @@ class TestReidDisabledScenario:
     """Verify object without reid vector increments even when reid disabled."""
     from controller.moving_object import MovingObject, ReidState
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = None  # No reid vector
-    
+
     # Disable reid
     self.manager.reid_enabled = False
-    
+
     initial_count = self.manager.unique_id_count
     self.manager.assignID(obj)
-    
+
     # State should be REID_DISABLED
     assert obj.reid_state == ReidState.REID_DISABLED
     # Should still increment (no reid vector = instant unique)
@@ -908,7 +908,7 @@ class TestMixedScenarioIntegration:
     self.mock_db.connect = Mock()
     with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
       self.manager = UUIDManager(database='VDMS')
-    
+
     self.mock_camera = Mock()
     self.mock_camera.pose = Mock()
     self.mock_camera.pose.intrinsics = Mock()
@@ -918,7 +918,7 @@ class TestMixedScenarioIntegration:
     """
     Integration test: Simulate test scenario with 3 people in queuing scene.
     Expected unique_count should be 3 (all are new unique objects).
-    
+
     Scenario:
     - Person A: Has reid vector, query finds no match → count = 1
     - Person B: Has reid vector, query finds no match → count = 2
@@ -926,37 +926,37 @@ class TestMixedScenarioIntegration:
     """
     from controller.moving_object import MovingObject
     import time
-    
+
     initial_count = self.manager.unique_id_count
-    
+
     # Person A: Query with no match
     obj_a = MovingObject({'id': 'A', 'confidence': 0.95}, time.time(), self.mock_camera)
     obj_a.rv_id = 'A'
     obj_a.reid = [0.1, 0.2, 0.3]
     obj_a.category = 'person'
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj_a.rv_id] = [None, None]
     self.manager.quality_features[obj_a.rv_id] = [[0.1, 0.2, 0.3]]
     self.manager.updateActiveDict(obj_a, database_id=None, similarity=None)
-    
+
     # Person B: Query with no match
     obj_b = MovingObject({'id': 'B', 'confidence': 0.95}, time.time(), self.mock_camera)
     obj_b.rv_id = 'B'
     obj_b.reid = [0.2, 0.3, 0.4]
     obj_b.category = 'person'
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj_b.rv_id] = [None, None]
     self.manager.quality_features[obj_b.rv_id] = [[0.2, 0.3, 0.4]]
     self.manager.updateActiveDict(obj_b, database_id=None, similarity=None)
-    
+
     # Person C: No reid vector
     obj_c = MovingObject({'id': 'C', 'confidence': 0.95}, time.time(), self.mock_camera)
     obj_c.rv_id = 'C'
     obj_c.reid = None
     self.manager.assignID(obj_c)
-    
+
     # Should have 3 unique objects
     assert self.manager.unique_id_count == initial_count + 3
 
@@ -971,9 +971,9 @@ class TestMixedScenarioIntegration:
     """
     from controller.moving_object import MovingObject
     import time
-    
+
     initial_count = self.manager.unique_id_count
-    
+
     # Person A: Matched
     obj_a = MovingObject({'id': 'A', 'confidence': 0.95}, time.time(), self.mock_camera)
     obj_a.rv_id = 'A'
@@ -983,7 +983,7 @@ class TestMixedScenarioIntegration:
       self.manager.active_ids[obj_a.rv_id] = [None, None]
     self.manager.quality_features[obj_a.rv_id] = [[0.1, 0.2, 0.3]]
     self.manager.updateActiveDict(obj_a, database_id="existing_A", similarity=0.95)
-    
+
     # Person B: No match
     obj_b = MovingObject({'id': 'B', 'confidence': 0.95}, time.time(), self.mock_camera)
     obj_b.rv_id = 'B'
@@ -993,13 +993,13 @@ class TestMixedScenarioIntegration:
       self.manager.active_ids[obj_b.rv_id] = [None, None]
     self.manager.quality_features[obj_b.rv_id] = [[0.2, 0.3, 0.4]]
     self.manager.updateActiveDict(obj_b, database_id=None, similarity=None)
-    
+
     # Person C: No reid
     obj_c = MovingObject({'id': 'C', 'confidence': 0.95}, time.time(), self.mock_camera)
     obj_c.rv_id = 'C'
     obj_c.reid = None
     self.manager.assignID(obj_c)
-    
+
     # Person D: Matched
     obj_d = MovingObject({'id': 'D', 'confidence': 0.95}, time.time(), self.mock_camera)
     obj_d.rv_id = 'D'
@@ -1009,7 +1009,7 @@ class TestMixedScenarioIntegration:
       self.manager.active_ids[obj_d.rv_id] = [None, None]
     self.manager.quality_features[obj_d.rv_id] = [[0.4, 0.5, 0.6]]
     self.manager.updateActiveDict(obj_d, database_id="existing_D", similarity=0.90)
-    
+
     # Only B and C should increment (2 new unique objects)
     assert self.manager.unique_id_count == initial_count + 2
 
@@ -1023,7 +1023,7 @@ class TestUniqueCountEdgeCases:
     self.mock_db.connect = Mock()
     with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
       self.manager = UUIDManager(database='VDMS')
-    
+
     self.mock_camera = Mock()
     self.mock_camera.pose = Mock()
     self.mock_camera.pose.intrinsics = Mock()
@@ -1033,22 +1033,22 @@ class TestUniqueCountEdgeCases:
     """Verify object with 0.0 similarity is still counted as MATCHED (not incremented)."""
     from controller.moving_object import MovingObject, ReidState
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj.rv_id] = [None, None]
     self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-    
+
     initial_count = self.manager.unique_id_count
-    
+
     # Edge case: similarity = 0.0 (worst match, but still a match)
     self.manager.updateActiveDict(obj, database_id="existing_gid", similarity=0.0)
-    
+
     # Should NOT increment (is_matched because similarity is not None)
     assert self.manager.unique_id_count == initial_count
     assert obj.similarity == 0.0
@@ -1058,22 +1058,22 @@ class TestUniqueCountEdgeCases:
     """Verify high similarity score doesn't cause multiple increments."""
     from controller.moving_object import MovingObject
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj.rv_id] = [None, None]
     self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-    
+
     initial_count = self.manager.unique_id_count
-    
+
     # Perfect match: similarity = 1.0
     self.manager.updateActiveDict(obj, database_id="existing_gid", similarity=1.0)
-    
+
     # Should NOT increment
     assert self.manager.unique_id_count == initial_count
     assert obj.similarity == 1.0
@@ -1088,7 +1088,7 @@ class TestUpdateActiveDictStateTransitionsAndChaining:
     self.mock_db.connect = Mock()
     with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
       self.manager = UUIDManager(database='VDMS')
-    
+
     self.mock_camera = Mock()
     self.mock_camera.pose = Mock()
     self.mock_camera.pose.intrinsics = Mock()
@@ -1098,30 +1098,30 @@ class TestUpdateActiveDictStateTransitionsAndChaining:
     """Verify that matched objects record ID change with similarity score in previous_ids_chain."""
     from controller.moving_object import MovingObject, ReidState
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj.rv_id] = [None, None]
-    
+
     self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-    
+
     # Match found with high similarity
     matched_id = "database_gid_match_001"
     similarity_score = 0.92
     query_time = time.time()
-    
+
     self.manager.updateActiveDict(obj, database_id=matched_id, similarity=similarity_score, query_timestamp=query_time)
-    
+
     # Verify state
     assert obj.reid_state == ReidState.MATCHED
     assert obj.gid == matched_id
     assert obj.similarity == similarity_score
-    
+
     # Verify previous_ids_chain was populated
     assert len(obj.previous_ids_chain) == 1
     chain_entry = obj.previous_ids_chain[0]
@@ -1133,27 +1133,27 @@ class TestUpdateActiveDictStateTransitionsAndChaining:
     """Verify that no-match objects record ID change with None similarity in previous_ids_chain."""
     from controller.moving_object import MovingObject, ReidState
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj.rv_id] = [None, None]
-    
+
     self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-    
+
     # Query made but no match found
     query_time = time.time()
     self.manager.updateActiveDict(obj, database_id=None, similarity=None, query_timestamp=query_time)
-    
+
     # Verify state
     assert obj.reid_state == ReidState.QUERY_NO_MATCH
     assert obj.gid is not None
     assert obj.similarity is None
-    
+
     # Verify previous_ids_chain recorded with None similarity
     assert len(obj.previous_ids_chain) == 1
     chain_entry = obj.previous_ids_chain[0]
@@ -1165,22 +1165,22 @@ class TestUpdateActiveDictStateTransitionsAndChaining:
     """Verify active_ids dict and similarity are properly updated on match."""
     from controller.moving_object import MovingObject
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj.rv_id] = [None, None]
-    
+
     self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-    
+
     matched_id = "db_match_789"
     similarity = 0.87
     self.manager.updateActiveDict(obj, database_id=matched_id, similarity=similarity)
-    
+
     # Verify active_ids was updated
     assert obj.rv_id in self.manager.active_ids
     assert self.manager.active_ids[obj.rv_id][0] == matched_id
@@ -1190,27 +1190,27 @@ class TestUpdateActiveDictStateTransitionsAndChaining:
     """Verify new GID is generated and active_ids is updated on no match."""
     from controller.moving_object import MovingObject
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj.rv_id] = [None, None]
-    
+
     self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-    
+
     old_gid_counter = MovingObject.gid_counter
-    
+
     # Query found no match
     self.manager.updateActiveDict(obj, database_id=None, similarity=None)
-    
+
     # Verify new GID was generated
     assert obj.gid == old_gid_counter
     assert obj.gid is not None
-    
+
     # Verify active_ids updated with generated GID
     assert obj.rv_id in self.manager.active_ids
     assert self.manager.active_ids[obj.rv_id][0] == obj.gid
@@ -1220,21 +1220,21 @@ class TestUpdateActiveDictStateTransitionsAndChaining:
     """Verify features_for_database is populated with metadata on match."""
     from controller.moving_object import MovingObject
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95, 'age': 'adult', 'gender': 'male'}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
     obj.metadata = {'age': 'adult', 'gender': 'male'}
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj.rv_id] = [None, None]
-    
+
     self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3], [0.15, 0.25, 0.35]]
-    
+
     self.manager.updateActiveDict(obj, database_id="db_match_456", similarity=0.91)
-    
+
     # Verify features_for_database populated
     assert obj.rv_id in self.manager.features_for_database
     features_entry = self.manager.features_for_database[obj.rv_id]
@@ -1247,20 +1247,20 @@ class TestUpdateActiveDictStateTransitionsAndChaining:
     """Verify features_for_database is populated on QUERY_NO_MATCH."""
     from controller.moving_object import MovingObject
     import time
-    
+
     info = {'id': '1', 'confidence': 0.95}
     obj = MovingObject(info, time.time(), self.mock_camera)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj.rv_id] = [None, None]
-    
+
     self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-    
+
     self.manager.updateActiveDict(obj, database_id=None, similarity=None)
-    
+
     # Verify features_for_database populated even for no match
     assert obj.rv_id in self.manager.features_for_database
     features_entry = self.manager.features_for_database[obj.rv_id]
@@ -1278,7 +1278,7 @@ class TestUpdateActiveDictIDCollisionHandling:
     self.mock_db.connect = Mock()
     with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
       self.manager = UUIDManager(database='VDMS')
-    
+
     self.mock_camera = Mock()
     self.mock_camera.pose = Mock()
     self.mock_camera.pose.intrinsics = Mock()
@@ -1289,7 +1289,7 @@ class TestUpdateActiveDictIDCollisionHandling:
     with self.manager.active_ids_lock:
       self.manager.active_ids['rv_1'] = ['db_gid_100', 0.85]
       self.manager.active_ids['rv_2'] = ['db_gid_200', 0.90]
-    
+
     # New ID not in active_ids
     assert self.manager.isNewID('db_gid_300') is True
 
@@ -1298,7 +1298,7 @@ class TestUpdateActiveDictIDCollisionHandling:
     with self.manager.active_ids_lock:
       self.manager.active_ids['rv_1'] = ['db_gid_100', 0.85]
       self.manager.active_ids['rv_2'] = ['db_gid_200', 0.90]
-    
+
     # ID already assigned to rv_1
     assert self.manager.isNewID('db_gid_100') is False
 
@@ -1306,40 +1306,40 @@ class TestUpdateActiveDictIDCollisionHandling:
     """Verify collided database IDs are treated as no-match with a fresh unique gid."""
     from controller.moving_object import MovingObject, ReidState
     import time
-    
+
     # Set up first object already matched to a database ID
     info1 = {'id': '1', 'confidence': 0.95}
     obj1 = MovingObject(info1, time.time(), self.mock_camera)
     obj1.rv_id = 1
     obj1.reid = [0.1, 0.2, 0.3]
     obj1.category = 'person'
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj1.rv_id] = [None, None]
-    
+
     self.manager.quality_features[obj1.rv_id] = [[0.1, 0.2, 0.3]]
-    
+
     # First object matches to database_gid_X
     self.manager.updateActiveDict(obj1, database_id='database_gid_X', similarity=0.95)
     assert obj1.reid_state == ReidState.MATCHED
     assert obj1.gid == 'database_gid_X'
-    
+
     # Now try to process second object with same database_gid_X (collision scenario)
     info2 = {'id': '2', 'confidence': 0.95}
     obj2 = MovingObject(info2, time.time(), self.mock_camera)
     obj2.rv_id = 2
     obj2.reid = [0.15, 0.25, 0.35]
     obj2.category = 'person'
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj2.rv_id] = [None, None]
-    
+
     self.manager.quality_features[obj2.rv_id] = [[0.15, 0.25, 0.35]]
     initial_count = self.manager.unique_id_count
-    
+
     # Collision should be handled as no-match without reusing obj1's active gid.
     self.manager.updateActiveDict(obj2, database_id='database_gid_X', similarity=None)
-    
+
     # obj2 gets QUERY_NO_MATCH state and a new unique gid.
     assert obj2.reid_state == ReidState.QUERY_NO_MATCH
     assert obj2.gid != 'database_gid_X'
@@ -1355,36 +1355,36 @@ class TestUpdateActiveDictIDCollisionHandling:
     """Test scenario where only the first track keeps a shared matched database ID."""
     from controller.moving_object import MovingObject, ReidState
     import time
-    
+
     # Object A: Gets matched first
     obj_a = MovingObject({'id': 'A', 'confidence': 0.95}, time.time(), self.mock_camera)
     obj_a.rv_id = 'A'
     obj_a.reid = [0.1, 0.2, 0.3]
     obj_a.category = 'person'
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj_a.rv_id] = [None, None]
     self.manager.quality_features[obj_a.rv_id] = [[0.1, 0.2, 0.3]]
-    
+
     # A matches to shared_gid
     self.manager.updateActiveDict(obj_a, database_id='shared_gid', similarity=0.92)
     assert obj_a.reid_state == ReidState.MATCHED
     assert obj_a.gid == 'shared_gid'
-    
+
     # Object B: Also gets match to same shared_gid (collision)
     obj_b = MovingObject({'id': 'B', 'confidence': 0.95}, time.time(), self.mock_camera)
     obj_b.rv_id = 'B'
     obj_b.reid = [0.15, 0.25, 0.35]
     obj_b.category = 'person'
-    
+
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj_b.rv_id] = [None, None]
     self.manager.quality_features[obj_b.rv_id] = [[0.15, 0.25, 0.35]]
     initial_count = self.manager.unique_id_count
-    
+
     # B's match to shared_gid collides with A's active assignment and must not be reused.
     self.manager.updateActiveDict(obj_b, database_id='shared_gid', similarity=0.88)
-    
+
     # B gets QUERY_NO_MATCH state and a distinct generated gid.
     assert obj_b.reid_state == ReidState.QUERY_NO_MATCH
     assert obj_b.gid != 'shared_gid'
@@ -1393,3 +1393,60 @@ class TestUpdateActiveDictIDCollisionHandling:
     assert obj_b.similarity is None  # B has no similarity (treated as no-match)
     assert self.manager.active_ids[obj_b.rv_id][0] == obj_b.gid
     assert self.manager.unique_id_count == initial_count + 1
+
+
+class TestMovingObjectSetPreviousPersistence:
+  """Regression tests for setPrevious() persistence across frame recreation."""
+
+  def setup_method(self):
+    """Set up a mock camera compatible with MovingObject initialization."""
+    self.mock_camera = Mock()
+    self.mock_camera.pose = Mock()
+    self.mock_camera.pose.intrinsics = Mock()
+    self.mock_camera.pose.intrinsics.mapPixelToNormalizedImagePlane = Mock(return_value=Mock())
+
+  def _create_moving_object(self, obj_id):
+    """Create a minimal MovingObject with required state for setPrevious()."""
+    from controller.moving_object import MovingObject, ChainData
+    import time
+
+    obj = MovingObject({'id': obj_id, 'confidence': 0.95}, time.time(), self.mock_camera)
+    obj.chain_data = ChainData(regions={}, publishedLocations=[], persist={})
+    obj.location = [Mock()]
+    return obj
+
+  def test_set_previous_persists_reid_state_similarity_and_chain(self):
+    """Verify reid_state, similarity, and previous_ids_chain are copied from previous frame object."""
+    from controller.moving_object import ReidState
+
+    old_obj = self._create_moving_object('1')
+    new_obj = self._create_moving_object('2')
+
+    old_obj.reid_state = ReidState.MATCHED
+    old_obj.similarity = 0.91
+    old_obj.previous_ids_chain = [
+      {'id': 'gid_10', 'timestamp': 1000.0, 'similarity_score': 0.91}
+    ]
+
+    new_obj.setPrevious(old_obj)
+
+    assert new_obj.reid_state == ReidState.MATCHED
+    assert new_obj.similarity == 0.91
+    assert new_obj.previous_ids_chain == old_obj.previous_ids_chain
+
+  def test_set_previous_copies_chain_without_list_aliasing(self):
+    """Verify previous_ids_chain list is copied by value, not aliased."""
+    old_obj = self._create_moving_object('1')
+    new_obj = self._create_moving_object('2')
+
+    old_obj.previous_ids_chain = [
+      {'id': 'gid_10', 'timestamp': 1000.0, 'similarity_score': 0.91}
+    ]
+
+    new_obj.setPrevious(old_obj)
+    new_obj.previous_ids_chain.append(
+      {'id': 'gid_11', 'timestamp': 1001.0, 'similarity_score': None}
+    )
+
+    assert len(new_obj.previous_ids_chain) == 2
+    assert len(old_obj.previous_ids_chain) == 1
