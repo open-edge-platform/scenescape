@@ -199,7 +199,7 @@ tracked object contains the following fields:
 | `regions`       | object             | Map of region/sensor IDs to entry timestamps (`{id: {entered: timestamp}}`)                                                                                                                                                                                  |
 | `sensors`       | object             | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`)                                                                                                                                                                                |
 | `similarity`    | number or null     | Re-ID similarity score; `null` when not computed                                                                                                                                                                                                             |
-| `reid_state`    | string             | Re-ID processing state for the object. One of: `pending_collection`, `query_no_match`, `matched`, `reid_disabled`                                                                                                                                          |
+| `reid_state`    | string             | Re-ID processing state for the object. One of: `pending_collection`, `query_no_match`, `matched`, `reid_disabled`                                                                                                                                            |
 | `first_seen`    | string (ISO 8601)  | Timestamp when the track was first created                                                                                                                                                                                                                   |
 | `metadata`      | object             | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below.                                                                     |
 | `camera_bounds` | object             | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height, projected}}`) where `projected=false` means detector-provided pixel bbox and `projected=true` means computed projection; may be empty (`{}`) when no camera currently observes the track |
@@ -212,6 +212,7 @@ tracked object contains the following fields:
 > analytics pipeline is configured.
 
 > **Note on `reid_state` values**:
+>
 > - `pending_collection`: Re-ID embedding collection is in progress; query has not been submitted yet.
 > - `query_no_match`: Query was submitted but no database match was found.
 > - `matched`: Query found a database match and the object was re-identified.
