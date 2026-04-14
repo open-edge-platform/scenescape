@@ -1,0 +1,280 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+"""Unit tests for CameraAccuracyEvaluator."""
+
+import math
+import sys
+import tempfile
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from evaluators.camera_accuracy_evaluator import CameraAccuracyEvaluator
+
+
+def _make_timestamp(index, interval_ms=100):
+  """ISO 8601 timestamp for frame *index* (0-based)."""
+  total_ms = index * interval_ms
+  s = total_ms // 1000
+  ms = total_ms % 1000
+  return f"2024-01-01T00:00:{s:02d}.{ms:03d}Z"
+
+
+def _make_projected_outputs(frames_per_cam, tracks_per_cam):
+  """Generate projected output frames as CameraProjectionHarness would.
+
+  Args:
+    frames_per_cam: Number of frames each camera emits.
+    tracks_per_cam: Dict mapping cam_id → {obj_id: callable(frame_idx) -> (x, y)}.
+
+  Returns:
+    List of canonical Tracker Output Format dicts with encoded object IDs.
+  """
+  outputs = []
+  for i in range(frames_per_cam):
+    ts = _make_timestamp(i)
+    for cam_id, obj_tracks in tracks_per_cam.items():
+      objects = []
+      for obj_id, pos_fn in obj_tracks.items():
+        x, y = pos_fn(i)
+        objects.append({
+          "id": f"{cam_id}:{obj_id}",
+          "translation": [x, y, 0.0],
+          "category": "person",
+        })
+      outputs.append({
+        "cam_id": cam_id,
+        "frame": i,
+        "timestamp": ts,
+        "objects": objects,
+      })
+  return outputs
+
+
+def _make_gt_csv(tmp_path, frames, gt_tracks):
+  """Write a MOTChallenge 3-D CSV ground-truth file.
+
+  Args:
+    tmp_path: Directory for the file.
+    frames: Number of frames (1-indexed in CSV).
+    gt_tracks: Dict mapping integer obj_id → callable(1-indexed frame) -> (x, y).
+
+  Returns:
+    Path to the written CSV file.
+  """
+  gt_file = tmp_path / "gt.csv"
+  rows = []
+  for frame_1 in range(1, frames + 1):
+    for obj_id, pos_fn in gt_tracks.items():
+      x, y = pos_fn(frame_1)
+      rows.append(f"{frame_1},{obj_id},{x},{y},0.0,1.0,1,1")
+  gt_file.write_text("\n".join(rows))
+  return str(gt_file)
+
+
+@pytest.fixture
+def tmp_output(tmp_path):
+  return tmp_path / "evaluator_out"
+
+
+class TestInitialization:
+  def test_initial_state(self):
+    ev = CameraAccuracyEvaluator()
+    assert ev._metrics == []
+    assert ev._output_folder is None
+    assert not ev._processed
+
+  def test_configure_metrics_valid(self):
+    ev = CameraAccuracyEvaluator()
+    result = ev.configure_metrics(["DIST_T", "VISIBILITY"])
+    assert result is ev
+    assert ev._metrics == ["DIST_T", "VISIBILITY"]
+
+  def test_configure_metrics_invalid(self):
+    ev = CameraAccuracyEvaluator()
+    with pytest.raises(ValueError, match="not supported"):
+      ev.configure_metrics(["BAD_METRIC"])
+
+  def test_set_output_folder(self, tmp_path):
+    ev = CameraAccuracyEvaluator()
+    folder = tmp_path / "out"
+    ev.set_output_folder(folder)
+    assert folder.exists()
+    assert ev._output_folder == folder
+
+
+class TestProcessTrackerOutputs:
+  def test_raises_without_process(self):
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    with pytest.raises(RuntimeError, match="No data processed"):
+      ev.evaluate_metrics()
+
+  def test_raises_without_metrics(self, tmp_path):
+    ev = CameraAccuracyEvaluator()
+    gt_file = _make_gt_csv(tmp_path, 5, {0: lambda f: (1.0, 2.0)})
+    outputs = _make_projected_outputs(5, {"cam1": {"0": lambda i: (1.0, 2.0)}})
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+    with pytest.raises(RuntimeError, match="No metrics configured"):
+      ev.evaluate_metrics()
+
+
+class TestDistanceMetric:
+  def test_perfect_projection(self, tmp_path, tmp_output):
+    """Zero error when projected == GT."""
+    n_frames = 20
+    pos = lambda i: (5.0 + i * 0.01, 10.0)
+
+    outputs = _make_projected_outputs(
+      n_frames, {"Cam_x1_0": {"0": lambda i: pos(i)}}
+    )
+    gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: pos(f - 1)})
+
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    ev.set_output_folder(tmp_output)
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+    results = ev.evaluate_metrics()
+
+    assert results["dist_mean_all"] == pytest.approx(0.0, abs=1e-6)
+    assert results["dist_mean_Cam_x1_0_0"] == pytest.approx(0.0, abs=1e-6)
+
+  def test_constant_offset(self, tmp_path, tmp_output):
+    """Constant 1 m offset → mean error = 1."""
+    n_frames = 20
+    outputs = _make_projected_outputs(
+      n_frames, {"cam1": {"0": lambda i: (6.0, 10.0)}}
+    )
+    gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
+
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    ev.set_output_folder(tmp_output)
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+    results = ev.evaluate_metrics()
+
+    assert results["dist_mean_cam1_0"] == pytest.approx(1.0, abs=1e-6)
+    assert results["dist_mean_all"] == pytest.approx(1.0, abs=1e-6)
+
+  def test_two_cameras_different_errors(self, tmp_path, tmp_output):
+    """Each camera can have a different mean error."""
+    n_frames = 20
+    tracks = {
+      "cam_x1": {"0": lambda i: (5.5, 11.0)},   # 0.5 m error
+      "cam_x2": {"0": lambda i: (6.0, 11.0)},   # 1.0 m error
+    }
+    outputs = _make_projected_outputs(n_frames, tracks)
+    gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 11.0)})
+
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    ev.set_output_folder(tmp_output)
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+    results = ev.evaluate_metrics()
+
+    assert results["dist_mean_cam_x1_0"] == pytest.approx(0.5, abs=1e-6)
+    assert results["dist_mean_cam_x2_0"] == pytest.approx(1.0, abs=1e-6)
+    assert results["dist_mean_all"] == pytest.approx(0.75, abs=1e-6)
+
+  def test_summary_keys_present(self, tmp_path, tmp_output):
+    n_frames = 20
+    outputs = _make_projected_outputs(
+      n_frames, {"camA": {"1": lambda i: (1.0, 2.0)}}
+    )
+    gt_file = _make_gt_csv(tmp_path, n_frames, {1: lambda f: (1.0, 2.0)})
+
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    ev.set_output_folder(tmp_output)
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+    results = ev.evaluate_metrics()
+
+    assert "n_cameras" in results
+    assert "n_objects" in results
+    assert "dist_mean_all" in results
+    assert results["n_cameras"] == 1
+    assert results["n_objects"] == 1
+
+
+class TestVisibilityMetric:
+  def test_full_visibility(self, tmp_path, tmp_output):
+    """Object seen in all frames → visibility == n_frames."""
+    n_frames = 15
+    outputs = _make_projected_outputs(
+      n_frames, {"cam1": {"0": lambda i: (5.0, 10.0)}}
+    )
+    gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
+
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["VISIBILITY"])
+    ev.set_output_folder(tmp_output)
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+    results = ev.evaluate_metrics()
+
+    assert results["visibility_cam1_0"] == float(n_frames)
+
+  def test_partial_visibility(self, tmp_path, tmp_output):
+    """Camera only sees object in the first half of the frames."""
+    n_frames = 20
+    # Build sparse outputs: cam1 detects obj 0 only in frames 0..9
+    outputs = []
+    for i in range(n_frames):
+      ts = _make_timestamp(i)
+      objs = []
+      if i < 10:
+        objs.append({"id": "cam1:0", "translation": [5.0, 10.0, 0.0], "category": "person"})
+      outputs.append({"cam_id": "cam1", "frame": i, "timestamp": ts, "objects": objs})
+
+    gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
+
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["VISIBILITY"])
+    ev.set_output_folder(tmp_output)
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+    results = ev.evaluate_metrics()
+
+    assert results["visibility_cam1_0"] == 10.0
+
+
+class TestCsvOutputs:
+  def test_csv_files_created(self, tmp_path, tmp_output):
+    n_frames = 20
+    outputs = _make_projected_outputs(
+      n_frames, {"camA": {"0": lambda i: (5.0 + i * 0.01, 10.0)}}
+    )
+    gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
+
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T", "VISIBILITY"])
+    ev.set_output_folder(tmp_output)
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+    ev.evaluate_metrics()
+
+    assert (tmp_output / "distance_errors.csv").exists()
+    assert (tmp_output / "visibility_summary.csv").exists()
+    assert (tmp_output / "accuracy_summary.csv").exists()
+    assert (tmp_output / "summary_table.csv").exists()
+
+
+class TestReset:
+  def test_reset_clears_state(self, tmp_path):
+    n_frames = 10
+    outputs = _make_projected_outputs(
+      n_frames, {"cam1": {"0": lambda i: (5.0, 10.0)}}
+    )
+    gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
+
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    ev.set_output_folder(tmp_path / "out")
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+    ev.reset()
+
+    assert ev._metrics == []
+    assert ev._output_folder is None
+    assert not ev._processed
+    assert not ev._projected_tracks
+    assert not ev._gt_tracks

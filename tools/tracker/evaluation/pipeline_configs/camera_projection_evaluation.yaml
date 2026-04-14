@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Camera Projection Evaluation Pipeline Configuration
+# Evaluates per-camera projection accuracy using the Metric Test Dataset.
+#
+# Unlike the controller evaluation pipeline (which runs the full tracker),
+# this pipeline bypasses tracking and only applies camera-pose projection.
+# This isolates the position error introduced by each camera's calibration.
+#
+# Goals:
+#   1. Average distance error per object per camera  (calibration accuracy)
+#   2. Visibility per object per camera              (coverage analysis)
+
+pipeline:
+  output:
+    path: /tmp/camera-projection-evaluation
+
+dataset:
+  class: datasets.metric_test_dataset.MetricTestDataset
+  config:
+    data_path: ../../../tests/system/metric/dataset
+    cameras: [x1, x2]
+    camera_fps: 30
+
+harness:
+  class: harnesses.camera_projection_harness.CameraProjectionHarness
+  config:
+    container_image: scenescape-controller:2026.1.0-dev
+
+evaluators:
+  - class: evaluators.camera_accuracy_evaluator.CameraAccuracyEvaluator
+    config:
+      metrics: [DIST_T, VISIBILITY]

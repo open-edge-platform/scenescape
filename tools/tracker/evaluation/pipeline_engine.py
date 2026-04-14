@@ -439,10 +439,17 @@ def main():
 
     # Print results
     print("\n=== Evaluation Results ===")
-    for evaluator_name, evaluator_metrics in metrics.items():
+    for i, (evaluator_name, evaluator_metrics) in enumerate(metrics.items()):
       print(f"\n[{evaluator_name}]")
-      for metric_name, metric_value in evaluator_metrics.items():
-        print(f"  {metric_name}: {metric_value:.4f}")
+      evaluator = engine._evaluators[i] if i < len(engine._evaluators) else None
+      if evaluator is not None and hasattr(evaluator, 'format_summary'):
+        print(evaluator.format_summary())
+      else:
+        for metric_name, metric_value in evaluator_metrics.items():
+          if isinstance(metric_value, int):
+            print(f"  {metric_name}: {metric_value}")
+          else:
+            print(f"  {metric_name}: {metric_value:.4f}")
 
     # Print output location
     print(f"\nResults saved to: {engine._output_path}")
