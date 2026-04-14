@@ -166,7 +166,7 @@ controller/config/reid-config.json
 | `feature_accumulation_threshold`    | int   | 12      | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.     |
 | `feature_slice_size`                | int   | 10      | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector. |
 | `similarity_threshold`              | int   | 60      | Minimum similarity score (0-100) for a match to be considered valid. Higher values = stricter matching.                                                               |
-| `vector_dimensions`                 | int   | 256     | Re-ID embedding length used to initialize the VDMS descriptor set schema (`dimensions`) and to validate embedding vector length before persistence.                      |
+| `vector_dimensions`                 | int   | 256     | Re-ID embedding length used to initialize the VDMS descriptor set schema (`dimensions`) and to validate embedding vector length before persistence.                   |
 
 ### Embedding Dimension Compatibility
 
