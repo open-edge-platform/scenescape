@@ -413,9 +413,11 @@ class UUIDManager:
     """
     if query_timestamp is None:
       query_timestamp = get_epoch_time()
+    matched_new_id = database_id is not None and self.isNewID(database_id)
+    database_id_collision = database_id is not None and not matched_new_id
     
     # MATCH FOUND - YES + DB ID ALREADY IN DICT - NO
-    if database_id and self.isNewID(database_id):
+    if matched_new_id:
       # Query succeeded and found a match -> update state to MATCHED
       sscape_object.reid_state = ReidState.MATCHED
       sscape_object.gid = database_id
@@ -435,10 +437,16 @@ class UUIDManager:
     
     # MATCH FOUND - NO / NEW OBJECT
     else:
+      if database_id_collision:
+        log.warning(
+          f"updateActiveDict: Database ID collision for track {sscape_object.rv_id}: "
+          f"{database_id} is already assigned to another active track; treating as no-match")
       # Query made but no match -> state is now QUERY_NO_MATCH (distinguishes from PENDING_COLLECTION)
       sscape_object.reid_state = ReidState.QUERY_NO_MATCH
-      # Generate new ID if not already assigned
-      if database_id is None:
+      # Keep a unique gid if one already exists for this object, otherwise generate one.
+      if sscape_object.gid is not None and self.isNewID(sscape_object.gid):
+        database_id = sscape_object.gid
+      else:
         with MovingObject.gid_lock:
           database_id = MovingObject.gid_counter
           MovingObject.gid_counter += 1
