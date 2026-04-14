@@ -278,3 +278,148 @@ class TestReset:
     assert not ev._processed
     assert not ev._projected_tracks
     assert not ev._gt_tracks
+
+
+class TestSetOutputFolderString:
+  def test_accepts_string_path(self, tmp_path):
+    """set_output_folder converts a string to Path (branch coverage)."""
+    ev = CameraAccuracyEvaluator()
+    folder = str(tmp_path / "str_out")
+    ev.set_output_folder(folder)
+    assert Path(folder).exists()
+    assert ev._output_folder == Path(folder)
+
+
+class TestProcessTrackerOutputsException:
+  def test_empty_iterator_wrapped_in_runtime_error(self):
+    """Empty outputs → inner RuntimeError re-wrapped (except branch)."""
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    with pytest.raises(RuntimeError, match="Failed to process outputs"):
+      ev.process_tracker_outputs(iter([]), "ignored_path")
+
+  def test_invalid_gt_iterator_raises(self, tmp_path):
+    """Iterator containing a dict (not a path string) raises RuntimeError."""
+    outputs = _make_projected_outputs(5, {"cam1": {"0": lambda i: (5.0, 10.0)}})
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    with pytest.raises(RuntimeError, match="Failed to process outputs|Ground truth"):
+      ev.process_tracker_outputs(iter(outputs), iter([{"not": "a path"}]))
+
+
+class TestParseEdgeCases:
+  def test_single_frame_fps_fallback(self, tmp_path, tmp_output):
+    """Single-frame input → fps defaults to 30 (single-timestamp branch)."""
+    outputs = _make_projected_outputs(1, {"cam1": {"0": lambda i: (5.0, 10.0)}})
+    gt_file = _make_gt_csv(tmp_path, 1, {0: lambda f: (5.0, 10.0)})
+
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    ev.set_output_folder(tmp_output)
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+    results = ev.evaluate_metrics()
+
+    assert results["dist_mean_all"] == pytest.approx(0.0, abs=1e-6)
+
+  def test_id_without_colon_skipped(self, tmp_path, tmp_output):
+    """Object IDs without ':' are silently skipped."""
+    outputs = [
+      {
+        "cam_id": "cam1",
+        "frame": 0,
+        "timestamp": _make_timestamp(0),
+        "objects": [
+          {"id": "no_colon_id",  "translation": [9.0, 9.0, 0.0], "category": "x"},
+          {"id": "cam1:0",       "translation": [5.0, 10.0, 0.0], "category": "person"},
+        ],
+      }
+    ]
+    gt_file = _make_gt_csv(tmp_path, 1, {0: lambda f: (5.0, 10.0)})
+
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    ev.set_output_folder(tmp_output)
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+    results = ev.evaluate_metrics()
+
+    assert results["n_objects"] == 1
+    assert "dist_mean_cam1_0" in results
+
+  def test_ground_truth_as_iterator_path(self, tmp_path, tmp_output):
+    """_parse_ground_truth accepts iter([path_string]) form."""
+    n_frames = 10
+    outputs = _make_projected_outputs(n_frames, {"cam1": {"0": lambda i: (5.0, 10.0)}})
+    gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
+
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    ev.set_output_folder(tmp_output)
+    ev.process_tracker_outputs(iter(outputs), iter([gt_file]))
+    results = ev.evaluate_metrics()
+
+    assert results["dist_mean_all"] == pytest.approx(0.0, abs=1e-6)
+
+  def test_empty_camera_distance_df_skipped(self, tmp_path, tmp_output):
+    """Camera whose projected objects have no GT match is skipped in plots."""
+    n_frames = 10
+    outputs = _make_projected_outputs(
+      n_frames,
+      {
+        "cam1": {"0": lambda i: (5.0, 10.0)},
+        "cam2": {"99": lambda i: (1.0, 2.0)},  # obj 99 absent from GT
+      },
+    )
+    gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
+
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    ev.set_output_folder(tmp_output)
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+    ev.evaluate_metrics()  # must not raise
+
+    assert (tmp_output / "accuracy_summary.csv").exists()
+
+
+class TestFormatSummary:
+  def test_format_summary_no_results(self):
+    """format_summary before evaluate_metrics returns a no-results string."""
+    ev = CameraAccuracyEvaluator()
+    assert "(no results)" in ev.format_summary()
+
+  def test_format_summary_dist_only(self, tmp_path, tmp_output):
+    """format_summary produces a table with distance metric column."""
+    n_frames = 10
+    outputs = _make_projected_outputs(
+      n_frames, {"CamA": {"0": lambda i: (5.0, 10.0)}}
+    )
+    gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
+
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    ev.set_output_folder(tmp_output)
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+    ev.evaluate_metrics()
+    summary = ev.format_summary()
+
+    assert "CamA" in summary
+    assert "Mean Err (m)" in summary
+    assert "Overall mean error" in summary
+
+  def test_format_summary_both_metrics(self, tmp_path, tmp_output):
+    """format_summary includes visibility columns when both metrics active."""
+    n_frames = 10
+    outputs = _make_projected_outputs(
+      n_frames, {"CamB": {"1": lambda i: (3.0, 7.0)}}
+    )
+    gt_file = _make_gt_csv(tmp_path, n_frames, {1: lambda f: (3.0, 7.0)})
+
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T", "VISIBILITY"])
+    ev.set_output_folder(tmp_output)
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+    ev.evaluate_metrics()
+    summary = ev.format_summary()
+
+    assert "Vis (frames)" in summary
+    assert "Vis (%)" in summary
+    assert "Mean Err (m)" in summary

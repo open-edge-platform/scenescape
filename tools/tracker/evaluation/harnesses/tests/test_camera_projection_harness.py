@@ -131,3 +131,69 @@ class TestReset:
     harness.reset()
     assert harness._scene_config is None
     assert harness._output_folder is None
+
+
+class TestProcessInputsFull:
+  def test_process_inputs_success(
+    self, harness, sample_scene_config, sample_inputs, tmp_path
+  ):
+    """process_inputs returns projected output when container succeeds."""
+    harness.set_scene_config(sample_scene_config)
+    harness.set_output_folder(tmp_path)
+
+    expected = [{"timestamp": "2024-01-01T00:00:00.000Z", "objects": []}]
+
+    def fake_run_container():
+      (harness._temp_dir / "output.json").write_text(json.dumps(expected))
+
+    harness._run_container = fake_run_container
+    result = list(harness.process_inputs(iter(sample_inputs)))
+    assert result == expected
+
+  def test_process_inputs_container_failure_raises(
+    self, harness, sample_scene_config, sample_inputs
+  ):
+    """process_inputs raises RuntimeError when the container fails."""
+    harness.set_scene_config(sample_scene_config)
+
+    def fail_run_container():
+      raise RuntimeError("Docker not available")
+
+    harness._run_container = fail_run_container
+    with pytest.raises(RuntimeError, match="Projection processing failed"):
+      list(harness.process_inputs(iter(sample_inputs)))
+
+  def test_process_inputs_missing_output_raises(
+    self, harness, sample_scene_config, sample_inputs
+  ):
+    """process_inputs raises when container exits without writing output.json."""
+    harness.set_scene_config(sample_scene_config)
+
+    harness._run_container = lambda: None  # does NOT write output.json
+    with pytest.raises(RuntimeError, match="Projection processing failed|no output.json"):
+      list(harness.process_inputs(iter(sample_inputs)))
+
+
+class TestPrivateHelpers:
+  def test_copy_projection_script(self, harness, sample_scene_config, tmp_path):
+    """_copy_projection_script copies run_projection.py into _temp_dir."""
+    harness.set_scene_config(sample_scene_config)
+    harness._temp_dir = tmp_path / "workdir"
+    harness._temp_dir.mkdir()
+    harness._copy_projection_script()
+    assert (harness._temp_dir / "run_projection.py").exists()
+
+  def test_persist_artifact_with_output_folder(self, harness, tmp_path):
+    """_persist_artifact copies the file when output folder is set."""
+    source = tmp_path / "data.txt"
+    source.write_text("hello")
+    harness.set_output_folder(tmp_path / "out")
+    harness._persist_artifact(source, "copy.txt")
+    assert (tmp_path / "out" / "copy.txt").exists()
+
+  def test_persist_artifact_noop_without_folder(self, harness, tmp_path):
+    """_persist_artifact does nothing when no output folder is configured."""
+    source = tmp_path / "data.txt"
+    source.write_text("hello")
+    harness._persist_artifact(source, "copy.txt")  # must not raise
+    assert not (tmp_path / "copy.txt").exists()
