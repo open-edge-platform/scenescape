@@ -4,7 +4,7 @@
 """CameraProjectionHarness: projects per-camera bounding-box detections to world
 coordinates and returns results in canonical Tracker Output Format.
 
-Unlike SceneControllerHarness, this harness bypasses the full tracking pipeline
+Harness bypasses the full tracking pipeline
 and only applies camera-pose projection.  This lets us measure the raw position
 error introduced by each camera's calibration before any tracker fusion.
 

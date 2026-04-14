@@ -3,14 +3,6 @@
 
 # Camera Projection Evaluation Pipeline Configuration
 # Evaluates per-camera projection accuracy using the Metric Test Dataset.
-#
-# Unlike the controller evaluation pipeline (which runs the full tracker),
-# this pipeline bypasses tracking and only applies camera-pose projection.
-# This isolates the position error introduced by each camera's calibration.
-#
-# Goals:
-#   1. Average distance error per object per camera  (calibration accuracy)
-#   2. Visibility per object per camera              (coverage analysis)
 
 pipeline:
   output:

@@ -439,9 +439,13 @@ def main():
 
     # Print results
     print("\n=== Evaluation Results ===")
-    for i, (evaluator_name, evaluator_metrics) in enumerate(metrics.items()):
+    evaluator_by_key = {
+      engine._get_evaluator_key(i): ev
+      for i, ev in enumerate(engine._evaluators)
+    }
+    for evaluator_name, evaluator_metrics in metrics.items():
       print(f"\n[{evaluator_name}]")
-      evaluator = engine._evaluators[i] if i < len(engine._evaluators) else None
+      evaluator = evaluator_by_key.get(evaluator_name)
       if evaluator is not None and hasattr(evaluator, 'format_summary'):
         print(evaluator.format_summary())
       else:
