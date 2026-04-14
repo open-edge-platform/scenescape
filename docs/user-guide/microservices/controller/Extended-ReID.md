@@ -152,7 +152,8 @@ controller/config/reid-config.json
   "stale_feature_check_interval_secs": 1.0,
   "feature_accumulation_threshold": 12,
   "feature_slice_size": 10,
-  "similarity_threshold": 60
+  "similarity_threshold": 60,
+  "vector_dimensions": 256
 }
 ```
 
@@ -165,6 +166,16 @@ controller/config/reid-config.json
 | `feature_accumulation_threshold`    | int   | 12      | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.     |
 | `feature_slice_size`                | int   | 10      | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector. |
 | `similarity_threshold`              | int   | 60      | Minimum similarity score (0-100) for a match to be considered valid. Higher values = stricter matching.                                                               |
+| `vector_dimensions`                 | int   | 256     | Re-ID embedding length used to initialize the VDMS descriptor set schema (`dimensions`) and to validate embedding vector length before persistence.                      |
+
+### Embedding Dimension Compatibility
+
+`vector_dimensions` must match your end-to-end embedding pipeline:
+
+- **VDMS schema compatibility**: The configured value is used by the controller when creating the VDMS descriptor set schema (`dimensions`). If the descriptor set already exists in VDMS with a different dimension, the controller does not auto-migrate it. Keep `vector_dimensions` aligned with the existing schema, or recreate the descriptor set/VDMS data when changing dimensions.
+- **Embedding producer compatibility**: The visual embedding producer (for example, your DL Streamer ReID inference path) must emit vectors whose length equals `vector_dimensions`.
+- **Controller validation behavior**: On insert, vectors are flattened and validated against `vector_dimensions`; vectors with mismatched length are skipped and logged, so they are not stored.
+- **Decode-path compatibility constraint**: The current base64 decode path in `MovingObject` is fixed to `256f`. If you use non-256 dimensions, provide embeddings in decoded list/array form compatible with the controller path, or update the decode path accordingly.
 
 ### Using the Configuration File
 
@@ -180,7 +191,7 @@ python scene_controller.py \
 
 **Current Implementation Note**:
 
-- `stale_feature_timeout_secs`, `stale_feature_check_interval_secs`, `feature_accumulation_threshold`, `feature_slice_size`, and `similarity_threshold` are fully implemented
+- `stale_feature_timeout_secs`, `stale_feature_check_interval_secs`, `feature_accumulation_threshold`, `feature_slice_size`, `similarity_threshold`, and `vector_dimensions` are fully implemented
 - All semantic metadata attributes are currently used for TIER 1 filtering. Selective metadata filtering is planned for Phase 2.
 
 ### Tuning Recommendations
