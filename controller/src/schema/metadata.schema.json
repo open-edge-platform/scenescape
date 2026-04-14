@@ -130,6 +130,9 @@
               "embedding_vector": {
                 "type": "string"
               },
+              "embedding_dimensions": {
+                "type": "integer"
+              },
               "model_name": {
                 "type": "string"
               }

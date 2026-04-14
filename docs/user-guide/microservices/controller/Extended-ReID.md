@@ -152,30 +152,29 @@ controller/config/reid-config.json
   "stale_feature_check_interval_secs": 1.0,
   "feature_accumulation_threshold": 12,
   "feature_slice_size": 10,
-  "similarity_threshold": 60,
-  "vector_dimensions": 256
+  "similarity_threshold": 60
 }
 ```
 
 ### Configuration Parameters
 
-| Parameter                           | Type  | Default | Description                                                                                                                                                           |
-| ----------------------------------- | ----- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stale_feature_timeout_secs`        | float | 5.0     | How long (seconds) to accumulate features in memory before flushing to VDMS. Features older than this threshold are persisted to the database for long-term storage.  |
-| `stale_feature_check_interval_secs` | float | 1.0     | How frequently (seconds) the background timer checks for stale features and flushes them to VDMS. More frequent checks ensure timely database updates.                |
-| `feature_accumulation_threshold`    | int   | 12      | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.     |
-| `feature_slice_size`                | int   | 10      | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector. |
-| `similarity_threshold`              | int   | 60      | Minimum similarity score (0-100) for a match to be considered valid. Higher values = stricter matching.                                                               |
-| `vector_dimensions`                 | int   | 256     | Re-ID embedding length used to initialize the VDMS descriptor set schema (`dimensions`) and to validate embedding vector length before persistence.                   |
+| Parameter                           | Type  | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----------------------------------- | ----- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stale_feature_timeout_secs`        | float | 5.0     | How long (seconds) to accumulate features in memory before flushing to VDMS. Features older than this threshold are persisted to the database for long-term storage.                                                                                                                                                                                                                                                         |
+| `stale_feature_check_interval_secs` | float | 1.0     | How frequently (seconds) the background timer checks for stale features and flushes them to VDMS. More frequent checks ensure timely database updates.                                                                                                                                                                                                                                                                       |
+| `feature_accumulation_threshold`    | int   | 12      | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.                                                                                                                                                                                                                                                            |
+| `feature_slice_size`                | int   | 10      | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector.                                                                                                                                                                                                                                                        |
+| `similarity_threshold`              | int   | 60      | Minimum similarity score (0-100) for a match to be considered valid. Higher values = stricter matching.                                                                                                                                                                                                                                                                                                                      |
+| `vector_dimensions`                 | int   | auto    | **Optional.** Override the embedding vector length used for the VDMS descriptor set schema. When absent (recommended), the controller infers the dimension automatically from the first received embedding. Set this only to validate that your producer always emits a specific length; a mismatch between the configured value and the received embedding causes the controller to reject all embeddings and log an error. |
 
-### Embedding Dimension Compatibility
+### Embedding Dimension Inference
 
-`vector_dimensions` must match your end-to-end embedding pipeline:
+The controller automatically infers the ReID embedding dimension from the first vector it receives at runtime, removing the need to keep `vector_dimensions` in configuration synchronized with the model:
 
-- **VDMS schema compatibility**: The configured value is used by the controller when creating the VDMS descriptor set schema (`dimensions`). If the descriptor set already exists in VDMS with a different dimension, the controller does not auto-migrate it. Keep `vector_dimensions` aligned with the existing schema, or recreate the descriptor set/VDMS data when changing dimensions.
-- **Embedding producer compatibility**: The visual embedding producer (for example, your DL Streamer ReID inference path) must emit vectors whose length equals `vector_dimensions`.
-- **Controller validation behavior**: On insert, vectors are flattened and validated against `vector_dimensions`; vectors with mismatched length are skipped and logged, so they are not stored.
-- **Decode-path compatibility constraint**: The current base64 decode path in `MovingObject` is fixed to `256f`. If you use non-256 dimensions, provide embeddings in decoded list/array form compatible with the controller path, or update the decode path accordingly.
+- **Auto-inference (default)**: On the first decoded embedding the controller reads the vector length from the payload, creates the VDMS descriptor set schema with that dimension, and locks that dimension for the process lifetime. All subsequent embeddings are validated against that inferred length; mismatches are discarded with a warning.
+- **Optional override** (`vector_dimensions` in config): Set this when you want the controller to reject embeddings whose length does not match a specific value. Useful in deployments where the embedding model is fixed and any deviation should be treated as a misconfiguration. A mismatch triggers an error and no vectors are stored for that run.
+- **Switching ReID models**: Because the dimension is locked after the first embedding, switching to a model with a different output length requires restarting the controller. The VDMS descriptor set must also be recreated if the stored dimension differs (VDMS does not support in-place schema migration).
+- **Base64 compatibility**: The controller decodes base64 embeddings using the payload byte length by default. Producers can also include an optional `embedding_dimensions` field alongside `embedding_vector`; if provided, it must match the packed float count.
 
 ### Using the Configuration File
 
@@ -191,7 +190,8 @@ python scene_controller.py \
 
 **Current Implementation Note**:
 
-- `stale_feature_timeout_secs`, `stale_feature_check_interval_secs`, `feature_accumulation_threshold`, `feature_slice_size`, `similarity_threshold`, and `vector_dimensions` are fully implemented
+- `stale_feature_timeout_secs`, `stale_feature_check_interval_secs`, `feature_accumulation_threshold`, `feature_slice_size`, and `similarity_threshold` are fully implemented
+- `vector_dimensions` is optional; omit it to let the controller infer dimensions automatically from the first received embedding
 - All semantic metadata attributes are currently used for TIER 1 filtering. Selective metadata filtering is planned for Phase 2.
 
 ### Tuning Recommendations

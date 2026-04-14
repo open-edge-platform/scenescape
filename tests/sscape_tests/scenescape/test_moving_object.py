@@ -52,19 +52,48 @@ class TestMovingObject:
     assert obj.reid['embedding_vector'] == [0.1, 0.2]
     assert 'metadata' not in obj.info
 
-  def test_init_decodes_base64_reid_vector(self):
+  def test_init_decodes_base64_reid_vector_with_runtime_length(self):
     when = datetime.datetime.now(datetime.timezone.utc)
-    vector = np.zeros(256, dtype=np.float32)
+    vector = np.arange(192, dtype=np.float32)
     encoded = base64.b64encode(vector.tobytes()).decode('utf-8')
     metadata = {
-      'reid': {'embedding_vector': encoded, 'model_name': 'reid-v2'}
+      'reid': {
+        'embedding_vector': encoded,
+        'embedding_dimensions': 192,
+        'model_name': 'reid-v2'
+      }
     }
 
     obj = MovingObject(_base_info(metadata=metadata), when, _camera())
 
     assert obj.reid['model_name'] == 'reid-v2'
-    assert obj.reid['embedding_vector'].shape == (1, 256)
-    assert np.allclose(obj.reid['embedding_vector'], 0.0)
+    assert obj.reid['embedding_dimensions'] == 192
+    assert obj.reid['embedding_vector'].shape == (1, 192)
+    assert np.allclose(obj.reid['embedding_vector'], vector.reshape(1, -1))
+
+  def test_dump_and_load_round_trip_reid_with_embedding_dimensions(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    obj = MovingObject(_base_info(metadata={'age': 'adult'}), when, _camera())
+    obj.gid = 'gid-1'
+    obj.reid = {
+      'embedding_vector': np.arange(64, dtype=np.float32).reshape(1, -1),
+      'model_name': 'reid-v3'
+    }
+    obj.location = [Chronoloc(Point(1.0, 2.0, 3.0), when, obj.boundingBox)]
+    obj.vectors = [SimpleNamespace(camera=_camera(), point=Point(1.0, 2.0, 3.0), last_seen=when)]
+
+    dumped = obj.dump()
+
+    assert dumped['reid']['embedding_dimensions'] == 64
+    assert isinstance(dumped['reid']['embedding_vector'], str)
+
+    loaded = MovingObject(_base_info(object_id='obj-2'), when, _camera())
+    loaded.load(dumped, SimpleNamespace(cameras={'cam-1': _camera()}))
+
+    assert loaded.reid['model_name'] == 'reid-v3'
+    assert loaded.reid['embedding_dimensions'] == 64
+    assert loaded.reid['embedding_vector'].shape == (1, 64)
+    assert np.allclose(loaded.reid['embedding_vector'], obj.reid['embedding_vector'])
 
   def test_set_persistent_attributes_stores_full_and_partial_values(self):
     when = datetime.datetime.now(datetime.timezone.utc)

@@ -18,6 +18,36 @@ from controller.uuid_manager import UUIDManager
 class TestUUIDManagerInitialization:
   """Test UUIDManager initialization and basic setup."""
 
+  def test_initialization_applies_vector_dimensions_from_reid_config(self):
+    """Verify explicit vector_dimensions is forwarded to the selected DB constructor."""
+    mock_db_instance = MagicMock()
+    captured_kwargs = {}
+
+    def fake_db_constructor(**kwargs):
+      captured_kwargs.update(kwargs)
+      return mock_db_instance
+
+    with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_db_constructor}):
+      manager = UUIDManager(database="VDMS", reid_config_data={"vector_dimensions": 512})
+
+    assert captured_kwargs.get('dimensions') == 512
+    assert manager.reid_database is mock_db_instance
+
+  def test_initialization_without_vector_dimensions_passes_none_to_database(self):
+    """Verify that omitting vector_dimensions passes None to the DB constructor (auto-infer)."""
+    mock_db_instance = MagicMock()
+    captured_kwargs = {}
+
+    def fake_db_constructor(**kwargs):
+      captured_kwargs.update(kwargs)
+      return mock_db_instance
+
+    with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_db_constructor}):
+      manager = UUIDManager(database="VDMS", reid_config_data={})
+
+    assert captured_kwargs.get('dimensions') is None, "Should pass None when vector_dimensions absent"
+    assert manager._inferred_dimensions is None, "Should start with no inferred dimensions"
+
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_initialization_with_default_database(self, mock_vdms_class):
     """Verify UUIDManager initializes with default VDMS database."""
@@ -586,3 +616,108 @@ class TestDataTypes:
       "model_name": "desc",
       "confidence": 0.9
     }
+
+
+class TestDimensionInference:
+  """Test automatic ReID embedding dimension inference from first observed vector."""
+
+  def _make_manager_with_mock_db(self, reid_config_data=None):
+    """Helper: build a UUIDManager whose DB is a MagicMock via patch.dict."""
+    mock_db = MagicMock()
+
+    def fake_constructor(**kwargs):
+      return mock_db
+
+    if reid_config_data is None:
+      reid_config_data = {}
+    with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_constructor}):
+      manager = UUIDManager(database="VDMS", reid_config_data=reid_config_data)
+    return manager, mock_db
+
+  def test_infer_dimensions_from_first_embedding(self):
+    """Verify _ensureReIDDimensions infers dimension from first embedding and calls ensureSchema."""
+    manager, mock_db = self._make_manager_with_mock_db()
+    assert manager._inferred_dimensions is None
+
+    embedding = np.arange(192, dtype=np.float32)
+    result = manager._ensureReIDDimensions(embedding)
+
+    assert result is True, "Should accept first embedding"
+    assert manager._inferred_dimensions == 192, "Should lock in inferred dimension"
+    mock_db.ensureSchema.assert_called_once_with(192)
+
+  def test_infer_accepts_subsequent_embedding_with_same_dimension(self):
+    """Verify _ensureReIDDimensions accepts all embeddings matching the inferred dimension."""
+    manager, mock_db = self._make_manager_with_mock_db()
+    first = np.arange(128, dtype=np.float32)
+    second = np.ones(128, dtype=np.float32)
+
+    assert manager._ensureReIDDimensions(first) is True
+    assert manager._ensureReIDDimensions(second) is True
+    assert manager._inferred_dimensions == 128
+    mock_db.ensureSchema.assert_called_once_with(128)
+
+  def test_reject_embedding_with_inconsistent_dimension(self):
+    """Verify _ensureReIDDimensions discards embeddings whose length differs from the inferred one."""
+    manager, mock_db = self._make_manager_with_mock_db()
+    first = np.arange(256, dtype=np.float32)
+    mismatched = np.arange(128, dtype=np.float32)
+
+    manager._ensureReIDDimensions(first)
+    result = manager._ensureReIDDimensions(mismatched)
+
+    assert result is False, "Should reject embedding with different dimension"
+    assert manager._inferred_dimensions == 256, "Locked dimension should remain unchanged"
+
+  def test_explicit_config_dimension_used_as_initial_inferred(self):
+    """Verify that a configured vector_dimensions seeds _inferred_dimensions."""
+    manager, _ = self._make_manager_with_mock_db(reid_config_data={"vector_dimensions": 512})
+
+    assert manager._inferred_dimensions == 512, "Configured dimension should seed inferred value"
+
+  def test_reject_embedding_mismatching_configured_dimension(self):
+    """Verify embedding is rejected when its dimension differs from an explicitly configured one."""
+    manager, _ = self._make_manager_with_mock_db(reid_config_data={"vector_dimensions": 512})
+    wrong = np.arange(256, dtype=np.float32)
+
+    result = manager._ensureReIDDimensions(wrong)
+
+    assert result is False, "Should reject embedding whose dimension mismatches configured value"
+
+  def test_ensure_schema_error_causes_false_return(self):
+    """Verify False is returned and dimension remains unset when ensureSchema raises."""
+    mock_db = MagicMock()
+    mock_db.ensureSchema.side_effect = ValueError("schema conflict")
+
+    def fake_constructor(**kwargs):
+      return mock_db
+
+    with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_constructor}):
+      manager = UUIDManager(database="VDMS", reid_config_data={})
+
+    result = manager._ensureReIDDimensions(np.arange(256, dtype=np.float32))
+
+    assert result is False, "Should return False when ensureSchema raises"
+    assert manager._inferred_dimensions is None, "Dimension should remain unset after failure"
+
+  def test_gather_features_uses_inferred_dimension_gate(self):
+    """Verify gatherQualityVisualFeatures silently drops embeddings with wrong dimension."""
+    manager, _ = self._make_manager_with_mock_db()
+
+    good_obj = MagicMock()
+    good_obj.rv_id = "track_1"
+    good_obj.reid = {"embedding_vector": np.arange(64, dtype=np.float32).tolist()}
+    good_obj.boundingBoxPixels = MagicMock()
+    good_obj.boundingBoxPixels.area = 10000
+
+    bad_obj = MagicMock()
+    bad_obj.rv_id = "track_2"
+    bad_obj.reid = {"embedding_vector": np.arange(128, dtype=np.float32).tolist()}
+    bad_obj.boundingBoxPixels = MagicMock()
+    bad_obj.boundingBoxPixels.area = 10000
+
+    manager.gatherQualityVisualFeatures(good_obj)
+    manager.gatherQualityVisualFeatures(bad_obj)
+
+    assert "track_1" in manager.quality_features, "64-dim embedding should be accepted"
+    assert "track_2" not in manager.quality_features, "128-dim embedding should be rejected after 64 inferred"

@@ -77,9 +77,9 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
         obj_dict['metadata']['reid'] = {'embedding_vector': reid_embedding.tolist()}
       else:
         obj_dict['metadata']['reid'] = {'embedding_vector': reid_embedding}
-      # Add model_name if available
-      if 'model_name' in aobj.reid:
-        obj_dict['metadata']['reid']['model_name'] = aobj.reid['model_name']
+      for key in ('model_name', 'embedding_dimensions'):
+        if key in aobj.reid:
+          obj_dict['metadata']['reid'][key] = aobj.reid[key]
 
   if hasattr(aobj, 'visibility'):
     obj_dict['visibility'] = aobj.visibility

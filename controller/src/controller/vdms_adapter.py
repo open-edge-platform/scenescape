@@ -21,7 +21,7 @@ SIMILARITY_METRIC = "L2"
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
-               similarity_metric=SIMILARITY_METRIC, dimensions=DIMENSIONS,
+               similarity_metric=SIMILARITY_METRIC, dimensions=None,
                confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD):
     self.db = vdms.vdms(
       use_tls=True,
@@ -34,6 +34,8 @@ class VDMSDatabase(ReIDDatabase):
     self.dimensions = dimensions
     self.confidence_threshold = confidence_threshold
     self.lock = threading.Lock()
+    self._schema_lock = threading.Lock()
+    self._schema_ready = False
     return
 
   def sendQuery(self, query, blob=None):
@@ -74,8 +76,11 @@ class VDMSDatabase(ReIDDatabase):
   def connect(self, hostname=DEFAULT_HOSTNAME):
     try:
       self.db.connect(hostname)
-      if not self.findSchema(self.set_name):
-        self.addSchema(self.set_name, self.similarity_metric, self.dimensions)
+      if self.dimensions is not None:
+        with self._schema_lock:
+          if not self.findSchema(self.set_name):
+            self.addSchema(self.set_name, self.similarity_metric, self.dimensions)
+          self._schema_ready = True
     except socket.error as e:
       log.warning(f"Failed to connect to VDMS container: {e}")
     return
@@ -93,6 +98,30 @@ class VDMSDatabase(ReIDDatabase):
       log.warning(
         f"Failed to add the descriptor set to the database. Received response {response[0]}")
     return
+
+  def ensureSchema(self, dimensions):
+    """
+    Initialize the VDMS descriptor set schema with the given dimensions.
+    Called lazily when the first ReID embedding is observed, removing the need
+    to pre-configure vector_dimensions before runtime.
+    Thread-safe; idempotent when called with consistent dimensions.
+
+    @param   dimensions  Number of float32 elements in each embedding vector
+    @raises  ValueError  If called with dimensions inconsistent with a previously
+                         initialized schema
+    """
+    with self._schema_lock:
+      if self._schema_ready:
+        if int(self.dimensions) != int(dimensions):
+          raise ValueError(
+            f"ReID schema already initialized with {self.dimensions} dimensions; "
+            f"incoming vector has {dimensions} dimensions. "
+            f"Restart the controller and flush the VDMS descriptor set to change dimensions.")
+        return
+      self.dimensions = int(dimensions)
+      if not self.findSchema(self.set_name):
+        self.addSchema(self.set_name, self.similarity_metric, self.dimensions)
+      self._schema_ready = True
 
   def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name=SCHEMA_NAME, **metadata):
     """
@@ -147,6 +176,9 @@ class VDMSDatabase(ReIDDatabase):
       # Ensure vector is properly formatted as 1D array of float32
       # reid_vector might be shape (N,) from moving_object, need to flatten to (N,)
       vec_array = np.asarray(reid_vector, dtype="float32").flatten()
+      if self.dimensions is None:
+        log.warning("addEntry: ReID dimensions not yet initialized, skipping vector")
+        continue
       if vec_array.shape[0] != self.dimensions:
         log.warning(f"addEntry: Expected vector shape ({self.dimensions},) but got {vec_array.shape}, skipping this vector")
         continue

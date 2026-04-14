@@ -8,7 +8,9 @@ import threading
 import time
 from unittest import result
 
-from controller.vdms_adapter import VDMSDatabase, DIMENSIONS
+import numpy as np
+
+from controller.vdms_adapter import VDMSDatabase
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
 
@@ -35,10 +37,12 @@ class UUIDManager:
     self.features_for_database_timestamps = {}  # Track when features were added
     self.quality_features = {}
     self.unique_id_count = 0
-    # Extract vector dimensions from reid config, pass to database
+    # vector_dimensions is optional; if absent, inferred from first observed embedding
     if reid_config_data is None:
       reid_config_data = {}
-    vector_dimensions = reid_config_data.get('vector_dimensions', DIMENSIONS)
+    vector_dimensions = reid_config_data.get('vector_dimensions', None)
+    self._inferred_dimensions = vector_dimensions
+    self._dimensions_lock = threading.Lock()
     self.reid_database = available_databases[database](dimensions=vector_dimensions)
     self.pool = concurrent.futures.ThreadPoolExecutor()
     self.similarity_query_times = collections.deque(
@@ -100,6 +104,36 @@ class UUIDManager:
 
   def connectDatabase(self):
     self.pool.submit(self.reid_database.connect)
+
+  def _ensureReIDDimensions(self, embedding):
+    """
+    Infer the ReID embedding dimension from the first observed vector and lazily
+    initialize the VDMS descriptor set schema with that dimension.
+    On subsequent calls, validate that the embedding dimension is consistent with
+    the first observed vector so that mixed-model or mis-configured producers are
+    caught early rather than producing silent data corruption in the DB.
+
+    @param   embedding  Decoded ReID embedding (numpy array or list)
+    @return  bool       True if the embedding should be used; False if it must be discarded
+    """
+    dim = int(np.asarray(embedding).reshape(-1).shape[0])
+    with self._dimensions_lock:
+      if self._inferred_dimensions is None:
+        log.info(f"Inferred ReID embedding dimensions from first observed vector: {dim}")
+        try:
+          self.reid_database.ensureSchema(dim)
+        except ValueError as err:
+          log.error(f"ReID schema initialization failed: {err}")
+          return False
+        self._inferred_dimensions = dim
+        return True
+      if dim != self._inferred_dimensions:
+        log.warning(
+          f"Discarding ReID embedding with inconsistent dimension {dim}; "
+          f"expected {self._inferred_dimensions} (inferred from first observed vector). "
+          f"Restart the controller to switch ReID models.")
+        return False
+      return True
 
   def _extractReidEmbedding(self, sscape_object):
     """
@@ -236,6 +270,8 @@ class UUIDManager:
     reid_embedding = self._extractReidEmbedding(sscape_object)
 
     if reid_embedding is not None and self.reid_enabled:
+      if not self._ensureReIDDimensions(reid_embedding):
+        return
       bbox_area = sscape_object.boundingBoxPixels.area if hasattr(sscape_object, 'boundingBoxPixels') else 0
       if bbox_area > minimum_bbox_area:
         if sscape_object.rv_id in self.quality_features:
@@ -265,7 +301,7 @@ class UUIDManager:
       sscape_object.similarity = result[1]
       reid_embedding = self._extractReidEmbedding(sscape_object)
 
-      if reid_embedding is not None:
+      if reid_embedding is not None and self._ensureReIDDimensions(reid_embedding):
         if sscape_object.rv_id in self.features_for_database:
           self.features_for_database[sscape_object.rv_id]['reid_vectors'].append(
             reid_embedding)
