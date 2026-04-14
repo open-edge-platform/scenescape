@@ -111,6 +111,56 @@ The tracker runs with configurable timing modes:
 - **Time chunking enabled**: Processes detections at configured FPS rate with synchronized output
 - **Time chunking disabled**: Processes detections with fixed 25ms intervals to speed up execution
 
+### CameraProjectionHarness
+
+**Purpose**: Project per-camera bounding-box detections to world coordinates and return results in canonical Tracker Output Format, **bypassing the full tracking pipeline**. This isolates the position error introduced by each camera's calibration.
+
+**Mode**: **Synchronous batch processing** — processes all inputs and returns outputs.
+
+**Key Features**:
+
+- Runs `run_projection.py` inside a `scenescape-controller` Docker container (which already has `scene_common`, OpenCV, and open3d).
+- Accepts standard scene configuration format (same as `dataset.get_scene_config()`).
+- Projects bounding-box bottom-centre `(centre_x, bottom_y)` to world XY plane via `CameraPose.cameraPointToWorldPoint()`.
+- Encodes output object IDs as `"{camera_id}:{object_id}"` so `CameraAccuracyEvaluator` can split them back into camera and object parts.
+- Optionally persists `inputs.json` and `outputs.json` artefacts to the configured output folder.
+
+**Prerequisites**:
+
+- Docker installed and running
+- SceneScape controller image available (e.g., `scenescape-controller:2026.1.0-dev`)
+
+**Configuration**:
+
+```python
+from harnesses.camera_projection_harness import CameraProjectionHarness
+from datasets.metric_test_dataset import MetricTestDataset
+
+dataset = MetricTestDataset("path/to/dataset")
+dataset.set_cameras(["x1", "x2"]).set_camera_fps(30)
+
+harness = CameraProjectionHarness(container_image="scenescape-controller:2026.1.0-dev")
+harness.set_scene_config(dataset.get_scene_config())
+
+outputs = list(harness.process_inputs(dataset.get_inputs()))
+```
+
+**Optional custom config key**:
+
+- `container_image`: override the Docker image at runtime.
+
+**Output Object ID format**: `"{camera_id}:{object_id}"` (e.g., `"Cam_x1_0:2"`).
+
+**Implementation**: [camera_projection_harness/](camera_projection_harness/)
+
+**Files**:
+
+- **camera_projection_harness.py**: Main harness implementation
+- **run_projection.py**: Script executed inside the container to apply `CameraPose` projection
+- ****init**.py**: Module initialisation
+
+**Tests**: See [tests/test_camera_projection_harness.py](tests/test_camera_projection_harness.py) — 18 test cases covering initialisation, scene/custom config validation, output folder, `process_inputs()` success/failure paths, helper methods, and reset.
+
 ## Adding New Harnesses
 
 To add support for a new tracker deployment method:

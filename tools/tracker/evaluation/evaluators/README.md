@@ -231,6 +231,73 @@ evaluators:
 
 **Tests**: See [tests/test_jitter_evaluator.py](tests/test_jitter_evaluator.py).
 
+### CameraAccuracyEvaluator
+
+**Purpose**: Measure the raw position error introduced by each camera's calibration by comparing projected world-coordinate positions against ground-truth positions, without any tracker fusion.
+
+**Status**: **FULLY IMPLEMENTED** — Computes per-camera, per-object distance error and visibility from `CameraProjectionHarness` outputs.
+
+**Supported Metrics**:
+
+| Metric       | Description                                                                                          |
+| ------------ | ---------------------------------------------------------------------------------------------------- |
+| `DIST_T`     | Per-frame Euclidean distance (m) between projected and ground-truth XY position, averaged per object |
+| `VISIBILITY` | Number of frames each camera detects each object (and as % of total GT frames)                       |
+
+**Key Features**:
+
+- **Per-camera, per-object breakdown**: every `(camera, object)` pair gets its own mean error and visibility count.
+- **Object ID decoding**: harness encodes IDs as `"{camera_id}:{object_id}"`; this evaluator splits them back.
+- **Human-readable CSV output**: `summary_table.csv` uses column names like `"Cam_x1_0 - Mean Error (m)"`.
+- **Terminal table**: `format_summary()` renders a 2-row-header table with `|` separators between camera groups.
+- **Plots** (per camera):
+  - `distance_errors_{cam}.png` — distance error over time.
+  - `trajectories_{cam}.png` — projected (solid) vs GT (dashed) XY trajectories, tight-zoomed with start-point markers.
+- **Visibility bar chart**: `visibility_bar_chart.png` comparing per-object visibility across cameras.
+
+**Metrics returned by `evaluate_metrics()`**:
+
+- `n_cameras`, `n_objects` — counts (int)
+- `dist_mean_all`, `dist_mean_{cam}`, `dist_mean_{cam}_{obj}` — distance errors (float, metres)
+- `visibility_{cam}_{obj}` — frame count (int)
+- `visibility_pct_{cam}_{obj}` — visibility percentage (float, 0–100)
+
+**Usage Example**:
+
+```python
+from pathlib import Path
+from evaluators.camera_accuracy_evaluator import CameraAccuracyEvaluator
+
+evaluator = CameraAccuracyEvaluator()
+evaluator.configure_metrics(['DIST_T', 'VISIBILITY'])
+evaluator.set_output_folder(Path('/path/to/results'))
+evaluator.process_tracker_outputs(harness_outputs, gt_file_path)
+results = evaluator.evaluate_metrics()
+
+print(evaluator.format_summary())
+print(f"Overall mean error: {results['dist_mean_all']:.3f} m")
+```
+
+**Pipeline Configuration**:
+
+```yaml
+harness:
+  class: harnesses.camera_projection_harness.CameraProjectionHarness
+  config:
+    container_image: scenescape-controller:latest
+
+evaluators:
+  - class: evaluators.camera_accuracy_evaluator.CameraAccuracyEvaluator
+    config:
+      metrics: [DIST_T, VISIBILITY]
+```
+
+See `pipeline_configs/camera_projection_evaluation.yaml` for a ready-to-run example.
+
+**Implementation**: [camera_accuracy_evaluator.py](camera_accuracy_evaluator.py)
+
+**Tests**: See [tests/test_camera_accuracy_evaluator.py](tests/test_camera_accuracy_evaluator.py) — 28 test cases covering configuration, metric computation, CSV/plot outputs, `format_summary()`, edge cases, and reset.
+
 ## Adding New Evaluators
 
 To add support for a new metric computation library:

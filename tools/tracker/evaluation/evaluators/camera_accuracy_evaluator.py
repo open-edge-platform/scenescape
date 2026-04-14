@@ -34,19 +34,33 @@ Metrics returned by ``evaluate_metrics()``
 ------------------------------------------
 The method returns a flat ``Dict[str, float]`` of summary scalars:
 
-  - ``n_cameras``:   number of unique cameras seen in tracker outputs.
-  - ``n_objects``:   number of GT objects matched.
-  - ``dist_mean_all``:  overall mean distance error across all (cam, obj) pairs.
-  - ``dist_mean_{cam_key}``:  mean error per camera (cam_key has ``/`` replaced
-                               with ``_`` to stay a valid key).
-  - ``visibility_{cam_key}_{obj_id}``: frame count per (camera, object).
+  - ``n_cameras`` (int):      number of unique cameras seen in tracker outputs.
+  - ``n_objects`` (int):      number of GT objects matched.
+  - ``dist_mean_all``:        overall mean distance error across all (cam, obj) pairs.
+  - ``dist_mean_{cam_key}``:  mean error per camera (cam_key has ``/`` and ``:``
+                               replaced with ``_`` to stay a valid key).
   - ``dist_mean_{cam_key}_{obj_id}``: mean distance error per (camera, object).
+  - ``visibility_{cam_key}_{obj_id}`` (int): frame count per (camera, object).
+  - ``visibility_pct_{cam_key}_{obj_id}``: visibility as % of total GT frames
+                                            (float, 0–100).
 
-The detailed per-frame data is written to CSV files in the output folder:
-  - ``distance_errors.csv``:   frame-level (cam_id, object_id, frame, distance)
-  - ``visibility_summary.csv``: (cam_id, object_id, frame_count)
-  - ``accuracy_summary.csv``:  (cam_id, object_id, mean_distance_error)
-  - ``distance_errors_{cam_id}.png``:  per-camera distance-over-time plots
+Outputs written to the configured folder
+-----------------------------------------
+  - ``distance_errors.csv``:      frame-level rows: cam_id, object_id, frame,
+                                  proj_x, proj_y, gt_x, gt_y, distance.
+  - ``visibility_summary.csv``:   rows: cam_id, object_id, frame_count,
+                                  total_gt_frames, visibility_pct.
+  - ``accuracy_summary.csv``:     rows: cam_id, object_id, mean_distance_error.
+  - ``summary_table.csv``:        wide per-object table with human-readable
+                                  columns, e.g.
+                                  "Cam_x1_0 - Visibility (frames)",
+                                  "Cam_x1_0 - Visibility (%)",
+                                  "Cam_x1_0 - Mean Error (m)".
+  - ``distance_errors_{cam_key}.png``: distance error over time per camera.
+  - ``trajectories_{cam_key}.png``:    XY trajectories (projected solid,
+                                       GT dashed) with tight zoom per camera.
+  - ``visibility_bar_chart.png``:      bar chart comparing per-object visibility
+                                       across cameras.
 """
 
 import math
