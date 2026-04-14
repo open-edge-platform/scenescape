@@ -67,7 +67,7 @@ import math
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import matplotlib
 matplotlib.use('Agg')
@@ -150,7 +150,7 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
   def process_tracker_outputs(
     self,
     tracker_outputs: Iterator[Dict[str, Any]],
-    ground_truth: Iterator[Dict[str, Any]],
+    ground_truth: Union[str, Iterator[str]],
   ) -> 'CameraAccuracyEvaluator':
     """Parse projected outputs and ground truth for evaluation.
 
@@ -158,8 +158,11 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
       tracker_outputs: Iterator of Tracker Output Format dicts from
                        ``CameraProjectionHarness``.  Object IDs must be
                        encoded as ``"{camera_id}:{object_id}"``.
-      ground_truth: String path (or length-1 iterator containing the path)
-                    to a MOTChallenge 3-D CSV ground-truth file.
+      ground_truth: Path to a MOTChallenge 3-D CSV ground-truth file, either
+                    as a plain ``str`` (as returned by
+                    ``MetricTestDataset.get_ground_truth()``) or as a
+                    length-1 ``Iterator[str]`` (for pipeline-engine
+                    compatibility with other evaluators).
 
     Returns:
       Self for method chaining.
@@ -374,7 +377,7 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     sep = "  " + "-" * (len(sample) - 2)
 
     # --- Camera group header row ---
-    fixed_prefix_width = col_widths[0] + col_widths[1] + len(GAP)
+    fixed_prefix_width = sample.index(SEP) - len("  ")
     cam_group_parts = [" " * fixed_prefix_width]
     for ci, cam_id in enumerate(camera_ids):
       start = 2 + ci * metrics_per_cam
