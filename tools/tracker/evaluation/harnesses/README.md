@@ -157,7 +157,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 
 - **camera_projection_harness.py**: Main harness implementation
 - **run_projection.py**: Script executed inside the container to apply `CameraPose` projection
-- \***\*init**.py\*\*: Module initialisation
+- `__init__.py`: Module initialisation
 
 **Tests**: See [tests/test_camera_projection_harness.py](tests/test_camera_projection_harness.py) — 18 test cases covering initialisation, scene/custom config validation, output folder, `process_inputs()` success/failure paths, helper methods, and reset.
 

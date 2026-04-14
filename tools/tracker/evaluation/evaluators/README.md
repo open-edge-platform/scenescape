@@ -253,7 +253,7 @@ evaluators:
 - **Plots** (per camera):
   - `distance_errors_{cam}.png` — distance error over time.
   - `trajectories_{cam}.png` — projected (solid) vs GT (dashed) XY trajectories, tight-zoomed with start-point markers.
-- **Visibility bar chart**: `visibility_bar_chart.png` comparing per-object visibility across cameras.
+- **Visibility bar chart**: `visibility_per_camera.png` comparing per-object visibility across cameras.
 
 **Metrics returned by `evaluate_metrics()`**:
 

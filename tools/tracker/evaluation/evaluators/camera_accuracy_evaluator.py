@@ -435,7 +435,11 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     Args:
       tracker_outputs: Iterator returned by CameraProjectionHarness.
     """
-    frames_list = list(tracker_outputs)
+    frames_list = (
+      tracker_outputs
+      if isinstance(tracker_outputs, list)
+      else list(tracker_outputs)
+    )
     if not frames_list:
       raise RuntimeError("No tracker outputs provided")
 
@@ -719,5 +723,5 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     ax.legend(fontsize="small")
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
-    fig.savefig(folder / "visibility_per_camera.png", dpi=150)
+    fig.savefig(folder / "visibility_bar_chart.png", dpi=150)
     plt.close(fig)
