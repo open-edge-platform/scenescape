@@ -276,6 +276,7 @@ class SceneController:
     return
 
   def publishRegionDetections(self, scene, objects, otype, jdata):
+    current_time = get_epoch_time(jdata['timestamp'])
     for rname in scene.regions:
       robjects = []
       for obj in objects:
@@ -284,7 +285,7 @@ class SceneController:
       # Region-specific detections: include sensor data
       jdata['objects'] = buildDetectionsList(
         robjects, scene, False, include_sensors=True,
-        include_region_dwell=True, current_time=get_epoch_time(jdata['timestamp']))
+        include_region_dwell=True, current_time=current_time)
       olen = len(jdata['objects'])
       rid = scene.name + "/" + rname + "/" + otype
       if olen > 0 or rid not in scene.lastPubCount or scene.lastPubCount[rid] > 0:

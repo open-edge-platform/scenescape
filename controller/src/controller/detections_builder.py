@@ -11,6 +11,8 @@ from scene_common.timestamp import get_epoch_time, get_iso_time
 
 
 def buildDetectionsDict(objects, scene, include_sensors=False, include_region_dwell=False, current_time=None):
+  if include_region_dwell and current_time is None:
+    current_time = get_epoch_time()
   result_dict = {}
   for obj in objects:
     obj_dict = prepareObjDict(scene, obj, False, include_sensors, include_region_dwell, current_time)
@@ -19,6 +21,8 @@ def buildDetectionsDict(objects, scene, include_sensors=False, include_region_dw
 
 def buildDetectionsList(objects, scene, update_visibility=False, include_sensors=False,
                         include_region_dwell=False, current_time=None):
+  if include_region_dwell and current_time is None:
+    current_time = get_epoch_time()
   result_list = []
   for obj in objects:
     obj_dict = prepareObjDict(scene, obj, update_visibility, include_sensors,
