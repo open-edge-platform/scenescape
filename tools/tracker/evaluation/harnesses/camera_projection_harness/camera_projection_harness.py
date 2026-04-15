@@ -64,6 +64,10 @@ class CameraProjectionHarness(TrackerHarness):
 
   **Custom config keys** (all optional):
     - ``container_image`` (str): Docker image to use.
+    - ``object_classes`` (list): Per-category projection settings.  Each entry
+      is a dict with ``name``, ``shift_type`` (1 or 2), ``x_size``,
+      ``y_size`` (object footprint in metres).  Controls TYPE_2 angle
+      compensation and camloc size offset in ``run_projection.py``.
   """
 
   def __init__(self, container_image: str = DEFAULT_CONTAINER_IMAGE):
@@ -75,6 +79,7 @@ class CameraProjectionHarness(TrackerHarness):
     """
     self._container_image: str = container_image
     self._scene_config: Optional[Dict[str, Any]] = None
+    self._object_classes: list = []
     self._temp_dir: Optional[Path] = None
     self._output_folder: Optional[Path] = None
 
@@ -120,6 +125,8 @@ class CameraProjectionHarness(TrackerHarness):
       raise ValueError("Custom config must be a dictionary")
     if 'container_image' in config:
       self._container_image = config['container_image']
+    if 'object_classes' in config:
+      self._object_classes = list(config['object_classes'])
     return self
 
   def set_output_folder(self, path: Path) -> 'CameraProjectionHarness':
@@ -176,6 +183,12 @@ class CameraProjectionHarness(TrackerHarness):
       with open(config_file, 'w') as f:
         json.dump(self._scene_config, f, indent=2)
 
+      # Write projection params (object classes)
+      params = {"object_classes": self._object_classes}
+      params_file = self._temp_dir / "params.json"
+      with open(params_file, 'w') as f:
+        json.dump(params, f, indent=2)
+
       # Copy projection script
       self._copy_projection_script()
 
@@ -210,6 +223,7 @@ class CameraProjectionHarness(TrackerHarness):
       Self for method chaining.
     """
     self._scene_config = None
+    self._object_classes = []
     if self._temp_dir and self._temp_dir.exists():
       shutil.rmtree(self._temp_dir)
     self._temp_dir = None

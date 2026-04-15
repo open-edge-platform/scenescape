@@ -352,6 +352,9 @@ class PipelineEngine:
     if 'tracker_config_path' in config:
       custom_config['tracker_config_path'] = config['tracker_config_path']
 
+    if 'object_classes' in config:
+      custom_config['object_classes'] = config['object_classes']
+
     # Add any additional custom configuration
     if 'custom_config' in config:
       custom_config.update(config['custom_config'])
