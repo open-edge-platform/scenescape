@@ -381,18 +381,18 @@ interest changes. The `{event_type}` segment is typically `objects`.
 
 ### Region Event Top-Level Fields
 
-| Field         | Type                  | Description                                                                                                                                                                   |
-| ------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `timestamp`   | string (ISO 8601 UTC) | Event timestamp                                                                                                                                                               |
-| `scene_id`    | string                | Scene identifier (UUID)                                                                                                                                                       |
-| `scene_name`  | string                | Scene name                                                                                                                                                                    |
-| `region_id`   | string                | Region identifier (UUID)                                                                                                                                                      |
-| `region_name` | string                | Region name                                                                                                                                                                   |
-| `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                                                                                            |
-| `objects`     | array                 | Tracked objects currently inside the region. Each object includes live `regions.<region_name>.dwell` in addition to [Common Output Track Fields](#common-output-track-fields) |
-| `entered`     | array                 | Objects that entered the region during this cycle; each element is a bare track object and may include live `regions.<region_name>.dwell`. Empty when no entry occurred       |
-| `exited`      | array                 | Objects that exited the region during this cycle; each element is `{"object": <track>, "dwell": <seconds>}`. Empty when no exit occurred                                      |
-| `metadata`    | object                | Region geometry: `title`, `uuid`, `points` (polygon vertices in metres), `area` (`"poly"`), `fromSensor` (boolean)                                                            |
+| Field         | Type                  | Description                                                                                                                                                                 |
+| ------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `timestamp`   | string (ISO 8601 UTC) | Event timestamp                                                                                                                                                             |
+| `scene_id`    | string                | Scene identifier (UUID)                                                                                                                                                     |
+| `scene_name`  | string                | Scene name                                                                                                                                                                  |
+| `region_id`   | string                | Region identifier (UUID)                                                                                                                                                    |
+| `region_name` | string                | Region name                                                                                                                                                                 |
+| `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                                                                                          |
+| `objects`     | array                 | Tracked objects currently inside the region. Each object includes live `regions.<region_id>.dwell` in addition to [Common Output Track Fields](#common-output-track-fields) |
+| `entered`     | array                 | Objects that entered the region during this cycle; each element is a bare track object and may include live `regions.<region_id>.dwell`. Empty when no entry occurred       |
+| `exited`      | array                 | Objects that exited the region during this cycle; each element is `{"object": <track>, "dwell": <seconds>}`. Empty when no exit occurred                                    |
+| `metadata`    | object                | Region geometry: `title`, `uuid`, `points` (polygon vertices in metres), `area` (`"poly"`), `fromSensor` (boolean)                                                          |
 
 ### Example Region Event Message
 
