@@ -48,6 +48,27 @@ Bottom-centre in normalised image space:
 
 These coordinates are passed directly to
 ``CameraPose.cameraPointToWorldPoint(Point(centre_x, bottom_y))``.
+
+Known limitation — TYPE_1 projection only
+------------------------------------------
+The production controller supports two projection modes controlled by the
+``shift_type`` asset-configuration key:
+
+- **TYPE_1** (default): uses the bounding-box bottom-centre as the ground
+  contact point.  This is what this script implements.
+- **TYPE_2** (wide/short objects): shifts the projection point upward from
+  the bottom edge by ``(height / 2) * (baseAngle / 90)`` where ``baseAngle``
+  is the angle between the camera ray and the ground plane at the object
+  base, obtained from ``CameraPose.projectBounds()``.  This compensates for
+  perspective distortion on objects viewed from a steep camera angle.
+
+``shift_type`` is configured per object category in the tracker asset JSON
+(e.g. ``{"name": "person", "shift_type": 2}``).  The current metric test
+dataset uses only ``person`` objects with no ``shift_type`` override, so
+both modes are identical for that dataset and this script produces the same
+projection as the controller.  If a future dataset introduces TYPE_2
+categories, this script must be extended to read ``shift_type`` per category
+from the asset config and apply the corresponding formula.
 """
 
 import json

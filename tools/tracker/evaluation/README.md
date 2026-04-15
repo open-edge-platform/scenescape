@@ -241,6 +241,8 @@ The pipeline uses standardized data formats defined by JSON schemas to enable in
 
 ## Limitations
 
+- **`CameraProjectionHarness` — TYPE_1 projection only**: The production controller supports two bounding-box-to-ground-plane projection modes, selected per object category via the `shift_type` asset-configuration key. `TYPE_1` (default) uses the bounding-box bottom-centre as the ground contact point. `TYPE_2` applies a perspective correction based on the camera viewing angle (via `CameraPose.projectBounds()`), intended for wide or short objects. `CameraProjectionHarness` always uses the TYPE_1 formula. The current metric test dataset uses only `person` objects with no `shift_type` override, so both modes are equivalent. If a future dataset introduces TYPE_2 categories, `run_projection.py` must be extended to read `shift_type` per category from the asset config and apply the corrected projection.
+
 - **TrackEval timestamp deduplication**: TrackEval requires unique frame indices while the production tracker can emit multiple frames with identical timestamps when time-chunking is disabled. To bridge this mismatch, [evaluators/trackeval_evaluator.py](evaluators/trackeval_evaluator.py) filters duplicate timestamps inside `TrackEvalEvaluator.process_tracker_outputs()` and keeps only the first frame per timestamp before metrics are computed. This prevents TrackEval from double-counting frames until tracker-side chunking aligns with TrackEval's expectations. The impact on metrics is not significant, since frames with duplicated timestamps in most cases contain almost the same object coordinates.
 
 ## Testing

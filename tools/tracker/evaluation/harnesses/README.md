@@ -151,6 +151,8 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 
 **Output Object ID format**: `"{camera_id}:{object_id}"` (e.g., `"Cam_x1_0:2"`).
 
+**Known limitation — TYPE_1 projection only**: The production controller supports two bounding-box projection modes selected by the `shift_type` asset-config key (`TYPE_1` default: bottom-centre; `TYPE_2`: perspective-corrected point using `CameraPose.projectBounds()`). This harness always uses the TYPE_1 formula. The current metric test dataset uses only `person` objects with no `shift_type` override, so results are identical. If a future dataset or asset config introduces TYPE_2 categories, `run_projection.py` must be extended to accept per-category `shift_type` and apply the corrected formula.
+
 **Implementation**: [camera_projection_harness/](camera_projection_harness/)
 
 **Files**:
