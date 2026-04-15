@@ -104,6 +104,8 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     self._obj_categories: Dict[str, str] = {}
     # {cam_id: (x, y)} camera world position derived from harness output
     self._cam_positions: Dict[str, Tuple[float, float]] = {}
+    # {cam_id: (dx, dy)} normalized 2-D world-space view direction
+    self._cam_view_dirs: Dict[str, Tuple[float, float]] = {}
     # Total number of GT frames (max frame index across all GT tracks)
     self._total_gt_frames: int = 0
     # Stored after evaluate_metrics() to enable format_summary()
@@ -175,6 +177,9 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
       pos = self._solve_camera_position(cam_id, sensor)
       if pos is not None:
         self._cam_positions[cam_id] = pos
+      view_dir = self._solve_camera_view_dir(cam_id, sensor)
+      if view_dir is not None:
+        self._cam_view_dirs[cam_id] = view_dir
     return self
 
   @staticmethod
@@ -216,6 +221,52 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
 
     except Exception as exc:
       print(f"[CameraAccuracyEvaluator] WARNING: solvePnP failed for '{cam_id}': {exc}",
+            file=sys.stderr)
+      return None
+
+  @staticmethod
+  def _solve_camera_view_dir(
+    cam_id: str,
+    sensor: Dict[str, Any],
+  ) -> Optional[Tuple[float, float]]:
+    """Compute normalized 2-D world-space viewing direction of a camera.
+
+    The camera optical axis is +Z in camera space; transformed to world
+    space via ``R^T @ [0, 0, 1]``.  Only the XY components are returned
+    (top-down 2-D projection).
+
+    Args:
+      cam_id: Camera identifier (used only for warning messages).
+      sensor: Single sensor entry from the scene config ``sensors`` dict.
+
+    Returns:
+      Normalized ``(dx, dy)`` direction vector, or ``None`` on failure.
+    """
+    try:
+      fx, fy, cx, cy = sensor["intrinsics"]
+      K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float64)
+      cam_pts = np.array(sensor["camera points"], dtype=np.float32)
+      map_pts_raw = np.array(sensor["map points"], dtype=np.float32)
+      if map_pts_raw.ndim == 2 and map_pts_raw.shape[1] == 2:
+        map_pts = np.hstack([map_pts_raw, np.zeros((len(map_pts_raw), 1), dtype=np.float32)])
+      else:
+        map_pts = map_pts_raw
+
+      ok, rvec, _ = cv2.solvePnP(map_pts, cam_pts, K, None)
+      if not ok:
+        return None
+
+      R, _ = cv2.Rodrigues(rvec)
+      # Camera optical axis in world coordinates
+      world_axis = (R.T @ np.array([[0.0], [0.0], [1.0]])).flatten()
+      dx, dy = float(world_axis[0]), float(world_axis[1])
+      norm = (dx ** 2 + dy ** 2) ** 0.5
+      if norm < 1e-9:
+        return None
+      return (dx / norm, dy / norm)
+
+    except Exception as exc:
+      print(f"[CameraAccuracyEvaluator] WARNING: view dir failed for '{cam_id}': {exc}",
             file=sys.stderr)
       return None
 
@@ -641,7 +692,8 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
         if cam_df.empty:
           continue
         cam_pos = self._cam_positions.get(cam_id)
-        self._plot_camera_distances(cam_df, cam_id, folder, cam_pos)
+        cam_view_dir = self._cam_view_dirs.get(cam_id)
+        self._plot_camera_distances(cam_df, cam_id, folder, cam_pos, cam_view_dir)
 
     # Visibility bar chart
     if visibility_rows and "VISIBILITY" in self._metrics:
@@ -698,12 +750,14 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     cam_id: str,
     folder: Path,
     cam_pos: Optional[Tuple[float, float]] = None,
+    cam_view_dir: Optional[Tuple[float, float]] = None,
   ) -> None:
     """Three separate plots per camera:
 
     - distance_errors_<cam>.png:        projection error over time per object.
     - trajectories_<cam>.png:           XY trajectory — projected (solid) vs
-                                        ground-truth (dashed) with camera marker.
+                                        ground-truth (dashed) with camera marker
+                                        and view-direction arrow.
     - error_vs_cam_distance_<cam>.png:  projection error vs. distance from camera
                                         to GT position (only when cam_pos is known).
     """
@@ -733,55 +787,23 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     plt.close(fig_err)
 
     # --- Plot 2: XY trajectories projected vs GT ---
-    # When cam_pos is known, rotate all coordinates so the camera appears at
-    # the bottom of the plot (direction camera→scene centroid points upward).
-    def _rotate(xs, ys, cos_a, sin_a):
-      """Rotate (xs, ys) arrays by angle encoded as (cos_a, sin_a)."""
-      return xs * cos_a - ys * sin_a, xs * sin_a + ys * cos_a
-
-    if cam_pos is not None:
-      cam_x, cam_y = cam_pos
-      # Centroid of all trajectory data (GT used as reference)
-      cx = float(cam_df["gt_x"].mean())
-      cy = float(cam_df["gt_y"].mean())
-      # Vector from camera to centroid; rotate so it points along +Y
-      dx, dy = cx - cam_x, cy - cam_y
-      mag = math.hypot(dx, dy) or 1.0
-      # Desired: (dx, dy)/mag maps to (0, 1).  Rotation angle θ satisfies:
-      #   cos θ = dy/mag,  sin θ = -dx/mag  (rotate CCW by 90° - atan2(dy,dx))
-      cos_a, sin_a = dy / mag, -dx / mag
-
-      def _r(xs, ys):
-        return _rotate(xs - cam_x, ys - cam_y, cos_a, sin_a)
-
-      cam_rx, cam_ry = 0.0, 0.0   # camera is at the translated origin
-      axis_label_x = "← W    scene    E →"
-      axis_label_y = "distance from camera (m)"
-    else:
-      def _r(xs, ys):
-        return xs, ys
-      cam_rx = cam_ry = None
-      axis_label_x = "X (m)"
-      axis_label_y = "Y (m)"
-
     fig_xy, ax_xy = plt.subplots(figsize=(14, 12))
     for idx, obj_id in enumerate(obj_ids):
       grp = cam_df[cam_df["object_id"] == obj_id].sort_values("frame")
       cat = self._obj_categories.get(obj_id, "?")
       color = colors[idx % len(colors)]
 
-      px, py = _r(grp["proj_x"].to_numpy(), grp["proj_y"].to_numpy())
-      gx, gy = _r(grp["gt_x"].to_numpy(), grp["gt_y"].to_numpy())
-
-      ax_xy.plot(px, py, color=color, linewidth=1.2, linestyle="-",
+      ax_xy.plot(grp["proj_x"], grp["proj_y"], color=color, linewidth=1.2, linestyle="-",
                  label=f"obj {obj_id} ({cat}) projected")
-      ax_xy.plot(gx, gy, color=color, linewidth=1.2, linestyle="--",
+      ax_xy.plot(grp["gt_x"], grp["gt_y"], color=color, linewidth=1.2, linestyle="--",
                  label=f"obj {obj_id} ({cat}) GT")
-      ax_xy.scatter(px[0], py[0], color=color, marker="o", s=30, zorder=5)
-      ax_xy.scatter(gx[0], gy[0], color=color, marker="x", s=50, zorder=5)
+      ax_xy.scatter(grp["proj_x"].iloc[0], grp["proj_y"].iloc[0],
+                    color=color, marker="o", s=30, zorder=5)
+      ax_xy.scatter(grp["gt_x"].iloc[0], grp["gt_y"].iloc[0],
+                    color=color, marker="x", s=50, zorder=5)
 
-    ax_xy.set_xlabel(axis_label_x)
-    ax_xy.set_ylabel(axis_label_y)
+    ax_xy.set_xlabel("X (m)")
+    ax_xy.set_ylabel("Y (m)")
     ax_xy.set_title(f"Camera '{cam_id}': projected (—) vs ground-truth (- -) trajectories")
     traj_handles, _ = ax_xy.get_legend_handles_labels()
     proxy_circle = Line2D([0], [0], marker="o", color="gray", linestyle="None",
@@ -790,36 +812,64 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
                          markersize=8, markeredgewidth=1.5, label="trajectory start (GT)")
     extra_handles = [proxy_circle, proxy_cross]
 
-    # Camera position marker (always at bottom after rotation)
-    if cam_rx is not None:
-      ax_xy.scatter(cam_rx, cam_ry, marker="*", color="black", s=250, zorder=10)
+    # Build axis limits from all trajectory data
+    all_x = pd.concat([cam_df["proj_x"], cam_df["gt_x"]])
+    all_y = pd.concat([cam_df["proj_y"], cam_df["gt_y"]])
+    traj_x_span = float(all_x.max() - all_x.min()) or 1.0
+    traj_y_span = float(all_y.max() - all_y.min()) or 1.0
+    arrow_len = min(traj_x_span, traj_y_span) * 0.15
+
+    # Camera position marker + view-direction arrow
+    if cam_pos is not None:
+      cam_x, cam_y = cam_pos
+      ax_xy.scatter(cam_x, cam_y, marker="*", color="black", s=250, zorder=10)
       proxy_cam = Line2D([0], [0], marker="*", color="black", linestyle="None",
                          markersize=10, label="camera position")
       extra_handles.append(proxy_cam)
-      # Collect all rotated coords for axis limits
-      all_rx = np.concatenate([
-        _r(cam_df["proj_x"].to_numpy(), cam_df["proj_y"].to_numpy())[0],
-        _r(cam_df["gt_x"].to_numpy(), cam_df["gt_y"].to_numpy())[0],
-        [cam_rx],
-      ])
-      all_ry = np.concatenate([
-        _r(cam_df["proj_x"].to_numpy(), cam_df["proj_y"].to_numpy())[1],
-        _r(cam_df["gt_x"].to_numpy(), cam_df["gt_y"].to_numpy())[1],
-        [cam_ry],
-      ])
-    else:
-      all_rx = pd.concat([cam_df["proj_x"], cam_df["gt_x"]]).to_numpy()
-      all_ry = pd.concat([cam_df["proj_y"], cam_df["gt_y"]]).to_numpy()
+      all_x = pd.concat([all_x, pd.Series([cam_x])])
+      all_y = pd.concat([all_y, pd.Series([cam_y])])
+      if cam_view_dir is not None:
+        vdx, vdy = cam_view_dir
+        ax_xy.annotate(
+          "",
+          xy=(cam_x + vdx * arrow_len, cam_y + vdy * arrow_len),
+          xytext=(cam_x, cam_y),
+          xycoords="data",
+          textcoords="data",
+          arrowprops=dict(
+            arrowstyle="->",
+            color="black",
+            lw=1.8,
+            mutation_scale=18,
+          ),
+          zorder=11,
+        )
+        proxy_dir = Line2D([0], [0], color="black", linewidth=1.8,
+                           label="camera view direction")
+        extra_handles.append(proxy_dir)
 
     ax_xy.legend(handles=traj_handles + extra_handles, fontsize="small", ncol=2,
                  loc="upper left", bbox_to_anchor=(0.0, -0.08),
                  borderaxespad=0, framealpha=0.9)
-    x_span = float(all_rx.max() - all_rx.min()) or 1.0
-    y_span = float(all_ry.max() - all_ry.min()) or 1.0
+    x_span = float(all_x.max() - all_x.min()) or 1.0
+    y_span = float(all_y.max() - all_y.min()) or 1.0
     margin_x = x_span * 0.05
     margin_y = y_span * 0.05
-    ax_xy.set_xlim(all_rx.min() - margin_x, all_rx.max() + margin_x)
-    ax_xy.set_ylim(all_ry.min() - margin_y, all_ry.max() + margin_y)
+    # Orient axes so camera always appears at the visual bottom with correct chirality.
+    # When the camera is above the scene (cam_y > scene_cy) we rotate the view 180°:
+    # flip BOTH Y and X.  Flipping Y alone would mirror left/right from the camera's
+    # perspective; flipping both together is equivalent to a 180° rotation and preserves
+    # the camera-relative left/right direction.
+    scene_cy = float(cam_df["gt_y"].mean())
+    if cam_pos is not None and cam_y > scene_cy:
+      # Camera above scene: 180° rotation — both axes inverted
+      ax_xy.set_xlim(all_x.max() + margin_x, all_x.min() - margin_x)
+      ax_xy.set_ylim(all_y.max() + margin_y, all_y.min() - margin_y)
+    else:
+      # Camera below (or at) scene: natural orientation
+      ax_xy.set_xlim(all_x.min() - margin_x, all_x.max() + margin_x)
+      ax_xy.set_ylim(all_y.min() - margin_y, all_y.max() + margin_y)
+
     ax_xy.set_aspect("equal", adjustable="box")
     ax_xy.grid(True, alpha=0.3)
     fig_xy.tight_layout(rect=[0, 0.12, 1, 1])
