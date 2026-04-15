@@ -49,7 +49,7 @@ from datasets.metric_test_dataset import MetricTestDataset
 
 # Initialize dataset
 dataset = MetricTestDataset("path/to/dataset")
-dataset.set_cameras(["x1", "x2"]).set_camera_fps(30)
+dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
 # Initialize harness with container image
 harness = SceneControllerHarness(container_image='scenescape-controller:2026.0.0-dev')
@@ -137,7 +137,7 @@ from harnesses.camera_projection_harness import CameraProjectionHarness
 from datasets.metric_test_dataset import MetricTestDataset
 
 dataset = MetricTestDataset("path/to/dataset")
-dataset.set_cameras(["x1", "x2"]).set_camera_fps(30)
+dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
 harness = CameraProjectionHarness(container_image="scenescape-controller:2026.1.0-dev")
 harness.set_scene_config(dataset.get_scene_config())

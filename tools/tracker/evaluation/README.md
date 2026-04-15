@@ -61,7 +61,7 @@ dataset:
   class: datasets.metric_test_dataset.MetricTestDataset
   config:
     data_path: /path/to/dataset
-    cameras: [x1, x2]
+    cameras: [Cam_x1_0, Cam_x2_0]
     camera_fps: 30
 
 harness:
@@ -103,7 +103,7 @@ dataset:
   class: datasets.metric_test_dataset.MetricTestDataset
   config:
     data_path: /path/to/dataset
-    cameras: [x1, x2]
+    cameras: [Cam_x1_0, Cam_x2_0]
     camera_fps: 30
 
 harness:

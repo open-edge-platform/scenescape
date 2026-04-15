@@ -57,7 +57,7 @@ from harnesses.scene_controller_harness import SceneControllerHarness
 
 # Initialize dataset
 dataset = MetricTestDataset("path/to/dataset")
-dataset.set_cameras(["x1", "x2"]).set_camera_fps(30)
+dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
 # Initialize and run harness
 harness = SceneControllerHarness(container_image='scenescape-controller:latest')
