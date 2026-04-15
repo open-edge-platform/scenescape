@@ -148,12 +148,13 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 **Optional custom config keys** (pass via `set_custom_config()`):
 
 - `container_image`: override the Docker image at runtime.
-- `object_classes`: list of per-category projection settings.  Each entry is a dict with:
+- `object_classes`: list of per-category projection settings. Each entry is a dict with:
   - `name` (str, required): category name (case-insensitive).
   - `shift_type` (int, optional, default `1`): `1` = TYPE_1 (bottom-centre), `2` = TYPE_2 (perspective-corrected point using `CameraPose.projectBounds()`).
   - `x_size` / `y_size` (float, optional, default `0.0`): physical object dimensions in metres used to push the projected point `mean([x_size, y_size]) / 2` metres away from the camera, matching `MovingObject.mapObjectDetectionToWorld()`.
 
   Example (also valid as YAML `harness.config.object_classes`):
+
   ```python
   harness.set_custom_config({
       "object_classes": [
@@ -162,7 +163,8 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
       ]
   })
   ```
-  Categories not listed fall back to TYPE_1 with no size offset.  The list is serialised to `params.json` and passed into the container for `run_projection.py` to read.
+
+  Categories not listed fall back to TYPE_1 with no size offset. The list is serialised to `params.json` and passed into the container for `run_projection.py` to read.
 
 **Output Object ID format**: `"{camera_id}:{object_id}"` (e.g., `"Cam_x1_0:2"`).
 
@@ -175,6 +177,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 - `__init__.py`: Module initialisation
 
 **Tests**:
+
 - [tests/test_camera_projection_harness.py](tests/test_camera_projection_harness.py) — 20 test cases covering initialisation, scene/custom config validation (including `object_classes`), output folder, `process_inputs()` success/failure paths, reset, and helper methods.
 - [tests/test_run_projection.py](tests/test_run_projection.py) — 15 test cases covering `_build_class_map` and `_apply_size_offset` pure-Python helpers (run without Docker).
 
