@@ -324,13 +324,11 @@ class Scene(SceneModel):
       for detectionType in self.tracker.trackers.keys():
         for obj in self.tracker.currentObjects(detectionType):
           # When tracking is disabled, do not rely on obj.frameCount being initialized
-          print("Non-analytics mode: ", obj)
           if (not self.use_tracker or obj.frameCount > 3) and (is_scene_wide or sensor.isPointWithin(obj.sceneLoc)):
             objects_in_sensor.append(obj)
             obj.chain_data.active_sensors.add(sensor_id)
     else:
       for obj in self._analytics_objects.values():
-        print("Analytics mode: ", (obj.sceneLoc))
         if is_scene_wide or sensor.isPointWithin(obj.sceneLoc):
           objects_in_sensor.append(obj)
           obj.chain_data.active_sensors.add(sensor_id)
@@ -510,6 +508,7 @@ class Scene(SceneModel):
       # Extract reid from metadata if present
       metadata = obj_data.get('metadata', {})
       obj.reid = metadata.get('reid') if metadata else {}
+      obj.similarity = obj_data.get('similarity')
 
       if 'camera_bounds' in obj_data and obj_data['camera_bounds']:
         obj._camera_bounds = obj_data['camera_bounds']
@@ -520,6 +519,8 @@ class Scene(SceneModel):
       if 'first_seen' in obj_data:
         obj.first_seen = get_epoch_time(obj_data['first_seen'])
         obj.when = obj.first_seen
+        # Cache the first_seen from MQTT data
+        self.object_history_cache.setdefault(obj_id, {})['first_seen'] = obj.when
       elif obj_id in self.object_history_cache and 'first_seen' in self.object_history_cache[obj_id]:
         obj.first_seen = self.object_history_cache[obj_id]['first_seen']
         obj.when = obj.first_seen
@@ -529,6 +530,24 @@ class Scene(SceneModel):
         obj.when = current_time
         self.object_history_cache.setdefault(obj_id, {})['first_seen'] = current_time
         log.debug(f"First time seeing object id {obj_id} from MQTT; setting first_seen to current time: {current_time}")
+
+      # Update chain_data regions and persist from latest frame data
+      obj.chain_data.regions = obj_data.get('regions', obj.chain_data.regions)
+      obj.chain_data.persist = obj_data.get('persistent_data', obj.chain_data.persist)
+
+      # Convert serialized sensors into env_sensor_state and attr_sensor_events
+      sensors_data = obj_data.get('sensors', {})
+      for sensor_id, sensor_info in sensors_data.items():
+        values = sensor_info.get('values', [])
+        if not values:
+          continue
+
+        is_environmental = self._isEnvironmentalSensor(sensor_id, values)
+
+        if is_environmental:
+          obj.chain_data.env_sensor_state[sensor_id] = {'readings': values}
+        else:
+          obj.chain_data.attr_sensor_events[sensor_id] = values
 
       # Restore published locations from history cache
       if obj_id in self.object_history_cache:
