@@ -345,32 +345,29 @@ setup_tests: build-all-images init-secrets .env
 		$(MAKE) -C $$dir test-build; \
 	done
 	mkdir -p $(TEST_DATA_FOLDER)/netvlad_models
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "DONE ==> Setting up test environment"
 
 .PHONY: run_tests
 run_tests: setup_tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running tests..."
 	$(MAKE) --trace -C tests -j 1 SECRETSDIR=$(CURDIR)/manager/secrets || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_performance_tests
 run_performance_tests: setup_tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running performance tests..."
 	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
 	@echo "DONE ==> Running performance tests"
 
 .PHONY: run_standard_tests
 run_standard_tests: setup_tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running standard tests..."
 	$(MAKE) -C tests standard-tests -j 1 SUPASS=$(SUPASS) || (echo "Standard tests failed" && exit 1)
 	@echo "DONE ==> Running standard tests"
 
 .PHONY: run_functional_tests
 run_functional_tests: setup_tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running functional tests..."
 	$(MAKE) -C tests functional-tests SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) -k || (echo "Functional tests failed" && exit 1)
 	@echo "DONE ==> Running functional tests"
@@ -384,35 +381,30 @@ run_non_functional_tests: init-secrets .env
 
 .PHONY: run_metric_tests
 run_metric_tests: setup_tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running metric tests..."
 	$(MAKE) -C tests metric-tests -j $(NPROCS) SUPASS=$(SUPASS) -k || (echo "Metric tests failed" && exit 1)
 	@echo "DONE ==> Running metric tests"
 
 .PHONY: run_ui_tests
 run_ui_tests: setup_tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running UI tests..."
 	$(MAKE) -C tests ui-tests SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) -k || (echo "UI tests failed" && exit 1)
 	@echo "DONE ==> Running UI tests"
 
 .PHONY: run_unit_tests
 run_unit_tests: setup_tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests..."
 	$(MAKE) -C tests unit-tests -j $(NPROCS) SUPASS=$(SUPASS) -k || (echo "Unit tests failed" && exit 1)
 	@echo "DONE ==> Running unit tests"
 
 .PHONY: run_basic_acceptance_tests
 run_basic_acceptance_tests: setup_tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running basic acceptance tests..."
 	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
 .PHONY: run_stability_tests
 run_stability_tests: setup_tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running stability tests..."
 	$(eval HOURS ?= 24)
 	$(MAKE) --trace -C tests system-stability -j 1 SUPASS=$(SUPASS) HOURS=$(HOURS) SECRETSDIR=$(CURDIR)/manager/secrets || (echo "Stability tests failed" && exit 1)
