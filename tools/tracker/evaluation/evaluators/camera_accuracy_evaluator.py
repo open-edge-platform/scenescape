@@ -862,7 +862,8 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
         f"Camera '{cam_id}': mean projection error vs. distance from camera\n"
         "(binned; shaded band = ±1 std)"
       )
-      ax_ev.legend(fontsize="small")
+      if ax_ev.get_legend_handles_labels()[0]:
+        ax_ev.legend(fontsize="small")
       ax_ev.grid(True, alpha=0.3)
       fig_ev.tight_layout()
       fig_ev.savefig(folder / f"error_vs_cam_distance_{safe_name}.png", dpi=150)

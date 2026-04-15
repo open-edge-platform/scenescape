@@ -42,7 +42,7 @@ def temp_config_file(temp_output_dir):
       'class': 'datasets.metric_test_dataset.MetricTestDataset',
       'config': {
         'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
-        'cameras': ['x1', 'x2'],
+        'cameras': ['Cam_x1_0', 'Cam_x2_0'],
         'camera_fps': 30,
         'start_time': TEST_TIME_RANGE_START,
         'end_time': TEST_TIME_RANGE_END
@@ -88,7 +88,7 @@ def temp_multi_evaluator_config_file(temp_output_dir):
       'class': 'datasets.metric_test_dataset.MetricTestDataset',
       'config': {
         'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
-        'cameras': ['x1', 'x2'],
+        'cameras': ['Cam_x1_0', 'Cam_x2_0'],
         'camera_fps': 30,
         'start_time': TEST_TIME_RANGE_START,
         'end_time': TEST_TIME_RANGE_END
@@ -368,7 +368,7 @@ class TestLoadConfiguration:
         'class': 'datasets.metric_test_dataset.MetricTestDataset',
         'config': {
           'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
-          'cameras': ['x1', 'x2'],
+          'cameras': ['Cam_x1_0', 'Cam_x2_0'],
           'camera_fps': 30
         }
       },
