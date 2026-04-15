@@ -1,8 +1,3 @@
-<!-- SPDX-FileCopyrightText: (C) 2025 Intel Corporation -->
-<!-- SPDX-License-Identifier: Apache-2.0 -->
-<!-- Modifications: -->
-<!-- Nokia VPOD (Emerging Products, BLR), 2026 -->
-
 # How to Configure the Tracker
 
 This document guides users and developers on configuring the tracker for specific use cases during Intel® SceneScape deployment.

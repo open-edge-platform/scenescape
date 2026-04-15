@@ -29,6 +29,8 @@ class RESTClient:
                rootcert=None, verify_ssl=False, timeout=REST_HTTP_TIMEOUT):
     self.url = url
     self.rootcert = rootcert
+    self.verify_ssl = verify_ssl
+    self.timeout = timeout
     if not self.url.endswith("/"):
       self.url = self.url + "/"
     self.session = requests.session()

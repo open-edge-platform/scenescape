@@ -69,7 +69,7 @@ class PipelineGenerator:
     # videorate drop-only=true: zero look-ahead latency (no frame buffering for rate decision).
     if self._has_triton_model() or decode_device == "GPU_NVIDIA":
       self.decode = ["nvh264dec max-display-delay=0", "queue max-size-buffers=1 max-size-bytes=0 max-size-time=0 leaky=downstream",
-                     "videorate drop-only=true max-rate=10"]
+                     "videorate drop-only=true max-rate=10", "video/x-raw,framerate=10/1"]
     elif decode_device == "CPU":
       self.decode = ["decodebin force-sw-decoders=true", "videoconvert"]
     elif decode_device == "GPU":
@@ -81,6 +81,12 @@ class PipelineGenerator:
     if self.memory_uses_va_surfaces:
       self.memory_caps = ["video/x-raw(memory:VAMemory)"]
       self.preprocessing_backend = "va-surface-sharing"
+    elif self._has_triton_model() or decode_device == "GPU_NVIDIA":
+      # NVDEC decode path already ends with video/x-raw,framerate=10/1 caps.
+      # Adding a bare video/x-raw after it causes GStreamer parse errors
+      # ("no element video") in DL Streamer's GStreamer build.
+      self.memory_caps = []
+      self.preprocessing_backend = ""
     else:
       self.memory_caps = ["video/x-raw"]
       if inference_device == "GPU":

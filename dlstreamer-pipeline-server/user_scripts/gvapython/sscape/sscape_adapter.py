@@ -1,7 +1,5 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-# Modifications:
-# Nokia VPOD (Emerging Products, BLR), 2026
 
 import base64
 import json
@@ -102,16 +100,39 @@ class PostDecodeTimestampCapture:
     return True
 
 class PostInferenceDataPublish:
-  def __init__(self, cameraid, metadatagenpolicy='detectionPolicy', publish_image=False):
-    self.cameraid = cameraid
-
-    self.is_publish_image = publish_image
+  def __init__(self, *args, **kwargs):
+    # Extract configuration from GStreamer parameters
+    config = {}
+    
+    # Handle both args and kwargs for backward compatibility
+    if args and len(args) > 0:
+      # If first argument is a string (cameraid), use legacy direct parameter mode  
+      if isinstance(args[0], str):
+        config['cameraid'] = args[0]
+        config['metadatagenpolicy'] = args[1] if len(args) > 1 else 'detectionPolicy' 
+        config['publish_image'] = args[2] if len(args) > 2 else False
+      else:
+        # Base64 config in args - not expected for this class but handle gracefully
+        pass
+        
+    # Check for kwarg parameter (GStreamer parameter injection)
+    elif 'kwarg' in kwargs:
+      config = kwargs['kwarg'] if isinstance(kwargs['kwarg'], dict) else {}
+    else:
+      # Direct kwargs passing
+      config = kwargs.copy()
+      
+    # Set defaults for required parameters
+    self.cameraid = config.get('cameraid', 'default_camera')
+    self.is_publish_image = config.get('publish_image', False)
+    metadatagenpolicy = config.get('metadatagenpolicy', 'detectionPolicy')
+    
     self.is_publish_calibration_image = False
     self.cam_auto_calibrate = False
     self.cam_auto_calibrate_intrinsics = None
     self.setupMQTT()
     self.metadatagenpolicy = metadatapolicies[metadatagenpolicy]
-    self.frame_level_data = {'id': cameraid, 'debug_mac': getMACAddress()}
+    self.frame_level_data = {'id': self.cameraid, 'debug_mac': getMACAddress()}
     self.sub_detector = Object3DChainedDataProcessor()
 
   def on_connect(self, client, userdata, flags, rc):
@@ -201,7 +222,7 @@ class PostInferenceDataPublish:
     image = original_image_base64
     if image is None:
       with gvaframe.data() as img:
-        image = img
+        image = np.array(img, copy=True)
     else:
       try:
         decoded_image = base64.b64decode(image)
@@ -212,13 +233,8 @@ class PostInferenceDataPublish:
       except (ValueError, Exception) as e:
         print(f"Error using original image: {e}. Falling back to current frame.")
 
-    if image is None:
-      with gvaframe.data() as img:
-        video_meta = gvaframe.video_meta()
-        image = self._tryConvertToBgr(img, video_meta)
-
     # Scale image back to original resolution if it was resized for inference.
-    # e.g. 640x640 -> 1920x1080. Bboxes are also scaled in annotateObjects.
+    # e.g. 640x640 → 1920x1080. Bboxes are also scaled in annotateObjects.
     orig_w = self.frame_level_data.get('_orig_w', 0)
     orig_h = self.frame_level_data.get('_orig_h', 0)
     if orig_w > 0 and orig_h > 0 and (image.shape[1] != orig_w or image.shape[0] != orig_h):
@@ -250,7 +266,7 @@ class PostInferenceDataPublish:
       framewidth, frameheight = gvadata['resolution']['width'], gvadata['resolution']['height']
 
       # Scale detection pixel coords from inference resolution to original camera resolution.
-      # When GStreamer videoscale reduces the frame for Triton (e.g. 1920x1080 -> 640x640),
+      # When GStreamer videoscale reduces the frame for Triton (e.g. 1920x1080 → 640x640),
       # detection coords must be rescaled to original camera space so SceneScape's
       # calibration (performed at original resolution) correctly projects to the 3D map.
       orig_w = self.frame_level_data.get('_orig_w', 0)
@@ -266,62 +282,18 @@ class PostInferenceDataPublish:
       self.frame_level_data['_bbox_w'] = proj_w
       self.frame_level_data['_bbox_h'] = proj_h
 
-      # gvadetect sets parent_id field only if inference-region=roi-list (on second gvadetect in your pipeline).
-      has_parent_ids = any('parent_id' in det for det in gvadata['objects'])
-      if has_parent_ids:
-        # Two-pass approach: first build all objects, then nest children into parents.
-        # region_id_map allows O(1) parent lookup by region_id.
-        region_id_map = {}
-        ordered_dets = []
-        for det in gvadata['objects']:
-          vaobj = {}
-          if sx != 1.0 or sy != 1.0:
-            det = dict(det)
-            det['x'] = int(det['x'] * sx)
-            det['y'] = int(det['y'] * sy)
-            det['w'] = int(det['w'] * sx)
-            det['h'] = int(det['h'] * sy)
-          self.metadatagenpolicy(vaobj, det, proj_w, proj_h)
-          if self.detection_labels and vaobj['category'] not in self.detection_labels:
-            continue
-          region_id = det.get('region_id')
-          parent_id = det.get('parent_id')
-          ordered_dets.append((vaobj, region_id, parent_id))
-          if region_id is not None:
-            region_id_map[region_id] = vaobj
-
-        for vaobj, region_id, parent_id in ordered_dets:
-          otype = vaobj['category']
-          if parent_id is not None and parent_id in region_id_map:
-            parent_obj = region_id_map[parent_id]
-            sub_objects = parent_obj.setdefault('sub_objects', defaultdict(list))
-            vaobj['id'] = len(sub_objects[otype]) + 1
-            sub_objects[otype].append(vaobj)
-          else:
-            vaobj['id'] = len(objects[otype]) + 1
-            objects[otype].append(vaobj)
-
-        # Convert sub_objects defaultdicts to plain dicts
-        for obj_list in objects.values():
-          for obj in obj_list:
-            if 'sub_objects' in obj:
-              obj['sub_objects'] = dict(obj['sub_objects'])
-      else:
-        # Fast path: no parent_id present.
-        for det in gvadata['objects']:
-          vaobj = {}
-          if sx != 1.0 or sy != 1.0:
-            det = dict(det)
-            det['x'] = int(det['x'] * sx)
-            det['y'] = int(det['y'] * sy)
-            det['w'] = int(det['w'] * sx)
-            det['h'] = int(det['h'] * sy)
-          self.metadatagenpolicy(vaobj, det, proj_w, proj_h)
-          if self.detection_labels and vaobj['category'] not in self.detection_labels:
-            continue
-          otype = vaobj['category']
-          vaobj['id'] = len(objects[otype]) + 1
-          objects[otype].append(vaobj)
+      for det in gvadata['objects']:
+        vaobj = {}
+        if sx != 1.0 or sy != 1.0:
+          det = dict(det)
+          det['x'] = int(det['x'] * sx)
+          det['y'] = int(det['y'] * sy)
+          det['w'] = int(det['w'] * sx)
+          det['h'] = int(det['h'] * sy)
+        self.metadatagenpolicy(vaobj, det, proj_w, proj_h)
+        otype = vaobj['category']
+        vaobj['id'] = len(objects[otype]) + 1
+        objects[otype].append(vaobj)
 
     self.processSubDetections(objects)
     self.frame_level_data['objects'] = objects
