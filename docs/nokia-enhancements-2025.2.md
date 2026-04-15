@@ -178,7 +178,38 @@ Files at `model_repo/yolov7/`:
 
 Configured for 3 GPU instances with dynamic batching (1-32), 100ms max queue delay.
 
-### 2.3 Build Tooling
+The `model.plan` and `model.dali` are GPU-specific — rebuild with
+`scripts/build_triton_repo.sh` when changing GPU hardware. See
+[`model_repo/yolov7/README.md`](../model_repo/yolov7/README.md) for full
+build and deployment instructions.
+
+### 2.3 Model Deployment
+
+The Triton server reads from `/models/models/` on its PVC. The three model
+directories must be uploaded there:
+
+```
+/models/models/yolov7_ensemble/
+/models/models/yolov7_preprocess/
+/models/models/yolov7_tiny_e2e_v1/
+```
+
+Upload via kubectl:
+```bash
+TRITON_POD=$(kubectl get pods -n <namespace> | grep triton | awk '{print $1}')
+kubectl cp fp16/triton/yolov7_ensemble     $TRITON_POD:/models/models/ -n <namespace>
+kubectl cp fp16/triton/yolov7_preprocess   $TRITON_POD:/models/models/ -n <namespace>
+kubectl cp fp16/triton/yolov7_tiny_e2e_v1  $TRITON_POD:/models/models/ -n <namespace>
+```
+
+Triton auto-loads new models when `--model-control-mode=poll` is set (default).
+
+To use the model in the SceneScape UI, set the camera's **Camera Chain** to
+`yolov7_tiny_e2e`. The pipeline generator reads `model_config.json`, builds
+the NVDEC + Triton gRPC pipeline, and the inference script sends frames to
+the `yolov7_ensemble` model on the Triton server.
+
+### 2.4 Build Tooling
 
 | File | Lines | Purpose |
 |------|-------|---------|
