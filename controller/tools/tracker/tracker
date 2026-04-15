@@ -6,7 +6,6 @@
 import base64
 import orjson
 import os
-import struct
 from argparse import ArgumentParser
 
 import cv2

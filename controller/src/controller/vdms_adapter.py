@@ -79,7 +79,9 @@ class VDMSDatabase(ReIDDatabase):
       if self.dimensions is not None:
         with self._schema_lock:
           if not self.findSchema(self.set_name):
-            self.addSchema(self.set_name, self.similarity_metric, self.dimensions)
+            if not self.addSchema(self.set_name, self.similarity_metric, self.dimensions):
+              log.warning("connect: Schema creation failed; _schema_ready left False")
+              return
           self._schema_ready = True
     except socket.error as e:
       log.warning(f"Failed to connect to VDMS container: {e}")
@@ -94,10 +96,14 @@ class VDMSDatabase(ReIDDatabase):
       }
     }]
     response, _ = self.sendQuery(query)
-    if response and response[0].get('status') != 0:
+    if not response:
+      log.warning("addSchema: No response from VDMS when creating descriptor set")
+      return False
+    if response[0].get('status') != 0:
       log.warning(
         f"Failed to add the descriptor set to the database. Received response {response[0]}")
-    return
+      return False
+    return True
 
   def ensureSchema(self, dimensions):
     """
@@ -120,7 +126,10 @@ class VDMSDatabase(ReIDDatabase):
         return
       self.dimensions = int(dimensions)
       if not self.findSchema(self.set_name):
-        self.addSchema(self.set_name, self.similarity_metric, self.dimensions)
+        if not self.addSchema(self.set_name, self.similarity_metric, self.dimensions):
+          raise RuntimeError(
+            f"ensureSchema: Failed to create VDMS descriptor set '{self.set_name}'; "
+            "schema not confirmed. ReID writes will be skipped until schema is available.")
       self._schema_ready = True
 
   def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name=SCHEMA_NAME, **metadata):
@@ -190,6 +199,10 @@ class VDMSDatabase(ReIDDatabase):
           "properties": properties.copy()
         }
       })
+
+    if not add_query:
+      log.warning("addEntry: No valid vectors to add (all skipped due to dimension mismatch or uninitialized dimensions)")
+      return
 
     response, _ = self.sendQuery(add_query, descriptor_blobs)  # Flat list of blobs
     if response:
