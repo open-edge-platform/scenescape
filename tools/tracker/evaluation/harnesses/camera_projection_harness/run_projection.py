@@ -177,10 +177,12 @@ def project_frame(
         "category": category,
       })
 
+  cam_t = pose.translation
   return {
     "cam_id": cam_id,
     "frame": frame_num,
     "timestamp": timestamp,
+    "camera_position": [cam_t.x, cam_t.y, cam_t.z],
     "objects": projected_objects,
   }
 

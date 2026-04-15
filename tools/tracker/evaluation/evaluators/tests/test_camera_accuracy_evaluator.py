@@ -49,6 +49,7 @@ def _make_projected_outputs(frames_per_cam, tracks_per_cam):
         "cam_id": cam_id,
         "frame": i,
         "timestamp": ts,
+        "camera_position": [1.0, 2.0, 3.0],
         "objects": objects,
       })
   return outputs
@@ -423,3 +424,73 @@ class TestFormatSummary:
     assert "Vis (frames)" in summary
     assert "Vis (%)" in summary
     assert "Mean Err (m)" in summary
+
+
+class TestSetSceneConfig:
+  """Tests for set_scene_config() / _solve_camera_position()."""
+
+  # Minimal sensor dict matching the real config.json format
+  _SENSOR = {
+    "camera points": [[201, 119], [592, 118], [781, 579], [2, 579]],
+    "map points": [[3, 15, 0], [10, 15, 0], [10, 5, 0], [3, 5, 0]],
+    "intrinsics": [964.2426913831672, 964.6302329684294, 400.0, 300.0],
+    "width": 800.0,
+    "height": 600.0,
+  }
+
+  def test_set_scene_config_populates_cam_positions(self):
+    """set_scene_config resolves at least one camera position."""
+    config = {"sensors": {"Cam_x1_0": self._SENSOR}}
+    ev = CameraAccuracyEvaluator()
+    ev.set_scene_config(config)
+    assert "Cam_x1_0" in ev._cam_positions
+    x, y = ev._cam_positions["Cam_x1_0"]
+    assert isinstance(x, float)
+    assert isinstance(y, float)
+
+  def test_set_scene_config_returns_self(self):
+    """set_scene_config() returns self for chaining."""
+    ev = CameraAccuracyEvaluator()
+    result = ev.set_scene_config({"sensors": {}})
+    assert result is ev
+
+  def test_scene_config_takes_priority_over_harness_output(self, tmp_path, tmp_output):
+    """Config-derived positions are not overwritten by camera_position in frames."""
+    config = {"sensors": {"CamA": self._SENSOR}}
+    ev = CameraAccuracyEvaluator()
+    ev.configure_metrics(["DIST_T"])
+    ev.set_output_folder(tmp_output)
+    ev.set_scene_config(config)
+
+    config_pos = ev._cam_positions.get("CamA")
+    assert config_pos is not None
+
+    # Build outputs with a different camera_position value
+    n_frames = 5
+    outputs = []
+    for i in range(n_frames):
+      ts = _make_timestamp(i)
+      outputs.append({
+        "cam_id": "CamA",
+        "frame": i,
+        "timestamp": ts,
+        "camera_position": [999.0, 999.0, 5.0],  # should be ignored
+        "objects": [{"id": "CamA:0", "translation": [5.0, 10.0, 0.0], "category": "person"}],
+      })
+
+    gt_file = _make_gt_csv(tmp_path, n_frames, {0: lambda f: (5.0, 10.0)})
+    ev.process_tracker_outputs(iter(outputs), gt_file)
+
+    # Position must still be the solvePnP result, not 999/999
+    assert ev._cam_positions["CamA"] == config_pos
+
+  def test_solve_camera_position_bad_sensor(self):
+    """_solve_camera_position returns None gracefully on bad input."""
+    result = CameraAccuracyEvaluator._solve_camera_position("bad", {})
+    assert result is None
+
+  def test_empty_sensors_dict(self):
+    """set_scene_config with no sensors leaves _cam_positions unchanged."""
+    ev = CameraAccuracyEvaluator()
+    ev.set_scene_config({"sensors": {}})
+    assert ev._cam_positions == {}

@@ -399,12 +399,18 @@ class PipelineEngine:
     where <evaluator-key> is the class name, disambiguated with an index
     suffix when multiple evaluators share the same class name.
     """
+    scene_config = self._dataset.get_scene_config() if self._dataset else None
+
     for i, evaluator in enumerate(self._evaluators):
       config = self._config['evaluators'][i]['config']
       evaluator_key = self._get_evaluator_key(i)
 
       if 'metrics' in config:
         evaluator.configure_metrics(config['metrics'])
+
+      # Pass scene config so evaluators that need camera geometry can use it
+      if scene_config is not None and hasattr(evaluator, 'set_scene_config'):
+        evaluator.set_scene_config(scene_config)
 
       evaluator_output_path = self._output_path / 'evaluators' / evaluator_key
       evaluator.set_output_folder(evaluator_output_path)

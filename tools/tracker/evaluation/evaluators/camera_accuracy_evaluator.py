@@ -69,6 +69,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
+import cv2
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -101,6 +102,8 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     self._gt_tracks: Dict[str, Dict[int, Tuple[float, float]]] = {}
     # {obj_id: category string} populated from projected outputs
     self._obj_categories: Dict[str, str] = {}
+    # {cam_id: (x, y)} camera world position derived from harness output
+    self._cam_positions: Dict[str, Tuple[float, float]] = {}
     # Total number of GT frames (max frame index across all GT tracks)
     self._total_gt_frames: int = 0
     # Stored after evaluate_metrics() to enable format_summary()
@@ -146,6 +149,75 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     path.mkdir(parents=True, exist_ok=True)
     self._output_folder = path
     return self
+
+  def set_scene_config(self, config: Dict[str, Any]) -> 'CameraAccuracyEvaluator':
+    """Pre-compute camera world positions from the scene calibration config.
+
+    Solves the PnP problem from ``camera points`` / ``map points``
+    correspondences (same math as ``PointCorrespondenceTransform``) using
+    ``cv2.solvePnP`` locally — no Docker or ``scene_common`` required.
+
+    Positions computed here take priority over the ``camera_position`` field
+    that ``CameraProjectionHarness`` embeds in its output frames.
+
+    Args:
+      config: Raw scene config dict with a ``"sensors"`` sub-dict.  Each
+              sensor entry must contain:
+              - ``camera points``  (list of 2-D pixel points)
+              - ``map points``     (list of 3-D world points)
+              - ``intrinsics``     ([fx, fy, cx, cy])
+
+    Returns:
+      Self for method chaining.
+    """
+    sensors = config.get("sensors", {})
+    for cam_id, sensor in sensors.items():
+      pos = self._solve_camera_position(cam_id, sensor)
+      if pos is not None:
+        self._cam_positions[cam_id] = pos
+    return self
+
+  @staticmethod
+  def _solve_camera_position(
+    cam_id: str,
+    sensor: Dict[str, Any],
+  ) -> Optional[Tuple[float, float]]:
+    """Compute (x, y) world position of a camera via solvePnP.
+
+    Replicates the pose-matrix inversion done by
+    ``PointCorrespondenceTransform._calculatePoseMat()``.
+
+    Args:
+      cam_id: Camera identifier (used only for warning messages).
+      sensor: Single sensor entry from the scene config ``sensors`` dict.
+
+    Returns:
+      ``(x, y)`` world position, or ``None`` if solvePnP fails.
+    """
+    try:
+      fx, fy, cx, cy = sensor["intrinsics"]
+      K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float64)
+      cam_pts = np.array(sensor["camera points"], dtype=np.float32)
+      map_pts_raw = np.array(sensor["map points"], dtype=np.float32)
+      # Ensure 3-D: pad with z=0 if only 2-D world points provided
+      if map_pts_raw.ndim == 2 and map_pts_raw.shape[1] == 2:
+        map_pts = np.hstack([map_pts_raw, np.zeros((len(map_pts_raw), 1), dtype=np.float32)])
+      else:
+        map_pts = map_pts_raw
+
+      ok, rvec, tvec = cv2.solvePnP(map_pts, cam_pts, K, None)
+      if not ok:
+        return None
+
+      # Invert [R|t] to get camera position in world coords:  C = -R^T @ t
+      R, _ = cv2.Rodrigues(rvec)
+      cam_world = (-R.T @ tvec).flatten()
+      return (float(cam_world[0]), float(cam_world[1]))
+
+    except Exception as exc:
+      print(f"[CameraAccuracyEvaluator] WARNING: solvePnP failed for '{cam_id}': {exc}",
+            file=sys.stderr)
+      return None
 
   def process_tracker_outputs(
     self,
@@ -468,6 +540,14 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
       time_delta = (ts - first_ts).total_seconds()
       frame_num = int(round(time_delta / frame_duration)) + 1
 
+      # Extract camera world position if present — fallback when no scene
+      # config was supplied via set_scene_config() (first seen per camera wins)
+      cam_pos = frame_data.get("camera_position")
+      if cam_pos:
+        frame_cam_id = frame_data.get("cam_id", "")
+        if frame_cam_id and frame_cam_id not in self._cam_positions:
+          self._cam_positions[frame_cam_id] = (float(cam_pos[0]), float(cam_pos[1]))
+
       for obj in frame_data.get("objects", []):
         encoded_id = obj["id"]
         # ID format: "{camera_id}:{object_id}"
@@ -560,7 +640,8 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
         cam_df = dist_df[dist_df["cam_id"] == cam_id]
         if cam_df.empty:
           continue
-        self._plot_camera_distances(cam_df, cam_id, folder)
+        cam_pos = self._cam_positions.get(cam_id)
+        self._plot_camera_distances(cam_df, cam_id, folder, cam_pos)
 
     # Visibility bar chart
     if visibility_rows and "VISIBILITY" in self._metrics:
@@ -616,10 +697,15 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     cam_df: pd.DataFrame,
     cam_id: str,
     folder: Path,
+    cam_pos: Optional[Tuple[float, float]] = None,
   ) -> None:
-    """Two separate plots per camera:
-    - distance_errors_<cam>.png: distance error over time per object.
-    - trajectories_<cam>.png:   XY trajectory — projected (solid) vs ground-truth (dashed).
+    """Three separate plots per camera:
+
+    - distance_errors_<cam>.png:        projection error over time per object.
+    - trajectories_<cam>.png:           XY trajectory — projected (solid) vs
+                                        ground-truth (dashed) with camera marker.
+    - error_vs_cam_distance_<cam>.png:  projection error vs. distance from camera
+                                        to GT position (only when cam_pos is known).
     """
     obj_ids = sorted(cam_df["object_id"].unique())
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
@@ -647,52 +733,140 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     plt.close(fig_err)
 
     # --- Plot 2: XY trajectories projected vs GT ---
-    fig_xy, ax_xy = plt.subplots(figsize=(10, 10))
+    # When cam_pos is known, rotate all coordinates so the camera appears at
+    # the bottom of the plot (direction camera→scene centroid points upward).
+    def _rotate(xs, ys, cos_a, sin_a):
+      """Rotate (xs, ys) arrays by angle encoded as (cos_a, sin_a)."""
+      return xs * cos_a - ys * sin_a, xs * sin_a + ys * cos_a
+
+    if cam_pos is not None:
+      cam_x, cam_y = cam_pos
+      # Centroid of all trajectory data (GT used as reference)
+      cx = float(cam_df["gt_x"].mean())
+      cy = float(cam_df["gt_y"].mean())
+      # Vector from camera to centroid; rotate so it points along +Y
+      dx, dy = cx - cam_x, cy - cam_y
+      mag = math.hypot(dx, dy) or 1.0
+      # Desired: (dx, dy)/mag maps to (0, 1).  Rotation angle θ satisfies:
+      #   cos θ = dy/mag,  sin θ = -dx/mag  (rotate CCW by 90° - atan2(dy,dx))
+      cos_a, sin_a = dy / mag, -dx / mag
+
+      def _r(xs, ys):
+        return _rotate(xs - cam_x, ys - cam_y, cos_a, sin_a)
+
+      cam_rx, cam_ry = 0.0, 0.0   # camera is at the translated origin
+      axis_label_x = "← W    scene    E →"
+      axis_label_y = "distance from camera (m)"
+    else:
+      def _r(xs, ys):
+        return xs, ys
+      cam_rx = cam_ry = None
+      axis_label_x = "X (m)"
+      axis_label_y = "Y (m)"
+
+    fig_xy, ax_xy = plt.subplots(figsize=(14, 12))
     for idx, obj_id in enumerate(obj_ids):
       grp = cam_df[cam_df["object_id"] == obj_id].sort_values("frame")
       cat = self._obj_categories.get(obj_id, "?")
       color = colors[idx % len(colors)]
-      label_proj = f"obj {obj_id} ({cat}) projected"
-      label_gt   = f"obj {obj_id} ({cat}) GT"
-      ax_xy.plot(
-        grp["proj_x"], grp["proj_y"],
-        color=color, linewidth=1.2, linestyle="-",
-        label=label_proj,
-      )
-      ax_xy.plot(
-        grp["gt_x"], grp["gt_y"],
-        color=color, linewidth=1.2, linestyle="--",
-        label=label_gt,
-      )
-      # Mark first point
-      ax_xy.scatter(grp["proj_x"].iloc[0], grp["proj_y"].iloc[0],
-                    color=color, marker="o", s=30, zorder=5)
-      ax_xy.scatter(grp["gt_x"].iloc[0], grp["gt_y"].iloc[0],
-                    color=color, marker="x", s=50, zorder=5)
 
-    ax_xy.set_xlabel("X (m)")
-    ax_xy.set_ylabel("Y (m)")
+      px, py = _r(grp["proj_x"].to_numpy(), grp["proj_y"].to_numpy())
+      gx, gy = _r(grp["gt_x"].to_numpy(), grp["gt_y"].to_numpy())
+
+      ax_xy.plot(px, py, color=color, linewidth=1.2, linestyle="-",
+                 label=f"obj {obj_id} ({cat}) projected")
+      ax_xy.plot(gx, gy, color=color, linewidth=1.2, linestyle="--",
+                 label=f"obj {obj_id} ({cat}) GT")
+      ax_xy.scatter(px[0], py[0], color=color, marker="o", s=30, zorder=5)
+      ax_xy.scatter(gx[0], gy[0], color=color, marker="x", s=50, zorder=5)
+
+    ax_xy.set_xlabel(axis_label_x)
+    ax_xy.set_ylabel(axis_label_y)
     ax_xy.set_title(f"Camera '{cam_id}': projected (—) vs ground-truth (- -) trajectories")
     traj_handles, _ = ax_xy.get_legend_handles_labels()
     proxy_circle = Line2D([0], [0], marker="o", color="gray", linestyle="None",
                           markersize=6, label="trajectory start (projected)")
     proxy_cross = Line2D([0], [0], marker="x", color="gray", linestyle="None",
                          markersize=8, markeredgewidth=1.5, label="trajectory start (GT)")
-    ax_xy.legend(handles=traj_handles + [proxy_circle, proxy_cross], fontsize="small", ncol=2)
-    # Tight zoom: compute data extent and add 5 % margin so small errors are visible
-    all_x = pd.concat([cam_df["proj_x"], cam_df["gt_x"]])
-    all_y = pd.concat([cam_df["proj_y"], cam_df["gt_y"]])
-    x_span = all_x.max() - all_x.min() or 1.0
-    y_span = all_y.max() - all_y.min() or 1.0
+    extra_handles = [proxy_circle, proxy_cross]
+
+    # Camera position marker (always at bottom after rotation)
+    if cam_rx is not None:
+      ax_xy.scatter(cam_rx, cam_ry, marker="*", color="black", s=250, zorder=10)
+      proxy_cam = Line2D([0], [0], marker="*", color="black", linestyle="None",
+                         markersize=10, label="camera position")
+      extra_handles.append(proxy_cam)
+      # Collect all rotated coords for axis limits
+      all_rx = np.concatenate([
+        _r(cam_df["proj_x"].to_numpy(), cam_df["proj_y"].to_numpy())[0],
+        _r(cam_df["gt_x"].to_numpy(), cam_df["gt_y"].to_numpy())[0],
+        [cam_rx],
+      ])
+      all_ry = np.concatenate([
+        _r(cam_df["proj_x"].to_numpy(), cam_df["proj_y"].to_numpy())[1],
+        _r(cam_df["gt_x"].to_numpy(), cam_df["gt_y"].to_numpy())[1],
+        [cam_ry],
+      ])
+    else:
+      all_rx = pd.concat([cam_df["proj_x"], cam_df["gt_x"]]).to_numpy()
+      all_ry = pd.concat([cam_df["proj_y"], cam_df["gt_y"]]).to_numpy()
+
+    ax_xy.legend(handles=traj_handles + extra_handles, fontsize="small", ncol=2,
+                 loc="upper left", bbox_to_anchor=(0.0, -0.08),
+                 borderaxespad=0, framealpha=0.9)
+    x_span = float(all_rx.max() - all_rx.min()) or 1.0
+    y_span = float(all_ry.max() - all_ry.min()) or 1.0
     margin_x = x_span * 0.05
     margin_y = y_span * 0.05
-    ax_xy.set_xlim(all_x.min() - margin_x, all_x.max() + margin_x)
-    ax_xy.set_ylim(all_y.min() - margin_y, all_y.max() + margin_y)
+    ax_xy.set_xlim(all_rx.min() - margin_x, all_rx.max() + margin_x)
+    ax_xy.set_ylim(all_ry.min() - margin_y, all_ry.max() + margin_y)
     ax_xy.set_aspect("equal", adjustable="box")
     ax_xy.grid(True, alpha=0.3)
-    fig_xy.tight_layout()
-    fig_xy.savefig(folder / f"trajectories_{safe_name}.png", dpi=150)
+    fig_xy.tight_layout(rect=[0, 0.12, 1, 1])
+    fig_xy.savefig(folder / f"trajectories_{safe_name}.png", dpi=150, bbox_inches="tight")
     plt.close(fig_xy)
+
+    # --- Plot 3: projection error vs. distance from camera (requires cam_pos) ---
+    if cam_pos is not None:
+      cam_x, cam_y = cam_pos
+      fig_ev, ax_ev = plt.subplots(figsize=(12, 6))
+
+      for idx, obj_id in enumerate(obj_ids):
+        grp = cam_df[cam_df["object_id"] == obj_id].copy()
+        cat = self._obj_categories.get(obj_id, "?")
+        color = colors[idx % len(colors)]
+
+        grp["cam_distance"] = np.sqrt(
+          (grp["gt_x"] - cam_x) ** 2 + (grp["gt_y"] - cam_y) ** 2
+        )
+
+        # Bin by camera distance; skip objects with too few unique distances
+        n_bins = min(10, grp["cam_distance"].nunique())
+        if n_bins < 2:
+          continue
+        grp["bin"] = pd.cut(grp["cam_distance"], bins=n_bins)
+        agg = grp.groupby("bin", observed=True)["distance"].agg(["mean", "std"]).dropna()
+        bin_centers = agg.index.map(lambda iv: iv.mid)
+
+        ax_ev.plot(bin_centers, agg["mean"], color=color, linewidth=1.5,
+                   marker="o", markersize=4,
+                   label=f"obj {obj_id} ({cat})  mean={grp['distance'].mean():.3f} m")
+        ax_ev.fill_between(bin_centers,
+                           agg["mean"] - agg["std"].fillna(0),
+                           agg["mean"] + agg["std"].fillna(0),
+                           color=color, alpha=0.15)
+
+      ax_ev.set_xlabel("Distance from camera to GT position (m)")
+      ax_ev.set_ylabel("Projection error (m)")
+      ax_ev.set_title(
+        f"Camera '{cam_id}': mean projection error vs. distance from camera\n"
+        "(binned; shaded band = ±1 std)"
+      )
+      ax_ev.legend(fontsize="small")
+      ax_ev.grid(True, alpha=0.3)
+      fig_ev.tight_layout()
+      fig_ev.savefig(folder / f"error_vs_cam_distance_{safe_name}.png", dpi=150)
+      plt.close(fig_ev)
 
   def _plot_visibility(
     self,
