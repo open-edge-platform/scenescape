@@ -70,6 +70,7 @@ class TestInitialization:
     assert harness._scene_config is None
     assert harness._output_folder is None
     assert harness._temp_dir is None
+    assert harness._object_classes == []
 
 
 class TestSetSceneConfig:
@@ -105,6 +106,17 @@ class TestSetCustomConfig:
     with pytest.raises(ValueError, match="must be a dictionary"):
       harness.set_custom_config("bad")
 
+  def test_object_classes_stored(self, harness):
+    """set_custom_config stores the object_classes list."""
+    classes = [{"name": "person", "shift_type": 1, "x_size": 0.5, "y_size": 0.5}]
+    harness.set_custom_config({"object_classes": classes})
+    assert harness._object_classes == classes
+
+  def test_object_classes_empty_list_accepted(self, harness):
+    """set_custom_config accepts an empty object_classes list."""
+    harness.set_custom_config({"object_classes": []})
+    assert harness._object_classes == []
+
 
 class TestSetOutputFolder:
   def test_creates_directory(self, harness, tmp_path):
@@ -131,6 +143,12 @@ class TestReset:
     harness.reset()
     assert harness._scene_config is None
     assert harness._output_folder is None
+
+  def test_reset_clears_object_classes(self, harness):
+    """reset() removes any stored object_classes."""
+    harness.set_custom_config({"object_classes": [{"name": "person"}]})
+    harness.reset()
+    assert harness._object_classes == []
 
 
 class TestProcessInputsFull:

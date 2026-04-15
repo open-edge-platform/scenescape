@@ -61,7 +61,13 @@ Check `datasets/README.md` for more details
 - **CameraProjectionHarness**: `harnesses/camera_projection_harness/camera_projection_harness.py`
   - Bypasses the full tracker and only applies camera-pose projection to isolate per-camera calibration error.
   - Runs `run_projection.py` inside the `scenescape-controller` Docker container (requires `scene_common`, OpenCV, open3d).
-  - Projects bounding-box bottom-centre `(centre_x, bottom_y)` to world XY plane using `CameraPose.cameraPointToWorldPoint()`.
+  - Supports two projection modes per object category via the `object_classes` custom config key:
+    - **TYPE_1** (`shift_type: 1`, default): projects bounding-box bottom-centre `(centre_x, bottom_y)` to world XY plane using `CameraPose.cameraPointToWorldPoint()`.
+    - **TYPE_2** (`shift_type: 2`): shifts the projection point upward by `(height/2) * (baseAngle/90)` before projecting, using `CameraPose.projectBounds()` to derive the base angle.
+  - After projection, applies a size offset: pushes the world position `mean([x_size, y_size]) / 2` metres away from the camera, matching `MovingObject.mapObjectDetectionToWorld()`.
+  - `set_custom_config()` accepts `object_classes` (list of `{name, shift_type, x_size, y_size}` dicts) and `container_image`.
+  - `process_inputs()` serialises `object_classes` to `params.json` in the shared temp dir before launching the container; `run_projection.py` reads it at startup.
+  - `reset()` clears `_object_classes` in addition to other state.
   - Encodes output object IDs as `"{camera_id}:{object_id}"` for downstream splitting by `CameraAccuracyEvaluator`.
   - Pair this harness with `CameraAccuracyEvaluator` and the `camera_projection_evaluation.yaml` pipeline config.
 
@@ -82,7 +88,9 @@ Check `harnesses/README.md` for more details
   Consumes output from `CameraProjectionHarness` and measures per-camera, per-object projection accuracy:
   - `DIST_T`: mean Euclidean distance error (m) between projected and GT world position per (camera, object) pair.
   - `VISIBILITY`: frame count and percentage each camera detects each object.
-    Writes `distance_errors.csv`, `visibility_summary.csv`, `accuracy_summary.csv`, `summary_table.csv` (human-readable column names), per-camera `distance_errors_{cam}.png` and `trajectories_{cam}.png` plots, and a `visibility_bar_chart.png`. `format_summary()` returns a terminal-ready table.
+  - `set_scene_config()` resolves each camera's world position (`_solve_camera_position`: `cv2.solvePnP` → `C = -R^T @ t`) and 2-D viewing direction (`_solve_camera_view_dir`: `R^T @ [0, 0, 1]`, XY normalized) from the scene's calibration data.
+  - `trajectories_{cam}.png` includes a star marker at the camera position and an arrow showing its view direction; both X and Y axes are flipped when `cam_y > mean(gt_y)` (180° rotation so camera always appears at visual bottom with correct chirality).
+  - Writes `distance_errors.csv`, `visibility_summary.csv`, `accuracy_summary.csv`, `summary_table.csv` (human-readable column names), per-camera `distance_errors_{cam}.png`, `trajectories_{cam}.png`, and `error_vs_cam_distance_{cam}.png` plots, and a `visibility_bar_chart.png`. `format_summary()` returns a terminal-ready table.
 
 Multiple evaluators can be configured in a single YAML pipeline; each runs independently against the same tracker outputs and writes results to its own subfolder under the run output directory.
 

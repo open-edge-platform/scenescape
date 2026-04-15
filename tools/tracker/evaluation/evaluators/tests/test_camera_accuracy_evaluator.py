@@ -494,3 +494,95 @@ class TestSetSceneConfig:
     ev = CameraAccuracyEvaluator()
     ev.set_scene_config({"sensors": {}})
     assert ev._cam_positions == {}
+
+  def test_set_scene_config_populates_cam_view_dirs(self):
+    """set_scene_config resolves at least one camera view direction."""
+    config = {"sensors": {"Cam_x1_0": self._SENSOR}}
+    ev = CameraAccuracyEvaluator()
+    ev.set_scene_config(config)
+    assert "Cam_x1_0" in ev._cam_view_dirs
+    dx, dy = ev._cam_view_dirs["Cam_x1_0"]
+    assert isinstance(dx, float)
+    assert isinstance(dy, float)
+
+  def test_set_scene_config_view_dir_normalized(self):
+    """View direction vector has unit magnitude."""
+    config = {"sensors": {"Cam_x1_0": self._SENSOR}}
+    ev = CameraAccuracyEvaluator()
+    ev.set_scene_config(config)
+    dx, dy = ev._cam_view_dirs["Cam_x1_0"]
+    magnitude = math.sqrt(dx ** 2 + dy ** 2)
+    assert abs(magnitude - 1.0) < 1e-6
+
+  def test_solve_camera_view_dir_bad_sensor(self):
+    """_solve_camera_view_dir returns None gracefully on bad input."""
+    result = CameraAccuracyEvaluator._solve_camera_view_dir("bad", {})
+    assert result is None
+
+  def test_empty_sensors_dict_no_view_dirs(self):
+    """set_scene_config with no sensors leaves _cam_view_dirs unchanged."""
+    ev = CameraAccuracyEvaluator()
+    ev.set_scene_config({"sensors": {}})
+    assert ev._cam_view_dirs == {}
+
+
+class TestPlotCameraDistances:
+  """Smoke tests for _plot_camera_distances axis orientation and view-direction arrow."""
+
+  _SENSOR = {
+    "camera points": [[201, 119], [592, 118], [781, 579], [2, 579]],
+    "map points": [[3, 15, 0], [10, 15, 0], [10, 5, 0], [3, 5, 0]],
+    "intrinsics": [964.2426913831672, 964.6302329684294, 400.0, 300.0],
+    "width": 800.0,
+    "height": 600.0,
+  }
+
+  def _make_cam_df(self):
+    import pandas as pd
+    return pd.DataFrame({
+      "object_id": [0, 0, 0],
+      "frame": [1, 2, 3],
+      "proj_x": [1.0, 2.0, 3.0],
+      "proj_y": [4.0, 5.0, 6.0],
+      "gt_x": [1.1, 2.1, 3.1],
+      "gt_y": [4.1, 5.1, 6.1],
+      "distance": [0.1, 0.1, 0.1],
+    })
+
+  def test_camera_above_scene_does_not_raise(self, tmp_path):
+    """No exception when camera is above scene (both axes inverted)."""
+    ev = CameraAccuracyEvaluator()
+    ev._obj_categories = {0: "person"}
+    cam_df = self._make_cam_df()
+    # cam_y=20 > scene mean gt_y≈5 → triggers 180° rotation
+    ev._plot_camera_distances(cam_df, "TestCam", tmp_path, cam_pos=(5.0, 20.0))
+    assert (tmp_path / "trajectories_TestCam.png").exists()
+
+  def test_camera_below_scene_does_not_raise(self, tmp_path):
+    """No exception when camera is below scene (natural orientation)."""
+    ev = CameraAccuracyEvaluator()
+    ev._obj_categories = {0: "person"}
+    cam_df = self._make_cam_df()
+    # cam_y=-5 < scene mean gt_y≈5 → natural orientation
+    ev._plot_camera_distances(cam_df, "TestCam", tmp_path, cam_pos=(5.0, -5.0))
+    assert (tmp_path / "trajectories_TestCam.png").exists()
+
+  def test_view_direction_arrow_does_not_raise(self, tmp_path):
+    """No exception when both cam_pos and cam_view_dir are provided."""
+    ev = CameraAccuracyEvaluator()
+    ev._obj_categories = {0: "person"}
+    cam_df = self._make_cam_df()
+    ev._plot_camera_distances(
+      cam_df, "TestCam", tmp_path,
+      cam_pos=(5.0, -5.0),
+      cam_view_dir=(0.0, 1.0),
+    )
+    assert (tmp_path / "trajectories_TestCam.png").exists()
+
+  def test_no_cam_pos_does_not_raise(self, tmp_path):
+    """No exception when cam_pos is None (no camera marker)."""
+    ev = CameraAccuracyEvaluator()
+    ev._obj_categories = {0: "person"}
+    cam_df = self._make_cam_df()
+    ev._plot_camera_distances(cam_df, "TestCam", tmp_path, cam_pos=None)
+    assert (tmp_path / "trajectories_TestCam.png").exists()

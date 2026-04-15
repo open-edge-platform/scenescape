@@ -248,11 +248,15 @@ evaluators:
 
 - **Per-camera, per-object breakdown**: every `(camera, object)` pair gets its own mean error and visibility count.
 - **Object ID decoding**: harness encodes IDs as `"{camera_id}:{object_id}"`; this evaluator splits them back.
+- **Camera position resolution**: `set_scene_config()` runs `cv2.solvePnP` on each sensor's calibration points to place a star marker on trajectory plots.
+- **Camera view direction**: `set_scene_config()` also computes the normalized 2-D world-space viewing direction of each camera (`R^T @ [0, 0, 1]` XY component) and draws an arrow on the trajectory plot.
+- **Axis orientation**: when the camera is above the scene centre (`cam_y > mean(gt_y)`), both X and Y axes are flipped (180° rotation) so the camera always appears at the visual bottom with correct left/right chirality.
 - **Human-readable CSV output**: `summary_table.csv` uses column names like `"Cam_x1_0 - Mean Error (m)"`.
 - **Terminal table**: `format_summary()` renders a 2-row-header table with `|` separators between camera groups.
 - **Plots** (per camera):
   - `distance_errors_{cam}.png` — distance error over time.
-  - `trajectories_{cam}.png` — projected (solid) vs GT (dashed) XY trajectories, tight-zoomed with start-point markers.
+  - `trajectories_{cam}.png` — projected (solid) vs GT (dashed) XY trajectories, camera position star, view-direction arrow, tight-zoomed with start-point markers.
+  - `error_vs_cam_distance_{cam}.png` — mean projection error vs. distance from camera (binned).
 - **Visibility bar chart**: `visibility_per_camera.png` comparing per-object visibility across cameras.
 
 **Metrics returned by `evaluate_metrics()`**:
@@ -296,7 +300,7 @@ See `pipeline_configs/camera_projection_evaluation.yaml` for a ready-to-run exam
 
 **Implementation**: [camera_accuracy_evaluator.py](camera_accuracy_evaluator.py)
 
-**Tests**: See [tests/test_camera_accuracy_evaluator.py](tests/test_camera_accuracy_evaluator.py) — 28 test cases covering configuration, metric computation, CSV/plot outputs, `format_summary()`, edge cases, and reset.
+**Tests**: See [tests/test_camera_accuracy_evaluator.py](tests/test_camera_accuracy_evaluator.py) — 42 test cases covering configuration, metric computation, CSV/plot outputs, `format_summary()`, `set_scene_config()` (camera positions and view directions), axis orientation, view-direction arrow rendering, edge cases, and reset.
 
 ## Adding New Evaluators
 

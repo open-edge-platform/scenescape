@@ -19,6 +19,19 @@ harness:
   class: harnesses.camera_projection_harness.CameraProjectionHarness
   config:
     container_image: scenescape-controller:2026.1.0-dev
+    # Per-category projection settings (mirrors production asset config).
+    # shift_type: 1 = TYPE_1 (bb bottom-centre), 2 = TYPE_2 (angle-corrected).
+    # x_size / y_size: object footprint in metres; used for camloc compensation
+    # (projected point is pushed mean([x_size,y_size])/2 m away from camera).
+    # object_classes:
+    #   - name: person
+    #     shift_type: 2
+    #     x_size: 0.5
+    #     y_size: 0.5
+    #   - name: FW190D
+    #     shift_type: 1
+    #     x_size: 3.0
+    #     y_size: 4.5
 
 evaluators:
   - class: evaluators.camera_accuracy_evaluator.CameraAccuracyEvaluator

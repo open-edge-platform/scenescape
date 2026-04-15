@@ -110,6 +110,15 @@ harness:
   class: harnesses.camera_projection_harness.CameraProjectionHarness
   config:
     container_image: scenescape-controller:latest
+    # Optional: per-category projection settings.
+    # shift_type 1 = bottom-centre (TYPE_1, default)
+    # shift_type 2 = perspective-corrected point (TYPE_2)
+    # x_size / y_size push the result away from the camera by mean([x,y])/2 metres.
+    object_classes:
+      - name: person
+        shift_type: 1
+        x_size: 0.5
+        y_size: 0.5
 
 evaluators:
   - class: evaluators.camera_accuracy_evaluator.CameraAccuracyEvaluator
@@ -241,8 +250,6 @@ The pipeline uses standardized data formats defined by JSON schemas to enable in
 
 ## Limitations
 
-- **`CameraProjectionHarness` — TYPE_1 projection only**: The production controller supports two bounding-box-to-ground-plane projection modes, selected per object category via the `shift_type` asset-configuration key. `TYPE_1` (default) uses the bounding-box bottom-centre as the ground contact point. `TYPE_2` applies a perspective correction based on the camera viewing angle (via `CameraPose.projectBounds()`), intended for wide or short objects. `CameraProjectionHarness` always uses the TYPE_1 formula. The current metric test dataset uses only `person` objects with no `shift_type` override, so both modes are equivalent. If a future dataset introduces TYPE_2 categories, `run_projection.py` must be extended to read `shift_type` per category from the asset config and apply the corrected projection.
-
 - **TrackEval timestamp deduplication**: TrackEval requires unique frame indices while the production tracker can emit multiple frames with identical timestamps when time-chunking is disabled. To bridge this mismatch, [evaluators/trackeval_evaluator.py](evaluators/trackeval_evaluator.py) filters duplicate timestamps inside `TrackEvalEvaluator.process_tracker_outputs()` and keeps only the first frame per timestamp before metrics are computed. This prevents TrackEval from double-counting frames until tracker-side chunking aligns with TrackEval's expectations. The impact on metrics is not significant, since frames with duplicated timestamps in most cases contain almost the same object coordinates.
 
 ## Testing
@@ -253,8 +260,8 @@ The evaluation pipeline has comprehensive test coverage:
 
 - **Unit Tests**: Fast tests without external dependencies, located in component-specific test directories
   - `datasets/tests/test_*.py`: Datasets unit tests
-  - `harnesses/tests/test_*.py`: Harnesses unit tests (includes `CameraProjectionHarness` — 18 tests)
-  - `evaluators/tests/test_*.py`: Evaluator unit tests (includes `CameraAccuracyEvaluator` — 28 tests)
+  - `harnesses/tests/test_*.py`: Harnesses unit tests (includes `CameraProjectionHarness` — 23 tests; `run_projection.py` helpers — 13 tests)
+  - `evaluators/tests/test_*.py`: Evaluator unit tests (includes `CameraAccuracyEvaluator` — 37 tests)
   - `tests/test_format_converters.py`: Format converter unit tests
 
 - **Integration Tests**: Tests requiring Docker and real components, located in `tests/`
