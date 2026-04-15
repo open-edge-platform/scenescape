@@ -63,6 +63,7 @@ class Scene(SceneModel):
     self.trackerType = None
     self.persist_attributes = {}
     self.time_chunking_rate_fps = time_chunking_rate_fps
+    self._analytics_objects = {}
 
     if not ControllerMode.isAnalyticsOnly():
       self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
@@ -312,22 +313,26 @@ class Scene(SceneModel):
     timestamp_str = get_iso_time(when)
     timestamp_epoch = when
 
-    # Skip processing if no tracker (analytics-only mode)
-    if self.tracker is None:
-      return True
-
     # Find all objects currently in the sensor region across ALL detection types
     # Optimization: check if scene-wide to avoid redundant isPointWithin calls
     # TODO: Further optimize for scenes with many objects: spatial indexing (R-tree),
     # bounding box pre-filtering, or tracking only recently-moved objects
     is_scene_wide = sensor.area == Region.REGION_SCENE
     objects_in_sensor = []
-    for detectionType in self.tracker.trackers.keys():
-      for obj in self.tracker.currentObjects(detectionType):
-        # When tracking is disabled, do not rely on obj.frameCount being initialized
-        if (not self.use_tracker or obj.frameCount > 3) and (is_scene_wide or sensor.isPointWithin(obj.sceneLoc)):
+
+    if self.use_tracker:
+      for detectionType in self.tracker.trackers.keys():
+        for obj in self.tracker.currentObjects(detectionType):
+          # When tracking is disabled, do not rely on obj.frameCount being initialized
+          print("Non-analytics mode: ", obj)
+          if (not self.use_tracker or obj.frameCount > 3) and (is_scene_wide or sensor.isPointWithin(obj.sceneLoc)):
+            objects_in_sensor.append(obj)
+            obj.chain_data.active_sensors.add(sensor_id)
+    else:
+      for obj in self._analytics_objects.values():
+        print("Analytics mode: ", (obj.sceneLoc))
+        if is_scene_wide or sensor.isPointWithin(obj.sceneLoc):
           objects_in_sensor.append(obj)
-          # Ensure active_sensors is updated (handles scene-wide sensors or objects existing before sensor creation)
           obj.chain_data.active_sensors.add(sensor_id)
 
     log.debug("SENSOR OBJECTS FOUND", sensor_id, len(objects_in_sensor), "type:", sensor.singleton_type)
@@ -398,7 +403,7 @@ class Scene(SceneModel):
 
     return
 
-  def updateTrackedObjects(self, detection_type, objects):
+  def updateTrackedObjects(self, detection_type, tracked_objects):
     """
     Update the cache of tracked objects from MQTT.
     This is used by Analytics to consume tracked objects published by the Tracker service.
@@ -407,7 +412,23 @@ class Scene(SceneModel):
         detection_type: The type of detection (e.g., 'person', 'vehicle')
         objects: List of tracked objects for this detection type
     """
-    self.tracked_objects_cache[detection_type] = objects
+    self.tracked_objects_cache[detection_type] = tracked_objects
+
+    if ControllerMode.isAnalyticsOnly():
+      # Build set of current object ids for this detection type
+      current_ids = {obj['id'] for obj in tracked_objects if 'id' in obj}
+
+      # Remove stale wrappers that are no longer in the tracked set
+      stale = [oid for oid, wrapper in self._analytics_objects.items()
+                if oid not in current_ids]
+      for oid in stale:
+          del self._analytics_objects[oid]
+
+      # Create or update wrappers — deserialize as a batch for efficiency,
+      # then index results by id so _analytics_objects stays consistent.
+      deserialized = self._deserializeTrackedObjects(tracked_objects)
+      for wrapper in deserialized:
+          self._analytics_objects[wrapper.gid] = wrapper
     return
 
   def getTrackedObjects(self, detection_type):
@@ -437,7 +458,8 @@ class Scene(SceneModel):
   def _deserializeTrackedObjects(self, serialized_objects):
     """
     Convert serialized tracked objects to a format usable by Analytics.
-    This creates lightweight wrappers that mimic MovingObject interface.
+    Reuses existing objects from _analytics_objects cache to preserve chain_data
+    state (sensor readings, region history) across frames.
     If objects are already deserialized, returns them as-is.
 
     Args:
@@ -446,7 +468,6 @@ class Scene(SceneModel):
     Returns:
         List of object-like structures with necessary attributes
     """
-
     if not serialized_objects or not isinstance(serialized_objects, list):
       return serialized_objects if serialized_objects else []
 
@@ -457,87 +478,63 @@ class Scene(SceneModel):
     for obj_data in serialized_objects:
       if not isinstance(obj_data, dict):
         continue
-      obj = SimpleNamespace()
-      obj.gid = obj_data.get('id')
+
+      obj_id = obj_data.get('id')
+
+      # Reuse existing object to preserve chain_data, or create a new one
+      if obj_id in self._analytics_objects:
+        obj = self._analytics_objects[obj_id]
+      else:
+        obj = SimpleNamespace()
+        obj.chain_data = ChainData(regions={}, publishedLocations=[], persist={})
+        self._analytics_objects[obj_id] = obj
+
+      # Update position and all fields every frame
+      obj.gid = obj_id
       obj.category = obj_data.get('type', obj_data.get('category'))
       obj.sceneLoc = Point(obj_data.get('translation', [0, 0, 0]))
       obj.velocity = Point(obj_data.get('velocity', [0, 0, 0])) if obj_data.get('velocity') else None
       obj.size = obj_data.get('size')
       obj.confidence = obj_data.get('confidence')
-      obj.frameCount = obj_data.get('frame_count', 0)
+      obj.frameCount = obj_data.get('frame_count', 4)  # > 3 so sensor/region checks pass
       obj.rotation = obj_data.get('rotation')
+      obj.reid = {}
+      obj.metadata = {}
+      obj.vectors = []
+      obj.boundingBox = None
+      obj.boundingBoxPixels = None
+      obj.intersected = False
+      obj.visibility = obj_data.get('visibility', [])
+      obj.info = {'category': obj.category, 'confidence': obj.confidence}
+
       # Extract reid from metadata if present
       metadata = obj_data.get('metadata', {})
-      obj.reid = metadata.get('reid') if metadata else None
-      obj.similarity = obj_data.get('similarity')
-      obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
-      obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
-
-      obj_id = obj.gid
-      if 'first_seen' in obj_data:
-        obj.when = get_epoch_time(obj_data.get('first_seen'))
-        obj.first_seen = obj.when
-        # Cache the first_seen from MQTT data
-        if obj_id not in self.object_history_cache:
-          self.object_history_cache[obj_id] = {}
-        self.object_history_cache[obj_id]['first_seen'] = obj.when
-      else:
-        # Check if we have a cached first_seen timestamp
-        if obj_id in self.object_history_cache and 'first_seen' in self.object_history_cache[obj_id]:
-          obj.when = self.object_history_cache[obj_id]['first_seen']
-          obj.first_seen = obj.when
-        else:
-          # First time seeing this object, record current time
-          current_time = get_epoch_time()
-          obj.when = current_time
-          obj.first_seen = current_time
-          if obj_id not in self.object_history_cache:
-            self.object_history_cache[obj_id] = {}
-          self.object_history_cache[obj_id]['first_seen'] = current_time
-          log.debug(f"First time seeing object id {obj_data.get('id')} from MQTT; setting first_seen to current time: {current_time}")
-      obj.visibility = obj_data.get('visibility', [])
-
-      obj.info = {
-        'category': obj.category,
-        'confidence': obj.confidence,
-      }
+      obj.reid = metadata.get('reid') if metadata else {}
 
       if 'camera_bounds' in obj_data and obj_data['camera_bounds']:
         obj._camera_bounds = obj_data['camera_bounds']
       else:
         obj._camera_bounds = None
 
-      # Deserialize chain_data: convert sensors into env_sensor_state and attr_sensor_events
-      obj.chain_data = ChainData(
-        regions=obj_data.get('regions', {}),
-        publishedLocations=[],
-        persist=obj_data.get('persistent_data', {}),
-      )
+      # Timestamps
+      if 'first_seen' in obj_data:
+        obj.first_seen = get_epoch_time(obj_data['first_seen'])
+        obj.when = obj.first_seen
+      elif obj_id in self.object_history_cache and 'first_seen' in self.object_history_cache[obj_id]:
+        obj.first_seen = self.object_history_cache[obj_id]['first_seen']
+        obj.when = obj.first_seen
+      else:
+        current_time = get_epoch_time()
+        obj.first_seen = current_time
+        obj.when = current_time
+        self.object_history_cache.setdefault(obj_id, {})['first_seen'] = current_time
+        log.debug(f"First time seeing object id {obj_id} from MQTT; setting first_seen to current time: {current_time}")
 
-      # Convert serialized sensors into env_sensor_state and attr_sensor_events
-      sensors_data = obj_data.get('sensors', {})
-      for sensor_id, sensor_info in sensors_data.items():
-        values = sensor_info.get('values', [])
-        if not values:
-          continue
-
-        is_environmental = self._isEnvironmentalSensor(sensor_id, values)
-
-        if is_environmental:
-          obj.chain_data.env_sensor_state[sensor_id] = {'readings': values}
-        else:
-          obj.chain_data.attr_sensor_events[sensor_id] = values
-
-      obj_id = obj.gid
+      # Restore published locations from history cache
       if obj_id in self.object_history_cache:
         obj.chain_data.publishedLocations = self.object_history_cache[obj_id].get('publishedLocations', [])
-      else:
-        obj.chain_data.publishedLocations = []
-        self.object_history_cache[obj_id] = {}
-
-      # Store current object data for next frame
-      self.object_history_cache[obj_id]['publishedLocations'] = obj.chain_data.publishedLocations
-      self.object_history_cache[obj_id]['last_seen'] = obj.sceneLoc
+      self.object_history_cache.setdefault(obj_id, {})['publishedLocations'] = obj.chain_data.publishedLocations
+      self.object_history_cache.setdefault(obj_id, {})['last_seen'] = obj.sceneLoc
 
       objects.append(obj)
 
