@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
+
+{{- if .Values.tritonserver.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-tritonserver-config
+  labels:
+    app: {{ .Release.Name }}-tritonserver
+data:
+  model-repository-info.md: |
+    # Triton Server Model Repository Structure
+
+    Upload your TensorRT models through the SceneScape UI in the following directory structure:
+
+    ```
+    /models/models/
+    ├── <model_name_1>/
+    │   ├── config.pbtxt           # Model configuration file (required)
+    │   └── 1/                     # Version 1 directory
+    │       └── model.plan         # TensorRT model file (.plan or .engine)
+    └── <model_name_2>/
+        ├── config.pbtxt
+        └── 1/
+            └── model.plan
+    ```
+
+    ## Model Management API Endpoints
+
+    - Health check: http://tritonserver:8000/v2/health/live
+    - Model repository: http://tritonserver:8000/v2/models
+    - gRPC server: tritonserver:8001
+
+  startup-script.sh: |
+    #!/bin/bash
+    echo "Initializing Triton Server model repository..."
+    mkdir -p /models/models
+    echo "Model repository ready at /models/models"
+    echo "Triton Server will poll for new models every {{ .Values.tritonserver.modelRepositoryPollInterval }} seconds"
+{{- end }}

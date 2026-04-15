@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 ---
 apiVersion: v1
@@ -13,3 +15,9 @@ data:
 {{ .Files.Get "files/dlsps/sscape_policies.py" | indent 4 }}
   sscape_3d_detector.py: |
 {{ .Files.Get "files/dlsps/sscape_3d_detector.py" | indent 4 }}
+  triton_inference_base.py: |
+{{ .Files.Get "files/dlsps/triton_inference_base.py" | indent 4 }}
+  yolov7_triton_inference.py: |
+{{ .Files.Get "files/dlsps/yolov7_triton_inference.py" | indent 4 }}
+  yolox_triton_inference.py: |
+{{ .Files.Get "files/dlsps/yolox_triton_inference.py" | indent 4 }}

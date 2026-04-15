@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 import base64
 import json
@@ -80,10 +82,22 @@ class PostDecodeTimestampCapture:
 
     now += self.timeOffset
     self.timestamp_for_next_block = now
+
+    # Capture original resolution before videoscale resizes the frame.
+    # Runs once on first frame, then reuses cached values.
+    if not hasattr(self, '_orig_w'):
+      try:
+        vi = frame.video_info()
+        self._orig_w, self._orig_h = vi.width, vi.height
+      except Exception:
+        self._orig_w, self._orig_h = 0, 0
+
     frame.add_message(json.dumps({
       'postdecode_timestamp': f"{datetime.fromtimestamp(now, tz=timezone(TIMEZONE)).strftime(DATETIME_FORMAT)[:-3]}Z",
       'timestamp_for_next_block': now,
-      'fps': self.fps
+      'fps': self.fps,
+      'original_width': self._orig_w,
+      'original_height': self._orig_h,
     }))
     return True
 
@@ -140,6 +154,14 @@ class PostInferenceDataPublish:
   def annotateObjects(self, img):
     objColors = ((0, 0, 255), (66, 186, 150), (207, 83, 255), (31, 156, 238))
 
+    # Scale factor: bboxes are in gvametaconvert resolution (e.g. 640x640),
+    # image may have been resized to original resolution. For OpenVINO
+    # pipelines both match, so scale = 1.0.
+    bbox_w = self.frame_level_data.get('_bbox_w', img.shape[1])
+    bbox_h = self.frame_level_data.get('_bbox_h', img.shape[0])
+    sx = img.shape[1] / bbox_w
+    sy = img.shape[0] / bbox_h
+
     if 'car' in self.frame_level_data['objects']:
       intrinsics = self.frame_level_data.get('initial_intrinsics')
       self.sub_detector.annotateObjectAssociations(img, self.frame_level_data['objects'], objColors, 'car', 'license_plate', intrinsics=intrinsics)
@@ -153,9 +175,12 @@ class PostInferenceDataPublish:
       else:
         cindex = 2
       for obj in objects:
-        topleft_cv = (int(obj['bounding_box_px']['x']), int(obj['bounding_box_px']['y']))
-        bottomright_cv = (int(obj['bounding_box_px']['x'] + obj['bounding_box_px']['width']),
-                        int(obj['bounding_box_px']['y'] + obj['bounding_box_px']['height']))
+        bx = obj['bounding_box_px']['x']
+        by = obj['bounding_box_px']['y']
+        bw = obj['bounding_box_px']['width']
+        bh = obj['bounding_box_px']['height']
+        topleft_cv = (int(bx * sx), int(by * sy))
+        bottomright_cv = (int((bx + bw) * sx), int((by + bh) * sy))
         cv2.rectangle(img, topleft_cv, bottomright_cv, objColors[cindex], 4)
     return
 
@@ -186,6 +211,19 @@ class PostInferenceDataPublish:
         image = original_image
       except (ValueError, Exception) as e:
         print(f"Error using original image: {e}. Falling back to current frame.")
+
+    if image is None:
+      with gvaframe.data() as img:
+        video_meta = gvaframe.video_meta()
+        image = self._tryConvertToBgr(img, video_meta)
+
+    # Scale image back to original resolution if it was resized for inference.
+    # e.g. 640x640 -> 1920x1080. Bboxes are also scaled in annotateObjects.
+    orig_w = self.frame_level_data.get('_orig_w', 0)
+    orig_h = self.frame_level_data.get('_orig_h', 0)
+    if orig_w > 0 and orig_h > 0 and (image.shape[1] != orig_w or image.shape[0] != orig_h):
+      image = cv2.resize(image, (orig_w, orig_h))
+
     if annotate:
       self.annotateObjects(image)
       self.annotateFPS(image, self.frame_level_data['rate'])
@@ -201,19 +239,89 @@ class PostInferenceDataPublish:
       'timestamp': gvadata['postdecode_timestamp'],
       'debug_timestamp_end': f"{datetime.fromtimestamp(now, tz=timezone(TIMEZONE)).strftime(DATETIME_FORMAT)[:-3]}Z",
       'debug_processing_time': now - float(gvadata['timestamp_for_next_block']),
-      'rate': float(gvadata['fps'])
+      'rate': float(gvadata['fps']),
+      '_orig_w': int(gvadata.get('original_width', 0)),
+      '_orig_h': int(gvadata.get('original_height', 0)),
     })
     if 'initial_intrinsics' in gvadata:
       self.frame_level_data['initial_intrinsics'] = gvadata['initial_intrinsics']
     objects = defaultdict(list)
     if 'objects' in gvadata and len(gvadata['objects']) > 0:
       framewidth, frameheight = gvadata['resolution']['width'], gvadata['resolution']['height']
-      for det in gvadata['objects']:
-        vaobj = {}
-        self.metadatagenpolicy(vaobj, det, framewidth, frameheight)
-        otype = vaobj['category']
-        vaobj['id'] = len(objects[otype]) + 1
-        objects[otype].append(vaobj)
+
+      # Scale detection pixel coords from inference resolution to original camera resolution.
+      # When GStreamer videoscale reduces the frame for Triton (e.g. 1920x1080 -> 640x640),
+      # detection coords must be rescaled to original camera space so SceneScape's
+      # calibration (performed at original resolution) correctly projects to the 3D map.
+      orig_w = self.frame_level_data.get('_orig_w', 0)
+      orig_h = self.frame_level_data.get('_orig_h', 0)
+      if orig_w > 0 and orig_h > 0 and (orig_w != framewidth or orig_h != frameheight):
+        proj_w, proj_h = orig_w, orig_h
+        sx = orig_w / framewidth
+        sy = orig_h / frameheight
+      else:
+        proj_w, proj_h = framewidth, frameheight
+        sx, sy = 1.0, 1.0
+
+      self.frame_level_data['_bbox_w'] = proj_w
+      self.frame_level_data['_bbox_h'] = proj_h
+
+      # gvadetect sets parent_id field only if inference-region=roi-list (on second gvadetect in your pipeline).
+      has_parent_ids = any('parent_id' in det for det in gvadata['objects'])
+      if has_parent_ids:
+        # Two-pass approach: first build all objects, then nest children into parents.
+        # region_id_map allows O(1) parent lookup by region_id.
+        region_id_map = {}
+        ordered_dets = []
+        for det in gvadata['objects']:
+          vaobj = {}
+          if sx != 1.0 or sy != 1.0:
+            det = dict(det)
+            det['x'] = int(det['x'] * sx)
+            det['y'] = int(det['y'] * sy)
+            det['w'] = int(det['w'] * sx)
+            det['h'] = int(det['h'] * sy)
+          self.metadatagenpolicy(vaobj, det, proj_w, proj_h)
+          if self.detection_labels and vaobj['category'] not in self.detection_labels:
+            continue
+          region_id = det.get('region_id')
+          parent_id = det.get('parent_id')
+          ordered_dets.append((vaobj, region_id, parent_id))
+          if region_id is not None:
+            region_id_map[region_id] = vaobj
+
+        for vaobj, region_id, parent_id in ordered_dets:
+          otype = vaobj['category']
+          if parent_id is not None and parent_id in region_id_map:
+            parent_obj = region_id_map[parent_id]
+            sub_objects = parent_obj.setdefault('sub_objects', defaultdict(list))
+            vaobj['id'] = len(sub_objects[otype]) + 1
+            sub_objects[otype].append(vaobj)
+          else:
+            vaobj['id'] = len(objects[otype]) + 1
+            objects[otype].append(vaobj)
+
+        # Convert sub_objects defaultdicts to plain dicts
+        for obj_list in objects.values():
+          for obj in obj_list:
+            if 'sub_objects' in obj:
+              obj['sub_objects'] = dict(obj['sub_objects'])
+      else:
+        # Fast path: no parent_id present.
+        for det in gvadata['objects']:
+          vaobj = {}
+          if sx != 1.0 or sy != 1.0:
+            det = dict(det)
+            det['x'] = int(det['x'] * sx)
+            det['y'] = int(det['y'] * sy)
+            det['w'] = int(det['w'] * sx)
+            det['h'] = int(det['h'] * sy)
+          self.metadatagenpolicy(vaobj, det, proj_w, proj_h)
+          if self.detection_labels and vaobj['category'] not in self.detection_labels:
+            continue
+          otype = vaobj['category']
+          vaobj['id'] = len(objects[otype]) + 1
+          objects[otype].append(vaobj)
 
     self.processSubDetections(objects)
     self.frame_level_data['objects'] = objects

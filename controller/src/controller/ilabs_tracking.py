@@ -1,6 +1,9 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
+import time
 import uuid
 from datetime import datetime
 
@@ -21,15 +24,19 @@ from scene_common.timestamp import get_epoch_time
 
 class IntelLabsTracking(Tracking):
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, name=None):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static,
+               baseline_frame_rate=10, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
+               reid_config_data=None, name=None):
     """Initialize the tracker with tracker configuration parameters"""
     super().__init__()
     self.name = name if name is not None else "IntelLabsTracking"
-    #ref_camera_frame_rate is used to determine the frame-based param values
-    self.ref_camera_frame_rate = 30
+    self.ref_camera_frame_rate = baseline_frame_rate
     tracker_config = rv.tracking.TrackManagerConfig()
 
-    tracker_config.default_process_noise = 1e-4
+    # Process noise σ²_a: effective noise scales as σ²_a × dt². At 10 FPS (dt=0.1s),
+    # 5e-4 gives effective noise 5e-6, balancing smooth tracks with responsive adaptation.
+    # Intel upstream used 1e-4 at 30 FPS (effective 1.1e-7). Range: 1e-4 (smooth) to 1e-3 (responsive).
+    tracker_config.default_process_noise = 5e-4
     tracker_config.default_measurement_noise = 2e-1
     tracker_config.init_state_covariance = 1
 
@@ -47,14 +54,15 @@ class IntelLabsTracking(Tracking):
       tracker_config.non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC
       tracker_config.non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC
 
-    if suspended_track_timeout_secs is not None and suspended_track_timeout_secs > 0:
+    if suspended_track_timeout_secs is not None and 0 < suspended_track_timeout_secs < 3600:
       tracker_config.suspended_track_timeout_secs = suspended_track_timeout_secs
     else:
-      log.error("The suspended_track_timeout_secs parameter needs to be positive and less than 3600 seconds. \
-                 Initiating the tracker with the default value.")
+      log.error("The suspended_track_timeout_secs parameter needs to be positive and less than 3600 seconds. "
+                "Initiating the tracker with the default value.")
       tracker_config.suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 
     self.tracker = rv.tracking.MultipleObjectTracker(tracker_config)
+    self.reid_config_data = reid_config_data
     log.info(f"Multiple Object Tracker {self.__str__()} initialized")
     log.info("Tracker config: {}".format(tracker_config))
     self.tracker.update_tracker_params(self.ref_camera_frame_rate)
@@ -95,12 +103,19 @@ class IntelLabsTracking(Tracking):
     return rv_object
 
   def update_tracks(self, objects, timestamp):
+    t_conv_start = time.time_ns()
     rv_objects = [self.to_rv_object(sscape_object) for sscape_object in objects]
+    t_conv = (time.time_ns() - t_conv_start) / 1e6
+
     tracking_radius = DEFAULT_TRACKING_RADIUS
     if len(objects):
       tracking_radius = sum([x.tracking_radius for x in objects]) / len(objects)
 
+    t_track_start = time.time_ns()
     self.tracker.track(rv_objects, timestamp, distance_type=rv.tracking.DistanceType.Euclidean, distance_threshold=tracking_radius)
+    t_track = (time.time_ns() - t_track_start) / 1e6
+
+    log.debug(f"[PROFILE_UPDATE] objs={len(objects)}, conv_ms={t_conv:.3f}, track_ms={t_track:.3f}")
     return
 
   def from_tracked_object(self, tracked_object, objects):
@@ -115,6 +130,10 @@ class IntelLabsTracking(Tracking):
       for obj in self.all_tracker_objects:
         if uuid == obj.uuid:
           return obj
+      # Neither current objects nor all_tracker_objects matched this UUID.
+      # This can happen if a tracked object's UUID was invalidated between frames.
+      log.warning(f"No sscape_object found for tracked UUID {uuid}, track_id={tracked_object.id}")
+      return None
 
     sscape_object.location[0].point = Point(tracked_object.x, tracked_object.y,
                                             tracked_object.z)
@@ -129,10 +148,64 @@ class IntelLabsTracking(Tracking):
         sscape_object.inferRotationFromVelocity()
         break
     if not found:
-      sscape_object.setGID(uuid)
+      # Preserve existing UUID mapping if one exists for this rv_id
+      existing_gid = self.uuid_manager.active_ids.get(sscape_object.rv_id, [None])[0]
+      if existing_gid is None:
+        sscape_object.setGID(uuid)
+      else:
+        sscape_object.setGID(existing_gid)
 
     self.uuid_manager.assignID(sscape_object)
 
+    return sscape_object
+
+  def from_tracked_object_fast(self, tracked_object, objects_by_uuid, tracker_by_uuid, tracker_by_rv_id):
+    """Optimized version using pre-built hash maps for O(1) lookup instead of O(n) loops.
+
+    Args:
+        tracked_object: The tracked object from robot_vision tracker
+        objects_by_uuid: Dict mapping uuid -> sscape_object for current frame objects
+        tracker_by_uuid: Dict mapping uuid -> sscape_object for all_tracker_objects
+        tracker_by_rv_id: Dict mapping rv_id -> sscape_object for all_tracker_objects
+
+    Returns:
+        The associated sscape object with updated tracking info
+    """
+    uuid = tracked_object.attributes['info']
+
+    # O(1) lookup instead of O(n) loop through objects
+    sscape_object = objects_by_uuid.get(uuid)
+    if sscape_object is None:
+      # O(1) lookup instead of O(n) loop through all_tracker_objects
+      sscape_object = tracker_by_uuid.get(uuid)
+      if sscape_object is not None:
+        return sscape_object
+      # Neither current objects nor tracker objects matched this UUID
+      log.warning(f"No sscape_object found for tracked UUID {uuid}, track_id={tracked_object.id}")
+      return None
+
+    # Update location and velocity
+    sscape_object.location[0].point = Point(tracked_object.x, tracked_object.y,
+                                            tracked_object.z)
+    sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, 0.0))
+    sscape_object.rv_id = tracked_object.id
+
+    # O(1) lookup instead of O(m) loop through all_tracker_objects
+    prev_obj = tracker_by_rv_id.get(tracked_object.id)
+    if prev_obj is not None:
+      sscape_object.setPrevious(prev_obj)
+      sscape_object.inferRotationFromVelocity()
+    else:
+      # Preserve existing UUID mapping if one exists for this rv_id.
+      # Without this check, a new GID is assigned every time a track transitions
+      # between reliable/unreliable/suspended states, breaking identity continuity.
+      existing_gid = self.uuid_manager.active_ids.get(sscape_object.rv_id, [None])[0]
+      if existing_gid is None:
+        sscape_object.setGID(uuid)
+      else:
+        sscape_object.setGID(existing_gid)
+
+    self.uuid_manager.assignID(sscape_object)
     return sscape_object
 
   def mergeAlreadyTrackedObjects(self, tracks):
@@ -173,35 +246,110 @@ class IntelLabsTracking(Tracking):
     return result
 
   def trackCategory(self, objects, when, already_tracked_objects):
-    """Create reliable tracks for objects detected and tracks detected"""
-    when = datetime.fromtimestamp(when)
-    self.update_tracks(objects, when)
-    tracked_objects = self.tracker.get_reliable_tracks()
-    self.uuid_manager.pruneInactiveTracks(tracked_objects)
-    tracks_from_detections = [self.from_tracked_object(tracked_object, objects)
-                     for tracked_object in tracked_objects]
+    """Create reliable tracks for objects detected and tracks detected.
+    OWNERSHIP: Called only from this tracker's daemon thread via run() loop."""
+    self._assert_owner_thread()
+    log.debug(f"[PROFILE_ENTRY] trackCategory called with {len(objects)} objects")
+    t_start = time.time_ns()
 
+    when_dt = datetime.fromtimestamp(when)
+
+    t_update_start = time.time_ns()
+    self.update_tracks(objects, when_dt)
+    t_update = (time.time_ns() - t_update_start) / 1e6
+
+    t_get_tracks_start = time.time_ns()
+    tracked_objects = self.tracker.get_reliable_tracks()
+    # Include all active C++ tracks to preserve UUID mappings across track states.
+    # Unreliable and suspended tracks must be included so pruneInactiveTracks does not
+    # remove UUID mappings for objects that are temporarily occluded or lost.
+    all_active_tracks = (tracked_objects +
+                         self.tracker.get_unreliable_tracks() +
+                         self.tracker.get_suspended_tracks())
+    t_get_tracks = (time.time_ns() - t_get_tracks_start) / 1e6
+
+    t_prune_start = time.time_ns()
+    self.uuid_manager.pruneInactiveTracks(all_active_tracks)
+    t_prune = (time.time_ns() - t_prune_start) / 1e6
+
+    t_from_start = time.time_ns()
+    tracks_from_detections = [t for t in (self.from_tracked_object(tracked_object, objects)
+                     for tracked_object in tracked_objects) if t is not None]
+    t_from = (time.time_ns() - t_from_start) / 1e6
+
+    t_merge_start = time.time_ns()
     # Already tracked objects include moving objects from tracks consumed directly
     self.already_tracked_objects = self.mergeAlreadyTrackedObjects(already_tracked_objects)
+    t_merge = (time.time_ns() - t_merge_start) / 1e6
+
     self.all_tracker_objects = tracks_from_detections + self.already_tracked_objects
+
+    t_total = (time.time_ns() - t_start) / 1e6
+
+    log.debug(f"[PROFILE_TRACK] objs={len(objects)}, tracks={len(tracked_objects)}, "
+              f"update_ms={t_update:.3f}, get_ms={t_get_tracks:.3f}, "
+              f"prune_ms={t_prune:.3f}, from_ms={t_from:.3f}, "
+              f"merge_ms={t_merge:.3f}, total_ms={t_total:.3f}")
+
     return
 
   def trackCategoryBatched(self, objects_per_camera, when, already_tracked_objects):
-    """Create reliable tracks for objects from multiple cameras using batched tracking"""
-    when = datetime.fromtimestamp(when)
-    self.update_tracks_batched(objects_per_camera, when)
+    """Create reliable tracks for objects from multiple cameras using batched tracking.
+    OWNERSHIP: Called only from this tracker's daemon thread via run() loop."""
+    self._assert_owner_thread()
+    total_objects = sum(len(objs) for objs in objects_per_camera)
+    log.debug(f"[PROFILE_ENTRY] trackCategoryBatched called with {len(objects_per_camera)} cameras, {total_objects} objects")
+    t_start = time.time_ns()
+
+    when_dt = datetime.fromtimestamp(when)
+
+    t_update_start = time.time_ns()
+    self.update_tracks_batched(objects_per_camera, when_dt)
+    t_update = (time.time_ns() - t_update_start) / 1e6
+
+    t_get_tracks_start = time.time_ns()
     tracked_objects = self.tracker.get_reliable_tracks()
-    self.uuid_manager.pruneInactiveTracks(tracked_objects)
+    # Include all active C++ tracks to preserve UUID mappings across track states.
+    # Unreliable and suspended tracks must be included so pruneInactiveTracks does not
+    # remove UUID mappings for objects that are temporarily occluded or lost.
+    all_active_tracks = (tracked_objects +
+                         self.tracker.get_unreliable_tracks() +
+                         self.tracker.get_suspended_tracks())
+    t_get_tracks = (time.time_ns() - t_get_tracks_start) / 1e6
+
+    t_prune_start = time.time_ns()
+    self.uuid_manager.pruneInactiveTracks(all_active_tracks)
+    t_prune = (time.time_ns() - t_prune_start) / 1e6
 
     # Flatten all objects for from_tracked_object lookup
     all_objects = [obj for camera_objects in objects_per_camera for obj in camera_objects]
 
-    tracks_from_detections = [self.from_tracked_object(tracked_object, all_objects)
-                     for tracked_object in tracked_objects]
+    t_from_start = time.time_ns()
+    # OPTIMIZATION: Build hash maps for O(1) lookup instead of O(n²) nested loops
+    # This reduces from_tracked_object complexity from O(n*m) to O(n+m)
+    objects_by_uuid = {obj.uuid: obj for obj in all_objects if hasattr(obj, 'uuid')}
+    tracker_by_uuid = {obj.uuid: obj for obj in self.all_tracker_objects if hasattr(obj, 'uuid')}
+    tracker_by_rv_id = {obj.rv_id: obj for obj in self.all_tracker_objects if hasattr(obj, 'rv_id')}
 
+    tracks_from_detections = [t for t in (
+        self.from_tracked_object_fast(tracked_object, objects_by_uuid, tracker_by_uuid, tracker_by_rv_id)
+        for tracked_object in tracked_objects
+    ) if t is not None]
+    t_from = (time.time_ns() - t_from_start) / 1e6
+
+    t_merge_start = time.time_ns()
     # Already tracked objects include moving objects from tracks consumed directly
     self.already_tracked_objects = self.mergeAlreadyTrackedObjects(already_tracked_objects)
+    t_merge = (time.time_ns() - t_merge_start) / 1e6
+
     self.all_tracker_objects = tracks_from_detections + self.already_tracked_objects
+
+    t_total = (time.time_ns() - t_start) / 1e6
+
+    log.debug(f"[PROFILE_TRACK_BATCHED] cameras={len(objects_per_camera)}, objs={total_objects}, tracks={len(tracked_objects)}, "
+              f"update_ms={t_update:.3f}, get_ms={t_get_tracks:.3f}, "
+              f"prune_ms={t_prune:.3f}, from_ms={t_from:.3f}, "
+              f"merge_ms={t_merge:.3f}, total_ms={t_total:.3f}")
     return
 
   def update_tracks_batched(self, objects_per_camera, timestamp):

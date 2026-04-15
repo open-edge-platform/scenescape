@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
+
+{{- if .Values.tritonserver.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-tritonserver
+  labels:
+    app: {{ .Release.Name }}-tritonserver
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.tritonserver.service.type }}
+  ports:
+  - name: http
+    port: {{ .Values.tritonserver.service.httpPort }}
+    targetPort: 8000
+    protocol: TCP
+  - name: grpc
+    port: {{ .Values.tritonserver.service.grpcPort }}
+    targetPort: 8001
+    protocol: TCP
+  - name: metrics
+    port: {{ .Values.tritonserver.service.metricsPort }}
+    targetPort: 8002
+    protocol: TCP
+  selector:
+    app: {{ .Release.Name }}-tritonserver
+{{- end }}

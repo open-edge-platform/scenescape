@@ -1,11 +1,14 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 MANAGERIMAGE=scenescape-manager
 CAMCALIBIMAGE=scenescape-camcalibration
 CONTROLLERIMAGE=scenescape-controller
 CLUSTERANALYTICSIMAGE=scenescape-cluster-analytics
 MAPPINGIMAGE=scenescape-mapping
+DLSTREAMERIMAGE=scenescape-dlstreamer-triton
 
 # Image groupings for flexible builds
 CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE)
@@ -179,7 +182,27 @@ push-experimental:
 	docker tag $(MAPPINGIMAGE):$(VERSION) $(REGISTRY)/$(ORGANIZATION)/$(MAPPINGIMAGE):$(VERSION)
 	docker push $(REGISTRY)/$(ORGANIZATION)/$(MAPPINGIMAGE):$(VERSION)
 
-push-all: push-core push-experimental
+load-all: load-core load-experimental
+
+# Optional: build and load the Triton-enabled DLStreamer image
+.PHONY: build-triton
+build-triton:
+	$(MAKE) -C .. -C dlstreamer-pipeline-server BUILD_DIR=$(BUILD_DIR) http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy)
+	$(MAKE) load-image IMAGE=$(DLSTREAMERIMAGE)
+
+.PHONY: load-triton
+load-triton:
+	$(MAKE) load-image IMAGE=$(DLSTREAMERIMAGE)
+
+SERVICES := $(patsubst scenescape-%,%,$(ALL_IMAGES))
+.PHONY: $(SERVICES)
+$(SERVICES):
+	$(MAKE) -C ../$@
+	$(MAKE) load-image IMAGE=scenescape-$@
+	$(MAKE) restart-service IMAGE=scenescape-$@
+
+restart-service:
+	kubectl get pods -n scenescape -o json | jq -r '.items[] | select(.spec.containers[].image | contains("$(IMAGE)")) | .metadata.name' | xargs -I {} kubectl delete pod {} -n scenescape
 
 # generate Chart.yaml with appropriate version.txt
 chart.yaml:
@@ -204,6 +227,7 @@ copy-files:
 	cp ../model_installer/requirements-runtime.txt scenescape-chart/files/model-installer/requirements-runtime.txt
 	cp ../dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json scenescape-chart/files/model-installer/person-detection-retail-0013.json
 	cp ../dlstreamer-pipeline-server/model_config.json scenescape-chart/files/model-installer/model_config.json
+	cp ../manager/src/django/ppl_generator/inference_model.py scenescape-chart/files/model-installer/inference_model.py
 	cp ../controller/config/tracker-config.json scenescape-chart/files/model-installer/tracker-config.json
 	cp ../sample_data/download-sample-data-k8s.sh scenescape-chart/files/sample-data/download-sample-data-k8s.sh
 	cp ../sample_data/convert-videos-k8s.sh scenescape-chart/files/sample-data/convert-videos-k8s.sh

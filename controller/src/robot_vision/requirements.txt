@@ -1,6 +1,8 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 # This file is licensed under Apache 2.0 License.
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 numpy>=1.17.1
 numpy-quaternion>=2019.12.11.22.25.52

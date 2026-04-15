@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: (C) 2026 Nokia
+# SPDX-License-Identifier: Apache-2.0
+
+# YOLOv7 DALI GPU preprocessing for 640x640 models (dynamic batch 1-32)
+# YOLOv7 expects RGB [0, 1] input -- normalize /255, BGR->RGB conversion.
+# Converts: UINT8 BGR HWC [640, 640, 3] -> FP16 RGB CHW [3, 640, 640]
+
+name: "yolov7_preprocess"
+backend: "dali"
+max_batch_size: 32
+
+input [
+  {
+    name: "INPUT_IMAGES"
+    data_type: TYPE_UINT8
+    dims: [ 640, 640, 3 ]
+  }
+]
+
+output [
+  {
+    name: "preprocessed_images"
+    data_type: TYPE_FP16
+    dims: [ 3, 640, 640 ]
+  }
+]
+
+instance_group [
+  {
+    kind: KIND_GPU
+    count: 1
+  }
+]
+
+dynamic_batching {
+  preferred_batch_size: [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 ]
+  max_queue_delay_microseconds: 100000
+}

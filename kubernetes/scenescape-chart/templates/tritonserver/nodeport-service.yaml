@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
+
+{{- if and .Values.tritonserver.enabled .Values.tritonService.nodePort.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-tritonserver-nodeport
+  labels:
+    app: {{ .Release.Name }}-tritonserver
+  {{- with .Values.tritonService.nodePort.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: {{ .Values.tritonserver.service.httpPort }}
+    targetPort: 8000
+    nodePort: {{ .Values.tritonService.nodePort.httpNodePort }}
+    protocol: TCP
+  - name: grpc
+    port: {{ .Values.tritonserver.service.grpcPort }}
+    targetPort: 8001
+    nodePort: {{ .Values.tritonService.nodePort.grpcNodePort }}
+    protocol: TCP
+  - name: metrics
+    port: {{ .Values.tritonserver.service.metricsPort }}
+    targetPort: 8002
+    nodePort: {{ .Values.tritonService.nodePort.metricsNodePort }}
+    protocol: TCP
+  selector:
+    app: {{ .Release.Name }}-tritonserver
+{{- end }}
+
+{{- if and .Values.tritonserver.enabled .Values.tritonService.loadBalancer.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-tritonserver-loadbalancer
+  labels:
+    app: {{ .Release.Name }}-tritonserver
+  {{- with .Values.tritonService.loadBalancer.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: LoadBalancer
+  {{- if .Values.tritonService.loadBalancer.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.tritonService.loadBalancer.loadBalancerIP }}
+  {{- end }}
+  externalTrafficPolicy: {{ .Values.tritonService.loadBalancer.externalTrafficPolicy }}
+  ports:
+  - name: http
+    port: {{ .Values.tritonserver.service.httpPort }}
+    targetPort: 8000
+    protocol: TCP
+  - name: grpc
+    port: {{ .Values.tritonserver.service.grpcPort }}
+    targetPort: 8001
+    protocol: TCP
+  - name: metrics
+    port: {{ .Values.tritonserver.service.metricsPort }}
+    targetPort: 8002
+    protocol: TCP
+  selector:
+    app: {{ .Release.Name }}-tritonserver
+{{- end }}

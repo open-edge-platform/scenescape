@@ -1,0 +1,72 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: update-model-config-TIMESTAMP
+  namespace: scenescape
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: merge-config
+        image: docker.io/python:3.13-slim
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo "Merging model configuration (base + existing OMZ models)..."
+          mkdir -p /models/models/model_configs
+
+          python3 << 'EOF'
+          import json
+          import os
+
+          BASE_CONFIG = "/config-source/model_config.json"
+          EXISTING_CONFIG = "/models/models/model_configs/model_config.json"
+          OUTPUT_CONFIG = "/models/models/model_configs/model_config.json"
+
+          base = {}
+          if os.path.exists(BASE_CONFIG):
+              with open(BASE_CONFIG, 'r') as f:
+                  base = json.load(f)
+              print(f"Loaded {len(base)} models from base config")
+
+          existing = {}
+          if os.path.exists(EXISTING_CONFIG):
+              with open(EXISTING_CONFIG, 'r') as f:
+                  existing = json.load(f)
+              print(f"Loaded {len(existing)} models from existing config")
+
+          merged = {**existing, **base}
+          print(f"Merged config has {len(merged)} models")
+
+          with open(OUTPUT_CONFIG, 'w') as f:
+              json.dump(merged, f, indent=2)
+          print(f"Saved merged config to {OUTPUT_CONFIG}")
+
+          triton_models = [k for k, v in merged.items() if v.get('type') == 'triton']
+          if triton_models:
+              print(f"Triton models: {', '.join(triton_models)}")
+          else:
+              print("No Triton models found")
+          EOF
+
+          echo ""
+          echo "Model configuration merged successfully"
+        volumeMounts:
+        - name: models-storage
+          mountPath: /models
+        - name: config-source
+          mountPath: /config-source
+      volumes:
+      - name: models-storage
+        persistentVolumeClaim:
+          claimName: scenescape-release-1-models-pvc
+      - name: config-source
+        configMap:
+          name: scenescape-release-1-model-installer
+  backoffLimit: 2

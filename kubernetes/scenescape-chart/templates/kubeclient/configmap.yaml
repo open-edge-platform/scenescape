@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
+
+---
+{{- if .Values.kubeclient.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-inference-model-overlay
+  labels:
+    app: {{ .Release.Name }}-kubeclient
+data:
+  inference_model.py: |
+{{ .Files.Get "files/model-installer/inference_model.py" | indent 4 }}
+{{ end }}

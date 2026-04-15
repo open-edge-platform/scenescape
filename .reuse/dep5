@@ -1,0 +1,19 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: SceneScape
+Upstream-Contact: https://github.com/intel/scenescape
+
+Files: model_repo/yolov7/export/onnx/yolov7-tiny-e2e-fp16input.onnx
+Copyright: (C) 2026 Nokia
+License: Apache-2.0
+
+Files: model_repo/yolov7/fp16/triton/yolov7_preprocess/1/model.dali
+Copyright: (C) 2026 Nokia
+License: Apache-2.0
+
+Files: model_repo/yolov7/fp16/triton/yolov7_tiny_e2e_v1/1/model.plan
+Copyright: (C) 2026 Nokia
+License: Apache-2.0
+
+Files: model_repo/yolov7/fp16/triton/yolov7_ensemble/1/.keep
+Copyright: (C) 2026 Nokia
+License: Apache-2.0

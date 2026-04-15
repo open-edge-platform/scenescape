@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 import collections
 import concurrent.futures
@@ -22,7 +24,8 @@ available_databases = {
 }
 
 class UUIDManager:
-  def __init__(self, database=DEFAULT_DATABASE):
+  def __init__(self, database=DEFAULT_DATABASE, reid_config_data=None):
+    self.reid_config_data = reid_config_data or {}
     self.active_ids = {}
     self.active_ids_lock = threading.Lock()
     self.active_query = {}
@@ -30,11 +33,18 @@ class UUIDManager:
     self.quality_features = {}
     self.unique_id_count = 0
     self.reid_database = available_databases[database]()
-    self.pool = concurrent.futures.ThreadPoolExecutor()
+    # Bound thread pool to prevent excessive thread creation under heavy ReID load
+    self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=4)
     self.similarity_query_times = collections.deque(
       maxlen=DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED)
     self.similarity_query_times_lock = threading.Lock()
     self.reid_enabled = True
+    return
+
+  def shutdown(self):
+    """Shutdown the thread pool executor."""
+    if hasattr(self, 'pool'):
+      self.pool.shutdown(wait=False)
     return
 
   def connectDatabase(self):
@@ -183,7 +193,7 @@ class UUIDManager:
     reid_vectors = self.quality_features.get(sscape_object.rv_id)
     log.debug(f"Finding similarity scores for track {sscape_object.rv_id}")
     start_time = get_epoch_time()
-    scores = self.reid_database.findSimilarityScores(sscape_object.category, reid_vectors)
+    scores = self.reid_database.findMatches(sscape_object.category, reid_vectors)
     query_time = get_epoch_time() - start_time
     log.debug(
       f"Similarity scores for track {sscape_object.rv_id} found in {query_time} seconds")
@@ -292,4 +302,8 @@ class UUIDManager:
           self.pool.submit(self.querySimilarity, sscape_object)
     else:
       self.pickBestID(sscape_object)
+    # Store the assigned UUID in active_ids to preserve identity across track state changes
+    with self.active_ids_lock:
+      if self.active_ids.get(sscape_object.rv_id, [None])[0] is None:
+        self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
     return

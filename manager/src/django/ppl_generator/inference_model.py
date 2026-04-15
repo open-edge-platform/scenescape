@@ -1,9 +1,41 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
+import base64
+import json
+import logging
+import os
 import re
 from pathlib import Path
 from .common_types import PipelineGenerationValueError
+
+logger = logging.getLogger(__name__)
+
+
+def _resolve_triton_url(url):
+  """Resolve Triton URL to FQDN using Helm release name and K8s namespace.
+
+  If the URL is a short service name (no dots in host), prepends the Helm
+  release name and appends the K8s namespace to construct a full FQDN.
+  This makes model_config.json release-agnostic and namespace-agnostic.
+
+  Example: "tritonserver:8001" with HELM_RELEASE=mxcp in namespace mxcp
+  becomes "mxcp-tritonserver.mxcp.svc.cluster.local:8001"
+  """
+  if not url or '.' in url.split(':')[0]:
+    return url  # Already a FQDN or not a K8s service name
+  try:
+    ns = os.environ.get('POD_NAMESPACE') or open(
+        '/var/run/secrets/kubernetes.io/serviceaccount/namespace').read().strip()
+    release = os.environ.get('HELM_RELEASE', '')
+    host, port = url.rsplit(':', 1) if ':' in url else (url, '8001')
+    if release and not host.startswith(release):
+      host = f"{release}-{host}"
+    return f"{host}.{ns}.svc.cluster.local:{port}"
+  except (FileNotFoundError, PermissionError):
+    return url  # Not running in K8s, return as-is
 
 
 class InferenceModel:
@@ -15,7 +47,7 @@ class InferenceModel:
     "inference-interval": "1"
   }
 
-  SUPPORTED_MODEL_TYPES = ['detect', 'classify', 'inference', 'track']
+  SUPPORTED_MODEL_TYPES = ['detect', 'classify', 'inference', 'track', 'triton']
 
   def __init__(
       self,
@@ -93,14 +125,16 @@ class InferenceModel:
   def _resolve_paths(self, params: dict) -> dict:
     converted = {}
     for key, value in params.items():
-      if key in ['model', 'model_proc']:
+      if key in ['model', 'model_proc'] and self.model_config.get(self.model_name, {}).get('type') != 'triton':
         converted[key] = str(Path(self.models_folder) / Path(value))
       else:
         converted[key] = value
     return converted
 
   def _get_inference_element_name(self, model_type: str) -> str:
-    if model_type in self.SUPPORTED_MODEL_TYPES:
+    if model_type == 'triton':
+      return 'gvapython'
+    elif model_type in self.SUPPORTED_MODEL_TYPES:
       return f'gva{model_type}'
     else:
       raise PipelineGenerationValueError(
@@ -111,12 +145,22 @@ class InferenceModel:
     if preprocessing_backend:
       self.params['model_params']['pre-process-backend'] = preprocessing_backend
 
-  def serialize(self) -> list:
-    # for now it is assumed that model_chain is a single model
-    params_str = ' '.join(
-      [f'{key}={self._format_value(value)}' for key, value in self.params['model_params'].items()])
+  def _to_gstreamer_key(self, key: str) -> str:
+    """Convert Python-style underscore keys to GStreamer hyphenated format.
 
-    return [f'{self.inference_element} {params_str}']
+    GStreamer element properties use hyphens (e.g., 'model-proc'), but Python
+    identifiers and JSON keys often use underscores (e.g., 'model_proc').
+    This ensures compatibility when serializing parameters for GStreamer pipelines.
+    """
+    return key.replace('_', '-')
+
+  def serialize(self) -> list:
+    if self.params.get('model_type') == 'triton':
+      return self._serialize_triton_model()
+    else:
+      params_str = ' '.join(
+        [f'{self._to_gstreamer_key(key)}={self._format_value(value)}' for key, value in self.params['model_params'].items()])
+      return [f'{self.inference_element} {params_str}']
 
   def _format_value(self, value):
     """
@@ -126,3 +170,46 @@ class InferenceModel:
         any(c in value for c in ' ;!') or value == ''):
       return f'"{value}"'
     return str(value)
+
+  def _serialize_triton_model(self) -> list:
+    """Generate gvapython pipeline element for Triton inference with base64-encoded config.
+
+    Uses Base64 encoding to safely pass JSON configuration through GStreamer
+    pipeline strings, avoiding quote and brace escaping issues.
+    """
+    params = self.params.get('model_params', {})
+
+    config_payload = {
+        "triton_url": _resolve_triton_url(params.get('triton-url', 'localhost:8001')),
+        "model_name": params.get('model', 'tensorrt_model'),
+        "input_name": params.get('input-name', 'images'),
+        "output_names": params.get('output-names', 'output0,output1,output2'),
+        "confidence_threshold": params.get('confidence-threshold', 0.25),
+        "nms_threshold": params.get('nms-threshold', 0.45),
+        "input_width": params.get('input-width', 640),
+        "input_height": params.get('input-height', 640),
+        "labels": params.get('labels', None),
+        "use_ensemble": params.get('use-ensemble', False),
+        "ensemble_model_name": params.get('ensemble-model-name', 'yolov7_ensemble'),
+    }
+
+    json_bytes = json.dumps(config_payload).encode('utf-8')
+    b64_str = base64.b64encode(json_bytes).decode('utf-8')
+
+    model_type = params.get('model-type', '')
+    if model_type in ['yolo', 'tensorrt']:
+      inference_script = params.get('inference-script')
+      if not inference_script:
+        raise ValueError(f"Model config for '{params.get('model', 'unknown')}' is missing required 'inference-script' field")
+      module_path = f"/home/pipeline-server/user_scripts/gvapython/sscape/{inference_script}.py"
+
+      config_json_array = json.dumps([b64_str])
+      inference_stage = (f'gvapython module={module_path} '
+                         f'class=process_frame '
+                         f'arg={config_json_array} '
+                         f'name=tensorrt_inference')
+    else:
+      module_path = "triton_server.generic_triton_inference"
+      inference_stage = f'gvapython class=process_frame module={module_path} name=generic_triton_inference'
+
+    return [inference_stage]

@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 # Default values for scenescape-chart.
 # This is a YAML-formatted file.
@@ -60,6 +62,16 @@ web:
 scene:
   image: intel/scenescape-controller
   pullPolicy: IfNotPresent
+  analyticsOnly: false
+  # Maximum worker processes (0 = dynamic, one per scene).
+  # Set to a positive integer to cap the number of workers.
+  maxWorkers: 0
+  # OpenMP threads per worker process. Controls C++ tracker parallelism.
+  # Tune based on available CPU cores and active scene count.
+  ompNumThreads: 8
+  resources:
+    requests:
+      memory: "256Mi"
 
 camcalibration:
   image: intel/scenescape-camcalibration
@@ -73,6 +85,11 @@ kubeclient:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
     tag: "2025.2.0-ubuntu24"
+    pullPolicy: IfNotPresent
+  # Triton-enabled DLStreamer image (used when tritonserver.enabled=true)
+  vaPipelineTriton:
+    repository: docker.io
+    image: intel/scenescape-dlstreamer-triton
     pullPolicy: IfNotPresent
 
 retail:
@@ -136,6 +153,31 @@ mapping:
   enabled: false
   image: intel/scenescape-mapping
   pullPolicy: IfNotPresent
+
+tritonserver:
+  enabled: false
+  image: nvcr.io/nvidia/tritonserver
+  tag: 24.08-py3
+  pullPolicy: IfNotPresent
+  runtimeClassName: nvidia
+  service:
+    type: ClusterIP
+    httpPort: 8000
+    grpcPort: 8001
+    metricsPort: 8002
+  resources:
+    requests:
+      memory: "2Gi"
+      nvidia.com/gpu: 1
+    limits:
+      memory: "8Gi"
+      nvidia.com/gpu: 1
+  # Model repository polling interval in seconds
+  modelRepositoryPollInterval: 30
+  # Enable model control mode for dynamic loading
+  modelControlMode: "poll"
+  # Log verbosity (0=ERROR, 1=WARNING, 2=INFO, 3=DEBUG)
+  logVerbosity: 1
 
 # Used as init container in some deployments to wait for dependent services
 busyboxImage:
@@ -228,6 +270,20 @@ mqttService:
     enabled: true
     annotations: {}
     nodePort: 31883
+
+tritonService:
+  annotations: {}
+  loadBalancer:
+    enabled: false
+    externalTrafficPolicy: Local
+    loadBalancerIP: ""
+    annotations: {}
+  nodePort:
+    enabled: false
+    annotations: {}
+    httpNodePort: 32000
+    grpcNodePort: 32001
+    metricsNodePort: 32002
 
 # Other parameters
 certdomain: ""

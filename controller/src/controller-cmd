@@ -2,12 +2,37 @@
 
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 import argparse
 import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from controller.scene_controller import SceneController
 from controller.observability import metrics, tracing
+from controller.controller_mode import ControllerMode
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
+  def do_GET(self):
+    if self.path == '/healthz':
+      self.send_response(200)
+      self.send_header('Content-type', 'text/plain')
+      self.end_headers()
+      self.wfile.write(b'OK')
+    else:
+      self.send_response(404)
+      self.end_headers()
+
+  def log_message(self, format, *args):
+    pass
+
+def start_health_server(port):
+  server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+  thread = threading.Thread(target=server.serve_forever, daemon=True)
+  thread.start()
+  return server
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -18,9 +43,6 @@ def build_argparser():
   parser.add_argument("--maxlag", help="Maximum amount of lag in seconds",
                       default=1.0, type=float)
 
-  # FIXME - configure mosquitto to authenticate against REST so that
-  # same user/pass can be used for both REST and MQTT
-  # https://pypi.org/project/django-mqtt/
   parser.add_argument("--broker", default="broker.scenescape.intel.com:1883",
                       help="hostname or IP of MQTT broker, optional :port")
   parser.add_argument("--brokerauth", default="/run/secrets/controller.auth",
@@ -43,19 +65,53 @@ def build_argparser():
   parser.add_argument("--visibility_topic", help="Which topic to publish visibility on."
                       "Valid options are 'unregulated', 'regulated', or 'none'",
                       default="regulated")
+  parser.add_argument("--profile", action="store_true",
+                      help="Enable cProfile profiling of controller (disabled by default)")
+  parser.add_argument("--profile-output", type=str, default="/dev/shm/controller_profile.stats",
+                      help="Output file for profile stats (default: /dev/shm/controller_profile.stats)")
+  parser.add_argument("--reid_config_file", help="JSON file with reid configuration",
+            default=None)
+  parser.add_argument("--analytics-only", dest="analytics_only", action="store_true",
+                      default=os.environ.get("CONTROLLER_ENABLE_ANALYTICS_ONLY", "false").lower() == "true",
+                      help="Run controller in analytics-only mode (tracker disabled)")
+  parser.add_argument("--healthcheck_port", type=int,
+                      default=int(os.environ.get("CONTROLLER_HEALTHCHECK_PORT", "0")),
+                      help="HTTP port for /healthz endpoint (0 disables)")
   return parser
 
 def main():
   args = build_argparser().parse_args()
+  
+  # Initialize profiler if requested
+  profiler = None
+  if args.profile:
+    import cProfile
+    profiler = cProfile.Profile()
+    profiler.enable()
+    print(f"[PROFILER] cProfile enabled, output: {args.profile_output}")
+  
   metrics.init()
   tracing.init()
-  controller = SceneController(args.rewriteBadTime, args.rewriteAllTime,
-                              args.maxlag, args.broker,
-                              args.brokerauth, args.resturl,
-                              args.restauth, args.cert,
-                              args.rootcert, args.ntp, args.tracker_config_file, args.schema_file,
-                              args.visibility_topic, args.data_source)
-  controller.loopForever()
+
+  ControllerMode.initialize(analytics_only=args.analytics_only)
+
+  if args.healthcheck_port > 0:
+    start_health_server(args.healthcheck_port)
+
+  try:
+    controller = SceneController(args.rewriteBadTime, args.rewriteAllTime,
+                                args.maxlag, args.broker,
+                                args.brokerauth, args.resturl,
+                                args.restauth, args.cert,
+                                args.rootcert, args.ntp, args.tracker_config_file, args.schema_file,
+                                args.visibility_topic, args.data_source)
+    controller.loopForever()
+  finally:
+    # Save profile on clean exit
+    if profiler is not None:
+      profiler.disable()
+      profiler.dump_stats(args.profile_output)
+      print(f"[PROFILER] Profile saved to: {args.profile_output}")
 
   return
 

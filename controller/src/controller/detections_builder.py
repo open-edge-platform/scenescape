@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 import numpy as np
 
@@ -56,12 +58,20 @@ def prepareObjDict(scene, obj, update_visibility):
     heading = calculateHeading(scene.trs_xyz_to_lla, aobj.sceneLoc.asCartesianVector, velocity.asCartesianVector)
     obj_dict['heading'] = heading.tolist()
 
-  reid = aobj.reidVector
-  if reid is not None:
-    if isinstance(reid, np.ndarray):
-      obj_dict['reid'] = reid.tolist()
-    else:
-      obj_dict['reid'] = reid
+  reid = aobj.reid
+  if reid:
+    embedding = reid.get('embedding_vector', None)
+    if embedding is not None:
+      if isinstance(embedding, np.ndarray):
+        obj_dict.setdefault('metadata', {})['reid'] = {
+          'embedding_vector': embedding.tolist(),
+          'model_name': reid.get('model_name', None)
+        }
+      else:
+        obj_dict.setdefault('metadata', {})['reid'] = {
+          'embedding_vector': embedding,
+          'model_name': reid.get('model_name', None)
+        }
 
   if hasattr(aobj, 'visibility'):
     obj_dict['visibility'] = aobj.visibility

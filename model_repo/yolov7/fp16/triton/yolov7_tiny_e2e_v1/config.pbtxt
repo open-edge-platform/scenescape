@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: (C) 2026 Nokia
+# SPDX-License-Identifier: Apache-2.0
+
+# YOLOv7-tiny FP16 e2e TensorRT model (dynamic batch 1-32, NMS included)
+# EfficientNMS_TRT plugin baked into the engine - outputs final detections directly
+#
+# Output format:
+#   num_dets:    [1]      INT32 - number of valid detections
+#   det_boxes:   [100, 4] FP32 - x1, y1, x2, y2 (EfficientNMS_TRT always outputs FP32)
+#   det_scores:  [100]    FP32 - confidence scores (EfficientNMS_TRT always outputs FP32)
+#   det_classes: [100]    INT32 - class IDs
+
+name: "yolov7_tiny_e2e_v1"
+platform: "tensorrt_plan"
+max_batch_size: 32
+
+input [
+  {
+    name: "images"
+    data_type: TYPE_FP16
+    dims: [ 3, 640, 640 ]
+  }
+]
+
+output [
+  {
+    name: "num_dets"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+  },
+  {
+    name: "det_boxes"
+    data_type: TYPE_FP32
+    dims: [ 100, 4 ]
+  },
+  {
+    name: "det_scores"
+    data_type: TYPE_FP32
+    dims: [ 100 ]
+  },
+  {
+    name: "det_classes"
+    data_type: TYPE_INT32
+    dims: [ 100 ]
+  }
+]
+
+instance_group [
+  {
+    kind: KIND_GPU
+    count: 3
+  }
+]
+
+dynamic_batching {
+  preferred_batch_size: [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 ]
+  max_queue_delay_microseconds: 100000
+}
+
+optimization {
+  cuda {
+    graphs: false
+  }
+}

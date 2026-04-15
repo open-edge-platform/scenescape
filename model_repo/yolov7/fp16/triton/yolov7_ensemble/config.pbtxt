@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: (C) 2026 Nokia
+# SPDX-License-Identifier: Apache-2.0
+
+# YOLOv7 FP16 Ensemble: preprocess -> e2e inference (with NMS)
+# End-to-end pipeline: raw UINT8 images -> final detections
+# Dynamic batch 1-32
+
+name: "yolov7_ensemble"
+platform: "ensemble"
+max_batch_size: 32
+
+input [
+  {
+    name: "INPUT_IMAGES"
+    data_type: TYPE_UINT8
+    dims: [ 640, 640, 3 ]
+  }
+]
+
+output [
+  {
+    name: "num_dets"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+  },
+  {
+    name: "det_boxes"
+    data_type: TYPE_FP32
+    dims: [ 100, 4 ]
+  },
+  {
+    name: "det_scores"
+    data_type: TYPE_FP32
+    dims: [ 100 ]
+  },
+  {
+    name: "det_classes"
+    data_type: TYPE_INT32
+    dims: [ 100 ]
+  }
+]
+
+ensemble_scheduling {
+  step [
+    {
+      model_name: "yolov7_preprocess"
+      model_version: -1
+      input_map {
+        key: "INPUT_IMAGES"
+        value: "INPUT_IMAGES"
+      }
+      output_map {
+        key: "preprocessed_images"
+        value: "preprocessed_images"
+      }
+    },
+    {
+      model_name: "yolov7_tiny_e2e_v1"
+      model_version: -1
+      input_map {
+        key: "images"
+        value: "preprocessed_images"
+      }
+      output_map {
+        key: "num_dets"
+        value: "num_dets"
+      }
+      output_map {
+        key: "det_boxes"
+        value: "det_boxes"
+      }
+      output_map {
+        key: "det_scores"
+        value: "det_scores"
+      }
+      output_map {
+        key: "det_classes"
+        value: "det_classes"
+      }
+    }
+  ]
+}

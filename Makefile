@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 # ================ Makefile for Intel® SceneScape ====================
 
@@ -18,6 +20,7 @@ REBUILDFLAGS :=
 # Image variables
 IMAGE_PREFIX := scenescape
 SOURCES_IMAGE := $(IMAGE_PREFIX)-sources
+DLSTREAMERIMAGE=scenescape-dlstreamer-triton
 VERSION := $(shell cat ./version.txt)
 
 # User configurable variables
@@ -73,6 +76,13 @@ build-all: init-secrets build-all-images install-models
 
 .PHONY: build-experimental
 build-experimental: build-experimental-images
+
+# Optional: Build DLStreamer with Triton client for NVIDIA GPU inference
+.PHONY: build-triton
+build-triton:
+	@echo "==> Building DLStreamer Triton image..."
+	@$(MAKE) -C dlstreamer-pipeline-server BUILD_DIR=$(BUILD_DIR) http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy)
+	@echo "DONE ==> Building DLStreamer Triton image"
 
 # ============================== Help ================================
 

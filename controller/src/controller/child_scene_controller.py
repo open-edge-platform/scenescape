@@ -1,5 +1,7 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 from scene_common import log
 from scene_common.mqtt import PubSub
@@ -26,7 +28,8 @@ class ChildSceneController():
     try:
       self.client.connect()
     except Exception as e:
-      # FIXME - remove this error published , handle known exceptions.
+      # Broad exception handler for connection failures. Specific exception types
+      # (TimeoutError, ConnectionError, etc.) could be handled separately for better diagnostics.
       self.handleException(str(e))
     return
 

@@ -1,0 +1,122 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
+
+{{- if .Values.tritonserver.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-tritonserver
+  labels:
+    app: {{ .Release.Name }}-tritonserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-tritonserver
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-tritonserver
+    spec:
+      {{- if .Values.tritonserver.runtimeClassName }}
+      runtimeClassName: {{ .Values.tritonserver.runtimeClassName }}
+      {{- end }}
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      initContainers:
+      - name: setup-model-repository
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+        imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
+        command:
+          - sh
+          - -c
+          - |
+            echo "Setting up Triton model repository structure..."
+            mkdir -p /models/models
+            mkdir -p /models/models/sample_tensorrt_model/1
+            echo "Triton model repository initialized at /models/models"
+            ls -la /models/
+        volumeMounts:
+        - name: models
+          mountPath: /models
+        securityContext:
+          {{ include "defaultContainerSecurityContext" . | indent 10 }}
+      containers:
+      - name: tritonserver
+        image: {{ .Values.tritonserver.image }}:{{ .Values.tritonserver.tag }}
+        imagePullPolicy: {{ .Values.tritonserver.pullPolicy }}
+        command:
+          - tritonserver
+          - --model-repository=/models/models
+          - --model-control-mode={{ .Values.tritonserver.modelControlMode }}
+          - --repository-poll-secs={{ .Values.tritonserver.modelRepositoryPollInterval | toString }}
+          - --log-verbose={{ .Values.tritonserver.logVerbosity | toString }}
+          - --allow-http=true
+          - --allow-grpc=true
+          - --allow-metrics=true
+          - --http-port=8000
+          - --grpc-port=8001
+          - --metrics-port=8002
+          - --exit-on-error=false
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        - name: grpc
+          containerPort: 8001
+          protocol: TCP
+        - name: metrics
+          containerPort: 8002
+          protocol: TCP
+        env:
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "all"
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: "compute,utility"
+        volumeMounts:
+        - name: models
+          mountPath: /models
+        - name: tmp
+          mountPath: /tmp
+        - name: triton-cache
+          mountPath: /opt/tritonserver/.cache
+        resources:
+          {{- toYaml .Values.tritonserver.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /v2/health/live
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /v2/health/ready
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          {{ include "defaultContainerSecurityContext" . | indent 10 }}
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-models-pvc
+      - name: tmp
+        emptyDir: {}
+      - name: triton-cache
+        emptyDir:
+          sizeLimit: 1Gi
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{ include "certs_volume" . | indent 6 }}
+{{- end }}

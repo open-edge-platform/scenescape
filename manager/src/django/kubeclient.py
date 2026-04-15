@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 import json
 import os
@@ -123,7 +125,6 @@ class KubeClient():
     @return  boolean        status of the operation
     """
     log.info(f"Saving camera {msg['name']}")
-    # validate input
     if not (msg['name']):
       log.error("No name provided in the message. Cannot create deployment.")
       return False
@@ -135,9 +136,8 @@ class KubeClient():
     if not (previous_deployment_name):
       log.warning("No previous deployment name provided in the message. Assuming this is a new camera.")
 
-    # create the configmap
     try:
-      pipelineConfig = self.generatePipelineConfiguration(msg)
+      pipelineConfig, needs_nvidia_gpu = self.generatePipelineConfiguration(msg)
       log.info(f"Creating ConfigMap for deployment {msg['name']}...")
       pipelineConfigMapName = self.createPipelineConfigmap(deployment_name, pipelineConfig)
     except (PipelineGenerationNotImplementedError, PipelineGenerationValueError) as e:
@@ -166,9 +166,8 @@ class KubeClient():
       if e.status != 404:
         log.warning(f"Exception when checking/deleting previous deployment: {e}")
 
-    # create the deployment
     log.info(f"Creating deployment {deployment_name}...")
-    deployment_body = self.generateDeploymentBody(deployment_name, container_name, sensor_id, pipelineConfigMapName)
+    deployment_body = self.generateDeploymentBody(deployment_name, container_name, sensor_id, pipelineConfigMapName, needs_gpu=needs_nvidia_gpu)
     try:
       self.api_instance.create_namespaced_deployment(namespace=self.ns, body=deployment_body)
       log.info(f"Deployment {deployment_name} created.")
@@ -225,17 +224,17 @@ class KubeClient():
         }
     return json.dumps(intrinsics)
 
-  def generateDeploymentBody(self, deployment_name, container_name, sensor_id, pipelineConfigMapName):
+  def generateDeploymentBody(self, deployment_name, container_name, sensor_id, pipelineConfigMapName, needs_gpu=False):
     """! Function to generate the deployment body (configuration) for a camera
     with parameters as an input
     @param   deployment_name   deployment name
     @param   container_name    container name
     @param   sensor_id         sensor id
     @param   pipelineConfigMapName    pipeline configuration
+    @param   needs_gpu         whether to allocate NVIDIA GPU resources
 
     @return  body              deployment body
     """
-    # volume mounts and volumes for the container
     volume_mounts = [
       client.V1VolumeMount(name="video-config", mount_path="/home/pipeline-server/config.json", sub_path="config.yaml"),
       client.V1VolumeMount(name="sscape-adapter", mount_path="/home/pipeline-server/user_scripts/gvapython/sscape"),
@@ -255,7 +254,6 @@ class KubeClient():
       client.V1Volume(name="model-proc", config_map=client.V1ConfigMapVolumeSource(name=f"{self.release}-model-proc")),
     ]
 
-    # environment variables for the container
     env = [
       client.V1EnvVar(name="RUN_MODE", value="EVA"),
       client.V1EnvVar(name="DETECTION_DEVICE", value="CPU"),
@@ -272,11 +270,15 @@ class KubeClient():
       client.V1EnvVar(name="MQTT_PORT", value="1883"),
     ]
 
-    # ports
+    if needs_gpu:
+      env.extend([
+        client.V1EnvVar(name="NVIDIA_VISIBLE_DEVICES", value="all"),
+        client.V1EnvVar(name="NVIDIA_DRIVER_CAPABILITIES", value="video,compute,utility"),
+      ])
+
     ports = [client.V1ContainerPort(container_port=8554, name="rtsp"),
              client.V1ContainerPort(container_port=8080, name="rest-api")]
 
-    # container configuration
     container = client.V1Container(
         name=container_name,
         image=f"{self.repo}/{self.image}:{self.tag}",
@@ -288,9 +290,16 @@ class KubeClient():
         readiness_probe=client.V1Probe(_exec=client.V1ExecAction(
             command=["curl", "-I", "-s", "http://localhost:8080/pipelines"]
         ), period_seconds=10, initial_delay_seconds=10, timeout_seconds=5, failure_threshold=5),
-        volume_mounts=volume_mounts
+        liveness_probe=client.V1Probe(_exec=client.V1ExecAction(
+            command=["sh", "-c",
+                     "curl -sf http://localhost:8080/pipelines/status | grep -q RUNNING"]
+        ), period_seconds=10, initial_delay_seconds=30, timeout_seconds=5, failure_threshold=3),
+        volume_mounts=volume_mounts,
+        resources=client.V1ResourceRequirements(
+            requests={"nvidia.com/gpu": "1"},
+            limits={"nvidia.com/gpu": "1"}
+        ) if needs_gpu else client.V1ResourceRequirements()
     )
-    # deployment configuration
     deployment_spec = client.V1DeploymentSpec(
       replicas=1,
       selector={'matchLabels': {'app': deployment_name[:self.MAX_LABEL_LENGTH]}},
@@ -298,6 +307,7 @@ class KubeClient():
         metadata={'labels': {'app': deployment_name[:self.MAX_LABEL_LENGTH], 'release': self.release[:self.MAX_LABEL_LENGTH], 'sensor-id-hash': self.hash(sensor_id, self.MAX_LABEL_LENGTH)}},
         spec=client.V1PodSpec(
           share_process_namespace=True,
+          runtime_class_name='nvidia' if needs_gpu else None,
           containers=[container],
           image_pull_secrets=[client.V1LocalObjectReference(name=secret) for secret in self.pull_secrets],
           restart_policy="Always",
@@ -416,10 +426,10 @@ class KubeClient():
     return self.client.loopForever()
 
   def generatePipelineConfiguration(self, msg):
-    """! Function to save a deployment
+    """! Function to generate pipeline config and determine NVIDIA GPU requirement.
     @param   msg            dictionary containing relevant video deployment details
                             sent over MQTT
-    @return  string         returns the pipeline json as a string
+    @return  tuple          (pipeline_json_string, needs_nvidia_gpu)
     """
     log.info(f"Generating pipeline configuration for camera: {msg['name']}")
     ppl_config_generator = PipelineConfigGenerator(msg)
@@ -427,7 +437,12 @@ class KubeClient():
     if config is None:
       raise ValueError("Dynamic configuration generation failed.")
 
-    return config
+    cv_subsystem = msg.get('cv_subsystem', 'AUTO')
+    has_triton = ppl_config_generator.pipeline_generator._has_triton_model()
+    needs_nvidia_gpu = (cv_subsystem == 'GPU_NVIDIA') or has_triton
+    log.info(f"Camera {msg['name']}: cv_subsystem={cv_subsystem}, has_triton={has_triton}, needs_nvidia_gpu={needs_nvidia_gpu}")
+
+    return config, needs_nvidia_gpu
 
   def createPipelineConfigmap(self, deploymentName, pipelineConfig):
     """! Function to create a configmap for the pipeline configuration
@@ -453,7 +468,6 @@ class KubeClient():
       if e.status != 404:
         log.warning(f"Exception when checking/deleting existing ConfigMap: {e}")
 
-    # create the configmap
     try:
       self.core_api.create_namespaced_config_map(namespace=self.ns, body=config_map)
       log.info(f"ConfigMap {configMapName} created.")

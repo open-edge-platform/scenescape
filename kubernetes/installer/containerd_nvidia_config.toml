@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: (C) 2026 Nokia
+# SPDX-License-Identifier: Apache-2.0
+
+[plugins.opt]
+  path = "/var/lib/rancher/k3s/agent/containerd"
+
+[plugins.cri]
+  stream_server_address = "127.0.0.1"
+  stream_server_port = "10010"
+  enable_selinux = false
+  sandbox_image = "rancher/mirrored-pause:3.6"
+
+[plugins.cri.containerd]
+  snapshotter = "overlayfs"
+  disable_snapshot_annotations = true
+
+
+[plugins.cri.cni]
+  bin_dir = "/var/lib/rancher/k3s/data/74b92ebf1066f5bdc6428c5bd007c617b454e4ab47bafa17ba8493a8c5c8c88f/bin"
+  conf_dir = "/var/lib/rancher/k3s/agent/etc/cni/net.d"
+
+
+[plugins.cri.containerd.runtimes.runc]
+  runtime_type = "io.containerd.runc.v2"
+
+
+[plugins.cri.containerd.runtimes."nvidia"]
+  runtime_type = "io.containerd.runc.v2"
+[plugins.cri.containerd.runtimes."nvidia".options]
+  BinaryName = "/usr/bin/nvidia-container-runtime"

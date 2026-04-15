@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+// Modifications:
+// Nokia VPOD (Emerging Products, BLR), 2026
 
 "use strict";
 
@@ -58,6 +60,7 @@ function plot(
   svgCanvas,
   show_telemetry,
   show_trails,
+  show_ids,
 ) {
   // SceneScape sends only updated marks, so we need to determine
   // which old marks are not in the current update and remove them
@@ -107,6 +110,12 @@ function plot(
       // Update the text of the existing title element with the new o.id
       title.node.textContent = o.id;
 
+      // Toggle ID label visibility
+      var idLabel = mark.node.querySelector(".mark-id-label");
+      if (idLabel) {
+        idLabel.classList.toggle("mark-id-label-hide", !show_ids);
+      }
+
       // Add a new line segment to the trail if enabled
       if (show_trails && trail) {
         var line = trail.line(
@@ -128,6 +137,7 @@ function plot(
         scale,
         show_telemetry,
         show_trails,
+        show_ids,
       ));
     }
     updateTooltipContent(mark, o, show_telemetry);
@@ -155,6 +165,7 @@ function addNewMark(
   scale,
   show_telemetry,
   show_trails,
+  show_ids,
 ) {
   mark = svgCanvas
     .group()
@@ -217,6 +228,25 @@ function addNewMark(
   // Create Tag ID text for AprilTags only
   if (o.type == "apriltag") {
     var text = mark.text(0, 0, String(o.tag_id));
+  }
+
+  // Create ID label — uses CSS counter-scale to stay at screen pixel size
+  var shortId = o.id.length > 5 ? o.id.slice(-5) : o.id;
+  var idFO = document.createElementNS("http://www.w3.org/2000/svg", "foreignObject");
+  idFO.setAttribute("class", "mark-id-label");
+  idFO.setAttribute("overflow", "visible");
+  idFO.setAttribute("width", 1);
+  idFO.setAttribute("height", 1);
+  idFO.setAttribute("x", String(mark_radius + 2));
+  idFO.setAttribute("y", String(-(mark_radius + 2)));
+  var idSpan = document.createElement("span");
+  idSpan.className = "mark-id-content";
+  idSpan.textContent = shortId;
+  idSpan.title = o.id;
+  idFO.appendChild(idSpan);
+  mark.node.appendChild(idFO);
+  if (!show_ids) {
+    idFO.classList.add("mark-id-label-hide");
   }
 
   mark.transform("T" + o.translation[0] + "," + o.translation[1]);

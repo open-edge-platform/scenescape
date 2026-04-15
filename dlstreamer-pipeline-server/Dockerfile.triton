@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
+
+#
+# SceneScape DLStreamer + Triton Integration
+#
+# Extends Intel DLStreamer Pipeline Server with NVIDIA Triton Inference Server
+# client libraries for remote GPU inference via gRPC.
+#
+# Foundation: Intel DLStreamer Pipeline Server (Apache-2.0)
+#
+ARG BASE_IMAGE=intel/dlstreamer-pipeline-server:2026.0.0-ubuntu24-rc3
+FROM ${BASE_IMAGE}
+
+USER root
+
+# Install Triton client libraries and dependencies
+RUN python3 -m pip install --no-cache-dir \
+    'tritonclient[grpc]>=2.40.0' \
+    numpy \
+    opencv-python-headless \
+    protobuf
+
+# Symlink model config to DLStreamer expected location
+RUN ln -sf /home/pipeline-server/models/model_configs/model_config.json /home/pipeline-server/model_config.json || true
+
+WORKDIR /home/pipeline-server
+USER intelmicroserviceuser
+
+# Deploy SceneScape inference modules
+COPY --chown=intelmicroserviceuser:intelmicroserviceuser dlstreamer-pipeline-server/user_scripts/ /home/pipeline-server/user_scripts/
+
+# Ensure gvapython can load modules
+RUN find /home/pipeline-server/user_scripts/ -type f -name "*.py" -exec chmod +x {} \;
+
+# Validate Triton client is importable
+RUN python3 -c "import tritonclient.grpc; print('Triton Client Installed')"

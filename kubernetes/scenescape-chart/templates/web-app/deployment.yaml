@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 ---
 apiVersion: apps/v1
@@ -142,6 +144,7 @@ spec:
             name: models-storage
           - mountPath: /workspace/migrations
             name: migrations-storage
+      serviceAccountName: {{ .Release.Name }}-web-sa
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
