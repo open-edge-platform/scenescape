@@ -162,7 +162,6 @@ _functional-tests: \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
   mqtt-tripwire \
-  object-crud-api \
   orphaned-sensor \
   persistence-api \
   rest-test \

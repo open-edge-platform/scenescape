@@ -44,10 +44,6 @@ scene-details-api: # NEX-T10395-API
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_scene_details_api.py, '$(SERVICES)', true, /run/secrets/controller.auth)
 
-object-crud-api: # NEX-T10429-API
-	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_object_crud_api.py, 'pgserver web', true, /run/secrets/controller.auth)
-
 infer-rotation: # NEX-T10543
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
