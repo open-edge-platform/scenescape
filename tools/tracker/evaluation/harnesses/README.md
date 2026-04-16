@@ -179,7 +179,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 **Tests**:
 
 - [tests/test_camera_projection_harness.py](tests/test_camera_projection_harness.py) — 20 test cases covering initialisation, scene/custom config validation (including `object_classes`), output folder, `process_inputs()` success/failure paths, reset, and helper methods.
-- [tests/test_run_projection.py](tests/test_run_projection.py) — 15 test cases covering `_build_class_map` and `_apply_size_offset` pure-Python helpers (run without Docker).
+- [tests/test_run_projection.py](tests/test_run_projection.py) — 7 test cases covering `_build_class_map` (run without Docker). The size-offset step uses `scene_common.geometry.Line` directly so has no custom math to unit-test.
 
 ## Adding New Harnesses
 
