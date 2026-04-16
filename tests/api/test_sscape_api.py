@@ -110,17 +110,24 @@ def substitute_variables(obj):
   return obj
 
 def resolve_file_paths(data):
-  """Resolve file paths in request data relative to the tests/api directory."""
+  """Resolve file paths in request data relative to the tests/api directory.
+
+  Any string value containing 'test_media/' is resolved and opened as a
+  binary file handle for multipart upload. Only called for RESTClient APIs;
+  MappingClient opens its own file paths internally.
+  """
   if isinstance(data, dict):
     return {k: resolve_file_paths(v) for k, v in data.items()}
   elif isinstance(data, list):
     return [resolve_file_paths(item) for item in data]
-  elif isinstance(data, str) and ("test_media/" in data):
-    resolved = os.path.join(TESTS_API_DIR, data)
+  elif isinstance(data, str) and "test_media/" in data:
+    resolved = os.path.normpath(os.path.join(TESTS_API_DIR, data))
+    if os.path.isfile(resolved):
+      return open(resolved, "rb")
     return resolved
   return data
 
-def build_call_kwargs(request_data):
+def build_call_kwargs(request_data, api_client=None):
   """
   Normalise the structured request dict from the JSON scenario into a flat
   kwargs dict ready to be splatted into the API method call.
@@ -129,6 +136,9 @@ def build_call_kwargs(request_data):
     path_params  dict of URL path variables (e.g. scene_id, camera_id, uid)
                  Each key is unpacked directly as a kwarg.
     body         request payload; forwarded as kwarg "data".
+
+  api_client is used to skip file resolution for MappingClient, which opens
+  its own file paths internally via _build_multipart_files.
   """
   kwargs = {}
 
@@ -140,8 +150,11 @@ def build_call_kwargs(request_data):
       else:
         logger.warning(f"    'path_params' should be a dict, got {type(value).__name__}; skipping")
     elif key == "body":
-      # Request body → "data" (RESTClient convention)
-      kwargs["data"] = resolve_file_paths(value)
+      # MappingClient opens its own files from path strings; skip resolution
+      if isinstance(api_client, MappingClient):
+        kwargs["data"] = value
+      else:
+        kwargs["data"] = resolve_file_paths(value)
     else:
       # filter, uid, data, or any legacy flat key – pass through as-is
       kwargs[key] = value
@@ -238,7 +251,9 @@ def execute_step(step, step_number, total_steps):
   # Normalize request keys to match RESTClient parameter names:
   #   "body" -> "data"  (request body)
   #   "path_params" -> extract and merge its contents into request_data
-  call_kwargs = build_call_kwargs(raw_request)
+  call_kwargs = build_call_kwargs(raw_request, api_client=api)
+  open_files = [v for v in (call_kwargs.get("data") or {}).values()
+                if hasattr(v, "read")]
 
   # If the method expects "filter" and it wasn't provided, default to None
   api_method = getattr(api, method_name)
@@ -311,6 +326,9 @@ def execute_step(step, step_number, total_steps):
       response = api_method(**call_kwargs)
   except Exception as e:
     return False, None, f"API call failed: {str(e)}"
+  finally:
+    for fh in open_files:
+      fh.close()
 
   # Parse response
   try:
