@@ -7,16 +7,15 @@ define metric-recipe =
 	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
 	@set -ex \
 	  ; echo RUNNING METRIC TEST $@ \
-	  ; if [ -n "$3" ]; then \
-	        FRAME_RATE="--camera_frame_rate $3" \
-	  ; fi \
-	  ; if [ -n "$4" ]; then \
-	        KFILTER="-k $4" \
+	  ; if [ -n "$3" ] && [ -n "$4" ] && [ -n "$5" ]; then \
+	        METRIC="--metric $3" ; \
+	        THRESHOLD="--threshold $4" ; \
+                FRAME_RATE="--camera_frame_rate $5" \
 	  ; fi \
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
 	  ; tools/scenescape-start --image ${IMAGE}-controller-test pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
-	                                   $${FRAME_RATE} $${KFILTER} \
+	                                   $${METRIC} $${THRESHOLD} $${FRAME_RATE} \
 	                                   -o junit_suite_name=$(TEST_SUITE) | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
