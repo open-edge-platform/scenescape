@@ -19,15 +19,13 @@ harness:
   class: harnesses.camera_projection_harness.CameraProjectionHarness
   config:
     container_image: scenescape-controller:2026.1.0-dev
-    # object_classes:
-    #   - name: person
-    #     shift_type: 1
-    #     x_size: 0.5
-    #     y_size: 0.5
-    #   - name: FW190D
-    #     shift_type: 2
-    #     x_size: 2.5
-    #     y_size: 3.5
+    object_classes:
+      - name: person
+        shift_type: 1
+      - name: FW190D
+        shift_type: 1
+        x_size: 4.1
+        y_size: 4.1
 
 evaluators:
   - class: evaluators.camera_accuracy_evaluator.CameraAccuracyEvaluator
