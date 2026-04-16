@@ -15,44 +15,6 @@ appdir=/workspace
 backup_dir="${PWD}/scenescape_vol-backup"
 
 # Utility Functions
-run_table_rename() {
-  local SECRETS_SRC="secrets"
-  local SECRETS_DEST="manager/secrets"
-  local CONTAINER_NAME="pg_backup"
-  local IMAGE_NAME="scenescape"
-  local WORKDIR="/workspace"
-  local WAITFORDB=40
-
-  echo "Copying secrets to $SECRETS_DEST..."
-  mkdir -p "$SECRETS_DEST"
-  cp "$SECRETS_SRC/browser.auth" "$SECRETS_DEST"
-  cp "$SECRETS_SRC/calibration.auth" "$SECRETS_DEST"
-  cp "$SECRETS_SRC/controller.auth" "$SECRETS_DEST"
-
-  echo "Cleaning up existing containers..."
-  docker rm -f $CONTAINER_NAME pg_migration 2>/dev/null || true
-
-  echo "Starting $CONTAINER_NAME container..."
-  docker run --rm --name $CONTAINER_NAME \
-    --workdir $WORKDIR \
-    -v "$(pwd)":$WORKDIR \
-    -v "$(pwd)/migrations":$WORKDIR/migrations \
-    -v "$(pwd)/db":$WORKDIR/db \
-    --privileged \
-    -e PYTHONPATH=$WORKDIR \
-    -e SUPASS \
-    --add-host pgserver:127.0.0.1 \
-    -d $IMAGE_NAME database
-
-  echo "Waiting $WAITFORDB seconds for DB to initialize..."
-  sleep $WAITFORDB
-
-  docker exec -it $CONTAINER_NAME bash -c "bash manager/tools/migrate-rename-manager"
-
-  echo "Stopping container..."
-  docker stop $CONTAINER_NAME
-}
-
 log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
@@ -306,75 +268,6 @@ upgrade_database() {
     docker rm ${pg_container}
 }
 
-run_migration() {
-    local pg_container="pg_migration"
-    local db_container="pgserver"
-
-    log_message "Running database migration..."
-    if ! docker network inspect scenescape_migration >/dev/null 2>&1; then
-        docker network create scenescape_migration
-    fi
-
-    docker run -d \
-        --name ${db_container} \
-        --network scenescape_migration \
-        -e POSTGRES_USER=scenescape \
-        -e POSTGRES_PASSWORD=${dbpass} \
-        -e POSTGRES_DB=scenescape \
-        -v scenescape_vol-db:/var/lib/postgresql/data \
-        postgres:${pg_new_version}
-
-    wait_for_container ${db_container} "database system is ready to accept connections"
-
-    docker run -d \
-        --name ${pg_container} \
-        --network scenescape_migration \
-        --workdir ${appdir} \
-        -v ${PWD}:${appdir} \
-        -v ${secretsdir}/django:/run/secrets/django \
-        -v ${secretsdir}/browser.auth:/run/secrets/browser.auth \
-        -v ${secretsdir}/calibration.auth:/run/secrets/calibration.auth \
-        -v ${secretsdir}/controller.auth:/run/secrets/controller.auth \
-        -v ${secretsdir}/certs:/run/secrets/certs \
-        -v ${secretsdir}/ca:/run/secrets/ca \
-        -v scenescape_vol-migrations:/workspace/migrations \
-        --privileged \
-        -e PYTHONPATH=${appdir} \
-        scenescape-manager:latest \
-        webserver \
-        --dbhost ${db_container} \
-        --dbtype postgres \
-        --dbport 5432 \
-        --overwrite-user-auth \
-
-    # Check if container is ready
-    if ! wait_for_container ${pg_container}; then
-        log_message "ABORTING: Container failed to initialize properly"
-        log_message "Automatic upgrade of database failed"
-        docker stop ${pg_container} 2>/dev/null || true
-        docker rm ${pg_container} 2>/dev/null || true
-        return 1
-    fi
-
-    # Execute migration
-    docker exec -it ${pg_container} /bin/bash manager/tools/migration
-    local migration_status=$?
-
-    log_message "Stopping and removing migration container..."
-    docker stop ${pg_container}
-    docker rm ${pg_container}
-    docker stop ${db_container}
-    docker rm ${db_container}
-    docker network rm scenescape_migration
-
-    if [[ $migration_status -ne 0 ]]; then
-        log_message "Migration failed with status ${migration_status}"
-        return $migration_status
-    fi
-
-    return 0
-}
-
 # Main script execution
 main() {
 
@@ -424,15 +317,6 @@ main() {
         echo "Skipping restore: $MEDIA_TAR not found."
     fi
 
-    if docker run --rm -v scenescape_vol-migrations-backup:/migrations alpine \
-        sh -c "grep -q 'sscape' /migrations/0001_initial.py"; then
-        echo "/migrations/0001_initial.py exists and contains 'sscape'. Renaming tables and sscape references in migration file..."
-        run_table_rename
-
-    else
-        echo "No 'sscape' reference found in /migrations/0001_initial.py, continuing upgrade..."
-    fi
-
     # Parse command line arguments
     while [ $# -gt 0 ] && [[ "${1}" == --* ]]; do
         case "$1" in
@@ -467,35 +351,11 @@ main() {
     # Step 6: Upgrade database
     upgrade_database
 
-    # Step 7: Run migration
-    run_migration
-    migration_result=$?
-
-    # Step 8: Show results
-    if [[ $migration_result -eq 0 ]]; then
-        log_message "Database upgrade completed successfully"
-        echo
-        echo "Old database has been backed up to: scenescape_vol-db-backup"
-        echo "                     SQL backup at: ${backup_dir}/scenescape_db_backup_${now}.psql"
-        echo
-        echo "Upgraded database for Postgres ${pg_new_version} has been created in Docker volumes:"
-        echo "  - Database: scenescape_vol-db"
-        echo "  - Migrations: scenescape_vol-migrations"
-        echo "  - Media: scenescape_vol-media"
-
-        docker run -d --name temp-copy -v scenescape_vol-db:/db alpine:3.23 sleep 10
-        if [ -d "${dbdir}" ]; then
-            echo "Removing existing ${dbdir}..."
-            rm -rf "${dbdir}"
-        fi
-        docker rm -f temp-copy
-        return 0
-    else
-        log_message "Database upgrade failed"
-        echo
-        echo "Database upgrade FAILED. Old database is preserved at: ${backup_dir}"
-        return 1
-    fi
+    log_message "Database upgrade flow complete."
+    echo "Old database backup: ${backup_dir}/scenescape_db_backup_*.psql"
+    echo "Docker volumes updated:"
+    echo "  - Database: scenescape_vol-db"
+    echo "  - Media: scenescape_vol-media"
 }
 
 # Execute main function with all arguments

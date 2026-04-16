@@ -25,8 +25,6 @@ namespace py = pybind11;
 //            py::arg("origin"), py::arg("size"))
 //        .def(py::init<Point, Point>(),
 //            py::arg("origin"), py::arg("opposite"))
-// (python):     center_of_mass = Rectangle(origin=Point(int(bounds.x + comw), int(bounds.y + comh)),
-//                                 size=[comw, comh])
 // might end up calling Rectangle( Point, Point ), even though it should VERY clearly be Rectangle( Point, std::vector ).
 // especially considering the py::arg declaration and the use of 'size'.
 //

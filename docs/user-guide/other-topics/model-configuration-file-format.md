@@ -126,13 +126,13 @@ When generating a camera pipeline:
 
 When adding a new model or model config file through the Models page UI, if you encounter any errors, use the cluster PVC mount that holds Intel® SceneScape models (Models Volume) to view the current configuration or make a new configuration and models available at runtime.
 
-Refer to instructions in [How to manage files in volumes](how-to-manage-files-in-volumes.md) on how to access Models Volume and copy files from local file system to the volume.
+Refer to instructions in [How to manage files in volumes](./how-to-manage-files-in-volumes.md) on how to access Models Volume and copy files from local file system to the volume.
 
-Refer to the instructions in [`model_installer` documentation](../../../model_installer/src/README.md) on the Models Volume folder structure.
+Refer to the instructions in [`model_installer` documentation](https://github.com/open-edge-platform/scenescape/blob/main/model_installer/src/README.md) on the Models Volume folder structure.
 
 ## Related Documentation
 
 - [How to Configure DL Streamer Video Pipeline](how-to-configure-dlstreamer-video-pipeline.md)
 - [Deep Learning Streamer Elements Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html)
-- [How to manage files in volumes](how-to-manage-files-in-volumes.md)
-- [`model_installer` documentation](../../../model_installer/src/README.md)
+- [How to manage files in volumes](./how-to-manage-files-in-volumes.md)
+- [`model_installer` documentation](https://github.com/open-edge-platform/scenescape/blob/main/model_installer/src/README.md)
