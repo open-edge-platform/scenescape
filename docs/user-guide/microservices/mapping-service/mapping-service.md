@@ -218,7 +218,7 @@ curl -X POST "https://localhost:8444/reconstruction" \
 
 | Feature               | MapAnything           | VGGT                                                                           |
 | --------------------- | --------------------- | ------------------------------------------------------------------------------ |
-| **License**           | Apache 2.0            | [VGGT License](https://github.com/facebookresearch/vggt/blob/main/LICENSE.txt) |
+| **License**           | Apache 2.0            | [VGGT License](https://github.com/facebookresearch/vggt/blob/release-2026.0/LICENSE.txt) |
 | **Input**             | Multiple images       | Multiple images/video frames                                                   |
 | **Strength**          | Metric reconstruction | Sparse view reconstruction                                                     |
 | **Speed**             | Fast                  | Moderate                                                                       |
