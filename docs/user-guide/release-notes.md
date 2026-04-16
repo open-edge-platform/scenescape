@@ -1,5 +1,9 @@
 # Release Notes: Intel® SceneScape
 
+## Version 2026.0.0
+
+**April 6, 2026**
+
 **Major Features and Enhancements**
 
 - Standalone tracking microservice that can vertically scale to track 1000 objects.

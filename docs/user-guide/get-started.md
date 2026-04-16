@@ -37,7 +37,7 @@ git clone https://github.com/open-edge-platform/scenescape.git &&
 cd scenescape/
 ```
 
-**Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
+**Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout a specific version tag:
 
 ```bash
 git tag
