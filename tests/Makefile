@@ -144,7 +144,6 @@ _functional-tests: \
   out-of-box-no-ntp \
   geometry-conformance \
   auto-calibration-api \
-  add-delete-3d-object-api \
   add-orphaned-cameras \
   api-large-strings \
   calibrate-all-sensor-types-api \

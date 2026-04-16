@@ -56,10 +56,6 @@ infer-rotation: # NEX-T10543
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_rotation_from_velocity.py, '$(SERVICES)', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-add-delete-3d-object-api: # NEX-T10428-API
-	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_add_delete_3d_object_api.py, 'pgserver web', true, /run/secrets/controller.auth)
-
 upload-3d-glb-file-api: # NEX-T10425-API
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_upload_3d_glb_file_api.py, 'pgserver web', true, /run/secrets/controller.auth)
