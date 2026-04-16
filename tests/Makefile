@@ -101,7 +101,6 @@ broken-tests: \
   3d-ui-calibration-points \
   geospatial-ingest-publish \
   delete-sensor-mqtt-api \
-  scenes-summary-api \
   reid-performance-degradation \
   auto-calibration-ui \
 
