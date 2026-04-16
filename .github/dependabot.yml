@@ -1,5 +1,5 @@
 ---
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 version: 2
@@ -93,6 +93,7 @@ updates:
       - "/manager/test"
       - "/model_installer"
       - "/cluster_analytics"
+      - "/cluster_analytics/tools/webui"
       - "/mapping"
       - "/mapping/tests"
       - "/tracker/test/service"
