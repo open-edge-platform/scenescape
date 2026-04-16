@@ -36,20 +36,20 @@ if str(_REPO_ROOT) not in sys.path:
 
 # TODO: Exclude satellite test suites that need deps only available inside Docker.
 collect_ignore_glob = [
-    "autocalibration/*",
-    "mapping/*",
-    "tools/*",
-    "tracker/*",
-    "tests/api/*",
-    "tests/autocalibration/*",
-    "tests/mapping/*",
-    "tests/perf_tests/*",
-    "tests/sscape_tests/account-security/*",
-    "tests/system/metric/*",
-    "tests/pipeline_runner/*",
-    "tests/ntlb/*",
-    "tests/tools/*",
-    "tests/tracker/*",
+  "autocalibration/*",
+  "mapping/*",
+  "tools/*",
+  "tracker/*",
+  "tests/api/*",
+  "tests/autocalibration/*",
+  "tests/mapping/*",
+  "tests/perf_tests/*",
+  "tests/sscape_tests/account-security/*",
+  "tests/system/metric/*",
+  "tests/pipeline_runner/*",
+  "tests/ntlb/*",
+  "tests/tools/*",
+  "tests/tracker/*",
 ]
 
 # ---------------------------------------------------------------------------

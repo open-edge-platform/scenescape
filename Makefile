@@ -422,7 +422,7 @@ run_ui_tests: setup-tests setup-pytest
 run_unit_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests..."
-	$(PYTEST) tests/sscape_tests/ $(PYTEST_FLAGS) -j $(NPROCS) || (echo "Unit tests failed" && exit 1)
+	$(PYTEST) tests/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
 	@echo "DONE ==> Running unit tests"
 
 .PHONY: run_basic_acceptance_tests
