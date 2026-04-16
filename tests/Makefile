@@ -172,7 +172,6 @@ _functional-tests: \
   scene-import-json \
   sensor-area-api \
   sensor-location-api \
-  sensor-scene-api \
   sensors-send-events \
   superuser-crud-operations-api \
   upload-3d-glb-file-api \

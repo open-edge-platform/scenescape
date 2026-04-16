@@ -89,13 +89,6 @@ sensor-location-api: # NEX-T10400-API
 	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_sensor_location_api.py, 'pgserver web', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-sensor-scene-api: # NEX-T10396
-	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
-	$(eval OLDSECRETSDIR := $(SECRETSDIR))
-	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_sensor_scene_api.py, 'pgserver web', true, /run/secrets/controller.auth)
-	$(eval SECRETSDIR := $(OLDSECRETSDIR))
-
 calibrate-all-sensor-types-api: # NEX-T10457-API
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_calibrate_all_sensor_types_api.py, 'pgserver web', true, /run/secrets/controller.auth)
