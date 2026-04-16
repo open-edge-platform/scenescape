@@ -26,8 +26,8 @@ harness:
     #     y_size: 0.5
     #   - name: FW190D
     #     shift_type: 2
-    #     x_size: 3.0
-    #     y_size: 4.5
+    #     x_size: 2.5
+    #     y_size: 3.5
 
 evaluators:
   - class: evaluators.camera_accuracy_evaluator.CameraAccuracyEvaluator

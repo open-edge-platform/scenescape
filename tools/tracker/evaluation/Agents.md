@@ -99,6 +99,9 @@ Check `evaluators/README.md` for more details
 ## Code Entry Points
 
 - **Pipeline orchestration**: [pipeline_engine.py](pipeline_engine.py) (methods `load_configuration()`, `run()`, `evaluate()`, CLI via `python -m pipeline_engine <config>`).
+  - `_configure_harness()` forwards `object_classes` from the YAML `harness.config` block to the harness via `set_custom_config({'object_classes': ...})`.
+  - `_configure_evaluators()` calls `set_scene_config(scene_config)` on each evaluator that exposes the method (checked via `hasattr`), passing the scene config returned by `dataset.get_scene_config()`.
+  - `main()` prints evaluator results using `evaluator.format_summary()` when available; otherwise falls back to printing each metric value individually.
 - **Component base classes** (implement to extend pipeline):
   - Dataset: [base/tracking_dataset.py](base/tracking_dataset.py)
   - Harness: [base/tracker_harness.py](base/tracker_harness.py)

@@ -260,7 +260,7 @@ The evaluation pipeline has comprehensive test coverage:
 
 - **Unit Tests**: Fast tests without external dependencies, located in component-specific test directories
   - `datasets/tests/test_*.py`: Datasets unit tests
-  - `harnesses/tests/test_*.py`: Harnesses unit tests (includes `CameraProjectionHarness` — 23 tests; `run_projection.py` helpers — 13 tests)
+  - `harnesses/tests/test_*.py`: Harnesses unit tests (includes `CameraProjectionHarness` — 23 tests; `run_projection.py` helpers — 7 tests)
   - `evaluators/tests/test_*.py`: Evaluator unit tests (includes `CameraAccuracyEvaluator` — 37 tests)
   - `tests/test_format_converters.py`: Format converter unit tests
 
