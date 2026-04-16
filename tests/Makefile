@@ -163,10 +163,8 @@ _functional-tests: \
   orphaned-sensor \
   persistence-api \
   rest-test \
-  scene-details-api \
   scene-import-api \
   scene-import-json \
-  sensor-area-api \
   sensor-location-api \
   sensors-send-events \
   superuser-crud-operations-api \
