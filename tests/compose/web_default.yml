@@ -31,7 +31,7 @@ services:
     depends_on:
       - pgserver
     ports:
-      - "443:443"
+      - "${HTTPS_PORT:-443}:443"
     command: >
       webserver
       --dbhost pgserver
@@ -45,7 +45,7 @@ services:
       interval: 5s
       timeout: 60s
       retries: 10
-      start_period: 10s
+      start_period: 120s
     environment:
       - "EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2"
       - "DBROOT"

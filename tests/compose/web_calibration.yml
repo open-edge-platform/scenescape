@@ -31,7 +31,7 @@ services:
     depends_on:
       - pgserver
     ports:
-      - "443:443"
+      - "${HTTPS_PORT:-443}:443"
     command: >
       webserver
       --dbhost pgserver

@@ -164,6 +164,15 @@ class ScenescapeEnv:
   repo_root: str
   secrets_dir: str
   supass: str
+  broker_port: int = 1883
+  https_port: int = 443
+
+
+def _find_free_port():
+  """Find an available TCP port on localhost."""
+  with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s.bind(("", 0))
+    return s.getsockname()[1]
 
 
 # ---------------------------------------------------------------------------
@@ -228,7 +237,11 @@ def _docker_prune_at_exit():
     pass
 
 # Hostnames that must resolve to 127.0.0.1 for TLS cert verification.
-_HOST_ALIASES = ["broker.scenescape.intel.com", "web.scenescape.intel.com"]
+_HOST_ALIASES = [
+  "broker.scenescape.intel.com",
+  "web.scenescape.intel.com",
+  "autocalibration.scenescape.intel.com",
+]
 
 @pytest.fixture(scope="session")
 def loopback_hosts():
@@ -256,7 +269,7 @@ def loopback_hosts():
 # Option injection helper
 # ---------------------------------------------------------------------------
 
-def _inject_options(config, spec, secrets_dir, supass):
+def _inject_options(config, spec, secrets_dir, supass, env=None):
   """Set config.option attributes so getoption() returns correct values.
 
   Called by the scenescape_env fixture before the test body runs.
@@ -272,6 +285,12 @@ def _inject_options(config, spec, secrets_dir, supass):
   # Resolve auth file on the host.
   opt.auth = f"{secrets_dir}/{spec.auth or 'controller.auth'}"
   opt.rootcert = f"{secrets_dir}/certs/scenescape-ca.pem"
+
+  # When a ScenescapeEnv is provided, inject its dynamic ports.
+  if env is not None:
+    opt.broker_port = env.broker_port
+    opt.weburl = f"https://web.scenescape.intel.com:{env.https_port}"
+    opt.resturl = f"https://web.scenescape.intel.com:{env.https_port}/api/v1"
 
   # Parse extra_args (--key value pairs) into option attributes.
   if spec.extra_args:
@@ -339,6 +358,13 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     database_password = supass
 
   tmp_path = tmp_path_factory.mktemp(profile.name)
+  # Allocate dynamic host ports so parallel stacks never collide.
+  broker_port = _find_free_port()
+  https_port = _find_free_port()
+  autocalib_port = _find_free_port()
+  retail_dls_port = _find_free_port()
+  queuing_dls_port = _find_free_port()
+
   env_file = tmp_path / ".env"
   env_lines = (
     f"SECRETSDIR={secrets_dir}\n"
@@ -352,6 +378,11 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     f"GID={os.getgid()}\n"
     f"VISIBILITY=regulated\n"
     f"VISIBILITY_TOPIC=regulated\n"
+    f"BROKER_PORT={broker_port}\n"
+    f"HTTPS_PORT={https_port}\n"
+    f"AUTOCALIB_PORT={autocalib_port}\n"
+    f"RETAIL_DLS_PORT={retail_dls_port}\n"
+    f"QUEUING_DLS_PORT={queuing_dls_port}\n"
   )
   # Only set DLSTREAMER_VERSION when detected; omitting lets compose defaults apply.
   if dlstreamer_version:
@@ -372,6 +403,7 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     logger.info("=" * 60)
     logger.info("Starting test environment: %s", project_name)
     logger.info("Profile: %s", profile.name)
+    logger.info("Ports: broker=%d, https=%d", broker_port, https_port)
     logger.info("=" * 60)
 
     logger.info("Running init-sample-data and install-models...")
@@ -394,6 +426,8 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       repo_root=repo_root,
       secrets_dir=secrets_dir,
       supass=supass,
+      broker_port=broker_port,
+      https_port=https_port,
     )
 
   finally:
@@ -475,7 +509,7 @@ if _ORCHESTRATION_AVAILABLE:
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="function")
-def scenescape_env(request, secrets_dir, supass):
+def scenescape_env(request, secrets_dir, supass, loopback_hosts):
   """Resolve the session-scoped profile fixture and inject per-test options.
 
   Each test that needs a compose environment must explicitly request this
@@ -499,7 +533,7 @@ def scenescape_env(request, secrets_dir, supass):
   env = request.getfixturevalue(fixture_name)
 
   # Inject per-test CLI option values.
-  _inject_options(request.config, spec, secrets_dir, supass)
+  _inject_options(request.config, spec, secrets_dir, supass, env=env)
 
   return env
 

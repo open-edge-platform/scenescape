@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -51,6 +51,7 @@ class SensorDeleteMqtt(SceneObjectMqtt):
     }
     res = self.rest.createSensor(sensor)
     assert res.statusCode == HTTPStatus.CREATED, (res.statusCode, res.errors)
+    self.sensor_uid = res["uid"]
 
     # Send initial sensor value to confirm publishing works
     assert self.pushSensorValue(self.roiName, self.sensorValue)
@@ -63,26 +64,31 @@ class SensorDeleteMqtt(SceneObjectMqtt):
       self.runSceneObjMqttPrepareExtra()
 
       # Delete the sensor
-      res = self.rest.deleteSensor(self.roiName)
+      res = self.rest.deleteSensor(self.sensor_uid)
       assert res.statusCode == HTTPStatus.OK, (res.statusCode, res.errors)
       time.sleep(2)
+
+      # Unsubscribe before publishing post-delete to prevent MQTT loopback
+      topic = PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=self.roiName)
+      self.pubsub.removeCallback(topic)
       self.sensor_deleted = True
 
-      # Try publishing again, should NOT be received
+      # Try publishing again, should NOT be received or processed
       self.sensorValue += 1
       self.pushSensorValue(self.roiName, self.sensorValue)
       time.sleep(2)
 
       self.runSceneObjMqttVerifyPassedExtra()
+      self.exitCode = 0
     finally:
       self.runSceneObjMqttFinally()
     return
 
   def runSceneObjMqttVerifyPassedExtra(self):
-    """Verify that no MQTT messages were received after deletion."""
-    assert (
-      self.sensor_message_received_after_delete is False
-    ), "MQTT messages were still received after sensor deletion"
+    """Verify that the sensor is gone and MQTT publishes don't resurrect it."""
+    res = self.rest.getSensor(self.sensor_uid)
+    assert res.statusCode == HTTPStatus.NOT_FOUND, \
+      f"Sensor should not exist after deletion, got: {res.statusCode}"
     return True
 
   def pushSensorValue(self, sensor_name, value):

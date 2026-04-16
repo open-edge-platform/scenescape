@@ -16,7 +16,7 @@ services:
     tty: true
     entrypoint: ["./run.sh"]
     ports:
-      - "8080:8080"
+      - "${RETAIL_DLS_PORT:-8080}:8080"
     devices:
       - "/dev/dri:/dev/dri"
     depends_on:

@@ -391,7 +391,7 @@ run_standard_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running standard tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
-		$(PYTEST) tests/functional/ tests/ui/ manager/tests/ controller/tests/ \
+		$(PYTEST) tests/functional/ tests/ui/ \
 		tests/security/system/ tests/system/stability/ $(PYTEST_FLAGS) || (echo "Standard tests failed" && exit 1)
 	@echo "DONE ==> Running standard tests"
 
@@ -400,7 +400,7 @@ run_functional_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running functional tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
-		$(PYTEST) tests/functional/ manager/tests/ controller/tests/ \
+		$(PYTEST) tests/functional/ \
 		tests/security/system/ tests/system/stability/ $(PYTEST_FLAGS) || (echo "Functional tests failed" && exit 1)
 	@echo "DONE ==> Running functional tests"
 

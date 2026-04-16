@@ -3,6 +3,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+
 from tests.functional import FunctionalTest
 from http import HTTPStatus
 from scene_common.rest_client import RESTClient
@@ -26,13 +28,11 @@ class SceneSummaryAPITest(FunctionalTest):
     scene_name_0 = "Demo"
     scene_name_1 = "Scene-1"
     scale = 1000
-    map_image_path = "SampleJpegMap.jpeg"
 
     # Create second scene
     scene_data = {
       "name": scene_name_1,
-      "scale": scale,
-      "map_image": map_image_path
+      "scale": scale
     }
     res = self.rest.createScene(scene_data)
     assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED), f"Scene creation failed: {res.errors}"

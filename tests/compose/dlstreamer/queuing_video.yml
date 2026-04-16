@@ -15,8 +15,6 @@ services:
       scenescape-test:
     tty: true
     entrypoint: ["./run.sh"]
-    ports:
-      - "8081:8080"
     devices:
       - "/dev/dri:/dev/dri"
     group_add:

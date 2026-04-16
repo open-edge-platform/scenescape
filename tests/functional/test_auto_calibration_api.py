@@ -30,7 +30,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 MAX_WAIT = 5
 BASE_URL = "https://autocalibration.scenescape.intel.com:8443"
-VERIFY_CERT = "/run/secrets/certs/scenescape-ca.pem"
 
 EXPECTED_RESULT_1 = {
   "calibration_points_2d": [
@@ -106,6 +105,7 @@ class AutoCalibration(FunctionalTest):
     self.sceneRegistered = False
     self.intrinsics = intrinsics
     self.expectedResult = expectedResult
+    self.rootcert = self.params['rootcert']
 
     self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
     res = self.rest.authenticate(self.params['user'], self.params['password'])
@@ -164,7 +164,7 @@ class AutoCalibration(FunctionalTest):
   def get_status(self):
     url = f"{BASE_URL}/v1/status"
     try:
-      r = requests.get(url, verify=VERIFY_CERT)
+      r = requests.get(url, verify=self.rootcert)
       print("Service status:", r.json())
       return r.json()
     except Exception as e:
@@ -175,11 +175,11 @@ class AutoCalibration(FunctionalTest):
     url = f"{BASE_URL}/v1/scenes/{self.scene_id}/registration"
     try:
       if method.upper() == "POST":
-        r = requests.post(url, json={}, verify=VERIFY_CERT)
+        r = requests.post(url, json={}, verify=self.rootcert)
         print(f"POST scene registration [{self.scene_name}]:",
               r.status_code, r.text)
       else:
-        r = requests.get(url, verify=VERIFY_CERT)
+        r = requests.get(url, verify=self.rootcert)
         print(f"GET scene registration status [{self.scene_name}]:",
               r.status_code, r.text)
       data = r.json()
@@ -189,7 +189,7 @@ class AutoCalibration(FunctionalTest):
         while time.time() - start_time < timeout:
           time.sleep(poll_interval)
           try:
-            poll_resp = requests.get(url, verify=VERIFY_CERT)
+            poll_resp = requests.get(url, verify=self.rootcert)
             poll_data = poll_resp.json()
             print("Poll result:", poll_data)
             if poll_data.get("status") == "success":
@@ -213,7 +213,7 @@ class AutoCalibration(FunctionalTest):
     if intrinsics is not None:
       payload["intrinsics"] = intrinsics
     try:
-      r = requests.post(url, json=payload, verify=VERIFY_CERT)
+      r = requests.post(url, json=payload, verify=self.rootcert)
       print("Calibration start:", r.status_code, r.text)
       return r.json()
     except Exception as e:
@@ -223,7 +223,7 @@ class AutoCalibration(FunctionalTest):
   def get_calibration_status(self):
     url = f"{BASE_URL}/v1/cameras/{self.camera_id}/calibration"
     try:
-      r = requests.get(url, verify=VERIFY_CERT)
+      r = requests.get(url, verify=self.rootcert)
       data = r.json()
       print("Calibration status:", r.status_code, data)
       return data
@@ -301,7 +301,7 @@ def test_auto_calibration(scenescape_env, request, record_xml_attribute,
              expected_result, intrinsics=intrinsics, repo_root=repo_root)
   test.runAutoCalibration()
   assert test.exitCode == 0
-  return test.exitCode
+  return
 
 def main():
   return test_auto_calibration(None, None)
