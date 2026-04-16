@@ -137,7 +137,7 @@ Using the above example, the form should look like this for the `video0` camera:
 
 **Figure 6:** Creating and calibrating a new camera
 
-Once both cameras are added, the scene is ready to be calibrated. Click on each camera and follow [the instructions](../calibrate-cameras/manually-calibrate-cameras.md) to manually calibrate each one. Test the system by walking around in the camera view and verify that the dots representing each person appear in the correct place on the floor plan. For Auto Calibration of cameras, use one of these methods: [Apriltag Calibration](../calibrate-cameras/autocalibrate-cameras-using-apriltags.md) or [Markerless Calibration](../calibrate-cameras/autocalibrate-cameras-using-visual-features.md).
+Once both cameras are added, the scene is ready to be calibrated. Click on each camera and follow the instructions for [Calibration with the 2D UI](../calibrate-cameras/use-2D-UI-for-calibration.md) or [Calibration with the 3D UI](../calibrate-cameras/use-3D-UI-for-calibration.md) to manually calibrate each one. Test the system by walking around in the camera view and verify that the dots representing each person appear in the correct place on the floor plan. For Auto Calibration of cameras, use one of these methods: [Apriltag Calibration](../calibrate-cameras/autocalibrate-cameras-using-apriltags.md) or [Markerless Calibration](../calibrate-cameras/autocalibrate-cameras-using-visual-features.md).
 
 ## Exporting and Importing the scene
 
@@ -151,7 +151,7 @@ Select the scene you'd like to export.
 
 In the upper-right corner of the scene home page, click on the `Export <scene_name>` button (next to the 3D toggle).
 
-![Exporting a scene](../../_assets/ui/scene-export.png)
+![Exporting a scene](../../_assets/ui/scene-export.png "exporting a scene")
 
 A ZIP file `<scene_name>.zip` will be downloaded.
 
@@ -163,7 +163,7 @@ Launch Intel® SceneScape and log in.
 
 Import a new scene by clicking on "Scenes" in the navigation menu, and then clicking on "+ Import Scene".
 
-![Importing a scene](../../_assets/ui/scene-import.png)
+![Importing a scene](../../_assets/ui/scene-import.png "importing a scene")
 
 Upload the appropriate zip file.
 

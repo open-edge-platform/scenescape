@@ -1,4 +1,4 @@
-# Use Intel(R) SceneScape 3D UI for Camera Calibration
+# Use Intel® SceneScape 3D UI for Camera Calibration
 
 This guide provides step-by-step instructions to use the Intel® SceneScape 3D UI to manage and calibrate cameras in a 3D scene. By completing this guide, you will:
 

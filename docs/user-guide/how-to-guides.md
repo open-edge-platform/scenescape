@@ -26,7 +26,7 @@
 
 - [Integrate Cameras and Sensors into Intel® SceneScape](./how-to-guides/integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow.
 
-- [Manually calibrate cameras](./how-to-guides/calibrate-cameras/manually-calibrate-cameras.md): Step-by-step guide to performing Manual Camera Calibration.
+- [Use 2D UI for manual calibration](./how-to-guides/calibrate-cameras/use-2D-UI-for-calibration.md): Step-by-step guide to using the 2D UI for manual camera calibration.
 
 - [Use 3D UI for calibration](./how-to-guides/calibrate-cameras/use-3D-UI-for-calibration.md): Step-by-step guide to using the 3D UI for camera calibration.
 
