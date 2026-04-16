@@ -47,7 +47,7 @@ upload-only-3d-glb-files-api: # NEX-T10433-API
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_upload_only_3d_glb_files_api.py, 'pgserver web', true, /run/secrets/controller.auth)
 
-superuser-crud-operations-api: # NEX-T10418-API
+superuser-crud-operations-api: # NEX-T21775
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
