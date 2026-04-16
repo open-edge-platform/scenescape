@@ -761,5 +761,111 @@
         }
       }
     ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/25: Sensor is orphaned and deletable after its scene is deleted",
+    "test_steps": [
+      {
+        "step_name": "Create test scene",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Test_Scene_For_Sensor_Deletion",
+            "scale": 1000
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "SCENE_UID_FOR_SENSOR_DEL": "uid"
+        }
+      },
+      {
+        "step_name": "Create sensor linked to scene",
+        "api": "sensor",
+        "method": "createSensor",
+        "request": {
+          "body": {
+            "name": "Sensor_0",
+            "sensor_id": "test_sensor",
+            "scene": "${SCENE_UID_FOR_SENSOR_DEL}",
+            "area": "poly",
+            "points": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                100.0,
+                0.0
+              ],
+              [
+                100.0,
+                100.0
+              ],
+              [
+                0.0,
+                100.0
+              ]
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "SENSOR_UID_DEL_SCENE": "uid"
+        }
+      },
+      {
+        "step_name": "Delete the scene",
+        "api": "scene",
+        "method": "deleteScene",
+        "request": {
+          "uid": "${SCENE_UID_FOR_SENSOR_DEL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify sensor still exists and is orphaned",
+        "api": "sensor",
+        "method": "getSensor",
+        "request": {
+          "uid": "${SENSOR_UID_DEL_SCENE}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "expected_body": {
+          "scene": null
+        }
+      },
+      {
+        "step_name": "Delete the orphaned sensor",
+        "api": "sensor",
+        "method": "deleteSensor",
+        "request": {
+          "uid": "${SENSOR_UID_DEL_SCENE}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify sensor is completely removed",
+        "api": "sensor",
+        "method": "getSensor",
+        "request": {
+          "uid": "${SENSOR_UID_DEL_SCENE}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
   }
 ]

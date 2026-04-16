@@ -150,7 +150,6 @@ _functional-tests: \
   camera-deletion-api \
   camera-intrinsics \
   child-scenes \
-  delete-sensor-scene-api \
   delete-sensors-api \
   infer-rotation \
   manual-camera-calibration-api \
