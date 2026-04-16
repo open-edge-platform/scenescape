@@ -457,5 +457,108 @@
         }
       }
     ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/17: Orphaned camera can be re-attached and deleted",
+    "test_steps": [
+      {
+        "step_name": "Create temporary scene",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Automated_Scene_Camera_Deletion"
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "TEMP_SCENE_UID": "uid"
+        }
+      },
+      {
+        "step_name": "Create camera in temporary scene",
+        "api": "camera",
+        "method": "createCamera",
+        "request": {
+          "body": {
+            "name": "Automated_Camera1",
+            "sensor_id": "Automated_ID_Camera1",
+            "scene": "${TEMP_SCENE_UID}"
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "ORPHAN_CAMERA_UID": "uid"
+        }
+      },
+      {
+        "step_name": "Delete temporary scene to orphan camera",
+        "api": "scene",
+        "method": "deleteScene",
+        "request": {
+          "uid": "${TEMP_SCENE_UID}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify camera is orphaned",
+        "api": "camera",
+        "method": "getCamera",
+        "request": {
+          "uid": "${ORPHAN_CAMERA_UID}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "expected_body": {
+          "scene": null
+        }
+      },
+      {
+        "step_name": "Re-attach orphaned camera to existing scene",
+        "api": "camera",
+        "method": "updateCamera",
+        "request": {
+          "uid": "${ORPHAN_CAMERA_UID}",
+          "body": {
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "expected_body": {
+          "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+        }
+      },
+      {
+        "step_name": "Delete the re-attached camera",
+        "api": "camera",
+        "method": "deleteCamera",
+        "request": {
+          "uid": "${ORPHAN_CAMERA_UID}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify camera is deleted",
+        "api": "camera",
+        "method": "getCamera",
+        "request": {
+          "uid": "${ORPHAN_CAMERA_UID}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
   }
 ]

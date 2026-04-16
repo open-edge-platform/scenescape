@@ -147,7 +147,6 @@ _functional-tests: \
   add-orphaned-cameras \
   api-large-strings \
   calibrate-all-sensor-types-api \
-  camera-deletion-api \
   camera-intrinsics \
   child-scenes \
   infer-rotation \
