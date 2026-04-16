@@ -187,9 +187,7 @@ metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _metric-tests: \
-  idc-error-metric \
-  velocity-metric \
-  msoce-metric \
+  metrics \
 
 ui-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
