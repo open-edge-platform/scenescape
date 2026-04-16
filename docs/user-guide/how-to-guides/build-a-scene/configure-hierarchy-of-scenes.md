@@ -31,11 +31,11 @@ This task is essential for managing distributed scenes in Intel® SceneScape dep
 
 **Expected Result**: The child scene appears in the parent scene view.
 
-![Local Child Form](../../_assets/ui/local_child_link_form.png "Local Child Scene Form")
+![Local Child Form](../../_assets/ui/local_child_link_form.png "local child scene form")
 
 _Figure 1: Creating new local child scene link._
 
-![Local Child Saved](../../_assets/ui/local_child_saved.png "Local Child Scene Saved")
+![Local Child Saved](../../_assets/ui/local_child_saved.png "local child scene saved")
 
 _Figure 2: Local Child scene on scene detail page._
 
@@ -49,26 +49,26 @@ _Figure 2: Local Child scene on scene detail page._
 
 - Edit `docker-compose.yml` to uncomment NTP server port.
 
-![Parent NTP Config](../../_assets/parent_ntp_conf.png "Parent NTP Config")
+![Parent NTP Config](../../_assets/parent_ntp_conf.png "parent ntp config")
 
 **On Child System**:
 
 - Edit `docker-compose.yml` to uncomment MQTT broker port.
 
-![Child MQTT broker Config](../../_assets/child_broker_conf.png "Child MQTT Broker Config")
+![Child MQTT broker Config](../../_assets/child_broker_conf.png "child mqtt broker config")
 
 - Disable NTP server service in `docker-compose.yml`.
 - Replace `ntpserv` with parent IP in dependent services.
 
-![Child Config 1](../../_assets/child_ntp_conf_1.png "Child NTP Config 1")
+![Child Config 1](../../_assets/child_ntp_conf_1.png "child ntp config 1")
 
 _Figure 3: ntpserver config for scene controller service in `docker-compose.yml`._
 
-![Child Config 2](../../_assets/child_ntp_conf_2.png "Child NTP Config 2")
+![Child Config 2](../../_assets/child_ntp_conf_2.png "child ntp config 2")
 
 _Figure 4: comment ntpserver for DL Streamer Pipeline Server in `docker-compose.yml`._
 
-![Child Config 3](../../_assets/child_ntp_conf_3.png "Child NTP Config 3")
+![Child Config 3](../../_assets/child_ntp_conf_3.png "child ntp config 3")
 
 _Figure 5: ntpserver config for DL Streamer Pipeline in `pipeline-config.json`._
 
@@ -121,11 +121,11 @@ Then restart Intel® SceneScape:
    - Transform type/values
 6. Click **Add Child Scene**.
 
-![Remote Child Form](../../_assets/ui/remote_child_link_form.png "Remote Child Scene Form")
+![Remote Child Form](../../_assets/ui/remote_child_link_form.png "remote child scene form")
 
 _Figure 5: Creating new remote child scene link._
 
-![Remote Child Saved](../../_assets/ui/remote_child_saved.png "Remote Child Scene Saved")
+![Remote Child Saved](../../_assets/ui/remote_child_saved.png "remote child scene saved")
 
 _Figure 6: Remote child scene on scene detail page._
 
@@ -142,7 +142,7 @@ _Figure 6: Remote child scene on scene detail page._
   - **Disabled**: Treat detections as already tracked.
   - **Enabled**: Feed detections into the parent tracker.
 
-![Retrack Toggle](../../_assets/ui/child-link-retrack.png "Retrack Toggle")
+![Retrack Toggle](../../_assets/ui/child-link-retrack.png "retrack toggle")
 
 _Figure 7: Toggle to re-track moving objects from child scene._
 
@@ -155,7 +155,7 @@ _Figure 7: Toggle to re-track moving objects from child scene._
   - `Regulate Rate (Hz)`: Limit updates to internal UI.
   - `Max External Update Rate (Hz)`: Limit updates to parent/consuming systems.
 
-![Temporal Fidelity](../../_assets/ui/temporal-fidelity.png "Temporal Fidelity")
+![Temporal Fidelity](../../_assets/ui/temporal-fidelity.png "temporal fidelity")
 
 _Figure 8: Set Regulate and External Update rate in scene config._
 

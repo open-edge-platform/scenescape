@@ -200,7 +200,7 @@ Follow the steps in the [Get Started Guide](../../get-started.md) to bring up an
 }
 ```
 
-![Configure and Verify Region of Interest](../../_assets/create-roi.gif "Configure and Verify Region of Interest")
+![Configure and Verify Region of Interest](../../_assets/create-roi.gif "configure and verify region of interest")
 Figure 1: Region of Interest creation flow
 
 > **Need help working with spatial analytics data?** See the [Working with Spatial Analytics Data](../work-with-spatial-analytics-data.md) guide for details on consuming ROI and tripwire events via MQTT, including Python and JavaScript examples and data format specifications.

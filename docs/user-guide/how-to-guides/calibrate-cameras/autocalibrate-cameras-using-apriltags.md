@@ -43,7 +43,7 @@ Before You Begin, ensure the following:
 
 Place sample tags in the scene and observe the camera feed. Tags should show bounding boxes when detected.
 
-![AprilTag Test Detections](../../_assets/ui/test-apriltags.png "AprilTag test detections")
+![AprilTag Test Detections](../../_assets/ui/test-apriltags.png "apriltag test detections")
 
 _Figure 1: Testing AprilTag visibility in camera feed._
 
@@ -67,7 +67,7 @@ Use a phone/tablet with LiDAR or another method to scan the scene. Export as a `
 2. Switch to orthographic, top-down view.
 3. Export the image and determine pixels-per-meter.
 
-![Generate an Orthographic Image](../../_assets/ui/ortho-view.png "Generate an orthographic image")
+![Generate an Orthographic Image](../../_assets/ui/ortho-view.png "generate an orthographic image")
 
 _Figure 2: Export top-down orthographic scene view._
 
@@ -85,11 +85,11 @@ _Figure 2: Export top-down orthographic scene view._
 3. Set Calibration Type to `Apriltag`.
 4. Enter the physical size of the tags.
 
-![Update Scene Map](../../_assets/ui/update-scene-map.png "Update scene map")
+![Update Scene Map](../../_assets/ui/update-scene-map.png "update scene map")
 
 _Figure 3: Upload scene image and set calibration method._
 
-![AprilTag dimensions](../../_assets/apriltag-dimensions.png "AprilTag dimensions")
+![AprilTag dimensions](../../_assets/apriltag-dimensions.png "apriltag dimensions")
 
 _Figure 4: Enter AprilTag dimensions._
 

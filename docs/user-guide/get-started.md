@@ -164,7 +164,7 @@ docker compose --profile controller up -d
 
 Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system. Using the web user interface, Intel® SceneScape provides two scenes by default that can be explored running from stored video data.
 
-![SceneScape WebUI Homepage](./_assets/ui/homepage.png "SceneScape WebUI Homepage")
+![SceneScape WebUI Homepage](./_assets/ui/homepage.png "scenescape web ui homepage")
 
 > **Note:** The “Documentation” menu option allows you to view Intel® SceneScape HTML version of the documentation in the browser.
 
