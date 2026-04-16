@@ -420,13 +420,13 @@ class Scene(SceneModel):
       stale = [oid for oid, wrapper in self._analytics_objects.items()
                 if oid not in current_ids]
       for oid in stale:
-          del self._analytics_objects[oid]
+        del self._analytics_objects[oid]
 
       # Create or update wrappers — deserialize as a batch for efficiency,
       # then index results by id so _analytics_objects stays consistent.
       deserialized = self._deserializeTrackedObjects(tracked_objects)
       for wrapper in deserialized:
-          self._analytics_objects[wrapper.gid] = wrapper
+        self._analytics_objects[wrapper.gid] = wrapper
     return
 
   def getTrackedObjects(self, detection_type):
