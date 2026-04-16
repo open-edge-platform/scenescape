@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
@@ -11,7 +11,6 @@ from controller.scene import Scene
 from scene_common.camera import Camera
 from controller.controller_mode import ControllerMode
 
-TEST_NAME = "NEX-T10451"
 ################################################################
 # Methods
 ################################################################
@@ -21,16 +20,6 @@ def initialize_controller_mode():
   ControllerMode.initialize(analytics_only=False)
   yield
   ControllerMode.reset()
-
-def pytest_sessionstart():
-  """! Executes at the beginning of the session. """
-  print(f"Executing: {TEST_NAME}")
-  return
-
-def pytest_sessionfinish(exitstatus):
-  """! Executes at the end of the session. """
-  common.record_test_result(TEST_NAME, exitstatus)
-  return
 
 def camera_param():
   """!

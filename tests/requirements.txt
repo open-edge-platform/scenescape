@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Host-side dependencies for end-to-end test orchestration and inner test execution.
+
+# Orchestration
+pytest>=7.4.0
+pytest-django>=4.8.0
+python-on-whales>=0.73.0
+waiting>=1.4.0
+pyyaml>=6.0.0
+
+# Inner test dependencies
+paho-mqtt>=2.1.0
+numpy>=2.0.0
+requests>=2.31.0
+selenium>=4.15.0
+Pillow>=10.0.0
+scikit-image>=0.21.0
+opencv-python>=4.8.0
+pyvirtualdisplay>=3.0
+psutil>=5.9.0
+pupil-apriltags>=1.0.0
+Django==5.2.12
+django-axes==8.0.0
+django-session-timeout==0.1.0
+djangorestframework==3.16.1
+jsonschema>=4.25.0
+plyfile>=1.0.0
+trimesh>=4.0.0
+shapely==2.1.1
+mapbox-earcut>=1.0.0
+fastjsonschema>=2.19.0
+open3d>=0.18.0
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-exporter-otlp-proto-grpc>=1.20.0
+vdms>=0.0.15
+aiofiles>=23.2.0
+
+# Build dependencies for fast_geometry C++ extension
+pybind11>=2.11.0
+
+# SceneScape shared library (installed as editable from repo)
+-e ../scene_common/src

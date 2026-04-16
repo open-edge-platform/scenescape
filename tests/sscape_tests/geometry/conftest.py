@@ -4,21 +4,6 @@
 import pytest
 
 import scene_common.geometry as geometry
-import tests.common_test_utils as common
-
-TEST_NAME = "NEX-T10454"
-def pytest_sessionstart():
-  """! Executes at the beginning of the session. """
-
-  print(f"Executing: {TEST_NAME}")
-
-  return
-
-def pytest_sessionfinish(exitstatus):
-  """! Executes at the end of the session. """
-
-  common.record_test_result(TEST_NAME, exitstatus)
-  return
 
 # Class: Point
 
@@ -100,7 +85,6 @@ def region_poly():
   uuid = "39bd9698-8603-43fb-9cb9-06d9a14e6a24"
   name = "test_poly"
   return geometry.Region(uuid, name, info)
-
 
 @pytest.fixture(scope="module")
 def region_circle():
