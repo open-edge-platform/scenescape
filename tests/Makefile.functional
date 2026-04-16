@@ -1,10 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-different-formats-maps-api: # NEX-T10392-API
-	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_different_formats_maps_api.py, 'pgserver web', true, /run/secrets/controller.auth)
-
 persistence-api: # NEX-T21511
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)

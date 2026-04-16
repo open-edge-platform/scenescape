@@ -841,5 +841,101 @@
         }
       }
     ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/22: Create scene with PNG map upload",
+    "test_steps": [
+      {
+        "step_name": "Create scene with LotMap.png",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Scene_PNG_LotMap",
+            "scale": 1000,
+            "map": "test_media/LotMap.png"
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "SCENE_UID_PNG": "uid"
+        }
+      },
+      {
+        "step_name": "Verify scene with PNG map was created",
+        "api": "scene",
+        "method": "getScene",
+        "request": {
+          "uid": "${SCENE_UID_PNG}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Scene_PNG_LotMap"
+        }
+      },
+      {
+        "step_name": "Delete scene",
+        "api": "scene",
+        "method": "deleteScene",
+        "request": {
+          "uid": "${SCENE_UID_PNG}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/23: Create scene with GLB map upload",
+    "test_steps": [
+      {
+        "step_name": "Create scene with box.glb",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Scene_GLB",
+            "scale": 1000,
+            "map": "../ui/test_media/box.glb"
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "SCENE_UID_GLB": "uid"
+        }
+      },
+      {
+        "step_name": "Verify scene with GLB map was created",
+        "api": "scene",
+        "method": "getScene",
+        "request": {
+          "uid": "${SCENE_UID_GLB}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "Scene_GLB"
+        }
+      },
+      {
+        "step_name": "Delete scene",
+        "api": "scene",
+        "method": "deleteScene",
+        "request": {
+          "uid": "${SCENE_UID_GLB}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
   }
 ]
