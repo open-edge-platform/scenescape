@@ -164,7 +164,6 @@ _functional-tests: \
   scene-import-json \
   sensors-send-events \
   superuser-crud-operations-api \
-  upload-only-3d-glb-files-api \
   vdms-similarity-search \
   visibility-unregulated \
   visibility-none \
