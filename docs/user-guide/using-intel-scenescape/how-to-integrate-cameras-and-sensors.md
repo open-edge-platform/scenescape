@@ -98,30 +98,32 @@ All sensor and camera messages share two properties: timestamp and ID.
    {
      "timestamp": "2022-09-19T21:33:09.832Z",
      "id": "camera1",
-     "objects": [
-       {
-         "id": 1,
-         "category": "person",
-         "confidence": 0.9958761930465698,
-         "bounding_box": {
-           "x": 0.0017505188455242745,
-           "y": -0.4183740040803016,
-           "width": 0.16804980917033036,
-           "height": 0.40962140985268025
+     "objects": {
+       "person": [
+         {
+           "id": 1,
+           "category": "person",
+           "confidence": 0.9958761930465698,
+           "bounding_box": {
+             "x": 0.0017505188455242745,
+             "y": -0.4183740040803016,
+             "width": 0.16804980917033036,
+             "height": 0.40962140985268025
+           }
+         },
+         {
+           "id": 2,
+           "category": "person",
+           "confidence": 0.5717072486877441,
+           "bounding_box": {
+             "x": -0.29758820373912664,
+             "y": -0.03150933921943694,
+             "width": 0.09977957419488362,
+             "height": 0.34135117487723354
+           }
          }
-       },
-       {
-         "id": 2,
-         "category": "person",
-         "confidence": 0.5717072486877441,
-         "bounding_box": {
-           "x": -0.29758820373912664,
-           "y": -0.03150933921943694,
-           "width": 0.09977957419488362,
-           "height": 0.34135117487723354
-         }
-       }
-     ]
+       ]
+     }
    }
    ```
 
@@ -134,48 +136,52 @@ All sensor and camera messages share two properties: timestamp and ID.
    {
      "timestamp": "2024-05-22T22:10:56.649Z",
      "id": "camera1",
-     "objects": [
-       {
-         "category": "person",
-         "translation": [
-           1.8509220689711061, -1.1447132184500803, 15.646203419777198
-         ],
-         "rotation": [
-           0.0007493523329913518, 0.003771683635429448, 0.05213021598136364,
-           0.9986328922358665
-         ],
-         "size": [0.5, 0.5, 2.0],
-         "bounding_box": {
-           "x": 1.8509220689711061,
-           "y": -1.1447132184500803,
-           "z": 15.646203419777198,
-           "width": 100,
-           "height": 100,
-           "depth": 1
-         },
-         "id": 1000
-       },
-       {
-         "category": "car",
-         "translation": [
-           1.8509220689711061, -1.1447132184500803, 15.646203419777198
-         ],
-         "rotation": [
-           0.0007493523329913518, 0.003771683635429448, 0.05213021598136364,
-           0.9986328922358665
-         ],
-         "size": [0.5, 0.5, 2.0],
-         "bounding_box": {
-           "x": 1.8509220689711061,
-           "y": -1.1447132184500803,
-           "z": 15.646203419777198,
-           "width": 100,
-           "height": 100,
-           "depth": 1
-         },
-         "id": 1001
-       }
-     ]
+     "objects": {
+       "person": [
+         {
+           "category": "person",
+           "translation": [
+             1.8509220689711061, -1.1447132184500803, 15.646203419777198
+           ],
+           "rotation": [
+             0.0007493523329913518, 0.003771683635429448, 0.05213021598136364,
+             0.9986328922358665
+           ],
+           "size": [0.5, 0.5, 2.0],
+           "bounding_box": {
+             "x": 1.8509220689711061,
+             "y": -1.1447132184500803,
+             "z": 15.646203419777198,
+             "width": 100,
+             "height": 100,
+             "depth": 1
+           },
+           "id": 1000
+         }
+       ],
+       "car": [
+         {
+           "category": "car",
+           "translation": [
+             1.8509220689711061, -1.1447132184500803, 15.646203419777198
+           ],
+           "rotation": [
+             0.0007493523329913518, 0.003771683635429448, 0.05213021598136364,
+             0.9986328922358665
+           ],
+           "size": [0.5, 0.5, 2.0],
+           "bounding_box": {
+             "x": 1.8509220689711061,
+             "y": -1.1447132184500803,
+             "z": 15.646203419777198,
+             "width": 100,
+             "height": 100,
+             "depth": 1
+           },
+           "id": 1001
+         }
+       ]
+     }
    }
    ```
 
@@ -194,29 +200,36 @@ It is also important to keep in mind the orientation of a camera with no transla
 
 ## Detection Metadata
 
-Other metadata associated with each detection can also be tagged on the object and will be passed on to the scene update for that detection. For example, if a vision-based hat detector is used then a "hat" object could be added:
+Other metadata associated with each detection can also be tagged on the object and will be passed on to the scene update for that detection. Semantic attributes are placed inside the `metadata` property on each detection object. Each attribute must include a `label` (the detected value) and a `model_name` (the source model identifier), with an optional `confidence` score.
+
+For example, if a vision-based hat detector is used, the `"hat"` attribute could be added to the `metadata` of each person detection:
 
 ```json
 {
   "timestamp": "2022-09-19T21:33:09.832Z",
   "id": "camera1",
-  "objects": [
-    {
-      "id": 1,
-      "category": "person",
-      "confidence": 0.9958761930465698,
-      "bounding_box": {
-        "x": 0.0017505188455242745,
-        "y": -0.4183740040803016,
-        "width": 0.16804980917033036,
-        "height": 0.40962140985268025
-      },
-      "hat": {
-        "confidence": 0.9123,
-        "value": true
+  "objects": {
+    "person": [
+      {
+        "id": 1,
+        "category": "person",
+        "confidence": 0.9958761930465698,
+        "bounding_box": {
+          "x": 0.0017505188455242745,
+          "y": -0.4183740040803016,
+          "width": 0.16804980917033036,
+          "height": 0.40962140985268025
+        },
+        "metadata": {
+          "hat": {
+            "label": true,
+            "model_name": "hat-detector",
+            "confidence": 0.9123
+          }
+        }
       }
-    }
-  ]
+    ]
+  }
 }
 ```
 
