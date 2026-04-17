@@ -71,7 +71,7 @@ class SensorMqttRoi(SceneObjectMqtt):
     assert self.checkedEntered > 0
     assert self.checkedExited > 0
     assert self.checkedValues > 0
-    # Verify dwell window calculation is sensible (not redundant with unit tests)
+    # Verify dwell window calculation is sensible
     self.verifyDwellWindowExists()
     return True
 
