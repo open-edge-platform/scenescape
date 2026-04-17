@@ -77,13 +77,13 @@ class SensorMqttRoi(SceneObjectMqtt):
 
   def verifyDwellWindowExists(self):
     """Verify dwell window metadata exists for integration validation.
-    
+
     This validates integration aspects only - that entry/exit times were properly
     captured. The actual dwell calculation formulas are already tested by unit tests.
     """
     if self.enteredTimestamp is None:
       return  # No entry detected, nothing to verify
-    
+
     if self.exitedTimestamp is not None:
       dwell_window = self.exitedTimestamp - self.enteredTimestamp
       assert dwell_window >= 0, f"Invalid dwell window: exit before entry"

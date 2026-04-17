@@ -241,7 +241,7 @@ class TestDetectionsBuilder:
     scene = SimpleNamespace(output_lla=False)
     entry_time_str = '2026-03-31T10:00:00.000Z'
     entry_epoch = get_epoch_time(entry_time_str)
-    
+
     obj = _build_object_with_regions(
       'object-1',
       {'region-a': {'entered': entry_time_str}},

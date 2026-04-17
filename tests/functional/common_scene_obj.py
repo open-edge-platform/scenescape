@@ -86,14 +86,14 @@ class SceneObjectMqtt(FunctionalTest):
 
   def verifyDwellTime(self, regionEvent, current_time):
     """Verify dwell times are reasonable based on entry times.
-    
+
     For end-to-end testing, check that:
     1. Dwell times increase as time progresses
     2. Dwell times are positive and non-zero for objects in region
     """
     if not hasattr(self, 'previousDwellTimes'):
       self.previousDwellTimes = {}
-    
+
     if len(regionEvent['objects']) > 0:
       for obj in regionEvent['objects']:
         obj_id = obj['id']
@@ -102,18 +102,18 @@ class SceneObjectMqtt(FunctionalTest):
           if 'dwell' in obj:
             dwell = obj['dwell']
             expected_min_dwell = current_time - self.objectEntryTimes[obj_id]
-            
+
             # Dwell should be close to time since entry (allowing small margin for processing)
             # Use 0.5 second margin for MQTT/processing delays
             assert dwell >= 0, f"Object {obj_id} has negative dwell: {dwell}"
             assert dwell >= expected_min_dwell - 0.5, \
               f"Object {obj_id} dwell {dwell} less than expected ~{expected_min_dwell}"
-            
+
             # Verify dwell is increasing over time (or staying same if checking quickly)
             if obj_id in self.previousDwellTimes:
               assert dwell >= self.previousDwellTimes[obj_id], \
                 f"Object {obj_id} dwell decreased from {self.previousDwellTimes[obj_id]} to {dwell}"
-            
+
             self.previousDwellTimes[obj_id] = dwell
             print(f"Object {obj_id} dwell verified: {dwell:.2f}s")
     return
@@ -197,18 +197,18 @@ class SceneObjectMqtt(FunctionalTest):
 
   def verifyDwellPresenceInSceneData(self, sceneData):
     """Verify dwell values appear in scene object data when objects are in regions.
-    
+
     Unlike unit tests which validate calculation formulas, this checks integration:
     that dwell data is present and available in the scene data stream.
     """
     if 'objects' not in sceneData or not sceneData['objects']:
       return
-    
+
     for obj in sceneData['objects']:
       obj_id = obj.get('id')
       if not obj_id or obj_id not in self.objectEntryTimes:
         continue
-      
+
       # Check that dwell data is present for objects known to be in regions
       if 'regions' in obj and obj['regions']:
         for region_name, region_data in obj['regions'].items():
@@ -216,14 +216,14 @@ class SceneObjectMqtt(FunctionalTest):
             dwell = region_data['dwell']
             # Basic sanity check: dwell should be non-negative
             assert dwell >= 0, f"Object {obj_id} has negative dwell: {dwell}"
-            
+
             # Verify monotonic increase (no dwell decrease over time)
             key = (obj_id, region_name)
             if key in self.previousDwellTimes:
               prev_dwell = self.previousDwellTimes[key]
               assert dwell >= prev_dwell - 0.2, \
                 f"Object {obj_id} dwell in {region_name} decreased from {prev_dwell:.2f} to {dwell:.2f}"
-            
+
             self.previousDwellTimes[key] = dwell
     return
 
