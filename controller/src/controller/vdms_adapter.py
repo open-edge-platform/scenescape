@@ -115,6 +115,8 @@ class VDMSDatabase(ReIDDatabase):
     @param   dimensions  Number of float32 elements in each embedding vector
     @raises  ValueError  If called with dimensions inconsistent with a previously
                          initialized schema
+    @raises  RuntimeError If schema creation fails; schema remains unavailable until
+                          schema is flushed and the controller is restarted
     """
     with self._schema_lock:
       if self._schema_ready:

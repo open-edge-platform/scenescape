@@ -18,36 +18,6 @@ from controller.uuid_manager import UUIDManager
 class TestUUIDManagerInitialization:
   """Test UUIDManager initialization and basic setup."""
 
-  def test_initialization_applies_vector_dimensions_from_reid_config(self):
-    """Verify explicit vector_dimensions is forwarded to the selected DB constructor."""
-    mock_db_instance = MagicMock()
-    captured_kwargs = {}
-
-    def fake_db_constructor(**kwargs):
-      captured_kwargs.update(kwargs)
-      return mock_db_instance
-
-    with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_db_constructor}):
-      manager = UUIDManager(database="VDMS", reid_config_data={"vector_dimensions": 512})
-
-    assert captured_kwargs.get('dimensions') == 512
-    assert manager.reid_database is mock_db_instance
-
-  def test_initialization_without_vector_dimensions_passes_none_to_database(self):
-    """Verify that omitting vector_dimensions passes None to the DB constructor (auto-infer)."""
-    mock_db_instance = MagicMock()
-    captured_kwargs = {}
-
-    def fake_db_constructor(**kwargs):
-      captured_kwargs.update(kwargs)
-      return mock_db_instance
-
-    with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_db_constructor}):
-      manager = UUIDManager(database="VDMS", reid_config_data={})
-
-    assert captured_kwargs.get('dimensions') is None, "Should pass None when vector_dimensions absent"
-    assert manager._inferred_dimensions is None, "Should start with no inferred dimensions"
-
   @patch('controller.uuid_manager.VDMSDatabase')
   def test_initialization_with_default_database(self, mock_vdms_class):
     """Verify UUIDManager initializes with default VDMS database."""
@@ -386,7 +356,11 @@ class TestAssignID:
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
-    manager = UUIDManager()
+    def fake_db_constructor(**kwargs):
+      return mock_vdms_instance
+
+    with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_db_constructor}):
+      manager = UUIDManager()
     initial_count = manager.unique_id_count
 
     obj = MagicMock()
@@ -428,7 +402,11 @@ class TestAssignID:
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
-    manager = UUIDManager()
+    def fake_db_constructor(**kwargs):
+      return mock_vdms_instance
+
+    with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_db_constructor}):
+      manager = UUIDManager()
 
     obj = MagicMock()
     obj.rv_id = "new_tracker_with_features"
@@ -472,7 +450,11 @@ class TestAssignID:
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
-    manager = UUIDManager()
+    def fake_db_constructor(**kwargs):
+      return mock_vdms_instance
+
+    with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_db_constructor}):
+      manager = UUIDManager()
     manager.pool = MagicMock()
 
     obj = MagicMock()
@@ -495,7 +477,11 @@ class TestAssignID:
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
-    manager = UUIDManager()
+    def fake_db_constructor(**kwargs):
+      return mock_vdms_instance
+
+    with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_db_constructor}):
+      manager = UUIDManager()
     manager.pool = MagicMock()
 
     obj = MagicMock()
@@ -668,21 +654,6 @@ class TestDimensionInference:
 
     assert result is False, "Should reject embedding with different dimension"
     assert manager._inferred_dimensions == 256, "Locked dimension should remain unchanged"
-
-  def test_explicit_config_dimension_used_as_initial_inferred(self):
-    """Verify that a configured vector_dimensions seeds _inferred_dimensions."""
-    manager, _ = self._make_manager_with_mock_db(reid_config_data={"vector_dimensions": 512})
-
-    assert manager._inferred_dimensions == 512, "Configured dimension should seed inferred value"
-
-  def test_reject_embedding_mismatching_configured_dimension(self):
-    """Verify embedding is rejected when its dimension differs from an explicitly configured one."""
-    manager, _ = self._make_manager_with_mock_db(reid_config_data={"vector_dimensions": 512})
-    wrong = np.arange(256, dtype=np.float32)
-
-    result = manager._ensureReIDDimensions(wrong)
-
-    assert result is False, "Should reject embedding whose dimension mismatches configured value"
 
   def test_ensure_schema_error_causes_false_return(self):
     """Verify False is returned and dimension remains unset when ensureSchema raises."""

@@ -3,10 +3,8 @@
 
 import collections
 import concurrent.futures
-import json
 import threading
 import time
-from unittest import result
 
 import numpy as np
 
@@ -37,13 +35,13 @@ class UUIDManager:
     self.features_for_database_timestamps = {}  # Track when features were added
     self.quality_features = {}
     self.unique_id_count = 0
-    # vector_dimensions is optional; if absent, inferred from first observed embedding
+    # ReID embedding dimensions are inferred from the first observed embedding.
+    # Do not accept dimension overrides from reid_config_data.
     if reid_config_data is None:
       reid_config_data = {}
-    vector_dimensions = reid_config_data.get('vector_dimensions', None)
-    self._inferred_dimensions = vector_dimensions
+    self._inferred_dimensions = None
     self._dimensions_lock = threading.Lock()
-    self.reid_database = available_databases[database](dimensions=vector_dimensions)
+    self.reid_database = available_databases[database](dimensions=None)
     self.pool = concurrent.futures.ThreadPoolExecutor()
     self.similarity_query_times = collections.deque(
       maxlen=DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED)
@@ -122,7 +120,7 @@ class UUIDManager:
         log.info(f"Inferred ReID embedding dimensions from first observed vector: {dim}")
         try:
           self.reid_database.ensureSchema(dim)
-        except ValueError as err:
+        except (ValueError, RuntimeError) as err:
           log.error(f"ReID schema initialization failed: {err}")
           return False
         self._inferred_dimensions = dim
