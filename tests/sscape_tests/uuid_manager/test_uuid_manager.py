@@ -573,6 +573,27 @@ class TestDimensionInference:
     assert result is False, "Should return False when ensureSchema raises"
     assert manager._inferred_dimensions is None, "Dimension should remain unset after failure"
 
+  def test_zero_length_embedding_is_rejected_and_does_not_lock_dimensions(self, mock_vdms_db):
+    """Verify empty arrays are rejected early without calling ensureSchema or locking dimensions."""
+    manager = self._make_manager_with_mock_db()
+
+    result_empty_array = manager._ensureReIDDimensions(np.array([], dtype=np.float32))
+
+    assert result_empty_array is False, "Empty ndarray should be rejected"
+    assert manager._inferred_dimensions is None, "Dimension must not be locked to 0"
+    mock_vdms_db.ensureSchema.assert_not_called()
+
+  def test_zero_length_embedding_does_not_block_valid_subsequent_embedding(self, mock_vdms_db):
+    """Verify that after an empty embedding is rejected, a valid embedding is still accepted."""
+    manager = self._make_manager_with_mock_db()
+
+    manager._ensureReIDDimensions(np.array([], dtype=np.float32))
+    result = manager._ensureReIDDimensions(np.arange(256, dtype=np.float32))
+
+    assert result is True
+    assert manager._inferred_dimensions == 256
+    mock_vdms_db.ensureSchema.assert_called_once_with(256)
+
   def test_gather_features_uses_inferred_dimension_gate(self, mock_vdms_db):
     """Verify gatherQualityVisualFeatures silently drops embeddings with wrong dimension."""
     manager = self._make_manager_with_mock_db()

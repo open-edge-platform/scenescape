@@ -113,7 +113,14 @@ class UUIDManager:
     @param   embedding  Decoded ReID embedding (numpy array or list)
     @return  bool       True if the embedding should be used; False if it must be discarded
     """
+    # Decoded embeddings from decodeReIDEmbeddingVector are (1, N); reshape(-1)
+    # flattens that to (N,) so we get the true element count regardless of shape.
     dim = int(np.asarray(embedding).reshape(-1).shape[0])
+    if dim <= 0:
+      log.warning(
+        f"_ensureReIDDimensions: Skipping empty or zero-length embedding (dim={dim}); "
+        "embedding will not be used.")
+      return False
     with self._dimensions_lock:
       if self._inferred_dimensions is None:
         log.info(f"Inferred ReID embedding dimensions from first observed vector: {dim}")
@@ -135,13 +142,11 @@ class UUIDManager:
   def _extractReidEmbedding(self, sscape_object):
     """
     Extract embedding vector from sscape_object's reid field.
-    Returns the decoded embedding vector (numpy array or list), not the base64 string.
-    Handles both formats:
-    1. New format: dict with 'embedding_vector' and 'model_name' keys
-    2. Legacy format: direct vector (list or numpy array)
+    decodeReIDEmbeddingVector guarantees that embedding_vector is a (1, N)
+    numpy array after _decodeReIDVector runs, so no string check is needed here.
 
     @param   sscape_object  The Scenescape object with detection data
-    @return  embedding      The decoded embedding vector (numpy array or list), or None if not available
+    @return  embedding      The decoded (1, N) ndarray, or None if not available
     """
     try:
       reid = sscape_object.reid
@@ -151,17 +156,13 @@ class UUIDManager:
     if reid is None:
       return None
 
-    # New format: dict with 'embedding_vector' key
+    # Standard path: dict populated by MovingObject._decodeReIDVector.
+    # embedding_vector is always an ndarray (1, N) or None at this point.
     if isinstance(reid, dict):
-      embedding = reid.get('embedding_vector', None)
-      # Only return if it's already decoded (numpy array or list, not a string)
-      if embedding is not None and not isinstance(embedding, str):
-        return embedding
-      return None
+      return reid.get('embedding_vector', None)
 
-    # Legacy format: direct vector (list or numpy array)
-    # Return if it's not a dict and not a string
-    if not isinstance(reid, str) and not isinstance(reid, dict):
+    # Safety net for callers that set reid directly to an ndarray or list.
+    if isinstance(reid, (np.ndarray, list)):
       return reid
 
     return None

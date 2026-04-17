@@ -21,7 +21,7 @@ SIMILARITY_METRIC = "L2"
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
-               similarity_metric=SIMILARITY_METRIC, dimensions=None,
+               similarity_metric=SIMILARITY_METRIC, dimensions=DIMENSIONS,
                confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD):
     self.db = vdms.vdms(
       use_tls=True,
@@ -96,6 +96,8 @@ class VDMSDatabase(ReIDDatabase):
               return
           self.dimensions = expected_dimensions
           self._schema_ready = True
+    except RuntimeError as e:
+      log.error(f"Failed to initialize VDMS schema: {e}")
     except socket.error as e:
       log.warning(f"Failed to connect to VDMS container: {e}")
     return
@@ -209,8 +211,8 @@ class VDMSDatabase(ReIDDatabase):
     descriptor_blobs = []
     add_query = []
     for reid_vector in reid_vectors:
-      # Ensure vector is properly formatted as 1D array of float32
-      # reid_vector might be shape (N,) from moving_object, need to flatten to (N,)
+      # Decoded embeddings from decodeReIDEmbeddingVector are (1, N); flatten to
+      # (N,) so tobytes() produces the correct contiguous float32 byte sequence.
       vec_array = np.asarray(reid_vector, dtype="float32").flatten()
       if self.dimensions is None:
         log.warning("addEntry: ReID dimensions not yet initialized, skipping vector")

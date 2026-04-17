@@ -48,7 +48,7 @@ def _getReIDEmbeddingDimensions(reid):
 
 def decodeReIDEmbeddingVector(embedding_data, dimensions=None):
   if isinstance(embedding_data, str):
-    vector = base64.b64decode(embedding_data)
+    vector = base64.b64decode(embedding_data, validate=True)
     if len(vector) % REID_FLOAT_SIZE_BYTES != 0:
       raise ValueError(
         f"Packed ReID vector size {len(vector)} is not divisible by {REID_FLOAT_SIZE_BYTES}")
@@ -62,8 +62,13 @@ def decodeReIDEmbeddingVector(embedding_data, dimensions=None):
 
     return np.frombuffer(vector, dtype=np.float32).copy().reshape(1, dimensions)
 
-  if isinstance(embedding_data, np.ndarray) or isinstance(embedding_data, list):
-    return embedding_data
+  if isinstance(embedding_data, (np.ndarray, list)):
+    arr = np.asarray(embedding_data, dtype=np.float32).reshape(-1)
+    actual_length = arr.shape[0]
+    if dimensions is not None and int(dimensions) != actual_length:
+      raise ValueError(
+        f"ReID embedding vector has {actual_length} elements, expected {int(dimensions)}")
+    return arr.reshape(1, actual_length)
 
   return None
 
