@@ -84,40 +84,6 @@ class SceneObjectMqtt(FunctionalTest):
           print("object with id {} exited region\n".format(event['object']['id']))
     return
 
-  def verifyDwellTime(self, regionEvent, current_time):
-    """Verify dwell times are reasonable based on entry times.
-
-    For end-to-end testing, check that:
-    1. Dwell times increase as time progresses
-    2. Dwell times are positive and non-zero for objects in region
-    """
-    if not hasattr(self, 'previousDwellTimes'):
-      self.previousDwellTimes = {}
-
-    if len(regionEvent['objects']) > 0:
-      for obj in regionEvent['objects']:
-        obj_id = obj['id']
-        if obj_id in self.objectEntryTimes:
-          # Verify that dwell value exists and is reasonable
-          if 'dwell' in obj:
-            dwell = obj['dwell']
-            expected_min_dwell = current_time - self.objectEntryTimes[obj_id]
-
-            # Dwell should be close to time since entry (allowing small margin for processing)
-            # Use 0.5 second margin for MQTT/processing delays
-            assert dwell >= 0, f"Object {obj_id} has negative dwell: {dwell}"
-            assert dwell >= expected_min_dwell - 0.5, \
-              f"Object {obj_id} dwell {dwell} less than expected ~{expected_min_dwell}"
-
-            # Verify dwell is increasing over time (or staying same if checking quickly)
-            if obj_id in self.previousDwellTimes:
-              assert dwell >= self.previousDwellTimes[obj_id], \
-                f"Object {obj_id} dwell decreased from {self.previousDwellTimes[obj_id]} to {dwell}"
-
-            self.previousDwellTimes[obj_id] = dwell
-            print(f"Object {obj_id} dwell verified: {dwell:.2f}s")
-    return
-
   def isWithinRectangle(self, bl, tr, curr_point):
     if (curr_point[0] > bl[0] and curr_point[0] < tr[0] and \
       curr_point[1] > bl[1] and curr_point[1] < tr[1]):
