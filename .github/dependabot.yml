@@ -93,7 +93,6 @@ updates:
       - "/manager/test"
       - "/model_installer"
       - "/cluster_analytics"
-      - "/cluster_analytics/tools/webui"
       - "/mapping"
       - "/mapping/tests"
       - "/tracker/test/service"
