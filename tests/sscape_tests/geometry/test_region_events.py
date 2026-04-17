@@ -5,7 +5,7 @@ import math
 
 import pytest
 
-from scene_common.geometry import get_region_events, Region, Point
+from scene_common.geometry import getRegionEvents, Region, Point
 
 UUID = "39bd9698-8603-43fb-9cb9-06d9a14e6a24"
 
@@ -25,19 +25,19 @@ def test_object_inside_polygon(n_vertices):
   """! Verify object at polygon center is detected inside for varying vertex counts. """
   pts = _regular_polygon(n_vertices)
   region = Region(UUID, "poly", {"points": pts})
-  result = get_region_events({"r": region}, [Point(10, 10)])
+  result = getRegionEvents({"r": region}, [Point(10, 10)])
   assert result["r"] == [0]
 
 def test_object_inside_circle():
   """! Verify object at circle center is detected inside. """
   region = Region(UUID, "circle", {"area": "circle", "center": [5, 5], "radius": 3})
-  result = get_region_events({"r": region}, [Point(5, 5)])
+  result = getRegionEvents({"r": region}, [Point(5, 5)])
   assert result["r"] == [0]
 
 def test_object_inside_scene():
   """! Verify any object is inside a scene-wide region. """
   region = Region(UUID, "scene", {"area": "scene"})
-  result = get_region_events({"r": region}, [Point(100, 200)])
+  result = getRegionEvents({"r": region}, [Point(100, 200)])
   assert result["r"] == [0]
 
 # --- No-match tests: object outside all regions ---
@@ -45,13 +45,13 @@ def test_object_inside_scene():
 def test_no_match_outside_polygon():
   """! Verify object outside polygon is not detected. """
   region = Region(UUID, "poly", {"points": [[0, 0], [10, 0], [10, 10], [0, 10]]})
-  result = get_region_events({"r": region}, [Point(50, 50)])
+  result = getRegionEvents({"r": region}, [Point(50, 50)])
   assert result["r"] == []
 
 def test_no_match_outside_circle():
   """! Verify object outside circle is not detected. """
   region = Region(UUID, "circle", {"area": "circle", "center": [5, 5], "radius": 3})
-  result = get_region_events({"r": region}, [Point(50, 50)])
+  result = getRegionEvents({"r": region}, [Point(50, 50)])
   assert result["r"] == []
 
 # --- Length variations ---
@@ -59,7 +59,7 @@ def test_no_match_outside_circle():
 def test_single_region_single_object():
   """! Verify single region with one matching object. """
   region = Region(UUID, "poly", {"points": [[0, 0], [10, 0], [10, 10], [0, 10]]})
-  result = get_region_events({"r": region}, [Point(5, 5)])
+  result = getRegionEvents({"r": region}, [Point(5, 5)])
   assert result["r"] == [0]
 
 def test_multiple_regions_multiple_objects():
@@ -69,7 +69,7 @@ def test_multiple_regions_multiple_objects():
   region_c = Region(UUID, "c", {"area": "circle", "center": [20, 20], "radius": 2})
   regions = {"a": region_a, "b": region_b, "c": region_c}
   objects = [Point(7, 7), Point(2, 2), Point(20, 20), Point(50, 50)]
-  result = get_region_events(regions, objects)
+  result = getRegionEvents(regions, objects)
   assert sorted(result["a"]) == [0, 1]
   assert result["b"] == [0]
   assert result["c"] == [2]
@@ -79,10 +79,10 @@ def test_multiple_regions_multiple_objects():
 def test_empty_object_list():
   """! Verify regions with no objects returns empty lists per key. """
   region = Region(UUID, "poly", {"points": [[0, 0], [10, 0], [10, 10], [0, 10]]})
-  result = get_region_events({"r": region}, [])
+  result = getRegionEvents({"r": region}, [])
   assert result["r"] == []
 
 def test_empty_region_dict():
   """! Verify empty region dict returns empty result. """
-  result = get_region_events({}, [Point(5, 5)])
+  result = getRegionEvents({}, [Point(5, 5)])
   assert result == {}

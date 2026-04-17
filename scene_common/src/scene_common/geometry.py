@@ -195,7 +195,7 @@ class Tripwire(Region):
     }
     return data
 
-def get_tripwire_events(tripwires, object_locations):
+def getTripwireEvents(tripwires, object_locations):
   """Detect line crossings between object movement segments and tripwires.
 
   @param tripwires         Dict of {key: Tripwire} to check against
@@ -213,7 +213,7 @@ def get_tripwire_events(tripwires, object_locations):
     tripwire_events[key] = event_matches
   return tripwire_events
 
-def get_region_events(regions, object_locations):
+def getRegionEvents(regions, object_locations):
   """Determine which objects are within each region using point containment.
 
   @param regions           Dict of {key: Region} to check against

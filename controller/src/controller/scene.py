@@ -11,7 +11,7 @@ from controller.moving_object import ChainData
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
-from scene_common.geometry import Line, Point, Region, Tripwire, get_region_events, get_tripwire_events
+from scene_common.geometry import Line, Point, Region, Tripwire, getRegionEvents, getTripwireEvents
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
@@ -583,7 +583,7 @@ class Scene(SceneModel):
       obj.chain_data.publishedLocations[:2] for obj in reliable_objects
     ]
 
-    crossing_events = get_tripwire_events(self.tripwires, object_locations)
+    crossing_events = getTripwireEvents(self.tripwires, object_locations)
 
     for key, tripwire in self.tripwires.items():
       event_matches = crossing_events.get(key, [])
@@ -615,7 +615,7 @@ class Scene(SceneModel):
     ]
 
     object_locations = [obj.sceneLoc for obj in reliable_objects]
-    objects_within_region = get_region_events(regions, object_locations)
+    objects_within_region = getRegionEvents(regions, object_locations)
 
     for key, region in regions.items():
       matched_indices = set(objects_within_region.get(key, []))
