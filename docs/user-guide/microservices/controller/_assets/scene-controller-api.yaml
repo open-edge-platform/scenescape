@@ -219,7 +219,7 @@ channels:
             metadata:
               type: object
               description: >-
-                Region or tripwire geometry. Region events include: title, uuid, points
+                The region or tripwire geometry. Region events include: title, uuid, points
                 (polygon vertices), area, fromSensor. Tripwire events include: title,
                 uuid, points (two endpoints).
 
