@@ -7,7 +7,6 @@ from scene_common.geometry import get_tripwire_events, Tripwire, Point
 
 UUID = "39bd9698-8603-43fb-9cb9-06d9a14e6a24"
 
-
 # --- Positive tests: crossing in both directions for four orientations ---
 
 @pytest.mark.parametrize(
@@ -43,7 +42,6 @@ def test_tripwire_crossing(tripwire_pts, current, previous, expected_dir):
   assert len(result["tw"]) == 1
   assert result["tw"][0] == (0, expected_dir)
 
-
 # --- No-match tests ---
 
 def test_no_crossing_parallel_offset():
@@ -52,15 +50,11 @@ def test_no_crossing_parallel_offset():
   result = get_tripwire_events({"tw": tripwire}, [(Point(15, 2), Point(5, 2))])
   assert result["tw"] == []
 
-
 def test_no_crossing_collinear():
   """! Verify no crossing when movement is along the tripwire (collinear). """
   tripwire = Tripwire(UUID, "tw", {"points": [[0, 0], [10, 0]]})
   result = get_tripwire_events({"tw": tripwire}, [(Point(8, 0), Point(2, 0))])
   assert result["tw"] == []
-
-
-
 
 # --- Positive tests: endpoint on tripwire ---
 
@@ -71,7 +65,6 @@ def test_crossing_when_endpoint_on_tripwire():
   assert len(result["tw"]) == 1
   assert result["tw"][0][0] == 0
 
-
 # --- Length variations ---
 
 def test_single_tripwire_single_object():
@@ -80,7 +73,6 @@ def test_single_tripwire_single_object():
   result = get_tripwire_events({"tw": tripwire}, [(Point(5, 1), Point(5, -1))])
   assert len(result["tw"]) == 1
   assert result["tw"][0][0] == 0
-
 
 def test_multiple_tripwires_multiple_objects():
   """! Verify detection with multiple tripwires and objects, one crossing both. """
@@ -97,7 +89,6 @@ def test_multiple_tripwires_multiple_objects():
   assert len(result["v"]) == 1
   assert result["v"][0][0] == 0
 
-
 # --- Empty inputs ---
 
 def test_empty_object_list():
@@ -105,7 +96,6 @@ def test_empty_object_list():
   tripwire = Tripwire(UUID, "tw", {"points": [[0, 0], [10, 0]]})
   result = get_tripwire_events({"tw": tripwire}, [])
   assert result["tw"] == []
-
 
 def test_empty_tripwire_dict():
   """! Verify empty tripwire dict returns empty result. """
