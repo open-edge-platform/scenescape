@@ -30,12 +30,20 @@ def buildDetectionsList(objects, scene, update_visibility=False, include_sensors
     result_list.append(obj_dict)
   return result_list
 
+def _get_region_entered_epoch(region_data):
+  entered_epoch = region_data.get('entered_epoch')
+  if entered_epoch is None and 'entered' in region_data:
+    entered_epoch = get_epoch_time(region_data['entered'])
+    region_data['entered_epoch'] = entered_epoch
+  return entered_epoch
+
 def _build_region_output(regions, include_region_dwell, current_time):
   serialized_regions = {}
   for region_name, region_data in regions.items():
     serialized_region = dict(region_data)
+    serialized_region.pop('entered_epoch', None)
     if include_region_dwell and 'entered' in region_data:
-      entered = get_epoch_time(region_data['entered'])
+      entered = _get_region_entered_epoch(region_data)
       serialized_region['dwell'] = current_time - entered
     serialized_regions[region_name] = serialized_region
   return serialized_regions
