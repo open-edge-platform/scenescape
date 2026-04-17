@@ -131,7 +131,8 @@
                 "type": "string"
               },
               "embedding_dimensions": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 32
               },
               "model_name": {
                 "type": "string"

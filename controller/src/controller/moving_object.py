@@ -81,7 +81,11 @@ def serializeReIDPayload(reid):
     if isinstance(embedding_data, str):
       try:
         if REID_EMBEDDING_DIMENSIONS_KEY not in serialized and 'dimensions' not in serialized:
-          serialized[REID_EMBEDDING_DIMENSIONS_KEY] = len(base64.b64decode(embedding_data)) // REID_FLOAT_SIZE_BYTES
+          vector = base64.b64decode(embedding_data)
+          if len(vector) % REID_FLOAT_SIZE_BYTES != 0:
+            raise ValueError(
+              f"Packed ReID vector size {len(vector)} is not divisible by {REID_FLOAT_SIZE_BYTES}")
+          serialized[REID_EMBEDDING_DIMENSIONS_KEY] = len(vector) // REID_FLOAT_SIZE_BYTES
       except (binascii.Error, TypeError, ValueError) as err:
         log.warning(f"Failed to decode ReID embedding vector: {err}. Setting embedding_vector to None.")
         serialized['embedding_vector'] = None

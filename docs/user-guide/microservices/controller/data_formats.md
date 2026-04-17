@@ -258,7 +258,7 @@ objects of that category.
           "confidence": 0.904
         },
         "reid": {
-          "embedding_vector": "<vector_dimensions-element float array>",
+          "embedding_vector": "<embedding_dimensions-element float array>",
           "embedding_dimensions": 256,
           "model_name": "torch-jit-export"
         }
@@ -337,7 +337,7 @@ applications.
           "confidence": 0.963
         },
         "reid": {
-          "embedding_vector": "<vector_dimensions-element float array>",
+          "embedding_vector": "<embedding_dimensions-element float array>",
           "embedding_dimensions": 256,
           "model_name": "torch-jit-export"
         }

@@ -36,7 +36,6 @@ class UUIDManager:
     self.quality_features = {}
     self.unique_id_count = 0
     # ReID embedding dimensions are inferred from the first observed embedding.
-    # Do not accept dimension overrides from reid_config_data.
     if reid_config_data is None:
       reid_config_data = {}
     self._inferred_dimensions = None

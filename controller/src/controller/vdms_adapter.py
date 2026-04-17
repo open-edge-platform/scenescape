@@ -77,11 +77,24 @@ class VDMSDatabase(ReIDDatabase):
     try:
       self.db.connect(hostname)
       if self.dimensions is not None:
+        expected_dimensions = int(self.dimensions)
         with self._schema_lock:
-          if not self.findSchema(self.set_name):
-            if not self.addSchema(self.set_name, self.similarity_metric, self.dimensions):
+          schema_exists, schema_dimensions = self.findSchemaDetails(self.set_name)
+          if schema_exists:
+            if schema_dimensions is None:
+              raise RuntimeError(
+                f"connect: VDMS descriptor set '{self.set_name}' exists but returned no dimensions. "
+                "Refusing to proceed; recreate the descriptor set to continue.")
+            if schema_dimensions != expected_dimensions:
+              raise RuntimeError(
+                f"connect: VDMS descriptor set '{self.set_name}' uses {schema_dimensions} dimensions, "
+                f"but controller is configured for {expected_dimensions}. "
+                "Refusing to proceed; recreate the descriptor set with matching dimensions.")
+          else:
+            if not self.addSchema(self.set_name, self.similarity_metric, expected_dimensions):
               log.warning("connect: Schema creation failed; _schema_ready left False")
               return
+          self.dimensions = expected_dimensions
           self._schema_ready = True
     except socket.error as e:
       log.warning(f"Failed to connect to VDMS container: {e}")
@@ -119,19 +132,31 @@ class VDMSDatabase(ReIDDatabase):
                           schema is flushed and the controller is restarted
     """
     with self._schema_lock:
+      requested_dimensions = int(dimensions)
       if self._schema_ready:
-        if int(self.dimensions) != int(dimensions):
+        if int(self.dimensions) != requested_dimensions:
           raise ValueError(
             f"ReID schema already initialized with {self.dimensions} dimensions; "
-            f"incoming vector has {dimensions} dimensions. "
+            f"incoming vector has {requested_dimensions} dimensions. "
             f"Restart the controller and flush the VDMS descriptor set to change dimensions.")
         return
-      self.dimensions = int(dimensions)
-      if not self.findSchema(self.set_name):
-        if not self.addSchema(self.set_name, self.similarity_metric, self.dimensions):
+      schema_exists, schema_dimensions = self.findSchemaDetails(self.set_name)
+      if schema_exists:
+        if schema_dimensions is None:
+          raise RuntimeError(
+            f"ensureSchema: VDMS descriptor set '{self.set_name}' exists but dimensions were not returned. "
+            "Refusing to proceed; recreate the descriptor set to continue.")
+        if schema_dimensions != requested_dimensions:
+          raise RuntimeError(
+            f"ensureSchema: VDMS descriptor set '{self.set_name}' uses {schema_dimensions} dimensions, "
+            f"but incoming vectors use {requested_dimensions}. "
+            "Refusing to proceed; recreate the descriptor set with matching dimensions.")
+      else:
+        if not self.addSchema(self.set_name, self.similarity_metric, requested_dimensions):
           raise RuntimeError(
             f"ensureSchema: Failed to create VDMS descriptor set '{self.set_name}'; "
             "schema not confirmed. ReID writes will be skipped until schema is available.")
+      self.dimensions = requested_dimensions
       self._schema_ready = True
 
   def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name=SCHEMA_NAME, **metadata):
@@ -220,15 +245,46 @@ class VDMSDatabase(ReIDDatabase):
     return
 
   def findSchema(self, set_name):
+    schema_exists, _ = self.findSchemaDetails(set_name)
+    return schema_exists
+
+  def findSchemaDetails(self, set_name):
     query = [{
       "FindDescriptorSet": {
         "set": f"{set_name}"
       }
     }]
     response, _ = self.sendQuery(query)
-    if response and response[0].get('status') == 0 and response[0].get('returned') > 0:
-      return True
-    return False
+    if not response:
+      return False, None
+    first_response = response[0]
+    if first_response.get('status') != 0 or first_response.get('returned', 0) <= 0:
+      return False, None
+
+    schema_dimensions = self._extractSchemaDimensions(first_response)
+    return True, schema_dimensions
+
+  def _extractSchemaDimensions(self, find_descriptor_set_response):
+    # VDMS responses may return descriptor set fields at the top level or nested under
+    # common payload keys like "entities" or "content".
+    payloads = [find_descriptor_set_response]
+    for key in ['entities', 'entity', 'content', 'results', 'DescriptorSet']:
+      value = find_descriptor_set_response.get(key)
+      if isinstance(value, dict):
+        payloads.append(value)
+      elif isinstance(value, list):
+        payloads.extend(item for item in value if isinstance(item, dict))
+
+    for payload in payloads:
+      for key in ['dimensions', 'dimension']:
+        if key in payload:
+          try:
+            return int(payload[key])
+          except (TypeError, ValueError):
+            log.warning(
+              f"findSchemaDetails: Could not parse descriptor dimensions from key '{key}' value '{payload[key]}'")
+            return None
+    return None
 
   def _build_query_constraints(self, object_type, **constraints):
     """
