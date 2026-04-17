@@ -28,7 +28,7 @@ def buildDetectionsList(objects, scene, update_visibility=False, include_sensors
 
 def _get_region_entered_epoch(region_data):
   entered_epoch = region_data.get('entered_epoch')
-  if entered_epoch is None and 'entered' in region_data:
+  if entered_epoch is None:
     entered_epoch = get_epoch_time(region_data['entered'])
     region_data['entered_epoch'] = entered_epoch
   return entered_epoch
