@@ -202,7 +202,7 @@ It is also important to keep in mind the orientation of a camera with no transla
 
 Other metadata associated with each detection can also be tagged on the object and will be passed on to the scene update for that detection. Semantic attributes are placed inside the `metadata` property on each detection object. Each attribute must include a `label` (the detected value) and a `model_name` (the source model identifier), with an optional `confidence` score.
 
-For example, if a vision-based hat detector is used then a `"hat"` attribute could be added to the `metadata` of each person detection:
+For example, if a vision-based hat detector is used, the `"hat"` attribute could be added to the `metadata` of each person detection:
 
 ```json
 {
