@@ -565,6 +565,14 @@ def pytest_runtest_setup(item):
   spec = getattr(item, "_scenescape_spec", None)
   if spec is None:
     return
+  test_func_name = getattr(item, 'originalname', None) or item.name.split('[')[0]
+  log_name = spec.id
+  # For matrix-parametrized tests, use <test_name>_<NEX_ID> naming.
+  if hasattr(item, 'callspec') and '_env_matrix_setup' in item.callspec.params:
+    matrix_spec = item.callspec.params['_env_matrix_setup']
+    matrix_name = getattr(matrix_spec, 'test_name', '')
+    if matrix_name:
+      log_name = f"{test_func_name}_{matrix_name}"
   path_str = str(item.fspath)
   if "sscape_tests" in path_str:
     group = "unit"
@@ -572,7 +580,7 @@ def pytest_runtest_setup(item):
     group = "ui"
   else:
     group = "functional"
-  log_path = _testlog.setup(spec.id, group=group, log_base=_LOG_BASE)
+  log_path = _testlog.setup(log_name, group=group, log_base=_LOG_BASE)
   logger.info("Test log: %s", log_path)
 
 

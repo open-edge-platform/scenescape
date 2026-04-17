@@ -5,8 +5,6 @@
 
 import pytest
 import numpy as np
-from dataclasses import replace
-from tests.utils.profiles import PROFILE_REGISTRY
 
 @pytest.fixture
 def obj_location(request):
@@ -49,9 +47,11 @@ def objData():
 
 def pytest_runtest_makereport(item, call):
   if call.when == "call":
-    if hasattr(item, 'callspec') and 'test_name' in item.callspec.params:
-      test_name = item.callspec.params['test_name']
-      item._nodeid = f"{item.nodeid}\n {test_name}"
+    if hasattr(item, 'callspec') and '_env_matrix_setup' in item.callspec.params:
+      spec = item.callspec.params['_env_matrix_setup']
+      test_name = getattr(spec, 'test_name', '')
+      if test_name:
+        item._nodeid = f"{item.nodeid}\n {test_name}"
 
 
 @pytest.fixture
@@ -59,12 +59,14 @@ def _env_matrix_setup(request):
   """Override of root no-op fixture for functional tests.
 
   When --env-profiles is used, pytest_generate_tests parametrizes this
-  fixture (indirect=True) with a profile-specific FuncTestSpec.
+  fixture with a profile-specific FuncTestSpec.
   This fixture then injects the spec into the node before scenescape_env
   reads it, so Docker Compose starts the correct profile.
   """
   if hasattr(request, 'param'):
     request.node._scenescape_spec = request.param
+    if request.param.test_name:
+      request.node._scenescape_test_name = request.param.test_name
 
 
 def pytest_generate_tests(metafunc):
@@ -83,6 +85,9 @@ def pytest_generate_tests(metafunc):
   if not env_profiles_arg:
     return
 
+  from dataclasses import replace
+  from tests.utils.profiles import PROFILE_REGISTRY
+
   profile_names = [name.strip() for name in env_profiles_arg.split(",") if name.strip()]
   unknown = [n for n in profile_names if n not in PROFILE_REGISTRY]
   if unknown:
@@ -91,11 +96,27 @@ def pytest_generate_tests(metafunc):
       f"Valid profiles: {', '.join(sorted(PROFILE_REGISTRY))}"
     )
 
-  profile_specs = [replace(spec, profile=PROFILE_REGISTRY[name]) for name in profile_names]
+  # SCENESCAPE_ENV_MATRIX: dict mapping profile name -> NEX ID for allowed profiles.
+  # Tests not declaring it run against all requested profiles.
+  matrix = getattr(metafunc.module, 'SCENESCAPE_ENV_MATRIX', None)
+
+  params = []
+  for profile_name in profile_names:
+    profile = PROFILE_REGISTRY[profile_name]
+    if matrix is not None and profile_name not in matrix:
+      # Profile not supported by this test — parametrize as skipped so it
+      # appears in the report but no environment is started.
+      params.append(pytest.param(
+        replace(spec, profile=profile),
+        marks=pytest.mark.skip(reason=f"Test not designed for profile '{profile_name}'"),
+      ))
+    else:
+      nex_id = matrix[profile_name] if matrix is not None else ""
+      params.append(replace(spec, profile=profile, test_name=nex_id))
 
   metafunc.parametrize(
     "_env_matrix_setup",
-    profile_specs,
+    params,
     ids=profile_names,
     indirect=True,
   )

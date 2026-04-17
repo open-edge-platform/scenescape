@@ -18,10 +18,18 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
+# Profiles this test supports and their corresponding NEX IDs.
+# Tests run against unlisted profiles are skipped automatically.
+SCENESCAPE_ENV_MATRIX = {
+  "full_stack": "NEX-T10395-1",
+  "full_stack_with_video_and_retail": "NEX-T10395-2",
+}
+
 TEST_NAME = "NEX-T10395-API"
 
-def test_scene_details_api(params, record_xml_attribute):
-  record_xml_attribute("name", TEST_NAME)
+def test_scene_details_api(request, params, record_xml_attribute):
+  test_name = getattr(request.node, '_scenescape_test_name', TEST_NAME)
+  record_xml_attribute("name", test_name)
   exit_code = 1
 
   rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
@@ -58,4 +66,4 @@ def test_scene_details_api(params, record_xml_attribute):
 
     exit_code = 0
   finally:
-    record_test_result(TEST_NAME, exit_code)
+    record_test_result(test_name, exit_code)

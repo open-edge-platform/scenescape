@@ -12,6 +12,12 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
+# Profiles this test supports and their corresponding NEX tracking IDs.
+# Tests run against unlisted profiles are skipped automatically.
+SCENESCAPE_ENV_MATRIX = {
+  "full_stack": "NEX-T10404",
+}
+
 TEST_NAME = "NEX-T10404"
 
 def runROIMqttCreate(self):
@@ -28,7 +34,8 @@ def runROIMqttCreate(self):
   return
 
 def test_roi_create(request, record_xml_attribute):
-  test = SceneObjectMqtt(TEST_NAME, request, record_xml_attribute)
+  test_name = getattr(request.node, '_scenescape_test_name', TEST_NAME)
+  test = SceneObjectMqtt(test_name, request, record_xml_attribute)
   runROIMqttCreate(test)
   assert test.exitCode == 0
   return

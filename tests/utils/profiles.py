@@ -315,3 +315,25 @@ AUTO_CALIBRATION_UI = ServiceProfile(
     "web": _WEB,
   },
 )
+
+# Registry: maps profile name -> ServiceProfile for CLI lookup
+PROFILE_REGISTRY: dict = {
+  p.name: p
+  for p in [
+    WEB_ONLY,
+    FULL_STACK,
+    FULL_STACK_WITH_VIDEO,
+    FULL_STACK_WITH_VIDEO_NO_NTP,
+    FULL_STACK_CALIBRATION,
+    FULL_STACK_WITH_VIDEO_AND_RETAIL,
+    REID,
+    REID_DATA_FLOW,
+    REID_SEMANTIC,
+    BROKER_AND_DB,
+    BROKER_VDMS_DB,
+    SCENE_NO_DB,
+    MARKERLESS,
+    BROKER_WEB,
+    AUTO_CALIBRATION_UI,
+  ]
+}
