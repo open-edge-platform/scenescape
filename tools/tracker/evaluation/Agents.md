@@ -21,7 +21,9 @@ SPDX-License-Identifier: Apache-2.0
 - Architecture & flow: [docs/design/tracker-evaluation-pipeline.md](../../../docs/design/tracker-evaluation-pipeline.md)
 - Main tracker evaluation README (canonical formats, usage, CLI): [README.md](README.md)
 - ADR context: [docs/adr/0009-tracking-evaluation.md](../../../docs/adr/0009-tracking-evaluation.md)
-- Example configuration: [pipeline_configs/metric_test_evaluation.yaml](pipeline_configs/metric_test_evaluation.yaml)
+- Example configurations:
+  - Full tracker evaluation: [pipeline_configs/metric_test_evaluation.yaml](pipeline_configs/metric_test_evaluation.yaml)
+  - Camera projection accuracy: [pipeline_configs/camera_projection_evaluation.yaml](pipeline_configs/camera_projection_evaluation.yaml)
 
 ## Folders structure
 
@@ -56,6 +58,19 @@ Check `datasets/README.md` for more details
   - Dependent on internal implementation: loads configuration file and calls API of SceneScape classes from scene_common and controller modules.
   - Uses separate frame ingestion logic depending on enabling time-chunking in the configuration.
 
+- **CameraProjectionHarness**: `harnesses/camera_projection_harness/camera_projection_harness.py`
+  - Bypasses the full tracker and only applies camera-pose projection to isolate per-camera calibration error.
+  - Runs `run_projection.py` inside the `scenescape-controller` Docker container (requires `scene_common`, OpenCV, open3d).
+  - Supports two projection modes per object category via the `object_classes` custom config key:
+    - **TYPE_1** (`shift_type: 1`, default): projects bounding-box bottom-centre `(centre_x, bottom_y)` to world XY plane using `CameraPose.cameraPointToWorldPoint()`.
+    - **TYPE_2** (`shift_type: 2`): shifts the projection point upward by `(height/2) * (baseAngle/90)` before projecting, using `CameraPose.projectBounds()` to derive the base angle.
+  - After projection, applies a size offset: pushes the world position `mean([x_size, y_size]) / 2` metres away from the camera, matching `MovingObject.mapObjectDetectionToWorld()`.
+  - `set_custom_config()` accepts `object_classes` (list of `{name, shift_type, x_size, y_size}` dicts) and `container_image`.
+  - `process_inputs()` serialises `object_classes` to `params.json` in the shared temp dir before launching the container; `run_projection.py` reads it at startup.
+  - `reset()` clears `_object_classes` in addition to other state.
+  - Encodes output object IDs as `"{camera_id}:{object_id}"` for downstream splitting by `CameraAccuracyEvaluator`.
+  - Pair this harness with `CameraAccuracyEvaluator` and the `camera_projection_evaluation.yaml` pipeline config.
+
 Check `harnesses/README.md` for more details
 
 ## Evaluators
@@ -69,6 +84,14 @@ Check `harnesses/README.md` for more details
 - **JitterEvaluator**: `evaluators/jitter_evaluator.py`
   Measures trajectory smoothness via RMS jerk and acceleration variance, computed from both tracker outputs and ground-truth tracks. Supports GT and ratio variants to isolate tracker-added jitter from dataset-inherent jitter.
 
+- **CameraAccuracyEvaluator**: `evaluators/camera_accuracy_evaluator.py`
+  Consumes output from `CameraProjectionHarness` and measures per-camera, per-object projection accuracy:
+  - `DIST_T`: mean Euclidean distance error (m) between projected and GT world position per (camera, object) pair.
+  - `VISIBILITY`: frame count and percentage each camera detects each object.
+  - `set_scene_config()` resolves each camera's world position (`_solve_camera_position`: `cv2.solvePnP` → `C = -R^T @ t`) and 2-D viewing direction (`_solve_camera_view_dir`: `R^T @ [0, 0, 1]`, XY normalized) from the scene's calibration data.
+  - `trajectories_{cam}.png` includes a star marker at the camera position and an arrow showing its view direction; both X and Y axes are flipped when `cam_y > mean(gt_y)` (180° rotation so camera always appears at visual bottom with correct chirality).
+  - Writes `distance_errors.csv`, `visibility_summary.csv`, `accuracy_summary.csv`, `summary_table.csv` (human-readable column names), per-camera `distance_errors_{cam}.png`, `trajectories_{cam}.png`, and `error_vs_cam_distance_{cam}.png` plots, and a `visibility_bar_chart.png`. `format_summary()` returns a terminal-ready table.
+
 Multiple evaluators can be configured in a single YAML pipeline; each runs independently against the same tracker outputs and writes results to its own subfolder under the run output directory.
 
 Check `evaluators/README.md` for more details
@@ -76,6 +99,9 @@ Check `evaluators/README.md` for more details
 ## Code Entry Points
 
 - **Pipeline orchestration**: [pipeline_engine.py](pipeline_engine.py) (methods `load_configuration()`, `run()`, `evaluate()`, CLI via `python -m pipeline_engine <config>`).
+  - `_configure_harness()` forwards `object_classes` from the YAML `harness.config` block to the harness via `set_custom_config({'object_classes': ...})`.
+  - `_configure_evaluators()` calls `set_scene_config(scene_config)` on each evaluator that exposes the method (checked via `hasattr`), passing the scene config returned by `dataset.get_scene_config()`.
+  - `main()` prints evaluator results using `evaluator.format_summary()` when available; otherwise falls back to printing each metric value individually.
 - **Component base classes** (implement to extend pipeline):
   - Dataset: [base/tracking_dataset.py](base/tracking_dataset.py)
   - Harness: [base/tracker_harness.py](base/tracker_harness.py)
@@ -83,6 +109,8 @@ Check `evaluators/README.md` for more details
 - **TrackEval adapter & helpers**: [evaluators/trackeval_evaluator.py](evaluators/trackeval_evaluator.py), [utils/format_converters/](./utils/format_converters.py).
 - **Jitter adapter**: [evaluators/jitter_evaluator.py](evaluators/jitter_evaluator.py).
 - **Diagnostic adapter**: [evaluators/diagnostic_evaluator.py](evaluators/diagnostic_evaluator.py).
+- **Camera projection harness**: [harnesses/camera_projection_harness/camera_projection_harness.py](harnesses/camera_projection_harness/camera_projection_harness.py), container script: [harnesses/camera_projection_harness/run_projection.py](harnesses/camera_projection_harness/run_projection.py).
+- **Camera accuracy evaluator**: [evaluators/camera_accuracy_evaluator.py](evaluators/camera_accuracy_evaluator.py).
 
 ## Guidelines for Adding New Component or Updating Existing One
 
