@@ -6,7 +6,7 @@
 
 pipeline:
   output:
-    path: /tmp/camera-projection-evaluation
+    path: /home/labrat/camera-projection-evaluation
 
 dataset:
   class: datasets.metric_test_dataset.MetricTestDataset

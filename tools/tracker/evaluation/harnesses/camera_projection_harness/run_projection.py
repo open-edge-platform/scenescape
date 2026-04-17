@@ -146,12 +146,25 @@ def project_frame(
     for obj in obj_list:
       bb = obj.get("bounding_box")
       if bb is None:
-        print(
-          f"[run_projection] WARNING: object {obj.get('id')} in '{cam_id}' "
-          "has no 'bounding_box', skipping",
-          file=sys.stderr,
-        )
-        continue
+        bb_px = obj.get("bounding_box_px")
+        if bb_px is None:
+          print(
+            f"[run_projection] WARNING: object {obj.get('id')} in '{cam_id}' "
+            "has no 'bounding_box' or 'bounding_box_px', skipping",
+            file=sys.stderr,
+          )
+          continue
+        # Normalize pixel coordinates to focal-length-normalized camera coords,
+        # matching the format that cameraPointToWorldPoint() expects:
+        #   x_n = (px - cx) / fx,  y_n = (py - cy) / fy
+        K = pose.intrinsics.intrinsics
+        fx, fy, cx, cy = K[0, 0], K[1, 1], K[0, 2], K[1, 2]
+        bb = {
+          "x": (bb_px["x"] - cx) / fx,
+          "y": (bb_px["y"] - cy) / fy,
+          "width": bb_px["width"] / fx,
+          "height": bb_px["height"] / fy,
+        }
 
       centre_x = bb["x"] + bb["width"] / 2.0
       bottom_y = bb["y"] + bb["height"]
