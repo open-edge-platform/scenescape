@@ -1,6 +1,6 @@
 # Work with Spatial Analytics Data: ROIs and Tripwires
 
-This guide provides comprehensive information for developers who want to build applications that consume Intel® SceneScape's spatial analytics event data. You'll learn how to subscribe to MQTT events from Regions of Interest (ROIs) and Tripwires to create intelligent applications that respond to object interactions within defined areas, regardless of the sensor modality used for detection.
+This guide provides comprehensive information for developers who want to build applications that consume Intel® SceneScape's spatial analytics event data. You will learn how to subscribe to MQTT events from Regions of Interest (ROIs) and Tripwires to create intelligent applications that respond to object interactions within defined areas, regardless of the sensor modality used for detection.
 
 ## Table of Contents
 
@@ -45,11 +45,11 @@ The sensor-agnostic architecture ensures spatial analytics continue working reli
 - **Industrial Safety**: Monitor safety zones, detect personnel in dangerous areas
 - **Smart City Applications**: Optimize traffic flow, manage public spaces
 
-This guide focuses on consuming spatial analytics event data. ROIs and Tripwires are created through the Intel® SceneScape UI or REST API—see the [How to Configure Spatial Analytics](./building-a-scene/how-to-configure-spatial-analytics.md) guide for setup instructions.
+This guide focuses on consuming spatial analytics event data. ROIs and Tripwires are created through the Intel® SceneScape UI or REST API—see the [How to Configure Spatial Analytics](./build-a-scene/configure-spatial-analytics.md) guide for setup instructions.
 
 ## Understanding ROIs and Tripwires
 
-![Sample Region and Tripwire](./_assets/ui/sample_region_tripwire.png)
+![Sample Region and Tripwire](../_assets/ui/sample_region_tripwire.png)
 
 The image above shows a practical example from Intel's headquarters parking lot in Santa Clara, CA, demonstrating how spatial analytics elements are deployed in real-world scenarios. In this scene, you can see:
 
@@ -277,7 +277,7 @@ Intel® SceneScape uses MQTT for real-time event delivery. Understanding the top
 
 Object types are defined dynamically by the class labels from input detection data (e.g., `person`, `vehicle`, `forklift`, `package`, `bicycle`, etc.). The system supports any object class without requiring pre-registration, making it flexible for diverse detection scenarios.
 
-**Note**: While dynamic object classification works out-of-the-box, tracking performance and accuracy can be improved by pre-defining object classes and their properties (such as expected size dimensions) in the Intel® SceneScape Object Library. This allows the system to use more accurate object models for tracking and spatial analytics calculations. For details on configuring object properties, see [How to Define Object Properties](./other-topics/how-to-define-object-properties.md).
+**Note**: While dynamic object classification works out-of-the-box, tracking performance and accuracy can be improved by pre-defining object classes and their properties (such as expected size dimensions) in the Intel® SceneScape Object Library. This allows the system to use more accurate object models for tracking and spatial analytics calculations. For details on configuring object properties, see [How to Define Object Properties](../other-topics/how-to-define-object-properties.md).
 
 This dynamic classification applies to all MQTT topics, event data, and API responses throughout the system.
 
