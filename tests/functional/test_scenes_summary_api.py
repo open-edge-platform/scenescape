@@ -57,7 +57,7 @@ class SceneSummaryAPITest(FunctionalTest):
 
     return True
 
-def test_scene_summary_api(scenescape_env, request, record_xml_attribute):
+def test_scene_summary_api(scenescape_env, demo_scene, request, record_xml_attribute):
   test = SceneSummaryAPITest(TEST_NAME, request, record_xml_attribute)
   assert test.runTest()
   return

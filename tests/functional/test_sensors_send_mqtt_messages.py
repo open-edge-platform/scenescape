@@ -44,7 +44,8 @@ class SensorMqttMessageFlowTest(FunctionalTest):
     assert self.rest.authenticate(self.params['user'], self.params['password'])
 
     self.pubsub = PubSub(self.params['auth'], None, self.params['rootcert'],
-                         self.params['broker_url'])
+                         self.params['broker_url'],
+                         port=int(self.params['broker_port']))
 
     self.eventTopic = PubSub.formatTopic(PubSub.EVENT, region_type="region", event_type="+",
                        scene_id=self.sceneUID, region_id="+")
@@ -648,7 +649,7 @@ class SensorMqttMessageFlowTest(FunctionalTest):
       self.recordTestResult()
     return
 
-def test_sensor_mqtt_message_flow(scenescape_env, request, record_xml_attribute):
+def test_sensor_mqtt_message_flow(scenescape_env, demo_scene, request, record_xml_attribute):
   test = SensorMqttMessageFlowTest(TEST_NAME, request, record_xml_attribute)
   test.checkForMalfunctions()
   assert test.exitCode == 0

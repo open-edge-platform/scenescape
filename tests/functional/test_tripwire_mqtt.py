@@ -188,7 +188,7 @@ class WillOurShipGo(SceneObjectMqtt):
       self.recordTestResult()
     return
 
-def test_sensor_region_events(scenescape_env, request, record_xml_attribute):
+def test_sensor_region_events(scenescape_env, demo_scene, request, record_xml_attribute):
   test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
   test.checkForMalfunctions()
   assert test.exitCode == 0

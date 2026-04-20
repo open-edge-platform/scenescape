@@ -21,7 +21,7 @@ def _generate_string(length: int = 256) -> str:
   characters = string.ascii_letters + string.digits + string.punctuation
   return "".join(random.choice(characters) for _ in range(length))
 
-def test_api_strings(rest, result_recorder, scene_uid, params):
+def test_api_strings(rest, result_recorder, scene_uid, params, demo_scene):
   random_string = _generate_string(256)
 
   # Authentication length validations

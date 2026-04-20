@@ -233,7 +233,8 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
                                              parent, \
                                              obj_cat, \
                                              params, \
-                                             repo_root):
+                                             repo_root, \
+                                             demo_scene):
   """! This function creates and updates the child scene. It also verifies that
   the data received from the parent is correct after applying different transforms based on the test
   cases provided above.

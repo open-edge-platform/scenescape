@@ -15,7 +15,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 TEST_NAME = "NEX-T10433-API"
 
-def test_only_upload_glb_main_api(rest, scene_uid, result_recorder):
+def test_only_upload_glb_main_api(rest, scene_uid, result_recorder, demo_scene):
   invalid_files = ["box_invalid.glb", "box.gltf", "box.obj", "good_data.txt"]
 
   for f in invalid_files:

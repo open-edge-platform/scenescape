@@ -157,7 +157,7 @@ def test_out_of_box(params, record_xml_attribute):
 
   try:
     client = PubSub(params['auth'], None, params['rootcert'], params['broker_url'],
-                    userdata=message_received)
+                    port=int(params['broker_port']), userdata=message_received)
 
     global counter_img
     global last_image

@@ -151,7 +151,7 @@ def wait_for_messages(timeout=MAX_WAIT):
 @pytest.mark.parametrize("parent_scene, child_scene", [
     ("parent", "Demo"),
 ])
-def test_remove_linked_scene(parent_scene, child_scene, objData, record_xml_attribute, params):
+def test_remove_linked_scene(parent_scene, child_scene, objData, record_xml_attribute, params, demo_scene):
   """! Test to verify the unlinking of a child scene from parent scene and validating the data flow.
   """
 
