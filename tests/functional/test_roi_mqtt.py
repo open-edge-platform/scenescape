@@ -12,8 +12,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-# Profiles this test supports and their corresponding NEX tracking IDs.
-# Tests run against unlisted profiles are skipped automatically.
 SCENESCAPE_ENV_MATRIX = {
   "full_stack": "NEX-T10404",
 }

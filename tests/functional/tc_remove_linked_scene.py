@@ -10,9 +10,10 @@ import pytest
 from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
 from tests.utils.log import get_logger
-log = get_logger(__name__)
 import tests.common_test_utils as common
 from scene_common.timestamp import get_iso_time
+
+log = get_logger(__name__)
 
 FRAME_RATE = 10
 MAX_WAIT = 10
