@@ -181,7 +181,7 @@ _functional-tests: \
   vdms-similarity-search \
   visibility-unregulated \
   visibility-none \
-  mqtt-event-propagation \
+  child-event-propagation \
 
 non-functional-tests:
 	$(MAKE) -Otarget _$@ SUPASS=$(SUPASS) -k
