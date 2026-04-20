@@ -31,7 +31,7 @@ def runROIMqttCreate(self):
     self.runSceneObjMqttFinally()
   return
 
-def test_roi_create(request, record_xml_attribute):
+def test_roi_create(scenescape_env, request, record_xml_attribute):
   test_name = getattr(request.node, '_scenescape_test_name', TEST_NAME)
   test = SceneObjectMqtt(test_name, request, record_xml_attribute)
   runROIMqttCreate(test)
