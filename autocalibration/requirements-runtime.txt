@@ -13,6 +13,7 @@ paho-mqtt==2.1.0
 pillow==12.2.0
 PyYAML==6.0.3
 scipy==1.17.1
+setuptools==81.0.0
 torch==2.11.0+cpu
 torchvision==0.26.0+cpu
 trimesh==4.11.5
