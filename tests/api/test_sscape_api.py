@@ -75,7 +75,7 @@ def load_scenarios(path=None):
       - None to load from default "scenarios" folder
   """
   if path is None:
-    path = "scenarios"
+    path = os.path.join(TESTS_API_DIR, "scenarios")
 
   scenarios = []
 
@@ -85,7 +85,7 @@ def load_scenarios(path=None):
       data = json.load(sf)
       scenarios.extend(data)
   elif os.path.isdir(path):
-    scenario_files = glob.glob(f"{path}/*.json")
+    scenario_files = sorted(glob.glob(f"{path}/*.json"))
     logger.info(
       f"Loading {len(scenario_files)} scenario files from folder: {path}")
     for f in scenario_files:
@@ -127,6 +127,19 @@ def resolve_file_paths(data):
     return resolved
   return data
 
+def normalize_file_paths(data):
+  """Normalize file path strings in request data to absolute paths relative to
+  tests/api, without opening them. Used for MappingClient which opens its own
+  file handles internally, but still needs absolute paths to be CWD-independent.
+  """
+  if isinstance(data, dict):
+    return {k: normalize_file_paths(v) for k, v in data.items()}
+  elif isinstance(data, list):
+    return [normalize_file_paths(item) for item in data]
+  elif isinstance(data, str) and "test_media/" in data:
+    return os.path.normpath(os.path.join(TESTS_API_DIR, data))
+  return data
+
 def build_call_kwargs(request_data, api_client=None):
   """
   Normalise the structured request dict from the JSON scenario into a flat
@@ -152,7 +165,7 @@ def build_call_kwargs(request_data, api_client=None):
     elif key == "body":
       # MappingClient opens its own files from path strings; skip resolution
       if isinstance(api_client, MappingClient):
-        kwargs["data"] = value
+        kwargs["data"] = normalize_file_paths(value)
       else:
         kwargs["data"] = resolve_file_paths(value)
     else:
