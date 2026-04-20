@@ -4,7 +4,7 @@ This guide explains how to deploy Intel® SceneScape using prebuilt Docker image
 
 ## 1. Set Up Docker Environment
 
-Ensure Docker is installed and running on your system.
+Ensure Docker is installed and running on your system. For help, refer to [Installing Docker on your system](../get-started/prerequisites.md#installing-docker-on-your-system).
 
 ## 2. Generate secrets and download OpenVINO Model Zoo models
 
@@ -18,7 +18,8 @@ Prebuilt containers can be found here:
 
 - [SceneScape Manager](https://hub.docker.com/r/intel/scenescape-manager)
 - [SceneScape Controller](https://hub.docker.com/r/intel/scenescape-controller)
-- [SceneScape Cam Calibration](https://hub.docker.com/r/intel/scenescape-autocalibration)
+- [SceneScape Autocalibration](https://hub.docker.com/r/intel/scenescape-autocalibration)
+- [SceneScape Tracker](https://hub.docker.com/r/intel/scenescape-tracker)
 
 ### 3.1 Configure Docker Compose to use prebuilt images
 
@@ -33,6 +34,9 @@ web:
   # ... other service configurations ...
 autocalibration:
   image: docker.io/intel/scenescape-autocalibration:latest
+  # ... other service configurations ...
+tracker:
+  image: docker.io/intel/scenescape-tracker:latest
   # ... other service configurations ...
 ```
 
