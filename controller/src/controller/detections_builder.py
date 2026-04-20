@@ -7,24 +7,45 @@ from controller.scene import TripwireEvent
 from scene_common import log
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
-from scene_common.timestamp import get_iso_time
+from scene_common.timestamp import get_epoch_time, get_iso_time
 
 
-def buildDetectionsDict(objects, scene, include_sensors=False):
+def buildDetectionsDict(objects, scene, include_sensors=False, include_region_dwell=False, current_time=None):
   result_dict = {}
   for obj in objects:
-    obj_dict = prepareObjDict(scene, obj, False, include_sensors)
+    obj_dict = prepareObjDict(scene, obj, False, include_sensors, include_region_dwell, current_time)
     result_dict[obj_dict['id']] = obj_dict
   return result_dict
 
-def buildDetectionsList(objects, scene, update_visibility=False, include_sensors=False):
+def buildDetectionsList(objects, scene, update_visibility=False, include_sensors=False,
+                        include_region_dwell=False, current_time=None):
   result_list = []
   for obj in objects:
-    obj_dict = prepareObjDict(scene, obj, update_visibility, include_sensors)
+    obj_dict = prepareObjDict(scene, obj, update_visibility, include_sensors,
+                              include_region_dwell, current_time)
     result_list.append(obj_dict)
   return result_list
 
-def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
+def _get_region_entered_epoch(region_data):
+  entered_epoch = region_data.get('entered_epoch')
+  if entered_epoch is None:
+    entered_epoch = get_epoch_time(region_data['entered'])
+    region_data['entered_epoch'] = entered_epoch
+  return entered_epoch
+
+def _build_region_output(regions, include_region_dwell, current_time):
+  serialized_regions = {}
+  for region_name, region_data in regions.items():
+    serialized_region = dict(region_data)
+    serialized_region.pop('entered_epoch', None)
+    if include_region_dwell and 'entered' in region_data:
+      entered = _get_region_entered_epoch(region_data)
+      serialized_region['dwell'] = current_time - entered
+    serialized_regions[region_name] = serialized_region
+  return serialized_regions
+
+def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
+                   include_region_dwell=False, current_time=None):
   aobj = obj
   if isinstance(obj, TripwireEvent):
     aobj = obj.object
@@ -89,7 +110,12 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
   if hasattr(aobj, 'chain_data'):
     chain_data = aobj.chain_data
     if len(chain_data.regions):
-      obj_dict['regions'] = chain_data.regions
+      if include_region_dwell:
+        if current_time is None:
+          current_time = get_epoch_time()
+        obj_dict['regions'] = _build_region_output(chain_data.regions, include_region_dwell, current_time)
+      else:
+        obj_dict['regions'] = chain_data.regions
 
     if include_sensors:
       sensors_output = {}
