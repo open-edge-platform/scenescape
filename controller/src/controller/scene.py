@@ -413,12 +413,13 @@ class Scene(SceneModel):
     self.tracked_objects_cache[detection_type] = tracked_objects
 
     if ControllerMode.isAnalyticsOnly():
-      # Build set of current object ids for this detection type
       current_ids = {obj['id'] for obj in tracked_objects if 'id' in obj}
 
-      # Remove stale wrappers that are no longer in the tracked set
-      stale = [oid for oid, wrapper in self._analytics_objects.items()
-                if oid not in current_ids]
+      # Only remove stale objects belonging to THIS detection type
+      stale = [
+        oid for oid, wrapper in self._analytics_objects.items()
+        if wrapper.category == detection_type and oid not in current_ids
+      ]
       for oid in stale:
         del self._analytics_objects[oid]
 
