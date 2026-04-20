@@ -4,26 +4,48 @@
 import numpy as np
 
 from controller.scene import TripwireEvent
+from scene_common import log
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
-from scene_common.timestamp import get_iso_time
+from scene_common.timestamp import get_epoch_time, get_iso_time
 
 
-def buildDetectionsDict(objects, scene, include_sensors=False):
+def buildDetectionsDict(objects, scene, include_sensors=False, include_region_dwell=False, current_time=None):
   result_dict = {}
   for obj in objects:
-    obj_dict = prepareObjDict(scene, obj, False, include_sensors)
+    obj_dict = prepareObjDict(scene, obj, False, include_sensors, include_region_dwell, current_time)
     result_dict[obj_dict['id']] = obj_dict
   return result_dict
 
-def buildDetectionsList(objects, scene, update_visibility=False, include_sensors=False):
+def buildDetectionsList(objects, scene, update_visibility=False, include_sensors=False,
+                        include_region_dwell=False, current_time=None):
   result_list = []
   for obj in objects:
-    obj_dict = prepareObjDict(scene, obj, update_visibility, include_sensors)
+    obj_dict = prepareObjDict(scene, obj, update_visibility, include_sensors,
+                              include_region_dwell, current_time)
     result_list.append(obj_dict)
   return result_list
 
-def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
+def _get_region_entered_epoch(region_data):
+  entered_epoch = region_data.get('entered_epoch')
+  if entered_epoch is None:
+    entered_epoch = get_epoch_time(region_data['entered'])
+    region_data['entered_epoch'] = entered_epoch
+  return entered_epoch
+
+def _build_region_output(regions, include_region_dwell, current_time):
+  serialized_regions = {}
+  for region_name, region_data in regions.items():
+    serialized_region = dict(region_data)
+    serialized_region.pop('entered_epoch', None)
+    if include_region_dwell and 'entered' in region_data:
+      entered = _get_region_entered_epoch(region_data)
+      serialized_region['dwell'] = current_time - entered
+    serialized_regions[region_name] = serialized_region
+  return serialized_regions
+
+def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
+                   include_region_dwell=False, current_time=None):
   aobj = obj
   if isinstance(obj, TripwireEvent):
     aobj = obj.object
@@ -88,7 +110,12 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False):
   if hasattr(aobj, 'chain_data'):
     chain_data = aobj.chain_data
     if len(chain_data.regions):
-      obj_dict['regions'] = chain_data.regions
+      if include_region_dwell:
+        if current_time is None:
+          current_time = get_epoch_time()
+        obj_dict['regions'] = _build_region_output(chain_data.regions, include_region_dwell, current_time)
+      else:
+        obj_dict['regions'] = chain_data.regions
 
     if include_sensors:
       sensors_output = {}
@@ -134,23 +161,53 @@ def computeCameraBounds(scene, aobj, obj_dict):
   camera_bounds = {}
   for cameraID in obj_dict['visibility']:
     bounds = None
-    if aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID') \
-          and cameraID == aobj.vectors[0].camera.cameraID:
+    projected = False
+    is_source_camera = (
+      aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID')
+      and cameraID == aobj.vectors[0].camera.cameraID
+    )
+
+    # Prefer source detector pixel bbox when available. This preserves the
+    # detector-provided 2D box instead of a reprojected estimate.
+    if is_source_camera:
       bounds = getattr(aobj, 'boundingBoxPixels', None)
-    elif scene:
+      projected = False
+      if bounds is None:
+        log.debug(
+          f"computeCameraBounds: source camera {cameraID} has no boundingBoxPixels; "
+          "falling back to projected bounds when possible."
+        )
+
+    # For non-source cameras (or source camera without pixel bbox), project
+    # 3D/metric object state into each visible camera image plane.
+    if bounds is None and scene:
       camera = scene.cameraWithID(cameraID)
-      if camera is not None and 'bb_meters' in obj_dict:
-        obj_translation = None
-        obj_size = None
-        if aobj:
-          obj_translation = aobj.sceneLoc
-          obj_size = aobj.bbMeters.size
-        else:
-          obj_translation = Point(obj_dict['translation'])
-          obj_size = Size(obj_dict['bb_meters']['width'], obj_dict['bb_meters']['height'])
-        bounds = camera.pose.projectEstimatedBoundsToCameraPixels(obj_translation,
-                                                                  obj_size)
+      if camera is None:
+        log.debug(
+          f"computeCameraBounds: camera {cameraID} not found in scene; cannot project bounds."
+        )
+        continue
+      elif 'bb_meters' not in obj_dict and (not aobj or not hasattr(aobj, 'bbMeters') or aobj.bbMeters is None):
+        log.debug(
+          f"computeCameraBounds: missing bb_meters for camera {cameraID}; cannot project bounds."
+        )
+        continue
+
+      obj_translation = None
+      obj_size = None
+      if aobj and hasattr(aobj, 'bbMeters') and aobj.bbMeters is not None:
+        obj_translation = aobj.sceneLoc
+        obj_size = aobj.bbMeters.size
+      else:
+        obj_translation = Point(obj_dict['translation'])
+        obj_size = Size(obj_dict['bb_meters']['width'], obj_dict['bb_meters']['height'])
+      bounds = camera.pose.projectEstimatedBoundsToCameraPixels(obj_translation,
+                                                                obj_size)
+      projected = True
+
     if bounds:
-      camera_bounds[cameraID] = bounds.asDict
+      bound_dict = dict(bounds.asDict)
+      bound_dict['projected'] = projected
+      camera_bounds[cameraID] = bound_dict
   obj_dict['camera_bounds'] = camera_bounds
   return

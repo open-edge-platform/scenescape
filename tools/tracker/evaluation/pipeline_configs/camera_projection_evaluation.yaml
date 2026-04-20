@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Camera Projection Evaluation Pipeline Configuration
+# Evaluates per-camera projection accuracy using the Metric Test Dataset.
+
+pipeline:
+  output:
+    path: /tmp/camera-projection-evaluation
+
+dataset:
+  class: datasets.metric_test_dataset.MetricTestDataset
+  config:
+    data_path: ../../../tests/system/metric/dataset
+    cameras: [Cam_x1_0, Cam_x2_0]
+    camera_fps: 30
+
+harness:
+  class: harnesses.camera_projection_harness.CameraProjectionHarness
+  config:
+    container_image: scenescape-controller:2026.1.0-dev
+    object_classes:
+      - name: person
+        shift_type: 1
+      - name: FW190D
+        shift_type: 1
+        x_size: 4.1
+        y_size: 4.1
+
+evaluators:
+  - class: evaluators.camera_accuracy_evaluator.CameraAccuracyEvaluator
+    config:
+      metrics: [DIST_T, VISIBILITY]
