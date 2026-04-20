@@ -254,7 +254,7 @@
         "expected_status": {
           "status_code": 200
         },
-        "expected_body": {
+        "validate": {
           "model_3d": null
         }
       }
