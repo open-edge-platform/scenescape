@@ -43,9 +43,6 @@ concurrency:
 env:
   DOCKER_BUILDKIT: 1
   SUPASS: demo
-  GITHUB_ACTIONS_CACHE: true
-  CACHE_REGISTRY: ${{ github.repository }}
-  CACHE_TAG: ${{ github.head_ref || github.ref_name }}
 
 permissions:
   contents: read
@@ -76,16 +73,30 @@ jobs:
           system-prune: "true"
 
       - name: "Log in to GHCR"
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Log in to DockerHub"
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: "Setup Cache Targets"
+        id: setup-cache
+        uses: ./.github/actions/setup-cache
+
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
       - name: Run Functional Tests
+        env:
+          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
           make clean-all
           make run_functional_tests
@@ -123,16 +134,30 @@ jobs:
           system-prune: "true"
 
       - name: "Log in to GHCR"
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Log in to DockerHub"
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: "Setup Cache Targets"
+        id: setup-cache
+        uses: ./.github/actions/setup-cache
+
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
       - name: Run Non-Functional Tests
+        env:
+          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
           make clean-all
           make run_non_functional_tests
@@ -170,16 +195,30 @@ jobs:
           system-prune: "true"
 
       - name: "Log in to GHCR"
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Log in to DockerHub"
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: "Setup Cache Targets"
+        id: setup-cache
+        uses: ./.github/actions/setup-cache
+
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
       - name: Run Metric Tests
+        env:
+          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
           make clean-all
           make run_metric_tests
@@ -217,16 +256,30 @@ jobs:
           system-prune: "true"
 
       - name: "Log in to GHCR"
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Log in to DockerHub"
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: "Setup Cache Targets"
+        id: setup-cache
+        uses: ./.github/actions/setup-cache
+
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
       - name: Run UI Tests
+        env:
+          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
           make clean-all
           make run_ui_tests
@@ -264,16 +317,30 @@ jobs:
           system-prune: "true"
 
       - name: "Log in to GHCR"
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Log in to DockerHub"
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: "Setup Cache Targets"
+        id: setup-cache
+        uses: ./.github/actions/setup-cache
+
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
       - name: Run Unit Tests
+        env:
+          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
           make clean-all
           make run_unit_tests

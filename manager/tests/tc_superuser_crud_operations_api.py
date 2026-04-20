@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -139,3 +139,11 @@ class CRUDPermissionsTest(FunctionalTest):
 
 def test_crud_operations_api(request, record_xml_attribute):
   test = CRUDPermissionsTest(TEST_NAME, request, record_xml_attribute)
+  record_xml_attribute("name", TEST_NAME)
+  ok = False
+  try:
+    ok = test.runTest()
+    test.exitCode = 0 if ok else 1
+    assert ok
+  finally:
+    test.recordTestResult()

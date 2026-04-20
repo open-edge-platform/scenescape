@@ -25,7 +25,7 @@ Dataset adapters convert dataset-specific formats to SceneScape canonical format
 
 **Key Features**:
 - Single scene: `Retail_Demo`
-- Two cameras: `x1`, `x2` (Cam_x1_0, Cam_x2_0)
+- Two cameras: `Cam_x1_0`, `Cam_x2_0`
 - Multiple FPS options: 1, 10, 30 (separate JSON files per FPS)
 - Ground truth in MOTChallenge 3D CSV format (see [Canonical Data Formats](../README.md#canonical-data-formats))
 
@@ -42,13 +42,13 @@ from datasets.metric_test_dataset import MetricTestDataset
 dataset = MetricTestDataset("../../../tests/system/metric/dataset")
 
 # Configure dataset
-dataset.set_cameras(["x1", "x2"]).set_camera_fps(30)
+dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
 # Get scene configuration
 scene_config = dataset.get_scene_config()
 
 # Get camera inputs
-for camera_input in dataset.get_inputs("x1"):
+for camera_input in dataset.get_inputs("Cam_x1_0"):
     # Process detection data
     pass
 

@@ -60,7 +60,7 @@
         "api": "asset",
         "method": "updateAsset",
         "request": {
-          "UID": "${ASSET_UID_MINIMAL}",
+          "uid": "${ASSET_UID_MINIMAL}",
           "body": {
             "name": "Asset_Minimal_Updated"
           }
@@ -74,7 +74,7 @@
         "api": "asset",
         "method": "getAsset",
         "request": {
-          "UID": "${ASSET_UID_MINIMAL}"
+          "uid": "${ASSET_UID_MINIMAL}"
         },
         "expected_status": {
           "status_code": 200
@@ -93,7 +93,7 @@
         "api": "asset",
         "method": "updateAsset",
         "request": {
-          "UID": "${ASSET_UID_FULL}",
+          "uid": "${ASSET_UID_FULL}",
           "body": {
             "name": "Asset_Full_Updated",
             "x_size": 1.2,
@@ -118,7 +118,7 @@
         "api": "asset",
         "method": "getAsset",
         "request": {
-          "UID": "${ASSET_UID_FULL}"
+          "uid": "${ASSET_UID_FULL}"
         },
         "expected_status": {
           "status_code": 200
@@ -161,11 +161,11 @@
     "test_name": "Vision_AI/SSCAPE/API/ASSET/05: Update non existent asset",
     "test_steps": [
       {
-        "step_name": "Attempt to update asset with invalid UID",
+        "step_name": "Attempt to update asset with invalid uid",
         "api": "asset",
         "method": "updateAsset",
         "request": {
-          "UID": "123",
+          "uid": "123",
           "body": {
             "name": "Should_Fail"
           }

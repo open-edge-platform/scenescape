@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Dependencies for test_people_models.py and test_vehicle_models.py – pipeline integration tests
+pytest>=7.4.0
+python-on-whales>=0.73.0
+jsonschema>=4.20.0
+fastjsonschema
+paho-mqtt==2.1.0

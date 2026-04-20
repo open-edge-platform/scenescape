@@ -146,15 +146,9 @@ RUN : \
 
 # Copy application code
 RUN mkdir -p $SCENESCAPE_HOME/manager
-COPY ./manager/src/django/*.py \
-    ./manager/src/setup.py \
-    ./version.txt $SCENESCAPE_HOME/manager/
-COPY ./manager/src/django/ppl_generator/* $SCENESCAPE_HOME/manager/ppl_generator/
-COPY ./manager/src/management/ $SCENESCAPE_HOME/manager/management
-COPY ./manager/src/templates/ $SCENESCAPE_HOME/manager/templates
-COPY ./manager/src/static/ $SCENESCAPE_HOME/manager/static
-COPY ./manager/src/templatetags/ $SCENESCAPE_HOME/manager/templatetags
-COPY ./manager/src/django/manage.py $SCENESCAPE_HOME
+COPY ./manager/src/manager $SCENESCAPE_HOME/manager
+COPY ./manager/src/manage.py $SCENESCAPE_HOME/manage.py
+COPY ./version.txt $SCENESCAPE_HOME/manager/
 COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/fast_geometry /usr/local/lib/python3.11/site-packages/fast_geometry
 COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/scene_common /usr/local/lib/python3.11/site-packages/scene_common
 

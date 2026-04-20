@@ -1,4 +1,4 @@
-# Getting Started with Intel® SceneScape
+# Get Started with Intel® SceneScape
 
 - **Time to Complete:** 30-45 minutes
 
@@ -6,80 +6,50 @@
 
 ### Prerequisites
 
-Check [System Requirements](./get-started/system-requirements.md) before proceeding with rest of the steps in this documentation.
+- Verify you meet the [System Requirements](./get-started/system-requirements.md).
 
-### Step 1: Install Prerequisites
+- Install [Prerequisites](./get-started/prerequisites.md) such as Docker and other required software.
 
-The prerequisite software can be installed via the following commands on the Ubuntu host OS:
+### Step 1: Get Intel® SceneScape
 
-```console
-sudo apt update
-sudo apt install -y \
-  curl \
-  git \
-  make \
-  openssl \
-  unzip \
-  rsync
-```
+<!--hide_directive
+::::{tab-set}
+:::{tab-item} hide_directive--> **Download a release**
 
-**Installing Docker on your system:**
-
-1. Install Docker using the official installation guide for Ubuntu:
-   [Docker Installation Guide for Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
-
-2. Configure Docker to start on boot and add your user to the Docker group:
-
-   ```console
-   sudo systemctl enable docker
-   sudo usermod -aG docker $USER
-   ```
-
-3. Log out and log back in for group membership changes to take effect.
-
-4. Verify Docker is working properly:
-
-   ```console
-   docker --version
-   docker run hello-world
-   ```
-
-### Step 2: Download and extract code of a Intel® SceneScape release
-
-> **Note:** These operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
+Note that these operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
 
 1. Download the Intel® SceneScape software archive from <https://github.com/open-edge-platform/scenescape/releases>.
 
 2. Extract the Intel® SceneScape archive on the target Ubuntu system. Change directories to the extracted Intel® SceneScape folder.
 
    ```bash
-   cd scenescape-<version>/
+   cd scenescape-<version>
    ```
 
-3. When downloading older Intel® SceneScape releases, follow instructions in `Getting-Started-Guide` specific to that version.
+<!--hide_directive
+:::
+:::{tab-item} hide_directive--> **Get the source code**
 
-#### Alternatively, get the Intel® SceneScape source code
+Clone the repository and change directories to the cloned repository:
 
-1. Clone the repository:
+```bash
+git clone https://github.com/open-edge-platform/scenescape.git &&
+cd scenescape/
+```
 
-   ```bash
-   git clone https://github.com/open-edge-platform/scenescape.git
-   ```
+**Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout a specific version tag:
 
-2. Change directories to the cloned repository:
+```bash
+git tag
+git checkout <tag-version>
+```
 
-   ```bash
-   cd scenescape/
-   ```
+<!--hide_directive
+:::
+::::
+hide_directive-->
 
-   > **Note**: The default branch is `main`. To work with a stable release version, list the available tags and checkout specific version tag:
-
-   ```bash
-   git tag
-   git checkout <tag-version>
-   ```
-
-### Step 3: Build Intel® SceneScape container images
+### Step 2: Build Intel® SceneScape container images
 
 Build container images:
 
@@ -97,7 +67,7 @@ Optionally, the number of jobs can be adjusted by setting the `JOBS` variable, e
 make JOBS=1
 ```
 
-### Step 4 (Optional): Build dependency list of Intel® SceneScape container images
+#### (Optional): Build dependency list of Intel® SceneScape container images
 
 ```bash
 make list-dependencies
@@ -105,7 +75,7 @@ make list-dependencies
 
 This step generates dependency lists. Two separate files are created for system packages and Python packages per each microservice image.
 
-### Step 5: Deploy Intel® SceneScape demo to the target system
+### Step 3: Deploy Intel® SceneScape demo to the target system
 
 Before deploying the demo of Intel® SceneScape for the first time, please set the environment variable SUPASS with the super user password for logging into Intel® SceneScape.
 Important: This should be different than the password for your system user.
@@ -118,74 +88,89 @@ export SUPASS=<password>
 make demo
 ```
 
-### Step 6: Verify a successful deployment
+### Step 4: Verify a successful deployment
 
-If you are running remotely, connect using `"https://<ip_address>"` or `"https://<hostname>"`, using the correct IP address or hostname of the remote Intel® SceneScape system. If accessing on a local system use `"https://localhost"`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
+If you are running remotely, connect using `https://<ip_address>` or `https://<hostname>`, using the correct IP address or hostname of the remote Intel® SceneScape system. If accessing on a local system use `https://localhost`. If you see a certificate warning, click the prompts to continue to the site. For example, in Chrome click "Advanced" and then "Proceed to &lt;ip_address> (unsafe)".
 
 > **Note:** These certificate warnings are expected due to the use of a self-signed certificate for initial deployment purposes. This certificate is generated at deploy time and is unique to the instance.
 
-### Logging In
+#### Logging In
 
 Enter "admin" for the user name and the value you typed earlier for SUPASS.
 
-### Stopping the System
+#### Docker Compose Profiles
 
-To stop the containers, use the following command in the project directory:
+Intel® SceneScape uses [Docker Compose profiles](https://docs.docker.com/compose/how-tos/profiles/) to organize services into logical groups. When starting or stopping services, you must specify the same profile(s) used during deployment.
+
+The following profiles are available:
+
+| Profile             | Description                                                                   |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `controller`        | Scene Controller in default mode (analytics + tracking). Used by `make demo`. |
+| `analytics`         | Scene Controller in analytics-only mode (without tracking).                   |
+| `experimental`      | Enables mapping and cluster-analytics services.                               |
+| `mapping`           | Enables mapping service only.                                                 |
+| `cluster-analytics` | Enables cluster-analytics service only.                                       |
+| `vdms`              | Enables the VDMS visual database service (used for re-identification).        |
+| `tracker`           | Enables the tracker service.                                                  |
+
+Profiles can be specified on the command line with `--profile`:
 
 ```console
-docker compose down --remove-orphans
+docker compose --profile controller up -d
 ```
 
-### Starting the System
+Multiple profiles can be combined:
+
+```console
+docker compose --profile controller --profile experimental up -d
+```
+
+Alternatively, profiles can be set via the `COMPOSE_PROFILES` environment variable:
+
+```console
+export COMPOSE_PROFILES=controller
+docker compose up -d
+```
+
+For multiple profiles, use a comma-separated list:
+
+```console
+export COMPOSE_PROFILES=controller,experimental
+docker compose up -d
+```
+
+For more details, see the [Docker Compose profiles documentation](https://docs.docker.com/compose/how-tos/profiles/) and the [COMPOSE_PROFILES environment variable reference](https://docs.docker.com/compose/how-tos/environment-variables/envvars/#compose_profiles).
+
+> **Note:** The `--profile` flags used with `docker compose down` must match those used when starting the services. Otherwise, containers started under a specific profile will remain running.
+
+#### Stopping the System
+
+To stop the containers, use the following command in the project directory (see [Docker Compose Profiles](#docker-compose-profiles) for details on choosing profiles):
+
+```console
+docker compose --profile controller down --remove-orphans
+```
+
+#### Starting the System
 
 To start after the first time, use the following command in the project directory:
 
 ```console
-docker compose up -d
+docker compose --profile controller up -d
 ```
 
 ## Summary
 
 Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system. Using the web user interface, Intel® SceneScape provides two scenes by default that can be explored running from stored video data.
-![SceneScape WebUI Homepage](./_assets/ui/homepage.png)
+
+![SceneScape WebUI Homepage](./_assets/ui/homepage.png "scenescape web ui homepage")
 
 > **Note:** The “Documentation” menu option allows you to view Intel® SceneScape HTML version of the documentation in the browser.
 
 ## Next Steps
 
-### Learn how to use Intel® SceneScape
-
-- [Deployment Guide](./using-intel-scenescape/how-to-deploy-scenescape-using-prebuilt-containers.md)
-
-- [Tutorial](./using-intel-scenescape/tutorial.md): Follow examples to become familiar with the core functionality of Intel® SceneScape.
-
-- [How to use 3D UI](./using-intel-scenescape/how-to-use-3D-UI.md): Explore Intel® SceneScape's powerful 3D UI
-
-- [How to Integrate Cameras and Sensors into Intel® SceneScape](./using-intel-scenescape/how-to-integrate-cameras-and-sensors.md): Step-by-step guide to basic data flow
-
-### Build a Scene in Intel® SceneScape
-
-- [How to Create and Configure a New Scene](./building-a-scene/how-to-create-new-scene.md): Step-by-step guide on how to create a live scene in Intel® SceneScape
-
-- [How to use Sensor types](./building-a-scene/how-to-use-sensor-types.md): Step-by-step guide to getting started with sensor types.
-
-- [How to visualize regions](./building-a-scene/how-to-visualize-regions.md): Step-by-step guide to getting started with visualizing regions.
-
-- [How to configure a hierarchy of scenes](./building-a-scene/how-to-configure-a-hierarchy-of-scenes.md): Step-by-step guide to configuring a hierarchy of scenes.
-
-- [How to Configure Geospatial Coordinates for a Scene](./building-a-scene/how-to-configure-geospatial-coordinates.md): Step-by-step guide for configuring geographic coordinates output in object detections.
-
-- [How to Configure Geospatial Map Service API Keys](./building-a-scene/how-to-configure-geospatial-map-service-api-keys.md): Step-by-step guide for configuring Google Maps or Mapbox API keys for geospatial mapping functionality.
-
-- [How to Configure Spatial Analytics](./building-a-scene/how-to-configure-spatial-analytics.md): Step-by-step guide to set up and use Regions of Interest (ROIs) and Tripwires.
-
-### Learn how to calibrate cameras for Intel® SceneScape
-
-- [How to manually calibrate cameras](./calibrating-cameras/how-to-manually-calibrate-cameras.md): Step-by-step guide to performing Manual Camera Calibration.
-
-- [How to autocalibrate cameras using visual features](./calibrating-cameras/how-to-autocalibrate-cameras-using-visual-features.md): Step-by-step guide to performing Auto Camera Calibration using Visual Features.
-
-- [How to autocalibrate cameras using Apriltags](./calibrating-cameras/how-to-autocalibrate-cameras-using-apriltags.md): Step-by-step guide to performing Auto Camera Calibration using Apriltags.
+- Check the [How-to Guides](./how-to-guides.md) for step-by-step instructions on how to perform specific tasks in Intel® SceneScape.
 
 ### Explore other topics
 
@@ -207,19 +192,18 @@ Intel® SceneScape was downloaded, built and deployed onto a fresh Ubuntu system
 
 - [How to upgrade Intel® SceneScape](./additional-resources/how-to-upgrade.md): Step-by-step guide for upgrading from an older version of Intel® SceneScape.
 
-- [Converting Pixel-Based Bounding Boxes to Normalized Image Space](./additional-resources/convert-object-detections-to-normalized-image-space.md)
-
-- [Hardening Guide for Custom TLS](./additional-resources/hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation
-
-- [Release Notes](./additional-resources/release-notes.md)
-
 - [How Intel® SceneScape converts Pixel-Based Bounding Boxes to Normalized Image Space](./additional-resources/convert-object-detections-to-normalized-image-space.md)
+
+- [Hardening Guide for Custom TLS](./additional-resources/hardening-guide.md): Optimizing security posture for a Intel® SceneScape installation.
+
+- [Release Notes](./release-notes.md)
 
 <!--hide_directive
 :::{toctree}
 :hidden:
 
-get-started/system-requirements
+./get-started/system-requirements.md
+./get-started/prerequisites.md
 
 :::
 hide_directive-->
