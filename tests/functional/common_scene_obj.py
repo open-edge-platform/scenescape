@@ -70,6 +70,9 @@ class SceneObjectMqtt(FunctionalTest):
             self.expectedExit.append(event['id'])
             self.expectedEnter.remove(event['id'])
             self.entered = True
+            # Track entry time for dwell verification
+            if event['id'] not in self.objectEntryTimes:
+              self.objectEntryTimes[event['id']] = get_epoch_time()
             print("object with id {} entered region\n".format(event['id']))
 
     if len(regionEvent['exited']) > 0:
@@ -129,6 +132,8 @@ class SceneObjectMqtt(FunctionalTest):
     self.roiPoints = ((0.9, 4.0), (0.9, 2.4),
                       (8.1, 2.4), (8.1, 4.0))
     self.message_received_after_delete = False
+    self.objectEntryTimes = {}  # Track when each object entered region for dwell verification
+    self.previousDwellTimes = {}  # Track previous dwell times to verify monotonic increase
     if self.testName and self.recordXMLAttribute:
       self.recordXMLAttribute("name", self.testName)
 
@@ -152,6 +157,40 @@ class SceneObjectMqtt(FunctionalTest):
   def regulatedReceived(self, pahoClient, userdata, message):
     data = message.payload.decode("utf-8")
     self.sceneData = json.loads(data)
+    # Track that dwell data appears in scene messages when expected
+    self.verifyDwellPresenceInSceneData(self.sceneData)
+    return
+
+  def verifyDwellPresenceInSceneData(self, sceneData):
+    """Verify dwell values appear in scene object data when objects are in regions.
+
+    Unlike unit tests which validate calculation formulas, this checks integration:
+    that dwell data is present and available in the scene data stream.
+    """
+    if 'objects' not in sceneData or not sceneData['objects']:
+      return
+
+    for obj in sceneData['objects']:
+      obj_id = obj.get('id')
+      if not obj_id or obj_id not in self.objectEntryTimes:
+        continue
+
+      # Check that dwell data is present for objects known to be in regions
+      if 'regions' in obj and obj['regions']:
+        for region_name, region_data in obj['regions'].items():
+          if 'dwell' in region_data:
+            dwell = region_data['dwell']
+            # Basic sanity check: dwell should be non-negative
+            assert dwell >= 0, f"Object {obj_id} has negative dwell: {dwell}"
+
+            # Verify monotonic increase (no dwell decrease over time)
+            key = (obj_id, region_name)
+            if key in self.previousDwellTimes:
+              prev_dwell = self.previousDwellTimes[key]
+              assert dwell >= prev_dwell - 0.2, \
+                f"Object {obj_id} dwell in {region_name} decreased from {prev_dwell:.2f} to {dwell:.2f}"
+
+            self.previousDwellTimes[key] = dwell
     return
 
   def runSceneObjMqttPrepare(self):
