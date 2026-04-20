@@ -241,7 +241,8 @@ def setup_test_environment(params):
   root_cert = params['rootcert']
 
   log.info(f"Connecting to MQTT broker: {mqtt_broker}")
-  pubsub = PubSub(mqtt_auth, client_cert, root_cert, mqtt_broker, keepalive=60)
+  pubsub = PubSub(mqtt_auth, client_cert, root_cert, mqtt_broker,
+                  port=int(params.get('broker_port', 1883)), keepalive=60)
 
   # Wait for connection
   connected = False

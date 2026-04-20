@@ -16,7 +16,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 TEST_NAME = "NEX-T10425-API"
 
-def test_upload_3d_glb_file_api(rest, result_recorder, repo_root):
+def test_upload_3d_glb_file_api(rest, result_recorder, repo_root, demo_scene):
   file_name = "box.glb"
   file_path = os.path.join(repo_root, "tests/ui/test_media", file_name)
 

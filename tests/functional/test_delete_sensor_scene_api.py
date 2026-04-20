@@ -181,7 +181,7 @@ class DeleteSensorSceneTest(FunctionalTest):
 
     return
 
-def test_del_sensor_scene(scenescape_env, request, record_xml_attribute):
+def test_del_sensor_scene(scenescape_env, demo_scene, request, record_xml_attribute):
   test = DeleteSensorSceneTest(TEST_NAME, request, record_xml_attribute)
   test.testDeleteSensorScene()
   assert test.exitCode == 0

@@ -69,7 +69,8 @@ class RotationFromVelocityTest(FunctionalTest):
     log.info(f"Created PERSON asset UID:", self.asset_uid)
 
     # MQTT setup
-    self.client = PubSub(self.params["auth"], None, self.params["rootcert"], self.params["broker_url"])
+    self.client = PubSub(self.params["auth"], None, self.params["rootcert"], self.params["broker_url"],
+                          port=int(self.params["broker_port"]))
     self.client.connect()
     self.client.loopStart()
 

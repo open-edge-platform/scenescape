@@ -15,7 +15,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 TEST_NAME = "NEX-T10401-API"
 
-def test_sensor_area_api(rest, scene_uid, result_recorder):
+def test_sensor_area_api(rest, scene_uid, result_recorder, demo_scene):
   sensor_name_poly = "Sensor_Poly"
   sensor_name_circle = "Sensor_Circle"
 

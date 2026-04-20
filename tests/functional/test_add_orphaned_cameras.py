@@ -91,7 +91,7 @@ class OrphanedCameraTest(FunctionalTest):
 
     return
 
-def test_orphaned_cameras(scenescape_env, request, record_xml_attribute):
+def test_orphaned_cameras(scenescape_env, demo_scene, request, record_xml_attribute):
   test = OrphanedCameraTest(TEST_NAME, request, record_xml_attribute)
   test.verifyOrphanedCameras()
   assert test.exitCode == 0

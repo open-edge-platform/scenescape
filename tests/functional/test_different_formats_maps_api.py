@@ -16,7 +16,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 TEST_NAME = "NEX-T10392-API"
 
-def test_different_formats_maps_api(params, rest, scene_uid, result_recorder):
+def test_different_formats_maps_api(params, rest, scene_uid, result_recorder, demo_scene):
   rest.deleteScene(scene_uid)
 
   # Test uploading different map formats

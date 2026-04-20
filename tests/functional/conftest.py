@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import sys
+import logging
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,11 @@ if str(repo_root) not in sys.path:
   sys.path.insert(0, str(repo_root))
 
 from tests.common_test_utils import record_test_result
+
+logger = logging.getLogger(__name__)
+
+DEMO_SCENE_UID = "3bc091c7-e449-46a0-9540-29c499bca18c"
+DEMO_SCENE_NAME = "Demo"
 
 @pytest.fixture
 def obj_location(request):
@@ -68,6 +74,19 @@ def scene_uid(rest, params):
   scenes = res.get('results', []) if isinstance(res, dict) else []
   assert scenes, f"Scene '{name}' not found"
   return scenes[0]['uid']
+
+
+@pytest.fixture
+def demo_scene(scenescape_env):
+  """Provide the Demo scene UID and restore the database on teardown.
+
+  Usage: any test that modifies the Demo scene should request this fixture.
+  After the test completes, the database is restored from the baseline
+  snapshot so subsequent tests start with a clean state.
+  """
+  yield DEMO_SCENE_UID
+  scenescape_env.restore_db()
+
 
 @pytest.fixture(autouse=True)
 def record_test_name(request, record_xml_attribute):

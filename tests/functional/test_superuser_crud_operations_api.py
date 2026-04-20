@@ -145,7 +145,7 @@ class CRUDPermissionsTest(FunctionalTest):
     finally:
       self.tearDown()
 
-def test_crud_operations_api(scenescape_env, request, record_xml_attribute, repo_root):
+def test_crud_operations_api(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
   test = CRUDPermissionsTest(TEST_NAME, request, record_xml_attribute, repo_root)
   record_xml_attribute("name", TEST_NAME)
   ok = False

@@ -54,7 +54,8 @@ class GeospatialIngestPublish(FunctionalTest):
     assert self.rest.authenticate(self.params['user'], self.params['password'])
 
     self.pubsub = PubSub(self.params['auth'], None, self.params['rootcert'],
-                         self.params['broker_url'])
+                         self.params['broker_url'],
+                         port=int(self.params['broker_port']))
     self.topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=self.sceneUID)
     self.pubsub.onConnect = self.pubsubConnected
     self.pubsub.addCallback(self.topic, self.eventReceived)
@@ -264,7 +265,7 @@ def _verifyLLA(detected_object):
   if not np.allclose(detected_object['lat_long_alt'], EXPECTED_DETECTION_LLA, rtol=1e-6):
     raise ValueError(f"LLA verification failed! Expected LLA: {EXPECTED_DETECTION_LLA}, got: {detected_object['lat_long_alt']}")
 
-def test_geospatial_ingest_publish(scenescape_env, request, record_xml_attribute, repo_root):
+def test_geospatial_ingest_publish(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
   test = GeospatialIngestPublish(TEST_NAME, request, record_xml_attribute, repo_root)
   test.verifyFunction()
   assert test.exitCode == 0

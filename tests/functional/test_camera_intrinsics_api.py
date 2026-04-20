@@ -179,7 +179,7 @@ class CameraIntrinsicsTest(FunctionalTest):
 
     return
 
-def test_camera_intrinsics(scenescape_env, request, record_xml_attribute):
+def test_camera_intrinsics(scenescape_env, demo_scene, request, record_xml_attribute):
   test = CameraIntrinsicsTest(TEST_NAME, request, record_xml_attribute)
   test.testCameraIntrinsics()
   assert test.exitCode == 0

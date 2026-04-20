@@ -15,7 +15,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 TEST_NAME = "NEX-T10457-API"
 
-def test_calibrate_all_sensor_types_api(rest, scene_uid, result_recorder):
+def test_calibrate_all_sensor_types_api(rest, scene_uid, result_recorder, demo_scene):
   # Create sensors of different types
   sensor_types = [
     # Entire scene sensor

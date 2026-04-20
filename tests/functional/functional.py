@@ -111,7 +111,8 @@ class FunctionalTest(Diagnostic):
     objData = self.objData()
 
     self.pubsub = PubSub(self.params['auth'], None, self.params['rootcert'],
-                         self.params['broker_url'])
+                         self.params['broker_url'],
+                         port=int(self.params['broker_port']))
     waitTopic = PubSub.formatTopic(PubSub.DATA_SCENE,
                                    scene_id=self.params['scene_id'], thing_type="person")
     publishTopic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=objData['id'])

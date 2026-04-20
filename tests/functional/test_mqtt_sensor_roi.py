@@ -310,7 +310,7 @@ class SensorMqttRoi(SceneObjectMqtt):
       end_idx += 1
     return start_idx, end_idx
 
-def test_sensor_roi_mqtt(scenescape_env, request, record_xml_attribute):
+def test_sensor_roi_mqtt(scenescape_env, demo_scene, request, record_xml_attribute):
   test = SensorMqttRoi(TEST_NAME, request, SENSOR_DELAY, record_xml_attribute)
   test.runROIMqtt()
   assert test.exitCode == 0

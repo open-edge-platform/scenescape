@@ -92,7 +92,8 @@ def run_test(test_name, test_desc, scene_config, params):
   exit_code = 1
 
   try:
-    client = PubSub(params["auth"], None, params["rootcert"], params["broker_url"])
+    client = PubSub(params["auth"], None, params["rootcert"], params["broker_url"],
+                    port=int(params["broker_port"]))
     rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
     res = rest.authenticate(params['user'], params['password'])
     assert res, (res.errors)

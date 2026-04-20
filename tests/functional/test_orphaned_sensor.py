@@ -91,7 +91,7 @@ class OrphanedSensorTest(FunctionalTest):
 
     return
 
-def test_orphaned_sensors(scenescape_env, request, record_xml_attribute):
+def test_orphaned_sensors(scenescape_env, demo_scene, request, record_xml_attribute):
   test = OrphanedSensorTest(TEST_NAME, request, record_xml_attribute)
   test.verifyOrphanedSensors()
   assert test.exitCode == 0

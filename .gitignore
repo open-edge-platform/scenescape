@@ -30,6 +30,9 @@ manager/src/manager/static/bootstrap*
 manager/src/manager/static/examples
 manager/secrets
 manager/src/manager/secrets.py
+manager/src/static/assets
+manager/src/static/bootstrap*
+manager/src/static/examples
 docker-compose.yml
 kubernetes/setup/
 kubernetes/manager

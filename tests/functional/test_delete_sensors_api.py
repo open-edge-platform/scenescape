@@ -202,7 +202,7 @@ class DeleteSensorsTest(FunctionalTest):
 
     return
 
-def test_delete_sensor(scenescape_env, request, record_xml_attribute):
+def test_delete_sensor(scenescape_env, demo_scene, request, record_xml_attribute):
   test = DeleteSensorsTest(TEST_NAME, request, record_xml_attribute)
   test.testDeleteSensors()
   assert test.exitCode == 0

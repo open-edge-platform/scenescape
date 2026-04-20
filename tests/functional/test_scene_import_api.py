@@ -283,7 +283,7 @@ class SceneImportAPITest(FunctionalTest):
     ("Intersection-Demo.zip", "0"),  # SUCCESS
   ],
 )
-def test_scene_import_api(scenescape_env, request, record_xml_attribute, zipFile, expected, repo_root):
+def test_scene_import_api(scenescape_env, demo_scene, request, record_xml_attribute, zipFile, expected, repo_root):
   record_xml_attribute("name", TEST_NAME)
   test = SceneImportAPITest(
     TEST_NAME, request, record_xml_attribute, zipFile, expected, repo_root
