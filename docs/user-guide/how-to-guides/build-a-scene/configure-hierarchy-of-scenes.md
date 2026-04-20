@@ -1,4 +1,4 @@
-# How to Create and Manage a Scene Hierarchy in Intel® SceneScape
+# Create and Manage a Scene Hierarchy in Intel® SceneScape
 
 A hierarchy of scenes can be created using a parent-child relationship, enabling scene analytics from multiple scenes — whether on the [same system](#steps-to-add-a-local-child-scene) or [different systems in same network](#steps-to-add-a-remote-child-scene) running Intel® SceneScape — to be visualized within a single parent scene. This hierarchy is not limited to a single level of relationship; it can be scaled upwards, allowing for multi-level parent-child configurations. By subscribing to the parent scene's events, you can observe the base analytics (such as regions of interest, tripwires, and sensors) of the parent scene, along with the transformed base analytics of all its child scenes, directly within the parent scene.
 
@@ -31,11 +31,11 @@ This task is essential for managing distributed scenes in Intel® SceneScape dep
 
 **Expected Result**: The child scene appears in the parent scene view.
 
-![Local Child Form](../_assets/ui/local_child_link_form.png)
+![Local Child Form](../../_assets/ui/local_child_link_form.png "local child scene form")
 
 _Figure 1: Creating new local child scene link._
 
-![Local Child Saved](../_assets/ui/local_child_saved.png)
+![Local Child Saved](../../_assets/ui/local_child_saved.png "local child scene saved")
 
 _Figure 2: Local Child scene on scene detail page._
 
@@ -49,34 +49,34 @@ _Figure 2: Local Child scene on scene detail page._
 
 - Edit `docker-compose.yml` to uncomment NTP server port.
 
-![Parent NTP Config](../_assets/parent_ntp_conf.png)
+![Parent NTP Config](../../_assets/parent_ntp_conf.png "parent ntp config")
 
 **On Child System**:
 
 - Edit `docker-compose.yml` to uncomment MQTT broker port.
 
-![Child MQTT broker Config](../_assets/child_broker_conf.png)
+![Child MQTT broker Config](../../_assets/child_broker_conf.png "child mqtt broker config")
 
 - Disable NTP server service in `docker-compose.yml`.
 - Replace `ntpserv` with parent IP in dependent services.
 
-![Child Config 1](../_assets/child_ntp_conf_1.png)
+![Child Config 1](../../_assets/child_ntp_conf_1.png "child ntp config 1")
 
 _Figure 3: ntpserver config for scene controller service in `docker-compose.yml`._
 
-![Child Config 2](../_assets/child_ntp_conf_2.png)
+![Child Config 2](../../_assets/child_ntp_conf_2.png "child ntp config 2")
 
 _Figure 4: comment ntpserver for DL Streamer Pipeline Server in `docker-compose.yml`._
 
-![Child Config 3](../_assets/child_ntp_conf_3.png)
+![Child Config 3](../../_assets/child_ntp_conf_3.png "child ntp config 3")
 
 _Figure 5: ntpserver config for DL Streamer Pipeline in `pipeline-config.json`._
 
-> **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` doesn’t exist.
+> **Note**: Use [sample_data/docker-compose-dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/release-2026.0/sample_data/docker-compose-dl-streamer-example.yml) if `docker-compose.yml` does not exist.
 
 ### 2. Set Up Secure Communication
 
-> **Note:** For details on available Docker Compose profiles, see [Docker Compose Profiles](../get-started.md#docker-compose-profiles).
+> **Note:** For details on available Docker Compose profiles, see [Docker Compose Profiles](../../get-started.md#docker-compose-profiles).
 
 **On Parent system**:
 
@@ -89,7 +89,7 @@ make -C tools/certificates/ deploy-certificates CERTPASS=<random-string>
 
 **On Child system**:
 
-> **Note**: Ensure that there are no scenes with the same UUID present on both the parent and child systems.
+> **Note:** Ensure that there are no scenes with the same UUID present on both the parent and child systems.
 
 ```bash
 ./deploy.sh
@@ -121,17 +121,17 @@ Then restart Intel® SceneScape:
    - Transform type/values
 6. Click **Add Child Scene**.
 
-![Remote Child Form](../_assets/ui/remote_child_link_form.png)
+![Remote Child Form](../../_assets/ui/remote_child_link_form.png "remote child scene form")
 
 _Figure 5: Creating new remote child scene link._
 
-![Remote Child Saved](../_assets/ui/remote_child_saved.png)
+![Remote Child Saved](../../_assets/ui/remote_child_saved.png "remote child scene saved")
 
 _Figure 6: Remote child scene on scene detail page._
 
 **Expected Result**: Remote child is listed with green/red status icon.
 
-> **Note**: Scene names must be unique across parent and child systems.
+> **Note:** Scene names must be unique across parent and child systems.
 
 ---
 
@@ -142,7 +142,7 @@ _Figure 6: Remote child scene on scene detail page._
   - **Disabled**: Treat detections as already tracked.
   - **Enabled**: Feed detections into the parent tracker.
 
-![Retrack Toggle](../_assets/ui/child-link-retrack.png)
+![Retrack Toggle](../../_assets/ui/child-link-retrack.png "retrack toggle")
 
 _Figure 7: Toggle to re-track moving objects from child scene._
 
@@ -155,7 +155,7 @@ _Figure 7: Toggle to re-track moving objects from child scene._
   - `Regulate Rate (Hz)`: Limit updates to internal UI.
   - `Max External Update Rate (Hz)`: Limit updates to parent/consuming systems.
 
-![Temporal Fidelity](../_assets/ui/temporal-fidelity.png)
+![Temporal Fidelity](../../_assets/ui/temporal-fidelity.png "temporal fidelity")
 
 _Figure 8: Set Regulate and External Update rate in scene config._
 
@@ -167,4 +167,4 @@ _Figure 8: Set Regulate and External Update rate in scene config._
 - Child scene objects retain UUIDs within their own scene.
 - Parent scene does **not** re-identify child objects.
 
-> Refer to [Re-identification Guide](../other-topics/how-to-enable-reidentification.md) for more details.
+> Refer to [Re-identification Guide](../../other-topics/how-to-enable-reidentification.md) for more details.
