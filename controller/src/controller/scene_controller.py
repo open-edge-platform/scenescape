@@ -276,13 +276,16 @@ class SceneController:
     return
 
   def publishRegionDetections(self, scene, objects, otype, jdata):
+    current_time = get_epoch_time(jdata['timestamp'])
     for rname in scene.regions:
       robjects = []
       for obj in objects:
         if rname in obj.chain_data.regions:
           robjects.append(obj)
       # Region-specific detections: include sensor data
-      jdata['objects'] = buildDetectionsList(robjects, scene, False, include_sensors=True)
+      jdata['objects'] = buildDetectionsList(
+        robjects, scene, False, include_sensors=True,
+        include_region_dwell=True, current_time=current_time)
       olen = len(jdata['objects'])
       rid = scene.name + "/" + rname + "/" + otype
       if olen > 0 or rid not in scene.lastPubCount or scene.lastPubCount[rid] > 0:
@@ -346,7 +349,9 @@ class SceneController:
       num_objects += counts[otype]
       all_objects += objects
     event_data['counts'] = counts
-    detections_dict = buildDetectionsDict(all_objects, scene, include_sensors=True)
+    detections_dict = buildDetectionsDict(
+      all_objects, scene, include_sensors=True,
+      include_region_dwell=True, current_time=get_epoch_time(event_data['timestamp']))
     event_data['objects'] = list(detections_dict.values())
     return detections_dict, num_objects
 
@@ -364,7 +369,9 @@ class SceneController:
 
     # Build any objects not in detections_dict (e.g., from sensor events)
     if missing_objs:
-      entered_objs = buildDetectionsList(missing_objs, scene, False, include_sensors=True)
+      entered_objs = buildDetectionsList(
+        missing_objs, scene, False, include_sensors=True,
+        include_region_dwell=True, current_time=get_epoch_time(event_data['timestamp']))
       event_data['entered'].extend(entered_objs)
 
   def _buildExitedObjsList(self, scene, region, event_data):
@@ -377,7 +384,9 @@ class SceneController:
         exited_dict[exited_obj.gid] = dwell
         exited_objs.extend([exited_obj])
       # Exit events: include sensor data (timestamped readings and attribute events)
-      exited_objs = buildDetectionsList(exited_objs, scene, False, include_sensors=True)
+      exited_objs = buildDetectionsList(
+        exited_objs, scene, False, include_sensors=True,
+        include_region_dwell=True, current_time=get_epoch_time(event_data['timestamp']))
       exited_data = [{'object': exited_obj, 'dwell': exited_dict[exited_obj['id']]} for exited_obj in exited_objs]
       event_data['exited'].extend(exited_data)
     return
