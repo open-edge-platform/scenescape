@@ -4,7 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import random
-from scene_common import log
+from tests.utils.log import get_logger
+log = get_logger(__name__)
 from selenium.webdriver.support.ui import Select
 from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common

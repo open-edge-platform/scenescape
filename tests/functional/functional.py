@@ -9,7 +9,7 @@ from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time, get_epoch_time
 from tests.utils.log import get_logger
 
-logger = get_logger(__name__)
+log = get_logger(__name__)
 
 class FunctionalTest(Diagnostic):
   def buildArgparser(self):
@@ -34,7 +34,7 @@ class FunctionalTest(Diagnostic):
   def _trackingReceived(self, pahoClient, userdata, message):
     data = json.loads(message.payload.decode('utf-8'))
     if data is not None:
-      logger.debug("Tracking received", message.topic, data)
+      log.debug("Tracking received", message.topic, data)
       self._sceneReadyCondition.acquire()
       self._sceneReadyCondition.notify()
       self._sceneReadyCondition.release()
@@ -56,7 +56,7 @@ class FunctionalTest(Diagnostic):
     """
 
     # It's up to subclass to create self.pubsub
-    logger.debug("Waiting for ready", self.pubsub.isConnected(), waitTopic)
+    log.debug("Waiting for ready", self.pubsub.isConnected(), waitTopic)
     self.pubsub.addCallback(waitTopic, self._trackingReceived)
 
     self._sceneReadyCondition = threading.Condition()
@@ -68,7 +68,7 @@ class FunctionalTest(Diagnostic):
     detection_pub = detection.copy()
     self._sceneReadyCondition.acquire()
     while not ready and count < max_count:
-      logger.debug("Try", count, "of", max_count, publishTopic)
+      log.debug("Try", count, "of", max_count, publishTopic)
       detection_pub['timestamp'] = get_iso_time(beginEpoch + count * interval)
       self.pubsub.publish(publishTopic, json.dumps(detection_pub))
       if self._sceneReadyCondition.wait(interval):
@@ -128,7 +128,7 @@ class FunctionalTest(Diagnostic):
       if ready:
         break
     else:
-      logger.error('Reached max number of attempts to wait for scene controller!')
+      log.error('Reached max number of attempts to wait for scene controller!')
 
     self.pubsub.loopStop()
     return True if ready else False

@@ -8,7 +8,7 @@ import numpy as np
 from tests.functional.backend_functional import BackendFunctionalTest
 from tests.utils.log import get_logger
 
-logger = get_logger(__name__)
+log = get_logger(__name__)
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import REID
 
@@ -27,7 +27,7 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
     self.thing_2_match = self.generate_random_vector()
 
   def descriptor_set_reid(self):
-    logger.info("Add the descriptor set for RE-ID data")
+    log.info("Add the descriptor set for RE-ID data")
     descriptor_set = {
       "AddDescriptorSet": {
         "name": "reid_vectors",
@@ -39,12 +39,12 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
     all_queries.append(descriptor_set)
 
     response, res_arr = self.vdb.sendQuery(all_queries)
-    logger.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
+    log.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
     assert response[0]['status'] == 0, "The response status for the descriptor set should be 0!"
     return
 
   def descriptor_objects(self):
-    logger.info("Add descriptors for two distinct objects")
+    log.info("Add descriptors for two distinct objects")
     blob_1 = np.array(self.thing_1, dtype="float32")
     blob_2 = np.array(self.thing_2, dtype="float32")
 
@@ -72,15 +72,15 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
 
     response, res_arr = self.vdb.sendQuery(all_queries, [descriptor_blob])
 
-    logger.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
+    log.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
     assert response[0]['status'] == 0 and response[1]['status'] == 0, \
       "The response status for both descriptors should be 0!"
     return
 
   def get_similarity(self):
-    logger.info("Pass a third RE-ID vector from one of the two initial objects and get a similarity search comparison. It should have low distance from one of the entries.")
+    log.info("Pass a third RE-ID vector from one of the two initial objects and get a similarity search comparison. It should have low distance from one of the entries.")
     response, res_arr = self.get_similarity_comparison([self.thing_2_match])
-    logger.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
+    log.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
     assert response[0]['returned'] == 2, \
       "There should be only 2 entities returned!"
     return

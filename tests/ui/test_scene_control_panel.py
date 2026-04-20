@@ -4,7 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
-from scene_common import log
+from tests.utils.log import get_logger
+log = get_logger(__name__)
 import tests.ui.common_ui_test_utils as common
 from tests.ui.browser import By, Browser
 from tests.utils.spec import FuncTestSpec

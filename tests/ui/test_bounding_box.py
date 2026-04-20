@@ -10,7 +10,8 @@ import base64
 import numpy as np
 import tests.ui.common_ui_test_utils as common
 
-from scene_common import log
+from tests.utils.log import get_logger
+log = get_logger(__name__)
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_epoch_time
 from tests.utils.spec import FuncTestSpec, AUTH_BROWSER

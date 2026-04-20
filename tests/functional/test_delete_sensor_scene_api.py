@@ -11,7 +11,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
 
-logger = get_logger(__name__)
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="delete_sensor_scene_api", profile=FULL_STACK,
@@ -36,7 +36,7 @@ class DeleteSensorSceneTest(FunctionalTest):
 
   def _createTestScene(self):
     """Create a test scene for sensor testing"""
-    logger.info(f"Creating test scene: {self.testSceneName}")
+    log.info(f"Creating test scene: {self.testSceneName}")
 
     sceneData = {
       'name': self.testSceneName,
@@ -49,7 +49,7 @@ class DeleteSensorSceneTest(FunctionalTest):
 
   def _createTestSensor(self, sceneUID):
     """Create a test sensor in the given scene"""
-    logger.info(f"Creating test sensor: {self.testSensorName} in scene: {sceneUID}")
+    log.info(f"Creating test sensor: {self.testSensorName} in scene: {sceneUID}")
 
     # Create a simple rectangular sensor covering some area
     sensorData = {
@@ -71,7 +71,7 @@ class DeleteSensorSceneTest(FunctionalTest):
 
   def _verifySensorExists(self, sensorName):
     """Verify that sensor exists in the sensor list"""
-    logger.info(f"Verifying sensor {sensorName} exists")
+    log.info(f"Verifying sensor {sensorName} exists")
 
     sensors = self.rest.getSensors({})
     assert sensors, (sensors.statusCode, sensors.errors)
@@ -84,7 +84,7 @@ class DeleteSensorSceneTest(FunctionalTest):
 
   def _verifySensorOrphaned(self, sensorUID):
     """Verify that sensor is orphaned (scene is None)"""
-    logger.info(f"Verifying sensor {sensorUID} is orphaned")
+    log.info(f"Verifying sensor {sensorUID} is orphaned")
 
     sensor = self.rest.getSensor(sensorUID)
     assert sensor, (sensor.statusCode, sensor.errors)
@@ -95,7 +95,7 @@ class DeleteSensorSceneTest(FunctionalTest):
     """Delete the test scene"""
     try:
       if sceneUID:
-        logger.info(f"Cleaning up test scene: {sceneUID}")
+        log.info(f"Cleaning up test scene: {sceneUID}")
         self.rest.deleteScene(sceneUID)
     except:
       pass  # Scene might already be deleted
@@ -104,7 +104,7 @@ class DeleteSensorSceneTest(FunctionalTest):
     """Delete the test sensor"""
     try:
       if sensorUID:
-        logger.info(f"Cleaning up test sensor: {sensorUID}")
+        log.info(f"Cleaning up test sensor: {sensorUID}")
         self.rest.deleteSensor(sensorUID)
     except:
       pass  # Sensor might already be deleted
@@ -120,15 +120,15 @@ class DeleteSensorSceneTest(FunctionalTest):
       * Delete the orphaned sensor
       * Verify sensor is completely removed
     """
-    logger.info(f"Executing: {TEST_NAME}")
-    logger.info("Test that sensors are not deleted when the parent scene is deleted")
+    log.info(f"Executing: {TEST_NAME}")
+    log.info("Test that sensors are not deleted when the parent scene is deleted")
 
     sceneUID = None
     sensorUID = None
 
     try:
       # Make sure that the SceneScape is up and running
-      logger.info("Make sure that the SceneScape is up and running")
+      log.info("Make sure that the SceneScape is up and running")
       assert self.sceneScapeReady(MAX_ATTEMPTS, MAX_CONTROLLER_WAIT)
 
       # Step 1: Create test scene
@@ -138,7 +138,7 @@ class DeleteSensorSceneTest(FunctionalTest):
       sensorUID = self._createTestSensor(sceneUID)
 
       # Step 3: Delete the scene
-      logger.info(f"Deleting scene: {sceneUID}")
+      log.info(f"Deleting scene: {sceneUID}")
       deleteResult = self.rest.deleteScene(sceneUID)
       assert deleteResult.statusCode == HTTPStatus.OK, (deleteResult.statusCode, deleteResult.errors)
       sceneUID = None  # Mark as deleted
@@ -147,31 +147,31 @@ class DeleteSensorSceneTest(FunctionalTest):
       time.sleep(1)
 
       # Step 4: Verify sensor still exists but is orphaned
-      logger.info("Verifying sensor still exists after scene deletion")
+      log.info("Verifying sensor still exists after scene deletion")
       sensorExists, foundSensorUID = self._verifySensorExists(self.testSensorName)
       assert sensorExists, f"Sensor {self.testSensorName} should still exist after scene deletion"
       assert foundSensorUID == sensorUID, "Sensor UID mismatch"
 
       # Verify sensor is orphaned (scene is None)
-      logger.info("Verifying sensor is orphaned")
+      log.info("Verifying sensor is orphaned")
       assert self._verifySensorOrphaned(sensorUID), "Sensor should be orphaned after scene deletion"
 
       # Step 5: Delete the orphaned sensor
-      logger.info(f"Deleting orphaned sensor: {sensorUID}")
+      log.info(f"Deleting orphaned sensor: {sensorUID}")
       deleteResult = self.rest.deleteSensor(sensorUID)
       assert deleteResult.statusCode == HTTPStatus.OK, (deleteResult.statusCode, deleteResult.errors)
       sensorUID = None  # Mark as deleted
 
       # Step 6: Verify sensor is completely removed
-      logger.info("Verifying sensor is completely removed")
+      log.info("Verifying sensor is completely removed")
       sensorExists, _ = self._verifySensorExists(self.testSensorName)
       assert not sensorExists, f"Sensor {self.testSensorName} should be completely removed"
 
-      logger.info("Delete sensor after scene deletion test completed successfully")
+      log.info("Delete sensor after scene deletion test completed successfully")
       self.exitCode = 0
 
     except Exception as e:
-      logger.error(f"Test failed with exception: {e}")
+      log.error(f"Test failed with exception: {e}")
       self.exitCode = 1
       raise
     finally:

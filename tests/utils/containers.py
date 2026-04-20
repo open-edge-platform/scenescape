@@ -17,7 +17,7 @@ from waiting import wait
 
 from utils.log import get_logger
 
-logger = get_logger(__name__)
+log = get_logger(__name__)
 
 
 def _get_log_dir():
@@ -55,7 +55,7 @@ def wait_for_services(docker, project_name, wait_for):
     wait_for: dict of {service_name: WaitConfig} from profiles.py.
   """
   for service, config in wait_for.items():
-    logger.info("  Waiting up to %ds for %s...", config.timeout, service)
+    log.info("  Waiting up to %ds for %s...", config.timeout, service)
     wait(
       lambda svc=service, pat=config.log_pattern: container_is_ready(
         docker, project_name, svc, pat
@@ -63,7 +63,7 @@ def wait_for_services(docker, project_name, wait_for):
       timeout_seconds=config.timeout,
       sleep_seconds=1,
     )
-    logger.info("  %s is ready.", service)
+    log.info("  %s is ready.", service)
 
 
 def collect_logs(docker, containers=None, scan_for_tracebacks=False):
@@ -79,7 +79,7 @@ def collect_logs(docker, containers=None, scan_for_tracebacks=False):
   tracebacks_found = []
   log_dir = _get_log_dir()
   if log_dir is None:
-    logger.warning("Test log directory is not configured; skipping container log file export")
+    log.warning("Test log directory is not configured; skipping container log file export")
 
   container_filters = None
   if containers is not None:
@@ -99,13 +99,13 @@ def collect_logs(docker, containers=None, scan_for_tracebacks=False):
         log_file = os.path.join(log_dir, f"{container.name}.log")
         with open(log_file, "w") as f:
           f.write(logs)
-        logger.info("[DOCKER] Logs saved: %s", log_file)
+        log.info("[DOCKER] Logs saved: %s", log_file)
       if scan_for_tracebacks and "Traceback" in logs:
         tracebacks_found.append(container.name)
-        logger.warning("Found Traceback in %s!", container.name)
+        log.warning("Found Traceback in %s!", container.name)
   except Exception as exc:
-    logger.warning("Error collecting logs: %s", exc)
+    log.warning("Error collecting logs: %s", exc)
   if tracebacks_found:
-    logger.warning("Tracebacks found in: %s", ", ".join(tracebacks_found))
+    log.warning("Tracebacks found in: %s", ", ".join(tracebacks_found))
   return tracebacks_found
 

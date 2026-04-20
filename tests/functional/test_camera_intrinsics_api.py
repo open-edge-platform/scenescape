@@ -11,7 +11,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
 
-logger = get_logger(__name__)
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="camera_intrinsics_api", profile=FULL_STACK,
@@ -44,7 +44,7 @@ class CameraIntrinsicsTest(FunctionalTest):
 
   def _setupTestCamera(self):
     """Create a test camera for intrinsics testing"""
-    logger.info(f"Creating test camera: {self.testCameraName}")
+    log.info(f"Creating test camera: {self.testCameraName}")
 
     cameraData = {
       'name': self.testCameraName,
@@ -66,7 +66,7 @@ class CameraIntrinsicsTest(FunctionalTest):
     """Delete the test camera"""
     try:
       if cameraUID:
-        logger.info(f"Cleaning up test camera: {cameraUID}")
+        log.info(f"Cleaning up test camera: {cameraUID}")
         self.rest.deleteCamera(cameraUID)
     except:
       pass  # Camera might already be deleted
@@ -94,7 +94,7 @@ class CameraIntrinsicsTest(FunctionalTest):
 
   def _updateAndValidateIntrinsics(self, cameraUID, initialValue, step):
     """Update camera intrinsics and validate they persist after saving"""
-    logger.info(f"Updating camera intrinsics with initial value {initialValue} and step {step}")
+    log.info(f"Updating camera intrinsics with initial value {initialValue} and step {step}")
 
     # Prepare new intrinsics and distortion values
     newIntrinsics = {
@@ -118,7 +118,7 @@ class CameraIntrinsicsTest(FunctionalTest):
       'distortion': newDistortion
     }
 
-    logger.info("Saving camera intrinsics changes...")
+    log.info("Saving camera intrinsics changes...")
     updateResult = self.rest.updateCamera(cameraUID, updateData)
     assert updateResult, (updateResult.statusCode, updateResult.errors)
 
@@ -126,14 +126,14 @@ class CameraIntrinsicsTest(FunctionalTest):
     time.sleep(1)
 
     # Retrieve camera and validate the changes persisted
-    logger.info("Validating that intrinsics changes persisted...")
+    log.info("Validating that intrinsics changes persisted...")
     updatedCamera = self.rest.getCamera(cameraUID)
     assert updatedCamera, (updatedCamera.statusCode, updatedCamera.errors)
 
     # Validate the intrinsics and distortion values
     self._validateIntrinsics(updatedCamera, newIntrinsics, newDistortion)
 
-    logger.info("Camera intrinsics successfully updated and validated")
+    log.info("Camera intrinsics successfully updated and validated")
     return True
 
   def testCameraIntrinsics(self):
@@ -145,31 +145,31 @@ class CameraIntrinsicsTest(FunctionalTest):
       * Update intrinsics with second set of values and validate persistence
       * Cleanup test camera
     """
-    logger.info(f"Executing: {TEST_NAME}")
+    log.info(f"Executing: {TEST_NAME}")
     cameraUID = None
 
     try:
       # Make sure that the SceneScape is up and running
-      logger.info("Make sure that the SceneScape is up and running")
+      log.info("Make sure that the SceneScape is up and running")
       assert self.sceneScapeReady(MAX_ATTEMPTS, MAX_CONTROLLER_WAIT)
 
       # Step 1: Create test camera
-      logger.info("Creating test camera for intrinsics testing")
+      log.info("Creating test camera for intrinsics testing")
       cameraUID = self._setupTestCamera()
 
       # Step 2: Test first set of parameter updates (similar to "top_save" button)
-      logger.info("Testing first set of intrinsics parameter updates")
+      log.info("Testing first set of intrinsics parameter updates")
       assert self._updateAndValidateIntrinsics(cameraUID, 5.0, 5.0)
 
       # Step 3: Test second set of parameter updates (similar to "bottom_save" button)
-      logger.info("Testing second set of intrinsics parameter updates")
+      log.info("Testing second set of intrinsics parameter updates")
       assert self._updateAndValidateIntrinsics(cameraUID, 10.0, 5.0)
 
-      logger.info("Camera intrinsics test completed successfully")
+      log.info("Camera intrinsics test completed successfully")
       self.exitCode = 0
 
     except Exception as e:
-      logger.error(f"Test failed with exception: {e}")
+      log.error(f"Test failed with exception: {e}")
       self.exitCode = 1
       raise
     finally:

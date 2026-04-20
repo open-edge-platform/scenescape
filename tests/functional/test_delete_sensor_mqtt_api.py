@@ -14,7 +14,7 @@ from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
-logger = get_logger(__name__)
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="delete_sensor_mqtt_api", profile=FULL_STACK,
@@ -101,8 +101,8 @@ class SensorDeleteMqtt(SceneObjectMqtt):
     )
     error_code = result[0]
     if error_code != 0:
-      logger.error(f"Failed to send sensor {sensor_name} value!")
-      logger.error(f"publish result: {result.is_published()}")
+      log.error(f"Failed to send sensor {sensor_name} value!")
+      log.error(f"publish result: {result.is_published()}")
     return error_code == 0
 
 def test_sensor_delete_mqtt(request, record_xml_attribute):

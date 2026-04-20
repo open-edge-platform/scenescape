@@ -6,7 +6,8 @@
 import os
 import json
 import time
-from scene_common import log
+from tests.utils.log import get_logger
+log = get_logger(__name__)
 from scene_common.mqtt import PubSub
 from tests.functional import FunctionalTest
 from scene_common.timestamp import get_iso_time

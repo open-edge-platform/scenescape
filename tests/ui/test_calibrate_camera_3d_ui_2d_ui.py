@@ -5,7 +5,8 @@
 
 import os
 import tests.ui.common_ui_test_utils as common
-from scene_common import log
+from tests.utils.log import get_logger
+log = get_logger(__name__)
 from tests.ui import UserInterfaceTest
 from tests.ui.browser import By
 from tests.utils.spec import FuncTestSpec

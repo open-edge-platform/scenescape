@@ -3,7 +3,8 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from scene_common import log
+from tests.utils.log import get_logger
+log = get_logger(__name__)
 from fast_geometry import Point as cppPoint, Line as cppLine
 from legacy_geometry.geometry import Point as pyPoint, Line as pyLine
 

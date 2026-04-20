@@ -12,7 +12,7 @@ from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import REID
 from tests.utils.log import get_logger
 
-logger = get_logger(__name__)
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="reid_unique_count", profile=REID,
@@ -32,11 +32,11 @@ def on_connect(mqttc, data, flags, rc):
   global connected
   global detection_count
   connected = True
-  logger.info("Connected to MQTT Broker")
+  log.info("Connected to MQTT Broker")
   for sc_uid in detection_count:
     topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=sc_uid, thing_type="person")
     mqttc.subscribe(topic, 0)
-    logger.info("Subscribed to the topic {}".format(topic))
+    log.info("Subscribed to the topic {}".format(topic))
   return
 
 def on_scene_message(mqttc, condlock, msg):
@@ -61,22 +61,22 @@ def check_unique_detections():
 
   while time.time() - start_time < TEST_WAIT_TIME:
     time.sleep(interval)
-    logger.info(f"Status after {int(time.time() - start_time)} / {TEST_WAIT_TIME} sec")
+    log.info(f"Status after {int(time.time() - start_time)} / {TEST_WAIT_TIME} sec")
 
     for scene in detection_count:
       if detection_count[scene]["current"] <= detection_count[scene]["maximum"]:
-        logger.info(f"-> Detections for {scene} of: {detection_count[scene]['current']} (max: {detection_count[scene]['maximum']})")
+        log.info(f"-> Detections for {scene} of: {detection_count[scene]['current']} (max: {detection_count[scene]['maximum']})")
       else:
-        logger.error(f"-> Detections for {scene} is greater than the maximum: {detection_count[scene]['current']} (max: {detection_count[scene]['maximum']})!")
+        log.error(f"-> Detections for {scene} is greater than the maximum: {detection_count[scene]['current']} (max: {detection_count[scene]['maximum']})!")
         return False
 
       if detection_count[scene]["error"]:
-        logger.error(f"The unique detection counter for {scene} somehow got decremented!")
+        log.error(f"The unique detection counter for {scene} somehow got decremented!")
         return False
 
   for scene in detection_count:
     if detection_count[scene]["current"] <= 0:
-      logger.error(f"The unique detection counter for {scene} shouldn't be 0!")
+      log.error(f"The unique detection counter for {scene} shouldn't be 0!")
       return False
 
   return True
@@ -124,8 +124,8 @@ def test_reid_unique_count(params, record_xml_attribute):
   """
   TEST_NAME = "NEX-T10539"
   record_xml_attribute("name", TEST_NAME)
-  logger.info("Executing: " + TEST_NAME)
-  logger.info("Test the unique count for each scene when RE-ID is enabled.")
+  log.info("Executing: " + TEST_NAME)
+  log.info("Test the unique count for each scene when RE-ID is enabled.")
 
   scene_config = {
     "3bc091c7-e449-46a0-9540-29c499bca18c": {

@@ -8,7 +8,8 @@ import math
 import time
 from http import HTTPStatus
 
-from scene_common import log
+from tests.utils.log import get_logger
+log = get_logger(__name__)
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 

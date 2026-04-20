@@ -13,7 +13,7 @@ handled by exactly one console handler and phase-specific file handlers.
 Typical usage in fixtures / utilities::
 
     from utils.log import get_logger
-    logger = get_logger(__name__)   # e.g. "test.containers"
+    log = get_logger(__name__)   # e.g. "test.containers"
 
 In conftest pytest_runtest_setup hook::
 

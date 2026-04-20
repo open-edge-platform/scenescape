@@ -19,7 +19,7 @@ from contextlib import contextmanager
 from tests.functional import FunctionalTest
 from tests.utils.log import get_logger
 
-logger = get_logger(__name__)
+log = get_logger(__name__)
 from scene_common.rest_client import RESTClient
 from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
 from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
@@ -141,11 +141,11 @@ class AutoCalibration(FunctionalTest):
       tags = det.detect(gray)
 
     if not tags:
-      logger.info("No AprilTags detected; skipping obscuration.")
+      log.info("No AprilTags detected; skipping obscuration.")
       _, buf = cv2.imencode(".png", img)
       return base64.b64encode(buf).decode("utf-8")
 
-    logger.info(f"Detected {len(tags)} AprilTags")
+    log.info(f"Detected {len(tags)} AprilTags")
     if n_tags > len(tags):
       n_tags = len(tags)
 
@@ -158,7 +158,7 @@ class AutoCalibration(FunctionalTest):
       x1, y1 = max(0, x1 - pad), max(0, y1 - pad)
       x2, y2 = min(img.shape[1], x2 + pad), min(img.shape[0], y2 + pad)
       cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 0), -1)
-      logger.info(f"Obscured tag {i+1}: ({x1},{y1}) - ({x2},{y2})")
+      log.info(f"Obscured tag {i+1}: ({x1},{y1}) - ({x2},{y2})")
 
     _, buf = cv2.imencode(".png", img)
     return base64.b64encode(buf).decode("utf-8")
@@ -167,10 +167,10 @@ class AutoCalibration(FunctionalTest):
     url = f"{BASE_URL}/v1/status"
     try:
       r = requests.get(url, verify=self.rootcert)
-      logger.info(f"Service status: {r.json()}")
+      log.info(f"Service status: {r.json()}")
       return r.json()
     except Exception as e:
-      logger.error(f"Error fetching service status: {e}")
+      log.error(f"Error fetching service status: {e}")
       return None
 
   def register_scene(self, method="POST", poll_interval=5, timeout=60):
@@ -178,33 +178,33 @@ class AutoCalibration(FunctionalTest):
     try:
       if method.upper() == "POST":
         r = requests.post(url, json={}, verify=self.rootcert)
-        logger.info(f"POST scene registration [{self.scene_name}]: {r.status_code} {r.text}")
+        log.info(f"POST scene registration [{self.scene_name}]: {r.status_code} {r.text}")
       else:
         r = requests.get(url, verify=self.rootcert)
-        logger.info(f"GET scene registration status [{self.scene_name}]: {r.status_code} {r.text}")
+        log.info(f"GET scene registration status [{self.scene_name}]: {r.status_code} {r.text}")
       data = r.json()
       if method.upper() == "POST" and data.get("status") == "registering":
-        logger.info(f"Scene \'{self.scene_name}\' registering... polling for completion")
+        log.info(f"Scene \'{self.scene_name}\' registering... polling for completion")
         start_time = time.time()
         while time.time() - start_time < timeout:
           time.sleep(poll_interval)
           try:
             poll_resp = requests.get(url, verify=self.rootcert)
             poll_data = poll_resp.json()
-            logger.info(f"Poll result: {poll_data}")
+            log.info(f"Poll result: {poll_data}")
             if poll_data.get("status") == "success":
-              logger.info(f"Scene registration complete: {poll_data}")
+              log.info(f"Scene registration complete: {poll_data}")
               return poll_data
             elif poll_data.get("status") == "error":
-              logger.error(f"Scene registration failed: {poll_data}")
+              log.error(f"Scene registration failed: {poll_data}")
               return poll_data
           except Exception as pe:
-            logger.error(f"Error polling scene status: {pe}")
-        logger.warning("Scene registration polling timed out")
+            log.error(f"Error polling scene status: {pe}")
+        log.warning("Scene registration polling timed out")
         return data
       return data
     except Exception as e:
-      logger.error(f"Error registering scene: {e}")
+      log.error(f"Error registering scene: {e}")
       return None
 
   def start_calibration(self, image_b64, intrinsics=None):
@@ -214,10 +214,10 @@ class AutoCalibration(FunctionalTest):
       payload["intrinsics"] = intrinsics
     try:
       r = requests.post(url, json=payload, verify=self.rootcert)
-      logger.info(f"Calibration start: {r.status_code} {r.text}")
+      log.info(f"Calibration start: {r.status_code} {r.text}")
       return r.json()
     except Exception as e:
-      logger.error(f"Error starting calibration: {e}")
+      log.error(f"Error starting calibration: {e}")
       return None
 
   def get_calibration_status(self):
@@ -225,10 +225,10 @@ class AutoCalibration(FunctionalTest):
     try:
       r = requests.get(url, verify=self.rootcert)
       data = r.json()
-      logger.info(f"Calibration status: {r.status_code} {data}")
+      log.info(f"Calibration status: {r.status_code} {data}")
       return data
     except Exception as e:
-      logger.error(f"Error checking calibration: {e}")
+      log.error(f"Error checking calibration: {e}")
       return None
 
   def runAutoCalibration(self):
@@ -236,7 +236,7 @@ class AutoCalibration(FunctionalTest):
       time.sleep(MAX_WAIT)
       status = self.get_status()
       if not status or status.get("status") != "running":
-        logger.warning("Service not ready, aborting")
+        log.warning("Service not ready, aborting")
         return
 
       if not self.sceneRegistered:
@@ -244,7 +244,7 @@ class AutoCalibration(FunctionalTest):
         self.sceneRegistered = True
         assert reg
         assert reg['status'] == "success"
-        logger.info(f"Registering status: {reg}")
+        log.info(f"Registering status: {reg}")
 
       if self.nTags > 0:
         img_b64 = self.obscure_detected_apriltag(
@@ -255,7 +255,7 @@ class AutoCalibration(FunctionalTest):
 
       start = self.start_calibration(img_b64, self.intrinsics)
       if not start or start.get("status") not in ("calibrating", "success", "pending"):
-        logger.warning(f"Failed to start calibration: {start}")
+        log.warning(f"Failed to start calibration: {start}")
         return
 
       for _ in range(12):

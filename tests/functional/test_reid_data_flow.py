@@ -21,7 +21,7 @@ from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
 from tests.utils.log import get_logger
 
-logger = get_logger(__name__)
+log = get_logger(__name__)
 from controller.vdms_adapter import VDMSDatabase, vdms
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import REID
@@ -137,16 +137,16 @@ def wait_for_vdms_ready(use_tls=False, max_attempts=30, retry_interval=1):
       }]
 
       result = vdb.db.query(query)
-      logger.info(f"VDMS is ready (attempt {attempt + 1})")
+      log.info(f"VDMS is ready (attempt {attempt + 1})")
       return True
 
     except Exception as e:
-      logger.debug(f"VDMS health check attempt {attempt + 1}/{max_attempts}: {e}")
+      log.debug(f"VDMS health check attempt {attempt + 1}/{max_attempts}: {e}")
 
     if attempt < max_attempts - 1:
       time.sleep(retry_interval)
 
-  logger.warning(f"VDMS not ready after {max_attempts} attempts")
+  log.warning(f"VDMS not ready after {max_attempts} attempts")
   return False
 
 
@@ -186,22 +186,22 @@ def query_vdms_reid_count(camera_id, scene_uid, use_tls=True):
     if isinstance(result, tuple) and len(result) == 2:
       response, _ = result
     else:
-      logger.error(f"VDMS query returned unexpected result type: "
+      log.error(f"VDMS query returned unexpected result type: "
                 f"{type(result)}, value: {result}")
       return 0
 
     if response and len(response) > 0:
       find_result = response[0].get("FindDescriptor", {})
       entities = find_result.get("entities", [])
-      logger.info(f"VDMS query found {len(entities)} reid vectors "
+      log.info(f"VDMS query found {len(entities)} reid vectors "
                f"for camera {camera_id}")
       return len(entities)
 
-    logger.info(f"VDMS query found 0 reid vectors for camera {camera_id}")
+    log.info(f"VDMS query found 0 reid vectors for camera {camera_id}")
     return 0
 
   except Exception as e:
-    logger.error(f"VDMS query failed: {e}")
+    log.error(f"VDMS query failed: {e}")
     return 0
 
 
@@ -234,7 +234,7 @@ def setup_test_environment(params):
   test_camera = cameras_result['results'][0]
   camera_id = test_camera['uid']
 
-  logger.info(f"Testing with scene: {scene_name} ({scene_uid}), camera: {camera_id}")
+  log.info(f"Testing with scene: {scene_name} ({scene_uid}), camera: {camera_id}")
 
   # Connect to MQTT broker to publish test messages
   mqtt_broker = params.get('broker_url', 'broker.scenescape.intel.com')
@@ -242,7 +242,7 @@ def setup_test_environment(params):
   client_cert = params.get('client_cert')
   root_cert = params['rootcert']
 
-  logger.info(f"Connecting to MQTT broker: {mqtt_broker}")
+  log.info(f"Connecting to MQTT broker: {mqtt_broker}")
   pubsub = PubSub(mqtt_auth, client_cert, root_cert, mqtt_broker, keepalive=60)
 
   # Wait for connection
@@ -250,7 +250,7 @@ def setup_test_environment(params):
   def on_connect(client, userdata, flags, rc):
     nonlocal connected
     connected = True
-    logger.info(f"Connected to MQTT broker with result code {rc}")
+    log.info(f"Connected to MQTT broker with result code {rc}")
 
   pubsub.onConnect = on_connect
   pubsub.connect()
@@ -263,24 +263,24 @@ def setup_test_environment(params):
     time.sleep(0.1)
 
   assert connected, "Failed to connect to MQTT broker"
-  logger.info("Successfully connected to MQTT broker")
+  log.info("Successfully connected to MQTT broker")
 
   # Wait for VDMS to be ready using connection check
-  logger.info("Waiting for VDMS to be ready...")
+  log.info("Waiting for VDMS to be ready...")
   vdms_ready = wait_for_vdms_ready(use_tls=False, max_attempts=30, retry_interval=1)
   assert vdms_ready, "VDMS failed to become ready within timeout"
-  logger.info("VDMS is ready")
+  log.info("VDMS is ready")
 
   # Ensure VDMS descriptor set exists
-  logger.info("Ensuring VDMS descriptor set exists...")
+  log.info("Ensuring VDMS descriptor set exists...")
   vdb = VDMSDatabase()
   vdb.db.connect("vdms.scenescape.intel.com")
   if not vdb.findSchema("reid_vector"):
-    logger.info("Creating reid_vector descriptor set...")
+    log.info("Creating reid_vector descriptor set...")
     vdb.addSchema("reid_vector", "L2", 256)
-    logger.info("Descriptor set created successfully")
+    log.info("Descriptor set created successfully")
   else:
-    logger.info("Descriptor set already exists")
+    log.info("Descriptor set already exists")
 
   topic_str = f"scenescape/data/camera/{camera_id}"
   return rest, scene_uid, scene_name, camera_id, pubsub, topic_str
@@ -297,13 +297,13 @@ def publish_detection_frames(pubsub, topic_str, detections_data, num_frames=25):
   """
   frame_interval = 0.1  # 10 FPS to match tracker config
 
-  logger.info(f"Publishing {num_frames} frames to topic: {topic_str}")
+  log.info(f"Publishing {num_frames} frames to topic: {topic_str}")
   for frame_num in range(num_frames):
     msg = create_detection_message(list(detections_data.keys())[0], detections_data[list(detections_data.keys())[0]])
     pubsub.publish(topic_str, json.dumps(msg))
     time.sleep(frame_interval)
 
-  logger.info(f"Published {num_frames} frames")
+  log.info(f"Published {num_frames} frames")
 
 
 def trigger_track_pruning(pubsub, topic_str, camera_id):
@@ -315,11 +315,11 @@ def trigger_track_pruning(pubsub, topic_str, camera_id):
   @param camera_id  Camera identifier
   """
   # Wait for similarity query to complete
-  logger.info("Waiting for similarity query to complete...")
+  log.info("Waiting for similarity query to complete...")
   time.sleep(2)
 
   # Publish multiple empty frames to trigger track pruning
-  logger.info("Sending 10 empty frames to trigger track pruning...")
+  log.info("Sending 10 empty frames to trigger track pruning...")
   for i in range(10):
     empty_msg = {
       "id": camera_id,
@@ -331,7 +331,7 @@ def trigger_track_pruning(pubsub, topic_str, camera_id):
     time.sleep(0.1)
 
   # Wait for timeout flush and VDMS insertion
-  logger.info("Waiting for stale feature timeout (5s) and VDMS storage (3s)...")
+  log.info("Waiting for stale feature timeout (5s) and VDMS storage (3s)...")
   time.sleep(8)
 
 
@@ -347,16 +347,16 @@ def test_reid_no_metadata(params, record_xml_attribute):
   """
   TEST_NAME = "NEX-T19883-NO-METADATA"
   record_xml_attribute("name", TEST_NAME)
-  logger.info(f"Executing: {TEST_NAME}")
+  log.info(f"Executing: {TEST_NAME}")
 
   exit_code = 1
 
   try:
     rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
 
-    logger.info("=" * 80)
-    logger.info("SCENARIO 1: Testing with NO metadata")
-    logger.info("=" * 80)
+    log.info("=" * 80)
+    log.info("SCENARIO 1: Testing with NO metadata")
+    log.info("=" * 80)
 
     # Create detection without metadata
     detections_no_metadata = [
@@ -370,26 +370,26 @@ def test_reid_no_metadata(params, record_xml_attribute):
     assert "metadata" not in msg_no_metadata["objects"]["person"][0], \
            "Should have no metadata"
 
-    logger.info("✓ Message structure verified")
+    log.info("✓ Message structure verified")
 
     # Publish message
     pubsub.publish(topic_str, json.dumps(msg_no_metadata))
-    logger.info(f"Published message to topic: {topic_str}")
+    log.info(f"Published message to topic: {topic_str}")
     time.sleep(1)
 
     # Verify NO reid data stored
     reid_count = query_vdms_reid_count(camera_id, scene_uid, use_tls=False)
     assert reid_count == 0, f"Expected 0 reid vectors, found {reid_count}"
-    logger.info("✓ VDMS verification passed: No reid vectors stored")
+    log.info("✓ VDMS verification passed: No reid vectors stored")
 
-    logger.info("✓ Test passed: No metadata flow validated")
+    log.info("✓ Test passed: No metadata flow validated")
 
     pubsub.loopStop()
     pubsub.disconnect()
     exit_code = 0
 
   except Exception as e:
-    logger.error(f"Test failed with exception: {e}")
+    log.error(f"Test failed with exception: {e}")
     import traceback
     traceback.print_exc()
     raise
@@ -412,16 +412,16 @@ def test_reid_only_metadata(params, record_xml_attribute):
   """
   TEST_NAME = "NEX-T19883-REID-ONLY"
   record_xml_attribute("name", TEST_NAME)
-  logger.info(f"Executing: {TEST_NAME}")
+  log.info(f"Executing: {TEST_NAME}")
 
   exit_code = 1
 
   try:
     rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
 
-    logger.info("=" * 80)
-    logger.info("SCENARIO 2: Testing with REID ONLY metadata")
-    logger.info("=" * 80)
+    log.info("=" * 80)
+    log.info("SCENARIO 2: Testing with REID ONLY metadata")
+    log.info("=" * 80)
 
     # Create embeddings
     embeddings = [create_reid_embedding(), create_reid_embedding()]
@@ -452,19 +452,19 @@ def test_reid_only_metadata(params, record_xml_attribute):
       assert len(reid["embedding_vector"]) > 1000, \
              f"Detection {idx}: embedding base64 string seems too short"
 
-    logger.info(f"✓ Message structure verified ({len(detections_reid_only)} detections with reid)")
+    log.info(f"✓ Message structure verified ({len(detections_reid_only)} detections with reid)")
 
     # Publish multiple frames to establish tracking
     num_frames = 25
     frame_interval = 0.1
 
-    logger.info(f"Publishing {num_frames} frames with reid metadata...")
+    log.info(f"Publishing {num_frames} frames with reid metadata...")
     for frame_num in range(num_frames):
       msg_reid_only = create_detection_message(camera_id, detections_reid_only)
       pubsub.publish(topic_str, json.dumps(msg_reid_only))
       time.sleep(frame_interval)
 
-    logger.info(f"Published {num_frames} reid-only frames")
+    log.info(f"Published {num_frames} reid-only frames")
 
     # Trigger track pruning and VDMS storage
     trigger_track_pruning(pubsub, topic_str, camera_id)
@@ -472,16 +472,16 @@ def test_reid_only_metadata(params, record_xml_attribute):
     # Verify reid vectors stored
     reid_count = query_vdms_reid_count(camera_id, scene_uid, use_tls=False)
     assert reid_count >= 2, f"Expected >= 2 reid vectors, found {reid_count}"
-    logger.info(f"✓ VDMS verification passed: {reid_count} reid vectors stored")
+    log.info(f"✓ VDMS verification passed: {reid_count} reid vectors stored")
 
-    logger.info("✓ Test passed: Reid-only flow validated")
+    log.info("✓ Test passed: Reid-only flow validated")
 
     pubsub.loopStop()
     pubsub.disconnect()
     exit_code = 0
 
   except Exception as e:
-    logger.error(f"Test failed with exception: {e}")
+    log.error(f"Test failed with exception: {e}")
     import traceback
     traceback.print_exc()
     raise
@@ -505,20 +505,20 @@ def test_reid_semantic_only_metadata(params, record_xml_attribute):
   """
   TEST_NAME = "NEX-T19883-SEMANTIC-ONLY"
   record_xml_attribute("name", TEST_NAME)
-  logger.info(f"Executing: {TEST_NAME}")
+  log.info(f"Executing: {TEST_NAME}")
 
   exit_code = 1
 
   try:
     rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
 
-    logger.info("=" * 80)
-    logger.info("SCENARIO 3: Testing with SEMANTIC ONLY metadata")
-    logger.info("=" * 80)
+    log.info("=" * 80)
+    log.info("SCENARIO 3: Testing with SEMANTIC ONLY metadata")
+    log.info("=" * 80)
 
     # Capture current reid count before semantic-only test
     reid_count_before = query_vdms_reid_count(camera_id, scene_uid, use_tls=False)
-    logger.info(f"VDMS reid vectors before semantic-only test: {reid_count_before}")
+    log.info(f"VDMS reid vectors before semantic-only test: {reid_count_before}")
 
     # Define semantic metadata
     semantic_attrs = {
@@ -544,29 +544,29 @@ def test_reid_semantic_only_metadata(params, record_xml_attribute):
     assert det["metadata"]["age"]["value"] == 28, "Age value incorrect"
     assert det["metadata"]["gender"]["value"] == "male", "Gender value incorrect"
 
-    logger.info("✓ Message structure verified (semantic attributes: age, gender)")
+    log.info("✓ Message structure verified (semantic attributes: age, gender)")
 
     # Publish message
     pubsub.publish(topic_str, json.dumps(msg_semantic_only))
-    logger.info(f"Published semantic-only message to topic: {topic_str}")
+    log.info(f"Published semantic-only message to topic: {topic_str}")
     time.sleep(2)
 
     # Verify NO NEW reid vectors stored (semantic only, no reid)
     # VDMS is persistent, so we check that count doesn't increase
     reid_count_after = query_vdms_reid_count(camera_id, scene_uid, use_tls=False)
-    logger.info(f"VDMS reid vectors after semantic-only test: {reid_count_after}")
+    log.info(f"VDMS reid vectors after semantic-only test: {reid_count_after}")
     assert reid_count_after == reid_count_before, \
            f"Expected no new reid vectors (before={reid_count_before}, after={reid_count_after})"
-    logger.info(f"✓ VDMS verification passed: No new reid vectors stored ({reid_count_before} total)")
+    log.info(f"✓ VDMS verification passed: No new reid vectors stored ({reid_count_before} total)")
 
-    logger.info("✓ Test passed: Semantic-only flow validated")
+    log.info("✓ Test passed: Semantic-only flow validated")
 
     pubsub.loopStop()
     pubsub.disconnect()
     exit_code = 0
 
   except Exception as e:
-    logger.error(f"Test failed with exception: {e}")
+    log.error(f"Test failed with exception: {e}")
     import traceback
     traceback.print_exc()
     raise
@@ -589,16 +589,16 @@ def test_reid_combined_metadata(params, record_xml_attribute):
   """
   TEST_NAME = "NEX-T19883-COMBINED"
   record_xml_attribute("name", TEST_NAME)
-  logger.info(f"Executing: {TEST_NAME}")
+  log.info(f"Executing: {TEST_NAME}")
 
   exit_code = 1
 
   try:
     rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
 
-    logger.info("=" * 80)
-    logger.info("SCENARIO 4: Testing with REID + SEMANTIC metadata")
-    logger.info("=" * 80)
+    log.info("=" * 80)
+    log.info("SCENARIO 4: Testing with REID + SEMANTIC metadata")
+    log.info("=" * 80)
 
     # Create embeddings and semantic metadata
     embeddings = [create_reid_embedding(), create_reid_embedding()]
@@ -639,19 +639,19 @@ def test_reid_combined_metadata(params, record_xml_attribute):
       assert "value" in det["metadata"]["age"], f"Detection {idx}: age missing value"
       assert "confidence" in det["metadata"]["age"], f"Detection {idx}: age missing confidence"
 
-    logger.info(f"✓ Message structure verified ({len(detections_combined)} detections with reid+semantic)")
+    log.info(f"✓ Message structure verified ({len(detections_combined)} detections with reid+semantic)")
 
     # Publish multiple frames to establish tracking
     num_frames = 25
     frame_interval = 0.1
 
-    logger.info(f"Publishing {num_frames} frames with reid+semantic metadata...")
+    log.info(f"Publishing {num_frames} frames with reid+semantic metadata...")
     for frame_num in range(num_frames):
       msg_combined = create_detection_message(camera_id, detections_combined)
       pubsub.publish(topic_str, json.dumps(msg_combined))
       time.sleep(frame_interval)
 
-    logger.info(f"Published {num_frames} combined reid+semantic frames")
+    log.info(f"Published {num_frames} combined reid+semantic frames")
 
     # Trigger track pruning and VDMS storage
     trigger_track_pruning(pubsub, topic_str, camera_id)
@@ -659,16 +659,16 @@ def test_reid_combined_metadata(params, record_xml_attribute):
     # Verify reid vectors stored
     reid_count = query_vdms_reid_count(camera_id, scene_uid, use_tls=False)
     assert reid_count >= 2, f"Expected >= 2 reid vectors, found {reid_count}"
-    logger.info(f"✓ VDMS verification passed: {reid_count} reid vectors stored")
+    log.info(f"✓ VDMS verification passed: {reid_count} reid vectors stored")
 
-    logger.info("✓ Test passed: Combined reid+semantic flow validated")
+    log.info("✓ Test passed: Combined reid+semantic flow validated")
 
     pubsub.loopStop()
     pubsub.disconnect()
     exit_code = 0
 
   except Exception as e:
-    logger.error(f"Test failed with exception: {e}")
+    log.error(f"Test failed with exception: {e}")
     import traceback
     traceback.print_exc()
     raise

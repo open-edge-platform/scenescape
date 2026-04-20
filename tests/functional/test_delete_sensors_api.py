@@ -12,7 +12,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
 
-logger = get_logger(__name__)
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="delete_sensors_api", profile=FULL_STACK,
@@ -40,7 +40,7 @@ class DeleteSensorsTest(FunctionalTest):
 
   def _createTestScene(self, sceneName):
     """Create a test scene"""
-    logger.info(f"Creating test scene: {sceneName}")
+    log.info(f"Creating test scene: {sceneName}")
 
     sceneData = {
       'name': sceneName,
@@ -53,7 +53,7 @@ class DeleteSensorsTest(FunctionalTest):
 
   def _createTestSensor(self, sceneUID, sensorName, sensorId):
     """Create a test sensor in the given scene"""
-    logger.info(f"Creating test sensor: {sensorName} in scene: {sceneUID}")
+    log.info(f"Creating test sensor: {sensorName} in scene: {sceneUID}")
 
     # Create a simple rectangular sensor
     sensorData = {
@@ -75,7 +75,7 @@ class DeleteSensorsTest(FunctionalTest):
 
   def _verifySensorExists(self, sensorName):
     """Verify that sensor exists in the sensor list"""
-    logger.info(f"Verifying sensor {sensorName} exists")
+    log.info(f"Verifying sensor {sensorName} exists")
 
     sensors = self.rest.getSensors({})
     assert sensors, (sensors.statusCode, sensors.errors)
@@ -88,7 +88,7 @@ class DeleteSensorsTest(FunctionalTest):
 
   def _verifySensorOrphaned(self, sensorUID):
     """Verify that sensor is orphaned (scene is None)"""
-    logger.info(f"Verifying sensor {sensorUID} is orphaned")
+    log.info(f"Verifying sensor {sensorUID} is orphaned")
 
     sensor = self.rest.getSensor(sensorUID)
     assert sensor, (sensor.statusCode, sensor.errors)
@@ -99,7 +99,7 @@ class DeleteSensorsTest(FunctionalTest):
     """Delete the test scene"""
     try:
       if sceneUID:
-        logger.info(f"Cleaning up test scene: {sceneUID}")
+        log.info(f"Cleaning up test scene: {sceneUID}")
         self.rest.deleteScene(sceneUID)
     except:
       pass  # Scene might already be deleted
@@ -108,7 +108,7 @@ class DeleteSensorsTest(FunctionalTest):
     """Delete the test sensor"""
     try:
       if sensorUID:
-        logger.info(f"Cleaning up test sensor: {sensorUID}")
+        log.info(f"Cleaning up test sensor: {sensorUID}")
         self.rest.deleteSensor(sensorUID)
     except:
       pass  # Sensor might already be deleted
@@ -125,8 +125,8 @@ class DeleteSensorsTest(FunctionalTest):
       * Verify both sensors are completely removed
       * Cleanup remaining scene
     """
-    logger.info(f"Executing: {TEST_NAME}")
-    logger.info("Test deleting sensors")
+    log.info(f"Executing: {TEST_NAME}")
+    log.info("Test deleting sensors")
 
     scene1UID = None
     scene2UID = None
@@ -135,7 +135,7 @@ class DeleteSensorsTest(FunctionalTest):
 
     try:
       # Make sure that the SceneScape is up and running
-      logger.info("Make sure that the SceneScape is up and running")
+      log.info("Make sure that the SceneScape is up and running")
       assert self.sceneScapeReady(MAX_ATTEMPTS, MAX_CONTROLLER_WAIT)
 
       # Step 1: Create two test scenes
@@ -147,7 +147,7 @@ class DeleteSensorsTest(FunctionalTest):
       sensor2UID = self._createTestSensor(scene2UID, self.testSensor2Name, self.testSensor2Id)
 
       # Step 3: Delete Scene-2 (making Sensor_2 orphaned)
-      logger.info(f"Deleting scene: {self.testScene2Name}")
+      log.info(f"Deleting scene: {self.testScene2Name}")
       deleteResult = self.rest.deleteScene(scene2UID)
       assert deleteResult.statusCode == HTTPStatus.OK, (deleteResult.statusCode, deleteResult.errors)
       scene2UID = None  # Mark as deleted
@@ -156,42 +156,42 @@ class DeleteSensorsTest(FunctionalTest):
       time.sleep(1)
 
       # Step 4: Verify Sensor_2 is now orphaned
-      logger.info(f"Verifying {self.testSensor2Name} is orphaned")
+      log.info(f"Verifying {self.testSensor2Name} is orphaned")
       assert self._verifySensorOrphaned(sensor2UID), f"{self.testSensor2Name} should be orphaned"
 
       # Step 5: Delete Sensor_1 (which was assigned to Scene-1)
-      logger.info(f"Deleting sensor: {self.testSensor1Name} (assigned to {self.testScene1Name})")
+      log.info(f"Deleting sensor: {self.testSensor1Name} (assigned to {self.testScene1Name})")
       deleteResult = self.rest.deleteSensor(sensor1UID)
       assert deleteResult.statusCode == HTTPStatus.OK, (deleteResult.statusCode, deleteResult.errors)
 
       # Verify Sensor_1 is deleted
       sensorExists, _ = self._verifySensorExists(self.testSensor1Name)
       assert not sensorExists, f"{self.testSensor1Name} should be deleted"
-      logger.info(f"{self.testSensor1Name} was assigned to {self.testScene1Name} and can be deleted")
+      log.info(f"{self.testSensor1Name} was assigned to {self.testScene1Name} and can be deleted")
       sensor1UID = None  # Mark as deleted
 
       # Step 6: Delete Sensor_2 (which was orphaned)
-      logger.info(f"Deleting sensor: {self.testSensor2Name} (orphaned)")
+      log.info(f"Deleting sensor: {self.testSensor2Name} (orphaned)")
       deleteResult = self.rest.deleteSensor(sensor2UID)
       assert deleteResult.statusCode == HTTPStatus.OK, (deleteResult.statusCode, deleteResult.errors)
 
       # Verify Sensor_2 is deleted
       sensorExists, _ = self._verifySensorExists(self.testSensor2Name)
       assert not sensorExists, f"{self.testSensor2Name} should be deleted"
-      logger.info(f"{self.testSensor2Name} was orphaned(--) and can be deleted")
+      log.info(f"{self.testSensor2Name} was orphaned(--) and can be deleted")
       sensor2UID = None  # Mark as deleted
 
       # Step 7: Delete remaining Scene-1
-      logger.info(f"Deleting remaining scene: {self.testScene1Name}")
+      log.info(f"Deleting remaining scene: {self.testScene1Name}")
       deleteResult = self.rest.deleteScene(scene1UID)
       assert deleteResult.statusCode == HTTPStatus.OK, (deleteResult.statusCode, deleteResult.errors)
       scene1UID = None  # Mark as deleted
 
-      logger.info("Delete sensors test completed successfully")
+      log.info("Delete sensors test completed successfully")
       self.exitCode = 0
 
     except Exception as e:
-      logger.error(f"Test failed with exception: {e}")
+      log.error(f"Test failed with exception: {e}")
       self.exitCode = 1
       raise
     finally:

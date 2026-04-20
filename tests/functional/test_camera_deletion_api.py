@@ -11,7 +11,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
 
-logger = get_logger(__name__)
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="camera_deletion_api", profile=FULL_STACK,
@@ -60,21 +60,21 @@ class CameraDeletionTest(FunctionalTest):
       * Verify camera is deleted
       * Cleanup: delete temporary scene
     """
-    logger.info(f"Executing: {TEST_NAME}")
+    log.info(f"Executing: {TEST_NAME}")
 
     try:
       # Make sure that the SceneScape is up and running
-      logger.info("Make sure that the SceneScape is up and running")
+      log.info("Make sure that the SceneScape is up and running")
       assert self.sceneScapeReady(MAX_ATTEMPTS, MAX_CONTROLLER_WAIT)
 
       # Step 1: Create a temporary scene to initially attach camera
-      logger.info(f"Creating temporary scene: {self.newSceneName}")
+      log.info(f"Creating temporary scene: {self.newSceneName}")
       tempScene = self.rest.createScene({'name': self.newSceneName})
       assert tempScene, (tempScene.statusCode, tempScene.errors)
       tempSceneUID = tempScene['uid']
 
       # Step 2: Create orphan camera by creating it in temp scene then deleting the scene
-      logger.info(f"Creating camera: {self.newCameraName} in temporary scene")
+      log.info(f"Creating camera: {self.newCameraName} in temporary scene")
       newCamera = self.rest.createCamera({
         'name': self.newCameraName,
         'sensor_id': self.newCameraId,
@@ -84,34 +84,34 @@ class CameraDeletionTest(FunctionalTest):
       cameraUID = newCamera['uid']
 
       # Step 3: Delete temporary scene to make camera orphan
-      logger.info(f"Deleting temporary scene to create orphan camera")
+      log.info(f"Deleting temporary scene to create orphan camera")
       deleteResult = self.rest.deleteScene(tempSceneUID)
       assert deleteResult.statusCode == HTTPStatus.OK, (deleteResult.statusCode, deleteResult.errors)
 
       # Step 4: Verify camera is now orphan (scene is None)
-      logger.info("Verifying camera is now orphan")
+      log.info("Verifying camera is now orphan")
       cameraCheck = self.rest.getCamera(cameraUID)
       assert cameraCheck, (cameraCheck.statusCode, cameraCheck.errors)
       assert 'scene' not in cameraCheck or cameraCheck['scene'] is None, "Camera should be orphan after scene deletion"
 
       # Step 5: Attach orphan camera to existing test scene
-      logger.info(f"Attaching orphan camera to scene: {self.existingSceneUID}")
+      log.info(f"Attaching orphan camera to scene: {self.existingSceneUID}")
       updateResult = self.rest.updateCamera(cameraUID, {'scene': self.existingSceneUID})
       assert updateResult, (updateResult.statusCode, updateResult.errors)
       assert updateResult['scene'] == self.existingSceneUID
 
       # Step 6: Verify camera is in the scene cameras list
-      logger.info("Verifying camera is attached to scene")
+      log.info("Verifying camera is attached to scene")
       sceneCheck = self.rest.getScene(self.existingSceneUID)
       assert sceneCheck, (sceneCheck.statusCode, sceneCheck.errors)
 
       # Step 7: Delete the camera
-      logger.info(f"Deleting camera: {self.newCameraName}")
+      log.info(f"Deleting camera: {self.newCameraName}")
       deleteResult = self.rest.deleteCamera(cameraUID)
       assert deleteResult.statusCode == HTTPStatus.OK, (deleteResult.statusCode, deleteResult.errors)
 
       # Step 8: Verify camera is deleted - should not appear in cameras list
-      logger.info("Verifying camera is deleted")
+      log.info("Verifying camera is deleted")
       allCameras = self.rest.getCameras({})
       assert allCameras, (allCameras.statusCode, allCameras.errors)
 
@@ -119,11 +119,11 @@ class CameraDeletionTest(FunctionalTest):
       deletedCamera = self._getCameraByName(allCameras['results'], self.newCameraName)
       assert deletedCamera is None, f"Camera {self.newCameraName} should be deleted but still found in camera list"
 
-      logger.info(f"Camera {self.newCameraName} successfully deleted")
+      log.info(f"Camera {self.newCameraName} successfully deleted")
       self.exitCode = 0
 
     except Exception as e:
-      logger.error(f"Test failed with exception: {e}")
+      log.error(f"Test failed with exception: {e}")
       self.exitCode = 1
       raise
     finally:

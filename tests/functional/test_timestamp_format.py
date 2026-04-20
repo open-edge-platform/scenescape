@@ -7,7 +7,7 @@ from datetime import datetime
 from tests.common_test_utils import record_test_result
 from tests.utils.log import get_logger
 
-logger = get_logger(__name__)
+log = get_logger(__name__)
 
 def get_container_name(pattern, log):
   """Returns the name of a container with specific pattern in name"""
@@ -18,10 +18,10 @@ def get_container_name(pattern, log):
 
   for name in containers:
     if pattern in name:
-      logger.info(f"Container {pattern} found in the container list.")
+      log.info(f"Container {pattern} found in the container list.")
       return name
 
-  logger.info(f"Container {pattern} not found in the container list.")
+  log.info(f"Container {pattern} not found in the container list.")
   return None
 
 
@@ -40,7 +40,7 @@ def is_valid_timestamp(value: str, log) -> bool:
 
     timestamp_regex = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+(?:[+-]\d{2}:\d{2}|Z)?")
     if not timestamp_regex.match(value):
-      logger.debug(f"Value {value!r} does not match expected timestamp format.")
+      log.debug(f"Value {value!r} does not match expected timestamp format.")
       return False
 
     # check validity
@@ -48,12 +48,12 @@ def is_valid_timestamp(value: str, log) -> bool:
       datetime.fromisoformat(value)
       return True
     except Exception as e:
-      logger.debug(f"Value {value!r} matches format but is not a valid timestamp: {e!r}")
+      log.debug(f"Value {value!r} matches format but is not a valid timestamp: {e!r}")
       return False
 
 
   except Exception as e:
-    logger.debug(f"Problem parsing value: {value!r} -> {e!r}")
+    log.debug(f"Problem parsing value: {value!r} -> {e!r}")
     return False
 
 
@@ -62,7 +62,7 @@ def validate_timestamps(output, log):
 
   for line in lines:
     assert is_valid_timestamp(line, log), f"Invalid timestamp {line!r}"
-  logger.info("All values successfully validated.")
+  log.info("All values successfully validated.")
 
 
 def validate_timestamp_format(rows):
@@ -89,7 +89,7 @@ def test_timestamp_format():
   """
   test_name = "NEX-T10547"
   exit_code = 1
-  logger.info(f"Test: {test_name}")
+  log.info(f"Test: {test_name}")
 
   try:
     query = """
@@ -104,7 +104,7 @@ def test_timestamp_format():
 
     pg_container = get_container_name('pgserver', log)
     output = run_psql(pg_container, query)
-    logger.info("Timestamp data from selected fields obtained.")
+    log.info("Timestamp data from selected fields obtained.")
 
     validate_timestamps(output, log)
 
@@ -115,15 +115,15 @@ def test_timestamp_format():
     """
 
     output = run_psql(pg_container, query)
-    logger.info("All timestamps in the postgres database obtained.")
+    log.info("All timestamps in the postgres database obtained.")
 
     lines = output.splitlines()
     lines = [line.strip() for line in lines if line.strip()]
     lines = [line.split("|") for line in lines]
-    logger.info("Output parsed.")
+    log.info("Output parsed.")
 
     validate_timestamp_format(lines)
-    logger.info("All entries successfully validated.")
+    log.info("All entries successfully validated.")
     exit_code = 0
   finally:
     record_test_result(test_name, exit_code)

@@ -11,7 +11,7 @@ from tests.utils.log import get_logger
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 from tests.utils.spec import AUTH_CONTROLLER, FuncTestSpec
 
-logger = get_logger(__name__)
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="scene_details_api", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
@@ -45,24 +45,24 @@ def test_scene_details_api(request, params, record_xml_attribute):
     assert scenes, f"Scene '{scene_name}' not found"
     scene = scenes[0]
     scene_uid = scene["uid"]
-    logger.info(f"Scene '{scene_name}' found with UID: {scene_uid}")
+    log.info(f"Scene '{scene_name}' found with UID: {scene_uid}")
 
     # Fetch scene details
     res = rest.getScene(scene_uid)
     assert res.statusCode == HTTPStatus.OK, f"Failed to fetch scene details: {res.errors}"
     assert res["name"] == scene_name, f"Scene name mismatch: expected '{scene_name}', got '{res['name']}'"
-    logger.info("Scene name verified.")
+    log.info("Scene name verified.")
 
     # Check for map image
     assert "map" in res and res["map"], "Map image not found in scene details"
-    logger.info("Map image verified.")
+    log.info("Map image verified.")
 
     # Check for cameras
     res_cameras = rest.getCameras({"scene": scene_uid})
     assert res_cameras.statusCode == HTTPStatus.OK, f"Failed to fetch cameras: {res_cameras.errors}"
     cameras = res_cameras["results"]
     assert cameras, "No cameras found in scene"
-    logger.info(f"{len(cameras)} camera(s) found in scene.")
+    log.info(f"{len(cameras)} camera(s) found in scene.")
 
     exit_code = 0
   finally:
