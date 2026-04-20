@@ -181,6 +181,75 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 - [tests/test_camera_projection_harness.py](tests/test_camera_projection_harness.py) — 23 test cases covering initialisation, scene/custom config validation (including `object_classes`), output folder, `process_inputs()` success/failure paths, reset, and helper methods.
 - [tests/test_run_projection.py](tests/test_run_projection.py) — 7 test cases covering `_build_class_map` (run without Docker). The size-offset step uses `scene_common.geometry.Line` directly so has no custom math to unit-test.
 
+### MqttHarness
+
+**Purpose**: Black-box end-to-end tracker evaluation over live MQTT messages without any dependency on internal SceneScape Python APIs.
+
+**Mode**: **Synchronous batch processing** — processes all inputs and returns outputs.
+
+**Key Features**:
+
+- Starts an `eclipse-mosquitto` broker container and the tracker container on an isolated Docker network (`mqtt_harness_{run_id}`); both containers and the network are removed after the run.
+- Publishes each input frame to `scenescape/data/camera/{camera_id}` and collects tracker outputs from `scenescape/data/scene/{scene_id}/+`.
+- Timestamp-based pacing: waits `delta_data / playback_rate - elapsed_wall` seconds between frames so the tracker receives data at realistic intervals.
+- Persists `inputs.json` to the output folder when `set_output_folder()` is called.
+
+**Prerequisites**:
+
+- Docker installed and running
+- `eclipse-mosquitto` image available (or override `broker_image`)
+- Tracker container image available (e.g., `scenescape-controller:2026.1.0-dev`)
+- `paho-mqtt>=1.6.1` installed (included in `requirements.txt`)
+
+**Configuration**:
+
+```python
+from harnesses.mqtt_harness import MqttHarness
+from datasets.metric_test_dataset import MetricTestDataset
+
+dataset = MetricTestDataset("path/to/dataset")
+dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
+
+harness = MqttHarness(container_image="scenescape-controller:2026.1.0-dev")
+harness.set_scene_config(dataset.get_scene_config())
+harness.set_custom_config({
+    "tracker_config_path": "/path/to/tracker-config.json",
+    # Optional overrides:
+    # "playback_rate": 1.0,      # Real-time pacing multiplier
+    # "drain_timeout": 5.0,      # Seconds to wait after last frame
+    # "broker_image": "eclipse-mosquitto",
+    # "scene_id": "my-scene-uid",  # Override UID from scene config
+})
+
+outputs = list(harness.process_inputs(dataset.get_inputs()))
+```
+
+**`set_custom_config()` keys**:
+
+| Key | Required | Default | Description |
+|---|---|---|---|
+| `tracker_config_path` | Yes | — | Path to tracker config JSON, mounted into the tracker container |
+| `playback_rate` | No | `1.0` | Publish pacing multiplier (e.g., `2.0` = 2× faster than real-time) |
+| `drain_timeout` | No | `5.0` | Seconds to wait for remaining tracker outputs after the last frame |
+| `broker_image` | No | `"eclipse-mosquitto"` | Docker image for the MQTT broker |
+| `scene_id` | No | derived from scene config `uid` | Override the MQTT topic scene ID |
+
+**MQTT Topics**:
+
+- Input (publish): `scenescape/data/camera/{camera_id}`
+- Output (subscribe): `scenescape/data/scene/{scene_id}/+`
+
+**Implementation**: [mqtt_harness/](mqtt_harness/)
+
+**Files**:
+
+- **mqtt_harness.py**: Main harness implementation
+- `__init__.py`: Module initialisation
+
+**Tests**:
+
+- [tests/test_mqtt_harness.py](tests/test_mqtt_harness.py) — covers initialisation, config validation, timestamp pacing, full orchestration flow (Docker and paho fully mocked).
+
 ## Adding New Harnesses
 
 To add support for a new tracker deployment method:

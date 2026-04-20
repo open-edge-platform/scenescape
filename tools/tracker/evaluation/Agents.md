@@ -58,6 +58,20 @@ Check `datasets/README.md` for more details
   - Dependent on internal implementation: loads configuration file and calls API of SceneScape classes from scene_common and controller modules.
   - Uses separate frame ingestion logic depending on enabling time-chunking in the configuration.
 
+- **MqttHarness**: `harnesses/mqtt_harness/mqtt_harness.py`
+  - Black-box harness that exercises the tracker end-to-end via live MQTT messages, with no dependency on internal SceneScape Python APIs.
+  - Starts an `eclipse-mosquitto` broker container and the tracker container on an isolated Docker network (`mqtt_harness_{run_id}`); both are removed after the run.
+  - Publishes each input frame to `scenescape/data/camera/{camera_id}` and collects tracker outputs from `scenescape/data/scene/{scene_id}/+`.
+  - Timestamps in each frame are used to pace publishing: `sleep(delta_data / playback_rate - elapsed_wall)` before each publish.
+  - `set_custom_config()` accepts:
+    - `tracker_config_path` (**required**): path to the tracker config JSON mounted into the container.
+    - `playback_rate` (default `1.0`): multiplier for timestamp-based pacing.
+    - `drain_timeout` (default `5.0`): seconds to wait for final tracker outputs after the last frame.
+    - `broker_image` (default `"eclipse-mosquitto"`): Docker image for the MQTT broker.
+    - `scene_id`: overrides the scene UID derived from `set_scene_config()`.
+  - After the run, writes `inputs.json` to the output folder (if `set_output_folder()` was called).
+  - Pair this harness with any evaluator (TrackEval, Diagnostic, Jitter) and `pipeline_configs/mqtt_tracker_evaluation.yaml`.
+
 - **CameraProjectionHarness**: `harnesses/camera_projection_harness/camera_projection_harness.py`
   - Bypasses the full tracker and only applies camera-pose projection to isolate per-camera calibration error.
   - Runs `run_projection.py` inside the `scenescape-controller` Docker container (requires `scene_common`, OpenCV, open3d).

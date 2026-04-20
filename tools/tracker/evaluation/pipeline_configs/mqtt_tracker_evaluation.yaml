@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# MQTT Tracker Evaluation Pipeline Configuration
+# Black-box evaluation via MQTT broker + tracker containers.
+# The harness publishes camera frames to scenescape/data/camera/{camera_id}
+# and collects tracker output from scenescape/data/scene/{scene_id}/+.
+
+pipeline:
+  output:
+    path: /tmp/mqtt-tracker-evaluation
+
+dataset:
+  class: datasets.metric_test_dataset.MetricTestDataset
+  config:
+    data_path: ../../../tests/system/metric/dataset
+    cameras: [Cam_x1_0, Cam_x2_0]
+    camera_fps: 30
+
+harness:
+  class: harnesses.mqtt_harness.MqttHarness
+  config:
+    container_image: scenescape-controller:2026.1.0-dev
+    tracker_config_path: ../../../tests/system/metric/dataset/tracker-config.json
+    # playback_rate: 1.0     # Real-time pacing (default). Increase to speed up.
+    # drain_timeout: 5.0     # Seconds to wait for last tracker outputs (default).
+    # broker_image: eclipse-mosquitto  # MQTT broker image (default).
+
+evaluators:
+  - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
+    config:
+      metrics: [HOTA, MOTA, IDF1]
+  - class: evaluators.diagnostic_evaluator.DiagnosticEvaluator
+    config:
+      metrics: [LOC_T_X, LOC_T_Y, DIST_T]
+  - class: evaluators.jitter_evaluator.JitterEvaluator
+    config:
+      metrics:
+        [
+          rms_jerk,
+          rms_jerk_gt,
+          rms_jerk_ratio,
+          acceleration_variance,
+          acceleration_variance_gt,
+          acceleration_variance_ratio,
+        ]
