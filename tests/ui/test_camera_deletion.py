@@ -8,10 +8,10 @@ from tests.ui.browser import Browser, By
 from selenium.webdriver.support.ui import Select
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import BROKER_WEB
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="camera_deletion", profile=BROKER_WEB,
+  profile=FULL_STACK,
   require_password=True, auth="",
 )
 

@@ -7,10 +7,10 @@ import os
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import BROKER_WEB
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="upload_only_3d_glb_files", profile=BROKER_WEB,
+  profile=FULL_STACK,
   require_password=True, auth="",
 )
 

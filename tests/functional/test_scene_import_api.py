@@ -12,24 +12,24 @@ from scene_common.rest_client import RESTClient
 from tests.common_test_utils import record_test_result
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import WEB_ONLY
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="scene_import_api", profile=WEB_ONLY,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
 TEST_NAME = "NEX-T13967"
 
 class SceneImportAPITest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute, zipFile, expected):
+  def __init__(self, testName, request, recordXMLAttribute, zipFile, expected, repo_root):
     super().__init__(testName, request, recordXMLAttribute)
     self.rest = RESTClient(self.params["resturl"], rootcert=self.params["rootcert"])
     assert self.rest.authenticate(self.params["user"], self.params["password"])
 
     self.expected = expected
     self.scene_name = self.params["scene"]
-    self.zipFile = os.path.join("/workspace/tests/ui/test_media", zipFile)
+    self.zipFile = os.path.join(repo_root, "tests/ui/test_media", zipFile)
 
     if expected == "1":  # EMPTY_ZIP
       self.create_empty_zip()
@@ -283,10 +283,10 @@ class SceneImportAPITest(FunctionalTest):
     ("Intersection-Demo.zip", "0"),  # SUCCESS
   ],
 )
-def test_scene_import_api(request, record_xml_attribute, zipFile, expected):
+def test_scene_import_api(scenescape_env, request, record_xml_attribute, zipFile, expected, repo_root):
   record_xml_attribute("name", TEST_NAME)
   test = SceneImportAPITest(
-    TEST_NAME, request, record_xml_attribute, zipFile, expected
+    TEST_NAME, request, record_xml_attribute, zipFile, expected, repo_root
   )
   exit_code = 1
   try:

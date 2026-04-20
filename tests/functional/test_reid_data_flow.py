@@ -19,15 +19,15 @@ import tests.common_test_utils as common
 from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
-from controller.vdms_adapter import VDMSDatabase, vdms
-from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import REID_DATA_FLOW
 from tests.utils.log import get_logger
 
 logger = get_logger(__name__)
+from controller.vdms_adapter import VDMSDatabase, vdms
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import REID
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="reid_data_flow", profile=REID_DATA_FLOW,
+  profile=REID,
 )
 
 

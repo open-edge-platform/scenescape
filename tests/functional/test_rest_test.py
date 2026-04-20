@@ -12,10 +12,10 @@ import random
 import os
 import uuid
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import WEB_ONLY
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="rest_test", profile=WEB_ONLY,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -242,7 +242,7 @@ class TestAPI(FunctionalTest):
       self.recordTestResult()
     return
 
-def test_api(request, record_xml_attribute):
+def test_api(scenescape_env, request, record_xml_attribute):
   test = TestAPI(TEST_NAME, request, record_xml_attribute)
   test.verifyThings()
   assert test.exitCode == 0

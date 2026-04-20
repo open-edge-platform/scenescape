@@ -7,18 +7,18 @@ import os
 import logging
 from http import HTTPStatus
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import WEB_ONLY
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="upload_3d_glb_file_api", profile=WEB_ONLY,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
 TEST_NAME = "NEX-T10425-API"
 
-def test_upload_3d_glb_file_api(rest, result_recorder):
+def test_upload_3d_glb_file_api(rest, result_recorder, repo_root):
   file_name = "box.glb"
-  file_path = os.path.join("/workspace/tests/ui/test_media", file_name)
+  file_path = os.path.join(repo_root, "tests/ui/test_media", file_name)
 
   # Create a scene and upload file
   with open(file_path, "rb") as f:

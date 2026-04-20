@@ -12,10 +12,10 @@ from tests.ui.browser import By
 from tests.ui import UserInterfaceTest
 from tests.ui import common
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import AUTO_CALIBRATION_UI
+from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="auto_calibration_ui", profile=AUTO_CALIBRATION_UI,
+  profile=FULL_STACK_AUTOCALIBRATION,
   require_password=True, auth="",
   exampledb="sample_data/exampledb.tar.bz2",
 )
@@ -199,7 +199,7 @@ def get_calibration_points_from_js(browser, canvas_type):
   return points
 
 @common.mock_display
-def test_april_tag(request, record_xml_attribute):
+def test_april_tag(scenescape_env, request, record_xml_attribute):
   """! Checks that a user can setup a scene with april tags.
   @param    request                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.

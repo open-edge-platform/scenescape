@@ -6,14 +6,14 @@
 import os
 import numpy as np
 from tests.functional.backend_functional import BackendFunctionalTest
-from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import BROKER_VDMS_DB
 from tests.utils.log import get_logger
 
 logger = get_logger(__name__)
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import REID
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="vdms_similarity_search", profile=BROKER_VDMS_DB,
+  profile=REID,
   auth=AUTH_CONTROLLER,
 )
 
@@ -38,9 +38,9 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
     all_queries = []
     all_queries.append(descriptor_set)
 
-    response, res_arr = self.vdb.db.query(all_queries)
+    response, res_arr = self.vdb.sendQuery(all_queries)
     logger.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
-    assert response[0]['AddDescriptorSet']['status'] == 0, "The response status for the descriptor set should be 0!"
+    assert response[0]['status'] == 0, "The response status for the descriptor set should be 0!"
     return
 
   def descriptor_objects(self):
@@ -70,10 +70,10 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
     all_queries.append(descriptor_1)
     all_queries.append(descriptor_2)
 
-    response, res_arr = self.vdb.db.query(all_queries, [descriptor_blob])
+    response, res_arr = self.vdb.sendQuery(all_queries, [descriptor_blob])
 
     logger.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
-    assert response[0]['AddDescriptor']['status'] == 0 and response[1]['AddDescriptor']['status'] == 0, \
+    assert response[0]['status'] == 0 and response[1]['status'] == 0, \
       "The response status for both descriptors should be 0!"
     return
 
@@ -81,11 +81,11 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
     logger.info("Pass a third RE-ID vector from one of the two initial objects and get a similarity search comparison. It should have low distance from one of the entries.")
     response, res_arr = self.get_similarity_comparison([self.thing_2_match])
     logger.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
-    assert response[0]['FindDescriptor']['returned'] == 2, \
+    assert response[0]['returned'] == 2, \
       "There should be only 2 entities returned!"
     return
 
-def test_vdms_similarity_search(request, record_xml_attribute):
+def test_vdms_similarity_search(scenescape_env, request, record_xml_attribute):
   """! Verify similarity search with RE-ID vectors using VDMS.
   @param    request                 Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.

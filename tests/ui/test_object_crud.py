@@ -9,10 +9,10 @@ from selenium.webdriver.support.ui import Select
 from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import BROKER_WEB
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="object_crud", profile=BROKER_WEB,
+  profile=FULL_STACK,
   require_password=True, auth="",
 )
 
@@ -108,7 +108,7 @@ def validate_object_crud(browser, file_path=None):
 
   return True
 
-def test_object_crud(params, record_xml_attribute):
+def test_object_crud(params, record_xml_attribute, repo_root):
   """! Checks that CRUD operations can be performed on an object with and without a 3d model.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.
@@ -126,7 +126,7 @@ def test_object_crud(params, record_xml_attribute):
     browser = Browser()
     assert common.check_page_login(browser, params)
 
-    files = ["/workspace/tests/ui/test_media/box.glb", None]
+    files = [f"{repo_root}/tests/ui/test_media/box.glb", None]
     for file in files:
       log.info(f"Testing and validating CRUD operations on 3D object where file = {file}...")
       assert validate_object_crud(browser, file)

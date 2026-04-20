@@ -11,10 +11,10 @@ import time
 import tests.common_test_utils as common
 from scene_common.mqtt import initializeMqttClient
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import BROKER_AND_DB
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="mqtt_cert", profile=BROKER_AND_DB,
+  profile=FULL_STACK,
   require_password=False, auth="",
 )
 
@@ -39,7 +39,7 @@ def on_message(mqttc, obj, msg):
   objects_detected += 1
 
 
-def test_mqtt_insecure_cert(record_xml_attribute):
+def test_mqtt_insecure_cert(scenescape_env, record_xml_attribute, secrets_dir):
 
   TEST_NAME = "NEX-T10423_MQTT_INSECURE_CERT"
   record_xml_attribute("name", TEST_NAME)
@@ -47,7 +47,7 @@ def test_mqtt_insecure_cert(record_xml_attribute):
   print("Executing: " + TEST_NAME)
 
   # Default location of root certificate
-  rootca="/workspace/scenescape-ca.pem"
+  rootca = f"{secrets_dir}/certs/scenescape-ca.pem"
 
   # Location for generated user/passwd from image
   auth = "/run/secrets/controller.auth"

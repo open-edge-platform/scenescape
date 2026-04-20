@@ -468,10 +468,8 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
 if _ORCHESTRATION_AVAILABLE:
   from tests.utils.profiles import (
     FULL_STACK, FULL_STACK_WITH_VIDEO_AND_RETAIL,
-    FULL_STACK_WITH_VIDEO, FULL_STACK_WITH_VIDEO_NO_NTP, FULL_STACK_CALIBRATION,
-    REID, REID_DATA_FLOW, REID_SEMANTIC, FULL_STACK_AUTOCALIBRATION,
+    REID, REID_SEMANTIC, FULL_STACK_AUTOCALIBRATION,
     SCENE_NO_DB, MARKERLESS,
-    WEB_ONLY, BROKER_WEB, BROKER_AND_DB, BROKER_VDMS_DB, AUTO_CALIBRATION_UI,
   )
 
   def _make_profile_fixture(profile, **kw):
@@ -485,43 +483,23 @@ if _ORCHESTRATION_AVAILABLE:
 
   full_stack_env = _make_profile_fixture(FULL_STACK)
   full_stack_video_retail_env = _make_profile_fixture(FULL_STACK_WITH_VIDEO_AND_RETAIL)
-  full_stack_with_video_env = _make_profile_fixture(FULL_STACK_WITH_VIDEO)
-  full_stack_with_video_no_ntp_env = _make_profile_fixture(FULL_STACK_WITH_VIDEO_NO_NTP)
-  full_stack_calibration_env = _make_profile_fixture(
-    FULL_STACK_CALIBRATION, exampledb="tests/calibrationdb.tar.bz2")
   reid_env = _make_profile_fixture(REID)
-  reid_data_flow_env = _make_profile_fixture(REID_DATA_FLOW)
   reid_semantic_env = _make_profile_fixture(REID_SEMANTIC)
   full_stack_autocalibration_env = _make_profile_fixture(
     FULL_STACK_AUTOCALIBRATION, exampledb="tests/calibrationdb.tar.bz2")
   scene_no_db_env = _make_profile_fixture(SCENE_NO_DB)
   markerless_env = _make_profile_fixture(MARKERLESS)
-  web_only_env = _make_profile_fixture(WEB_ONLY)
-  broker_web_env = _make_profile_fixture(BROKER_WEB)
-  broker_and_db_env = _make_profile_fixture(BROKER_AND_DB)
-  broker_vdms_db_env = _make_profile_fixture(BROKER_VDMS_DB)
-  auto_calibration_ui_env = _make_profile_fixture(
-    AUTO_CALIBRATION_UI, exampledb="tests/calibrationdb.tar.bz2")
 
   # Map profile name -> fixture name for the resolver.
   _PROFILE_FIXTURE_MAP = {
     p.name: f for p, f in [
       (FULL_STACK, "full_stack_env"),
       (FULL_STACK_WITH_VIDEO_AND_RETAIL, "full_stack_video_retail_env"),
-      (FULL_STACK_WITH_VIDEO, "full_stack_with_video_env"),
-      (FULL_STACK_WITH_VIDEO_NO_NTP, "full_stack_with_video_no_ntp_env"),
-      (FULL_STACK_CALIBRATION, "full_stack_calibration_env"),
       (REID, "reid_env"),
-      (REID_DATA_FLOW, "reid_data_flow_env"),
       (REID_SEMANTIC, "reid_semantic_env"),
       (FULL_STACK_AUTOCALIBRATION, "full_stack_autocalibration_env"),
       (SCENE_NO_DB, "scene_no_db_env"),
       (MARKERLESS, "markerless_env"),
-      (WEB_ONLY, "web_only_env"),
-      (BROKER_WEB, "broker_web_env"),
-      (BROKER_AND_DB, "broker_and_db_env"),
-      (BROKER_VDMS_DB, "broker_vdms_db_env"),
-      (AUTO_CALIBRATION_UI, "auto_calibration_ui_env"),
     ]
   }
 

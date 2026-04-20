@@ -17,22 +17,21 @@ import gc
 from contextlib import contextmanager
 
 from tests.functional import FunctionalTest
-from scene_common.rest_client import RESTClient
 from tests.utils.log import get_logger
-from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
-from tests.utils.profiles import FULL_STACK_CALIBRATION
 
 logger = get_logger(__name__)
+from scene_common.rest_client import RESTClient
+from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
+from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="auto_calibration_api", profile=FULL_STACK_CALIBRATION,
+  profile=FULL_STACK_AUTOCALIBRATION,
   auth=AUTH_BROWSER,
   exampledb="tests/calibrationdb.tar.bz2",
 )
 
 MAX_WAIT = 5
 BASE_URL = "https://autocalibration.scenescape.intel.com:8443"
-VERIFY_CERT = "/run/secrets/certs/scenescape-ca.pem"
 
 EXPECTED_RESULT_1 = {
   "calibration_points_2d": [
@@ -95,12 +94,12 @@ EXPECTED_RESULT_4 = {
 class AutoCalibration(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute,
                nTags, randomSelect, expected, expectedResult,
-               intrinsics=None):
+               intrinsics=None, repo_root=""):
     super().__init__(testName, request, recordXMLAttribute)
     self.scene_name = "Queuing"
     self.scene_id = '302cf49a-97ec-402d-a324-c5077b280b7b'
     self.camera_id = "atag-qcam1"
-    self.frame = "/workspace/tests/ui/test_media/atag-qcam1-frame.png"
+    self.frame = f"{repo_root}/tests/ui/test_media/atag-qcam1-frame.png"
     self.exitCode = 1
     self.nTags = nTags
     self.randomSelect = randomSelect
@@ -108,6 +107,7 @@ class AutoCalibration(FunctionalTest):
     self.sceneRegistered = False
     self.intrinsics = intrinsics
     self.expectedResult = expectedResult
+    self.rootcert = self.params['rootcert']
 
     self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
     res = self.rest.authenticate(self.params['user'], self.params['password'])
@@ -166,7 +166,7 @@ class AutoCalibration(FunctionalTest):
   def get_status(self):
     url = f"{BASE_URL}/v1/status"
     try:
-      r = requests.get(url, verify=VERIFY_CERT)
+      r = requests.get(url, verify=self.rootcert)
       logger.info(f"Service status: {r.json()}")
       return r.json()
     except Exception as e:
@@ -177,23 +177,19 @@ class AutoCalibration(FunctionalTest):
     url = f"{BASE_URL}/v1/scenes/{self.scene_id}/registration"
     try:
       if method.upper() == "POST":
-        r = requests.post(url, json={}, verify=VERIFY_CERT)
-        logger.info(
-          f"POST scene registration [{self.scene_name}]: {r.status_code} {r.text}"
-        )
+        r = requests.post(url, json={}, verify=self.rootcert)
+        logger.info(f"POST scene registration [{self.scene_name}]: {r.status_code} {r.text}")
       else:
-        r = requests.get(url, verify=VERIFY_CERT)
-        logger.info(
-          f"GET scene registration status [{self.scene_name}]: {r.status_code} {r.text}"
-        )
+        r = requests.get(url, verify=self.rootcert)
+        logger.info(f"GET scene registration status [{self.scene_name}]: {r.status_code} {r.text}")
       data = r.json()
       if method.upper() == "POST" and data.get("status") == "registering":
-        logger.info(f"Scene '{self.scene_name}' registering; polling for completion")
+        logger.info(f"Scene \'{self.scene_name}\' registering... polling for completion")
         start_time = time.time()
         while time.time() - start_time < timeout:
           time.sleep(poll_interval)
           try:
-            poll_resp = requests.get(url, verify=VERIFY_CERT)
+            poll_resp = requests.get(url, verify=self.rootcert)
             poll_data = poll_resp.json()
             logger.info(f"Poll result: {poll_data}")
             if poll_data.get("status") == "success":
@@ -204,7 +200,7 @@ class AutoCalibration(FunctionalTest):
               return poll_data
           except Exception as pe:
             logger.error(f"Error polling scene status: {pe}")
-        logger.error("Scene registration polling timed out")
+        logger.warning("Scene registration polling timed out")
         return data
       return data
     except Exception as e:
@@ -217,7 +213,7 @@ class AutoCalibration(FunctionalTest):
     if intrinsics is not None:
       payload["intrinsics"] = intrinsics
     try:
-      r = requests.post(url, json=payload, verify=VERIFY_CERT)
+      r = requests.post(url, json=payload, verify=self.rootcert)
       logger.info(f"Calibration start: {r.status_code} {r.text}")
       return r.json()
     except Exception as e:
@@ -227,7 +223,7 @@ class AutoCalibration(FunctionalTest):
   def get_calibration_status(self):
     url = f"{BASE_URL}/v1/cameras/{self.camera_id}/calibration"
     try:
-      r = requests.get(url, verify=VERIFY_CERT)
+      r = requests.get(url, verify=self.rootcert)
       data = r.json()
       logger.info(f"Calibration status: {r.status_code} {data}")
       return data
@@ -240,7 +236,7 @@ class AutoCalibration(FunctionalTest):
       time.sleep(MAX_WAIT)
       status = self.get_status()
       if not status or status.get("status") != "running":
-        logger.error("Service not ready, aborting")
+        logger.warning("Service not ready, aborting")
         return
 
       if not self.sceneRegistered:
@@ -248,7 +244,7 @@ class AutoCalibration(FunctionalTest):
         self.sceneRegistered = True
         assert reg
         assert reg['status'] == "success"
-        logger.info(f"registering status: {reg}")
+        logger.info(f"Registering status: {reg}")
 
       if self.nTags > 0:
         img_b64 = self.obscure_detected_apriltag(
@@ -259,7 +255,7 @@ class AutoCalibration(FunctionalTest):
 
       start = self.start_calibration(img_b64, self.intrinsics)
       if not start or start.get("status") not in ("calibrating", "success", "pending"):
-        logger.error(f"Failed to start calibration: {start}")
+        logger.warning(f"Failed to start calibration: {start}")
         return
 
       for _ in range(12):
@@ -297,15 +293,15 @@ class AutoCalibration(FunctionalTest):
      [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
   ]
 )
-def test_auto_calibration(request, record_xml_attribute,
+def test_auto_calibration(scenescape_env, request, record_xml_attribute,
               test_name, n_tags, random_select,
-              expect_status, expected_result, intrinsics):
+              expect_status, expected_result, intrinsics, repo_root):
   test = AutoCalibration(test_name, request, record_xml_attribute,
              n_tags, random_select, expect_status,
-             expected_result, intrinsics=intrinsics)
+             expected_result, intrinsics=intrinsics, repo_root=repo_root)
   test.runAutoCalibration()
   assert test.exitCode == 0
-  return test.exitCode
+  return
 
 def main():
   return test_auto_calibration(None, None)

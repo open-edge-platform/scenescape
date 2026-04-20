@@ -3,14 +3,16 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+
 from tests.functional import FunctionalTest
 from http import HTTPStatus
 from scene_common.rest_client import RESTClient
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
-from tests.utils.profiles import WEB_ONLY
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="scenes_summary_api", profile=WEB_ONLY,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -26,13 +28,11 @@ class SceneSummaryAPITest(FunctionalTest):
     scene_name_0 = "Demo"
     scene_name_1 = "Scene-1"
     scale = 1000
-    map_image_path = "SampleJpegMap.jpeg"
 
     # Create second scene
     scene_data = {
       "name": scene_name_1,
-      "scale": scale,
-      "map_image": map_image_path
+      "scale": scale
     }
     res = self.rest.createScene(scene_data)
     assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED), f"Scene creation failed: {res.errors}"
@@ -57,7 +57,7 @@ class SceneSummaryAPITest(FunctionalTest):
 
     return True
 
-def test_scene_summary_api(request, record_xml_attribute):
+def test_scene_summary_api(scenescape_env, request, record_xml_attribute):
   test = SceneSummaryAPITest(TEST_NAME, request, record_xml_attribute)
   assert test.runTest()
   return

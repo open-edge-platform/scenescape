@@ -16,10 +16,10 @@ from scene_common.timestamp import get_epoch_time
 from scene_common.mqtt import PubSub
 from selenium.common.exceptions import StaleElementReferenceException
 from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
-from tests.utils.profiles import FULL_STACK_WITH_VIDEO
+from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="out_of_box", profile=FULL_STACK_WITH_VIDEO,
+  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
   auth=AUTH_BROWSER,
 )
 

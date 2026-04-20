@@ -8,8 +8,6 @@ Service profile definitions for end-to-end tests.
 
 Each profile encodes the Docker Compose file combination and container
 readiness checks that a group of tests requires.
-Derived from tests/Makefile.functional, tests/Makefile.sscape, and
-tests/Makefile.user_interface.
 """
 
 from dataclasses import dataclass, field
@@ -48,18 +46,6 @@ _AUTOCALIBRATION = WaitConfig(timeout=1200)
 # Profiles
 # ---------------------------------------------------------------------------
 
-WEB_ONLY = ServiceProfile(
-  name="web_only",
-  compose_files=(
-    f"{COMPOSE}/pgserver.yml",
-    f"{COMPOSE}/web.yml",
-  ),
-  wait_for={
-    "pgserver": _PGSERVER,
-    "web": _WEB,
-  },
-)
-
 FULL_STACK = ServiceProfile(
   name="full_stack",
   compose_files=(
@@ -74,67 +60,6 @@ FULL_STACK = ServiceProfile(
     "web": _WEB,
     "scene": _SCENE,
     "broker": _BROKER,
-  },
-)
-
-FULL_STACK_WITH_VIDEO = ServiceProfile(
-  name="full_stack_with_video",
-  compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{DLS}/retail_video.yml",
-    f"{DLS}/queuing_video.yml",
-    f"{COMPOSE}/scene.yml",
-    f"{COMPOSE}/web_default.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/cams.yml",
-  ),
-  wait_for={
-    "pgserver": _PGSERVER,
-    "web": _WEB,
-    "queuing-video": WaitConfig(),
-    "retail-video": WaitConfig(),
-    "scene": _SCENE,
-  },
-)
-
-FULL_STACK_WITH_VIDEO_NO_NTP = ServiceProfile(
-  name="full_stack_with_video_no_ntp",
-  compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{DLS}/retail_video_no_ntp.yml",
-    f"{DLS}/queuing_video_no_ntp.yml",
-    f"{COMPOSE}/scene_no_ntp.yml",
-    f"{COMPOSE}/web_default.yml",
-    f"{COMPOSE}/cams.yml",
-  ),
-  wait_for={
-    "pgserver": _PGSERVER,
-    "web": _WEB,
-    "queuing-video": WaitConfig(),
-    "retail-video": WaitConfig(),
-    "scene": _SCENE,
-  },
-)
-
-FULL_STACK_CALIBRATION = ServiceProfile(
-  name="full_stack_calibration",
-  compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{COMPOSE}/scene.yml",
-    f"{COMPOSE}/web_calibration.yml",
-    f"{DLS}/queuing_video.yml",
-    f"{COMPOSE}/autocalibration.yml",
-    f"{COMPOSE}/cams.yml",
-  ),
-  wait_for={
-    "pgserver": _PGSERVER,
-    "web": _WEB,
-    "queuing-video": WaitConfig(),
-    "autocalibration": _AUTOCALIBRATION,
   },
 )
 
@@ -184,27 +109,6 @@ REID = ServiceProfile(
   },
 )
 
-REID_DATA_FLOW = ServiceProfile(
-  name="reid_data_flow",
-  compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{COMPOSE}/vdms.yml",
-    f"{COMPOSE}/scene_reid.yml",
-    f"{COMPOSE}/web_default.yml",
-    f"{COMPOSE}/cams.yml",
-  ),
-  wait_for={
-    "broker": _BROKER,
-    "ntpserv": WaitConfig(),
-    "pgserver": _PGSERVER,
-    "vdms": WaitConfig(),
-    "web": _WEB,
-    "scene": _SCENE,
-  },
-)
-
 REID_SEMANTIC = ServiceProfile(
   name="reid_semantic",
   compose_files=(
@@ -249,28 +153,6 @@ FULL_STACK_AUTOCALIBRATION = ServiceProfile(
   },
 )
 
-BROKER_AND_DB = ServiceProfile(
-  name="broker_and_db",
-  compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{COMPOSE}/web.yml",
-  ),
-  wait_for={},
-)
-
-BROKER_VDMS_DB = ServiceProfile(
-  name="broker_vdms_db",
-  compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/vdms.yml",
-    f"{COMPOSE}/pgserver.yml",
-  ),
-  wait_for={
-    "pgserver": _PGSERVER,
-  },
-)
-
 SCENE_NO_DB = ServiceProfile(
   name="scene_no_db",
   compose_files=(
@@ -299,66 +181,16 @@ MARKERLESS = ServiceProfile(
   },
 )
 
-# broker + pgserver + web (with readiness checks) — used by UI/selenium tests
-# that don't need the scene container.
-BROKER_WEB = ServiceProfile(
-  name="broker_web",
-  compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{COMPOSE}/web.yml",
-  ),
-  wait_for={
-    "pgserver": _PGSERVER,
-    "web": _WEB,
-  },
-)
-
-# Full UI stack with autocalibration + retail/queuing video — used by
-# auto-calibration-ui and calibrate-camera-3d-ui-2d-ui tests.
-AUTO_CALIBRATION_UI = ServiceProfile(
-  name="auto_calibration_ui_stack",
-  compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/autocalibration.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{DLS}/queuing_video.yml",
-    f"{DLS}/retail_video.yml",
-    f"{COMPOSE}/scene.yml",
-    f"{COMPOSE}/web_default.yml",
-    f"{COMPOSE}/cams.yml",
-  ),
-  wait_for={
-    "pgserver": _PGSERVER,
-    "broker": _BROKER,
-    "scene": _SCENE,
-    "retail-video": WaitConfig(),
-    "queuing-video": WaitConfig(),
-    "autocalibration": _AUTOCALIBRATION,
-    "web": _WEB,
-  },
-)
-
 # Registry: maps profile name -> ServiceProfile for CLI lookup
 PROFILE_REGISTRY: dict = {
   p.name: p
   for p in [
-    WEB_ONLY,
     FULL_STACK,
-    FULL_STACK_WITH_VIDEO,
-    FULL_STACK_WITH_VIDEO_NO_NTP,
-    FULL_STACK_CALIBRATION,
     FULL_STACK_WITH_VIDEO_AND_RETAIL,
     REID,
-    REID_DATA_FLOW,
     REID_SEMANTIC,
     FULL_STACK_AUTOCALIBRATION,
-    BROKER_AND_DB,
-    BROKER_VDMS_DB,
     SCENE_NO_DB,
     MARKERLESS,
-    BROKER_WEB,
-    AUTO_CALIBRATION_UI,
   ]
 }

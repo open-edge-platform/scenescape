@@ -7,10 +7,10 @@ import os
 from tests.ui import UserInterfaceTest
 from selenium.common.exceptions import WebDriverException
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import BROKER_WEB
+from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="restricted_media_access", profile=BROKER_WEB,
+  profile=FULL_STACK,
   require_password=True, auth="",
 )
 
@@ -59,7 +59,7 @@ class WillOurShipGo(UserInterfaceTest):
       self.recordTestResult()
     return
 
-def test_restricted_media_access(request, record_xml_attribute):
+def test_restricted_media_access(scenescape_env, request, record_xml_attribute):
   test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
   test.checkForMalfunctions()
   assert test.exitCode == 0

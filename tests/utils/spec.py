@@ -13,8 +13,8 @@ AUTH_BROWSER = "browser.auth"
 @dataclass
 class FuncTestSpec:
   """Specification for a single functional/UI test."""
-  id: str
-  profile: object  # ServiceProfile
+  id: str = ""
+  profile: object = None  # ServiceProfile
   auth: str = ""
   require_password: bool = True
   test_name: str = ""
