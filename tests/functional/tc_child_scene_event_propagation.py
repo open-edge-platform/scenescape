@@ -19,7 +19,7 @@ from tests.common_test_utils import check_event_contains_data
 from scene_common.timestamp import get_iso_time
 
 FRAME_RATE = 10
-MAX_WAIT = 60
+MAX_WAIT = 3
 NUM_PUBLISH_ITERATIONS = 3
 PERSON = "person"
 REGION = "region"
