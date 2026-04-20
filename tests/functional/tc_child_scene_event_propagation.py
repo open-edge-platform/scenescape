@@ -10,6 +10,7 @@ a linked child scene via SceneController.republishEvents."""
 import json
 import threading
 import time
+import numpy as np
 
 from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
@@ -28,7 +29,7 @@ TRIPWIRE = "tripwire"
 # Object bounding-box y-sweep that produces world-coordinate trajectories
 # crossing both the ROI and the tripwire defined in _setup_scenes.
 # Range matches FunctionalTest.getLocations() used by tc_tripwire_mqtt.py.
-import numpy as np
+
 _step = 0.02
 _opposite = np.arange(-0.5, 0.6, _step)
 _across = np.flip(_opposite)[2:]
@@ -54,6 +55,14 @@ _state = {
 }
 
 
+def _subscribe_event(mqttc, label, region_type, scene_id, region_id):
+  """Format an EVENT topic, subscribe, and log the subscription."""
+  t = PubSub.formatTopic(PubSub.EVENT, region_type=region_type, event_type="+",
+                         scene_id=scene_id, region_id=region_id)
+  mqttc.subscribe(t)
+  log.info(f"Subscribed {label}: {t}")
+
+
 def _on_connect(mqttc, obj, flags, rc):
   """Subscribe to all relevant event topics once connected."""
   if rc != 0:
@@ -70,43 +79,16 @@ def _on_connect(mqttc, obj, flags, rc):
   tripwire_uid = s["tripwire_uid"]
   sensor_uid = s["sensor_uid"]
 
-  # Child ROI events
-  t = PubSub.formatTopic(PubSub.EVENT, region_type=REGION, event_type="+",
-                         scene_id=child_id, region_id=roi_uid)
-  mqttc.subscribe(t)
-  log.info(f"Subscribed child ROI events: {t}")
-
-  # Child tripwire events
-  t = PubSub.formatTopic(PubSub.EVENT, region_type=TRIPWIRE, event_type="+",
-                         scene_id=child_id, region_id=tripwire_uid)
-  mqttc.subscribe(t)
-  log.info(f"Subscribed child tripwire events: {t}")
-
-  # Child sensor events (sensor uses region event type)
+  _subscribe_event(mqttc, "child ROI events", REGION, child_id, roi_uid)
+  _subscribe_event(mqttc, "child tripwire events", TRIPWIRE, child_id, tripwire_uid)
   if sensor_uid:
-    t = PubSub.formatTopic(PubSub.EVENT, region_type=REGION, event_type="+",
-                           scene_id=child_id, region_id=sensor_uid)
-    mqttc.subscribe(t)
-    log.info(f"Subscribed child sensor events: {t}")
+    _subscribe_event(mqttc, "child sensor events", REGION, child_id, sensor_uid)
 
-  # Parent ROI events (republished by controller)
-  t = PubSub.formatTopic(PubSub.EVENT, region_type=REGION, event_type="+",
-                         scene_id=parent_id, region_id=roi_uid)
-  mqttc.subscribe(t)
-  log.info(f"Subscribed parent ROI events: {t}")
-
-  # Parent tripwire events (republished by controller)
-  t = PubSub.formatTopic(PubSub.EVENT, region_type=TRIPWIRE, event_type="+",
-                         scene_id=parent_id, region_id=tripwire_uid)
-  mqttc.subscribe(t)
-  log.info(f"Subscribed parent tripwire events: {t}")
-
-  # Parent sensor events (republished by controller)
+  # Parent equivalents (republished by controller)
+  _subscribe_event(mqttc, "parent ROI events", REGION, parent_id, roi_uid)
+  _subscribe_event(mqttc, "parent tripwire events", TRIPWIRE, parent_id, tripwire_uid)
   if sensor_uid:
-    t = PubSub.formatTopic(PubSub.EVENT, region_type=REGION, event_type="+",
-                           scene_id=parent_id, region_id=sensor_uid)
-    mqttc.subscribe(t)
-    log.info(f"Subscribed parent sensor events: {t}")
+    _subscribe_event(mqttc, "parent sensor events", REGION, parent_id, sensor_uid)
 
 
 def _on_message(mqttc, obj, msg):
