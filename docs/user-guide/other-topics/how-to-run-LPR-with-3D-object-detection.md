@@ -187,7 +187,7 @@ Create a file intrinsics.json in `scenescape/dlstreamer-pipeline-server/user_scr
 }
 ```
 
-A good starting point for these values are camera vendor provided specs. However, if they are unavailable or are giving inaccurate results, refer to the [how-to-manually-calibrate-cameras](../calibrating-cameras/how-to-manually-calibrate-cameras.md) guide for details on how to provide sufficient point correspondences for computing fx, fy and k1. cx and cy are always half the resolution of the frame in x and y.
+A good starting point for these values are camera vendor provided specs. However, if they are unavailable or are giving inaccurate results, refer to the [Use 2D UI for Manual Calibration](../how-to-guides/calibrate-cameras/use-2D-UI-for-calibration.md) guide for details on how to provide sufficient point correspondences for computing fx, fy and k1. cx and cy are always half the resolution of the frame in x and y.
 
 Each pipeline can have a separate `intrinsics.json` file. The DeepScenario script accepts the path to the `intrinsics.json` file as `intrinsics_path` argument.
 
@@ -257,7 +257,7 @@ command: controller --broker broker.scenescape.intel.com --ntp ntpserv --maxlag 
 
 Ensure your directory structure looks like this:
 
-```
+```text
 scenescape/
 ├── dlstreamer-pipeline-server/
 │   ├── user_scripts/
@@ -302,7 +302,7 @@ docker-compose ps
 
 ### 10. Adding a new scene and a new camera
 
-- Create a new scene, add a camera with name and id set to `lpr` and calibrate the camera, by following [How to Create a New Scene](../building-a-scene/how-to-create-new-scene.md#adding-the-new-scene-and-cameras).
+- Create a new scene, add a camera with name and id set to `lpr` and calibrate the camera, by following [How to Create a New Scene](../how-to-guides/build-a-scene/create-new-scene.md#adding-the-new-scene-and-cameras).
 - 3D Object Detection can occasionally lead to the object not being positioned on the ground plane. When there is a discrepancy from ground truth with respect to the `z` value in object `translation`, use the `Project to map` setting mentioned in the [How to Define Object Properties](./how-to-define-object-properties.md#additional-settings) guide.
 
 ### 11. Verifying the Setup
@@ -315,4 +315,4 @@ Figure 1: 3D object detection
 ### Learn More
 
 - Read [the solution brief](https://www.intel.com/content/www/us/en/content-details/824541/groundbreaking-4d-object-detection-with-deepscenario-and-intel-scenescape.html) to understand how the above setup can be used to detect parking violations with high accuracy.
-- Pair [3D Object Detections with powerful spatial analytics](../building-a-scene/how-to-configure-spatial-analytics.md).
+- Pair [3D Object Detections with powerful spatial analytics](../how-to-guides/build-a-scene/configure-spatial-analytics.md).
