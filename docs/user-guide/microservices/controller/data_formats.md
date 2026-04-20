@@ -177,7 +177,7 @@ value. This makes it suitable for attribute sensors beyond simple scalars. For e
 
 For a broader description of how singleton sensors work and how the tagged data appears on
 scene objects, see
-[Singleton Sensor Data](../../how-to-integrate-cameras-and-sensors.md#singleton-sensor-data)
+[Singleton Sensor Data](../../how-to-guides/integrate-cameras-and-sensors.md#singleton-sensor-data)
 in the integration guide.
 
 ## Common Output Track Fields
@@ -196,7 +196,7 @@ tracked object contains the following fields:
 | `velocity`      | array[3] of number | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                                                                                         |
 | `rotation`      | array[4] of number | Orientation quaternion                                                                                                                                                                                                                                       |
 | `visibility`    | array of string    | Camera IDs currently observing this object                                                                                                                                                                                                                   |
-| `regions`       | object             | Map of region/sensor IDs to entry timestamps (`{id: {entered: timestamp}}`)                                                                                                                                                                                  |
+| `regions`       | object             | Map of region/sensor IDs to membership metadata. By default this is `{id: {entered: timestamp}}`. In region-scoped outputs, objects currently inside a region also include a live dwell time as `{id: {entered: timestamp, dwell: seconds}}`.                |
 | `sensors`       | object             | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`)                                                                                                                                                                                |
 | `similarity`    | number or null     | Re-ID similarity score; `null` when not computed                                                                                                                                                                                                             |
 | `first_seen`    | string (ISO 8601)  | Timestamp when the track was first created                                                                                                                                                                                                                   |
@@ -209,6 +209,12 @@ tracked object contains the following fields:
 > `reid.embedding_vector` is a **2D float array** (`[[...numbers...]]`), whereas in
 > camera input it is a base64-encoded string. `metadata` is absent when no semantic
 > analytics pipeline is configured.
+
+> **Note on live region dwell**: In region data and region event payloads, objects that are
+> still inside a region include `regions.<region_id>.dwell`, which is the current elapsed
+> time in seconds since that object entered the region. Exit records continue to expose the
+> final dwell time separately as `{"object": <track>, "dwell": <seconds>}` in the
+> top-level `exited` array.
 
 ## Data Scene Output Message Format
 
@@ -375,18 +381,18 @@ interest changes. The `{event_type}` segment is typically `objects`.
 
 ### Region Event Top-Level Fields
 
-| Field         | Type                  | Description                                                                                                                              |
-| ------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `timestamp`   | string (ISO 8601 UTC) | Event timestamp                                                                                                                          |
-| `scene_id`    | string                | Scene identifier (UUID)                                                                                                                  |
-| `scene_name`  | string                | Scene name                                                                                                                               |
-| `region_id`   | string                | Region identifier (UUID)                                                                                                                 |
-| `region_name` | string                | Region name                                                                                                                              |
-| `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                                                       |
-| `objects`     | array                 | Tracked objects currently inside the region (see [Common Output Track Fields](#common-output-track-fields))                              |
-| `entered`     | array                 | Objects that entered the region during this cycle; each element is a bare track object. Empty when no entry occurred                     |
-| `exited`      | array                 | Objects that exited the region during this cycle; each element is `{"object": <track>, "dwell": <seconds>}`. Empty when no exit occurred |
-| `metadata`    | object                | Region geometry: `title`, `uuid`, `points` (polygon vertices in metres), `area` (`"poly"`), `fromSensor` (boolean)                       |
+| Field         | Type                  | Description                                                                                                                                                                 |
+| ------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `timestamp`   | string (ISO 8601 UTC) | Event timestamp                                                                                                                                                             |
+| `scene_id`    | string                | Scene identifier (UUID)                                                                                                                                                     |
+| `scene_name`  | string                | Scene name                                                                                                                                                                  |
+| `region_id`   | string                | Region identifier (UUID)                                                                                                                                                    |
+| `region_name` | string                | Region name                                                                                                                                                                 |
+| `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                                                                                          |
+| `objects`     | array                 | Tracked objects currently inside the region. Each object includes live `regions.<region_id>.dwell` in addition to [Common Output Track Fields](#common-output-track-fields) |
+| `entered`     | array                 | Objects that entered the region during this cycle; each element is a bare track object and may include live `regions.<region_id>.dwell`. Empty when no entry occurred       |
+| `exited`      | array                 | Objects that exited the region during this cycle; each element is `{"object": <track>, "dwell": <seconds>}`. Empty when no exit occurred                                    |
+| `metadata`    | object                | Region geometry: `title`, `uuid`, `points` (polygon vertices in metres), `area` (`"poly"`), `fromSensor` (boolean)                                                          |
 
 ### Example Region Event Message
 

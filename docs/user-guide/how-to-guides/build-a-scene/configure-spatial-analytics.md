@@ -1,4 +1,4 @@
-# How to Configure Spatial Analytics in Intel® SceneScape
+# Configure Spatial Analytics in Intel® SceneScape
 
 This guide provides step-by-step instructions to set up and use Regions of Interest (ROIs) and Tripwires in Intel® SceneScape. By completing this guide, you will:
 
@@ -10,7 +10,7 @@ This guide provides step-by-step instructions to set up and use Regions of Inter
 
 ## Prerequisites
 
-Follow the steps in the [Get Started Guide](../get-started.md) to bring up an instance of Intel® SceneScape with out-of-box demo scenes.
+Follow the steps in the [Get Started Guide](../../get-started.md) to bring up an instance of Intel® SceneScape with out-of-box demo scenes.
 
 ## Steps to Configure Regions of Interest
 
@@ -41,8 +41,8 @@ Follow the steps in the [Get Started Guide](../get-started.md) to bring up an in
 
 #### Verify the Results
 
-1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) to observe all topics on the broker or use paho mqtt client to observe the topic right under the region name text box. For example: /scenescape/event/region/${scene_uuid}/${region_uuid}/count.
-2. When the center of the object enters or exits the Region of Interest, observe that a message is received on the region event topic. Here is an example:
+1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) to observe all topics on the broker or use paho mqtt client to observe the topic right under the region name text box. For example: `/scenescape/event/region/${scene_uuid}/${region_uuid}/count`.
+2. When the center of the object enters or exits a Region of Interest, a message is received on the region event topic. For example:
 
 ```
 {
@@ -200,10 +200,10 @@ Follow the steps in the [Get Started Guide](../get-started.md) to bring up an in
 }
 ```
 
-![Configure and Verify Region of Interest](../_assets/create-roi.gif)
+![Configure and Verify Region of Interest](../../_assets/create-roi.gif "configure and verify region of interest")
 Figure 1: Region of Interest creation flow
 
-> **Need help working with this spatial analytics data?** See the [Working with Spatial Analytics Data](../using-intel-scenescape/working-with-spatial-analytics-data.md) guide for details on consuming ROI and tripwire events via MQTT, including Python and JavaScript examples and data format specifications.
+> **Need help working with spatial analytics data?** See the [Working with Spatial Analytics Data](../work-with-spatial-analytics-data.md) guide for details on consuming ROI and tripwire events via MQTT, including Python and JavaScript examples and data format specifications.
 
 > **Note:**
 > To access the broker port `1883` from outside the Docker network, you must expose the port by **uncommenting** the following lines in your `docker-compose.yaml` file:
@@ -219,7 +219,7 @@ Figure 1: Region of Interest creation flow
 
 By default, Regions of Interest trigger events when the center point of each object enters or leaves the bounds of the polygon. However, for detecting an event like a collision, computing a volumetric intersection is necessary.
 
-1. Follow the instructions in [how-to-define-object-properties.md](../other-topics/how-to-define-object-properties.md) to create an entry for the object category of interest.
+1. Follow the instructions in [How to Define Object Properties](../../other-topics/how-to-define-object-properties.md) to create an entry for the object category of interest.
 1. Click on the `Regions` tab tab below the scene map view.
 1. Find the specific region in the list and click on "volumetric" checkbox to enable intersection detection.
 1. **Optional**: you can add a uniform buffer around the region and vary the height of the region.
@@ -227,7 +227,7 @@ By default, Regions of Interest trigger events when the center point of each obj
 
 #### Verify the Results
 
-1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) to observe all topics on the broker or use paho mqtt client to observe the topic right under the region name text box. For example: /scenescape/event/region/${scene_uuid}/${region_uuid}/count
+1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) to observe all topics on the broker or use paho mqtt client to observe the topic right under the region name text box. For example: `/scenescape/event/region/${scene_uuid}/${region_uuid}/count`
 2. Navigate to the 3D UI view of the Scene.
 3. When an object first intersects or last intersects with the region of interest, observe a message is received on the event topic for that region. Here is an example:
 
@@ -419,7 +419,7 @@ By default, Regions of Interest trigger events when the center point of each obj
 
 #### Verify the Results
 
-1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) or [Eclipse Paho](https://eclipse.dev/paho/) to observe data published to MQTT from various services. The tripwire event topic is shown under the name of the tripwire in the user interface. For example: /scenescape/event/tripwire/${scene_uuid}/${tripwire_uuid}/objects
+1. Use a tool like [MQTT Explorer](https://mqtt-explorer.com/) or [Eclipse Paho](https://eclipse.dev/paho/) to observe data published to MQTT from various services. The tripwire event topic is shown under the name of the tripwire in the user interface. For example: `/scenescape/event/tripwire/${scene_uuid}/${tripwire_uuid}/objects`
 2. When an object walks through a tripwire, observe a message is received on that topic and it contains the following data:
 
 ```
@@ -492,9 +492,9 @@ By default, Regions of Interest trigger events when the center point of each obj
 }
 ```
 
-When an object crosses over to the side with the center line, value of `direction` is 1 and when it crosses in the opposite direction it is -1.
+When an object crosses over to the side with the center line, the value of `direction` is `1` and when it crosses in the opposite direction it is `-1`.
 
-![Configure and Verify Tripwire](../_assets/create-tripwire.gif)
+![Configure and Verify Tripwire](../../_assets/create-tripwire.gif)
 Figure 2: Tripwire creation flow
 
 > **Note:**
@@ -511,6 +511,6 @@ Figure 2: Tripwire creation flow
 
 ## Supporting Resources
 
-- [How to visualize regions](./how-to-visualize-regions.md)
-- [Working with Spatial Analytics Data](../using-intel-scenescape/working-with-spatial-analytics-data.md) - Learn how to consume and process the spatial analytics data generated by ROIs and Tripwires
+- [How to Visualize ROI and Sensor Areas](./visualize-regions.md)
+- [Working with Spatial Analytics Data](../work-with-spatial-analytics-data.md) - Learn how to consume and process the spatial analytics data generated by ROIs and Tripwires
 - [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
