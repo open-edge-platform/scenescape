@@ -50,7 +50,7 @@ def test_camera_deletion_main(params, record_xml_attribute):
     # After update button the page is redirected to scene page, here 'Demo' scene page
     available_cameras = browser.find_elements(By.CSS_SELECTOR, ".card.count-item.camera-card > .card-header")
     camera_names_list = [name.text.replace("--\n","") for name in available_cameras]
-    log.info("Available cameras before deletion: ", camera_names_list)
+    log.info(f"Available cameras before deletion: {camera_names_list}")
     xpath = "//a[@title = 'Delete "+camera_name+"']"
     browser.find_element(By.XPATH,xpath).click()
     log.info(f"Deleted {camera_name} from the {scene_name}")
@@ -64,7 +64,7 @@ def test_camera_deletion_main(params, record_xml_attribute):
     rows = browser.find_elements(By.CSS_SELECTOR,"tbody > tr")
     for row in rows:
       camera_names_list.append(row.text.split()[1])
-    log.info("Available cameras after deletion: ", camera_names_list)
+    log.info(f"Available cameras after deletion: {camera_names_list}")
     assert camera_name not in camera_names_list
     exit_code = 0
   finally:

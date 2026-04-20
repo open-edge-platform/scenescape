@@ -293,7 +293,7 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
       map_data = f.read()
     parent_scene = rest_client.createScene({'name': parent, 'map': (map_image, map_data)})
     parent_id = parent_scene['uid']
-    log.info("Parent scene:", parent, parent_scene)
+    log.info(f"Parent scene name={parent} scene={parent_scene}")
     assert parent_scene
     scenes = rest_client.getScenes({'name': child})
     assert scenes['results']
@@ -310,7 +310,7 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
     mse = calculate_mse(parent_translation)
 
     assert mse is not None
-    log.info("MSE: ", round(mse["euclidean_mse"], 2))
+    log.info(f"MSE: {round(mse['euclidean_mse'], 2)}")
     assert mse["euclidean_mse"] <= ERROR, f"The MSE is not within limit (max: {ERROR})!"
 
     verify_unique_parent(child_scene, parents, rest_client, pose)

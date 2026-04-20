@@ -32,7 +32,7 @@ def reset_perspective(browser):
     log.info("Perspective has been reset!")
     return True
   except Exception as e:
-    log.info("Error while Resetting Perspective: ", e)
+    log.info(f"Error while Resetting Perspective: {e}")
     return False
 
 

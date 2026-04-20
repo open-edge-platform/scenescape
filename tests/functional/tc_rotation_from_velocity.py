@@ -158,7 +158,7 @@ class RotationFromVelocityTest(FunctionalTest):
       # collect BEFORE enabling rotation
       self.collect("before")
       before_set = set(self.rotations_before)
-      log.info("Rotation before changing settings (feature OFF):", before_set)
+      log.info(f"Rotation before changing settings (feature OFF): {before_set}")
 
       assert all(all(abs(a - b) < 1e-6 for a, b in zip(q, IDENTITY_QUAT)) for q in before_set), \
         "Spec violation: When OFF, rotation must be the identity quaternion [0,0,0,1]"

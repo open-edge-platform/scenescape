@@ -34,7 +34,7 @@ class FunctionalTest(Diagnostic):
   def _trackingReceived(self, pahoClient, userdata, message):
     data = json.loads(message.payload.decode('utf-8'))
     if data is not None:
-      log.debug("Tracking received", message.topic, data)
+      log.debug(f"Tracking received topic={message.topic} payload={data}")
       self._sceneReadyCondition.acquire()
       self._sceneReadyCondition.notify()
       self._sceneReadyCondition.release()
@@ -56,7 +56,10 @@ class FunctionalTest(Diagnostic):
     """
 
     # It's up to subclass to create self.pubsub
-    log.debug("Waiting for ready", self.pubsub.isConnected(), waitTopic)
+    log.debug(
+      f"Waiting for ready connected={self.pubsub.isConnected()} "
+      f"topic={waitTopic}"
+    )
     self.pubsub.addCallback(waitTopic, self._trackingReceived)
 
     self._sceneReadyCondition = threading.Condition()
@@ -68,7 +71,7 @@ class FunctionalTest(Diagnostic):
     detection_pub = detection.copy()
     self._sceneReadyCondition.acquire()
     while not ready and count < max_count:
-      log.debug("Try", count, "of", max_count, publishTopic)
+      log.debug(f"Try {count} of {max_count} publishTopic={publishTopic}")
       detection_pub['timestamp'] = get_iso_time(beginEpoch + count * interval)
       self.pubsub.publish(publishTopic, json.dumps(detection_pub))
       if self._sceneReadyCondition.wait(interval):

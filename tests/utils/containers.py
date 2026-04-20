@@ -55,7 +55,7 @@ def wait_for_services(docker, project_name, wait_for):
     wait_for: dict of {service_name: WaitConfig} from profiles.py.
   """
   for service, config in wait_for.items():
-    log.info("  Waiting up to %ds for %s...", config.timeout, service)
+    log.info(f"  Waiting up to {config.timeout}s for {service}...")
     wait(
       lambda svc=service, pat=config.log_pattern: container_is_ready(
         docker, project_name, svc, pat
@@ -63,7 +63,7 @@ def wait_for_services(docker, project_name, wait_for):
       timeout_seconds=config.timeout,
       sleep_seconds=1,
     )
-    log.info("  %s is ready.", service)
+    log.info(f"  {service} is ready.")
 
 
 def collect_logs(docker, containers=None, scan_for_tracebacks=False):
@@ -99,13 +99,13 @@ def collect_logs(docker, containers=None, scan_for_tracebacks=False):
         log_file = os.path.join(log_dir, f"{container.name}.log")
         with open(log_file, "w") as f:
           f.write(logs)
-        log.info("[DOCKER] Logs saved: %s", log_file)
+        log.info(f"[DOCKER] Logs saved: {log_file}")
       if scan_for_tracebacks and "Traceback" in logs:
         tracebacks_found.append(container.name)
-        log.warning("Found Traceback in %s!", container.name)
+        log.warning(f"Found Traceback in {container.name}!")
   except Exception as exc:
-    log.warning("Error collecting logs: %s", exc)
+    log.warning(f"Error collecting logs: {exc}")
   if tracebacks_found:
-    log.warning("Tracebacks found in: %s", ", ".join(tracebacks_found))
+    log.warning(f"Tracebacks found in: {', '.join(tracebacks_found)}")
   return tracebacks_found
 

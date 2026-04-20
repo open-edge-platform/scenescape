@@ -66,7 +66,7 @@ class TestSensorCalibrationBase(ABC):
     @return   None
     """
     log.info("---------------------------------------")
-    log.info("sensor_type: ", self.sensor_type)
+    log.info(f"sensor_type: {self.sensor_type}")
     log.info("---------------------------------------")
     log.info(self.equality_tests)
     log.info(self.elements)
