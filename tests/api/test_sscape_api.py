@@ -33,6 +33,31 @@ logger.addHandler(console_handler)
 file_handler = logging.FileHandler(LOG_FILE, mode="w")
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(formatter)
+
+# Per-scenario-file log handlers: each JSON source file gets its own .log file.
+_current_source = None   # set before each test case
+_log_handlers = {}       # source_name -> FileHandler
+
+class SourceFilter(logging.Filter):
+  """Only pass log records when _current_source matches this handler's source."""
+  def __init__(self, source):
+    super().__init__()
+    self._source = source
+
+  def filter(self, record):
+    return _current_source == self._source
+
+def get_or_create_file_handler(source_name):
+  """Return the FileHandler for source_name, creating it on first use."""
+  if source_name not in _log_handlers:
+    log_file = os.path.join(TESTS_API_DIR, f"{source_name}.log")
+    fh = logging.FileHandler(log_file, mode="w")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    fh.addFilter(SourceFilter(source_name))
+    logger.addHandler(fh)
+    _log_handlers[source_name] = fh
+  return _log_handlers[source_name]
 logger.addHandler(file_handler)
 
 logger.info(
@@ -81,16 +106,22 @@ def load_scenarios(path=None):
 
   if os.path.isfile(path):
     logger.info(f"Loading scenario file: {path}")
+    stem = os.path.splitext(os.path.basename(path))[0]
     with open(path, "r") as sf:
       data = json.load(sf)
+      for scenario in data:
+        scenario.setdefault("_source_file", stem)
       scenarios.extend(data)
   elif os.path.isdir(path):
     scenario_files = sorted(glob.glob(f"{path}/*.json"))
     logger.info(
       f"Loading {len(scenario_files)} scenario files from folder: {path}")
     for f in scenario_files:
+      stem = os.path.splitext(os.path.basename(f))[0]
       with open(f, "r") as sf:
         data = json.load(sf)
+        for scenario in data:
+          scenario.setdefault("_source_file", stem)
         scenarios.extend(data)
   else:
     raise FileNotFoundError(f"Scenario path not found: {path}")
@@ -444,6 +475,10 @@ def test_api_scenario_multistep(test_case):
   Each test case can have multiple steps that execute sequentially.
   If any step fails, the entire test case is marked as failed.
   """
+  global _current_source
+  _current_source = test_case.get("_source_file", "api_test")
+  get_or_create_file_handler(_current_source)
+
   test_name = test_case.get("test_name", "unnamed_test")
   test_steps = test_case.get("test_steps", [])
 
