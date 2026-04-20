@@ -1,4 +1,4 @@
-# How to Configure Geospatial Map Service API Keys
+# Configure Geospatial Map Service API Keys
 
 ## API Key Configuration
 
