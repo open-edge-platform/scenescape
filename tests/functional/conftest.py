@@ -163,6 +163,9 @@ def pytest_generate_tests(metafunc):
       nex_id = matrix[profile_name] if matrix is not None else ""
       params.append(replace(spec, profile=profile, test_name=nex_id))
 
+  if '_env_matrix_setup' not in metafunc.fixturenames:
+    metafunc.fixturenames.append('_env_matrix_setup')
+
   metafunc.parametrize(
     "_env_matrix_setup",
     params,

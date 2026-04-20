@@ -141,6 +141,8 @@ def pytest_addoption(parser):
                                 help="stability test duration in hours")),
     ("--analytics-only",   dict(action="store_true", default=False,
                                 help="Enable analytics-only mode for tests")),
+    ("--env-profiles",     dict(default=None,
+                                help="comma-separated list of test profiles (e.g., full_stack,reid_semantic)")),
   ]
   for name, kw in _opts:
     try:
@@ -505,19 +507,95 @@ if _ORCHESTRATION_AVAILABLE:
 
 
 # ---------------------------------------------------------------------------
-# Function-scoped resolver
+# No-op fixture for matrix testing (overridden in functional tests)
 # ---------------------------------------------------------------------------
+
+@pytest.fixture
+def _env_matrix_setup(request):
+  """No-op root fixture for matrix testing parametrization.
+
+  Functional tests override this to inject profile-specific FuncTestSpec.
+  This allows pytest_generate_tests to parametrize the fixture when
+  --env-profiles is provided, even for tests that don't use it.
+  """
+  pass
+
+
+# ---------------------------------------------------------------------------
+# Function-scoped resolver
+
+# ---------------------------------------------------------------------------
+
+# Session-scoped environment batching
+class _ActiveEnv:
+  """Track the currently active Docker environment at session scope.
+
+  Enables environment reuse across multiple tests with the same profile,
+  deferring teardown until the profile changes or session ends.
+  """
+  def __init__(self):
+    self.profile_name = None
+    self.docker_client = None
+    self.project_name = None
+
+  def matches(self, profile_name):
+    """Check if the active environment matches the requested profile."""
+    return self.profile_name == profile_name
+
+  def set(self, profile_name, docker_client, project_name):
+    """Update the active environment."""
+    self.profile_name = profile_name
+    self.docker_client = docker_client
+    self.project_name = project_name
+
+  def clear(self):
+    """Reset to no active environment."""
+    self.profile_name = None
+    self.docker_client = None
+    self.project_name = None
+
+
+_active_env = _ActiveEnv()  # Session-level state
+
+
+def _teardown_active_env():
+  """Tear down the currently active Docker environment."""
+  if _active_env.docker_client is None:
+    return
+
+  try:
+    logger.info("Tearing down Docker Compose environment: %s", _active_env.project_name)
+    _active_env.docker_client.compose.down()
+    collect_logs(_active_env.docker_client, _active_env.project_name)
+  except Exception as e:
+    logger.warning("Error tearing down environment %s: %s", _active_env.project_name, e)
+  finally:
+    _active_env.clear()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _cleanup_active_env_at_session_end():
+  """Ensure the active environment is torn down at session end."""
+  yield
+  _teardown_active_env()
+
 
 @pytest.fixture(scope="function")
 def scenescape_env(request, secrets_dir, supass, loopback_hosts):
   """Resolve the session-scoped profile fixture and inject per-test options.
 
+  Implements environment batching: reuses the environment if the profile
+  hasn't changed, otherwise tears down the old one and starts a new one.
+
   Each test that needs a compose environment must explicitly request this
-  fixture.  It reads SCENESCAPE_SPEC from the test module to determine
-  which session-scoped profile fixture to activate, then injects CLI
-  options (auth, password, extra_args) for this specific test.
+  fixture. It reads SCENESCAPE_SPEC from the test module to determine
+  which profile to activate, then injects CLI options for this specific test.
   """
-  spec = getattr(request.module, "SCENESCAPE_SPEC", None)
+  spec = getattr(request.node, '_scenescape_spec', None)
+  if spec is None and hasattr(request.node, 'callspec'):
+    spec = request.node.callspec.params.get('_env_matrix_setup')
+  if spec is None:
+    spec = getattr(request.module, "SCENESCAPE_SPEC", None)
   if spec is None:
     pytest.fail(
       f"{request.module.__name__} requests scenescape_env but has no SCENESCAPE_SPEC"
@@ -526,11 +604,26 @@ def scenescape_env(request, secrets_dir, supass, loopback_hosts):
   if not _ORCHESTRATION_AVAILABLE:
     pytest.skip("python-on-whales not installed; run from host venv")
 
+  # Check if profile has changed; if so, tear down the old environment.
+  if not _active_env.matches(spec.profile.name):
+    _teardown_active_env()
+
+  # Get or start the environment for this profile.
   fixture_name = _PROFILE_FIXTURE_MAP.get(spec.profile.name)
   if fixture_name is None:
     pytest.fail(f"No session fixture for profile {spec.profile.name!r}")
 
   env = request.getfixturevalue(fixture_name)
+
+  # Track this environment for future profile change detection.
+  if not _active_env.matches(spec.profile.name):
+    # Extract project name from the fixture result.
+    # The ScenescapeEnv object has a project_name attribute.
+    _active_env.set(
+      spec.profile.name,
+      env.docker if hasattr(env, 'docker') else None,
+      env.project_name if hasattr(env, 'project_name') else None,
+    )
 
   # Inject per-test CLI option values.
   _inject_options(request.config, spec, secrets_dir, supass, env=env)
@@ -550,6 +643,13 @@ def _derive_marker(item):
   return item.module.__name__.split(".")[-1].removeprefix("test_")
 
 
+def _get_item_spec(item):
+  """Return the effective FuncTestSpec for a collected or running item."""
+  if hasattr(item, 'callspec') and '_env_matrix_setup' in item.callspec.params:
+    return item.callspec.params['_env_matrix_setup']
+  return getattr(item, '_scenescape_spec', getattr(item.module, 'SCENESCAPE_SPEC', None))
+
+
 # ---------------------------------------------------------------------------
 # Pytest hooks
 # ---------------------------------------------------------------------------
@@ -558,20 +658,48 @@ def _derive_marker(item):
 _LOG_BASE = _TESTS_DIR / "test_logs"
 
 def pytest_collection_modifyitems(config, items):
-  """Attach FuncTestSpec to each collected item and add module-derived markers."""
+  """Attach FuncTestSpec to each collected item and sort by profile order.
+
+  When --env-profiles is specified, sort items by profile to group tests
+  by profile, enabling environment batching (setup/teardown per profile, not per test).
+  """
   for item in items:
-    spec = getattr(item.module, 'SCENESCAPE_SPEC', None)
+    spec = _get_item_spec(item)
     if spec is not None:
       item._scenescape_spec = spec
       marker_name = _derive_marker(item)
       config.addinivalue_line("markers", f"{marker_name}: FuncTestSpec marker")
       item.add_marker(getattr(pytest.mark, marker_name))
 
+  # If --env-profiles is specified, sort items by profile order to enable batching.
+  env_profiles_arg = config.getoption("--env-profiles", default=None)
+  if not env_profiles_arg:
+    return
+
+  profile_names = [name.strip() for name in env_profiles_arg.split(",") if name.strip()]
+  profile_rank = {name: i for i, name in enumerate(profile_names)}
+  original_order = {item: i for i, item in enumerate(items)}
+
+  def _item_profile_rank(item):
+    """Return (profile_rank, original_index) for sorting."""
+    spec = _get_item_spec(item)
+    if spec is None:
+      return (float('inf'), original_order[item])
+    profile_name = spec.profile.name
+    rank = profile_rank.get(profile_name, float('inf'))
+    return (rank, original_order[item])
+
+  items.sort(key=_item_profile_rank)
+
 def pytest_runtest_setup(item):
-  """Create a per-test log file before the fixture setup phase runs."""
+  """Create a per-test log file before the fixture setup phase runs.
+
+  Log naming incorporates NEX ID if present for per-profile tracking.
+  Format: <test_name>_<NEX_ID>_<timestamp>
+  """
   if not _ORCHESTRATION_AVAILABLE or _testlog is None:
     return
-  spec = getattr(item, "_scenescape_spec", None)
+  spec = _get_item_spec(item)
   if spec is None:
     return
   path_str = str(item.fspath)
@@ -581,15 +709,25 @@ def pytest_runtest_setup(item):
     group = "ui"
   else:
     group = "functional"
-  test_name = _derive_marker(item)
-  log_path = _testlog.setup(test_name, group=group, log_base=_LOG_BASE)
+
+  # Extract test function name for log directory naming.
+  test_func_name = item.originalname or item.name.split('[')[0]
+
+  # Incorporate NEX ID (spec.test_name) if present.
+  matrix_name = spec.test_name if spec.test_name else ""
+  if matrix_name:
+    log_name = f"{test_func_name}_{matrix_name}"
+  else:
+    log_name = test_func_name
+
+  log_path = _testlog.setup(log_name, group=group, log_base=_LOG_BASE)
   logger.info("Test log: %s", log_path)
 
 def pytest_runtest_call(item):
   """Switch from setup log to test log right before test body executes."""
   if not _ORCHESTRATION_AVAILABLE or _testlog is None:
     return
-  spec = getattr(item, "_scenescape_spec", None)
+  spec = _get_item_spec(item)
   if spec is None:
     return
   _testlog.begin_test_phase()
