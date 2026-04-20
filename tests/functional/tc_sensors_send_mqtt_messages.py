@@ -183,19 +183,19 @@ class SensorMqttMessageFlowTest(FunctionalTest):
 
   def createDetection(self, positionNow):
     def make_obj(obj_id, category, x, y, w, h):
-        bbox = {
-            'x': x,
-            'y': y,
-            'width': w,
-            'height': h,
-        }
+      bbox = {
+          'x': x,
+          'y': y,
+          'width': w,
+          'height': h,
+      }
 
-        return {
-            'id': obj_id,
-            'category': category,
-            'bounding_box': bbox,
-            'bounding_box_px': self.to_px(bbox),
-        }
+      return {
+          'id': obj_id,
+          'category': category,
+          'bounding_box': bbox,
+          'bounding_box_px': self.to_px(bbox),
+      }
 
     detection = {
         'id': self.cameraId,
