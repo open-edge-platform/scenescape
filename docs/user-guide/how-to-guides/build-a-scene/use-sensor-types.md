@@ -1,4 +1,4 @@
-# How to Use Environmental and Attribute Sensor Types in Intel® SceneScape
+# Use Environmental and Attribute Sensor Types in Intel® SceneScape
 
 This guide provides step-by-step instructions to integrate and use environmental and attribute sensor types in Intel® SceneScape. By completing this guide, you will:
 
@@ -6,7 +6,7 @@ This guide provides step-by-step instructions to integrate and use environmental
 - Learn how to configure and publish sensor data to Intel® SceneScape.
 - Verify that sensor data is properly associated with tracked scene objects.
 
-This task is important for enhancing your scene graph with real-world sensor data, enabling deeper insights from environmental context and object-specific attributes. If you're new to Scene Graphs or Intel® SceneScape, see [Integrating Cameras and Sensors](../using-intel-scenescape/how-to-integrate-cameras-and-sensors.md).
+This task is important for enhancing your scene graph with real-world sensor data, enabling deeper insights from environmental context and object-specific attributes. If you're new to Scene Graphs or Intel® SceneScape, see [Integrating Cameras and Sensors](../integrate-cameras-and-sensors.md).
 
 ---
 
@@ -14,11 +14,11 @@ This task is important for enhancing your scene graph with real-world sensor dat
 
 Before you begin, ensure the following:
 
-- **Access and Permissions**: When using Intel® SceneScape secure broker for publishing sensor data, refer to [user access controls](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/manager/config/user_access_config.json) and [access levels](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/scene_common/src/scene_common/options.py).
+- **Access and Permissions**: When using Intel® SceneScape secure broker for publishing sensor data, refer to [user access controls](https://github.com/open-edge-platform/scenescape/blob/release-2026.0/manager/config/user_access_config.json) and [access levels](https://github.com/open-edge-platform/scenescape/blob/release-2026.0/scene_common/src/scene_common/options.py).
 
 If you're new to these concepts, see:
 
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.0/README.md)
 - [MQTT Intro](https://mqtt.org/getting-started/)
 
 ---
@@ -48,7 +48,7 @@ If you're new to these concepts, see:
 
 1. Click on `Sensors` at the bottom of the scene.
 2. You will see the created sensor. Then click on the `manage` button.
-3. In the Manage Sensor view, you can update attributes like Measurement area (Entire Scene, Circle or Custom region), Name, Sensor id, Scene, Singleton type, Color Range, etc. For more details on how to use the Color Range, refer to [How to visualize regions](how-to-visualize-regions.md).
+3. In the Manage Sensor view, you can update attributes like Measurement area (Entire Scene, Circle or Custom region), Name, Sensor id, Scene, Singleton type, Color Range, etc. For more details on how to use the Color Range, refer to [Visualizing ROI and Sensor Areas](./visualize-regions.md).
 4. Cick on `Save Sensor `to persist the modified sensor.
 
 #### Publish Environmental Sensor Readings
@@ -57,13 +57,13 @@ From a third party application, publish sensor data to the topic `scenescape/dat
 
 > **Notes:**
 >
-> - Refer to [Singleton Sensor Data](../using-intel-scenescape/how-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
+> - Refer to [Singleton Sensor Data](../integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
 
 #### Verify the Results
 
 Check the scene graph for objects within the sensor region:
 
-![Sensor JSON Data Example](../_assets/environment_sensor.png)
+![Sensor JSON Data Example](../../_assets/environment_sensor.png)
 
 **Expected Results**:
 
@@ -74,8 +74,6 @@ Check the scene graph for objects within the sensor region:
 ### 3. Configure and Use an Attribute Sensor
 
 #### Step 1: Create the Sensor
-
-#### Create the Sensor
 
 1. Log in to Intel® SceneScape.
 2. Click on a scene.
@@ -93,13 +91,13 @@ From a third party application, publish sensor data to the topic `scenescape/dat
 
 > **Notes:**
 >
-> - Refer to [Singleton Sensor Data](../using-intel-scenescape/how-to-integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
+> - Refer to [Singleton Sensor Data](../integrate-cameras-and-sensors.md#singleton-sensor-data) on what a sensor data looks and how to publish sensor data.
 
 #### Step 3: Verify the Results
 
 Check updates for the target object:
 
-![Sensor JSON Data Example](../_assets/attribute_sensor.png)
+![Sensor JSON Data Example](../../_assets/attribute_sensor.png)
 
 **Expected Results**:
 
@@ -109,5 +107,5 @@ Check updates for the target object:
 
 ## Supporting Resources
 
-- [How to visualize regions](how-to-visualize-regions.md)
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/README.md)
+- [Visualize ROI and Sensor Areas](./visualize-regions.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.0/README.md)

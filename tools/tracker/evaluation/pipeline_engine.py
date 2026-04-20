@@ -352,6 +352,9 @@ class PipelineEngine:
     if 'tracker_config_path' in config:
       custom_config['tracker_config_path'] = config['tracker_config_path']
 
+    if 'object_classes' in config:
+      custom_config['object_classes'] = config['object_classes']
+
     # Add any additional custom configuration
     if 'custom_config' in config:
       custom_config.update(config['custom_config'])
@@ -399,12 +402,18 @@ class PipelineEngine:
     where <evaluator-key> is the class name, disambiguated with an index
     suffix when multiple evaluators share the same class name.
     """
+    scene_config = self._dataset.get_scene_config() if self._dataset else None
+
     for i, evaluator in enumerate(self._evaluators):
       config = self._config['evaluators'][i]['config']
       evaluator_key = self._get_evaluator_key(i)
 
       if 'metrics' in config:
         evaluator.configure_metrics(config['metrics'])
+
+      # Pass scene config so evaluators that need camera geometry can use it
+      if scene_config is not None and hasattr(evaluator, 'set_scene_config'):
+        evaluator.set_scene_config(scene_config)
 
       evaluator_output_path = self._output_path / 'evaluators' / evaluator_key
       evaluator.set_output_folder(evaluator_output_path)
@@ -439,10 +448,21 @@ def main():
 
     # Print results
     print("\n=== Evaluation Results ===")
+    evaluator_by_key = {
+      engine._get_evaluator_key(i): ev
+      for i, ev in enumerate(engine._evaluators)
+    }
     for evaluator_name, evaluator_metrics in metrics.items():
       print(f"\n[{evaluator_name}]")
-      for metric_name, metric_value in evaluator_metrics.items():
-        print(f"  {metric_name}: {metric_value:.4f}")
+      evaluator = evaluator_by_key.get(evaluator_name)
+      if evaluator is not None and hasattr(evaluator, 'format_summary'):
+        print(evaluator.format_summary())
+      else:
+        for metric_name, metric_value in evaluator_metrics.items():
+          if isinstance(metric_value, int):
+            print(f"  {metric_name}: {metric_value}")
+          else:
+            print(f"  {metric_name}: {metric_value:.4f}")
 
     # Print output location
     print(f"\nResults saved to: {engine._output_path}")

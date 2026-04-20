@@ -1,12 +1,12 @@
-# How to Manually Calibrate Cameras in Intel® SceneScape
+# Use Intel® SceneScape 2D UI for Manual Camera Calibration
 
-This guide provides step-by-step instructions to manually calibrate cameras in Intel® SceneScape. By completing this guide, you will:
+This guide provides step-by-step instructions to manually calibrate cameras in Intel® SceneScape using the 2D UI. By completing this guide, you will:
 
 - Configure camera intrinsic parameters using `docker-compose.yml`.
 - Use 2D UI tools to align views with map data.
 - Understand advanced calibration options such as focal length estimation.
 
-This task is essential for accurate spatial positioning and analytics in Intel® SceneScape. If you’re new to Intel® SceneScape, see [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/README.md).
+This task is essential for accurate spatial positioning and analytics in Intel® SceneScape. If you’re new to Intel® SceneScape, see [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.0/README.md).
 
 ## Prerequisites
 
@@ -59,7 +59,7 @@ When eight or more point pairs exist:
 **Expected Result**: Accurate focal length and distortion (k1) estimates update in the UI.
 **Note**: Computing distortion is unavailable as the Video Analytics service transitions to using DL Streamer Pipeline Server. File an issue on GitHub with information on proposed usage and priority against other features.
 
-![Computed Camera Intrinsics](../_assets/ui/camera-intrinsics.png)
+![Computed Camera Intrinsics](../../_assets/ui/camera-intrinsics.png)
 
 _Figure 1: Computed Camera Intrinsics_
 
@@ -68,16 +68,16 @@ _Figure 1: Computed Camera Intrinsics_
 When calibrating cameras in Intel® SceneScape, follow these best practices for optimal results:
 
 - **Distribute Points Evenly**: Place calibration points across the entire field of view, not just in one area.
-  ![Evenly Distributed Calibration Points](../_assets/ui/goodcalibpoints.png)
+  ![Evenly Distributed Calibration Points](../../_assets/ui/goodcalibpoints.png)
 
   _Figure 2: Evenly Distributed Calibration Points_
 
-  ![Poorly Distributed Calibration Points](../_assets/ui/poorlydistributed.png)
+  ![Poorly Distributed Calibration Points](../../_assets/ui/poorlydistributed.png)
 
   _Figure 3: Poorly Distributed Calibration Points_
 
 - **Avoid Collinear Points**: Avoid having any 3 points being collinear, as it creates an under-constrained problem and lead to inaccurate calibration results.
-  ![Collinear Calibration Points](../_assets/ui/collinearpoints.png)
+  ![Collinear Calibration Points](../../_assets/ui/collinearpoints.png)
 
   _Figure 4: Collinear Calibration Points_
 
@@ -88,5 +88,5 @@ For challenging scenes, consider using physical calibration targets in the envir
 
 ## Supporting Resources
 
-- [Step-by-step guide to 3D camera calibration](../using-intel-scenescape/how-to-use-3D-UI.md#step-3-calibrate-the-camera)
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2025.2/README.md)
+- [Step-by-step guide to 3D camera calibration](./use-3D-UI-for-calibration.md#step-3-calibrate-the-camera)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.0/README.md)
