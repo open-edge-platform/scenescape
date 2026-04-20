@@ -82,17 +82,6 @@ make rebuild-autocalibration            # Clean + rebuild
 make build-core                         # Includes autocalibration
 ```
 
-### Testing
-
-```bash
-# Unit tests
-make -C tests autocalibration-unit
-
-# Functional tests (requires running containers)
-SUPASS=<password> make setup_tests
-make -C tests autocalibration-functional
-```
-
 ### Running Locally
 
 ```bash
@@ -250,8 +239,7 @@ docker compose ps autocalibration
 
 When modifying the service, verify:
 
-- [ ] Unit tests pass: `make -C tests autocalibration-unit`
-- [ ] Functional tests pass (with containers running)
+- [ ] Functional tests pass: `make run_functional_tests`
 - [ ] AprilTag detection works with sample data
 - [ ] MQTT messages validated against schema
 - [ ] API endpoints return correct status codes
@@ -263,4 +251,4 @@ When modifying the service, verify:
 - [User Guide](../docs/user-guide/microservices/auto-calibration/auto-calibration.md): High-level overview
 - [API Reference](../docs/user-guide/microservices/auto-calibration/api-reference.md): REST API spec
 - [Scene Common](../scene_common/): Shared library documentation
-- [Testing Guide](../.github/instructions/testing.md): Test creation patterns
+- [Testing Guide](../.github/skills/testing.md): Test creation patterns

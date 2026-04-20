@@ -20,7 +20,7 @@ services:
   broker:
     image: eclipse-mosquitto
     ports:
-      - "1883:1883"
+      - "${BROKER_PORT:-1883}:1883"
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf

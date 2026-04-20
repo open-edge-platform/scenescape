@@ -41,7 +41,7 @@ _PGSERVER = WaitConfig(
 _BROKER = WaitConfig(log_pattern=r"mosquitto version .* running")
 _WEB = WaitConfig()
 _SCENE = WaitConfig()
-_AUTOCALIBRATION = WaitConfig(timeout=600)
+_AUTOCALIBRATION = WaitConfig(timeout=1200)
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +145,7 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
     f"{COMPOSE}/ntp.yml",
     f"{COMPOSE}/pgserver.yml",
     f"{DLS}/retail_video.yml",
+    f"{DLS}/queuing_video.yml",
     f"{COMPOSE}/scene.yml",
     f"{COMPOSE}/web.yml",
     f"{COMPOSE}/cams.yml",
@@ -152,6 +153,7 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
   wait_for={
     "pgserver": _PGSERVER,
     "web": _WEB,
+    "queuing-video": WaitConfig(),
     "retail-video": WaitConfig(),
     "scene": _SCENE,
   },
@@ -171,13 +173,15 @@ REID = ServiceProfile(
     f"{COMPOSE}/cams.yml",
   ),
   wait_for={
+    "broker": _BROKER,
+    "ntpserv": WaitConfig(),
     "pgserver": _PGSERVER,
+    "vdms": WaitConfig(),
     "web": _WEB,
     "queuing-video": WaitConfig(),
     "retail-video": WaitConfig(),
     "scene": _SCENE,
   },
-
 )
 
 REID_DATA_FLOW = ServiceProfile(
@@ -199,7 +203,6 @@ REID_DATA_FLOW = ServiceProfile(
     "web": _WEB,
     "scene": _SCENE,
   },
-
 )
 
 REID_SEMANTIC = ServiceProfile(
@@ -220,7 +223,30 @@ REID_SEMANTIC = ServiceProfile(
     "queuing-video": WaitConfig(),
     "scene": _SCENE,
   },
+)
 
+FULL_STACK_AUTOCALIBRATION = ServiceProfile(
+  name="full_stack_autocalibration",
+  compose_files=(
+    f"{DLS}/broker.yml",
+    f"{COMPOSE}/ntp.yml",
+    f"{COMPOSE}/pgserver.yml",
+    f"{COMPOSE}/scene.yml",
+    f"{COMPOSE}/web_default.yml",
+    f"{DLS}/queuing_video.yml",
+    f"{DLS}/retail_video.yml",
+    f"{COMPOSE}/autocalibration.yml",
+    f"{COMPOSE}/cams.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "broker": _BROKER,
+    "scene": _SCENE,
+    "queuing-video": WaitConfig(),
+    "retail-video": WaitConfig(),
+    "autocalibration": _AUTOCALIBRATION,
+    "web": _WEB,
+  },
 )
 
 BROKER_AND_DB = ServiceProfile(
@@ -243,7 +269,6 @@ BROKER_VDMS_DB = ServiceProfile(
   wait_for={
     "pgserver": _PGSERVER,
   },
-
 )
 
 SCENE_NO_DB = ServiceProfile(
@@ -272,7 +297,6 @@ MARKERLESS = ServiceProfile(
     "web": _WEB,
     "autocalibration": _AUTOCALIBRATION,
   },
-
 )
 
 # broker + pgserver + web (with readiness checks) — used by UI/selenium tests
@@ -329,6 +353,7 @@ PROFILE_REGISTRY: dict = {
     REID,
     REID_DATA_FLOW,
     REID_SEMANTIC,
+    FULL_STACK_AUTOCALIBRATION,
     BROKER_AND_DB,
     BROKER_VDMS_DB,
     SCENE_NO_DB,

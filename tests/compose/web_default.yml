@@ -31,12 +31,9 @@ services:
     depends_on:
       - pgserver
     ports:
-      - "443:443"
+      - "${HTTPS_PORT:-443}:443"
     command: >
       webserver
-      --dbhost pgserver
-      --dbtype postgres
-      --dbport 5432
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/browser.auth
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
@@ -45,9 +42,12 @@ services:
       interval: 5s
       timeout: 60s
       retries: 10
-      start_period: 10s
+      start_period: 120s
     environment:
       - "EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2"
+      - "DBHOST=pgserver"
+      - "DBPORT=5432"
+      - "DBTYPE=postgres"
       - "DBROOT"
       - "SUPASS"
     cap_add:

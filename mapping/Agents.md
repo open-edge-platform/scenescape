@@ -109,22 +109,6 @@ make build-experimental                 # Build mapping + cluster_analytics
 make build-all                          # All services including experimental
 ```
 
-### Testing
-
-```bash
-# Unit tests
-make -C tests mapping-unit
-
-# Functional tests (requires running containers)
-SUPASS=<password> make setup_tests
-make -C tests mapping-functional
-
-# Manual API testing
-curl -X POST http://localhost:8080/api/v1/maps/create \
-  -H "Content-Type: application/json" \
-  -d '{"video_url": "rtsp://camera1/stream"}'
-```
-
 ### Running Locally
 
 ```bash
@@ -368,7 +352,7 @@ docker stats mapping
 
 When modifying the service, verify:
 
-- [ ] Unit tests pass: `make -C tests mapping-unit`
+- [ ] Unit tests pass: `make run_unit_tests`
 - [ ] API endpoints return correct status codes
 - [ ] Model loads successfully on target device (CPU/GPU)
 - [ ] Map creation completes without errors
@@ -391,5 +375,5 @@ As an experimental service, mapping includes:
 - [Mapping Overview](../docs/user-guide/microservices/mapping-service/mapping-service.md): High-level introduction
 - [Map-Anything Model](https://github.com/...): Upstream model documentation
 - [Scene Common](../scene_common/): Shared geometry utilities
-- [Testing Guide](../.github/instructions/testing.md): Test creation patterns
-- [Python Conventions](../.github/instructions/python.md): Python coding standards
+- [Testing Guide](../.github/skills/testing.md): Test creation patterns
+- [Python Conventions](../.github/skills/python.md): Python coding standards

@@ -4,7 +4,7 @@
 
 ```bash
 # Build images, generate secrets, and install the pytest virtualenv
-SUPASS=change_me make build-all && make setup_tests
+SUPASS=change_me make build-all && make setup-tests
 cd tests && make setup-pytest   # creates tests/.venv if not present
 ```
 
@@ -72,11 +72,11 @@ pytest tests/test_ui.py -v
 
 ### Environment variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `SUPASS` | random | Superuser password passed to test containers |
-| `SECRETSDIR` | `manager/secrets/` | Path to the secrets directory |
-| `IMAGE_VERSION` | `latest` | Docker image tag to use for test containers |
+| Variable        | Default            | Description                                  |
+| --------------- | ------------------ | -------------------------------------------- |
+| `SUPASS`        | random             | Superuser password passed to test containers |
+| `SECRETSDIR`    | `manager/secrets/` | Path to the secrets directory                |
+| `IMAGE_VERSION` | `latest`           | Docker image tag to use for test containers  |
 
 ### Log files
 
@@ -93,18 +93,34 @@ cleanup messages go to the log file only.
 
 ## Available test groups
 
-| Make target | Description |
-|---|---|
-| `basic-acceptance-tests` | Core smoke tests (functional + unit) |
-| `standard-tests` | Full functional and UI test suite |
-| `functional-tests` | All functional API/MQTT tests |
-| `unit-tests` | All unit tests (standalone containers) |
-| `ui-tests` | All UI/Selenium tests |
-| `metric-tests` | Performance metric tests |
+| Make target              | Description                            |
+| ------------------------ | -------------------------------------- |
+| `basic-acceptance-tests` | Core smoke tests (functional + unit)   |
+| `standard-tests`         | Full functional and UI test suite      |
+| `functional-tests`       | All functional API/MQTT tests          |
+| `unit-tests`             | All unit tests (standalone containers) |
+| `ui-tests`               | All UI/Selenium tests                  |
+| `metric-tests`           | Performance metric tests               |
 
 For a complete and up-to-date list of all test targets see the
 [Tests Makefile](Makefile), [Makefile.functional](Makefile.functional),
 [Makefile.sscape](Makefile.sscape), and [Makefile.user_interface](Makefile.user_interface).
+
+## Unit test taxonomy
+
+The repository keeps two categories under the `unit-tests` umbrella:
+
+- Pure unit tests: fast logic-focused tests that typically avoid Django request/ORM integration.
+  - Umbrella target: `make -C tests logic-unit-tests`
+  - Example leaf target: `make -C tests scene-unit`
+- Django integration unit tests: Django `TestCase`/test-client/ORM based backend tests grouped under a dedicated umbrella.
+  - Umbrella target: `make -C tests django-integration-unit`
+  - Included targets: `account-security-unit`, `cam-unit`, `scene-django-unit`, `singleton-sensor-unit`, `views-unit`
+
+Notes:
+
+- `make -C tests unit-tests` still runs both categories.
+- The Django scene CRUD tests in `tests/sscape_tests/scene/` are run by `scene-django-unit`.
 
 ## Running tests on kubernetes
 

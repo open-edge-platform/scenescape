@@ -52,12 +52,8 @@ spec:
           imagePullPolicy: {{ .Values.web.pullPolicy }}
           args:
             - webserver
-            - --dbhost
-            - pgserver.{{ .Release.Namespace }}.svc.cluster.local
             - --dbtype
             - postgres
-            - --dbport
-            - "5432"
             - --broker
             - broker.{{ .Release.Namespace }}.svc.cluster.local
             - --brokerauth
@@ -78,6 +74,10 @@ spec:
             value: /home/scenescape/SceneScape/models/models/model_configs
           - name: EXAMPLEDB
             value: /home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
+          - name: DBHOST
+            value: pgserver
+          - name: DBPORT
+            value: "5432"
           - name: SUPASS
             valueFrom:
               secretKeyRef:

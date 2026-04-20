@@ -141,21 +141,6 @@ make rebuild-controller                 # Clean + rebuild
 make build-core                         # Build all core services
 ```
 
-### Testing
-
-```bash
-# Unit tests
-make -C tests controller-unit
-make -C tests geometry-unit             # Test fast_geometry
-
-# Functional tests (requires running containers)
-SUPASS=<password> make setup_tests
-make -C tests controller-functional
-
-# Specific test module
-pytest tests/sscape_tests/controller/test_tracking.py -v
-```
-
 ### Running Locally
 
 ```bash
@@ -511,8 +496,8 @@ docker stats scene
 
 When modifying the service, verify:
 
-- [ ] Unit tests pass: `make -C tests controller-unit`
-- [ ] Functional tests pass (with full docker-compose)
+- [ ] Unit tests pass: `make run_unit_tests`
+- [ ] Functional tests pass: `make run_functional_tests`
 - [ ] MQTT messages validated correctly against schemas
 - [ ] Object tracking maintains IDs across frames
 - [ ] Coordinate transformations accurate (test with known points)
@@ -565,5 +550,5 @@ logger.error(f"Tracking failed for object {obj_id}") # Errors
 - [API Reference](../docs/user-guide/microservices/controller/_assets/scene-controller-api.yaml): OpenAPI specification
 - [Scene Common](../scene_common/): Shared library documentation (geometry, MQTT, etc.)
 - [Fast Geometry](../scene_common/src/fast_geometry/): C++ extension documentation
-- [Testing Guide](../.github/instructions/testing.md): Test creation patterns
-- [Python Conventions](../.github/instructions/python.md): Python coding standards
+- [Testing Guide](../.github/skills/testing.md): Test creation patterns
+- [Python Conventions](../.github/skills/python.md): Python coding standards
