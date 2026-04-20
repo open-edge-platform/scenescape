@@ -76,11 +76,7 @@ class SceneObjectMqtt(FunctionalTest):
             # Track entry time for dwell verification
             if event['id'] not in self.objectEntryTimes:
               self.objectEntryTimes[event['id']] = get_epoch_time()
-<<<<<<< modify-logger
             log.info(f"object with id {event['id']} entered region")
-=======
-            print("object with id {} entered region\n".format(event['id']))
->>>>>>> feature/tests-rework-to-pytest
 
     if len(regionEvent['exited']) > 0:
       for event in regionEvent['exited']:

@@ -8,9 +8,9 @@ import numpy as np
 from tests.functional.backend_functional import BackendFunctionalTest
 from tests.utils.log import get_logger
 
-log = get_logger(__name__)
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import REID
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=REID,

@@ -19,10 +19,10 @@ from contextlib import contextmanager
 from tests.functional import FunctionalTest
 from tests.utils.log import get_logger
 
-log = get_logger(__name__)
 from scene_common.rest_client import RESTClient
 from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
 from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_AUTOCALIBRATION,

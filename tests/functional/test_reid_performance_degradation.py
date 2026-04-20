@@ -10,8 +10,6 @@ from tests.functional.backend_functional import BackendFunctionalTest
 from scene_common.mqtt import PubSub
 from tests.utils.log import get_logger
 
-log = get_logger(__name__)
-
 try:
   import psutil
 except ImportError:
@@ -25,6 +23,8 @@ except ImportError:
   import psutil
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import REID
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="reid_performance_degradation", profile=REID,

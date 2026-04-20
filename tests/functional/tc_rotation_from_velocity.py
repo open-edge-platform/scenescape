@@ -9,11 +9,11 @@ import time
 from http import HTTPStatus
 
 from tests.utils.log import get_logger
-log = get_logger(__name__)
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 
 from tests.functional import FunctionalTest
+log = get_logger(__name__)
 
 TEST_NAME = "NEX-T10543"
 COLLECT_TIMEOUT = 10.0

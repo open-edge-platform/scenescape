@@ -21,10 +21,10 @@ from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
 from tests.utils.log import get_logger
 
-log = get_logger(__name__)
 from controller.vdms_adapter import VDMSDatabase, vdms
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import REID
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=REID,

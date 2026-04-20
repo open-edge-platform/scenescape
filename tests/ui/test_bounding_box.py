@@ -11,11 +11,11 @@ import numpy as np
 import tests.ui.common_ui_test_utils as common
 
 from tests.utils.log import get_logger
-log = get_logger(__name__)
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_epoch_time
 from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   id="bounding_box", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,

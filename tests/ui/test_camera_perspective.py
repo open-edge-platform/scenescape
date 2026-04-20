@@ -8,9 +8,9 @@ import time
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 from tests.utils.log import get_logger
-log = get_logger(__name__)
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
