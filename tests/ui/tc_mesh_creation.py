@@ -10,7 +10,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException
 from urllib.parse import urlparse
-import os 
+import os
 
 MAX_ATTEMPTS = 10
 
