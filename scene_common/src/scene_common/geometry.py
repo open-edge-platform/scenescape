@@ -194,3 +194,37 @@ class Tripwire(Region):
       'uuid': self.uuid,
     }
     return data
+
+def getTripwireEvents(tripwires, object_locations):
+  """Detect line crossings between object movement segments and tripwires.
+
+  @param tripwires         Dict of {key: Tripwire} to check against
+  @param object_locations  List of location pairs (current, previous) per object
+  @return Dict mapping tripwire key to list of (object_index, direction) tuples
+  """
+  tripwire_events = {}
+  for key, tripwire in tripwires.items():
+    event_matches = []
+    for obj_idx, obj_locations in enumerate(object_locations):
+      d = tripwire.lineCrosses(Line(obj_locations[0].as2Dxy,
+                                    obj_locations[1].as2Dxy))
+      if d != 0:
+        event_matches.append((obj_idx, -d))
+    tripwire_events[key] = event_matches
+  return tripwire_events
+
+def getRegionEvents(regions, object_locations):
+  """Determine which objects are within each region using point containment.
+
+  @param regions           Dict of {key: Region} to check against
+  @param object_locations  List of object positions (Point) to test
+  @return Dict mapping region key to list of object indices within that region
+  """
+  region_events = {}
+  for key, region in regions.items():
+    region_objects = []
+    for obj_idx, obj_location in enumerate(object_locations):
+      if region.isPointWithin(obj_location):
+        region_objects.append(obj_idx)
+    region_events[key] = region_objects
+  return region_events
