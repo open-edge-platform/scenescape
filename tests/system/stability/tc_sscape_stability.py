@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+import json
 import time
 from datetime import datetime, timedelta
 
@@ -26,6 +27,10 @@ TEST_MAX_OBJECT_VARIATION = 20
 ### Maximum difference allowed for the sensor objects (current FPS vs average FPS).
 ### This is intended to check if streams stutter or suddenly stop.
 TEST_MAX_FPS_VARIATION = 10
+
+### Memory trend checks over the run to detect leak-like behavior.
+TEST_MEMORY_AVG_WINDOW = 10
+TEST_MAX_MEMORY_GROWTH_PCT = 10
 
 objects_detected = 0
 connected = False
@@ -107,7 +112,65 @@ class TestState():
     self.variation_in_fps = False
     self.min_fps = TEST_WAIT_TIME * 100
     self.max_fps = 0
+    self.memory_samples = []
+    self.memory_growth_detected = False
     return None
+
+  def read_memory_usage(self):
+    """! Reads system memory usage percent from /proc/meminfo.
+    @return   Float|None            Current memory usage percent, or None if unavailable.
+    """
+    try:
+      meminfo = {}
+      with open('/proc/meminfo', 'r', encoding='utf-8') as fd:
+        for line in fd:
+          key, value = line.split(':', 1)
+          meminfo[key] = int(value.strip().split()[0])
+      total = meminfo.get('MemTotal')
+      available = meminfo.get('MemAvailable')
+      if total is None or available is None or total <= 0:
+        return None
+      used = total - available
+      return (used / total) * 100
+    except (OSError, ValueError):
+      return None
+
+  def update_memory_usage(self):
+    """! Store a memory usage sample for leak trend checks.
+    @return   None.
+    """
+    usage = self.read_memory_usage()
+    if usage is None:
+      print('Unable to collect memory usage sample for stability test.')
+      return None
+    self.memory_samples.append(usage)
+    return None
+
+  def memory_usage_stable(self):
+    """! Checks for sustained memory growth across the run.
+    @return   Bool                    True if memory trend indicates potential leak, otherwise False.
+    """
+    if len(self.memory_samples) < (TEST_MEMORY_AVG_WINDOW * 2):
+      return False
+
+    first_window = self.memory_samples[:TEST_MEMORY_AVG_WINDOW]
+    last_window = self.memory_samples[-TEST_MEMORY_AVG_WINDOW:]
+    first_avg = sum(first_window) / len(first_window)
+    last_avg = sum(last_window) / len(last_window)
+    growth_pct = ((last_avg - first_avg) / max(first_avg, 0.01)) * 100
+
+    if growth_pct >= TEST_MAX_MEMORY_GROWTH_PCT:
+      print(
+        "Test failed memory trend check! start average {:.2f}% end average {:.2f}% growth {:.2f}%".format(
+          first_avg,
+          last_avg,
+          growth_pct,
+        )
+      )
+      self.memory_growth_detected = True
+      return True
+
+    return False
 
   def update_now_time(self):
     """! Sets now_time equal to the current system time.
@@ -162,6 +225,8 @@ class TestState():
     print("[{:.02f}% at {}] Runtime elapsed {} remaining {} (ending at {})".format(percentageRun, self.now_time.strftime("%c"), \
           str(self.running_time), str(self.remaining_time), self.end_time.strftime("%c")))
     print("{} Objects detected in last {} seconds (Min {} Max {})".format(objects_detected, TEST_WAIT_TIME, self.min_fps, self.max_fps))
+    if self.memory_samples:
+      print("System memory usage {:.2f}%".format(self.memory_samples[-1]))
     return None
 
   def login_failed(self):
@@ -211,7 +276,12 @@ def handle_mqtt_sensor_topic(msg):
   global model_list
   global num_models
   topic_split = msg.topic.split('/')
-  objects = msg.payload.decode('utf-8')['objects']
+  try:
+    payload = json.loads(msg.payload.decode('utf-8'))
+  except (UnicodeDecodeError, json.JSONDecodeError):
+    return None
+
+  objects = payload.get('objects', {})
   if objects=={}:
     return None
   for category in objects:
@@ -386,6 +456,7 @@ def test_sscape_stability(params, record_xml_attribute):
     collect_mqtt_msgs(client)
     state.update_now_time()
     state.update_running_remaining_time()
+    state.update_memory_usage()
 
     if state.check_time_remaining():
       cur_fps, state = get_current_fps_stats(model_list, state)
@@ -393,7 +464,7 @@ def test_sscape_stability(params, record_xml_attribute):
       avg_fps, state = update_avg_fps(avg_fps, cur_fps, state)
       avg_msg = update_avg_msg(avg_fps, state)
 
-      if state.enough_messages() or state.stable_messages() or state.login_failed():
+      if state.enough_messages() or state.stable_messages() or state.login_failed() or state.memory_usage_stable():
         state.done = True
       else:
         print(avg_msg, " log-in ok")

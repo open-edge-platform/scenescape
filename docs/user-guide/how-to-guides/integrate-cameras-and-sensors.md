@@ -18,7 +18,7 @@ Before you begin, ensure the following:
 Familiarity with MQTT, JSON formatting, and camera calibration is recommended. If needed, refer to:
 
 - [MQTT Intro](https://mqtt.org/getting-started/)
-- [Camera Calibration Guide](./microservices/auto-calibration/auto-calibration.md)
+- [Camera Calibration Guide](../microservices/auto-calibration/auto-calibration.md)
 
 ## Basic Data Flow
 
@@ -26,7 +26,7 @@ All sensors, from cameras to microphones to environmental sensors like temperatu
 
 A sensor system must acquire data, provide a timestamp, attach a sensor ID, and then publish this data to Intel® SceneScape in a recognized format. It must also know where to publish each message. This flow is shown in the top box of Figure 1.
 
-![Intel® SceneScape Basic Data Flow](./_assets/scenescape-basic.png)
+![Intel® SceneScape Basic Data Flow](../_assets/scenescape-basic.png)
 
 **Figure 1:** Intel® SceneScape basic data flow
 
@@ -41,7 +41,7 @@ Intel® SceneScape scene controller then picks up this data, utilizes informatio
 
 Figure 2 is a flow chart of how camera-based metadata is generated and published.
 
-![SceneScape Video Pipeline](./_assets/pipeline.png)
+![SceneScape Video Pipeline](../_assets/pipeline.png)
 
 **Figure 2:** Intel® SceneScape video pipeline
 
@@ -127,7 +127,7 @@ All sensor and camera messages share two properties: timestamp and ID.
    }
    ```
 
-   > **Note:** Bounding boxes are in normalized image space. For more information on how to transform pixel-based bounding boxes, see [how Intel® SceneScape converts Pixel-Based Bounding Boxes to Normalized Image Space](./additional-resources/convert-object-detections-to-normalized-image-space.md).
+   > **Note:** Bounding boxes are in normalized image space. For more information on how to transform pixel-based bounding boxes, see [how Intel® SceneScape converts Pixel-Based Bounding Boxes to Normalized Image Space](../additional-resources/convert-object-detections-to-normalized-image-space.md).
 
 2. **3D Detections from Cameras and Other Sensors**
    Sometimes sensors and AI models provide 3D detections instead of 2D detections. 3D detections may be directly measured by sensors (e.g. GPS), inferred from 2D data (e.g. monocular images), and/or inferred from 3D data (e.g. point clouds). In those cases a 3D bounding box (i.e. cuboid) can be provided like in the example below:
@@ -241,7 +241,7 @@ Camera calibration can be performed using the following methods:
 
 1. **Manual Calibration**: Use the user interface to calibrate cameras by marking points on the camera view and matching them with corresponding points on the map view. This process determines the camera's pose. You can also optionally unlock intrinsic parameters and distortion values, which will automatically adjust based on the selected points to improve calibration accuracy.
 
-2. **Automatic Calibration**: For automated calibration, refer to the [Auto Camera Calibration Microservice](./microservices/auto-calibration/auto-calibration.md).
+2. **Automatic Calibration**: For automated calibration, refer to the [Auto Camera Calibration Microservice](../microservices/auto-calibration/auto-calibration.md).
 
 ## Camera Calibration Support
 
@@ -293,7 +293,7 @@ optional arguments:
 
 "Singleton" sensors publish a given value that varies in time. This could be a temperature reading, a light sensor, whatever. Currently, Intel® SceneScape tags a given object track with any singleton data received when the object is within the singleton measurement area.
 
-> **Note:** For a complete guide on using light sensors to control 3D scene lighting in real-time, see [Controlling Scene Lighting with Physical Light Sensors](./other-topics/light-sensor-integration.md).
+> **Note:** For a complete guide on using light sensors to control 3D scene lighting in real-time, see [Controlling Scene Lighting with Physical Light Sensors](../other-topics/light-sensor-integration.md).
 
 Suppose a temperature sensor is configured to apply to an entire scene. Intel® SceneScape tags each object track in the scene with the latest temperature value and any changes to that temperature value that occurred while that object is tracked. The same thing applies when the measurement area is configured as a smaller portion of the scene (currently a circle or polygon area), except that objects are only tagged with the value if they are within the measurement area.
 
@@ -384,6 +384,6 @@ Using this data, a developer can easily write an application to trigger alerts o
 
 ## Supporting Resources
 
-- [SceneScape Auto Calibration Guide](./microservices/auto-calibration/auto-calibration.md)
+- [SceneScape Auto Calibration Guide](../microservices/auto-calibration/auto-calibration.md)
 - [SceneScape Metadata Schema](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json)
 - [MQTT Snapshot Script](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py)
