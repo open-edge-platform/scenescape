@@ -1,4 +1,4 @@
-# How to Generate a Scene Map Using the Mapping Service
+# Generate a Scene Map Using the Mapping Service
 
 This guide provides step-by-step instructions to automatically generate a 3D scene map from camera feeds using Intel® SceneScape's mapping service. By completing this guide, you will:
 
@@ -53,7 +53,7 @@ To start all services including both mapping and cluster analytics:
 SUPASS=your_password make demo-all
 ```
 
-For successive runs, you can use Docker Compose directly (see [Docker Compose Profiles](../get-started.md#docker-compose-profiles) for details on available profiles):
+For successive runs, you can use Docker Compose directly (see [Docker Compose Profiles](../../get-started.md#docker-compose-profiles) for details on available profiles):
 
 ### Launch all cores services and experimental services
 
@@ -109,7 +109,7 @@ You should see services including `mapping` with a status of `healthy`.
 
 Using the above example, the form should look like this for the `video0` camera:
 
-![Creating a new camera](../_assets/ui/new-camera.png)
+![Creating a new camera](../../_assets/ui/new-camera.png)
 
 3. Click **Save Camera**
 4. Repeat for all cameras in your scene
@@ -249,7 +249,7 @@ To stop services and remove volumes (this will delete all data):
 docker compose --profile controller --profile experimental down -v
 ```
 
-> **Note:** The `--profile` flags must match those used when starting the services. If you only started with `--profile controller`, omit `--profile experimental`. See [Docker Compose Profiles](../get-started.md#docker-compose-profiles) for details.
+> **Note:** The `--profile` flags must match those used when starting the services. If you only started with `--profile controller`, omit `--profile experimental`. See [Docker Compose Profiles](../../get-started.md#docker-compose-profiles) for details.
 
 ---
 
@@ -287,6 +287,6 @@ If the generated mesh has issues:
 
 ## Supporting Resources
 
-- [How to Create and Configure a New Scene](how-to-create-new-scene.md)
-- [How to Configure DL Streamer Video Pipeline](../other-topics/how-to-configure-dlstreamer-video-pipeline.md)
+- [Create and Configure a New Scene](./create-new-scene.md)
+- [How to Configure DL Streamer Video Pipeline](../../other-topics/how-to-configure-dlstreamer-video-pipeline.md)
 - [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)

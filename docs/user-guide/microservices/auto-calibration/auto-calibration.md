@@ -25,9 +25,9 @@ The auto calibration services supports two types of camera calibration methods:
 - **AprilTag Calibration**: This method uses fiducial markers called AprilTags placed within
   the scene. By detecting these markers in the camera's view, the service calculates the
   camera's position, enhancing calibration accuracy and efficiency. Check out the detailed guide
-  on how to [Use AprilTag Camera Calibration](../../calibrating-cameras/how-to-autocalibrate-cameras-using-apriltags.md).
+  on how to [Use AprilTag Camera Calibration](../../how-to-guides/calibrate-cameras/autocalibrate-cameras-using-apriltags.md).
 
-- **Markerless Calibration**: This approach leverages raw RGBD data from a [Polycam](https://poly.cam/) scan to estimate the camera's position in the scene, eliminating the need for physical markers. Check out the detailed guide on how to [Autocalibrate Cameras Using Visual Features](../../calibrating-cameras/how-to-autocalibrate-cameras-using-visual-features.md).
+- **Markerless Calibration**: This approach leverages raw RGBD data from a [Polycam](https://poly.cam/) scan to estimate the camera's position in the scene, eliminating the need for physical markers. Check out the detailed guide on how to [Autocalibrate Cameras Using Visual Features](../../how-to-guides/calibrate-cameras/autocalibrate-cameras-using-visual-features.md).
 
 To deploy the auto calibration service, refer to the [Get Started](./get-started.md) guide. The service supports configuration through specific arguments and flags ([listed below](#configurable-arguments-and-flags)), which default to predefined values unless explicitly modified.
 

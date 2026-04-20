@@ -1,4 +1,4 @@
-# How to Autocalibrate Cameras using Visual Features in Intel® SceneScape
+# Autocalibrate Cameras using Visual Features in Intel® SceneScape
 
 This guide provides step-by-step instructions to calibrate cameras in Intel® SceneScape using markerless methods with raw RGBD data from Polycam. By completing this guide, you will:
 
@@ -45,11 +45,11 @@ The exported ZIP will contain:
    - Upload the ZIP file in the **Polycam_data** field
    - Click **Save**
 
-![Camera Calibration Strategy Switch](../_assets/ui/switch_to_markerless.png)
+![Camera Calibration Strategy Switch](../../_assets/ui/switch_to_markerless.png)
 
 _Figure 1: Switch Calibration Type to Markerless._
 
-![Upload Polycam Dataset](../_assets/ui/upload_polycam_dataset.png)
+![Upload Polycam Dataset](../../_assets/ui/upload_polycam_dataset.png)
 
 _Figure 2: Upload the raw dataset ZIP from Polycam._
 
@@ -60,20 +60,20 @@ _Figure 2: Upload the raw dataset ZIP from Polycam._
 3. Select a camera, then click **Auto Calibrate**.
    - The camera pose will update upon completion.
 
-![Auto Calibration Button 3D UI](../_assets/ui/auto_calibrate_3d_ui.png)
+![Auto Calibration Button 3D UI](../../_assets/ui/auto_calibrate_3d_ui.png)
 
 _Figure 3: Click the Auto Calibrate button in the 3D UI._
 
 4. Enable **Project Frame** to verify pose visually.
 5. Adjust manually if needed, then click **Save Camera**.
 
-![Save Camera and enable project frame](../_assets/ui/save_camera_camlibration.png)
+![Save Camera and enable project frame](../../_assets/ui/save_camera_camlibration.png)
 
 _Figure 4: Visualize and save calibrated camera pose._
 
 > **Note**: Markerless calibration does **not** work in the 2D UI.
 >
-> **Note**: Markerless calibration has only been tested with **pinhole camera models**. Use narrow-FOV cameras with minimal distortion. See [Live Scene README](../building-a-scene/how-to-create-new-scene.md#camera-selection-considerations) for supported camera types.
+> **Note**: Markerless calibration has only been tested with **pinhole camera models**. Use narrow-FOV cameras with minimal distortion. See [Camera Selection Considerations](../build-a-scene/create-new-scene.md#camera-selection-considerations) for supported camera types.
 
 ## Customizable Parameters
 
@@ -93,5 +93,5 @@ _Figure 4: Visualize and save calibrated camera pose._
 ## Supporting Resources
 
 - [Polycam Website](https://poly.cam)
-- [Live Scene Camera Guidelines](../building-a-scene/how-to-create-new-scene.md#camera-selection-considerations)
-- [SceneScape 3D UI Docs](../using-intel-scenescape/how-to-use-3D-UI.md)
+- [Camera Selection Considerations](../build-a-scene/create-new-scene.md#camera-selection-considerations)
+- [Use 3D UI for Calibration](./use-3D-UI-for-calibration.md)

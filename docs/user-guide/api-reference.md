@@ -6,15 +6,15 @@
 .. swagger-plugin:: ./api-docs/api.yaml
 ```
 
-# API Specification Viewing Instructions
+## API Specification Viewing Instructions
 
-## 1. Pull Swagger UI image:
+### 1. Pull Swagger UI image:
 
 ```
 docker pull swaggerapi/swagger-ui
 ```
 
-## 2. Run the Swagger UI container
+### 2. Run the Swagger UI container
 
 Use a configuration that loads the Intel® SceneScape `docs/user-guide/api-docs/api.yaml` definitions.
 
@@ -34,9 +34,9 @@ docker run -p 80:8080 --user $(id -u):$(id -g) -e SWAGGER_JSON=/mnt/api.yaml -v 
 
 Note: Ensure that for the -v option to use the correct path to where Intel® SceneScape repository was cloned (`~/scenescape/` in the example above).
 
-## 3. View API docs via a browser
+### 3. View API docs via a browser
 
-Navigate to (http://localhost)
+Navigate to `http://localhost`
 
 **Note:** `https:` is not supported. `localhost` can be replaced with the ip address.
 
@@ -44,6 +44,6 @@ It should look something like this example:
 
 ![Example Intel® SceneScape REST API as seen in Browser](./_assets/SceneScape_REST_API_swagger_example_view.png "Example")
 
-## For additional information on Swagger UI installation to view the API, please see:
+## Information on Swagger UI Installation
 
-- https://github.com/swagger-api/swagger-ui/blob/master/docs/usage/installation.md
+See the [Swagger UI Installation Guide](https://github.com/swagger-api/swagger-ui/blob/master/docs/usage/installation.md).
