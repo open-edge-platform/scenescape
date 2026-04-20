@@ -73,6 +73,9 @@ class SceneObjectMqtt(FunctionalTest):
             self.expectedExit.append(event['id'])
             self.expectedEnter.remove(event['id'])
             self.entered = True
+            # Track entry time for dwell verification
+            if event['id'] not in self.objectEntryTimes:
+              self.objectEntryTimes[event['id']] = get_epoch_time()
             logger.info(f"object with id {event['id']} entered region")
 
     if len(regionEvent['exited']) > 0:
