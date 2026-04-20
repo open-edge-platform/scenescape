@@ -199,13 +199,16 @@ channels:
               type: array
               items:
                 type: object
+              description: >-
+                In region-scoped payloads, objects currently inside a region include a live
+                regions.<region_id>.dwell value in seconds alongside the entered timestamp.
             entered:
               type: array
               items:
                 type: object
               description: >-
                 Objects that entered the region during this cycle. In region events, each element is a bare
-                track object. In tripwire events, this array is always empty. May be
+                track object and may include regions.<region_id>.dwell for the current region. In tripwire events, this array is always empty. May be
                 empty in region events when no entry occurred.
             exited:
               type: array

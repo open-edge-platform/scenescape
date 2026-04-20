@@ -34,7 +34,7 @@ def dataset(tmp_path):
   """Create MetricTestDataset instance."""
   ds = MetricTestDataset(str(DATASET_PATH))
   ds.set_output_folder(tmp_path / "dataset_outputs")
-  ds.set_cameras(["x1", "x2"]).set_camera_fps(30).set_time_range(
+  ds.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30).set_time_range(
     TIME_RANGE_START,
     TIME_RANGE_END
   )

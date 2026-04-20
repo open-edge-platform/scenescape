@@ -78,7 +78,26 @@ class SensorMqttRoi(SceneObjectMqtt):
     assert self.checkedEntered > 0
     assert self.checkedExited > 0
     assert self.checkedValues > 0
+    # Verify dwell window calculation is sensible
+    self.verifyDwellWindowExists()
     return True
+
+  def verifyDwellWindowExists(self):
+    """Verify dwell window metadata exists for integration validation.
+
+    This validates integration aspects only - that entry/exit times were properly
+    captured. The actual dwell calculation formulas are already tested by unit tests.
+    """
+    if self.enteredTimestamp is None:
+      return  # No entry detected, nothing to verify
+
+    if self.exitedTimestamp is not None:
+      dwell_window = self.exitedTimestamp - self.enteredTimestamp
+      assert dwell_window >= 0, f"Invalid dwell window: exit before entry"
+      print(f"Dwell window validated: {dwell_window:.2f}s from entry to exit")
+    else:
+      print("Object still in region - no exit timestamp to validate")
+    return
 
   def sendDetections(self, objLocation, frame_rate):
     jdata = self.objData()
@@ -231,7 +250,17 @@ class SensorMqttRoi(SceneObjectMqtt):
       print("Object missing sensor data {}".format(obj))
       return False
 
-    for sensor_info in obj['sensors'][sensor_name]:
+    sensor_payload = obj['sensors'].get(sensor_name)
+    if sensor_payload is None:
+      print("Object missing expected sensor '{}' data {}".format(sensor_name, obj))
+      return False
+
+    if isinstance(sensor_payload, dict):
+      sensor_values = sensor_payload.get('values', [])
+    else:
+      sensor_values = sensor_payload
+
+    for sensor_info in sensor_values:
       if get_epoch_time(sensor_info[0]) == expected_sensor_ts \
               and sensor_info[1] == expected_sensor_value:
         found = True

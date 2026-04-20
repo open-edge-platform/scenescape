@@ -21,7 +21,7 @@ class MetricTestDataset(TrackingDataset):
 
   This dataset contains:
   - Scene: Retail_Demo (single built-in scene)
-  - Cameras: x1, x2 (Cam_x1_0, Cam_x2_0)
+  - Cameras: Cam_x1_0, Cam_x2_0
   - FPS options: 1, 10, 30 (separate JSON files per FPS)
   - Ground truth: gtLoc.json with object locations
   - Scene config: config.json with camera calibration
@@ -29,7 +29,7 @@ class MetricTestDataset(TrackingDataset):
 
   # Constants
   SCENE_NAME = "Retail_Demo"
-  SUPPORTED_CAMERAS = ["x1", "x2"]
+  SUPPORTED_CAMERAS = ["Cam_x1_0", "Cam_x2_0"]
   SUPPORTED_FPS = [1, 10, 30]
   DEFAULT_FPS = 30
 
@@ -74,7 +74,7 @@ class MetricTestDataset(TrackingDataset):
     """Set cameras to use.
 
     Args:
-      cameras: List of camera IDs (subset of ["x1", "x2"])
+      cameras: List of camera IDs (subset of ["Cam_x1_0", "Cam_x2_0"])
 
     Returns:
       Self for method chaining
@@ -382,7 +382,7 @@ class MetricTestDataset(TrackingDataset):
       raise ValueError(f"Camera {cam_id} not in configured cameras")
 
     fps_suffix = f"_{int(self._camera_fps)}fps" if self._camera_fps != 30 else ""
-    input_file = self._dataset_path / f"Cam_{cam_id}_0{fps_suffix}.json"
+    input_file = self._dataset_path / f"{cam_id}{fps_suffix}.json"
 
     if not input_file.exists():
       raise FileNotFoundError(f"Input file not found: {input_file}")
