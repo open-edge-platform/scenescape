@@ -640,6 +640,15 @@ def pytest_runtest_setup(item):
   log_path = _testlog.setup(test_name, group=group, log_base=_LOG_BASE)
   logger.info("Test log: %s", log_path)
 
+def pytest_runtest_call(item):
+  """Switch file logging from setup log to per-test log for call/teardown."""
+  if not _ORCHESTRATION_AVAILABLE or _testlog is None:
+    return
+  spec = getattr(item, "_scenescape_spec", None)
+  if spec is None:
+    return
+  _testlog.begin_test_phase()
+
 def pytest_runtest_logreport(report):
   """Log test phase results to the per-test log file."""
   if not _ORCHESTRATION_AVAILABLE or _testlog is None:
