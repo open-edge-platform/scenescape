@@ -121,7 +121,7 @@ class TestSchemaValidation:
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
-    db = VDMSDatabase()
+    db = VDMSDatabase(dimensions=None)
     db.sendQuery = Mock(return_value=([{
       'status': 0,
       'returned': 1,
@@ -140,7 +140,7 @@ class TestSchemaValidation:
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
-    db = VDMSDatabase()
+    db = VDMSDatabase(dimensions=None)
     db.sendQuery = Mock(return_value=([{
       'status': 0,
       'returned': 1,
