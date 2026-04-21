@@ -489,7 +489,7 @@ class Scene(SceneModel):
       obj.velocity = Point(obj_data.get('velocity', [0, 0, 0])) if obj_data.get('velocity') else None
       obj.size = obj_data.get('size')
       obj.confidence = obj_data.get('confidence')
-      obj.frameCount = obj_data.get('frame_count', 4)  # > 3 so sensor/region checks pass
+      obj.frameCount = obj_data.get('frame_count', 0)
       obj.rotation = obj_data.get('rotation')
       obj.reid = {}
       obj.metadata = {}
