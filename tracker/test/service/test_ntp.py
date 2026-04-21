@@ -6,12 +6,10 @@
 """
 NTP service tests for tracker.
 
-Tests tracker's NTP offset calculation (RFC 5905) by:
-- Verifying the tracker logs a successful NTP sync on startup.
+Test tracker's NTP offset calculation (RFC 5905) by:
 - Comparing the tracker's computed offset against ntplib (a reference
   Python implementation of the same RFC 5905 formula), both querying the
   same Chrony NTP server container.
-- Verifying graceful degradation when the NTP server is unreachable.
 """
 
 import re
