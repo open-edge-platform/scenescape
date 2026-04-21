@@ -612,7 +612,7 @@ def pytest_collection_modifyitems(config, items):
 
   # When running with --env-profiles, group tests by profile so each Docker
   # Compose environment starts once and handles all its tests before teardown.
-  if config.getoption("--env-profiles", default=None):
+  if config.getoption("env-profiles", default=None):
     from tests.utils.profiles import PROFILE_REGISTRY
     profile_order = {name: i for i, name in enumerate(PROFILE_REGISTRY)}
     original_order = {item: i for i, item in enumerate(items)}

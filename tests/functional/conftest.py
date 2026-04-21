@@ -149,7 +149,7 @@ def pytest_generate_tests(metafunc):
   if spec is None:
     return
 
-  env_profiles_arg = metafunc.config.getoption("--env-profiles", default=None)
+  env_profiles_arg = metafunc.config.getoption("env-profiles", default=None)
   if not env_profiles_arg:
     return
 
