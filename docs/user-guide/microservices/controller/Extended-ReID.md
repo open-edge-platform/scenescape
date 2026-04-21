@@ -114,22 +114,6 @@ Result: "Find strong age-gender matches, refined by vector similarity"
   - Valid range: 0.0 to 1.0
   - Example: Set to `0.7` to include more metadata filters, `0.9` for stricter filtering
 
-## ReID Object States
-
-Each tracked object carries a `reid_state` field in scene output, indicating where it is in the ReID lifecycle:
-
-- `pending_collection`: ReID features are still being accumulated; query not submitted yet.
-- `query_no_match`: Query was submitted and no candidate passed matching threshold.
-- `matched`: Query succeeded and object was matched to an existing database identity.
-- `reid_disabled`: ReID is disabled and query is skipped.
-
-Typical transitions:
-
-- ReID enabled: `pending_collection` → `matched` or `query_no_match`
-- ReID disabled: `reid_disabled`
-
-For payload-level field formatting in published messages, see [Scene Controller Data Formats](data_formats.md#common-output-track-fields).
-
 ## Configuring Confidence Threshold
 
 The confidence threshold determines which metadata constraints are applied in TIER 1 filtering. Only constraints meeting or exceeding the threshold are used. Constraints below the threshold are skipped, allowing vector similarity in TIER 2 to handle the matching:
@@ -182,6 +166,14 @@ controller/config/reid-config.json
 | `feature_slice_size`                | int   | 10      | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector. |
 | `similarity_threshold`              | int   | 60      | Minimum similarity score (0-100) for a match to be considered valid. Higher values = stricter matching.                                                               |
 
+### Embedding Dimension Inference
+
+The controller automatically infers the ReID embedding dimension from the first vector it receives at runtime:
+
+- **Runtime inference only**: On the first decoded embedding the controller reads the vector length from the payload, creates the VDMS descriptor set schema with that dimension, and locks that dimension for the process lifetime. All subsequent embeddings are validated against that inferred length; mismatches are discarded with a warning.
+- **Switching ReID models**: Because the dimension is locked after the first embedding, switching to a model with a different output length requires restarting the controller. The VDMS descriptor set must also be recreated if the stored dimension differs (VDMS does not support in-place schema migration).
+- **Base64 compatibility**: The controller decodes base64 embeddings using the payload byte length by default. Producers can also include an optional `embedding_dimensions` field alongside `embedding_vector`; if provided, it must match the packed float count.
+
 ### Using the Configuration File
 
 Pass the reid-config file path to the Scene Controller:
@@ -197,6 +189,7 @@ python scene_controller.py \
 **Current Implementation Note**:
 
 - `stale_feature_timeout_secs`, `stale_feature_check_interval_secs`, `feature_accumulation_threshold`, `feature_slice_size`, and `similarity_threshold` are fully implemented
+- ReID embedding dimensions are inferred at runtime from the first received embedding
 - All semantic metadata attributes are currently used for TIER 1 filtering. Selective metadata filtering is planned for Phase 2.
 
 ### Tuning Recommendations

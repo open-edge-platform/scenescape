@@ -20,7 +20,6 @@ DEFAULT_MAX_QUERY_TIME = 4
 DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED = 10
 DEFAULT_STALE_FEATURE_TIMEOUT_SECS = 5.0
 DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS = 1.0
-
 available_databases = {
   "VDMS": VDMSDatabase,
 }
@@ -45,6 +44,8 @@ class UUIDManager:
       reid_config_data = {}
     self.stale_feature_timeout_secs = reid_config_data.get('stale_feature_timeout_secs', DEFAULT_STALE_FEATURE_TIMEOUT_SECS)
     self.stale_feature_check_interval_secs = reid_config_data.get('stale_feature_check_interval_secs', DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS)
+    self.minimum_feature_count = reid_config_data.get('feature_accumulation_threshold', DEFAULT_MINIMUM_FEATURE_COUNT)
+    self.similarity_threshold = reid_config_data.get('similarity_threshold', DEFAULT_SIMILARITY_THRESHOLD)
     self.stale_feature_timer = None
     self._start_stale_feature_timer()
     return
@@ -163,7 +164,6 @@ class UUIDManager:
     @param  tracked_objects  The objects currently tracked by the tracker
     """
     active_tracks = [tracked_object.id for tracked_object in tracked_objects]
-
     # Normal pruning based on tracker's active tracks
     inactive_tracks = []
     new_active_ids = {}
@@ -236,6 +236,7 @@ class UUIDManager:
           self.quality_features[sscape_object.rv_id].append(reid_embedding)
         else:
           self.quality_features[sscape_object.rv_id] = [reid_embedding]
+        log.debug(f"gatherQualityVisualFeatures: Accepted embedding for rv_id={sscape_object.rv_id} (area={bbox_area:.2f})")
       else:
         log.debug(f"gatherQualityVisualFeatures: Bbox too small for rv_id={sscape_object.rv_id} (area={bbox_area} <= {minimum_bbox_area})")
     return
@@ -279,8 +280,7 @@ class UUIDManager:
       sscape_object.similarity = None
     return
 
-  def haveSufficientVisualFeatures(self, sscape_object,
-                                   minimum_feature_count=DEFAULT_MINIMUM_FEATURE_COUNT):
+  def haveSufficientVisualFeatures(self, sscape_object, minimum_feature_count=None):
     """
     Checks if there are enough visual features to send a query to the database
 
@@ -290,6 +290,8 @@ class UUIDManager:
                                     for a tracker ID is greater than the minimum value;
                                     otherwise, returns False
     """
+    if minimum_feature_count is None:
+      minimum_feature_count = self.minimum_feature_count
     count = len(self.quality_features.get(sscape_object.rv_id, []))
     return count >= minimum_feature_count
 
@@ -303,18 +305,18 @@ class UUIDManager:
     # Mark that we're about to attempt a query (transition from PENDING_COLLECTION)
     # This allows downstream logic to distinguish "never queried" from "query made"
     start_time = get_epoch_time()
-
     similarity_scores = self.sendSimilarityQuery(sscape_object)
     database_id, similarity = self.parseQueryResults(similarity_scores)
-
     with self.active_ids_lock:
       # Make sure object is still in active_ids before updating since there is a chance
       # that the similiarity search does not complete until after the object leaves
       if sscape_object.rv_id in self.active_ids:
         self.updateActiveDict(sscape_object, database_id, similarity, query_timestamp=start_time)
       else:
+        active_snapshot, _ = self._active_ids_snapshot_locked()
         log.warning(
-          f"Track {sscape_object.rv_id} left scene before ID query finished")
+          f"Track {sscape_object.rv_id} left scene before ID query finished "
+          f"active_ids_snapshot={active_snapshot}")
     return
 
   def sendSimilarityQuery(self, sscape_object, max_query_time=DEFAULT_MAX_QUERY_TIME):
@@ -357,7 +359,7 @@ class UUIDManager:
 
     return scores
 
-  def parseQueryResults(self, similarity_scores, threshold=DEFAULT_SIMILARITY_THRESHOLD):
+  def parseQueryResults(self, similarity_scores, threshold=None):
     """
     Check database for any similar objects and return an ID and similarity score.
     The threshold value is used as the deciding criteria for close matches.
@@ -370,6 +372,9 @@ class UUIDManager:
     @return  similarity         Distance between the Re-ID vectors for the object and the
                                 matched entry if it is found; otherwise, return None
     """
+    if threshold is None:
+      threshold = self.similarity_threshold
+
     if similarity_scores:
       minimum_distances = [self._findMinimumDistance(entities)
                            for entities in similarity_scores]
@@ -397,6 +402,44 @@ class UUIDManager:
       return (minimum_distance_entity['uuid'], minimum_distance_entity['_distance'])
     return (None, None)
 
+  def _active_gid_index_locked(self):
+    """
+    Build an index of non-null gids to active rv_ids.
+    Must be called while holding self.active_ids_lock.
+    """
+    gid_index = {}
+    for rv_id, values in self.active_ids.items():
+      gid = values[0]
+      if gid is not None:
+        gid_index.setdefault(gid, []).append(rv_id)
+    return gid_index
+
+  def _log_live_gid_integrity_locked(self, source, rv_id):
+    """
+    Log whether any live active tracks currently share the same gid.
+    Must be called while holding self.active_ids_lock.
+    """
+    gid_index = self._active_gid_index_locked()
+    duplicate_gids = {gid: rv_ids for gid, rv_ids in gid_index.items() if len(rv_ids) > 1}
+    if duplicate_gids:
+      log.error(
+        f"live-gid-collision "
+        f"source={source} rv_id={rv_id} duplicate_gids={duplicate_gids} "
+        f"active_ids_snapshot={self.active_ids}"
+      )
+    else:
+      pass
+
+  def _active_ids_snapshot_locked(self):
+    """
+    Return a compact snapshot of active rv_id->gid and duplicate gid holders.
+    Must be called while holding self.active_ids_lock.
+    """
+    snapshot = {rv_id: values[0] for rv_id, values in self.active_ids.items()}
+    gid_index = self._active_gid_index_locked()
+    duplicate_gids = {gid: rv_ids for gid, rv_ids in gid_index.items() if len(rv_ids) > 1}
+    return snapshot, duplicate_gids
+
   def updateActiveDict(self, sscape_object, database_id, similarity, query_timestamp=None):
     """
     Updates the dictionary tracking the active tracker IDs and their corresponding database
@@ -413,8 +456,18 @@ class UUIDManager:
     """
     if query_timestamp is None:
       query_timestamp = get_epoch_time()
+
+    gid_index = self._active_gid_index_locked()
+    current_holders = gid_index.get(database_id, []) if database_id is not None else []
     matched_new_id = database_id is not None and self.isNewID(database_id)
     database_id_collision = database_id is not None and not matched_new_id
+
+    if database_id is not None and current_holders:
+      log.warning(
+        f"updateActiveDict candidate-gid-already-live "
+        f"rv_id={sscape_object.rv_id} candidate_gid={database_id} "
+        f"current_holders={current_holders} similarity={similarity}"
+      )
 
     # MATCH FOUND - YES + DB ID ALREADY IN DICT - NO
     if matched_new_id:
@@ -447,9 +500,17 @@ class UUIDManager:
       if sscape_object.gid is not None and self.isNewID(sscape_object.gid):
         database_id = sscape_object.gid
       else:
-        with MovingObject.gid_lock:
-          database_id = MovingObject.gid_counter
-          MovingObject.gid_counter += 1
+        while True:
+          with MovingObject.gid_lock:
+            database_id = MovingObject.gid_counter
+            MovingObject.gid_counter += 1
+          if self.isNewID(database_id):
+            break
+          log.warning(
+            f"updateActiveDict generated-gid-collision "
+            f"rv_id={sscape_object.rv_id} candidate_gid={database_id} "
+            f"active_ids_snapshot={self.active_ids}"
+          )
       sscape_object.gid = database_id
       sscape_object.similarity = None
       # Record the new ID in chain with no match (None similarity indicates no match)
@@ -459,6 +520,8 @@ class UUIDManager:
       self.unique_id_count += 1
       log.debug(f"updateActiveDict: No match, assigned new gid={database_id} for track {sscape_object.rv_id}, state={ReidState.QUERY_NO_MATCH.value}")
       self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
+
+    self._log_live_gid_integrity_locked("updateActiveDict", sscape_object.rv_id)
 
     # Store features with semantic metadata for TIER 1 filtering in future queries
     num_features = len(self.quality_features.get(sscape_object.rv_id, []))
@@ -492,8 +555,12 @@ class UUIDManager:
 
     # Initialize tracking entry for new tracks
     if is_new:
+      has_reid_embedding = self._extractReidEmbedding(sscape_object) is not None
+
       # Case for incrementing the counter when there is no re-id vector
-      if sscape_object.reid is None:
+      # When reid is disabled, or there is no usable embedding vector,
+      # this track will not be matched and should contribute to unique_id_count.
+      if not self.reid_enabled or not has_reid_embedding:
         self.unique_id_count += 1
       with self.active_ids_lock:
         self.active_ids.setdefault(sscape_object.rv_id, [None, None])
@@ -506,6 +573,7 @@ class UUIDManager:
     if sscape_object.rv_id not in self.active_query and self.reid_enabled:
       self.gatherQualityVisualFeatures(sscape_object)
       sufficient_features = self.haveSufficientVisualFeatures(sscape_object)
+      feature_count = len(self.quality_features.get(sscape_object.rv_id, []))
       log.debug(f"assignID: rv_id={sscape_object.rv_id}, sufficient_features={sufficient_features}")
 
       # Submit query once we have enough features

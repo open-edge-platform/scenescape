@@ -59,6 +59,7 @@ class Scene(SceneModel):
     self.non_measurement_time_static = non_measurement_time_static
     self.suspended_track_timeout_secs = suspended_track_timeout_secs
     self.reid_config_data = reid_config_data if reid_config_data else {}
+
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
@@ -101,6 +102,12 @@ class Scene(SceneModel):
     return
 
   def updateScene(self, scene_data):
+    reid_config_changed = False
+    if 'reid_config_data' in scene_data:
+      new_reid_config_data = scene_data['reid_config_data']
+      reid_config_changed = new_reid_config_data != self.reid_config_data
+      self.reid_config_data = new_reid_config_data
+
     self.parent = scene_data.get('parent', None)
     self.cameraPose = None
     if 'transform' in scene_data:
@@ -113,12 +120,16 @@ class Scene(SceneModel):
     self._updateRegions(self.regions, scene_data.get('regions', []))
     self._updateTripwires(scene_data.get('tripwires', []))
     self._updateRegions(self.sensors, scene_data.get('sensors', []))
-    # Update reid config if provided
-    if 'reid_config_data' in scene_data:
-      self.reid_config_data = scene_data['reid_config_data']
     tracker_config = scene_data.get('tracker_config', None)
     if tracker_config:
       self.updateTracker(tracker_config[0], tracker_config[1], tracker_config[2])
+
+    # Reinitialize tracker only when ReID config actually changes so UUIDManager
+    # and child tracker threads pick up the updated thresholds.
+    if reid_config_changed and self.trackerType and not ControllerMode.isAnalyticsOnly():
+      log.info(f"ReID config changed for scene={self.uid}; reinitializing tracker {self.trackerType}")
+      self._setTracker(self.trackerType)
+
     self.name = scene_data['name']
     if 'scale' in scene_data:
       self.scale = scene_data['scale']
@@ -740,9 +751,10 @@ class Scene(SceneModel):
   @classmethod
   def deserialize(cls, data):
     tracker_config = data.get('tracker_config', [])
+    reid_config_data = data.get('reid_config_data', None)
     scale_from_data = data.get('scale', None)
     scene = cls(data['name'], data.get('map', None), scale_from_data,
-                *tracker_config)
+                *tracker_config, reid_config_data=reid_config_data)
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)

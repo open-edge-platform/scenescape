@@ -579,6 +579,39 @@ class TestAssignIDUniqueCountNoReid:
     # Should increment since no reid vector means instant unique object
     assert self.manager.unique_id_count == initial_count + 1
 
+  def test_assign_id_increments_count_when_reid_is_empty_dict(self):
+    """Verify unique_count increments when reid exists but has no embedding vector."""
+    from controller.moving_object import MovingObject
+    import time
+
+    # MovingObject initializes reid to {} by default when metadata has no reid entry
+    info = {'id': '2', 'confidence': 0.95}
+    obj = MovingObject(info, time.time(), self.mock_camera)
+    obj.rv_id = 2
+
+    initial_count = self.manager.unique_id_count
+    self.manager.assignID(obj)
+
+    assert self.manager.unique_id_count == initial_count + 1
+
+  def test_assign_id_increments_when_reid_disabled_even_with_embedding(self):
+    """Verify unique_count increments for new tracks when reid is disabled."""
+    from controller.moving_object import MovingObject, ReidState
+    import time
+
+    self.manager.reid_enabled = False
+
+    info = {'id': '3', 'confidence': 0.95}
+    obj = MovingObject(info, time.time(), self.mock_camera)
+    obj.rv_id = 3
+    obj.reid = {'embedding_vector': [0.1, 0.2, 0.3]}
+
+    initial_count = self.manager.unique_id_count
+    self.manager.assignID(obj)
+
+    assert self.manager.unique_id_count == initial_count + 1
+    assert obj.reid_state == ReidState.REID_DISABLED
+
   def test_assign_id_does_not_double_count_same_track(self):
     """Verify assignID() doesn't increment for same track on subsequent calls."""
     from controller.moving_object import MovingObject
@@ -855,8 +888,8 @@ class TestReidDisabledScenario:
     self.mock_camera.pose.intrinsics = Mock()
     self.mock_camera.pose.intrinsics.mapPixelToNormalizedImagePlane = Mock(return_value=Mock())
 
-  def test_reid_disabled_sets_state_without_incrementing_count(self):
-    """Verify REID_DISABLED state set without incrementing unique_count."""
+  def test_reid_disabled_sets_state_and_increments_count(self):
+    """Verify REID_DISABLED state set and unique_count increments for new tracks."""
     from controller.moving_object import MovingObject, ReidState
     import time
 
@@ -874,8 +907,8 @@ class TestReidDisabledScenario:
 
     # State should be REID_DISABLED
     assert obj.reid_state == ReidState.REID_DISABLED
-    # Count should NOT increment (system disabled, no query attempted)
-    assert self.manager.unique_id_count == initial_count
+    # ReID disabled means no matching, so each new track contributes to unique count
+    assert self.manager.unique_id_count == initial_count + 1
 
   def test_reid_disabled_object_with_no_reid_vector_still_increments(self):
     """Verify object without reid vector increments even when reid disabled."""
@@ -1394,7 +1427,6 @@ class TestUpdateActiveDictIDCollisionHandling:
     assert self.manager.active_ids[obj_b.rv_id][0] == obj_b.gid
     assert self.manager.unique_id_count == initial_count + 1
 
-
 class TestMovingObjectSetPreviousPersistence:
   """Regression tests for setPrevious() persistence across frame recreation."""
 
@@ -1450,3 +1482,83 @@ class TestMovingObjectSetPreviousPersistence:
 
     assert len(new_obj.previous_ids_chain) == 2
     assert len(old_obj.previous_ids_chain) == 1
+
+
+class TestUUIDManagerReidConfigPropagation:
+  """Regression tests: reid_config_data values must reach UUIDManager thresholds."""
+
+  @patch('controller.uuid_manager.VDMSDatabase')
+  def test_default_minimum_feature_count_when_no_config(self, mock_vdms_class):
+    """UUIDManager uses DEFAULT_MINIMUM_FEATURE_COUNT (12) when no config is supplied."""
+    from controller.uuid_manager import DEFAULT_MINIMUM_FEATURE_COUNT
+    mock_vdms_class.return_value = MagicMock()
+
+    manager = UUIDManager()
+
+    assert manager.minimum_feature_count == DEFAULT_MINIMUM_FEATURE_COUNT
+
+  @patch('controller.uuid_manager.VDMSDatabase')
+  def test_custom_feature_accumulation_threshold_is_applied(self, mock_vdms_class):
+    """UUIDManager.minimum_feature_count reflects feature_accumulation_threshold from config."""
+    mock_vdms_class.return_value = MagicMock()
+    reid_config = {'feature_accumulation_threshold': 5}
+
+    manager = UUIDManager(reid_config_data=reid_config)
+
+    assert manager.minimum_feature_count == 5
+
+  @patch('controller.uuid_manager.VDMSDatabase')
+  def test_custom_similarity_threshold_is_applied(self, mock_vdms_class):
+    """UUIDManager.similarity_threshold reflects similarity_threshold from config."""
+    mock_vdms_class.return_value = MagicMock()
+    reid_config = {'similarity_threshold': 42}
+
+    manager = UUIDManager(reid_config_data=reid_config)
+
+    assert manager.similarity_threshold == 42
+
+  @patch('controller.uuid_manager.VDMSDatabase')
+  def test_custom_stale_feature_timeout_is_applied(self, mock_vdms_class):
+    """UUIDManager.stale_feature_timeout_secs reflects stale_feature_timeout_secs from config."""
+    mock_vdms_class.return_value = MagicMock()
+    reid_config = {'stale_feature_timeout_secs': 10.0}
+
+    manager = UUIDManager(reid_config_data=reid_config)
+
+    assert manager.stale_feature_timeout_secs == 10.0
+
+  @patch('controller.uuid_manager.VDMSDatabase')
+  def test_full_reid_config_all_values_propagated(self, mock_vdms_class):
+    """All recognized reid_config_data keys are correctly applied to UUIDManager attributes."""
+    mock_vdms_class.return_value = MagicMock()
+    reid_config = {
+      'feature_accumulation_threshold': 8,
+      'similarity_threshold': 55,
+      'stale_feature_timeout_secs': 7.5,
+      'stale_feature_check_interval_secs': 2.0,
+    }
+
+    manager = UUIDManager(reid_config_data=reid_config)
+
+    assert manager.minimum_feature_count == 8
+    assert manager.similarity_threshold == 55
+    assert manager.stale_feature_timeout_secs == 7.5
+    assert manager.stale_feature_check_interval_secs == 2.0
+
+  @patch('controller.uuid_manager.VDMSDatabase')
+  def test_empty_config_uses_all_defaults(self, mock_vdms_class):
+    """Passing an empty dict falls back to all defaults."""
+    from controller.uuid_manager import (
+      DEFAULT_MINIMUM_FEATURE_COUNT,
+      DEFAULT_SIMILARITY_THRESHOLD,
+      DEFAULT_STALE_FEATURE_TIMEOUT_SECS,
+      DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS,
+    )
+    mock_vdms_class.return_value = MagicMock()
+
+    manager = UUIDManager(reid_config_data={})
+
+    assert manager.minimum_feature_count == DEFAULT_MINIMUM_FEATURE_COUNT
+    assert manager.similarity_threshold == DEFAULT_SIMILARITY_THRESHOLD
+    assert manager.stale_feature_timeout_secs == DEFAULT_STALE_FEATURE_TIMEOUT_SECS
+    assert manager.stale_feature_check_interval_secs == DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS

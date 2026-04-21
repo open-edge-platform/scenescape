@@ -90,7 +90,13 @@ class Tracking(Thread):
     """Create a tracker object for each category"""
     for category in categories:
       if category not in self.trackers:
-        tracker = self.__class__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, ref_camera_frame_rate)
+        tracker = self.__class__(
+          max_unreliable_time,
+          non_measurement_time_dynamic,
+          non_measurement_time_static,
+          ref_camera_frame_rate,
+          reid_config_data=self.reid_config_data,
+        )
         self.trackers[category] = tracker
         tracker.start()
     return

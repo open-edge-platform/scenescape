@@ -13,6 +13,7 @@ from scene_common import log
 TEST_WAIT_TIME = 150
 connected = False
 detection_count = {}
+count_transitions = {}
 
 def on_connect(mqttc, data, flags, rc):
   """! Call back function for MQTT client on establishing a connection, which subscribes to the topic.
@@ -33,15 +34,29 @@ def on_connect(mqttc, data, flags, rc):
 
 def on_scene_message(mqttc, condlock, msg):
   global detection_count
+  global count_transitions
   real_msg = str(msg.payload.decode("utf-8"))
   json_data = json.loads(real_msg)
 
   for scene in detection_count:
     if json_data['id'] == scene:
+      previous = detection_count[scene]["current"]
       # If the unique count somehow decremented, raise an error
-      if detection_count[scene]["current"] > json_data['unique_detection_count']:
+      if previous > json_data['unique_detection_count']:
         detection_count[scene]["error"] = True
       detection_count[scene]["current"] = json_data['unique_detection_count']
+
+      if previous != json_data['unique_detection_count']:
+        event = {
+          "timestamp": json_data.get("timestamp", "unknown"),
+          "from": previous,
+          "to": json_data['unique_detection_count']
+        }
+        count_transitions[scene].append(event)
+        log.info(
+          f"Transition for {scene}: {previous} -> {json_data['unique_detection_count']} "
+          f"at {event['timestamp']}"
+        )
   return
 
 def check_unique_detections():
@@ -50,35 +65,35 @@ def check_unique_detections():
   """
   interval = 10  # seconds
   start_time = time.time()
+  minima = {scene: max(detection_count[scene].get("minimum", 1), 1) for scene in detection_count}
 
   while time.time() - start_time < TEST_WAIT_TIME:
     time.sleep(interval)
     log.info(f"Status after {int(time.time() - start_time)} / {TEST_WAIT_TIME} sec")
 
     for scene in detection_count:
-      if detection_count[scene]["current"] <= detection_count[scene]["maximum"]:
-        log.info(f"-> Detections for {scene} of: {detection_count[scene]['current']} (max: {detection_count[scene]['maximum']})")
+      current = detection_count[scene]["current"]
+      maximum = detection_count[scene]["maximum"]
+
+      if current <= maximum:
+        log.info(f"-> Detections for {scene} of: {current} (max: {maximum})")
       else:
-        log.error(f"-> Detections for {scene} is greater than the maximum: {detection_count[scene]['current']} (max: {detection_count[scene]['maximum']})!")
+        log.error(f"-> Detections for {scene} is greater than the maximum: {current} (max: {maximum})!")
         return False
 
       if detection_count[scene]["error"]:
         log.error(f"The unique detection counter for {scene} somehow got decremented!")
         return False
 
-      minimum = detection_count[scene].get("minimum", 1)
-
   for scene in detection_count:
-    minimum = detection_count[scene].get("minimum", 1)
-    if detection_count[scene]["current"] < minimum:
+    current = detection_count[scene]["current"]
+    minimum = minima[scene]
+
+    if current < minimum:
       log.error(
         f"The unique detection counter for {scene} is below minimum: "
-        f"{detection_count[scene]['current']} (min: {minimum})!"
+        f"{current} (min: {minimum})!"
       )
-      return False
-
-    if detection_count[scene]["current"] <= 0:
-      log.error(f"The unique detection counter for {scene} shouldn't be 0!")
       return False
 
   return True
@@ -92,7 +107,9 @@ def run_test(test_name, test_desc, scene_config, params):
   @return   exit_code       Indicates test success or failure.
   """
   global detection_count
+  global count_transitions
   detection_count = scene_config
+  count_transitions = {scene: [] for scene in detection_count}
   exit_code = 1
 
   try:
@@ -108,6 +125,12 @@ def run_test(test_name, test_desc, scene_config, params):
     client.loopStart()
 
     assert check_unique_detections()
+
+    for scene in detection_count:
+      if count_transitions[scene]:
+        log.info(f"Transition history for {scene}: {count_transitions[scene]}")
+      else:
+        log.info(f"No transitions observed for {scene}; final count: {detection_count[scene]['current']}")
 
     client.loopStop()
     exit_code = 0

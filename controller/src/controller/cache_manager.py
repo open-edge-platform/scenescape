@@ -65,6 +65,8 @@ class CacheManager:
       if uid not in self.cached_scenes_by_uid:
         # Creating new scene - check if there was an old scene with sensor cache
         scene = Scene.deserialize(scene_data)
+        # Apply runtime overrides (tracker/reid config) consistently for new scenes.
+        scene.updateScene(scene_data)
 
         old_scene = self._sensorNeedsRestoring(uid)
         if old_scene:
