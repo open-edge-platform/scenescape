@@ -66,6 +66,9 @@ class ChildSceneTest:
     self.child_tripwire_events = []
     self.child_sensor_events = []
 
+    # Monotonic timestamp of the first event received into each accumulator
+    self._first_received_at = {}
+
   def make_rest_client(self):
     """Return an authenticated :class:`RESTClient` instance."""
     rest_client = RESTClient(self.params["resturl"], rootcert=self.params["rootcert"])
@@ -253,28 +256,34 @@ class ChildSceneTest:
 
     if scene_id == self.child_id and region_id == self.roi_uid and region_type == self._REGION:
       self.child_roi_events.append(data)
+      self._first_received_at.setdefault("child_roi_events", time.monotonic())
       log.info(f"Child ROI event received: {len(self.child_roi_events)} total")
 
     elif scene_id == self.child_id and region_id == self.tripwire_uid and region_type == self._TRIPWIRE:
       self.child_tripwire_events.append(data)
+      self._first_received_at.setdefault("child_tripwire_events", time.monotonic())
       log.info(f"Child tripwire event received: {len(self.child_tripwire_events)} total")
 
     elif (scene_id == self.child_id and self.sensor_uid
           and region_id == self.sensor_uid and region_type == self._REGION):
       self.child_sensor_events.append(data)
+      self._first_received_at.setdefault("child_sensor_events", time.monotonic())
       log.info(f"Child sensor event received: {len(self.child_sensor_events)} total")
 
     elif scene_id == self.parent_id and region_id == self.roi_uid and region_type == self._REGION:
       self.parent_roi_events.append(data)
+      self._first_received_at.setdefault("parent_roi_events", time.monotonic())
       log.info(f"Parent ROI event received: {len(self.parent_roi_events)} total")
 
     elif scene_id == self.parent_id and region_id == self.tripwire_uid and region_type == self._TRIPWIRE:
       self.parent_tripwire_events.append(data)
+      self._first_received_at.setdefault("parent_tripwire_events", time.monotonic())
       log.info(f"Parent tripwire event received: {len(self.parent_tripwire_events)} total")
 
     elif (scene_id == self.parent_id and self.sensor_uid
           and region_id == self.sensor_uid and region_type == self._REGION):
       self.parent_sensor_events.append(data)
+      self._first_received_at.setdefault("parent_sensor_events", time.monotonic())
       log.info(f"Parent sensor event received: {len(self.parent_sensor_events)} total")
 
   def connect_mqtt(self):
@@ -353,6 +362,14 @@ class ChildSceneTest:
     )
     thread.start()
     return thread
+
+  def first_received_at(self, attr):
+    """Return the monotonic time at which the first event arrived in the named accumulator.
+
+    @param    attr    Name of the list attribute (e.g. ``"child_roi_events"``).
+    @return   Monotonic timestamp (float), or ``None`` if no events received yet.
+    """
+    return self._first_received_at.get(attr)
 
   def wait_for_events(self, attr, timeout=MAX_WAIT):
     """Block until at least one event is present in the named attribute.
