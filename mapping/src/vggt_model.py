@@ -505,8 +505,7 @@ class VGGTModel(ReconstructionModel):
       if not distances:
         return 0.0
 
-      # Median is robust to occasional bad pose entries
-      return float(np.median(distances))
+      return float(np.min(distances))
 
     except Exception as e:
       log.exception(f"Failed to compute baseline from camera_locations: {e}")
