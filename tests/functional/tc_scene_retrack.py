@@ -51,8 +51,7 @@ def test_scene_retrack_enabled_objects_propagate_to_parent(
     h.set_retrack(rest_client, True)
     client = h.make_client()
 
-    h.parent_received.clear()
-    h.child_received.clear()
+    h.reset()
 
     h.publish_data(objData, client, obj_category="person")
     h.wait_for_messages(require_parent=True, require_child=True)
@@ -103,8 +102,7 @@ def test_scene_retrack_disabled_objects_propagate_to_parent(
     h.set_retrack(rest_client, False)
     client = h.make_client()
 
-    h.parent_received.clear()
-    h.child_received.clear()
+    h.reset()
 
     h.publish_data(objData, client, obj_category="person")
     h.wait_for_messages(require_parent=True, require_child=True)
@@ -155,14 +153,14 @@ def test_scene_retrack_disabled_preserves_child_object_ids(
     h.set_retrack(rest_client, False)
     client = h.make_client()
 
-    h.parent_received.clear()
-    h.child_received.clear()
+    h.reset()
 
     h.publish_data(objData, client, obj_category="person")
     h.wait_for_messages(require_parent=True, require_child=True)
 
-    parent_ids = RetrackTest.collect_object_ids(h.parent_received)
-    child_ids = RetrackTest.collect_object_ids(h.child_received)
+    parent_snap, child_snap = h.snapshot_received()
+    parent_ids = RetrackTest.collect_object_ids(parent_snap)
+    child_ids = RetrackTest.collect_object_ids(child_snap)
 
     log.info(f"Parent IDs: {parent_ids}")
     log.info(f"Child IDs:  {child_ids}")
@@ -214,14 +212,14 @@ def test_scene_retrack_enabled_assigns_new_ids_to_child_objects(
     h.set_retrack(rest_client, True)
     client = h.make_client()
 
-    h.parent_received.clear()
-    h.child_received.clear()
+    h.reset()
 
     h.publish_data(objData, client, obj_category="person")
     h.wait_for_messages(require_parent=True, require_child=True)
 
-    parent_ids = RetrackTest.collect_object_ids(h.parent_received)
-    child_ids = RetrackTest.collect_object_ids(h.child_received)
+    parent_snap, child_snap = h.snapshot_received()
+    parent_ids = RetrackTest.collect_object_ids(parent_snap)
+    child_ids = RetrackTest.collect_object_ids(child_snap)
 
     log.info(f"Parent IDs: {parent_ids}")
     log.info(f"Child IDs:  {child_ids}")
@@ -274,14 +272,14 @@ def test_scene_retrack_toggle_changes_id_behaviour(
 
     # ---- Phase 1: retrack=False – IDs should be shared ----
     log.info("Phase 1: retrack=False")
-    h.parent_received.clear()
-    h.child_received.clear()
+    h.reset()
 
     h.publish_data(objData, client, obj_category="person")
     h.wait_for_messages(require_parent=True, require_child=True)
 
-    phase1_parent_ids = RetrackTest.collect_object_ids(h.parent_received)
-    phase1_child_ids = RetrackTest.collect_object_ids(h.child_received)
+    parent_snap, child_snap = h.snapshot_received()
+    phase1_parent_ids = RetrackTest.collect_object_ids(parent_snap)
+    phase1_child_ids = RetrackTest.collect_object_ids(child_snap)
     shared_phase1 = phase1_parent_ids & phase1_child_ids
     assert shared_phase1, \
       ("Phase 1 (retrack=False): expected parent and child to share IDs, "
@@ -291,14 +289,14 @@ def test_scene_retrack_toggle_changes_id_behaviour(
     # ---- Phase 2: switch to retrack=True – IDs should diverge ----
     log.info("Phase 2: switching to retrack=True")
     h.set_retrack(rest_client, True)
-    h.parent_received.clear()
-    h.child_received.clear()
+    h.reset()
 
     h.publish_data(objData, client, obj_category="person")
     h.wait_for_messages(require_parent=True, require_child=True)
 
-    phase2_parent_ids = RetrackTest.collect_object_ids(h.parent_received)
-    phase2_child_ids = RetrackTest.collect_object_ids(h.child_received)
+    parent_snap, child_snap = h.snapshot_received()
+    phase2_parent_ids = RetrackTest.collect_object_ids(parent_snap)
+    phase2_child_ids = RetrackTest.collect_object_ids(child_snap)
     shared_phase2 = phase2_parent_ids & phase2_child_ids
     assert not shared_phase2, \
       ("Phase 2 (retrack=True): expected parent IDs to differ from child IDs, "

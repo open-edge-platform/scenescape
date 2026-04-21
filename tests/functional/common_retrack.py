@@ -28,6 +28,7 @@ class RetrackTest:
     self.params = params
     self.parent_id = None
     self.child_id = None
+    self._lock = threading.Lock()
     self.parent_received = []
     self.child_received = []
 
@@ -50,12 +51,13 @@ class RetrackTest:
     obj_count = len(data.get('objects', []))
     if obj_count == 0:
       return
-    if topic.get('scene_id') == self.parent_id:
-      log.info(f"Parent regulated: {obj_count} objects")
-      self.parent_received.append(data)
-    elif topic.get('scene_id') == self.child_id:
-      log.info(f"Child regulated: {obj_count} objects")
-      self.child_received.append(data)
+    with self._lock:
+      if topic.get('scene_id') == self.parent_id:
+        log.info(f"Parent regulated: {obj_count} objects")
+        self.parent_received.append(data)
+      elif topic.get('scene_id') == self.child_id:
+        log.info(f"Child regulated: {obj_count} objects")
+        self.child_received.append(data)
 
   def setup_scenes(self, rest_client):
     """! Create a fresh parent scene and link the existing Demo scene as
@@ -216,17 +218,36 @@ class RetrackTest:
       timeout = self.MAX_WAIT
     start = time.time()
     while time.time() - start < timeout:
-      parent_ok = (not require_parent) or len(self.parent_received) > 0
-      child_ok = (not require_child) or len(self.child_received) > 0
+      with self._lock:
+        parent_ok = (not require_parent) or len(self.parent_received) > 0
+        child_ok = (not require_child) or len(self.child_received) > 0
       if parent_ok and child_ok:
         return
       time.sleep(0.5)
+    with self._lock:
+      parent_count = len(self.parent_received)
+      child_count = len(self.child_received)
     if require_parent:
-      assert len(self.parent_received) > 0, \
+      assert parent_count > 0, \
         f"Timed out after {timeout}s: no objects on parent regulated topic"
     if require_child:
-      assert len(self.child_received) > 0, \
+      assert child_count > 0, \
         f"Timed out after {timeout}s: no objects on child regulated topic"
+
+  def reset(self):
+    """! Clear both accumulators atomically under the lock."""
+    with self._lock:
+      self.parent_received.clear()
+      self.child_received.clear()
+
+  def snapshot_received(self):
+    """! Return a frozen (parent_list, child_list) copy under the lock.
+
+    @return   Tuple of (list, list) – point-in-time snapshots of
+              parent_received and child_received.
+    """
+    with self._lock:
+      return list(self.parent_received), list(self.child_received)
 
   @staticmethod
   def collect_object_ids(messages):
