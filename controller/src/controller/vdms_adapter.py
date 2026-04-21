@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 import os
 import socket
@@ -39,6 +41,9 @@ class VDMSDatabase(ReIDDatabase):
       - "NOT CONNECTED", if the database connection is not active
       - None, if the response fails to receive a packet
       - (response, res_arr), if query gets a response from VDMS
+
+    NOTE: This lock serializes all VDMS queries. If ReID similarity queries become a bottleneck,
+    consider using connection pooling or async VDMS client.
 
     @param   query      The list of queries to send to VDMS
     @param   blob       Blobs of data to send with queries (optional)
@@ -85,7 +90,7 @@ class VDMSDatabase(ReIDDatabase):
         f"Failed to add the descriptor set to the database. Recieved response {response[0]}")
     return
 
-  def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name=SCHEMA_NAME):
+  def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name=SCHEMA_NAME, **metadata):
     query = {
       "AddDescriptor": {
         "set": f"{set_name}",
@@ -117,8 +122,8 @@ class VDMSDatabase(ReIDDatabase):
       return True
     return False
 
-  def findSimilarityScores(self, object_type, reid_vectors, set_name=SCHEMA_NAME,
-                           k_neighbors=K_NEIGHBORS):
+  def findMatches(self, object_type, reid_vectors, set_name=SCHEMA_NAME,
+                  k_neighbors=K_NEIGHBORS, **constraints):
     find_query = {
       "FindDescriptor": {
         "set": f"{set_name}",

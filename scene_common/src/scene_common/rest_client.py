@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 import os
 import json
@@ -9,6 +11,12 @@ import sys
 from http import HTTPStatus
 from urllib.parse import urljoin
 
+# Default HTTP timeout for all REST API calls (seconds).
+# Prevents indefinite blocking on slow or unresponsive endpoints.
+# Override via REST_HTTP_TIMEOUT_SECONDS environment variable.
+REST_HTTP_TIMEOUT = float(os.environ.get('REST_HTTP_TIMEOUT_SECONDS', '10.0'))
+
+
 class RESTResult(dict):
   def __init__(self, statusCode, errors=None):
     super().__init__()
@@ -17,9 +25,17 @@ class RESTResult(dict):
     return
 
 class RESTClient:
-  def __init__(self, url, rootcert=None, auth=None):
+  def __init__(self, url=None, token=None, auth=None,
+               rootcert=None, verify_ssl=False, timeout=REST_HTTP_TIMEOUT):
     self.url = url
     self.rootcert = rootcert
+    self.verify_ssl = verify_ssl
+    self.timeout = timeout
+    self.token = token
+    # Use rootcert as CA bundle path when provided; otherwise fall back to verify_ssl bool.
+    self.verify = rootcert if rootcert is not None else verify_ssl
+    if self.url is None:
+      raise ValueError("RESTClient requires a non-None url")
     if not self.url.endswith("/"):
       self.url = self.url + "/"
     self.session = requests.session()
@@ -99,9 +115,13 @@ class RESTClient:
     auth_url = urljoin(self.url, "auth")
     try:
       reply = self.session.post(auth_url, data={'username': user, 'password': password},
-                                verify=self.rootcert)
+                                verify=self.verify, timeout=self.timeout)
     except requests.exceptions.ConnectionError as err:
-      result = RESTResult("ConnectionError", errors=("Connection error", str(err)))
+      result = RESTResult(
+          "ConnectionError", errors=(
+              "Connection error", str(err)))
+    except requests.exceptions.Timeout as err:
+      result = RESTResult("Timeout", errors=("Request timeout", str(err)))
     else:
       result = self.decodeReply(reply, HTTPStatus.OK, successContent={'authenticated': True})
       if reply.status_code == HTTPStatus.OK:
@@ -137,7 +157,8 @@ class RESTClient:
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
-                              headers=headers, verify=self.rootcert)
+                              headers=headers, verify=self.verify,
+                              timeout=self.timeout)
     return self.decodeReply(reply, HTTPStatus.CREATED)
 
   def _get(self, endpoint, parameters):
@@ -152,7 +173,7 @@ class RESTClient:
     full_path = urljoin(self.url, endpoint)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.get(full_path, params=parameters, headers=headers,
-                             verify=self.rootcert)
+                             verify=self.verify, timeout=self.timeout)
     return self.decodeReply(reply, HTTPStatus.OK)
 
   def _update(self, endpoint, data, files=None):
@@ -169,7 +190,8 @@ class RESTClient:
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
-                              headers=headers, verify=self.rootcert)
+                              headers=headers, verify=self.verify,
+                              timeout=self.timeout)
     return self.decodeReply(reply, HTTPStatus.OK)
 
   def _delete(self, endpoint):
@@ -181,7 +203,11 @@ class RESTClient:
     """
     full_path = urljoin(self.url, endpoint)
     headers = {'Authorization': f"Token {self.token}"}
-    reply = self.session.delete(full_path, headers=headers, verify=self.rootcert)
+    reply = self.session.delete(
+        full_path,
+        headers=headers,
+        verify=self.verify,
+        timeout=self.timeout)
     return self.decodeReply(reply, HTTPStatus.OK)
 
   def _separateFiles(self, data, fields):

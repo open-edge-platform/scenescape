@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 import base64
 import datetime
@@ -18,7 +20,7 @@ from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2
 from scene_common.transform import normalize, rotationToTarget
 
-warnings.simplefilter('ignore', np.RankWarning)
+warnings.simplefilter('ignore', getattr(np.exceptions, 'RankWarning', None) or np.RankWarning)
 
 APRILTAG_HOVER_DISTANCE = 0.5
 DEFAULT_EDGE_LENGTH = 1.0
@@ -107,20 +109,42 @@ class MovingObject:
     self.location = None
     self.rotation = np.array([0, 0, 0, 1]).tolist()
     self.intersected = False
-    self.reidVector = None
+    self.reid = {}
+    self.metadata = {}
     reid = self.info.get('reid', None)
     if reid is not None:
       self._decodeReIDVector(reid)
     return
 
+  @property
+  def reidVector(self):
+    """Backward-compatible accessor for reid embedding vector.
+    Used by uuid_manager.py for ReID feature gathering and similarity queries."""
+    return self.reid.get('embedding_vector', None)
+
   def _decodeReIDVector(self, reid):
-    try:
-      vector = base64.b64decode(reid)
-      self.reidVector = np.array(struct.unpack("256f", vector)).reshape(1, -1)
-      self.info.pop('reid')
-    except TypeError:
-      if type(reid) == list:
-        self.reidVector = reid
+    if isinstance(reid, dict):
+      embedding = reid.get('embedding_vector', None)
+      if embedding is not None:
+        try:
+          vector = base64.b64decode(embedding)
+          self.reid['embedding_vector'] = np.array(struct.unpack("256f", vector)).reshape(1, -1)
+        except (TypeError, struct.error):
+          if isinstance(embedding, list):
+            self.reid['embedding_vector'] = embedding
+      model_name = reid.get('model_name', None)
+      if model_name is not None:
+        self.reid['model_name'] = model_name
+      self.info.pop('reid', None)
+    else:
+      # Legacy format: base64-encoded vector string or list
+      try:
+        vector = base64.b64decode(reid)
+        self.reid['embedding_vector'] = np.array(struct.unpack("256f", vector)).reshape(1, -1)
+        self.info.pop('reid', None)
+      except TypeError:
+        if isinstance(reid, list):
+          self.reid['embedding_vector'] = reid
     return
 
   def setPersistentAttributes(self, info, persist_attributes):
@@ -129,7 +153,13 @@ class MovingObject:
     for attribute in persist_attributes:
       attr, sub_attrs = (list(attribute.items())[0] if isinstance(attribute, dict) else (attribute, None))
       if attr in info:
-        result = info[attr][0] if isinstance(info[attr], list) and info[attr] else info[attr]
+        value = info[attr]
+        if isinstance(value, list) and value:
+          result = value[0]
+        elif isinstance(value, dict):
+          result = value
+        else:
+          result = value
         self.chain_data.persist.setdefault(attr, {})
         if sub_attrs:
           for sub_attr in sub_attrs.split(','):
@@ -162,7 +192,8 @@ class MovingObject:
     self.chain_data = otherObj.chain_data
     self.chain_data.persist = persistent_attributes
 
-    # FIXME - should these fields be part of chain_data?
+    # Note: These fields live outside chain_data for historical reasons.
+    # Refactoring into chain_data would require migration of existing tracking state.
     self.gid = otherObj.gid
     self.first_seen = otherObj.first_seen
     self.frameCount = otherObj.frameCount + 1
@@ -269,7 +300,6 @@ class MovingObject:
     """
 
     classDict = {'baseClass': cls}
-    classDict.update('')
     if methods:
       classDict.update(methods)
 
@@ -313,7 +343,7 @@ class MovingObject:
       'bounding_box': self.boundingBox.asDict,
       'gid': self.gid,
       'frame_count': self.frameCount,
-      'reid': self.reidVector,
+      'reid': self.reid if self.reid else None,
       'first_seen': self.first_seen,
       'location': [{'point': (v.point.x, v.point.y, v.point.z),
                     'timestamp': v.when,
@@ -324,11 +354,13 @@ class MovingObject:
       'intersected': self.intersected,
       'scene_loc': self.sceneLoc.asNumpyCartesian.tolist(),
     }
-    if 'reid' in dd and isinstance(dd['reid'], np.ndarray):
-      vector = dd['reid'].flatten().tolist()
-      vector = struct.pack("256f", *vector)
-      vector = base64.b64encode(vector).decode('utf-8')
-      dd['reid'] = vector
+    if 'reid' in dd and isinstance(dd['reid'], dict):
+      reid_copy = dict(dd['reid'])
+      if 'embedding_vector' in reid_copy and isinstance(reid_copy['embedding_vector'], np.ndarray):
+        vector = reid_copy['embedding_vector'].flatten().tolist()
+        vector = struct.pack("256f", *vector)
+        reid_copy['embedding_vector'] = base64.b64encode(vector).decode('utf-8')
+      dd['reid'] = reid_copy
     if self.intersected:
       dd['adjusted'] = {'gid': self.adjusted[0],
                         'point': (self.adjusted[1].x, self.adjusted[1].y, self.adjusted[1].z)}
@@ -339,10 +371,16 @@ class MovingObject:
     self.boundingBox = Rectangle(info['bounding_box'])
     self.gid = info['gid']
     self.frameCount = info['frame_count']
-    self.reidVector = info['reid']
-    if self.reidVector is not None:
-      vector = base64.b64decode(self.reidVector)
-      self.reidVector = np.array(struct.unpack("256f", vector)).reshape(1, -1)
+    reid_data = info.get('reid', None)
+    if reid_data is not None:
+      if isinstance(reid_data, dict):
+        self.reid = dict(reid_data)
+        if 'embedding_vector' in self.reid and isinstance(self.reid['embedding_vector'], str):
+          vector = base64.b64decode(self.reid['embedding_vector'])
+          self.reid['embedding_vector'] = np.array(struct.unpack("256f", vector)).reshape(1, -1)
+      else:
+        vector = base64.b64decode(reid_data)
+        self.reid = {'embedding_vector': np.array(struct.unpack("256f", vector)).reshape(1, -1)}
     self.first_seen = info['first_seen']
     self.location = [Chronoloc(Point(v['point']), v['timestamp'], Rectangle(v['bounding_box']))
                      for v in info['location']]

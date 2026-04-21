@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
@@ -27,7 +27,7 @@ class ReIDDatabase(ABC):
     return
 
   @abstractmethod
-  def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name):
+  def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name, **metadata):
     """
     Adds entries to the database for the Re-ID vectors
 
@@ -52,7 +52,7 @@ class ReIDDatabase(ABC):
     return
 
   @abstractmethod
-  def findSimilarityScores(self, object_type, reid_vectors, set_name, k_neighbors):
+  def findMatches(self, object_type, reid_vectors, set_name, k_neighbors, **constraints):
     """
     Search the database for entries with the closest similarity scores to the given vector
 
