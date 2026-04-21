@@ -19,8 +19,8 @@ Creating SceneScape Core deployment package to simplify installation for general
 - Scenes and Cameras should be easy to add to existing Core deployment.
 - Make SceneScape Helm Chart more generic to publish it externally.
 - Keep the docker images as close to current state as possible to avoid breaking all existing apps.
-- Remove example data loading from deployment to speed it up
-- Core deployment package should be configurable
+- Remove example data loading from deployment to speed it up.
+- Core deployment package should be configurable.
 
 ## 3. Non-Goals
 
@@ -85,8 +85,7 @@ flowchart TB
 
   subgraph data [Example Database Contents]
     ExampleDB@{ shape: "odd" }
-    ExampleDB -->|Read| Manager
-    Manager -->|Populate| Postgres
+    ExampleDB -->|Load into| core
   end
 ```
 
@@ -94,14 +93,14 @@ Aside from just splitting deployments, the following changes in implementations 
 
 - Add API endpoints to Manager to allow loading database after initial deployment, or move that functionality outside of Manager entirely (e.g. CLI tool).
 - Create separate helm charts for demo applications that use core chart as a dependency.
-- Either add API endpoint to model dowlnoader service to download models and generage model configs after initial deployment or remove that feature from SceneScape
+- Either add API endpoint to model downloader service to download models and generate model configs after initial deployment or remove that feature from SceneScape
 - Provide broker configuration through chart values
 - Provide tracker config through chart values
 - Provide a way to propagate sample data to existing deployment
 
 If above changes are hard to implement in single iteration, they could be split into two phases:
 ### Phase 1
-Split deployments easiest way possible, and implement all data loading as part of existing makefiles. This solution would be a good start to start separation and understand all issues it may cause. It also should be relatively easy to re-create current demo deployments. This phase doesn't include any specific changes in components code.
+Create native core deployment, and implement all data loading as part of existing makefiles. This solution would be a good start to start separation and understand all issues it may cause. It also should be relatively easy to re-create current demo deployments. This phase doesn't include any specific changes in components code.
 ### Phase 2
 Implement all needed API endpoints to allow loading data and models after initial deployment. This phase would make core deployment package more flexible and easier to use for use cases other than current demos.
 
@@ -112,6 +111,7 @@ Currently the only alternative is to keep current deployments as is, which makes
 ## 7. Risks and Mitigations
 
 - Many tests have their own docker compose files for specific test cases -> One approach is for these tests to use generic deployment, another would be to keep existing test deployments as is and add some tests that would run directly against core deployment package.
+- Increased deployment complexity for users who just want the full demo.
 
 ## 8. Rollout / Migration Plan
 
