@@ -154,6 +154,11 @@ class ChildSceneTest:
   def teardown_scenes(self, rest_client):
     """Remove created analytics objects, unlink child, and delete parent scene.
 
+    All steps are attempted regardless of individual failures so that cleanup
+    is as complete as possible.  Unexpected status codes are logged at ERROR
+    level (including ``res.errors``) so failures are visible without masking
+    the original test result.
+
     @param    rest_client   An authenticated :class:`RESTClient`.
     """
     for uid, label, fn in [
@@ -163,15 +168,27 @@ class ChildSceneTest:
     ]:
       if uid:
         res = fn(uid)
-        log.info(f"[TEARDOWN] Deleted {label} uid={uid}: {res.statusCode}")
+        if res.statusCode in (200, 204):
+          log.info(f"[TEARDOWN] Deleted {label} uid={uid}: {res.statusCode}")
+        else:
+          log.error(f"[TEARDOWN] Failed to delete {label} uid={uid}: "
+                    f"{res.statusCode} {res.errors}")
 
     if self.child_id and not self.child_unlinked:
       res = rest_client.deleteChildSceneLink(self.child_id)
-      log.info(f"[TEARDOWN] Unlinked child uid={self.child_id}: {res.statusCode}")
+      if res.statusCode == 200:
+        log.info(f"[TEARDOWN] Unlinked child uid={self.child_id}: {res.statusCode}")
+      else:
+        log.error(f"[TEARDOWN] Failed to unlink child uid={self.child_id}: "
+                  f"{res.statusCode} {res.errors}")
 
     if self.parent_id:
       res = rest_client.deleteScene(self.parent_id)
-      log.info(f"[TEARDOWN] Deleted parent scene uid={self.parent_id}: {res.statusCode}")
+      if res.statusCode in (200, 204):
+        log.info(f"[TEARDOWN] Deleted parent scene uid={self.parent_id}: {res.statusCode}")
+      else:
+        log.error(f"[TEARDOWN] Failed to delete parent scene uid={self.parent_id}: "
+                  f"{res.statusCode} {res.errors}")
 
   def unlink_child(self, rest_client):
     """Unlink the child scene from its parent and record that it has been done.
