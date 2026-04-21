@@ -469,7 +469,7 @@ class VGGTModel(ReconstructionModel):
 
     return predictions
 
-  def _baseline_m_from_camera_locations(self, camera_locations, camera_ids=None) -> float:
+  def _baseline_metric_from_camera_locations(self, camera_locations, camera_ids=None) -> float:
     """
     Robustly compute a metric baseline (meters) from camera_locations.
 
@@ -588,31 +588,31 @@ class VGGTModel(ReconstructionModel):
       camera_to_world_list.append(c2w)
 
     # --- SCALE FIX: compute metric baseline from provided camera_locations ---
-    baseline_m = self._baseline_m_from_camera_locations(camera_locations, camera_ids=camera_ids)
+    baseline_metric = self._baseline_metric_from_camera_locations(camera_locations, camera_ids=camera_ids)
 
-    if baseline_m <= 0:
+    if baseline_metric <= 0:
       log.warning("VGGT: camera_locations missing/invalid; skipping metric scaling (scale will be arbitrary).")
 
-    if baseline_m > 0 and len(camera_to_world_list) >= 2:
+    if baseline_metric > 0 and len(camera_to_world_list) >= 2:
       b_units = self._baseline_units(camera_to_world_list[0], camera_to_world_list[1])
       if b_units > 1e-6:
-        s = baseline_m / b_units
-        log.info(f"Scaling VGGT outputs by s={s:.6f} (baseline {baseline_m:.6f}m / {b_units:.6f} units)")
+        scale = baseline_metric / b_units
+        log.info(f"Scaling VGGT outputs by s={scale:.6f} (baseline {baseline_metric:.6f}m / {b_units:.6f} units)")
 
         # scale camera translations
         for k in range(len(camera_to_world_list)):
           camera_to_world_list[k] = camera_to_world_list[k].copy()
-          camera_to_world_list[k][:3, 3] *= s
+          camera_to_world_list[k][:3, 3] *= scale
 
         # scale world points (affects glb_size -> pixels_per_meter)
         if isinstance(predictions.get("world_points_from_depth"), np.ndarray):
-          predictions["world_points_from_depth"] *= s
+          predictions["world_points_from_depth"] *= scale
         if isinstance(predictions.get("world_points"), np.ndarray):
-          predictions["world_points"] *= s
+          predictions["world_points"] *= scale
 
         # optional: scale depth too (only if used elsewhere)
         if isinstance(predictions.get("depth"), np.ndarray):
-          predictions["depth"] *= s
+          predictions["depth"] *= scale
       else:
         log.warning(f"VGGT: predicted baseline too small ({b_units}); skipping scaling.")
 
