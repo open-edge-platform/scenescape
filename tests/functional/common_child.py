@@ -3,6 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 import json
 import threading
 import time
@@ -306,6 +307,7 @@ class ChildSceneTest:
     @param    stop_event    :class:`threading.Event`, publishing stops when set.
     """
     cam_id = obj_data["id"]
+    obj_data = copy.deepcopy(obj_data)
     topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=cam_id)
     for _ in range(self._NUM_PUBLISH_ITERATIONS):
       for y in y_locations:
