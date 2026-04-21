@@ -1,4 +1,4 @@
-<!-- SPDX-FileCopyrightText: (C) 2025 Intel Corporation -->
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 # Intel® SceneScape
@@ -10,6 +10,9 @@
   </a>
   <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/README.md">
      Readme
+  </a>
+    <a class="icon_download" href="https://github.com/open-edge-platform/scenescape/releases">
+     Download
   </a>
 </div>
 hide_directive-->
@@ -35,7 +38,7 @@ A key goal of Intel® SceneScape is to make writing applications and business lo
 
 Intel® SceneScape is built on a collection of containerized services that work together to deliver comprehensive functionality, ensuring seamless integration and operation.
 
-![SceneScape architecture diagram](./_assets/architecture.png)
+![SceneScape architecture diagram](./_assets/architecture.png "architecture diagram")
 Figure 1: Architecture Diagram
 
 ### **Scene Controller**
@@ -73,24 +76,21 @@ PostgreSQL database server which stores static information used by the web UI an
 - [Get Started](./get-started.md)
 - [API Reference](./api-reference.md)
 - [Camera normalization](./additional-resources/convert-object-detections-to-normalized-image-space.md)
+- [Troubleshooting](./troubleshooting.md)
+- [Release Notes](./release-notes.md)
 
 <!--hide_directive
 :::{toctree}
 :hidden:
 
-get-started
-Deploy Intel® SceneScape <./how-to-deploy-scenescape-using-prebuilt-containers.md>
-Use Intel(R) SceneScape UI and Online Documentation <./tutorial.md>
-Integrate Cameras and Sensors <./how-to-integrate-cameras-and-sensors.md>
-Use Intel(R) SceneScape 3D UI for Camera Calibration <./how-to-use-3D-UI.md>
-Calibrate Cameras <calibrating-cameras/index.md>
-Build a Scene <building-a-scene/index.md>
-Work with Spatial Analytics <./working-with-spatial-analytics-data.md>
+Get Started <./get-started.md>
+How to Guides <./how-to-guides.md>
 Other Topics <other-topics/index.md>
 Additional Resources <additional-resources/index.md>
 Microservices <./microservices/microservices.md>
-api-reference
-troubleshooting
+./api-reference.md
+./troubleshooting.md
+Release Notes <./release-notes.md>
 
 :::
 hide_directive-->

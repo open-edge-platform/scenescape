@@ -11,7 +11,7 @@ from controller.moving_object import ChainData
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
-from scene_common.geometry import Line, Point, Region, Tripwire
+from scene_common.geometry import Line, Point, Region, Tripwire, getRegionEvents, getTripwireEvents
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
@@ -570,26 +570,33 @@ class Scene(SceneModel):
     return
 
   def _updateTripwireEvents(self, detectionType, now, curObjects):
-    for key in self.tripwires:
-      tripwire = self.tripwires[key]
-      tripwireObjects = tripwire.objects.get(detectionType, [])
-      objects = []
-      for obj in curObjects:
-        age = now - obj.when
-        # When tracker is disabled, skip the frameCount check and consider all objects;
-        # otherwise, only consider objects with frameCount > 3 as reliable.
-        if (obj.frameCount > 3 or ControllerMode.isAnalyticsOnly()) \
-          and len(obj.chain_data.publishedLocations) > 1:
-          d = tripwire.lineCrosses(Line(obj.chain_data.publishedLocations[0].as2Dxy,
-                                        obj.chain_data.publishedLocations[1].as2Dxy))
-          if d != 0:
-            event = TripwireEvent(obj, -d)
-            objects.append(event)
+    # Filter to reliable objects with enough location history for crossing detection.
+    # When tracker is disabled, skip the frameCount check and consider all objects;
+    # otherwise, only consider objects with frameCount > 3 as reliable.
+    reliable_objects = [
+      obj for obj in curObjects
+      if (obj.frameCount > 3 or ControllerMode.isAnalyticsOnly())
+      and len(obj.chain_data.publishedLocations) > 1
+    ]
 
-      if len(tripwireObjects) != len(objects) \
+    object_locations = [
+      obj.chain_data.publishedLocations[:2] for obj in reliable_objects
+    ]
+
+    crossing_events = getTripwireEvents(self.tripwires, object_locations)
+
+    for key, tripwire in self.tripwires.items():
+      event_matches = crossing_events.get(key, [])
+      previous_objects = tripwire.objects.get(detectionType, [])
+      crossed_objects = [
+        TripwireEvent(reliable_objects[obj_idx], direction)
+        for obj_idx, direction in event_matches
+      ]
+
+      if len(previous_objects) != len(crossed_objects) \
          and now - tripwire.when > DEBOUNCE_DELAY:
-        log.debug("TRIPWIRE EVENT", tripwireObjects, len(objects))
-        tripwire.objects[detectionType] = objects
+        log.debug("TRIPWIRE EVENT", previous_objects, len(crossed_objects))
+        tripwire.objects[detectionType] = crossed_objects
         tripwire.when = now
         if 'objects' not in self.events:
           self.events['objects'] = []
@@ -598,16 +605,27 @@ class Scene(SceneModel):
 
   def _updateRegionEvents(self, detectionType, regions, now, now_str, curObjects):
     updated = set()
-    for key in regions:
-      region = regions[key]
+
+    # Filter to reliable objects.
+    # When tracker is disabled, skip the frameCount check and consider all objects;
+    # otherwise, only consider objects with frameCount > 3 as reliable.
+    reliable_objects = [
+      obj for obj in curObjects
+      if obj.frameCount > 3 or ControllerMode.isAnalyticsOnly()
+    ]
+
+    object_locations = [obj.sceneLoc for obj in reliable_objects]
+    objects_within_region = getRegionEvents(regions, object_locations)
+
+    for key, region in regions.items():
+      matched_indices = set(objects_within_region.get(key, []))
+      # Also include objects matched by mesh intersection (requires self)
+      for obj_idx, obj in enumerate(reliable_objects):
+        if obj_idx not in matched_indices and self.isIntersecting(obj, region):
+          matched_indices.add(obj_idx)
+
+      objects = [reliable_objects[i] for i in sorted(matched_indices)]
       regionObjects = region.objects.get(detectionType, [])
-      objects = []
-      for obj in curObjects:
-        # When tracker is disabled, skip the frameCount check and consider all objects;
-        # otherwise, only consider objects with frameCount > 3 as reliable.
-        if (obj.frameCount > 3 or ControllerMode.isAnalyticsOnly()) \
-           and (region.isPointWithin(obj.sceneLoc) or self.isIntersecting(obj, region)):
-          objects.append(obj)
 
       cur = set(x.gid for x in objects)
       prev = set(x.gid for x in regionObjects)

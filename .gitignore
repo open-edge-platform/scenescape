@@ -18,9 +18,9 @@ datasets
 db
 db.sqlite3
 db-backup-*
-manager/src/static/assets
-manager/src/static/bootstrap*
-manager/src/static/examples
+manager/src/manager/static/assets
+manager/src/manager/static/bootstrap*
+manager/src/manager/static/examples
 manager/secrets
 manager/src/manager/secrets.py
 docker-compose.yml

@@ -79,6 +79,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Log in to DockerHub"
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: "Setup Cache Targets"
         id: setup-cache
         uses: ./.github/actions/setup-cache
@@ -133,6 +139,12 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Log in to DockerHub"
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: "Setup Cache Targets"
         id: setup-cache
@@ -189,6 +201,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Log in to DockerHub"
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: "Setup Cache Targets"
         id: setup-cache
         uses: ./.github/actions/setup-cache
@@ -244,6 +262,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: "Log in to DockerHub"
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: "Setup Cache Targets"
         id: setup-cache
         uses: ./.github/actions/setup-cache
@@ -298,6 +322,12 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Log in to DockerHub"
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: "Setup Cache Targets"
         id: setup-cache

@@ -1,4 +1,4 @@
-# Use Intel(R) SceneScape UI and Online Documentation
+# Use Intel® SceneScape UI and Online Documentation
 
 These tutorials demonstrate how to use Intel® SceneScape user interface using a browser and access the online documentation.
 
@@ -12,7 +12,7 @@ By default, Intel® SceneScape provides two scenes that you can explore that are
 
 ### Prerequisites For Exploring User Interface
 
-Complete all steps in the [Get Started](./get-started.md) section.
+Complete all steps in the [Get Started](../get-started.md) section.
 
 ### Explore User Interface
 
@@ -21,9 +21,9 @@ On local desktop, open browser and connect to `https://localhost`. If running re
 > **Note:** These certificate warnings are expected due to the use of a self-signed certificate for initial deployment purposes. This certificate is generated at deploy time and is unique to the instance.
 
 - Navigate through the scenes and view the system configuration. For example, clicking on the “3D” icon on the “Queueing” scene shows the 3D rendering of that scene with green boxes representing the detected position of people moving in the scene.
-  ![SceneScape WebUI Homepage](./_assets/ui/homepage.png)
+  ![SceneScape WebUI Homepage](../_assets/ui/homepage.png)
   Figure 1: Intel® SceneScape WebUI note the 3D button
-  ![SceneScape WebUI 3D Screenshot ](./_assets/ui/demo_queuing_3d_view.png)
+  ![SceneScape WebUI 3D Screenshot ](../_assets/ui/demo_queuing_3d_view.png)
   Figure 2: Intel® SceneScape 3D WebUI view
 
 Using the mouse, one can rotate the 3D model and zoom in and out.
@@ -38,7 +38,7 @@ Intel® SceneScape provides an html version of the documentation via the WebUI s
 
 ### Prerequisites For Viewing Documentation
 
-Complete all steps in the [Get Started](./get-started.md) section.
+Complete all steps in the [Get Started](../get-started.md) section.
 
 ### Explore Documentation
 
@@ -48,11 +48,11 @@ On local desktop, open browser and connect to `https://localhost`. If running re
 
 - Click on the Documentation menu link at the top, explore the left side contents menu. For example, try selecting Learn More and using the links to
   additional information:
-  ![SceneScape WebUI Documentation Screenshot ](./_assets/online_docs.png)
+  ![SceneScape WebUI Documentation Screenshot ](../_assets/online_docs.png)
   Figure 3: Intel® SceneScape online documentation
 
 - Or look at the Architectural overview in the Hardening Guide:
-  ![SceneScape WebUI Documentation Architecture Overview Screenshot ](./_assets/doc_arch_overview.png)
+  ![SceneScape WebUI Documentation Architecture Overview Screenshot ](../_assets/doc_arch_overview.png)
   Figure 4: Intel® SceneScape online documentation Architecture Overview
 
 ## Summary
@@ -61,4 +61,4 @@ In this tutorial, you learned how to navigate the Intel® SceneScape user interf
 
 ## Learn More
 
-- Understand the components, services, architecture, and data flow, in the [Overview](./index.md).
+- Understand the components, services, architecture, and data flow, in the [Overview](../index.md).
