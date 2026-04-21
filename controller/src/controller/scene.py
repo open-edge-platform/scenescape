@@ -442,7 +442,8 @@ class Scene(SceneModel):
     """
     # If analytics-only mode is enabled, only use MQTT cache (from separate Tracker service)
     if ControllerMode.isAnalyticsOnly():
-        return [obj for obj in self._analytics_objects.values() if obj.category == detection_type]
+      return [obj for obj in self._analytics_objects.values()
+              if obj.category == detection_type]
     if self.tracker is not None:
       return self.tracker.currentObjects(detection_type)
     return []
