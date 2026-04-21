@@ -442,16 +442,10 @@ class Scene(SceneModel):
     """
     # If analytics-only mode is enabled, only use MQTT cache (from separate Tracker service)
     if ControllerMode.isAnalyticsOnly():
-      if detection_type in self.tracked_objects_cache:
-        cached_objects = self.tracked_objects_cache[detection_type]
-        return self._deserializeTrackedObjects(cached_objects)
-      return []
-
-    # If tracker is enabled, use direct tracker call (traditional mode)
+        return [obj for obj in self._analytics_objects.values()
+                if obj.category == detection_type]
     if self.tracker is not None:
-      log.debug(f"Using direct tracker call for detection type: {detection_type}")
-      return self.tracker.currentObjects(detection_type)
-
+        return self.tracker.currentObjects(detection_type)
     return []
 
   def _deserializeTrackedObjects(self, serialized_objects):
