@@ -14,20 +14,7 @@ from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
 
-FRAME_RATE = 10
 MAX_WAIT = 3
-NUM_PUBLISH_ITERATIONS = 3
-PERSON = "person"
-REGION = "region"
-TRIPWIRE = "tripwire"
-
-# Object bounding-box y-sweep that produces world-coordinate trajectories
-# crossing both the ROI and the tripwire defined in setup_scenes().
-# Range matches FunctionalTest.getLocations() used by tc_tripwire_mqtt.py.
-_step = 0.02
-_opposite = np.arange(-0.5, 0.6, _step)
-_across = np.flip(_opposite)[2:]
-OBJ_Y_LOCATIONS = np.concatenate((_opposite, _across))
 
 
 class ChildSceneTest:
@@ -37,6 +24,21 @@ class ChildSceneTest:
   connection flag so that tests interact with instance state rather than
   module-level globals.
   """
+
+  _FRAME_RATE = 10
+  _NUM_PUBLISH_ITERATIONS = 3
+  _PERSON = "person"
+  _REGION = "region"
+  _TRIPWIRE = "tripwire"
+
+  # Object bounding-box y-sweep that produces world-coordinate trajectories
+  # crossing both the ROI and the tripwire defined in setup_scenes().
+  # Range matches FunctionalTest.getLocations() used by tc_tripwire_mqtt.py.
+  _STEP = 0.02
+  _OBJ_Y_LOCATIONS = np.concatenate([
+    np.arange(-0.5, 0.6, _STEP),
+    np.flip(np.arange(-0.5, 0.6, _STEP))[2:],
+  ])
 
   def __init__(self, params):
     """Initialise helper with test parameters dict (from conftest ``params`` fixture)."""
@@ -201,16 +203,16 @@ class ChildSceneTest:
     log.info("MQTT connected")
     self.connected = True
 
-    self._subscribe_event(mqttc, "child ROI events", REGION, self.child_id, self.roi_uid)
-    self._subscribe_event(mqttc, "child tripwire events", TRIPWIRE, self.child_id, self.tripwire_uid)
+    self._subscribe_event(mqttc, "child ROI events", self._REGION, self.child_id, self.roi_uid)
+    self._subscribe_event(mqttc, "child tripwire events", self._TRIPWIRE, self.child_id, self.tripwire_uid)
     if self.sensor_uid:
-      self._subscribe_event(mqttc, "child sensor events", REGION, self.child_id, self.sensor_uid)
+      self._subscribe_event(mqttc, "child sensor events", self._REGION, self.child_id, self.sensor_uid)
 
     # Parent equivalents (republished by controller)
-    self._subscribe_event(mqttc, "parent ROI events", REGION, self.parent_id, self.roi_uid)
-    self._subscribe_event(mqttc, "parent tripwire events", TRIPWIRE, self.parent_id, self.tripwire_uid)
+    self._subscribe_event(mqttc, "parent ROI events", self._REGION, self.parent_id, self.roi_uid)
+    self._subscribe_event(mqttc, "parent tripwire events", self._TRIPWIRE, self.parent_id, self.tripwire_uid)
     if self.sensor_uid:
-      self._subscribe_event(mqttc, "parent sensor events", REGION, self.parent_id, self.sensor_uid)
+      self._subscribe_event(mqttc, "parent sensor events", self._REGION, self.parent_id, self.sensor_uid)
 
   def _on_message(self, mqttc, obj, msg):
     """Route incoming MQTT messages to the correct accumulator list."""
@@ -231,29 +233,29 @@ class ChildSceneTest:
     if topic.get("_topic_id") != PubSub.EVENT:
       return
 
-    if scene_id == self.child_id and region_id == self.roi_uid and region_type == REGION:
+    if scene_id == self.child_id and region_id == self.roi_uid and region_type == self._REGION:
       self.child_roi_events.append(data)
       log.info(f"Child ROI event received: {len(self.child_roi_events)} total")
 
-    elif scene_id == self.child_id and region_id == self.tripwire_uid and region_type == TRIPWIRE:
+    elif scene_id == self.child_id and region_id == self.tripwire_uid and region_type == self._TRIPWIRE:
       self.child_tripwire_events.append(data)
       log.info(f"Child tripwire event received: {len(self.child_tripwire_events)} total")
 
     elif (scene_id == self.child_id and self.sensor_uid
-          and region_id == self.sensor_uid and region_type == REGION):
+          and region_id == self.sensor_uid and region_type == self._REGION):
       self.child_sensor_events.append(data)
       log.info(f"Child sensor event received: {len(self.child_sensor_events)} total")
 
-    elif scene_id == self.parent_id and region_id == self.roi_uid and region_type == REGION:
+    elif scene_id == self.parent_id and region_id == self.roi_uid and region_type == self._REGION:
       self.parent_roi_events.append(data)
       log.info(f"Parent ROI event received: {len(self.parent_roi_events)} total")
 
-    elif scene_id == self.parent_id and region_id == self.tripwire_uid and region_type == TRIPWIRE:
+    elif scene_id == self.parent_id and region_id == self.tripwire_uid and region_type == self._TRIPWIRE:
       self.parent_tripwire_events.append(data)
       log.info(f"Parent tripwire event received: {len(self.parent_tripwire_events)} total")
 
     elif (scene_id == self.parent_id and self.sensor_uid
-          and region_id == self.sensor_uid and region_type == REGION):
+          and region_id == self.sensor_uid and region_type == self._REGION):
       self.parent_sensor_events.append(data)
       log.info(f"Parent sensor event received: {len(self.parent_sensor_events)} total")
 
@@ -288,15 +290,15 @@ class ChildSceneTest:
     """
     cam_id = obj_data["id"]
     topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=cam_id)
-    for _ in range(NUM_PUBLISH_ITERATIONS):
+    for _ in range(self._NUM_PUBLISH_ITERATIONS):
       for y in y_locations:
         if stop_event.is_set():
           return
         obj_data["timestamp"] = get_iso_time()
-        obj_data["objects"][PERSON][0]["bounding_box"]["y"] = float(y)
-        obj_data["objects"][PERSON][0]["category"] = PERSON
+        obj_data["objects"][self._PERSON][0]["bounding_box"]["y"] = float(y)
+        obj_data["objects"][self._PERSON][0]["category"] = self._PERSON
         client.publish(topic, json.dumps(obj_data))
-        time.sleep(1.0 / FRAME_RATE)
+        time.sleep(1.0 / self._FRAME_RATE)
 
   def send_sensor_value(self, client, sensor_name, value):
     """Publish a singleton sensor reading to DATA_SENSOR topic.
@@ -320,11 +322,11 @@ class ChildSceneTest:
     @param    client        Connected :class:`PubSub` client.
     @param    obj_data      Detection payload dict.
     @param    stop_event    :class:`threading.Event` to stop publishing.
-    @param    y_locations   Y-sweep values, defaults to :data:`OBJ_Y_LOCATIONS`.
+    @param    y_locations   Y-sweep values, defaults to :attr:`_OBJ_Y_LOCATIONS`.
     @return   The started :class:`threading.Thread`.
     """
     if y_locations is None:
-      y_locations = OBJ_Y_LOCATIONS
+      y_locations = self._OBJ_Y_LOCATIONS
     thread = threading.Thread(
       target=self._send_detections,
       args=(client, obj_data, y_locations, stop_event),
