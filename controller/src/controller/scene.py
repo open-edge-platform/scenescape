@@ -320,7 +320,7 @@ class Scene(SceneModel):
     is_scene_wide = sensor.area == Region.REGION_SCENE
     objects_in_sensor = []
 
-    if self.use_tracker:
+    if self.use_tracker and self.tracker is not None:
       for detectionType in self.tracker.trackers.keys():
         for obj in self.tracker.currentObjects(detectionType):
           # When tracking is disabled, do not rely on obj.frameCount being initialized
