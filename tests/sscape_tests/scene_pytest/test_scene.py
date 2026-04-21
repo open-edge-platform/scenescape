@@ -278,7 +278,7 @@ def test_deserialize_tracked_objects_uses_configured_attribute_singleton_type():
     'weight-sensor': SimpleNamespace(singleton_type='attribute')
   }
   scene.object_history_cache = {}
-
+  scene._analytics_objects = {}
   objects = scene._deserializeTrackedObjects([
     {
       'id': 'object-1',
