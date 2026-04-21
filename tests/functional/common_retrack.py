@@ -42,7 +42,11 @@ class RetrackTest:
     topic = PubSub.parseTopic(msg.topic)
     if topic is None:
       return
-    data = json.loads(msg.payload.decode("utf-8"))
+    try:
+      data = json.loads(msg.payload.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+      log.warning(f"Failed to decode MQTT payload on {msg.topic}: {exc}")
+      return
     obj_count = len(data.get('objects', []))
     if obj_count == 0:
       return
