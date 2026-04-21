@@ -210,7 +210,10 @@ mqtt-roi: # NEX-T10404
 
 mqtt-sensor-roi: # NEX-T10460
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_mqtt_sensor_roi.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 mqtt-slow-sensor-roi: # NEX-T10461
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
@@ -382,12 +385,12 @@ pipeline-runner-vehicles: pipeline-runner-setup # NEX-T20170
 
 pipeline-runner-integration: pipeline-runner-people pipeline-runner-vehicles
 
-remove-child-scenes-link: # NEX-T10520
+child-event-propagation: # NEX-T10530
 	$(eval IMAGE_OLD := $(BASE_IMAGE))
 	$(eval override BASE_IMAGE := $(IMAGE)-controller-test)
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_remove_linked_scene.py, 'pgserver web scene', true, /run/secrets/controller.auth)
-	$(eval override BASE_IMAGE := $(IMAGE_OLD))
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_child_scene_event_propagation.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+	$(eval override BASE_IMAGE := $(IMAGE_OLD))
