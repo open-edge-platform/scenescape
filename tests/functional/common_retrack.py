@@ -3,13 +3,6 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared infrastructure for scene retrack functional tests.
-
-RetrackTest encapsulates the MQTT/REST helpers and per-test scene
-state (parent_id, child_id, received message buffers) so that test
-functions in tc_scene_retrack.py remain free of module-level globals.
-"""
-
 import json
 import math
 import threading
@@ -21,13 +14,6 @@ from scene_common.timestamp import get_iso_time
 
 
 class RetrackTest:
-  """! Infrastructure helpers for scene retrack functional tests.
-
-  Each test function should instantiate one RetrackTest and use it
-  for scene setup, MQTT client management, and result collection.  All
-  per-test state (scene IDs, received message buffers) is stored on the
-  instance, eliminating module-level globals.
-  """
 
   FRAME_RATE = 10
   MAX_WAIT = 3
@@ -46,7 +32,7 @@ class RetrackTest:
     self.child_received = []
 
   def on_message(self, mqttc, obj, msg):
-    """! Default onMessage callback; routes regulated messages into
+    """! Default onMessage callback, routes regulated messages into
     parent_received or child_received based on scene_id.
 
     @param    mqttc   MQTT client object.
@@ -122,11 +108,14 @@ class RetrackTest:
     def _on_connected(mqttc, obj, flags, rc):
       if rc == 0:
         mqttc.addCallback(db_topic, _on_db)
-        subscribed.set()
+
+    def _on_subscribed(mqttc, obj, mid, granted_qos):
+      subscribed.set()
 
     tmp = PubSub(self.params["auth"], None, self.params["rootcert"],
                  self.params["broker_url"], self.params["broker_port"])
     tmp.onConnect = _on_connected
+    tmp.onSubscribe = _on_subscribed
     tmp.connect()
     tmp.loopStart()
     assert subscribed.wait(self.MAX_WAIT), \
