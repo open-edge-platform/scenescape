@@ -13,16 +13,13 @@ AUTH_BROWSER = "browser.auth"
 @dataclass
 class FuncTestSpec:
   """Specification for a single functional/UI test."""
-  profile: object = None  # ServiceProfile
+  profile: object  # ServiceProfile
   auth: str = ""
   require_password: bool = True
   test_name: str = ""
   extra_args: list = None
   exampledb: str = ""
-  extra_env: dict = None
 
   def __post_init__(self):
     if self.extra_args is None:
       self.extra_args = []
-    if self.extra_env is None:
-      self.extra_env = {}
