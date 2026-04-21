@@ -13,9 +13,10 @@ from tests.common_test_utils import record_test_result
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
-import logging
+from tests.utils.log import get_logger
 
-logger = logging.getLogger(__name__)
+log = get_logger(__name__)
+
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -179,29 +180,29 @@ class SceneImportAPITest(FunctionalTest):
                   orphaned_sensors.add(s["sensor_id"])
 
     if orphaned_cams or orphaned_sensors:
-      logger.info(f"Orphaned cameras detected: {orphaned_cams}")
-      logger.info(f"Orphaned sensors detected: {orphaned_sensors}")
+      log.info(f"Orphaned cameras detected: {orphaned_cams}")
+      log.info(f"Orphaned sensors detected: {orphaned_sensors}")
 
     if self.expected == "1":  # EMPTY_ZIP
       assert is_error_response(res), f"Expected failure for empty zip, got: {res}"
-      logger.info("✅ Empty zip correctly rejected.")
+      log.info("✅ Empty zip correctly rejected.")
 
     elif self.expected == "2":  # INVALID_ZIP
       assert is_error_response(
         res
       ), f"Expected failure for invalid zip, got: {res}"
-      logger.info("✅ Invalid zip correctly rejected.")
+      log.info("✅ Invalid zip correctly rejected.")
 
     elif self.expected == "3":  # SCENE_EXISTS
       assert not is_error_response(res), f"Initial import failed: {res}"
-      logger.info("✅ Scene imported successfully.")
+      log.info("✅ Scene imported successfully.")
 
       # Second import (should fail)
       res_dup = self.rest.importScene(self.zipFile)
       assert is_error_response(
         res_dup
       ), f"Expected failure for duplicate scene, got: {res_dup}"
-      logger.info("✅ Duplicate scene correctly rejected.")
+      log.info("✅ Duplicate scene correctly rejected.")
 
     elif self.expected == "4":  # ORPHANED_CAMERA
       assert not is_error_response(res), f"Import failed: {res}"
@@ -224,32 +225,32 @@ class SceneImportAPITest(FunctionalTest):
         if (s.get("sensor_id") or s.get("name")) not in orphaned_sensors
       ]
 
-      logger.info(f"Cameras linked to scene {scene_uid}: {cam_results}")
-      logger.info(f"Sensors linked to scene {scene_uid}: {sensor_results}")
-      logger.info(
+      log.info(f"Cameras linked to scene {scene_uid}: {cam_results}")
+      log.info(f"Sensors linked to scene {scene_uid}: {sensor_results}")
+      log.info(
         f"Expected camera count (excluding orphaned): {len(expected_cams)}, actual: {len(cam_results)}"
       )
-      logger.info(
+      log.info(
         f"Expected sensor count (excluding orphaned): {len(expected_sensors)}, actual: {len(sensor_results)}"
       )
 
       if len(cam_results) != len(expected_cams):
-        logger.info(
+        log.info(
           f"Camera count mismatch. Orphaned: {orphaned_cams}, Expected: {[c['name'] for c in expected_cams]}, Actual: {[c['name'] for c in cam_results]}"
         )
       if len(sensor_results) != len(expected_sensors):
-        logger.info(
+        log.info(
           f"Sensor count mismatch. Orphaned: {orphaned_sensors}, Expected: {[s.get('sensor_id') or s.get('name') for s in expected_sensors]}, Actual: {[s.get('sensor_id') or s.get('name') for s in sensor_results]}"
         )
 
       assert len(cam_results) == len(expected_cams), "Camera count mismatch"
       assert len(sensor_results) == len(expected_sensors), "Sensor count mismatch"
-      logger.info("✅ Orphaned cameras and sensors correctly handled.")
+      log.info("✅ Orphaned cameras and sensors correctly handled.")
 
     elif self.expected == "0":  # SUCCESS
       assert not is_error_response(res), f"Scene import failed: {res}"
       scene_uid = get_scene_uid_by_name(self.sceneData["name"])
-      logger.info("✅ Scene imported successfully.")
+      log.info("✅ Scene imported successfully.")
       self.validate_scene(self.sceneData, scene_uid)
 
     return True
@@ -271,7 +272,7 @@ class SceneImportAPITest(FunctionalTest):
         sensor.pop(k, None)
       assert res == sensor, f"Sensor mismatch: {sensor['name']}"
 
-    logger.info("✅ Scene components validated.")
+    log.info("✅ Scene components validated.")
 
 # Parametrized test entry point
 @pytest.mark.parametrize(

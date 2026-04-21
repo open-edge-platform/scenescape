@@ -3,10 +3,12 @@
 # SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
+from tests.utils.log import get_logger
 from http import HTTPStatus
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -39,6 +41,6 @@ def test_calibrate_all_sensor_types_api(rest, scene_uid, result_recorder, demo_s
       payload["points"] = sensor["points"]
     res = rest.createSensor(payload)
     assert res.statusCode == HTTPStatus.CREATED, f"Failed to create sensor {sensor['name']}: {res.errors}"
-  logging.info("Successfully calibrated all sensor types.")
+  log.info("Successfully calibrated all sensor types.")
 
   result_recorder.success()

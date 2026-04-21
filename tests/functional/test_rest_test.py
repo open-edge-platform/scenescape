@@ -13,9 +13,9 @@ import os
 import uuid
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
-import logging
+from tests.utils.log import get_logger
+log = get_logger(__name__)
 
-logger = logging.getLogger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -71,8 +71,8 @@ class TestAPI(FunctionalTest):
         actualData[key] = tuple(newPoints)
       if actualData[key] == expectedData[key]:
         keysMatched += 1
-    logger.info(f"actual: {actualData}")
-    logger.info(f"expected: {expectedData}")
+    log.info(f"actual: {actualData}")
+    log.info(f"expected: {expectedData}")
     return keysMatched == len(expectedKeys)
 
   def getMethod(self, thingName):
@@ -136,7 +136,7 @@ class TestAPI(FunctionalTest):
           createData['scene'] = self.sceneID
         res = create(createData)
         assert res
-        logger.info(f"CREATED {res}")
+        log.info(f"CREATED {res}")
         uid = res[self.uidField]
       if 'uid' in data:
         uid = self.generateUniqueUID(thing)
@@ -210,7 +210,7 @@ class TestAPI(FunctionalTest):
     return
 
   def verifyAPI(self, thing, testCases):
-    logger.info()
+    log.info()
     if thing == 'User':
       self.nameField = 'username'
       self.uidField = 'username'
@@ -219,20 +219,20 @@ class TestAPI(FunctionalTest):
       self.uidField = 'marker_id'
     if self.sceneID is None:
       self.prepareScene()
-    logger.info(f"Running create{thing} test..")
+    log.info(f"Running create{thing} test..")
     self.createThing(thing, testCases['create'], testCases['scene'])
-    logger.info(f"Running update{thing} test..")
+    log.info(f"Running update{thing} test..")
     self.updateThing(thing, testCases['update'], testCases['scene'])
-    logger.info()
-    logger.info(f"verifying create{thing} test..")
+    log.info()
+    log.info(f"verifying create{thing} test..")
     self.verifyCreate(thing, testCases['create'])
-    logger.info(f"verifying update{thing} test..")
+    log.info(f"verifying update{thing} test..")
     self.verifyUpdate(thing, testCases['update'])
-    logger.info(f"verifying get{thing}s test..")
+    log.info(f"verifying get{thing}s test..")
     self.verifyGetAll(thing, testCases['getAll'])
-    logger.info(f"verifying get{thing} test..")
+    log.info(f"verifying get{thing} test..")
     self.verifyGetDelete(thing, 'get')
-    logger.info(f"verifying delete{thing} test..")
+    log.info(f"verifying delete{thing} test..")
     self.verifyGetDelete(thing, 'delete')
     return
 

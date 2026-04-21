@@ -14,9 +14,9 @@ from scene_common.timestamp import get_iso_time, get_epoch_time
 from scene_common.rest_client import RESTClient
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
-import logging
+from tests.utils.log import get_logger
 
-logger = logging.getLogger(__name__)
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -62,7 +62,7 @@ class WillOurShipGo(SceneObjectMqtt):
     @param    flags     The response sent by the broker.
     @param    rc        The connection result.
     """
-    logger.info("Connected!")
+    log.info("Connected!")
     return
 
   def on_message(self, mqttc, obj, msg):
@@ -82,11 +82,11 @@ class WillOurShipGo(SceneObjectMqtt):
     direction = self.directionOfPoint(tripwirePoints[0], tripwirePoints[1], currPoint)
     if direction == RIGHT:
       rightAcross = RIGHT
-      logger.info(f"right across {rightAcross}")
+      log.info(f"right across {rightAcross}")
 
     if direction == LEFT:
       leftAcross = LEFT
-      logger.info(f"left across {leftAcross}")
+      log.info(f"left across {leftAcross}")
     message_received = True
     return
 
@@ -156,7 +156,7 @@ class WillOurShipGo(SceneObjectMqtt):
                                                region_type="tripwire", scene_id=self.sceneUID,
                                                region_id=res['uid']))
       tripwirePoints = res["points"]
-      logger.info(f"tripwire points: {tripwirePoints}")
+      log.info(f"tripwire points: {tripwirePoints}")
       objLocation = self.getLocations()
       objData = self.objData()
       objData['objects'][PERSON][0]['bounding_box']['y'] = objLocation[0]
@@ -180,10 +180,10 @@ class WillOurShipGo(SceneObjectMqtt):
             break
           num_delays += 1
 
-      logger.info()
-      logger.info(f"rightAcross: {rightAcross}")
-      logger.info(f"leftAcross: {leftAcross}")
-      logger.info()
+      log.info()
+      log.info(f"rightAcross: {rightAcross}")
+      log.info(f"leftAcross: {leftAcross}")
+      log.info()
       if (rightAcross == RIGHT) and (leftAcross == LEFT):
         self.exitCode = 0
 

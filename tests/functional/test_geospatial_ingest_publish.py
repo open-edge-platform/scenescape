@@ -16,9 +16,10 @@ from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints, conve
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
-import logging
+from tests.utils.log import get_logger
 
-logger = logging.getLogger(__name__)
+log = get_logger(__name__)
+
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -93,7 +94,7 @@ class GeospatialIngestPublish(FunctionalTest):
           try:
             self.detectionValidator(object)
           except ValueError as e:
-            logger.info(e)
+            log.info(e)
             raise AssertionError(f"Detection validation failed: {e}")
       else:
         assert "lat_long_alt" not in object
@@ -153,7 +154,7 @@ class GeospatialIngestPublish(FunctionalTest):
                                       time.time(), 1 / FRAMES_PER_SECOND, detection)
     assert count, "Scene controller not ready"
 
-    logger.info("Checking scene ignores lat_long_alt + translation data")
+    log.info("Checking scene ignores lat_long_alt + translation data")
     self.outputReceived = False
     for v in [i * 0.5 for i in range(0, 20)]:
       detection = self.formatDetection(
@@ -164,7 +165,7 @@ class GeospatialIngestPublish(FunctionalTest):
         break
     assert self.outputReceived is not True
 
-    logger.info("\nChecking scene can accept lat_long_alt data")
+    log.info("\nChecking scene can accept lat_long_alt data")
     for v in [i * 0.5 for i in range(0, 20)]:
       detection = self.formatDetection(get_iso_time(), [v, v, v], lla=LLA_VALUE)
       self.pubsub.publish(topic, json.dumps(detection))
@@ -206,21 +207,21 @@ class GeospatialIngestPublish(FunctionalTest):
         break
 
     assert self.outputReceived is True
-    logger.info(f"Time taken for data format update: {time.time() - start_time}")
+    log.info(f"Time taken for data format update: {time.time() - start_time}")
     return
 
   def verifyPublish(self):
     map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
     with open(map_image, "rb") as f:
       map_data = f.read()
-    logger.info("Verifying base output has no lat_long_alt")
+    log.info("Verifying base output has no lat_long_alt")
     self.waitForUpdate(False)
-    logger.info("Enabling lat_long_alt output")
+    log.info("Enabling lat_long_alt output")
     res = self.rest.updateScene(self.sceneUID, {'output_lla': True, 'map_corners_lla': json.dumps(MAP_CORNERS_LLA), 'map': (map_image, map_data)})
     assert res.status_code == HTTPStatus.OK
     self.detectionValidator = _verifyLLA
     self.waitForUpdate(True)
-    logger.info("Disabling lat_long_alt output")
+    log.info("Disabling lat_long_alt output")
     res = self.rest.updateScene(self.sceneUID, {'output_lla': False})
     assert res.status_code == HTTPStatus.OK
     self.detectionValidator = None
