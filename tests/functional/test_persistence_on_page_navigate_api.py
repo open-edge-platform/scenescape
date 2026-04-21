@@ -3,9 +3,11 @@
 # SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
+from tests.utils.log import get_logger
 import os
 from http import HTTPStatus
+
+log = get_logger(__name__)
 
 TEST_NAME = "NEX-T10393-API"
 CAMERA_NAME = "camtest1"
@@ -106,7 +108,7 @@ def test_persistence_on_page_navigate_api(params, rest, result_recorder):
     assert cam["scene"] == scene_uid, \
       f"Camera '{CAMERA_NAME}' is not linked to scene '{sceneName}'"
 
-  logging.info(
+  log.info(
     "Scene and camera persist on page navigation: "
     f"scene='{sceneName}', camera name='{CAMERA_NAME}'"
   )

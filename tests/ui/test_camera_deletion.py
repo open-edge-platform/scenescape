@@ -3,12 +3,13 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from scene_common import log
+from tests.utils.log import get_logger
 from tests.ui.browser import Browser, By
 from selenium.webdriver.support.ui import Select
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -49,7 +50,7 @@ def test_camera_deletion_main(params, record_xml_attribute):
     # After update button the page is redirected to scene page, here 'Demo' scene page
     available_cameras = browser.find_elements(By.CSS_SELECTOR, ".card.count-item.camera-card > .card-header")
     camera_names_list = [name.text.replace("--\n","") for name in available_cameras]
-    log.info("Available cameras before deletion: ", camera_names_list)
+    log.info(f"Available cameras before deletion: {camera_names_list}")
     xpath = "//a[@title = 'Delete "+camera_name+"']"
     browser.find_element(By.XPATH,xpath).click()
     log.info(f"Deleted {camera_name} from the {scene_name}")
@@ -63,7 +64,7 @@ def test_camera_deletion_main(params, record_xml_attribute):
     rows = browser.find_elements(By.CSS_SELECTOR,"tbody > tr")
     for row in rows:
       camera_names_list.append(row.text.split()[1])
-    log.info("Available cameras after deletion: ", camera_names_list)
+    log.info(f"Available cameras after deletion: {camera_names_list}")
     assert camera_name not in camera_names_list
     exit_code = 0
   finally:

@@ -6,12 +6,13 @@
 import os
 import json
 import time
-from scene_common import log
+from tests.utils.log import get_logger
 from scene_common.mqtt import PubSub
 from tests.functional import FunctionalTest
 from scene_common.timestamp import get_iso_time
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import SCENE_NO_DB
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=SCENE_NO_DB,

@@ -16,6 +16,7 @@ class FuncTestSpec:
   profile: object  # ServiceProfile
   auth: str = ""
   require_password: bool = True
+  test_name: str = ""
   extra_args: list = None
   exampledb: str = ""
 

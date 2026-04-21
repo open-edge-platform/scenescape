@@ -180,3 +180,17 @@ MARKERLESS = ServiceProfile(
     "autocalibration": _AUTOCALIBRATION,
   },
 )
+
+# Registry: maps profile name -> ServiceProfile for CLI lookup
+PROFILE_REGISTRY: dict = {
+  p.name: p
+  for p in [
+    FULL_STACK,
+    FULL_STACK_WITH_VIDEO_AND_RETAIL,
+    REID,
+    REID_SEMANTIC,
+    FULL_STACK_AUTOCALIBRATION,
+    SCENE_NO_DB,
+    MARKERLESS,
+  ]
+}

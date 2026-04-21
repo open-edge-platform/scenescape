@@ -4,9 +4,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from http import HTTPStatus
-import logging
+from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -30,11 +32,11 @@ def test_add_delete_3d_object_api(rest, result_recorder, repo_root):
     asset_uid = res['uid']
     assert asset_uid, "Asset UID not returned"
 
-  logging.info("3D object (asset) created successfully.")
+  log.info("3D object (asset) created successfully.")
 
   # Delete the asset
   res = rest.deleteAsset(asset_uid)
   assert res.statusCode == HTTPStatus.OK, f"Failed to delete asset: {res.errors}"
-  logging.info("3D object (asset) deleted successfully.")
+  log.info("3D object (asset) deleted successfully.")
 
   result_recorder.success()

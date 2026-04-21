@@ -82,4 +82,3 @@ except Exception:
   # Django setup may fail if optional deps are missing; let pytest
   # report the error per-test rather than blocking all collection.
   pass
-

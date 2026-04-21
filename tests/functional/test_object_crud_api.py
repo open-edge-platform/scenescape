@@ -3,11 +3,13 @@
 # SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
+from tests.utils.log import get_logger
 import random
 from http import HTTPStatus
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -39,7 +41,7 @@ def test_object_crud_api(rest, result_recorder, repo_root):
     asset_uid = res['uid']
     assert asset_uid, "Asset UID not returned"
 
-    logging.info(f"Asset '{object_name}' created successfully.")
+    log.info(f"Asset '{object_name}' created successfully.")
 
     # Update object
     update_data = {
@@ -54,24 +56,24 @@ def test_object_crud_api(rest, result_recorder, repo_root):
 
     res = rest.updateAsset(asset_uid, update_data)
     assert res.statusCode == HTTPStatus.OK, f"Failed to update asset: {res.errors}"
-    logging.info(f"Asset '{object_name}' updated successfully.")
+    log.info(f"Asset '{object_name}' updated successfully.")
 
     # Verify update
     res = rest.getAsset(asset_uid)
     assert res.statusCode == HTTPStatus.OK, f"Failed to retrieve asset: {res.errors}"
     assert res['name'] == object_name_updated, "Asset name not updated correctly"
     assert res['tracking_radius'] == initial_loop_value, "Tracking radius mismatch"
-    logging.info("Asset update verified.")
+    log.info("Asset update verified.")
 
     # Remove 3D model if present
     if file_path:
       res = rest.updateAsset(asset_uid, {"map": None})
       assert res.statusCode == HTTPStatus.OK, f"Failed to remove 3D model: {res.errors}"
-      logging.info("3D model removed successfully.")
+      log.info("3D model removed successfully.")
 
     # Cleanup
     res = rest.deleteAsset(asset_uid)
     assert res.statusCode == HTTPStatus.OK, f"Failed to delete asset: {res.errors}"
-    logging.info(f"Asset '{object_name_updated}' deleted successfully.\n")
+    log.info(f"Asset '{object_name_updated}' deleted successfully.\n")
 
   result_recorder.success()

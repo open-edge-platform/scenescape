@@ -5,9 +5,11 @@
 
 # Import the shared test infrastructure from test_reid_unique_count
 from tests.functional.test_reid_unique_count import run_test
-from scene_common import log
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import REID_SEMANTIC
+from tests.utils.log import get_logger
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=REID_SEMANTIC,

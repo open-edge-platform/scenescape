@@ -3,7 +3,8 @@
 # SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
+from tests.utils.log import get_logger
+log = get_logger(__name__)
 
 TEST_NAME = "NEX-T10393-RESTART-API"
 CAMERA_NAME = "camtest1"
@@ -54,9 +55,8 @@ def test_persistence_on_restart_api(params, rest, result_recorder):
     assert cam["scene"] == scene_uid, \
       f"Camera '{CAMERA_NAME}' is not linked to scene '{sceneName}' after restart"
 
-  print(
-    "Scene and camera persist after restart: "
-    f"scene='{sceneName}', camera name='{CAMERA_NAME}'"
+  log.info(
+    f"Scene and camera persist after restart: scene='{sceneName}', camera name='{CAMERA_NAME}'"
   )
 
   # Cleanup so subsequent runs start clean

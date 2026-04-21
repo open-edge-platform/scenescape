@@ -13,6 +13,9 @@ import os
 import uuid
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+from tests.utils.log import get_logger
+log = get_logger(__name__)
+
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -68,8 +71,8 @@ class TestAPI(FunctionalTest):
         actualData[key] = tuple(newPoints)
       if actualData[key] == expectedData[key]:
         keysMatched += 1
-    print('actual: ', actualData)
-    print('expected: ', expectedData)
+    log.info(f"actual: {actualData}")
+    log.info(f"expected: {expectedData}")
     return keysMatched == len(expectedKeys)
 
   def getMethod(self, thingName):
@@ -133,7 +136,7 @@ class TestAPI(FunctionalTest):
           createData['scene'] = self.sceneID
         res = create(createData)
         assert res
-        print("CREATED", res)
+        log.info(f"CREATED {res}")
         uid = res[self.uidField]
       if 'uid' in data:
         uid = self.generateUniqueUID(thing)
@@ -207,7 +210,7 @@ class TestAPI(FunctionalTest):
     return
 
   def verifyAPI(self, thing, testCases):
-    print()
+    log.info()
     if thing == 'User':
       self.nameField = 'username'
       self.uidField = 'username'
@@ -216,20 +219,20 @@ class TestAPI(FunctionalTest):
       self.uidField = 'marker_id'
     if self.sceneID is None:
       self.prepareScene()
-    print('Running create{} test..'.format(thing))
+    log.info(f"Running create{thing} test..")
     self.createThing(thing, testCases['create'], testCases['scene'])
-    print('Running update{} test..'.format(thing))
+    log.info(f"Running update{thing} test..")
     self.updateThing(thing, testCases['update'], testCases['scene'])
-    print()
-    print('verifying create{} test..'.format(thing))
+    log.info()
+    log.info(f"verifying create{thing} test..")
     self.verifyCreate(thing, testCases['create'])
-    print('verifying update{} test..'.format(thing))
+    log.info(f"verifying update{thing} test..")
     self.verifyUpdate(thing, testCases['update'])
-    print('verifying get{}s test..'.format(thing))
+    log.info(f"verifying get{thing}s test..")
     self.verifyGetAll(thing, testCases['getAll'])
-    print('verifying get{} test..'.format(thing))
+    log.info(f"verifying get{thing} test..")
     self.verifyGetDelete(thing, 'get')
-    print('verifying delete{} test..'.format(thing))
+    log.info(f"verifying delete{thing} test..")
     self.verifyGetDelete(thing, 'delete')
     return
 

@@ -7,9 +7,10 @@ import random
 import time
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
-from scene_common import log
+from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -31,7 +32,7 @@ def reset_perspective(browser):
     log.info("Perspective has been reset!")
     return True
   except Exception as e:
-    log.info("Error while Resetting Perspective: ", e)
+    log.info(f"Error while Resetting Perspective: {e}")
     return False
 
 

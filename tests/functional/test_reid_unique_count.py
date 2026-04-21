@@ -8,9 +8,11 @@ import time
 import tests.common_test_utils as common
 from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
-from scene_common import log
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import REID
+from tests.utils.log import get_logger
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=REID,

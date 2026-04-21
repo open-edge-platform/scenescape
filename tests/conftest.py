@@ -137,6 +137,8 @@ def pytest_addoption(parser):
                                 help="stability test duration in hours")),
     ("--analytics-only",   dict(action="store_true", default=False,
                                 help="Enable analytics-only mode for tests")),
+    ("--env-profiles",     dict(default=None,
+                                help="Comma-separated list of env profile names to run tests against")),
   ]
   for name, kw in _opts:
     try:
@@ -547,7 +549,12 @@ def scenescape_env(request, secrets_dir, supass, loopback_hosts):
   which session-scoped profile fixture to activate, then injects CLI
   options (auth, password, extra_args) for this specific test.
   """
-  spec = getattr(request.module, "SCENESCAPE_SPEC", None)
+  # When --env-profiles is active, _env_matrix_setup parametrizes a per-profile
+  # FuncTestSpec into callspec.params; prefer that over the module-level default.
+  if hasattr(request.node, 'callspec') and '_env_matrix_setup' in request.node.callspec.params:
+    spec = request.node.callspec.params['_env_matrix_setup']
+  else:
+    spec = getattr(request.node, '_scenescape_spec', None) or getattr(request.module, 'SCENESCAPE_SPEC', None)
   if spec is None:
     pytest.fail(
       f"{request.module.__name__} requests scenescape_env but has no SCENESCAPE_SPEC"
@@ -587,8 +594,14 @@ def _derive_marker(item):
 # Log directory: tests/test_logs/{group}/{test_name}-{timestamp}.log
 _LOG_BASE = _TESTS_DIR / "test_logs"
 
+def _get_item_spec(item):
+  """Return the FuncTestSpec for an item, preferring matrix callspec over module default."""
+  if hasattr(item, 'callspec') and '_env_matrix_setup' in item.callspec.params:
+    return item.callspec.params['_env_matrix_setup']
+  return getattr(item, '_scenescape_spec', None) or getattr(item.module, 'SCENESCAPE_SPEC', None)
+
 def pytest_collection_modifyitems(config, items):
-  """Attach FuncTestSpec to each collected item and add module-derived markers."""
+  """Attach FuncTestSpec to each collected item, add markers, and sort by profile."""
   for item in items:
     spec = getattr(item.module, 'SCENESCAPE_SPEC', None)
     if spec is not None:
@@ -596,6 +609,18 @@ def pytest_collection_modifyitems(config, items):
       marker_name = _derive_marker(item)
       config.addinivalue_line("markers", f"{marker_name}: FuncTestSpec marker")
       item.add_marker(getattr(pytest.mark, marker_name))
+
+  # When running with --env-profiles, group tests by profile so each Docker
+  # Compose environment starts once and handles all its tests before teardown.
+  if config.getoption("env_profiles", default=None):
+    from tests.utils.profiles import PROFILE_REGISTRY
+    profile_order = {name: i for i, name in enumerate(PROFILE_REGISTRY)}
+    original_order = {item: i for i, item in enumerate(items)}
+    def _sort_key(item):
+      spec = _get_item_spec(item)
+      profile_rank = profile_order.get(spec.profile.name, 999) if spec else 999
+      return (profile_rank, original_order[item])
+    items.sort(key=_sort_key)
 
 def pytest_runtest_setup(item):
   """Create a per-test log file before the fixture setup phase runs."""
@@ -614,6 +639,15 @@ def pytest_runtest_setup(item):
   test_name = _derive_marker(item)
   log_path = _testlog.setup(test_name, group=group, log_base=_LOG_BASE)
   logger.info("Test log: %s", log_path)
+
+def pytest_runtest_call(item):
+  """Switch file logging from setup log to per-test log for call/teardown."""
+  if not _ORCHESTRATION_AVAILABLE or _testlog is None:
+    return
+  spec = getattr(item, "_scenescape_spec", None)
+  if spec is None:
+    return
+  _testlog.begin_test_phase()
 
 def pytest_runtest_logreport(report):
   """Log test phase results to the per-test log file."""

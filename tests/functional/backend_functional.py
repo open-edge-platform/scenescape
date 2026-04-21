@@ -4,8 +4,10 @@
 import numpy as np
 import random
 from tests.functional import FunctionalTest
-from scene_common import log
 from controller.vdms_adapter import VDMSDatabase, vdms
+from tests.utils.log import get_logger
+
+log = get_logger(__name__)
 
 class BackendFunctionalTest(FunctionalTest):
   def vdms_connect(self, use_tls=True):
