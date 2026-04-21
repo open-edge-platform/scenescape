@@ -349,7 +349,8 @@ install-models:
 
 NPROCS ?= $(shell echo $$(nproc) / 3 | bc)
 PYTEST := $(CURDIR)/tests/.venv/bin/pytest
-PYTEST_FLAGS := -v --tb=short
+PYTEST_FLAGS := --rootdir=$(CURDIR)/tests -v --tb=short
+TESTS_DIR := $(CURDIR)/tests
 
 .PHONY: setup-tests
 setup-tests: build-all-images init-secrets .env setup-pytest
@@ -383,7 +384,9 @@ run_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
-		$(PYTEST) $(PYTEST_FLAGS) || (echo "Tests failed" && exit 1)
+		$(PYTEST) $(TESTS_DIR)/functional/ $(TESTS_DIR)/ui/ \
+		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ \
+		$(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_standard_tests
@@ -391,8 +394,8 @@ run_standard_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running standard tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
-		$(PYTEST) tests/functional/ tests/ui/ \
-		tests/security/system/ tests/system/stability/ $(PYTEST_FLAGS) || (echo "Standard tests failed" && exit 1)
+		$(PYTEST) $(TESTS_DIR)/functional/ $(TESTS_DIR)/ui/ \
+		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ $(PYTEST_FLAGS) || (echo "Standard tests failed" && exit 1)
 	@echo "DONE ==> Running standard tests"
 
 .PHONY: run_functional_tests
@@ -400,8 +403,8 @@ run_functional_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running functional tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
-		$(PYTEST) tests/functional/ \
-		tests/security/system/ tests/system/stability/ $(PYTEST_FLAGS) || (echo "Functional tests failed" && exit 1)
+		$(PYTEST) $(TESTS_DIR)/functional/ \
+		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ $(PYTEST_FLAGS) || (echo "Functional tests failed" && exit 1)
 	@echo "DONE ==> Running functional tests"
 
 .PHONY: run_non_functional_tests
@@ -415,14 +418,14 @@ run_ui_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running UI tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
-		$(PYTEST) tests/ui/ $(PYTEST_FLAGS) || (echo "UI tests failed" && exit 1)
+		$(PYTEST) $(TESTS_DIR)/ui/ $(PYTEST_FLAGS) || (echo "UI tests failed" && exit 1)
 	@echo "DONE ==> Running UI tests"
 
 .PHONY: run_unit_tests
 run_unit_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests..."
-	$(PYTEST) tests/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
 	@echo "DONE ==> Running unit tests"
 
 .PHONY: run_basic_acceptance_tests
@@ -430,7 +433,9 @@ run_basic_acceptance_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running basic acceptance tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
-		$(PYTEST) $(PYTEST_FLAGS) || (echo "Basic acceptance tests failed" && exit 1)
+		$(PYTEST) $(TESTS_DIR)/functional/ $(TESTS_DIR)/ui/ \
+		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ \
+		$(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
 .PHONY: run_stability_tests
@@ -440,7 +445,7 @@ run_stability_tests: setup-tests setup-pytest
 	@echo "Running stability tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
 		STABILITY_HOURS=$(HOURS) \
-		$(PYTEST) tests/system/stability/ $(PYTEST_FLAGS) || (echo "Stability tests failed" && exit 1)
+		$(PYTEST) $(TESTS_DIR)/system/stability/ $(PYTEST_FLAGS) || (echo "Stability tests failed" && exit 1)
 	@echo "DONE ==> Running stability tests"
 
 # --- Docker-based test helpers (perf, metric) ---
