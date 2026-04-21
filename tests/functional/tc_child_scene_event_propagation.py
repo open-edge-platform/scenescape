@@ -432,6 +432,8 @@ def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params)
     log.info("Step 2: Unlinking child from parent")
     helper.unlink_child(rest_client)
 
+    time.sleep(MAX_WAIT)
+
     # Clear accumulators then resume sending detections, events must not arrive
     # on the parent topic.
     helper.parent_roi_events.clear()
