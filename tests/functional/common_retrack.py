@@ -312,6 +312,8 @@ class RetrackTest:
     @param    tr      The translation value to validate.
     @param    label   Human-readable label used in assertion messages.
     """
+    assert isinstance(tr, (list, tuple)), \
+      f"{label} 'translation' must be a list or tuple, got {type(tr).__name__}: {tr!r}"
     assert len(tr) == 3, \
       f"{label} 'translation' must have 3 elements, got {len(tr)}"
     for v in tr:
