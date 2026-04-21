@@ -3,18 +3,17 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import time
 from http import HTTPStatus
+from scene_common import log
 from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
-from tests.utils.log import get_logger
-
-log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="delete_sensor_scene_api", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -182,7 +181,7 @@ class DeleteSensorSceneTest(FunctionalTest):
 
     return
 
-def test_del_sensor_scene(request, record_xml_attribute):
+def test_del_sensor_scene(scenescape_env, demo_scene, request, record_xml_attribute):
   test = DeleteSensorSceneTest(TEST_NAME, request, record_xml_attribute)
   test.testDeleteSensorScene()
   assert test.exitCode == 0

@@ -16,7 +16,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 TEST_NAME = "NEX-T10400-API"
 
-def test_sensor_location_api(rest, scene_uid, result_recorder):
+def test_sensor_location_api(rest, scene_uid, result_recorder, demo_scene):
   # Create a polygon sensor
   poly_sensor_name = "Sensor_Poly"
   initial_points = ((-0.5, 0.5), (0.5, 0.5), (0.5, -0.5), (-0.5, -0.5))

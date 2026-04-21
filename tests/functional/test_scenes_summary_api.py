@@ -10,6 +10,9 @@ from http import HTTPStatus
 from scene_common.rest_client import RESTClient
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import logging
+
+logger = logging.getLogger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -37,13 +40,13 @@ class SceneSummaryAPITest(FunctionalTest):
     res = self.rest.createScene(scene_data)
     assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED), f"Scene creation failed: {res.errors}"
     scene_uid_1 = res["uid"]
-    print(f"Scene '{scene_name_1}' created successfully.")
+    logger.info(f"Scene '{scene_name_1}' created successfully.")
 
     # Fetch all scenes
     res = self.rest.getScenes({})
     assert res.statusCode == HTTPStatus.OK, f"Failed to fetch scenes: {res.errors}"
     scene_names = [scene["name"] for scene in res["results"]]
-    print(f"Available scenes: {scene_names}")
+    logger.info(f"Available scenes: {scene_names}")
 
     # Check that both scenes are present
     assert scene_name_0 in scene_names, f"Scene '{scene_name_0}' not found in summary."
@@ -53,11 +56,11 @@ class SceneSummaryAPITest(FunctionalTest):
     # Cleanup
     res = self.rest.deleteScene(scene_uid_1)
     assert res.statusCode == HTTPStatus.OK, f"Failed to delete scene '{scene_name_1}': {res.errors}"
-    print(f"Scene '{scene_name_1}' deleted successfully.")
+    logger.info(f"Scene '{scene_name_1}' deleted successfully.")
 
     return True
 
-def test_scene_summary_api(scenescape_env, request, record_xml_attribute):
+def test_scene_summary_api(scenescape_env, demo_scene, request, record_xml_attribute):
   test = SceneSummaryAPITest(TEST_NAME, request, record_xml_attribute)
   assert test.runTest()
   return

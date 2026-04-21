@@ -139,7 +139,8 @@ def test_bounding_box(params, record_xml_attribute):
   record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
 
-  client = PubSub(params['auth'], None, params['rootcert'], params['broker_url'])
+  client = PubSub(params['auth'], None, params['rootcert'], params['broker_url'],
+                  port=int(params['broker_port']))
   exit_code = 1
 
   client.onConnect = on_connect

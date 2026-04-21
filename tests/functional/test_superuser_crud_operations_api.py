@@ -9,6 +9,9 @@ from http import HTTPStatus
 from scene_common.rest_client import RESTClient
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import logging
+
+logger = logging.getLogger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -134,8 +137,8 @@ class CRUDPermissionsTest(FunctionalTest):
         res = method(data)
         assert res.statusCode == HTTPStatus.FORBIDDEN, f"Expected FORBIDDEN, got {res.statusCode} for {label}"
 
-      print("Admin successfully performed all CRUD operations.")
-      print("Unprivileged user was correctly denied access to all CRUD operations.")
+      logger.info("Admin successfully performed all CRUD operations.")
+      logger.info("Unprivileged user was correctly denied access to all CRUD operations.")
 
       self.rest_admin.deleteTripwire(tripwire_uid)
       self.rest_admin.deleteRegion(region_uid)
@@ -145,7 +148,7 @@ class CRUDPermissionsTest(FunctionalTest):
     finally:
       self.tearDown()
 
-def test_crud_operations_api(scenescape_env, request, record_xml_attribute, repo_root):
+def test_crud_operations_api(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
   test = CRUDPermissionsTest(TEST_NAME, request, record_xml_attribute, repo_root)
   record_xml_attribute("name", TEST_NAME)
   ok = False

@@ -10,14 +10,14 @@ from http import HTTPStatus
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time, get_epoch_time
 from tests.functional.common_scene_obj import SceneObjectMqtt
-from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import logging
 
-log = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="mqtt_sensor_roi", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -73,7 +73,7 @@ class SensorMqttRoi(SceneObjectMqtt):
     return
 
   def runSceneObjMqttVerifyPassedExtra(self):
-    log.info("Verifying test parameters")
+    logger.info("Verifying test parameters")
     assert not self.errorInSensor
     assert self.enteredDetected
     assert self.exitedDetected
@@ -97,9 +97,9 @@ class SensorMqttRoi(SceneObjectMqtt):
     if self.exitedTimestamp is not None:
       dwell_window = self.exitedTimestamp - self.enteredTimestamp
       assert dwell_window >= 0, f"Invalid dwell window: exit before entry"
-      print(f"Dwell window validated: {dwell_window:.2f}s from entry to exit")
+      logger.info(f"Dwell window validated: {dwell_window:.2f}s from entry to exit")
     else:
-      print("Object still in region - no exit timestamp to validate")
+      logger.info("Object still in region - no exit timestamp to validate")
     return
 
   def sendDetections(self, objLocation, frame_rate):
@@ -146,7 +146,7 @@ class SensorMqttRoi(SceneObjectMqtt):
           self.entered = False
           self.exitedDetected = True
           self.exitedTimestamp = scene_message_ts
-          log.info("object exited region")
+          logger.info('object exited region')
         self.handleSceneSensorData(obj, scene_message_ts, self.exitedTimestamp)
         if self.exited:
           self.exitedTimestamp = None
@@ -174,8 +174,8 @@ class SensorMqttRoi(SceneObjectMqtt):
     )
     error_code = result[0]
     if error_code != 0:
-      log.error(f"Failed to send sensor {sensor_name} value!")
-      log.error(f"publish result: {result.is_published()}")
+      logger.info(f"Failed to send sensor {sensor_name} value!")
+      logger.info(result.is_published())
     return error_code == 0
 
   def runROIMqtt(self):
@@ -203,14 +203,14 @@ class SensorMqttRoi(SceneObjectMqtt):
 
   def handleRegionData(self, region_data):
     if not 'objects' in region_data:
-      log.warning("No objects in region!")
+      logger.info("No objects in region!")
 
     current_point = region_data['objects'][0]['translation']
     region_message_ts = get_epoch_time(region_data['timestamp'])
     if self.isWithinRectangle(self.roiPoints[1], self.roiPoints[3], (current_point[0], current_point[1])):
       self.entered = True
       self.enteredDetected = True
-      log.info("object entered region")
+      logger.info('object entered region')
       if self.enteredTimestamp is None:
         self.enteredTimestamp = region_message_ts
 
@@ -219,14 +219,14 @@ class SensorMqttRoi(SceneObjectMqtt):
         self.enteredTimestamp, region_message_ts, self.exitedTimestamp)
       if not self.handleEnteredExitedObjects(region_data['entered'],
                                             self.sensorHistory[start_idx:end_idx]):
-        log.error("Found error in 'entered' objects!")
+        logger.info("Found error in 'entered' objects!")
         self.errorInSensor = True
       else:
         self.checkedEntered += 1
 
       if not self.handleEnteredExitedObjects(region_data['exited'],
                                             self.sensorHistory[start_idx:end_idx]):
-        log.error("Found error in 'exited' objects!")
+        logger.info("Found error in 'exited' objects!")
         self.errorInSensor = True
       else:
         self.checkedExited += 1
@@ -237,8 +237,9 @@ class SensorMqttRoi(SceneObjectMqtt):
     for cur_sensor in sensor_list:
       found = self.findSensorInObj(obj, cur_sensor, self.roiName)
       if not found:
-        log.warning(
-          f"Failed to find expected sensor value {cur_sensor['value']} (TS {cur_sensor['timestamp']})"
+        logger.info(
+          f"Warning: failed to find expected sensor value {cur_sensor['value']} "
+          f"(TS {cur_sensor['timestamp']})"
         )
         found_all = False
       else:
@@ -251,12 +252,12 @@ class SensorMqttRoi(SceneObjectMqtt):
     expected_sensor_value = sensor_entry['value']
 
     if not 'sensors' in obj:
-      log.error(f"Object missing sensor data {obj}")
+      logger.info(f"Object missing sensor data {obj}")
       return False
 
     sensor_payload = obj['sensors'].get(sensor_name)
     if sensor_payload is None:
-      print("Object missing expected sensor '{}' data {}".format(sensor_name, obj))
+      logger.info(f"Object missing expected sensor '{sensor_name}' data {obj}")
       return False
 
     if isinstance(sensor_payload, dict):
@@ -287,7 +288,7 @@ class SensorMqttRoi(SceneObjectMqtt):
         # but it will on subsequent messages, so allow to check it later
         if self.missedValues:
           self.errorInSensor = True
-          log.error("Had previously failed to find some expected sensor values!")
+          logger.info("Had previously Failed to find some expected sensor values!")
         else:
           self.missedValues += 1
 
@@ -314,7 +315,7 @@ class SensorMqttRoi(SceneObjectMqtt):
       end_idx += 1
     return start_idx, end_idx
 
-def test_sensor_roi_mqtt(request, record_xml_attribute):
+def test_sensor_roi_mqtt(scenescape_env, demo_scene, request, record_xml_attribute):
   test = SensorMqttRoi(TEST_NAME, request, SENSOR_DELAY, record_xml_attribute)
   test.runROIMqtt()
   assert test.exitCode == 0

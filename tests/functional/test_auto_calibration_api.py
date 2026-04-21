@@ -301,7 +301,7 @@ def test_auto_calibration(scenescape_env, request, record_xml_attribute,
              expected_result, intrinsics=intrinsics, repo_root=repo_root)
   test.runAutoCalibration()
   assert test.exitCode == 0
-  return
+  return test.exitCode
 
 def main():
   return test_auto_calibration(None, None)

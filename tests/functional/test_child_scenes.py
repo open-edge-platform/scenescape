@@ -11,6 +11,7 @@ import pytest
 
 from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
+from scene_common import log
 from scene_common.transform import CameraPose
 from scene_common.geometry import Point
 from controller.tools.analytics.library import metrics
@@ -18,12 +19,9 @@ from scene_common.timestamp import get_iso_time
 import tests.common_test_utils as common
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
-from tests.utils.log import get_logger
-
-log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="child_scenes", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -234,7 +232,9 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
                                              child, \
                                              parent, \
                                              obj_cat, \
-                                             params):
+                                             params, \
+                                             repo_root, \
+                                             demo_scene):
   """! This function creates and updates the child scene. It also verifies that
   the data received from the parent is correct after applying different transforms based on the test
   cases provided above.
@@ -282,7 +282,7 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
   client.onMessage = on_message
   client.connect()
 
-  map_image = "/workspace/sample_data/HazardZoneSceneLarge.png"
+  map_image = f"{repo_root}/sample_data/HazardZoneSceneLarge.png"
   assert os.path.exists(map_image)
 
   try:
@@ -293,7 +293,7 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
       map_data = f.read()
     parent_scene = rest_client.createScene({'name': parent, 'map': (map_image, map_data)})
     parent_id = parent_scene['uid']
-    log.info(f"Parent scene name={parent} scene={parent_scene}")
+    log.info(f"Parent scene: {parent} {parent_scene}")
     assert parent_scene
     scenes = rest_client.getScenes({'name': child})
     assert scenes['results']

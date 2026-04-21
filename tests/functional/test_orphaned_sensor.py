@@ -4,17 +4,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+from scene_common import log
 from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
 from tests.functional.rest_test_cases import testCases
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
-from tests.utils.log import get_logger
-
-log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="orphaned_sensor", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -93,7 +91,7 @@ class OrphanedSensorTest(FunctionalTest):
 
     return
 
-def test_orphaned_sensors(request, record_xml_attribute):
+def test_orphaned_sensors(scenescape_env, demo_scene, request, record_xml_attribute):
   test = OrphanedSensorTest(TEST_NAME, request, record_xml_attribute)
   test.verifyOrphanedSensors()
   assert test.exitCode == 0

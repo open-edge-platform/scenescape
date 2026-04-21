@@ -5,16 +5,14 @@
 
 import os
 from http import HTTPStatus
+from scene_common import log
 from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
-from tests.utils.log import get_logger
-
-log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="camera_deletion_api", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -137,7 +135,7 @@ class CameraDeletionTest(FunctionalTest):
 
     return
 
-def test_camera_deletion_main(request, record_xml_attribute):
+def test_camera_deletion_main(scenescape_env, demo_scene, request, record_xml_attribute):
   test = CameraDeletionTest(TEST_NAME, request, record_xml_attribute)
   test.testCameraDeletion()
   assert test.exitCode == 0

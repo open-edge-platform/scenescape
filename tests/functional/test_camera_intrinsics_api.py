@@ -3,18 +3,17 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import time
+from scene_common import log
 from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
-from tests.utils.log import get_logger
-
-log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="camera_intrinsics_api", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -180,7 +179,7 @@ class CameraIntrinsicsTest(FunctionalTest):
 
     return
 
-def test_camera_intrinsics(request, record_xml_attribute):
+def test_camera_intrinsics(scenescape_env, demo_scene, request, record_xml_attribute):
   test = CameraIntrinsicsTest(TEST_NAME, request, record_xml_attribute)
   test.testCameraIntrinsics()
   assert test.exitCode == 0

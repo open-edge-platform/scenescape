@@ -4,16 +4,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+from scene_common import log
 from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
-from tests.utils.log import get_logger
-
-log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="add_orphaned_cameras", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -93,7 +91,7 @@ class OrphanedCameraTest(FunctionalTest):
 
     return
 
-def test_orphaned_cameras(request, record_xml_attribute):
+def test_orphaned_cameras(scenescape_env, demo_scene, request, record_xml_attribute):
   test = OrphanedCameraTest(TEST_NAME, request, record_xml_attribute)
   test.verifyOrphanedCameras()
   assert test.exitCode == 0

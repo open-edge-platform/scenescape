@@ -72,7 +72,7 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
     f"{DLS}/retail_video.yml",
     f"{DLS}/queuing_video.yml",
     f"{COMPOSE}/scene.yml",
-    f"{COMPOSE}/web.yml",
+    f"{COMPOSE}/web_default.yml",
     f"{COMPOSE}/cams.yml",
   ),
   wait_for={

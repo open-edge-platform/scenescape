@@ -9,7 +9,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="mqtt_slow_sensor_roi", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -17,7 +17,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 TEST_NAME = "NEX-T10461"
 SENSOR_DELAY = 60
 
-def test_slow_sensor_roi_mqtt(request, record_xml_attribute):
+def test_slow_sensor_roi_mqtt(scenescape_env, demo_scene, request, record_xml_attribute):
   test = SensorMqttRoi(TEST_NAME, request, SENSOR_DELAY, record_xml_attribute)
   test.runROIMqtt()
   assert test.exitCode == 0

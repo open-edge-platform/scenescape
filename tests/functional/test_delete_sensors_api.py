@@ -6,16 +6,14 @@
 import os
 import time
 from http import HTTPStatus
+from scene_common import log
 from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
-from tests.utils.log import get_logger
-
-log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="delete_sensors_api", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -204,7 +202,7 @@ class DeleteSensorsTest(FunctionalTest):
 
     return
 
-def test_delete_sensor(request, record_xml_attribute):
+def test_delete_sensor(scenescape_env, demo_scene, request, record_xml_attribute):
   test = DeleteSensorsTest(TEST_NAME, request, record_xml_attribute)
   test.testDeleteSensors()
   assert test.exitCode == 0

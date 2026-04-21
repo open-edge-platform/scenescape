@@ -14,14 +14,14 @@ from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
 from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints, convertXYZToLLA
 from tests.functional import FunctionalTest
-from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import logging
 
-log = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="geospatial_ingest_publish", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -44,8 +44,9 @@ MAP_RESOLUTION = [900, 643]
 MAP_SCALE = 100.0
 
 class GeospatialIngestPublish(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
+  def __init__(self, testName, request, recordXMLAttribute, repo_root):
     super().__init__(testName, request, recordXMLAttribute)
+    self.repoRoot = repo_root
 
     self.exitCode = 1
     self.outputLLA = False
@@ -56,7 +57,8 @@ class GeospatialIngestPublish(FunctionalTest):
     assert self.rest.authenticate(self.params['user'], self.params['password'])
 
     self.pubsub = PubSub(self.params['auth'], None, self.params['rootcert'],
-                         self.params['broker_url'])
+                         self.params['broker_url'],
+                         port=int(self.params['broker_port']))
     self.topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=self.sceneUID)
     self.pubsub.onConnect = self.pubsubConnected
     self.pubsub.addCallback(self.topic, self.eventReceived)
@@ -91,7 +93,7 @@ class GeospatialIngestPublish(FunctionalTest):
           try:
             self.detectionValidator(object)
           except ValueError as e:
-            log.error(f"{e}")
+            logger.info(e)
             raise AssertionError(f"Detection validation failed: {e}")
       else:
         assert "lat_long_alt" not in object
@@ -151,7 +153,7 @@ class GeospatialIngestPublish(FunctionalTest):
                                       time.time(), 1 / FRAMES_PER_SECOND, detection)
     assert count, "Scene controller not ready"
 
-    log.info("Checking scene ignores lat_long_alt + translation data")
+    logger.info("Checking scene ignores lat_long_alt + translation data")
     self.outputReceived = False
     for v in [i * 0.5 for i in range(0, 20)]:
       detection = self.formatDetection(
@@ -162,7 +164,7 @@ class GeospatialIngestPublish(FunctionalTest):
         break
     assert self.outputReceived is not True
 
-    log.info("Checking scene can accept lat_long_alt data")
+    logger.info("\nChecking scene can accept lat_long_alt data")
     for v in [i * 0.5 for i in range(0, 20)]:
       detection = self.formatDetection(get_iso_time(), [v, v, v], lla=LLA_VALUE)
       self.pubsub.publish(topic, json.dumps(detection))
@@ -204,21 +206,21 @@ class GeospatialIngestPublish(FunctionalTest):
         break
 
     assert self.outputReceived is True
-    log.info(f"Time taken for data format update: {time.time() - start_time}")
+    logger.info(f"Time taken for data format update: {time.time() - start_time}")
     return
 
   def verifyPublish(self):
-    map_image = "/workspace/sample_data/HazardZoneSceneLarge.png"
+    map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
     with open(map_image, "rb") as f:
       map_data = f.read()
-    log.info("Verifying base output has no lat_long_alt")
+    logger.info("Verifying base output has no lat_long_alt")
     self.waitForUpdate(False)
-    log.info("Enabling lat_long_alt output")
+    logger.info("Enabling lat_long_alt output")
     res = self.rest.updateScene(self.sceneUID, {'output_lla': True, 'map_corners_lla': json.dumps(MAP_CORNERS_LLA), 'map': (map_image, map_data)})
     assert res.status_code == HTTPStatus.OK
     self.detectionValidator = _verifyLLA
     self.waitForUpdate(True)
-    log.info("Disabling lat_long_alt output")
+    logger.info("Disabling lat_long_alt output")
     res = self.rest.updateScene(self.sceneUID, {'output_lla': False})
     assert res.status_code == HTTPStatus.OK
     self.detectionValidator = None
@@ -266,8 +268,8 @@ def _verifyLLA(detected_object):
   if not np.allclose(detected_object['lat_long_alt'], EXPECTED_DETECTION_LLA, rtol=1e-6):
     raise ValueError(f"LLA verification failed! Expected LLA: {EXPECTED_DETECTION_LLA}, got: {detected_object['lat_long_alt']}")
 
-def test_geospatial_ingest_publish(request, record_xml_attribute):
-  test = GeospatialIngestPublish(TEST_NAME, request, record_xml_attribute)
+def test_geospatial_ingest_publish(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
+  test = GeospatialIngestPublish(TEST_NAME, request, record_xml_attribute, repo_root)
   test.verifyFunction()
   assert test.exitCode == 0
   return

@@ -13,6 +13,9 @@ from tests.common_test_utils import record_test_result
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import logging
+
+logger = logging.getLogger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -176,29 +179,29 @@ class SceneImportAPITest(FunctionalTest):
                   orphaned_sensors.add(s["sensor_id"])
 
     if orphaned_cams or orphaned_sensors:
-      print(f"Orphaned cameras detected: {orphaned_cams}")
-      print(f"Orphaned sensors detected: {orphaned_sensors}")
+      logger.info(f"Orphaned cameras detected: {orphaned_cams}")
+      logger.info(f"Orphaned sensors detected: {orphaned_sensors}")
 
     if self.expected == "1":  # EMPTY_ZIP
       assert is_error_response(res), f"Expected failure for empty zip, got: {res}"
-      print("✅ Empty zip correctly rejected.")
+      logger.info("✅ Empty zip correctly rejected.")
 
     elif self.expected == "2":  # INVALID_ZIP
       assert is_error_response(
         res
       ), f"Expected failure for invalid zip, got: {res}"
-      print("✅ Invalid zip correctly rejected.")
+      logger.info("✅ Invalid zip correctly rejected.")
 
     elif self.expected == "3":  # SCENE_EXISTS
       assert not is_error_response(res), f"Initial import failed: {res}"
-      print("✅ Scene imported successfully.")
+      logger.info("✅ Scene imported successfully.")
 
       # Second import (should fail)
       res_dup = self.rest.importScene(self.zipFile)
       assert is_error_response(
         res_dup
       ), f"Expected failure for duplicate scene, got: {res_dup}"
-      print("✅ Duplicate scene correctly rejected.")
+      logger.info("✅ Duplicate scene correctly rejected.")
 
     elif self.expected == "4":  # ORPHANED_CAMERA
       assert not is_error_response(res), f"Import failed: {res}"
@@ -221,32 +224,32 @@ class SceneImportAPITest(FunctionalTest):
         if (s.get("sensor_id") or s.get("name")) not in orphaned_sensors
       ]
 
-      print(f"Cameras linked to scene {scene_uid}: {cam_results}")
-      print(f"Sensors linked to scene {scene_uid}: {sensor_results}")
-      print(
+      logger.info(f"Cameras linked to scene {scene_uid}: {cam_results}")
+      logger.info(f"Sensors linked to scene {scene_uid}: {sensor_results}")
+      logger.info(
         f"Expected camera count (excluding orphaned): {len(expected_cams)}, actual: {len(cam_results)}"
       )
-      print(
+      logger.info(
         f"Expected sensor count (excluding orphaned): {len(expected_sensors)}, actual: {len(sensor_results)}"
       )
 
       if len(cam_results) != len(expected_cams):
-        print(
+        logger.info(
           f"Camera count mismatch. Orphaned: {orphaned_cams}, Expected: {[c['name'] for c in expected_cams]}, Actual: {[c['name'] for c in cam_results]}"
         )
       if len(sensor_results) != len(expected_sensors):
-        print(
+        logger.info(
           f"Sensor count mismatch. Orphaned: {orphaned_sensors}, Expected: {[s.get('sensor_id') or s.get('name') for s in expected_sensors]}, Actual: {[s.get('sensor_id') or s.get('name') for s in sensor_results]}"
         )
 
       assert len(cam_results) == len(expected_cams), "Camera count mismatch"
       assert len(sensor_results) == len(expected_sensors), "Sensor count mismatch"
-      print("✅ Orphaned cameras and sensors correctly handled.")
+      logger.info("✅ Orphaned cameras and sensors correctly handled.")
 
     elif self.expected == "0":  # SUCCESS
       assert not is_error_response(res), f"Scene import failed: {res}"
       scene_uid = get_scene_uid_by_name(self.sceneData["name"])
-      print("✅ Scene imported successfully.")
+      logger.info("✅ Scene imported successfully.")
       self.validate_scene(self.sceneData, scene_uid)
 
     return True
@@ -268,7 +271,7 @@ class SceneImportAPITest(FunctionalTest):
         sensor.pop(k, None)
       assert res == sensor, f"Sensor mismatch: {sensor['name']}"
 
-    print("✅ Scene components validated.")
+    logger.info("✅ Scene components validated.")
 
 # Parametrized test entry point
 @pytest.mark.parametrize(
@@ -283,7 +286,7 @@ class SceneImportAPITest(FunctionalTest):
     ("Intersection-Demo.zip", "0"),  # SUCCESS
   ],
 )
-def test_scene_import_api(scenescape_env, request, record_xml_attribute, zipFile, expected, repo_root):
+def test_scene_import_api(scenescape_env, demo_scene, request, record_xml_attribute, zipFile, expected, repo_root):
   record_xml_attribute("name", TEST_NAME)
   test = SceneImportAPITest(
     TEST_NAME, request, record_xml_attribute, zipFile, expected, repo_root

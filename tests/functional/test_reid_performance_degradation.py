@@ -49,7 +49,8 @@ class REIDPerformanceDegradation(BackendFunctionalTest):
     }
     self.performance_db = []
 
-    self.client = PubSub(self.params["auth"], None, self.params["rootcert"], self.params["broker_url"])
+    self.client = PubSub(self.params["auth"], None, self.params["rootcert"], self.params["broker_url"],
+                          port=int(self.params["broker_port"]))
     self.client.onConnect = self.on_connect
     for sc_uid in self.scenes_updates:
       self.client.addCallback(PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=sc_uid, thing_type="person"), self.on_scene_message)

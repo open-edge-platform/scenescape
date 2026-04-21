@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -10,14 +10,14 @@ from http import HTTPStatus
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
 from tests.functional.common_scene_obj import SceneObjectMqtt
-from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import logging
 
-log = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="delete_sensor_mqtt_api", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -54,6 +54,7 @@ class SensorDeleteMqtt(SceneObjectMqtt):
     }
     res = self.rest.createSensor(sensor)
     assert res.statusCode == HTTPStatus.CREATED, (res.statusCode, res.errors)
+    self.sensor_uid = res["uid"]
 
     # Send initial sensor value to confirm publishing works
     assert self.pushSensorValue(self.roiName, self.sensorValue)
@@ -66,26 +67,31 @@ class SensorDeleteMqtt(SceneObjectMqtt):
       self.runSceneObjMqttPrepareExtra()
 
       # Delete the sensor
-      res = self.rest.deleteSensor(self.roiName)
+      res = self.rest.deleteSensor(self.sensor_uid)
       assert res.statusCode == HTTPStatus.OK, (res.statusCode, res.errors)
       time.sleep(2)
+
+      # Unsubscribe before publishing post-delete to prevent MQTT loopback
+      topic = PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=self.roiName)
+      self.pubsub.removeCallback(topic)
       self.sensor_deleted = True
 
-      # Try publishing again, should NOT be received
+      # Try publishing again, should NOT be received or processed
       self.sensorValue += 1
       self.pushSensorValue(self.roiName, self.sensorValue)
       time.sleep(2)
 
       self.runSceneObjMqttVerifyPassedExtra()
+      self.exitCode = 0
     finally:
       self.runSceneObjMqttFinally()
     return
 
   def runSceneObjMqttVerifyPassedExtra(self):
-    """Verify that no MQTT messages were received after deletion."""
-    assert (
-      self.sensor_message_received_after_delete is False
-    ), "MQTT messages were still received after sensor deletion"
+    """Verify that the sensor is gone and MQTT publishes don't resurrect it."""
+    res = self.rest.getSensor(self.sensor_uid)
+    assert res.statusCode == HTTPStatus.NOT_FOUND, \
+      f"Sensor should not exist after deletion, got: {res.statusCode}"
     return True
 
   def pushSensorValue(self, sensor_name, value):
@@ -101,11 +107,11 @@ class SensorDeleteMqtt(SceneObjectMqtt):
     )
     error_code = result[0]
     if error_code != 0:
-      log.error(f"Failed to send sensor {sensor_name} value!")
-      log.error(f"publish result: {result.is_published()}")
+      logger.info(f"Failed to send sensor {sensor_name} value!")
+      logger.info(result.is_published())
     return error_code == 0
 
-def test_sensor_delete_mqtt(request, record_xml_attribute):
+def test_sensor_delete_mqtt(scenescape_env, demo_scene, request, record_xml_attribute):
   test = SensorDeleteMqtt(TEST_NAME, request, record_xml_attribute)
   test.runSensorMqttDelete()
   assert test.exitCode == 0
