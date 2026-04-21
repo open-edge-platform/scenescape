@@ -53,10 +53,7 @@ def on_scene_message(mqttc, condlock, msg):
           "to": json_data['unique_detection_count']
         }
         count_transitions[scene].append(event)
-        log.info(
-          f"Transition for {scene}: {previous} -> {json_data['unique_detection_count']} "
-          f"at {event['timestamp']}"
-        )
+
   return
 
 def check_unique_detections():
@@ -65,15 +62,18 @@ def check_unique_detections():
   """
   interval = 10  # seconds
   start_time = time.time()
-  minima = {scene: max(detection_count[scene].get("minimum", 1), 1) for scene in detection_count}
+  minima = {
+    scene: max(scene_state.get("minimum", 1), 1)
+    for scene, scene_state in detection_count.items()
+  }
 
   while time.time() - start_time < TEST_WAIT_TIME:
     time.sleep(interval)
     log.info(f"Status after {int(time.time() - start_time)} / {TEST_WAIT_TIME} sec")
 
-    for scene in detection_count:
-      current = detection_count[scene]["current"]
-      maximum = detection_count[scene]["maximum"]
+    for scene, scene_state in detection_count.items():
+      current = scene_state["current"]
+      maximum = scene_state["maximum"]
 
       if current <= maximum:
         log.info(f"-> Detections for {scene} of: {current} (max: {maximum})")
@@ -81,12 +81,12 @@ def check_unique_detections():
         log.error(f"-> Detections for {scene} is greater than the maximum: {current} (max: {maximum})!")
         return False
 
-      if detection_count[scene]["error"]:
+      if scene_state["error"]:
         log.error(f"The unique detection counter for {scene} somehow got decremented!")
         return False
 
-  for scene in detection_count:
-    current = detection_count[scene]["current"]
+  for scene, scene_state in detection_count.items():
+    current = scene_state["current"]
     minimum = minima[scene]
 
     if current < minimum:

@@ -1518,6 +1518,16 @@ class TestUUIDManagerReidConfigPropagation:
     assert manager.similarity_threshold == 42
 
   @patch('controller.uuid_manager.VDMSDatabase')
+  def test_custom_minimum_bbox_area_is_applied(self, mock_vdms_class):
+    """UUIDManager.minimum_bbox_area reflects minimum_bbox_area from config."""
+    mock_vdms_class.return_value = MagicMock()
+    reid_config = {'minimum_bbox_area': 3200}
+
+    manager = UUIDManager(reid_config_data=reid_config)
+
+    assert manager.minimum_bbox_area == 3200
+
+  @patch('controller.uuid_manager.VDMSDatabase')
   def test_custom_stale_feature_timeout_is_applied(self, mock_vdms_class):
     """UUIDManager.stale_feature_timeout_secs reflects stale_feature_timeout_secs from config."""
     mock_vdms_class.return_value = MagicMock()
@@ -1534,6 +1544,7 @@ class TestUUIDManagerReidConfigPropagation:
     reid_config = {
       'feature_accumulation_threshold': 8,
       'similarity_threshold': 55,
+      'minimum_bbox_area': 4000,
       'stale_feature_timeout_secs': 7.5,
       'stale_feature_check_interval_secs': 2.0,
     }
@@ -1542,6 +1553,7 @@ class TestUUIDManagerReidConfigPropagation:
 
     assert manager.minimum_feature_count == 8
     assert manager.similarity_threshold == 55
+    assert manager.minimum_bbox_area == 4000
     assert manager.stale_feature_timeout_secs == 7.5
     assert manager.stale_feature_check_interval_secs == 2.0
 
@@ -1551,6 +1563,7 @@ class TestUUIDManagerReidConfigPropagation:
     from controller.uuid_manager import (
       DEFAULT_MINIMUM_FEATURE_COUNT,
       DEFAULT_SIMILARITY_THRESHOLD,
+      DEFAULT_MINIMUM_BBOX_AREA,
       DEFAULT_STALE_FEATURE_TIMEOUT_SECS,
       DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS,
     )
@@ -1560,5 +1573,6 @@ class TestUUIDManagerReidConfigPropagation:
 
     assert manager.minimum_feature_count == DEFAULT_MINIMUM_FEATURE_COUNT
     assert manager.similarity_threshold == DEFAULT_SIMILARITY_THRESHOLD
+    assert manager.minimum_bbox_area == DEFAULT_MINIMUM_BBOX_AREA
     assert manager.stale_feature_timeout_secs == DEFAULT_STALE_FEATURE_TIMEOUT_SECS
     assert manager.stale_feature_check_interval_secs == DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS

@@ -12,7 +12,7 @@ from scene_common import log
 from scene_common.timestamp import get_epoch_time
 
 DEFAULT_DATABASE = "VDMS"
-DEFAULT_SIMILARITY_THRESHOLD = 60
+DEFAULT_SIMILARITY_THRESHOLD = 40
 DEFAULT_MINIMUM_BBOX_AREA = 5000
 DEFAULT_MINIMUM_FEATURE_COUNT = 12
 DEFAULT_FEATURE_SLICE_SIZE = 10
@@ -46,6 +46,7 @@ class UUIDManager:
     self.stale_feature_check_interval_secs = reid_config_data.get('stale_feature_check_interval_secs', DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS)
     self.minimum_feature_count = reid_config_data.get('feature_accumulation_threshold', DEFAULT_MINIMUM_FEATURE_COUNT)
     self.similarity_threshold = reid_config_data.get('similarity_threshold', DEFAULT_SIMILARITY_THRESHOLD)
+    self.minimum_bbox_area = reid_config_data.get('minimum_bbox_area', DEFAULT_MINIMUM_BBOX_AREA)
     self.stale_feature_timer = None
     self._start_stale_feature_timer()
     return
@@ -219,14 +220,17 @@ class UUIDManager:
     return result is None
 
   def gatherQualityVisualFeatures(self, sscape_object,
-                                  minimum_bbox_area=DEFAULT_MINIMUM_BBOX_AREA):
+                                  minimum_bbox_area=None):
     """
     This function gathers quality visual features for identifying newly detected objects.
     It currently only uses re-id vectors but can be expanded to include more features.
 
     @param  sscape_object        The Scenescape object to gather features from
-    @param  minimum_bbox_area    The minimum size of the bbox for the detected object (px)
+    @param  minimum_bbox_area    Optional override for minimum bbox area (px)
     """
+    if minimum_bbox_area is None:
+      minimum_bbox_area = self.minimum_bbox_area
+
     reid_embedding = self._extractReidEmbedding(sscape_object)
 
     if reid_embedding is not None and self.reid_enabled:

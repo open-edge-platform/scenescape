@@ -151,6 +151,7 @@ controller/config/reid-config.json
   "stale_feature_timeout_secs": 5.0,
   "stale_feature_check_interval_secs": 1.0,
   "feature_accumulation_threshold": 12,
+  "minimum_bbox_area": 5000,
   "feature_slice_size": 10,
   "similarity_threshold": 60
 }
@@ -163,6 +164,7 @@ controller/config/reid-config.json
 | `stale_feature_timeout_secs`        | float | 5.0     | How long (seconds) to accumulate features in memory before flushing to VDMS. Features older than this threshold are persisted to the database for long-term storage.  |
 | `stale_feature_check_interval_secs` | float | 1.0     | How frequently (seconds) the background timer checks for stale features and flushes them to VDMS. More frequent checks ensure timely database updates.                |
 | `feature_accumulation_threshold`    | int   | 12      | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.     |
+| `minimum_bbox_area`                 | int   | 5000    | Minimum bounding-box area in pixels required before a detected object contributes a ReID embedding to quality feature accumulation.                                   |
 | `feature_slice_size`                | int   | 10      | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector. |
 | `similarity_threshold`              | int   | 60      | Minimum similarity score (0-100) for a match to be considered valid. Higher values = stricter matching.                                                               |
 
@@ -188,7 +190,7 @@ python scene_controller.py \
 
 **Current Implementation Note**:
 
-- `stale_feature_timeout_secs`, `stale_feature_check_interval_secs`, `feature_accumulation_threshold`, `feature_slice_size`, and `similarity_threshold` are fully implemented
+- `stale_feature_timeout_secs`, `stale_feature_check_interval_secs`, `feature_accumulation_threshold`, `minimum_bbox_area`, `feature_slice_size`, and `similarity_threshold` are fully implemented
 - ReID embedding dimensions are inferred at runtime from the first received embedding
 - All semantic metadata attributes are currently used for TIER 1 filtering. Selective metadata filtering is planned for Phase 2.
 
