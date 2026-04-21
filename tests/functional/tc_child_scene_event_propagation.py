@@ -35,13 +35,14 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
 
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
-  helper.setup_scenes(rest_client)
-
-  client = helper.connect_mqtt()
+  client = None
   stop_event = threading.Event()
-  send_thread = helper.start_detection_thread(client, objData, stop_event)
-
+  send_thread = None
   try:
+    helper.setup_scenes(rest_client)
+    client = helper.connect_mqtt()
+    send_thread = helper.start_detection_thread(client, objData, stop_event)
+
     roi_appeared = helper.wait_for_events("parent_roi_events")
     assert roi_appeared, (
       f"Timed out after {MAX_WAIT}s: no ROI events arrived on parent scene topic")
@@ -71,8 +72,10 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
     exit_code = 0
   finally:
     stop_event.set()
-    send_thread.join()
-    client.loopStop()
+    if send_thread:
+      send_thread.join()
+    if client:
+      client.loopStop()
     helper.teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
 
@@ -94,13 +97,14 @@ def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute
 
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
-  helper.setup_scenes(rest_client)
-
-  client = helper.connect_mqtt()
+  client = None
   stop_event = threading.Event()
-  send_thread = helper.start_detection_thread(client, objData, stop_event)
-
+  send_thread = None
   try:
+    helper.setup_scenes(rest_client)
+    client = helper.connect_mqtt()
+    send_thread = helper.start_detection_thread(client, objData, stop_event)
+
     tw_appeared = helper.wait_for_events("parent_tripwire_events")
     assert tw_appeared, (
       f"Timed out after {MAX_WAIT}s: no tripwire events arrived on parent scene topic")
@@ -124,8 +128,10 @@ def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute
     exit_code = 0
   finally:
     stop_event.set()
-    send_thread.join()
-    client.loopStop()
+    if send_thread:
+      send_thread.join()
+    if client:
+      client.loopStop()
     helper.teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
 
@@ -152,13 +158,14 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
 
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
-  helper.setup_scenes(rest_client)
-
-  client = helper.connect_mqtt()
+  client = None
   stop_event = threading.Event()
-  send_thread = helper.start_detection_thread(client, objData, stop_event)
-
+  send_thread = None
   try:
+    helper.setup_scenes(rest_client)
+    client = helper.connect_mqtt()
+    send_thread = helper.start_detection_thread(client, objData, stop_event)
+
     # Wait until an object is being tracked (child ROI event confirms controller
     # has processed at least one frame) before publishing sensor readings.
     obj_tracked = helper.wait_for_events("child_roi_events")
@@ -196,8 +203,10 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
     exit_code = 0
   finally:
     stop_event.set()
-    send_thread.join()
-    client.loopStop()
+    if send_thread:
+      send_thread.join()
+    if client:
+      client.loopStop()
     helper.teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
 
@@ -220,13 +229,14 @@ def test_parent_event_attributes_match_child_event(objData, record_xml_attribute
 
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
-  helper.setup_scenes(rest_client)
-
-  client = helper.connect_mqtt()
+  client = None
   stop_event = threading.Event()
-  send_thread = helper.start_detection_thread(client, objData, stop_event)
-
+  send_thread = None
   try:
+    helper.setup_scenes(rest_client)
+    client = helper.connect_mqtt()
+    send_thread = helper.start_detection_thread(client, objData, stop_event)
+
     # Wait for both child and parent events.
     child_roi_ok = helper.wait_for_events("child_roi_events")
     parent_roi_ok = helper.wait_for_events("parent_roi_events")
@@ -258,8 +268,10 @@ def test_parent_event_attributes_match_child_event(objData, record_xml_attribute
     exit_code = 0
   finally:
     stop_event.set()
-    send_thread.join()
-    client.loopStop()
+    if send_thread:
+      send_thread.join()
+    if client:
+      client.loopStop()
     helper.teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
 
@@ -281,13 +293,14 @@ def test_child_event_propagation_is_timely(objData, record_xml_attribute, params
 
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
-  helper.setup_scenes(rest_client)
-
-  client = helper.connect_mqtt()
+  client = None
   stop_event = threading.Event()
-  send_thread = helper.start_detection_thread(client, objData, stop_event)
-
+  send_thread = None
   try:
+    helper.setup_scenes(rest_client)
+    client = helper.connect_mqtt()
+    send_thread = helper.start_detection_thread(client, objData, stop_event)
+
     child_appeared = helper.wait_for_events("child_roi_events", timeout=MAX_WAIT)
     assert child_appeared, f"No child ROI events received within {MAX_WAIT}s"
 
@@ -304,8 +317,10 @@ def test_child_event_propagation_is_timely(objData, record_xml_attribute, params
     exit_code = 0
   finally:
     stop_event.set()
-    send_thread.join()
-    client.loopStop()
+    if send_thread:
+      send_thread.join()
+    if client:
+      client.loopStop()
     helper.teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
 
@@ -327,13 +342,14 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
 
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
-  helper.setup_scenes(rest_client, link=False)
-
-  client = helper.connect_mqtt()
+  client = None
   stop_event = threading.Event()
-  send_thread = helper.start_detection_thread(client, objData, stop_event)
-
+  send_thread = None
   try:
+    helper.setup_scenes(rest_client, link=False)
+    client = helper.connect_mqtt()
+    send_thread = helper.start_detection_thread(client, objData, stop_event)
+
     time.sleep(MAX_WAIT)
 
     assert len(helper.parent_roi_events) == 0, (
@@ -345,8 +361,10 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
     exit_code = 0
   finally:
     stop_event.set()
-    send_thread.join()
-    client.loopStop()
+    if send_thread:
+      send_thread.join()
+    if client:
+      client.loopStop()
     helper.teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
 
@@ -368,13 +386,14 @@ def test_event_region_id_matches_child_definition(objData, record_xml_attribute,
 
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
-  helper.setup_scenes(rest_client)
-
-  client = helper.connect_mqtt()
+  client = None
   stop_event = threading.Event()
-  send_thread = helper.start_detection_thread(client, objData, stop_event)
-
+  send_thread = None
   try:
+    helper.setup_scenes(rest_client)
+    client = helper.connect_mqtt()
+    send_thread = helper.start_detection_thread(client, objData, stop_event)
+
     ok = helper.wait_for_events("parent_roi_events")
     assert ok, f"No parent ROI events within {MAX_WAIT}s"
 
@@ -387,8 +406,10 @@ def test_event_region_id_matches_child_definition(objData, record_xml_attribute,
     exit_code = 0
   finally:
     stop_event.set()
-    send_thread.join()
-    client.loopStop()
+    if send_thread:
+      send_thread.join()
+    if client:
+      client.loopStop()
     helper.teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
 
@@ -410,15 +431,16 @@ def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params)
 
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
-  helper.setup_scenes(rest_client)
-
-  client = helper.connect_mqtt()
-
-  # Phase-1: confirm events propagate while linked
+  client = None
   stop_event = threading.Event()
-  send_thread = helper.start_detection_thread(client, objData, stop_event)
-
+  send_thread = None
   try:
+    helper.setup_scenes(rest_client)
+    client = helper.connect_mqtt()
+
+    # Phase-1: confirm events propagate while linked
+    send_thread = helper.start_detection_thread(client, objData, stop_event)
+
     log.info("Step 1: Publishing while child is linked to parent")
     linked_ok = helper.wait_for_events("parent_roi_events")
     assert linked_ok, "Prerequisite failed: no events received while child is linked"
@@ -452,8 +474,10 @@ def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params)
     exit_code = 0
   finally:
     stop_event.set()
-    send_thread.join()
-    client.loopStop()
+    if send_thread:
+      send_thread.join()
+    if client:
+      client.loopStop()
     helper.teardown_scenes(rest_client)
     common.record_test_result(TEST_NAME, exit_code)
 
