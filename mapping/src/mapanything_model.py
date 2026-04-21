@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
@@ -10,8 +10,10 @@ Implementation of the ReconstructionModel interface for MapAnything.
 This model is instantiated directly by the mapanything-service container.
 """
 
+import base64
 import sys
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, Tuple
+
 import numpy as np
 from PIL import Image
 
@@ -61,12 +63,12 @@ class MapAnythingModel(ReconstructionModel):
       log.error(f"Failed to load MapAnything model: {e}")
       raise RuntimeError(f"MapAnything model loading failed: {e}")
 
-  def runInference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
+  def runInference(self, frames: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Run MapAnything inference on input images.
+    Run MapAnything inference on a LIST of frames.
 
     Args:
-      images: List of image dictionaries with 'data' field containing base64 images
+      frames: [{"data": "<base64>"}, ...]  (base64-encoded images)
 
     Returns:
       Dictionary containing predictions, camera poses, and intrinsics
@@ -74,41 +76,45 @@ class MapAnythingModel(ReconstructionModel):
     if not self.is_loaded:
       raise RuntimeError("Model not loaded. Call loadModel() first.")
 
-    self.validateImages(images)
+    self.validateImages(frames)
 
     try:
-      # Decode images and get original sizes
       pil_images = []
       original_sizes = []
+      camera_ids = []
 
-      for img_data in images:
+      for img_data in frames:
+        camera_ids.append(img_data.get("camera_id"))
         img_array = self.decodeBase64Image(img_data["data"])
+        # Apply CLAHE for improved contrast
+        img_array = self._applyCLAHE(img_array)
         pil_image = Image.fromarray(img_array)
         pil_images.append(pil_image)
         original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
 
-      # Process images using MapAnything's preprocessing logic
       views = self._preprocessImages(pil_images)
-
       if not views:
         raise ValueError("No valid images processed")
 
-      # Get model input size from processed views
       model_height, model_width = views[0]["img"].shape[-2:]
       model_size = (model_height, model_width)
 
       log.info(f"Running MapAnything inference on device: {self.device}")
-      # Run inference with FP32 model as we use CPU
-      outputs = self.model.infer(views, memory_efficient_inference=False, amp_dtype="fp32")
-
-      # Process outputs
-      result = self._processOutputs(outputs, original_sizes, model_size)
-
-      return result
+      outputs = self.model.infer(
+        views,
+        memory_efficient_inference=True,
+        amp_dtype="fp32"
+      )
+      return self._processOutputs(
+          outputs,
+          original_sizes,
+          model_size,
+          camera_ids=camera_ids,
+      )
 
     except Exception as e:
-      log.error(f"MapAnything inference failed: {e}")
-      raise RuntimeError(f"MapAnything inference failed: {e}")
+      log.error(f"MapAnything inference (frames) failed: {e}")
+      raise RuntimeError(f"MapAnything inference (frames) failed: {e}")
 
   def getSupportedOutputs(self) -> List[str]:
     """Get supported output formats."""
@@ -259,7 +265,7 @@ class MapAnythingModel(ReconstructionModel):
     return views
 
   def _processOutputs(self, outputs: List[Dict], original_sizes: List[tuple],
-            model_size: tuple) -> Dict[str, Any]:
+            model_size: tuple, camera_ids: Optional[List[Any]] = None) -> Dict[str, Any]:
     """
     Process MapAnything outputs into standard format.
 
@@ -288,6 +294,11 @@ class MapAnythingModel(ReconstructionModel):
     ], dtype=np.float32)
 
     for view_idx, pred in enumerate(outputs):
+      if camera_ids:
+        cam_id = camera_ids[view_idx]
+      else:
+        cam_id = None
+
       # Extract data from predictions
       depthmap_torch = pred["depth_z"][0].squeeze(-1)
       intrinsics_torch = pred["intrinsics"][0]
@@ -324,6 +335,7 @@ class MapAnythingModel(ReconstructionModel):
       quaternion = self.rotationMatrixToQuaternion(rotation_matrix)
 
       camera_poses.append({
+        "camera_id": cam_id,
         "rotation": quaternion.tolist(),  # [x, y, z, w]
         "translation": rotated_pose[:3, 3].tolist()
       })
@@ -338,7 +350,13 @@ class MapAnythingModel(ReconstructionModel):
     )
 
     # Convert scaled intrinsics to list format
-    intrinsics_list = [K.tolist() for K in original_intrinsics]
+    intrinsics_list = []
+    for i, K in enumerate(original_intrinsics):
+      cam_id = camera_ids[i] if camera_ids is not None and i < len(camera_ids) else None
+      intrinsics_list.append({
+          "camera_id": cam_id,
+          "K": K.tolist()
+      })
 
     # Create predictions dict for GLB export
     predictions = {

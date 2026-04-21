@@ -1,0 +1,33 @@
+--- hloc/utils/geometry.py
++++ hloc/utils/geometry.py
+@@ -4,6 +4,7 @@
+ from typing import Union
+ from pathlib import Path
+ import functools
++from scipy.spatial.transform import Rotation as R_scipy
+ import numpy as np
+ import pycolmap
+ import open3d as o3d
+@@ -72,13 +73,21 @@ def compute_epipolar_errors(qvec_r2t, tvec_r2t, p2d_r, p2d_t):
+ 
+ def pose_matrix_from_qvec_tvec(qvec, tvec):
+   pose = np.eye(4)
+-  pose[:3, :3] = pycolmap.qvec_to_rotmat(qvec)
++  # pycolmap >=0.6.0: qvec_to_rotmat removed, use scipy for reliability
++  # qvec is in [w, x, y, z] format, but scipy expects [x, y, z, w]
++  qvec_xyzw = np.array([qvec[1], qvec[2], qvec[3], qvec[0]])  # wxyz -> xyzw
++  rotation = R_scipy.from_quat(qvec_xyzw)
++  pose[:3, :3] = rotation.as_matrix()
+   pose[:3, -1] = tvec
+   return pose
+ 
+ 
+ def qvec_tvec_from_pose_matrix(pose):
+-  qvec = pycolmap.rotmat_to_qvec(pose[:3, :3])
++  # pycolmap >=0.6.0: rotmat_to_qvec removed, use scipy for reliability
++  # scipy returns [x, y, z, w], convert to [w, x, y, z]
++  rotation = R_scipy.from_matrix(pose[:3, :3])
++  qvec_xyzw = rotation.as_quat()
++  qvec = np.array([qvec_xyzw[3], qvec_xyzw[0], qvec_xyzw[1], qvec_xyzw[2]])  # xyzw -> wxyz
+   tvec = pose[:3, -1]
+   return qvec, tvec

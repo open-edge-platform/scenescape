@@ -7,7 +7,7 @@ version = 1
 path = [
   "docs/doxygen/Doxyfile.common",
   "docs/doxygen/api_docs",
-  "manager/src/static/site.webmanifest",
+  "manager/src/manager/static/site.webmanifest",
   "tests/security/fuzzing/token",
   "**/*.env",
   "**/mp4",
@@ -43,3 +43,12 @@ path = [
 precedence = "override"
 SPDX-FileCopyrightText = "(C) 2025 Intel Corporation"
 SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "autocalibration/src/reloc/patches/01-core-modifications.patch"
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "(C) 2018 ETH Zurich and UNC Chapel Hill",
+  "(C) 2025 Intel Corporation"
+]
+SPDX-License-Identifier = "Apache-2.0 AND BSD-3-Clause"

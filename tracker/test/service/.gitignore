@@ -2,3 +2,5 @@
 *.pyc
 __pycache__/
 .pytest_cache/
+.certs/
+.env

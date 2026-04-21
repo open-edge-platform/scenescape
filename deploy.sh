@@ -70,14 +70,42 @@ fi
 BROKER_PORT=${BROKER_PORT:-1883}
 HTTPS_PORT=${HTTPS_PORT:-443}
 
-REQPORTS="$BROKER_PORT $HTTPS_PORT"
-for p in $REQPORTS
-do
-    if command nc -z 127.0.0.1 $p ; then
-        echo "Service already running at port $p. Please terminate services on ports ${REQPORTS}."
-        exit 1
-    fi
-done
+if command nc -z 127.0.0.1 $BROKER_PORT ; then
+    echo "Port $BROKER_PORT is already in use."
+    while true ; do
+        read -p "Please enter an alternative port for MQTT broker (default was $BROKER_PORT): " new_port
+        if [ -z "$new_port" ] ; then
+            echo "Port cannot be empty. Please try again."
+            continue
+        fi
+        if command nc -z 127.0.0.1 $new_port ; then
+            echo "Port $new_port is also in use. Please try a different port."
+            continue
+        fi
+        BROKER_PORT=$new_port
+        break
+    done
+fi
+
+if command nc -z 127.0.0.1 $HTTPS_PORT ; then
+    echo "Port $HTTPS_PORT is already in use."
+    while true ; do
+        read -p "Please enter an alternative port for HTTPS (default was $HTTPS_PORT): " new_port
+        if [ -z "$new_port" ] ; then
+            echo "Port cannot be empty. Please try again."
+            continue
+        fi
+        if command nc -z 127.0.0.1 $new_port ; then
+            echo "Port $new_port is also in use. Please try a different port."
+            continue
+        fi
+        HTTPS_PORT=$new_port
+        break
+    done
+fi
+
+export BROKER_PORT
+export HTTPS_PORT
 
 version_check()
 {

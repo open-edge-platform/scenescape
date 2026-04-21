@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
@@ -31,7 +31,7 @@ from typing import Any, List
 
 from scene_common import log
 from controller.ilabs_tracking import IntelLabsTracking
-from controller.tracking import BATCHED_MODE
+from controller.tracking import BATCHED_MODE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 from controller.observability import metrics
 
 DEFAULT_CHUNKING_RATE_FPS = 15
@@ -130,10 +130,13 @@ class TimeChunkProcessor(threading.Thread):
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   """Time-chunked version of IntelLabsTracking."""
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps):
+  EMPTY_FRAME_CAMERA_ID = "__empty_frame__"
+
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, reid_config_data=None):
     # Call parent constructor to initialize IntelLabsTracking
-    super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps)
+    super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps, suspended_track_timeout_secs, reid_config_data)
     self.time_chunking_rate_fps = time_chunking_rate_fps
+    self.suspended_track_timeout_secs = suspended_track_timeout_secs
     log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking rate: {self.time_chunking_rate_fps} fps")
 
   def trackObjects(self, objects, already_tracked_objects, when, categories,
@@ -149,18 +152,19 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     # Create IntelLabs trackers if not already created
     self._createIlabsTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
 
-    if len(objects) == 0:
-      return
-
     if not categories:
       categories = self.trackers.keys()
 
     # Extract camera_id from objects - required for time chunking
-    try:
-      camera_id = objects[0].camera.cameraID
-    except (AttributeError, IndexError):
-      log.warning("No camera ID found in objects, skipping time chunking processing")
-      return
+    if len(objects) > 0:
+      try:
+        camera_id = objects[0].camera.cameraID
+      except (AttributeError, IndexError):
+        log.warning("No camera ID found in objects, skipping time chunking processing")
+        return
+    else:
+      # Keep retirement moving when a camera/category has no detections.
+      camera_id = self.EMPTY_FRAME_CAMERA_ID
 
     for category in categories:
       # Use time chunking
@@ -178,7 +182,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     # delegate tracking to IntelLabsTracking
     for category in categories:
       if category not in self.trackers:
-        tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, self.time_chunking_rate_fps)
+        tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, self.time_chunking_rate_fps, self.suspended_track_timeout_secs, self.reid_config_data)
         self.trackers[category] = tracker
         tracker.start()
         log.info(f"Started IntelLabs tracker {tracker.__str__()} thread for category {category}")

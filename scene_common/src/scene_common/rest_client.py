@@ -1,13 +1,16 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
 import json
 import re
 import requests
-import sys
 from http import HTTPStatus
 from urllib.parse import urljoin
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class RESTResult(dict):
   def __init__(self, statusCode, errors=None):
@@ -16,14 +19,38 @@ class RESTResult(dict):
     self.errors = errors
     return
 
+  @property
+  def status_code(self):
+    return self.statusCode
+
+  def json(self):
+    return dict(self)
+
+  @property
+  def text(self):
+    return json.dumps(dict(self))
+
+
 class RESTClient:
-  def __init__(self, url, rootcert=None, auth=None):
+  def __init__(self, url=None, token=None, auth=None,
+               rootcert=None, verify_ssl=False, timeout=10):
     self.url = url
-    self.rootcert = rootcert
-    if not self.url.endswith("/"):
+
+    if self.url and not self.url.endswith("/"):
       self.url = self.url + "/"
+
+    # Handle SSL verification (support both bool and path)
+    self.verify_ssl = verify_ssl if verify_ssl is not False else False
+    if rootcert:
+      self.verify_ssl = rootcert
+
+    self.timeout = timeout
     self.session = requests.session()
-    if auth:
+
+    # If token provided directly, use it (skip authentication)
+    if token:
+      self.token = token
+    elif auth:
       self._parseAuth(auth)
     return
 
@@ -46,10 +73,10 @@ class RESTClient:
     res = self.authenticate(user, pw)
     if not res:
       error_message = (
-        f"Failed to authenticate\n"
-        f"  URL: {self.url}\n"
-        f"  status: {res.statusCode}\n"
-        f"  errors: {res.errors}"
+          f"Failed to authenticate\n"
+          f"  URL: {self.url}\n"
+          f"  status: {res.statusCode}\n"
+          f"  errors: {res.errors}"
       )
       raise RuntimeError(error_message)
     return
@@ -58,8 +85,45 @@ class RESTClient:
   def isAuthenticated(self):
     return hasattr(self, 'token') and self.token is not None
 
+  def _headers(self):
+    headers = {
+        "Content-Type": "application/json"
+    }
+    if hasattr(self, 'token') and self.token:
+      headers["Authorization"] = f"Token {self.token}"
+    return headers
+
+  def request(self, method, path, **kwargs):
+    """
+    Returns raw requests.Response object for compatibility with API tests
+    """
+    # Ensure path starts with /
+    if not path.startswith('/'):
+      path = '/' + path
+
+    url = urljoin(self.url, path.lstrip('/'))
+    logger.debug("REST request: %s %s", method, url)
+    # Merge headers
+    headers = self._headers()
+    if 'headers' in kwargs:
+      headers.update(kwargs.pop('headers'))
+
+    return self.session.request(
+        method=method,
+        url=url,
+        headers=headers,
+        verify=self.verify_ssl,
+        timeout=self.timeout,
+        **kwargs
+    )
+
   def decodeReply(self, reply, expectedStatus, successContent=None):
     result = RESTResult(statusCode=reply.status_code)
+    # Accept either a single status code or a list/tuple of acceptable codes
+    if isinstance(expectedStatus, (list, tuple)):
+      status_ok = reply.status_code in expectedStatus
+    else:
+      status_ok = reply.status_code == expectedStatus
     decoded = False
     if 'Content-Type' in reply.headers and reply.headers['Content-Type'] == "application/json":
       try:
@@ -69,21 +133,22 @@ class RESTClient:
         content = reply.content
     else:
       content = {
-        'data': reply.content,
+          'data': reply.content,
       }
       if 'Content-Disposition' in reply.headers:
-        fname = re.findall("filename=(.+)", reply.headers['Content-Disposition'])[0]
+        fname = re.findall("filename=(.+)",
+                           reply.headers['Content-Disposition'])[0]
         content['filename'] = fname
       decoded = True
 
-    if reply.status_code == expectedStatus:
+    if status_ok:
       if successContent:
         content = successContent
         decoded = True
       if decoded:
         result.update(content)
 
-    if not decoded or reply.status_code != expectedStatus:
+    if not decoded or not status_ok:
       result.errors = content
 
     return result
@@ -99,11 +164,15 @@ class RESTClient:
     auth_url = urljoin(self.url, "auth")
     try:
       reply = self.session.post(auth_url, data={'username': user, 'password': password},
-                                verify=self.rootcert)
+                                verify=self.verify_ssl)
     except requests.exceptions.ConnectionError as err:
-      result = RESTResult("ConnectionError", errors=("Connection error", str(err)))
+      result = RESTResult(
+          "ConnectionError", errors=(
+              "Connection error", str(err)))
     else:
-      result = self.decodeReply(reply, HTTPStatus.OK, successContent={'authenticated': True})
+      result = self.decodeReply(
+          reply, HTTPStatus.OK, successContent={
+              'authenticated': True})
       if reply.status_code == HTTPStatus.OK:
         data = json.loads(reply.content)
         self.token = data['token']
@@ -120,7 +189,8 @@ class RESTClient:
     if not files:
       data_args = {'json': data}
     elif self.dataIsNested(data):
-      raise ValueError("requests library can't combine files and nested dictionaries")
+      raise ValueError(
+          "requests library can't combine files and nested dictionaries")
     return data_args
 
   def _create(self, endpoint, data, files=None):
@@ -134,10 +204,12 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    logger.debug(
+        "RESTClient _create: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
-                              headers=headers, verify=self.rootcert)
+                              headers=headers, verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.CREATED)
 
   def _get(self, endpoint, parameters):
@@ -150,9 +222,11 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    logger.debug("RESTClient _get: endpoint='%s', full_path='%s', params=%s",
+                 endpoint, full_path, parameters)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.get(full_path, params=parameters, headers=headers,
-                             verify=self.rootcert)
+                             verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.OK)
 
   def _update(self, endpoint, data, files=None):
@@ -166,10 +240,12 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    logger.debug(
+        "RESTClient _update: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
-                              headers=headers, verify=self.rootcert)
+                              headers=headers, verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.OK)
 
   def _delete(self, endpoint):
@@ -180,8 +256,13 @@ class RESTClient:
                                 empty with `errors` set on failure
     """
     full_path = urljoin(self.url, endpoint)
+    logger.debug(
+        "RESTClient _delete: endpoint='%s', full_path='%s'", endpoint, full_path)
     headers = {'Authorization': f"Token {self.token}"}
-    reply = self.session.delete(full_path, headers=headers, verify=self.rootcert)
+    reply = self.session.delete(
+        full_path,
+        headers=headers,
+        verify=self.verify_ssl)
     return self.decodeReply(reply, HTTPStatus.OK)
 
   def _separateFiles(self, data, fields):
@@ -268,6 +349,24 @@ class RESTClient:
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
     return self._update(f"child/{uid}", data, files)
+
+  def getChildScene(self, filter):
+    """Gets all child scenes matching filter. If filter is None returns all child scenes.
+
+    @param      filter          dict with key/value pairs to filter matching objects
+    @return                     RESTResult with decoded objects on success,
+                                empty with `errors` set on failure
+    """
+    return self._get("scenes/child", filter)
+
+  def deleteChildSceneLink(self, uid):
+    """Deletes child scene link with `uid`
+
+    @param      uid             uid of child scene link to delete
+    @return                     RESTResult with deleted object's uid on success,
+                                empty with `errors` set on failure
+    """
+    return self._delete(f"child/{uid}")
 
   # Camera
   def getCameras(self, filter):
@@ -515,19 +614,6 @@ class RESTClient:
     """
     return self._delete(f"asset/{uid}")
 
-  # child
-  def getChildScene(self, filter):
-    """Gets all child scenes matching filter. If filter is None returns all child scenes.
-
-    @param      filter          dict with key/value pairs to filter matching objects
-    @return                     RESTResult with decoded objects on success,
-                                empty with `errors` set on failure
-    """
-    return self._get("scenes/child", filter)
-
-  def updateChildScene(self, uid, data):
-    return self._update(f"child/{uid}", data)
-
   # Users
   def getUsers(self, filter):
     """Gets all users matching filter. If filter is None returns all users.
@@ -628,3 +714,60 @@ class RESTClient:
     with open(zip_file_path, "rb") as f:
       files = {"zipFile": (os.path.basename(zip_file_path), f)}
       return self._create(endpoint, data={}, files=files)
+
+  # Auto-calibration
+  def getStatus(self):
+    """Gets system status
+
+    @return                     RESTResult with system status on success,
+                                empty with `errors` set on failure
+    """
+    return self._get("status", None)
+
+  def registerScene(self, sceneId, data):
+    """Register a scene for auto-calibration
+
+    @param      sceneId        ID of the scene to register
+    @param      data            dict with registration parameters
+    @return                     RESTResult with registration info on success,
+                                empty with `errors` set on failure
+    """
+    return self._create(f"scenes/{sceneId}/registration", data)
+
+  def getSceneRegistrationStatus(self, sceneId):
+    """Gets scene registration status
+
+    @param      sceneId        ID of the scene
+    @return                     RESTResult with registration status on success,
+                                empty with `errors` set on failure
+    """
+    return self._get(f"scenes/{sceneId}/registration", None)
+
+  def updateSceneRegistration(self, sceneId, data):
+    """Updates scene registration
+
+    @param      sceneId        ID of the scene
+    @param      data            dict with registration update parameters
+    @return                     RESTResult with updated registration on success,
+                                empty with `errors` set on failure
+    """
+    return self._update(f"scenes/{sceneId}/registration", data)
+
+  def calibrateCamera(self, cameraId, data):
+    """Calibrate a camera
+
+    @param      cameraId       ID of the camera to calibrate
+    @param      data            dict with calibration parameters
+    @return                     RESTResult with calibration info on success,
+                                empty with `errors` set on failure
+    """
+    return self._create(f"cameras/{cameraId}/calibration", data)
+
+  def getCameraCalibrationStatus(self, cameraId):
+    """Gets camera calibration status
+
+    @param      cameraId       ID of the camera
+    @return                     RESTResult with calibration status on success,
+                                empty with `errors` set on failure
+    """
+    return self._get(f"cameras/{cameraId}/calibration", None)

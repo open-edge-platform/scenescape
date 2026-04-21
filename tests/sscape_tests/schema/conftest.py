@@ -20,7 +20,7 @@ def pytest_sessionfinish(exitstatus):
 
 @pytest.fixture
 def schemaObject():
-  schemaObj = SchemaValidation(SCHEMA_PATH)
+  schemaObj = SchemaValidation(SCHEMA_PATH, is_multi_message=True)
   return schemaObj
 
 @pytest.fixture
@@ -55,7 +55,6 @@ def objData():
         "category": "person",
         "confidence": 1,
         "bounding_box": point,
-        "center_of_mass": point,
         "bounding_box_px": point}
   jdata['objects']['person'] = [obj]
   return jdata

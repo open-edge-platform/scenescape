@@ -1,0 +1,554 @@
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/matchers/adalam.py hloc/matchers/adalam.py
+--- /tmp/hloc-latest/hloc/matchers/adalam.py	2026-01-16 16:13:56.814320260 -0700
++++ hloc/matchers/adalam.py	1969-12-31 17:00:00.000000000 -0700
+@@ -1,67 +0,0 @@
+-import torch
+-from kornia.feature.adalam import AdalamFilter
+-from kornia.utils.helpers import get_cuda_device_if_available
+-
+-from ..utils.base_model import BaseModel
+-
+-
+-class AdaLAM(BaseModel):
+-    default_conf = {
+-        "area_ratio": 100,
+-        "search_expansion": 4,
+-        "ransac_iters": 128,
+-        "min_inliers": 6,
+-        "min_confidence": 200,
+-        "orientation_difference_threshold": 30,
+-        "scale_rate_threshold": 1.5,
+-        "detected_scale_rate_threshold": 5,
+-        "refit": True,
+-        "force_seed_mnn": True,
+-        "device": get_cuda_device_if_available(),
+-    }
+-    required_inputs = [
+-        "image0",
+-        "image1",
+-        "descriptors0",
+-        "descriptors1",
+-        "keypoints0",
+-        "keypoints1",
+-        "scales0",
+-        "scales1",
+-        "oris0",
+-        "oris1",
+-    ]
+-
+-    def _init(self, conf):
+-        self.adalam = AdalamFilter(conf)
+-
+-    def _forward(self, data):
+-        assert data["keypoints0"].size(0) == 1
+-        if data["keypoints0"].size(1) < 2 or data["keypoints1"].size(1) < 2:
+-            matches = torch.zeros(
+-                (0, 2), dtype=torch.int64, device=data["keypoints0"].device
+-            )
+-        else:
+-            matches = self.adalam.match_and_filter(
+-                data["keypoints0"][0],
+-                data["keypoints1"][0],
+-                data["descriptors0"][0].T,
+-                data["descriptors1"][0].T,
+-                data["image0"].shape[2:],
+-                data["image1"].shape[2:],
+-                data["oris0"][0],
+-                data["oris1"][0],
+-                data["scales0"][0],
+-                data["scales1"][0],
+-            )
+-        matches_new = torch.full(
+-            (data["keypoints0"].size(1),),
+-            -1,
+-            dtype=torch.int64,
+-            device=data["keypoints0"].device,
+-        )
+-        matches_new[matches[:, 0]] = matches[:, 1]
+-        return {
+-            "matches0": matches_new.unsqueeze(0),
+-            "matching_scores0": torch.zeros(matches_new.size(0)).unsqueeze(0),
+-        }
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/matchers/__init__.py hloc/matchers/__init__.py
+--- /tmp/hloc-latest/hloc/matchers/__init__.py	2026-01-16 16:13:56.813844948 -0700
++++ hloc/matchers/__init__.py	2026-01-16 16:16:08.550762929 -0700
+@@ -1,3 +1,6 @@
++# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
++# SPDX-License-Identifier: Apache-2.0
++
+ def get_matcher(matcher):
+-    mod = __import__(f"{__name__}.{matcher}", fromlist=[""])
+-    return getattr(mod, "Model")
++  mod = __import__(f'{__name__}.{matcher}', fromlist=[''])
++  return getattr(mod, 'Model')
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/matchers/lightglue.py hloc/matchers/lightglue.py
+--- /tmp/hloc-latest/hloc/matchers/lightglue.py	2026-01-16 16:13:56.814320260 -0700
++++ hloc/matchers/lightglue.py	1969-12-31 17:00:00.000000000 -0700
+@@ -1,36 +0,0 @@
+-from lightglue import LightGlue as LightGlue_
+-
+-from ..utils.base_model import BaseModel
+-
+-
+-class LightGlue(BaseModel):
+-    default_conf = {
+-        "features": "superpoint",
+-        "depth_confidence": 0.95,
+-        "width_confidence": 0.99,
+-        "compile": False,
+-    }
+-    required_inputs = [
+-        "image0",
+-        "keypoints0",
+-        "descriptors0",
+-        "image1",
+-        "keypoints1",
+-        "descriptors1",
+-    ]
+-
+-    def _init(self, conf):
+-        self.net = LightGlue_(conf.pop("features"), **conf)
+-        if conf["compile"]:
+-            self.net.compile()
+-
+-    def _forward(self, data):
+-        data["descriptors0"] = data["descriptors0"].transpose(-1, -2)
+-        data["descriptors1"] = data["descriptors1"].transpose(-1, -2)
+-
+-        return self.net(
+-            {
+-                "image0": {k[:-1]: v for k, v in data.items() if k[-1] == "0"},
+-                "image1": {k[:-1]: v for k, v in data.items() if k[-1] == "1"},
+-            }
+-        )
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/matchers/loftr.py hloc/matchers/loftr.py
+--- /tmp/hloc-latest/hloc/matchers/loftr.py	2026-01-16 16:13:56.814320260 -0700
++++ hloc/matchers/loftr.py	2026-01-16 16:16:08.558757421 -0700
+@@ -1,53 +1,44 @@
+-import warnings
++# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
++# SPDX-License-Identifier: Apache-2.0
+ 
+ import torch
+-from kornia.feature import LoFTR as LoFTR_
++import warnings
+ from kornia.feature.loftr.loftr import default_cfg
++from kornia.feature import LoFTR as LoFTR_
+ 
+ from ..utils.base_model import BaseModel
+ 
+ 
+ class LoFTR(BaseModel):
+-    default_conf = {
+-        "weights": "outdoor",
+-        "match_threshold": 0.2,
+-        "max_num_matches": None,
+-    }
+-    required_inputs = ["image0", "image1"]
+-
+-    def _init(self, conf):
+-        cfg = default_cfg
+-        cfg["match_coarse"]["thr"] = conf["match_threshold"]
+-        self.net = LoFTR_(pretrained=conf["weights"], config=cfg)
+-
+-    def _forward(self, data):
+-        # For consistency with hloc pairs, we refine kpts in image0!
+-        rename = {
+-            "keypoints0": "keypoints1",
+-            "keypoints1": "keypoints0",
+-            "image0": "image1",
+-            "image1": "image0",
+-            "mask0": "mask1",
+-            "mask1": "mask0",
+-        }
+-        data_ = {rename[k]: v for k, v in data.items()}
+-        with warnings.catch_warnings():
+-            warnings.simplefilter("ignore")
+-            pred = self.net(data_)
+-
+-        scores = pred["confidence"]
+-
+-        top_k = self.conf["max_num_matches"]
+-        if top_k is not None and len(scores) > top_k:
+-            keep = torch.argsort(scores, descending=True)[:top_k]
+-            pred["keypoints0"], pred["keypoints1"] = (
+-                pred["keypoints0"][keep],
+-                pred["keypoints1"][keep],
+-            )
+-            scores = scores[keep]
+-
+-        # Switch back indices
+-        pred = {(rename[k] if k in rename else k): v for k, v in pred.items()}
+-        pred["scores"] = scores
+-        del pred["confidence"]
+-        return pred
++  default_conf = {
++      'weights': 'outdoor',
++      'match_threshold': 0.2,
++      'max_num_matches': None,
++  }
++  required_inputs = [
++      'image0',
++      'image1'
++  ]
++
++  def _init(self, conf):
++    cfg = default_cfg
++    cfg['match_coarse']['thr'] = conf['match_threshold']
++    self.net = LoFTR_(pretrained=conf['weights'], config=cfg)
++
++  def _forward(self, data):
++    with warnings.catch_warnings():
++      warnings.simplefilter("ignore")
++      pred = self.net(data)
++
++    scores = pred['confidence']
++
++    top_k = self.conf['max_num_matches']
++    if top_k is not None and len(scores) > top_k:
++      keep = torch.argsort(scores, descending=True)[:top_k]
++      pred['keypoints0'], pred['keypoints1'] =\
++          pred['keypoints0'][keep], pred['keypoints1'][keep]
++      scores = scores[keep]
++
++    pred['scores'] = scores
++    del pred['confidence']
++    return pred
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/matchers/nearest_neighbor.py hloc/matchers/nearest_neighbor.py
+--- /tmp/hloc-latest/hloc/matchers/nearest_neighbor.py	2026-01-16 16:13:56.814320260 -0700
++++ hloc/matchers/nearest_neighbor.py	2026-01-16 16:16:08.551025141 -0700
+@@ -1,62 +1,65 @@
++# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
++# SPDX-License-Identifier: Apache-2.0
++
+ import torch
+ 
+ from ..utils.base_model import BaseModel
+ 
+ 
+ def find_nn(sim, ratio_thresh, distance_thresh):
+-    sim_nn, ind_nn = sim.topk(2 if ratio_thresh else 1, dim=-1, largest=True)
+-    dist_nn = 2 * (1 - sim_nn)
+-    mask = torch.ones(ind_nn.shape[:-1], dtype=torch.bool, device=sim.device)
+-    if ratio_thresh:
+-        mask = mask & (dist_nn[..., 0] <= (ratio_thresh**2) * dist_nn[..., 1])
+-    if distance_thresh:
+-        mask = mask & (dist_nn[..., 0] <= distance_thresh**2)
+-    matches = torch.where(mask, ind_nn[..., 0], ind_nn.new_tensor(-1))
+-    scores = torch.where(mask, (sim_nn[..., 0] + 1) / 2, sim_nn.new_tensor(0))
+-    return matches, scores
++  sim_nn, ind_nn = sim.topk(2 if ratio_thresh else 1, dim=-1, largest=True)
++  dist_nn = 2 * (1 - sim_nn)
++  mask = torch.ones(ind_nn.shape[:-1], dtype=torch.bool, device=sim.device)
++  if ratio_thresh:
++    mask = mask & (dist_nn[..., 0] <= (ratio_thresh**2)*dist_nn[..., 1])
++  if distance_thresh:
++    mask = mask & (dist_nn[..., 0] <= distance_thresh**2)
++  matches = torch.where(mask, ind_nn[..., 0], ind_nn.new_tensor(-1))
++  scores = torch.where(mask, (sim_nn[..., 0]+1)/2, sim_nn.new_tensor(0))
++  return matches, scores
+ 
+ 
+ def mutual_check(m0, m1):
+-    inds0 = torch.arange(m0.shape[-1], device=m0.device)
+-    loop = torch.gather(m1, -1, torch.where(m0 > -1, m0, m0.new_tensor(0)))
+-    ok = (m0 > -1) & (inds0 == loop)
+-    m0_new = torch.where(ok, m0, m0.new_tensor(-1))
+-    return m0_new
++  inds0 = torch.arange(m0.shape[-1], device=m0.device)
++  loop = torch.gather(m1, -1, torch.where(m0 > -1, m0, m0.new_tensor(0)))
++  ok = (m0 > -1) & (inds0 == loop)
++  m0_new = torch.where(ok, m0, m0.new_tensor(-1))
++  return m0_new
+ 
+ 
+ class NearestNeighbor(BaseModel):
+-    default_conf = {
+-        "ratio_threshold": None,
+-        "distance_threshold": None,
+-        "do_mutual_check": True,
++  default_conf = {
++      'ratio_threshold': None,
++      'distance_threshold': None,
++      'do_mutual_check': True,
++  }
++  required_inputs = ['descriptors0', 'descriptors1']
++
++  def _init(self, conf):
++    pass
++
++  def _forward(self, data):
++    if data['descriptors0'].size(-1) == 0 or data['descriptors1'].size(-1) == 0:
++      matches0 = torch.full(
++          data['descriptors0'].shape[:2], -1,
++          device=data['descriptors0'].device)
++      return {
++          'matches0': matches0,
++          'matching_scores0': torch.zeros_like(matches0)
++      }
++    ratio_threshold = self.conf['ratio_threshold']
++    if data['descriptors0'].size(-1) == 1 or data['descriptors1'].size(-1) == 1:
++      ratio_threshold = None
++    sim = torch.einsum(
++        'bdn,bdm->bnm', data['descriptors0'], data['descriptors1'])
++    matches0, scores0 = find_nn(
++        sim, ratio_threshold, self.conf['distance_threshold'])
++    if self.conf['do_mutual_check']:
++      matches1, scores1 = find_nn(
++          sim.transpose(1, 2), ratio_threshold,
++          self.conf['distance_threshold'])
++      matches0 = mutual_check(matches0, matches1)
++    return {
++        'matches0': matches0,
++        'matching_scores0': scores0,
+     }
+-    required_inputs = ["descriptors0", "descriptors1"]
+-
+-    def _init(self, conf):
+-        pass
+-
+-    def _forward(self, data):
+-        if data["descriptors0"].size(-1) == 0 or data["descriptors1"].size(-1) == 0:
+-            matches0 = torch.full(
+-                data["descriptors0"].shape[:2], -1, device=data["descriptors0"].device
+-            )
+-            return {
+-                "matches0": matches0,
+-                "matching_scores0": torch.zeros_like(matches0),
+-            }
+-        ratio_threshold = self.conf["ratio_threshold"]
+-        if data["descriptors0"].size(-1) == 1 or data["descriptors1"].size(-1) == 1:
+-            ratio_threshold = None
+-        sim = torch.einsum("bdn,bdm->bnm", data["descriptors0"], data["descriptors1"])
+-        matches0, scores0 = find_nn(
+-            sim, ratio_threshold, self.conf["distance_threshold"]
+-        )
+-        if self.conf["do_mutual_check"]:
+-            matches1, scores1 = find_nn(
+-                sim.transpose(1, 2), ratio_threshold, self.conf["distance_threshold"]
+-            )
+-            matches0 = mutual_check(matches0, matches1)
+-        return {
+-            "matches0": matches0,
+-            "matching_scores0": scores0,
+-        }
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/matchers/qta_loftr.py hloc/matchers/qta_loftr.py
+--- /tmp/hloc-latest/hloc/matchers/qta_loftr.py	1969-12-31 17:00:00.000000000 -0700
++++ hloc/matchers/qta_loftr.py	2026-01-16 16:16:08.558810060 -0700
+@@ -0,0 +1,163 @@
++# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
++# SPDX-License-Identifier: Apache-2.0
++
++from FeatureMatching.src.utils.misc import lower_config
++from FeatureMatching.src.config.default import get_cfg_defaults
++from FeatureMatching.src.loftr import LoFTR
++import sys
++from pathlib import Path
++from collections import namedtuple
++import torch
++from addict import Dict
++from ..utils.base_model import BaseModel
++
++sys.path.append(str(Path(__file__).parent / "../../third_party/QuadTreeAttention"))
++
++# get_cfg_defaults():
++# ##############  ↓  LoFTR Pipeline  ↓  ##############
++# _CN.LOFTR = CN()
++# _CN.LOFTR.BACKBONE_TYPE = 'ResNetFPN'
++# _CN.LOFTR.RESOLUTION = (8, 2)  # options: [(8, 2), (16, 4)]
++# _CN.LOFTR.FINE_WINDOW_SIZE = 5  # window_size in fine_level, must be odd
++# _CN.LOFTR.FINE_CONCAT_COARSE_FEAT = True
++#
++# # 1. LoFTR-backbone (local feature CNN) config
++# _CN.LOFTR.RESNETFPN = CN()
++# _CN.LOFTR.RESNETFPN.INITIAL_DIM = 128
++# _CN.LOFTR.RESNETFPN.BLOCK_DIMS = [128, 196, 256]  # s1, s2, s3
++#
++# # 2. LoFTR-coarse module config
++# _CN.LOFTR.COARSE = CN()
++# _CN.LOFTR.COARSE.D_MODEL = 256
++# _CN.LOFTR.COARSE.D_FFN = 256
++# _CN.LOFTR.COARSE.NHEAD = 8
++# _CN.LOFTR.COARSE.LAYER_NAMES = ['self', 'cross'] * 4
++# _CN.LOFTR.COARSE.ATTENTION = 'linear'  # options: ['linear', 'full']
++# _CN.LOFTR.COARSE.TEMP_BUG_FIX = True
++# _CN.LOFTR.COARSE.BLOCK_TYPE = 'loftr'
++# _CN.LOFTR.COARSE.ATTN_TYPE = 'B'
++# _CN.LOFTR.COARSE.TOPKS = [16, 8, 8]
++#
++# # 3. Coarse-Matching config
++# _CN.LOFTR.MATCH_COARSE = CN()
++# _CN.LOFTR.MATCH_COARSE.THR = 0.2
++# _CN.LOFTR.MATCH_COARSE.BORDER_RM = 2
++# _CN.LOFTR.MATCH_COARSE.MATCH_TYPE = 'dual_softmax'  # options: ['dual_softmax, 'sinkhorn']
++# _CN.LOFTR.MATCH_COARSE.DSMAX_TEMPERATURE = 0.1
++# _CN.LOFTR.MATCH_COARSE.SKH_ITERS = 3
++# _CN.LOFTR.MATCH_COARSE.SKH_INIT_BIN_SCORE = 1.0
++# _CN.LOFTR.MATCH_COARSE.SKH_PREFILTER = False
++# _CN.LOFTR.MATCH_COARSE.TRAIN_COARSE_PERCENT = 0.2  # training tricks: save GPU memory
++# _CN.LOFTR.MATCH_COARSE.TRAIN_PAD_NUM_GT_MIN = 200  # training tricks: avoid DDP deadlock
++# _CN.LOFTR.MATCH_COARSE.SPARSE_SPVS = True
++#
++# # 4. LoFTR-fine module config
++# _CN.LOFTR.FINE = CN()
++# _CN.LOFTR.FINE.D_MODEL = 128
++# _CN.LOFTR.FINE.D_FFN = 128
++# _CN.LOFTR.FINE.NHEAD = 8
++# _CN.LOFTR.FINE.LAYER_NAMES = ['self', 'cross'] * 1
++# _CN.LOFTR.FINE.ATTENTION = 'linear'
++# _CN.LOFTR.FINE.BLOCK_TYPE = 'loftr'
++#
++# # 5. LoFTR Losses
++# # -- # coarse-level
++# _CN.LOFTR.LOSS = CN()
++# _CN.LOFTR.LOSS.COARSE_TYPE = 'focal'  # ['focal', 'cross_entropy']
++# _CN.LOFTR.LOSS.COARSE_WEIGHT = 1.0
++# # _CN.LOFTR.LOSS.SPARSE_SPVS = False
++# # -- - -- # focal loss (coarse)
++# _CN.LOFTR.LOSS.FOCAL_ALPHA = 0.25
++# _CN.LOFTR.LOSS.FOCAL_GAMMA = 2.0
++# _CN.LOFTR.LOSS.POS_WEIGHT = 1.0
++# _CN.LOFTR.LOSS.NEG_WEIGHT = 1.0
++# # _CN.LOFTR.LOSS.DUAL_SOFTMAX = False  # whether coarse-level use dual-softmax or not.
++# # use `_CN.LOFTR.MATCH_COARSE.MATCH_TYPE`
++#
++# # -- # fine-level
++# _CN.LOFTR.LOSS.FINE_TYPE = 'l2_with_std'  # ['l2_with_std', 'l2']
++# _CN.LOFTR.LOSS.FINE_WEIGHT = 1.0
++# _CN.LOFTR.LOSS.FINE_CORRECT_THR = 1.0  # for filtering valid fine-level gts (some gt matches might fall out of the fine-level window)
++
++PredDict = namedtuple("PredDict", ["scores", "keypoints0", "keypoints1"])
++
++
++class QTA_LoFTR_(BaseModel):
++  required_inputs = ["image0", "image1"]
++
++  def _init(self, conf_):
++
++    cfg = get_cfg_defaults().LOFTR
++    # from: configs/loftr/indoor/scannet/loftr_ds_quadtree_eval.py
++    # cfg.COARSE.TEMP_BUG_FIX = False
++    cfg.MATCH_COARSE.MATCH_TYPE = "dual_softmax"
++    cfg.MATCH_COARSE.SPARSE_SPVS = False
++    cfg.RESNETFPN.INITIAL_DIM = 128
++    cfg.RESNETFPN.BLOCK_DIMS = [128, 196, 256]
++    cfg.COARSE.D_MODEL = 256
++    cfg.COARSE.BLOCK_TYPE = "quadtree"
++    cfg.COARSE.ATTN_TYPE = "B"
++    cfg.COARSE.TOPKS = [32, 16, 16]
++    cfg.FINE.D_MODEL = 128
++    # SS
++    cfg.CACHE_BACKBONE = True
++    conf = Dict(lower_config(cfg))
++    conf.update(conf_)
++
++    self.net = LoFTR(config=conf)
++    ckpt_path = Path(__file__).parent / (
++        "../../third_party/QuadTreeAttention/FeatureMatching/weights/"
++        + conf["weights"]
++        + ".ckpt"
++    )
++    self.net.load_state_dict(
++        torch.load(ckpt_path, map_location=torch.device("cpu"))["state_dict"]
++    )
++
++  def _forward(self, data):
++    self.net(data)
++    # Assign matches to individual image pairs in batch
++    b_ids = data["b_ids"]
++    batch_start = (
++        b_ids.diff(
++            prepend=-torch.ones(1, device=b_ids.device, dtype=b_ids.dtype),
++            append=torch.full(
++                (1,), b_ids.shape[0], device=b_ids.device, dtype=b_ids.dtype
++            ),
++        )
++        .nonzero()
++        .cpu()
++        .numpy()
++        .reshape(-1)
++    )
++    bs = [None] * data["image0"].shape[0]
++    for i, j in zip(batch_start[:-1], batch_start[1:]):
++      bs[b_ids[i]] = (i, j)
++    prev = b_ids.shape[0]
++    for b_id in range(len(bs) - 1, -1, -1):
++      if bs[b_id] is None:  # no kpts from this image pair
++        bs[b_id] = (prev, prev)
++      else:
++        prev = bs[b_id][0]
++
++    pred = PredDict(
++        scores=tuple(data["mconf"][st:en] for (st, en) in bs),
++        keypoints0=tuple(data["mkpts0_f"][st:en] for (st, en) in bs),
++        keypoints1=tuple(data["mkpts1_f"][st:en] for (st, en) in bs),
++    )
++
++    return pred
++
++
++# /home/ssheorey/Documents/Open3D/Code/Hierarchical-Localization/hloc/matchers/../../third_party/QuadTreeAttention/FeatureMatching/src/loftr/loftr.py:45:
++# TracerWarning: Converting a tensor to a Python boolean might cause the trace to be
++# incorrect. We can't record the data flow of Python values, so this value will be
++# treated as a constant in the future. This means that the trace might not generalize
++# to other inputs!
++#  if data['hw0_i'] == data['hw1_i']:  # faster & better BN convergence
++
++# /home/ssheorey/Documents/Open3D/Code/Hierarchical-Localization/hloc/matchers/../../third_party/QuadTreeAttention/FeatureMatching/src/loftr/loftr_module/fine_preprocess.py:34: TracerWarning: Converting a tensor to a Python boolean might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
++#   if data['b_ids'].shape[0] == 0:
++
++#: TracerWarning: Converting a tensor to a Python number might cause the trace to be incorrect. We can't record the data flow of Python values, so this value will be treated as a constant in the future. This means that the trace might not generalize to other inputs!
++#  stride = (data['hw0_f'][0] // data['hw0_c'][0]).item()
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/matchers/superglue.py hloc/matchers/superglue.py
+--- /tmp/hloc-latest/hloc/matchers/superglue.py	2026-01-16 16:13:56.814320260 -0700
++++ hloc/matchers/superglue.py	2026-01-16 16:16:08.551289648 -0700
+@@ -1,31 +1,28 @@
++# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
++# SPDX-License-Identifier: Apache-2.0
++
++from SuperGluePretrainedNetwork.models.superglue import SuperGlue as SG
+ import sys
+ from pathlib import Path
+ 
+ from ..utils.base_model import BaseModel
+ 
+-sys.path.append(str(Path(__file__).parent / "../../third_party"))
+-from SuperGluePretrainedNetwork.models.superglue import SuperGlue as SG  # noqa: E402
++sys.path.append(str(Path(__file__).parent / '../../third_party'))
+ 
+ 
+ class SuperGlue(BaseModel):
+-    default_conf = {
+-        "weights": "outdoor",
+-        "sinkhorn_iterations": 100,
+-        "match_threshold": 0.2,
+-    }
+-    required_inputs = [
+-        "image0",
+-        "keypoints0",
+-        "scores0",
+-        "descriptors0",
+-        "image1",
+-        "keypoints1",
+-        "scores1",
+-        "descriptors1",
+-    ]
++  default_conf = {
++      'weights': 'outdoor',
++      'sinkhorn_iterations': 100,
++      'match_threshold': 0.2,
++  }
++  required_inputs = [
++      'image0', 'keypoints0', 'scores0', 'descriptors0',
++      'image1', 'keypoints1', 'scores1', 'descriptors1',
++  ]
+ 
+-    def _init(self, conf):
+-        self.net = SG(conf)
++  def _init(self, conf):
++    self.net = SG(conf)
+ 
+-    def _forward(self, data):
+-        return self.net(data)
++  def _forward(self, data):
++    return self.net(data)

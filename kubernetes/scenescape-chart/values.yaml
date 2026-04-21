@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # Default values for scenescape-chart.
@@ -17,8 +17,6 @@ initModels:
     name: python
     tag: 3.13-slim@sha256:4c2cf9917bd1cbacc5e9b07320025bdb7cdf2df7b0ceaccb55e9dd7e30987419
     pullPolicy: IfNotPresent
-  # Model type to download - MUST be one of: default, ocr, all
-  modelType: default
   # Model precisions - comma-separated list of: FP32, FP16, INT8
   modelPrecisions: FP32
   modelProc: true
@@ -60,6 +58,7 @@ web:
 scene:
   image: intel/scenescape-controller
   pullPolicy: IfNotPresent
+  analyticsOnly: false
 
 autocalibration:
   image: intel/scenescape-autocalibration
@@ -72,12 +71,12 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "weekly-2026.0-20260120-ubuntu24"
+    tag: "2026.1.0-20260414-weekly-ubuntu24"
     pullPolicy: IfNotPresent
 
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
-  tag: "weekly-2026.0-20260120-ubuntu24"
+  tag: "2026.1.0-20260414-weekly-ubuntu24"
   pullPolicy: IfNotPresent
   storageClassName: ""
   cameras:
@@ -91,7 +90,7 @@ retail:
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
-  tag: "weekly-2026.0-20260120-ubuntu24"
+  tag: "2026.1.0-20260414-weekly-ubuntu24"
   storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
@@ -122,7 +121,7 @@ vdms:
   image:
     repository: docker.io
     name: intellabs/vdms
-    tag: v2.11.0
+    tag: v2.12.0
     pullPolicy: IfNotPresent
 
 clusterAnalytics:
@@ -201,13 +200,11 @@ pvc:
 service:
   annotations: {}
 
-# Gateway API configuration
-gateway:
-  enabled: false
-  name: "scenescape-gateway"
-  className: "nginx"
-  hostname: "web.scenescape.intel.com"
-  tlsSecretName: ""  # Leave empty to auto-generate as "<release-name>-web-tls"
+ingress:
+  enabled: true
+  className: ""
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "128m"
 
 loadBalancer:
   enabled: false

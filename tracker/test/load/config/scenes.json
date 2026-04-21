@@ -1,0 +1,72 @@
+[
+  {
+    "uid": "302cf49a-97ec-402d-a324-c5077b280b7b",
+    "name": "Queuing",
+    "cameras": [
+      {
+        "uid": "atag-qcam1",
+        "name": "atag-qcam1",
+        "intrinsics": {
+          "fx": 905.0,
+          "fy": 905.0,
+          "cx": 640.0,
+          "cy": 360.0,
+          "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
+        },
+        "extrinsics": {
+          "translation": [0.0, 0.0, 50.0],
+          "rotation": [-180.0, 0.0, 0.0],
+          "scale": [1.0, 1.0, 1.0]
+        }
+      },
+      {
+        "uid": "atag-qcam2",
+        "name": "atag-qcam2",
+        "intrinsics": {
+          "fx": 905.0,
+          "fy": 905.0,
+          "cx": 640.0,
+          "cy": 360.0,
+          "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
+        },
+        "extrinsics": {
+          "translation": [0.0, 0.0, 50.0],
+          "rotation": [-180.0, 0.0, 0.0],
+          "scale": [1.0, 1.0, 1.0]
+        }
+      },
+      {
+        "uid": "atag-qcam3",
+        "name": "atag-qcam3",
+        "intrinsics": {
+          "fx": 905.0,
+          "fy": 905.0,
+          "cx": 640.0,
+          "cy": 360.0,
+          "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
+        },
+        "extrinsics": {
+          "translation": [0.0, 0.0, 50.0],
+          "rotation": [-180.0, 0.0, 0.0],
+          "scale": [1.0, 1.0, 1.0]
+        }
+      },
+      {
+        "uid": "atag-qcam4",
+        "name": "atag-qcam4",
+        "intrinsics": {
+          "fx": 905.0,
+          "fy": 905.0,
+          "cx": 640.0,
+          "cy": 360.0,
+          "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
+        },
+        "extrinsics": {
+          "translation": [0.0, 0.0, 50.0],
+          "rotation": [-180.0, 0.0, 0.0],
+          "scale": [1.0, 1.0, 1.0]
+        }
+      }
+    ]
+  }
+]

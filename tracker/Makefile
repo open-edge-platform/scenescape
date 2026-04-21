@@ -3,10 +3,12 @@
 
 # Integration with common.mk for Docker image builds
 IMAGE := scenescape-tracker
-RUNTIME_OS_IMAGE := gcr.io/distroless/cc-debian13@sha256:d93602c2e8facf19435442a3fd19306e77505ca722aad08e7de659f6df43e147
 TARGET ?= runtime
 BUILD_TYPE ?= Release
 HAS_PIP := no
+HAS_DPKG := no
+BUILDER_BASE_IMAGE := debian:13-slim
+BUILDER_IMAGE := $(IMAGE)-builder
 EXTRA_BUILD_ARGS := --build-arg GIT_COMMIT=$(shell git rev-parse --short HEAD) --build-arg BUILD_TYPE=$(BUILD_TYPE)
 # Override BUILD_DIR based on BUILD_TYPE (Release->build, others->build-<type>)
 ifeq ($(BUILD_TYPE),Release)
@@ -25,10 +27,11 @@ GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
 SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.cpp)
 
 .PHONY: all dependencies dependencies-debug dependencies-relwithdebinfo \
-        build build-debug build-relwithdebinfo run run-debug \
-        test-unit test-unit-coverage test-service clean install-tools install-deps \
+        build build-debug build-relwithdebinfo run run-debug profile flamegraph \
+        test-unit test-unit-coverage test-service test-load clean install-tools install-deps \
         run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
-        lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report
+        lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report \
+        mqtt-subscribe mqtt-publish broker-start broker-stop generate-certs
 
 all: build
 
@@ -74,16 +77,18 @@ format-python:
 		echo "autopep8 not found. Install: pip install autopep8"; \
 		exit 1; \
 	fi
-	@cd test/service && autopep8 --in-place --indent-size=2 --max-line-length=120 *.py
+	@cd test/service && autopep8 --in-place --indent-size=2 --max-line-length=120 *.py mocks/*.py
 	@echo "✓ Python files formatted"
 
 install-hooks:
 	@echo "Installing git pre-commit hook..."
 	@mkdir -p ../.git/hooks
 	@echo '#!/bin/bash' > ../.git/hooks/pre-commit
-	@echo 'cd tracker && make lint-cpp && make lint-python' >> ../.git/hooks/pre-commit
+	@echo 'set -e' >> ../.git/hooks/pre-commit
+	@echo 'make prettier-check' >> ../.git/hooks/pre-commit
+	@echo 'cd tracker && make lint-cpp && make lint-python && make lint-dockerfile' >> ../.git/hooks/pre-commit
 	@chmod +x ../.git/hooks/pre-commit
-	@echo "✓ Pre-commit hook installed (C++ and Python linting)"
+	@echo "✓ Pre-commit hook installed (C++ linting, Python linting, Dockerfile linting, Prettier check)"
 
 #####################################################################
 # Linting and security scanning
@@ -108,7 +113,7 @@ lint-python:
 		echo "autopep8 not found. Install: pip install autopep8"; \
 		exit 1; \
 	fi
-	@cd test/service && autopep8 --diff --exit-code --indent-size=2 --max-line-length=120 *.py && echo "✓ Python lint passed"
+	@cd test/service && autopep8 --diff --exit-code --indent-size=2 --max-line-length=120 *.py mocks/*.py && echo "✓ Python lint passed"
 
 lint-trivy:
 	@echo "Running Trivy security scan..."
@@ -169,11 +174,58 @@ build-relwithdebinfo: dependencies-relwithdebinfo
 # Run targets
 #####################################################################
 
+# Schema and config paths for local development
+TRACKER_SCHEMA_PATH ?= $(CURDIR)/schema/config.schema.json
+TRACKER_CONFIG_PATH ?= $(CURDIR)/config/tracker.json
+
+# MQTT broker connection - preconfigured for SceneScape demo (docker compose up)
+# These variables are exported only in run/run-debug targets to avoid polluting test environment
+TRACKER_MQTT_HOST ?= localhost
+TRACKER_MQTT_PORT ?= $(shell cd test/service && docker compose port broker 1883 2>/dev/null | cut -d: -f2 || echo 1883)
+TRACKER_MQTT_INSECURE ?= false
+
+# TLS CA certificate path (host path for native runs, container path set in tracker.json)
+TRACKER_TLS_CA_CERT_HOST ?= $(CURDIR)/../manager/secrets/certs/scenescape-ca.pem
+TRACKER_MQTT_TLS_CA_CERT ?= $(TRACKER_TLS_CA_CERT_HOST)
+
+# For insecure test broker: make run TRACKER_MQTT_INSECURE=true
+
+# Export MQTT env vars and empty proxy vars - Paho MQTT library fails with proxy env vars,
+# tracker code detects empty vars and unsets them (see mqtt_client.cpp)
 run: build
-	. build/conanrun.sh && ./build/$(NAME)
+	export TRACKER_MQTT_HOST="$(TRACKER_MQTT_HOST)" \
+		TRACKER_MQTT_PORT="$(TRACKER_MQTT_PORT)" \
+		TRACKER_MQTT_INSECURE="$(TRACKER_MQTT_INSECURE)" \
+		TRACKER_MQTT_TLS_CA_CERT="$(TRACKER_MQTT_TLS_CA_CERT)" \
+		http_proxy= https_proxy= HTTP_PROXY= HTTPS_PROXY= && \
+		. build/conanrun.sh && ./build/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
 
 run-debug: build-debug
-	. build-debug/conanrun.sh && ./build-debug/$(NAME)
+	export TRACKER_MQTT_HOST="$(TRACKER_MQTT_HOST)" \
+		TRACKER_MQTT_PORT="$(TRACKER_MQTT_PORT)" \
+		TRACKER_MQTT_INSECURE="$(TRACKER_MQTT_INSECURE)" \
+		TRACKER_MQTT_TLS_CA_CERT="$(TRACKER_MQTT_TLS_CA_CERT)" \
+		http_proxy= https_proxy= HTTP_PROXY= HTTPS_PROXY= && \
+		. build-debug/conanrun.sh && ./build-debug/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
+
+# Profile with perf using optimized build with debug symbols.
+# Requires perf permissions. If you see "Error: Failure to open event", run:
+#   sudo sysctl kernel.perf_event_paranoid=-1
+# For permanent fix:
+#   echo 'kernel.perf_event_paranoid=-1' | sudo tee /etc/sysctl.d/99-perf.conf
+profile: build-relwithdebinfo
+	@command -v perf >/dev/null || (echo "perf not found. Install: sudo apt-get install linux-tools-generic" && exit 1)
+	@echo "Profiling tracker (Ctrl+C to stop)..."
+	-@. build-relwithdebinfo/conanrun.sh && perf record -g -o build-relwithdebinfo/perf.data ./build-relwithdebinfo/$(NAME) --config $(TRACKER_CONFIG_PATH) --schema $(TRACKER_SCHEMA_PATH)
+	@echo ""
+	@echo "Profile data saved to build-relwithdebinfo/perf.data"
+	@echo "Run 'make flamegraph' to generate flamegraph.svg"
+
+flamegraph: 
+	@test -f build-relwithdebinfo/perf.data || (echo "No perf.data found. Run 'make profile' first." && exit 1)
+	@test -d build-relwithdebinfo/FlameGraph || git clone --depth 1 https://github.com/brendangregg/FlameGraph.git build-relwithdebinfo/FlameGraph
+	perf script -i build-relwithdebinfo/perf.data | build-relwithdebinfo/FlameGraph/stackcollapse-perf.pl | build-relwithdebinfo/FlameGraph/flamegraph.pl > build-relwithdebinfo/flamegraph.svg
+	@echo "Flamegraph saved to build-relwithdebinfo/flamegraph.svg"
 
 #####################################################################
 # Test targets
@@ -215,6 +267,7 @@ coverage-html:
 		'*/external/*' \
 		'*/third_party/*' \
 		'*/src/main.cpp' \
+		'*/src/mqtt_client.cpp' \
 		--output-file build-debug/coverage/coverage-filtered.info \
 		--rc branch_coverage=1 \
 		--ignore-errors unused \
@@ -244,6 +297,7 @@ coverage-xml:
 		--exclude '.*external.*' \
 		--exclude '.*third_party.*' \
 		--exclude '.*main\.cpp' \
+		--exclude '.*mqtt_client\.cpp' \
 		--xml-pretty \
 		--xml build-debug/coverage/coverage.xml \
 		--exclude-unreachable-branches \
@@ -268,6 +322,7 @@ coverage-report:
 		--exclude '.*external.*' \
 		--exclude '.*third_party.*' \
 		--exclude '.*main\.cpp' \
+		--exclude '.*mqtt_client\.cpp' \
 		--exclude-unreachable-branches \
 		--print-summary \
 		--fail-under-line 90.0 \
@@ -282,7 +337,18 @@ test-service: build-image
 	@test/service/.venv/bin/pip install -q --upgrade pip
 	@test/service/.venv/bin/pip install -q -r test/service/requirements.txt
 	@echo "Running service tests..."
-	cd test/service && .venv/bin/pytest -v --tb=short
+	cd test/service && \
+		unset TRACKER_MQTT_HOST TRACKER_MQTT_PORT TRACKER_MQTT_INSECURE TRACKER_MQTT_TLS_CA_CERT && \
+		.venv/bin/pytest -v --tb=short
+
+# Load test: orchestrates compose lifecycle, generates load, asserts SLIs.
+# Override defaults for boundary testing:
+#   NUM_CAMERAS=8 FPS=30 NUM_OBJECTS=500 DURATION=5m make test-load
+test-load: build-image
+	$(MAKE) -C test/load test VERSION=$(VERSION) \
+		NUM_CAMERAS=$${NUM_CAMERAS:-4} FPS=$${FPS:-15} \
+		NUM_OBJECTS=$${NUM_OBJECTS:-300} DURATION=$${DURATION:-1m} \
+		METRICS_EXPORT_INTERVAL_S=$${METRICS_EXPORT_INTERVAL_S:-1}
 
 #####################################################################
 # Docker build targets
@@ -301,23 +367,126 @@ build-image-debug:
 build-image-relwithdebinfo:
 	$(MAKE) build-image TARGET=runtime BUILD_TYPE=RelWithDebInfo IMAGE=scenescape-tracker-relwithdebinfo
 
+# Use host network to reach broker; empty proxy vars for Paho workaround
+# Container uses secure defaults from tracker.json (TLS to broker.scenescape.intel.com)
 run-image: build-image
-	docker run --rm -it $(IMAGE):$(VERSION)
+	docker run --rm -it --network=host \
+		-e http_proxy= -e https_proxy= -e HTTP_PROXY= -e HTTPS_PROXY= \
+		-v $(TRACKER_TLS_CA_CERT_HOST):/run/secrets/certs/scenescape-ca.pem:ro \
+		$(IMAGE):$(VERSION)
 
 run-image-debug: build-image-debug
-	docker run --rm -it --init -p 2345:2345 \
+	-docker stop tracker-debug 2>/dev/null || true
+	-docker rm tracker-debug 2>/dev/null || true
+	docker run --rm -d --name tracker-debug --init -p 2345:2345 \
 		--cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
+		-e http_proxy= -e https_proxy= -e HTTP_PROXY= -e HTTPS_PROXY= \
+		-v $(TRACKER_TLS_CA_CERT_HOST):/run/secrets/certs/scenescape-ca.pem:ro \
 		scenescape-tracker-debug:$(VERSION)
+	@echo "Debug container started. Attach debugger to localhost:2345"
 
 stop-image-debug:
-	-docker stop $$(docker ps -q --filter ancestor=scenescape-tracker-debug:$(VERSION)) 2>/dev/null
+	-docker stop tracker-debug 2>/dev/null || true
+	-docker rm tracker-debug 2>/dev/null || true
+
+#####################################################################
+# MQTT Broker Management
+#####################################################################
+
+# Certificate paths for broker TLS
+CERTS_DIR := $(CURDIR)/test/service/.certs
+ENV_FILE := $(CURDIR)/test/service/.env
+
+generate-certs:
+	@if [ ! -f "$(CERTS_DIR)/ca.crt" ]; then \
+		echo "Generating TLS certificates..."; \
+		python3 -m venv test/service/.venv 2>/dev/null || true; \
+		test/service/.venv/bin/pip install -q cryptography; \
+		cd test/service && .venv/bin/python3 -m utils.generate_certs \
+			$(CERTS_DIR) --env-file $(ENV_FILE); \
+	else \
+		echo "✓ Certificates already exist in $(CERTS_DIR)"; \
+	fi
+
+broker-start: generate-certs
+	@cd test/service && docker compose up -d broker
+	@sleep 1
+	@echo "✓ Broker running on port $$(cd test/service && docker compose port broker 1883 | cut -d: -f2)"
+
+broker-stop:
+	@cd test/service && docker compose down
+	@echo "✓ Broker stopped"
+
+#####################################################################
+# MQTT Manual Testing
+#####################################################################
+
+MQTT_DETECTION_TOPIC := scenescape/data/camera/test-cam
+MQTT_TRACK_TOPIC := scenescape/data/scene/\#
+
+mqtt-subscribe:
+	@echo "Subscribing to tracks on $(TRACKER_MQTT_HOST):$(TRACKER_MQTT_PORT)..."
+	mosquitto_sub -h $(TRACKER_MQTT_HOST) -p $(TRACKER_MQTT_PORT) -t '$(MQTT_TRACK_TOPIC)' -v
+
+mqtt-publish:
+	@echo "Publishing detection to $(TRACKER_MQTT_HOST):$(TRACKER_MQTT_PORT)..."
+	mosquitto_pub -h $(TRACKER_MQTT_HOST) -p $(TRACKER_MQTT_PORT) -t '$(MQTT_DETECTION_TOPIC)' \
+		-m '{"id":"test-cam","timestamp":"$(shell date -u +%Y-%m-%dT%H:%M:%S.000Z)","objects":{"person":[{"bounding_box_px":{"x":100,"y":50,"width":80,"height":200}}]}}'
+	@echo "✓ Detection published"
 
 #####################################################################
 # Clean targets
 #####################################################################
 
+# Override common.mk list-dependencies to use the builder stage (runtime is distroless, has no dpkg/pip).
+# Uses ldd on the tracker binary (same approach as in the Dockerfile) to identify only the OS libraries
+# that are actually distributed with the image, then maps each back to its dpkg package.
+# Conan-managed packages are collected separately via 'conan graph info' and written to conan-deps.txt.
+.PHONY: list-dependencies
+list-dependencies: $(BUILD_DIR)
+	@if [[ -z $$(docker images | grep "^$(IMAGE)" | grep $(VERSION)) ]]; then \
+	  echo "Error: the image $(IMAGE):$(VERSION) does not exist! Cannot generate dependency list."; \
+	  echo "Please build the image first."; \
+	  exit 1; \
+	fi
+	@echo "Building builder stage for dependency analysis..."
+	@docker build --target builder \
+	    --build-arg http_proxy=$(http_proxy) \
+	    --build-arg https_proxy=$(https_proxy) \
+	    --build-arg no_proxy=$(no_proxy) \
+	    $(EXTRA_BUILD_ARGS) \
+	    -t $(BUILDER_IMAGE):$(VERSION) \
+	    -f ./Dockerfile .. -q
+	@echo "Listing runtime OS library dependencies via ldd..."
+	@docker run --rm --entrypoint bash $(BUILDER_IMAGE):$(VERSION) \
+	    -c '. /scenescape/build/conanrun.sh \
+	        && ldd /scenescape/build/tracker \
+	        | awk '"'"'NF==4 && $$3~/^\// {print $$3}'"'"' \
+	        | xargs -r readlink -f 2>/dev/null \
+	        | xargs -r dpkg -S 2>/dev/null \
+	        | cut -d: -f1 | sort -u \
+	        | xargs -r dpkg -l \
+	        | awk '"'"'/^ii/ {print $$2, $$3, $$4}'"'"'' \
+	    > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt
+	@echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"
+	@echo "Listing Conan package dependencies..."
+	@docker run --rm \
+	    -e http_proxy=$(http_proxy) -e https_proxy=$(https_proxy) -e no_proxy=$(no_proxy) \
+	    --entrypoint bash $(BUILDER_IMAGE):$(VERSION) \
+	    -c 'conan graph info /scenescape/tracker 2>&1 \
+	        | grep -E "^[a-zA-Z][a-zA-Z0-9_.-]+/[0-9a-zA-Z._+-]+" \
+	        | grep -v "^conanfile" \
+	        | grep -v ": WARN:" \
+	        | sed '"'"'s|/| |; s|#.*||'"'"' \
+	        | sort -u' \
+	    > $(BUILD_DIR)/$(IMAGE)-conan-deps.txt
+	@echo "Conan dependencies listed in $(BUILD_DIR)/$(IMAGE)-conan-deps.txt"
+	@docker rmi $(BUILDER_IMAGE):$(VERSION) > /dev/null 2>&1 || true
+
 # Override common.mk clean to also remove local build directories
 clean:
-	rm -rf build* test/service/.venv .pytest_cache
+	-@cd test/service && docker compose down 2>/dev/null || true
+	-@$(MAKE) -C test/load clean 2>/dev/null || true
+	rm -rf build* test/service/.venv test/service/.certs test/service/.env .pytest_cache
 	-docker rmi $(IMAGE):$(VERSION) $(IMAGE):latest 2>/dev/null || true
 	-rm -f $(BUILD_DIR)/$(IMAGE)-*deps.txt $(LOG_FILE) 2>/dev/null || true

@@ -36,7 +36,7 @@ SECRETSDIR ?= $(CURDIR)/manager/secrets
 CERTDOMAIN ?= scenescape.intel.com
 
 # Demo variables
-DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts)
+DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
 
 # Test variables
@@ -56,6 +56,7 @@ CONTROLLER_METRICS_EXPORT_INTERVAL_S ?= 60
 CONTROLLER_ENABLE_TRACING ?= false
 CONTROLLER_TRACING_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
 CONTROLLER_TRACING_SAMPLE_RATIO ?= 1.0
+CONTROLLER_ENABLE_ANALYTICS_ONLY ?= false
 
 # ========================= Default Target ===========================
 
@@ -91,6 +92,7 @@ help:
 	@echo "  demo-all                    Start the SceneScape demo with all services using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Intel® SceneScape)"
+	@echo "  demo-tracker                Start the SceneScape demo with Tracker service + Controller in analytics only mode using Docker Compose"
 	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
@@ -291,13 +293,30 @@ list-dependencies: $(BUILD_DIR)
 	@echo "==> Listing dependencies for all microservices..."
 	@set -e; \
 	for dir in $(IMAGE_FOLDERS); do \
-		$(MAKE) -C $$dir list-dependencies; \
+		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) list-dependencies; \
 	done
-	@-find . -type f -name '*-apt-deps.txt' -exec cat {} + | sort | uniq > $(BUILD_DIR)/scenescape-all-apt-deps.txt
-	@-find . -type f -name '*-pip-deps.txt' -exec cat {} + | sort | uniq > $(BUILD_DIR)/scenescape-all-pip-deps.txt
 	@echo "The following dependency lists have been generated:"
 	@find $(BUILD_DIR) -name '*-deps.txt' -print
 	@echo "DONE ==> Listing dependencies for all microservices"
+
+BUILDKIT_BUILDER_NAME := scenescape-buildkit-container
+
+# Generate SPDX SBOMs for all microservices using Docker BuildKit.
+# A temporary BuildKit container builder is created automatically and removed on completion.
+# Docs: https://www.docker.com/blog/generate-sboms-with-buildkit/
+.PHONY: generate-sboms
+generate-sboms: $(BUILD_DIR)
+	@echo "==> Generating SPDX SBOMs for all microservices..."
+	@echo "Creating BuildKit container builder..."
+	@docker buildx create --use --name=$(BUILDKIT_BUILDER_NAME) --driver=docker-container \
+		--driver-opt=env.http_proxy=$(http_proxy),env.https_proxy=$(https_proxy),env.HTTP_PROXY=$(HTTP_PROXY),env.HTTPS_PROXY=$(HTTPS_PROXY),default-load=true
+	@set -e; trap 'docker buildx rm $(BUILDKIT_BUILDER_NAME) 2>/dev/null || true' EXIT; \
+	for dir in $(IMAGE_FOLDERS); do \
+		$(MAKE) -C $$dir BUILD_DIR=$(BUILD_DIR) generate-sbom; \
+	done
+	@echo "The following SBOMs have been generated in $(BUILD_DIR)/sboms:"
+	@echo "$$(ls $(BUILD_DIR)/sboms)"
+	@echo "DONE ==> Generating SPDX SBOMs for all microservices"
 
 .PHONY: build-sources-image
 build-sources-image: sources.Dockerfile
@@ -357,7 +376,7 @@ run_functional_tests: setup_tests
 	@echo "DONE ==> Running functional tests"
 
 .PHONY: run_non_functional_tests
-run_non_functional_tests: setup_tests
+run_non_functional_tests: init-secrets .env
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running non-functional tests..."
 	$(MAKE) -C tests non-functional-tests SUPASS=$(SUPASS) -k || (echo "Non-functional tests failed" && exit 1)
@@ -390,6 +409,14 @@ run_basic_acceptance_tests: setup_tests
 	@echo "Running basic acceptance tests..."
 	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
+
+.PHONY: run_stability_tests
+run_stability_tests: setup_tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running stability tests..."
+	$(eval HOURS ?= 24)
+	$(MAKE) --trace -C tests system-stability -j 1 SUPASS=$(SUPASS) HOURS=$(HOURS) SECRETSDIR=$(CURDIR)/manager/secrets || (echo "Stability tests failed" && exit 1)
+	@echo "DONE ==> Running stability tests"
 
 # Temp K8s BAT target
 .PHONY: run_basic_acceptance_tests_k8s
@@ -482,7 +509,8 @@ add-licensing:
 .PHONY: build-coverity
 build-coverity:
 	$(MAKE) -C scene_common/src/fast_geometry/ || (echo "scene_common/fast_geometry build failed" && exit 1)
-	@export OpenCV_DIR=$${OpenCV_DIR:-$$(pkg-config --variable=pc_path opencv4 | cut -d':' -f1)} && cd controller/src/robot_vision && python3 setup.py bdist_wheel || (echo "robot vision build failed" && exit 1)
+	@export OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" && pip3 install --no-cache-dir scikit-build-core && cd controller/src/robot_vision && pip3 install --no-cache-dir --no-build-isolation . || (echo "robot vision build failed" && exit 1)
+	$(MAKE) -C tracker build || (echo "tracker build failed" && exit 1)
 # ===================== Docker Compose Demo ==========================
 
 .PHONY: convert-dls-videos
@@ -518,6 +546,14 @@ define start_demo
 		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
 		exit 1; \
 	fi
+	@if [ "$$BROKER_PORT" != "" ] && [ "$$BROKER_PORT" != "1883" ]; then \
+		echo "Updating docker-compose.yml with custom MQTT broker port: $$BROKER_PORT"; \
+		sed -i -E "s/[0-9]+:1883/$$BROKER_PORT:1883/g" docker-compose.yml; \
+	fi
+	@if [ "$$HTTPS_PORT" != "" ] && [ "$$HTTPS_PORT" != "443" ]; then \
+		echo "Updating docker-compose.yml with custom HTTPS port: $$HTTPS_PORT"; \
+		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
+	fi
 	docker compose $(1) up -d
 	@echo ""
 	@echo "To stop SceneScape, type:"
@@ -526,11 +562,15 @@ endef
 
 .PHONY: demo
 demo: build-core init-sample-data
-	$(call start_demo,)
+	$(call start_demo,--profile controller)
 
 .PHONY: demo-all
 demo-all: build-all init-sample-data
-	$(call start_demo,--profile experimental)
+	$(call start_demo,--profile controller --profile experimental)
+
+.PHONY: demo-tracker
+demo-tracker: build-all init-sample-data
+	$(call start_demo,--profile analytics --profile tracker)
 
 .PHONY: demo-k8s
 demo-k8s:
@@ -560,6 +600,7 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "CONTROLLER_ENABLE_TRACING=$(CONTROLLER_ENABLE_TRACING)" >> $@
 	@echo "CONTROLLER_TRACING_ENDPOINT=$(CONTROLLER_TRACING_ENDPOINT)" >> $@
 	@echo "CONTROLLER_TRACING_SAMPLE_RATIO=$(CONTROLLER_TRACING_SAMPLE_RATIO)" >> $@
+	@echo "CONTROLLER_ENABLE_ANALYTICS_ONLY=$(CONTROLLER_ENABLE_ANALYTICS_ONLY)" >> $@
 # ======================= Secrets Management =========================
 
 .PHONY: init-secrets

@@ -1,5 +1,7 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
 
 # =========================
 # STAGE 1: BUILD STAGE
@@ -20,13 +22,36 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install --upgrade \
     --extra-index-url https://download.pytorch.org/whl/cpu \
-    pybind11 dt-apriltags setuptools
+    pybind11 dt-apriltags setuptools wheel
 
 # Create directories (this layer rarely changes)
 RUN mkdir -p /output /tmp/apriltag_build /tmp/apriltag /tmp/netvlad
 
-# Copy source code (this changes frequently)
-COPY autocalibration/src/reloc /tmp/reloc
+# Copy patches and new files for hloc
+COPY autocalibration/src/reloc/patches /tmp/reloc-patches
+COPY autocalibration/src/reloc/new-files /tmp/reloc-new-files
+COPY autocalibration/src/reloc/tests /tmp/reloc-tests
+
+# Clone and patch hloc from latest main
+RUN git clone https://github.com/cvg/Hierarchical-Localization.git /tmp/reloc && \
+    cd /tmp/reloc && \
+    git checkout c13273b && \
+    # Apply patches in order (using -p0 as paths are relative to repo root)
+    patch -p0 < /tmp/reloc-patches/00-top-level-files.patch && \
+    patch -p0 < /tmp/reloc-patches/01-core-modifications.patch && \
+    patch -p0 < /tmp/reloc-patches/02-extractors-modifications.patch && \
+    patch -p0 < /tmp/reloc-patches/03-matchers-modifications.patch && \
+    patch -p0 < /tmp/reloc-patches/04-pipelines-modifications.patch && \
+    patch -p0 < /tmp/reloc-patches/05-pycolmap-api-fix.patch && \
+    patch -p0 < /tmp/reloc-patches/06-pycolmap-rigid3d-api.patch && \
+    # Copy new files
+    cp -r /tmp/reloc-new-files/* /tmp/reloc/ && \
+    # Copy verification tests for runtime use
+    cp -r /tmp/reloc-tests /tmp/reloc/tests && \
+    # Verify patches applied correctly (build-time integration test)
+    python3 /tmp/reloc/tests/build_test.py && \
+    # Clean up git metadata to reduce image size
+    rm -rf /tmp/reloc/.git
 
 # Build wheels in parallel (this changes when source or dependencies change)
 # Clone AprilTag
@@ -67,7 +92,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # STAGE 2: RUNTIME STAGE
 # =========================
 # Runtime stage
-FROM python:3.11-slim-bookworm AS autocalibration-runtime
+FROM ${RUNTIME_OS_IMAGE} AS autocalibration-runtime
 
 # Label image with description and metadata
 LABEL org.opencontainers.image.description="Intel® SceneScape's Camera Calibration Service"
@@ -87,6 +112,9 @@ ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
 ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages"
 # Set model directory for on-demand loading
 ENV NETVLAD_MODEL_DIR="/usr/local/lib/python3.11/site-packages/third_party/netvlad"
+
+# Update and upgrade base OS packages
+RUN apt update && apt upgrade -y
 
 # Install runtime dependencies first (these change less frequently)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -114,6 +142,10 @@ COPY --from=autocalibration-builder /usr/local/lib/python3.11/site-packages/scen
 # Copy AprilTag shared library
 COPY --from=autocalibration-builder /tmp/apriltag_build/libapriltag.so /usr/local/lib/python3.11/site-packages/dt_apriltags/
 
+# Upgrade pip, wheel and setuptools to latest versions
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir --upgrade setuptools wheel
+
 # Install Python packages in one layer
 COPY autocalibration/requirements-runtime.txt /tmp/
 COPY autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
@@ -127,7 +159,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy built wheels and install them
 COPY --from=autocalibration-builder /output/*.whl /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install /tmp/*.whl && \
+    pip install --extra-index-url https://download.pytorch.org/whl/cpu /tmp/*.whl && \
     rm -rf /tmp/*.whl
 
 # Copy application code (this changes frequently)
@@ -168,8 +200,10 @@ USER root
 # Install Python test dependencies
 RUN pip3 install --upgrade --no-cache-dir coverage pytest
 
-# Switch back to non-root user for tests
 USER $WSUSER
+
+# Copy HLOC test files from builder stage
+COPY --from=autocalibration-builder /tmp/reloc/tests /opt/hloc-tests
 
 # Tests expect to run from /workspace where test files are mounted
 WORKDIR /workspace

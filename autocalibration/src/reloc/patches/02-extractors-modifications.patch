@@ -1,0 +1,966 @@
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extractors/aliked.py hloc/extractors/aliked.py
+--- /tmp/hloc-latest/hloc/extractors/aliked.py	2026-01-16 16:13:56.813844948 -0700
++++ hloc/extractors/aliked.py	1969-12-31 17:00:00.000000000 -0700
+@@ -1,26 +0,0 @@
+-from lightglue import ALIKED as ALIKED_
+-
+-from ..utils.base_model import BaseModel
+-
+-
+-class ALIKED(BaseModel):
+-    default_conf = {
+-        "model_name": "aliked-n16",
+-        "max_num_keypoints": -1,
+-        "detection_threshold": 0.2,
+-        "nms_radius": 2,
+-    }
+-    required_inputs = ["image"]
+-
+-    def _init(self, conf):
+-        conf.pop("name")
+-        self.model = ALIKED_(**conf)
+-
+-    def _forward(self, data):
+-        features = self.model(data)
+-
+-        return {
+-            "keypoints": [f for f in features["keypoints"]],
+-            "keypoint_scores": [f for f in features["keypoint_scores"]],
+-            "descriptors": [f.t() for f in features["descriptors"]],
+-        }
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extractors/d2net.py hloc/extractors/d2net.py
+--- /tmp/hloc-latest/hloc/extractors/d2net.py	2026-01-16 16:13:56.813844948 -0700
++++ hloc/extractors/d2net.py	1969-12-31 17:00:00.000000000 -0700
+@@ -1,58 +0,0 @@
+-import subprocess
+-import sys
+-from pathlib import Path
+-
+-import torch
+-
+-from ..utils.base_model import BaseModel
+-
+-d2net_path = Path(__file__).parent / "../../third_party/d2net"
+-sys.path.append(str(d2net_path))
+-from lib.model_test import D2Net as _D2Net  # noqa: E402
+-from lib.pyramid import process_multiscale  # noqa: E402
+-
+-
+-class D2Net(BaseModel):
+-    default_conf = {
+-        "model_name": "d2_tf.pth",
+-        "checkpoint_dir": d2net_path / "models",
+-        "use_relu": True,
+-        "multiscale": False,
+-    }
+-    required_inputs = ["image"]
+-
+-    def _init(self, conf):
+-        model_file = conf["checkpoint_dir"] / conf["model_name"]
+-        if not model_file.exists():
+-            model_file.parent.mkdir(exist_ok=True)
+-            cmd = [
+-                "wget",
+-                "https://dusmanu.com/files/d2-net/" + conf["model_name"],
+-                "-O",
+-                str(model_file),
+-            ]
+-            subprocess.run(cmd, check=True)
+-
+-        self.net = _D2Net(
+-            model_file=model_file, use_relu=conf["use_relu"], use_cuda=False
+-        )
+-
+-    def _forward(self, data):
+-        image = data["image"]
+-        image = image.flip(1)  # RGB -> BGR
+-        norm = image.new_tensor([103.939, 116.779, 123.68])
+-        image = image * 255 - norm.view(1, 3, 1, 1)  # caffe normalization
+-
+-        if self.conf["multiscale"]:
+-            keypoints, scores, descriptors = process_multiscale(image, self.net)
+-        else:
+-            keypoints, scores, descriptors = process_multiscale(
+-                image, self.net, scales=[1]
+-            )
+-        keypoints = keypoints[:, [1, 0]]  # (x, y) and remove the scale
+-
+-        return {
+-            "keypoints": torch.from_numpy(keypoints)[None],
+-            "scores": torch.from_numpy(scores)[None],
+-            "descriptors": torch.from_numpy(descriptors.T)[None],
+-        }
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extractors/dir.py hloc/extractors/dir.py
+--- /tmp/hloc-latest/hloc/extractors/dir.py	2026-01-16 16:13:56.813844948 -0700
++++ hloc/extractors/dir.py	1969-12-31 17:00:00.000000000 -0700
+@@ -1,77 +0,0 @@
+-import os
+-import sys
+-from pathlib import Path
+-from zipfile import ZipFile
+-
+-import gdown
+-import sklearn
+-import torch
+-
+-from ..utils.base_model import BaseModel
+-
+-sys.path.append(str(Path(__file__).parent / "../../third_party/deep-image-retrieval"))
+-os.environ["DB_ROOT"] = ""  # required by dirtorch
+-
+-from dirtorch.extract_features import load_model  # noqa: E402
+-from dirtorch.utils import common  # noqa: E402
+-
+-# The DIR model checkpoints (pickle files) include sklearn.decomposition.pca,
+-# which has been deprecated in sklearn v0.24
+-# and must be explicitly imported with `from sklearn.decomposition import PCA`.
+-# This is a hacky workaround to maintain forward compatibility.
+-sys.modules["sklearn.decomposition.pca"] = sklearn.decomposition._pca
+-
+-
+-class DIR(BaseModel):
+-    default_conf = {
+-        "model_name": "Resnet-101-AP-GeM",
+-        "whiten_name": "Landmarks_clean",
+-        "whiten_params": {
+-            "whitenp": 0.25,
+-            "whitenv": None,
+-            "whitenm": 1.0,
+-        },
+-        "pooling": "gem",
+-        "gemp": 3,
+-    }
+-    required_inputs = ["image"]
+-
+-    dir_models = {
+-        "Resnet-101-AP-GeM": "https://docs.google.com/uc?export=download&id=1UWJGDuHtzaQdFhSMojoYVQjmCXhIwVvy",  # noqa: E501
+-    }
+-
+-    def _init(self, conf):
+-        checkpoint = Path(torch.hub.get_dir(), "dirtorch", conf["model_name"] + ".pt")
+-        if not checkpoint.exists():
+-            checkpoint.parent.mkdir(exist_ok=True, parents=True)
+-            link = self.dir_models[conf["model_name"]]
+-            gdown.download(str(link), str(checkpoint) + ".zip", quiet=False)
+-            zf = ZipFile(str(checkpoint) + ".zip", "r")
+-            zf.extractall(checkpoint.parent)
+-            zf.close()
+-            os.remove(str(checkpoint) + ".zip")
+-
+-        self.net = load_model(checkpoint, False)  # first load on CPU
+-        if conf["whiten_name"]:
+-            assert conf["whiten_name"] in self.net.pca
+-
+-    def _forward(self, data):
+-        image = data["image"]
+-        assert image.shape[1] == 3
+-        mean = self.net.preprocess["mean"]
+-        std = self.net.preprocess["std"]
+-        image = image - image.new_tensor(mean)[:, None, None]
+-        image = image / image.new_tensor(std)[:, None, None]
+-
+-        desc = self.net(image)
+-        desc = desc.unsqueeze(0)  # batch dimension
+-        if self.conf["whiten_name"]:
+-            pca = self.net.pca[self.conf["whiten_name"]]
+-            desc = common.whiten_features(
+-                desc.cpu().numpy(), pca, **self.conf["whiten_params"]
+-            )
+-            desc = torch.from_numpy(desc)
+-
+-        return {
+-            "global_descriptor": desc,
+-        }
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extractors/disk.py hloc/extractors/disk.py
+--- /tmp/hloc-latest/hloc/extractors/disk.py	2026-01-16 16:13:56.813844948 -0700
++++ hloc/extractors/disk.py	1969-12-31 17:00:00.000000000 -0700
+@@ -1,32 +0,0 @@
+-import kornia
+-
+-from ..utils.base_model import BaseModel
+-
+-
+-class DISK(BaseModel):
+-    default_conf = {
+-        "weights": "depth",
+-        "max_keypoints": None,
+-        "nms_window_size": 5,
+-        "detection_threshold": 0.0,
+-        "pad_if_not_divisible": True,
+-    }
+-    required_inputs = ["image"]
+-
+-    def _init(self, conf):
+-        self.model = kornia.feature.DISK.from_pretrained(conf["weights"])
+-
+-    def _forward(self, data):
+-        image = data["image"]
+-        features = self.model(
+-            image,
+-            n=self.conf["max_keypoints"],
+-            window_size=self.conf["nms_window_size"],
+-            score_threshold=self.conf["detection_threshold"],
+-            pad_if_not_divisible=self.conf["pad_if_not_divisible"],
+-        )
+-        return {
+-            "keypoints": [f.keypoints for f in features],
+-            "keypoint_scores": [f.detection_scores for f in features],
+-            "descriptors": [f.descriptors.t() for f in features],
+-        }
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extractors/dog.py hloc/extractors/dog.py
+--- /tmp/hloc-latest/hloc/extractors/dog.py	2026-01-16 16:13:56.813844948 -0700
++++ hloc/extractors/dog.py	2026-01-16 16:16:08.549199485 -0700
+@@ -1,119 +1,114 @@
++# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
++# SPDX-License-Identifier: Apache-2.0
++
+ import kornia
++from kornia.feature.laf import (
++    laf_from_center_scale_ori, extract_patches_from_pyramid)
+ import numpy as np
+-import pycolmap
+ import torch
+-from kornia.feature.laf import extract_patches_from_pyramid, laf_from_center_scale_ori
++import pycolmap
+ 
+ from ..utils.base_model import BaseModel
+ 
++
+ EPS = 1e-6
+ 
+ 
+ def sift_to_rootsift(x):
+-    x = x / (np.linalg.norm(x, ord=1, axis=-1, keepdims=True) + EPS)
+-    x = np.sqrt(x.clip(min=EPS))
+-    x = x / (np.linalg.norm(x, axis=-1, keepdims=True) + EPS)
+-    return x
++  x = x / (np.linalg.norm(x, ord=1, axis=-1, keepdims=True) + EPS)
++  x = np.sqrt(x.clip(min=EPS))
++  x = x / (np.linalg.norm(x, axis=-1, keepdims=True) + EPS)
++  return x
+ 
+ 
+ class DoG(BaseModel):
+-    default_conf = {
+-        "options": {
+-            "first_octave": 0,
+-            "peak_threshold": 0.01,
+-        },
+-        "descriptor": "rootsift",
+-        "max_keypoints": -1,
+-        "patch_size": 32,
+-        "mr_size": 12,
++  default_conf = {
++      'options': {
++          'first_octave': 0,
++          'peak_threshold': 0.01,
++      },
++      'descriptor': 'rootsift',
++      'max_keypoints': -1,
++      'patch_size': 32,
++      'mr_size': 12,
++  }
++  required_inputs = ['image']
++  detection_noise = 1.0
++
++  def _init(self, conf):
++    if conf['descriptor'] == 'sosnet':
++      self.describe = kornia.feature.SOSNet(pretrained=True)
++    elif conf['descriptor'] not in ['sift', 'rootsift']:
++      raise ValueError(f'Unknown descriptor: {conf["descriptor"]}')
++
++    self.sift = None  # lazily instantiated on the first image
++    self.device = torch.device('cpu')
++
++  def to(self, *args, **kwargs):
++    device = kwargs.get('device')
++    if device is None:
++      match = [a for a in args if isinstance(a, (torch.device, str))]
++      if len(match) > 0:
++        device = match[0]
++    if device is not None:
++      self.device = torch.device(device)
++    return super().to(*args, **kwargs)
++
++  def _forward(self, data):
++    image = data['image']
++    image_np = image.cpu().numpy()[0, 0]
++    assert image.shape[1] == 1
++    assert image_np.min() >= -EPS and image_np.max() <= 1 + EPS
++
++    if self.sift is None:
++      use_gpu = pycolmap.has_cuda and self.device.type == 'cuda'
++      options = {**self.conf['options']}
++      if self.conf['descriptor'] == 'rootsift':
++        options['normalization'] = pycolmap.Normalization.L1_ROOT
++      else:
++        options['normalization'] = pycolmap.Normalization.L2
++      self.sift = pycolmap.Sift(
++          options=pycolmap.SiftExtractionOptions(options),
++          device=getattr(pycolmap.Device, 'cuda' if use_gpu else 'cpu'))
++
++    keypoints, scores, descriptors = self.sift.extract(image_np)
++
++    if self.conf['descriptor'] in ['sift', 'rootsift']:
++      # We still renormalize because COLMAP does not normalize well,
++      # maybe due to numerical errors
++      if self.conf['descriptor'] == 'rootsift':
++        descriptors = sift_to_rootsift(descriptors)
++      descriptors = torch.from_numpy(descriptors)
++    elif self.conf['descriptor'] == 'sosnet':
++      center = keypoints[:, :2] + 0.5
++      scale = keypoints[:, 2] * self.conf['mr_size'] / 2
++      ori = -np.rad2deg(keypoints[:, 3])
++      lafs = laf_from_center_scale_ori(
++          torch.from_numpy(center)[None],
++          torch.from_numpy(scale)[None, :, None, None],
++          torch.from_numpy(ori)[None, :, None]).to(image.device)
++      patches = extract_patches_from_pyramid(
++          image, lafs, PS=self.conf['patch_size'])[0]
++      if len(keypoints) == 0:
++        descriptors = torch.zeros((0, 128))
++      else:
++        descriptors = self.describe(patches).reshape(len(patches), 128)
++    else:
++      raise ValueError(f'Unknown descriptor: {self.conf["descriptor"]}')
++
++    keypoints = torch.from_numpy(keypoints[:, :2])  # keep only x, y
++    scores = torch.from_numpy(scores)
++
++    if self.conf['max_keypoints'] != -1:
++      # TODO: check that the scores from PyCOLMAP are 100% correct,
++      # follow https://github.com/mihaidusmanu/pycolmap/issues/8
++      indices = torch.topk(scores, self.conf['max_keypoints'])
++      keypoints = keypoints[indices]
++      scores = scores[indices]
++      descriptors = descriptors[indices]
++
++    return {
++        'keypoints': keypoints[None],
++        'scores': scores[None],
++        'descriptors': descriptors.T[None],
+     }
+-    required_inputs = ["image"]
+-    detection_noise = 1.0
+-    max_batch_size = 1024
+-
+-    def _init(self, conf):
+-        if conf["descriptor"] == "sosnet":
+-            self.describe = kornia.feature.SOSNet(pretrained=True)
+-        elif conf["descriptor"] == "hardnet":
+-            self.describe = kornia.feature.HardNet(pretrained=True)
+-        elif conf["descriptor"] not in ["sift", "rootsift"]:
+-            raise ValueError(f'Unknown descriptor: {conf["descriptor"]}')
+-
+-        self.sift = None  # lazily instantiated on the first image
+-        self.dummy_param = torch.nn.Parameter(torch.empty(0))
+-
+-    def _forward(self, data):
+-        image = data["image"]
+-        image_np = image.cpu().numpy()[0, 0]
+-        assert image.shape[1] == 1
+-        assert image_np.min() >= -EPS and image_np.max() <= 1 + EPS
+-
+-        if self.sift is None:
+-            device = self.dummy_param.device
+-            use_gpu = pycolmap.has_cuda and device.type == "cuda"
+-            options = {**self.conf["options"]}
+-            if self.conf["descriptor"] == "rootsift":
+-                options["normalization"] = pycolmap.Normalization.L1_ROOT
+-            else:
+-                options["normalization"] = pycolmap.Normalization.L2
+-            self.sift = pycolmap.Sift(
+-                options=pycolmap.FeatureExtractionOptions(
+-                    sift=pycolmap.SiftExtractionOptions(options)
+-                ),
+-                device=getattr(pycolmap.Device, "cuda" if use_gpu else "cpu"),
+-            )
+-
+-        keypoints, descriptors = self.sift.extract(image_np)
+-        scales = keypoints[:, 2]
+-        oris = np.rad2deg(keypoints[:, 3])
+-
+-        if self.conf["descriptor"] in ["sift", "rootsift"]:
+-            # We still renormalize because COLMAP does not normalize well,
+-            # maybe due to numerical errors
+-            if self.conf["descriptor"] == "rootsift":
+-                descriptors = sift_to_rootsift(descriptors)
+-            descriptors = torch.from_numpy(descriptors)
+-        elif self.conf["descriptor"] in ("sosnet", "hardnet"):
+-            center = keypoints[:, :2] + 0.5
+-            laf_scale = scales * self.conf["mr_size"] / 2
+-            laf_ori = -oris
+-            lafs = laf_from_center_scale_ori(
+-                torch.from_numpy(center)[None],
+-                torch.from_numpy(laf_scale)[None, :, None, None],
+-                torch.from_numpy(laf_ori)[None, :, None],
+-            ).to(image.device)
+-            patches = extract_patches_from_pyramid(
+-                image, lafs, PS=self.conf["patch_size"]
+-            )[0]
+-            descriptors = patches.new_zeros((len(patches), 128))
+-            if len(patches) > 0:
+-                for start_idx in range(0, len(patches), self.max_batch_size):
+-                    end_idx = min(len(patches), start_idx + self.max_batch_size)
+-                    descriptors[start_idx:end_idx] = self.describe(
+-                        patches[start_idx:end_idx]
+-                    )
+-        else:
+-            raise ValueError(f'Unknown descriptor: {self.conf["descriptor"]}')
+-
+-        keypoints = torch.from_numpy(keypoints[:, :2])  # keep only x, y
+-        scales = torch.from_numpy(scales)
+-        oris = torch.from_numpy(oris)
+-        scores = keypoints.new_zeros(len(keypoints))  # no scores for SIFT yet
+-
+-        if self.conf["max_keypoints"] != -1:
+-            # TODO: check that the scores from PyCOLMAP are 100% correct,
+-            # follow https://github.com/mihaidusmanu/pycolmap/issues/8
+-            indices = torch.topk(scores, self.conf["max_keypoints"])
+-            keypoints = keypoints[indices]
+-            scales = scales[indices]
+-            oris = oris[indices]
+-            scores = scores[indices]
+-            descriptors = descriptors[indices]
+-
+-        return {
+-            "keypoints": keypoints[None],
+-            "scales": scales[None],
+-            "oris": oris[None],
+-            "scores": scores[None],
+-            "descriptors": descriptors.T[None],
+-        }
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extractors/megaloc.py hloc/extractors/megaloc.py
+--- /tmp/hloc-latest/hloc/extractors/megaloc.py	2026-01-16 16:13:56.813844948 -0700
++++ hloc/extractors/megaloc.py	1969-12-31 17:00:00.000000000 -0700
+@@ -1,27 +0,0 @@
+-"""
+-Code to use MegaLoc as a global features extractor.
+-
+-MegaLoc paper: https://arxiv.org/abs/2502.17237
+-"""
+-
+-import torch
+-import torchvision.transforms as tvf
+-
+-from ..utils.base_model import BaseModel
+-
+-
+-class MegaPlaces(BaseModel):
+-    required_inputs = ["image"]
+-
+-    def _init(self, conf):
+-        self.net = torch.hub.load("gmberton/MegaLoc", "get_trained_model").eval()
+-        mean = [0.485, 0.456, 0.406]
+-        std = [0.229, 0.224, 0.225]
+-        self.norm_rgb = tvf.Normalize(mean=mean, std=std)
+-
+-    def _forward(self, data):
+-        image = self.norm_rgb(data["image"])
+-        desc = self.net(image)
+-        return {
+-            "global_descriptor": desc,
+-        }
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extractors/netvlad.py hloc/extractors/netvlad.py
+--- /tmp/hloc-latest/hloc/extractors/netvlad.py	2026-01-16 16:13:56.813844948 -0700
++++ hloc/extractors/netvlad.py	2026-01-16 16:16:08.549387288 -0700
+@@ -1,6 +1,9 @@
+-import logging
+-from pathlib import Path
++# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
++# SPDX-License-Identifier: Apache-2.0
+ 
++from pathlib import Path
++import subprocess
++import logging
+ import numpy as np
+ import torch
+ import torch.nn as nn
+@@ -12,139 +15,146 @@
+ 
+ logger = logging.getLogger(__name__)
+ 
++netvlad_path = Path(__file__).parent / '../../third_party/netvlad'
++
+ EPS = 1e-6
+ 
+ 
+ class NetVLADLayer(nn.Module):
+-    def __init__(self, input_dim=512, K=64, score_bias=False, intranorm=True):
+-        super().__init__()
+-        self.score_proj = nn.Conv1d(input_dim, K, kernel_size=1, bias=score_bias)
+-        centers = nn.parameter.Parameter(torch.empty([input_dim, K]))
+-        nn.init.xavier_uniform_(centers)
+-        self.register_parameter("centers", centers)
+-        self.intranorm = intranorm
+-        self.output_dim = input_dim * K
+-
+-    def forward(self, x):
+-        b = x.size(0)
+-        scores = self.score_proj(x)
+-        scores = F.softmax(scores, dim=1)
+-        diff = x.unsqueeze(2) - self.centers.unsqueeze(0).unsqueeze(-1)
+-        desc = (scores.unsqueeze(1) * diff).sum(dim=-1)
+-        if self.intranorm:
+-            # From the official MATLAB implementation.
+-            desc = F.normalize(desc, dim=1)
+-        desc = desc.view(b, -1)
+-        desc = F.normalize(desc, dim=1)
+-        return desc
++  def __init__(self, input_dim=512, K=64, score_bias=False, intranorm=True):
++    super().__init__()
++    self.score_proj = nn.Conv1d(
++        input_dim, K, kernel_size=1, bias=score_bias)
++    centers = nn.parameter.Parameter(torch.empty([input_dim, K]))
++    nn.init.xavier_uniform_(centers)
++    self.register_parameter('centers', centers)
++    self.intranorm = intranorm
++    self.output_dim = input_dim * K
++
++  def forward(self, x):
++    b = x.size(0)
++    scores = self.score_proj(x)
++    scores = F.softmax(scores, dim=1)
++    diff = (x.unsqueeze(2) - self.centers.unsqueeze(0).unsqueeze(-1))
++    desc = (scores.unsqueeze(1) * diff).sum(dim=-1)
++    if self.intranorm:
++      # From the official MATLAB implementation.
++      desc = F.normalize(desc, dim=1)
++    desc = desc.view(b, -1)
++    desc = F.normalize(desc, dim=1)
++    return desc
+ 
+ 
+ class NetVLAD(BaseModel):
+-    default_conf = {"model_name": "VGG16-NetVLAD-Pitts30K", "whiten": True}
+-    required_inputs = ["image"]
++  default_conf = {
++      'model_name': 'VGG16-NetVLAD-Pitts30K',
++      'checkpoint_dir': netvlad_path,
++      'whiten': True
++  }
++  required_inputs = ['image']
++
++  # Models exported using
++  # https://github.com/uzh-rpg/netvlad_tf_open/blob/master/matlab/net_class2struct.m.
++  dir_models = {
++      'VGG16-NetVLAD-Pitts30K': 'https://cvg-data.inf.ethz.ch/hloc/netvlad/Pitts30K_struct.mat',
++      'VGG16-NetVLAD-TokyoTM': 'https://cvg-data.inf.ethz.ch/hloc/netvlad/TokyoTM_struct.mat'
++  }
++
++  def _init(self, conf):
++    assert conf['model_name'] in self.dir_models.keys()
++
++    # Download the checkpoint.
++    checkpoint = conf['checkpoint_dir'] / str(conf['model_name'] + '.mat')
++    if not checkpoint.exists():
++      checkpoint.parent.mkdir(exist_ok=True)
++      link = self.dir_models[conf['model_name']]
++      cmd = ['wget', link, '-O', str(checkpoint)]
++      logger.info(f'Downloading the NetVLAD model with `{cmd}`.')
++      subprocess.run(cmd, check=True)
++
++    # Create the network.
++    # Remove classification head.
++    backbone = list(models.vgg16().children())[0]
++    # Remove last ReLU + MaxPool2d.
++    self.backbone = nn.Sequential(*list(backbone.children())[: -2])
++
++    self.netvlad = NetVLADLayer()
++
++    if conf['whiten']:
++      self.whiten = nn.Linear(self.netvlad.output_dim, 4096)
++
++    # Parse MATLAB weights using https://github.com/uzh-rpg/netvlad_tf_open
++    mat = loadmat(checkpoint, struct_as_record=False, squeeze_me=True)
++
++    # CNN weights.
++    for layer, mat_layer in zip(self.backbone.children(),
++                                mat['net'].layers):
++      if isinstance(layer, nn.Conv2d):
++        w = mat_layer.weights[0]  # Shape: S x S x IN x OUT
++        b = mat_layer.weights[1]  # Shape: OUT
++        # Prepare for PyTorch - enforce float32 and right shape.
++        # w should have shape: OUT x IN x S x S
++        # b should have shape: OUT
++        w = torch.tensor(w).float().permute([3, 2, 0, 1])
++        b = torch.tensor(b).float()
++        # Update layer weights.
++        layer.weight = nn.Parameter(w)
++        layer.bias = nn.Parameter(b)
+ 
+-    # Models exported using
+-    # https://github.com/uzh-rpg/netvlad_tf_open/blob/master/matlab/net_class2struct.m.
+-    checkpoint_urls = {
+-        "VGG16-NetVLAD-Pitts30K": "https://cvg-data.inf.ethz.ch/hloc/netvlad/Pitts30K_struct.mat",  # noqa: E501
+-        "VGG16-NetVLAD-TokyoTM": "https://cvg-data.inf.ethz.ch/hloc/netvlad/TokyoTM_struct.mat",  # noqa: E501
++    # NetVLAD weights.
++    score_w = mat['net'].layers[30].weights[0]  # D x K
++    # centers are stored as opposite in official MATLAB code
++    center_w = -mat['net'].layers[30].weights[1]  # D x K
++    # Prepare for PyTorch - make sure it is float32 and has right shape.
++    # score_w should have shape K x D x 1
++    # center_w should have shape D x K
++    score_w = torch.tensor(score_w).float().permute([1, 0]).unsqueeze(-1)
++    center_w = torch.tensor(center_w).float()
++    # Update layer weights.
++    self.netvlad.score_proj.weight = nn.Parameter(score_w)
++    self.netvlad.centers = nn.Parameter(center_w)
++
++    # Whitening weights.
++    if conf['whiten']:
++      w = mat['net'].layers[33].weights[0]  # Shape: 1 x 1 x IN x OUT
++      b = mat['net'].layers[33].weights[1]  # Shape: OUT
++      # Prepare for PyTorch - make sure it is float32 and has right shape
++      w = torch.tensor(w).float().squeeze().permute([1, 0])  # OUT x IN
++      b = torch.tensor(b.squeeze()).float()  # Shape: OUT
++      # Update layer weights.
++      self.whiten.weight = nn.Parameter(w)
++      self.whiten.bias = nn.Parameter(b)
++
++    # Preprocessing parameters.
++    self.preprocess = {
++        'mean': mat['net'].meta.normalization.averageImage[0, 0],
++        'std': np.array([1, 1, 1], dtype=np.float32)
+     }
+ 
+-    def _init(self, conf):
+-        if conf["model_name"] not in self.checkpoint_urls:
+-            raise ValueError(
+-                f'{conf["model_name"]} not in {self.checkpoint_urls.keys()}.'
+-            )
+-
+-        # Download the checkpoint.
+-        checkpoint_path = Path(
+-            torch.hub.get_dir(), "netvlad", conf["model_name"] + ".mat"
+-        )
+-        if not checkpoint_path.exists():
+-            checkpoint_path.parent.mkdir(exist_ok=True, parents=True)
+-            url = self.checkpoint_urls[conf["model_name"]]
+-            torch.hub.download_url_to_file(url, checkpoint_path)
+-
+-        # Create the network.
+-        # Remove classification head.
+-        backbone = list(models.vgg16().children())[0]
+-        # Remove last ReLU + MaxPool2d.
+-        self.backbone = nn.Sequential(*list(backbone.children())[:-2])
+-
+-        self.netvlad = NetVLADLayer()
+-
+-        if conf["whiten"]:
+-            self.whiten = nn.Linear(self.netvlad.output_dim, 4096)
+-
+-        # Parse MATLAB weights using https://github.com/uzh-rpg/netvlad_tf_open
+-        mat = loadmat(checkpoint_path, struct_as_record=False, squeeze_me=True)
+-
+-        # CNN weights.
+-        for layer, mat_layer in zip(self.backbone.children(), mat["net"].layers):
+-            if isinstance(layer, nn.Conv2d):
+-                w = mat_layer.weights[0]  # Shape: S x S x IN x OUT
+-                b = mat_layer.weights[1]  # Shape: OUT
+-                # Prepare for PyTorch - enforce float32 and right shape.
+-                # w should have shape: OUT x IN x S x S
+-                # b should have shape: OUT
+-                w = torch.tensor(w).float().permute([3, 2, 0, 1])
+-                b = torch.tensor(b).float()
+-                # Update layer weights.
+-                layer.weight = nn.Parameter(w)
+-                layer.bias = nn.Parameter(b)
+-
+-        # NetVLAD weights.
+-        score_w = mat["net"].layers[30].weights[0]  # D x K
+-        # centers are stored as opposite in official MATLAB code
+-        center_w = -mat["net"].layers[30].weights[1]  # D x K
+-        # Prepare for PyTorch - make sure it is float32 and has right shape.
+-        # score_w should have shape K x D x 1
+-        # center_w should have shape D x K
+-        score_w = torch.tensor(score_w).float().permute([1, 0]).unsqueeze(-1)
+-        center_w = torch.tensor(center_w).float()
+-        # Update layer weights.
+-        self.netvlad.score_proj.weight = nn.Parameter(score_w)
+-        self.netvlad.centers = nn.Parameter(center_w)
+-
+-        # Whitening weights.
+-        if conf["whiten"]:
+-            w = mat["net"].layers[33].weights[0]  # Shape: 1 x 1 x IN x OUT
+-            b = mat["net"].layers[33].weights[1]  # Shape: OUT
+-            # Prepare for PyTorch - make sure it is float32 and has right shape
+-            w = torch.tensor(w).float().squeeze().permute([1, 0])  # OUT x IN
+-            b = torch.tensor(b.squeeze()).float()  # Shape: OUT
+-            # Update layer weights.
+-            self.whiten.weight = nn.Parameter(w)
+-            self.whiten.bias = nn.Parameter(b)
+-
+-        # Preprocessing parameters.
+-        self.preprocess = {
+-            "mean": mat["net"].meta.normalization.averageImage[0, 0],
+-            "std": np.array([1, 1, 1], dtype=np.float32),
+-        }
+-
+-    def _forward(self, data):
+-        image = data["image"]
+-        assert image.shape[1] == 3
+-        assert image.min() >= -EPS and image.max() <= 1 + EPS
+-        image = torch.clamp(image * 255, 0.0, 255.0)  # Input should be 0-255.
+-        mean = self.preprocess["mean"]
+-        std = self.preprocess["std"]
+-        image = image - image.new_tensor(mean).view(1, -1, 1, 1)
+-        image = image / image.new_tensor(std).view(1, -1, 1, 1)
+-
+-        # Feature extraction.
+-        descriptors = self.backbone(image)
+-        b, c, _, _ = descriptors.size()
+-        descriptors = descriptors.view(b, c, -1)
+-
+-        # NetVLAD layer.
+-        descriptors = F.normalize(descriptors, dim=1)  # Pre-normalization.
+-        desc = self.netvlad(descriptors)
+-
+-        # Whiten if needed.
+-        if hasattr(self, "whiten"):
+-            desc = self.whiten(desc)
+-            desc = F.normalize(desc, dim=1)  # Final L2 normalization.
++  def _forward(self, data):
++    image = data['image']
++    assert image.shape[1] == 3
++    assert image.min() >= -EPS and image.max() <= 1 + EPS
++    image = torch.clamp(image * 255, 0.0, 255.0)  # Input should be 0-255.
++    mean = self.preprocess['mean']
++    std = self.preprocess['std']
++    image = image - image.new_tensor(mean).view(1, -1, 1, 1)
++    image = image / image.new_tensor(std).view(1, -1, 1, 1)
++
++    # Feature extraction.
++    descriptors = self.backbone(image)
++    b, c, _, _ = descriptors.size()
++    descriptors = descriptors.view(b, c, -1)
++
++    # NetVLAD layer.
++    descriptors = F.normalize(descriptors, dim=1)  # Pre-normalization.
++    desc = self.netvlad(descriptors)
++
++    # Whiten if needed.
++    if hasattr(self, 'whiten'):
++      desc = self.whiten(desc)
++      desc = F.normalize(desc, dim=1)  # Final L2 normalization.
+ 
+-        return {"global_descriptor": desc}
++    return {
++        'global_descriptor': desc
++    }
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extractors/openibl.py hloc/extractors/openibl.py
+--- /tmp/hloc-latest/hloc/extractors/openibl.py	2026-01-16 16:13:56.813844948 -0700
++++ hloc/extractors/openibl.py	2026-01-16 16:16:08.549506593 -0700
+@@ -1,3 +1,6 @@
++# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
++# SPDX-License-Identifier: Apache-2.0
++
+ import torch
+ import torchvision.transforms as tvf
+ 
+@@ -5,22 +8,21 @@
+ 
+ 
+ class OpenIBL(BaseModel):
+-    default_conf = {
+-        "model_name": "vgg16_netvlad",
+-    }
+-    required_inputs = ["image"]
++  default_conf = {
++      'model_name': 'vgg16_netvlad',
++  }
++  required_inputs = ['image']
+ 
+-    def _init(self, conf):
+-        self.net = torch.hub.load(
+-            "yxgeee/OpenIBL", conf["model_name"], pretrained=True
+-        ).eval()
+-        mean = [0.48501960784313836, 0.4579568627450961, 0.4076039215686255]
+-        std = [0.00392156862745098, 0.00392156862745098, 0.00392156862745098]
+-        self.norm_rgb = tvf.Normalize(mean=mean, std=std)
+-
+-    def _forward(self, data):
+-        image = self.norm_rgb(data["image"])
+-        desc = self.net(image)
+-        return {
+-            "global_descriptor": desc,
+-        }
++  def _init(self, conf):
++    self.net = torch.hub.load(
++        'yxgeee/OpenIBL', conf['model_name'], pretrained=True).eval()
++    mean = [0.48501960784313836, 0.4579568627450961, 0.4076039215686255]
++    std = [0.00392156862745098, 0.00392156862745098, 0.00392156862745098]
++    self.norm_rgb = tvf.Normalize(mean=mean, std=std)
++
++  def _forward(self, data):
++    image = self.norm_rgb(data['image'])
++    desc = self.net(image)
++    return {
++        'global_descriptor': desc,
++    }
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extractors/r2d2.py hloc/extractors/r2d2.py
+--- /tmp/hloc-latest/hloc/extractors/r2d2.py	2026-01-16 16:13:56.813844948 -0700
++++ hloc/extractors/r2d2.py	1969-12-31 17:00:00.000000000 -0700
+@@ -1,62 +0,0 @@
+-import sys
+-from pathlib import Path
+-
+-import torchvision.transforms as tvf
+-
+-from ..utils.base_model import BaseModel
+-
+-r2d2_path = Path(__file__).parent / "../../third_party/r2d2"
+-sys.path.append(str(r2d2_path))
+-from extract import NonMaxSuppression, extract_multiscale, load_network  # noqa: E402
+-
+-
+-class R2D2(BaseModel):
+-    default_conf = {
+-        "model_name": "r2d2_WASF_N16.pt",
+-        "max_keypoints": 5000,
+-        "scale_factor": 2**0.25,
+-        "min_size": 256,
+-        "max_size": 1024,
+-        "min_scale": 0,
+-        "max_scale": 1,
+-        "reliability_threshold": 0.7,
+-        "repetability_threshold": 0.7,
+-    }
+-    required_inputs = ["image"]
+-
+-    def _init(self, conf):
+-        model_fn = r2d2_path / "models" / conf["model_name"]
+-        self.norm_rgb = tvf.Normalize(
+-            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+-        )
+-        self.net = load_network(model_fn)
+-        self.detector = NonMaxSuppression(
+-            rel_thr=conf["reliability_threshold"],
+-            rep_thr=conf["repetability_threshold"],
+-        )
+-
+-    def _forward(self, data):
+-        img = data["image"]
+-        img = self.norm_rgb(img)
+-
+-        xys, desc, scores = extract_multiscale(
+-            self.net,
+-            img,
+-            self.detector,
+-            scale_f=self.conf["scale_factor"],
+-            min_size=self.conf["min_size"],
+-            max_size=self.conf["max_size"],
+-            min_scale=self.conf["min_scale"],
+-            max_scale=self.conf["max_scale"],
+-        )
+-        idxs = scores.argsort()[-self.conf["max_keypoints"] or None :]
+-        xy = xys[idxs, :2]
+-        desc = desc[idxs].t()
+-        scores = scores[idxs]
+-
+-        pred = {
+-            "keypoints": xy[None],
+-            "descriptors": desc[None],
+-            "scores": scores[None],
+-        }
+-        return pred
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' /tmp/hloc-latest/hloc/extractors/superpoint.py hloc/extractors/superpoint.py
+--- /tmp/hloc-latest/hloc/extractors/superpoint.py	2026-01-16 16:13:56.813844948 -0700
++++ hloc/extractors/superpoint.py	2026-01-16 16:16:08.549688937 -0700
+@@ -1,45 +1,67 @@
++# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
++# SPDX-License-Identifier: Apache-2.0
++
+ import sys
+ from pathlib import Path
+-
+ import torch
+ 
+ from ..utils.base_model import BaseModel
+ 
+-sys.path.append(str(Path(__file__).parent / "../../third_party"))
++sys.path.append(str(Path(__file__).parent / '../../third_party'))
+ from SuperGluePretrainedNetwork.models import superpoint  # noqa E402
+ 
+ 
++# torch>=1.10 breaks the original version check.
++# We monkeypatch the function until this PR is merged:
++# https://github.com/magicleap/SuperGluePretrainedNetwork/pull/104
++def sample_descriptors(keypoints, descriptors, s: int = 8):
++  """ Interpolate descriptors at keypoint locations """
++  b, c, h, w = descriptors.shape
++  keypoints = keypoints - s / 2 + 0.5
++  keypoints /= torch.tensor([(w*s - s/2 - 0.5), (h*s - s/2 - 0.5)],
++                            ).to(keypoints)[None]
++  keypoints = keypoints*2 - 1  # normalize to (-1, 1)
++  args = {'align_corners': True} if torch.__version__ >= '1.3' else {}
++  descriptors = torch.nn.functional.grid_sample(
++      descriptors, keypoints.view(b, 1, -1, 2), mode='bilinear', **args)
++  descriptors = torch.nn.functional.normalize(
++      descriptors.reshape(b, c, -1), p=2, dim=1)
++  return descriptors
++
++
++superpoint.sample_descriptors = sample_descriptors
++
++
+ # The original keypoint sampling is incorrect. We patch it here but
+ # we don't fix it upstream to not impact exisiting evaluations.
+ def sample_descriptors_fix_sampling(keypoints, descriptors, s: int = 8):
+-    """Interpolate descriptors at keypoint locations"""
+-    b, c, h, w = descriptors.shape
+-    keypoints = (keypoints + 0.5) / (keypoints.new_tensor([w, h]) * s)
+-    keypoints = keypoints * 2 - 1  # normalize to (-1, 1)
+-    descriptors = torch.nn.functional.grid_sample(
+-        descriptors, keypoints.view(b, 1, -1, 2), mode="bilinear", align_corners=False
+-    )
+-    descriptors = torch.nn.functional.normalize(
+-        descriptors.reshape(b, c, -1), p=2, dim=1
+-    )
+-    return descriptors
++  """ Interpolate descriptors at keypoint locations """
++  b, c, h, w = descriptors.shape
++  keypoints = (keypoints + 0.5) / (keypoints.new_tensor([w, h]) * s)
++  keypoints = keypoints * 2 - 1  # normalize to (-1, 1)
++  descriptors = torch.nn.functional.grid_sample(
++      descriptors, keypoints.view(b, 1, -1, 2),
++      mode='bilinear', align_corners=False)
++  descriptors = torch.nn.functional.normalize(
++      descriptors.reshape(b, c, -1), p=2, dim=1)
++  return descriptors
+ 
+ 
+ class SuperPoint(BaseModel):
+-    default_conf = {
+-        "nms_radius": 4,
+-        "keypoint_threshold": 0.005,
+-        "max_keypoints": -1,
+-        "remove_borders": 4,
+-        "fix_sampling": False,
+-    }
+-    required_inputs = ["image"]
+-    detection_noise = 2.0
+-
+-    def _init(self, conf):
+-        if conf["fix_sampling"]:
+-            superpoint.sample_descriptors = sample_descriptors_fix_sampling
+-        self.net = superpoint.SuperPoint(conf)
++  default_conf = {
++      'nms_radius': 4,
++      'keypoint_threshold': 0.005,
++      'max_keypoints': -1,
++      'remove_borders': 4,
++      'fix_sampling': False,
++  }
++  required_inputs = ['image']
++  detection_noise = 2.0
++
++  def _init(self, conf):
++    if conf['fix_sampling']:
++      superpoint.sample_descriptors = sample_descriptors_fix_sampling
++    self.net = superpoint.SuperPoint(conf)
+ 
+-    def _forward(self, data):
+-        return self.net(data)
++  def _forward(self, data):
++    return self.net(data)
