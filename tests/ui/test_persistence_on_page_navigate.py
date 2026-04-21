@@ -10,7 +10,7 @@ from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="persistence_navigate", profile=FULL_STACK,
+  profile=FULL_STACK,
   require_password=True, auth="",
 )
 

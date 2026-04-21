@@ -16,7 +16,7 @@ from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="system_stability", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
   require_password=False, auth="",
   extra_args=["--hours", os.environ.get("STABILITY_HOURS", "24")],
 )

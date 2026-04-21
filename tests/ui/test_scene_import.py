@@ -32,7 +32,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="scene_import", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
   auth=AUTH_CONTROLLER,
 )
 
@@ -304,7 +304,7 @@ class SceneImportTest(UserInterfaceTest):
     ("Intersection-Demo.zip", '0', TEST_WAIT_TIME * 6) #Intersection demo
   ]
 )
-def test_scene_import(request, record_xml_attribute, zipFile, expected, waitTime):
+def test_scene_import(scenescape_env, request, record_xml_attribute, zipFile, expected, waitTime):
   test = SceneImportTest(TEST_NAME, request, record_xml_attribute, zipFile, expected, waitTime)
   test.checkForMalfunctions()
   assert test.exitCode == 0

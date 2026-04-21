@@ -15,7 +15,7 @@ from tests.utils.log import get_logger
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="reid_unique_count", profile=REID,
+  profile=REID,
 )
 
 TEST_WAIT_TIME = 150

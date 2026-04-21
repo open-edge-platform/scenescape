@@ -12,7 +12,7 @@ from tests.utils.log import get_logger
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="reid_semantic_unique_count", profile=REID_SEMANTIC,
+  profile=REID_SEMANTIC,
 )
 
 def test_reid_semantic_unique_count(params, record_xml_attribute):

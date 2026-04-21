@@ -14,7 +14,7 @@ from tests.utils.spec import AUTH_CONTROLLER, FuncTestSpec
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="scene_details_api", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
   auth=AUTH_CONTROLLER,
 )
 

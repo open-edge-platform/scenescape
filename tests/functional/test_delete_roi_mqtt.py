@@ -8,7 +8,7 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="delete_roi_mqtt", profile=FULL_STACK,
+  profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
@@ -28,7 +28,7 @@ def runROIMqttDelete(self):
     self.runSceneObjMqttFinally()
   return
 
-def test_roi_delete(request, record_xml_attribute):
+def test_roi_delete(scenescape_env, request, record_xml_attribute):
   test = SceneObjectMqtt(TEST_NAME, request, record_xml_attribute)
   runROIMqttDelete(test)
   assert test.exitCode == 0

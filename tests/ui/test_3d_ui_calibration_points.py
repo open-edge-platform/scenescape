@@ -14,7 +14,7 @@ from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  id="3d_ui_calibration_points", profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
   require_password=True, auth="",
 )
 
@@ -270,7 +270,7 @@ class WillOurShipGo(UserInterfaceTest):
     return ss_one_point
 
 @common.mock_display
-def test_3d_ui_calibration(request, record_xml_attribute):
+def test_3d_ui_calibration(scenescape_env, request, record_xml_attribute):
   """! Test the 3D UI calibration points.
   @param    request                 Pytest request object with test parameters
   @param    record_xml_attribute    Function for recording test name.
