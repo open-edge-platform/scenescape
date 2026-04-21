@@ -46,6 +46,7 @@ flowchart LR
     NTP["NTP Server"]
     Manager["Manager"]
     Controller["Controller"]
+    Tracker["Tracker"]
     Autocalibration["Autocalibration"]
     ClusterAnalytics["Cluster Analytics"]
     Mapping["Mapping"]
@@ -71,6 +72,7 @@ flowchart TB
     NTP["NTP Server"]
     Manager["Manager"]
     Controller["Controller"]
+    Tracker["Tracker"]
     Autocalibration["Autocalibration"]
     ClusterAnalytics["Cluster Analytics"]
     Mapping["Mapping"]
@@ -85,8 +87,11 @@ flowchart TB
 
   subgraph data [Example Database Contents]
     ExampleDB@{ shape: "odd" }
-    ExampleDB -->|Load into| core
+
   end
+
+  data -->|Load into| core
+  sensors -->|Provide sensor data to| core
 ```
 
 Aside from just splitting deployments, the following changes in implementations are needed:
