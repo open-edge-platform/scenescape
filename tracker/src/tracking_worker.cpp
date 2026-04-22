@@ -198,7 +198,15 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
             LOG_WARN("Unknown camera '{}' in detection batch, skipping", batch.camera_id);
             continue;
         }
-        objects_per_camera.push_back(transformer_it->second.transformDetections(batch.detections));
+        auto [objects, metadata] = transformer_it->second.transformDetections(batch.detections);
+        // Inject metadata_json into attributes so the RobotVision tracker propagates it
+        // to the matched output track via MultiModelKalmanEstimator::correct().
+        for (size_t i = 0; i < objects.size(); ++i) {
+            if (!metadata[i].empty()) {
+                objects[i].attributes["metadata_json"] = metadata[i];
+            }
+        }
+        objects_per_camera.push_back(std::move(objects));
     }
 
     return objects_per_camera;
@@ -228,6 +236,12 @@ TrackingWorker::convert_tracks(const std::vector<rv::tracking::TrackedObject>& r
         track.velocity = {rv_track.vx, rv_track.vy, 0.0};
         track.size = {rv_track.length, rv_track.width, rv_track.height};
         track.rotation = CoordinateTransformer::yawToQuaternion(rv_track.yaw);
+
+        // Retrieve metadata_json stored in attributes by transform_detections()
+        auto meta_it = rv_track.attributes.find("metadata_json");
+        if (meta_it != rv_track.attributes.end()) {
+            track.metadata_json = meta_it->second;
+        }
 
         tracks.push_back(std::move(track));
     }
