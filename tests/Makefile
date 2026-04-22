@@ -190,7 +190,6 @@ _non-functional-tests: \
   build-time \
   openapi-validation \
   python-indent-check \
-  openapi-validation \
 
 metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
