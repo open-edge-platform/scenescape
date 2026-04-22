@@ -46,6 +46,14 @@ class Tracking(Thread):
     log.warning("No tracker for category", category)
     return 0
 
+  def updateReidConfig(self, reid_config_data=None):
+    """Update ReID behavior in-place for this tracker and all child trackers."""
+    self.reid_config_data = reid_config_data if reid_config_data else {}
+    self.uuid_manager.updateReidConfig(self.reid_config_data)
+    for tracker in self.trackers.values():
+      tracker.updateReidConfig(self.reid_config_data)
+    return
+
   def trackObjects(self, objects, already_tracked_objects, when, categories, \
                    ref_camera_frame_rate, \
                    max_unreliable_time, \

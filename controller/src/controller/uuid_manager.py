@@ -58,6 +58,32 @@ class UUIDManager:
     with self.unique_id_count_lock:
       self.unique_id_count += 1
 
+  def updateReidConfig(self, reid_config_data=None):
+    """Update runtime ReID configuration without recreating the UUID manager."""
+    if reid_config_data is None:
+      reid_config_data = {}
+
+    old_interval = self.stale_feature_check_interval_secs
+
+    self.stale_feature_timeout_secs = reid_config_data.get(
+      'stale_feature_timeout_secs', DEFAULT_STALE_FEATURE_TIMEOUT_SECS)
+    self.stale_feature_check_interval_secs = reid_config_data.get(
+      'stale_feature_check_interval_secs', DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS)
+    self.minimum_feature_count = reid_config_data.get(
+      'feature_accumulation_threshold', DEFAULT_MINIMUM_FEATURE_COUNT)
+    self.similarity_threshold = reid_config_data.get(
+      'similarity_threshold', DEFAULT_SIMILARITY_THRESHOLD)
+    self.minimum_bbox_area = reid_config_data.get(
+      'minimum_bbox_area', DEFAULT_MINIMUM_BBOX_AREA)
+    self.feature_slice_size = reid_config_data.get(
+      'feature_slice_size', DEFAULT_FEATURE_SLICE_SIZE)
+
+    # Timer cadence changes require rescheduling the stale feature timer.
+    if self.stale_feature_timer is not None and old_interval != self.stale_feature_check_interval_secs:
+      self.stale_feature_timer.cancel()
+      self.stale_feature_timer = None
+      self._start_stale_feature_timer()
+
   def __del__(self):
     """Clean up resources when the UUIDManager is destroyed"""
     self.shutdown()

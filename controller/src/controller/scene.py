@@ -127,11 +127,11 @@ class Scene(SceneModel):
     if tracker_config:
       self.updateTracker(tracker_config[0], tracker_config[1], tracker_config[2])
 
-    # Reinitialize tracker only when ReID config actually changes so UUIDManager
-    # and child tracker threads pick up the updated thresholds.
+    # Apply ReID config changes in-place to preserve active tracks while
+    # updating UUID manager thresholds and timers.
     if reid_config_changed and self.trackerType and not ControllerMode.isAnalyticsOnly():
-      log.info(f"ReID config changed for scene={self.uid}; reinitializing tracker {self.trackerType}")
-      self._setTracker(self.trackerType)
+      log.info(f"ReID config changed for scene={self.uid}; updating tracker ReID runtime config")
+      self.tracker.updateReidConfig(self.reid_config_data)
 
     self.name = scene_data['name']
     if 'scale' in scene_data:
