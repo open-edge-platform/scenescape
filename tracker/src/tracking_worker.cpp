@@ -229,7 +229,13 @@ TrackingWorker::convert_tracks(const std::vector<rv::tracking::TrackedObject>& r
         track.size = {rv_track.length, rv_track.width, rv_track.height};
         track.rotation = CoordinateTransformer::yawToQuaternion(rv_track.yaw);
 
-        // Retrieve metadata_json stored in attributes by transform_detections()
+        // Retrieve metadata_json stored in attributes by transform_detections().
+        // NOTE: multi-camera last-write-wins — when the same track is observed by
+        // multiple cameras in one time chunk, rv::tracking::TrackedObject::attributes
+        // is overwritten (not merged) for each matched measurement. The camera whose
+        // detections are fed last into the tracker wins, which depends on processing
+        // order in objects_per_camera (i.e., the order of camera_batches in the Chunk).
+        // This is an inherent limitation of the RobotVision attributes API.
         auto meta_it = rv_track.attributes.find("metadata_json");
         if (meta_it != rv_track.attributes.end()) {
             track.metadata_json = meta_it->second;
