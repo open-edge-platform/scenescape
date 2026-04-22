@@ -47,6 +47,7 @@ class UUIDManager:
     self.minimum_feature_count = reid_config_data.get('feature_accumulation_threshold', DEFAULT_MINIMUM_FEATURE_COUNT)
     self.similarity_threshold = reid_config_data.get('similarity_threshold', DEFAULT_SIMILARITY_THRESHOLD)
     self.minimum_bbox_area = reid_config_data.get('minimum_bbox_area', DEFAULT_MINIMUM_BBOX_AREA)
+    self.feature_slice_size = reid_config_data.get('feature_slice_size', DEFAULT_FEATURE_SLICE_SIZE)
     self.stale_feature_timer = None
     self._start_stale_feature_timer()
     return
@@ -183,7 +184,7 @@ class UUIDManager:
       self._addNewFeaturesToDatabase(track_id)
     return
 
-  def _addNewFeaturesToDatabase(self, track_id, slice_size=DEFAULT_FEATURE_SLICE_SIZE):
+  def _addNewFeaturesToDatabase(self, track_id, slice_size=None):
     """
     Add the features when the track is no longer active to reduce the total number of
     queries sent to the database. Also only take a subset of the captured features to
@@ -197,6 +198,8 @@ class UUIDManager:
     @param  track_id    The ID of the track with features to add to the database
     @param  slice_size  The size of the slice to use to reduce the size of the feature list
     """
+    if slice_size is None:
+      slice_size = self.feature_slice_size
     features = self.features_for_database.pop(track_id, None)
     if features:
       features['reid_vectors'] = features['reid_vectors'][::slice_size]
