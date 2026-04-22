@@ -215,12 +215,12 @@ void NtpClock::stop() {
 void NtpClock::syncOnce(const std::string& host) {
     auto result = detail::queryNtp(host);
     if (result) {
-        offset_s_.store(*result, std::memory_order_relaxed);
+        offset_ns_.store(static_cast<int64_t>(*result * 1e9), std::memory_order_relaxed);
         synced_.store(true, std::memory_order_relaxed);
         LOG_INFO("NTP sync: offset={:.6f}s (server={})", *result, host);
     } else if (synced_.load(std::memory_order_relaxed)) {
         LOG_WARN("NTP sync failed — keeping previous offset={:.6f}s (server={})",
-                 offset_s_.load(std::memory_order_relaxed), host);
+                 static_cast<double>(offset_ns_.load(std::memory_order_relaxed)) / 1.0e9, host);
     } else {
         LOG_WARN("NTP sync failed — no offset available yet, using raw system clock (server={})",
                  host);
@@ -241,15 +241,6 @@ void NtpClock::runLoop(const std::string& host, int interval_s) {
         lock.unlock();
         syncOnce(host);
     }
-}
-
-std::chrono::system_clock::time_point NtpClock::now() const {
-    using namespace std::chrono;
-    auto raw = system_clock::now();
-    // Convert double seconds offset to nanoseconds for precision
-    auto offset_ns =
-        duration_cast<nanoseconds>(duration<double>(offset_s_.load(std::memory_order_relaxed)));
-    return raw + offset_ns;
 }
 
 ClockFn NtpClock::asClockFn() {

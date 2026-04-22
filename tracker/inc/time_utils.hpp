@@ -79,8 +79,14 @@ public:
 
     /**
      * @brief Return NTP-adjusted current time.
+     *
+     * Inline to avoid function-call overhead on the hot path; the body is a
+     * single atomic load plus a nanosecond addition to system_clock::now().
      */
-    [[nodiscard]] std::chrono::system_clock::time_point now() const;
+    [[nodiscard]] inline std::chrono::system_clock::time_point now() const {
+        return std::chrono::system_clock::now() +
+               std::chrono::nanoseconds(offset_ns_.load(std::memory_order_relaxed));
+    }
 
     /**
      * @brief Return a ClockFn that calls now() on this instance.
@@ -93,10 +99,21 @@ public:
     /**
      * @brief Return the current NTP offset in seconds (for logging/metrics).
      */
-    [[nodiscard]] double offset() const { return offset_s_.load(std::memory_order_relaxed); }
+    [[nodiscard]] double offset() const {
+        return static_cast<double>(offset_ns_.load(std::memory_order_relaxed)) / 1.0e9;
+    }
 
     /**
      * @brief Return true if at least one successful NTP sync has completed.
+     *
+     * Once set to true this flag is never reset, even after consecutive sync
+     * failures. The last known-good offset is retained intentionally: a stale
+     * but previously-accurate correction is safer than suddenly falling back
+     * to a potentially skewed system clock.
+     *
+     * Future improvement: add a staleness threshold that resets this flag
+     * (and zeroes the offset) when no successful sync has occurred for a
+     * configurable duration.
      */
     [[nodiscard]] bool synced() const { return synced_.load(std::memory_order_relaxed); }
 
@@ -104,8 +121,8 @@ private:
     void syncOnce(const std::string& host);
     void runLoop(const std::string& host, int interval_s);
 
-    std::atomic<double> offset_s_{0.0};
-    std::atomic<bool> synced_{false};
+    std::atomic<int64_t> offset_ns_{0}; ///< NTP offset in nanoseconds (avoids conversion in now())
+    std::atomic<bool> synced_{false};   ///< True after first successful sync; see synced() doc
     std::atomic<bool> stop_requested_{false};
     std::atomic<bool> running_{false};
     std::thread sync_thread_;
