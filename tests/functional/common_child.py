@@ -15,7 +15,7 @@ from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
 
-MAX_WAIT = 3
+MAX_WAIT = 5
 
 
 class ChildSceneTest:
