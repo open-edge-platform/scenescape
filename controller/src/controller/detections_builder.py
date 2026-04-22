@@ -44,6 +44,20 @@ def _build_region_output(regions, include_region_dwell, current_time):
     serialized_regions[region_name] = serialized_region
   return serialized_regions
 
+def _serialize_previous_ids_chain(previous_ids_chain):
+  serialized_chain = []
+  for entry in previous_ids_chain:
+    serialized_entry = dict(entry)
+    timestamp = serialized_entry.get('timestamp')
+
+    # UUIDManager records chain timestamps as epoch floats; normalize to ISO 8601 in output.
+    if isinstance(timestamp, (int, float)):
+      serialized_entry['timestamp'] = get_iso_time(float(timestamp))
+
+    serialized_chain.append(serialized_entry)
+
+  return serialized_chain
+
 def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
                    include_region_dwell=False, current_time=None):
   aobj = obj
@@ -156,7 +170,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
   # Add previous IDs chain for post-mortem object stitching analysis
   if hasattr(aobj, 'previous_ids_chain') and aobj.previous_ids_chain:
-    obj_dict['previous_ids_chain'] = aobj.previous_ids_chain
+    obj_dict['previous_ids_chain'] = _serialize_previous_ids_chain(aobj.previous_ids_chain)
 
   if isinstance(obj, TripwireEvent):
     obj_dict['direction'] = obj.direction

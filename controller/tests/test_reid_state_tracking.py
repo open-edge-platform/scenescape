@@ -65,7 +65,7 @@ class TestMovingObjectReidStateInitialization:
     self.mock_camera.pose = Mock()
     self.mock_camera.pose.intrinsics = Mock()
     self.mock_camera.pose.intrinsics.mapPixelToNormalizedImagePlane = Mock(
-        return_value=Mock()
+      return_value=Mock()
     )
 
   def test_moving_object_initializes_with_pending_collection_state(self):

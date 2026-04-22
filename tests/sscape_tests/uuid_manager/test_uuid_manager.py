@@ -8,7 +8,6 @@ Tests the interface and behavior of UUID manager without implementation bias.
 These tests run inside the controller container where all dependencies are available.
 """
 
-import pytest
 import numpy as np
 from unittest.mock import Mock, MagicMock, patch
 
