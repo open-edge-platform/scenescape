@@ -212,6 +212,7 @@ tracked object contains the following fields:
 > camera input it is a base64-encoded string. `metadata` is absent when no semantic
 > analytics pipeline is configured.
 
+<<<<<<< HEAD
 > **Note on `similarity`**: This field holds an L2 distance returned by VDMS, not a
 > cosine similarity score. Lower values mean the query embedding is closer to the stored
 > embedding. A value of `null` means either the ReID query has not been submitted yet
@@ -225,6 +226,8 @@ tracked object contains the following fields:
 > - `matched`: Query found a database match and the object was re-identified.
 > - `reid_disabled`: Re-ID is disabled for this object lifecycle (for example due to runtime disablement).
 
+=======
+>>>>>>> main
 > **Note on live region dwell**: In region data and region event payloads, objects that are
 > still inside a region include `regions.<region_id>.dwell`, which is the current elapsed
 > time in seconds since that object entered the region. Exit records continue to expose the
