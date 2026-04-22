@@ -179,12 +179,10 @@ class ChildSceneTest:
                     f"{res.statusCode} {res.errors}")
 
     if self.child_id and not self.child_unlinked:
-      res = rest_client.deleteChildSceneLink(self.child_id)
-      if res.statusCode == 200:
-        log.info(f"[TEARDOWN] Unlinked child uid={self.child_id}: {res.statusCode}")
-      else:
-        log.error(f"[TEARDOWN] Failed to unlink child uid={self.child_id}: "
-                  f"{res.statusCode} {res.errors}")
+      try:
+        self.unlink_child(rest_client)
+      except AssertionError as exc:
+        log.error(f"[TEARDOWN] Failed to unlink child uid={self.child_id}: {exc}")
 
     if self.parent_id:
       res = rest_client.deleteScene(self.parent_id)
