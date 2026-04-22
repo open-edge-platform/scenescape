@@ -467,10 +467,6 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     if _testlog is not None:
       _testlog.silence_console()
 
-    # Collect logs and scan for tracebacks in a single pass.
-    logger.info("Collecting container logs: %s", project_name)
-    collect_logs(docker, scan_for_tracebacks=True)
-
     logger.info("Cleaning up: %s", project_name)
     try:
       docker.compose.down(remove_orphans=True, volumes=True)
@@ -648,6 +644,37 @@ def pytest_runtest_call(item):
   if spec is None:
     return
   _testlog.begin_test_phase()
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+  """Attach setup/call/teardown reports to each item for teardown decisions."""
+  outcome = yield
+  rep = outcome.get_result()
+  setattr(item, f"rep_{rep.when}", rep)
+
+def pytest_runtest_teardown(item, nextitem):
+  """Collect container logs only when a test failed.
+
+  This limits disk usage while preserving container diagnostics for failures.
+  """
+  if not _ORCHESTRATION_AVAILABLE:
+    return
+
+  rep_setup = getattr(item, "rep_setup", None)
+  rep_call = getattr(item, "rep_call", None)
+  failed = bool(
+    (rep_setup is not None and rep_setup.failed)
+    or (rep_call is not None and rep_call.failed)
+  )
+  if not failed:
+    return
+
+  env = item.funcargs.get("scenescape_env") if hasattr(item, "funcargs") else None
+  if env is None:
+    return
+
+  logger.info("Collecting container logs for failed test: %s", item.nodeid)
+  collect_logs(env.docker, scan_for_tracebacks=True)
 
 def pytest_runtest_logreport(report):
   """Log test phase results to the per-test log file."""
