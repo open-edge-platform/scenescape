@@ -18,6 +18,7 @@ import torch
 from PIL import Image
 import torchvision.transforms as tvf
 
+
 import tempfile
 import numpy as np
 import trimesh
@@ -104,9 +105,13 @@ class VGGTModel(ReconstructionModel):
       # Decode images and get original sizes
       pil_images = []
       original_sizes = []
+      camera_ids = []
+      camera_locations = []
 
       for img_data in images:
         img_array = self.decodeBase64Image(img_data["data"])
+        camera_ids.append(img_data.get("camera_id"))
+        camera_locations.append(img_data.get("camera_location"))
         # Apply CLAHE for improved contrast
         img_array = self._applyCLAHE(img_array)
         pil_image = Image.fromarray(img_array)
@@ -121,7 +126,7 @@ class VGGTModel(ReconstructionModel):
       predictions = self._runModelInference(images_tensor)
 
       # Process outputs
-      result = self._processOutputs(predictions, original_sizes, model_size)
+      result = self._processOutputs(predictions, original_sizes, model_size, camera_ids=camera_ids, camera_locations=camera_locations)
 
       return result
 
@@ -136,6 +141,14 @@ class VGGTModel(ReconstructionModel):
   def getNativeOutput(self) -> str:
     """Get native output format."""
     return "pointcloud"
+
+  def _camera_center_from_c2w(self, c2w: np.ndarray) -> np.ndarray:
+    return c2w[:3, 3]
+
+  def _baseline_units(self, c2w_a: np.ndarray, c2w_b: np.ndarray) -> float:
+    ca = self._camera_center_from_c2w(c2w_a)
+    cb = self._camera_center_from_c2w(c2w_b)
+    return float(np.linalg.norm(cb - ca))
 
   def scaleIntrinsicsToOriginalSize(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
                    preprocessing_mode: str = "crop") -> list:
@@ -398,41 +411,43 @@ class VGGTModel(ReconstructionModel):
 
   def _preprocessImages(self, pil_images: List[Image.Image]) -> tuple:
     """
-    Preprocess images using VGGT's logic.
-
-    Args:
-      pil_images: List of PIL images
-
-    Returns:
-      Tuple of (processed_tensor, model_size)
+    No-padding preprocess:
+    1) Resize so the SHORTER side becomes 518 (keeps aspect ratio).
+    2) (Optionally) round resized dims to multiples of 14 for VGGT.
+    3) Center-crop to 518x518.
     """
+    processed_images = []
     target = 518
-    n = len(pil_images)
 
-    # Preallocate on CPU, then move once
-    batch = torch.empty((n, 3, target, target), dtype=torch.float32)
+    for pil_image in pil_images:
+      w, h = pil_image.size
 
-    for i, im in enumerate(pil_images):
-      w, h = im.size
-      new_w = target
-      new_h = round(h * (new_w / w) / 14) * 14
-      new_h = max(14, new_h)
+      # Scale so min side == 518
+      scale = target / float(min(w, h))
+      new_w = int(round((w * scale) / 14.0) * 14)
+      new_h = int(round((h * scale) / 14.0) * 14)
 
-      im = im.resize((new_w, new_h), Image.Resampling.BICUBIC)
+      # Safety: ensure both dims >= 518 after rounding
+      new_w = max(target, new_w)
+      new_h = max(target, new_h)
 
-      if new_h > target:
-        top = (new_h - target) // 2
-        im = im.crop((0, top, target, top + target))
-      elif new_h < target:
-        pad_top = (target - new_h) // 2
-        canvas = Image.new(im.mode, (target, target))
-        canvas.paste(im, (0, pad_top))
-        im = canvas
+      img_resized = pil_image.resize((new_w, new_h), Image.Resampling.BICUBIC)
+      img_tensor = tvf.ToTensor()(img_resized)  # (3, H, W)
 
-      batch[i] = tvf.ToTensor()(im)
+      # Center crop to 518x518 (no padding)
+      H, W = img_tensor.shape[1], img_tensor.shape[2]
+      top = (H - target) // 2
+      left = (W - target) // 2
+      img_tensor = img_tensor[:, top:top + target, left:left + target]
 
-    images_tensor = batch.to(self.device, non_blocking=True)
-    return images_tensor, (target, target)
+      if img_tensor.shape[1] != target or img_tensor.shape[2] != target:
+        raise RuntimeError(f"Preprocess produced {tuple(img_tensor.shape)}; expected (3,{target},{target})")
+
+      processed_images.append(img_tensor)
+
+    images_tensor = torch.stack(processed_images, dim=0).to(self.device)  # (N,3,518,518)
+    model_size = (target, target)
+    return images_tensor, model_size
 
   def _runModelInference(self, images_tensor: torch.Tensor) -> Dict[str, Any]:
     """
@@ -454,8 +469,50 @@ class VGGTModel(ReconstructionModel):
 
     return predictions
 
+  def _baseline_metric_from_camera_locations(self, camera_locations, camera_ids=None) -> float:
+    """
+    Robustly compute a metric baseline (meters) from camera_locations.
+
+    camera_locations may contain dicts, None, and/or malformed entries.
+    Each valid dict must contain 'translation': [x,y,z] in meters.
+    """
+    if not camera_locations or len(camera_locations) < 2:
+      return 0.0
+
+    try:
+      translations = []
+      for loc in camera_locations:
+        if not isinstance(loc, dict):
+          continue
+        t = loc.get("translation", None)
+        if t is None or len(t) != 3:
+          continue
+        t = np.asarray(t, dtype=np.float32)
+        if t.shape != (3,) or not np.isfinite(t).all():
+          continue
+        translations.append(t)
+
+      if len(translations) < 2:
+        return 0.0
+
+      distances = []
+      for i in range(len(translations)):
+        for j in range(i + 1, len(translations)):
+          d = float(np.linalg.norm(translations[j] - translations[i]))
+          if np.isfinite(d) and d > 1e-6:
+            distances.append(d)
+
+      if not distances:
+        return 0.0
+
+      return float(np.min(distances))
+
+    except Exception as e:
+      log.exception(f"Failed to compute baseline from camera_locations: {e}")
+      return 0.0
+
   def _processOutputs(self, predictions: Dict[str, Any], original_sizes: List[tuple],
-            model_size: tuple) -> Dict[str, Any]:
+            model_size: tuple, camera_ids: List[Any] = None, camera_locations: List[Any] = None) -> Dict[str, Any]:
     """
     Process VGGT outputs into standard format.
 
@@ -502,32 +559,83 @@ class VGGTModel(ReconstructionModel):
     intrinsics_list = []
 
     extrinsic_matrices = predictions["extrinsic"]  # Shape: (S, 4, 4) - world-to-camera
+    rotation_x_180 = np.array([
+      [1, 0, 0, 0],
+      [0, -1, 0, 0],
+      [0, 0, -1, 0],
+      [0, 0, 0, 1]
+    ], dtype=np.float32)
+
+    # --- build camera_to_world for all frames first ---
+    camera_to_world_list = []
 
     for i in range(extrinsic_matrices.shape[0]):
-      # VGGT outputs extrinsics (world-to-camera), but we want camera poses (camera-to-world)
-      # Convert by taking the inverse of the extrinsic matrix
-      world_to_camera = extrinsic_matrices[i]  # 4x4 matrix
+      world_to_camera = extrinsic_matrices[i]  # (4,4) or (3,4)
 
       # Convert 3x4 to 4x4 if needed
       if world_to_camera.shape == (3, 4):
-        world_to_camera_4x4 = np.eye(4)
-        world_to_camera_4x4[:3, :4] = world_to_camera
-        world_to_camera = world_to_camera_4x4
+        w2c = np.eye(4, dtype=np.float32)
+        w2c[:3, :4] = world_to_camera
+        world_to_camera = w2c
 
-      # Invert to get camera-to-world (camera pose)
-      camera_to_world = np.linalg.inv(world_to_camera)
+      # Invert to get camera-to-world
+      c2w = np.linalg.inv(world_to_camera).astype(np.float32)
 
-      intrinsic_matrix = original_intrinsics[i]  # Use scaled intrinsics
+      # Apply your orientation fix
+      c2w = rotation_x_180 @ c2w
 
-      # Convert rotation matrix to quaternion
+      camera_to_world_list.append(c2w)
+
+    # --- SCALE FIX: compute metric baseline from provided camera_locations ---
+    baseline_metric = self._baseline_metric_from_camera_locations(camera_locations, camera_ids=camera_ids)
+
+    if baseline_metric <= 0:
+      log.warning("VGGT: camera_locations missing/invalid; skipping metric scaling (scale will be arbitrary).")
+
+    if baseline_metric > 0 and len(camera_to_world_list) >= 2:
+      b_units = self._baseline_units(camera_to_world_list[0], camera_to_world_list[1])
+      if b_units > 1e-6:
+        scale = baseline_metric / b_units
+        log.info(f"Scaling VGGT outputs by s={scale:.6f} (baseline {baseline_metric:.6f}m / {b_units:.6f} units)")
+
+        # scale camera translations
+        for k in range(len(camera_to_world_list)):
+          camera_to_world_list[k] = camera_to_world_list[k].copy()
+          camera_to_world_list[k][:3, 3] *= scale
+
+        # scale world points (affects glb_size -> pixels_per_meter)
+        if isinstance(predictions.get("world_points_from_depth"), np.ndarray):
+          predictions["world_points_from_depth"] *= scale
+        if isinstance(predictions.get("world_points"), np.ndarray):
+          predictions["world_points"] *= scale
+
+        # optional: scale depth too (only if used elsewhere)
+        if isinstance(predictions.get("depth"), np.ndarray):
+          predictions["depth"] *= scale
+      else:
+        log.warning(f"VGGT: predicted baseline too small ({b_units}); skipping scaling.")
+
+    # --- now build camera_poses + intrinsics_list using the scaled camera_to_world_list ---
+    camera_poses = []
+    intrinsics_list = []
+
+    for i, camera_to_world in enumerate(camera_to_world_list):
+      cam_id = camera_ids[i] if camera_ids is not None and i < len(camera_ids) else None
+      K = original_intrinsics[i]
+
       rotation_matrix = camera_to_world[:3, :3]
       quaternion = self.rotationMatrixToQuaternion(rotation_matrix)
 
       camera_poses.append({
-        "rotation": quaternion.tolist(),  # [x, y, z, w]
+        "camera_id": cam_id,
+        "rotation": quaternion.tolist(), # [x, y, z, w]
         "translation": camera_to_world[:3, 3].tolist()
       })
-      intrinsics_list.append(intrinsic_matrix.tolist())
+
+      intrinsics_list.append({
+        "camera_id": cam_id,
+        "K": K.tolist()
+      })
 
     return {
       "predictions": predictions,
