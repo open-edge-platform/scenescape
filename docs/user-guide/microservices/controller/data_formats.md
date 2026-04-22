@@ -37,21 +37,21 @@ against the `detector` definition in
 
 ### Detection Object Fields (`objects.<category>[*]`)
 
-| Field             | Type               | Required | Description                                                                        |
-| ----------------- | ------------------ | :------: | ---------------------------------------------------------------------------------- |
-| `category`        | string             |   Yes    | Object class label (e.g. `"person"`, `"car"`)                                      |
-| `bounding_box`    | object             | One of ① | Normalized image-space bounding box (`x`, `y`, `width`, `height`)                  |
-| `bounding_box_px` | object             | One of ① | Pixel-space bounding box (`x`, `y`, `width`, `height`; optional `z`, `depth`)      |
-| `translation`     | array[3] of number | One of ① | 3D world position (`x`, `y`, `z`) in metres                                        |
-| `lat_long_alt`    | array[3] of number | One of ① | Geographic position (latitude, longitude, altitude); converted to ECEF internally  |
-| `size`            | array[3] of number | One of ① | 3D object dimensions (`x`, `y`, `z`) in metres                                     |
-| `confidence`      | number > 0         |    No    | Inference confidence score for this detection                                      |
-| `id`              | integer ≥ 0        |  Yes ②   | Per-frame detection index                                                          |
-| `rotation`               | array[4] of number |    No    | Object orientation as a quaternion                                                                                                                       |
-| `distance`               | number             |    No    | Distance from the camera to the detection in metres                                                                                                      |
-| `keypoints`              | array of objects   |    No    | Pose keypoints when a pose estimation model is used; each entry: `{"name": "<joint>", "x": <0–1>, "y": <0–1>}` (coordinates normalized to frame dimensions) |
-| `keypoint_connections`   | array of strings   |    No    | Flat list of joint-name pairs defining skeleton bones (e.g. `["nose","eye_l","nose","eye_r",...]`); length is always `2 × number_of_bones`                  |
-| `metadata`               | object             |    No    | Semantic attribute bag (see [Semantic Metadata Fields](#semantic-metadata-fields))                                                                        |
+| Field                  | Type               | Required | Description                                                                                                                                                 |
+| ---------------------- | ------------------ | :------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `category`             | string             |   Yes    | Object class label (e.g. `"person"`, `"car"`)                                                                                                               |
+| `bounding_box`         | object             | One of ① | Normalized image-space bounding box (`x`, `y`, `width`, `height`)                                                                                           |
+| `bounding_box_px`      | object             | One of ① | Pixel-space bounding box (`x`, `y`, `width`, `height`; optional `z`, `depth`)                                                                               |
+| `translation`          | array[3] of number | One of ① | 3D world position (`x`, `y`, `z`) in metres                                                                                                                 |
+| `lat_long_alt`         | array[3] of number | One of ① | Geographic position (latitude, longitude, altitude); converted to ECEF internally                                                                           |
+| `size`                 | array[3] of number | One of ① | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                              |
+| `confidence`           | number > 0         |    No    | Inference confidence score for this detection                                                                                                               |
+| `id`                   | integer ≥ 0        |  Yes ②   | Per-frame detection index                                                                                                                                   |
+| `rotation`             | array[4] of number |    No    | Object orientation as a quaternion                                                                                                                          |
+| `distance`             | number             |    No    | Distance from the camera to the detection in metres                                                                                                         |
+| `keypoints`            | array of objects   |    No    | Pose keypoints when a pose estimation model is used; each entry: `{"name": "<joint>", "x": <0–1>, "y": <0–1>}` (coordinates normalized to frame dimensions) |
+| `keypoint_connections` | array of strings   |    No    | Flat list of joint-name pairs defining skeleton bones (e.g. `["nose","eye_l","nose","eye_r",...]`); length is always `2 × number_of_bones`                  |
+| `metadata`             | object             |    No    | Semantic attribute bag (see [Semantic Metadata Fields](#semantic-metadata-fields))                                                                          |
 
 > **① Location constraint**: every detection must provide location in exactly one
 > of these forms (enforced by the schema's `oneOf`):
@@ -97,14 +97,21 @@ omitted; `embedding_vector` truncated for readability):
           "height": 411
         },
         "keypoints": [
-          {"name": "nose",       "x": 0.122, "y": 0.157},
-          {"name": "eye_l",     "x": 0.115, "y": 0.136},
-          {"name": "eye_r",     "x": 0.160, "y": 0.125},
-          {"name": "shoulder_l","x": 0.262, "y": 0.276},
-          {"name": "shoulder_r","x": 0.602, "y": 0.198}
+          { "name": "nose", "x": 0.122, "y": 0.157 },
+          { "name": "eye_l", "x": 0.115, "y": 0.136 },
+          { "name": "eye_r", "x": 0.16, "y": 0.125 },
+          { "name": "shoulder_l", "x": 0.262, "y": 0.276 },
+          { "name": "shoulder_r", "x": 0.602, "y": 0.198 }
         ],
         "keypoint_connections": [
-          "nose", "eye_l", "nose", "eye_r", "eye_l", "ear_l", "eye_r", "ear_r"
+          "nose",
+          "eye_l",
+          "nose",
+          "eye_r",
+          "eye_l",
+          "ear_l",
+          "eye_r",
+          "ear_r"
         ],
         "metadata": {
           "age": {
