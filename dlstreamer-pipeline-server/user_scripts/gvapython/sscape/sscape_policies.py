@@ -6,6 +6,22 @@ import base64
 
 ## Policies to post process data
 
+def _extractKeypoints(item):
+  for tensor in item.get('tensors', []):
+    if tensor.get('format') == 'keypoints':
+      data = tensor.get('data', [])
+      names = tensor.get('point_names', [])
+      keypoints = [
+        {'name': names[i], 'x': data[i * 2], 'y': data[i * 2 + 1]}
+        for i in range(len(names))
+        if i * 2 + 1 < len(data)
+      ]
+      return {
+        'keypoints': keypoints,
+        'keypoint_connections': tensor.get('point_connections', [])
+      }
+  return {}
+
 def detectionPolicy(pobj, item, fw, fh):
   detection = item['detection']
   # If label is missing use label_id to avoid KeyError exception.
@@ -17,6 +33,7 @@ def detectionPolicy(pobj, item, fw, fh):
   pobj.update({
     'bounding_box_px': {'x': item['x'], 'y': item['y'], 'width': item['w'], 'height': item['h']}
   })
+  pobj.update(_extractKeypoints(item))
   return
 
 def detection3DPolicy(pobj, item, fw, fh):
