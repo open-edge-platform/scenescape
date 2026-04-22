@@ -172,6 +172,13 @@ Detection make_detection(float x, float y, float w, float h, int32_t id = 1) {
     return Detection{.id = id, .bounding_box_px = cv::Rect2f(x, y, w, h)};
 }
 
+// Test helper: returns only TrackedObjects from transformDetections, discarding the
+// parallel metadata vector. Used by pre-existing geometry-only tests.
+std::vector<rv::tracking::TrackedObject>
+transformObjects(const CoordinateTransformer& t, std::span<const Detection> dets) {
+    return t.transformDetections(dets).first;
+}
+
 //
 // Euler angle to rotation matrix tests
 //
@@ -271,7 +278,7 @@ TEST(YawToQuaternionTest, UnitQuaternion) {
 TEST(TransformDetectionsTest, EmptyInput) {
     auto transformer = make_transformer(kCameraAtaqQcam1);
     std::vector<Detection> empty;
-    auto result = transformer.transformDetections(empty);
+    auto result = transformObjects(transformer, empty);
     EXPECT_TRUE(result.empty());
 }
 
@@ -284,7 +291,7 @@ TEST(TransformDetectionsTest, MatchesPythonReference_Position) {
             make_detection(static_cast<float>(tc.bbox_x), static_cast<float>(tc.bbox_y),
                            static_cast<float>(tc.bbox_width), static_cast<float>(tc.bbox_height))};
 
-        auto result = transformer.transformDetections(detections);
+        auto result = transformObjects(transformer, detections);
         ASSERT_EQ(result.size(), 1u) << "Test " << tc.name << ": expected 1 result";
         EXPECT_NEAR(result[0].x, tc.world_x, kWorldTolerance)
             << "Test " << tc.name << " world X mismatch";
@@ -304,7 +311,7 @@ TEST(TransformDetectionsTest, MatchesPythonReference_Size) {
             make_detection(static_cast<float>(tc.bbox_x), static_cast<float>(tc.bbox_y),
                            static_cast<float>(tc.bbox_width), static_cast<float>(tc.bbox_height))};
 
-        auto result = transformer.transformDetections(detections);
+        auto result = transformObjects(transformer, detections);
         ASSERT_EQ(result.size(), 1u) << "Test " << tc.name << ": expected 1 result";
 
         // Size convention: length=width, width=width, height=height
@@ -325,7 +332,7 @@ TEST(TransformDetectionsTest, PreservesDetectionId) {
         make_detection(10.0f, 10.0f, 80.0f, 160.0f, 7),
     };
 
-    auto result = transformer.transformDetections(detections);
+    auto result = transformObjects(transformer, detections);
     ASSERT_EQ(result.size(), 2u);
     EXPECT_EQ(result[0].id, 42);
     EXPECT_EQ(result[1].id, 7);
@@ -339,7 +346,7 @@ TEST(TransformDetectionsTest, MissingIdUsesInvalidObjectId) {
     det.bounding_box_px = cv::Rect2f(590.0f, 260.0f, 100.0f, 200.0f);
 
     std::vector<Detection> detections = {det};
-    auto result = transformer.transformDetections(detections);
+    auto result = transformObjects(transformer, detections);
     ASSERT_EQ(result.size(), 1u);
     EXPECT_EQ(result[0].id, rv::tracking::InvalidObjectId);
 }
@@ -355,7 +362,7 @@ TEST(TransformDetectionsTest, MultipleBboxesBatch) {
                            static_cast<float>(tc.bbox_width), static_cast<float>(tc.bbox_height)));
     }
 
-    auto result = transformer.transformDetections(detections);
+    auto result = transformObjects(transformer, detections);
     ASSERT_EQ(result.size(), kAtaqQcam1BboxTests.size());
 
     for (size_t i = 0; i < kAtaqQcam1BboxTests.size(); ++i) {
@@ -384,14 +391,14 @@ TEST(TransformDetectionsTest, UsesFootNotCenter) {
     // FOOT = (320, 340), CENTER = (320, 240)
     // For a straight-down camera, these project to different Y world coordinates
     std::vector<Detection> detections = {make_detection(270.0f, 140.0f, 100.0f, 200.0f)};
-    auto result = transformer.transformDetections(detections);
+    auto result = transformObjects(transformer, detections);
     ASSERT_EQ(result.size(), 1u);
 
     // Also test with a square bbox where foot = center_x, bottom_y
     // Foot pixel (320, 340) vs Center pixel (320, 240) give different world Y
     // For straight-down cam at height 3m, foot_y should differ from center projection
     std::vector<Detection> detections_square = {make_detection(270.0f, 190.0f, 100.0f, 100.0f)};
-    auto result_square = transformer.transformDetections(detections_square);
+    auto result_square = transformObjects(transformer, detections_square);
     ASSERT_EQ(result_square.size(), 1u);
 
     // Both have same bbox center_x (320), but different foot_y (340 vs 290)
@@ -404,7 +411,7 @@ TEST(TransformDetectionsTest, SizeInMetersNotPixels) {
     auto transformer = make_transformer(kCameraAtaqQcam1);
 
     std::vector<Detection> detections = {make_detection(590.0f, 260.0f, 100.0f, 200.0f)};
-    auto result = transformer.transformDetections(detections);
+    auto result = transformObjects(transformer, detections);
     ASSERT_EQ(result.size(), 1u);
 
     EXPECT_GT(result[0].length, 0.01) << "Width too small for meters";
@@ -421,7 +428,7 @@ TEST(TransformDetectionsTest, LargerBboxProducesLargerSize) {
         make_detection(590.0f, 260.0f, 100.0f, 200.0f), // large
     };
 
-    auto result = transformer.transformDetections(detections);
+    auto result = transformObjects(transformer, detections);
     ASSERT_EQ(result.size(), 2u);
 
     EXPECT_GT(result[1].length, result[0].length)
@@ -442,7 +449,7 @@ TEST(TransformDetectionsTest, LargeBatch_1000Detections) {
         detections.push_back(make_detection(x, y, 80.0f, 160.0f, i));
     }
 
-    auto result = transformer.transformDetections(detections);
+    auto result = transformObjects(transformer, detections);
     EXPECT_EQ(result.size(), 1000u);
 
     // Verify IDs are preserved in order
@@ -501,10 +508,60 @@ TEST(CoordinateTransformerTest, UpwardRayReturnsValidResult) {
 
     // Bbox near top of image where ray may point upward
     std::vector<Detection> detections = {make_detection(280.0f, 0.0f, 80.0f, 40.0f)};
-    auto result = transformer.transformDetections(detections);
+    auto result = transformObjects(transformer, detections);
 
     // Should return a valid result (horizon culling, not failure)
     EXPECT_EQ(result.size(), 1u);
+}
+
+//
+// metadata_json passthrough tests
+//
+
+TEST(TransformDetectionsTest, MetadataJson_PreservedThroughTransform) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+
+    Detection det = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+    det.metadata_json = R"({"reid":{"model_name":"test"},"age":{"label":"adult"}})";
+
+    auto [objects, metadata] = transformer.transformDetections(std::vector<Detection>{det});
+
+    ASSERT_EQ(objects.size(), 1u);
+    ASSERT_EQ(metadata.size(), 1u);
+    EXPECT_EQ(metadata[0], R"({"reid":{"model_name":"test"},"age":{"label":"adult"}})");
+}
+
+TEST(TransformDetectionsTest, MetadataJson_EmptyWhenAbsent) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+
+    auto [objects, metadata] =
+        transformer.transformDetections(std::vector<Detection>{make_detection(590.0f, 260.0f, 100.0f, 200.0f)});
+
+    ASSERT_EQ(objects.size(), 1u);
+    ASSERT_EQ(metadata.size(), 1u);
+    EXPECT_TRUE(metadata[0].empty());
+}
+
+TEST(TransformDetectionsTest, MetadataJson_MultipleDetectionsPreservedInOrder) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+
+    Detection det0 = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 0);
+    det0.metadata_json = R"({"reid":{"value":0}})";
+
+    Detection det1 = make_detection(10.0f, 10.0f, 80.0f, 160.0f, 1);
+    // No metadata on det1
+
+    Detection det2 = make_detection(1190.0f, 550.0f, 80.0f, 160.0f, 2);
+    det2.metadata_json = R"({"gender":{"label":"female"}})";
+
+    auto [objects, metadata] =
+        transformer.transformDetections(std::vector<Detection>{det0, det1, det2});
+
+    ASSERT_EQ(objects.size(), 3u);
+    ASSERT_EQ(metadata.size(), 3u);
+    EXPECT_EQ(metadata[0], R"({"reid":{"value":0}})");
+    EXPECT_TRUE(metadata[1].empty());
+    EXPECT_EQ(metadata[2], R"({"gender":{"label":"female"}})");
 }
 
 } // namespace
