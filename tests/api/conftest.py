@@ -152,7 +152,7 @@ def username():
 
 @pytest.fixture(scope='session')
 def password():
-  return os.environ.get("API_PASSWORD", "admin")
+  return os.environ.get("SUPASS", "admin")
 
 @pytest.fixture(scope='session')
 def token(base_url, username, password):
@@ -161,10 +161,10 @@ def token(base_url, username, password):
     f"{base_url}/api/v1/auth",
     data={"username": username, "password": password},
     verify=False,
+    timeout=10,
   )
   response.raise_for_status()
   api_token = response.json()["token"]
-  os.environ["API_TOKEN"] = api_token
   return api_token
 
 @pytest.fixture(scope='session')
@@ -183,14 +183,14 @@ def mapping_client(token, base_url) -> MappingClient:
 def api_map(http_client, autocalib_client, mapping_client):
   """Map API names to their respective clients"""
   return {
-  "scene": http_client,
-  "camera": http_client,
-  "sensor": http_client,
-  "region": http_client,
-  "tripwire": http_client,
-  "user": http_client,
-  "asset": http_client,
-  "child": http_client,
-  "autocalibration": autocalib_client,
-  "mapping": mapping_client,
+    "scene": http_client,
+    "camera": http_client,
+    "sensor": http_client,
+    "region": http_client,
+    "tripwire": http_client,
+    "user": http_client,
+    "asset": http_client,
+    "child": http_client,
+    "autocalibration": autocalib_client,
+    "mapping": mapping_client,
 }
