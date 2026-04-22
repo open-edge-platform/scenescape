@@ -228,7 +228,7 @@ TEST_F(NtpClockTest, AsClockFn_UseableAsClockFn) {
 }
 
 // NtpClock offset application is verified indirectly: the now() contract is that
-// it returns system_clock::now() + offset_s. With offset = 0 (default, no sync),
+// it returns system_clock::now() + offset_ns. With offset_ns = 0 (default, no sync),
 // the behaviour is identical to system_clock::now() (tested above).
 // Offset application with non-zero values is covered in message_handler_test.cpp
 // via lambda ClockFn injection, which exercises the full lag-check path.
