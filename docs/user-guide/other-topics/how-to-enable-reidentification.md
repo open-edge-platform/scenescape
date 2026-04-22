@@ -151,7 +151,7 @@ The scene output includes `reid_state` for each tracked object. For canonical st
 
 | Parameter                        | Purpose                                                                           | Expected Value/Range        |
 | -------------------------------- | --------------------------------------------------------------------------------- | --------------------------- |
-| `DEFAULT_SIMILARITY_THRESHOLD`   | Controls match sensitivity. Higher values increase matches (and false positives). | Float (e.g., 0.7–0.95)      |
+| `DEFAULT_SIMILARITY_THRESHOLD`   | Maximum L2 distance for a match to be accepted. Higher values increase matches (and false positives); lower values are stricter. | Float L2 distance (e.g., 20.0–60.0) |
 | `DEFAULT_MINIMUM_BBOX_AREA`      | Minimum bounding box size to consider a valid feature.                            | Pixel area (e.g., 400–1600) |
 | `DEFAULT_MINIMUM_FEATURE_COUNT`  | Minimum features needed before querying DB.                                       | Integer (e.g., 5–20)        |
 | `DEFAULT_MAX_FEATURE_SLICE_SIZE` | Proportion of features stored to improve DB performance.                          | Float (e.g., 0.1–1.0)       |

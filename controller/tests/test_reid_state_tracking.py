@@ -360,7 +360,7 @@ class TestStateTransitions:
 
     # Frame 3: Still same object, state persists
     assert self.obj.reid_state == ReidState.MATCHED
-    assert self.obj.gid == None  # gid set via uuid_manager, not in this test
+    assert self.obj.gid is None  # gid set via uuid_manager, not in this test
 
     # Frame 4: Object re-identified in different camera (hypothetical scenario)
     ts2 = time.time() + 1.0
