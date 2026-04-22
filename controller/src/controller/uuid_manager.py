@@ -33,6 +33,7 @@ class UUIDManager:
     self.features_for_database_timestamps = {}  # Track when features were added
     self.quality_features = {}
     self.unique_id_count = 0
+    self.unique_id_count_lock = threading.Lock()
     self.reid_database = available_databases[database]()
     self.pool = concurrent.futures.ThreadPoolExecutor()
     self.similarity_query_times = collections.deque(
@@ -51,6 +52,11 @@ class UUIDManager:
     self.stale_feature_timer = None
     self._start_stale_feature_timer()
     return
+
+  def _increment_unique_id_count(self):
+    """Thread-safe increment for unique_id_count."""
+    with self.unique_id_count_lock:
+      self.unique_id_count += 1
 
   def __del__(self):
     """Clean up resources when the UUIDManager is destroyed"""
@@ -524,7 +530,7 @@ class UUIDManager:
       sscape_object.record_id_change(database_id, similarity_score=None, timestamp=query_timestamp)
 
       # Increment counter for unique objects with actual query attempts that found no match
-      self.unique_id_count += 1
+      self._increment_unique_id_count()
       log.debug(f"updateActiveDict: No match, assigned new gid={database_id} for track {sscape_object.rv_id}, state={ReidState.QUERY_NO_MATCH.value}")
       self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
 
@@ -568,7 +574,7 @@ class UUIDManager:
       # When reid is disabled, or there is no usable embedding vector,
       # this track will not be matched and should contribute to unique_id_count.
       if not self.reid_enabled or not has_reid_embedding:
-        self.unique_id_count += 1
+        self._increment_unique_id_count()
       with self.active_ids_lock:
         self.active_ids.setdefault(sscape_object.rv_id, [None, None])
 
