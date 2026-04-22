@@ -21,6 +21,7 @@ import time
 
 # Disable SSL warnings when using --insecure flag
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+POLL_TIMEOUT = 900
 
 def encodeImageToBase64(image_path: str) -> str:
   """Encode image file to base64 string"""
@@ -80,7 +81,7 @@ def sendReconstructionRequest(
       f"{api_url}/reconstruction",
       data=payload,
       files=files,
-      timeout=int(os.getenv("GUNICORN_TIMEOUT", "300")), # 5 minute timeout
+      timeout=int(os.getenv("GUNICORN_TIMEOUT", "900")), # 15 minute timeout
       verify=verify_ssl
     )
 
@@ -98,8 +99,7 @@ def sendReconstructionRequest(
         return None
 
       print(f"✅ Accepted. request_id={rid}. Polling for completion...")
-      final = wait_for_result(api_url, rid, verify_ssl=verify_ssl, timeout_s=int(os.getenv("GUNICORN_TIMEOUT", "300")) + 120)
-
+      final = wait_for_result(api_url, rid, verify_ssl=verify_ssl, poll_s=1.5)
       model_used = final.get("model", "unknown")
       pt = final.get("processing_time", None)
       if pt is not None:
@@ -166,7 +166,8 @@ def checkAPIHealth(api_url: str, verify_ssl: bool = True):
     print(f"❌ Failed to connect to API: {e}")
     return False
 
-def wait_for_result(api_url: str, request_id: str, verify_ssl: bool, timeout_s: int = 600, poll_s: float = 2.0):
+def wait_for_result(api_url: str, request_id: str, verify_ssl: bool,
+                    timeout_s: int = POLL_TIMEOUT, poll_s: float = 1.5):
   """Poll /reconstruction/status/<id> until complete/failed or timeout."""
   deadline = time.time() + timeout_s
   status_url = f"{api_url}/reconstruction/status/{request_id}"
@@ -193,6 +194,8 @@ def wait_for_result(api_url: str, request_id: str, verify_ssl: bool, timeout_s: 
       raise RuntimeError(err or "Reconstruction failed")
 
     time.sleep(poll_s)
+
+  raise TimeoutError(f"Timed out waiting for mesh generation (request_id={request_id}) after {timeout_s}s")
 
 def main():
   parser = argparse.ArgumentParser(description="3D Mapping Models API Client")

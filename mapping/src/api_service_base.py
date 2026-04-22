@@ -20,6 +20,7 @@ from typing import Dict, Any
 from werkzeug.utils import secure_filename
 import uuid
 import threading
+import json
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -215,6 +216,7 @@ def reconstruct3D():
   image_files = request.files.getlist("images")
   video_file = request.files.get("video")
   camera_ids = request.form.getlist("camera_ids")
+  camera_locations = request.form.getlist("camera_locations", None)
 
   if (not image_files) and (video_file is None):
     set_status(request_id, state="failed", updated_at=time.time(), error="Provide images and/or video")
@@ -228,17 +230,32 @@ def reconstruct3D():
   images = None
   if image_files:
     images = []
-    pairs = zip(image_files, camera_ids) if camera_ids else [(f, None) for f in image_files]
-    for f, cam_id in pairs:
+
+    for idx, f in enumerate(image_files):
       if not f or not f.filename:
         continue
+
       raw = f.read()
       if not raw:
         continue
+
+      cam_id = camera_ids[idx] if idx < len(camera_ids) else None
+
+      cam_loc = None
+      if camera_locations and idx < len(camera_locations):
+        try:
+          cam_loc = json.loads(camera_locations[idx])
+        except Exception as e:
+          log.warning(
+                f"Invalid JSON camera location for camera {idx} | error: {e}"
+          )
+          cam_loc = None
+
       images.append({
-        "filename": secure_filename(f.filename),
-        "camera_id": cam_id,
-        "data": base64.b64encode(raw).decode("utf-8"),
+          "filename": secure_filename(f.filename),
+          "camera_id": cam_id,
+          "camera_location": cam_loc,   # Only populated if provided
+          "data": base64.b64encode(raw).decode("utf-8"),
       })
 
     if not images:
