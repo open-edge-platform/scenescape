@@ -21,10 +21,10 @@ from python_on_whales import DockerClient
 from waiting import wait, TimeoutExpired
 
 from utils.docker import (
-  wait_for_readiness,
-  get_container_logs,
-  get_ntp_server_port,
-  POLL_INTERVAL,
+    wait_for_readiness,
+    get_container_logs,
+    get_ntp_server_port,
+    POLL_INTERVAL,
 )
 
 # Tolerance for offset comparison between tracker (C++) and ntplib (Python).
