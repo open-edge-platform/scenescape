@@ -14,6 +14,17 @@ from unittest.mock import Mock, MagicMock, patch
 from controller.uuid_manager import UUIDManager
 
 
+def call_update_active_dict_locked(manager, sscape_object, database_id, similarity, query_timestamp=None):
+  """Call updateActiveDict while holding active_ids_lock, matching production call pattern."""
+  with manager.active_ids_lock:
+    manager.updateActiveDict(
+      sscape_object,
+      database_id=database_id,
+      similarity=similarity,
+      query_timestamp=query_timestamp,
+    )
+
+
 class TestUUIDManagerInitialization:
   """Test UUIDManager initialization and basic setup."""
 
@@ -737,7 +748,7 @@ class TestUpdateActiveDictQueryNoMatch:
     initial_count = self.manager.unique_id_count
 
     # Simulate query that found no match
-    self.manager.updateActiveDict(obj, database_id=None, similarity=None)
+    call_update_active_dict_locked(self.manager, obj, database_id=None, similarity=None)
 
     # Should increment (new unique object, no match in database)
     assert self.manager.unique_id_count == initial_count + 1
@@ -761,7 +772,7 @@ class TestUpdateActiveDictQueryNoMatch:
     self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
 
     # No match found
-    self.manager.updateActiveDict(obj, database_id=None, similarity=None)
+    call_update_active_dict_locked(self.manager, obj, database_id=None, similarity=None)
 
     # GID should be assigned
     assert obj.gid is not None
@@ -791,7 +802,7 @@ class TestUpdateActiveDictQueryNoMatch:
       self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
 
       # Query found no match
-      self.manager.updateActiveDict(obj, database_id=None, similarity=None)
+      call_update_active_dict_locked(self.manager, obj, database_id=None, similarity=None)
 
     # Each no-match should increment counter
     assert self.manager.unique_id_count == initial_count + 3
@@ -834,7 +845,7 @@ class TestUpdateActiveDictMatched:
     # Simulate query that found a match in database
     matched_gid = "database_gid_existing_123"
     similarity_score = 0.92
-    self.manager.updateActiveDict(obj, database_id=matched_gid, similarity=similarity_score)
+    call_update_active_dict_locked(self.manager, obj, database_id=matched_gid, similarity=similarity_score)
 
     # Should NOT increment (object already existed in database)
     assert self.manager.unique_id_count == initial_count
@@ -866,7 +877,7 @@ class TestUpdateActiveDictMatched:
       self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
 
       # All found matches in database
-      self.manager.updateActiveDict(obj, database_id=f"existing_gid_{i}", similarity=0.85 + i*0.01)
+      call_update_active_dict_locked(self.manager, obj, database_id=f"existing_gid_{i}", similarity=0.85 + i*0.01)
 
     # Matched objects should NOT increase counter
     assert self.manager.unique_id_count == initial_count
@@ -970,7 +981,7 @@ class TestMixedScenarioIntegration:
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj_a.rv_id] = [None, None]
     self.manager.quality_features[obj_a.rv_id] = [[0.1, 0.2, 0.3]]
-    self.manager.updateActiveDict(obj_a, database_id=None, similarity=None)
+    call_update_active_dict_locked(self.manager, obj_a, database_id=None, similarity=None)
 
     # Person B: Query with no match
     obj_b = MovingObject({'id': 'B', 'confidence': 0.95}, time.time(), self.mock_camera)
@@ -981,7 +992,7 @@ class TestMixedScenarioIntegration:
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj_b.rv_id] = [None, None]
     self.manager.quality_features[obj_b.rv_id] = [[0.2, 0.3, 0.4]]
-    self.manager.updateActiveDict(obj_b, database_id=None, similarity=None)
+    call_update_active_dict_locked(self.manager, obj_b, database_id=None, similarity=None)
 
     # Person C: No reid vector
     obj_c = MovingObject({'id': 'C', 'confidence': 0.95}, time.time(), self.mock_camera)
@@ -1014,7 +1025,7 @@ class TestMixedScenarioIntegration:
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj_a.rv_id] = [None, None]
     self.manager.quality_features[obj_a.rv_id] = [[0.1, 0.2, 0.3]]
-    self.manager.updateActiveDict(obj_a, database_id="existing_A", similarity=0.95)
+    call_update_active_dict_locked(self.manager, obj_a, database_id="existing_A", similarity=0.95)
 
     # Person B: No match
     obj_b = MovingObject({'id': 'B', 'confidence': 0.95}, time.time(), self.mock_camera)
@@ -1024,7 +1035,7 @@ class TestMixedScenarioIntegration:
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj_b.rv_id] = [None, None]
     self.manager.quality_features[obj_b.rv_id] = [[0.2, 0.3, 0.4]]
-    self.manager.updateActiveDict(obj_b, database_id=None, similarity=None)
+    call_update_active_dict_locked(self.manager, obj_b, database_id=None, similarity=None)
 
     # Person C: No reid
     obj_c = MovingObject({'id': 'C', 'confidence': 0.95}, time.time(), self.mock_camera)
@@ -1040,7 +1051,7 @@ class TestMixedScenarioIntegration:
     with self.manager.active_ids_lock:
       self.manager.active_ids[obj_d.rv_id] = [None, None]
     self.manager.quality_features[obj_d.rv_id] = [[0.4, 0.5, 0.6]]
-    self.manager.updateActiveDict(obj_d, database_id="existing_D", similarity=0.90)
+    call_update_active_dict_locked(self.manager, obj_d, database_id="existing_D", similarity=0.90)
 
     # Only B and C should increment (2 new unique objects)
     assert self.manager.unique_id_count == initial_count + 2
@@ -1079,7 +1090,7 @@ class TestUniqueCountEdgeCases:
     initial_count = self.manager.unique_id_count
 
     # Edge case: similarity = 0.0 (worst match, but still a match)
-    self.manager.updateActiveDict(obj, database_id="existing_gid", similarity=0.0)
+    call_update_active_dict_locked(self.manager, obj, database_id="existing_gid", similarity=0.0)
 
     # Should NOT increment (is_matched because similarity is not None)
     assert self.manager.unique_id_count == initial_count
@@ -1104,7 +1115,7 @@ class TestUniqueCountEdgeCases:
     initial_count = self.manager.unique_id_count
 
     # Perfect match: similarity = 1.0
-    self.manager.updateActiveDict(obj, database_id="existing_gid", similarity=1.0)
+    call_update_active_dict_locked(self.manager, obj, database_id="existing_gid", similarity=1.0)
 
     # Should NOT increment
     assert self.manager.unique_id_count == initial_count
@@ -1147,7 +1158,7 @@ class TestUpdateActiveDictStateTransitionsAndChaining:
     similarity_score = 0.92
     query_time = time.time()
 
-    self.manager.updateActiveDict(obj, database_id=matched_id, similarity=similarity_score, query_timestamp=query_time)
+    call_update_active_dict_locked(self.manager, obj, database_id=matched_id, similarity=similarity_score, query_timestamp=query_time)
 
     # Verify state
     assert obj.reid_state == ReidState.MATCHED
@@ -1179,7 +1190,7 @@ class TestUpdateActiveDictStateTransitionsAndChaining:
 
     # Query made but no match found
     query_time = time.time()
-    self.manager.updateActiveDict(obj, database_id=None, similarity=None, query_timestamp=query_time)
+    call_update_active_dict_locked(self.manager, obj, database_id=None, similarity=None, query_timestamp=query_time)
 
     # Verify state
     assert obj.reid_state == ReidState.QUERY_NO_MATCH
@@ -1211,7 +1222,7 @@ class TestUpdateActiveDictStateTransitionsAndChaining:
 
     matched_id = "db_match_789"
     similarity = 0.87
-    self.manager.updateActiveDict(obj, database_id=matched_id, similarity=similarity)
+    call_update_active_dict_locked(self.manager, obj, database_id=matched_id, similarity=similarity)
 
     # Verify active_ids was updated
     assert obj.rv_id in self.manager.active_ids
@@ -1237,7 +1248,7 @@ class TestUpdateActiveDictStateTransitionsAndChaining:
     old_gid_counter = MovingObject.gid_counter
 
     # Query found no match
-    self.manager.updateActiveDict(obj, database_id=None, similarity=None)
+    call_update_active_dict_locked(self.manager, obj, database_id=None, similarity=None)
 
     # Verify new GID was generated
     assert obj.gid == old_gid_counter
@@ -1265,7 +1276,7 @@ class TestUpdateActiveDictStateTransitionsAndChaining:
 
     self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3], [0.15, 0.25, 0.35]]
 
-    self.manager.updateActiveDict(obj, database_id="db_match_456", similarity=0.91)
+    call_update_active_dict_locked(self.manager, obj, database_id="db_match_456", similarity=0.91)
 
     # Verify features_for_database populated
     assert obj.rv_id in self.manager.features_for_database
@@ -1291,7 +1302,7 @@ class TestUpdateActiveDictStateTransitionsAndChaining:
 
     self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
 
-    self.manager.updateActiveDict(obj, database_id=None, similarity=None)
+    call_update_active_dict_locked(self.manager, obj, database_id=None, similarity=None)
 
     # Verify features_for_database populated even for no match
     assert obj.rv_id in self.manager.features_for_database
@@ -1352,7 +1363,7 @@ class TestUpdateActiveDictIDCollisionHandling:
     self.manager.quality_features[obj1.rv_id] = [[0.1, 0.2, 0.3]]
 
     # First object matches to database_gid_X
-    self.manager.updateActiveDict(obj1, database_id='database_gid_X', similarity=0.95)
+    call_update_active_dict_locked(self.manager, obj1, database_id='database_gid_X', similarity=0.95)
     assert obj1.reid_state == ReidState.MATCHED
     assert obj1.gid == 'database_gid_X'
 
@@ -1370,7 +1381,7 @@ class TestUpdateActiveDictIDCollisionHandling:
     initial_count = self.manager.unique_id_count
 
     # Collision should be handled as no-match without reusing obj1's active gid.
-    self.manager.updateActiveDict(obj2, database_id='database_gid_X', similarity=None)
+    call_update_active_dict_locked(self.manager, obj2, database_id='database_gid_X', similarity=None)
 
     # obj2 gets QUERY_NO_MATCH state and a new unique gid.
     assert obj2.reid_state == ReidState.QUERY_NO_MATCH
@@ -1399,7 +1410,7 @@ class TestUpdateActiveDictIDCollisionHandling:
     self.manager.quality_features[obj_a.rv_id] = [[0.1, 0.2, 0.3]]
 
     # A matches to shared_gid
-    self.manager.updateActiveDict(obj_a, database_id='shared_gid', similarity=0.92)
+    call_update_active_dict_locked(self.manager, obj_a, database_id='shared_gid', similarity=0.92)
     assert obj_a.reid_state == ReidState.MATCHED
     assert obj_a.gid == 'shared_gid'
 
@@ -1415,7 +1426,7 @@ class TestUpdateActiveDictIDCollisionHandling:
     initial_count = self.manager.unique_id_count
 
     # B's match to shared_gid collides with A's active assignment and must not be reused.
-    self.manager.updateActiveDict(obj_b, database_id='shared_gid', similarity=0.88)
+    call_update_active_dict_locked(self.manager, obj_b, database_id='shared_gid', similarity=0.88)
 
     # B gets QUERY_NO_MATCH state and a distinct generated gid.
     assert obj_b.reid_state == ReidState.QUERY_NO_MATCH
