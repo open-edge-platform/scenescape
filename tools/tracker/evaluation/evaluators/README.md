@@ -57,7 +57,7 @@ from harnesses.scene_controller_harness import SceneControllerHarness
 
 # Initialize dataset
 dataset = MetricTestDataset("path/to/dataset")
-dataset.set_cameras(["x1", "x2"]).set_camera_fps(30)
+dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
 # Initialize and run harness
 harness = SceneControllerHarness(container_image='scenescape-controller:latest')
@@ -145,6 +145,162 @@ print(f"Matched pairs: {int(metrics['num_matches'])}")
 **Implementation**: [diagnostic_evaluator.py](diagnostic_evaluator.py)
 
 **Tests**: See [tests/test_diagnostic_evaluator.py](tests/test_diagnostic_evaluator.py) for unit tests covering track matching, scalar metrics, CSV output, and reset workflows.
+
+### JitterEvaluator
+
+**Purpose**: Evaluate tracker smoothness by measuring positional jitter in tracked object trajectories, and compare it against jitter already present in the ground-truth test data.
+
+**Status**: **FULLY IMPLEMENTED** — Computes RMS jerk and acceleration variance from both tracker outputs and ground-truth tracks using numerical differentiation.
+
+**Supported Metrics**:
+
+| Metric                        | Source         | Description                                                                                                       |
+| ----------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `rms_jerk`                    | Tracker output | RMS jerk across all tracker output tracks (m/s³)                                                                  |
+| `acceleration_variance`       | Tracker output | Variance of acceleration magnitudes across all tracker output tracks (m/s²)²                                      |
+| `rms_jerk_gt`                 | Ground truth   | Same as `rms_jerk` computed on ground-truth tracks                                                                |
+| `acceleration_variance_gt`    | Ground truth   | Same as `acceleration_variance` computed on ground-truth tracks                                                   |
+| `rms_jerk_ratio`              | Tracker / GT   | `rms_jerk` / `rms_jerk_gt` — tracker jitter relative to GT (1.0 = equal)                                          |
+| `acceleration_variance_ratio` | Tracker / GT   | `acceleration_variance` / `acceleration_variance_gt` — tracker acceleration variance relative to GT (1.0 = equal) |
+
+Comparing `rms_jerk` with `rms_jerk_gt` shows how much jitter the tracker
+adds on top of any jitter already present in the test data.
+
+**Algorithm**:
+
+All metrics are derived by applying three sequential layers of forward finite differences to 3D positions, accounting for variable time steps between frames:
+
+$$v_i = \frac{p_{i+1} - p_i}{\Delta t_i}, \quad a_i = \frac{v_{i+1} - v_i}{\Delta t_{v,i}}, \quad j_i = \frac{a_{i+1} - a_i}{\Delta t_{a,i}}$$
+
+- **rms_jerk / rms_jerk_gt**: $\sqrt{\frac{1}{N}\sum |j_i|^2}$ over all jerk samples from all tracks.
+- **acceleration_variance / acceleration_variance_gt**: $\text{Var}(|a_i|)$ over all acceleration magnitude samples from all tracks.
+- **rms_jerk_ratio / acceleration_variance_ratio**: tracker metric divided by the corresponding GT metric. Returns 0.0 when the GT denominator is zero. Values >1.0 indicate the tracker adds more jitter than is inherent in the ground truth.
+
+Minimum track length: 3 points for acceleration, 4 points for jerk. Shorter tracks are skipped; if no eligible tracks exist, the metric returns 0.0.
+
+For GT metrics, ground-truth frame numbers are converted to relative timestamps using the FPS derived from the tracker output.
+
+**Key Features**:
+
+- Builds per-track position histories from canonical tracker output format.
+- Parses MOTChallenge 3D CSV ground-truth file for GT metric computation.
+- Supports variable frame rates — time deltas are computed from actual timestamps.
+- Deduplicates frames with identical timestamps (mirrors `TrackEvalEvaluator` behaviour).
+- Sorts each track's positions by timestamp before metric computation.
+- Saves a plain-text `jitter_results.txt` summary to the configured output folder.
+
+**Usage Example**:
+
+```python
+from pathlib import Path
+from evaluators.jitter_evaluator import JitterEvaluator
+
+evaluator = JitterEvaluator()
+evaluator.configure_metrics(['rms_jerk', 'rms_jerk_gt', 'rms_jerk_ratio',
+                             'acceleration_variance', 'acceleration_variance_gt',
+                             'acceleration_variance_ratio'])
+evaluator.set_output_folder(Path('/path/to/results'))
+
+# Pass ground_truth=None to skip GT metrics
+evaluator.process_tracker_outputs(tracker_outputs, ground_truth=dataset.get_ground_truth())
+metrics = evaluator.evaluate_metrics()
+
+print(f"RMS Jerk (tracker): {metrics['rms_jerk']:.4f} m/s³")
+print(f"RMS Jerk (GT):      {metrics['rms_jerk_gt']:.4f} m/s³")
+print(f"RMS Jerk ratio:     {metrics['rms_jerk_ratio']:.4f}  (1.0 = equal jitter)")
+```
+
+**Pipeline Configuration**:
+
+```yaml
+evaluators:
+  - class: evaluators.jitter_evaluator.JitterEvaluator
+    config:
+      metrics:
+        [
+          rms_jerk,
+          rms_jerk_gt,
+          rms_jerk_ratio,
+          acceleration_variance,
+          acceleration_variance_gt,
+          acceleration_variance_ratio,
+        ]
+```
+
+**Implementation**: [jitter_evaluator.py](jitter_evaluator.py)
+
+**Tests**: See [tests/test_jitter_evaluator.py](tests/test_jitter_evaluator.py).
+
+### CameraAccuracyEvaluator
+
+**Purpose**: Measure the raw position error introduced by each camera's calibration by comparing projected world-coordinate positions against ground-truth positions, without any tracker fusion.
+
+**Status**: **FULLY IMPLEMENTED** — Computes per-camera, per-object distance error and visibility from `CameraProjectionHarness` outputs.
+
+**Supported Metrics**:
+
+| Metric       | Description                                                                                          |
+| ------------ | ---------------------------------------------------------------------------------------------------- |
+| `DIST_T`     | Per-frame Euclidean distance (m) between projected and ground-truth XY position, averaged per object |
+| `VISIBILITY` | Number of frames each camera detects each object (and as % of total GT frames)                       |
+
+**Key Features**:
+
+- **Per-camera, per-object breakdown**: every `(camera, object)` pair gets its own mean error and visibility count.
+- **Object ID decoding**: harness encodes IDs as `"{camera_id}:{object_id}"`; this evaluator splits them back.
+- **Camera position resolution**: `set_scene_config()` runs `cv2.solvePnP` on each sensor's calibration points to place a star marker on trajectory plots.
+- **Camera view direction**: `set_scene_config()` also computes the normalized 2-D world-space viewing direction of each camera (`R^T @ [0, 0, 1]` XY component) and draws an arrow on the trajectory plot.
+- **Axis orientation**: when the camera is above the scene centre (`cam_y > mean(gt_y)`), both X and Y axes are flipped (180° rotation) so the camera always appears at the visual bottom with correct left/right chirality.
+- **Human-readable CSV output**: `summary_table.csv` uses column names like `"Cam_x1_0 - Mean Error (m)"`.
+- **Terminal table**: `format_summary()` renders a 2-row-header table with `|` separators between camera groups.
+- **Plots** (per camera):
+  - `distance_errors_{cam}.png` — distance error over time.
+  - `trajectories_{cam}.png` — projected (solid) vs GT (dashed) XY trajectories, camera position star, view-direction arrow, tight-zoomed with start-point markers.
+  - `error_vs_cam_distance_{cam}.png` — mean projection error vs. distance from camera (binned).
+- **Visibility bar chart**: `visibility_per_camera.png` comparing per-object visibility across cameras.
+
+**Metrics returned by `evaluate_metrics()`**:
+
+- `n_cameras`, `n_objects` — counts (int)
+- `dist_mean_all`, `dist_mean_{cam}`, `dist_mean_{cam}_{obj}` — distance errors (float, metres)
+- `visibility_{cam}_{obj}` — frame count (int)
+- `visibility_pct_{cam}_{obj}` — visibility percentage (float, 0–100)
+
+**Usage Example**:
+
+```python
+from pathlib import Path
+from evaluators.camera_accuracy_evaluator import CameraAccuracyEvaluator
+
+evaluator = CameraAccuracyEvaluator()
+evaluator.configure_metrics(['DIST_T', 'VISIBILITY'])
+evaluator.set_output_folder(Path('/path/to/results'))
+evaluator.process_tracker_outputs(harness_outputs, gt_file_path)
+results = evaluator.evaluate_metrics()
+
+print(evaluator.format_summary())
+print(f"Overall mean error: {results['dist_mean_all']:.3f} m")
+```
+
+**Pipeline Configuration**:
+
+```yaml
+harness:
+  class: harnesses.camera_projection_harness.CameraProjectionHarness
+  config:
+    container_image: scenescape-controller:latest
+
+evaluators:
+  - class: evaluators.camera_accuracy_evaluator.CameraAccuracyEvaluator
+    config:
+      metrics: [DIST_T, VISIBILITY]
+```
+
+See `pipeline_configs/camera_projection_evaluation.yaml` for a ready-to-run example.
+
+**Implementation**: [camera_accuracy_evaluator.py](camera_accuracy_evaluator.py)
+
+**Tests**: See [tests/test_camera_accuracy_evaluator.py](tests/test_camera_accuracy_evaluator.py) — 42 test cases covering configuration, metric computation, CSV/plot outputs, `format_summary()`, `set_scene_config()` (camera positions and view directions), axis orientation, view-direction arrow rendering, edge cases, and reset.
 
 ## Adding New Evaluators
 

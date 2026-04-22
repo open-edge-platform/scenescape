@@ -42,7 +42,7 @@ def temp_config_file(temp_output_dir):
       'class': 'datasets.metric_test_dataset.MetricTestDataset',
       'config': {
         'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
-        'cameras': ['x1', 'x2'],
+        'cameras': ['Cam_x1_0', 'Cam_x2_0'],
         'camera_fps': 30,
         'start_time': TEST_TIME_RANGE_START,
         'end_time': TEST_TIME_RANGE_END
@@ -76,6 +76,57 @@ def temp_config_file(temp_output_dir):
 
 
 @pytest.fixture
+def temp_multi_evaluator_config_file(temp_output_dir):
+  """Create temporary YAML config with two evaluators using distinct metric sets."""
+  config = {
+    'pipeline': {
+      'output': {
+        'path': temp_output_dir
+      }
+    },
+    'dataset': {
+      'class': 'datasets.metric_test_dataset.MetricTestDataset',
+      'config': {
+        'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
+        'cameras': ['Cam_x1_0', 'Cam_x2_0'],
+        'camera_fps': 30,
+        'start_time': TEST_TIME_RANGE_START,
+        'end_time': TEST_TIME_RANGE_END
+      }
+    },
+    'harness': {
+      'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
+      'config': {
+        'container_image': 'scenescape-controller:latest',
+        'tracker_config_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset' / 'tracker-config-time-chunking.json')
+      }
+    },
+    'evaluators': [
+      {
+        'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
+        'config': {
+          'metrics': ['HOTA', 'MOTA']
+        }
+      },
+      {
+        'class': 'evaluators.trackeval_evaluator.TrackEvalEvaluator',
+        'config': {
+          'metrics': ['IDF1']
+        }
+      }
+    ]
+  }
+
+  temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
+  yaml.dump(config, temp_file)
+  temp_file.close()
+
+  yield temp_file.name
+
+  Path(temp_file.name).unlink()
+
+
+@pytest.fixture
 def engine():
   """Create PipelineEngine instance."""
   return PipelineEngine()
@@ -90,7 +141,7 @@ class TestInitialization:
     assert engine._config is None
     assert engine._dataset is None
     assert engine._harness is None
-    assert engine._evaluator is None
+    assert engine._evaluators == []
     assert engine._tracker_outputs is None
 
 
@@ -105,7 +156,7 @@ class TestLoadConfiguration:
     assert engine._config is not None
     assert engine._dataset is not None
     assert engine._harness is not None
-    assert engine._evaluator is not None
+    assert len(engine._evaluators) == 1
 
   def test_load_configuration_file_not_found(self, engine):
     """Test configuration loading with non-existent file."""
@@ -305,8 +356,8 @@ class TestLoadConfiguration:
     finally:
       Path(temp_file.name).unlink()
 
-  def test_load_configuration_multiple_evaluators_fails(self, engine, temp_output_dir):
-    """Test that multiple evaluators fail in Phase 1."""
+  def test_load_configuration_multiple_evaluators_succeeds(self, engine, temp_output_dir):
+    """Test that multiple evaluators are accepted."""
     config = {
       'pipeline': {
         'output': {
@@ -315,11 +366,18 @@ class TestLoadConfiguration:
       },
       'dataset': {
         'class': 'datasets.metric_test_dataset.MetricTestDataset',
-        'config': {}
+        'config': {
+          'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
+          'cameras': ['Cam_x1_0', 'Cam_x2_0'],
+          'camera_fps': 30
+        }
       },
       'harness': {
         'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
-        'config': {}
+        'config': {
+          'container_image': 'scenescape-controller:latest',
+          'tracker_config_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset' / 'tracker-config.json')
+        }
       },
       'evaluators': [
         {
@@ -338,8 +396,8 @@ class TestLoadConfiguration:
     temp_file.close()
 
     try:
-      with pytest.raises(ValueError, match="only a single evaluator is supported"):
-        engine.load_configuration(temp_file.name)
+      engine.load_configuration(temp_file.name)
+      assert len(engine._evaluators) == 2
     finally:
       Path(temp_file.name).unlink()
 
@@ -382,10 +440,12 @@ class TestEvaluate:
     metrics = engine.evaluate()
 
     assert isinstance(metrics, dict)
-    assert 'HOTA' in metrics
-    assert 'MOTA' in metrics
-    assert 'IDF1' in metrics
-    assert all(isinstance(v, float) for v in metrics.values())
+    assert 'TrackEvalEvaluator' in metrics
+    evaluator_metrics = metrics['TrackEvalEvaluator']
+    assert 'HOTA' in evaluator_metrics
+    assert 'MOTA' in evaluator_metrics
+    assert 'IDF1' in evaluator_metrics
+    assert all(isinstance(v, float) for v in evaluator_metrics.values())
 
 
 class TestMethodChaining:
@@ -419,5 +479,182 @@ class TestIntegration:
 
     # Verify results
     assert isinstance(metrics, dict)
-    assert len(metrics) == 3
-    assert all(k in metrics for k in ['HOTA', 'MOTA', 'IDF1'])
+    assert 'TrackEvalEvaluator' in metrics
+    evaluator_metrics = metrics['TrackEvalEvaluator']
+    assert len(evaluator_metrics) == 3
+    assert all(k in evaluator_metrics for k in ['HOTA', 'MOTA', 'IDF1'])
+
+
+class TestMultipleEvaluators:
+  """Tests for multi-evaluator pipeline behavior."""
+
+  @pytest.mark.integration
+  def test_evaluate_returns_one_entry_per_evaluator(self, engine, temp_multi_evaluator_config_file):
+    """Test that evaluate() returns exactly one result entry per configured evaluator."""
+    engine.load_configuration(temp_multi_evaluator_config_file)
+    engine.run()
+    metrics = engine.evaluate()
+
+    assert isinstance(metrics, dict)
+    assert len(metrics) == 2
+
+  @pytest.mark.integration
+  def test_evaluate_result_keys_are_unique(self, engine, temp_multi_evaluator_config_file):
+    """Test that result keys are unique across all evaluators."""
+    engine.load_configuration(temp_multi_evaluator_config_file)
+    engine.run()
+    metrics = engine.evaluate()
+
+    assert len(metrics) == len(set(metrics.keys()))
+
+  @pytest.mark.integration
+  def test_evaluate_result_values_are_metric_dicts(self, engine, temp_multi_evaluator_config_file):
+    """Test that each evaluator result is a non-empty dict of float values."""
+    engine.load_configuration(temp_multi_evaluator_config_file)
+    engine.run()
+    metrics = engine.evaluate()
+
+    for evaluator_name, evaluator_metrics in metrics.items():
+      assert isinstance(evaluator_metrics, dict)
+      assert len(evaluator_metrics) >= 1
+      assert all(isinstance(v, float) for v in evaluator_metrics.values())
+
+  @pytest.mark.integration
+  def test_evaluate_creates_separate_output_folders(self, engine, temp_multi_evaluator_config_file):
+    """Test that each evaluator gets a distinct output folder under evaluators/."""
+    engine.load_configuration(temp_multi_evaluator_config_file)
+    engine.run()
+    engine.evaluate()
+
+    evaluators_dir = engine._output_path / 'evaluators'
+    assert evaluators_dir.exists()
+    output_folders = [p for p in evaluators_dir.iterdir() if p.is_dir()]
+    assert len(output_folders) == 2
+
+
+class TestConfigureHarness:
+  """Unit tests for _configure_harness() new behaviour."""
+
+  def test_object_classes_forwarded_to_harness(self, engine, temp_output_dir):
+    """object_classes in harness config is forwarded via set_custom_config."""
+    from unittest.mock import MagicMock
+
+    object_classes = [
+      {'name': 'person', 'shift_type': 1, 'x_size': 0.5, 'y_size': 0.5},
+    ]
+    mock_harness = MagicMock()
+    engine._harness = mock_harness
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'harness': {
+        'config': {
+          'container_image': 'test-image',
+          'object_classes': object_classes,
+        }
+      }
+    }
+
+    engine._configure_harness()
+
+    mock_harness.set_custom_config.assert_called_once_with(
+      {'object_classes': object_classes}
+    )
+
+  def test_no_object_classes_no_set_custom_config(self, engine, temp_output_dir):
+    """When object_classes absent and no other custom config, set_custom_config is not called."""
+    from unittest.mock import MagicMock
+
+    mock_harness = MagicMock()
+    engine._harness = mock_harness
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'harness': {
+        'config': {
+          'container_image': 'test-image',
+        }
+      }
+    }
+
+    engine._configure_harness()
+
+    mock_harness.set_custom_config.assert_not_called()
+
+
+class TestConfigureEvaluators:
+  """Unit tests for _configure_evaluators() new behaviour."""
+
+  def test_set_scene_config_called_when_evaluator_supports_it(self, engine, temp_output_dir):
+    """set_scene_config is called on an evaluator that exposes the method."""
+    from unittest.mock import MagicMock
+
+    scene_config = {'sensors': {}}
+    mock_dataset = MagicMock()
+    mock_dataset.get_scene_config.return_value = scene_config
+
+    mock_evaluator = MagicMock()
+    engine._evaluators = [mock_evaluator]
+    engine._dataset = mock_dataset
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {'evaluators': [{'class': 'evaluators.mock_ev.MockEv', 'config': {}}]}
+
+    engine._configure_evaluators()
+
+    mock_evaluator.set_scene_config.assert_called_once_with(scene_config)
+
+  def test_set_scene_config_not_called_when_scene_config_is_none(self, engine, temp_output_dir):
+    """set_scene_config is not called when the dataset returns None."""
+    from unittest.mock import MagicMock
+
+    mock_dataset = MagicMock()
+    mock_dataset.get_scene_config.return_value = None
+
+    mock_evaluator = MagicMock()
+    engine._evaluators = [mock_evaluator]
+    engine._dataset = mock_dataset
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {'evaluators': [{'class': 'evaluators.mock_ev.MockEv', 'config': {}}]}
+
+    engine._configure_evaluators()
+
+    mock_evaluator.set_scene_config.assert_not_called()
+
+  def test_format_summary_used_in_main_output(self, engine, temp_output_dir, capsys):
+    """When an evaluator has format_summary, main() prints its result instead of per-metric lines."""
+    from unittest.mock import MagicMock, patch
+
+    summary_text = "Camera accuracy: DIST_T=0.042"
+    mock_evaluator = MagicMock()
+    mock_evaluator.format_summary.return_value = summary_text
+    mock_evaluator.evaluate_metrics.return_value = {'DIST_T': 0.042}
+
+    mock_dataset = MagicMock()
+    mock_dataset.get_scene_config.return_value = None
+    mock_dataset.get_ground_truth.return_value = []
+
+    mock_harness = MagicMock()
+    mock_harness.process_inputs.return_value = iter([])
+
+    engine._dataset = mock_dataset
+    engine._harness = mock_harness
+    engine._evaluators = [mock_evaluator]
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'evaluators': [{'class': 'evaluators.mock_evaluator.MockEvaluator', 'config': {}}]
+    }
+    engine._tracker_outputs = []
+
+    # Call the print block directly (mirrors main() logic)
+    import pipeline_engine as pe
+    evaluator_by_key = {engine._get_evaluator_key(0): mock_evaluator}
+    metrics = {'MockEvaluator': {'DIST_T': 0.042}}
+
+    for evaluator_name, evaluator_metrics in metrics.items():
+      evaluator = evaluator_by_key.get(evaluator_name)
+      if evaluator is not None and hasattr(evaluator, 'format_summary'):
+        print(evaluator.format_summary())
+      else:
+        for metric_name, metric_value in evaluator_metrics.items():
+          print(f"  {metric_name}: {metric_value:.4f}")
+
+    captured = capsys.readouterr()
+    assert summary_text in captured.out

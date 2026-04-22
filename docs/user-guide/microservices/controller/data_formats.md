@@ -48,7 +48,6 @@ against the `detector` definition in
 | `confidence`      | number > 0         |    No    | Inference confidence score for this detection                                      |
 | `id`              | integer ≥ 0        |  Yes ②   | Per-frame detection index                                                          |
 | `rotation`        | array[4] of number |    No    | Object orientation as a quaternion                                                 |
-| `center_of_mass`  | object             |    No    | Depth-estimation region of interest in pixels (`x`, `y`, `width`, `height`)        |
 | `distance`        | number             |    No    | Distance from the camera to the detection in metres                                |
 | `metadata`        | object             |    No    | Semantic attribute bag (see [Semantic Metadata Fields](#semantic-metadata-fields)) |
 
@@ -94,12 +93,6 @@ omitted; `embedding_vector` truncated for readability):
           "y": 64,
           "width": 192,
           "height": 411
-        },
-        "center_of_mass": {
-          "x": 482,
-          "y": 165,
-          "width": 64,
-          "height": 102.75
         },
         "metadata": {
           "age": {
@@ -184,7 +177,7 @@ value. This makes it suitable for attribute sensors beyond simple scalars. For e
 
 For a broader description of how singleton sensors work and how the tagged data appears on
 scene objects, see
-[Singleton Sensor Data](../../how-to-integrate-cameras-and-sensors.md#singleton-sensor-data)
+[Singleton Sensor Data](../../how-to-guides/integrate-cameras-and-sensors.md#singleton-sensor-data)
 in the integration guide.
 
 ## Common Output Track Fields
@@ -192,24 +185,23 @@ in the integration guide.
 All Scene Controller output messages include an `objects` array of tracked objects. Each
 tracked object contains the following fields:
 
-| Field            | Type               | Description                                                                                                                                                                              |
-| ---------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`             | string (UUID)      | Persistent track identifier assigned by the controller                                                                                                                                   |
-| `type`           | string             | Object type label; same value as `category` (e.g. `"person"`)                                                                                                                            |
-| `category`       | string             | Object class label (e.g. `"person"`)                                                                                                                                                     |
-| `confidence`     | number             | Inference confidence of the most recent contributing detection                                                                                                                           |
-| `translation`    | array[3] of number | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                              |
-| `size`           | array[3] of number | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                                           |
-| `velocity`       | array[3] of number | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                     |
-| `rotation`       | array[4] of number | Orientation quaternion                                                                                                                                                                   |
-| `visibility`     | array of string    | Camera IDs currently observing this object                                                                                                                                               |
-| `center_of_mass` | object             | Pixel-space ROI for depth estimation (`x`, `y`, `width`, `height`)                                                                                                                       |
-| `regions`        | object             | Map of region/sensor IDs to entry timestamps (`{id: {entered: timestamp}}`)                                                                                                              |
-| `sensors`        | object             | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`)                                                                                                            |
-| `similarity`     | number or null     | Re-ID similarity score; `null` when not computed                                                                                                                                         |
-| `first_seen`     | string (ISO 8601)  | Timestamp when the track was first created                                                                                                                                               |
-| `metadata`       | object             | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below. |
-| `camera_bounds`  | object             | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height}}`); may be empty (`{}`) when no camera currently observes the track                                                  |
+| Field           | Type               | Description                                                                                                                                                                                                                                                  |
+| --------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`            | string (UUID)      | Persistent track identifier assigned by the controller                                                                                                                                                                                                       |
+| `type`          | string             | Object type label; same value as `category` (e.g. `"person"`)                                                                                                                                                                                                |
+| `category`      | string             | Object class label (e.g. `"person"`)                                                                                                                                                                                                                         |
+| `confidence`    | number             | Inference confidence of the most recent contributing detection                                                                                                                                                                                               |
+| `translation`   | array[3] of number | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                                                                                                  |
+| `size`          | array[3] of number | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                                                                                                               |
+| `velocity`      | array[3] of number | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                                                                                         |
+| `rotation`      | array[4] of number | Orientation quaternion                                                                                                                                                                                                                                       |
+| `visibility`    | array of string    | Camera IDs currently observing this object                                                                                                                                                                                                                   |
+| `regions`       | object             | Map of region/sensor IDs to membership metadata. By default this is `{id: {entered: timestamp}}`. In region-scoped outputs, objects currently inside a region also include a live dwell time as `{id: {entered: timestamp, dwell: seconds}}`.                |
+| `sensors`       | object             | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`)                                                                                                                                                                                |
+| `similarity`    | number or null     | Re-ID similarity score; `null` when not computed                                                                                                                                                                                                             |
+| `first_seen`    | string (ISO 8601)  | Timestamp when the track was first created                                                                                                                                                                                                                   |
+| `metadata`      | object             | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below.                                                                     |
+| `camera_bounds` | object             | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height, projected}}`) where `projected=false` means detector-provided pixel bbox and `projected=true` means computed projection; may be empty (`{}`) when no camera currently observes the track |
 
 > **Note on `metadata` in track objects**: Each attribute follows the structure
 > `{label, model_name, confidence?}` — identical to [Semantic Metadata Fields](#semantic-metadata-fields)
@@ -217,6 +209,12 @@ tracked object contains the following fields:
 > `reid.embedding_vector` is a **2D float array** (`[[...numbers...]]`), whereas in
 > camera input it is a base64-encoded string. `metadata` is absent when no semantic
 > analytics pipeline is configured.
+
+> **Note on live region dwell**: In region data and region event payloads, objects that are
+> still inside a region include `regions.<region_id>.dwell`, which is the current elapsed
+> time in seconds since that object entered the region. Exit records continue to expose the
+> final dwell time separately as `{"object": <track>, "dwell": <seconds>}` in the
+> top-level `exited` array.
 
 ## Data Scene Output Message Format
 
@@ -270,7 +268,13 @@ objects of that category.
         }
       },
       "camera_bounds": {
-        "atag-qcam1": { "x": 169, "y": 4, "width": 96, "height": 168 }
+        "atag-qcam1": {
+          "x": 169,
+          "y": 4,
+          "width": 96,
+          "height": 168,
+          "projected": false
+        }
       },
       "regions": {
         "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
@@ -342,7 +346,13 @@ applications.
         }
       },
       "camera_bounds": {
-        "atag-qcam2": { "x": 760, "y": 49, "width": 191, "height": 375 }
+        "atag-qcam2": {
+          "x": 760,
+          "y": 49,
+          "width": 191,
+          "height": 375,
+          "projected": false
+        }
       },
       "regions": {
         "ee94126c-1c5a-4ee0-ab5d-0819ba3fc9b4": {
@@ -371,18 +381,18 @@ interest changes. The `{event_type}` segment is typically `objects`.
 
 ### Region Event Top-Level Fields
 
-| Field         | Type                  | Description                                                                                                                              |
-| ------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `timestamp`   | string (ISO 8601 UTC) | Event timestamp                                                                                                                          |
-| `scene_id`    | string                | Scene identifier (UUID)                                                                                                                  |
-| `scene_name`  | string                | Scene name                                                                                                                               |
-| `region_id`   | string                | Region identifier (UUID)                                                                                                                 |
-| `region_name` | string                | Region name                                                                                                                              |
-| `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                                                       |
-| `objects`     | array                 | Tracked objects currently inside the region (see [Common Output Track Fields](#common-output-track-fields))                              |
-| `entered`     | array                 | Objects that entered the region during this cycle; each element is a bare track object. Empty when no entry occurred                     |
-| `exited`      | array                 | Objects that exited the region during this cycle; each element is `{"object": <track>, "dwell": <seconds>}`. Empty when no exit occurred |
-| `metadata`    | object                | Region geometry: `title`, `uuid`, `points` (polygon vertices in metres), `area` (`"poly"`), `fromSensor` (boolean)                       |
+| Field         | Type                  | Description                                                                                                                                                                 |
+| ------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `timestamp`   | string (ISO 8601 UTC) | Event timestamp                                                                                                                                                             |
+| `scene_id`    | string                | Scene identifier (UUID)                                                                                                                                                     |
+| `scene_name`  | string                | Scene name                                                                                                                                                                  |
+| `region_id`   | string                | Region identifier (UUID)                                                                                                                                                    |
+| `region_name` | string                | Region name                                                                                                                                                                 |
+| `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                                                                                          |
+| `objects`     | array                 | Tracked objects currently inside the region. Each object includes live `regions.<region_id>.dwell` in addition to [Common Output Track Fields](#common-output-track-fields) |
+| `entered`     | array                 | Objects that entered the region during this cycle; each element is a bare track object and may include live `regions.<region_id>.dwell`. Empty when no entry occurred       |
+| `exited`      | array                 | Objects that exited the region during this cycle; each element is `{"object": <track>, "dwell": <seconds>}`. Empty when no exit occurred                                    |
+| `metadata`    | object                | Region geometry: `title`, `uuid`, `points` (polygon vertices in metres), `area` (`"poly"`), `fromSensor` (boolean)                                                          |
 
 ### Example Region Event Message
 
@@ -408,7 +418,13 @@ interest changes. The `{event_type}` segment is typically `objects`.
       "rotation": [0, 0, 0, 1],
       "visibility": ["atag-qcam1", "atag-qcam2"],
       "camera_bounds": {
-        "atag-qcam2": { "x": 799, "y": 14, "width": 169, "height": 397 }
+        "atag-qcam2": {
+          "x": 799,
+          "y": 14,
+          "width": 169,
+          "height": 397,
+          "projected": false
+        }
       },
       "sensors": {
         "temperature_1": [["2026-03-26T20:53:29.761Z", 48]]
@@ -448,7 +464,13 @@ interest changes. The `{event_type}` segment is typically `objects`.
         "similarity": null,
         "first_seen": "2026-03-26T20:53:06.647Z",
         "camera_bounds": {
-          "atag-qcam2": { "x": 180, "y": 115, "width": 166, "height": 400 }
+          "atag-qcam2": {
+            "x": 180,
+            "y": 115,
+            "width": 166,
+            "height": 400,
+            "projected": false
+          }
         }
       },
       "dwell": 5.297
@@ -522,7 +544,13 @@ field (`1` or `-1`) indicating which side of the wire it crossed toward.
       "rotation": [0, 0, 0, 1],
       "visibility": ["atag-qcam1", "atag-qcam2"],
       "camera_bounds": {
-        "atag-qcam2": { "x": 796, "y": 175, "width": 257, "height": 504 }
+        "atag-qcam2": {
+          "x": 796,
+          "y": 175,
+          "width": 257,
+          "height": 504,
+          "projected": false
+        }
       },
       "similarity": null,
       "first_seen": "2026-03-26T20:51:37.336Z",
