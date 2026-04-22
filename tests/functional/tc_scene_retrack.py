@@ -14,6 +14,7 @@ Retrack semantics:
 """
 
 import json
+import queue
 import threading
 import time
 
@@ -343,13 +344,13 @@ def test_external_topic_payload_has_required_fields(objData, record_xml_attribut
     h.setup_scenes(rest_client)
     h.set_retrack(rest_client, True)
 
-    external_msgs = []
+    ext_queue = queue.Queue()
 
     def _on_ext_msg(mqttc, obj, msg):
       try:
         data = json.loads(msg.payload.decode("utf-8"))
         if data.get("objects"):
-          external_msgs.append(data)
+          ext_queue.put(data)
       except (json.JSONDecodeError, UnicodeDecodeError):
         pass
 
@@ -361,15 +362,14 @@ def test_external_topic_payload_has_required_fields(objData, record_xml_attribut
       target=h.publish_data, args=(objData, ext_client), daemon=True)
     send_thread.start()
 
-    start = time.time()
-    while not external_msgs and time.time() - start < h.MAX_WAIT:
-      time.sleep(0.5)
+    try:
+      msg = ext_queue.get(timeout=h.MAX_WAIT)
+    except queue.Empty:
+      msg = None
     send_thread.join()
 
-    assert external_msgs, \
+    assert msg is not None, \
       f"No DATA_EXTERNAL messages with objects received within {h.MAX_WAIT}s"
-
-    msg = external_msgs[0]
     assert "id" in msg, "DATA_EXTERNAL message missing 'id'"
     assert "timestamp" in msg, "DATA_EXTERNAL message missing 'timestamp'"
     assert "name" in msg, "DATA_EXTERNAL message missing 'name'"
@@ -430,8 +430,8 @@ def test_external_topic_translations_reach_parent_regulated(
     h.setup_scenes(rest_client)
     h.set_retrack(rest_client, False)
 
-    external_objs = []   # object dicts from DATA_EXTERNAL (child space)
-    parent_objs = []     # object dicts from parent DATA_REGULATED
+    ext_queue = queue.Queue()    # object dicts from DATA_EXTERNAL (child space)
+    parent_queue = queue.Queue() # object dicts from parent DATA_REGULATED
 
     ext_topic = PubSub.formatTopic(
       PubSub.DATA_EXTERNAL, scene_id=h.child_id, thing_type="+")
@@ -449,12 +449,12 @@ def test_external_topic_translations_reach_parent_regulated(
       if topic.get("_topic_id") == PubSub.DATA_EXTERNAL:
         for o in data.get("objects", []):
           if "id" in o and "translation" in o:
-            external_objs.append(o)
+            ext_queue.put(o)
       elif topic.get("_topic_id") == PubSub.DATA_REGULATED:
         if topic.get("scene_id") == h.parent_id:
           for o in data.get("objects", []):
             if "id" in o and "translation" in o:
-              parent_objs.append(o)
+              parent_queue.put(o)
 
     sub_client = h.make_client([ext_topic, parent_reg_topic], _on_dual_msg)
 
@@ -464,10 +464,23 @@ def test_external_topic_translations_reach_parent_regulated(
 
     start = time.time()
     while time.time() - start < h.MAX_WAIT:
-      if external_objs and parent_objs:
+      if not ext_queue.empty() and not parent_queue.empty():
         break
       time.sleep(0.5)
     send_thread.join()
+
+    external_objs = []
+    while True:
+      try:
+        external_objs.append(ext_queue.get_nowait())
+      except queue.Empty:
+        break
+    parent_objs = []
+    while True:
+      try:
+        parent_objs.append(parent_queue.get_nowait())
+      except queue.Empty:
+        break
 
     assert external_objs, \
       f"No DATA_EXTERNAL objects received within {h.MAX_WAIT}s"
@@ -540,13 +553,13 @@ def test_external_update_rate_limits_publish_frequency(
     target_rate = 1   # Hz - well below the default 30 Hz
     h.set_external_rate(rest_client, target_rate)
 
-    external_msgs = []
+    ext_queue = queue.Queue()
 
     def _on_ext_msg(mqttc, obj, msg):
       try:
         data = json.loads(msg.payload.decode("utf-8"))
         if data.get("objects"):
-          external_msgs.append((time.time(), data))
+          ext_queue.put((time.time(), data))
       except (json.JSONDecodeError, UnicodeDecodeError):
         pass
 
@@ -566,6 +579,12 @@ def test_external_update_rate_limits_publish_frequency(
     # Allow a brief settling period for in-flight messages
     time.sleep(1.0)
 
+    external_msgs = []
+    while True:
+      try:
+        external_msgs.append(ext_queue.get_nowait())
+      except queue.Empty:
+        break
     count = len(external_msgs)
     max_expected = int(target_rate * measure_window * 2)
     log.info(
