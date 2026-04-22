@@ -3,6 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 import json
 import math
 import threading
@@ -271,6 +272,7 @@ class RetrackTest:
     @param    client          The MQTT PubSub client.
     @param    obj_category    The object category to publish (default: "person").
     """
+    obj_data = copy.deepcopy(obj_data)
     cam_id = obj_data["id"]
     topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=cam_id)
     for iteration in range(RetrackTest.NUM_PUBLISH_ITERATIONS):
@@ -293,6 +295,7 @@ class RetrackTest:
     @param    rate        Publish rate in Hz.
     @param    duration    Duration in seconds.
     """
+    obj_data = copy.deepcopy(obj_data)
     cam_id = obj_data["id"]
     topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=cam_id)
     end = time.time() + duration
