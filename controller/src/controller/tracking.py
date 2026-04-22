@@ -205,6 +205,8 @@ class Tracking(Thread):
       tracker.waitForComplete()
       log.debug(f"Joining tracker thread category {category}")
       tracker.join()
+      tracker.uuid_manager.shutdown()
+    self.uuid_manager.shutdown()
     return
 
   @staticmethod

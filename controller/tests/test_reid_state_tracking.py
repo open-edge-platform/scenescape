@@ -16,12 +16,6 @@ Tests cover:
 import pytest
 import time
 from unittest.mock import Mock
-from pathlib import Path
-
-# Add controller/src to path
-import sys
-controller_src = Path(__file__).resolve().parents[1] / 'src'
-sys.path.insert(0, str(controller_src))
 
 from controller.moving_object import MovingObject, ReidState
 

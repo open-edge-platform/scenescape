@@ -91,6 +91,9 @@ class Scene(SceneModel):
     self.trackerType = trackerType
     log.info("SETTING TRACKER TYPE", trackerType)
 
+    if self.tracker is not None:
+      self.tracker.join()
+
     args = (self.max_unreliable_time,
             self.non_measurement_time_dynamic,
             self.non_measurement_time_static)
