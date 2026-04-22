@@ -132,31 +132,21 @@ The **Cluster Analytics** service provides advanced object clustering, tracking,
 ### Building the Service
 
 ```bash
-# From repo root
-make -C cluster_analytics               # Build cluster_analytics
-make -C cluster_analytics test-build    # Build cluster_analytics + test image
-
-# OR from cluster_analytics/ directory
-cd cluster_analytics && make            # Build cluster_analytics
-cd cluster_analytics && make test-build # Build cluster_analytics + test image
-
-# Root-level builds (handles all dependencies)
-make rebuild-core                       # Rebuild core services
+# From root directory
+make cluster_analytics                  # Build image
+make rebuild-cluster_analytics          # Clean + rebuild
 make build-experimental                 # Build experimental services
 make build-all                          # All services including experimental
-make setup_tests SUPASS=<password>      # Full test environment setup
 ```
 
 ### Testing
 
 ```bash
-# Setup test images first
-make setup_tests SUPASS=<password>
-
 # Unit tests
 make -C tests cluster-analytics-unit
 
-# Functional tests
+# Functional tests (requires running containers)
+SUPASS=<password> make setup_tests
 make -C tests cluster-analytics-functional
 
 # Specific test module

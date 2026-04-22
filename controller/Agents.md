@@ -135,35 +135,24 @@ The **Scene Controller** is the central runtime state management service for Int
 ### Building the Service
 
 ```bash
-# From repo root
-make -C controller                      # Build controller
-make -C controller test-build           # Build controller + test image
-
-# OR from controller/ directory
-cd controller && make                   # Build controller
-cd controller && make test-build        # Build controller + test image
-
-# Root-level builds (handles all dependencies)
-make rebuild-core                       # Rebuild all core services with dependencies
+# From root directory
+make controller                         # Build image (alias: scene)
+make rebuild-controller                 # Clean + rebuild
 make build-core                         # Build all core services
-make setup_tests SUPASS=<password>      # Full test environment setup
 ```
 
 ### Testing
 
 ```bash
-# Setup test images first (required before running any tests)
-make setup_tests SUPASS=<password>
-
-# Run tests
-make -C tests controller-unit           # Controller unit tests
+# Unit tests
+make -C tests controller-unit
 make -C tests geometry-unit             # Test fast_geometry
-make -C tests controller-functional     # Functional tests
-```
+
+# Functional tests (requires running containers)
+SUPASS=<password> make setup_tests
+make -C tests controller-functional
 
 # Specific test module
-
-```bash
 pytest tests/sscape_tests/controller/test_tracking.py -v
 ```
 

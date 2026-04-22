@@ -102,31 +102,21 @@ Object Query → Visual Grounding → 3D Coordinates → Scene Controller
 ### Building the Service
 
 ```bash
-# From repo root
-make -C mapping                         # Build mapping
-make -C mapping test-build              # Build mapping + test image
-
-# OR from mapping/ directory
-cd mapping && make                      # Build mapping
-cd mapping && make test-build           # Build mapping + test image
-
-# Root-level builds (handles all dependencies)
-make rebuild-core                       # Rebuild core services
+# From root directory (experimental build)
+make mapping                            # Build image
+make rebuild-mapping                    # Clean + rebuild
 make build-experimental                 # Build mapping + cluster_analytics
 make build-all                          # All services including experimental
-make setup_tests SUPASS=<password>      # Full test environment setup
 ```
 
 ### Testing
 
 ```bash
-# Setup test images first
-make setup_tests SUPASS=<password>
-
 # Unit tests
 make -C tests mapping-unit
 
-# Functional tests
+# Functional tests (requires running containers)
+SUPASS=<password> make setup_tests
 make -C tests mapping-functional
 
 # Manual API testing
