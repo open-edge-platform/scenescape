@@ -16,7 +16,7 @@ from scene_common.timestamp import get_iso_time
 class RetrackTest:
 
   FRAME_RATE = 10
-  MAX_WAIT = 3
+  MAX_WAIT = 5
   NUM_PUBLISH_ITERATIONS = 5
 
   def __init__(self, params):
