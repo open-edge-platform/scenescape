@@ -116,7 +116,7 @@ void CoordinateTransformer::batchPixelToWorld(const std::vector<cv::Point2f>& pi
     }
 }
 
-std::pair<std::vector<rv::tracking::TrackedObject>, std::vector<std::string>>
+std::vector<rv::tracking::TrackedObject>
 CoordinateTransformer::transformDetections(std::span<const Detection> detections) const {
     const auto n = detections.size();
     if (n == 0)
@@ -147,7 +147,6 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
 
     // Phase 4: Assemble TrackedObjects from world-projected points
     std::vector<rv::tracking::TrackedObject> result(n);
-    std::vector<std::string> metadata(n);
     std::vector<uint8_t> detection_valid(n);
 
     const double cam_x = camera_origin_.x;
@@ -192,7 +191,9 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         obj.length = width_m; // [width, width, height] convention
         obj.width = width_m;
         obj.height = height_m;
-        metadata[i] = detections[i].metadata_json;
+        if (!detections[i].metadata_json.empty()) {
+            obj.attributes["metadata_json"] = detections[i].metadata_json;
+        }
 
         detection_valid[i] = 1;
     }
@@ -203,15 +204,13 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         if (detection_valid[read]) {
             if (write != read) {
                 result[write] = std::move(result[read]);
-                metadata[write] = std::move(metadata[read]);
             }
             ++write;
         }
     }
     result.resize(write);
-    metadata.resize(write);
 
-    return {std::move(result), std::move(metadata)};
+    return result;
 }
 
 std::array<double, 4> CoordinateTransformer::yawToQuaternion(double yaw_radians) {

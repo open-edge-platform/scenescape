@@ -198,15 +198,7 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
             LOG_WARN("Unknown camera '{}' in detection batch, skipping", batch.camera_id);
             continue;
         }
-        auto [objects, metadata] = transformer_it->second.transformDetections(batch.detections);
-        // Inject metadata_json into attributes so the RobotVision tracker propagates it
-        // to the matched output track via MultiModelKalmanEstimator::correct().
-        for (size_t i = 0; i < objects.size(); ++i) {
-            if (!metadata[i].empty()) {
-                objects[i].attributes["metadata_json"] = metadata[i];
-            }
-        }
-        objects_per_camera.push_back(std::move(objects));
+        objects_per_camera.push_back(transformer_it->second.transformDetections(batch.detections));
     }
 
     return objects_per_camera;

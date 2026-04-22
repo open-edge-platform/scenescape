@@ -7,7 +7,6 @@
 #include <cmath>
 #include <numbers>
 #include <span>
-#include <utility>
 #include <vector>
 
 #include <opencv2/core.hpp>
@@ -62,13 +61,11 @@ public:
      * Detections where any projection fails are silently skipped.
      *
      * @param detections Span of pixel-space detections (bounding boxes)
-     * @return Pair of:
-     *   - TrackedObjects with world-space position and size fields populated
-     *     (id, x, y, z, length, width, height are set; velocity/yaw are zero).
-     *   - Parallel vector of metadata_json strings (empty string when absent),
-     *     one entry per returned TrackedObject in the same order.
+     * @return TrackedObjects with world-space position and size fields populated.
+     *         id, x, y, z, length, width, height are set. Velocity/yaw are zero.
+     *         attributes["metadata_json"] is set from Detection::metadata_json when non-empty.
      */
-    std::pair<std::vector<rv::tracking::TrackedObject>, std::vector<std::string>>
+    std::vector<rv::tracking::TrackedObject>
     transformDetections(std::span<const Detection> detections) const;
 
     /**
