@@ -252,37 +252,33 @@ class ChildSceneTest:
     if topic.get("_topic_id") != PubSub.EVENT:
       return
 
-    if scene_id == self.child_id and region_id == self.roi_uid and region_type == self._REGION:
-      self.child_roi_events.append(data)
-      self._first_received_at.setdefault("child_roi_events", time.monotonic())
-      log.info(f"Child ROI event received: {len(self.child_roi_events)} total")
+    if scene_id == self.child_id:
+      if region_id == self.roi_uid and region_type == self._REGION:
+        self.child_roi_events.append(data)
+        self._first_received_at.setdefault("child_roi_events", time.monotonic())
+        log.info(f"Child ROI event received: {len(self.child_roi_events)} total")
+      elif region_id == self.tripwire_uid and region_type == self._TRIPWIRE:
+        self.child_tripwire_events.append(data)
+        self._first_received_at.setdefault("child_tripwire_events", time.monotonic())
+        log.info(f"Child tripwire event received: {len(self.child_tripwire_events)} total")
+      elif self.sensor_uid and region_id == self.sensor_uid and region_type == self._REGION:
+        self.child_sensor_events.append(data)
+        self._first_received_at.setdefault("child_sensor_events", time.monotonic())
+        log.info(f"Child sensor event received: {len(self.child_sensor_events)} total")
 
-    elif scene_id == self.child_id and region_id == self.tripwire_uid and region_type == self._TRIPWIRE:
-      self.child_tripwire_events.append(data)
-      self._first_received_at.setdefault("child_tripwire_events", time.monotonic())
-      log.info(f"Child tripwire event received: {len(self.child_tripwire_events)} total")
-
-    elif (scene_id == self.child_id and self.sensor_uid
-          and region_id == self.sensor_uid and region_type == self._REGION):
-      self.child_sensor_events.append(data)
-      self._first_received_at.setdefault("child_sensor_events", time.monotonic())
-      log.info(f"Child sensor event received: {len(self.child_sensor_events)} total")
-
-    elif scene_id == self.parent_id and region_id == self.roi_uid and region_type == self._REGION:
-      self.parent_roi_events.append(data)
-      self._first_received_at.setdefault("parent_roi_events", time.monotonic())
-      log.info(f"Parent ROI event received: {len(self.parent_roi_events)} total")
-
-    elif scene_id == self.parent_id and region_id == self.tripwire_uid and region_type == self._TRIPWIRE:
-      self.parent_tripwire_events.append(data)
-      self._first_received_at.setdefault("parent_tripwire_events", time.monotonic())
-      log.info(f"Parent tripwire event received: {len(self.parent_tripwire_events)} total")
-
-    elif (scene_id == self.parent_id and self.sensor_uid
-          and region_id == self.sensor_uid and region_type == self._REGION):
-      self.parent_sensor_events.append(data)
-      self._first_received_at.setdefault("parent_sensor_events", time.monotonic())
-      log.info(f"Parent sensor event received: {len(self.parent_sensor_events)} total")
+    elif scene_id == self.parent_id:
+      if region_id == self.roi_uid and region_type == self._REGION:
+        self.parent_roi_events.append(data)
+        self._first_received_at.setdefault("parent_roi_events", time.monotonic())
+        log.info(f"Parent ROI event received: {len(self.parent_roi_events)} total")
+      elif region_id == self.tripwire_uid and region_type == self._TRIPWIRE:
+        self.parent_tripwire_events.append(data)
+        self._first_received_at.setdefault("parent_tripwire_events", time.monotonic())
+        log.info(f"Parent tripwire event received: {len(self.parent_tripwire_events)} total")
+      elif self.sensor_uid and region_id == self.sensor_uid and region_type == self._REGION:
+        self.parent_sensor_events.append(data)
+        self._first_received_at.setdefault("parent_sensor_events", time.monotonic())
+        log.info(f"Parent sensor event received: {len(self.parent_sensor_events)} total")
 
   def connect_mqtt(self):
     """Create a :class:`PubSub` client, attach callbacks, connect, and wait.
