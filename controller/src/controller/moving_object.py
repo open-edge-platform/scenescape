@@ -17,6 +17,7 @@ from scipy.spatial.transform import Rotation
 
 from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2
+from scene_common.timestamp import get_epoch_time
 from scene_common.transform import normalize, rotationToTarget
 from scene_common import log
 
@@ -236,7 +237,7 @@ class MovingObject:
     self.frameCount = otherObj.frameCount + 1
     self.reid_state = otherObj.reid_state
     self.similarity = otherObj.similarity
-    self.previous_ids_chain = otherObj.previous_ids_chain.copy()
+    self.previous_ids_chain = otherObj.get_previous_ids()
 
     del self.chain_data.publishedLocations[LOCATION_LIMIT:]
 
@@ -330,8 +331,7 @@ class MovingObject:
     @param timestamp: When the change occurred (epoch time), defaults to current time
     """
     if timestamp is None:
-      import time
-      timestamp = time.time()
+      timestamp = get_epoch_time()
 
     self.previous_ids_chain.append({
       'id': new_id,

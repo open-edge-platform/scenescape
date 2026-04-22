@@ -109,7 +109,8 @@ class Scene(SceneModel):
     if 'reid_config_data' in scene_data:
       new_reid_config_data = scene_data['reid_config_data']
       reid_config_changed = new_reid_config_data != self.reid_config_data
-      self.reid_config_data = new_reid_config_data
+      if reid_config_changed:
+        self.reid_config_data = new_reid_config_data
 
     self.parent = scene_data.get('parent', None)
     self.cameraPose = None

@@ -4,7 +4,6 @@
 import collections
 import concurrent.futures
 import threading
-import time
 
 from controller.vdms_adapter import VDMSDatabase
 from controller.moving_object import ReidState, MovingObject
@@ -571,7 +570,7 @@ class UUIDManager:
       'reid_vectors': self.quality_features[sscape_object.rv_id],
       'metadata': self._extractSemanticMetadata(sscape_object)
     }
-    self.features_for_database_timestamps[sscape_object.rv_id] = time.time()  # Record when added
+    self.features_for_database_timestamps[sscape_object.rv_id] = get_epoch_time()  # Record when added
     return
 
   def isNewID(self, database_id):
