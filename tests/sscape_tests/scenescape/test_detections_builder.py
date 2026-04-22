@@ -313,10 +313,10 @@ class TestDetectionsBuilder:
     # Timestamps should be converted to ISO 8601 format
     assert len(detection['previous_ids_chain']) == 2
     assert detection['previous_ids_chain'][0]['id'] == 'old-id-1'
-    assert detection['previous_ids_chain'][0]['timestamp'] == '2024-03-31T12:00:00Z'
+    assert detection['previous_ids_chain'][0]['timestamp'] == get_iso_time(1711886400.0)
     assert detection['previous_ids_chain'][0]['similarity_score'] is None
     assert detection['previous_ids_chain'][1]['id'] == 'old-id-2'
-    assert detection['previous_ids_chain'][1]['timestamp'] == '2024-03-31T12:00:01Z'
+    assert detection['previous_ids_chain'][1]['timestamp'] == get_iso_time(1711886401.0)
     assert detection['previous_ids_chain'][1]['similarity_score'] == 0.95
 
   def test_prepare_obj_dict_omits_previous_ids_chain_when_empty(self):
