@@ -174,8 +174,8 @@ Detection make_detection(float x, float y, float w, float h, int32_t id = 1) {
 
 // Test helper: returns only TrackedObjects from transformDetections, discarding the
 // parallel metadata vector. Used by pre-existing geometry-only tests.
-std::vector<rv::tracking::TrackedObject>
-transformObjects(const CoordinateTransformer& t, std::span<const Detection> dets) {
+std::vector<rv::tracking::TrackedObject> transformObjects(const CoordinateTransformer& t,
+                                                          std::span<const Detection> dets) {
     return t.transformDetections(dets).first;
 }
 
@@ -534,8 +534,8 @@ TEST(TransformDetectionsTest, MetadataJson_PreservedThroughTransform) {
 TEST(TransformDetectionsTest, MetadataJson_EmptyWhenAbsent) {
     auto transformer = make_transformer(kCameraAtaqQcam1);
 
-    auto [objects, metadata] =
-        transformer.transformDetections(std::vector<Detection>{make_detection(590.0f, 260.0f, 100.0f, 200.0f)});
+    auto [objects, metadata] = transformer.transformDetections(
+        std::vector<Detection>{make_detection(590.0f, 260.0f, 100.0f, 200.0f)});
 
     ASSERT_EQ(objects.size(), 1u);
     ASSERT_EQ(metadata.size(), 1u);
