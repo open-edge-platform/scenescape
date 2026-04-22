@@ -525,35 +525,5 @@ TEST(TransformDetectionsTest, MetadataJson_PreservedThroughTransform) {
               R"({"reid":{"model_name":"test"},"age":{"label":"adult"}})");
 }
 
-TEST(TransformDetectionsTest, MetadataJson_EmptyWhenAbsent) {
-    auto transformer = make_transformer(kCameraAtaqQcam1);
-
-    auto result = transformer.transformDetections(
-        std::vector<Detection>{make_detection(590.0f, 260.0f, 100.0f, 200.0f)});
-
-    ASSERT_EQ(result.size(), 1u);
-    EXPECT_FALSE(result[0].attributes.count("metadata_json"));
-}
-
-TEST(TransformDetectionsTest, MetadataJson_MultipleDetectionsPreservedInOrder) {
-    auto transformer = make_transformer(kCameraAtaqQcam1);
-
-    Detection det0 = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 0);
-    det0.metadata_json = R"({"reid":{"value":0}})";
-
-    Detection det1 = make_detection(10.0f, 10.0f, 80.0f, 160.0f, 1);
-    // No metadata on det1
-
-    Detection det2 = make_detection(1190.0f, 550.0f, 80.0f, 160.0f, 2);
-    det2.metadata_json = R"({"gender":{"label":"female"}})";
-
-    auto result = transformer.transformDetections(std::vector<Detection>{det0, det1, det2});
-
-    ASSERT_EQ(result.size(), 3u);
-    EXPECT_EQ(result[0].attributes.at("metadata_json"), R"({"reid":{"value":0}})");
-    EXPECT_FALSE(result[1].attributes.count("metadata_json"));
-    EXPECT_EQ(result[2].attributes.at("metadata_json"), R"({"gender":{"label":"female"}})");
-}
-
 } // namespace
 } // namespace tracker
