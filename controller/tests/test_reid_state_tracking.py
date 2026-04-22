@@ -15,7 +15,7 @@ Tests cover:
 
 import pytest
 import time
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 from pathlib import Path
 
 # Add controller/src to path

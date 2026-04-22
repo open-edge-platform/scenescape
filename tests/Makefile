@@ -108,8 +108,6 @@ broken-tests: \
 randomly-failing-tests: \
   distance-msoce \
   reid-data-flow \
-  reid-semantic-unique-count \
-  reid-unique-count \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
@@ -167,6 +165,8 @@ _functional-tests: \
   object-crud-api \
   orphaned-sensor \
   persistence-api \
+  reid-semantic-unique-count \
+  reid-unique-count \
   rest-test \
   scene-details-api \
   scene-import-api \

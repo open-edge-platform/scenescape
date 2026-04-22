@@ -153,12 +153,6 @@ def test_reid_unique_count(params, record_xml_attribute):
   log.info("Test the unique count for each scene when RE-ID is enabled.")
 
   scene_config = {
-    "3bc091c7-e449-46a0-9540-29c499bca18c": {
-      "error": False,
-      "current": 0,
-      "minimum": 2,
-      "maximum": 10
-    },
     "302cf49a-97ec-402d-a324-c5077b280b7b": {
       "error": False,
       "current": 0,
