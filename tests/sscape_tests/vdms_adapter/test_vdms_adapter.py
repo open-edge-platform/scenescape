@@ -73,6 +73,105 @@ class TestVDMSDatabaseInitialization:
     assert hasattr(db, 'lock'), "VDMSDatabase must have a lock for thread safety"
 
 
+class TestSchemaValidation:
+  """Test descriptor set schema validation and mismatch handling."""
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_schema_details_extracts_top_level_dimensions(self, mock_vdms_class):
+    """Verify FindDescriptorSet top-level dimensions are parsed."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'dimensions': 256
+    }], []))
+
+    exists, dimensions = db.findSchemaDetails(SCHEMA_NAME)
+
+    assert exists is True
+    assert dimensions == 256
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_schema_details_extracts_nested_dimensions(self, mock_vdms_class):
+    """Verify dimensions nested under entities are parsed."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'entities': [{
+        'name': SCHEMA_NAME,
+        'dimensions': 512
+      }]
+    }], []))
+
+    exists, dimensions = db.findSchemaDetails(SCHEMA_NAME)
+
+    assert exists is True
+    assert dimensions == 512
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_ensure_schema_raises_on_existing_dimension_mismatch(self, mock_vdms_class):
+    """Verify ensureSchema fails fast when existing descriptor dimensions differ."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=None)
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'dimensions': 128
+    }], []))
+
+    with pytest.raises(RuntimeError, match="uses 128 dimensions"):
+      db.ensureSchema(256)
+
+    assert db._schema_ready is False
+    assert db.dimensions is None
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_ensure_schema_raises_when_dimensions_not_reported(self, mock_vdms_class):
+    """Verify ensureSchema refuses existing descriptor sets without dimension info."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=None)
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'name': SCHEMA_NAME
+    }], []))
+
+    with pytest.raises(RuntimeError, match="dimensions were not returned"):
+      db.ensureSchema(256)
+
+    assert db._schema_ready is False
+    assert db.dimensions is None
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_ensure_schema_accepts_matching_existing_dimensions(self, mock_vdms_class):
+    """Verify ensureSchema succeeds when descriptor dimensions match requested size."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'dimensions': 256
+    }], []))
+
+    db.ensureSchema(256)
+
+    assert db._schema_ready is True
+    assert db.dimensions == 256
+
+
 class TestAddEntry:
   """Test adding entries to VDMS."""
 
@@ -83,6 +182,7 @@ class TestAddEntry:
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
+    db.dimensions = 256
     db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
     test_uuid = "test-uuid-123"
@@ -109,6 +209,7 @@ class TestAddEntry:
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
+    db.dimensions = 256
     db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
     test_uuid = "test-uuid"
@@ -143,6 +244,7 @@ class TestAddEntry:
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
+    db.dimensions = 256
     db.sendQuery = Mock(return_value=([{'status': 0}, {'status': 0}], []))
 
     test_uuid = "test-uuid"
@@ -172,6 +274,7 @@ class TestAddEntry:
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
+    db.dimensions = 256
     db.sendQuery = Mock(return_value=([{'status': 0}, {'status': 0}, {'status': 0}], []))
 
     test_uuid = "test-uuid"
@@ -613,6 +716,7 @@ class TestMetadataStorageQueryConsistency:
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
+    db.dimensions = 256
     db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
     test_uuid = "test-uuid"
@@ -668,6 +772,7 @@ class TestMetadataStorageQueryConsistency:
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
+    db.dimensions = 256
     db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
     # Test various data types in metadata labels
