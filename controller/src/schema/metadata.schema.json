@@ -130,6 +130,10 @@
               "embedding_vector": {
                 "type": "string"
               },
+              "embedding_dimensions": {
+                "type": "integer",
+                "minimum": 32
+              },
               "model_name": {
                 "type": "string"
               }

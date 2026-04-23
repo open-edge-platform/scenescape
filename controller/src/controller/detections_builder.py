@@ -88,17 +88,18 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
       if key != 'reid':
         obj_dict['metadata'][key] = value
 
-  # Output reid in metadata structure
+  # Output reid in metadata structure.
+  # embedding_vector is always a (1, N) ndarray after decodeReIDEmbeddingVector.
   if aobj.reid and 'embedding_vector' in aobj.reid:
     reid_embedding = aobj.reid['embedding_vector']
     if reid_embedding is not None:
       if 'metadata' not in obj_dict:
         obj_dict['metadata'] = {}
-      if isinstance(reid_embedding, np.ndarray):
-        obj_dict['metadata']['reid'] = {'embedding_vector': reid_embedding.tolist()}
-      else:
-        obj_dict['metadata']['reid'] = {'embedding_vector': reid_embedding}
-      # Add model_name if available
+      reid_vec = np.asarray(reid_embedding, dtype=np.float32)
+      obj_dict['metadata']['reid'] = {
+        'embedding_vector': reid_vec.tolist(),
+        'embedding_dimensions': int(reid_vec.reshape(-1).shape[0]),
+      }
       if 'model_name' in aobj.reid:
         obj_dict['metadata']['reid']['model_name'] = aobj.reid['model_name']
 
