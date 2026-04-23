@@ -733,7 +733,7 @@
         "expected_status": {
           "status_code": 200
         },
-        "expected_body": {
+        "validate": {
           "area": "scene",
           "scene": null
         }
@@ -828,7 +828,7 @@
         "expected_status": {
           "status_code": 200
         },
-        "expected_body": {
+        "validate": {
           "scene": null
         }
       },
