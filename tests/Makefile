@@ -85,6 +85,7 @@ release-tests: \
   camera-deletion \
   different-formats-maps \
   live-view-button \
+  mesh-creation \
   non-functional-tests \
   scene-details \
   reid-performance-degradation \
