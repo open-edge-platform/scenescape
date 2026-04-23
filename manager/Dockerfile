@@ -219,7 +219,7 @@ Package: * \n\
 Pin: origin packages.mozilla.org \n\
 Pin-Priority: 1000 \n\
 ' | tee /etc/apt/preferences.d/mozilla \
-    ; apt-get update && apt-get install -y --no-install-recommends firefox \
+    ; apt-get update && apt-get install -y --no-install-recommends firefox-esr \
     ; rm -rf /var/lib/apt/lists/*
 # Install Python test dependencies
 COPY ./manager/test/requirements-test.txt /tmp
