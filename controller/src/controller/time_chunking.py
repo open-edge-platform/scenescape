@@ -26,7 +26,6 @@ The Scene class will automatically select TimeChunkedIntelLabsTracking when enab
 """
 
 import threading
-import time
 from typing import Any, List
 
 from scene_common import log

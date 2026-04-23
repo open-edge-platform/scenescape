@@ -37,7 +37,18 @@ def reidPolicy(pobj, item, fw, fh):
     name = tensor.get('name','')
     if name and ('reid' in name or 'embedding' in name):
       reid_vector = tensor.get('data', [])
-      v = struct.pack("256f",*reid_vector)
+      # Handle variable-length re-id vectors from different models
+      if not reid_vector:
+        continue
+      vector_len = len(reid_vector)
+      # Pack vector with its actual dimensions
+      format_string = f"{vector_len}f"
+      try:
+        v = struct.pack(format_string, *reid_vector)
+      except struct.error as e:
+        import sys
+        print(f"Failed to pack reid vector of length {vector_len}: {e}", file=sys.stderr)
+        continue
       # Move reid under metadata key
       if 'metadata' not in pobj:
         pobj['metadata'] = {}

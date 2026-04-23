@@ -34,6 +34,8 @@ class VDMSDatabase(ReIDDatabase):
     self.dimensions = dimensions
     self.confidence_threshold = confidence_threshold
     self.lock = threading.Lock()
+    self._schema_lock = threading.Lock()
+    self._schema_ready = False
     return
 
   def sendQuery(self, query, blob=None):
@@ -74,8 +76,28 @@ class VDMSDatabase(ReIDDatabase):
   def connect(self, hostname=DEFAULT_HOSTNAME):
     try:
       self.db.connect(hostname)
-      if not self.findSchema(self.set_name):
-        self.addSchema(self.set_name, self.similarity_metric, self.dimensions)
+      if self.dimensions is not None:
+        expected_dimensions = int(self.dimensions)
+        with self._schema_lock:
+          schema_exists, schema_dimensions = self.findSchemaDetails(self.set_name)
+          if schema_exists:
+            if schema_dimensions is None:
+              raise RuntimeError(
+                f"connect: VDMS descriptor set '{self.set_name}' exists but returned no dimensions. "
+                "Refusing to proceed; recreate the descriptor set to continue.")
+            if schema_dimensions != expected_dimensions:
+              raise RuntimeError(
+                f"connect: VDMS descriptor set '{self.set_name}' uses {schema_dimensions} dimensions, "
+                f"but controller is configured for {expected_dimensions}. "
+                "Refusing to proceed; recreate the descriptor set with matching dimensions.")
+          else:
+            if not self.addSchema(self.set_name, self.similarity_metric, expected_dimensions):
+              log.warning("connect: Schema creation failed; _schema_ready left False")
+              return
+          self.dimensions = expected_dimensions
+          self._schema_ready = True
+    except RuntimeError as e:
+      log.error(f"Failed to initialize VDMS schema: {e}")
     except socket.error as e:
       log.warning(f"Failed to connect to VDMS container: {e}")
     return
@@ -89,10 +111,55 @@ class VDMSDatabase(ReIDDatabase):
       }
     }]
     response, _ = self.sendQuery(query)
-    if response and response[0].get('status') != 0:
+    if not response:
+      log.warning("addSchema: No response from VDMS when creating descriptor set")
+      return False
+    if response[0].get('status') != 0:
       log.warning(
         f"Failed to add the descriptor set to the database. Received response {response[0]}")
-    return
+      return False
+    return True
+
+  def ensureSchema(self, dimensions):
+    """
+    Initialize the VDMS descriptor set schema with the given dimensions.
+    Called lazily when the first ReID embedding is observed, removing the need
+    to pre-configure vector_dimensions before runtime.
+    Thread-safe; idempotent when called with consistent dimensions.
+
+    @param   dimensions  Number of float32 elements in each embedding vector
+    @raises  ValueError  If called with dimensions inconsistent with a previously
+                         initialized schema
+    @raises  RuntimeError If schema creation fails; schema remains unavailable until
+                          schema is flushed and the controller is restarted
+    """
+    with self._schema_lock:
+      requested_dimensions = int(dimensions)
+      if self._schema_ready:
+        if int(self.dimensions) != requested_dimensions:
+          raise ValueError(
+            f"ReID schema already initialized with {self.dimensions} dimensions; "
+            f"incoming vector has {requested_dimensions} dimensions. "
+            f"Restart the controller and flush the VDMS descriptor set to change dimensions.")
+        return
+      schema_exists, schema_dimensions = self.findSchemaDetails(self.set_name)
+      if schema_exists:
+        if schema_dimensions is None:
+          raise RuntimeError(
+            f"ensureSchema: VDMS descriptor set '{self.set_name}' exists but dimensions were not returned. "
+            "Refusing to proceed; recreate the descriptor set to continue.")
+        if schema_dimensions != requested_dimensions:
+          raise RuntimeError(
+            f"ensureSchema: VDMS descriptor set '{self.set_name}' uses {schema_dimensions} dimensions, "
+            f"but incoming vectors use {requested_dimensions}. "
+            "Refusing to proceed; recreate the descriptor set with matching dimensions.")
+      else:
+        if not self.addSchema(self.set_name, self.similarity_metric, requested_dimensions):
+          raise RuntimeError(
+            f"ensureSchema: Failed to create VDMS descriptor set '{self.set_name}'; "
+            "schema not confirmed. ReID writes will be skipped until schema is available.")
+      self.dimensions = requested_dimensions
+      self._schema_ready = True
 
   def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name=SCHEMA_NAME, **metadata):
     """
@@ -144,11 +211,14 @@ class VDMSDatabase(ReIDDatabase):
     descriptor_blobs = []
     add_query = []
     for reid_vector in reid_vectors:
-      # Ensure vector is properly formatted as 1D array of float32
-      # reid_vector might be shape (1, 256) from moving_object, need to flatten to (256,)
+      # Decoded embeddings from decodeReIDEmbeddingVector are (1, N); flatten to
+      # (N,) so tobytes() produces the correct contiguous float32 byte sequence.
       vec_array = np.asarray(reid_vector, dtype="float32").flatten()
-      if vec_array.shape[0] != 256:
-        log.warning(f"addEntry: Expected vector shape (256,) but got {vec_array.shape}, skipping this vector")
+      if self.dimensions is None:
+        log.warning("addEntry: ReID dimensions not yet initialized, skipping vector")
+        continue
+      if vec_array.shape[0] != self.dimensions:
+        log.warning(f"addEntry: Expected vector shape ({self.dimensions},) but got {vec_array.shape}, skipping this vector")
         continue
       descriptor_blobs.append(vec_array.tobytes())
       # Create query dict for each vector
@@ -158,6 +228,10 @@ class VDMSDatabase(ReIDDatabase):
           "properties": properties.copy()
         }
       })
+
+    if not add_query:
+      log.warning("addEntry: No valid vectors to add (all skipped due to dimension mismatch or uninitialized dimensions)")
+      return
 
     response, _ = self.sendQuery(add_query, descriptor_blobs)  # Flat list of blobs
     if response:
@@ -173,15 +247,46 @@ class VDMSDatabase(ReIDDatabase):
     return
 
   def findSchema(self, set_name):
+    schema_exists, _ = self.findSchemaDetails(set_name)
+    return schema_exists
+
+  def findSchemaDetails(self, set_name):
     query = [{
       "FindDescriptorSet": {
         "set": f"{set_name}"
       }
     }]
     response, _ = self.sendQuery(query)
-    if response and response[0].get('status') == 0 and response[0].get('returned') > 0:
-      return True
-    return False
+    if not response:
+      return False, None
+    first_response = response[0]
+    if first_response.get('status') != 0 or first_response.get('returned', 0) <= 0:
+      return False, None
+
+    schema_dimensions = self._extractSchemaDimensions(first_response)
+    return True, schema_dimensions
+
+  def _extractSchemaDimensions(self, find_descriptor_set_response):
+    # VDMS responses may return descriptor set fields at the top level or nested under
+    # common payload keys like "entities" or "content".
+    payloads = [find_descriptor_set_response]
+    for key in ['entities', 'entity', 'content', 'results', 'DescriptorSet']:
+      value = find_descriptor_set_response.get(key)
+      if isinstance(value, dict):
+        payloads.append(value)
+      elif isinstance(value, list):
+        payloads.extend(item for item in value if isinstance(item, dict))
+
+    for payload in payloads:
+      for key in ['dimensions', 'dimension']:
+        if key in payload:
+          try:
+            return int(payload[key])
+          except (TypeError, ValueError):
+            log.warning(
+              f"findSchemaDetails: Could not parse descriptor dimensions from key '{key}' value '{payload[key]}'")
+            return None
+    return None
 
   def _build_query_constraints(self, object_type, **constraints):
     """
