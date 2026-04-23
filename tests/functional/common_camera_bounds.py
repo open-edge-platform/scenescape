@@ -8,9 +8,9 @@ import threading
 
 import tests.common_test_utils as common
 from scene_common.mqtt import PubSub
-from scene_common import log
+from tests.utils.log import get_logger
 
-
+log = get_logger(__name__)
 test_wait_time = 20  # seconds
 check_interval = 1   # seconds
 

@@ -9,9 +9,11 @@ import pytest
 
 from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
-from scene_common import log
+from tests.utils.log import get_logger
 import tests.common_test_utils as common
 from scene_common.timestamp import get_iso_time
+
+log = get_logger(__name__)
 
 FRAME_RATE = 10
 MAX_WAIT = 10
@@ -151,7 +153,7 @@ def wait_for_messages(timeout=MAX_WAIT):
 @pytest.mark.parametrize("parent_scene, child_scene", [
     ("parent", "Demo"),
 ])
-def test_remove_linked_scene(parent_scene, child_scene, objData, record_xml_attribute, params):
+def test_remove_linked_scene(parent_scene, child_scene, objData, record_xml_attribute, params, demo_scene):
   """! Test to verify the unlinking of a child scene from parent scene and validating the data flow.
   """
 

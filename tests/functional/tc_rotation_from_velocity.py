@@ -8,11 +8,12 @@ import math
 import time
 from http import HTTPStatus
 
-from scene_common import log
+from tests.utils.log import get_logger
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 
 from tests.functional import FunctionalTest
+log = get_logger(__name__)
 
 TEST_NAME = "NEX-T10543"
 COLLECT_TIMEOUT = 10.0
@@ -69,7 +70,8 @@ class RotationFromVelocityTest(FunctionalTest):
     log.info(f"Created PERSON asset UID:", self.asset_uid)
 
     # MQTT setup
-    self.client = PubSub(self.params["auth"], None, self.params["rootcert"], self.params["broker_url"])
+    self.client = PubSub(self.params["auth"], None, self.params["rootcert"], self.params["broker_url"],
+                          port=int(self.params["broker_port"]))
     self.client.connect()
     self.client.loopStart()
 
@@ -157,7 +159,7 @@ class RotationFromVelocityTest(FunctionalTest):
       # collect BEFORE enabling rotation
       self.collect("before")
       before_set = set(self.rotations_before)
-      log.info("Rotation before changing settings (feature OFF):", before_set)
+      log.info(f"Rotation before changing settings (feature OFF): {before_set}")
 
       assert all(all(abs(a - b) < 1e-6 for a, b in zip(q, IDENTITY_QUAT)) for q in before_set), \
         "Spec violation: When OFF, rotation must be the identity quaternion [0,0,0,1]"

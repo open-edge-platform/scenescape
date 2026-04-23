@@ -13,6 +13,7 @@ from scene_common.timestamp import get_iso_time, get_epoch_time
 
 from tests.common_test_utils import check_event_contains_data
 from tests.functional import FunctionalTest
+from tests.utils.log import get_logger
 
 ROI_NAME = "Automated_ROI"
 FRAMES_PER_SECOND = 10
@@ -20,6 +21,8 @@ PERSON = "person"
 REGION = "region"
 MAX_CONTROLLER_WAIT = 30 # seconds
 MAX_ATTEMPTS = 3
+
+log = get_logger(__name__)
 
 class SceneObjectMqtt(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
@@ -47,7 +50,7 @@ class SceneObjectMqtt(FunctionalTest):
 
     if getattr(self, "roi_deleted", False):
       self.message_received_after_delete = True
-      print("Event received after ROI deletion (unexpected)")
+      log.warning("Event received after ROI deletion (unexpected)")
       return
 
     for regionObj in regionData['objects']:
@@ -70,7 +73,10 @@ class SceneObjectMqtt(FunctionalTest):
             self.expectedExit.append(event['id'])
             self.expectedEnter.remove(event['id'])
             self.entered = True
-            print("object with id {} entered region\n".format(event['id']))
+            # Track entry time for dwell verification
+            if event['id'] not in self.objectEntryTimes:
+              self.objectEntryTimes[event['id']] = get_epoch_time()
+            log.info(f"object with id {event['id']} entered region")
 
     if len(regionEvent['exited']) > 0:
       for event in regionEvent['exited']:
@@ -78,7 +84,7 @@ class SceneObjectMqtt(FunctionalTest):
         if event['object']['id'] in self.expectedExit:
           self.expectedExit.remove(event['object']['id'])
           self.exited = True
-          print("object with id {} exited region\n".format(event['object']['id']))
+          log.info(f"object with id {event['object']['id']} exited region")
     return
 
   def isWithinRectangle(self, bl, tr, curr_point):
@@ -104,7 +110,7 @@ class SceneObjectMqtt(FunctionalTest):
   def deleteROI(self, roi_uid):
     res = self.rest.deleteRegion(roi_uid)
     assert res.statusCode == HTTPStatus.OK, (res.statusCode, res.errors)
-    print(f"ROI {roi_uid} deleted successfully")
+    log.info(f"ROI {roi_uid} deleted successfully")
     self.roi_deleted = True
     return
 
@@ -129,6 +135,8 @@ class SceneObjectMqtt(FunctionalTest):
     self.roiPoints = ((0.9, 4.0), (0.9, 2.4),
                       (8.1, 2.4), (8.1, 4.0))
     self.message_received_after_delete = False
+    self.objectEntryTimes = {}  # Track when each object entered region for dwell verification
+    self.previousDwellTimes = {}  # Track previous dwell times to verify monotonic increase
     if self.testName and self.recordXMLAttribute:
       self.recordXMLAttribute("name", self.testName)
 
@@ -146,12 +154,46 @@ class SceneObjectMqtt(FunctionalTest):
       if ready:
         break
     else:
-      print('reached max number of attemps to wait for scene controller')
+      log.warning("reached max number of attempts to wait for scene controller")
     return
 
   def regulatedReceived(self, pahoClient, userdata, message):
     data = message.payload.decode("utf-8")
     self.sceneData = json.loads(data)
+    # Track that dwell data appears in scene messages when expected
+    self.verifyDwellPresenceInSceneData(self.sceneData)
+    return
+
+  def verifyDwellPresenceInSceneData(self, sceneData):
+    """Verify dwell values appear in scene object data when objects are in regions.
+
+    Unlike unit tests which validate calculation formulas, this checks integration:
+    that dwell data is present and available in the scene data stream.
+    """
+    if 'objects' not in sceneData or not sceneData['objects']:
+      return
+
+    for obj in sceneData['objects']:
+      obj_id = obj.get('id')
+      if not obj_id or obj_id not in self.objectEntryTimes:
+        continue
+
+      # Check that dwell data is present for objects known to be in regions
+      if 'regions' in obj and obj['regions']:
+        for region_name, region_data in obj['regions'].items():
+          if 'dwell' in region_data:
+            dwell = region_data['dwell']
+            # Basic sanity check: dwell should be non-negative
+            assert dwell >= 0, f"Object {obj_id} has negative dwell: {dwell}"
+
+            # Verify monotonic increase (no dwell decrease over time)
+            key = (obj_id, region_name)
+            if key in self.previousDwellTimes:
+              prev_dwell = self.previousDwellTimes[key]
+              assert dwell >= prev_dwell - 0.2, \
+                f"Object {obj_id} dwell in {region_name} decreased from {prev_dwell:.2f} to {dwell:.2f}"
+
+            self.previousDwellTimes[key] = dwell
     return
 
   def runSceneObjMqttPrepare(self):
@@ -173,8 +215,8 @@ class SceneObjectMqtt(FunctionalTest):
     topic_regulated = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=self.sceneUID)
     self.pubsub.addCallback(topic_regulated, self.regulatedReceived)
 
-    print("BottomLeft: ", points[1])
-    print("TopRight: ", points[3])
+    log.info(f"BottomLeft: {points[1]}")
+    log.info(f"TopRight: {points[3]}")
     return
 
   def runSceneObjMqttPrepareExtra(self):
@@ -183,8 +225,8 @@ class SceneObjectMqtt(FunctionalTest):
   def runROIMqttExecute(self):
     objLocation = self.getLocations()
     self.sendDetections(objLocation, self.frameRate)
-    print("Expected entered list: ", self.expectedEnter)
-    print("Expected exited list: ", self.expectedExit)
+    log.info(f"Expected entered list: {self.expectedEnter}")
+    log.info(f"Expected exited list: {self.expectedExit}")
     return
 
   def runROIMqttDelete(self):
@@ -203,9 +245,9 @@ class SceneObjectMqtt(FunctionalTest):
 
     time.sleep(2)
     if self.message_received_after_delete:
-      print("Still receiving message from ROI!")
+      log.warning("Still receiving message from ROI!")
       return False
-    print("No events published after ROI deletion")
+    log.info("No events published after ROI deletion")
     return True
 
   def runSceneObjMqttVerifyPassedExtra(self):

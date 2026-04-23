@@ -3,51 +3,28 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import os
-import pytest
+import sys
+import logging
 from pathlib import Path
+
+import pytest
 import numpy as np
+from scene_common.rest_client import RESTClient
 
-def pytest_addoption(parser):
-  parser.addoption("--user", required=True, help="user to log into REST server")
-  parser.addoption("--password", required=True, help="password to log into REST server")
-  parser.addoption("--auth", default="/run/secrets/controller.auth",
-                   help="user:password or JSON file for MQTT authentication")
-  parser.addoption("--rootcert", default="/run/secrets/certs/scenescape-ca.pem",
-                   help="path to ca certificate")
-  parser.addoption("--broker_url", default="broker.scenescape.intel.com",
-                   help="hostname or IP of MQTT broker")
-  parser.addoption("--broker_port", default="1883", type=int, help="Port of MQTT broker")
-  parser.addoption("--weburl", default="https://web.scenescape.intel.com",
-                   help="Web URL of the server")
-  parser.addoption("--resturl", default="https://web.scenescape.intel.com/api/v1",
-                   help="URL of REST server")
-  parser.addoption("--scene_name", default="Demo",
-                   help="name of scene to test against")
-  parser.addoption("--visibility_topic", default="regulated",
-                   help="Visibility policy: regulated, unregulated, none")
+repo_root = Path(__file__).resolve().parents[2]
+if str(repo_root) not in sys.path:
+  sys.path.insert(0, str(repo_root))
 
-@pytest.fixture
-def params(request):
-  return {
-    'user': request.config.getoption('--user'),
-    'password': request.config.getoption('--password'),
+from tests.common_test_utils import record_test_result
 
-    'auth': request.config.getoption('--auth'),
-    'rootcert': request.config.getoption('--rootcert'),
+logger = logging.getLogger(__name__)
 
-    'broker_url': request.config.getoption('--broker_url'),
-    'broker_port': request.config.getoption('--broker_port'),
-
-    'weburl': request.config.getoption('--weburl'),
-    'resturl': request.config.getoption('--resturl'),
-
-    'scene_name': request.config.getoption('--scene_name'),
-  }
+DEMO_SCENE_UID = "3bc091c7-e449-46a0-9540-29c499bca18c"
+DEMO_SCENE_NAME = "Demo"
 
 @pytest.fixture
 def obj_location(request):
-  """! Moving object locations used in tc_roi_mqtt.py.
+  """! Moving object locations used in test_roi_mqtt.py.
   @return   location    Object location.
   """
   step = 0.02
@@ -63,7 +40,7 @@ def obj_location(request):
 
 @pytest.fixture
 def objData():
-  """! Moving object data used in tc_roi_mqtt.py
+  """! Moving object data used in test_roi_mqtt.py
   @return   location    Object data.
   """
   jdata = {
@@ -84,13 +61,133 @@ def objData():
   jdata['objects']['person'] = [obj]
   return jdata
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_configure(config):
-  file_name = Path(config.option.file_or_dir[0]).stem
-  config.option.htmlpath = os.getcwd() + '/tests/functional/reports/test_reports/' + file_name + ".html"
+@pytest.fixture
+def rest(params):
+  client = RESTClient(params['resturl'], rootcert=params['rootcert'])
+  assert client.authenticate(params['user'], params['password'])
+  return client
+
+@pytest.fixture
+def scene_uid(rest, params):
+  name = params['scene_name']
+  res = rest.getScenes({'name': name})
+  scenes = res.get('results', []) if isinstance(res, dict) else []
+  assert scenes, f"Scene '{name}' not found"
+  return scenes[0]['uid']
+
+
+@pytest.fixture
+def demo_scene(scenescape_env):
+  """Provide the Demo scene UID and restore the database on teardown.
+
+  Usage: any test that modifies the Demo scene should request this fixture.
+  After the test completes, the database is restored from the baseline
+  snapshot so subsequent tests start with a clean state.
+  """
+  yield DEMO_SCENE_UID
+  scenescape_env.restore_db()
+
+
+@pytest.fixture(autouse=True)
+def record_test_name(request, record_xml_attribute):
+  """Record test name from marker if provided; otherwise do nothing."""
+  marker = request.node.get_closest_marker("test_name")
+  if marker and marker.args:
+    record_xml_attribute("name", marker.args[0])
+
+@pytest.fixture
+def result_recorder(request):
+  """Provides .success(); records exit code with test name on teardown."""
+  marker = request.node.get_closest_marker("test_name")
+  test_name = (marker.args[0] if marker and marker.args
+    else getattr(request.node.module, "TEST_NAME", request.node.name))
+
+  class Result:
+    exit_code = 1
+    def success(self):
+      self.exit_code = 0
+
+  r = Result()
+  try:
+    yield r
+  finally:
+    record_test_result(test_name, r.exit_code)
 
 def pytest_runtest_makereport(item, call):
   if call.when == "call":
-    if hasattr(item, 'callspec') and 'test_name' in item.callspec.params:
-      test_name = item.callspec.params['test_name']
-      item._nodeid = f"{item.nodeid}\n {test_name}"
+    if hasattr(item, 'callspec') and '_env_matrix_setup' in item.callspec.params:
+      spec = item.callspec.params['_env_matrix_setup']
+      test_name = getattr(spec, 'test_name', '')
+      if test_name:
+        item._nodeid = f"{item.nodeid}\n {test_name}"
+
+
+@pytest.fixture
+def _env_matrix_setup(request):
+  """Override of root no-op fixture for functional tests.
+
+  When --env-profiles is used, pytest_generate_tests parametrizes this
+  fixture with a profile-specific FuncTestSpec.
+  This fixture then injects the spec into the node before scenescape_env
+  reads it, so Docker Compose starts the correct profile.
+  """
+  if hasattr(request, 'param'):
+    request.node._scenescape_spec = request.param
+    if request.param.test_name:
+      request.node._scenescape_test_name = request.param.test_name
+
+
+def pytest_generate_tests(metafunc):
+  """Parametrize tests across profiles supplied via --env-profiles.
+
+  Only activates when the --env-profiles CLI option is provided
+
+  Tests run once per profile, each with a distinct Docker Compose environment.
+  Profile names must match entries in tests.utils.profiles.PROFILE_REGISTRY.
+  """
+  spec = getattr(metafunc.module, 'SCENESCAPE_SPEC', None)
+  if spec is None:
+    return
+
+  env_profiles_arg = metafunc.config.getoption("env_profiles", default=None)
+  if not env_profiles_arg:
+    return
+
+  from dataclasses import replace
+  from tests.utils.profiles import PROFILE_REGISTRY
+
+  profile_names = [name.strip() for name in env_profiles_arg.split(",") if name.strip()]
+  unknown = [n for n in profile_names if n not in PROFILE_REGISTRY]
+  if unknown:
+    raise ValueError(
+      f"Unknown profile(s) in --env-profiles: {', '.join(unknown)}. "
+      f"Valid profiles: {', '.join(sorted(PROFILE_REGISTRY))}"
+    )
+
+  # SCENESCAPE_ENV_MATRIX: dict mapping profile name -> NEX ID for allowed profiles.
+  # Tests not declaring it run against all requested profiles.
+  matrix = getattr(metafunc.module, 'SCENESCAPE_ENV_MATRIX', None)
+
+  params = []
+  for profile_name in profile_names:
+    profile = PROFILE_REGISTRY[profile_name]
+    if matrix is not None and profile_name not in matrix:
+      # Profile not supported by this test — parametrize as skipped so it
+      # appears in the report but no environment is started.
+      params.append(pytest.param(
+        replace(spec, profile=profile),
+        marks=pytest.mark.skip(reason=f"Test not designed for profile '{profile_name}'"),
+      ))
+    else:
+      nex_id = matrix[profile_name] if matrix is not None else ""
+      params.append(replace(spec, profile=profile, test_name=nex_id))
+
+  if '_env_matrix_setup' not in metafunc.fixturenames:
+    metafunc.fixturenames.append('_env_matrix_setup')
+
+  metafunc.parametrize(
+    "_env_matrix_setup",
+    params,
+    ids=profile_names,
+    indirect=True,
+  )

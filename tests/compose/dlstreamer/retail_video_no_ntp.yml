@@ -9,13 +9,13 @@ secrets:
 
 services:
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-20260407-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:${DLSTREAMER_VERSION:-2026.1.0-20260414-weekly-ubuntu24}
     networks:
       scenescape-test:
     tty: true
     entrypoint: ["./run.sh"]
     ports:
-      - "8080:8080"
+      - "${RETAIL_DLS_PORT:-8080}:8080"
     devices:
       - "/dev/dri:/dev/dri"
     depends_on:

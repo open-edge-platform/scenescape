@@ -4,8 +4,10 @@
 import numpy as np
 import random
 from tests.functional import FunctionalTest
-from scene_common import log
 from controller.vdms_adapter import VDMSDatabase, vdms
+from tests.utils.log import get_logger
+
+log = get_logger(__name__)
 
 class BackendFunctionalTest(FunctionalTest):
   def vdms_connect(self, use_tls=True):
@@ -13,6 +15,7 @@ class BackendFunctionalTest(FunctionalTest):
     if not use_tls:
       self.vdb.db = vdms.vdms(use_tls=False)
     self.vdb.connect()
+    assert self.vdb.db.connected, "Failed to connect to VDMS. Is the VDMS service running?"
     return
 
   def generate_random_vector(self, floor=-1, ceiling=1, vsize=256):
@@ -51,5 +54,4 @@ class BackendFunctionalTest(FunctionalTest):
     }]
 
     query = find * len(reid_vectors)
-    response, res_arr = self.vdb.db.query(query, blob)
-    return (response, res_arr)
+    return self.vdb.sendQuery(query, blob)
