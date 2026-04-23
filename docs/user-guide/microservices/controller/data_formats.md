@@ -106,6 +106,7 @@ omitted; `embedding_vector` truncated for readability):
           },
           "reid": {
             "embedding_vector": "<base64-encoded string>",
+            "embedding_dimensions": 256,
             "model_name": "torch-jit-export"
           }
         }
@@ -263,7 +264,8 @@ objects of that category.
           "confidence": 0.904
         },
         "reid": {
-          "embedding_vector": "<256-element float array>",
+          "embedding_vector": "<embedding_dimensions-element float array>",
+          "embedding_dimensions": 256,
           "model_name": "torch-jit-export"
         }
       },
@@ -341,7 +343,8 @@ applications.
           "confidence": 0.963
         },
         "reid": {
-          "embedding_vector": "<256-element float array>",
+          "embedding_vector": "<embedding_dimensions-element float array>",
+          "embedding_dimensions": 256,
           "model_name": "torch-jit-export"
         }
       },
