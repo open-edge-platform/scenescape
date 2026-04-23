@@ -19,78 +19,6 @@
         "save": {
           "SCENE_UID": "uid"
         }
-      },
-      {
-        "step_name": "Create Scene A",
-        "api": "scene",
-        "method": "createScene",
-        "request": {
-          "body": {
-            "name": "Circular_Dep_Scene_A",
-            "use_tracker": true,
-            "output_lla": false
-          }
-        },
-        "expected_status": {
-          "status_code": 201
-        },
-        "save": {
-          "CIRC_SCENE_A_UID": "uid"
-        }
-      },
-      {
-        "step_name": "Create Scene B",
-        "api": "scene",
-        "method": "createScene",
-        "request": {
-          "body": {
-            "name": "Circular_Dep_Scene_B",
-            "use_tracker": true,
-            "output_lla": false
-          }
-        },
-        "expected_status": {
-          "status_code": 201
-        },
-        "save": {
-          "CIRC_SCENE_B_UID": "uid"
-        }
-      },
-      {
-        "step_name": "Create Scene C",
-        "api": "scene",
-        "method": "createScene",
-        "request": {
-          "body": {
-            "name": "Circular_Dep_Scene_C",
-            "use_tracker": true,
-            "output_lla": false
-          }
-        },
-        "expected_status": {
-          "status_code": 201
-        },
-        "save": {
-          "CIRC_SCENE_C_UID": "uid"
-        }
-      },
-      {
-        "step_name": "Create Scene D",
-        "api": "scene",
-        "method": "createScene",
-        "request": {
-          "body": {
-            "name": "Circular_Dep_Scene_D",
-            "use_tracker": true,
-            "output_lla": false
-          }
-        },
-        "expected_status": {
-          "status_code": 201
-        },
-        "save": {
-          "CIRC_SCENE_D_UID": "uid"
-        }
       }
     ]
   },
@@ -621,6 +549,78 @@
   {
     "test_name": "Vision_AI/SSCAPE/API/SCENE/19: Create valid local child scene link",
     "test_steps": [
+      {
+        "step_name": "Create Scene A",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Circular_Dep_Scene_A",
+            "use_tracker": true,
+            "output_lla": false
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "CIRC_SCENE_A_UID": "uid"
+        }
+      },
+      {
+        "step_name": "Create Scene B",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Circular_Dep_Scene_B",
+            "use_tracker": true,
+            "output_lla": false
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "CIRC_SCENE_B_UID": "uid"
+        }
+      },
+      {
+        "step_name": "Create Scene C",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Circular_Dep_Scene_C",
+            "use_tracker": true,
+            "output_lla": false
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "CIRC_SCENE_C_UID": "uid"
+        }
+      },
+      {
+        "step_name": "Create Scene D",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "Circular_Dep_Scene_D",
+            "use_tracker": true,
+            "output_lla": false
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "CIRC_SCENE_D_UID": "uid"
+        }
+      },
       {
         "step_name": "Create child link A -> B",
         "api": "child",
