@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
+import binascii
 import datetime
-import struct
 import warnings
 from dataclasses import dataclass, field
 from threading import Lock
@@ -26,6 +26,89 @@ DEFAULT_EDGE_LENGTH = 1.0
 DEFAULT_TRACKING_RADIUS = 2.0
 LOCATION_LIMIT = 20
 SPEED_THRESHOLD = 0.1
+REID_FLOAT_SIZE_BYTES = np.dtype(np.float32).itemsize
+REID_EMBEDDING_DIMENSIONS_KEY = 'embedding_dimensions'
+
+
+def _getReIDEmbeddingDimensions(reid):
+  if not isinstance(reid, dict):
+    return None
+
+  for key in (REID_EMBEDDING_DIMENSIONS_KEY, 'dimensions'):
+    value = reid.get(key)
+    if value is None:
+      continue
+    try:
+      return int(value)
+    except (TypeError, ValueError) as err:
+      raise ValueError(f"Invalid ReID embedding dimensions: {value}") from err
+
+  return None
+
+
+def decodeReIDEmbeddingVector(embedding_data, dimensions=None):
+  if isinstance(embedding_data, str):
+    vector = base64.b64decode(embedding_data, validate=True)
+    if len(vector) % REID_FLOAT_SIZE_BYTES != 0:
+      raise ValueError(
+        f"Packed ReID vector size {len(vector)} is not divisible by {REID_FLOAT_SIZE_BYTES}")
+
+    inferred_dimensions = len(vector) // REID_FLOAT_SIZE_BYTES
+    if dimensions is None:
+      dimensions = inferred_dimensions
+    elif int(dimensions) != inferred_dimensions:
+      raise ValueError(
+        f"Packed ReID vector contains {inferred_dimensions} floats, expected {dimensions}")
+
+    return np.frombuffer(vector, dtype=np.float32).copy().reshape(1, dimensions)
+
+  if isinstance(embedding_data, (np.ndarray, list)):
+    arr = np.asarray(embedding_data, dtype=np.float32).reshape(-1)
+    actual_length = arr.shape[0]
+    if dimensions is not None and int(dimensions) != actual_length:
+      raise ValueError(
+        f"ReID embedding vector has {actual_length} elements, expected {int(dimensions)}")
+    return arr.reshape(1, actual_length)
+
+  return None
+
+
+def serializeReIDPayload(reid):
+  if reid is None:
+    return None
+
+  if isinstance(reid, dict):
+    serialized = dict(reid)
+    embedding_data = serialized.get('embedding_vector', None)
+    if embedding_data is None:
+      return serialized
+
+    if isinstance(embedding_data, str):
+      try:
+        if REID_EMBEDDING_DIMENSIONS_KEY not in serialized and 'dimensions' not in serialized:
+          vector = base64.b64decode(embedding_data)
+          if len(vector) % REID_FLOAT_SIZE_BYTES != 0:
+            raise ValueError(
+              f"Packed ReID vector size {len(vector)} is not divisible by {REID_FLOAT_SIZE_BYTES}")
+          serialized[REID_EMBEDDING_DIMENSIONS_KEY] = len(vector) // REID_FLOAT_SIZE_BYTES
+      except (binascii.Error, TypeError, ValueError) as err:
+        log.warning(f"Failed to decode ReID embedding vector: {err}. Setting embedding_vector to None.")
+        serialized['embedding_vector'] = None
+      return serialized
+
+    flat_vector = np.asarray(embedding_data, dtype=np.float32).reshape(-1)
+    serialized['embedding_vector'] = base64.b64encode(flat_vector.tobytes()).decode('utf-8')
+    serialized[REID_EMBEDDING_DIMENSIONS_KEY] = int(flat_vector.size)
+    return serialized
+
+  if isinstance(reid, np.ndarray) or isinstance(reid, list):
+    flat_vector = np.asarray(reid, dtype=np.float32).reshape(-1)
+    return {
+      'embedding_vector': base64.b64encode(flat_vector.tobytes()).decode('utf-8'),
+      REID_EMBEDDING_DIMENSIONS_KEY: int(flat_vector.size),
+    }
+
+  return reid
 
 @dataclass
 class ChainData:
@@ -134,29 +217,23 @@ class MovingObject:
     @param  reid  The reid data in one of the supported formats
     """
     try:
+      self.reid = {}
+
       # Handle new format: dict with embedding_vector and model_name
       if isinstance(reid, dict) and 'embedding_vector' in reid:
         embedding_data = reid['embedding_vector']
-        if 'model_name' in reid:
-          self.reid['model_name'] = reid['model_name']
+        self.reid.update({k: v for k, v in reid.items() if k != 'embedding_vector'})
+        embedding_dimensions = _getReIDEmbeddingDimensions(reid)
       else:
         embedding_data = reid
+        embedding_dimensions = None
 
       # Process the embedding data
-      if isinstance(embedding_data, str):
-        # Base64-encoded string format
-        vector = base64.b64decode(embedding_data)
-        self.reid['embedding_vector'] = np.array(struct.unpack("256f", vector)).reshape(1, -1)
-      elif isinstance(embedding_data, list):
-        # Direct list format
-        self.reid['embedding_vector'] = embedding_data
-      else:
-        # Unknown format, leave as None
-        self.reid['embedding_vector'] = None
+      self.reid['embedding_vector'] = decodeReIDEmbeddingVector(embedding_data, embedding_dimensions)
 
       # Clean up info dict
       self.info.pop('reid', None)
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError, binascii.Error):
       self.reid['embedding_vector'] = None
     return
 
@@ -364,7 +441,7 @@ class MovingObject:
       'bounding_box': self.boundingBox.asDict,
       'gid': self.gid,
       'frame_count': self.frameCount,
-      'reid': self.reid,
+      'reid': serializeReIDPayload(self.reid),
       'first_seen': self.first_seen,
       'location': [{'point': (v.point.x, v.point.y, v.point.z),
                     'timestamp': v.when,
@@ -375,11 +452,6 @@ class MovingObject:
       'intersected': self.intersected,
       'scene_loc': self.sceneLoc.asNumpyCartesian.tolist(),
     }
-    if 'reid' in dd and isinstance(dd['reid'], np.ndarray):
-      vector = dd['reid'].flatten().tolist()
-      vector = struct.pack("256f", *vector)
-      vector = base64.b64encode(vector).decode('utf-8')
-      dd['reid'] = vector
     if self.intersected:
       dd['adjusted'] = {'gid': self.adjusted[0],
                         'point': (self.adjusted[1].x, self.adjusted[1].y, self.adjusted[1].z)}
@@ -391,9 +463,8 @@ class MovingObject:
     self.gid = info['gid']
     self.frameCount = info['frame_count']
     self.reid = info['reid']
-    if self.reid is not None and 'embedding_vector' in self.reid:
-      vector = base64.b64decode(self.reid['embedding_vector'])
-      self.reid['embedding_vector'] = np.array(struct.unpack("256f", vector)).reshape(1, -1)
+    if self.reid is not None:
+      self._decodeReIDVector(self.reid)
     self.first_seen = info['first_seen']
     self.location = [Chronoloc(Point(v['point']), v['timestamp'], Rectangle(v['bounding_box']))
                      for v in info['location']]
