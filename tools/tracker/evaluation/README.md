@@ -50,6 +50,8 @@ pip install -r requirements.txt
 
 Create a YAML configuration file (see `pipeline_configs/` directory):
 
+**Full tracker evaluation** (`pipeline_configs/controller_evaluation.yaml`):
+
 ```yaml
 pipeline:
   output:
@@ -59,7 +61,7 @@ dataset:
   class: datasets.metric_test_dataset.MetricTestDataset
   config:
     data_path: /path/to/dataset
-    cameras: [x1, x2]
+    cameras: [Cam_x1_0, Cam_x2_0]
     camera_fps: 30
 
 harness:
@@ -86,6 +88,42 @@ evaluators:
           acceleration_variance_gt,
           acceleration_variance_ratio,
         ]
+```
+
+**Camera projection accuracy** (`pipeline_configs/camera_projection_evaluation.yaml`):
+
+Bypasses the tracker and only applies camera-pose projection to isolate per-camera calibration error:
+
+```yaml
+pipeline:
+  output:
+    path: /tmp/camera-projection-evaluation
+
+dataset:
+  class: datasets.metric_test_dataset.MetricTestDataset
+  config:
+    data_path: /path/to/dataset
+    cameras: [Cam_x1_0, Cam_x2_0]
+    camera_fps: 30
+
+harness:
+  class: harnesses.camera_projection_harness.CameraProjectionHarness
+  config:
+    container_image: scenescape-controller:latest
+    # Optional: per-category projection settings.
+    # shift_type 1 = bottom-centre (TYPE_1, default)
+    # shift_type 2 = perspective-corrected point (TYPE_2)
+    # x_size / y_size push the result away from the camera by mean([x,y])/2 metres.
+    object_classes:
+      - name: person
+        shift_type: 1
+        x_size: 0.5
+        y_size: 0.5
+
+evaluators:
+  - class: evaluators.camera_accuracy_evaluator.CameraAccuracyEvaluator
+    config:
+      metrics: [DIST_T, VISIBILITY]
 ```
 
 Run the pipeline:
@@ -144,11 +182,12 @@ evaluation/
 
 ### Available Evaluators
 
-| Evaluator             | Metrics                                                                                                                         | Description                                                                                                                                                           |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TrackEvalEvaluator`  | HOTA, MOTA, IDF1, and more                                                                                                      | Industry-standard tracking accuracy metrics via the TrackEval library                                                                                                 |
-| `DiagnosticEvaluator` | `LOC_T_X`, `LOC_T_Y`, `DIST_T` → summary scalars: `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `num_matches`                    | Per-frame location and distance error between matched tracker output tracks and ground-truth tracks; uses bipartite (Hungarian) assignment over overlapping frames    |
-| `JitterEvaluator`     | `rms_jerk`, `rms_jerk_gt`, `rms_jerk_ratio`, `acceleration_variance`, `acceleration_variance_gt`, `acceleration_variance_ratio` | Trajectory smoothness metrics based on numerical differentiation of 3D positions; GT and ratio variants allow comparing tracker-added jitter against test-data jitter |
+| Evaluator                 | Metrics                                                                                                                         | Description                                                                                                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TrackEvalEvaluator`      | HOTA, MOTA, IDF1, and more                                                                                                      | Industry-standard tracking accuracy metrics via the TrackEval library                                                                                                 |
+| `DiagnosticEvaluator`     | `LOC_T_X`, `LOC_T_Y`, `DIST_T` → summary scalars: `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `num_matches`                    | Per-frame location and distance error between matched tracker output tracks and ground-truth tracks; uses bipartite (Hungarian) assignment over overlapping frames    |
+| `JitterEvaluator`         | `rms_jerk`, `rms_jerk_gt`, `rms_jerk_ratio`, `acceleration_variance`, `acceleration_variance_gt`, `acceleration_variance_ratio` | Trajectory smoothness metrics based on numerical differentiation of 3D positions; GT and ratio variants allow comparing tracker-added jitter against test-data jitter |
+| `CameraAccuracyEvaluator` | `DIST_T` → `dist_mean_all`, `dist_mean_{cam}`, `dist_mean_{cam}_{obj}`; `VISIBILITY` → `visibility_{cam}_{obj}` (frames + %)    | Per-camera, per-object projection accuracy: mean distance error and visibility frame count. Designed to pair with `CameraProjectionHarness`.                          |
 
 ## Canonical Data Formats
 
@@ -221,7 +260,8 @@ The evaluation pipeline has comprehensive test coverage:
 
 - **Unit Tests**: Fast tests without external dependencies, located in component-specific test directories
   - `datasets/tests/test_*.py`: Datasets unit tests
-  - `harnesses/tests/test_*.py`: Harnesses unit tests
+  - `harnesses/tests/test_*.py`: Harnesses unit tests (includes `CameraProjectionHarness` — 23 tests; `run_projection.py` helpers — 7 tests)
+  - `evaluators/tests/test_*.py`: Evaluator unit tests (includes `CameraAccuracyEvaluator` — 37 tests)
   - `tests/test_format_converters.py`: Format converter unit tests
 
 - **Integration Tests**: Tests requiring Docker and real components, located in `tests/`
