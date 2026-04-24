@@ -27,7 +27,7 @@ namespace tracker {
 struct Detection {
     std::optional<int32_t> id; ///< Frame-local detection ID (optional)
     cv::Rect2f bounding_box_px;
-    std::optional<double> confidence; ///< Detection confidence score in [0, 1] (absent if not provided)
+    std::optional<double> confidence;  ///< Detection confidence score in [0, 1] (absent if not provided)
     std::string
         metadata_json; ///< Raw JSON string of the detection's metadata object (empty if absent)
 };

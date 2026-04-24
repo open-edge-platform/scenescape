@@ -423,7 +423,9 @@ class Scene(SceneModel):
     if ControllerMode.isAnalyticsOnly():
       if detection_type in self.tracked_objects_cache:
         cached_objects = self.tracked_objects_cache[detection_type]
-        return self._deserializeTrackedObjects(cached_objects)
+        objects = self._deserializeTrackedObjects(cached_objects)
+        self._updateVisible(objects)
+        return objects
       return []
 
     # If tracker is enabled, use direct tracker call (traditional mode)
@@ -494,7 +496,6 @@ class Scene(SceneModel):
             self.object_history_cache[obj_id] = {}
           self.object_history_cache[obj_id]['first_seen'] = current_time
           log.debug(f"First time seeing object id {obj_data.get('id')} from MQTT; setting first_seen to current time: {current_time}")
-      obj.visibility = obj_data.get('visibility', [])
 
       obj.info = {
         'category': obj.category,
