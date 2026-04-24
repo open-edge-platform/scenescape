@@ -215,3 +215,9 @@ upload-only-3d-glb-files: # NEX-T10433
 
 view-3d-glb-file: # NEX-T10427
 	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml, tests/ui/tc_view_3d_glb_file.py, 'pgserver')
+
+mesh-creation: # NEX-T10470
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/cams.yml:$(COMPOSE)/mapping.yml, tests/ui/tc_mesh_creation.py, 'pgserver mapping retail-video scene')
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))

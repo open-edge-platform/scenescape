@@ -1,0 +1,65 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+  django:
+    file: ${SECRETSDIR}/django
+  browser.auth:
+    file: ${SECRETSDIR}/browser.auth
+  mapping-cert:
+    file: ${SECRETSDIR}/certs/scenescape-mapping.crt
+  mapping-key:
+    file: ${SECRETSDIR}/certs/scenescape-mapping.key
+
+services:
+  mapping:
+    image: scenescape-mapping:${VERSION:-latest}
+    init: true
+    user: "${USER_UID:-1000}:${USER_GID:-1000}"
+    networks:
+      scenescape-test:
+        aliases:
+          - mapping.scenescape.intel.com
+    ports:
+      - "8444:8444"
+    volumes:
+      - vol-mapping-model-weights:/workspace/model_weights
+      - vol-mapping-torch-cache:/workspace/.cache/torch
+      - vol-mapping-hf-cache:/workspace/.cache/huggingface
+    environment:
+      - MAPANYTHING_CPU_SEC_PER_FRAME=10
+      - GUNICORN_TIMEOUT=300
+      - PYTHONDONTWRITEBYTECODE=1
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+      - no_proxy=${no_proxy},.scenescape.intel.com,influxdb2
+      - NO_PROXY=${no_proxy},.scenescape.intel.com,influxdb2
+      - HTTP_PROXY=${http_proxy}
+      - HTTPS_PROXY=${https_proxy}
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: mapping-cert
+        target: certs/scenescape-mapping.crt
+      - source: mapping-key
+        target: certs/scenescape-mapping.key
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8444/health"]
+      interval: 10s
+      timeout: 60s
+      retries: 5
+      start_period: 10s
+    restart: always
+
+volumes:
+  vol-mapping-model-weights:
+    driver: local
+  vol-mapping-torch-cache:
+    driver: local
+  vol-mapping-hf-cache:
+    driver: local
