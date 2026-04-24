@@ -162,6 +162,7 @@ _functional-tests: \
   rest-test \
   scene-import-api \
   scene-import-json \
+  sensor-scene-api \
   sensors-send-events \
   superuser-crud-operations-api \
   vdms-similarity-search \
