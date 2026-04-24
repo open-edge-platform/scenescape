@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[CI/CD] Auto-Update Feature-Branch Pull Requests"
+name: "[CI/CD] Auto-Update Pull Requests"
 run-name: "[CI/CD] Auto-Update PRs based on ${{ github.ref_name }}"
 
 on: # yamllint disable-line rule:truthy
