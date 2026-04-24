@@ -112,6 +112,11 @@
           "description": "Detection confidence score in [0, 1], passed through from the originating detection",
           "minimum": 0,
           "maximum": 1
+        },
+        "first_seen": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp when this track was first observed by the tracker"
         }
       },
       "additionalProperties": false

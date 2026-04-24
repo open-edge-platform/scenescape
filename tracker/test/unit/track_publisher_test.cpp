@@ -48,7 +48,7 @@ TEST_F(TrackPublisherTest, Publish_CallsMqttWithCorrectTopic) {
 
     std::vector<Track> tracks = {
         createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person")};
-    publisher.publish("scene-123", "Test Scene", "person", "2026-01-27T12:00:00.000Z", tracks);
+    publisher.publish("scene-123", "Test Scene", "person", "2026-01-27T12:00:00.000Z", tracks, {});
 }
 
 TEST_F(TrackPublisherTest, Publish_IncrementsPublishedCount) {
@@ -61,9 +61,9 @@ TEST_F(TrackPublisherTest, Publish_IncrementsPublishedCount) {
     std::vector<Track> tracks = {
         createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person")};
 
-    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", tracks);
-    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:01.000Z", tracks);
-    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:02.000Z", tracks);
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", tracks, {});
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:01.000Z", tracks, {});
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:02.000Z", tracks, {});
 
     EXPECT_EQ(publisher.published_count(), 3);
 }
@@ -77,7 +77,7 @@ TEST_F(TrackPublisherTest, Publish_DoesNothingWhenDisconnected) {
 
     std::vector<Track> tracks = {
         createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person")};
-    publisher.publish("scene-123", "Test Scene", "person", "2026-01-27T12:00:00.000Z", tracks);
+    publisher.publish("scene-123", "Test Scene", "person", "2026-01-27T12:00:00.000Z", tracks, {});
 
     EXPECT_EQ(publisher.published_count(), 0);
 }
@@ -88,7 +88,7 @@ TEST_F(TrackPublisherTest, Publish_DoesNothingWithNullClient) {
     // Should not crash and should not publish
     std::vector<Track> tracks = {
         createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person")};
-    publisher.publish("scene-123", "Test Scene", "person", "2026-01-27T12:00:00.000Z", tracks);
+    publisher.publish("scene-123", "Test Scene", "person", "2026-01-27T12:00:00.000Z", tracks, {});
 
     EXPECT_EQ(publisher.published_count(), 0);
 }
@@ -110,7 +110,7 @@ TEST_F(TrackPublisherTest, Serialize_ProducesValidJsonStructure) {
 
     std::vector<Track> tracks = {
         createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person")};
-    publisher.publish("scene-123", "Test Scene", "person", "2026-01-27T12:00:00.000Z", tracks);
+    publisher.publish("scene-123", "Test Scene", "person", "2026-01-27T12:00:00.000Z", tracks, {});
 
     // Parse and validate JSON structure
     rapidjson::Document doc;
@@ -149,7 +149,7 @@ TEST_F(TrackPublisherTest, Serialize_TrackHasCorrectFields) {
     track.size = {4.5, 2.0, 1.5};
     track.rotation = {0.0, 0.0, 0.707, 0.707};
 
-    publisher.publish("scene-1", "Scene", "vehicle", "2026-01-27T12:00:00.000Z", {track});
+    publisher.publish("scene-1", "Scene", "vehicle", "2026-01-27T12:00:00.000Z", {track}, {});
 
     rapidjson::Document doc;
     ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
@@ -198,7 +198,7 @@ TEST_F(TrackPublisherTest, Serialize_HandlesEmptyTracks) {
         });
 
     std::vector<Track> empty_tracks;
-    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", empty_tracks);
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", empty_tracks, {});
 
     rapidjson::Document doc;
     ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
@@ -222,7 +222,7 @@ TEST_F(TrackPublisherTest, Serialize_HandlesMultipleTracks) {
         createSampleTrack("b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e", "person"),
         createSampleTrack("c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f", "person"),
     };
-    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", tracks);
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", tracks, {});
 
     rapidjson::Document doc;
     ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
@@ -248,10 +248,10 @@ TEST_F(TrackPublisherTest, BuildTopic_FormatsCorrectly) {
 
     std::vector<Track> tracks = {
         createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person")};
-    publisher.publish("abc-123", "Scene A", "person", "2026-01-27T12:00:00.000Z", tracks);
+    publisher.publish("abc-123", "Scene A", "person", "2026-01-27T12:00:00.000Z", tracks, {});
 
     tracks = {createSampleTrack("d4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f7a", "vehicle")};
-    publisher.publish("xyz-789", "Scene B", "vehicle", "2026-01-27T12:00:00.000Z", tracks);
+    publisher.publish("xyz-789", "Scene B", "vehicle", "2026-01-27T12:00:00.000Z", tracks, {});
 }
 
 // =============================================================================
@@ -271,7 +271,7 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithMetadata_EmitsMetadataField) {
 
     Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
     track.metadata_json = R"({"reid":{"model_name":"test"},"age":{"label":"adult"}})";
-    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track});
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track}, {});
 
     rapidjson::Document doc;
     ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
@@ -300,7 +300,7 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithInvalidMetadataJson_OmitsMetadata
 
     Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
     track.metadata_json = "{not valid json";
-    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track});
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track}, {});
 
     rapidjson::Document doc;
     ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
@@ -326,7 +326,7 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithConfidence_EmitsConfidenceField) 
 
     Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
     track.confidence = 0.92;
-    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track});
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track}, {});
 
     rapidjson::Document doc;
     ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
@@ -349,12 +349,55 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithoutConfidence_OmitsConfidenceFiel
         });
 
     Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
-    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track});
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track}, {});
 
     rapidjson::Document doc;
     ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
 
     EXPECT_FALSE(doc["objects"][0].HasMember("confidence"));
+}
+
+TEST_F(TrackPublisherTest, Serialize_Track_WithFirstSeen_EmitsFirstSeenField) {
+    auto mock_client = std::make_shared<MockMqttClient>();
+    TrackPublisher publisher(mock_client);
+
+    std::string captured_payload;
+    EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(true));
+    EXPECT_CALL(*mock_client, publish(_, _))
+        .WillOnce([&captured_payload](const std::string&, const std::string& payload) {
+            captured_payload = payload;
+        });
+
+    Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
+    track.first_seen_iso = "2026-01-27T11:00:00.000Z";
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track}, {});
+
+    rapidjson::Document doc;
+    ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
+
+    ASSERT_TRUE(doc["objects"][0].HasMember("first_seen"));
+    EXPECT_STREQ(doc["objects"][0]["first_seen"].GetString(), "2026-01-27T11:00:00.000Z");
+}
+
+TEST_F(TrackPublisherTest, Serialize_Track_WithoutFirstSeen_OmitsFirstSeenField) {
+    auto mock_client = std::make_shared<MockMqttClient>();
+    TrackPublisher publisher(mock_client);
+
+    std::string captured_payload;
+    EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(true));
+    EXPECT_CALL(*mock_client, publish(_, _))
+        .WillOnce([&captured_payload](const std::string&, const std::string& payload) {
+            captured_payload = payload;
+        });
+
+    Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
+    // first_seen_iso is empty (default-constructed)
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track}, {});
+
+    rapidjson::Document doc;
+    ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
+
+    EXPECT_FALSE(doc["objects"][0].HasMember("first_seen"));
 }
 
 } // namespace

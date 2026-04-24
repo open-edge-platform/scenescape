@@ -155,7 +155,8 @@ private:
      * @return Vector of Track structs ready for publishing
      */
     std::vector<Track> convert_tracks(const std::vector<rv::tracking::TrackedObject>& rv_tracks,
-                                      const std::string& category);
+                                      const std::string& category,
+                                      std::chrono::system_clock::time_point timestamp);
 
     TrackingScope scope_;
     std::string scene_name_;
@@ -170,6 +171,9 @@ private:
 
     // RobotVision int ID -> UUID v4 string mapping (single-thread access, no mutex)
     std::unordered_map<int32_t, std::string> id_map_;
+
+    // UUID -> ISO 8601 first-seen timestamp (set when track UUID is first assigned)
+    std::unordered_map<std::string, std::string> first_seen_map_;
 
     std::thread worker_thread_;
     mutable std::mutex queue_mutex_;

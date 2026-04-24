@@ -56,7 +56,7 @@ TEST_F(TrackingWorkerTest, ProcessesChunks_CallsPublishCallback) {
 
     PublishCallback callback = [&](const std::string& scene_id, const std::string& scene_name,
                                    const std::string& category, const std::string& timestamp,
-                                   const std::vector<Track>& tracks) {
+                                   const std::vector<Track>& tracks, const std::unordered_map<std::string, double>&) {
         std::lock_guard lock(mtx);
         publish_count++;
         published_scene_id = scene_id;
@@ -102,7 +102,7 @@ TEST_F(TrackingWorkerTest, QueueFull_DropsChunk) {
 
     PublishCallback blocking_callback = [&](const std::string&, const std::string&,
                                             const std::string&, const std::string&,
-                                            const std::vector<Track>&) {
+                                            const std::vector<Track>&, const std::unordered_map<std::string, double>&) {
         std::unique_lock lock(block_mtx);
         block_cv.wait(lock, [&] { return !blocked; });
     };
@@ -151,7 +151,7 @@ TEST_F(TrackingWorkerTest, Sentinel_CausesExit) {
     int publish_count = 0;
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
                                    const std::string&,
-                                   const std::vector<Track>&) { publish_count++; };
+                                   const std::vector<Track>&, const std::unordered_map<std::string, double>&) { publish_count++; };
 
     TrackingScope scope{"scene-1", "person"};
 
@@ -188,7 +188,7 @@ TEST_F(TrackingWorkerTest, Tracking_ProducesTracksFromDetections) {
     bool callback_called = false;
 
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
-                                   const std::string&, const std::vector<Track>& tracks) {
+                                   const std::string&, const std::vector<Track>& tracks, const std::unordered_map<std::string, double>&) {
         std::lock_guard lock(mtx);
         published_tracks = tracks;
         callback_called = true;
@@ -235,7 +235,7 @@ TEST_F(TrackingWorkerTest, Tracking_ProducesTracksFromDetections) {
 // Test scope accessor
 TEST_F(TrackingWorkerTest, Scope_ReturnsCorrectScope) {
     PublishCallback callback = [](const std::string&, const std::string&, const std::string&,
-                                  const std::string&, const std::vector<Track>&) {};
+                                  const std::string&, const std::vector<Track>&, const std::unordered_map<std::string, double>&) {};
 
     TrackingScope scope{"my-scene", "my-category"};
     TrackingWorker worker(scope, "My Scene", 2, callback, tracking_config_, cameras_);
@@ -251,7 +251,7 @@ TEST_F(TrackingWorkerTest, SkipsUnknownCamera_InBatch) {
     int publish_count = 0;
 
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
-                                   const std::string&, const std::vector<Track>&) {
+                                   const std::string&, const std::vector<Track>&, const std::unordered_map<std::string, double>&) {
         std::lock_guard lock(mtx);
         publish_count++;
         cv.notify_one();
@@ -294,7 +294,7 @@ TEST_F(TrackingWorkerTest, EmptyChunk_FlowsThroughTracker) {
     std::vector<Track> published_tracks;
 
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
-                                   const std::string& timestamp, const std::vector<Track>& tracks) {
+                                   const std::string& timestamp, const std::vector<Track>& tracks, const std::unordered_map<std::string, double>&) {
         std::lock_guard lock(mtx);
         publish_count++;
         published_timestamp = timestamp;
@@ -338,7 +338,7 @@ TEST_F(TrackingWorkerTest, QueueDepth_ReturnsCorrectSize) {
 
     PublishCallback blocking_callback = [&](const std::string&, const std::string&,
                                             const std::string&, const std::string&,
-                                            const std::vector<Track>&) {
+                                            const std::vector<Track>&, const std::unordered_map<std::string, double>&) {
         in_callback = true;
         std::unique_lock lock(block_mtx);
         block_cv.wait(lock, [&] { return !blocked.load(); });
@@ -407,7 +407,7 @@ TEST_F(TrackingWorkerTest, QueueFull_IncrementsDroppedCount) {
 
     PublishCallback blocking_callback = [&](const std::string&, const std::string&,
                                             const std::string&, const std::string&,
-                                            const std::vector<Track>&) {
+                                            const std::vector<Track>&, const std::unordered_map<std::string, double>&) {
         in_callback = true;
         std::unique_lock lock(block_mtx);
         block_cv.wait(lock, [&] { return !blocked.load(); });
@@ -484,7 +484,7 @@ TEST_F(TrackingWorkerTest, Tracking_MetadataJson_PreservedThroughTracker) {
     const int kChunksToSend = 3;
 
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
-                                   const std::string&, const std::vector<Track>& tracks) {
+                                   const std::string&, const std::vector<Track>& tracks, const std::unordered_map<std::string, double>&) {
         std::lock_guard lock(mtx);
         all_published_tracks.insert(all_published_tracks.end(), tracks.begin(), tracks.end());
         callback_count++;
@@ -552,7 +552,7 @@ TEST_F(TrackingWorkerTest, Tracking_Confidence_PreservedThroughTracker) {
     const int kChunksToSend = 3;
 
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
-                                   const std::string&, const std::vector<Track>& tracks) {
+                                   const std::string&, const std::vector<Track>& tracks, const std::unordered_map<std::string, double>&) {
         std::lock_guard lock(mtx);
         all_published_tracks.insert(all_published_tracks.end(), tracks.begin(), tracks.end());
         callback_count++;
@@ -602,6 +602,77 @@ TEST_F(TrackingWorkerTest, Tracking_Confidence_PreservedThroughTracker) {
             << "Track " << track.id << " is missing confidence";
         EXPECT_NEAR(*track.confidence, expected_confidence, 1e-9)
             << "Track " << track.id << " has wrong confidence";
+    }
+}
+
+// Test that first_seen is set on the first observation of a track and remains stable
+// across subsequent observations (same RobotVision ID → same UUID → same first_seen).
+TEST_F(TrackingWorkerTest, Tracking_FirstSeen_SetOnFirstObservationAndStable) {
+    std::vector<Track> all_published_tracks;
+    std::mutex mtx;
+    std::condition_variable cv;
+    int callback_count = 0;
+    const int kChunksToSend = 3;
+
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks,
+                                   const std::unordered_map<std::string, double>&) {
+        std::lock_guard lock(mtx);
+        all_published_tracks.insert(all_published_tracks.end(), tracks.begin(), tracks.end());
+        callback_count++;
+        cv.notify_one();
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+
+    TrackingScope scope{"scene-1", "person"};
+    TrackingWorker worker(scope, "Test Scene", 10, callback, config, cameras_);
+
+    for (int i = 0; i < kChunksToSend; ++i) {
+        Chunk chunk;
+        chunk.scene_id = "scene-1";
+        chunk.category = "person";
+        chunk.chunk_time = std::chrono::steady_clock::now();
+
+        DetectionBatch batch;
+        batch.camera_id = "cam-1";
+        batch.timestamp_iso = std::format("2026-01-27T12:00:{:02d}.000Z", i);
+        batch.timestamp = std::chrono::system_clock::now();
+
+        Detection det;
+        det.id = 1;
+        det.bounding_box_px = cv::Rect2f(100.0f, 200.0f, 50.0f, 100.0f);
+        batch.detections.push_back(std::move(det));
+
+        chunk.camera_batches.push_back(std::move(batch));
+        worker.try_enqueue(std::move(chunk));
+    }
+
+    {
+        std::unique_lock lock(mtx);
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(2),
+                                [&] { return callback_count >= kChunksToSend; }))
+            << "Timed out waiting for " << kChunksToSend << " publish callbacks";
+    }
+
+    ASSERT_GT(all_published_tracks.size(), 0u)
+        << "No reliable tracks published";
+
+    // All tracks should have a non-empty first_seen
+    for (const auto& track : all_published_tracks) {
+        EXPECT_FALSE(track.first_seen_iso.empty())
+            << "Track " << track.id << " is missing first_seen";
+    }
+
+    // Tracks with the same ID must have the same first_seen (stable across frames)
+    std::unordered_map<std::string, std::string> id_to_first_seen;
+    for (const auto& track : all_published_tracks) {
+        auto [it, inserted] = id_to_first_seen.emplace(track.id, track.first_seen_iso);
+        if (!inserted) {
+            EXPECT_EQ(it->second, track.first_seen_iso)
+                << "Track " << track.id << " has inconsistent first_seen across frames";
+        }
     }
 }
 
