@@ -42,6 +42,14 @@
       "items": {
         "$ref": "#/$defs/tracked_object"
       }
+    },
+    "rate": {
+      "type": "object",
+      "description": "Per-camera frame rates in Hz, keyed by camera ID (present only when at least one camera reported a rate)",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0
+      }
     }
   },
   "additionalProperties": false,

@@ -132,8 +132,10 @@ int main(int argc, char* argv[]) {
     tracker::PublishCallback publish_callback =
         [track_publisher](const std::string& scene_id, const std::string& scene_name,
                           const std::string& category, const std::string& timestamp,
-                          const std::vector<tracker::Track>& tracks) {
-            track_publisher->publish(scene_id, scene_name, category, timestamp, tracks);
+                          const std::vector<tracker::Track>& tracks,
+                          const std::unordered_map<std::string, double>& camera_rates) {
+            track_publisher->publish(scene_id, scene_name, category, timestamp, tracks,
+                                     camera_rates);
         };
 
     // Initialize time chunk scheduler with workers

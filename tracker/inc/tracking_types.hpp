@@ -54,6 +54,7 @@ struct DetectionBatch {
     std::chrono::steady_clock::time_point receive_time;
     std::string timestamp_iso;                       ///< Original ISO 8601 timestamp from message
     std::chrono::system_clock::time_point timestamp; ///< Parsed UTC timestamp
+    std::optional<double> rate;                      ///< Camera frame rate (absent if not reported)
     std::vector<Detection> detections;
     ObservabilityContext obs_ctx; ///< Pipeline observability context
 };
