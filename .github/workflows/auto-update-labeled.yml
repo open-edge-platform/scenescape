@@ -48,7 +48,7 @@ jobs:
             --jq '.[] | @json')
 
           if [[ ${#prs[@]} -eq 0 ]]; then
-            echo "No open PRs with label '${UPDATE_LABEL}' target '${BASE_BRANCH}' — nothing to do."
+            echo "No open PRs with label '${UPDATE_LABEL}' targeting '${BASE_BRANCH}' — nothing to do."
             exit 0
           fi
 
@@ -92,14 +92,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # Check if the label is present before attempting removal.
-          has_label=$(gh pr view "$PR_NUMBER" \
+          # Query labels first and fail explicitly if the GitHub CLI request fails.
+          if ! pr_labels=$(gh pr view "$PR_NUMBER" \
             --repo "$GITHUB_REPOSITORY" \
             --json labels \
-            --jq --arg lbl "$UPDATE_LABEL" '.labels[].name | select(. == $lbl)' \
-            | grep -c . || true)
+            --jq '.labels[].name'); then
+            echo "Failed to read labels for PR #${PR_NUMBER}."
+            exit 1
+          fi
 
-          if [[ "$has_label" -eq 0 ]]; then
+          # Treat a missing label as a normal no-op, but do not mask query failures.
+          if ! printf '%s\n' "$pr_labels" | grep -Fxq -- "$UPDATE_LABEL"; then
             echo "PR #${PR_NUMBER} does not have the '${UPDATE_LABEL}' label — nothing to do."
             exit 0
           fi
