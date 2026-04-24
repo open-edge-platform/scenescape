@@ -194,6 +194,9 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         if (!detections[i].metadata_json.empty()) {
             obj.attributes["metadata_json"] = detections[i].metadata_json;
         }
+        if (detections[i].confidence.has_value()) {
+            obj.attributes["confidence"] = std::to_string(*detections[i].confidence);
+        }
 
         detection_valid[i] = 1;
     }

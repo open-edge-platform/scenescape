@@ -241,6 +241,17 @@ TrackingWorker::convert_tracks(const std::vector<rv::tracking::TrackedObject>& r
             track.metadata_json = meta_it->second;
         }
 
+        // Retrieve confidence stored in attributes by transformDetections().
+        // NOTE: multi-camera last-write-wins — same limitation as metadata_json.
+        auto conf_it = rv_track.attributes.find("confidence");
+        if (conf_it != rv_track.attributes.end()) {
+            try {
+                track.confidence = std::stod(conf_it->second);
+            } catch (const std::exception&) {
+                // Ignore malformed attribute value
+            }
+        }
+
         tracks.push_back(std::move(track));
     }
 
