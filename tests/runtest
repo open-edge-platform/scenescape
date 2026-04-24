@@ -83,6 +83,11 @@ if [ -n "$WAITFORCONTAINERS" ]; then
             timeout=600 # autocalibration needs time to download netvlad model weights
         fi
 
+        if [ "${container}" = "mapping" ]; then
+            timeout=300
+            wait_text="model initialization completed successfully"
+        fi
+
         echo Waiting ${timeout} seconds for ${container}
         if ! wait_for_container "${PROJECT}-${container}-1" "${wait_text}" "${timeout}"; then
             RUN_TEST=0

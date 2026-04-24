@@ -39,30 +39,7 @@ logger.info(
   "Logger initialized. Logs will be written to console and %s",
   LOG_FILE)
 
-# Setup Base HTTP Client
-API_TOKEN = os.environ.get("API_TOKEN")
-
-BASE_URL = os.environ.get("API_BASE_URL", "https://localhost")
-
-http_client = RESTClient(url=f"{BASE_URL}/api/v1", token=API_TOKEN, verify_ssl=False)
-autocalib_client = RESTClient(url=f"{BASE_URL}/v1", token=API_TOKEN, verify_ssl=False)
-mapping_client = MappingClient(url=f"{BASE_URL}:8444", token=API_TOKEN, verify_ssl=False)
-
 saved_vars = {}
-
-API_MAP = {
-  "scene": http_client,
-  "camera": http_client,
-  "sensor": http_client,
-  "region": http_client,
-  "tripwire": http_client,
-  "user": http_client,
-  "asset": http_client,
-  "child": http_client,
-  "autocalibration": autocalib_client,
-  "mapping": mapping_client,
-}
-
 
 def load_scenarios(path=None):
   """
@@ -213,7 +190,7 @@ def validate_response(response_body, validation_rules):
   return len(errors) == 0, errors
 
 
-def execute_step(step, step_number, total_steps):
+def execute_step(api_map, step, step_number, total_steps):
   step_name = step.get("step_name", f"Step {step_number}")
   api_name = step["api"]
   method_name = step["method"]
@@ -228,7 +205,7 @@ def execute_step(step, step_number, total_steps):
   logger.debug(f"    Raw request: {raw_request}")
 
   # Get API client
-  api = API_MAP.get(api_name)
+  api = api_map.get(api_name)
   if not api:
     return False, None, f"Unknown API client: {api_name}"
 
@@ -406,7 +383,7 @@ def pytest_generate_tests(metafunc):
     )
 
 
-def test_api_scenario_multistep(test_case):
+def test_api_scenario_multistep(test_case, api_map):
   """
   Execute a multi-step API test scenario.
 
@@ -425,7 +402,7 @@ def test_api_scenario_multistep(test_case):
   logger.debug(f"{'=' * 70}")
 
   for step_num, step in enumerate(test_steps, start=1):
-    success, _, error_msg = execute_step(step, step_num, len(test_steps))
+    success, _, error_msg = execute_step(api_map, step, step_num, len(test_steps))
     if not success:
       step_name = step.get("step_name", f"Step {step_num}")
       pytest.fail(f"Step {step_num} '{step_name}' failed: {error_msg}")

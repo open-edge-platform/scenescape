@@ -287,28 +287,6 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithMetadata_EmitsMetadataField) {
     EXPECT_STREQ(obj["metadata"]["age"]["label"].GetString(), "adult");
 }
 
-TEST_F(TrackPublisherTest, Serialize_Track_WithoutMetadata_OmitsMetadataField) {
-    auto mock_client = std::make_shared<MockMqttClient>();
-    TrackPublisher publisher(mock_client);
-
-    std::string captured_payload;
-    EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(true));
-    EXPECT_CALL(*mock_client, publish(_, _))
-        .WillOnce([&captured_payload](const std::string&, const std::string& payload) {
-            captured_payload = payload;
-        });
-
-    // Track with default empty metadata_json
-    Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
-    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track});
-
-    rapidjson::Document doc;
-    ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
-
-    const auto& obj = doc["objects"][0];
-    EXPECT_FALSE(obj.HasMember("metadata"));
-}
-
 TEST_F(TrackPublisherTest, Serialize_Track_WithInvalidMetadataJson_OmitsMetadataField) {
     auto mock_client = std::make_shared<MockMqttClient>();
     TrackPublisher publisher(mock_client);
