@@ -4,6 +4,7 @@
 import collections
 import concurrent.futures
 import threading
+import math
 
 import numpy as np
 
@@ -13,7 +14,7 @@ from scene_common import log
 from scene_common.timestamp import get_epoch_time
 
 DEFAULT_DATABASE = "VDMS"
-DEFAULT_SIMILARITY_THRESHOLD = 40
+DEFAULT_SIMILARITY_THRESHOLD = 0.5
 DEFAULT_MINIMUM_BBOX_AREA = 5000
 DEFAULT_MINIMUM_FEATURE_COUNT = 12
 DEFAULT_FEATURE_SLICE_SIZE = 10
@@ -21,11 +22,30 @@ DEFAULT_MAX_QUERY_TIME = 4
 DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED = 10
 DEFAULT_STALE_FEATURE_TIMEOUT_SECS = 5.0
 DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS = 1.0
+DEFAULT_SIMILARITY_METRIC = "L2"
+SUPPORTED_SIMILARITY_METRICS = {"COSINE", "L2"}
 available_databases = {
   "VDMS": VDMSDatabase,
 }
 
 class UUIDManager:
+  def _normalizeSimilarityMetric(self, metric):
+    normalized_metric = str(metric).strip().upper()
+    if normalized_metric not in SUPPORTED_SIMILARITY_METRICS:
+      log.warning(
+        f"Unsupported similarity_metric '{metric}', "
+        f"supported values are {sorted(SUPPORTED_SIMILARITY_METRICS)}; "
+        f"falling back to {DEFAULT_SIMILARITY_METRIC}")
+      return DEFAULT_SIMILARITY_METRIC
+    return normalized_metric
+
+  def _resolveDatabaseSimilarityMetric(self, configured_metric):
+    """Translate controller-facing similarity metric to the VDMS descriptor metric."""
+    metric = self._normalizeSimilarityMetric(configured_metric)
+    if metric == "COSINE":
+      return "IP"
+    return metric
+
   def __init__(self, database=DEFAULT_DATABASE, reid_config_data=None):
     self.active_ids = {}
     self.active_ids_lock = threading.Lock()
@@ -52,10 +72,13 @@ class UUIDManager:
     self.stale_feature_timeout_secs = reid_config_data.get('stale_feature_timeout_secs', DEFAULT_STALE_FEATURE_TIMEOUT_SECS)
     self.stale_feature_check_interval_secs = reid_config_data.get('stale_feature_check_interval_secs', DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS)
     self.minimum_feature_count = reid_config_data.get('feature_accumulation_threshold', DEFAULT_MINIMUM_FEATURE_COUNT)
-    self.similarity_threshold = reid_config_data.get(
-      'similarity_threshold', DEFAULT_SIMILARITY_THRESHOLD)
+    self.similarity_threshold = reid_config_data.get('similarity_threshold', DEFAULT_SIMILARITY_THRESHOLD)
+    self.similarity_metric = self._normalizeSimilarityMetric(
+      reid_config_data.get('similarity_metric', DEFAULT_SIMILARITY_METRIC))
     self.minimum_bbox_area = reid_config_data.get('minimum_bbox_area', DEFAULT_MINIMUM_BBOX_AREA)
     self.feature_slice_size = reid_config_data.get('feature_slice_size', DEFAULT_FEATURE_SLICE_SIZE)
+    self.reid_database = available_databases[database](
+      similarity_metric=self._resolveDatabaseSimilarityMetric(self.similarity_metric))
     self.stale_feature_timer = None
     self._start_stale_feature_timer()
     return
@@ -82,10 +105,15 @@ class UUIDManager:
       'feature_accumulation_threshold', DEFAULT_MINIMUM_FEATURE_COUNT)
     self.similarity_threshold = reid_config_data.get(
       'similarity_threshold', DEFAULT_SIMILARITY_THRESHOLD)
+    self.similarity_metric = self._normalizeSimilarityMetric(reid_config_data.get(
+      'similarity_metric', DEFAULT_SIMILARITY_METRIC))
     self.minimum_bbox_area = reid_config_data.get(
       'minimum_bbox_area', DEFAULT_MINIMUM_BBOX_AREA)
     self.feature_slice_size = reid_config_data.get(
       'feature_slice_size', DEFAULT_FEATURE_SLICE_SIZE)
+    if hasattr(self, 'reid_database') and self.reid_database is not None:
+      self.reid_database.similarity_metric = self._resolveDatabaseSimilarityMetric(
+        self.similarity_metric)
 
     # Timer cadence changes require rescheduling the stale feature timer.
     if self.stale_feature_timer is not None and old_interval != self.stale_feature_check_interval_secs:
@@ -450,38 +478,67 @@ class UUIDManager:
     The threshold value is used as the deciding criteria for close matches.
 
     @param   similarity_scores  The similarity scores obtained from the database query
-    @param   threshold          The maximum difference between the Re-ID vectors which would
-                                still be considered a valid match
+    @param   threshold          Similarity threshold interpreted according to metric semantics:
+                  - L2-style distance: lower is better, candidate must be < threshold
+                  - IP-style score: higher is better, candidate must be > threshold
     @return  database_id        Returns the ID of the matched entry from the database if one
                                 is found; otherwise, returns None
-    @return  similarity         Distance between the Re-ID vectors for the object and the
-                                matched entry if it is found; otherwise, return None
+    @return  similarity         Similarity value returned by VDMS (`_distance` field) for
+                  the matched entry if one is found; otherwise, return None
     """
     if threshold is None:
       threshold = self.similarity_threshold
 
     if similarity_scores:
-      # VDMS FindDescriptor returns entities sorted ascending by _distance (closest first),
-      # so each per-vector best match is always entities[0].
-      minimum_distances = [self._findMinimumDistance(entities)
+      metric_candidates = [self._findBestMetricCandidate(entities)
                            for entities in similarity_scores]
-      distances_below_threshold = [(uuid, distance) for (uuid, distance) in
-                                   minimum_distances if
-                                   distance is not None and distance < threshold]
-
-      if distances_below_threshold:
-        counter = collections.Counter(item[0] for item in distances_below_threshold)
+      qualifying_candidates = [(uuid, metric_value) for (uuid, metric_value) in
+                               metric_candidates if
+                               metric_value is not None and
+                               self._isSimilarityMatch(metric_value, threshold)]
+      if qualifying_candidates:
+        counter = collections.Counter(item[0] for item in qualifying_candidates)
         most_common_uuid, count = counter.most_common(1)[0]
-        if count >= (len(minimum_distances) / 2):
-          similarity = min(item[1] for item in distances_below_threshold
-                           if item[0] == most_common_uuid)
+        if count >= (len(metric_candidates) / 2):
+          similarity = self._pickBestMetricValue(
+            [item[1] for item in qualifying_candidates if item[0] == most_common_uuid])
           return most_common_uuid, similarity
 
     return None, None
 
-  def _findMinimumDistance(self, entities):
+  def _isHigherBetterMetric(self):
+    """Return True when the configured descriptor metric uses higher-is-better semantics."""
+    metric = getattr(self.reid_database, 'similarity_metric', None)
+    if metric is None:
+      return False
+    return str(metric).strip().upper() in {"IP", "INNER_PRODUCT"}
+
+  def _isSimilarityMatch(self, metric_value, threshold):
+    """Evaluate threshold semantics according to the active descriptor metric."""
+    if metric_value is None:
+      return False
+
+    if not math.isfinite(metric_value):
+      return False
+
+    if self._isHigherBetterMetric() and (metric_value < -1.0 or metric_value > 1.0):
+      return False
+
+    if self._isHigherBetterMetric():
+      return metric_value > threshold
+    return metric_value < threshold
+
+  def _pickBestMetricValue(self, metric_values):
+    """Pick best metric value according to descriptor metric semantics."""
+    if not metric_values:
+      return None
+    if self._isHigherBetterMetric():
+      return max(metric_values)
+    return min(metric_values)
+
+  def _findBestMetricCandidate(self, entities):
     """
-    Find the uuid with the minimum distance and the corresponding distance value.
+    Find the best candidate uuid and metric value according to descriptor semantics.
 
     VDMS returns entities sorted ascending by _distance (closest first), so entities[0]
     is always the best match.
@@ -490,8 +547,26 @@ class UUIDManager:
     [{'uuid': <UUID>, 'rvid': <TRACKER_ID>, '_distance': <SIMILARITY_SCORE>}, ...]
     """
     if entities:
-      minimum_distance_entity = entities[0]
-      return (minimum_distance_entity['uuid'], minimum_distance_entity['_distance'])
+      filtered_entities = []
+      for entity in entities:
+        metric_value = entity.get('_distance')
+        if metric_value is None or not math.isfinite(metric_value):
+          continue
+        if self._isHigherBetterMetric() and (metric_value < -1.0 or metric_value > 1.0):
+          log.warning(
+            f"Ignoring out-of-range IP similarity score {metric_value} "
+            f"for uuid={entity.get('uuid')}")
+          continue
+        filtered_entities.append(entity)
+
+      if not filtered_entities:
+        return (None, None)
+
+      if self._isHigherBetterMetric():
+        best_entity = max(filtered_entities, key=lambda x: x['_distance'])
+      else:
+        best_entity = min(filtered_entities, key=lambda x: x['_distance'])
+      return (best_entity['uuid'], best_entity['_distance'])
     return (None, None)
 
   def _active_gid_index_locked(self):

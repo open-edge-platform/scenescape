@@ -48,7 +48,7 @@ cam-unit:
 
 django-integration-unit:
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
-	$(eval SECRETSDIR := $(if $(SECRETSDIR),$(SECRETSDIR),$(PWD)/../manager/secrets))
+	$(eval SECRETSDIR := $(if $(SECRETSDIR),$(SECRETSDIR),$(CURDIR)/../manager/secrets))
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(SECRETSDIR) SUPASS=$(SUPASS) -k
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
@@ -61,7 +61,7 @@ _django-integration-unit: \
 
 logic-unit-tests:
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
-	$(eval SECRETSDIR := $(if $(SECRETSDIR),$(SECRETSDIR),$(PWD)/../manager/secrets))
+	$(eval SECRETSDIR := $(if $(SECRETSDIR),$(SECRETSDIR),$(CURDIR)/../manager/secrets))
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(SECRETSDIR) SUPASS=$(SUPASS) -k
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 

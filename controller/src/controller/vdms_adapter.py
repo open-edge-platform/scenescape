@@ -17,7 +17,7 @@ DEFAULT_CONFIDENCE_THRESHOLD = float(os.getenv("VDMS_CONFIDENCE_THRESHOLD", "0.8
 DIMENSIONS = 256
 K_NEIGHBORS = 1
 SCHEMA_NAME = "reid_vector"
-SIMILARITY_METRIC = "L2"
+SIMILARITY_METRIC = "IP"
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
@@ -37,6 +37,27 @@ class VDMSDatabase(ReIDDatabase):
     self._schema_lock = threading.Lock()
     self._schema_ready = False
     return
+
+  def _uses_inner_product_metric(self):
+    """Return True when descriptor metric is Inner Product."""
+    metric = str(self.similarity_metric).strip().upper()
+    return metric in {"IP", "INNER_PRODUCT"}
+
+  def _is_valid_similarity_score(self, score):
+    """Validate similarity score according to active metric semantics."""
+    try:
+      value = float(score)
+    except (TypeError, ValueError):
+      return False
+
+    if not np.isfinite(value):
+      return False
+
+    # With normalized embeddings, Inner Product must stay in [-1, 1].
+    if self._uses_inner_product_metric() and (value < -1.0 or value > 1.0):
+      return False
+
+    return True
 
   def sendQuery(self, query, blob=None):
     """
@@ -210,16 +231,21 @@ class VDMSDatabase(ReIDDatabase):
     # Blobs are consumed sequentially, one per AddDescriptor query (flat list)
     descriptor_blobs = []
     add_query = []
+    normalize_embeddings = self._uses_inner_product_metric()
     for reid_vector in reid_vectors:
-      # Decoded embeddings from decodeReIDEmbeddingVector are (1, N); flatten to
-      # (N,) so tobytes() produces the correct contiguous float32 byte sequence.
-      vec_array = np.asarray(reid_vector, dtype="float32").flatten()
+      prepared_reid = self.prepare_reid_dict(
+        reid_vector,
+        self.dimensions,
+        "addEntry",
+        normalize_embeddings=normalize_embeddings)
+      if prepared_reid is None:
+        continue
+
+      vec_array = prepared_reid["embedded_vector"]
       if self.dimensions is None:
         log.warning("addEntry: ReID dimensions not yet initialized, skipping vector")
         continue
-      if vec_array.shape[0] != self.dimensions:
-        log.warning(f"addEntry: Expected vector shape ({self.dimensions},) but got {vec_array.shape}, skipping this vector")
-        continue
+
       descriptor_blobs.append(vec_array.tobytes())
       # Create query dict for each vector
       add_query.append({
@@ -231,6 +257,10 @@ class VDMSDatabase(ReIDDatabase):
 
     if not add_query:
       log.warning("addEntry: No valid vectors to add (all skipped due to dimension mismatch or uninitialized dimensions)")
+      return
+
+    if len(add_query) == 0:
+      log.warning("addEntry: No valid vectors to add")
       return
 
     response, _ = self.sendQuery(add_query, descriptor_blobs)  # Flat list of blobs
@@ -404,12 +434,22 @@ class VDMSDatabase(ReIDDatabase):
 
     # TIER 2: Vector similarity search on filtered candidates
     blob = []
+    normalize_embeddings = self._uses_inner_product_metric()
     for reid_vector in reid_vectors:
-      # Ensure vector is float32, then convert to bytes for VDMS
-      vec_array = np.array(reid_vector, dtype="float32")
+      vec_array = self._prepare_reid_vector(
+        reid_vector,
+        self.dimensions,
+        "findMatches",
+        normalize_embeddings=normalize_embeddings)
+      if vec_array is None:
+        continue
       blob.append(vec_array.tobytes())  # Flat list of blobs
 
-    query = [find_query] * len(reid_vectors)
+    if len(blob) == 0:
+      log.warning("findMatches: No valid vectors for similarity search")
+      return None
+
+    query = [find_query] * len(blob)
     response, _ = self.sendQuery(query, blob)
 
     log.debug(f"[VDMS] Raw VDMS response (truncated): status={response[0].get('status') if response else 'None'}, returned={response[0].get('returned') if response else 'None'}")
@@ -417,11 +457,24 @@ class VDMSDatabase(ReIDDatabase):
       log.debug(f"[VDMS] Full first response: {response[0]}")
 
     if response:
-      result = [
-        item.get('entities')
-        for item in response
-        if (item.get('status') == 0 and item.get('returned') > 0)
-      ]
+      result = []
+      for item in response:
+        if item.get('status') != 0 or item.get('returned') <= 0:
+          continue
+
+        valid_entities = []
+        for entity in item.get('entities', []):
+          similarity = entity.get('_distance')
+          if self._is_valid_similarity_score(similarity):
+            valid_entities.append(entity)
+          else:
+            log.warning(
+              f"findMatches: Discarding entity with invalid similarity score "
+              f"{similarity} for metric {self.similarity_metric}")
+
+        if valid_entities:
+          result.append(valid_entities)
+
       log.debug(f"[VDMS] findMatches returned {len(result)} result(s) from {len(reid_vectors)} vector(s)")
       return result
     log.debug("[VDMS] findMatches returned None (no response from VDMS)")
