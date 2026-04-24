@@ -39,13 +39,22 @@ jobs:
         run: |
           echo "Searching for open PRs targeting '${BASE_BRANCH}'"
 
-          mapfile -t prs < <(gh pr list \
+          if ! pr_list_output=$(gh pr list \
             --repo "$GITHUB_REPOSITORY" \
             --base "$BASE_BRANCH" \
             --label "$UPDATE_LABEL" \
             --state open \
             --json number,isDraft,headRefName,title \
-            --jq '.[] | @json')
+            --jq '.[] | @json'); then
+            echo "ERROR: gh pr list failed — check API access and token permissions."
+            exit 1
+          fi
+
+          mapfile -t prs <<< "$pr_list_output"
+          # When output is empty, mapfile produces one empty element — normalize it.
+          if [[ ${#prs[@]} -eq 1 && -z "${prs[0]}" ]]; then
+            prs=()
+          fi
 
           if [[ ${#prs[@]} -eq 0 ]]; then
             echo "No open PRs with label '${UPDATE_LABEL}' target '${BASE_BRANCH}' — nothing to do."
