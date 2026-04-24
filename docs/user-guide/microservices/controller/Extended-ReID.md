@@ -166,6 +166,14 @@ controller/config/reid-config.json
 | `feature_slice_size`                | int   | 10      | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector. |
 | `similarity_threshold`              | int   | 60      | Minimum similarity score (0-100) for a match to be considered valid. Higher values = stricter matching.                                                               |
 
+### Embedding Dimension Inference
+
+The controller automatically infers the ReID embedding dimension from the first vector it receives at runtime:
+
+- **Runtime inference only**: On the first decoded embedding the controller reads the vector length from the payload, creates the VDMS descriptor set schema with that dimension, and locks that dimension for the process lifetime. All subsequent embeddings are validated against that inferred length; mismatches are discarded with a warning.
+- **Switching ReID models**: Because the dimension is locked after the first embedding, switching to a model with a different output length requires restarting the controller. The VDMS descriptor set must also be recreated if the stored dimension differs (VDMS does not support in-place schema migration).
+- **Base64 compatibility**: The controller decodes base64 embeddings using the payload byte length by default. Producers can also include an optional `embedding_dimensions` field alongside `embedding_vector`; if provided, it must match the packed float count.
+
 ### Using the Configuration File
 
 Pass the reid-config file path to the Scene Controller:
@@ -181,6 +189,7 @@ python scene_controller.py \
 **Current Implementation Note**:
 
 - `stale_feature_timeout_secs`, `stale_feature_check_interval_secs`, `feature_accumulation_threshold`, `feature_slice_size`, and `similarity_threshold` are fully implemented
+- ReID embedding dimensions are inferred at runtime from the first received embedding; there is no configuration override for dimension
 - All semantic metadata attributes are currently used for TIER 1 filtering. Selective metadata filtering is planned for Phase 2.
 
 ### Tuning Recommendations
