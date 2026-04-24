@@ -8,6 +8,7 @@
 This skill provides guidance for secure C++ coding in SceneScape's geometry and vision components, grounded in [Intel Secure Coding Standards - C++ Specifics](https://readthedocs.intel.com/SecureCodingStandards/latest/cpp/).
 
 **Applies to:**
+
 - `scene_common/src/fast_geometry/` (C++ geometry extension)
 - `controller/src/robot_vision/` (C++ vision processing)
 - `tracker/` (C++ tracking component)
@@ -20,6 +21,7 @@ This skill provides guidance for secure C++ coding in SceneScape's geometry and 
 ### Memory Management (RAII)
 
 ✅ **DO:**
+
 ```cpp
 // Use RAII: Resource Acquisition Is Initialization
 class CameraMatrix {
@@ -36,6 +38,7 @@ std::shared_ptr<Camera> cam(new Camera());      // Use shared_ptr only if needed
 ```
 
 ❌ **DON'T:**
+
 ```cpp
 // Raw new/delete
 float* data = new float[1024];
@@ -50,6 +53,7 @@ free(data);
 ### String Handling
 
 ✅ **DO:**
+
 ```cpp
 std::string camera_name = "camera_1";
 std::string full_path = camera_name + "_calibration.json";
@@ -64,6 +68,7 @@ std::string message = std::format("Camera {} position: {}", id, pos);
 ```
 
 ❌ **DON'T:**
+
 ```cpp
 // C-style strings and unsafe functions
 char name[255];
@@ -78,6 +83,7 @@ sprintf(buffer, "Name: %s", name);  // No bounds checking
 ### Type Safety & Const Correctness
 
 ✅ **DO:**
+
 ```cpp
 // Use strong typing
 struct Point { float x, y, z; };
@@ -96,6 +102,7 @@ if (position != nullptr) { /* ... */ }
 ```
 
 ❌ **DON'T:**
+
 ```cpp
 // Weak typing (void*)
 void* data = geometry_data;  // What type is this?
@@ -113,6 +120,7 @@ Point* position;  // May contain garbage
 ### Integer Arithmetic
 
 ✅ **DO:**
+
 ```cpp
 // Check for overflow before operations
 size_t total_size = num_cameras * points_per_camera;
@@ -134,6 +142,7 @@ if (!(value == INT_MIN && divisor == -1)) {
 ```
 
 ❌ **DON'T:**
+
 ```cpp
 // Unsigned/signed mix
 int signed_val = -10;
@@ -150,6 +159,7 @@ int overflow = INT_MAX + 1;  // Undefined behavior
 ### Error Handling
 
 ✅ **DO:**
+
 ```cpp
 // Check return values
 int result = calibrate_camera(cam);
@@ -171,6 +181,7 @@ std::optional<Point> find_feature(const Image& img) {
 ```
 
 ❌ **DON'T:**
+
 ```cpp
 // Ignore return values
 calibrate_camera(cam);  // Result ignored; may fail silently
@@ -185,6 +196,7 @@ if (load_config(file)) { /* continue */ }  // What failed?
 ### Function Design
 
 ✅ **DO:**
+
 ```cpp
 // Limit parameters (ideally ≤6)
 Point apply_transform(const Point& p, const Matrix& M, const Vector& t) {
@@ -196,12 +208,13 @@ Point apply_transform(const Point& p, const Matrix& M, const Vector& t) {
 
 // Pure functions where possible
 float distance(const Point& a, const Point& b) {
-  return std::sqrt((a.x - b.x) * (a.x - b.x) + 
+  return std::sqrt((a.x - b.x) * (a.x - b.x) +
                    (a.y - b.y) * (a.y - b.y));
 }
 ```
 
 ❌ **DON'T:**
+
 ```cpp
 // Too many parameters
 Point complex_op(int a, int b, int c, int d, int e, int f, int g) { /* ... */ }
@@ -231,5 +244,3 @@ When reviewing or generating C++ code:
 - [ ] Assert not used for security validation (use exceptions)
 - [ ] Type casts use `static_cast<T>`, `const_cast<T>` explicitly (never C-style casts)
 - [ ] No `void*` for type safety
-
-

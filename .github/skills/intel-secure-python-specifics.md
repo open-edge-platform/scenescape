@@ -8,6 +8,7 @@
 This skill provides guidance for secure Python coding across SceneScape's microservices, grounded in [Intel Secure Coding Standards - Python Specifics](https://readthedocs.intel.com/SecureCodingStandards/latest/python3/).
 
 **Applies to:**
+
 - `manager/` (Django REST API)
 - `controller/` (MQTT handlers, gRPC services)
 - `autocalibration/` (REST API)
@@ -20,6 +21,7 @@ This skill provides guidance for secure Python coding across SceneScape's micros
 ### Input Validation & Deserialization
 
 ✅ **DO:**
+
 ```python
 import json
 from typing import Any, Dict
@@ -42,6 +44,7 @@ def process_camera_data(camera_id: int, config: dict) -> bool:
 ```
 
 ❌ **DON'T:**
+
 ```python
 import pickle
 import yaml
@@ -64,6 +67,7 @@ exec(user_code)  # NEVER!
 ### String Handling & Formatting
 
 ✅ **DO:**
+
 ```python
 from string import Template
 
@@ -82,6 +86,7 @@ if password == expected_password:  # Correct equality check
 ```
 
 ❌ **DON'T:**
+
 ```python
 # str.format() with user input: Information leakage!
 user_input = "{0.__class__.__bases__[0].__subclasses__()}"
@@ -101,6 +106,7 @@ path = "C:\new\camera\data.json"  # "\n" = newline, "\c" = invalid escape
 ### Authentication & Credentials
 
 ✅ **DO:**
+
 ```python
 import hmac
 import os
@@ -123,6 +129,7 @@ def clear_password(password: str) -> None:
 ```
 
 ❌ **DON'T:**
+
 ```python
 # String comparison for auth: Timing attacks!
 if user_token == stored_token:  # Short-circuits; leaks timing
@@ -140,6 +147,7 @@ print(f"Database password: {db_pass}")
 ### File & Network I/O
 
 ✅ **DO:**
+
 ```python
 import os
 from contextlib import contextmanager
@@ -160,6 +168,7 @@ app.run(host="127.0.0.1", port=5000)  # Localhost only
 ```
 
 ❌ **DON'T:**
+
 ```python
 # Manual file closing: Easy to leak
 f = open("config.json")
@@ -178,6 +187,7 @@ app.run()  # Flask dev server; use gunicorn/uWSGI for production!
 ### Error Handling & Logging
 
 ✅ **DO:**
+
 ```python
 import logging
 
@@ -201,6 +211,7 @@ def validate_input(data: dict) -> bool:
 ```
 
 ❌ **DON'T:**
+
 ```python
 # Silent failures or ignored exceptions
 try:
@@ -220,6 +231,7 @@ except Exception as e:
 ### Project Structure
 
 ✅ **DO:**
+
 ```bash
 # Virtual environment isolation
 python3 -m venv venv
@@ -237,6 +249,7 @@ def get_cameras() -> List[Camera]:
 ```
 
 ❌ **DON'T:**
+
 ```bash
 # No virtual environment: Dependency conflicts!
 pip install requirements.txt  # System-wide pollution
@@ -254,6 +267,7 @@ def process(data):  # What type is data?
 ## Production Deployment
 
 ✅ **DO:**
+
 ```python
 # Django/Flask: Use production WSGI server
 # In Dockerfile or docker-compose.yml
@@ -263,6 +277,7 @@ CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0"]
 ```
 
 ❌ **DON'T:**
+
 ```python
 # Flask development server (no TLS, no concurrency handling)
 if __name__ == "__main__":
@@ -292,5 +307,3 @@ When reviewing or generating Python code:
 - [ ] Absolute imports used (not relative)
 - [ ] Type annotations for public functions
 - [ ] Production servers (gunicorn, uvicorn, etc.) used, not Flask/Django dev
-
-
