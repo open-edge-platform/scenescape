@@ -11,6 +11,8 @@ These tests run inside the controller container where all dependencies are avail
 import numpy as np
 from unittest.mock import Mock, MagicMock, patch
 
+import pytest
+
 from controller.uuid_manager import UUIDManager
 
 
@@ -24,15 +26,23 @@ def call_update_active_dict_locked(manager, sscape_object, database_id, similari
       query_timestamp=query_timestamp,
     )
 
+@pytest.fixture(autouse=True)
+def mock_vdms_db():
+  """Patch UUIDManager database mapping so all tests use a fake VDMS backend."""
+  mock_vdms_db = MagicMock()
+
+  def fake_constructor(**kwargs):
+    return mock_vdms_db
+
+  with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_constructor}):
+    yield mock_vdms_db
+
 
 class TestUUIDManagerInitialization:
   """Test UUIDManager initialization and basic setup."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_initialization_with_default_database(self, mock_vdms_class):
+  def test_initialization_with_default_database(self, mock_vdms_db):
     """Verify UUIDManager initializes with default VDMS database."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -42,33 +52,24 @@ class TestUUIDManagerInitialization:
     assert manager.unique_id_count == 0
     assert manager.reid_enabled is True
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_initialization_with_custom_database(self, mock_vdms_class):
+  def test_initialization_with_custom_database(self, mock_vdms_db):
     """Verify UUIDManager can be initialized with custom database."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager(database="VDMS")
 
     assert manager is not None
     assert manager.reid_database is not None
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_has_thread_pool_for_async_operations(self, mock_vdms_class):
+  def test_has_thread_pool_for_async_operations(self, mock_vdms_db):
     """Verify UUIDManager has thread pool for asynchronous database operations."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
     assert hasattr(manager, 'pool'), "Should have thread pool"
     assert manager.pool is not None
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_active_ids_tracking_initialized(self, mock_vdms_class):
+  def test_active_ids_tracking_initialized(self, mock_vdms_db):
     """Verify active_ids dictionary is initialized for tracking."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -80,11 +81,8 @@ class TestUUIDManagerInitialization:
 class TestExtractReidEmbedding:
   """Test Re-ID embedding extraction from detection objects."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_reid_from_new_format(self, mock_vdms_class):
+  def test_extract_reid_from_new_format(self, mock_vdms_db):
     """Verify extraction from new format: dict with 'embedding_vector' key."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -100,11 +98,8 @@ class TestExtractReidEmbedding:
     assert embedding is not None, "Should extract embedding from new format"
     assert len(embedding) == 4, "Embedding should have correct length"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_reid_from_legacy_format(self, mock_vdms_class):
+  def test_extract_reid_from_legacy_format(self, mock_vdms_db):
     """Verify extraction from legacy format: direct vector."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -117,11 +112,8 @@ class TestExtractReidEmbedding:
     assert embedding is not None, "Should extract embedding from legacy format"
     assert len(embedding) == 4, "Embedding should have correct length"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_reid_returns_none_when_missing(self, mock_vdms_class):
+  def test_extract_reid_returns_none_when_missing(self, mock_vdms_db):
     """Verify None is returned when reid field is missing."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -132,11 +124,8 @@ class TestExtractReidEmbedding:
 
     assert embedding is None, "Should return None when reid is missing"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_reid_returns_none_when_none_value(self, mock_vdms_class):
+  def test_extract_reid_returns_none_when_none_value(self, mock_vdms_db):
     """Verify None is returned when reid value is None."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -152,11 +141,8 @@ class TestExtractReidEmbedding:
 class TestExtractSemanticMetadata:
   """Test semantic metadata extraction from detection objects."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_semantic_metadata_new_format(self, mock_vdms_class):
+  def test_extract_semantic_metadata_new_format(self, mock_vdms_db):
     """Verify extraction from new metadata format: metadata attribute."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -181,11 +167,8 @@ class TestExtractSemanticMetadata:
     # Generic properties should not be in metadata
     assert "category" not in metadata, "Should not include generic properties"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_semantic_metadata_skips_generic_properties(self, mock_vdms_class):
+  def test_extract_semantic_metadata_skips_generic_properties(self, mock_vdms_db):
     """Verify generic properties are excluded from metadata extraction."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -209,11 +192,8 @@ class TestExtractSemanticMetadata:
     assert "custom_attribute" in metadata
     assert metadata["custom_attribute"] == {"label": "test", "model_name": "test_model", "confidence": 0.9}
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_semantic_metadata_skips_internal_fields(self, mock_vdms_class):
+  def test_extract_semantic_metadata_skips_internal_fields(self, mock_vdms_db):
     """Verify only metadata attribute is extracted, not internal fields."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -234,11 +214,8 @@ class TestExtractSemanticMetadata:
     # Metadata contents should be extracted
     assert "public_attribute" in metadata
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_semantic_metadata_handles_none_values(self, mock_vdms_class):
+  def test_extract_semantic_metadata_handles_none_values(self, mock_vdms_db):
     """Verify None metadata is handled gracefully."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -251,11 +228,8 @@ class TestExtractSemanticMetadata:
     # Should return empty dict when metadata is None
     assert metadata == {}
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_semantic_metadata_preserves_value_types(self, mock_vdms_class):
+  def test_extract_semantic_metadata_preserves_value_types(self, mock_vdms_db):
     """Verify extracted metadata preserves data types."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -276,11 +250,8 @@ class TestExtractSemanticMetadata:
     assert metadata["float_attr"] == {"label": 3.14, "model_name": "model", "confidence": 0.9}
     assert metadata["bool_attr"] == {"label": True, "model_name": "model", "confidence": 0.9}
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_semantic_metadata_handles_legacy_format(self, mock_vdms_class):
+  def test_extract_semantic_metadata_handles_legacy_format(self, mock_vdms_db):
     """Verify no metadata attribute returns empty dict (legacy objects)."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -301,11 +272,8 @@ class TestExtractSemanticMetadata:
 class TestIsNewTrackerID:
   """Test checking if tracker ID is new."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_is_new_tracker_id_when_not_seen_before(self, mock_vdms_class):
+  def test_is_new_tracker_id_when_not_seen_before(self, mock_vdms_db):
     """Verify isNewTrackerID returns True for unseen tracker IDs."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -317,11 +285,8 @@ class TestIsNewTrackerID:
 
     assert result is True, "Should return True for new tracker ID"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_is_new_tracker_id_when_seen_before(self, mock_vdms_class):
+  def test_is_new_tracker_id_when_seen_before(self, mock_vdms_db):
     """Verify isNewTrackerID returns False for known tracker IDs."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -340,11 +305,44 @@ class TestIsNewTrackerID:
 class TestAssignID:
   """Test ID assignment logic."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_assign_id_initializes_tracking_for_new_tracker(self, mock_vdms_class):
+  def test_assign_id_increments_counter_when_no_reid(self, mock_vdms_db):
+    """Verify unique_id_count increments when tracker has no reid vector."""
+
+    manager = UUIDManager()
+    initial_count = manager.unique_id_count
+
+    obj = MagicMock()
+    obj.rv_id = "tracker_no_reid"
+    obj.reid = None
+    obj.category = "Person"
+    obj.gid = "auto_gid_1"
+    obj.metadata = {}
+
+    manager.assignID(obj)
+
+    assert manager.unique_id_count == initial_count + 1, "Should increment counter when assigning ID to tracker with no reid"
+
+  def test_assign_id_does_not_increment_counter_when_reid_present(self, mock_vdms_db):
+    """Verify unique_id_count is not incremented when tracker has reid vector."""
+
+    manager = UUIDManager()
+    initial_count = manager.unique_id_count
+
+    obj = MagicMock()
+    obj.rv_id = "tracker_with_reid"
+    obj.reid = {"embedding_vector": np.array([0.1, 0.2, 0.3, 0.4]).astype(np.float32).tolist()}
+    obj.category = "Person"
+    obj.gid = "auto_gid_1"
+    obj.boundingBoxPixels = MagicMock()
+    obj.boundingBoxPixels.area = 10000
+    obj.metadata = {}
+
+    manager.assignID(obj)
+
+    assert manager.unique_id_count == initial_count, "Should not increment counter when reid is present"
+
+  def test_assign_id_initializes_tracking_for_new_tracker(self, mock_vdms_db):
     """Verify assignID initializes tracking for new tracker IDs."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -360,11 +358,8 @@ class TestAssignID:
     assert "new_tracker" in manager.active_ids, "Should initialize tracking for new tracker"
     assert manager.active_ids["new_tracker"] == [None, None], "Should initialize with [None, None]"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_assign_id_gathers_quality_features_for_new_tracker(self, mock_vdms_class):
+  def test_assign_id_gathers_quality_features_for_new_tracker(self, mock_vdms_db):
     """Verify assignID gathers quality visual features for new tracker."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -383,11 +378,8 @@ class TestAssignID:
     assert "new_tracker_with_features" in manager.quality_features, "Should gather quality features for new tracker"
     assert len(manager.quality_features["new_tracker_with_features"]) > 0, "Should have collected at least one feature"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_assign_id_calls_pick_best_id_always(self, mock_vdms_class):
+  def test_assign_id_calls_pick_best_id_always(self, mock_vdms_db):
     """Verify assignID always calls pickBestID."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
     # Mock pickBestID to verify it's called
@@ -404,11 +396,8 @@ class TestAssignID:
 
     manager.pickBestID.assert_called_once_with(obj), "Should call pickBestID"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_assign_id_does_not_submit_query_without_sufficient_features(self, mock_vdms_class):
+  def test_assign_id_does_not_submit_query_without_sufficient_features(self, mock_vdms_db):
     """Verify assignID does not submit query if features are insufficient."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
     manager.pool = MagicMock()
@@ -427,11 +416,8 @@ class TestAssignID:
     # Only one feature gathered, less than minimum required
     assert manager.pool.submit.call_count == 0, "Should not submit query without sufficient features"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_assign_id_submits_query_with_sufficient_features(self, mock_vdms_class):
+  def test_assign_id_submits_query_with_sufficient_features(self, mock_vdms_db):
     """Verify assignID submits similarity query when sufficient features are gathered."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
     manager.pool = MagicMock()
@@ -456,11 +442,8 @@ class TestAssignID:
     assert manager.pool.submit.call_count >= 1, "Should submit query with sufficient features"
     assert "tracker_many_features" in manager.active_query, "Should mark query as submitted"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_assign_id_skips_feature_gathering_if_query_already_submitted(self, mock_vdms_class):
+  def test_assign_id_skips_feature_gathering_if_query_already_submitted(self, mock_vdms_db):
     """Verify assignID doesn't resubmit queries if one is already in progress."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
     manager.pool = MagicMock()
@@ -489,11 +472,8 @@ class TestAssignID:
 class TestConnectDatabase:
   """Test database connection."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_connect_database_submits_to_pool(self, mock_vdms_class):
+  def test_connect_database_submits_to_pool(self, mock_vdms_db):
     """Verify connectDatabase submits connection task to thread pool."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -509,11 +489,8 @@ class TestConnectDatabase:
 class TestDataTypes:
   """Test data type handling and preservation."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_metadata_with_unicode_strings(self, mock_vdms_class):
+  def test_metadata_with_unicode_strings(self, mock_vdms_db):
     """Verify Unicode strings in metadata are preserved."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -529,11 +506,8 @@ class TestDataTypes:
     assert metadata["emotion"] == {"label": "Happy", "model_name": "emotion-recognition-retail-0003", "confidence": 0.9}
     assert metadata["clothing_color"] == {"label": "Blue", "model_name": "clothing-attributes-recognition", "confidence": 0.85}
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_metadata_with_special_characters(self, mock_vdms_class):
+  def test_metadata_with_special_characters(self, mock_vdms_db):
     """Verify special characters in metadata are preserved."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -556,1033 +530,99 @@ class TestDataTypes:
     }
 
 
-class TestAssignIDUniqueCountNoReid:
-  """Test assignID() unique_count increment when object has no reid vector."""
-
-  def setup_method(self):
-    """Set up mock database and UUIDManager."""
-    self.mock_db = Mock()
-    self.mock_db.connect = Mock()
-    with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
-      self.manager = UUIDManager(database='VDMS')
-
-    # Mock camera for moving objects
-    self.mock_camera = Mock()
-    self.mock_camera.pose = Mock()
-    self.mock_camera.pose.intrinsics = Mock()
-    self.mock_camera.pose.intrinsics.mapPixelToNormalizedImagePlane = Mock(return_value=Mock())
-
-  def test_assign_id_increments_count_when_object_has_no_reid_vector(self):
-    """Verify unique_count increments immediately when object has no reid vector."""
-    from controller.moving_object import MovingObject, ReidState
-    import time
-
-    # Create object with no reid vector
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = None  # No reid vector
-
-    initial_count = self.manager.unique_id_count
-    self.manager.assignID(obj)
-
-    # Should increment since no reid vector means instant unique object
-    assert self.manager.unique_id_count == initial_count + 1
-
-  def test_assign_id_increments_count_when_reid_is_empty_dict(self):
-    """Verify unique_count increments when reid exists but has no embedding vector."""
-    from controller.moving_object import MovingObject
-    import time
-
-    # MovingObject initializes reid to {} by default when metadata has no reid entry
-    info = {'id': '2', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 2
-
-    initial_count = self.manager.unique_id_count
-    self.manager.assignID(obj)
-
-    assert self.manager.unique_id_count == initial_count + 1
-
-  def test_assign_id_increments_when_reid_disabled_even_with_embedding(self):
-    """Verify unique_count increments for new tracks when reid is disabled."""
-    from controller.moving_object import MovingObject, ReidState
-    import time
-
-    self.manager.reid_enabled = False
-
-    info = {'id': '3', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 3
-    obj.reid = {'embedding_vector': [0.1, 0.2, 0.3]}
-
-    initial_count = self.manager.unique_id_count
-    self.manager.assignID(obj)
-
-    assert self.manager.unique_id_count == initial_count + 1
-    assert obj.reid_state == ReidState.REID_DISABLED
-
-  def test_assign_id_does_not_double_count_same_track(self):
-    """Verify assignID() doesn't increment for same track on subsequent calls."""
-    from controller.moving_object import MovingObject
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = None
-
-    self.manager.assignID(obj)
-    count_after_first = self.manager.unique_id_count
-
-    # Call assignID() again with same object (same rv_id)
-    self.manager.assignID(obj)
-    count_after_second = self.manager.unique_id_count
-
-    # Should NOT increment again (already tracked)
-    assert count_after_second == count_after_first
-
-  def test_multiple_objects_without_reid_each_increment_count(self):
-    """Verify each new object without reid increments counter."""
-    from controller.moving_object import MovingObject
-    import time
-
-    initial_count = self.manager.unique_id_count
-
-    for i in range(3):
-      info = {'id': str(i), 'confidence': 0.95}
-      obj = MovingObject(info, time.time(), self.mock_camera)
-      obj.rv_id = i
-      obj.reid = None
-
-      self.manager.assignID(obj)
-
-    # Each object should have incremented counter
-    assert self.manager.unique_id_count == initial_count + 3
-
-
-class TestAssignIDWithReidVector:
-  """Test assignID() behavior when object has reid vector."""
-
-  def setup_method(self):
-    """Set up mock database and UUIDManager."""
-    self.mock_db = Mock()
-    self.mock_db.connect = Mock()
-    with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
-      self.manager = UUIDManager(database='VDMS')
-
-    self.mock_camera = Mock()
-    self.mock_camera.pose = Mock()
-    self.mock_camera.pose.intrinsics = Mock()
-    self.mock_camera.pose.intrinsics.mapPixelToNormalizedImagePlane = Mock(return_value=Mock())
-
-  def test_assign_id_does_not_increment_when_has_reid_vector(self):
-    """Verify assignID() does NOT increment when object has reid vector (pending query)."""
-    from controller.moving_object import MovingObject
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = [0.1, 0.2, 0.3]  # Has reid vector
-    obj.boundingBoxPixels = Mock(area=10000)  # Large enough bbox
-
-    initial_count = self.manager.unique_id_count
-    self.manager.assignID(obj)
-
-    # Should NOT increment (waiting for query result)
-    assert self.manager.unique_id_count == initial_count
-
-  def test_assign_id_state_remains_pending_with_reid_vector(self):
-    """Verify object state remains PENDING_COLLECTION when gathering features."""
-    from controller.moving_object import MovingObject, ReidState
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = [0.1, 0.2, 0.3]
-    obj.boundingBoxPixels = Mock(area=10000)
-    obj.category = 'person'
-
-    self.manager.assignID(obj)
-
-    # State should still be PENDING_COLLECTION (query not submitted yet, insufficient features)
-    assert obj.reid_state == ReidState.PENDING_COLLECTION
-
-
-class TestUpdateActiveDictQueryNoMatch:
-  """Test updateActiveDict() unique_count increment for QUERY_NO_MATCH."""
-
-  def setup_method(self):
-    """Set up mock database and UUIDManager."""
-    self.mock_db = Mock()
-    self.mock_db.connect = Mock()
-    with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
-      self.manager = UUIDManager(database='VDMS')
-
-    self.mock_camera = Mock()
-    self.mock_camera.pose = Mock()
-    self.mock_camera.pose.intrinsics = Mock()
-    self.mock_camera.pose.intrinsics.mapPixelToNormalizedImagePlane = Mock(return_value=Mock())
-
-  def test_update_active_dict_increments_for_query_no_match(self):
-    """Verify unique_count increments when query is made but no match found."""
-    from controller.moving_object import MovingObject, ReidState
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = [0.1, 0.2, 0.3]
-    obj.category = 'person'
-    obj.boundingBoxPixels = Mock(area=10000)
-
-    # Initialize active_ids entry
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj.rv_id] = [None, None]
-
-    # Add quality features to simulate gathered features
-    self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-
-    initial_count = self.manager.unique_id_count
-
-    # Simulate query that found no match
-    call_update_active_dict_locked(self.manager, obj, database_id=None, similarity=None)
-
-    # Should increment (new unique object, no match in database)
-    assert self.manager.unique_id_count == initial_count + 1
-    # State should be QUERY_NO_MATCH
-    assert obj.reid_state == ReidState.QUERY_NO_MATCH
-
-  def test_update_active_dict_assigns_new_gid_on_no_match(self):
-    """Verify new GID is assigned when query finds no match."""
-    from controller.moving_object import MovingObject
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = [0.1, 0.2, 0.3]
-    obj.category = 'person'
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj.rv_id] = [None, None]
-
-    self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-
-    # No match found
-    call_update_active_dict_locked(self.manager, obj, database_id=None, similarity=None)
-
-    # GID should be assigned
-    assert obj.gid is not None
-    # Similarity should be None (no match)
-    assert obj.similarity is None
-    # State should be QUERY_NO_MATCH
-    from controller.moving_object import ReidState
-    assert obj.reid_state == ReidState.QUERY_NO_MATCH
-
-  def test_multiple_no_match_objects_each_increment_count(self):
-    """Verify multiple QUERY_NO_MATCH objects each increment counter."""
-    from controller.moving_object import MovingObject
-    import time
-
-    initial_count = self.manager.unique_id_count
-
-    for i in range(3):
-      info = {'id': str(i), 'confidence': 0.95}
-      obj = MovingObject(info, time.time(), self.mock_camera)
-      obj.rv_id = i
-      obj.reid = [0.1, 0.2, 0.3]
-      obj.category = 'person'
-
-      with self.manager.active_ids_lock:
-        self.manager.active_ids[obj.rv_id] = [None, None]
-
-      self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-
-      # Query found no match
-      call_update_active_dict_locked(self.manager, obj, database_id=None, similarity=None)
-
-    # Each no-match should increment counter
-    assert self.manager.unique_id_count == initial_count + 3
-
-
-class TestUpdateActiveDictMatched:
-  """Test updateActiveDict() does NOT increment for MATCHED objects."""
-
-  def setup_method(self):
-    """Set up mock database and UUIDManager."""
-    self.mock_db = Mock()
-    self.mock_db.connect = Mock()
-    with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
-      self.manager = UUIDManager(database='VDMS')
-
-    self.mock_camera = Mock()
-    self.mock_camera.pose = Mock()
-    self.mock_camera.pose.intrinsics = Mock()
-    self.mock_camera.pose.intrinsics.mapPixelToNormalizedImagePlane = Mock(return_value=Mock())
-
-  def test_update_active_dict_does_not_increment_for_matched(self):
-    """Verify unique_count does NOT increment when query finds a match."""
-    from controller.moving_object import MovingObject, ReidState
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = [0.1, 0.2, 0.3]
-    obj.category = 'person'
-
-    # Initialize active_ids
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj.rv_id] = [None, None]
-
-    self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-
-    initial_count = self.manager.unique_id_count
-
-    # Simulate query that found a match in database
-    matched_gid = "database_gid_existing_123"
-    similarity_score = 0.92
-    call_update_active_dict_locked(self.manager, obj, database_id=matched_gid, similarity=similarity_score)
-
-    # Should NOT increment (object already existed in database)
-    assert self.manager.unique_id_count == initial_count
-    # State should be MATCHED
-    assert obj.reid_state == ReidState.MATCHED
-    # GID should be from database
-    assert obj.gid == matched_gid
-    # Similarity should be the match score
-    assert obj.similarity == similarity_score
-
-  def test_matched_object_does_not_contribute_to_unique_count(self):
-    """Verify matched objects don't change unique_count."""
-    from controller.moving_object import MovingObject
-    import time
-
-    initial_count = self.manager.unique_id_count
-
-    # Simulate multiple matched objects
-    for i in range(3):
-      info = {'id': str(i), 'confidence': 0.95}
-      obj = MovingObject(info, time.time(), self.mock_camera)
-      obj.rv_id = i
-      obj.reid = [0.1, 0.2, 0.3]
-      obj.category = 'person'
-
-      with self.manager.active_ids_lock:
-        self.manager.active_ids[obj.rv_id] = [None, None]
-
-      self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-
-      # All found matches in database
-      call_update_active_dict_locked(self.manager, obj, database_id=f"existing_gid_{i}", similarity=0.85 + i*0.01)
-
-    # Matched objects should NOT increase counter
-    assert self.manager.unique_id_count == initial_count
-
-
-class TestReidDisabledScenario:
-  """Test unique_count behavior when reid is disabled."""
-
-  def setup_method(self):
-    """Set up mock database and UUIDManager."""
-    self.mock_db = Mock()
-    self.mock_db.connect = Mock()
-    with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
-      self.manager = UUIDManager(database='VDMS')
-
-    self.mock_camera = Mock()
-    self.mock_camera.pose = Mock()
-    self.mock_camera.pose.intrinsics = Mock()
-    self.mock_camera.pose.intrinsics.mapPixelToNormalizedImagePlane = Mock(return_value=Mock())
-
-  def test_reid_disabled_sets_state_and_increments_count(self):
-    """Verify REID_DISABLED state set and unique_count increments for new tracks."""
-    from controller.moving_object import MovingObject, ReidState
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = [0.1, 0.2, 0.3]  # Has reid vector
-    obj.boundingBoxPixels = Mock(area=10000)
-
-    # Disable reid
-    self.manager.reid_enabled = False
-
-    initial_count = self.manager.unique_id_count
-    self.manager.assignID(obj)
-
-    # State should be REID_DISABLED
-    assert obj.reid_state == ReidState.REID_DISABLED
-    # ReID disabled means no matching, so each new track contributes to unique count
-    assert self.manager.unique_id_count == initial_count + 1
-
-  def test_reid_disabled_object_with_no_reid_vector_still_increments(self):
-    """Verify object without reid vector increments even when reid disabled."""
-    from controller.moving_object import MovingObject, ReidState
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = None  # No reid vector
-
-    # Disable reid
-    self.manager.reid_enabled = False
-
-    initial_count = self.manager.unique_id_count
-    self.manager.assignID(obj)
-
-    # State should be REID_DISABLED
-    assert obj.reid_state == ReidState.REID_DISABLED
-    # Should still increment (no reid vector = instant unique)
-    assert self.manager.unique_id_count == initial_count + 1
-
-
-class TestMixedScenarioIntegration:
-  """Test realistic scenarios combining multiple object types."""
-
-  def setup_method(self):
-    """Set up mock database and UUIDManager."""
-    self.mock_db = Mock()
-    self.mock_db.connect = Mock()
-    with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
-      self.manager = UUIDManager(database='VDMS')
-
-    self.mock_camera = Mock()
-    self.mock_camera.pose = Mock()
-    self.mock_camera.pose.intrinsics = Mock()
-    self.mock_camera.pose.intrinsics.mapPixelToNormalizedImagePlane = Mock(return_value=Mock())
-
-  def test_three_objects_scenario_count_matches_expected(self):
-    """
-    Integration test: Simulate test scenario with 3 people in queuing scene.
-    Expected unique_count should be 3 (all are new unique objects).
-
-    Scenario:
-    - Person A: Has reid vector, query finds no match → count = 1
-    - Person B: Has reid vector, query finds no match → count = 2
-    - Person C: No reid vector → count = 3
-    """
-    from controller.moving_object import MovingObject
-    import time
-
-    initial_count = self.manager.unique_id_count
-
-    # Person A: Query with no match
-    obj_a = MovingObject({'id': 'A', 'confidence': 0.95}, time.time(), self.mock_camera)
-    obj_a.rv_id = 'A'
-    obj_a.reid = [0.1, 0.2, 0.3]
-    obj_a.category = 'person'
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj_a.rv_id] = [None, None]
-    self.manager.quality_features[obj_a.rv_id] = [[0.1, 0.2, 0.3]]
-    call_update_active_dict_locked(self.manager, obj_a, database_id=None, similarity=None)
-
-    # Person B: Query with no match
-    obj_b = MovingObject({'id': 'B', 'confidence': 0.95}, time.time(), self.mock_camera)
-    obj_b.rv_id = 'B'
-    obj_b.reid = [0.2, 0.3, 0.4]
-    obj_b.category = 'person'
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj_b.rv_id] = [None, None]
-    self.manager.quality_features[obj_b.rv_id] = [[0.2, 0.3, 0.4]]
-    call_update_active_dict_locked(self.manager, obj_b, database_id=None, similarity=None)
-
-    # Person C: No reid vector
-    obj_c = MovingObject({'id': 'C', 'confidence': 0.95}, time.time(), self.mock_camera)
-    obj_c.rv_id = 'C'
-    obj_c.reid = None
-    self.manager.assignID(obj_c)
-
-    # Should have 3 unique objects
-    assert self.manager.unique_id_count == initial_count + 3
-
-  def test_mixed_matched_and_new_objects_count_only_new(self):
-    """
-    Verify count only includes new unique objects, not matched ones.
-    - Person A: Matched to database → does NOT increment
-    - Person B: No match → increments
-    - Person C: No reid → increments
-    - Person D: Matched to database → does NOT increment
-    Expected count = 2 (only B and C)
-    """
-    from controller.moving_object import MovingObject
-    import time
-
-    initial_count = self.manager.unique_id_count
-
-    # Person A: Matched
-    obj_a = MovingObject({'id': 'A', 'confidence': 0.95}, time.time(), self.mock_camera)
-    obj_a.rv_id = 'A'
-    obj_a.reid = [0.1, 0.2, 0.3]
-    obj_a.category = 'person'
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj_a.rv_id] = [None, None]
-    self.manager.quality_features[obj_a.rv_id] = [[0.1, 0.2, 0.3]]
-    call_update_active_dict_locked(self.manager, obj_a, database_id="existing_A", similarity=0.95)
-
-    # Person B: No match
-    obj_b = MovingObject({'id': 'B', 'confidence': 0.95}, time.time(), self.mock_camera)
-    obj_b.rv_id = 'B'
-    obj_b.reid = [0.2, 0.3, 0.4]
-    obj_b.category = 'person'
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj_b.rv_id] = [None, None]
-    self.manager.quality_features[obj_b.rv_id] = [[0.2, 0.3, 0.4]]
-    call_update_active_dict_locked(self.manager, obj_b, database_id=None, similarity=None)
-
-    # Person C: No reid
-    obj_c = MovingObject({'id': 'C', 'confidence': 0.95}, time.time(), self.mock_camera)
-    obj_c.rv_id = 'C'
-    obj_c.reid = None
-    self.manager.assignID(obj_c)
-
-    # Person D: Matched
-    obj_d = MovingObject({'id': 'D', 'confidence': 0.95}, time.time(), self.mock_camera)
-    obj_d.rv_id = 'D'
-    obj_d.reid = [0.4, 0.5, 0.6]
-    obj_d.category = 'person'
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj_d.rv_id] = [None, None]
-    self.manager.quality_features[obj_d.rv_id] = [[0.4, 0.5, 0.6]]
-    call_update_active_dict_locked(self.manager, obj_d, database_id="existing_D", similarity=0.90)
-
-    # Only B and C should increment (2 new unique objects)
-    assert self.manager.unique_id_count == initial_count + 2
-
-
-class TestUniqueCountEdgeCases:
-  """Test edge cases and boundary conditions."""
-
-  def setup_method(self):
-    """Set up mock database and UUIDManager."""
-    self.mock_db = Mock()
-    self.mock_db.connect = Mock()
-    with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
-      self.manager = UUIDManager(database='VDMS')
-
-    self.mock_camera = Mock()
-    self.mock_camera.pose = Mock()
-    self.mock_camera.pose.intrinsics = Mock()
-    self.mock_camera.pose.intrinsics.mapPixelToNormalizedImagePlane = Mock(return_value=Mock())
-
-  def test_similarity_zero_still_matches(self):
-    """Verify object with 0.0 similarity is still counted as MATCHED (not incremented)."""
-    from controller.moving_object import MovingObject, ReidState
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = [0.1, 0.2, 0.3]
-    obj.category = 'person'
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj.rv_id] = [None, None]
-    self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-
-    initial_count = self.manager.unique_id_count
-
-    # Edge case: similarity = 0.0 (worst match, but still a match)
-    call_update_active_dict_locked(self.manager, obj, database_id="existing_gid", similarity=0.0)
-
-    # Should NOT increment (is_matched because similarity is not None)
-    assert self.manager.unique_id_count == initial_count
-    assert obj.similarity == 0.0
-    assert obj.reid_state == ReidState.MATCHED
-
-  def test_similarity_high_value_still_just_one_count(self):
-    """Verify high similarity score doesn't cause multiple increments."""
-    from controller.moving_object import MovingObject
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = [0.1, 0.2, 0.3]
-    obj.category = 'person'
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj.rv_id] = [None, None]
-    self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-
-    initial_count = self.manager.unique_id_count
-
-    # Perfect match: similarity = 1.0
-    call_update_active_dict_locked(self.manager, obj, database_id="existing_gid", similarity=1.0)
-
-    # Should NOT increment
-    assert self.manager.unique_id_count == initial_count
-    assert obj.similarity == 1.0
-
-
-class TestUpdateActiveDictStateTransitionsAndChaining:
-  """Test state transitions and previous_ids_chain recording in updateActiveDict()."""
-
-  def setup_method(self):
-    """Set up mock database and UUIDManager."""
-    self.mock_db = Mock()
-    self.mock_db.connect = Mock()
-    with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
-      self.manager = UUIDManager(database='VDMS')
-
-    self.mock_camera = Mock()
-    self.mock_camera.pose = Mock()
-    self.mock_camera.pose.intrinsics = Mock()
-    self.mock_camera.pose.intrinsics.mapPixelToNormalizedImagePlane = Mock(return_value=Mock())
-
-  def test_match_found_records_id_change_with_similarity(self):
-    """Verify that matched objects record ID change with similarity score in previous_ids_chain."""
-    from controller.moving_object import MovingObject, ReidState
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = [0.1, 0.2, 0.3]
-    obj.category = 'person'
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj.rv_id] = [None, None]
-
-    self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-
-    # Match found with high similarity
-    matched_id = "database_gid_match_001"
-    similarity_score = 0.92
-    query_time = time.time()
-
-    call_update_active_dict_locked(self.manager, obj, database_id=matched_id, similarity=similarity_score, query_timestamp=query_time)
-
-    # Verify state
-    assert obj.reid_state == ReidState.MATCHED
-    assert obj.gid == matched_id
-    assert obj.similarity == similarity_score
-
-    # Verify previous_ids_chain was populated
-    assert len(obj.previous_ids_chain) == 1
-    chain_entry = obj.previous_ids_chain[0]
-    assert chain_entry['id'] == matched_id
-    assert chain_entry['similarity_score'] == similarity_score
-    assert chain_entry['timestamp'] == query_time
-
-  def test_no_match_records_id_change_with_none_similarity(self):
-    """Verify that no-match objects record ID change with None similarity in previous_ids_chain."""
-    from controller.moving_object import MovingObject, ReidState
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = [0.1, 0.2, 0.3]
-    obj.category = 'person'
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj.rv_id] = [None, None]
-
-    self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-
-    # Query made but no match found
-    query_time = time.time()
-    call_update_active_dict_locked(self.manager, obj, database_id=None, similarity=None, query_timestamp=query_time)
-
-    # Verify state
-    assert obj.reid_state == ReidState.QUERY_NO_MATCH
-    assert obj.gid is not None
-    assert obj.similarity is None
-
-    # Verify previous_ids_chain recorded with None similarity
-    assert len(obj.previous_ids_chain) == 1
-    chain_entry = obj.previous_ids_chain[0]
-    assert chain_entry['id'] == obj.gid
-    assert chain_entry['similarity_score'] is None
-    assert chain_entry['timestamp'] == query_time
-
-  def test_match_updates_active_ids_and_similarity(self):
-    """Verify active_ids dict and similarity are properly updated on match."""
-    from controller.moving_object import MovingObject
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = [0.1, 0.2, 0.3]
-    obj.category = 'person'
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj.rv_id] = [None, None]
-
-    self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-
-    matched_id = "db_match_789"
-    similarity = 0.87
-    call_update_active_dict_locked(self.manager, obj, database_id=matched_id, similarity=similarity)
-
-    # Verify active_ids was updated
-    assert obj.rv_id in self.manager.active_ids
-    assert self.manager.active_ids[obj.rv_id][0] == matched_id
-    assert self.manager.active_ids[obj.rv_id][1] == similarity
-
-  def test_no_match_generates_new_gid_and_updates_active_ids(self):
-    """Verify new GID is generated and active_ids is updated on no match."""
-    from controller.moving_object import MovingObject
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = [0.1, 0.2, 0.3]
-    obj.category = 'person'
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj.rv_id] = [None, None]
-
-    self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-
-    old_gid_counter = MovingObject.gid_counter
-
-    # Query found no match
-    call_update_active_dict_locked(self.manager, obj, database_id=None, similarity=None)
-
-    # Verify new GID was generated
-    assert obj.gid == old_gid_counter
-    assert obj.gid is not None
-
-    # Verify active_ids updated with generated GID
-    assert obj.rv_id in self.manager.active_ids
-    assert self.manager.active_ids[obj.rv_id][0] == obj.gid
-    assert self.manager.active_ids[obj.rv_id][1] is None
-
-  def test_features_for_database_populated_on_match(self):
-    """Verify features_for_database is populated with metadata on match."""
-    from controller.moving_object import MovingObject
-    import time
-
-    info = {'id': '1', 'confidence': 0.95, 'age': 'adult', 'gender': 'male'}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = [0.1, 0.2, 0.3]
-    obj.category = 'person'
-    obj.metadata = {'age': 'adult', 'gender': 'male'}
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj.rv_id] = [None, None]
-
-    self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3], [0.15, 0.25, 0.35]]
-
-    call_update_active_dict_locked(self.manager, obj, database_id="db_match_456", similarity=0.91)
-
-    # Verify features_for_database populated
-    assert obj.rv_id in self.manager.features_for_database
-    features_entry = self.manager.features_for_database[obj.rv_id]
-    assert features_entry['gid'] == "db_match_456"
-    assert features_entry['category'] == 'person'
-    assert len(features_entry['reid_vectors']) == 2
-    assert features_entry['metadata'] is not None
-
-  def test_features_for_database_populated_on_no_match(self):
-    """Verify features_for_database is populated on QUERY_NO_MATCH."""
-    from controller.moving_object import MovingObject
-    import time
-
-    info = {'id': '1', 'confidence': 0.95}
-    obj = MovingObject(info, time.time(), self.mock_camera)
-    obj.rv_id = 1
-    obj.reid = [0.1, 0.2, 0.3]
-    obj.category = 'person'
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj.rv_id] = [None, None]
-
-    self.manager.quality_features[obj.rv_id] = [[0.1, 0.2, 0.3]]
-
-    call_update_active_dict_locked(self.manager, obj, database_id=None, similarity=None)
-
-    # Verify features_for_database populated even for no match
-    assert obj.rv_id in self.manager.features_for_database
-    features_entry = self.manager.features_for_database[obj.rv_id]
-    assert features_entry['gid'] == obj.gid
-    assert features_entry['category'] == 'person'
-    assert len(features_entry['reid_vectors']) == 1
-
-
-class TestUpdateActiveDictIDCollisionHandling:
-  """Test ID-collision handling in updateActiveDict()."""
-
-  def setup_method(self):
-    """Set up mock database and UUIDManager."""
-    self.mock_db = Mock()
-    self.mock_db.connect = Mock()
-    with patch('controller.uuid_manager.available_databases', {'VDMS': Mock(return_value=self.mock_db)}):
-      self.manager = UUIDManager(database='VDMS')
-
-    self.mock_camera = Mock()
-    self.mock_camera.pose = Mock()
-    self.mock_camera.pose.intrinsics = Mock()
-    self.mock_camera.pose.intrinsics.mapPixelToNormalizedImagePlane = Mock(return_value=Mock())
-
-  def test_isNewID_returns_true_for_unused_id(self):
-    """Verify isNewID returns True for IDs not yet in active_ids."""
-    with self.manager.active_ids_lock:
-      self.manager.active_ids['rv_1'] = ['db_gid_100', 0.85]
-      self.manager.active_ids['rv_2'] = ['db_gid_200', 0.90]
-
-    # New ID not in active_ids
-    assert self.manager.isNewID('db_gid_300') is True
-
-  def test_isNewID_returns_false_for_existing_id(self):
-    """Verify isNewID returns False for IDs already in active_ids (collision)."""
-    with self.manager.active_ids_lock:
-      self.manager.active_ids['rv_1'] = ['db_gid_100', 0.85]
-      self.manager.active_ids['rv_2'] = ['db_gid_200', 0.90]
-
-    # ID already assigned to rv_1
-    assert self.manager.isNewID('db_gid_100') is False
-
-  def test_match_with_existing_id_not_reassigned(self):
-    """Verify collided database IDs are treated as no-match with a fresh unique gid."""
-    from controller.moving_object import MovingObject, ReidState
-    import time
-
-    # Set up first object already matched to a database ID
-    info1 = {'id': '1', 'confidence': 0.95}
-    obj1 = MovingObject(info1, time.time(), self.mock_camera)
-    obj1.rv_id = 1
-    obj1.reid = [0.1, 0.2, 0.3]
-    obj1.category = 'person'
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj1.rv_id] = [None, None]
-
-    self.manager.quality_features[obj1.rv_id] = [[0.1, 0.2, 0.3]]
-
-    # First object matches to database_gid_X
-    call_update_active_dict_locked(self.manager, obj1, database_id='database_gid_X', similarity=0.95)
-    assert obj1.reid_state == ReidState.MATCHED
-    assert obj1.gid == 'database_gid_X'
-
-    # Now try to process second object with same database_gid_X (collision scenario)
-    info2 = {'id': '2', 'confidence': 0.95}
-    obj2 = MovingObject(info2, time.time(), self.mock_camera)
-    obj2.rv_id = 2
-    obj2.reid = [0.15, 0.25, 0.35]
-    obj2.category = 'person'
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj2.rv_id] = [None, None]
-
-    self.manager.quality_features[obj2.rv_id] = [[0.15, 0.25, 0.35]]
-    initial_count = self.manager.unique_id_count
-
-    # Collision should be handled as no-match without reusing obj1's active gid.
-    call_update_active_dict_locked(self.manager, obj2, database_id='database_gid_X', similarity=None)
-
-    # obj2 gets QUERY_NO_MATCH state and a new unique gid.
-    assert obj2.reid_state == ReidState.QUERY_NO_MATCH
-    assert obj2.gid != 'database_gid_X'
-    assert obj2.gid != obj1.gid
-    assert obj2.similarity is None
-    assert self.manager.active_ids[obj2.rv_id][0] == obj2.gid
-    assert self.manager.unique_id_count == initial_count + 1
-    assert len(obj2.previous_ids_chain) == 1
-    assert obj2.previous_ids_chain[0]['id'] == obj2.gid
-    assert obj2.previous_ids_chain[0]['similarity_score'] is None
-
-  def test_multiple_objects_same_new_match_only_first_wins(self):
-    """Test scenario where only the first track keeps a shared matched database ID."""
-    from controller.moving_object import MovingObject, ReidState
-    import time
-
-    # Object A: Gets matched first
-    obj_a = MovingObject({'id': 'A', 'confidence': 0.95}, time.time(), self.mock_camera)
-    obj_a.rv_id = 'A'
-    obj_a.reid = [0.1, 0.2, 0.3]
-    obj_a.category = 'person'
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj_a.rv_id] = [None, None]
-    self.manager.quality_features[obj_a.rv_id] = [[0.1, 0.2, 0.3]]
-
-    # A matches to shared_gid
-    call_update_active_dict_locked(self.manager, obj_a, database_id='shared_gid', similarity=0.92)
-    assert obj_a.reid_state == ReidState.MATCHED
-    assert obj_a.gid == 'shared_gid'
-
-    # Object B: Also gets match to same shared_gid (collision)
-    obj_b = MovingObject({'id': 'B', 'confidence': 0.95}, time.time(), self.mock_camera)
-    obj_b.rv_id = 'B'
-    obj_b.reid = [0.15, 0.25, 0.35]
-    obj_b.category = 'person'
-
-    with self.manager.active_ids_lock:
-      self.manager.active_ids[obj_b.rv_id] = [None, None]
-    self.manager.quality_features[obj_b.rv_id] = [[0.15, 0.25, 0.35]]
-    initial_count = self.manager.unique_id_count
-
-    # B's match to shared_gid collides with A's active assignment and must not be reused.
-    call_update_active_dict_locked(self.manager, obj_b, database_id='shared_gid', similarity=0.88)
-
-    # B gets QUERY_NO_MATCH state and a distinct generated gid.
-    assert obj_b.reid_state == ReidState.QUERY_NO_MATCH
-    assert obj_b.gid != 'shared_gid'
-    assert obj_a.gid == 'shared_gid'  # A still has the matched ID
-    assert obj_b.gid != obj_a.gid
-    assert obj_b.similarity is None  # B has no similarity (treated as no-match)
-    assert self.manager.active_ids[obj_b.rv_id][0] == obj_b.gid
-    assert self.manager.unique_id_count == initial_count + 1
-
-class TestMovingObjectSetPreviousPersistence:
-  """Regression tests for setPrevious() persistence across frame recreation."""
-
-  def setup_method(self):
-    """Set up a mock camera compatible with MovingObject initialization."""
-    self.mock_camera = Mock()
-    self.mock_camera.pose = Mock()
-    self.mock_camera.pose.intrinsics = Mock()
-    self.mock_camera.pose.intrinsics.mapPixelToNormalizedImagePlane = Mock(return_value=Mock())
-
-  def _create_moving_object(self, obj_id):
-    """Create a minimal MovingObject with required state for setPrevious()."""
-    from controller.moving_object import MovingObject, ChainData
-    import time
-
-    obj = MovingObject({'id': obj_id, 'confidence': 0.95}, time.time(), self.mock_camera)
-    obj.chain_data = ChainData(regions={}, publishedLocations=[], persist={})
-    obj.location = [Mock()]
-    return obj
-
-  def test_set_previous_persists_reid_state_similarity_and_chain(self):
-    """Verify reid_state, similarity, and previous_ids_chain are copied from previous frame object."""
-    from controller.moving_object import ReidState
-
-    old_obj = self._create_moving_object('1')
-    new_obj = self._create_moving_object('2')
-
-    old_obj.reid_state = ReidState.MATCHED
-    old_obj.similarity = 0.91
-    old_obj.previous_ids_chain = [
-      {'id': 'gid_10', 'timestamp': 1000.0, 'similarity_score': 0.91}
-    ]
-
-    new_obj.setPrevious(old_obj)
-
-    assert new_obj.reid_state == ReidState.MATCHED
-    assert new_obj.similarity == 0.91
-    assert new_obj.previous_ids_chain == old_obj.previous_ids_chain
-
-  def test_set_previous_copies_chain_without_list_aliasing(self):
-    """Verify previous_ids_chain list is copied by value, not aliased."""
-    old_obj = self._create_moving_object('1')
-    new_obj = self._create_moving_object('2')
-
-    old_obj.previous_ids_chain = [
-      {'id': 'gid_10', 'timestamp': 1000.0, 'similarity_score': 0.91}
-    ]
-
-    new_obj.setPrevious(old_obj)
-    new_obj.previous_ids_chain.append(
-      {'id': 'gid_11', 'timestamp': 1001.0, 'similarity_score': None}
-    )
-
-    assert len(new_obj.previous_ids_chain) == 2
-    assert len(old_obj.previous_ids_chain) == 1
-
-
-class TestUUIDManagerReidConfigPropagation:
-  """Regression tests: reid_config_data values must reach UUIDManager thresholds."""
-
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_default_minimum_feature_count_when_no_config(self, mock_vdms_class):
-    """UUIDManager uses DEFAULT_MINIMUM_FEATURE_COUNT (12) when no config is supplied."""
-    from controller.uuid_manager import DEFAULT_MINIMUM_FEATURE_COUNT
-    mock_vdms_class.return_value = MagicMock()
-
-    manager = UUIDManager()
-
-    assert manager.minimum_feature_count == DEFAULT_MINIMUM_FEATURE_COUNT
-
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_custom_feature_accumulation_threshold_is_applied(self, mock_vdms_class):
-    """UUIDManager.minimum_feature_count reflects feature_accumulation_threshold from config."""
-    mock_vdms_class.return_value = MagicMock()
-    reid_config = {'feature_accumulation_threshold': 5}
-
-    manager = UUIDManager(reid_config_data=reid_config)
-
-    assert manager.minimum_feature_count == 5
-
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_custom_similarity_threshold_is_applied(self, mock_vdms_class):
-    """UUIDManager.similarity_threshold reflects similarity_threshold from config."""
-    mock_vdms_class.return_value = MagicMock()
-    reid_config = {'similarity_threshold': 42}
-
-    manager = UUIDManager(reid_config_data=reid_config)
-
-    assert manager.similarity_threshold == 42
-
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_custom_minimum_bbox_area_is_applied(self, mock_vdms_class):
-    """UUIDManager.minimum_bbox_area reflects minimum_bbox_area from config."""
-    mock_vdms_class.return_value = MagicMock()
-    reid_config = {'minimum_bbox_area': 3200}
-
-    manager = UUIDManager(reid_config_data=reid_config)
-
-    assert manager.minimum_bbox_area == 3200
-
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_custom_stale_feature_timeout_is_applied(self, mock_vdms_class):
-    """UUIDManager.stale_feature_timeout_secs reflects stale_feature_timeout_secs from config."""
-    mock_vdms_class.return_value = MagicMock()
-    reid_config = {'stale_feature_timeout_secs': 10.0}
-
-    manager = UUIDManager(reid_config_data=reid_config)
-
-    assert manager.stale_feature_timeout_secs == 10.0
-
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_full_reid_config_all_values_propagated(self, mock_vdms_class):
-    """All recognized reid_config_data keys are correctly applied to UUIDManager attributes."""
-    mock_vdms_class.return_value = MagicMock()
-    reid_config = {
-      'feature_accumulation_threshold': 8,
-      'similarity_threshold': 55,
-      'minimum_bbox_area': 4000,
-      'stale_feature_timeout_secs': 7.5,
-      'stale_feature_check_interval_secs': 2.0,
-    }
-
-    manager = UUIDManager(reid_config_data=reid_config)
-
-    assert manager.minimum_feature_count == 8
-    assert manager.similarity_threshold == 55
-    assert manager.minimum_bbox_area == 4000
-    assert manager.stale_feature_timeout_secs == 7.5
-    assert manager.stale_feature_check_interval_secs == 2.0
-
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_empty_config_uses_all_defaults(self, mock_vdms_class):
-    """Passing an empty dict falls back to all defaults."""
-    from controller.uuid_manager import (
-      DEFAULT_MINIMUM_FEATURE_COUNT,
-      DEFAULT_SIMILARITY_THRESHOLD,
-      DEFAULT_MINIMUM_BBOX_AREA,
-      DEFAULT_STALE_FEATURE_TIMEOUT_SECS,
-      DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS,
-    )
-    mock_vdms_class.return_value = MagicMock()
-
-    manager = UUIDManager(reid_config_data={})
-
-    assert manager.minimum_feature_count == DEFAULT_MINIMUM_FEATURE_COUNT
-    assert manager.similarity_threshold == DEFAULT_SIMILARITY_THRESHOLD
-    assert manager.minimum_bbox_area == DEFAULT_MINIMUM_BBOX_AREA
-    assert manager.stale_feature_timeout_secs == DEFAULT_STALE_FEATURE_TIMEOUT_SECS
-    assert manager.stale_feature_check_interval_secs == DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS
+class TestDimensionInference:
+  """Test automatic ReID embedding dimension inference from first observed vector."""
+
+  def _make_manager_with_mock_db(self, reid_config_data=None):
+    """Helper: build a UUIDManager that uses the shared mock VDMS backend fixture."""
+    if reid_config_data is None:
+      reid_config_data = {}
+    return UUIDManager(database="VDMS", reid_config_data=reid_config_data)
+
+  def test_infer_dimensions_from_first_embedding(self, mock_vdms_db):
+    """Verify _ensureReIDDimensions infers dimension from first embedding and calls ensureSchema."""
+    manager = self._make_manager_with_mock_db()
+    assert manager._inferred_dimensions is None
+
+    embedding = np.arange(192, dtype=np.float32)
+    result = manager._ensureReIDDimensions(embedding)
+
+    assert result is True, "Should accept first embedding"
+    assert manager._inferred_dimensions == 192, "Should lock in inferred dimension"
+    mock_vdms_db.ensureSchema.assert_called_once_with(192)
+
+  def test_infer_accepts_subsequent_embedding_with_same_dimension(self, mock_vdms_db):
+    """Verify _ensureReIDDimensions accepts all embeddings matching the inferred dimension."""
+    manager = self._make_manager_with_mock_db()
+    first = np.arange(128, dtype=np.float32)
+    second = np.ones(128, dtype=np.float32)
+
+    assert manager._ensureReIDDimensions(first) is True
+    assert manager._ensureReIDDimensions(second) is True
+    assert manager._inferred_dimensions == 128
+    mock_vdms_db.ensureSchema.assert_called_once_with(128)
+
+  def test_reject_embedding_with_inconsistent_dimension(self, mock_vdms_db):
+    """Verify _ensureReIDDimensions discards embeddings whose length differs from the inferred one."""
+    manager = self._make_manager_with_mock_db()
+    first = np.arange(256, dtype=np.float32)
+    mismatched = np.arange(128, dtype=np.float32)
+
+    manager._ensureReIDDimensions(first)
+    result = manager._ensureReIDDimensions(mismatched)
+
+    assert result is False, "Should reject embedding with different dimension"
+    assert manager._inferred_dimensions == 256, "Locked dimension should remain unchanged"
+
+  def test_ensure_schema_error_causes_false_return(self, mock_vdms_db):
+    """Verify False is returned and dimension remains unset when ensureSchema raises."""
+    mock_vdms_db.ensureSchema.side_effect = ValueError("schema conflict")
+    manager = UUIDManager(database="VDMS", reid_config_data={})
+
+    result = manager._ensureReIDDimensions(np.arange(256, dtype=np.float32))
+
+    assert result is False, "Should return False when ensureSchema raises"
+    assert manager._inferred_dimensions is None, "Dimension should remain unset after failure"
+
+  def test_zero_length_embedding_is_rejected_and_does_not_lock_dimensions(self, mock_vdms_db):
+    """Verify empty arrays are rejected early without calling ensureSchema or locking dimensions."""
+    manager = self._make_manager_with_mock_db()
+
+    result_empty_array = manager._ensureReIDDimensions(np.array([], dtype=np.float32))
+
+    assert result_empty_array is False, "Empty ndarray should be rejected"
+    assert manager._inferred_dimensions is None, "Dimension must not be locked to 0"
+    mock_vdms_db.ensureSchema.assert_not_called()
+
+  def test_zero_length_embedding_does_not_block_valid_subsequent_embedding(self, mock_vdms_db):
+    """Verify that after an empty embedding is rejected, a valid embedding is still accepted."""
+    manager = self._make_manager_with_mock_db()
+
+    manager._ensureReIDDimensions(np.array([], dtype=np.float32))
+    result = manager._ensureReIDDimensions(np.arange(256, dtype=np.float32))
+
+    assert result is True
+    assert manager._inferred_dimensions == 256
+    mock_vdms_db.ensureSchema.assert_called_once_with(256)
+
+  def test_gather_features_uses_inferred_dimension_gate(self, mock_vdms_db):
+    """Verify gatherQualityVisualFeatures silently drops embeddings with wrong dimension."""
+    manager = self._make_manager_with_mock_db()
+
+    good_obj = MagicMock()
+    good_obj.rv_id = "track_1"
+    good_obj.reid = {"embedding_vector": np.arange(64, dtype=np.float32).tolist()}
+    good_obj.boundingBoxPixels = MagicMock()
+    good_obj.boundingBoxPixels.area = 10000
+
+    bad_obj = MagicMock()
+    bad_obj.rv_id = "track_2"
+    bad_obj.reid = {"embedding_vector": np.arange(128, dtype=np.float32).tolist()}
+    bad_obj.boundingBoxPixels = MagicMock()
+    bad_obj.boundingBoxPixels.area = 10000
+
+    manager.gatherQualityVisualFeatures(good_obj)
+    manager.gatherQualityVisualFeatures(bad_obj)
+
+    assert "track_1" in manager.quality_features, "64-dim embedding should be accepted"
+    assert "track_2" not in manager.quality_features, "128-dim embedding should be rejected after 64 inferred"

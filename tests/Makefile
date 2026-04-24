@@ -235,7 +235,10 @@ _ui-tests: \
   auto-calibration-no-apriltags-ui \
 
 unit-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(if $(SECRETSDIR),$(SECRETSDIR),$(PWD)/../manager/secrets))
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(SECRETSDIR) SUPASS=$(SUPASS) -k
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 _unit-tests: \
   django-integration-unit \
