@@ -2,19 +2,14 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# Triggered whenever changes are pushed to any branch that is NOT main or
-# release-*.  Finds all open PRs (including drafts) whose *base* is the
-# pushed branch and that carry the "auto-update" label, then merges the
-# base branch into them so they stay up to date.
-
 name: "[CI/CD] Auto-Update Feature-Branch Pull Requests"
 run-name: "[CI/CD] Auto-Update PRs based on ${{ github.ref_name }}"
 
 on: # yamllint disable-line rule:truthy
   push:
-    branches-ignore:
-      - main
-      - release-*
+  pull_request:
+    types:
+      - auto_merge_enabled
   workflow_dispatch: {}
 
 concurrency:
@@ -26,6 +21,7 @@ permissions: {}
 jobs:
   update-pull-requests:
     name: "Update pull requests targeting ${{ github.ref_name }}"
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -79,3 +75,37 @@ jobs:
           if [[ $failed -gt 0 ]]; then
             echo "Warning: ${failed} PR(s) could not be updated — review the logs above."
           fi
+
+  remove-label-on-automerge:
+    name: "Remove auto-update label when auto-merge is enabled"
+    if: github.event_name == 'pull_request' && github.event.action == 'auto_merge_enabled'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    env:
+      UPDATE_LABEL: "auto-update"
+
+    steps:
+      - name: "Remove '${{ env.UPDATE_LABEL }}' label from PR"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Check if the label is present before attempting removal.
+          has_label=$(gh pr view "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json labels \
+            --jq --arg lbl "$UPDATE_LABEL" '.labels[].name | select(. == $lbl)' \
+            | grep -c . || true)
+
+          if [[ "$has_label" -eq 0 ]]; then
+            echo "PR #${PR_NUMBER} does not have the '${UPDATE_LABEL}' label — nothing to do."
+            exit 0
+          fi
+
+          echo "Removing '${UPDATE_LABEL}' label from PR #${PR_NUMBER} (auto-merge enabled)."
+          gh pr edit "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --remove-label "$UPDATE_LABEL"
+          echo "Label removed."
