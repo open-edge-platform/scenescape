@@ -20,7 +20,7 @@ permissions: {}
 
 jobs:
   update-pull-requests:
-    name: "Update pull requests targeting ${{ github.ref_name }}"
+    name: "Update pull requests targeting this branch"
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
