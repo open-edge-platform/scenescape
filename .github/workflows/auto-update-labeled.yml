@@ -1,0 +1,81 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Triggered whenever changes are pushed to any branch that is NOT main or
+# release-*.  Finds all open PRs (including drafts) whose *base* is the
+# pushed branch and that carry the "auto-update" label, then merges the
+# base branch into them so they stay up to date.
+
+name: "[CI/CD] Auto-Update Feature-Branch Pull Requests"
+run-name: "[CI/CD] Auto-Update PRs based on ${{ github.ref_name }}"
+
+on: # yamllint disable-line rule:truthy
+  push:
+    branches-ignore:
+      - main
+      - release-*
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  update-pull-requests:
+    name: "Update pull requests targeting ${{ github.ref_name }}"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    env:
+      # Only PRs carrying this label are updated (drafts included).
+      UPDATE_LABEL: "auto-update"
+
+    steps:
+      - name: "Find and update pull requests"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          BASE_BRANCH: ${{ github.ref_name }}
+        run: |
+          echo "Searching for open PRs targeting '${BASE_BRANCH}'"
+
+          mapfile -t prs < <(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --base "$BASE_BRANCH" \
+            --label "$UPDATE_LABEL" \
+            --state open \
+            --json number,isDraft,headRefName,title \
+            --jq '.[] | @json')
+
+          if [[ ${#prs[@]} -eq 0 ]]; then
+            echo "No open PRs with label '${UPDATE_LABEL}' target '${BASE_BRANCH}' — nothing to do."
+            exit 0
+          fi
+
+          echo "Found ${#prs[@]} candidate PR(s)."
+
+          failed=0
+          for pr_json in "${prs[@]}"; do
+            pr_number=$(echo "$pr_json" | jq -r '.number')
+            is_draft=$(echo  "$pr_json" | jq -r '.isDraft')
+            head_ref=$(echo  "$pr_json" | jq -r '.headRefName')
+            title=$(echo     "$pr_json" | jq -r '.title')
+
+            echo "→ PR #${pr_number}: '${title}' (head: ${head_ref}, draft: ${is_draft})"
+
+            if gh pr update-branch "$pr_number" --repo "$GITHUB_REPOSITORY"; then
+              echo "  ✓ PR #${pr_number} updated successfully."
+            else
+              echo "  ✗ PR #${pr_number} could not be updated (may already be up to date or have a merge conflict)."
+              failed=$((failed + 1))
+            fi
+          done
+
+          echo "Done. Failed: ${failed}."
+          if [[ $failed -gt 0 ]]; then
+            echo "Warning: ${failed} PR(s) could not be updated — review the logs above."
+          fi
