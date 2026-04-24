@@ -5,7 +5,7 @@
 
 ## Purpose
 
-This skill provides guidance for secure C++ coding in SceneScape's geometry and vision components, grounded in [Intel Secure Coding Standards - C++ Specifics](https://readthedocs.intel.com/SecureCodingStandards/latest/cpp/).
+This skill provides guidance for secure C++ coding in SceneScape's geometry and vision components, grounded in Intel Secure Coding Standards - C++ Specifics.
 
 **Applies to:**
 
