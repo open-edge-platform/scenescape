@@ -87,7 +87,7 @@ release-tests: \
   live-view-button \
   mesh-creation \
   non-functional-tests \
-  scene-details \
+  scene-details-ui \
   reid-performance-degradation \
 
 broken-features:
@@ -168,6 +168,7 @@ _functional-tests: \
   orphaned-sensor \
   persistence \
   rest-test \
+  scene-details \
   scene-import \
   scene-import-json \
   sensor-location \
@@ -217,7 +218,7 @@ _ui-tests: \
   restricted-media-access \
   persistence-ui \
   live-view-button \
-  scene-details \
+  scene-details-ui \
   scenes-summary-ui \
   sensor-area \
   sensor-location-ui \

@@ -170,10 +170,10 @@ restricted-media-access: # NEX-T10494
 	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_restricted_media_access.py, 'pgserver')
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-scene-details: # NEX-T10395
+scene-details-ui: # NEX-T10395
 	$(eval SERVICES := $(strip pgserver web retail-video scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml)
-	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_scene_details.py, '$(SERVICES)')
+	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_scene_details_ui.py, '$(SERVICES)')
 
 scenes-summary-ui: # NEX-T10394
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
