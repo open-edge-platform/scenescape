@@ -15,14 +15,23 @@ from unittest.mock import Mock, MagicMock, patch
 from controller.uuid_manager import UUIDManager
 
 
+@pytest.fixture(autouse=True)
+def mock_vdms_db():
+  """Patch UUIDManager database mapping so all tests use a fake VDMS backend."""
+  mock_vdms_db = MagicMock()
+
+  def fake_constructor(**kwargs):
+    return mock_vdms_db
+
+  with patch.dict(UUIDManager.__init__.__globals__['available_databases'], {'VDMS': fake_constructor}):
+    yield mock_vdms_db
+
+
 class TestUUIDManagerInitialization:
   """Test UUIDManager initialization and basic setup."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_initialization_with_default_database(self, mock_vdms_class):
+  def test_initialization_with_default_database(self, mock_vdms_db):
     """Verify UUIDManager initializes with default VDMS database."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -32,33 +41,24 @@ class TestUUIDManagerInitialization:
     assert manager.unique_id_count == 0
     assert manager.reid_enabled is True
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_initialization_with_custom_database(self, mock_vdms_class):
+  def test_initialization_with_custom_database(self, mock_vdms_db):
     """Verify UUIDManager can be initialized with custom database."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager(database="VDMS")
 
     assert manager is not None
     assert manager.reid_database is not None
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_has_thread_pool_for_async_operations(self, mock_vdms_class):
+  def test_has_thread_pool_for_async_operations(self, mock_vdms_db):
     """Verify UUIDManager has thread pool for asynchronous database operations."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
     assert hasattr(manager, 'pool'), "Should have thread pool"
     assert manager.pool is not None
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_active_ids_tracking_initialized(self, mock_vdms_class):
+  def test_active_ids_tracking_initialized(self, mock_vdms_db):
     """Verify active_ids dictionary is initialized for tracking."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -70,11 +70,8 @@ class TestUUIDManagerInitialization:
 class TestExtractReidEmbedding:
   """Test Re-ID embedding extraction from detection objects."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_reid_from_new_format(self, mock_vdms_class):
+  def test_extract_reid_from_new_format(self, mock_vdms_db):
     """Verify extraction from new format: dict with 'embedding_vector' key."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -90,11 +87,8 @@ class TestExtractReidEmbedding:
     assert embedding is not None, "Should extract embedding from new format"
     assert len(embedding) == 4, "Embedding should have correct length"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_reid_from_legacy_format(self, mock_vdms_class):
+  def test_extract_reid_from_legacy_format(self, mock_vdms_db):
     """Verify extraction from legacy format: direct vector."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -107,11 +101,8 @@ class TestExtractReidEmbedding:
     assert embedding is not None, "Should extract embedding from legacy format"
     assert len(embedding) == 4, "Embedding should have correct length"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_reid_returns_none_when_missing(self, mock_vdms_class):
+  def test_extract_reid_returns_none_when_missing(self, mock_vdms_db):
     """Verify None is returned when reid field is missing."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -122,11 +113,8 @@ class TestExtractReidEmbedding:
 
     assert embedding is None, "Should return None when reid is missing"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_reid_returns_none_when_none_value(self, mock_vdms_class):
+  def test_extract_reid_returns_none_when_none_value(self, mock_vdms_db):
     """Verify None is returned when reid value is None."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -142,11 +130,8 @@ class TestExtractReidEmbedding:
 class TestExtractSemanticMetadata:
   """Test semantic metadata extraction from detection objects."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_semantic_metadata_new_format(self, mock_vdms_class):
+  def test_extract_semantic_metadata_new_format(self, mock_vdms_db):
     """Verify extraction from new metadata format: metadata attribute."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -171,11 +156,8 @@ class TestExtractSemanticMetadata:
     # Generic properties should not be in metadata
     assert "category" not in metadata, "Should not include generic properties"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_semantic_metadata_skips_generic_properties(self, mock_vdms_class):
+  def test_extract_semantic_metadata_skips_generic_properties(self, mock_vdms_db):
     """Verify generic properties are excluded from metadata extraction."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -199,11 +181,8 @@ class TestExtractSemanticMetadata:
     assert "custom_attribute" in metadata
     assert metadata["custom_attribute"] == {"label": "test", "model_name": "test_model", "confidence": 0.9}
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_semantic_metadata_skips_internal_fields(self, mock_vdms_class):
+  def test_extract_semantic_metadata_skips_internal_fields(self, mock_vdms_db):
     """Verify only metadata attribute is extracted, not internal fields."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -224,11 +203,8 @@ class TestExtractSemanticMetadata:
     # Metadata contents should be extracted
     assert "public_attribute" in metadata
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_semantic_metadata_handles_none_values(self, mock_vdms_class):
+  def test_extract_semantic_metadata_handles_none_values(self, mock_vdms_db):
     """Verify None metadata is handled gracefully."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -241,11 +217,8 @@ class TestExtractSemanticMetadata:
     # Should return empty dict when metadata is None
     assert metadata == {}
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_semantic_metadata_preserves_value_types(self, mock_vdms_class):
+  def test_extract_semantic_metadata_preserves_value_types(self, mock_vdms_db):
     """Verify extracted metadata preserves data types."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -266,11 +239,8 @@ class TestExtractSemanticMetadata:
     assert metadata["float_attr"] == {"label": 3.14, "model_name": "model", "confidence": 0.9}
     assert metadata["bool_attr"] == {"label": True, "model_name": "model", "confidence": 0.9}
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_extract_semantic_metadata_handles_legacy_format(self, mock_vdms_class):
+  def test_extract_semantic_metadata_handles_legacy_format(self, mock_vdms_db):
     """Verify no metadata attribute returns empty dict (legacy objects)."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -291,11 +261,8 @@ class TestExtractSemanticMetadata:
 class TestIsNewTrackerID:
   """Test checking if tracker ID is new."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_is_new_tracker_id_when_not_seen_before(self, mock_vdms_class):
+  def test_is_new_tracker_id_when_not_seen_before(self, mock_vdms_db):
     """Verify isNewTrackerID returns True for unseen tracker IDs."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -307,11 +274,8 @@ class TestIsNewTrackerID:
 
     assert result is True, "Should return True for new tracker ID"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_is_new_tracker_id_when_seen_before(self, mock_vdms_class):
+  def test_is_new_tracker_id_when_seen_before(self, mock_vdms_db):
     """Verify isNewTrackerID returns False for known tracker IDs."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -330,11 +294,8 @@ class TestIsNewTrackerID:
 class TestAssignID:
   """Test ID assignment logic."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_assign_id_increments_counter_when_no_reid(self, mock_vdms_class):
+  def test_assign_id_increments_counter_when_no_reid(self, mock_vdms_db):
     """Verify unique_id_count increments when tracker has no reid vector."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
     initial_count = manager.unique_id_count
@@ -350,11 +311,8 @@ class TestAssignID:
 
     assert manager.unique_id_count == initial_count + 1, "Should increment counter when assigning ID to tracker with no reid"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_assign_id_does_not_increment_counter_when_reid_present(self, mock_vdms_class):
+  def test_assign_id_does_not_increment_counter_when_reid_present(self, mock_vdms_db):
     """Verify unique_id_count is not incremented when tracker has reid vector."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
     initial_count = manager.unique_id_count
@@ -372,11 +330,8 @@ class TestAssignID:
 
     assert manager.unique_id_count == initial_count, "Should not increment counter when reid is present"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_assign_id_initializes_tracking_for_new_tracker(self, mock_vdms_class):
+  def test_assign_id_initializes_tracking_for_new_tracker(self, mock_vdms_db):
     """Verify assignID initializes tracking for new tracker IDs."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -392,11 +347,8 @@ class TestAssignID:
     assert "new_tracker" in manager.active_ids, "Should initialize tracking for new tracker"
     assert manager.active_ids["new_tracker"] == [None, None], "Should initialize with [None, None]"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_assign_id_gathers_quality_features_for_new_tracker(self, mock_vdms_class):
+  def test_assign_id_gathers_quality_features_for_new_tracker(self, mock_vdms_db):
     """Verify assignID gathers quality visual features for new tracker."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -415,11 +367,8 @@ class TestAssignID:
     assert "new_tracker_with_features" in manager.quality_features, "Should gather quality features for new tracker"
     assert len(manager.quality_features["new_tracker_with_features"]) > 0, "Should have collected at least one feature"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_assign_id_calls_pick_best_id_always(self, mock_vdms_class):
+  def test_assign_id_calls_pick_best_id_always(self, mock_vdms_db):
     """Verify assignID always calls pickBestID."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
     # Mock pickBestID to verify it's called
@@ -436,11 +385,8 @@ class TestAssignID:
 
     manager.pickBestID.assert_called_once_with(obj), "Should call pickBestID"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_assign_id_does_not_submit_query_without_sufficient_features(self, mock_vdms_class):
+  def test_assign_id_does_not_submit_query_without_sufficient_features(self, mock_vdms_db):
     """Verify assignID does not submit query if features are insufficient."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
     manager.pool = MagicMock()
@@ -459,11 +405,8 @@ class TestAssignID:
     # Only one feature gathered, less than minimum required
     assert manager.pool.submit.call_count == 0, "Should not submit query without sufficient features"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_assign_id_submits_query_with_sufficient_features(self, mock_vdms_class):
+  def test_assign_id_submits_query_with_sufficient_features(self, mock_vdms_db):
     """Verify assignID submits similarity query when sufficient features are gathered."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
     manager.pool = MagicMock()
@@ -488,11 +431,8 @@ class TestAssignID:
     assert manager.pool.submit.call_count >= 1, "Should submit query with sufficient features"
     assert "tracker_many_features" in manager.active_query, "Should mark query as submitted"
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_assign_id_skips_feature_gathering_if_query_already_submitted(self, mock_vdms_class):
+  def test_assign_id_skips_feature_gathering_if_query_already_submitted(self, mock_vdms_db):
     """Verify assignID doesn't resubmit queries if one is already in progress."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
     manager.pool = MagicMock()
@@ -521,11 +461,8 @@ class TestAssignID:
 class TestConnectDatabase:
   """Test database connection."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_connect_database_submits_to_pool(self, mock_vdms_class):
+  def test_connect_database_submits_to_pool(self, mock_vdms_db):
     """Verify connectDatabase submits connection task to thread pool."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -541,11 +478,8 @@ class TestConnectDatabase:
 class TestDataTypes:
   """Test data type handling and preservation."""
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_metadata_with_unicode_strings(self, mock_vdms_class):
+  def test_metadata_with_unicode_strings(self, mock_vdms_db):
     """Verify Unicode strings in metadata are preserved."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -561,11 +495,8 @@ class TestDataTypes:
     assert metadata["emotion"] == {"label": "Happy", "model_name": "emotion-recognition-retail-0003", "confidence": 0.9}
     assert metadata["clothing_color"] == {"label": "Blue", "model_name": "clothing-attributes-recognition", "confidence": 0.85}
 
-  @patch('controller.uuid_manager.VDMSDatabase')
-  def test_metadata_with_special_characters(self, mock_vdms_class):
+  def test_metadata_with_special_characters(self, mock_vdms_db):
     """Verify special characters in metadata are preserved."""
-    mock_vdms_instance = MagicMock()
-    mock_vdms_class.return_value = mock_vdms_instance
 
     manager = UUIDManager()
 
@@ -586,3 +517,101 @@ class TestDataTypes:
       "model_name": "desc",
       "confidence": 0.9
     }
+
+
+class TestDimensionInference:
+  """Test automatic ReID embedding dimension inference from first observed vector."""
+
+  def _make_manager_with_mock_db(self, reid_config_data=None):
+    """Helper: build a UUIDManager that uses the shared mock VDMS backend fixture."""
+    if reid_config_data is None:
+      reid_config_data = {}
+    return UUIDManager(database="VDMS", reid_config_data=reid_config_data)
+
+  def test_infer_dimensions_from_first_embedding(self, mock_vdms_db):
+    """Verify _ensureReIDDimensions infers dimension from first embedding and calls ensureSchema."""
+    manager = self._make_manager_with_mock_db()
+    assert manager._inferred_dimensions is None
+
+    embedding = np.arange(192, dtype=np.float32)
+    result = manager._ensureReIDDimensions(embedding)
+
+    assert result is True, "Should accept first embedding"
+    assert manager._inferred_dimensions == 192, "Should lock in inferred dimension"
+    mock_vdms_db.ensureSchema.assert_called_once_with(192)
+
+  def test_infer_accepts_subsequent_embedding_with_same_dimension(self, mock_vdms_db):
+    """Verify _ensureReIDDimensions accepts all embeddings matching the inferred dimension."""
+    manager = self._make_manager_with_mock_db()
+    first = np.arange(128, dtype=np.float32)
+    second = np.ones(128, dtype=np.float32)
+
+    assert manager._ensureReIDDimensions(first) is True
+    assert manager._ensureReIDDimensions(second) is True
+    assert manager._inferred_dimensions == 128
+    mock_vdms_db.ensureSchema.assert_called_once_with(128)
+
+  def test_reject_embedding_with_inconsistent_dimension(self, mock_vdms_db):
+    """Verify _ensureReIDDimensions discards embeddings whose length differs from the inferred one."""
+    manager = self._make_manager_with_mock_db()
+    first = np.arange(256, dtype=np.float32)
+    mismatched = np.arange(128, dtype=np.float32)
+
+    manager._ensureReIDDimensions(first)
+    result = manager._ensureReIDDimensions(mismatched)
+
+    assert result is False, "Should reject embedding with different dimension"
+    assert manager._inferred_dimensions == 256, "Locked dimension should remain unchanged"
+
+  def test_ensure_schema_error_causes_false_return(self, mock_vdms_db):
+    """Verify False is returned and dimension remains unset when ensureSchema raises."""
+    mock_vdms_db.ensureSchema.side_effect = ValueError("schema conflict")
+    manager = UUIDManager(database="VDMS", reid_config_data={})
+
+    result = manager._ensureReIDDimensions(np.arange(256, dtype=np.float32))
+
+    assert result is False, "Should return False when ensureSchema raises"
+    assert manager._inferred_dimensions is None, "Dimension should remain unset after failure"
+
+  def test_zero_length_embedding_is_rejected_and_does_not_lock_dimensions(self, mock_vdms_db):
+    """Verify empty arrays are rejected early without calling ensureSchema or locking dimensions."""
+    manager = self._make_manager_with_mock_db()
+
+    result_empty_array = manager._ensureReIDDimensions(np.array([], dtype=np.float32))
+
+    assert result_empty_array is False, "Empty ndarray should be rejected"
+    assert manager._inferred_dimensions is None, "Dimension must not be locked to 0"
+    mock_vdms_db.ensureSchema.assert_not_called()
+
+  def test_zero_length_embedding_does_not_block_valid_subsequent_embedding(self, mock_vdms_db):
+    """Verify that after an empty embedding is rejected, a valid embedding is still accepted."""
+    manager = self._make_manager_with_mock_db()
+
+    manager._ensureReIDDimensions(np.array([], dtype=np.float32))
+    result = manager._ensureReIDDimensions(np.arange(256, dtype=np.float32))
+
+    assert result is True
+    assert manager._inferred_dimensions == 256
+    mock_vdms_db.ensureSchema.assert_called_once_with(256)
+
+  def test_gather_features_uses_inferred_dimension_gate(self, mock_vdms_db):
+    """Verify gatherQualityVisualFeatures silently drops embeddings with wrong dimension."""
+    manager = self._make_manager_with_mock_db()
+
+    good_obj = MagicMock()
+    good_obj.rv_id = "track_1"
+    good_obj.reid = {"embedding_vector": np.arange(64, dtype=np.float32).tolist()}
+    good_obj.boundingBoxPixels = MagicMock()
+    good_obj.boundingBoxPixels.area = 10000
+
+    bad_obj = MagicMock()
+    bad_obj.rv_id = "track_2"
+    bad_obj.reid = {"embedding_vector": np.arange(128, dtype=np.float32).tolist()}
+    bad_obj.boundingBoxPixels = MagicMock()
+    bad_obj.boundingBoxPixels.area = 10000
+
+    manager.gatherQualityVisualFeatures(good_obj)
+    manager.gatherQualityVisualFeatures(bad_obj)
+
+    assert "track_1" in manager.quality_features, "64-dim embedding should be accepted"
+    assert "track_2" not in manager.quality_features, "128-dim embedding should be rejected after 64 inferred"
