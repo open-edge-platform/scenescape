@@ -823,6 +823,20 @@ class UserSerializer(NonNullSerializer):
   uid = serializers.CharField(source="pk", read_only=True)
   acls = PubSubACLSerializer(many=True, required=False)
 
+  def validate(self, attrs):
+    is_update = self.instance is not None
+
+    if not is_update:
+      username = attrs.get('username', None)
+      password = attrs.get('password', None)
+
+      if not username or not username.strip():
+        raise serializers.ValidationError({'username': ['This field is required.']})
+      if not password:
+        raise serializers.ValidationError({'password': ['This field is required.']})
+
+    return super().validate(attrs)
+
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
 
