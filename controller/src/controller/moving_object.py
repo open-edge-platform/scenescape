@@ -416,7 +416,6 @@ class MovingObject:
     if timestamp is None:
       timestamp = get_epoch_time()
 
-
     self.previous_ids_chain.append({
       'id': previous_id,
       'timestamp': timestamp,

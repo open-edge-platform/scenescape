@@ -26,25 +26,25 @@ def buildDetectionsList(objects, scene, update_visibility=False, include_sensors
     result_list.append(obj_dict)
   return result_list
 
-def _get_region_entered_epoch(region_data):
+def _getRegionEnteredEpoch(region_data):
   entered_epoch = region_data.get('entered_epoch')
   if entered_epoch is None:
     entered_epoch = get_epoch_time(region_data['entered'])
     region_data['entered_epoch'] = entered_epoch
   return entered_epoch
 
-def _build_region_output(regions, include_region_dwell, current_time):
+def _buildRegionOutput(regions, include_region_dwell, current_time):
   serialized_regions = {}
   for region_name, region_data in regions.items():
     serialized_region = dict(region_data)
     serialized_region.pop('entered_epoch', None)
     if include_region_dwell and 'entered' in region_data:
-      entered = _get_region_entered_epoch(region_data)
+      entered = _getRegionEnteredEpoch(region_data)
       serialized_region['dwell'] = current_time - entered
     serialized_regions[region_name] = serialized_region
   return serialized_regions
 
-def _serialize_previous_ids_chain(previous_ids_chain):
+def _serializePreviousIdsChain(previous_ids_chain):
   serialized_chain = []
   for entry in previous_ids_chain:
     serialized_entry = dict(entry)
@@ -128,7 +128,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
       if include_region_dwell:
         if current_time is None:
           current_time = get_epoch_time()
-        obj_dict['regions'] = _build_region_output(chain_data.regions, include_region_dwell, current_time)
+        obj_dict['regions'] = _buildRegionOutput(chain_data.regions, include_region_dwell, current_time)
       else:
         obj_dict['regions'] = chain_data.regions
 
@@ -171,7 +171,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
   # Add previous IDs chain for post-mortem object stitching analysis
   if hasattr(aobj, 'previous_ids_chain') and aobj.previous_ids_chain:
-    obj_dict['previous_ids_chain'] = _serialize_previous_ids_chain(aobj.previous_ids_chain)
+    obj_dict['previous_ids_chain'] = _serializePreviousIdsChain(aobj.previous_ids_chain)
 
   if isinstance(obj, TripwireEvent):
     obj_dict['direction'] = obj.direction

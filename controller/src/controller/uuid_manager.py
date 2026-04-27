@@ -48,19 +48,11 @@ class UUIDManager:
       maxlen=DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED)
     self.similarity_query_times_lock = threading.Lock()
     self.reid_enabled = True
-    # Extract stale feature timeout from reid config, use default if not provided
-    self.stale_feature_timeout_secs = reid_config_data.get('stale_feature_timeout_secs', DEFAULT_STALE_FEATURE_TIMEOUT_SECS)
-    self.stale_feature_check_interval_secs = reid_config_data.get('stale_feature_check_interval_secs', DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS)
-    self.minimum_feature_count = reid_config_data.get('feature_accumulation_threshold', DEFAULT_MINIMUM_FEATURE_COUNT)
-    self.similarity_threshold = reid_config_data.get(
-      'similarity_threshold', DEFAULT_SIMILARITY_THRESHOLD)
-    self.minimum_bbox_area = reid_config_data.get('minimum_bbox_area', DEFAULT_MINIMUM_BBOX_AREA)
-    self.feature_slice_size = reid_config_data.get('feature_slice_size', DEFAULT_FEATURE_SLICE_SIZE)
-    self.stale_feature_timer = None
-    self._start_stale_feature_timer()
+    self._applyReidConfig(reid_config_data)
+    self._rescheduleStaleFeatureTimer()
     return
 
-  def _increment_unique_id_count(self):
+  def _incrementUniqueIdCount(self):
     """Thread-safe increment for unique_id_count."""
     with self.unique_id_count_lock:
       self.unique_id_count += 1
@@ -69,10 +61,17 @@ class UUIDManager:
 
   def updateReidConfig(self, reid_config_data=None):
     """Update runtime ReID configuration without recreating the UUID manager."""
+    old_interval = self.stale_feature_check_interval_secs
+    self._applyReidConfig(reid_config_data)
+
+    # Timer cadence changes require rescheduling the stale feature timer.
+    if old_interval != self.stale_feature_check_interval_secs:
+      self._rescheduleStaleFeatureTimer()
+
+  def _applyReidConfig(self, reid_config_data=None):
+    """Apply ReID config values with defaults."""
     if reid_config_data is None:
       reid_config_data = {}
-
-    old_interval = self.stale_feature_check_interval_secs
 
     self.stale_feature_timeout_secs = reid_config_data.get(
       'stale_feature_timeout_secs', DEFAULT_STALE_FEATURE_TIMEOUT_SECS)
@@ -87,11 +86,13 @@ class UUIDManager:
     self.feature_slice_size = reid_config_data.get(
       'feature_slice_size', DEFAULT_FEATURE_SLICE_SIZE)
 
-    # Timer cadence changes require rescheduling the stale feature timer.
-    if self.stale_feature_timer is not None and old_interval != self.stale_feature_check_interval_secs:
-      self.stale_feature_timer.cancel()
-      self.stale_feature_timer = None
-      self._start_stale_feature_timer()
+  def _rescheduleStaleFeatureTimer(self):
+    """Cancel any existing stale-feature timer and start a new one."""
+    timer = getattr(self, 'stale_feature_timer', None)
+    if timer is not None:
+      timer.cancel()
+    self.stale_feature_timer = None
+    self._startStaleFeatureTimer()
 
   def __del__(self):
     """Clean up resources when the UUIDManager is destroyed"""
@@ -105,23 +106,23 @@ class UUIDManager:
     if hasattr(self, 'pool') and self.pool is not None:
       self.pool.shutdown(wait=False)
 
-  def _start_stale_feature_timer(self):
+  def _startStaleFeatureTimer(self):
     """Start a background timer to periodically check for and flush stale features"""
     def check_stale_features():
       """Timer callback: check for features older than timeout and flush them"""
-      self._flush_stale_features()
+      self._flushStaleFeatures()
       # Reschedule the timer
-      self._schedule_timer(check_stale_features)
+      self._scheduleTimer(check_stale_features)
 
-    self._schedule_timer(check_stale_features)
+    self._scheduleTimer(check_stale_features)
 
-  def _schedule_timer(self, callback):
+  def _scheduleTimer(self, callback):
     """Create and start a daemon timer with the configured check interval"""
     self.stale_feature_timer = threading.Timer(self.stale_feature_check_interval_secs, callback)
     self.stale_feature_timer.daemon = True
     self.stale_feature_timer.start()
 
-  def _flush_stale_features(self):
+  def _flushStaleFeatures(self):
     """Check for features older than the configured timeout (from reid-config.json) and flush them to VDMS"""
     if not self.features_for_database_timestamps:
       return
@@ -232,7 +233,7 @@ class UUIDManager:
   def pruneInactiveTracks(self, tracked_objects):
     """
     Removes inactive tracks from the active_ids dict.
-    Note: Stale feature flushing is now handled by a background timer in _flush_stale_features()
+    Note: Stale feature flushing is now handled by a background timer in _flushStaleFeatures()
     that runs every 1 second and flushes features older than 5 seconds.
 
     @param  tracked_objects  The objects currently tracked by the tracker
@@ -387,17 +388,16 @@ class UUIDManager:
     # This allows downstream logic to distinguish "never queried" from "query made"
     start_time = get_epoch_time()
     similarity_scores = self.sendSimilarityQuery(sscape_object)
-    database_id, similarity = self.parseQueryResults(
-      similarity_scores, rv_id=sscape_object.rv_id)
+    database_id, similarity = self.parseQueryResults(similarity_scores)
     with self.active_ids_lock:
       # Make sure object is still in active_ids before updating since there is a chance
       # that the similiarity search does not complete until after the object leaves
       if sscape_object.rv_id in self.active_ids:
         self.updateActiveDict(sscape_object, database_id, similarity, query_timestamp=start_time)
       else:
-        active_snapshot, _ = self._active_ids_snapshot_locked()
+        active_snapshot, _ = self._activeIdsSnapshot()
         if database_id is None:
-          self._increment_unique_id_count()
+          self._incrementUniqueIdCount()
         log.warning(
           f"Track {sscape_object.rv_id} left scene before ID query finished "
           f"query_result_gid={database_id} similarity={similarity} "
@@ -444,25 +444,24 @@ class UUIDManager:
 
     return scores
 
-  def parseQueryResults(self, similarity_scores, threshold=None, rv_id=None):
+  def parseQueryResults(self, similarity_scores, threshold=None):
     """
     Check database for any similar objects and return an ID and similarity score.
-    The threshold value is used as the deciding criteria for close matches.
+    Uses a majority-vote strategy: a candidate UUID must appear in at least half of the
+    per-vector best matches whose distance is below the threshold to be accepted.
+    When multiple candidates qualify, the one with the lowest distance is returned.
 
     @param   similarity_scores  The similarity scores obtained from the database query
-    @param   threshold          The maximum difference between the Re-ID vectors which would
-                                still be considered a valid match
-    @return  database_id        Returns the ID of the matched entry from the database if one
-                                is found; otherwise, returns None
-    @return  similarity         Distance between the Re-ID vectors for the object and the
-                                matched entry if it is found; otherwise, return None
+    @param   threshold          The maximum distance between Re-ID vectors still considered
+                                a valid match; defaults to self.similarity_threshold
+    @return  database_id        UUID of the matched entry if a majority-vote match is found;
+                                otherwise None
+    @return  similarity         Minimum distance to the matched entry if found; otherwise None
     """
     if threshold is None:
       threshold = self.similarity_threshold
 
     if similarity_scores:
-      # VDMS FindDescriptor returns entities sorted ascending by _distance (closest first),
-      # so each per-vector best match is always entities[0].
       minimum_distances = [self._findMinimumDistance(entities)
                            for entities in similarity_scores]
       distances_below_threshold = [(uuid, distance) for (uuid, distance) in
@@ -494,7 +493,7 @@ class UUIDManager:
       return (minimum_distance_entity['uuid'], minimum_distance_entity['_distance'])
     return (None, None)
 
-  def _active_gid_index_locked(self):
+  def _activeGidIndex(self):
     """
     Build an index of non-null gids to active rv_ids.
     Must be called while holding self.active_ids_lock.
@@ -506,12 +505,12 @@ class UUIDManager:
         gid_index.setdefault(gid, []).append(rv_id)
     return gid_index
 
-  def _log_live_gid_integrity_locked(self, source, rv_id):
+  def _logLiveGidIntegrity(self, source, rv_id):
     """
     Log whether any live active tracks currently share the same gid.
     Must be called while holding self.active_ids_lock.
     """
-    gid_index = self._active_gid_index_locked()
+    gid_index = self._activeGidIndex()
     duplicate_gids = {gid: rv_ids for gid, rv_ids in gid_index.items() if len(rv_ids) > 1}
     if duplicate_gids:
       log.error(
@@ -522,13 +521,13 @@ class UUIDManager:
     else:
       pass
 
-  def _active_ids_snapshot_locked(self):
+  def _activeIdsSnapshot(self):
     """
     Return a compact snapshot of active rv_id->gid and duplicate gid holders.
     Must be called while holding self.active_ids_lock.
     """
     snapshot = {rv_id: values[0] for rv_id, values in self.active_ids.items()}
-    gid_index = self._active_gid_index_locked()
+    gid_index = self._activeGidIndex()
     duplicate_gids = {gid: rv_ids for gid, rv_ids in gid_index.items() if len(rv_ids) > 1}
     return snapshot, duplicate_gids
 
@@ -546,7 +545,7 @@ class UUIDManager:
     if query_timestamp is None:
       query_timestamp = get_epoch_time()
     previous_gid = sscape_object.gid
-    gid_index = self._active_gid_index_locked()
+    gid_index = self._activeGidIndex()
     current_holders = gid_index.get(database_id, []) if database_id is not None else []
     matched_new_id = (
       database_id is not None
@@ -614,11 +613,11 @@ class UUIDManager:
                                        timestamp=query_timestamp)
 
       # Increment counter for unique objects with actual query attempts that found no match
-      self._increment_unique_id_count()
+      self._incrementUniqueIdCount()
       log.debug(f"updateActiveDict: No match, assigned new gid={database_id} for track {sscape_object.rv_id}, state={ReidState.QUERY_NO_MATCH.value}")
       self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
 
-    self._log_live_gid_integrity_locked("updateActiveDict", sscape_object.rv_id)
+    self._logLiveGidIntegrity("updateActiveDict", sscape_object.rv_id)
 
     # Store features with semantic metadata for TIER 1 filtering in future queries
     num_features = len(self.quality_features.get(sscape_object.rv_id, []))
@@ -658,7 +657,7 @@ class UUIDManager:
       # When reid is disabled, or there is no usable embedding vector,
       # this track will not be matched and should contribute to unique_id_count.
       if not self.reid_enabled or not has_reid_embedding:
-        self._increment_unique_id_count()
+        self._incrementUniqueIdCount()
       with self.active_ids_lock:
         self.active_ids.setdefault(sscape_object.rv_id, [None, None])
 
