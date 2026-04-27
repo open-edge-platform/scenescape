@@ -16,6 +16,7 @@
 #include <functional>
 #include <mutex>
 #include <thread>
+#include <unordered_map>
 
 namespace tracker {
 
