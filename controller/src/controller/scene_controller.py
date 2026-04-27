@@ -229,6 +229,16 @@ class SceneController:
     scene['objects'][otype] = buildDetectionsList(msg_objects, scene_obj, self.visibility_topic == 'unregulated', include_sensors=True)
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
+    elif ControllerMode.isAnalyticsOnly() and 'rate' in jdata:
+      camera_ids = set()
+      for obj in jdata.get('objects', []):
+        camera_ids.update(obj.get('visibility', []))
+
+      scene_rate = jdata['rate']
+      configured_cameras = set(scene_obj.cameras.keys())
+      for cam_id in camera_ids:
+        if cam_id in configured_cameras:
+          scene['rate'][cam_id] = scene_rate
 
     now = get_epoch_time()
     if self.shouldPublish(scene['last'], now, 1/scene_obj.regulated_rate):
