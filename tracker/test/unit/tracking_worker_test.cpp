@@ -56,7 +56,7 @@ TEST_F(TrackingWorkerTest, ProcessesChunks_CallsPublishCallback) {
 
     PublishCallback callback = [&](const std::string& scene_id, const std::string& scene_name,
                                    const std::string& category, const std::string& timestamp,
-                                   const std::vector<Track>& tracks, const std::unordered_map<std::string, double>&) {
+                                   const std::vector<Track>& tracks) {
         std::lock_guard lock(mtx);
         publish_count++;
         published_scene_id = scene_id;
@@ -102,7 +102,7 @@ TEST_F(TrackingWorkerTest, QueueFull_DropsChunk) {
 
     PublishCallback blocking_callback = [&](const std::string&, const std::string&,
                                             const std::string&, const std::string&,
-                                            const std::vector<Track>&, const std::unordered_map<std::string, double>&) {
+                                            const std::vector<Track>&) {
         std::unique_lock lock(block_mtx);
         block_cv.wait(lock, [&] { return !blocked; });
     };
@@ -151,7 +151,7 @@ TEST_F(TrackingWorkerTest, Sentinel_CausesExit) {
     int publish_count = 0;
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
                                    const std::string&,
-                                   const std::vector<Track>&, const std::unordered_map<std::string, double>&) { publish_count++; };
+                                   const std::vector<Track>&) { publish_count++; };
 
     TrackingScope scope{"scene-1", "person"};
 
@@ -188,7 +188,7 @@ TEST_F(TrackingWorkerTest, Tracking_ProducesTracksFromDetections) {
     bool callback_called = false;
 
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
-                                   const std::string&, const std::vector<Track>& tracks, const std::unordered_map<std::string, double>&) {
+                                   const std::string&, const std::vector<Track>& tracks) {
         std::lock_guard lock(mtx);
         published_tracks = tracks;
         callback_called = true;
@@ -235,7 +235,7 @@ TEST_F(TrackingWorkerTest, Tracking_ProducesTracksFromDetections) {
 // Test scope accessor
 TEST_F(TrackingWorkerTest, Scope_ReturnsCorrectScope) {
     PublishCallback callback = [](const std::string&, const std::string&, const std::string&,
-                                  const std::string&, const std::vector<Track>&, const std::unordered_map<std::string, double>&) {};
+                                  const std::string&, const std::vector<Track>&) {};
 
     TrackingScope scope{"my-scene", "my-category"};
     TrackingWorker worker(scope, "My Scene", 2, callback, tracking_config_, cameras_);
@@ -251,7 +251,7 @@ TEST_F(TrackingWorkerTest, SkipsUnknownCamera_InBatch) {
     int publish_count = 0;
 
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
-                                   const std::string&, const std::vector<Track>&, const std::unordered_map<std::string, double>&) {
+                                   const std::string&, const std::vector<Track>&) {
         std::lock_guard lock(mtx);
         publish_count++;
         cv.notify_one();
@@ -294,7 +294,7 @@ TEST_F(TrackingWorkerTest, EmptyChunk_FlowsThroughTracker) {
     std::vector<Track> published_tracks;
 
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
-                                   const std::string& timestamp, const std::vector<Track>& tracks, const std::unordered_map<std::string, double>&) {
+                                   const std::string& timestamp, const std::vector<Track>& tracks) {
         std::lock_guard lock(mtx);
         publish_count++;
         published_timestamp = timestamp;
@@ -338,7 +338,7 @@ TEST_F(TrackingWorkerTest, QueueDepth_ReturnsCorrectSize) {
 
     PublishCallback blocking_callback = [&](const std::string&, const std::string&,
                                             const std::string&, const std::string&,
-                                            const std::vector<Track>&, const std::unordered_map<std::string, double>&) {
+                                            const std::vector<Track>&) {
         in_callback = true;
         std::unique_lock lock(block_mtx);
         block_cv.wait(lock, [&] { return !blocked.load(); });
@@ -407,7 +407,7 @@ TEST_F(TrackingWorkerTest, QueueFull_IncrementsDroppedCount) {
 
     PublishCallback blocking_callback = [&](const std::string&, const std::string&,
                                             const std::string&, const std::string&,
-                                            const std::vector<Track>&, const std::unordered_map<std::string, double>&) {
+                                            const std::vector<Track>&) {
         in_callback = true;
         std::unique_lock lock(block_mtx);
         block_cv.wait(lock, [&] { return !blocked.load(); });
@@ -484,7 +484,7 @@ TEST_F(TrackingWorkerTest, Tracking_MetadataJson_PreservedThroughTracker) {
     const int kChunksToSend = 3;
 
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
-                                   const std::string&, const std::vector<Track>& tracks, const std::unordered_map<std::string, double>&) {
+                                   const std::string&, const std::vector<Track>& tracks) {
         std::lock_guard lock(mtx);
         all_published_tracks.insert(all_published_tracks.end(), tracks.begin(), tracks.end());
         callback_count++;
@@ -552,7 +552,7 @@ TEST_F(TrackingWorkerTest, Tracking_Confidence_PreservedThroughTracker) {
     const int kChunksToSend = 3;
 
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
-                                   const std::string&, const std::vector<Track>& tracks, const std::unordered_map<std::string, double>&) {
+                                   const std::string&, const std::vector<Track>& tracks) {
         std::lock_guard lock(mtx);
         all_published_tracks.insert(all_published_tracks.end(), tracks.begin(), tracks.end());
         callback_count++;

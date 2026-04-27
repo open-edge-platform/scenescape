@@ -16,7 +16,6 @@
 #include <functional>
 #include <mutex>
 #include <thread>
-#include <unordered_map>
 
 namespace tracker {
 
@@ -33,8 +32,7 @@ constexpr int kWorkerQueueCapacity = 2;
  */
 using PublishCallback = std::function<void(
     const std::string& scene_id, const std::string& scene_name, const std::string& category,
-    const std::string& timestamp, const std::vector<Track>& tracks,
-    const std::unordered_map<std::string, double>& camera_rates)>;
+    const std::string& timestamp, const std::vector<Track>& tracks)>;
 
 /**
  * @brief Per-scope worker thread for processing detection chunks.

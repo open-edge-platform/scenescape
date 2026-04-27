@@ -9,7 +9,6 @@
 #include <atomic>
 #include <memory>
 #include <string>
-#include <unordered_map>
 
 namespace tracker {
 
@@ -44,8 +43,7 @@ public:
      */
     void publish(const std::string& scene_id, const std::string& scene_name,
                  const std::string& category, const std::string& timestamp,
-                 const std::vector<Track>& tracks,
-                 const std::unordered_map<std::string, double>& camera_rates);
+                 const std::vector<Track>& tracks);
 
     /**
      * @brief Get count of messages published.
@@ -63,8 +61,7 @@ private:
      * @return JSON string
      */
     std::string serialize(const std::string& scene_id, const std::string& scene_name,
-                          const std::string& timestamp, const std::vector<Track>& tracks,
-                          const std::unordered_map<std::string, double>& camera_rates);
+                          const std::string& timestamp, const std::vector<Track>& tracks);
 
     /**
      * @brief Build output topic.

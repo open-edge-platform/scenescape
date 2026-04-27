@@ -17,15 +17,14 @@ TrackPublisher::TrackPublisher(std::shared_ptr<IMqttClient> mqtt_client)
 
 void TrackPublisher::publish(const std::string& scene_id, const std::string& scene_name,
                              const std::string& category, const std::string& timestamp,
-                             const std::vector<Track>& tracks,
-                             const std::unordered_map<std::string, double>& camera_rates) {
+                             const std::vector<Track>& tracks) {
     if (!mqtt_client_ || !mqtt_client_->isConnected()) {
         LOG_WARN("Cannot publish tracks: MQTT client not connected");
         return;
     }
 
     std::string topic = build_topic(scene_id, category);
-    std::string payload = serialize(scene_id, scene_name, timestamp, tracks, camera_rates);
+    std::string payload = serialize(scene_id, scene_name, timestamp, tracks);
 
     mqtt_client_->publish(topic, payload);
     published_count_.fetch_add(1);
@@ -35,8 +34,7 @@ void TrackPublisher::publish(const std::string& scene_id, const std::string& sce
 
 std::string TrackPublisher::serialize(const std::string& scene_id, const std::string& scene_name,
                                       const std::string& timestamp,
-                                      const std::vector<Track>& tracks,
-                                      const std::unordered_map<std::string, double>& camera_rates) {
+                                      const std::vector<Track>& tracks) {
     using namespace rapidjson;
 
     Document doc;
@@ -112,16 +110,6 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
     }
 
     doc.AddMember("objects", objects_array, allocator);
-
-    // Per-camera frame rates (emitted only when at least one camera reported a rate)
-    if (!camera_rates.empty()) {
-        Value rate_obj(kObjectType);
-        for (const auto& [cam_id, rate] : camera_rates) {
-            Value key(cam_id.c_str(), static_cast<SizeType>(cam_id.size()), allocator);
-            rate_obj.AddMember(key, Value(rate), allocator);
-        }
-        doc.AddMember("rate", rate_obj, allocator);
-    }
 
     // Serialize to string
     StringBuffer buffer;

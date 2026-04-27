@@ -311,7 +311,6 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         batch.receive_time = receive_time;
         batch.timestamp_iso = message->timestamp;
         batch.timestamp = *msg_time;
-        batch.rate = message->rate;
         batch.obs_ctx = obs_ctx; // Copy obs_ctx to allow reuse in next loop iteration
         batch.obs_ctx.captureBufferTime();
         batch.obs_ctx.category = category;
@@ -386,11 +385,6 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
         return std::nullopt;
     }
     message.timestamp = timestamp_val->GetString();
-
-    // Optional top-level rate (camera frame rate in Hz)
-    if (doc.HasMember("rate") && doc["rate"].IsNumber()) {
-        message.rate = doc["rate"].GetDouble();
-    }
 
     const auto* objects_val = PTR_OBJECTS.Get(doc);
     if (!objects_val || !objects_val->IsObject()) {

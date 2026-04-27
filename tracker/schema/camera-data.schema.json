@@ -29,11 +29,6 @@
       "format": "date-time",
       "description": "ISO 8601 UTC timestamp of frame acquisition"
     },
-    "rate": {
-      "type": "number",
-      "description": "Camera frame rate in Hz at the time of this message",
-      "minimum": 0
-    },
     "objects": {
       "type": "object",
       "description": "Detections grouped by category (e.g., person, vehicle)",

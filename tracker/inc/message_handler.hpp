@@ -32,7 +32,6 @@ namespace tracker {
 struct CameraMessage {
     std::string id;
     std::string timestamp;
-    std::optional<double> rate; ///< Frame rate reported by the camera (absent if not provided)
     std::map<std::string, std::vector<Detection>> objects; // category -> detections
 };
 

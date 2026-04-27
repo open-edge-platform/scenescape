@@ -172,22 +172,13 @@ void TrackingWorker::process_chunk(Chunk chunk) {
     auto tracks = match_and_convert(std::move(objects_per_camera), chunk, track_timestamp);
     chunk.obs_ctx.captureTrackTime();
 
-    // Collect per-camera frame rates reported in this chunk (last-write-wins for duplicate cameras)
-    std::unordered_map<std::string, double> camera_rates;
-    for (const auto& batch : chunk.camera_batches) {
-        if (batch.rate.has_value()) {
-            camera_rates[batch.camera_id] = *batch.rate;
-        }
-    }
-
     // Update active tracks gauge for this scope
     Metrics::set_active_tracks(scope_.scene_id, scope_.category,
                                static_cast<int64_t>(tracks.size()));
 
     // Always publish (even with empty tracks — downstream needs heartbeats)
     if (publish_callback_) {
-        publish_callback_(scope_.scene_id, scene_name_, scope_.category, timestamp_iso, tracks,
-                          camera_rates);
+        publish_callback_(scope_.scene_id, scene_name_, scope_.category, timestamp_iso, tracks);
     }
 
     chunk.obs_ctx.capturePublishTime();
