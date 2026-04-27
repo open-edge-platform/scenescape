@@ -102,6 +102,7 @@ broken-tests: \
   3d-ui-calibration-points \
   geospatial-ingest-publish \
   delete-sensor-mqtt \
+  scenes-summary \
   reid-performance-degradation \
   auto-calibration-ui \
 
@@ -217,7 +218,7 @@ _ui-tests: \
   persistence-ui \
   live-view-button \
   scene-details \
-  scenes-summary \
+  scenes-summary-ui \
   sensor-area \
   sensor-location \
   sensor-scene \

@@ -175,10 +175,10 @@ scene-details: # NEX-T10395
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml)
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_scene_details.py, '$(SERVICES)')
 
-scenes-summary: # NEX-T10394
+scenes-summary-ui: # NEX-T10394
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_scenes_summary.py, 'pgserver')
+	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_scenes_summary_ui.py, 'pgserver')
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 sensor-area: # NEX-T10401
