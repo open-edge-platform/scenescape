@@ -1,8 +1,8 @@
 # Design Document: Tracker Service
 
 - **Author(s)**: [Józef Daniecki](https://github.com/jdanieck)
-- **Date**: 2026-01-16
-- **Version**: 0.1
+- **Date**: 2026-04-27
+- **Version**: 0.2
 - **Status**: `Accepted`
 - **Related ADRs**:
   - [ADR-0003: Scaling Controller Performance](../adr/0003-scaling-controller-performance.md)
@@ -52,7 +52,8 @@ Explicitly out of scope:
 - **Lease-based scaling** — Static scene partitioning only
 - **Multi-scene fusion** — No cross-scene track handoff
 - **Scene hierarchy** — Flat scene structure only; no parent-child scene relationships or nested regions
-- **Sensor tagging of a track** — No visibility array or per-sensor metadata on tracks
+- **Sensor tagging of a track** — No visibility array or per-sensor assignment on tracks
+- **Multi-camera confidence merging** — When a track is observed by multiple cameras in the same time chunk, `confidence` from the last processed camera overwrites earlier values (last-write-wins, inherent RobotVision attributes API limitation)
 
 ## Architecture
 
@@ -90,7 +91,8 @@ See full schema: [`camera-data.schema.json`](../../tracker/schema/camera-data.sc
     "person": [
       {
         "id": 1,
-        "bounding_box_px": { "x": 4, "y": 0, "width": 127, "height": 309 }
+        "bounding_box_px": { "x": 4, "y": 0, "width": 127, "height": 309 },
+        "confidence": 0.92
       }
     ]
   }
@@ -121,13 +123,22 @@ See full schema: [`scene-data.schema.json`](../../tracker/schema/scene-data.sche
       "translation": [-0.33, 2.48, 0.0],
       "velocity": [-0.04, 0.2, 0.0],
       "size": [0.5, 0.5, 1.85],
-      "rotation": [0, 0, 0, 1]
+      "rotation": [0, 0, 0, 1],
+      "confidence": 0.92
     }
   ]
 }
 ```
 
-## Data
+### Detection Data Passthrough
+
+The `confidence` field is passed through from the camera detection message to the corresponding track in the scene output. It is optional — when absent in the detection message it is omitted from the track output.
+
+| Field        | Type   | Description                                               |
+| ------------ | ------ | --------------------------------------------------------- |
+| `confidence` | number | Detection confidence score in \[0, 1\] from the AI model  |
+
+**Multi-camera limitation**: When a track is matched against detections from multiple cameras within the same time chunk, `confidence` reflects the last matched camera only (last-write-wins). This is an inherent limitation of the RobotVision attributes API used for per-track data storage.
 
 In-memory only - no persistent storage. Stateless design for horizontal scalability.
 
