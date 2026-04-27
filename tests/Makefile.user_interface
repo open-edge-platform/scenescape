@@ -50,8 +50,8 @@ endef
 	$(call selenium-recipe, $(COMPOSE_FILES), tests/ui/tc_3d_ui_calibration_points.py, '$(SERVICES)')
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-add-delete-3d-object: # NEX-T10428
-	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_add_delete_3d_object.py, 'pgserver')
+add-delete-3d-object-ui: # NEX-T10428
+	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_add_delete_3d_object_ui.py, 'pgserver')
 
 auto-calibration-ui: # NEX-T15710
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))

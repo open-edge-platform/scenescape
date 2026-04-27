@@ -145,6 +145,7 @@ _functional-tests: \
   out-of-box-no-ntp \
   geometry-conformance \
   auto-calibration \
+  add-delete-3d-object \
   add-orphaned-cameras \
   api-large-strings \
   calibrate-all-sensor-types \
@@ -196,7 +197,7 @@ ui-tests:
 _ui-tests: \
   show-telemetry-button \
   upload-only-3d-glb-files-ui \
-  add-delete-3d-object \
+  add-delete-3d-object-ui \
   bounding-box \
   calibrate-all-sensor-types-ui \
   camera-deletion-ui \
