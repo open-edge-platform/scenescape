@@ -18,6 +18,11 @@ import time
 from unittest.mock import Mock
 
 from controller.moving_object import MovingObject, ReidState
+from controller.uuid_manager import UUIDManager
+
+
+def make_uuid(index):
+  return f"00000000-0000-0000-0000-{index:012d}"
 
 
 class TestReidStateEnum:
@@ -93,7 +98,7 @@ class TestMovingObjectReidStateInitialization:
 
 
 class TestRecordIdChange:
-  """Test record_id_change() method for ID chain tracking."""
+  """Test save_previous_object_id() method for ID chain tracking."""
 
   def setup_method(self):
     """Set up mock camera and object for each test."""
@@ -108,73 +113,82 @@ class TestRecordIdChange:
     self.timestamp = time.time()
     self.obj = MovingObject(self.info, self.timestamp, self.mock_camera)
 
-  def test_record_id_change_adds_entry_to_chain(self):
-    """Verify record_id_change() adds entry to previous_ids_chain."""
-    new_id = "gid_123"
+  def test_save_previous_object_id_adds_entry_to_chain(self):
+    """Verify save_previous_object_id() adds entry to previous_ids_chain."""
+    new_id = make_uuid(123)
     similarity = 0.87
     ts = time.time()
 
-    self.obj.record_id_change(new_id, similarity_score=similarity, timestamp=ts)
+    self.obj.save_previous_object_id(new_id, similarity_score=similarity, timestamp=ts)
 
     assert len(self.obj.previous_ids_chain) == 1
     assert self.obj.previous_ids_chain[0]['id'] == new_id
     assert self.obj.previous_ids_chain[0]['similarity_score'] == similarity
     assert self.obj.previous_ids_chain[0]['timestamp'] == ts
 
-  def test_record_id_change_with_none_similarity(self):
-    """Verify record_id_change() handles None similarity (new object case)."""
-    new_id = "gid_456"
+  def test_save_previous_object_id_with_none_similarity(self):
+    """Verify save_previous_object_id() handles None similarity (new object case)."""
+    new_id = make_uuid(456)
     ts = time.time()
 
-    self.obj.record_id_change(new_id, similarity_score=None, timestamp=ts)
+    self.obj.save_previous_object_id(new_id, similarity_score=None, timestamp=ts)
 
     assert len(self.obj.previous_ids_chain) == 1
     assert self.obj.previous_ids_chain[0]['id'] == new_id
     assert self.obj.previous_ids_chain[0]['similarity_score'] is None
     assert self.obj.previous_ids_chain[0]['timestamp'] == ts
 
-  def test_record_id_change_uses_current_time_when_timestamp_not_provided(self):
-    """Verify record_id_change() uses current time if timestamp is None."""
-    new_id = "gid_789"
+  def test_save_previous_object_id_uses_current_time_when_timestamp_not_provided(self):
+    """Verify save_previous_object_id() uses current time if timestamp is None."""
+    new_id = make_uuid(789)
     before = time.time()
 
-    self.obj.record_id_change(new_id, similarity_score=0.92, timestamp=None)
+    self.obj.save_previous_object_id(new_id, similarity_score=0.92, timestamp=None)
 
     after = time.time()
     recorded_time = self.obj.previous_ids_chain[0]['timestamp']
 
     assert before <= recorded_time <= after
 
-  def test_record_id_change_appends_multiple_entries(self):
-    """Verify multiple record_id_change() calls build chain correctly."""
+  def test_save_previous_object_id_accepts_non_empty_string_uuid(self):
+    """Verify tracker-provided UUID strings are accepted as previous IDs."""
+    previous_id = "a3f7f02a-2d54-4bf2-83b5-0f3d89267410"
+    ts = time.time()
+
+    self.obj.save_previous_object_id(previous_id, similarity_score=0.92, timestamp=ts)
+
+    assert len(self.obj.previous_ids_chain) == 1
+    assert self.obj.previous_ids_chain[0]['id'] == previous_id
+    assert self.obj.previous_ids_chain[0]['similarity_score'] == 0.92
+    assert self.obj.previous_ids_chain[0]['timestamp'] == ts
+
+  @pytest.mark.parametrize("invalid_id", [None, "", "   ", "not-a-uuid", -1, 0, 1.5, []])
+  def test_save_previous_object_id_rejects_invalid_previous_id(self, invalid_id):
+    """Verify invalid IDs are rejected before mutating previous_ids_chain."""
+    with pytest.raises(ValueError, match="previous_id must be a valid UUID"):
+      self.obj.save_previous_object_id(invalid_id, similarity_score=0.92)
+
+    assert self.obj.previous_ids_chain == []
+
+  def test_save_previous_object_id_appends_multiple_entries(self):
+    """Verify multiple save_previous_object_id() calls build chain correctly."""
     ts1 = time.time()
-    self.obj.record_id_change("gid_1", similarity_score=0.85, timestamp=ts1)
+    self.obj.save_previous_object_id(make_uuid(1), similarity_score=0.85, timestamp=ts1)
 
     ts2 = time.time() + 1.0
-    self.obj.record_id_change("gid_2", similarity_score=0.90, timestamp=ts2)
+    self.obj.save_previous_object_id(make_uuid(2), similarity_score=0.90, timestamp=ts2)
 
     ts3 = time.time() + 2.0
-    self.obj.record_id_change("gid_3", similarity_score=0.88, timestamp=ts3)
+    self.obj.save_previous_object_id(make_uuid(3), similarity_score=0.88, timestamp=ts3)
 
     assert len(self.obj.previous_ids_chain) == 3
-    assert self.obj.previous_ids_chain[0]['id'] == "gid_1"
-    assert self.obj.previous_ids_chain[1]['id'] == "gid_2"
-    assert self.obj.previous_ids_chain[2]['id'] == "gid_3"
-
-  def test_record_id_change_maintains_chronological_order(self):
-    """Verify entries in chain maintain insertion order (chronological)."""
-    timestamps = []
-    for i in range(5):
-      ts = time.time() + i * 0.1
-      timestamps.append(ts)
-      self.obj.record_id_change(f"gid_{i}", similarity_score=0.80 + i * 0.02, timestamp=ts)
-
-    for i, entry in enumerate(self.obj.previous_ids_chain):
-      assert entry['timestamp'] == timestamps[i]
+    assert self.obj.previous_ids_chain[0]['id'] == make_uuid(1)
+    assert self.obj.previous_ids_chain[1]['id'] == make_uuid(2)
+    assert self.obj.previous_ids_chain[2]['id'] == make_uuid(3)
 
 
 class TestIsReided:
-  """Test is_reided() helper method."""
+  """Test is_reidentified() helper method."""
 
   def setup_method(self):
     """Set up mock camera and object for each test."""
@@ -188,42 +202,29 @@ class TestIsReided:
     self.info = {'id': '1', 'confidence': 0.95}
     self.obj = MovingObject(self.info, time.time(), self.mock_camera)
 
-  def test_is_reided_returns_false_for_pending_collection(self):
-    """Verify is_reided() returns False when state is PENDING_COLLECTION."""
+  def test_is_reidentified_returns_false_for_pending_collection(self):
+    """Verify is_reidentified() returns False when state is PENDING_COLLECTION."""
     self.obj.reid_state = ReidState.PENDING_COLLECTION
 
-    assert self.obj.is_reided() is False
+    assert self.obj.is_reidentified() is False
 
-  def test_is_reided_returns_false_for_query_no_match(self):
-    """Verify is_reided() returns False when state is QUERY_NO_MATCH."""
+  def test_is_reidentified_returns_false_for_query_no_match(self):
+    """Verify is_reidentified() returns False when state is QUERY_NO_MATCH."""
     self.obj.reid_state = ReidState.QUERY_NO_MATCH
 
-    assert self.obj.is_reided() is False
+    assert self.obj.is_reidentified() is False
 
-  def test_is_reided_returns_true_for_matched(self):
-    """Verify is_reided() returns True when state is MATCHED."""
+  def test_is_reidentified_returns_true_for_matched(self):
+    """Verify is_reidentified() returns True when state is MATCHED."""
     self.obj.reid_state = ReidState.MATCHED
 
-    assert self.obj.is_reided() is True
+    assert self.obj.is_reidentified() is True
 
-  def test_is_reided_returns_false_for_reid_disabled(self):
-    """Verify is_reided() returns False when state is REID_DISABLED."""
+  def test_is_reidentified_returns_false_for_reid_disabled(self):
+    """Verify is_reidentified() returns False when state is REID_DISABLED."""
     self.obj.reid_state = ReidState.REID_DISABLED
 
-    assert self.obj.is_reided() is False
-
-  def test_is_reided_reflects_state_changes(self):
-    """Verify is_reided() reflects dynamic state changes."""
-    assert self.obj.is_reided() is False
-
-    self.obj.reid_state = ReidState.MATCHED
-    assert self.obj.is_reided() is True
-
-    self.obj.reid_state = ReidState.QUERY_NO_MATCH
-    assert self.obj.is_reided() is False
-
-    self.obj.reid_state = ReidState.REID_DISABLED
-    assert self.obj.is_reided() is False
+    assert self.obj.is_reidentified() is False
 
 
 class TestGetPreviousIds:
@@ -251,7 +252,7 @@ class TestGetPreviousIds:
   def test_get_previous_ids_returns_copy_not_reference(self):
     """Verify get_previous_ids() returns copy, not direct reference."""
     ts = time.time()
-    self.obj.record_id_change("gid_1", similarity_score=0.85, timestamp=ts)
+    self.obj.save_previous_object_id(make_uuid(1), similarity_score=0.85, timestamp=ts)
 
     ids1 = self.obj.get_previous_ids()
     ids2 = self.obj.get_previous_ids()
@@ -261,25 +262,25 @@ class TestGetPreviousIds:
 
     # Second retrieval should not include the fake entry
     assert len(ids2) == 1
-    assert ids2[0]['id'] == "gid_1"
+    assert ids2[0]['id'] == make_uuid(1)
 
   def test_get_previous_ids_returns_all_chain_entries(self):
     """Verify get_previous_ids() returns all entries in chain."""
     ts_base = time.time()
     for i in range(5):
       ts = ts_base + i * 0.1
-      self.obj.record_id_change(f"gid_{i}", similarity_score=0.80 + i * 0.02, timestamp=ts)
+      self.obj.save_previous_object_id(make_uuid(i + 1), similarity_score=0.80 + i * 0.02, timestamp=ts)
 
     ids = self.obj.get_previous_ids()
 
     assert len(ids) == 5
-    assert ids[0]['id'] == "gid_0"
-    assert ids[4]['id'] == "gid_4"
+    assert ids[0]['id'] == make_uuid(1)
+    assert ids[4]['id'] == make_uuid(5)
 
   def test_get_previous_ids_preserves_entry_structure(self):
     """Verify get_previous_ids() preserves complete entry structure."""
     ts = time.time()
-    self.obj.record_id_change("gid_test", similarity_score=0.92, timestamp=ts)
+    self.obj.save_previous_object_id(make_uuid(42), similarity_score=0.92, timestamp=ts)
 
     ids = self.obj.get_previous_ids()
     entry = ids[0]
@@ -287,7 +288,7 @@ class TestGetPreviousIds:
     assert 'id' in entry
     assert 'timestamp' in entry
     assert 'similarity_score' in entry
-    assert entry['id'] == "gid_test"
+    assert entry['id'] == make_uuid(42)
     assert entry['similarity_score'] == 0.92
     assert entry['timestamp'] == ts
 
@@ -310,19 +311,19 @@ class TestStateTransitions:
   def test_transition_pending_to_matched(self):
     """Simulate state transition: PENDING_COLLECTION → MATCHED."""
     assert self.obj.reid_state == ReidState.PENDING_COLLECTION
-    assert self.obj.is_reided() is False
+    assert self.obj.is_reidentified() is False
 
     # Simulate successful reid match
     self.obj.reid_state = ReidState.MATCHED
     self.obj.similarity = 0.95
     ts = time.time()
-    self.obj.record_id_change("matched_gid_123", similarity_score=0.95, timestamp=ts)
+    self.obj.save_previous_object_id(make_uuid(123), similarity_score=0.95, timestamp=ts)
 
     assert self.obj.reid_state == ReidState.MATCHED
-    assert self.obj.is_reided() is True
+    assert self.obj.is_reidentified() is True
     assert self.obj.similarity == 0.95
     assert len(self.obj.previous_ids_chain) == 1
-    assert self.obj.previous_ids_chain[0]['id'] == "matched_gid_123"
+    assert self.obj.previous_ids_chain[0]['id'] == make_uuid(123)
 
   def test_transition_pending_to_query_no_match(self):
     """Simulate state transition: PENDING_COLLECTION → QUERY_NO_MATCH."""
@@ -332,13 +333,13 @@ class TestStateTransitions:
     self.obj.reid_state = ReidState.QUERY_NO_MATCH
     self.obj.similarity = None
     ts = time.time()
-    self.obj.record_id_change("new_gid_456", similarity_score=None, timestamp=ts)
+    self.obj.save_previous_object_id(make_uuid(456), similarity_score=None, timestamp=ts)
 
     assert self.obj.reid_state == ReidState.QUERY_NO_MATCH
-    assert self.obj.is_reided() is False
+    assert self.obj.is_reidentified() is False
     assert self.obj.similarity is None
     assert len(self.obj.previous_ids_chain) == 1
-    assert self.obj.previous_ids_chain[0]['id'] == "new_gid_456"
+    assert self.obj.previous_ids_chain[0]['id'] == make_uuid(456)
     assert self.obj.previous_ids_chain[0]['similarity_score'] is None
 
   def test_multi_frame_tracking_with_state_persistence(self):
@@ -350,7 +351,7 @@ class TestStateTransitions:
     self.obj.reid_state = ReidState.MATCHED
     self.obj.similarity = 0.92
     ts1 = time.time()
-    self.obj.record_id_change("gid_1", similarity_score=0.92, timestamp=ts1)
+    self.obj.save_previous_object_id(make_uuid(1), similarity_score=0.92, timestamp=ts1)
 
     # Frame 3: Still same object, state persists
     assert self.obj.reid_state == ReidState.MATCHED
@@ -358,13 +359,13 @@ class TestStateTransitions:
 
     # Frame 4: Object re-identified in different camera (hypothetical scenario)
     ts2 = time.time() + 1.0
-    self.obj.record_id_change("gid_2", similarity_score=0.88, timestamp=ts2)
+    self.obj.save_previous_object_id(make_uuid(2), similarity_score=0.88, timestamp=ts2)
 
     chain = self.obj.get_previous_ids()
     assert len(chain) == 2
-    assert chain[0]['id'] == "gid_1"
+    assert chain[0]['id'] == make_uuid(1)
     assert chain[0]['similarity_score'] == 0.92
-    assert chain[1]['id'] == "gid_2"
+    assert chain[1]['id'] == make_uuid(2)
     assert chain[1]['similarity_score'] == 0.88
 
   def test_transition_pending_to_reid_disabled(self):
@@ -375,10 +376,10 @@ class TestStateTransitions:
     # Simulate case where reid system is disabled (e.g., VDMS not available)
     self.obj.reid_state = ReidState.REID_DISABLED
     self.obj.similarity = None
-    # No record_id_change() - no query happened
+    # No save_previous_object_id() - no query happened
 
     assert self.obj.reid_state == ReidState.REID_DISABLED
-    assert self.obj.is_reided() is False
+    assert self.obj.is_reidentified() is False
     assert self.obj.similarity is None
     assert len(self.obj.previous_ids_chain) == 0  # No chain entry - no query/match occurred
 
@@ -403,11 +404,11 @@ class TestChainDataIntegrity:
     ts_base = time.time()
 
     # High similarity match
-    self.obj.record_id_change("gid_1", similarity_score=0.99, timestamp=ts_base)
+    self.obj.save_previous_object_id(make_uuid(1), similarity_score=0.99, timestamp=ts_base)
     # Low but valid similarity match
-    self.obj.record_id_change("gid_2", similarity_score=0.51, timestamp=ts_base + 1.0)
+    self.obj.save_previous_object_id(make_uuid(2), similarity_score=0.51, timestamp=ts_base + 1.0)
     # No match (new object)
-    self.obj.record_id_change("gid_3", similarity_score=None, timestamp=ts_base + 2.0)
+    self.obj.save_previous_object_id(make_uuid(3), similarity_score=None, timestamp=ts_base + 2.0)
 
     chain = self.obj.get_previous_ids()
 
@@ -420,7 +421,7 @@ class TestChainDataIntegrity:
     ts = time.time()
     precision_value = 0.8675309
 
-    self.obj.record_id_change("gid_precise", similarity_score=precision_value, timestamp=ts)
+    self.obj.save_previous_object_id(make_uuid(99), similarity_score=precision_value, timestamp=ts)
 
     chain = self.obj.get_previous_ids()
     assert chain[0]['similarity_score'] == precision_value
@@ -430,9 +431,9 @@ class TestChainDataIntegrity:
     ts_base = time.time()
 
     # Perfect match
-    self.obj.record_id_change("gid_perfect", similarity_score=1.0, timestamp=ts_base)
+    self.obj.save_previous_object_id(make_uuid(1), similarity_score=1.0, timestamp=ts_base)
     # Worst possible match (still valid)
-    self.obj.record_id_change("gid_worst", similarity_score=0.0, timestamp=ts_base + 1.0)
+    self.obj.save_previous_object_id(make_uuid(2), similarity_score=0.0, timestamp=ts_base + 1.0)
 
     chain = self.obj.get_previous_ids()
 
@@ -447,16 +448,93 @@ class TestChainDataIntegrity:
     for i in range(chain_size):
       ts = ts_base + i * 0.01
       similarity = 0.5 + (i % 50) * 0.01  # Varying similarities
-      self.obj.record_id_change(f"gid_{i}", similarity_score=similarity, timestamp=ts)
+      self.obj.save_previous_object_id(make_uuid(i + 1), similarity_score=similarity, timestamp=ts)
 
     chain = self.obj.get_previous_ids()
 
     assert len(chain) == chain_size
-    assert chain[0]['id'] == "gid_0"
-    assert chain[chain_size - 1]['id'] == f"gid_{chain_size - 1}"
+    assert chain[0]['id'] == make_uuid(1)
+    assert chain[chain_size - 1]['id'] == make_uuid(chain_size)
     # Verify chronological order is maintained
     for i in range(len(chain) - 1):
       assert chain[i]['timestamp'] <= chain[i + 1]['timestamp']
+
+
+class TestUUIDManagerPreviousIdChainBehavior:
+  """Test UUIDManager writes previous_ids_chain with the old gid on transitions."""
+
+  def setup_method(self):
+    self.manager = UUIDManager(reid_config_data={'stale_feature_check_interval_secs': 3600})
+
+  def teardown_method(self):
+    self.manager.shutdown()
+
+  def _build_sscape_object(self, rv_id, gid):
+    obj = Mock()
+    obj.rv_id = rv_id
+    obj.gid = gid
+    obj.category = 'person'
+    obj.metadata = {}
+    obj.reid_state = ReidState.PENDING_COLLECTION
+    obj.similarity = None
+    obj.save_previous_object_id = Mock()
+    self.manager.quality_features[rv_id] = []
+    return obj
+
+  def test_update_active_dict_records_old_gid_on_match_transition(self):
+    obj = self._build_sscape_object(rv_id=11, gid=make_uuid(101))
+    self.manager.active_ids[obj.rv_id] = [None, None]
+
+    with self.manager.active_ids_lock:
+      self.manager.updateActiveDict(obj, database_id=make_uuid(202), similarity=0.91, query_timestamp=123.0)
+
+    obj.save_previous_object_id.assert_called_once_with(
+      make_uuid(101), similarity_score=0.91, timestamp=123.0)
+    assert obj.gid == make_uuid(202)
+
+  def test_update_active_dict_records_old_gid_on_no_match_new_assignment(self):
+    obj = self._build_sscape_object(rv_id=22, gid=make_uuid(303))
+    self.manager.active_ids[999] = [make_uuid(303), None]
+    self.manager.active_ids[obj.rv_id] = [None, None]
+
+    old_counter = MovingObject.gid_counter
+    MovingObject.gid_counter = 404
+    try:
+      with self.manager.active_ids_lock:
+        self.manager.updateActiveDict(obj, database_id=None, similarity=None, query_timestamp=456.0)
+    finally:
+      MovingObject.gid_counter = old_counter
+
+    obj.save_previous_object_id.assert_called_once_with(
+      make_uuid(303), similarity_score=None, timestamp=456.0)
+    assert obj.gid == 404
+
+  def test_update_active_dict_does_not_record_when_gid_unchanged(self):
+    obj = self._build_sscape_object(rv_id=33, gid=make_uuid(505))
+    self.manager.active_ids[obj.rv_id] = [None, None]
+
+    with self.manager.active_ids_lock:
+      self.manager.updateActiveDict(obj, database_id=None, similarity=None, query_timestamp=789.0)
+
+    obj.save_previous_object_id.assert_not_called()
+    assert obj.gid == make_uuid(505)
+
+  def test_update_active_dict_never_sets_matched_with_null_similarity(self):
+    """Matched state must always carry a non-null similarity score."""
+    obj = self._build_sscape_object(rv_id=44, gid=make_uuid(606))
+    self.manager.active_ids[obj.rv_id] = [None, None]
+
+    with self.manager.active_ids_lock:
+      self.manager.updateActiveDict(
+        obj,
+        database_id=make_uuid(707),
+        similarity=None,
+        query_timestamp=901.0,
+      )
+
+    assert obj.reid_state == ReidState.QUERY_NO_MATCH
+    assert obj.similarity is None
+    assert not (obj.reid_state == ReidState.MATCHED and obj.similarity is None)
 
 
 if __name__ == '__main__':

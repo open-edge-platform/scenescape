@@ -4,6 +4,7 @@
 import base64
 import binascii
 import datetime
+import uuid
 import warnings
 from dataclasses import dataclass, field
 from enum import Enum
@@ -400,25 +401,31 @@ class MovingObject:
   def when(self):
     return self.location[0].when
 
-  def record_id_change(self, new_id, similarity_score=None, timestamp=None):
-    """Record a change in object ID (for post-mortem stitching analysis).
+  def save_previous_object_id(self, previous_id, similarity_score=None, timestamp=None):
+    """Save the previous object ID for post-mortem analysis.
 
-    @param new_id: The new global ID assigned to this object
+    @param previous_id: The previous global ID assigned to this object
     @param similarity_score: Similarity score from reID matching (if matched), or None if new object
     @param timestamp: When the change occurred (epoch time), defaults to current time
     """
+    try:
+      uuid.UUID(previous_id)
+    except (TypeError, ValueError, AttributeError) as err:
+      raise ValueError("previous_id must be a valid UUID") from err
+
     if timestamp is None:
       timestamp = get_epoch_time()
 
+
     self.previous_ids_chain.append({
-      'id': new_id,
+      'id': previous_id,
       'timestamp': timestamp,
       'similarity_score': similarity_score
     })
-    log.debug(f"MovingObject.record_id_change: rv_id={getattr(self, 'rv_id', 'unknown')}, "
-              f"new_id={new_id}, similarity={similarity_score}, state={self.reid_state.value}")
+    log.debug(f"MovingObject.save_previous_object_id: rv_id={getattr(self, 'rv_id', 'unknown')}, "
+              f"previous_id={previous_id}, similarity={similarity_score}, state={self.reid_state.value}")
 
-  def is_reided(self):
+  def is_reidentified(self):
     """Check if this object resulted from successful reID matching.
 
     @return: True if object was matched to a previous object, False otherwise

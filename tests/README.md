@@ -28,6 +28,15 @@ make -C tests broken-tests
 # Run a specific test
 make -C tests mqtt-roi
 
+# Run ReID unique-count matrix from config
+make -C tests reid-unique-count
+
+# Run ReID semantic unique-count matrix from config
+make -C tests reid-semantic-unique-count
+
+# Optional: point to a custom matrix scenario file
+make -C tests reid-unique-count REID_MATRIX_CONFIG=$(pwd)/tests/functional/config/reid-threshold-scenario.json
+
 ```
 
 For a complete and up-to-date list of all test targets and their definitions, see the [Tests Makefile](tests/Makefile)

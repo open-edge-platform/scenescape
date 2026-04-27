@@ -52,7 +52,8 @@ class UUIDManager:
     self.stale_feature_timeout_secs = reid_config_data.get('stale_feature_timeout_secs', DEFAULT_STALE_FEATURE_TIMEOUT_SECS)
     self.stale_feature_check_interval_secs = reid_config_data.get('stale_feature_check_interval_secs', DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS)
     self.minimum_feature_count = reid_config_data.get('feature_accumulation_threshold', DEFAULT_MINIMUM_FEATURE_COUNT)
-    self.similarity_threshold = reid_config_data.get('similarity_threshold', DEFAULT_SIMILARITY_THRESHOLD)
+    self.similarity_threshold = reid_config_data.get(
+      'similarity_threshold', DEFAULT_SIMILARITY_THRESHOLD)
     self.minimum_bbox_area = reid_config_data.get('minimum_bbox_area', DEFAULT_MINIMUM_BBOX_AREA)
     self.feature_slice_size = reid_config_data.get('feature_slice_size', DEFAULT_FEATURE_SLICE_SIZE)
     self.stale_feature_timer = None
@@ -63,6 +64,8 @@ class UUIDManager:
     """Thread-safe increment for unique_id_count."""
     with self.unique_id_count_lock:
       self.unique_id_count += 1
+      new_count = self.unique_id_count
+    return new_count
 
   def updateReidConfig(self, reid_config_data=None):
     """Update runtime ReID configuration without recreating the UUID manager."""
@@ -384,7 +387,8 @@ class UUIDManager:
     # This allows downstream logic to distinguish "never queried" from "query made"
     start_time = get_epoch_time()
     similarity_scores = self.sendSimilarityQuery(sscape_object)
-    database_id, similarity = self.parseQueryResults(similarity_scores)
+    database_id, similarity = self.parseQueryResults(
+      similarity_scores, rv_id=sscape_object.rv_id)
     with self.active_ids_lock:
       # Make sure object is still in active_ids before updating since there is a chance
       # that the similiarity search does not complete until after the object leaves
@@ -392,8 +396,11 @@ class UUIDManager:
         self.updateActiveDict(sscape_object, database_id, similarity, query_timestamp=start_time)
       else:
         active_snapshot, _ = self._active_ids_snapshot_locked()
+        if database_id is None:
+          self._increment_unique_id_count()
         log.warning(
           f"Track {sscape_object.rv_id} left scene before ID query finished "
+          f"query_result_gid={database_id} similarity={similarity} "
           f"active_ids_snapshot={active_snapshot}")
     return
 
@@ -437,7 +444,7 @@ class UUIDManager:
 
     return scores
 
-  def parseQueryResults(self, similarity_scores, threshold=None):
+  def parseQueryResults(self, similarity_scores, threshold=None, rv_id=None):
     """
     Check database for any similar objects and return an ID and similarity score.
     The threshold value is used as the deciding criteria for close matches.
@@ -454,11 +461,14 @@ class UUIDManager:
       threshold = self.similarity_threshold
 
     if similarity_scores:
+      # VDMS FindDescriptor returns entities sorted ascending by _distance (closest first),
+      # so each per-vector best match is always entities[0].
       minimum_distances = [self._findMinimumDistance(entities)
                            for entities in similarity_scores]
       distances_below_threshold = [(uuid, distance) for (uuid, distance) in
                                    minimum_distances if
                                    distance is not None and distance < threshold]
+
       if distances_below_threshold:
         counter = collections.Counter(item[0] for item in distances_below_threshold)
         most_common_uuid, count = counter.most_common(1)[0]
@@ -466,17 +476,21 @@ class UUIDManager:
           similarity = min(item[1] for item in distances_below_threshold
                            if item[0] == most_common_uuid)
           return most_common_uuid, similarity
+
     return None, None
 
   def _findMinimumDistance(self, entities):
     """
-    Find the uuid with the minimum distance and the corresponding distance value
+    Find the uuid with the minimum distance and the corresponding distance value.
 
-    Sctructure of entities:
+    VDMS returns entities sorted ascending by _distance (closest first), so entities[0]
+    is always the best match.
+
+    Structure of entities:
     [{'uuid': <UUID>, 'rvid': <TRACKER_ID>, '_distance': <SIMILARITY_SCORE>}, ...]
     """
     if entities:
-      minimum_distance_entity = min(entities, key=lambda x: x['_distance'])
+      minimum_distance_entity = entities[0]
       return (minimum_distance_entity['uuid'], minimum_distance_entity['_distance'])
     return (None, None)
 
@@ -524,21 +538,22 @@ class UUIDManager:
     IDs. Also creates an entry in the features_for_database dictionary with semantic metadata
     to be added to the database when the track leaves the scene.
 
-    Updates object's reid_state and records ID changes in previous_ids_chain for post-mortem
-    stitching analysis.
-
     @param  sscape_object    The current Scenescape object
     @param  database_id      The ID from the database (or newly generated if no match)
     @param  similarity       The similarity score from the database (None if no match)
-    @param  query_timestamp  When the query was initiated (for chain recording)
+    @param  query_timestamp  When the query was initiated
     """
     if query_timestamp is None:
       query_timestamp = get_epoch_time()
-
+    previous_gid = sscape_object.gid
     gid_index = self._active_gid_index_locked()
     current_holders = gid_index.get(database_id, []) if database_id is not None else []
-    matched_new_id = database_id is not None and self.isNewID(database_id)
-    database_id_collision = database_id is not None and not matched_new_id
+    matched_new_id = (
+      database_id is not None
+      and self.isNewID(database_id)
+      and similarity is not None
+    )
+    database_id_collision = database_id is not None and bool(current_holders)
 
     if database_id is not None and current_holders:
       log.warning(
@@ -553,8 +568,10 @@ class UUIDManager:
       sscape_object.reid_state = ReidState.MATCHED
       sscape_object.gid = database_id
       sscape_object.similarity = similarity
-      # Record the matched ID in chain with similarity score
-      sscape_object.record_id_change(database_id, similarity_score=similarity, timestamp=query_timestamp)
+      # Store the old gid only when gid transitions; chain tracks historical ids.
+      if previous_gid is not None and previous_gid != database_id:
+        sscape_object.save_previous_object_id(previous_gid, similarity_score=similarity,
+                                       timestamp=query_timestamp)
 
       log.debug(
         f"updateActiveDict: Match found for {sscape_object.rv_id}: {database_id}, similarity={similarity}, state={ReidState.MATCHED.value}")
@@ -591,8 +608,10 @@ class UUIDManager:
           )
       sscape_object.gid = database_id
       sscape_object.similarity = None
-      # Record the new ID in chain with no match (None similarity indicates no match)
-      sscape_object.record_id_change(database_id, similarity_score=None, timestamp=query_timestamp)
+      # Store the old gid only when gid transitions; chain tracks historical ids.
+      if previous_gid is not None and previous_gid != database_id:
+        sscape_object.save_previous_object_id(previous_gid, similarity_score=None,
+                                       timestamp=query_timestamp)
 
       # Increment counter for unique objects with actual query attempts that found no match
       self._increment_unique_id_count()
