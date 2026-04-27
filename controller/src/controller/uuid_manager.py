@@ -3,10 +3,10 @@
 
 import collections
 import concurrent.futures
-import json
 import threading
 import time
-from unittest import result
+
+import numpy as np
 
 from controller.vdms_adapter import VDMSDatabase
 from scene_common import log
@@ -35,15 +35,18 @@ class UUIDManager:
     self.features_for_database_timestamps = {}  # Track when features were added
     self.quality_features = {}
     self.unique_id_count = 0
-    self.reid_database = available_databases[database]()
+    # ReID embedding dimensions are inferred from the first observed embedding.
+    if reid_config_data is None:
+      reid_config_data = {}
+    self._inferred_dimensions = None
+    self._dimensions_lock = threading.Lock()
+    self.reid_database = available_databases[database](dimensions=None)
     self.pool = concurrent.futures.ThreadPoolExecutor()
     self.similarity_query_times = collections.deque(
       maxlen=DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED)
     self.similarity_query_times_lock = threading.Lock()
     self.reid_enabled = True
     # Extract stale feature timeout from reid config, use default if not provided
-    if reid_config_data is None:
-      reid_config_data = {}
     self.stale_feature_timeout_secs = reid_config_data.get('stale_feature_timeout_secs', DEFAULT_STALE_FEATURE_TIMEOUT_SECS)
     self.stale_feature_check_interval_secs = reid_config_data.get('stale_feature_check_interval_secs', DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS)
     self.stale_feature_timer = None
@@ -99,16 +102,51 @@ class UUIDManager:
   def connectDatabase(self):
     self.pool.submit(self.reid_database.connect)
 
+  def _ensureReIDDimensions(self, embedding):
+    """
+    Infer the ReID embedding dimension from the first observed vector and lazily
+    initialize the VDMS descriptor set schema with that dimension.
+    On subsequent calls, validate that the embedding dimension is consistent with
+    the first observed vector so that mixed-model or mis-configured producers are
+    caught early rather than producing silent data corruption in the DB.
+
+    @param   embedding  Decoded ReID embedding (numpy array or list)
+    @return  bool       True if the embedding should be used; False if it must be discarded
+    """
+    # Decoded embeddings from decodeReIDEmbeddingVector are (1, N); reshape(-1)
+    # flattens that to (N,) so we get the true element count regardless of shape.
+    dim = int(np.asarray(embedding).reshape(-1).shape[0])
+    if dim <= 0:
+      log.warning(
+        f"_ensureReIDDimensions: Skipping empty or zero-length embedding (dim={dim}); "
+        "embedding will not be used.")
+      return False
+    with self._dimensions_lock:
+      if self._inferred_dimensions is None:
+        log.info(f"Inferred ReID embedding dimensions from first observed vector: {dim}")
+        try:
+          self.reid_database.ensureSchema(dim)
+        except (ValueError, RuntimeError) as err:
+          log.error(f"ReID schema initialization failed: {err}")
+          return False
+        self._inferred_dimensions = dim
+        return True
+      if dim != self._inferred_dimensions:
+        log.warning(
+          f"Discarding ReID embedding with inconsistent dimension {dim}; "
+          f"expected {self._inferred_dimensions} (inferred from first observed vector). "
+          f"Restart the controller to switch ReID models.")
+        return False
+      return True
+
   def _extractReidEmbedding(self, sscape_object):
     """
     Extract embedding vector from sscape_object's reid field.
-    Returns the decoded embedding vector (numpy array or list), not the base64 string.
-    Handles both formats:
-    1. New format: dict with 'embedding_vector' and 'model_name' keys
-    2. Legacy format: direct vector (list or numpy array)
+    decodeReIDEmbeddingVector guarantees that embedding_vector is a (1, N)
+    numpy array after _decodeReIDVector runs, so no string check is needed here.
 
     @param   sscape_object  The Scenescape object with detection data
-    @return  embedding      The decoded embedding vector (numpy array or list), or None if not available
+    @return  embedding      The decoded (1, N) ndarray, or None if not available
     """
     try:
       reid = sscape_object.reid
@@ -118,17 +156,13 @@ class UUIDManager:
     if reid is None:
       return None
 
-    # New format: dict with 'embedding_vector' key
+    # Standard path: dict populated by MovingObject._decodeReIDVector.
+    # embedding_vector is always an ndarray (1, N) or None at this point.
     if isinstance(reid, dict):
-      embedding = reid.get('embedding_vector', None)
-      # Only return if it's already decoded (numpy array or list, not a string)
-      if embedding is not None and not isinstance(embedding, str):
-        return embedding
-      return None
+      return reid.get('embedding_vector', None)
 
-    # Legacy format: direct vector (list or numpy array)
-    # Return if it's not a dict and not a string
-    if not isinstance(reid, str) and not isinstance(reid, dict):
+    # Safety net for callers that set reid directly to an ndarray or list.
+    if isinstance(reid, (np.ndarray, list)):
       return reid
 
     return None
@@ -234,6 +268,8 @@ class UUIDManager:
     reid_embedding = self._extractReidEmbedding(sscape_object)
 
     if reid_embedding is not None and self.reid_enabled:
+      if not self._ensureReIDDimensions(reid_embedding):
+        return
       bbox_area = sscape_object.boundingBoxPixels.area if hasattr(sscape_object, 'boundingBoxPixels') else 0
       if bbox_area > minimum_bbox_area:
         if sscape_object.rv_id in self.quality_features:
@@ -263,7 +299,7 @@ class UUIDManager:
       sscape_object.similarity = result[1]
       reid_embedding = self._extractReidEmbedding(sscape_object)
 
-      if reid_embedding is not None:
+      if reid_embedding is not None and self._ensureReIDDimensions(reid_embedding):
         if sscape_object.rv_id in self.features_for_database:
           self.features_for_database[sscape_object.rv_id]['reid_vectors'].append(
             reid_embedding)
