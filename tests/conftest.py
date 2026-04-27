@@ -139,6 +139,8 @@ def pytest_addoption(parser):
                                 help="Enable analytics-only mode for tests")),
     ("--env-profiles",     dict(default=None,
                                 help="Comma-separated list of env profile names to run tests against")),
+    ("--collect-container-logs", dict(default="failed", choices=["failed", "all", "none"],
+                  help="Container log collection mode: failed (default), all, or none")),
   ]
   for name, kw in _opts:
     try:
@@ -653,11 +655,12 @@ def pytest_runtest_makereport(item, call):
   setattr(item, f"rep_{rep.when}", rep)
 
 def pytest_runtest_teardown(item, nextitem):
-  """Collect container logs only when a test failed.
-
-  This limits disk usage while preserving container diagnostics for failures.
-  """
+  """Collect container logs according to configured collection mode."""
   if not _ORCHESTRATION_AVAILABLE:
+    return
+
+  mode = item.config.getoption("collect_container_logs", default="failed")
+  if mode == "none":
     return
 
   rep_setup = getattr(item, "rep_setup", None)
@@ -666,14 +669,17 @@ def pytest_runtest_teardown(item, nextitem):
     (rep_setup is not None and rep_setup.failed)
     or (rep_call is not None and rep_call.failed)
   )
-  if not failed:
+  if mode == "failed" and not failed:
     return
 
   env = item.funcargs.get("scenescape_env") if hasattr(item, "funcargs") else None
   if env is None:
     return
 
-  logger.info("Collecting container logs for failed test: %s", item.nodeid)
+  if mode == "all":
+    logger.info("Collecting container logs (mode=all): %s", item.nodeid)
+  else:
+    logger.info("Collecting container logs for failed test: %s", item.nodeid)
   collect_logs(env.docker, scan_for_tracebacks=True)
 
 def pytest_runtest_logreport(report):
