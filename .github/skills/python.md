@@ -27,9 +27,11 @@ from manager.models import Scene
 ## Naming Conventions
 
 - **Classes**: `PascalCase` (e.g., `SceneController`, `RESTClient`)
-- **Functions/Methods**: `camelCase` (e.g., `getSceneData`, `validateMessage`) — this is the established convention throughout `scene_common` and `controller`.
+- **Functions/Methods**:
+  - `camelCase` in `scene_common`, `controller`, `autocalibration`, `mapping`, and `cluster_analytics` (e.g., `getSceneData`, `validateMessage`) — established convention in those components
+  - `snake_case` everywhere else (e.g., `get_scene_data`, `validate_message`) — follow PEP 8 for all other new components
 - **Constants**: `UPPER_SNAKE_CASE` (e.g., `TOPIC_BASE`, `CHUNK_SIZE`)
-- **Private members**: Prefix with single underscore `_` (e.g., `_processData`, `_internalState`)
+- **Private members**: Prefix with single underscore `_`; follow the same component rule above (e.g., `_processData` in `scene_common`/`controller`, `_process_data` elsewhere)
 
 ## Code Style
 
