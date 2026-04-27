@@ -835,6 +835,17 @@ class UserSerializer(NonNullSerializer):
       if not password:
         raise serializers.ValidationError({'password': ['This field is required.']})
 
+    else:
+      if 'username' in self.initial_data:
+        username = attrs.get('username', '')
+        if not username or not username.strip():
+          raise serializers.ValidationError({'username': ['This field may not be blank.']})
+
+      if 'password' in self.initial_data:
+        password = attrs.get('password', '')
+        if not password:
+          raise serializers.ValidationError({'password': ['This field may not be blank.']})
+
     return super().validate(attrs)
 
   def create_update(self, validated_data, instance=None):
