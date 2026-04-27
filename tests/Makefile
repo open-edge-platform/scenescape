@@ -171,6 +171,7 @@ _functional-tests: \
   sensor-scene-api \
   sensors-send-events \
   superuser-crud-operations-api \
+  upload-3d-glb-file-api \
   upload-only-3d-glb-files-api \
   vdms-similarity-search \
   visibility-unregulated \
