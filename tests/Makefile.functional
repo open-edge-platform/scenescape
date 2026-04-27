@@ -39,6 +39,10 @@ scene-import-json: # NEX-T15347
 	$(call common-recipe, $(COMPOSE_FILES), controller/tests/tc_scene_import_json.py, 'scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
+object-crud: # NEX-T10429-API
+	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_object_crud.py, 'pgserver web', true, /run/secrets/controller.auth)
+
 infer-rotation: # NEX-T10543
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)

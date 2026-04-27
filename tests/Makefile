@@ -163,6 +163,7 @@ _functional-tests: \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
   mqtt-tripwire \
+  object-crud \
   orphaned-sensor \
   persistence \
   rest-test \
@@ -211,7 +212,7 @@ _ui-tests: \
   delete-tripwire-mqtt \
   different-formats-maps-ui \
   manual-camera-calibration-ui \
-  object-crud \
+  object-crud-ui \
   restricted-media-access \
   persistence-ui \
   live-view-button \

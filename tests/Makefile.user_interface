@@ -144,8 +144,8 @@ manual-camera-calibration-ui: # NEX-T10426
 	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_manual_camera_calibration_ui.py, 'pgserver')
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-object-crud: # NEX-T10429
-	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_object_crud.py, 'pgserver')
+object-crud-ui: # NEX-T10429
+	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_object_crud_ui.py, 'pgserver')
 
 persistence-ui: # NEX-T10393
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
