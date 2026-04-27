@@ -152,6 +152,7 @@ _functional-tests: \
   camera-intrinsics \
   child-scenes \
   different-formats-maps-api \
+  delete-sensors-api \
   infer-rotation \
   manual-camera-calibration-api \
   mqtt-auth \
