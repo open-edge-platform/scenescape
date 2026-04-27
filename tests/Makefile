@@ -170,7 +170,7 @@ _functional-tests: \
   rest-test \
   scene-import \
   scene-import-json \
-  sensor-scene-api \
+  sensor-location \
   sensors-send-events \
   superuser-crud-operations \
   upload-3d-glb-file \
