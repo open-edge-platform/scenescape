@@ -357,48 +357,5 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithoutConfidence_OmitsConfidenceFiel
     EXPECT_FALSE(doc["objects"][0].HasMember("confidence"));
 }
 
-TEST_F(TrackPublisherTest, Serialize_Track_WithFirstSeen_EmitsFirstSeenField) {
-    auto mock_client = std::make_shared<MockMqttClient>();
-    TrackPublisher publisher(mock_client);
-
-    std::string captured_payload;
-    EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(true));
-    EXPECT_CALL(*mock_client, publish(_, _))
-        .WillOnce([&captured_payload](const std::string&, const std::string& payload) {
-            captured_payload = payload;
-        });
-
-    Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
-    track.first_seen_iso = "2026-01-27T11:00:00.000Z";
-    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track}, {});
-
-    rapidjson::Document doc;
-    ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
-
-    ASSERT_TRUE(doc["objects"][0].HasMember("first_seen"));
-    EXPECT_STREQ(doc["objects"][0]["first_seen"].GetString(), "2026-01-27T11:00:00.000Z");
-}
-
-TEST_F(TrackPublisherTest, Serialize_Track_WithoutFirstSeen_OmitsFirstSeenField) {
-    auto mock_client = std::make_shared<MockMqttClient>();
-    TrackPublisher publisher(mock_client);
-
-    std::string captured_payload;
-    EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(true));
-    EXPECT_CALL(*mock_client, publish(_, _))
-        .WillOnce([&captured_payload](const std::string&, const std::string& payload) {
-            captured_payload = payload;
-        });
-
-    Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
-    // first_seen_iso is empty (default-constructed)
-    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track}, {});
-
-    rapidjson::Document doc;
-    ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
-
-    EXPECT_FALSE(doc["objects"][0].HasMember("first_seen"));
-}
-
 } // namespace
 } // namespace tracker

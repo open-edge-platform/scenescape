@@ -108,15 +108,6 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
             obj.AddMember("confidence", Value(*track.confidence), allocator);
         }
 
-        // first_seen (always set by the tracker)
-        if (!track.first_seen_iso.empty()) {
-            obj.AddMember(
-                "first_seen",
-                Value().SetString(track.first_seen_iso.c_str(),
-                                  static_cast<SizeType>(track.first_seen_iso.size()), allocator),
-                allocator);
-        }
-
         objects_array.PushBack(obj, allocator);
     }
 

@@ -215,8 +215,7 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
 
 std::vector<Track>
 TrackingWorker::convert_tracks(const std::vector<rv::tracking::TrackedObject>& rv_tracks,
-                               const std::string& category,
-                               std::chrono::system_clock::time_point timestamp) {
+                               const std::string& category) {
     // Extract active RobotVision IDs for map update
     std::vector<int32_t> active_ids;
     active_ids.reserve(rv_tracks.size());
@@ -225,25 +224,7 @@ TrackingWorker::convert_tracks(const std::vector<rv::tracking::TrackedObject>& r
     }
 
     // Update ID map: preserve UUIDs for continuing tracks, generate new for new tracks
-    auto new_map = update_id_map(id_map_, active_ids);
-
-    // Record first_seen for any brand-new UUIDs (not present in the old id_map_)
-    const std::string ts_iso = formatTimestamp(timestamp);
-    for (const auto& [rv_id, uuid] : new_map) {
-        if (!id_map_.contains(rv_id)) {
-            first_seen_map_.emplace(uuid, ts_iso);
-        }
-    }
-
-    // Prune first_seen_map_ entries for tracks that have disappeared
-    for (auto it = first_seen_map_.begin(); it != first_seen_map_.end();) {
-        // Check if this UUID is still active
-        bool active = std::any_of(new_map.begin(), new_map.end(),
-                                  [&uuid = it->first](const auto& kv) { return kv.second == uuid; });
-        it = active ? std::next(it) : first_seen_map_.erase(it);
-    }
-
-    id_map_ = std::move(new_map);
+    id_map_ = update_id_map(id_map_, active_ids);
 
     std::vector<Track> tracks;
     tracks.reserve(rv_tracks.size());
@@ -256,11 +237,6 @@ TrackingWorker::convert_tracks(const std::vector<rv::tracking::TrackedObject>& r
         track.velocity = {rv_track.vx, rv_track.vy, 0.0};
         track.size = {rv_track.length, rv_track.width, rv_track.height};
         track.rotation = CoordinateTransformer::yawToQuaternion(rv_track.yaw);
-
-        // Set first_seen from map (always present for active tracks)
-        if (auto it = first_seen_map_.find(track.id); it != first_seen_map_.end()) {
-            track.first_seen_iso = it->second;
-        }
 
         // Retrieve metadata_json stored in attributes by transform_detections().
         // NOTE: multi-camera last-write-wins — when the same track is observed by
@@ -303,7 +279,7 @@ std::vector<Track> TrackingWorker::match_and_convert(
 
     // Get reliable tracks and map RobotVision int IDs to UUID strings
     auto rv_tracks = tracker_.getReliableTracks();
-    auto tracks = convert_tracks(rv_tracks, chunk.category, timestamp);
+    auto tracks = convert_tracks(rv_tracks, chunk.category);
 
     LOG_DEBUG("Processed chunk for {}/{}: {} detections -> {} reliable tracks", scope_.scene_id,
               scope_.category,
