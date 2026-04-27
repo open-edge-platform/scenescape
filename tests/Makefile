@@ -152,6 +152,7 @@ _functional-tests: \
   camera-intrinsics-api \
   camera-intrinsics \
   child-scenes \
+  delete-sensor-scene-api \
   different-formats-maps-api \
   delete-sensors-api \
   infer-rotation \
