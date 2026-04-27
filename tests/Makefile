@@ -149,6 +149,7 @@ _functional-tests: \
   api-large-strings \
   calibrate-all-sensor-types-api \
   camera-deletion-api \
+  camera-intrinsics-api \
   camera-intrinsics \
   child-scenes \
   different-formats-maps-api \
