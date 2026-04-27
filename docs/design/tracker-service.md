@@ -52,7 +52,7 @@ Explicitly out of scope:
 - **Lease-based scaling** — Static scene partitioning only
 - **Multi-scene fusion** — No cross-scene track handoff
 - **Scene hierarchy** — Flat scene structure only; no parent-child scene relationships or nested regions
-- **Sensor tagging of a track** — No visibility array or per-sensor assignment on tracks
+- **Sensor tagging of a track** — No visibility array or per-sensor metadata on tracks
 - **Multi-camera confidence merging** — When a track is observed by multiple cameras in the same time chunk, `confidence` from the last processed camera overwrites earlier values (last-write-wins, inherent RobotVision attributes API limitation)
 
 ## Architecture
