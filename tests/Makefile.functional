@@ -59,7 +59,7 @@ superuser-crud-operations-api: # NEX-T21775
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_sensor_scene_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_superuser_crud_operations_api.py, 'pgserver web', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 calibrate-all-sensor-types-api: # NEX-T21877
