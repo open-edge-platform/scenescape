@@ -187,10 +187,10 @@ sensor-area: # NEX-T10401
 	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_sensor_area.py, 'pgserver')
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-sensor-location: # NEX-T10400
+sensor-location-ui: # NEX-T10400
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_sensor_location.py, 'pgserver')
+	$(call selenium-recipe, $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml, tests/ui/tc_sensor_location_ui.py, 'pgserver')
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 sensor-scene: # NEX-T10396

@@ -220,7 +220,7 @@ _ui-tests: \
   scene-details \
   scenes-summary-ui \
   sensor-area \
-  sensor-location \
+  sensor-location-ui \
   sensor-scene \
   superuser-crud-operations-ui \
   upload-3d-glb-file-ui \
