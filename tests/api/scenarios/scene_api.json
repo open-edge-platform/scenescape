@@ -46,6 +46,17 @@
         "save": {
           "SCENE_UID_FULL": "uid"
         }
+      },
+      {
+        "step_name": "Delete Scene",
+        "api": "scene",
+        "method": "deleteScene",
+        "request": {
+          "uid": "${SCENE_UID_FULL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
       }
     ]
   },
@@ -232,9 +243,14 @@
         "expected_status": {
           "status_code": 200
         }
-      },
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/10: Get scene by uid",
+    "test_steps": [
       {
-        "step_name": "Verify scene was updated",
+        "step_name": "Get scene by uid and verify it was updated",
         "api": "scene",
         "method": "getScene",
         "request": {
@@ -274,7 +290,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/10: Update scene with empty required body",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/11: Update scene with empty required body",
     "test_steps": [
       {
         "step_name": "Update Scene",
@@ -287,25 +303,11 @@
         "expected_status": {
           "status_code": 400
         }
-      },
-      {
-        "step_name": "Verify scene was updated",
-        "api": "scene",
-        "method": "getScene",
-        "request": {
-          "uid": "${SCENE_UID}"
-        },
-        "expected_status": {
-          "status_code": 200
-        },
-        "validate": {
-          "name": "Scene1_Updated_Full"
-        }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/11: Update scene with mesh_translation below min length",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/12: Update scene with mesh_translation below min length",
     "test_steps": [
       {
         "step_name": "Update Scene",
@@ -323,25 +325,11 @@
         "expected_status": {
           "status_code": 400
         }
-      },
-      {
-        "step_name": "Verify scene was updated",
-        "api": "scene",
-        "method": "getScene",
-        "request": {
-          "uid": "${SCENE_UID}"
-        },
-        "expected_status": {
-          "status_code": 200
-        },
-        "validate": {
-          "name": "Scene1_Updated_Full"
-        }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/12: Update scene with mesh_rotation below min length",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/13: Update scene with mesh_rotation below min length",
     "test_steps": [
       {
         "step_name": "Update Scene",
@@ -359,25 +347,11 @@
         "expected_status": {
           "status_code": 400
         }
-      },
-      {
-        "step_name": "Verify scene was updated",
-        "api": "scene",
-        "method": "getScene",
-        "request": {
-          "uid": "${SCENE_UID}"
-        },
-        "expected_status": {
-          "status_code": 200
-        },
-        "validate": {
-          "name": "Scene1_Updated_Full"
-        }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/13: Update scene with mesh_scale below min length",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/14: Update scene with mesh_scale below min length",
     "test_steps": [
       {
         "step_name": "Update Scene",
@@ -395,25 +369,11 @@
         "expected_status": {
           "status_code": 400
         }
-      },
-      {
-        "step_name": "Verify scene was updated",
-        "api": "scene",
-        "method": "getScene",
-        "request": {
-          "uid": "${SCENE_UID}"
-        },
-        "expected_status": {
-          "status_code": 200
-        },
-        "validate": {
-          "name": "Scene1_Updated_Full"
-        }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/14: Update scene with tracker_config below min length",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/15: Update scene with tracker_config below min length",
     "test_steps": [
       {
         "step_name": "Update Scene",
@@ -431,25 +391,11 @@
         "expected_status": {
           "status_code": 400
         }
-      },
-      {
-        "step_name": "Verify scene was updated",
-        "api": "scene",
-        "method": "getScene",
-        "request": {
-          "uid": "${SCENE_UID}"
-        },
-        "expected_status": {
-          "status_code": 200
-        },
-        "validate": {
-          "name": "Scene1_Updated_Full"
-        }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/15: Update scene with read only uid property in body",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/16: Update scene with read only uid property in body",
     "test_steps": [
       {
         "step_name": "Update Scene",
@@ -466,49 +412,6 @@
         },
         "expected_status": {
           "status_code": 400
-        }
-      }
-    ]
-  },
-  {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/16: Get scene by uid",
-    "test_steps": [
-      {
-        "step_name": "Get Scene",
-        "api": "scene",
-        "method": "getScene",
-        "request": {
-          "uid": "${SCENE_UID}"
-        },
-        "expected_status": {
-          "status_code": 200
-        },
-        "expected_body": {
-          "uid": "${SCENE_UID}",
-          "name": "Scene1_Updated_Full",
-          "map_type": "map_upload",
-          "use_tracker": true,
-          "output_lla": true,
-          "mesh_translation": [12.2, 248.0, 12.0],
-          "mesh_rotation": [12.2, 248.0, 12.0],
-          "mesh_scale": [2.0, 2.0, 2.0],
-          "regulated_rate": 30.0,
-          "external_update_rate": 30.0,
-          "camera_calibration": "Manual",
-          "apriltag_size": 0.162,
-          "number_of_localizations": 50,
-          "global_feature": "netvlad",
-          "local_feature": {
-            "sift": {}
-          },
-          "matcher": {
-            "NN-ratio": {}
-          },
-          "minimum_number_of_matches": 20,
-          "inlier_threshold": 0.5,
-          "geospatial_provider": "google",
-          "map_zoom": 15.0,
-          "map_bearing": 0.0
         }
       }
     ]
@@ -541,7 +444,7 @@
           "status_code": 200
         },
         "validate": {
-          "count": 8
+          "count": 3
         }
       }
     ]
@@ -665,7 +568,7 @@
               "child_type": "local",
               "transform": {
                 "translation": [0.0, 0.0, 0.0],
-                "rotation": [-0.0, 0.0, 0.0],
+                "rotation": [0.0, 0.0, 0.0],
                 "scale": [1.0, 1.0, 1.0]
               },
               "name": "Circular_Dep_Scene_B",
@@ -707,6 +610,24 @@
         },
         "expected_status": {
           "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify parent A has no children after delete",
+        "api": "child",
+        "method": "getChildScene",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "count": 0
+        },
+        "expected_body": {
+          "count": 0,
+          "next": null,
+          "previous": null,
+          "results": []
         }
       }
     ]
@@ -773,6 +694,24 @@
         },
         "expected_status": {
           "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify parent A has no children after delete",
+        "api": "child",
+        "method": "getChildScene",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "count": 0
+        },
+        "expected_body": {
+          "count": 0,
+          "next": null,
+          "previous": null,
+          "results": []
         }
       }
     ]
@@ -846,279 +785,29 @@
         "expected_status": {
           "status_code": 200
         }
-      }
-    ]
-  },
-  {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/25: Prevent three nodes transitive circular dependency via mid-node",
-    "test_steps": [
-      {
-        "step_name": "Create child link A -> B",
-        "api": "child",
-        "method": "createChildScene",
-        "request": {
-          "body": {
-            "child_type": "local",
-            "parent": "${CIRC_SCENE_A_UID}",
-            "child": "${CIRC_SCENE_B_UID}"
-          }
-        },
-        "expected_status": {
-          "status_code": 201
-        }
       },
       {
-        "step_name": "Create child link B -> C",
+        "step_name": "Verify parent A has no children after delete",
         "api": "child",
-        "method": "createChildScene",
-        "request": {
-          "body": {
-            "child_type": "local",
-            "parent": "${CIRC_SCENE_B_UID}",
-            "child": "${CIRC_SCENE_C_UID}"
-          }
-        },
-        "expected_status": {
-          "status_code": 201
-        }
-      },
-      {
-        "step_name": "Attempt to create link C -> B (transitive cycle back to mid-node)",
-        "api": "child",
-        "method": "createChildScene",
-        "request": {
-          "body": {
-            "child_type": "local",
-            "parent": "${CIRC_SCENE_C_UID}",
-            "child": "${CIRC_SCENE_B_UID}"
-          }
-        },
-        "expected_status": {
-          "status_code": 400
-        }
-      },
-      {
-        "step_name": "Delete child link B -> C",
-        "api": "child",
-        "method": "deleteChildSceneLink",
-        "request": {
-          "uid": "${CIRC_SCENE_C_UID}"
-        },
+        "method": "getChildScene",
+        "request": {},
         "expected_status": {
           "status_code": 200
-        }
-      },
-      {
-        "step_name": "Delete child link A -> B",
-        "api": "child",
-        "method": "deleteChildSceneLink",
-        "request": {
-          "uid": "${CIRC_SCENE_B_UID}"
         },
-        "expected_status": {
-          "status_code": 200
+        "validate": {
+          "count": 0
+        },
+        "expected_body": {
+          "count": 0,
+          "next": null,
+          "previous": null,
+          "results": []
         }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/26: Prevent four nodes deep transitive circular dependency via root",
-    "test_steps": [
-      {
-        "step_name": "Create child link A -> B",
-        "api": "child",
-        "method": "createChildScene",
-        "request": {
-          "body": {
-            "child_type": "local",
-            "parent": "${CIRC_SCENE_A_UID}",
-            "child": "${CIRC_SCENE_B_UID}"
-          }
-        },
-        "expected_status": {
-          "status_code": 201
-        }
-      },
-      {
-        "step_name": "Create child link B -> C",
-        "api": "child",
-        "method": "createChildScene",
-        "request": {
-          "body": {
-            "child_type": "local",
-            "parent": "${CIRC_SCENE_B_UID}",
-            "child": "${CIRC_SCENE_C_UID}"
-          }
-        },
-        "expected_status": {
-          "status_code": 201
-        }
-      },
-      {
-        "step_name": "Create child link C -> D",
-        "api": "child",
-        "method": "createChildScene",
-        "request": {
-          "body": {
-            "child_type": "local",
-            "parent": "${CIRC_SCENE_C_UID}",
-            "child": "${CIRC_SCENE_D_UID}"
-          }
-        },
-        "expected_status": {
-          "status_code": 201
-        }
-      },
-      {
-        "step_name": "Attempt to create link D -> A (deep transitive cycle back to root)",
-        "api": "child",
-        "method": "createChildScene",
-        "request": {
-          "body": {
-            "child_type": "local",
-            "parent": "${CIRC_SCENE_D_UID}",
-            "child": "${CIRC_SCENE_A_UID}"
-          }
-        },
-        "expected_status": {
-          "status_code": 400
-        }
-      },
-      {
-        "step_name": "Delete child link C -> D",
-        "api": "child",
-        "method": "deleteChildSceneLink",
-        "request": {
-          "uid": "${CIRC_SCENE_D_UID}"
-        },
-        "expected_status": {
-          "status_code": 200
-        }
-      },
-      {
-        "step_name": "Delete child link B -> C",
-        "api": "child",
-        "method": "deleteChildSceneLink",
-        "request": {
-          "uid": "${CIRC_SCENE_C_UID}"
-        },
-        "expected_status": {
-          "status_code": 200
-        }
-      },
-      {
-        "step_name": "Delete child link A -> B",
-        "api": "child",
-        "method": "deleteChildSceneLink",
-        "request": {
-          "uid": "${CIRC_SCENE_B_UID}"
-        },
-        "expected_status": {
-          "status_code": 200
-        }
-      }
-    ]
-  },
-  {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/27: Prevent four nodes deep transitive circular dependency via mid-node",
-    "test_steps": [
-      {
-        "step_name": "Create child link A -> B",
-        "api": "child",
-        "method": "createChildScene",
-        "request": {
-          "body": {
-            "child_type": "local",
-            "parent": "${CIRC_SCENE_A_UID}",
-            "child": "${CIRC_SCENE_B_UID}"
-          }
-        },
-        "expected_status": {
-          "status_code": 201
-        }
-      },
-      {
-        "step_name": "Create child link B -> C",
-        "api": "child",
-        "method": "createChildScene",
-        "request": {
-          "body": {
-            "child_type": "local",
-            "parent": "${CIRC_SCENE_B_UID}",
-            "child": "${CIRC_SCENE_C_UID}"
-          }
-        },
-        "expected_status": {
-          "status_code": 201
-        }
-      },
-      {
-        "step_name": "Create child link C -> D",
-        "api": "child",
-        "method": "createChildScene",
-        "request": {
-          "body": {
-            "child_type": "local",
-            "parent": "${CIRC_SCENE_C_UID}",
-            "child": "${CIRC_SCENE_D_UID}"
-          }
-        },
-        "expected_status": {
-          "status_code": 201
-        }
-      },
-      {
-        "step_name": "Attempt to create link D -> B (deep transitive cycle back to mid-node)",
-        "api": "child",
-        "method": "createChildScene",
-        "request": {
-          "body": {
-            "child_type": "local",
-            "parent": "${CIRC_SCENE_D_UID}",
-            "child": "${CIRC_SCENE_B_UID}"
-          }
-        },
-        "expected_status": {
-          "status_code": 400
-        }
-      },
-      {
-        "step_name": "Delete child link C -> D",
-        "api": "child",
-        "method": "deleteChildSceneLink",
-        "request": {
-          "uid": "${CIRC_SCENE_D_UID}"
-        },
-        "expected_status": {
-          "status_code": 200
-        }
-      },
-      {
-        "step_name": "Delete child link B -> C",
-        "api": "child",
-        "method": "deleteChildSceneLink",
-        "request": {
-          "uid": "${CIRC_SCENE_C_UID}"
-        },
-        "expected_status": {
-          "status_code": 200
-        }
-      },
-      {
-        "step_name": "Delete child link A -> B",
-        "api": "child",
-        "method": "deleteChildSceneLink",
-        "request": {
-          "uid": "${CIRC_SCENE_B_UID}"
-        },
-        "expected_status": {
-          "status_code": 200
-        }
-      }
-    ]
-  },
-  {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/28: Prevent duplicate child scene link",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/25: Prevent duplicate child scene link",
     "test_steps": [
       {
         "step_name": "Create child link A -> B",
@@ -1160,11 +849,29 @@
         "expected_status": {
           "status_code": 200
         }
+      },
+      {
+        "step_name": "Verify parent A has no children after delete",
+        "api": "child",
+        "method": "getChildScene",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "count": 0
+        },
+        "expected_body": {
+          "count": 0,
+          "next": null,
+          "previous": null,
+          "results": []
+        }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/29: Create valid linear chain of child scenes",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/26: Create valid linear chain of child scenes",
     "test_steps": [
       {
         "step_name": "Create child link A -> B",
@@ -1179,6 +886,9 @@
         },
         "expected_status": {
           "status_code": 201
+        },
+        "save": {
+          "CHAIN_LINK_AB_UID": "uid"
         }
       },
       {
@@ -1194,6 +904,21 @@
         },
         "expected_status": {
           "status_code": 201
+        },
+        "save": {
+          "CHAIN_LINK_BC_UID": "uid"
+        }
+      },
+      {
+        "step_name": "Verify both chain links exist in list",
+        "api": "child",
+        "method": "getChildScene",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "count": 2
         }
       },
       {
@@ -1217,11 +942,29 @@
         "expected_status": {
           "status_code": 200
         }
+      },
+      {
+        "step_name": "Verify parent A has no children after delete",
+        "api": "child",
+        "method": "getChildScene",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "count": 0
+        },
+        "expected_body": {
+          "count": 0,
+          "next": null,
+          "previous": null,
+          "results": []
+        }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/30: Create valid tree with multiple children from same parent",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/27: Create valid tree with multiple children from same parent",
     "test_steps": [
       {
         "step_name": "Create child link A -> B",
@@ -1254,6 +997,38 @@
         }
       },
       {
+        "step_name": "Verify both tree links exist in list",
+        "api": "child",
+        "method": "getChildScene",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "count": 2
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/28: Prevent sibling connection between child scenes",
+    "test_steps": [
+      {
+        "step_name": "Attempt to create sibling link B -> C (C already has parent A)",
+        "api": "child",
+        "method": "createChildScene",
+        "request": {
+          "body": {
+            "child_type": "local",
+            "parent": "${CIRC_SCENE_B_UID}",
+            "child": "${CIRC_SCENE_C_UID}"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      },
+      {
         "step_name": "Delete child link A -> C",
         "api": "child",
         "method": "deleteChildSceneLink",
@@ -1274,11 +1049,29 @@
         "expected_status": {
           "status_code": 200
         }
+      },
+      {
+        "step_name": "Verify parent A has no children after delete",
+        "api": "child",
+        "method": "getChildScene",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "count": 0
+        },
+        "expected_body": {
+          "count": 0,
+          "next": null,
+          "previous": null,
+          "results": []
+        }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/31: Prevent circular dependency via update of existing child link",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/29: Prevent circular dependency via update of existing child link",
     "test_steps": [
       {
         "step_name": "Create child link A -> B",
@@ -1347,11 +1140,29 @@
         "expected_status": {
           "status_code": 200
         }
+      },
+      {
+        "step_name": "Verify parent A has no children after delete",
+        "api": "child",
+        "method": "getChildScene",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "count": 0
+        },
+        "expected_body": {
+          "count": 0,
+          "next": null,
+          "previous": null,
+          "results": []
+        }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/32: Delete scenes by uid",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/30: Delete scenes by uid",
     "test_steps": [
       {
         "step_name": "Delete Scene",
@@ -1422,7 +1233,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/33: Delete non existent scene",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/31: Delete non existent scene",
     "test_steps": [
       {
         "step_name": "Delete Scene",
