@@ -220,6 +220,6 @@ test/geckodriver.tar.gz:
 		; BASE_URL=https://github.com/mozilla/geckodriver/releases \
 		; GVERSION=v0.36.0 \
 		; mkdir -p test \
-		; curl -sL \
+		; curl -fSL \
 			"$${BASE_URL}/download/$${GVERSION}/geckodriver-$${GVERSION}-linux64.tar.gz" \
 			--output "test/geckodriver.tar.gz"
