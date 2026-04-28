@@ -221,7 +221,7 @@ profile: build-relwithdebinfo
 	@echo "Profile data saved to build-relwithdebinfo/perf.data"
 	@echo "Run 'make flamegraph' to generate flamegraph.svg"
 
-flamegraph: 
+flamegraph:
 	@test -f build-relwithdebinfo/perf.data || (echo "No perf.data found. Run 'make profile' first." && exit 1)
 	@test -d build-relwithdebinfo/FlameGraph || git clone --depth 1 https://github.com/brendangregg/FlameGraph.git build-relwithdebinfo/FlameGraph
 	perf script -i build-relwithdebinfo/perf.data | build-relwithdebinfo/FlameGraph/stackcollapse-perf.pl | build-relwithdebinfo/FlameGraph/flamegraph.pl > build-relwithdebinfo/flamegraph.svg
@@ -339,7 +339,7 @@ test-service: build-image
 	@echo "Running service tests..."
 	cd test/service && \
 		unset TRACKER_MQTT_HOST TRACKER_MQTT_PORT TRACKER_MQTT_INSECURE TRACKER_MQTT_TLS_CA_CERT && \
-		.venv/bin/pytest -v --tb=short
+		.venv/bin/pytest -v -s --tb=short
 
 # Load test: orchestrates compose lifecycle, generates load, asserts SLIs.
 # Override defaults for boundary testing:
