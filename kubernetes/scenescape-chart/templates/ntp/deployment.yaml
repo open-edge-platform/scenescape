@@ -57,7 +57,7 @@ spec:
                 - SETGID
                 - SETUID
                 - NET_BIND_SERVICE
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
           ports:
           - containerPort: 123
           readinessProbe:
@@ -85,8 +85,7 @@ spec:
       - name: healthy-file
         emptyDir: {}
       - name: etc-chrony
-        emptyDir:
-          medium: Memory
+        emptyDir: {}
       - name: run-chrony
         emptyDir:
           medium: Memory
