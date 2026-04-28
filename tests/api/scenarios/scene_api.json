@@ -555,9 +555,6 @@
         "expected_status": {
           "status_code": 200
         },
-        "validate": {
-          "count": 1
-        },
         "expected_body": {
           "count": 1,
           "next": null,
