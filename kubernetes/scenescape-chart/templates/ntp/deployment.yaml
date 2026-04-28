@@ -40,7 +40,7 @@ spec:
           - name: etc-chrony
             mountPath: /etc/chrony
       containers:
-        - image: {{ .Values.ntpserv.image.repository }}/{{ .Values.ntpserv.image.name }}:{{ .Values.ntpserv.image.tag }}
+        - image: {{ .Values.ntpserv.image.repository }}/{{ .Values.ntpserv.image.name }}:{{ .Values.ntpserv.image.tag }}@{{ .Values.ntpserv.image.digest }}
           imagePullPolicy: {{ .Values.ntpserv.image.pullPolicy }}
           name: {{ .Release.Name }}-ntpserv
           env:
