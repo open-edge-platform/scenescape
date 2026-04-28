@@ -26,6 +26,8 @@ def pytest_addoption(parser):
                    help="name of scene to test against")
   parser.addoption("--visibility_topic", default="regulated",
                    help="Visibility policy: regulated, unregulated, none")
+  parser.addoption("--expect_exceed_max", default="false",
+                   help="Whether unique count is expected to exceed max (true/false)")
 
 @pytest.fixture
 def params(request):
@@ -43,6 +45,7 @@ def params(request):
     'resturl': request.config.getoption('--resturl'),
 
     'scene_name': request.config.getoption('--scene_name'),
+    'expect_exceed_max': request.config.getoption('--expect_exceed_max'),
   }
 
 @pytest.fixture
