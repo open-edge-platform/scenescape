@@ -8,12 +8,23 @@ Tests the interface and behavior of UUID manager without implementation bias.
 These tests run inside the controller container where all dependencies are available.
 """
 
-import pytest
 import numpy as np
 from unittest.mock import Mock, MagicMock, patch
 
+import pytest
+
 from controller.uuid_manager import UUIDManager
 
+
+def call_update_active_dict_locked(manager, sscape_object, database_id, similarity, query_timestamp=None):
+  """Call updateActiveDict while holding active_ids_lock, matching production call pattern."""
+  with manager.active_ids_lock:
+    manager.updateActiveDict(
+      sscape_object,
+      database_id=database_id,
+      similarity=similarity,
+      query_timestamp=query_timestamp,
+    )
 
 @pytest.fixture(autouse=True)
 def mock_vdms_db():

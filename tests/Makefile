@@ -72,7 +72,7 @@ define common-recipe =
 	      $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
 	                                  $${EXTRAS} 2>&1 | tee -ia $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
+    ; if [ `grep -c "Traceback" $(LOGFILE)` -ne 0 ] ; then echo "Found error in $@ !"; fi \
 	  ; echo END TEST $@
 endef
 
@@ -109,8 +109,6 @@ broken-tests: \
 randomly-failing-tests: \
   distance-msoce \
   reid-data-flow \
-  reid-semantic-unique-count \
-  reid-unique-count \
 
 # Not sorted alphabetically on purpose
 basic-acceptance-tests: \
@@ -168,6 +166,8 @@ _functional-tests: \
   object-crud-api \
   orphaned-sensor \
   persistence-api \
+  reid-semantic-unique-count \
+  reid-unique-count \
   rest-test \
   scene-details-api \
   scene-import-api \
@@ -236,7 +236,10 @@ _ui-tests: \
   auto-calibration-no-apriltags-ui \
 
 unit-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(if $(SECRETSDIR),$(SECRETSDIR),$(PWD)/../manager/secrets))
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(SECRETSDIR) SUPASS=$(SUPASS) -k
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 _unit-tests: \
   django-integration-unit \
