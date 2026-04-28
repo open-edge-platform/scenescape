@@ -712,6 +712,8 @@ def _collect_container_logs_if_configured(item):
     logger.info("Collecting container logs (mode=all): %s", item.nodeid)
   else:
     logger.info("Collecting container logs for failed test: %s", item.nodeid)
+  if _testlog is not None:
+    _testlog.silence_console()
   collect_logs(env.docker, scan_for_tracebacks=True)
 
 @pytest.hookimpl(hookwrapper=True)
