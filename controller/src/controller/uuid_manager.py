@@ -14,7 +14,8 @@ from scene_common import log
 from scene_common.timestamp import get_epoch_time
 
 DEFAULT_DATABASE = "VDMS"
-DEFAULT_SIMILARITY_THRESHOLD = 0.5
+DEFAULT_SIMILARITY_THRESHOLD_L2 = 40.0
+DEFAULT_SIMILARITY_THRESHOLD_COSINE = 0.5
 DEFAULT_MINIMUM_BBOX_AREA = 5000
 DEFAULT_MINIMUM_FEATURE_COUNT = 12
 DEFAULT_FEATURE_SLICE_SIZE = 10
@@ -45,6 +46,12 @@ class UUIDManager:
     if metric == "COSINE":
       return "IP"
     return metric
+
+  def _resolveDefaultSimilarityThreshold(self, similarity_metric):
+    """Return the default threshold for the configured similarity metric."""
+    if self._normalizeSimilarityMetric(similarity_metric) == "COSINE":
+      return DEFAULT_SIMILARITY_THRESHOLD_COSINE
+    return DEFAULT_SIMILARITY_THRESHOLD_L2
 
   def __init__(self, database=DEFAULT_DATABASE, reid_config_data=None):
     self.active_ids = {}
@@ -99,10 +106,13 @@ class UUIDManager:
       'stale_feature_check_interval_secs', DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS)
     self.minimum_feature_count = reid_config_data.get(
       'feature_accumulation_threshold', DEFAULT_MINIMUM_FEATURE_COUNT)
-    self.similarity_threshold = reid_config_data.get(
-      'similarity_threshold', DEFAULT_SIMILARITY_THRESHOLD)
     self.similarity_metric = self._normalizeSimilarityMetric(reid_config_data.get(
       'similarity_metric', DEFAULT_SIMILARITY_METRIC))
+    configured_similarity_threshold = reid_config_data.get('similarity_threshold')
+    if configured_similarity_threshold is None:
+      configured_similarity_threshold = self._resolveDefaultSimilarityThreshold(
+        self.similarity_metric)
+    self.similarity_threshold = configured_similarity_threshold
     self.minimum_bbox_area = reid_config_data.get(
       'minimum_bbox_area', DEFAULT_MINIMUM_BBOX_AREA)
     self.feature_slice_size = reid_config_data.get(
@@ -473,8 +483,9 @@ class UUIDManager:
     """
     Check database for any similar objects and return an ID and similarity score.
     Uses a majority-vote strategy: a candidate UUID must appear in at least half of the
-    per-vector best matches whose distance is below the threshold to be accepted.
-    When multiple candidates qualify, the one with the lowest distance is returned.
+    per-vector best matches that pass the metric-specific threshold test to be accepted.
+    When multiple candidates qualify, the one with the best metric value is returned
+    according to descriptor semantics (highest for IP/COSINE, lowest for L2).
 
     @param   similarity_scores  The similarity scores obtained from the database query
     @param   threshold          Similarity threshold interpreted according to metric semantics:

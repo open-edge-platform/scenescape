@@ -13,7 +13,11 @@ from unittest.mock import Mock, MagicMock, patch
 
 import pytest
 
-from controller.uuid_manager import UUIDManager
+from controller.uuid_manager import (
+  UUIDManager,
+  DEFAULT_SIMILARITY_THRESHOLD_L2,
+  DEFAULT_SIMILARITY_THRESHOLD_COSINE,
+)
 
 
 def call_update_active_dict_locked(manager, sscape_object, database_id, similarity, query_timestamp=None):
@@ -76,6 +80,30 @@ class TestUUIDManagerInitialization:
     assert hasattr(manager, 'active_ids')
     assert isinstance(manager.active_ids, dict)
     assert len(manager.active_ids) == 0
+
+  def test_default_similarity_threshold_uses_l2_value_when_metric_is_l2(self, mock_vdms_db):
+    """L2 metric should use the L2-specific default threshold when not configured."""
+
+    manager = UUIDManager(reid_config_data={'similarity_metric': 'L2'})
+
+    assert manager.similarity_metric == 'L2'
+    assert manager.similarity_threshold == DEFAULT_SIMILARITY_THRESHOLD_L2
+
+  def test_default_similarity_threshold_uses_cosine_value_when_metric_is_cosine(self, mock_vdms_db):
+    """COSINE metric should use the cosine-specific default threshold when not configured."""
+
+    manager = UUIDManager(reid_config_data={'similarity_metric': 'COSINE'})
+
+    assert manager.similarity_metric == 'COSINE'
+    assert manager.similarity_threshold == DEFAULT_SIMILARITY_THRESHOLD_COSINE
+
+  def test_similarity_threshold_explicit_value_overrides_metric_default(self, mock_vdms_db):
+    """Explicit similarity_threshold should take precedence over metric-specific defaults."""
+
+    manager = UUIDManager(reid_config_data={'similarity_metric': 'COSINE', 'similarity_threshold': 0.77})
+
+    assert manager.similarity_metric == 'COSINE'
+    assert manager.similarity_threshold == 0.77
 
 
 class TestExtractReidEmbedding:

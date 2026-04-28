@@ -171,21 +171,21 @@ controller/config/reid-config.json
   "feature_accumulation_threshold": 12,
   "minimum_bbox_area": 5000,
   "feature_slice_size": 10,
-  "similarity_threshold": 0.3
+  "similarity_threshold": 40.0
 }
 ```
 
 ### Configuration Parameters
 
-| Parameter                           | Type   | Default | Description                                                                                                                                                                                                      |
-| ----------------------------------- | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `similarity_metric`                 | string | `L2`    | Similarity metric for ReID matching. `L2` is the default distance-style metric (lower-is-better). `COSINE` is implemented using normalized vectors with VDMS `IP` (higher-is-better).                            |
-| `stale_feature_timeout_secs`        | float  | 5.0     | How long (seconds) to accumulate features in memory before flushing to VDMS. Features older than this threshold are persisted to the database for long-term storage.                                             |
-| `stale_feature_check_interval_secs` | float  | 1.0     | How frequently (seconds) the background timer checks for stale features and flushes them to VDMS. More frequent checks ensure timely database updates.                                                           |
-| `feature_accumulation_threshold`    | int    | 12      | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.                                                |
-| `minimum_bbox_area`                 | int    | 5000    | Minimum bounding-box area in pixels required before a detected object contributes a ReID embedding to quality feature accumulation.                                                                              |
-| `feature_slice_size`                | int    | 10      | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector.                                            |
-| `similarity_threshold`              | float  | 0.3     | Match acceptance threshold interpreted using the configured metric semantics: for `COSINE`, candidates **above** the threshold match; for `L2`-style distance metrics, candidates **below** the threshold match. |
+| Parameter                           | Type   | Default                                                | Description                                                                                                                                                                                                      |
+| ----------------------------------- | ------ | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `similarity_metric`                 | string | `L2`                                                   | Similarity metric for ReID matching. `L2` is the default distance-style metric (lower-is-better). `COSINE` is implemented using normalized vectors with VDMS `IP` (higher-is-better).                            |
+| `stale_feature_timeout_secs`        | float  | 5.0                                                    | How long (seconds) to accumulate features in memory before flushing to VDMS. Features older than this threshold are persisted to the database for long-term storage.                                             |
+| `stale_feature_check_interval_secs` | float  | 1.0                                                    | How frequently (seconds) the background timer checks for stale features and flushes them to VDMS. More frequent checks ensure timely database updates.                                                           |
+| `feature_accumulation_threshold`    | int    | 12                                                     | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.                                                |
+| `minimum_bbox_area`                 | int    | 5000                                                   | Minimum bounding-box area in pixels required before a detected object contributes a ReID embedding to quality feature accumulation.                                                                              |
+| `feature_slice_size`                | int    | 10                                                     | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector.                                            |
+| `similarity_threshold`              | float  | metric-dependent (`40.0` for `L2`, `0.5` for `COSINE`) | Match acceptance threshold interpreted using the configured metric semantics: for `COSINE`, candidates **above** the threshold match; for `L2`-style distance metrics, candidates **below** the threshold match. |
 
 **Similarity range note**: For `COSINE` (implemented via VDMS `IP`), scores are validated against `[-1, 1]` because embeddings are normalized before storage and query. This range check is metric-specific and is not applied to non-cosine distance metrics.
 

@@ -52,8 +52,16 @@ django-integration-unit:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(SECRETSDIR) SUPASS=$(SUPASS) -k
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
+_django-integration-unit: \
+	account-security-unit \
+	cam-unit \
+	scene-django-unit \
+	singleton-sensor-unit \
+	views-unit \
+
 logic-unit-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
+
 _logic-unit-tests: \
 	autocamcalib-unit \
 	geometry-unit \
