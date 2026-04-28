@@ -259,10 +259,6 @@ class VDMSDatabase(ReIDDatabase):
       log.warning("addEntry: No valid vectors to add (all skipped due to dimension mismatch or uninitialized dimensions)")
       return
 
-    if len(add_query) == 0:
-      log.warning("addEntry: No valid vectors to add")
-      return
-
     response, _ = self.sendQuery(add_query, descriptor_blobs)  # Flat list of blobs
     if response:
       success_count = 0

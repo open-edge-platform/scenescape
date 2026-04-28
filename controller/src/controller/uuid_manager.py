@@ -539,8 +539,9 @@ class UUIDManager:
     """
     Find the best candidate uuid and metric value according to descriptor semantics.
 
-    VDMS returns entities sorted ascending by _distance (closest first), so entities[0]
-    is always the best match.
+    The best match is selected from the provided entities based on the configured
+    descriptor metric semantics: higher values are better for higher-is-better
+    metrics, and lower values are better otherwise.
 
     Structure of entities:
     [{'uuid': <UUID>, 'rvid': <TRACKER_ID>, '_distance': <SIMILARITY_SCORE>}, ...]
