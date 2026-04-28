@@ -34,31 +34,9 @@ Alternatively, see how to [Build from Source](./get-started/build-from-source.md
 
 ## Architecture
 
-> **Note:** Diagrams are currently best viewed in light color mode.
-
 ### Data Flow Diagram
 
-```mermaid
-sequenceDiagram
-
-    participant APP as Applications
-    participant CA as Cluster Analytics
-    participant MQTT as MQTT Broker
-    participant SC as Scene Controller
-
-
-    MQTT->>SC: Detections metadata
-    Note over SC: Base analytics
-    SC->>MQTT: Objects metadata
-    MQTT->>CA: Objects metadata
-
-    Note over CA: User-configurable DBSCAN clustering
-    Note over CA: Cluster's shape and velocity analysis
-
-    CA->>MQTT: Optimized clusters metadata
-    Note over APP: Real-time cluster insights
-    MQTT->>APP:
-```
+![Data Flow](../../_assets/microservices/microsvc-cluster-analytics-dataflow.svg "cluster analytics data flow")
 
 ### **DBSCAN Clustering Configuration**
 
@@ -135,45 +113,7 @@ The service uses a `config.json` file located in the `config/` directory:
 
 #### Shape Detection Logic
 
-```mermaid
-flowchart TD
-    A[Cluster Points Input] --> B{Sufficient Points?}
-    B -->|< 3 points| C[Insufficient Points]
-    B -->|≥ 3 points| D[Calculate Features]
-
-    D --> E[Extract Distance and Angle Features]
-    E --> F[Calculate Centroid]
-    F --> G[Measure Distance Variance]
-
-    G --> H{Distance Variance < 0.5?}
-    H -->|Yes| I[Circle Formation]
-    H -->|No| J{Exactly 4 Points?}
-
-    J -->|Yes| K[Check Quadrant Distribution]
-    K --> L{≥ 3 Quadrants?}
-    L -->|Yes| M[Rectangle Formation]
-    L -->|No| N[Continue Analysis]
-
-    J -->|No| O{≥ 5 Points?}
-    O -->|Yes| P[Analyze Angle Distribution]
-    P --> Q{Uniform Distribution?}
-    Q -->|Yes| R[Large Circle Formation]
-    Q -->|No| S[Check Linear Formation]
-
-    S --> T{Low Triangle Areas?}
-    T -->|Yes| U[Line Formation]
-    T -->|No| V[Irregular Shape]
-
-    O -->|No| N
-    N --> S
-
-    %% Shape calculations
-    I --> I1[Calculate: radius, diameter, area, circumference]
-    M --> M1[Calculate: width, height, area, perimeter, corners]
-    R --> R1[Calculate: radius, diameter, area, circumference]
-    U --> U1[Calculate: length, endpoints, width spread]
-    V --> V1[Calculate: bounding box, point spread]
-```
+![Shape Detection Logic](../../_assets/microservices/microsvc-cluster-analytics-shape-det-logic.svg "shape detection logic")
 
 ### Velocity Analysis and Movement Patterns
 
@@ -189,21 +129,11 @@ flowchart TD
 
 #### Velocity Analysis Logic
 
-```mermaid
-graph TD
-    A[Velocity Analysis] --> B{Speed Check}
-    B -->|< 0.1 m/s| C[Stationary]
-    B -->|> 0.1 m/s| D{Coherence Check}
-    D -->|High Coherence| E[Coordinated Parallel]
-    D -->|Low Coherence| F{Direction Analysis}
-    F -->|Toward Center| G[Converging]
-    F -->|Away from Center| H[Diverging]
-    F -->|Mixed| I[Chaotic]
-```
+![Velocity Analysis Logic](../../_assets/microservices/microsvc-cluster-analytics-velocity-logic.svg "velocity analysis logic")
 
 ## Category-Specific Clustering
 
-The serviceoptimizes DBSCAN parameters based on object categories, providing more accurate clustering for different object types:
+The service optimizes DBSCAN parameters based on object categories, providing more accurate clustering for different object types.
 
 ### Benefits
 
@@ -701,26 +631,7 @@ The Cluster Analytics service implements cluster tracking system to maintain clu
 
 ### Tracking Pipeline
 
-```mermaid
-graph TD
-    A[New Frame Detection] --> B[Group by Category]
-    B --> C[Get Existing Clusters]
-    C --> D[Hungarian Matching]
-    D --> E{Match Found?}
-    E -->|Yes| F[Update Cluster]
-    E -->|No| G[Create New Cluster]
-    F --> H[Update Confidence]
-    G --> I[Initialize with NEW state]
-    H --> J[Update State Machine]
-    I --> J
-    J --> K[Update History]
-    K --> L[Predict Next Position]
-    L --> M{Check Unmatched Clusters}
-    M --> N[Mark as Missed]
-    N --> O[Reduce Confidence]
-    O --> P[Update State]
-    P --> Q[Archive if LOST]
-```
+![Tracking Pipeline](../../_assets/microservices/microsvc-cluster-analytics-tracking-pipeline.svg "tracking pipeline")
 
 ### Hungarian Matching Algorithm
 
@@ -751,17 +662,7 @@ total_cost = position_cost + velocity_cost + size_cost + shape_cost
 
 ### State Machine Transitions
 
-```mermaid
-stateDiagram-v2
-    [*] --> NEW: Detection
-    NEW --> ACTIVE: 3+ frames detected<br/>confidence > 0.6
-    ACTIVE --> STABLE: 20+ frames detected<br/>stability > 0.7
-    ACTIVE --> FADING: 15+ frames missed
-    STABLE --> FADING: 15+ frames missed
-    FADING --> ACTIVE: Redetected
-    FADING --> LOST: 10+ frames missed
-    LOST --> [*]: Archive after 5s
-```
+![State Machine Transitions](../../_assets/microservices/microsvc-cluster-analytics-state-transitions.svg "state machine transitions")
 
 ### Confidence Metrics
 
