@@ -34,7 +34,11 @@ map_dir()
     echo "map_dir done ${SRC} to ${DEST}"
 }
 
-eval WSHOME=~${WSUSER}
+# Resolve WSUSER home safely without eval.
+WSHOME=$(getent passwd "${WSUSER}" | cut -d: -f6)
+if [ -z "${WSHOME}" ]; then
+    WSHOME="/home/${WSUSER}"
+fi
 MANAGERDIR="${WSHOME}/${MANAGERDIR}"
 MANAGERDIR_UID=$(find "${MANAGERDIR}" -exec stat -c '%u' {} + | sort -rn | head -1)
 
@@ -45,7 +49,7 @@ if [ -d "${WORKSPACE}" ] ; then
     fi
     WSUID=$(stat -c '%u' "${WORKSPACE}"/* | sort -rn | head -1)
     WSGID=$(stat -c '%g' "${WORKSPACE}"/* | sort -rn | head -1)
-    if ((${WSUID} == 0 || ${WSGID} == 0)) ; then
+    if [ -n "${HOSTDIR}" ] && ((${WSUID} == 0 || ${WSGID} == 0)); then
             echo "Detected root ownership in workspace, using manager dir uid:${MANAGERDIR_UID}"
             echo "Chowning workspace to ${MANAGERDIR_UID}"
             echo "ls -la ${WORKSPACE}/ before chown:"
@@ -56,14 +60,74 @@ if [ -d "${WORKSPACE}" ] ; then
             echo "Chown complete"
     fi
 
-    # Create a bind mount to the same location of the host dir
+    # --- Align WSUSER uid/gid with workspace so bind-mounted files are writable ---
+    if [ "$(id -u)" -eq 0 ] && [ -n "${HOSTDIR}" ]; then
+        echo "Workspace ownership: ${WSUID}:${WSGID}"
+
+        if id "${WSUSER}" >/dev/null 2>&1; then
+            echo "Before: ${WSUSER} -> $(id -u ${WSUSER}):$(id -g ${WSUSER})"
+
+            # Ensure a group with the target GID exists
+            if ! getent group "${WSGID}" >/dev/null 2>&1; then
+                if ! groupadd -g "${WSGID}" hostgrp 2>/dev/null; then
+                    echo "ERROR: failed to create group with GID ${WSGID}"
+                    exit 1
+                fi
+            fi
+
+            # Set primary group then uid
+            if ! usermod -g "${WSGID}" "${WSUSER}" 2>/dev/null; then
+                echo "ERROR: failed to set group ${WSGID} for user ${WSUSER}"
+                exit 1
+            fi
+            if ! usermod -u "${WSUID}" "${WSUSER}" 2>/dev/null; then
+                echo "ERROR: failed to set uid ${WSUID} for user ${WSUSER}"
+                exit 1
+            fi
+
+            # Fix ownership of WSUSER home to avoid sudo -H issues
+            WSHOME=$(getent passwd "${WSUSER}" | cut -d: -f6)
+            if [ -z "${WSHOME}" ] || [ "${WSHOME}" = "/" ]; then
+                echo "ERROR: resolved invalid home directory for ${WSUSER}: '${WSHOME}'"
+                exit 1
+            fi
+            if [ -d "${WSHOME}" ]; then
+                if ! chown -R "${WSUID}:${WSGID}" "${WSHOME}" 2>/dev/null; then
+                    echo "ERROR: failed to chown home directory ${WSHOME}"
+                    exit 1
+                fi
+            else
+                echo "WARN: home directory ${WSHOME} not found; skipping chown"
+            fi
+
+            echo "After:  ${WSUSER} -> $(id -u ${WSUSER}):$(id -g ${WSUSER})"
+        else
+            echo "WARN: user ${WSUSER} not found; cannot align uid/gid"
+        fi
+    fi
+
     if [ -n "${HOSTDIR}" ] ; then
+        if [ "$(id -u)" -ne 0 ]; then
+            echo "ERROR: HOSTDIR bind-mount requires root. Current UID=$(id -u)."
+            echo "Hint: run container as root (docker run -u root) or enable super-shell."
+            exit 1
+        fi
+
         mkdir -p "${HOSTDIR}"
         mount --bind "${WORKSPACE}" "${HOSTDIR}"
+        echo "After mount: PWD=$(pwd), id=$(id)"
+
         cd "${HOSTDIR}"
-    else
-        cd "${WORKSPACE}"
+        if [ -d "${HOSTDIR}/tests/reports" ]; then
+        stat -c "dir=%n uid=%u gid=%g perms=%A" "${HOSTDIR}/tests/reports"
+        else
+        echo "WARN: ${HOSTDIR}/tests/reports does not exist yet"
     fi
+
+else
+    cd "${WORKSPACE}"
+fi
+
 else
     cd "${MANAGERDIR}"
 fi
