@@ -32,6 +32,7 @@ services:
       - "123/udp" # Dynamic host port for ntplib queries from test host
     environment:
       - NTP_DIRECTIVES=local stratum 10
+      - NTP_SERVERS=pool.ntp.org
     restart: no
     healthcheck:
       # Healthy once Chrony serves a valid stratum (1-16); passes immediately
