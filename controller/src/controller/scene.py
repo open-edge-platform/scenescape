@@ -58,6 +58,7 @@ class Scene(SceneModel):
     self.non_measurement_time_static = non_measurement_time_static
     self.suspended_track_timeout_secs = suspended_track_timeout_secs
     self.reid_config_data = reid_config_data if reid_config_data else {}
+
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
@@ -89,6 +90,9 @@ class Scene(SceneModel):
     self.trackerType = trackerType
     log.info("SETTING TRACKER TYPE", trackerType)
 
+    if self.tracker is not None:
+      self.tracker.join()
+
     args = (self.max_unreliable_time,
             self.non_measurement_time_dynamic,
             self.non_measurement_time_static)
@@ -99,25 +103,39 @@ class Scene(SceneModel):
     self.tracker = self.available_trackers[self.trackerType](*args)
     return
 
-  def updateScene(self, scene_data):
+  def _hydrateFromSceneData(self, scene_data, reid_runtime_update=True):
+    reid_config_changed = False
+    if 'reid_config_data' in scene_data:
+      new_reid_config_data = scene_data['reid_config_data']
+      reid_config_changed = new_reid_config_data != self.reid_config_data
+      if reid_config_changed:
+        self.reid_config_data = new_reid_config_data
+
     self.parent = scene_data.get('parent', None)
     self.cameraPose = None
     if 'transform' in scene_data:
       self.cameraPose = CameraPose(scene_data['transform'], None)
-    self.use_tracker = scene_data.get('use_tracker', True)
+    self.use_tracker = scene_data.get('use_tracker', True) and not ControllerMode.isAnalyticsOnly()
     self.output_lla = scene_data.get('output_lla', False)
     self.map_corners_lla = scene_data.get('map_corners_lla', None)
+    self.retrack = scene_data.get('retrack', True)
+    self.persist_attributes = scene_data.get('persist_attributes', {})
     self._updateChildren(scene_data.get('children', []))
     self.updateCameras(scene_data.get('cameras', []))
     self._updateRegions(self.regions, scene_data.get('regions', []))
     self._updateTripwires(scene_data.get('tripwires', []))
     self._updateRegions(self.sensors, scene_data.get('sensors', []))
-    # Update reid config if provided
-    if 'reid_config_data' in scene_data:
-      self.reid_config_data = scene_data['reid_config_data']
+
     tracker_config = scene_data.get('tracker_config', None)
     if tracker_config:
       self.updateTracker(tracker_config[0], tracker_config[1], tracker_config[2])
+
+    # Apply ReID config changes in-place to preserve active tracks while
+    # updating UUID manager thresholds and timers.
+    if reid_runtime_update and reid_config_changed and self.trackerType and not ControllerMode.isAnalyticsOnly():
+      log.info(f"ReID config changed for scene={self.uid}; updating tracker ReID runtime config")
+      self.tracker.updateReidConfig(self.reid_config_data)
+
     self.name = scene_data['name']
     if 'scale' in scene_data:
       self.scale = scene_data['scale']
@@ -128,6 +146,10 @@ class Scene(SceneModel):
     self._invalidate_trs_xyz_to_lla()
     # Access the property to trigger initialization
     _ = self.trs_xyz_to_lla
+    return
+
+  def updateScene(self, scene_data):
+    self._hydrateFromSceneData(scene_data, reid_runtime_update=True)
     return
 
   def updateTracker(self, max_unreliable_time, non_measurement_time_dynamic,
@@ -757,38 +779,14 @@ class Scene(SceneModel):
   @classmethod
   def deserialize(cls, data):
     tracker_config = data.get('tracker_config', [])
+    reid_config_data = data.get('reid_config_data', None)
     scale_from_data = data.get('scale', None)
     scene = cls(data['name'], data.get('map', None), scale_from_data,
-                *tracker_config)
+                *tracker_config, reid_config_data=reid_config_data)
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)
-    scene.use_tracker = data.get('use_tracker', True) and not ControllerMode.isAnalyticsOnly()
-    scene.output_lla = data.get('output_lla', None)
-    scene.map_corners_lla = data.get('map_corners_lla', None)
-    scene.retrack = data.get('retrack', True)
-    scene.regulated_rate = data.get('regulated_rate', None)
-    scene.external_update_rate = data.get('external_update_rate', None)
-    scene.persist_attributes = data.get('persist_attributes', {})
-    if 'cameras' in data:
-      scene.updateCameras(data['cameras'])
-    if 'regions' in data:
-      scene._updateRegions(scene.regions, data['regions'])
-    if 'tripwires' in data:
-      scene._updateTripwires(data['tripwires'])
-    if 'sensors' in data:
-      scene._updateRegions(scene.sensors, data['sensors'])
-    if 'children' in data:
-      scene.children = [x['name'] for x in data['children']]
-    if 'parent' in data:
-      scene.parent = data['parent']
-    if 'transform' in data:
-      scene.cameraPose = CameraPose(data['transform'], None)
-    if 'tracker_config' in data:
-      tracker_config = data['tracker_config']
-      scene.updateTracker(tracker_config[0], tracker_config[1], tracker_config[2])
-    # Access the property to trigger initialization
-    _ = scene.trs_xyz_to_lla
+    scene._hydrateFromSceneData(data, reid_runtime_update=False)
     return scene
 
   def _updateChildren(self, newChildren):

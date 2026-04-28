@@ -47,7 +47,10 @@ cam-unit:
 	$(call unit-recipe, cam, $(IMAGE)-manager-test)
 
 django-integration-unit:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(if $(SECRETSDIR),$(SECRETSDIR),$(PWD)/../manager/secrets))
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(SECRETSDIR) SUPASS=$(SUPASS) -k
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 _django-integration-unit: \
 	account-security-unit \
@@ -57,7 +60,10 @@ _django-integration-unit: \
 	views-unit \
 
 logic-unit-tests:
-	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(if $(SECRETSDIR),$(SECRETSDIR),$(PWD)/../manager/secrets))
+	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(SECRETSDIR) SUPASS=$(SUPASS) -k
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 _logic-unit-tests: \
 	autocamcalib-unit \
