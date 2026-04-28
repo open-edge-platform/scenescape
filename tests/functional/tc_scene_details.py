@@ -7,7 +7,7 @@ from http import HTTPStatus
 from scene_common.rest_client import RESTClient
 from tests.common_test_utils import record_test_result
 
-TEST_NAME = "NEX-T19028"
+TEST_NAME = "NEX-T21884"
 
 # 
 def test_scene_details_api(params, record_xml_attribute):

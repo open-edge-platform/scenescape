@@ -39,19 +39,19 @@ scene-import-json: # NEX-T15347
 	$(call common-recipe, $(COMPOSE_FILES), controller/tests/tc_scene_import_json.py, 'scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-scenes-summary: # NEX-T10394-API
+scenes-summary: # NEX-T21883
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_scenes_summary.py, 'pgserver web', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-scene-details: # NEX-T10395-API
+scene-details: # NEX-T21884
 	$(eval SERVICES := $(strip pgserver web retail-video scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_scene_details.py, '$(SERVICES)', true, /run/secrets/controller.auth)
 
-object-crud: # NEX-T10429-API
+object-crud: # NEX-T21885
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_object_crud.py, 'pgserver web', true, /run/secrets/controller.auth)
 
@@ -82,7 +82,7 @@ superuser-crud-operations: # NEX-T21775
 	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_superuser_crud_operations.py, 'pgserver web', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-sensor-location: # NEX-T10400-API
+sensor-location: # NEX-T21886
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
