@@ -17,7 +17,6 @@ misconfigurations:
       - "kubernetes/scenescape-chart/templates/vdms/deployment.yaml"
       - "kubernetes/scenescape-chart/templates/web-app/deployment.yaml"
       - "kubernetes/scenescape-chart/templates/kubeclient/deployment.yaml"
-      - "kubernetes/scenescape-chart/templates/ntp/deployment.yaml"
     statement: Current implementation requires these containers to write to filesystem
   - id: AVD-KSV-0017
     paths:
