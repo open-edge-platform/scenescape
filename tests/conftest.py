@@ -344,7 +344,7 @@ def _inject_options(config, spec, secrets_dir, supass, env=None):
 # ---------------------------------------------------------------------------
 
 def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory,
-                       exampledb=""):
+                       exampledb="", collect_container_logs_mode="failed"):
   """Start a Docker Compose stack for a profile; yield ScenescapeEnv; tear down.
 
   This is a generator meant to be called via ``yield from`` in
@@ -433,6 +433,7 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
 
   network = f"{project_name}_scenescape-test"
 
+  lifecycle_failed = False
   try:
     logger.info("=" * 60)
     logger.info("Starting test environment: %s", project_name)
@@ -464,10 +465,27 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       https_port=https_port,
     )
 
+  except Exception:
+    lifecycle_failed = True
+    raise
+
   finally:
     # Silence terminal output immediately — teardown logs go to file only.
     if _testlog is not None:
       _testlog.silence_console()
+
+    # Fallback logging for failures before pytest_runtest_teardown can run
+    # (for example compose startup/wait_for_services or fixture setup errors).
+    if lifecycle_failed and collect_container_logs_mode != "none":
+      logger.info(
+        "Collecting fallback container logs after lifecycle failure (mode=%s): %s",
+        collect_container_logs_mode,
+        project_name,
+      )
+      try:
+        collect_logs(docker, scan_for_tracebacks=True)
+      except Exception as exc:
+        logger.warning("fallback container log collection failed: %s", exc)
 
     logger.info("Cleaning up: %s", project_name)
     try:
@@ -505,9 +523,14 @@ if _ORCHESTRATION_AVAILABLE:
   def _make_profile_fixture(profile, **kw):
     """Create a session-scoped fixture for a ServiceProfile."""
     @pytest.fixture(scope="session")
-    def _fixture(repo_root, secrets_dir, supass, tmp_path_factory):
+    def _fixture(repo_root, secrets_dir, supass, tmp_path_factory, pytestconfig):
+      collect_container_logs_mode = pytestconfig.getoption(
+        "collect_container_logs", default="failed"
+      )
       yield from _compose_lifecycle(profile, repo_root, secrets_dir, supass,
-                                    tmp_path_factory, **kw)
+                                    tmp_path_factory,
+                                    collect_container_logs_mode=collect_container_logs_mode,
+                                    **kw)
     _fixture.__doc__ = f"Session-scoped {profile.name} compose environment."
     return _fixture
 
@@ -647,15 +670,12 @@ def pytest_runtest_call(item):
     return
   _testlog.begin_test_phase()
 
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_makereport(item, call):
-  """Attach setup/call/teardown reports to each item for teardown decisions."""
-  outcome = yield
-  rep = outcome.get_result()
-  setattr(item, f"rep_{rep.when}", rep)
+def _collect_container_logs_if_configured(item):
+  """Collect container logs for an item based on configured mode and outcome.
 
-def pytest_runtest_teardown(item, nextitem):
-  """Collect container logs according to configured collection mode."""
+  This runs after teardown report is available so teardown/finalizer failures
+  are included in mode=failed decisions.
+  """
   if not _ORCHESTRATION_AVAILABLE:
     return
 
@@ -663,17 +683,19 @@ def pytest_runtest_teardown(item, nextitem):
   if mode == "none":
     return
 
+  env = item.funcargs.get("scenescape_env") if hasattr(item, "funcargs") else None
+  if env is None:
+    return
+
   rep_setup = getattr(item, "rep_setup", None)
   rep_call = getattr(item, "rep_call", None)
+  rep_teardown = getattr(item, "rep_teardown", None)
   failed = bool(
     (rep_setup is not None and rep_setup.failed)
     or (rep_call is not None and rep_call.failed)
+    or (rep_teardown is not None and rep_teardown.failed)
   )
   if mode == "failed" and not failed:
-    return
-
-  env = item.funcargs.get("scenescape_env") if hasattr(item, "funcargs") else None
-  if env is None:
     return
 
   if mode == "all":
@@ -681,6 +703,15 @@ def pytest_runtest_teardown(item, nextitem):
   else:
     logger.info("Collecting container logs for failed test: %s", item.nodeid)
   collect_logs(env.docker, scan_for_tracebacks=True)
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+  """Attach setup/call/teardown reports and collect logs after teardown."""
+  outcome = yield
+  rep = outcome.get_result()
+  setattr(item, f"rep_{rep.when}", rep)
+  if rep.when == "teardown":
+    _collect_container_logs_if_configured(item)
 
 def pytest_runtest_logreport(report):
   """Log test phase results to the per-test log file."""
