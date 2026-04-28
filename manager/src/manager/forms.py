@@ -12,7 +12,7 @@ from django.forms import ModelForm, ValidationError
 
 from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
 from manager.validators import validate_zip_file
-from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES, CV_SUBSYSTEM_CHOICES
+from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES
 from scene_common.cam_fields import (
     CAM_FORM_FIELDS, CAM_FORM_ONLY_FIELDS,
     CAM_KUBERNETES_FIELDS, CAM_ADVANCED_FIELDS
