@@ -4,8 +4,10 @@
 import base64
 import binascii
 import datetime
+import uuid
 import warnings
 from dataclasses import dataclass, field
+from enum import Enum
 from threading import Lock
 from typing import Dict, List
 
@@ -16,6 +18,7 @@ from scipy.spatial.transform import Rotation
 
 from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2
+from scene_common.timestamp import get_epoch_time
 from scene_common.transform import normalize, rotationToTarget
 from scene_common import log
 
@@ -110,6 +113,19 @@ def serializeReIDPayload(reid):
 
   return reid
 
+class ReidState(Enum):
+  """State of ReID query and matching for an object.
+
+  PENDING_COLLECTION: Collecting embeddings, query not yet made
+  QUERY_NO_MATCH: Query made but no match found (new object)
+  MATCHED: Successfully matched to previous object (reID)
+  REID_DISABLED: ReID system is disabled, no query will be made
+  """
+  PENDING_COLLECTION = "pending_collection"
+  QUERY_NO_MATCH = "query_no_match"
+  MATCHED = "matched"
+  REID_DISABLED = "reid_disabled"
+
 @dataclass
 class ChainData:
   regions: Dict
@@ -196,6 +212,9 @@ class MovingObject:
     self.intersected = False
     self.reid = {}  # Initialize reid as empty dict
     self.metadata = {}  # Initialize metadata as empty dict
+    self.reid_state = ReidState.PENDING_COLLECTION  # Track reID state
+    self.similarity = None  # Similarity score from last reID match
+    self.previous_ids_chain = []  # Track object ID history: [{'id': gid, 'timestamp': ts, 'similarity_score': score}, ...]
     # Extract reid from metadata if present and preserve metadata attribute
     metadata_from_info = self.info.get('metadata', {})
     if metadata_from_info and isinstance(metadata_from_info, dict):
@@ -294,6 +313,9 @@ class MovingObject:
     self.gid = otherObj.gid
     self.first_seen = otherObj.first_seen
     self.frameCount = otherObj.frameCount + 1
+    self.reid_state = otherObj.reid_state
+    self.similarity = otherObj.similarity
+    self.previous_ids_chain = otherObj.get_previous_ids()
 
     del self.chain_data.publishedLocations[LOCATION_LIMIT:]
 
@@ -378,6 +400,43 @@ class MovingObject:
   @property
   def when(self):
     return self.location[0].when
+
+  def save_previous_object_id(self, previous_id, similarity_score=None, timestamp=None):
+    """Save the previous object ID for post-mortem analysis.
+
+    @param previous_id: The previous global ID assigned to this object
+    @param similarity_score: Similarity score from reID matching (if matched), or None if new object
+    @param timestamp: When the change occurred (epoch time), defaults to current time
+    """
+    try:
+      uuid.UUID(previous_id)
+    except (TypeError, ValueError, AttributeError) as err:
+      raise ValueError("previous_id must be a valid UUID") from err
+
+    if timestamp is None:
+      timestamp = get_epoch_time()
+
+    self.previous_ids_chain.append({
+      'id': previous_id,
+      'timestamp': timestamp,
+      'similarity_score': similarity_score
+    })
+    log.debug(f"MovingObject.save_previous_object_id: rv_id={getattr(self, 'rv_id', 'unknown')}, "
+              f"previous_id={previous_id}, similarity={similarity_score}, state={self.reid_state.value}")
+
+  def is_reidentified(self):
+    """Check if this object resulted from successful reID matching.
+
+    @return: True if object was matched to a previous object, False otherwise
+    """
+    return self.reid_state == ReidState.MATCHED
+
+  def get_previous_ids(self):
+    """Get chain of previous IDs for this object.
+
+    @return: List of dicts with 'id', 'timestamp', 'similarity_score' for post-mortem analysis
+    """
+    return self.previous_ids_chain.copy()
 
   def __repr__(self):
     return "%s: %s/%s %s %s vectors: %s" % \

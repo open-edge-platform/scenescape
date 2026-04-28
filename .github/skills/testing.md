@@ -71,6 +71,16 @@ Run this workflow before executing any test command:
 - Do not report completion without runtime verification for the resolved target (unless blocked).
 - Always report: should-run target, whether it was run, exact command, and pass/fail summary (or blocker).
 
+## Test Configuration Hygiene (Mandatory)
+
+- Do not add new environment variables to `tools/scenescape-start` for test-only behavior.
+- Treat `tools/scenescape-start` as a stable shared launcher, not a per-test configuration surface.
+- For test scenario inputs, prefer one of these paths:
+  - test configuration files (for example scenario JSON, service config JSON)
+  - test runner arguments (for example pytest options)
+  - Makefile variables scoped to test targets
+- If a new environment variable is absolutely required for non-test runtime behavior, document and justify it in the related service docs; do not introduce it solely to satisfy a test matrix.
+
 ### Quick Mapping Examples
 
 - `tests/functional/tc_sensors_send_mqtt_messages.py` -> `make -C tests sensors-send-events`
