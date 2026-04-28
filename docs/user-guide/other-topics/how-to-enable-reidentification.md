@@ -141,18 +141,20 @@ When an object is first detected, it is assigned a UUID and no similarity score.
 - **Match Found**: The object is reassigned a matching UUID and given a similarity score.
 - **No Match**: The object retains its original UUID.
 
+The scene output includes `reid_state` for each tracked object. For canonical state definitions and lifecycle transitions, see [2-Tier Hybrid Search Implementation](../microservices/controller/Extended-ReID.md#reid-object-states). For output field contract details, see [Scene Controller Data Formats](../microservices/controller/data_formats.md#common-output-track-fields).
+
 > **Known Issue**: Current VDMS implementation does not support feature expiration, leading to degraded performance over time. This will be addressed in a future release.
 
 ---
 
 ## Configuration Options
 
-| Parameter                        | Purpose                                                                           | Expected Value/Range        |
-| -------------------------------- | --------------------------------------------------------------------------------- | --------------------------- |
-| `DEFAULT_SIMILARITY_THRESHOLD`   | Controls match sensitivity. Higher values increase matches (and false positives). | Float (e.g., 0.7–0.95)      |
-| `DEFAULT_MINIMUM_BBOX_AREA`      | Minimum bounding box size to consider a valid feature.                            | Pixel area (e.g., 400–1600) |
-| `DEFAULT_MINIMUM_FEATURE_COUNT`  | Minimum features needed before querying DB.                                       | Integer (e.g., 5–20)        |
-| `DEFAULT_MAX_FEATURE_SLICE_SIZE` | Proportion of features stored to improve DB performance.                          | Float (e.g., 0.1–1.0)       |
+| Parameter                        | Purpose                                                                                                                          | Expected Value/Range                |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `DEFAULT_SIMILARITY_THRESHOLD`   | Maximum L2 distance for a match to be accepted. Higher values increase matches (and false positives); lower values are stricter. | Float L2 distance (e.g., 20.0–60.0) |
+| `DEFAULT_MINIMUM_BBOX_AREA`      | Minimum bounding box size to consider a valid feature.                                                                           | Pixel area (e.g., 400–1600)         |
+| `DEFAULT_MINIMUM_FEATURE_COUNT`  | Minimum features needed before querying DB.                                                                                      | Integer (e.g., 5–20)                |
+| `DEFAULT_MAX_FEATURE_SLICE_SIZE` | Proportion of features stored to improve DB performance.                                                                         | Float (e.g., 0.1–1.0)               |
 
 To apply changes (include `--profile vdms` if ReID is enabled; see [Docker Compose Profiles](../get-started.md#docker-compose-profiles)):
 

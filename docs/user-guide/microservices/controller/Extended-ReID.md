@@ -151,20 +151,22 @@ controller/config/reid-config.json
   "stale_feature_timeout_secs": 5.0,
   "stale_feature_check_interval_secs": 1.0,
   "feature_accumulation_threshold": 12,
+  "minimum_bbox_area": 5000,
   "feature_slice_size": 10,
-  "similarity_threshold": 60
+  "similarity_threshold": 30.0
 }
 ```
 
 ### Configuration Parameters
 
-| Parameter                           | Type  | Default | Description                                                                                                                                                           |
-| ----------------------------------- | ----- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stale_feature_timeout_secs`        | float | 5.0     | How long (seconds) to accumulate features in memory before flushing to VDMS. Features older than this threshold are persisted to the database for long-term storage.  |
-| `stale_feature_check_interval_secs` | float | 1.0     | How frequently (seconds) the background timer checks for stale features and flushes them to VDMS. More frequent checks ensure timely database updates.                |
-| `feature_accumulation_threshold`    | int   | 12      | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.     |
-| `feature_slice_size`                | int   | 10      | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector. |
-| `similarity_threshold`              | int   | 60      | Minimum similarity score (0-100) for a match to be considered valid. Higher values = stricter matching.                                                               |
+| Parameter                           | Type  | Default | Description                                                                                                                                                                        |
+| ----------------------------------- | ----- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stale_feature_timeout_secs`        | float | 5.0     | How long (seconds) to accumulate features in memory before flushing to VDMS. Features older than this threshold are persisted to the database for long-term storage.               |
+| `stale_feature_check_interval_secs` | float | 1.0     | How frequently (seconds) the background timer checks for stale features and flushes them to VDMS. More frequent checks ensure timely database updates.                             |
+| `feature_accumulation_threshold`    | int   | 12      | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.                  |
+| `minimum_bbox_area`                 | int   | 5000    | Minimum bounding-box area in pixels required before a detected object contributes a ReID embedding to quality feature accumulation.                                                |
+| `feature_slice_size`                | int   | 10      | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector.              |
+| `similarity_threshold`              | float | 40.0    | Maximum L2 distance from VDMS for a candidate to be accepted as a match. Candidates with distance **below** this threshold are considered valid. Lower values = stricter matching. |
 
 ### Embedding Dimension Inference
 
@@ -188,8 +190,8 @@ python scene_controller.py \
 
 **Current Implementation Note**:
 
-- `stale_feature_timeout_secs`, `stale_feature_check_interval_secs`, `feature_accumulation_threshold`, `feature_slice_size`, and `similarity_threshold` are fully implemented
-- ReID embedding dimensions are inferred at runtime from the first received embedding; there is no configuration override for dimension
+- `stale_feature_timeout_secs`, `stale_feature_check_interval_secs`, `feature_accumulation_threshold`, `minimum_bbox_area`, `feature_slice_size`, and `similarity_threshold` are fully implemented.
+- ReID embedding dimensions are inferred at runtime from the first received embedding; there is no configuration override for dimension.
 - All semantic metadata attributes are currently used for TIER 1 filtering. Selective metadata filtering is planned for Phase 2.
 
 ### Tuning Recommendations
@@ -199,7 +201,7 @@ python scene_controller.py \
 - Decrease `stale_feature_timeout_secs`: 3.0 (flush features sooner, capture recent appearances)
 - Decrease `stale_feature_check_interval_secs`: 0.5 (check for stale features more frequently)
 - Decrease `feature_accumulation_threshold`: 8 (query sooner with fewer features)
-- Decrease `similarity_threshold`: 50 (accept less-perfect matches)
+- Increase `similarity_threshold`: 60.0 (accept less-perfect matches, wider distance budget)
 - Increase `feature_slice_size`: 20 (store more diverse samples)
 
 **For Higher Precision (only confident matches)**:
@@ -207,7 +209,7 @@ python scene_controller.py \
 - Increase `stale_feature_timeout_secs`: 8.0 (accumulate more features before persisting)
 - Increase `stale_feature_check_interval_secs`: 2.0 (check less frequently, reduce overhead)
 - Increase `feature_accumulation_threshold`: 16 (require more samples for statistical confidence)
-- Increase `similarity_threshold`: 75 (stricter matching)
+- Decrease `similarity_threshold`: 20.0 (stricter matching, tighter distance budget)
 - Decrease `feature_slice_size`: 5 (store every 5th feature for better coverage)
 
 ### Future Extensibility
