@@ -12,7 +12,9 @@ make setup-pytest   # creates tests/.venv if not present
 
 Tests are orchestrated by pytest. The `scenescape_env` fixture in
 `tests/conftest.py` manages Docker Compose lifecycle (start, readiness polling,
-log collection, teardown). Test specs are defined in the individual test
+container log collection, teardown). By default, container logs are collected
+only for failed tests. Use `--collect-container-logs {failed,all,none}` to
+change this behavior. Test specs are defined in the individual test
 modules as Python dataclasses.
 
 ### Using make (recommended)
@@ -63,6 +65,11 @@ pytest tests/sscape_tests -v
 # Run all UI tests
 pytest tests/ui -v
 
+# Container log collection modes (default: failed)
+pytest tests/functional -v --collect-container-logs failed
+pytest tests/functional -v --collect-container-logs all
+pytest tests/functional -v --collect-container-logs none
+
 ```
 
 ### Environment variables
@@ -83,8 +90,14 @@ tests/test_logs/unit/<test_id>-<timestamp>.log
 tests/test_logs/ui/<test_id>-<timestamp>.log
 ```
 
-Console output is suppressed during teardown — container log collection and
-cleanup messages go to the log file only.
+Container log collection supports:
+
+- `failed` (default): collect container logs only for failed tests.
+- `all`: collect container logs for every test.
+- `none`: skip container log collection entirely.
+
+Console output is suppressed during teardown. Container-log and cleanup
+messages are written to the per-test log file.
 
 ## Available test groups
 
@@ -112,7 +125,3 @@ or directly with pytest:
 ```bash
 pytest tests/sscape_tests -v
 ```
-
-## Running tests on kubernetes
-
-Refer to [Running tests on kubernetes](kubernetes/README.md)
