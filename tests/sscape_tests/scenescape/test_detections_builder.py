@@ -9,7 +9,7 @@ import pytest
 
 from controller.detections_builder import buildDetectionsDict, buildDetectionsList, prepareObjDict
 from controller.scene import TripwireEvent
-from controller.moving_object import ChainData
+from controller.moving_object import ChainData, ReidState
 from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time, get_iso_time
 
@@ -207,6 +207,37 @@ class TestDetectionsBuilder:
 
     assert 'sensors' not in detection
 
+  def test_prepare_obj_dict_serializes_previous_ids_chain_epoch_timestamp_to_iso(self):
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    obj.previous_ids_chain = [
+      {
+        'id': 'legacy-id-1',
+        'timestamp': 1711886400.123,
+        'similarity_score': 24.5,
+      }
+    ]
+
+    detection = prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
+
+    assert detection['previous_ids_chain'][0]['timestamp'] == get_iso_time(1711886400.123)
+    assert detection['previous_ids_chain'][0]['id'] == 'legacy-id-1'
+    assert detection['previous_ids_chain'][0]['similarity_score'] == 24.5
+
+  def test_prepare_obj_dict_preserves_previous_ids_chain_string_timestamp(self):
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    iso_timestamp = '2026-04-21T12:34:56.789Z'
+    obj.previous_ids_chain = [
+      {
+        'id': 'legacy-id-2',
+        'timestamp': iso_timestamp,
+        'similarity_score': None,
+      }
+    ]
+
+    detection = prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
+
+    assert detection['previous_ids_chain'][0]['timestamp'] == iso_timestamp
+
   def test_prepare_obj_dict_raises_with_missing_gid(self):
     obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
     del obj.gid
@@ -235,6 +266,78 @@ class TestDetectionsBuilder:
     assert detection['heading'] == [180.0]
     mock_convert_xyz_to_lla.assert_called_once_with('trs-transform', [1.0, 2.0, 3.0])
     mock_calculate_heading.assert_called_once_with('trs-transform', [1.0, 2.0, 3.0], [4.0, 5.0, 6.0])
+
+  def test_prepare_obj_dict_serializes_reid_state_enum_to_string(self):
+    """Verify that reid_state enum is converted to its string value in serialization."""
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    obj.reid_state = ReidState.MATCHED
+    scene = SimpleNamespace(output_lla=False)
+
+    detection = prepareObjDict(scene, obj, update_visibility=False)
+
+    # Verify reid_state is present and is a string, not an enum
+    assert 'reid_state' in detection
+    assert detection['reid_state'] == 'matched'
+    assert isinstance(detection['reid_state'], str)
+
+  def test_prepare_obj_dict_serializes_reid_state_with_all_enum_values(self):
+    """Verify that all ReidState enum values serialize correctly to their string representations."""
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    scene = SimpleNamespace(output_lla=False)
+
+    # Test each ReidState enum value
+    test_cases = [
+      (ReidState.PENDING_COLLECTION, 'pending_collection'),
+      (ReidState.QUERY_NO_MATCH, 'query_no_match'),
+      (ReidState.MATCHED, 'matched'),
+      (ReidState.REID_DISABLED, 'reid_disabled'),
+    ]
+
+    for reid_state_enum, expected_string in test_cases:
+      obj.reid_state = reid_state_enum
+      detection = prepareObjDict(scene, obj, update_visibility=False)
+      assert detection['reid_state'] == expected_string
+
+  def test_prepare_obj_dict_includes_previous_ids_chain_when_present(self):
+    """Verify that previous_ids_chain is included when it has content."""
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    obj.previous_ids_chain = [
+      {'id': 'old-id-1', 'timestamp': 1711886400.0, 'similarity_score': None},
+      {'id': 'old-id-2', 'timestamp': 1711886401.0, 'similarity_score': 0.95}
+    ]
+    scene = SimpleNamespace(output_lla=False)
+
+    detection = prepareObjDict(scene, obj, update_visibility=False)
+
+    assert 'previous_ids_chain' in detection
+    # Timestamps should be converted to ISO 8601 format
+    assert len(detection['previous_ids_chain']) == 2
+    assert detection['previous_ids_chain'][0]['id'] == 'old-id-1'
+    assert detection['previous_ids_chain'][0]['timestamp'] == get_iso_time(1711886400.0)
+    assert detection['previous_ids_chain'][0]['similarity_score'] is None
+    assert detection['previous_ids_chain'][1]['id'] == 'old-id-2'
+    assert detection['previous_ids_chain'][1]['timestamp'] == get_iso_time(1711886401.0)
+    assert detection['previous_ids_chain'][1]['similarity_score'] == 0.95
+
+  def test_prepare_obj_dict_omits_previous_ids_chain_when_empty(self):
+    """Verify that previous_ids_chain is excluded from output when not set."""
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    # Don't set previous_ids_chain at all
+    scene = SimpleNamespace(output_lla=False)
+
+    detection = prepareObjDict(scene, obj, update_visibility=False)
+
+    assert 'previous_ids_chain' not in detection
+
+  def test_prepare_obj_dict_omits_previous_ids_chain_when_explicitly_empty(self):
+    """Verify that explicitly empty previous_ids_chain is excluded from output."""
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    obj.previous_ids_chain = []
+    scene = SimpleNamespace(output_lla=False)
+
+    detection = prepareObjDict(scene, obj, update_visibility=False)
+
+    assert 'previous_ids_chain' not in detection
 
   def test_region_dwell_increases_while_object_in_region(self):
     """Functional test verifying dwell time updates continuously while object remains in region."""
