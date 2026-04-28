@@ -97,7 +97,6 @@ updates:
       - "/mapping/tests"
       - "/tests/pipeline_runner"
       - "/tools/pipeline_runner"
-      - "/tools/tracker/evaluation"
       - "/tools/v2x"
       - "/tracker/test/service"
       - "/tracker/test/load"
