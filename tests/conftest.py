@@ -683,9 +683,19 @@ def _collect_container_logs_if_configured(item):
   if mode == "none":
     return
 
-  env = item.funcargs.get("scenescape_env") if hasattr(item, "funcargs") else None
+  env = getattr(item, "_scenescape_env", None)
+  if env is None and hasattr(item, "funcargs"):
+    env = item.funcargs.get("scenescape_env")
+  if env is None:
+    request = getattr(item, "_request", None)
+    if request is not None:
+      try:
+        env = request.getfixturevalue("scenescape_env")
+      except pytest.FixtureLookupError:
+        env = None
   if env is None:
     return
+  setattr(item, "_scenescape_env", env)
 
   rep_setup = getattr(item, "rep_setup", None)
   rep_call = getattr(item, "rep_call", None)
