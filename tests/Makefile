@@ -237,7 +237,7 @@ _ui-tests: \
 
 unit-tests:
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
-	$(eval SECRETSDIR := $(if $(SECRETSDIR),$(SECRETSDIR),$(CURDIR)/../manager/secrets))
+	$(eval SECRETSDIR := $(if $(SECRETSDIR),$(SECRETSDIR),$(PWD)/../manager/secrets))
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SECRETSDIR=$(SECRETSDIR) SUPASS=$(SUPASS) -k
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
