@@ -18,13 +18,6 @@ runs:
       run: |
         sudo rm -rf test_data || true
 
-    - name: "Delete kind cluster"
-      if: always()
-      shell: bash
-      run: |
-        kind delete cluster || true
-        docker network rm kind || true
-
     - name: "Stop all running Docker containers"
       if: always()
       shell: bash
