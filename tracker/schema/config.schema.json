@@ -105,6 +105,22 @@
           },
           "required": ["url", "auth_path"]
         },
+        "ntp": {
+          "type": "object",
+          "description": "NTP server connection for clock offset correction.",
+          "properties": {
+            "server": {
+              "type": "string",
+              "description": "NTP server hostname or IP (e.g. 'pool.ntp.org'). When set, the tracker periodically queries this server to correct for local clock drift before evaluating message lag. Leave empty or omit to rely on the OS clock discipline (chronyd/ntpd)."
+            },
+            "sync_interval_s": {
+              "type": "integer",
+              "description": "How often to re-synchronize the NTP offset in seconds.",
+              "default": 300,
+              "minimum": 60
+            }
+          }
+        },
         "otlp": {
           "type": "object",
           "description": "OpenTelemetry collector connection (shared by metrics and tracing). Note: Secure (TLS) connections are not yet supported.",
