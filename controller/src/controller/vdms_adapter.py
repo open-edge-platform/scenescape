@@ -20,7 +20,7 @@ SCHEMA_NAME = "reid_vector"
 SIMILARITY_METRIC = "L2"
 # Tolerance applied to the theoretical [-1, 1] IP score bounds to absorb
 # float32 rounding errors from VDMS normalization and inner-product computation.
-_IP_SCORE_TOLERANCE = 1e-6
+IP_SCORE_TOLERANCE = 1e-6
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
@@ -44,7 +44,7 @@ class VDMSDatabase(ReIDDatabase):
   def _uses_inner_product_metric(self):
     """Return True when descriptor metric is Inner Product."""
     metric = str(self.similarity_metric).strip().upper()
-    return metric in {"IP", "INNER_PRODUCT"}
+    return metric == "IP"
 
   def _is_valid_similarity_score(self, score):
     """Validate similarity score according to active metric semantics."""
@@ -58,7 +58,7 @@ class VDMSDatabase(ReIDDatabase):
 
     # With normalized embeddings, Inner Product must stay within [-1, 1].
     # Allow a small tolerance to absorb float32 rounding from VDMS.
-    if self._uses_inner_product_metric() and (value < -(1.0 + _IP_SCORE_TOLERANCE) or value > (1.0 + _IP_SCORE_TOLERANCE)):
+    if self._uses_inner_product_metric() and (value < -(1.0 + IP_SCORE_TOLERANCE) or value > (1.0 + IP_SCORE_TOLERANCE)):
       return False
 
     return True
@@ -224,18 +224,13 @@ class VDMSDatabase(ReIDDatabase):
         # Store as string
         properties[key] = str(value)
 
-    query = {
-      "AddDescriptor": {
-        "set": f"{set_name}",
-        "properties": properties
-      }
-    }
     # Convert vectors to JSON-serializable format (float32 -> float) and to bytes
     # VDMS API expects: query([q1, q2, ...], [blob1, blob2, ...])
     # Blobs are consumed sequentially, one per AddDescriptor query (flat list)
     descriptor_blobs = []
     add_query = []
     normalize_embeddings = self._uses_inner_product_metric()
+
     for reid_vector in reid_vectors:
       prepared_reid = self.prepare_reid_dict(
         reid_vector,
@@ -246,10 +241,6 @@ class VDMSDatabase(ReIDDatabase):
         continue
 
       vec_array = prepared_reid["embedded_vector"]
-      if self.dimensions is None:
-        log.warning("addEntry: ReID dimensions not yet initialized, skipping vector")
-        continue
-
       descriptor_blobs.append(vec_array.tobytes())
       # Create query dict for each vector
       add_query.append({

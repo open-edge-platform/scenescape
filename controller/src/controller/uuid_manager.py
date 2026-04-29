@@ -8,7 +8,7 @@ import math
 
 import numpy as np
 
-from controller.vdms_adapter import VDMSDatabase
+from controller.vdms_adapter import VDMSDatabase, IP_SCORE_TOLERANCE
 from controller.moving_object import ReidState, MovingObject
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
@@ -27,7 +27,6 @@ DEFAULT_SIMILARITY_METRIC = "L2"
 SUPPORTED_SIMILARITY_METRICS = {"COSINE", "L2"}
 # Tolerance applied to the theoretical [-1, 1] IP score bounds to absorb
 # float32 rounding errors from VDMS normalization and inner-product computation.
-_IP_SCORE_TOLERANCE = 1e-6
 available_databases = {
   "VDMS": VDMSDatabase,
 }
@@ -56,6 +55,29 @@ class UUIDManager:
       return DEFAULT_SIMILARITY_THRESHOLD_COSINE
     return DEFAULT_SIMILARITY_THRESHOLD_L2
 
+  def _validateSimilarityThreshold(self, similarity_threshold, similarity_metric):
+    """Normalize and validate the configured threshold for the active metric."""
+    try:
+      normalized_threshold = float(similarity_threshold)
+    except (TypeError, ValueError) as err:
+      raise ValueError(
+        f"similarity_threshold must be a finite numeric value, got {similarity_threshold}") from err
+
+    if not math.isfinite(normalized_threshold):
+      raise ValueError(
+        f"similarity_threshold must be a finite numeric value, got {similarity_threshold}")
+
+    normalized_metric = self._normalizeSimilarityMetric(similarity_metric)
+    if normalized_metric == "COSINE":
+      if normalized_threshold < -1.0 or normalized_threshold > 1.0:
+        raise ValueError(
+          "similarity_threshold for COSINE must be within [-1.0, 1.0]")
+      return normalized_threshold
+
+    if normalized_threshold < 0.0:
+      raise ValueError("similarity_threshold for L2 must be non-negative")
+    return normalized_threshold
+
   def __init__(self, database=DEFAULT_DATABASE, reid_config_data=None):
     self.active_ids = {}
     self.active_ids_lock = threading.Lock()
@@ -64,6 +86,7 @@ class UUIDManager:
     self.features_for_database_timestamps = {}  # Track when features were added
     self.quality_features = {}
     self.unique_id_count = 0
+    self.stale_feature_timer = None
 
     self.unique_id_count_lock = threading.Lock()
     # ReID embedding dimensions are inferred from the first observed embedding.
@@ -115,7 +138,8 @@ class UUIDManager:
     if configured_similarity_threshold is None:
       configured_similarity_threshold = self._resolveDefaultSimilarityThreshold(
         self.similarity_metric)
-    self.similarity_threshold = configured_similarity_threshold
+    self.similarity_threshold = self._validateSimilarityThreshold(
+      configured_similarity_threshold, self.similarity_metric)
     self.minimum_bbox_area = reid_config_data.get(
       'minimum_bbox_area', DEFAULT_MINIMUM_BBOX_AREA)
     self.feature_slice_size = reid_config_data.get(
@@ -524,7 +548,7 @@ class UUIDManager:
     metric = getattr(self.reid_database, 'similarity_metric', None)
     if metric is None:
       return False
-    return str(metric).strip().upper() in {"IP", "INNER_PRODUCT"}
+    return str(metric).strip().upper() == "IP"
 
   def _isSimilarityMatch(self, metric_value, threshold):
     """Evaluate threshold semantics according to the active descriptor metric."""
@@ -534,12 +558,11 @@ class UUIDManager:
     if not math.isfinite(metric_value):
       return False
 
-    # For IP metrics, scores must lie within [-1, 1] (normalized embeddings).
-    # Allow a small tolerance to absorb float32 rounding from VDMS computation.
-    if self._isHigherBetterMetric() and (metric_value < -(1.0 + _IP_SCORE_TOLERANCE) or metric_value > (1.0 + _IP_SCORE_TOLERANCE)):
-      return False
-
     if self._isHigherBetterMetric():
+      # For IP metrics, scores must lie within [-1, 1] (normalized embeddings).
+      # Allow a small tolerance to absorb float32 rounding from VDMS computation.
+      if metric_value < -(1.0 + IP_SCORE_TOLERANCE) or metric_value > (1.0 + IP_SCORE_TOLERANCE):
+        return False
       return metric_value > threshold
     return metric_value < threshold
 
@@ -562,13 +585,14 @@ class UUIDManager:
     Structure of entities:
     [{'uuid': <UUID>, 'rvid': <TRACKER_ID>, '_distance': <SIMILARITY_SCORE>}, ...]
     """
+    is_higher_better = self._isHigherBetterMetric()
     if entities:
       filtered_entities = []
       for entity in entities:
         metric_value = entity.get('_distance')
         if metric_value is None or not math.isfinite(metric_value):
           continue
-        if self._isHigherBetterMetric() and (metric_value < -(1.0 + _IP_SCORE_TOLERANCE) or metric_value > (1.0 + _IP_SCORE_TOLERANCE)):
+        if is_higher_better and (metric_value < -(1.0 + IP_SCORE_TOLERANCE) or metric_value > (1.0 + IP_SCORE_TOLERANCE)):
           log.warning(
             f"Ignoring out-of-range IP similarity score {metric_value} "
             f"for uuid={entity.get('uuid')}")
@@ -578,7 +602,7 @@ class UUIDManager:
       if not filtered_entities:
         return (None, None)
 
-      if self._isHigherBetterMetric():
+      if is_higher_better:
         best_entity = max(filtered_entities, key=lambda x: x['_distance'])
       else:
         best_entity = min(filtered_entities, key=lambda x: x['_distance'])
