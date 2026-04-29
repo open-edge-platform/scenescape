@@ -29,7 +29,7 @@ sys.path.insert(0, str(_REPO_ROOT / "tools" / "pipeline_runner"))
 from pipeline_runner import PipelineRunner  # noqa: E402
 from tests.pipeline_runner.scenarios import VEHICLE_SCENARIOS, PipelineScenario
 
-TEST_NAME = "NEX-T20170"
+TEST_NAME = "NEX-T21524"
 
 MIN_DETECTIONS = 200
 MIN_CATEGORY_DETECTIONS = 3
