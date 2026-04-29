@@ -30,7 +30,7 @@ from utils.docker import (
 # Tolerance for offset comparison between tracker (C++) and ntplib (Python).
 # Both implement RFC 5905; the difference reflects only the time between the
 # two independent queries over the Docker-local network.
-_OFFSET_TOLERANCE_S = 0.01
+_OFFSET_TOLERANCE_S = 0.005
 
 # Timeout to wait for the tracker to log its first NTP sync line.
 _NTP_SYNC_TIMEOUT_S = 60

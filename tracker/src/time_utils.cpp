@@ -217,6 +217,7 @@ void NtpClock::syncOnce(const std::string& host) {
     if (result) {
         offset_ns_.store(static_cast<int64_t>(*result * 1e9), std::memory_order_relaxed);
         synced_.store(true, std::memory_order_relaxed);
+        // IMPORTANT: this log line is parsed in tracker service NTP test.
         LOG_INFO("NTP sync: offset={:.6f}s (server={})", *result, host);
     } else if (synced_.load(std::memory_order_relaxed)) {
         LOG_WARN("NTP sync failed — keeping previous offset={:.6f}s (server={})",
