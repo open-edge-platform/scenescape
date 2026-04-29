@@ -345,7 +345,7 @@ class Scene(SceneModel):
       for detectionType in self.tracker.trackers.keys():
         for obj in self.tracker.currentObjects(detectionType):
           # When tracking is disabled, do not rely on obj.frameCount being initialized
-          if (not self.use_tracker or obj.frameCount > 3) and (is_scene_wide or sensor.isPointWithin(obj.sceneLoc)):
+          if (obj.frameCount > 3) and (is_scene_wide or sensor.isPointWithin(obj.sceneLoc)):
             objects_in_sensor.append(obj)
             obj.chain_data.active_sensors.add(sensor_id)
     else:
