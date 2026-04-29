@@ -9,3 +9,4 @@ requests==2.33.0
 cryptography==46.0.7
 PyYAML==6.0.3
 jsonschema==4.25.1
+ntplib==0.4.0
