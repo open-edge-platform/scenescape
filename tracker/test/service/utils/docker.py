@@ -47,6 +47,18 @@ def get_broker_host(docker, port=1883):
   return "localhost", port
 
 
+def get_ntp_server_port(docker):
+  """Get dynamically mapped host port for UDP 123 on the ntp-server container."""
+  containers = docker.compose.ps()
+  for container in containers:
+    if "-ntp-server-" in container.name:
+      ports = container.network_settings.ports
+      port_key = "123/udp"
+      if port_key in ports and ports[port_key]:
+        return "localhost", int(ports[port_key][0]["HostPort"])
+  return "localhost", 123
+
+
 def get_container_logs(docker, service):
   """Get container logs for debugging."""
   try:

@@ -82,12 +82,12 @@ tests: \
   standard-tests \
 
 release-tests: \
-  camera-deletion \
-  different-formats-maps \
+  camera-deletion-ui \
+  different-formats-maps-ui \
   live-view-button \
   mesh-creation \
   non-functional-tests \
-  scene-details \
+  scene-details-ui \
   reid-performance-degradation \
 
 broken-features:
@@ -101,8 +101,8 @@ _broken-features: \
 broken-tests: \
   3d-ui-calibration-points \
   geospatial-ingest-publish \
-  delete-sensor-mqtt-api \
-  scenes-summary-api \
+  delete-sensor-mqtt \
+  scenes-summary \
   reid-performance-degradation \
   auto-calibration-ui \
 
@@ -121,7 +121,7 @@ basic-acceptance-tests: \
   mqtt-roi \
   mqtt-tripwire \
   unit-tests \
-  auto-calibration-api \
+  auto-calibration \
   openapi-validation \
 
 # Temp K8s BAT target
@@ -143,42 +143,39 @@ _functional-tests: \
   out-of-box \
   out-of-box-no-ntp \
   geometry-conformance \
-  auto-calibration-api \
-  add-delete-3d-object-api \
+  auto-calibration \
+  add-delete-3d-object \
   add-orphaned-cameras \
   api-large-strings \
-  calibrate-all-sensor-types-api \
-  camera-deletion-api \
-  camera-intrinsics-api \
+  calibrate-all-sensor-types \
+  camera-deletion \
   camera-intrinsics \
   child-scenes \
-  delete-sensor-scene-api \
-  delete-sensors-api \
-  different-formats-maps-api \
+  delete-sensor-scene \
+  delete-sensors \
+  different-formats-maps \
   infer-rotation \
-  manual-camera-calibration-api \
+  manual-camera-calibration \
   mqtt-auth \
   mqtt-cert \
   mqtt-roi \
   mqtt-sensor-roi \
   mqtt-slow-sensor-roi \
   mqtt-tripwire \
-  object-crud-api \
+  object-crud \
   orphaned-sensor \
-  persistence-api \
+  persistence \
   reid-semantic-unique-count \
   reid-unique-count \
   rest-test \
-  scene-details-api \
-  scene-import-api \
+  scene-details \
+  scene-import \
   scene-import-json \
-  sensor-area-api \
-  sensor-location-api \
-  sensor-scene-api \
+  sensor-location \
   sensors-send-events \
-  superuser-crud-operations-api \
-  upload-3d-glb-file-api \
-  upload-only-3d-glb-files-api \
+  superuser-crud-operations \
+  upload-3d-glb-file \
+  upload-only-3d-glb-files \
   vdms-similarity-search \
   visibility-unregulated \
   visibility-none \
@@ -195,41 +192,39 @@ metric-tests:
 	$(MAKE) -Otarget -j $(NPROCS) _$@ SUPASS=$(SUPASS) -k
 
 _metric-tests: \
-  idc-error-metric \
-  velocity-metric \
-  msoce-metric \
+  metrics \
 
 ui-tests:
 	$(MAKE) -Otarget _$@ SECRETSDIR=$(PWD)/manager/secrets SUPASS=$(SUPASS) -k
 
 _ui-tests: \
   show-telemetry-button \
-  upload-only-3d-glb-files \
-  add-delete-3d-object \
+  upload-only-3d-glb-files-ui \
+  add-delete-3d-object-ui \
   bounding-box \
-  calibrate-all-sensor-types \
-  camera-deletion \
+  calibrate-all-sensor-types-ui \
+  camera-deletion-ui \
   camera-perspective \
   delete-roi-mqtt \
-  delete-sensor-mqtt \
-  delete-sensor-scene \
-  delete-sensors \
+  delete-sensor-mqtt-ui \
+  delete-sensor-scene-ui \
+  delete-sensors-ui \
   camera-status \
+  camera-intrinsics-ui \
   delete-tripwire-mqtt \
-  different-formats-maps \
-  manual-camera-calibration \
-  object-crud \
+  different-formats-maps-ui \
+  manual-camera-calibration-ui \
+  object-crud-ui \
   restricted-media-access \
-  persistence \
+  persistence-ui \
   live-view-button \
-  scene-details \
-  scene-import \
-  scenes-summary \
+  scene-details-ui \
+  scenes-summary-ui \
   sensor-area \
-  sensor-location \
+  sensor-location-ui \
   sensor-scene \
-  superuser-crud-operations \
-  upload-3d-glb-file \
+  superuser-crud-operations-ui \
+  upload-3d-glb-file-ui \
   view-3d-glb-file \
   3d-scene-control-panel \
   3d-camera-control-panel \
