@@ -3,7 +3,11 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import json
+import os
 import pytest
+import tempfile
+from unittest.mock import patch, MagicMock
 
 from controller.scene_controller import SceneController
 
@@ -142,3 +146,86 @@ class TestSceneControllerExtractTimeChunkingEnabled:
 
     with pytest.raises(ValueError, match='Invalid value for time_chunking_enabled'):
       scene_controller._extractTimeChunkingEnabled({'time_chunking_enabled': _BoolRaises()})
+
+
+class TestSceneControllerExtractReidConfigData:
+  """Regression tests: extractReidConfigData must read and store all reid config fields."""
+
+  def test_extracts_all_known_reid_config_fields(self):
+    """All reid config keys are loaded into scene_controller.reid_config_data."""
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.reid_config_data = {}
+
+    reid_config = {
+      'feature_accumulation_threshold': 8,
+      'similarity_threshold': 55,
+      'stale_feature_timeout_secs': 7.5,
+      'stale_feature_check_interval_secs': 2.0,
+      'feature_slice_size': 10,
+    }
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+      json.dump(reid_config, f)
+      tmp_path = f.name
+
+    try:
+      scene_controller.extractReidConfigData(tmp_path)
+    finally:
+      os.unlink(tmp_path)
+
+    assert scene_controller.reid_config_data == reid_config
+
+  def test_extract_reid_config_data_raises_for_missing_file(self):
+    """Missing REID config file propagates FileNotFoundError."""
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.reid_config_data = {}
+
+    with pytest.raises(FileNotFoundError):
+      scene_controller.extractReidConfigData('definitely-missing-reid-config.json')
+
+
+class TestSceneDeserializeReidConfigPropagation:
+  """Regression tests: Scene.deserialize must propagate reid_config_data to the tracker."""
+
+  @patch('controller.scene.ControllerMode')
+  @patch('controller.scene.IntelLabsTracking')
+  def test_deserialize_without_reid_config_key_gives_empty_dict(
+    self, mock_tracking, mock_mode
+  ):
+    """Scene.deserialize with no reid_config_data key results in empty dict on the scene."""
+    mock_mode.isAnalyticsOnly.return_value = False
+
+    mock_tracker_instance = MagicMock()
+    mock_tracking.return_value = mock_tracker_instance
+
+    from controller.scene import Scene
+    scene_data = {
+      'uid': 'test-uid-1',
+      'name': 'test_scene',
+      'map': None,
+    }
+    scene = Scene.deserialize(scene_data)
+
+    assert scene.reid_config_data == {}
+
+  @patch('controller.scene.ControllerMode')
+  @patch('controller.scene.TimeChunkedIntelLabsTracking')
+  def test_deserialize_with_reid_config_stores_config_on_scene(
+    self, mock_tracking, mock_mode
+  ):
+    """Scene deserialized with reid_config_data stores it on the scene object."""
+    mock_mode.isAnalyticsOnly.return_value = False
+    mock_tracking.return_value = MagicMock()
+
+    from controller.scene import Scene
+    reid_config = {'feature_accumulation_threshold': 8, 'similarity_threshold': 55}
+    scene_data = {
+      'uid': 'test-uid-2',
+      'name': 'test_scene',
+      'map': None,
+      'reid_config_data': reid_config,
+      'tracker_config': [1.0, 2.0, 3.0, 15, True, 15, 5.0],
+    }
+    scene = Scene.deserialize(scene_data)
+
+    assert scene.reid_config_data == reid_config
+
