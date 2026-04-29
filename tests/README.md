@@ -125,3 +125,7 @@ or directly with pytest:
 ```bash
 pytest tests/sscape_tests -v
 ```
+
+## Running tests on kubernetes
+
+Refer to [Running tests on kubernetes](kubernetes/README.md)
