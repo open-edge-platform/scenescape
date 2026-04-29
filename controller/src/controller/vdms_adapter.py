@@ -17,7 +17,10 @@ DEFAULT_CONFIDENCE_THRESHOLD = float(os.getenv("VDMS_CONFIDENCE_THRESHOLD", "0.8
 DIMENSIONS = 256
 K_NEIGHBORS = 1
 SCHEMA_NAME = "reid_vector"
-SIMILARITY_METRIC = "IP"
+SIMILARITY_METRIC = "L2"
+# Tolerance applied to the theoretical [-1, 1] IP score bounds to absorb
+# float32 rounding errors from VDMS normalization and inner-product computation.
+_IP_SCORE_TOLERANCE = 1e-6
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
@@ -53,8 +56,9 @@ class VDMSDatabase(ReIDDatabase):
     if not np.isfinite(value):
       return False
 
-    # With normalized embeddings, Inner Product must stay in [-1, 1].
-    if self._uses_inner_product_metric() and (value < -1.0 or value > 1.0):
+    # With normalized embeddings, Inner Product must stay within [-1, 1].
+    # Allow a small tolerance to absorb float32 rounding from VDMS.
+    if self._uses_inner_product_metric() and (value < -(1.0 + _IP_SCORE_TOLERANCE) or value > (1.0 + _IP_SCORE_TOLERANCE)):
       return False
 
     return True

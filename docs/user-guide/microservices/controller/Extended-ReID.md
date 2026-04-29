@@ -222,7 +222,9 @@ python scene_controller.py \
 - Decrease `stale_feature_timeout_secs`: 3.0 (flush features sooner, capture recent appearances)
 - Decrease `stale_feature_check_interval_secs`: 0.5 (check for stale features more frequently)
 - Decrease `feature_accumulation_threshold`: 8 (query sooner with fewer features)
-- Decrease `similarity_threshold`: 0.2 (accept less-perfect matches, wider similarity budget)
+- `similarity_threshold` — direction depends on the configured metric:
+  - **`L2` (default)**: *Increase* the threshold (e.g., 50.0) to accept candidates further away → more matches
+  - **`COSINE`**: *Decrease* the threshold (e.g., 0.2) to accept candidates with lower cosine similarity → more matches
 - Increase `feature_slice_size`: 20 (store more diverse samples)
 
 **For Higher Precision (only confident matches)**:
@@ -230,7 +232,9 @@ python scene_controller.py \
 - Increase `stale_feature_timeout_secs`: 8.0 (accumulate more features before persisting)
 - Increase `stale_feature_check_interval_secs`: 2.0 (check less frequently, reduce overhead)
 - Increase `feature_accumulation_threshold`: 16 (require more samples for statistical confidence)
-- Increase `similarity_threshold`: 0.5 (stricter matching, tighter similarity budget)
+- `similarity_threshold` — direction depends on the configured metric:
+  - **`L2` (default)**: *Decrease* the threshold (e.g., 20.0) so only close-distance candidates match → fewer, more confident matches
+  - **`COSINE`**: *Increase* the threshold (e.g., 0.8) to accept only high-cosine-similarity candidates → fewer, more confident matches
 - Decrease `feature_slice_size`: 5 (store every 5th feature for better coverage)
 
 ### Future Extensibility

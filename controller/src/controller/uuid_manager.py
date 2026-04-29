@@ -25,6 +25,9 @@ DEFAULT_STALE_FEATURE_TIMEOUT_SECS = 5.0
 DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS = 1.0
 DEFAULT_SIMILARITY_METRIC = "L2"
 SUPPORTED_SIMILARITY_METRICS = {"COSINE", "L2"}
+# Tolerance applied to the theoretical [-1, 1] IP score bounds to absorb
+# float32 rounding errors from VDMS normalization and inner-product computation.
+_IP_SCORE_TOLERANCE = 1e-6
 available_databases = {
   "VDMS": VDMSDatabase,
 }
@@ -531,7 +534,9 @@ class UUIDManager:
     if not math.isfinite(metric_value):
       return False
 
-    if self._isHigherBetterMetric() and (metric_value < -1.0 or metric_value > 1.0):
+    # For IP metrics, scores must lie within [-1, 1] (normalized embeddings).
+    # Allow a small tolerance to absorb float32 rounding from VDMS computation.
+    if self._isHigherBetterMetric() and (metric_value < -(1.0 + _IP_SCORE_TOLERANCE) or metric_value > (1.0 + _IP_SCORE_TOLERANCE)):
       return False
 
     if self._isHigherBetterMetric():
@@ -563,7 +568,7 @@ class UUIDManager:
         metric_value = entity.get('_distance')
         if metric_value is None or not math.isfinite(metric_value):
           continue
-        if self._isHigherBetterMetric() and (metric_value < -1.0 or metric_value > 1.0):
+        if self._isHigherBetterMetric() and (metric_value < -(1.0 + _IP_SCORE_TOLERANCE) or metric_value > (1.0 + _IP_SCORE_TOLERANCE)):
           log.warning(
             f"Ignoring out-of-range IP similarity score {metric_value} "
             f"for uuid={entity.get('uuid')}")

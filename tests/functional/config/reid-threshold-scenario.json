@@ -17,14 +17,14 @@
     "scenario_name": "reid-cosine-tight-default",
     "metric": "cosine",
     "variant": "default",
-    "threshold": 0.01,
+    "threshold": 0.99,
     "expect_exceed_max": true
   },
   {
     "scenario_name": "reid-cosine-tight-time-chunking",
     "metric": "cosine",
     "variant": "time-chunking",
-    "threshold": 0.01,
+    "threshold": 0.99,
     "expect_exceed_max": true
   },
   {
@@ -45,14 +45,14 @@
     "scenario_name": "reid-cosine-loose-default",
     "metric": "cosine",
     "variant": "default",
-    "threshold": 0.5,
+    "threshold": 0.01,
     "expect_exceed_max": false
   },
   {
     "scenario_name": "reid-cosine-loose-time-chunking",
     "metric": "cosine",
     "variant": "time-chunking",
-    "threshold": 0.5,
+    "threshold": 0.01,
     "expect_exceed_max": false
   }
 ]

@@ -47,7 +47,7 @@ class TestVDMSDatabaseInitialization:
     db = VDMSDatabase()
 
     assert db.db is not None
-    assert db.similarity_metric == "IP"
+    assert db.similarity_metric == "L2"
     mock_vdms.assert_called()
 
   @patch('controller.vdms_adapter.vdms.vdms')
@@ -327,11 +327,11 @@ class TestAddEntry:
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_add_entry_normalizes_vectors_before_blob(self, mock_vdms_class):
-    """Verify addEntry normalizes vectors before sending them to VDMS."""
+    """Verify addEntry normalizes vectors before sending them to VDMS when metric is IP."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
-    db = VDMSDatabase()
+    db = VDMSDatabase(similarity_metric="IP")
     db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
     vec = np.zeros(256, dtype=np.float32)
@@ -494,11 +494,11 @@ class TestFindMatches:
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_normalizes_query_vectors(self, mock_vdms_class):
-    """Verify findMatches normalizes query vectors before similarity search."""
+    """Verify findMatches normalizes query vectors before similarity search when metric is IP."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
-    db = VDMSDatabase()
+    db = VDMSDatabase(similarity_metric="IP")
     db.sendQuery = Mock(return_value=([{
       'status': 0,
       'returned': 0
@@ -546,11 +546,11 @@ class TestFindMatches:
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_skips_zero_norm_vectors(self, mock_vdms_class):
-    """Verify findMatches ignores invalid zero vectors and avoids empty VDMS queries."""
+    """Verify findMatches ignores zero-norm vectors for IP metric and avoids empty VDMS queries."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
-    db = VDMSDatabase()
+    db = VDMSDatabase(similarity_metric="IP")
     db.sendQuery = Mock(return_value=([{
       'status': 0,
       'returned': 0
