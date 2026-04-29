@@ -1354,9 +1354,6 @@ definitions:
       email:
         type: "string"
         example: "usr1@mycompany.com"
-      scene:
-        type: string
-        example: "16fd2706-8baf-433b-82eb-8c7fada847da"
 
   Child:
     allOf:
