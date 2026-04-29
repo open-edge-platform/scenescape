@@ -107,6 +107,23 @@ services:
     #   - 123:123/udp
     restart: unless-stopped
     pids_limit: 1000
+    environment:
+      # Fallback to local system clock (stratum 10) when external NTP pools are unreachable.
+      # Chrony automatically prioritizes: external pools first, then local stratum if external fails.
+      - NTP_DIRECTIVES=local stratum 10
+    healthcheck:
+      # Verify stratum is 1-16 (rejects KoD at 0, undefined at >16).
+      test:
+        [
+          "CMD",
+          "sh",
+          "-c",
+          "chronyc tracking | grep -E 'Stratum[[:space:]]+:[[:space:]]+([1-9]|1[0-6])[[:space:]]*$' || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   broker:
     image: eclipse-mosquitto:2.0.22
