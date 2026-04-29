@@ -1,9 +1,9 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 # This file is licensed under Apache 2.0 License.
 
 # Keep package list in alphabetical order
-aiofiles
+aiofiles==25.1.0
 Django==5.2.13
 django-axes==8.0.0
 django-debug-toolbar==6.0.0
