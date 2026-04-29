@@ -6,7 +6,7 @@
 import os
 import logging
 
-TEST_NAME = "NEX-T10433-API"
+TEST_NAME = "NEX-T21876"
 
 def test_only_upload_glb_main_api(rest, scene_uid, result_recorder):
   invalid_files = ["box_invalid.glb", "box.gltf", "box.obj", "good_data.txt"]

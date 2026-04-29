@@ -1,35 +1,35 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-different-formats-maps-api: # NEX-T10392-API
+different-formats-maps: # NEX-T21874
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_different_formats_maps_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_different_formats_maps.py, 'pgserver web', true, /run/secrets/controller.auth)
 
-persistence-api: # NEX-T10393-API
+persistence: # NEX-T21511
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 
-	$(eval PROJECT := persistence-api)
+	$(eval PROJECT := persistence)
 	$(eval CLEANUP_MODE := keep_volumes)
 	$(eval SKIP_INIT := 0)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_persistence_on_page_navigate_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_persistence_on_page_navigate.py, 'pgserver web', true, /run/secrets/controller.auth)
 
-	$(eval PROJECT := persistence-api)
+	$(eval PROJECT := persistence)
 	$(eval CLEANUP_MODE := full)
 	$(eval SKIP_INIT := 1)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_persistence_on_restart_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_persistence_on_restart.py, 'pgserver web', true, /run/secrets/controller.auth)
 
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 	$(eval PROJECT :=)
 	$(eval CLEANUP_MODE :=)
 	$(eval SKIP_INIT :=)
 
-scene-import-api: # NEX-T13967
+scene-import: # NEX-T13967
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_scene_import_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_scene_import.py, 'pgserver web', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 scene-import-json: # NEX-T15347
@@ -39,21 +39,21 @@ scene-import-json: # NEX-T15347
 	$(call common-recipe, $(COMPOSE_FILES), controller/tests/tc_scene_import_json.py, 'scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-scenes-summary-api: # NEX-T10394-API
+scenes-summary: # NEX-T21883
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_scenes_summary_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_scenes_summary.py, 'pgserver web', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-scene-details-api: # NEX-T10395-API
+scene-details: # NEX-T21884
 	$(eval SERVICES := $(strip pgserver web retail-video scene))
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/dlstreamer/retail_video.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml:$(COMPOSE)/cams.yml)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_scene_details_api.py, '$(SERVICES)', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_scene_details.py, '$(SERVICES)', true, /run/secrets/controller.auth)
 
-object-crud-api: # NEX-T10429-API
+object-crud: # NEX-T21885
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_object_crud_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_object_crud.py, 'pgserver web', true, /run/secrets/controller.auth)
 
 infer-rotation: # NEX-T10543
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
@@ -63,49 +63,35 @@ infer-rotation: # NEX-T10543
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_rotation_from_velocity.py, '$(SERVICES)', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-add-delete-3d-object-api: # NEX-T10428-API
+add-delete-3d-object: # NEX-T21882
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_add_delete_3d_object_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_add_delete_3d_object.py, 'pgserver web', true, /run/secrets/controller.auth)
 
-upload-3d-glb-file-api: # NEX-T10425-API
+upload-3d-glb-file: # NEX-T21875
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_upload_3d_glb_file_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_upload_3d_glb_file.py, 'pgserver web', true, /run/secrets/controller.auth)
 
-upload-only-3d-glb-files-api: # NEX-T10433-API
+upload-only-3d-glb-files: # NEX-T21876
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_upload_only_3d_glb_files_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_upload_only_3d_glb_files.py, 'pgserver web', true, /run/secrets/controller.auth)
 
-sensor-area-api: # NEX-T10401-API
+superuser-crud-operations: # NEX-T21775
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_sensor_area_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_superuser_crud_operations.py, 'pgserver web', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-superuser-crud-operations-api: # NEX-T10418-API
+sensor-location: # NEX-T21886
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_superuser_crud_operations_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_sensor_location.py, 'pgserver web', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-sensor-location-api: # NEX-T10400-API
+calibrate-all-sensor-types: # NEX-T21877
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
-	$(eval OLDSECRETSDIR := $(SECRETSDIR))
-	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_sensor_location_api.py, 'pgserver web', true, /run/secrets/controller.auth)
-	$(eval SECRETSDIR := $(OLDSECRETSDIR))
-
-sensor-scene-api: # NEX-T10396
-	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
-	$(eval OLDSECRETSDIR := $(SECRETSDIR))
-	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_sensor_scene_api.py, 'pgserver web', true, /run/secrets/controller.auth)
-	$(eval SECRETSDIR := $(OLDSECRETSDIR))
-
-calibrate-all-sensor-types-api: # NEX-T10457-API
-	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_calibrate_all_sensor_types_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_calibrate_all_sensor_types.py, 'pgserver web', true, /run/secrets/controller.auth)
 
 add-orphaned-cameras: # NEX-T10402
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
@@ -115,12 +101,12 @@ api-large-strings: # NEX-T10583
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_api_large_strings.py, 'pgserver web', true, /run/secrets/controller.auth)
 
-auto-calibration-api:  # NEX-XXXXXX
+auto-calibration:  # NEX-XXXXXX
 	$(eval SERVICES := $(strip pgserver web queuing-video autocalibration))
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web_calibration.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/autocalibration.yml:$(COMPOSE)/cams.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_auto_calibration_api.py, '$(SERVICES)', true, /run/secrets/browser.auth,tests/calibrationdb.tar.bz2)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_auto_calibration.py, '$(SERVICES)', true, /run/secrets/browser.auth,tests/calibrationdb.tar.bz2)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 child-scenes: # NEX-T10439
@@ -130,18 +116,18 @@ child-scenes: # NEX-T10439
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_child_scenes.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 	$(eval override BASE_IMAGE := $(IMAGE_OLD))
 
-camera-deletion-api: # NEX-T10403-API
+camera-deletion: # NEX-T21878
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_camera_deletion_api.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_camera_deletion.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-camera-intrinsics-api: # NEX-T10415-API
+camera-intrinsics: # NEX-T21879
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_camera_intrinsics_api.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_camera_intrinsics.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 delete-roi-mqtt: # NEX-T10430
@@ -151,25 +137,25 @@ delete-roi-mqtt: # NEX-T10430
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_delete_roi_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-delete-sensor-mqtt-api: # NEX-T10432-API
+delete-sensor-mqtt: # NEX-T21778
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_delete_sensor_mqtt_api.py, 'pgserver scene', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_delete_sensor_mqtt.py, 'pgserver scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-delete-sensor-scene-api: # NEX-T10397-API
+delete-sensor-scene: # NEX-T21880
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_delete_sensor_scene_api.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_delete_sensor_scene.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-delete-sensors-api: # NEX-T10399-API
+delete-sensors: # NEX-T21881
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_delete_sensors_api.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_delete_sensors.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
 delete-tripwire-mqtt: # NEX-T10431
@@ -186,18 +172,18 @@ geospatial-ingest-publish: # NEX-T10490
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_geospatial_ingest_publish.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-manual-camera-calibration-api: # NEX-15280
+manual-camera-calibration: # NEX-15280
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_manual_camera_calibration_api.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_manual_camera_calibration.py, 'pgserver web', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-mqtt-auth: # NEX-T10423
+mqtt-auth: # NEX-T21776
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/security/system/negative_mqtt_insecure_auth.py)
 
-mqtt-cert: # NEX-T10423
+mqtt-cert: # NEX-T21777
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), tests/security/system/negative_mqtt_insecure_cert.py)
 
@@ -410,7 +396,7 @@ pipeline-runner-setup:
 pipeline-runner-people: pipeline-runner-setup # NEX-T20170
 	$(_PYTEST_PPL) tests/pipeline_runner/test_people_models.py
 
-pipeline-runner-vehicles: pipeline-runner-setup # NEX-T20170
+pipeline-runner-vehicles: pipeline-runner-setup # NEX-T21524
 	$(_PYTEST_PPL) tests/pipeline_runner/test_vehicle_models.py
 
 pipeline-runner-integration: pipeline-runner-people pipeline-runner-vehicles
