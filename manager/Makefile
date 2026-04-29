@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 IMAGE = scenescape-manager
@@ -218,10 +218,8 @@ test/geckodriver.tar.gz:
 	@echo "Downloading geckodriver..."
 	@set -e \
 		; BASE_URL=https://github.com/mozilla/geckodriver/releases \
-		; GVERSION=$$(curl -sL -o /dev/null -w '%{url_effective}' \
-			"$${BASE_URL}/latest" \
-			| sed -e 's,.*/,,') \
+		; GVERSION=v0.36.0 \
 		; mkdir -p test \
-		; curl -sL \
+		; curl -fSL \
 			"$${BASE_URL}/download/$${GVERSION}/geckodriver-$${GVERSION}-linux64.tar.gz" \
 			--output "test/geckodriver.tar.gz"
