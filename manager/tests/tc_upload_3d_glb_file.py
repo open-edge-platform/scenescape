@@ -7,7 +7,7 @@ import os
 import logging
 from http import HTTPStatus
 
-TEST_NAME = "NEX-T10425-API"
+TEST_NAME = "NEX-T21875"
 
 def test_upload_3d_glb_file_api(rest, result_recorder):
   file_name = "box.glb"

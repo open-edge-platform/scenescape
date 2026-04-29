@@ -20,7 +20,7 @@ tests/runtest ${COMPOSE}/dlstreamer/broker.yml:${COMPOSE}/mqtt_malformed.yml:${C
 
 RESULT=$?
 
-TEST_NAME="Validate-JSON-files"
+TEST_NAME="NEX-T10423"
 if [[ $RESULT -ne 0 ]]
 then
     echo "${TEST_NAME}: FAIL"
