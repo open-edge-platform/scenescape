@@ -7,7 +7,7 @@ import random
 import logging
 from http import HTTPStatus
 
-TEST_NAME = "NEX-T10400-API"
+TEST_NAME = "NEX-T21886"
 
 def test_sensor_location_api(rest, scene_uid, result_recorder):
   # Create a polygon sensor
