@@ -10,7 +10,7 @@ from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
 from tests.functional import FunctionalTest
 
-TEST_NAME = "NEX-T10415"
+TEST_NAME = "NEX-T21879"
 MAX_CONTROLLER_WAIT = 20  # seconds
 MAX_ATTEMPTS = 3
 
