@@ -163,3 +163,81 @@ Affected Versions: 2025.1
 ### Test steps
 
 1.
+
+## Vision_AI/SSCAPE/API/ASSET/07: Create asset with 3D model file upload
+
+Automated: yes
+
+Affected Versions: 2025.1
+
+### Test summary
+
+-
+
+### Test requirements mapping
+
+-
+
+### Test priority
+
+- P1
+
+### Prerequisites
+
+-
+
+### Test steps
+
+1.
+
+## Vision_AI/SSCAPE/API/ASSET/08: Remove 3D model from asset
+
+Automated: yes
+
+Affected Versions: 2025.1
+
+### Test summary
+
+-
+
+### Test requirements mapping
+
+-
+
+### Test priority
+
+- P1
+
+### Prerequisites
+
+-
+
+### Test steps
+
+1.
+
+## Vision_AI/SSCAPE/API/ASSET/09: Delete assets
+
+Automated: yes
+
+Affected Versions: 2025.1
+
+### Test summary
+
+-
+
+### Test requirements mapping
+
+-
+
+### Test priority
+
+- P1
+
+### Prerequisites
+
+-
+
+### Test steps
+
+1.

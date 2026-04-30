@@ -164,7 +164,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/USER/07: Create user with invalid scene UID
+## Vision_AI/SSCAPE/API/USER/07: Create user with invalid scene uid
 
 Automated: yes
 

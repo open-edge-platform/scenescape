@@ -86,7 +86,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/TRIPWIRE/04: Create tripwire with invalid color_range structure
+## Vision_AI/SSCAPE/API/TRIPWIRE/04: Get existing tripwire by uid
 
 Automated: yes
 
@@ -112,7 +112,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/TRIPWIRE/05: Get existing tripwire by UID
+## Vision_AI/SSCAPE/API/TRIPWIRE/05: Get non existent tripwire
 
 Automated: yes
 
@@ -138,33 +138,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/TRIPWIRE/06: Get non existent tripwire
-
-Automated: yes
-
-Affected Versions: 2025.1
-
-### Test summary
-
--
-
-### Test requirements mapping
-
--
-
-### Test priority
-
-- P1
-
-### Prerequisites
-
--
-
-### Test steps
-
-1.
-
-## Vision_AI/SSCAPE/API/TRIPWIRE/07: Get all tripwires
+## Vision_AI/SSCAPE/API/TRIPWIRE/06: Get all tripwires
 
 Automated: yes
 
@@ -190,7 +164,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/TRIPWIRE/08: Update tripwire with required properties
+## Vision_AI/SSCAPE/API/TRIPWIRE/07: Update tripwire with required properties
 
 Automated: yes
 
@@ -216,7 +190,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/TRIPWIRE/09: Update tripwire with full payload
+## Vision_AI/SSCAPE/API/TRIPWIRE/08: Update tripwire with full payload
 
 Automated: yes
 
@@ -242,7 +216,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/TRIPWIRE/10: Delete existing tripwire by UID
+## Vision_AI/SSCAPE/API/TRIPWIRE/09: Delete existing tripwire by uid
 
 Automated: yes
 
@@ -268,7 +242,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/TRIPWIRE/11: Delete non existent tripwire
+## Vision_AI/SSCAPE/API/TRIPWIRE/10: Delete non existent tripwire
 
 Automated: yes
 

@@ -60,7 +60,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/SENSOR/03: Create sensor with entire scene Area
+## Vision_AI/SSCAPE/API/SENSOR/03: Create sensor with entire scene area
 
 Automated: yes
 
@@ -320,7 +320,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/SENSOR/13: Get sensor by UID
+## Vision_AI/SSCAPE/API/SENSOR/13: Get sensor by uid
 
 Automated: yes
 

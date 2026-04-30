@@ -138,7 +138,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/ROI/06: Update region with missing required field name
+## Vision_AI/SSCAPE/API/ROI/06: Update region with invalid field value
 
 Automated: yes
 
@@ -190,7 +190,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/ROI/08: Get region by UID
+## Vision_AI/SSCAPE/API/ROI/08: Get region by uid
 
 Automated: yes
 
@@ -268,7 +268,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/ROI/11: Delete region by UID
+## Vision_AI/SSCAPE/API/ROI/11: Delete region by uid
 
 Automated: yes
 

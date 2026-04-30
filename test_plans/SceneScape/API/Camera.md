@@ -86,7 +86,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/CAMERA/04: Create camera with missing required field intrinsics
+## Vision_AI/SSCAPE/API/CAMERA/04: Create camera without intrinsics
 
 Automated: yes
 
@@ -112,7 +112,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/CAMERA/05: Create camera with missing required field resolution
+## Vision_AI/SSCAPE/API/CAMERA/05: Create camera without resolution
 
 Automated: yes
 
@@ -216,7 +216,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/CAMERA/09: Update camera with missing required field intrinsics
+## Vision_AI/SSCAPE/API/CAMERA/09: Update camera without intrinsics
 
 Automated: yes
 
@@ -242,7 +242,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/CAMERA/10: Update camera missing required field resolution
+## Vision_AI/SSCAPE/API/CAMERA/10: Update camera without resolution
 
 Automated: yes
 
@@ -294,7 +294,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/CAMERA/12: Get camera by UID
+## Vision_AI/SSCAPE/API/CAMERA/12: Get camera by uid
 
 Automated: yes
 
@@ -320,7 +320,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/CAMERA/13: Get camera with invalid UID
+## Vision_AI/SSCAPE/API/CAMERA/13: Get camera with invalid uid
 
 Automated: yes
 
@@ -372,7 +372,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/CAMERA/15: Delete camera by UID
+## Vision_AI/SSCAPE/API/CAMERA/15: Delete camera by uid
 
 Automated: yes
 

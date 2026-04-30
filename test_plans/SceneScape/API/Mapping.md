@@ -10,6 +10,8 @@
 
 ## Vision_AI/SSCAPE/API/MAPPING/01: Perform GLB reconstruction request with image
 
+Automated: yes
+
 **Affected Versions:**
 
 ### Test summary
@@ -33,6 +35,8 @@
 1.
 
 ## Vision_AI/SSCAPE/API/MAPPING/02: Perform GLB reconstruction request with video
+
+Automated: yes
 
 **Affected Versions:**
 
@@ -58,6 +62,8 @@
 
 ## Vision_AI/SSCAPE/API/MAPPING/03: Perform GLB reconstruction request with image and video
 
+Automated: yes
+
 **Affected Versions:**
 
 ### Test summary
@@ -81,6 +87,8 @@
 1.
 
 ## Vision_AI/SSCAPE/API/MAPPING/04: Perform GLB reconstruction request with multiple images
+
+Automated: yes
 
 **Affected Versions:**
 
@@ -106,6 +114,8 @@
 
 ## Vision_AI/SSCAPE/API/MAPPING/05: Perform reconstruction request with point cloud output
 
+Automated: yes
+
 **Affected Versions:**
 
 ### Test summary
@@ -129,6 +139,8 @@
 1.
 
 ## Vision_AI/SSCAPE/API/MAPPING/06: Perform reconstruction request with json output
+
+Automated: yes
 
 **Affected Versions:**
 
@@ -154,6 +166,8 @@
 
 ## Vision_AI/SSCAPE/API/MAPPING/07: Perform reconstruction request with missing required field
 
+Automated: yes
+
 **Affected Versions:**
 
 ### Test summary
@@ -177,6 +191,8 @@
 1.
 
 ## Vision_AI/SSCAPE/API/MAPPING/08: Invalid output format in reconstruction request
+
+Automated: yes
 
 **Affected Versions:**
 
@@ -202,6 +218,8 @@
 
 ## Vision_AI/SSCAPE/API/MAPPING/09: Verify excessively large input data in reconstruction request
 
+Automated: yes
+
 **Affected Versions:**
 
 ### Test summary
@@ -226,6 +244,8 @@
 
 ## Vision_AI/SSCAPE/API/MAPPING/10: Verify health check
 
+Automated: yes
+
 **Affected Versions:**
 
 ### Test summary
@@ -249,6 +269,8 @@
 1.
 
 ## Vision_AI/SSCAPE/API/MAPPING/11: List available models and their status
+
+Automated: yes
 
 **Affected Versions:**
 
