@@ -7,6 +7,7 @@
 #include "mqtt_client.hpp"
 #include "scene_registry.hpp"
 #include "time_chunk_buffer.hpp"
+#include "time_utils.hpp"
 #include "tracking_types.hpp"
 
 #include <atomic>
@@ -76,11 +77,15 @@ public:
      * @param tracking_config Tracking configuration for lag detection
      * @param schema_validation Enable JSON schema validation for messages
      * @param schema_dir Directory containing schema files (for validation)
+     * @param clock_fn Callable returning the current time (defaults to system_clock::now).
+     *                 Inject a lambda in tests to control time, or pass NtpClock::asClockFn()
+     *                 to use NTP-adjusted time.
      */
     explicit MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
                             const SceneRegistry& scene_registry, TimeChunkBuffer& buffer,
                             const TrackingConfig& tracking_config, bool schema_validation = true,
-                            const std::filesystem::path& schema_dir = "/scenescape/schema");
+                            const std::filesystem::path& schema_dir = "/scenescape/schema",
+                            ClockFn clock_fn = makeSystemClock());
 
     /**
      * @brief Enable dynamic mode for database update notifications.
@@ -210,6 +215,8 @@ private:
     std::atomic<int> buffered_count_{0};
     std::atomic<int> rejected_count_{0};
     std::atomic<int> lagged_count_{0};
+
+    ClockFn clock_fn_; ///< Provides current time (NTP-adjusted or system clock)
 
     /// Cache of validated category names (validated once on first use)
     /// Active scopes accumulated as new (scene, category) pairs are seen.

@@ -1364,5 +1364,143 @@ TEST(ConfigLoaderTest, PositiveDoubleEnvOverride_OutOfRange) {
     EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
 }
 
+//
+// NTP config tests
+//
+
+/// Config with infrastructure.ntp set
+std::string config_with_ntp(const std::string& server, int sync_interval_s = 300) {
+    std::string ntp_block;
+    if (!server.empty()) {
+        ntp_block = R"(
+        "ntp": {
+          "server": ")" +
+                    server + R"(",
+          "sync_interval_s": )" +
+                    std::to_string(sync_interval_s) + R"(
+        },)";
+    }
+    return R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true},)" +
+           ntp_block + R"(
+        "tracker": {"healthcheck": {"port": 8080}}
+      },
+      "scenes": {
+        "source": "file",
+        "file_path": ")" +
+           empty_scenes_path() + R"("
+      }
+    })";
+}
+
+TEST(ConfigLoaderTest, NtpServer_ParsedFromJson) {
+    TempFile config_file(config_with_ntp("pool.ntp.org"));
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.ntp.has_value());
+    EXPECT_EQ(config.infrastructure.ntp->server, "pool.ntp.org");
+    EXPECT_EQ(config.infrastructure.ntp->sync_interval_s, 300);
+}
+
+TEST(ConfigLoaderTest, NtpSyncIntervalS_ParsedFromJson) {
+    TempFile config_file(config_with_ntp("pool.ntp.org", 120));
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.ntp.has_value());
+    EXPECT_EQ(config.infrastructure.ntp->sync_interval_s, 120);
+}
+
+TEST(ConfigLoaderTest, NtpServer_AbsentFromJson_IsNullopt) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_FALSE(config.infrastructure.ntp.has_value());
+}
+
+TEST(ConfigLoaderTest, NtpServer_EnvVarOverrides) {
+    TempFile config_file(MINIMAL_CONFIG());
+    ScopedEnv env(tracker::env::NTP_SERVER, "time.google.com");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.ntp.has_value());
+    EXPECT_EQ(config.infrastructure.ntp->server, "time.google.com");
+}
+
+TEST(ConfigLoaderTest, NtpServer_EnvVarOverrides_JsonValue) {
+    // JSON has a server set; env var overrides to a different server.
+    TempFile config_file(config_with_ntp("pool.ntp.org"));
+    ScopedEnv env(tracker::env::NTP_SERVER, "time.cloudflare.com");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.ntp.has_value());
+    EXPECT_EQ(config.infrastructure.ntp->server, "time.cloudflare.com");
+}
+
+TEST(ConfigLoaderTest, NtpServer_EnvVarEmpty_DoesNotOverrideJsonValue) {
+    // get_env() returns nullopt for empty strings, so an empty env var
+    // leaves the JSON-configured value untouched.
+    TempFile config_file(config_with_ntp("pool.ntp.org"));
+    ScopedEnv env(tracker::env::NTP_SERVER, "");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    // JSON value preserved because empty env var is treated as "not set"
+    ASSERT_TRUE(config.infrastructure.ntp.has_value());
+    EXPECT_EQ(config.infrastructure.ntp->server, "pool.ntp.org");
+}
+
+TEST(ConfigLoaderTest, NtpSyncIntervalS_EnvVarOverrides) {
+    TempFile config_file(config_with_ntp("pool.ntp.org", 300));
+    ScopedEnv env(tracker::env::NTP_SYNC_INTERVAL_S, "120");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.ntp.has_value());
+    EXPECT_EQ(config.infrastructure.ntp->sync_interval_s, 120);
+}
+
+TEST(ConfigLoaderTest, NtpSyncIntervalS_EnvVarBelowMinimum_Throws) {
+    TempFile config_file(config_with_ntp("pool.ntp.org"));
+    ScopedEnv env(tracker::env::NTP_SYNC_INTERVAL_S, "30");
+
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, NtpSyncIntervalS_JsonBelowMinimum_Throws) {
+    // Schema should reject sync_interval_s < 60 coming directly from JSON.
+    TempFile config_file(config_with_ntp("pool.ntp.org", 30));
+
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, NtpServer_EnvVarOnly_UsesDefaultSyncInterval) {
+    // When server is provided only via env (no ntp section in JSON),
+    // sync_interval_s should take the compile-time default (300 s).
+    TempFile config_file(MINIMAL_CONFIG());
+    ScopedEnv env(tracker::env::NTP_SERVER, "pool.ntp.org");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.ntp.has_value());
+    EXPECT_EQ(config.infrastructure.ntp->server, "pool.ntp.org");
+    EXPECT_EQ(config.infrastructure.ntp->sync_interval_s, tracker::kDefaultNtpSyncIntervalS);
+}
+
+TEST(ConfigLoaderTest, NtpSyncIntervalS_EnvVarOnly_WithoutServer_NtpIsAbsent) {
+    // Setting only the interval env var without a server must not create an ntp config.
+    TempFile config_file(MINIMAL_CONFIG());
+    ScopedEnv env(tracker::env::NTP_SYNC_INTERVAL_S, "120");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_FALSE(config.infrastructure.ntp.has_value());
+}
+
 } // namespace
 } // namespace tracker

@@ -1,0 +1,26 @@
+[
+  {
+    "scenario_name": "reid-l2-tight-default",
+    "variant": "default",
+    "threshold": 1,
+    "expect_exceed_max": true
+  },
+  {
+    "scenario_name": "reid-l2-tight-time-chunking",
+    "variant": "time-chunking",
+    "threshold": 1,
+    "expect_exceed_max": true
+  },
+  {
+    "scenario_name": "reid-l2-loose-default",
+    "variant": "default",
+    "threshold": 30,
+    "expect_exceed_max": false
+  },
+  {
+    "scenario_name": "reid-l2-loose-time-chunking",
+    "variant": "time-chunking",
+    "threshold": 30,
+    "expect_exceed_max": false
+  }
+]
