@@ -147,3 +147,12 @@ Do not enforce cluster-wide, node-level, or runtime security controls.
 - Include specific file/function references and recommended fixes
 
 Security review is advisory; final decisions belong to maintainers.
+
+---
+
+## Language-Specific Guidance
+
+For language-specific secure coding patterns, refer to:
+
+- `.github/skills/intel-secure-cpp-specifics.md` — C++ secure coding practices
+- `.github/skills/intel-secure-python-specifics.md` — Python secure coding practices
