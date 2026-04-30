@@ -547,6 +547,8 @@ def test_external_update_rate_limits_publish_frequency(
     h.set_retrack(rest_client, True)
 
     scene_data = rest_client.getScene(h.child_id)
+    assert scene_data.statusCode == 200, \
+      f"getScene({h.child_id}) failed: {getattr(scene_data, 'errors', None)}"
     default_rate = scene_data.get('external_update_rate', 30)
     log.info(f"Original external_update_rate={default_rate}")
 
@@ -609,7 +611,7 @@ def test_external_update_rate_limits_publish_frequency(
     if rest_client is not None:
       if h.child_id and default_rate is not None:
         try:
-          rest_client.updateScene(h.child_id, {'external_update_rate': default_rate})
+          h.set_external_rate(rest_client, default_rate)
           log.info(f"[TEARDOWN] Restored external_update_rate={default_rate}")
         except Exception as exc:
           log.warning(f"[TEARDOWN] Failed to restore external_update_rate: {exc}")

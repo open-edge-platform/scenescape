@@ -93,11 +93,31 @@ class RetrackTest:
     @param    rest_client     An authenticated RESTClient instance.
     """
     if self.child_id and self.parent_id:
-      res = rest_client.deleteChildSceneLink(self.child_id)
-      log.info(f"[TEARDOWN] Unlinked child uid={self.child_id}: {res.statusCode}")
+      try:
+        res = rest_client.deleteChildSceneLink(self.child_id)
+        errors = getattr(res, 'errors', None)
+        if res.statusCode == 204:
+          log.info(f"[TEARDOWN] Unlinked child uid={self.child_id}: {res.statusCode}")
+        else:
+          log.error(
+            f"[TEARDOWN] Failed to unlink child uid={self.child_id}: "
+            f"status={res.statusCode}, errors={errors}"
+          )
+      except Exception as exc:
+        log.error(f"[TEARDOWN] Exception unlinking child uid={self.child_id}: {exc}")
     if self.parent_id:
-      res = rest_client.deleteScene(self.parent_id)
-      log.info(f"[TEARDOWN] Deleted parent scene uid={self.parent_id}: {res.statusCode}")
+      try:
+        res = rest_client.deleteScene(self.parent_id)
+        errors = getattr(res, 'errors', None)
+        if res.statusCode == 204:
+          log.info(f"[TEARDOWN] Deleted parent scene uid={self.parent_id}: {res.statusCode}")
+        else:
+          log.error(
+            f"[TEARDOWN] Failed to delete parent scene uid={self.parent_id}: "
+            f"status={res.statusCode}, errors={errors}"
+          )
+      except Exception as exc:
+        log.error(f"[TEARDOWN] Exception deleting parent scene uid={self.parent_id}: {exc}")
 
   def _await_db_notification(self, rest_fn):
     """! Subscribe to CMD_DATABASE, call rest_fn(), then assert the
@@ -149,6 +169,8 @@ class RetrackTest:
       verify = rest_client.getChildScene({'parent': self.parent_id})
       assert verify.statusCode == 200, \
         f"Failed to read back child scene link after setting retrack={value}"
+      assert verify['count'] > 0, \
+        f"No child scene link found when verifying retrack={value}"
       actual = verify['results'][0]['retrack']
       log.info(f"Verify child link retrack value: {actual}")
       assert actual == value, \
