@@ -3,10 +3,12 @@
 # SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
+from tests.utils.log import get_logger
 from http import HTTPStatus
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -32,7 +34,7 @@ def test_sensor_scene_api(rest, result_recorder, demo_scene):
   ), f"Expected success, got {res.statusCode}. Sensor creation without 'scene' should be allowed."
   sensor_uid = res["uid"]
   assert sensor_uid, "Sensor UID not returned"
-  logging.info(
+  log.info(
     "Sensor successfully created with area 'scene' and no scene assigned (orphaned sensor)."
   )
 
@@ -47,11 +49,11 @@ def test_sensor_scene_api(rest, result_recorder, demo_scene):
   assert not res.get(
     "scene"
   ), f"Expected no scene linkage, but got '{res.get('scene')}'"
-  logging.info("Sensor area verified and confirmed as orphaned (no scene linkage).")
+  log.info("Sensor area verified and confirmed as orphaned (no scene linkage).")
 
   # Cleanup
   res = rest.deleteSensor(sensor_uid)
   assert res.statusCode == HTTPStatus.OK, f"Failed to delete sensor: {res.errors}"
-  logging.info("Sensor deleted successfully.")
+  log.info("Sensor deleted successfully.")
 
   result_recorder.success()

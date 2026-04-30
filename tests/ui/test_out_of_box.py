@@ -17,6 +17,9 @@ from scene_common.mqtt import PubSub
 from selenium.common.exceptions import StaleElementReferenceException
 from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+from tests.utils.log import get_logger
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
@@ -43,11 +46,11 @@ def on_connect(mqttc, data, flags, rc):
   @param    rc        The connection result.
   """
   if rc == 0:
-    print( "Connected to MQTT Broker" )
+    log.info( "Connected to MQTT Broker" )
     for cam in cameras:
       topic = PubSub.formatTopic(PubSub.IMAGE_CAMERA, camera_id=cam)
       mqttc.subscribe( topic, 0 )
-      print( "Subscribed to the topic {}".format(topic))
+      log.info(f"Subscribed to the topic {topic}")
     connected.set()
   return
 
@@ -122,23 +125,23 @@ def check_person_marks(browser, camera_id):
       time.sleep(UI_MARKS_DELAY)
       marks_after = get_person_marks(browser)
       if marks_before == marks_after:
-        print("The marks are identical, re-trying")
+        log.info("The marks are identical, re-trying")
         marks_before = marks_after = []
       else:
         break
     except StaleElementReferenceException:
-      print("Failed getting marks, re-trying")
+      log.info("Failed getting marks, re-trying")
       marks_before = marks_after = []
     attempt += 1
 
   assert len(marks_before) and len(marks_after)
   if marks_before != marks_after and video_frame is True:
-    print( "The dots ARE updating on the scene" )
+    log.info( "The dots ARE updating on the scene" )
     return True
   else:
-    print( "The dots ARE NOT updating on the scene !" )
-    print( "co-ordinates before ", marks_before )
-    print( "co-ordinates after ", marks_after )
+    log.info( "The dots ARE NOT updating on the scene !" )
+    log.info(f"co-ordinates before {marks_before}")
+    log.info(f"co-ordinates after {marks_after}")
   return False
 
 def test_out_of_box(params, record_xml_attribute):
@@ -150,8 +153,8 @@ def test_out_of_box(params, record_xml_attribute):
   """
   TEST_NAME = "NEX-T10417"
   record_xml_attribute("name", TEST_NAME)
-  print( "Executing: " + TEST_NAME )
-  print( "Test that the out-of-box Demo scene is operating at first build")
+  log.info( "Executing: " + TEST_NAME )
+  log.info( "Test that the out-of-box Demo scene is operating at first build")
 
   exit_code = 1
   frames_updating = False
@@ -188,10 +191,10 @@ def test_out_of_box(params, record_xml_attribute):
     for cam in cameras:
       while(counter_img[cam] < MAX_IMAGES):
         message_received.wait(timeout=TEST_WAIT_TIME)
-        print( "{} images obtained".format(counter_img[cam]) )
+        log.info(f"{counter_img[cam]} images obtained")
         testTime = get_epoch_time()
         if testTime - testStart > MAX_TEST_TIME:
-          print( "Test seems stuck, aborting" )
+          log.info( "Test seems stuck, aborting" )
           break
     message_received.release()
     client.loopStop()
@@ -213,7 +216,7 @@ def test_out_of_box(params, record_xml_attribute):
     assert common.navigate_to_scene(browser, "Queuing")
     assert check_person_marks(browser, '#atag-qcam1')
 
-    print( "Camera images ARE updating on the scene" )
+    log.info( "Camera images ARE updating on the scene" )
     exit_code = 0
 
   finally:

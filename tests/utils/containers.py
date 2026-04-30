@@ -10,13 +10,21 @@ Replicates the wait_for_container() function from tests/test_utils.sh
 and the log/traceback scanning from tests/runtest.
 """
 
-import logging
+import os
 import re
 from datetime import datetime, timedelta, timezone
 
 from waiting import wait
 
-logger = logging.getLogger("test.containers")
+from utils.log import get_logger
+
+log = get_logger(__name__)
+
+
+def _get_log_dir():
+  """Return per-test log directory created by utils.log.setup()."""
+  root_logger = get_logger()
+  return getattr(root_logger, "_log_dir", None)
 
 
 def container_is_ready(docker, project_name, service, log_pattern, since=None):
@@ -75,7 +83,7 @@ def wait_for_services(docker, project_name, wait_for, since=None):
            to container_is_ready).
   """
   for service, config in wait_for.items():
-    logger.info("  Waiting up to %ds for %s...", config.timeout, service)
+    log.info(f"  Waiting up to {config.timeout}s for {service}...")
     wait(
       lambda svc=service, pat=config.log_pattern, s=since: container_is_ready(
         docker, project_name, svc, pat, since=s
@@ -83,31 +91,49 @@ def wait_for_services(docker, project_name, wait_for, since=None):
       timeout_seconds=config.timeout,
       sleep_seconds=1,
     )
-    logger.info("  %s is ready.", service)
+    log.info(f"  {service} is ready.")
 
 
-def collect_logs(docker, services=None, scan_for_tracebacks=False):
-  """Log container output for the given services (or all if None).
+def collect_logs(docker, containers=None, scan_for_tracebacks=False):
+  """Log container output for selected container name patterns.
+
+  If containers is None, logs are collected for all containers.
+  Otherwise each value is treated as a substring filter against the
+  full container name (e.g. "web" matches "test-xxxx-web-1").
 
   When scan_for_tracebacks is True, also checks each container's logs
   for Python tracebacks in a single pass (avoids fetching logs twice).
   """
   tracebacks_found = []
+  log_dir = _get_log_dir()
+  if log_dir is None:
+    log.warning("Test log directory is not configured; skipping container log file export")
+
+  container_filters = None
+  if containers is not None:
+    if isinstance(containers, str):
+      container_filters = {containers}
+    else:
+      container_filters = set(containers)
+
   try:
-    containers = docker.compose.ps()
-    for container in containers:
-      if services and not any(svc in container.name for svc in services):
+    compose_containers = docker.compose.ps()
+    for container in compose_containers:
+      if container_filters and not any(f in container.name for f in container_filters):
         continue
-      logger.info("\n--- logs: %s ---", container.name)
       logs = docker.container.logs(container.name)
-      for line in logs.splitlines():
-        logger.info("%s", line)
+
+      if log_dir is not None:
+        log_file = os.path.join(log_dir, f"{container.name}.log")
+        with open(log_file, "w") as f:
+          f.write(logs)
+        log.info(f"[DOCKER] Logs saved: {log_file}")
       if scan_for_tracebacks and "Traceback" in logs:
         tracebacks_found.append(container.name)
-        logger.warning("Found Traceback in %s!", container.name)
+        log.warning(f"Found Traceback in {container.name}!")
   except Exception as exc:
-    logger.warning("Error collecting logs: %s", exc)
+    log.warning(f"Error collecting logs: {exc}")
   if tracebacks_found:
-    logger.warning("Tracebacks found in: %s", ", ".join(tracebacks_found))
+    log.warning(f"Tracebacks found in: {', '.join(tracebacks_found)}")
   return tracebacks_found
 

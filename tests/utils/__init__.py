@@ -32,7 +32,7 @@ def stream_subprocess(cmd, check=True, **kwargs):
     **kwargs,
   )
   for line in proc.stdout:
-    logger.info("%s", line.rstrip())
+    logger.info(f"{line.rstrip()}")
   proc.wait()
   if check and proc.returncode != 0:
     raise subprocess.CalledProcessError(proc.returncode, cmd)

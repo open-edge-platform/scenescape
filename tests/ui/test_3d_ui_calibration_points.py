@@ -6,11 +6,12 @@
 import os
 import time
 
-from scene_common import log
 import tests.ui.common_ui_test_utils as common
 from tests.ui import UserInterfaceTest
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+from tests.utils.log import get_logger
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,

@@ -4,10 +4,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import logging
+from tests.utils.log import get_logger
 from http import HTTPStatus
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -30,6 +32,6 @@ def test_upload_3d_glb_file_api(rest, result_recorder, repo_root, demo_scene):
     assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED), f"Failed to create scene with .glb: {res.errors}"
 
 
-  logging.info(f"GLB file uploaded to scene '{scene_data['name']}' successfully.")
+  log.info(f"GLB file uploaded to scene '{scene_data['name']}' successfully.")
 
   result_recorder.success()

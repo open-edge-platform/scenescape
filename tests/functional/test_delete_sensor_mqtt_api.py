@@ -12,6 +12,10 @@ from scene_common.timestamp import get_iso_time
 from tests.functional.common_scene_obj import SceneObjectMqtt
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+from tests.utils.log import get_logger
+
+log = get_logger(__name__)
+
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -104,8 +108,8 @@ class SensorDeleteMqtt(SceneObjectMqtt):
     )
     error_code = result[0]
     if error_code != 0:
-      print(f"Failed to send sensor {sensor_name} value!")
-      print(result.is_published())
+      log.info(f"Failed to send sensor {sensor_name} value!")
+      log.info(result.is_published())
     return error_code == 0
 
 def test_sensor_delete_mqtt(scenescape_env, demo_scene, request, record_xml_attribute):

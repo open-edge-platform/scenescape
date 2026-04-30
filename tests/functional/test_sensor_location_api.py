@@ -4,10 +4,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import random
-import logging
+from tests.utils.log import get_logger
 from http import HTTPStatus
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -27,7 +29,7 @@ def test_sensor_location_api(rest, scene_uid, result_recorder, demo_scene):
     "area": "poly",
     "points": initial_points
   }
-  logging.info(f"Create polygon payload:", poly_sensor_data)
+  log.info(f"Create polygon payload:", poly_sensor_data)
   res = rest.createSensor(poly_sensor_data)
   assert res, (res.statusCode, res.errors)
   poly_sensor_uid = res['uid']
@@ -39,10 +41,10 @@ def test_sensor_location_api(rest, scene_uid, result_recorder, demo_scene):
     "area": "poly",
     "points": updated_points
   }
-  logging.info(f"Update polygon payload:", update_poly_data)
+  log.info(f"Update polygon payload:", update_poly_data)
   res = rest.updateSensor(poly_sensor_uid, update_poly_data)
   assert res.statusCode == HTTPStatus.OK, f"Failed to update polygon sensor: {res.errors}"
-  logging.info("Polygon sensor points updated.")
+  log.info("Polygon sensor points updated.")
 
   # Verify polygon update
   res = rest.getSensor(poly_sensor_uid)
@@ -50,12 +52,12 @@ def test_sensor_location_api(rest, scene_uid, result_recorder, demo_scene):
   points = res['points']
   assert points == updated_points, \
     f"Polygon points did not persist. Expected {updated_points}, got {points}"
-  logging.info("Polygon sensor points change verified.")
+  log.info("Polygon sensor points change verified.")
 
   # Delete the polygon sensor
   res = rest.deleteSensor(poly_sensor_uid)
   assert res.statusCode == HTTPStatus.OK, f"Failed to delete polygon sensor: {res.errors}"
-  logging.info("Polygon sensor deleted successfully.")
+  log.info("Polygon sensor deleted successfully.")
 
   # Create a circle sensor
   circle_sensor_name = "Sensor_Circle"
@@ -69,7 +71,7 @@ def test_sensor_location_api(rest, scene_uid, result_recorder, demo_scene):
     "center": initial_center,
     "radius": radius
   }
-  logging.info(f"Create payload:", circle_sensor_data)
+  log.info(f"Create payload:", circle_sensor_data)
   res = rest.createSensor(circle_sensor_data)
   assert res, (res.statusCode, res.errors)
   circle_sensor_uid = res['uid']
@@ -84,7 +86,7 @@ def test_sensor_location_api(rest, scene_uid, result_recorder, demo_scene):
     "center": updated_center,
     "radius": radius
   }
-  logging.info(f"Update payload:", update_circle_data)
+  log.info(f"Update payload:", update_circle_data)
   res = rest.updateSensor(circle_sensor_uid, update_circle_data)
   assert res.statusCode == HTTPStatus.OK, f"Failed to update sensor center: {res.errors}"
 
@@ -94,11 +96,11 @@ def test_sensor_location_api(rest, scene_uid, result_recorder, demo_scene):
   center = res['center']
   assert center == updated_center, \
     f"Sensor center did not persist. Expected {updated_center}, got {center}"
-  logging.info("Sensor center change verified.")
+  log.info("Sensor center change verified.")
 
   # Delete the circle sensor
   res = rest.deleteSensor(circle_sensor_uid)
   assert res.statusCode == HTTPStatus.OK, f"Failed to delete sensor: {res.errors}"
-  logging.info("Circle sensor deleted successfully.")
+  log.info("Circle sensor deleted successfully.")
 
   result_recorder.success()

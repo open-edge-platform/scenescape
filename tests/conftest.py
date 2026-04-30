@@ -139,6 +139,10 @@ def pytest_addoption(parser):
                                 help="stability test duration in hours")),
     ("--analytics-only",   dict(action="store_true", default=False,
                                 help="Enable analytics-only mode for tests")),
+    ("--env-profiles",     dict(default=None,
+                                help="Comma-separated list of env profile names to run tests against")),
+    ("--collect-container-logs", dict(default="failed", choices=["failed", "all", "none"],
+                  help="Container log collection mode: failed (default), all, or none")),
   ]
   for name, kw in _opts:
     try:
@@ -431,7 +435,7 @@ def _inject_options(config, spec, secrets_dir, supass, env=None):
 # ---------------------------------------------------------------------------
 
 def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory,
-                       exampledb=""):
+                       exampledb="", collect_container_logs_mode="failed"):
   """Start a Docker Compose stack for a profile; yield ScenescapeEnv; tear down.
 
   This is a generator meant to be called via ``yield from`` in
@@ -510,6 +514,7 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
 
   network = f"{project_name}_scenescape-test"
 
+  lifecycle_failed = False
   try:
     logger.info("=" * 60)
     logger.info("Starting test environment: %s", project_name)
@@ -542,14 +547,27 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       supass=supass,
     )
 
+  except Exception:
+    lifecycle_failed = True
+    raise
+
   finally:
     # Silence terminal output immediately — teardown logs go to file only.
     if _testlog is not None:
       _testlog.silence_console()
 
-    # Collect logs and scan for tracebacks in a single pass.
-    logger.info("Collecting container logs: %s", project_name)
-    collect_logs(docker, scan_for_tracebacks=True)
+    # Fallback logging for failures before pytest_runtest_teardown can run
+    # (for example compose startup/wait_for_services or fixture setup errors).
+    if lifecycle_failed and collect_container_logs_mode != "none":
+      logger.info(
+        "Collecting fallback container logs after lifecycle failure (mode=%s): %s",
+        collect_container_logs_mode,
+        project_name,
+      )
+      try:
+        collect_logs(docker, scan_for_tracebacks=True)
+      except Exception as exc:
+        logger.warning("fallback container log collection failed: %s", exc)
 
     logger.info("Cleaning up: %s", project_name)
     try:
@@ -622,9 +640,6 @@ class _ComposeManager:
     try:
       env = next(gen)
     except Exception as exc:
-      # Immediately trigger the finally block in _compose_lifecycle so
-      # partially-started containers are torn down and ports are freed
-      # before the next test attempts to start a new stack.
       gen.close()
       self._failed_profiles[profile.name] = str(exc)
       raise
@@ -649,9 +664,8 @@ class _ComposeManager:
 
 @pytest.fixture(scope="session")
 def _compose_manager(repo_root, secrets_dir, supass, tmp_path_factory, request):
-  """Single session-scoped manager that queues compose stacks."""
+  """Single session-scoped manager that runs at most one compose stack at a time."""
   manager = _ComposeManager(repo_root, secrets_dir, supass, tmp_path_factory)
-  # Store manager on session so pytest hooks can access it for cleanup
   request.session._compose_manager = manager
   yield manager
   manager.teardown()
@@ -677,7 +691,12 @@ def scenescape_env(request, _compose_manager, secrets_dir, supass, loopback_host
   snapshot so that every test starts and ends with an identical
   environment regardless of what it created or deleted during execution.
   """
-  spec = getattr(request.module, "SCENESCAPE_SPEC", None)
+  # When --env-profiles is active, _env_matrix_setup parametrizes a per-profile
+  # FuncTestSpec into callspec.params; prefer that over the module-level default.
+  if hasattr(request.node, 'callspec') and '_env_matrix_setup' in request.node.callspec.params:
+    spec = request.node.callspec.params['_env_matrix_setup']
+  else:
+    spec = getattr(request.node, '_scenescape_spec', None) or getattr(request.module, 'SCENESCAPE_SPEC', None)
   if spec is None:
     pytest.fail(
       f"{request.module.__name__} requests scenescape_env but has no SCENESCAPE_SPEC"
@@ -727,6 +746,12 @@ def _derive_marker(item):
 # Log directory: tests/test_logs/{group}/{test_name}-{timestamp}.log
 _LOG_BASE = _TESTS_DIR / "test_logs"
 
+def _get_item_spec(item):
+  """Return the FuncTestSpec for an item, preferring matrix callspec over module default."""
+  if hasattr(item, 'callspec') and '_env_matrix_setup' in item.callspec.params:
+    return item.callspec.params['_env_matrix_setup']
+  return getattr(item, '_scenescape_spec', None) or getattr(item.module, 'SCENESCAPE_SPEC', None)
+
 def pytest_collection_modifyitems(config, items):
   """Attach FuncTestSpec to each collected item, add markers, and sort by profile.
 
@@ -742,12 +767,20 @@ def pytest_collection_modifyitems(config, items):
       config.addinivalue_line("markers", f"{marker_name}: FuncTestSpec marker")
       item.add_marker(getattr(pytest.mark, marker_name))
 
-  # Sort tests by profile name.
+  # Always sort by profile so _ComposeManager only restarts the stack on profile
+  # transitions.  Use PROFILE_REGISTRY order when available so --env-profiles
+  # matrix parametrisation runs in a predictable sequence.
+  try:
+    from tests.utils.profiles import PROFILE_REGISTRY
+    profile_order = {name: i for i, name in enumerate(PROFILE_REGISTRY)}
+  except ImportError:
+    profile_order = {}
+
   def _sort_key(item):
-    spec = getattr(item, "_scenescape_spec", None)
+    spec = _get_item_spec(item)
     if spec is None:
-      return ("", item.nodeid)
-    return (spec.profile.name, item.nodeid)
+      return (999, "", item.nodeid)
+    return (profile_order.get(spec.profile.name, 998), spec.profile.name, item.nodeid)
 
   items[:] = sorted(items, key=_sort_key)
 
@@ -768,6 +801,70 @@ def pytest_runtest_setup(item):
   test_name = _derive_marker(item)
   log_path = _testlog.setup(test_name, group=group, log_base=_LOG_BASE)
   logger.info("Test log: %s", log_path)
+
+def pytest_runtest_call(item):
+  """Switch file logging from setup log to per-test log for call/teardown."""
+  if not _ORCHESTRATION_AVAILABLE or _testlog is None:
+    return
+  spec = getattr(item, "_scenescape_spec", None)
+  if spec is None:
+    return
+  _testlog.begin_test_phase()
+
+def _collect_container_logs_if_configured(item):
+  """Collect container logs for an item based on configured mode and outcome.
+
+  This runs after teardown report is available so teardown/finalizer failures
+  are included in mode=failed decisions.
+  """
+  if not _ORCHESTRATION_AVAILABLE:
+    return
+
+  mode = item.config.getoption("collect_container_logs", default="failed")
+  if mode == "none":
+    return
+
+  env = getattr(item, "_scenescape_env", None)
+  if env is None and hasattr(item, "funcargs"):
+    env = item.funcargs.get("scenescape_env")
+  if env is None:
+    request = getattr(item, "_request", None)
+    if request is not None:
+      try:
+        env = request.getfixturevalue("scenescape_env")
+      except pytest.FixtureLookupError:
+        env = None
+  if env is None:
+    return
+  setattr(item, "_scenescape_env", env)
+
+  rep_setup = getattr(item, "rep_setup", None)
+  rep_call = getattr(item, "rep_call", None)
+  rep_teardown = getattr(item, "rep_teardown", None)
+  failed = bool(
+    (rep_setup is not None and rep_setup.failed)
+    or (rep_call is not None and rep_call.failed)
+    or (rep_teardown is not None and rep_teardown.failed)
+  )
+  if mode == "failed" and not failed:
+    return
+
+  if mode == "all":
+    logger.info("Collecting container logs (mode=all): %s", item.nodeid)
+  else:
+    logger.info("Collecting container logs for failed test: %s", item.nodeid)
+  if _testlog is not None:
+    _testlog.silence_console()
+  collect_logs(env.docker, scan_for_tracebacks=True)
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+  """Attach setup/call/teardown reports and collect logs after teardown."""
+  outcome = yield
+  rep = outcome.get_result()
+  setattr(item, f"rep_{rep.when}", rep)
+  if rep.when == "teardown":
+    _collect_container_logs_if_configured(item)
 
 def pytest_runtest_logreport(report):
   """Log test phase results to the per-test log file."""

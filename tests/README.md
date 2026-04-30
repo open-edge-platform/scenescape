@@ -5,43 +5,40 @@
 ```bash
 # Build images, generate secrets, and install the pytest virtualenv
 SUPASS=change_me make build-all && make setup-tests
-cd tests && make setup-pytest   # creates tests/.venv if not present
+make setup-pytest   # creates tests/.venv if not present
 ```
 
 ## Running tests
 
 Tests are orchestrated by pytest. The `scenescape_env` fixture in
 `tests/conftest.py` manages Docker Compose lifecycle (start, readiness polling,
-log collection, teardown). All test specs are defined as Python dataclasses in
-`tests/test_functional.py`, `tests/test_unit.py`, and `tests/test_ui.py`.
+container log collection, teardown). By default, container logs are collected
+only for failed tests. Use `--collect-container-logs {failed,all,none}` to
+change this behavior. Test specs are defined in the individual test
+modules as Python dataclasses.
 
 ### Using make (recommended)
 
-Each `make -C tests <target>` invokes `tests/.venv/bin/pytest -k <test_id>`.
+Use make targets from the repository root.
 
 ```bash
 # One-time venv setup (auto-called by group targets)
-make -C tests setup-pytest
+make setup-pytest
 
 # Run all basic acceptance tests
-make -C tests basic-acceptance-tests
+make run_basic_acceptance_tests
 
 # Run standard tests (functional + UI)
-make -C tests standard-tests
+make run_standard_tests
 
 # Run all functional tests
-make -C tests functional-tests
+make run_functional_tests
 
 # Run all unit tests
-make -C tests unit-tests
+make run_unit_tests
 
 # Run all UI/Selenium tests
-make -C tests ui-tests
-
-# Run a specific test by its make target name
-make -C tests mqtt-roi
-make -C tests geometry-unit
-make -C tests bounding-box
+make run_ui_tests
 
 ```
 
@@ -60,13 +57,18 @@ pytest -k mqtt_roi -v
 pytest -k "mqtt" -v
 
 # Run all functional tests
-pytest tests/test_functional.py -v
+pytest tests/functional -v
 
 # Run all unit tests
-pytest tests/test_unit.py -v
+pytest tests/sscape_tests -v
 
 # Run all UI tests
-pytest tests/test_ui.py -v
+pytest tests/ui -v
+
+# Container log collection modes (default: failed)
+pytest tests/functional -v --collect-container-logs failed
+pytest tests/functional -v --collect-container-logs all
+pytest tests/functional -v --collect-container-logs none
 
 ```
 
@@ -88,39 +90,41 @@ tests/test_logs/unit/<test_id>-<timestamp>.log
 tests/test_logs/ui/<test_id>-<timestamp>.log
 ```
 
-Console output is suppressed during teardown — container log collection and
-cleanup messages go to the log file only.
+Container log collection supports:
+
+- `failed` (default): collect container logs only for failed tests.
+- `all`: collect container logs for every test.
+- `none`: skip container log collection entirely.
+
+Console output is suppressed during teardown. Container-log and cleanup
+messages are written to the per-test log file.
 
 ## Available test groups
 
 | Make target              | Description                            |
 | ------------------------ | -------------------------------------- |
-| `basic-acceptance-tests` | Core smoke tests (functional + unit)   |
-| `standard-tests`         | Full functional and UI test suite      |
-| `functional-tests`       | All functional API/MQTT tests          |
-| `unit-tests`             | All unit tests (standalone containers) |
-| `ui-tests`               | All UI/Selenium tests                  |
-| `metric-tests`           | Performance metric tests               |
+| `run_basic_acceptance_tests` | Core smoke tests (functional + unit)   |
+| `run_standard_tests`         | Full functional and UI test suite      |
+| `run_functional_tests`       | All functional API/MQTT tests          |
+| `run_unit_tests`             | All unit tests (standalone containers) |
+| `run_ui_tests`               | All UI/Selenium tests                  |
+| `run_metric_tests`           | Metric tests (Docker-based)            |
 
-For a complete and up-to-date list of all test targets see the
-[Tests Makefile](Makefile), [Makefile.functional](Makefile.functional),
-[Makefile.sscape](Makefile.sscape), and [Makefile.user_interface](Makefile.user_interface).
+For a complete and up-to-date list of all test targets, see the root `Makefile`.
 
-## Unit test taxonomy
+## Unit tests
 
-The repository keeps two categories under the `unit-tests` umbrella:
+Unit tests are run with:
 
-- Pure unit tests: fast logic-focused tests that typically avoid Django request/ORM integration.
-  - Umbrella target: `make -C tests logic-unit-tests`
-  - Example leaf target: `make -C tests scene-unit`
-- Django integration unit tests: Django `TestCase`/test-client/ORM based backend tests grouped under a dedicated umbrella.
-  - Umbrella target: `make -C tests django-integration-unit`
-  - Included targets: `account-security-unit`, `cam-unit`, `scene-django-unit`, `singleton-sensor-unit`, `views-unit`
+```bash
+make run_unit_tests
+```
 
-Notes:
+or directly with pytest:
 
-- `make -C tests unit-tests` still runs both categories.
-- The Django scene CRUD tests in `tests/sscape_tests/scene/` are run by `scene-django-unit`.
+```bash
+pytest tests/sscape_tests -v
+```
 
 ## Running tests on kubernetes
 

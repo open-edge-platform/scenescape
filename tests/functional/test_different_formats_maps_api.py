@@ -4,10 +4,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import logging
+from tests.utils.log import get_logger
 from http import HTTPStatus
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -39,6 +41,6 @@ def test_different_formats_maps_api(params, rest, scene_uid, result_recorder, de
       scene = rest.getScenes({'name': scene_name})['results'][0]
       assert scene and 'map' in scene, f"Map not found in scene {scene_name}"
 
-  logging.info("Successfully uploaded scenes with different map formats.")
+  log.info("Successfully uploaded scenes with different map formats.")
 
   result_recorder.success()

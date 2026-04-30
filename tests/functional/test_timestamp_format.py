@@ -4,10 +4,12 @@
 import subprocess
 import re
 from datetime import datetime
-from scene_common import log
 from tests.common_test_utils import record_test_result
+from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,

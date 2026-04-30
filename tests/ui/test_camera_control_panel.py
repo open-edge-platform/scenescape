@@ -6,11 +6,12 @@
 import os
 import time
 import tests.ui.common_ui_test_utils as common
-from scene_common import log
+from tests.utils.log import get_logger
 from tests.ui import UserInterfaceTest
 from tests.ui.browser import By, NoSuchElementException, WebDriverException
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,

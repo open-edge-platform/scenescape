@@ -5,9 +5,11 @@
 
 import random
 import string
-import logging
+from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -33,7 +35,7 @@ def test_api_strings(rest, result_recorder, scene_uid, params, demo_scene):
 
   # Negative auth with bad creds
   res = rest.authenticate("admin123", "admin123")
-  logging.info(res.errors["non_field_errors"])
+  log.info(res.errors["non_field_errors"])
   assert res.errors["non_field_errors"] == ["Incorrect Username/Password. "]
   assert res.statusCode == 400
 
@@ -42,28 +44,28 @@ def test_api_strings(rest, result_recorder, scene_uid, params, demo_scene):
 
   # Overlong name validation across entities
   res = rest.createTripwire({"name": random_string, "scene": scene_uid})
-  logging.info(res.errors["name"])
+  log.info(res.errors["name"])
   assert res.errors["name"] == ["Ensure this field has no more than 150 characters."]
 
   res = rest.createRegion({"name": random_string, "scene": scene_uid})
-  logging.info(res.errors["name"])
+  log.info(res.errors["name"])
   assert res.errors["name"] == ["Ensure this field has no more than 150 characters."]
 
   res = rest.createSensor({"name": random_string, "scene": scene_uid})
-  logging.info(res.errors["name"])
+  log.info(res.errors["name"])
   assert res.errors["name"] == ["Ensure this field has no more than 150 characters."]
 
   res = rest.createCamera({"name": random_string, "scene": scene_uid})
-  logging.info(res.errors["name"])
+  log.info(res.errors["name"])
   assert res.errors["name"] == ["Ensure this field has no more than 150 characters."]
 
   res = rest.createScene({"name": random_string})
-  logging.info(res.errors["name"])
+  log.info(res.errors["name"])
   assert res.errors["name"] == ["Ensure this field has no more than 150 characters."]
 
   # Overlong sensor_id validation
   res = rest.createSensor({"sensor_id": random_string, "scene": scene_uid})
-  logging.info(res.errors["sensor_id"])
+  log.info(res.errors["sensor_id"])
   assert res.errors["sensor_id"] == ["Ensure this field has no more than 20 characters."]
 
   result_recorder.success()
