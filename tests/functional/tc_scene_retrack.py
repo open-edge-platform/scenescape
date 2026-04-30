@@ -26,57 +26,6 @@ import tests.common_test_utils as common
 from tests.functional.common_retrack import RetrackTest
 
 
-def test_scene_retrack_enabled_objects_propagate_to_parent(
-    objData, record_xml_attribute, params):
-  """! Positive test: with retrack=True (default), objects from a child scene
-  appear on the parent scene's regulated topic after the parent tracker has
-  had enough frames to produce reliable tracks.
-
-  @param    objData                 Pytest fixture: object payload template.
-  @param    record_xml_attribute    Pytest fixture for XML result tagging.
-  @param    params                  Dict of functional-test parameters.
-  """
-  TEST_NAME = "NEX-T10536"
-  record_xml_attribute("name", TEST_NAME)
-  log.info("Executing: " + TEST_NAME)
-  exit_code = 1
-  client = None
-  rest_client = None
-  h = RetrackTest(params)
-
-  try:
-    rest_client = RESTClient(params['resturl'], rootcert=params['rootcert'])
-    assert rest_client.authenticate(params['user'], params['password'])
-
-    h.setup_scenes(rest_client)
-    h.set_retrack(rest_client, True)
-    client = h.make_client()
-
-    h.reset()
-
-    h.publish_data(objData, client, obj_category="person")
-    h.wait_for_messages(require_parent=True, require_child=True)
-
-    assert len(h.parent_received) > 0, \
-      "Parent scene should receive objects when retrack=True"
-    assert len(h.child_received) > 0, \
-      "Child scene should publish regulated data"
-
-    log.info("PASS: parent received %d messages with retrack=True" %
-             len(h.parent_received))
-    exit_code = 0
-
-  finally:
-    if client is not None:
-      client.loopStop()
-    if rest_client is not None:
-      h.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
-  return
-
-
 def test_scene_retrack_disabled_objects_propagate_to_parent(
     objData, record_xml_attribute, params):
   """! Positive test: with retrack=False, objects from the child scene still
@@ -248,8 +197,11 @@ def test_scene_retrack_enabled_assigns_new_ids_to_child_objects(
 
 def test_scene_retrack_toggle_changes_id_behaviour(
     objData, record_xml_attribute, params):
-  """! Positive test: toggling retrack from False to True causes the parent
-  to stop preserving child IDs and switch to assigning new tracking IDs.
+  """! Positive test: with continuous object publishing, toggling retrack
+  from True to False causes the parent to switch from assigning new tracking
+  IDs to preserving the child's original IDs.  Phase 1 (retrack=True): parent
+  IDs must differ from child IDs.  Phase 2 (retrack=False): parent IDs must
+  overlap with child IDs.
 
   @param    objData                 Pytest fixture: object payload template.
   @param    record_xml_attribute    Pytest fixture for XML result tagging.
@@ -260,6 +212,7 @@ def test_scene_retrack_toggle_changes_id_behaviour(
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client = None
+  send_thread = None
   rest_client = None
   h = RetrackTest(params)
 
@@ -268,46 +221,57 @@ def test_scene_retrack_toggle_changes_id_behaviour(
     assert rest_client.authenticate(params['user'], params['password'])
 
     h.setup_scenes(rest_client)
-    h.set_retrack(rest_client, False)
+    h.set_retrack(rest_client, True)
     client = h.make_client()
 
-    # ---- Phase 1: retrack=False – IDs should be shared ----
-    log.info("Phase 1: retrack=False")
-    h.reset()
+    # Publish continuously through both phases; daemon so it is killed if the
+    # test fails before join().  Five MAX_WAIT windows covers both observation
+    # phases plus the CMD_DATABASE round-trip for the retrack toggle.
+    total_duration = int(h.MAX_WAIT * 5)
+    send_thread = threading.Thread(
+      target=h.publish_timed,
+      args=(objData, client, RetrackTest.FRAME_RATE, total_duration),
+      daemon=True)
+    send_thread.start()
 
-    h.publish_data(objData, client, obj_category="person")
+    # ---- Phase 1: retrack=True – parent assigns new IDs ----
+    log.info("Phase 1: retrack=True")
+    h.reset()
     h.wait_for_messages(require_parent=True, require_child=True)
 
     parent_snap, child_snap = h.snapshot_received()
     phase1_parent_ids = RetrackTest.collect_object_ids(parent_snap)
     phase1_child_ids = RetrackTest.collect_object_ids(child_snap)
     shared_phase1 = phase1_parent_ids & phase1_child_ids
-    assert shared_phase1, \
-      ("Phase 1 (retrack=False): expected parent and child to share IDs, "
-       f"parent={phase1_parent_ids}, child={phase1_child_ids}")
-    log.info(f"Phase 1 shared IDs: {shared_phase1}")
+    assert not shared_phase1, \
+      ("Phase 1 (retrack=True): expected parent IDs to differ from child IDs, "
+       f"shared={shared_phase1}")
+    log.info(
+      f"Phase 1: parent IDs differ from child IDs – "
+      f"{len(phase1_parent_ids)} parent, {len(phase1_child_ids)} child")
 
-    # ---- Phase 2: switch to retrack=True – IDs should diverge ----
-    log.info("Phase 2: switching to retrack=True")
-    h.set_retrack(rest_client, True)
+    # ---- Phase 2: switch to retrack=False – child IDs preserved ----
+    log.info("Phase 2: switching to retrack=False")
+    h.set_retrack(rest_client, False)
     h.reset()
 
-    h.publish_data(objData, client, obj_category="person")
     h.wait_for_messages(require_parent=True, require_child=True)
 
     parent_snap, child_snap = h.snapshot_received()
     phase2_parent_ids = RetrackTest.collect_object_ids(parent_snap)
     phase2_child_ids = RetrackTest.collect_object_ids(child_snap)
     shared_phase2 = phase2_parent_ids & phase2_child_ids
-    assert not shared_phase2, \
-      ("Phase 2 (retrack=True): expected parent IDs to differ from child IDs, "
-       f"shared={shared_phase2}")
-    log.info("Phase 2: parent IDs differ from child IDs as expected")
+    assert shared_phase2, \
+      ("Phase 2 (retrack=False): expected parent and child to share IDs, "
+       f"parent={phase2_parent_ids}, child={phase2_child_ids}")
+    log.info(f"Phase 2 shared IDs: {shared_phase2}")
 
     log.info("PASS: retrack toggle correctly changes ID assignment behaviour")
     exit_code = 0
 
   finally:
+    if send_thread is not None:
+      send_thread.join(timeout=1)  # daemon thread; brief grace period before teardown
     if client is not None:
       client.loopStop()
     if rest_client is not None:
