@@ -1432,8 +1432,9 @@ Examples:
 
     parser.add_argument(
         '-a', '--jira-token',
-        help="JIRA API personal access token",
-        required=True,
+        help="JIRA API personal access token (or set JIRA_TOKEN env var)",
+        default=os.environ.get('JIRA_TOKEN') or None,
+        required=not bool(os.environ.get('JIRA_TOKEN')),
         action='store'
     )
 

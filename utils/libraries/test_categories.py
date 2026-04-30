@@ -28,7 +28,8 @@ except ImportError as exc:
 
 
 TEST_PREFIX = os.getenv("TEST_CATEGORY_PREFIX", "Vision_AI")
-CONFIG_PATH = os.getenv("TEST_CATEGORY_CONFIG", "test_category_config.yaml")
+_DEFAULT_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_category_config.yaml")
+CONFIG_PATH = os.getenv("TEST_CATEGORY_CONFIG", _DEFAULT_CONFIG)
 
 logger = logging.getLogger(__name__)
 
