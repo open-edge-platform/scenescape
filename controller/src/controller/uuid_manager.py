@@ -8,7 +8,7 @@ import math
 
 import numpy as np
 
-from controller.vdms_adapter import VDMSDatabase, IP_SCORE_TOLERANCE
+from controller.vdms_adapter import VDMSDatabase, COSINE_SIMILARITY_TOLERANCE
 from controller.moving_object import ReidState, MovingObject
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
@@ -561,7 +561,7 @@ class UUIDManager:
     if self._isHigherBetterMetric():
       # For IP metrics, scores must lie within [-1, 1] (normalized embeddings).
       # Allow a small tolerance to absorb float32 rounding from VDMS computation.
-      if metric_value < -(1.0 + IP_SCORE_TOLERANCE) or metric_value > (1.0 + IP_SCORE_TOLERANCE):
+      if metric_value < -(1.0 + COSINE_SIMILARITY_TOLERANCE) or metric_value > (1.0 + COSINE_SIMILARITY_TOLERANCE):
         return False
       return metric_value > threshold
     return metric_value < threshold
@@ -592,7 +592,7 @@ class UUIDManager:
         metric_value = entity.get('_distance')
         if metric_value is None or not math.isfinite(metric_value):
           continue
-        if is_higher_better and (metric_value < -(1.0 + IP_SCORE_TOLERANCE) or metric_value > (1.0 + IP_SCORE_TOLERANCE)):
+        if is_higher_better and (metric_value < -(1.0 + COSINE_SIMILARITY_TOLERANCE) or metric_value > (1.0 + COSINE_SIMILARITY_TOLERANCE)):
           log.warning(
             f"Ignoring out-of-range IP similarity score {metric_value} "
             f"for uuid={entity.get('uuid')}")

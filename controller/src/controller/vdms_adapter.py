@@ -20,7 +20,7 @@ SCHEMA_NAME = "reid_vector"
 SIMILARITY_METRIC = "L2"
 # Tolerance applied to the theoretical [-1, 1] IP score bounds to absorb
 # float32 rounding errors from VDMS normalization and inner-product computation.
-IP_SCORE_TOLERANCE = 1e-6
+COSINE_SIMILARITY_TOLERANCE = 1e-6
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
@@ -41,12 +41,12 @@ class VDMSDatabase(ReIDDatabase):
     self._schema_ready = False
     return
 
-  def _uses_inner_product_metric(self):
+  def _usesInnerProductMetric(self):
     """Return True when descriptor metric is Inner Product."""
     metric = str(self.similarity_metric).strip().upper()
     return metric == "IP"
 
-  def _is_valid_similarity_score(self, score):
+  def _isValidSimilarityScore(self, score):
     """Validate similarity score according to active metric semantics."""
     try:
       value = float(score)
@@ -58,7 +58,7 @@ class VDMSDatabase(ReIDDatabase):
 
     # With normalized embeddings, Inner Product must stay within [-1, 1].
     # Allow a small tolerance to absorb float32 rounding from VDMS.
-    if self._uses_inner_product_metric() and (value < -(1.0 + IP_SCORE_TOLERANCE) or value > (1.0 + IP_SCORE_TOLERANCE)):
+    if self._usesInnerProductMetric() and (value < -(1.0 + COSINE_SIMILARITY_TOLERANCE) or value > (1.0 + COSINE_SIMILARITY_TOLERANCE)):
       return False
 
     return True
@@ -249,10 +249,10 @@ class VDMSDatabase(ReIDDatabase):
     # Blobs are consumed sequentially, one per AddDescriptor query (flat list)
     descriptor_blobs = []
     add_query = []
-    normalize_embeddings = self._uses_inner_product_metric()
+    normalize_embeddings = self._usesInnerProductMetric()
 
     for reid_vector in reid_vectors:
-      prepared_reid = self.prepare_reid_dict(
+      prepared_reid = self.prepareReidDict(
         reid_vector,
         self.dimensions,
         "addEntry",
@@ -351,7 +351,7 @@ class VDMSDatabase(ReIDDatabase):
           return str(payload[key])
     return None
 
-  def _build_query_constraints(self, object_type, **constraints):
+  def _buildQueryConstraints(self, object_type, **constraints):
     """
     Build query constraints for TIER 1 metadata filtering.
 
@@ -445,7 +445,7 @@ class VDMSDatabase(ReIDDatabase):
     log.debug(f"[VDMS] findMatches constraints received: {constraints}")
 
     # TIER 1: Build dynamic constraints for metadata filtering
-    query_constraints = self._build_query_constraints(object_type, **constraints)
+    query_constraints = self._buildQueryConstraints(object_type, **constraints)
 
     find_query = {
       "FindDescriptor": {
@@ -467,9 +467,9 @@ class VDMSDatabase(ReIDDatabase):
 
     # TIER 2: Vector similarity search on filtered candidates
     blob = []
-    normalize_embeddings = self._uses_inner_product_metric()
+    normalize_embeddings = self._usesInnerProductMetric()
     for reid_vector in reid_vectors:
-      vec_array = self._prepare_reid_vector(
+      vec_array = self.prepareReidVector(
         reid_vector,
         self.dimensions,
         "findMatches",
@@ -498,7 +498,7 @@ class VDMSDatabase(ReIDDatabase):
         valid_entities = []
         for entity in item.get('entities', []):
           similarity = entity.get('_distance')
-          if self._is_valid_similarity_score(similarity):
+          if self._isValidSimilarityScore(similarity):
             valid_entities.append(entity)
           else:
             log.warning(

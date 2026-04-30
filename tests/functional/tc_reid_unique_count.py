@@ -163,7 +163,7 @@ def check_unique_detections(params):
   """! Verify if more than expected unique detections aren't found.
   @return  BOOL       True for the expected behaviour.
   """
-  interval = 10
+  interval = 10  # seconds
   start_time = time.time()
   expect_exceed = expect_exceed_max_unique_count(params)
   exceeded_scenes = set()
@@ -186,7 +186,6 @@ def check_unique_detections(params):
       return False
 
     log.info(f"Status after {int(time.time() - start_time)} / {TEST_WAIT_TIME} sec")
-
 
     for scene, scene_state in detection_count.items():
       current = scene_state["current"]

@@ -218,14 +218,14 @@ class TestAddEntry:
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_prepare_reid_dict_infers_dimensions_from_row_vector(self, mock_vdms_class):
-    """Verify prepare_reid_dict infers dimensions and flattens (1, N) input."""
+    """Verify prepareReidDict infers dimensions and flattens (1, N) input."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
     row_vector = np.arange(12, dtype=np.float32).reshape(1, 12)
 
-    prepared = db.prepare_reid_dict(row_vector, dimensions=None, caller_name="unit-test")
+    prepared = db.prepareReidDict(row_vector, dimensions=None, caller_name="unit-test")
 
     assert prepared is not None
     assert prepared['dimensions'] == 12
@@ -234,20 +234,20 @@ class TestAddEntry:
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_prepare_reid_dict_rejects_dimension_mismatch(self, mock_vdms_class):
-    """Verify prepare_reid_dict returns None when expected dimensions do not match."""
+    """Verify prepareReidDict returns None when expected dimensions do not match."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
     row_vector = np.arange(16, dtype=np.float32).reshape(1, 16)
 
-    prepared = db.prepare_reid_dict(row_vector, dimensions=32, caller_name="unit-test")
+    prepared = db.prepareReidDict(row_vector, dimensions=32, caller_name="unit-test")
 
     assert prepared is None
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_prepare_reid_dict_normalizes_for_ip_metric(self, mock_vdms_class):
-    """Verify prepare_reid_dict normalizes vectors when normalize_embeddings=True (IP metric)."""
+    """Verify prepareReidDict normalizes vectors when normalize_embeddings=True (IP metric)."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
@@ -256,7 +256,7 @@ class TestAddEntry:
     vec[0] = 3.0
     vec[1] = 4.0
 
-    prepared = db.prepare_reid_dict(vec, dimensions=256, caller_name="unit-test", normalize_embeddings=True)
+    prepared = db.prepareReidDict(vec, dimensions=256, caller_name="unit-test", normalize_embeddings=True)
 
     assert prepared is not None
     normalized = prepared['embedded_vector']
@@ -266,7 +266,7 @@ class TestAddEntry:
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_prepare_reid_dict_preserves_for_l2_metric(self, mock_vdms_class):
-    """Verify prepare_reid_dict preserves raw vectors when normalize_embeddings=False (L2 metric)."""
+    """Verify prepareReidDict preserves raw vectors when normalize_embeddings=False (L2 metric)."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
@@ -275,7 +275,7 @@ class TestAddEntry:
     vec[0] = 3.0
     vec[1] = 4.0
 
-    prepared = db.prepare_reid_dict(vec, dimensions=256, caller_name="unit-test", normalize_embeddings=False)
+    prepared = db.prepareReidDict(vec, dimensions=256, caller_name="unit-test", normalize_embeddings=False)
 
     assert prepared is not None
     raw = prepared['embedded_vector']
@@ -312,7 +312,7 @@ class TestAddEntry:
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_add_entry_accepts_row_vector_shape(self, mock_vdms_class):
-    """Verify addEntry accepts (1, N) vectors through prepare_reid_dict."""
+    """Verify addEntry accepts (1, N) vectors through prepareReidDict."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
@@ -795,7 +795,7 @@ class TestConstraintBuilding:
       }
     }
 
-    result = db._build_query_constraints("Person", **constraints)
+    result = db._buildQueryConstraints("Person", **constraints)
 
     assert "gender" in result
     assert result["gender"] == ["==", "Female"]
@@ -816,7 +816,7 @@ class TestConstraintBuilding:
       }
     }
 
-    result = db._build_query_constraints("Person", **constraints)
+    result = db._buildQueryConstraints("Person", **constraints)
 
     assert result == {"type": ["==", "Person"]}, "Low-confidence constraints should be ignored"
 
@@ -837,7 +837,7 @@ class TestConstraintBuilding:
       "color": "blue"
     }
 
-    result = db._build_query_constraints("Person", **constraints)
+    result = db._buildQueryConstraints("Person", **constraints)
 
     assert "gender" in result
     assert result["gender"] == ["==", "Male"]
@@ -858,7 +858,7 @@ class TestConstraintBuilding:
       }
     }
 
-    result = db._build_query_constraints("Person", **constraints)
+    result = db._buildQueryConstraints("Person", **constraints)
 
     assert result == {"type": ["==", "Person"]}, "Dict without confidence should be ignored"
 
@@ -876,7 +876,7 @@ class TestConstraintBuilding:
       "name": {"label": "John", "model_name": "name", "confidence": 0.99}
     }
 
-    result = db._build_query_constraints("Person", **constraints)
+    result = db._buildQueryConstraints("Person", **constraints)
 
     assert result["age"] == ["==", "28"], "High confidence (0.88 >= 0.8) should be AND"
     assert result["name"] == ["==", "John"], "High confidence (0.99 >= 0.8) should be AND"
@@ -892,7 +892,7 @@ class TestConstraintBuilding:
     db = VDMSDatabase()
 
     test_type = "Person"
-    constraints = db._build_query_constraints(test_type)
+    constraints = db._buildQueryConstraints(test_type)
 
     assert "type" in constraints, "Object type must always be present"
     assert constraints["type"] == ["==", test_type], "Object type must be AND constraint format"
@@ -911,7 +911,7 @@ class TestConstraintBuilding:
       "color": {"label": "blue", "model_name": "color_v1", "confidence": 0.8}
     }
 
-    constraints = db._build_query_constraints("Person", **high_confidence_constraints)
+    constraints = db._buildQueryConstraints("Person", **high_confidence_constraints)
 
     assert "gender" in constraints
     assert "age_range" in constraints
@@ -935,7 +935,7 @@ class TestConstraintBuilding:
       "color": {"label": "blue", "model_name": "color", "confidence": 0.01}
     }
 
-    constraints = db._build_query_constraints("Person", **low_confidence_constraints)
+    constraints = db._buildQueryConstraints("Person", **low_confidence_constraints)
 
     assert constraints == {"type": ["==", "Person"]}, "Low-confidence constraints should all be ignored"
 
@@ -947,7 +947,7 @@ class TestConstraintBuilding:
 
     db = VDMSDatabase()
 
-    constraints = db._build_query_constraints("Vehicle")
+    constraints = db._buildQueryConstraints("Vehicle")
 
     assert constraints == {"type": ["==", "Vehicle"]}, \
       "Empty constraints should only have type constraint"
@@ -966,7 +966,7 @@ class TestConstraintBuilding:
       "color": "blue"
     }
 
-    constraints = db._build_query_constraints("Person", **constraints_with_none)
+    constraints = db._buildQueryConstraints("Person", **constraints_with_none)
 
     assert "age" not in constraints, "None values should be ignored"
     assert "gender" in constraints
@@ -985,7 +985,7 @@ class TestConstraintBuilding:
       "attribute_exact": {"label": "test_value", "model_name": "model", "confidence": 0.8}
     }
 
-    constraints = db._build_query_constraints("Person", **boundary_constraints)
+    constraints = db._buildQueryConstraints("Person", **boundary_constraints)
 
     assert "attribute_exact" in constraints
     assert constraints["attribute_exact"] == ["==", "test_value"]
@@ -996,7 +996,7 @@ class TestFindMatchesIntegration:
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_uses_constraint_builder(self, mock_vdms_class):
-    """Verify findMatches delegates to _build_query_constraints."""
+    """Verify findMatches delegates to _buildQueryConstraints."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
@@ -1052,7 +1052,7 @@ class TestConfigurationParameters:
       "gender": {"label": "Female", "model_name": "gender_v2", "confidence": 0.96}
     }
 
-    result = db._build_query_constraints("Person", **constraints_high)
+    result = db._buildQueryConstraints("Person", **constraints_high)
     assert "gender" in result, "Confidence 0.96 should exceed custom threshold 0.95"
 
     # Medium-confidence constraint that fails custom threshold
@@ -1060,7 +1060,7 @@ class TestConfigurationParameters:
       "age": {"label": 25, "model_name": "age_v2", "confidence": 0.90}
     }
 
-    result = db._build_query_constraints("Person", **constraints_medium)
+    result = db._buildQueryConstraints("Person", **constraints_medium)
     assert "age" not in result, "Confidence 0.90 should fail custom threshold 0.95"
 
   @patch('controller.vdms_adapter.vdms.vdms')
@@ -1278,7 +1278,7 @@ class TestDimensionInferenceAndArbitraryDimensions:
     db = VDMSDatabase(dimensions=None)
     vec = np.random.randn(128).astype(np.float32)
 
-    prepared = db.prepare_reid_dict(vec, dimensions=None, caller_name="unit-test")
+    prepared = db.prepareReidDict(vec, dimensions=None, caller_name="unit-test")
 
     assert prepared is not None
     assert prepared['dimensions'] == 128
@@ -1293,7 +1293,7 @@ class TestDimensionInferenceAndArbitraryDimensions:
     db = VDMSDatabase(dimensions=None)
     vec = np.random.randn(512).astype(np.float32)
 
-    prepared = db.prepare_reid_dict(vec, dimensions=None, caller_name="unit-test")
+    prepared = db.prepareReidDict(vec, dimensions=None, caller_name="unit-test")
 
     assert prepared is not None
     assert prepared['dimensions'] == 512

@@ -8,8 +8,8 @@ import numpy as np
 from scene_common import log
 
 class ReIDDatabase(ABC):
-  def prepare_reid_dict(self, embedding_vector, dimensions=None,
-                        caller_name="prepare_reid_dict",
+  def prepareReidDict(self, embedding_vector, dimensions=None,
+                        caller_name="prepareReidDict",
                         normalize_embeddings=False):
     """Prepare a normalized/validated ReID payload from arbitrary vector shapes.
 
@@ -46,10 +46,10 @@ class ReIDDatabase(ABC):
       "dimensions": expected_dimensions,
     }
 
-  def _prepare_reid_vector(self, reid_vector, dimensions, caller_name,
+  def prepareReidVector(self, reid_vector, dimensions, caller_name,
                            normalize_embeddings=False):
     """Backward-compatible wrapper returning only the prepared vector."""
-    prepared_reid = self.prepare_reid_dict(
+    prepared_reid = self.prepareReidDict(
       reid_vector,
       dimensions,
       caller_name,
