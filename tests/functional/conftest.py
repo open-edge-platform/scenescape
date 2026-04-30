@@ -15,11 +15,8 @@ repo_root = Path(__file__).resolve().parents[2]
 if str(repo_root) not in sys.path:
   sys.path.insert(0, str(repo_root))
 
-from tests.common_test_utils import record_test_result
-
 logger = logging.getLogger(__name__)
 
-DEMO_SCENE_UID = "3bc091c7-e449-46a0-9540-29c499bca18c"
 DEMO_SCENE_NAME = "Demo"
 
 @pytest.fixture
@@ -76,50 +73,7 @@ def scene_uid(rest, params):
   return scenes[0]['uid']
 
 
-@pytest.fixture
-def demo_scene(scenescape_env):
-  """Provide the Demo scene UID and restore the database on teardown.
 
-  Usage: any test that modifies the Demo scene should request this fixture.
-  After the test completes, the database is restored from the baseline
-  snapshot so subsequent tests start with a clean state.
-  """
-  yield DEMO_SCENE_UID
-  scenescape_env.restore_db()
-
-
-@pytest.fixture(autouse=True)
-def record_test_name(request, record_xml_attribute):
-  """Record test name from marker if provided; otherwise do nothing."""
-  marker = request.node.get_closest_marker("test_name")
-  if marker and marker.args:
-    record_xml_attribute("name", marker.args[0])
-
-@pytest.fixture
-def result_recorder(request):
-  """Provides .success(); records exit code with test name on teardown."""
-  marker = request.node.get_closest_marker("test_name")
-  test_name = (marker.args[0] if marker and marker.args
-    else getattr(request.node.module, "TEST_NAME", request.node.name))
-
-  class Result:
-    exit_code = 1
-    def success(self):
-      self.exit_code = 0
-
-  r = Result()
-  try:
-    yield r
-  finally:
-    record_test_result(test_name, r.exit_code)
-
-def pytest_runtest_makereport(item, call):
-  if call.when == "call":
-    if hasattr(item, 'callspec') and '_env_matrix_setup' in item.callspec.params:
-      spec = item.callspec.params['_env_matrix_setup']
-      test_name = getattr(spec, 'test_name', '')
-      if test_name:
-        item._nodeid = f"{item.nodeid}\n {test_name}"
 
 
 @pytest.fixture
@@ -191,3 +145,4 @@ def pytest_generate_tests(metafunc):
     ids=profile_names,
     indirect=True,
   )
+

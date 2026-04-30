@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from tests.functional import FunctionalTest
@@ -35,11 +35,6 @@ class TestAPI(FunctionalTest):
     self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
     assert self.rest.authenticate(self.params['user'], self.params['password'])
     return
-
-  def buildArgparser(self):
-    parser = FunctionalTest.buildArgparser(self)
-    parser.set_defaults(scene='test_scene_1')
-    return parser
 
   def verifyData(self, actualData, expectedData):
     toList = ['points', 'center']
@@ -247,6 +242,7 @@ class TestAPI(FunctionalTest):
 
 def test_api(scenescape_env, demo_scene, request, record_xml_attribute):
   test = TestAPI(TEST_NAME, request, record_xml_attribute)
+  test.sceneName = 'test_scene_1'
   test.verifyThings()
   assert test.exitCode == 0
   return

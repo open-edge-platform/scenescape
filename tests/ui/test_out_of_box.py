@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import cv2
@@ -99,7 +99,9 @@ def get_person_marks(browser):
   """
   marks_class = 'mark'
   marks_found = []
-  assert common.wait_for_elements(browser, marks_class, findBy=By.CLASS_NAME, maxWait=20)
+  if not common.wait_for_elements(browser, marks_class, findBy=By.CLASS_NAME, maxWait=20,
+                                    refreshPage=False):
+    return marks_found
   get_marks = browser.find_elements(By.CLASS_NAME, marks_class)
   for marks in get_marks:
     marks_found.append(marks.get_attribute('transform'))

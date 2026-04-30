@@ -49,7 +49,7 @@ services:
       --ssl-certfile /run/secrets/certs/scenescape-autocalibration.crt
       --ssl-keyfile /run/secrets/certs/scenescape-autocalibration.key
     ports:
-      - "${AUTOCALIB_PORT:-8443}:8443"
+      - "8443:8443"
     environment:
       - EGL_PLATFORM=surfaceless
       - NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad

@@ -8,15 +8,14 @@ from http import HTTPStatus
 from scene_common.rest_client import RESTClient
 from tests.common_test_utils import record_test_result
 from tests.utils.log import get_logger
-from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+from tests.utils.profiles import FULL_STACK, FULL_STACK_WITH_VIDEO_AND_RETAIL
 from tests.utils.spec import AUTH_CONTROLLER, FuncTestSpec
 
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
-  auth=AUTH_CONTROLLER,
-)
+  profile=FULL_STACK,
+  auth=AUTH_CONTROLLER)
 
 SCENESCAPE_ENV_MATRIX = {
   "full_stack": "NEX-T10395-1",

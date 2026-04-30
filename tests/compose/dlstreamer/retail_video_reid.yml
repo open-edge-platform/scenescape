@@ -16,7 +16,7 @@ services:
     tty: true
     entrypoint: ["./run.sh"]
     ports:
-      - "${RETAIL_DLS_PORT:-8080}:8080"
+      - "8080:8080"
     devices:
       - "/dev/dri:/dev/dri"
     depends_on:
@@ -67,6 +67,8 @@ configs:
 
 volumes:
   vol-models:
+    external: true
+    name: scenescape_vol-models
   vol-sample-data:
   vol-dlstreamer-pipeline-server-pipeline-root-retail:
     driver: local

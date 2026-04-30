@@ -10,9 +10,9 @@ Tests are collected directly from their source directories.
 Each test file declares a module-level SCENESCAPE_SPEC (FuncTestSpec)
 that describes the Docker Compose profile it needs.
 
-Session-scoped fixtures start one compose stack per profile.
-Tests explicitly request "scenescape_env" which resolves the right
-session fixture and injects per-test CLI options.
+A single session-scoped ComposeManager ensures at most one Docker
+Compose stack runs at a time.  Tests are sorted by profile so the
+stack is only restarted when the required profile changes.
 """
 
 import logging
@@ -68,9 +68,11 @@ _ORCHESTRATION_AVAILABLE = False
 _testlog = None
 try:
   from python_on_whales import DockerClient
+  from python_on_whales.exceptions import DockerException
   import utils.log as _testlog
   from utils import stream_subprocess
   from utils.containers import collect_logs, wait_for_services
+  from utils.profiles import WaitConfig
   _ORCHESTRATION_AVAILABLE = True
 except ImportError:
   pass
@@ -164,14 +166,14 @@ class ScenescapeEnv:
   repo_root: str
   secrets_dir: str
   supass: str
-  broker_port: int = 1883
-  https_port: int = 443
 
   def restore_db(self):
     """Reload the database from the original test archive.
 
     Flushes all data (keeping the schema), reloads fixture data from
-    the EXAMPLEDB archive, and recreates auth users.
+    the EXAMPLEDB archive, recreates auth users, marks the database
+    as ready, and restarts the scene controller so it picks up the
+    fresh DB state.
     """
     logger.info("Restoring database from EXAMPLEDB archive...")
     manage = "$SCENESCAPE_HOME/manage.py"
@@ -199,14 +201,29 @@ class ScenescapeEnv:
        "    --email=admin@domain.com 2>/dev/null || true"],
       tty=False,
     )
+
+    self.docker.compose.execute(
+      "web",
+      ["sh", "-c", f"python {manage} updatedbstatus --ready"],
+      tty=False,
+    )
     logger.info("Database restored.")
 
-
-def _find_free_port():
-  """Find an available TCP port on localhost."""
-  with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.bind(("", 0))
-    return s.getsockname()[1]
+    logger.info("Restarting scene controller to refresh cache...")
+    try:
+      from datetime import datetime, timezone
+      import time
+      restart_time = datetime.now(timezone.utc)
+      self.docker.compose.restart("scene")
+      time.sleep(0.5)
+      wait_for_services(
+        self.docker, self.project_name,
+        {"scene": WaitConfig(log_pattern="Subscribed to")},
+        since=restart_time,
+      )
+      logger.info("Scene controller restarted and ready.")
+    except Exception as exc:
+      logger.warning("Scene controller restart failed: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -255,6 +272,39 @@ def params(request, scenescape_env):
     'scene_name': request.config.getoption('--scene_name'),
   }
 
+def pytest_runtest_makereport(item, call):
+  """Hook that runs after each test phase (setup/call/teardown).
+
+  Used to detect when we're in a single-test run (or the last test in a session)
+  and clean up the compose stack immediately.
+  """
+  if not _ORCHESTRATION_AVAILABLE:
+    return
+
+  # Only act after the test teardown phase has completed
+  if call.when != "teardown":
+    return
+
+  # Check if this test used scenescape_env
+  if not getattr(item.session, "_scenescape_test_ran", False):
+    return
+
+  # Reset the marker for the next test
+  item.session._scenescape_test_ran = False
+
+  # If this is the last test in the session (or only one),
+  # tear down the compose stack immediately to avoid container leakage.
+  remaining_items = [i for i in item.session.items if i != item]
+  if not remaining_items:
+    if hasattr(item.session, "_compose_manager"):
+      manager = item.session._compose_manager
+      try:
+        manager._stop_current()
+        logger.info("Cleaned up compose stack after final test")
+      except Exception as exc:
+        logger.warning("Failed to clean up compose stack: %s", exc)
+
+
 def pytest_report_teststatus(report, config):
   if report.when == "call":
     return report.outcome, "", ""
@@ -275,28 +325,75 @@ _HOST_ALIASES = [
   "broker.scenescape.intel.com",
   "web.scenescape.intel.com",
   "autocalibration.scenescape.intel.com",
+  "vdms.scenescape.intel.com",
 ]
 
 @pytest.fixture(scope="session")
 def loopback_hosts():
-  """Resolve SceneScape service hostnames to loopback in this test process."""
+  """Resolve SceneScape service hostnames to loopback in this test process.
+
+  Patches both socket.getaddrinfo (for high-level callers) and
+  socket.socket.connect (for low-level callers like ssl.SSLSocket that call
+  socket.connect with a (host, port) tuple directly) so that all Python code
+  resolves the aliases to 127.0.0.1 without requiring /etc/hosts changes.
+  """
   if not _ORCHESTRATION_AVAILABLE:
     yield
     return
 
   original_getaddrinfo = socket.getaddrinfo
+  original_connect = socket.socket.connect
 
   def _loopback_getaddrinfo(host, *args, **kwargs):
     if isinstance(host, str) and host in _HOST_ALIASES:
       host = "127.0.0.1"
     return original_getaddrinfo(host, *args, **kwargs)
 
+  def _loopback_connect(self, address):
+    if isinstance(address, tuple) and len(address) >= 1:
+      host = address[0]
+      if isinstance(host, str) and host in _HOST_ALIASES:
+        address = ("127.0.0.1",) + address[1:]
+    return original_connect(self, address)
+
   logger.info("Using process-local loopback DNS for: %s", ", ".join(_HOST_ALIASES))
   socket.getaddrinfo = _loopback_getaddrinfo
+  socket.socket.connect = _loopback_connect
   try:
     yield
   finally:
     socket.getaddrinfo = original_getaddrinfo
+    socket.socket.connect = original_connect
+
+
+@pytest.fixture(scope="session")
+def install_shared_models(repo_root):
+  """Install models to a shared Docker volume once per test session.
+
+  This fixture ensures models are downloaded and installed only once,
+  to a fixed volume name 'scenescape_vol-models', which is then reused
+  by all test profiles.
+
+  All test profiles mount this shared volume so models are always available
+  and ready without per-profile installation.
+  """
+  if not _ORCHESTRATION_AVAILABLE:
+    logger.warning("Skipping model installation: orchestration not available")
+    yield
+    return
+
+  logger.info("Installing OpenVINO Zoo models to shared volume (scenescape_vol-models)...")
+  try:
+    stream_subprocess(
+      ["make", "install-models"],
+      cwd=repo_root,
+      env={**os.environ, "COMPOSE_PROJECT_NAME": "scenescape"},
+    )
+    logger.info("Shared models volume ready.")
+  except Exception as exc:
+    logger.error("Model installation failed: %s", exc)
+
+  yield
 
 
 # ---------------------------------------------------------------------------
@@ -319,12 +416,6 @@ def _inject_options(config, spec, secrets_dir, supass, env=None):
   # Resolve auth file on the host.
   opt.auth = f"{secrets_dir}/{spec.auth or 'controller.auth'}"
   opt.rootcert = f"{secrets_dir}/certs/scenescape-ca.pem"
-
-  # When a ScenescapeEnv is provided, inject its dynamic ports.
-  if env is not None:
-    opt.broker_port = env.broker_port
-    opt.weburl = f"https://web.scenescape.intel.com:{env.https_port}"
-    opt.resturl = f"https://web.scenescape.intel.com:{env.https_port}/api/v1"
 
   # Parse extra_args (--key value pairs) into option attributes.
   if spec.extra_args:
@@ -350,7 +441,8 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
   This is a generator meant to be called via ``yield from`` in
   session-scoped profile fixtures.
   """
-  project_name = f"test-{uuid.uuid4().hex[:8]}"
+  spec = profile.name.replace("_", "-")
+  project_name = f"test-{uuid.uuid4().hex[:4]}-{spec}"
   exampledb = exampledb or "tests/testdb.tar.bz2"
   env_path = Path(repo_root) / ".env"
   env_text = env_path.read_text() if env_path.exists() else ""
@@ -392,12 +484,6 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     database_password = supass
 
   tmp_path = tmp_path_factory.mktemp(profile.name)
-  # Allocate dynamic host ports so parallel stacks never collide.
-  broker_port = _find_free_port()
-  https_port = _find_free_port()
-  autocalib_port = _find_free_port()
-  retail_dls_port = _find_free_port()
-  queuing_dls_port = _find_free_port()
 
   env_file = tmp_path / ".env"
   env_lines = (
@@ -412,11 +498,6 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     f"GID={os.getgid()}\n"
     f"VISIBILITY=regulated\n"
     f"VISIBILITY_TOPIC=regulated\n"
-    f"BROKER_PORT={broker_port}\n"
-    f"HTTPS_PORT={https_port}\n"
-    f"AUTOCALIB_PORT={autocalib_port}\n"
-    f"RETAIL_DLS_PORT={retail_dls_port}\n"
-    f"QUEUING_DLS_PORT={queuing_dls_port}\n"
   )
   # Only set DLSTREAMER_VERSION when detected; omitting lets compose defaults apply.
   if dlstreamer_version:
@@ -438,18 +519,21 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     logger.info("=" * 60)
     logger.info("Starting test environment: %s", project_name)
     logger.info("Profile: %s", profile.name)
-    logger.info("Ports: broker=%d, https=%d", broker_port, https_port)
     logger.info("=" * 60)
 
-    logger.info("Running init-sample-data and install-models...")
+    logger.info("Running init-sample-data (using pre-installed shared models)...")
     stream_subprocess(
-      ["make", "init-sample-data", "install-models"],
+      ["make", "init-sample-data"],
       cwd=repo_root,
       env={**os.environ, "COMPOSE_PROJECT_NAME": project_name},
     )
 
     logger.info("Starting compose services...")
-    docker.compose.up(detach=True, pull="never")
+    try:
+      docker.compose.up(detach=True, pull="never", quiet=True)
+    except DockerException as exc:
+      logger.error("compose up failed: %s", exc)
+      raise
 
     if profile.wait_for:
       wait_for_services(docker, project_name, profile.wait_for)
@@ -461,8 +545,6 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       repo_root=repo_root,
       secrets_dir=secrets_dir,
       supass=supass,
-      broker_port=broker_port,
-      https_port=https_port,
     )
 
   except Exception:
@@ -510,51 +592,83 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
 
 
 # ---------------------------------------------------------------------------
-# Session-scoped profile fixtures
+# Compose Manager – ensures at most one stack runs at a time
 # ---------------------------------------------------------------------------
 
-if _ORCHESTRATION_AVAILABLE:
-  from tests.utils.profiles import (
-    FULL_STACK, FULL_STACK_WITH_VIDEO_AND_RETAIL,
-    REID, REID_SEMANTIC, FULL_STACK_AUTOCALIBRATION,
-    SCENE_NO_DB, MARKERLESS,
-  )
+_PROFILE_EXAMPLEDB = {
+  "full_stack_autocalibration": "tests/calibrationdb.tar.bz2",
+}
 
-  def _make_profile_fixture(profile, **kw):
-    """Create a session-scoped fixture for a ServiceProfile."""
-    @pytest.fixture(scope="session")
-    def _fixture(repo_root, secrets_dir, supass, tmp_path_factory, pytestconfig):
-      collect_container_logs_mode = pytestconfig.getoption(
-        "collect_container_logs", default="failed"
+
+class _ComposeManager:
+  """Manages Docker Compose lifecycle so only one stack runs at a time.
+
+  When a test requests a profile different from the currently active one,
+  the manager tears down the current stack before starting the new one.
+  Tests are sorted by profile in pytest_collection_modifyitems to minimise
+  the number of stack restarts.
+  """
+
+  def __init__(self, repo_root, secrets_dir, supass, tmp_path_factory):
+    self._repo_root = repo_root
+    self._secrets_dir = secrets_dir
+    self._supass = supass
+    self._tmp_path_factory = tmp_path_factory
+    self._current_profile_name = None
+    self._current_env = None
+    self._current_gen = None  # active _compose_lifecycle generator
+    self._failed_profiles = {}  # profile name -> exception message
+
+  def get_env(self, profile):
+    """Return a ScenescapeEnv for *profile*, reusing or restarting as needed."""
+    if profile.name in self._failed_profiles:
+      pytest.fail(
+        f"Profile {profile.name!r} already failed to start: "
+        f"{self._failed_profiles[profile.name]}"
       )
-      yield from _compose_lifecycle(profile, repo_root, secrets_dir, supass,
-                                    tmp_path_factory,
-                                    collect_container_logs_mode=collect_container_logs_mode,
-                                    **kw)
-    _fixture.__doc__ = f"Session-scoped {profile.name} compose environment."
-    return _fixture
 
-  full_stack_env = _make_profile_fixture(FULL_STACK)
-  full_stack_video_retail_env = _make_profile_fixture(FULL_STACK_WITH_VIDEO_AND_RETAIL)
-  reid_env = _make_profile_fixture(REID)
-  reid_semantic_env = _make_profile_fixture(REID_SEMANTIC)
-  full_stack_autocalibration_env = _make_profile_fixture(
-    FULL_STACK_AUTOCALIBRATION, exampledb="tests/calibrationdb.tar.bz2")
-  scene_no_db_env = _make_profile_fixture(SCENE_NO_DB)
-  markerless_env = _make_profile_fixture(MARKERLESS)
+    if self._current_profile_name == profile.name:
+      return self._current_env
 
-  # Map profile name -> fixture name for the resolver.
-  _PROFILE_FIXTURE_MAP = {
-    p.name: f for p, f in [
-      (FULL_STACK, "full_stack_env"),
-      (FULL_STACK_WITH_VIDEO_AND_RETAIL, "full_stack_video_retail_env"),
-      (REID, "reid_env"),
-      (REID_SEMANTIC, "reid_semantic_env"),
-      (FULL_STACK_AUTOCALIBRATION, "full_stack_autocalibration_env"),
-      (SCENE_NO_DB, "scene_no_db_env"),
-      (MARKERLESS, "markerless_env"),
-    ]
-  }
+    self._stop_current()
+
+    exampledb = _PROFILE_EXAMPLEDB.get(profile.name, "")
+    gen = _compose_lifecycle(
+      profile, self._repo_root, self._secrets_dir,
+      self._supass, self._tmp_path_factory, exampledb=exampledb,
+    )
+    try:
+      env = next(gen)
+    except Exception as exc:
+      gen.close()
+      self._failed_profiles[profile.name] = str(exc)
+      raise
+
+    self._current_gen = gen
+    self._current_env = env
+    self._current_profile_name = profile.name
+    return env
+
+  def _stop_current(self):
+    """Tear down the currently running compose stack, if any."""
+    if self._current_gen is not None:
+      self._current_gen.close()  # triggers finally block in _compose_lifecycle
+      self._current_gen = None
+      self._current_env = None
+      self._current_profile_name = None
+
+  def teardown(self):
+    """Tear down at session end."""
+    self._stop_current()
+
+
+@pytest.fixture(scope="session")
+def _compose_manager(repo_root, secrets_dir, supass, tmp_path_factory, request):
+  """Single session-scoped manager that runs at most one compose stack at a time."""
+  manager = _ComposeManager(repo_root, secrets_dir, supass, tmp_path_factory)
+  request.session._compose_manager = manager
+  yield manager
+  manager.teardown()
 
 
 # ---------------------------------------------------------------------------
@@ -562,13 +676,20 @@ if _ORCHESTRATION_AVAILABLE:
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="function")
-def scenescape_env(request, secrets_dir, supass, loopback_hosts):
-  """Resolve the session-scoped profile fixture and inject per-test options.
+def scenescape_env(request, _compose_manager, secrets_dir, supass, loopback_hosts,
+                   install_shared_models):
+  """Resolve the compose environment for the current test's profile.
 
   Each test that needs a compose environment must explicitly request this
   fixture.  It reads SCENESCAPE_SPEC from the test module to determine
-  which session-scoped profile fixture to activate, then injects CLI
-  options (auth, password, extra_args) for this specific test.
+  which profile to activate via the _ComposeManager.
+
+  The install_shared_models fixture ensures models are pre-installed to a
+  shared Docker volume before any test environment is started.
+
+  On teardown the database is automatically restored from the baseline
+  snapshot so that every test starts and ends with an identical
+  environment regardless of what it created or deleted during execution.
   """
   # When --env-profiles is active, _env_matrix_setup parametrizes a per-profile
   # FuncTestSpec into callspec.params; prefer that over the module-level default.
@@ -584,16 +705,26 @@ def scenescape_env(request, secrets_dir, supass, loopback_hosts):
   if not _ORCHESTRATION_AVAILABLE:
     pytest.skip("python-on-whales not installed; run from host venv")
 
-  fixture_name = _PROFILE_FIXTURE_MAP.get(spec.profile.name)
-  if fixture_name is None:
-    pytest.fail(f"No session fixture for profile {spec.profile.name!r}")
-
-  env = request.getfixturevalue(fixture_name)
+  env = _compose_manager.get_env(spec.profile)
 
   # Inject per-test CLI option values.
   _inject_options(request.config, spec, secrets_dir, supass, env=env)
 
-  return env
+  # Track that this test used the environment for cleanup scheduling.
+  request.session._scenescape_test_ran = True
+
+  yield env
+
+  # Restore database after every test.
+  # Only applies to profiles that include a web/database service.
+  # Tests marked with @pytest.mark.preserve_db skip the restore so that
+  # a subsequent test can verify data survives.
+  if "web" in spec.profile.wait_for:
+    if not request.node.get_closest_marker("preserve_db"):
+      try:
+        env.restore_db()
+      except Exception as exc:
+        logger.warning("Post-test DB restore failed: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -622,7 +753,12 @@ def _get_item_spec(item):
   return getattr(item, '_scenescape_spec', None) or getattr(item.module, 'SCENESCAPE_SPEC', None)
 
 def pytest_collection_modifyitems(config, items):
-  """Attach FuncTestSpec to each collected item, add markers, and sort by profile."""
+  """Attach FuncTestSpec to each collected item, add markers, and sort by profile.
+
+  Groups tests by profile so the ComposeManager only restarts
+  the compose stack when the profile changes, keeping at most one stack
+  running at a time.
+  """
   for item in items:
     spec = getattr(item.module, 'SCENESCAPE_SPEC', None)
     if spec is not None:
@@ -631,17 +767,22 @@ def pytest_collection_modifyitems(config, items):
       config.addinivalue_line("markers", f"{marker_name}: FuncTestSpec marker")
       item.add_marker(getattr(pytest.mark, marker_name))
 
-  # When running with --env-profiles, group tests by profile so each Docker
-  # Compose environment starts once and handles all its tests before teardown.
-  if config.getoption("env_profiles", default=None):
+  # Always sort by profile so _ComposeManager only restarts the stack on profile
+  # transitions.  Use PROFILE_REGISTRY order when available so --env-profiles
+  # matrix parametrisation runs in a predictable sequence.
+  try:
     from tests.utils.profiles import PROFILE_REGISTRY
     profile_order = {name: i for i, name in enumerate(PROFILE_REGISTRY)}
-    original_order = {item: i for i, item in enumerate(items)}
-    def _sort_key(item):
-      spec = _get_item_spec(item)
-      profile_rank = profile_order.get(spec.profile.name, 999) if spec else 999
-      return (profile_rank, original_order[item])
-    items.sort(key=_sort_key)
+  except ImportError:
+    profile_order = {}
+
+  def _sort_key(item):
+    spec = _get_item_spec(item)
+    if spec is None:
+      return (999, "", item.nodeid)
+    return (profile_order.get(spec.profile.name, 998), spec.profile.name, item.nodeid)
+
+  items[:] = sorted(items, key=_sort_key)
 
 def pytest_runtest_setup(item):
   """Create a per-test log file before the fixture setup phase runs."""
@@ -740,3 +881,50 @@ def pytest_runtest_logreport(report):
 
 def pytest_configure(config):
   config.addinivalue_line("markers", "test_name(name): sets the XML test name attribute")
+
+
+# ---------------------------------------------------------------------------
+# Common test fixtures
+# ---------------------------------------------------------------------------
+
+from tests.common_test_utils import record_test_result
+
+DEMO_SCENE_UID = "3bc091c7-e449-46a0-9540-29c499bca18c"
+
+
+@pytest.fixture(autouse=True)
+def record_test_name(request, record_xml_attribute):
+  """Record test name from marker if provided; otherwise do nothing."""
+  marker = request.node.get_closest_marker("test_name")
+  if marker and marker.args:
+    record_xml_attribute("name", marker.args[0])
+
+
+@pytest.fixture
+def result_recorder(request):
+  """Provides .success(); records exit code with test name on teardown."""
+  marker = request.node.get_closest_marker("test_name")
+  test_name = (marker.args[0] if marker and marker.args
+    else getattr(request.node.module, "TEST_NAME", request.node.name))
+
+  class Result:
+    exit_code = 1
+    def success(self):
+      self.exit_code = 0
+
+  r = Result()
+  try:
+    yield r
+  finally:
+    record_test_result(test_name, r.exit_code)
+
+
+@pytest.fixture
+def demo_scene(scenescape_env):
+  """Provide the Demo scene UID.
+
+  Database restoration is handled automatically by the scenescape_env
+  fixture teardown, so every test gets a clean slate regardless of
+  whether it uses this fixture.
+  """
+  return DEMO_SCENE_UID
