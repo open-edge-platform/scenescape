@@ -6,7 +6,7 @@
 import logging
 from http import HTTPStatus
 
-TEST_NAME = "NEX-T10457-API"
+TEST_NAME = "NEX-T21877"
 
 def test_calibrate_all_sensor_types_api(rest, scene_uid, result_recorder):
   # Create sensors of different types

@@ -7,7 +7,7 @@ import logging
 import random
 from http import HTTPStatus
 
-TEST_NAME = "NEX-T10429-API"
+TEST_NAME = "NEX-T21885"
 
 def test_object_crud_api(rest, result_recorder):
   file_paths = ["/workspace/tests/ui/test_media/box.glb", None]

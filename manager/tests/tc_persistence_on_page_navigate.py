@@ -7,7 +7,7 @@ import logging
 import os
 from http import HTTPStatus
 
-TEST_NAME = "NEX-T10393-API"
+TEST_NAME = "NEX-T21511"
 CAMERA_NAME = "camtest1"
 CAMERA_SENSOR_ID = "camtest1"
 

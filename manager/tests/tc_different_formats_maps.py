@@ -7,7 +7,7 @@ import os
 import logging
 from http import HTTPStatus
 
-TEST_NAME = "NEX-T10392-API"
+TEST_NAME = "NEX-T21874"
 
 def test_different_formats_maps_api(params, rest, scene_uid, result_recorder):
   rest.deleteScene(scene_uid)

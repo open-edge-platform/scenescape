@@ -10,7 +10,7 @@ from scene_common import log
 from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
 
-TEST_NAME = "NEX-T10397"
+TEST_NAME = "NEX-T21880"
 MAX_CONTROLLER_WAIT = 20  # seconds
 MAX_ATTEMPTS = 3
 
