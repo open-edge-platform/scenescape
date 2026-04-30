@@ -1,0 +1,267 @@
+[
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/01: Register scene for calibration",
+    "test_steps": [
+      {
+        "step_name": "Register scene for auto-calibration",
+        "api": "autocalibration",
+        "method": "registerScene",
+        "request": {
+          "path_params": {
+            "sceneId": "302cf49a-97ec-402d-a324-c5077b280b7b"
+          },
+          "body": {}
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/02: Get scene registration status",
+    "test_steps": [
+      {
+        "step_name": "Get scene registration status",
+        "api": "autocalibration",
+        "method": "getSceneRegistrationStatus",
+        "request": {
+          "path_params": {
+            "sceneId": "302cf49a-97ec-402d-a324-c5077b280b7b"
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/03: Get non existent scene registration status",
+    "test_steps": [
+      {
+        "step_name": "Get non existent scene registration status",
+        "api": "autocalibration",
+        "method": "getSceneRegistrationStatus",
+        "request": {
+          "path_params": {
+            "sceneId": "12345678-1234-5678-1234-567812345678"
+          }
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/04: Notify of scene updates",
+    "test_steps": [
+      {
+        "step_name": "Update scene",
+        "api": "autocalibration",
+        "method": "updateSceneRegistration",
+        "request": {
+          "path_params": {
+            "sceneId": "302cf49a-97ec-402d-a324-c5077b280b7b"
+          },
+          "body": {}
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/05: Notify non existent scene",
+    "test_steps": [
+      {
+        "step_name": "Update non existent scene",
+        "api": "autocalibration",
+        "method": "updateSceneRegistration",
+        "request": {
+          "path_params": {
+            "sceneId": "12345678-1234-5678-1234-567812345678"
+          },
+          "body": {}
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/06: Calibrate a camera with required parameters",
+    "test_steps": [
+      {
+        "step_name": "Calibrate camera",
+        "api": "autocalibration",
+        "method": "calibrateCamera",
+        "request": {
+          "path_params": {
+            "cameraId": "atag-qcam1"
+          },
+          "body": {
+            "image": "/9j/4AAQSkZJRgABAQAAAQABAAD...",
+            "intrinsics": [
+              [1000, 0, 640],
+              [0, 1000, 360],
+              [0, 0, 1]
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 202
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/07: Calibrate a camera with non existent camera ID",
+    "test_steps": [
+      {
+        "step_name": "Calibrate camera",
+        "api": "autocalibration",
+        "method": "calibrateCamera",
+        "request": {
+          "path_params": {
+            "cameraId": "INVALID_CAMERA_ID"
+          },
+          "body": {}
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/08: Calibrate a camera with missing required image",
+    "test_steps": [
+      {
+        "step_name": "Calibrate camera",
+        "api": "autocalibration",
+        "method": "calibrateCamera",
+        "request": {
+          "path_params": {
+            "cameraId": "atag-qcam1"
+          },
+          "body": {
+            "intrinsics": [
+              [1000, 0, 640],
+              [0, 1000, 360],
+              [0, 0, 1]
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/09: Calibrate a camera with empty image",
+    "test_steps": [
+      {
+        "step_name": "Calibrate camera with empty image",
+        "api": "autocalibration",
+        "method": "calibrateCamera",
+        "request": {
+          "path_params": {
+            "cameraId": "atag-qcam1"
+          },
+          "body": {
+            "image": "",
+            "intrinsics": [
+              [1000, 0, 640],
+              [0, 1000, 360],
+              [0, 0, 1]
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/10: Calibrate a camera with invalid base64 image",
+    "test_steps": [
+      {
+        "step_name": "Calibrate camera with invalid base64 image",
+        "api": "autocalibration",
+        "method": "calibrateCamera",
+        "request": {
+          "path_params": {
+            "cameraId": "atag-qcam1"
+          },
+          "body": {
+            "image": "INVALID_BASE64",
+            "intrinsics": [
+              [1000, 0, 640],
+              [0, 1000, 360],
+              [0, 0, 1]
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/11: Get camera calibration status",
+    "test_steps": [
+      {
+        "step_name": "Get camera calibration status",
+        "api": "autocalibration",
+        "method": "getCameraCalibrationStatus",
+        "request": {
+          "path_params": {
+            "cameraId": "atag-qcam1"
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/12: Get camera calibration status for non existent camera ID",
+    "test_steps": [
+      {
+        "step_name": "Get camera calibration status",
+        "api": "autocalibration",
+        "method": "getCameraCalibrationStatus",
+        "request": {
+          "path_params": {
+            "cameraId": "INVALID_CAMERA_ID"
+          }
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/13: Get camera calibration service status",
+    "test_steps": [
+      {
+        "step_name": "Get system status",
+        "api": "autocalibration",
+        "method": "getStatus",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  }
+]
