@@ -7,7 +7,7 @@ from tests.functional import FunctionalTest
 from http import HTTPStatus
 from scene_common.rest_client import RESTClient
 
-TEST_NAME = "NEX-T10394-API"
+TEST_NAME = "NEX-T21883"
 
 class SceneSummaryAPITest(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):

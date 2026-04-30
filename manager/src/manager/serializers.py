@@ -556,6 +556,13 @@ class SceneSerializer(NonNullSerializer):
   trs_matrix = serializers.SerializerMethodField('get_trs_matrix')
 
   def validate(self, attrs):
+    if not self.initial_data:
+      raise serializers.ValidationError({'body': ['Request body is required.']})
+
+    name = attrs.get('name', None)
+    if not name or not name.strip():
+      raise serializers.ValidationError({'name': ['This field is required.']})
+
     allowed = set(self.fields.keys()) | {
         "mesh_translation",
         "mesh_rotation",

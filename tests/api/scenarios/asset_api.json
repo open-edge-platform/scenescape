@@ -105,8 +105,8 @@
             "tracking_radius": 1.2,
             "mark_color": "#888888",
             "scale": 1.2,
-            "project_to_map": false,
-            "rotation_from_velocity": false
+            "project_to_map": true,
+            "rotation_from_velocity": true
           }
         },
         "expected_status": {
@@ -133,8 +133,8 @@
           "shift_type": 1,
           "mark_color": "#888888",
           "scale": 1.2,
-          "project_to_map": false,
-          "rotation_from_velocity": false,
+          "project_to_map": true,
+          "rotation_from_velocity": true,
           "rotation_x": 0.0,
           "rotation_y": 0.0,
           "rotation_z": 0.0,
@@ -186,6 +186,147 @@
         "request": {},
         "expected_status": {
           "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ASSET/07: Create asset with 3D model file upload",
+    "test_steps": [
+      {
+        "step_name": "Create asset with model_3d file",
+        "api": "asset",
+        "method": "createAsset",
+        "request": {
+          "body": {
+            "name": "3D Object",
+            "model_3d": "../ui/test_media/box.glb"
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "ASSET_UID_WITH_MODEL": "uid"
+        }
+      },
+      {
+        "step_name": "Verify asset with model was created",
+        "api": "asset",
+        "method": "getAsset",
+        "request": {
+          "uid": "${ASSET_UID_WITH_MODEL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "name": "3D Object"
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ASSET/08: Remove 3D model from asset",
+    "test_steps": [
+      {
+        "step_name": "Remove model_3d by setting it to null",
+        "api": "asset",
+        "method": "updateAsset",
+        "request": {
+          "uid": "${ASSET_UID_WITH_MODEL}",
+          "body": {
+            "name": "3D Object",
+            "model_3d": null
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify model_3d is removed",
+        "api": "asset",
+        "method": "getAsset",
+        "request": {
+          "uid": "${ASSET_UID_WITH_MODEL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "model_3d": null
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/ASSET/09: Delete assets",
+    "test_steps": [
+      {
+        "step_name": "Delete asset with model",
+        "api": "asset",
+        "method": "deleteAsset",
+        "request": {
+          "uid": "${ASSET_UID_WITH_MODEL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify asset with model is deleted",
+        "api": "asset",
+        "method": "getAsset",
+        "request": {
+          "uid": "${ASSET_UID_WITH_MODEL}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      },
+      {
+        "step_name": "Delete minimal asset",
+        "api": "asset",
+        "method": "deleteAsset",
+        "request": {
+          "uid": "${ASSET_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify minimal asset is deleted",
+        "api": "asset",
+        "method": "getAsset",
+        "request": {
+          "uid": "${ASSET_UID_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      },
+      {
+        "step_name": "Delete full asset",
+        "api": "asset",
+        "method": "deleteAsset",
+        "request": {
+          "uid": "${ASSET_UID_FULL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify full asset is deleted",
+        "api": "asset",
+        "method": "getAsset",
+        "request": {
+          "uid": "${ASSET_UID_FULL}"
+        },
+        "expected_status": {
+          "status_code": 404
         }
       }
     ]

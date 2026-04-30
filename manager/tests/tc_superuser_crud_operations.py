@@ -8,7 +8,7 @@ from tests.functional import FunctionalTest
 from http import HTTPStatus
 from scene_common.rest_client import RESTClient
 
-TEST_NAME = "NEX-T10418-API"
+TEST_NAME = "NEX-T21775"
 
 class CRUDPermissionsTest(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):

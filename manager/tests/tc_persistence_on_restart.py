@@ -5,7 +5,7 @@
 
 import logging
 
-TEST_NAME = "NEX-T10393-RESTART-API"
+TEST_NAME = "NEX-T21511"
 CAMERA_NAME = "camtest1"
 
 def test_persistence_on_restart_api(params, rest, result_recorder):
