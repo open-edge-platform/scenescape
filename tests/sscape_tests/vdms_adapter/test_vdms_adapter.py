@@ -117,6 +117,26 @@ class TestSchemaValidation:
     assert dimensions == 512
 
   @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_schema_metadata_extracts_metric(self, mock_vdms_class):
+    """Verify FindDescriptorSet metric is extracted for schema compatibility checks."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'dimensions': 256,
+      'metric': 'L2'
+    }], []))
+
+    exists, dimensions, metric = db.findSchemaMetadata(SCHEMA_NAME)
+
+    assert exists is True
+    assert dimensions == 256
+    assert metric == 'L2'
+
+  @patch('controller.vdms_adapter.vdms.vdms')
   def test_ensure_schema_raises_on_existing_dimension_mismatch(self, mock_vdms_class):
     """Verify ensureSchema fails fast when existing descriptor dimensions differ."""
     mock_vdms_instance = MagicMock()
@@ -149,6 +169,26 @@ class TestSchemaValidation:
     }], []))
 
     with pytest.raises(RuntimeError, match="dimensions were not returned"):
+      db.ensureSchema(256)
+
+    assert db._schema_ready is False
+    assert db.dimensions is None
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_ensure_schema_raises_on_existing_metric_mismatch(self, mock_vdms_class):
+    """Verify ensureSchema fails fast when existing descriptor metric differs."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(similarity_metric="IP", dimensions=None)
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'dimensions': 256,
+      'metric': 'L2'
+    }], []))
+
+    with pytest.raises(RuntimeError, match="uses metric L2"):
       db.ensureSchema(256)
 
     assert db._schema_ready is False
@@ -611,6 +651,43 @@ class TestFindMatches:
     assert len(result) == 1
     assert len(result[0]) == 1
     assert result[0][0]['uuid'] == 'valid'
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_matches_preserves_per_vector_slot_when_all_entities_invalid(self, mock_vdms_class):
+    """Verify successful per-vector responses with only invalid IP scores return an empty slot."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(similarity_metric="IP")
+    db.sendQuery = Mock(return_value=([
+      {
+        'status': 0,
+        'returned': 2,
+        'entities': [
+          {'uuid': 'too-high', 'rvid': 'rvid-2', '_distance': 1.4},
+          {'uuid': 'too-low', 'rvid': 'rvid-3', '_distance': -1.2},
+        ]
+      },
+      {
+        'status': 0,
+        'returned': 1,
+        'entities': [
+          {'uuid': 'valid', 'rvid': 'rvid-1', '_distance': 0.9},
+        ]
+      }
+    ], []))
+
+    test_vectors = [
+      np.random.randn(256).astype(np.float32),
+      np.random.randn(256).astype(np.float32),
+    ]
+    result = db.findMatches("Person", test_vectors)
+
+    assert result is not None
+    assert len(result) == 2
+    assert result[0] == []
+    assert len(result[1]) == 1
+    assert result[1][0]['uuid'] == 'valid'
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_returns_none_when_all_ip_scores_invalid(self, mock_vdms_class):
