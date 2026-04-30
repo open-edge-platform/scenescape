@@ -170,7 +170,7 @@ class RetrackTest:
       assert verify.statusCode == 200, \
         f"Failed to read back child scene link after setting retrack={value}"
       assert verify['count'] > 0, \
-        f"No child scene link found when verifying retrack={value}"
+        f"No child scene link found when verifying retrack={value} (parent={self.parent_id})"
       actual = verify['results'][0]['retrack']
       log.info(f"Verify child link retrack value: {actual}")
       assert actual == value, \
