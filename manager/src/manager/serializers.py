@@ -850,7 +850,7 @@ class UserSerializer(NonNullSerializer):
 
       if 'password' in self.initial_data:
         password = attrs.get('password', '')
-        if not password:
+        if not password or not password.strip():
           raise serializers.ValidationError({'password': ['This field may not be blank.']})
 
     return super().validate(attrs)
