@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # Microservices needed for test:
@@ -221,6 +221,13 @@ class SceneImportTest(UserInterfaceTest):
       assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Loading schema file.."
 
       assert self.login()
+
+      if self.expected == SCENE_EXISTS:
+        # Ensure the scene exists before testing the duplicate-import error.
+        # A prior test's DB restore may have wiped it.
+        self.importScene()
+        time.sleep(self.waitTime)
+
       self.importScene()
       time.sleep(self.waitTime)
       if self.expected == SCENE_EXISTS or self.expected == EMPTY_ZIP or self.expected == INVALID_ZIP:

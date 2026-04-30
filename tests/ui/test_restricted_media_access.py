@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -23,6 +23,7 @@ class WillOurShipGo(UserInterfaceTest):
     print(f"Navigating to: {url}")
 
     try:
+      self.browser.set_page_load_timeout(30)
       self.browser.get(url)
       text = "401 Unauthorized"
       got_unauthorized = text in self.browser.page_source
@@ -33,8 +34,10 @@ class WillOurShipGo(UserInterfaceTest):
       else:
         print(f"Expected: Accessible | Got: {'Accessible' if not got_unauthorized else '401 Unauthorized'}")
         return not got_unauthorized
-    except WebDriverException as e:
+    except (WebDriverException, Exception) as e:
       print(f"Navigation failed: {e}")
+      if expect_unauthorized:
+        return False
       return False
 
   def checkForMalfunctions(self):
@@ -55,7 +58,10 @@ class WillOurShipGo(UserInterfaceTest):
 
       self.exitCode = 0
     finally:
-      self.browser.close()
+      try:
+        self.browser.close()
+      except WebDriverException:
+        pass
       self.recordTestResult()
     return
 

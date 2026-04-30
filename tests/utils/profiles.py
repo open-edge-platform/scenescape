@@ -38,7 +38,7 @@ _PGSERVER = WaitConfig(
 )
 _BROKER = WaitConfig(log_pattern=r"mosquitto version .* running")
 _WEB = WaitConfig()
-_SCENE = WaitConfig()
+_SCENE = WaitConfig(log_pattern="Subscribed to")
 _AUTOCALIBRATION = WaitConfig(timeout=1200)
 
 
@@ -136,7 +136,7 @@ FULL_STACK_AUTOCALIBRATION = ServiceProfile(
     f"{COMPOSE}/ntp.yml",
     f"{COMPOSE}/pgserver.yml",
     f"{COMPOSE}/scene.yml",
-    f"{COMPOSE}/web_default.yml",
+    f"{COMPOSE}/web_calibration.yml",
     f"{DLS}/queuing_video.yml",
     f"{DLS}/retail_video.yml",
     f"{COMPOSE}/autocalibration.yml",

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from tests.functional.common_scene_obj import SceneObjectMqtt
@@ -27,7 +27,7 @@ def runROIMqttCreate(self):
     self.runSceneObjMqttFinally()
   return
 
-def test_roi_create(scenescape_env, request, record_xml_attribute):
+def test_roi_create(scenescape_env, demo_scene, request, record_xml_attribute):
   test = SceneObjectMqtt(TEST_NAME, request, record_xml_attribute)
   runROIMqttCreate(test)
   assert test.exitCode == 0
