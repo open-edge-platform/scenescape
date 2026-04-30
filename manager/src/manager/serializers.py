@@ -560,10 +560,10 @@ class SceneSerializer(NonNullSerializer):
       raise serializers.ValidationError({'body': ['Request body is required.']})
 
     name = attrs.get('name', None)
-    if not self.instance:  # creation — name always required
+    if not self.instance:
       if not name or not name.strip():
         raise serializers.ValidationError({'name': ['This field is required.']})
-    elif name is not None and not name.strip():  # partial update — only validate if provided
+    elif name is not None and not name.strip():
       raise serializers.ValidationError({'name': ['This field may not be blank.']})
 
     allowed = set(self.fields.keys()) | {
