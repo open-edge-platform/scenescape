@@ -564,7 +564,7 @@ class SceneSerializer(NonNullSerializer):
       if not name or not name.strip():
         raise serializers.ValidationError({'name': ['This field is required.']})
     elif name is not None and not name.strip():
-      raise serializers.ValidationError({'name': ['This field may not be blank.']})
+      raise serializers.ValidationError({'name': ['This field cannot be blank.']})
 
     allowed = set(self.fields.keys()) | {
         "mesh_translation",
