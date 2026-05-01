@@ -168,6 +168,7 @@ _functional-tests: \
   reid-semantic-unique-count \
   reid-unique-count \
   rest-test \
+  retrack-object \
   scene-details \
   scene-import \
   scene-import-json \
