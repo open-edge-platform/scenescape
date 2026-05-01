@@ -27,13 +27,18 @@ triggers:
 
 This skill covers two capabilities:
 
-| Ask                                                         | Action                                       |
-| ----------------------------------------------------------- | -------------------------------------------- |
-| Evaluate / score / review / audit an Agents.md              | Load `agents-md-evaluation.md` and follow it |
-| Empirically test / measure usefulness / run efficacy trials | Follow the Efficacy Test procedure below     |
+| Ask                                                         | Action                                                                                                                                                                   |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Evaluate / score / review / audit an Agents.md              | Load `agents-md-evaluation.md`, score it, then **automatically continue to the Efficacy Test if the result is PASS** unless the user explicitly asks for rubric-only output |
+| Empirically test / measure usefulness / run efficacy trials | Prerequisite gate must be run first; if PASS, follow the Efficacy Test procedure below                                                                                   |
 
 For rubric evaluation, load `agents-md-evaluation.md` first and follow it exactly.
 For efficacy testing, the rubric must PASS before proceeding — see Prerequisite below.
+
+> **Default behavior**: When a user asks to "evaluate" an Agents.md without
+> qualifying the scope, run the rubric gate AND the efficacy test in sequence.
+> Stop between stages only if the rubric result is FAIL. Do not ask for
+> confirmation to proceed from gate to efficacy test on a PASS result.
 
 ---
 
@@ -65,7 +70,7 @@ All trials must be self-contained: agents answer from provided context only — 
 
 Before running any efficacy trials, evaluate the target Agents.md using `agents-md-evaluation.md` (in this same folder).
 
-- If the result is **PASS** (total_score ≥ 16 and no dimension score is 0): proceed to Step 1.
+- If the result is **PASS** (total_score ≥ 16 and no dimension score is 0): **immediately continue to Step 1 without waiting for user confirmation**.
 - If the result is **FAIL**: stop. Report the rubric scores and required fixes. Do not run efficacy trials on a failing Agents.md — low-quality input will produce misleading efficacy results. Fix the document first, re-run the rubric, then return here.
 
 ### Step 1 — Read the target Agents.md and understand the service

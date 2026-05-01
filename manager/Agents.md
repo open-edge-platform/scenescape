@@ -19,9 +19,10 @@ SPDX-License-Identifier: Apache-2.0
 ## Non-Obvious Constraints
 
 - Manager is authoritative for configuration metadata; runtime tracking state is external.
-- Database migration quality is a production safety issue, not a housekeeping task.
+- Database migration quality is a production safety issue, not a housekeeping task. Phase-1 migrations must be additive-only (add columns/tables with defaults; never DROP or RENAME in the same migration) to allow safe rollback without downtime.
 - Cross-service workflows depend on contract consistency more than UI presentation details.
 - Operational failures often surface as partial workflow completion across services; preserve transactional intent where possible.
+- Authorization checks must remain server-side near the protected resource; client-side or middleware-only enforcement is not sufficient.
 
 ## KPI Targets
 
@@ -42,9 +43,10 @@ SPDX-License-Identifier: Apache-2.0
 
 ## When Editing This Service
 
-- If models change, include migration review and compatibility notes.
-- If API serializers/views change, verify permission boundaries and negative cases.
+- If models change, include migration review and compatibility notes; confirm the migration is additive-only (no DROP/RENAME) and that `make -C tests django-integration-unit` passes with migration apply/check evidence in the PR notes.
+- If API serializers/views change, verify permission boundaries and negative cases; confirm that server-side authorization checks are preserved (auth regression target: 0) and that any new writable field cannot be written by roles without write permission.
 - If workflow orchestration changes, validate end-to-end behavior across dependent services.
+- Any model or serializer change is also a performance touchpoint: confirm p95 API latency stays ≤ 200 ms by running `make -C tests openapi-validation`.
 
 ## Verification Gate (Standardized)
 

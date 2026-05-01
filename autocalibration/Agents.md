@@ -39,12 +39,13 @@ SPDX-License-Identifier: Apache-2.0
 - Treat uploaded payloads as untrusted: enforce size, format, and field validation at service boundary.
 - If changing calibration math or thresholds, include measurable before/after quality data.
 - Keep long-running operations out of request thread paths.
+- New request fields threaded into calibration logic must not introduce per-request mutable state that races with concurrent calibration; verify the concurrent calibration conflict rate KPI remains 0.
 
 ## When Editing This Service
 
 - If you touch calibration strategy selection or execution flow, verify both AprilTag and markerless paths.
-- If you touch API contracts, update service docs and client expectations in the same change.
-- If you touch concurrency code, explicitly test overlapping scene/camera requests.
+- If you touch API contracts, update service docs and client expectations in the same change; also confirm the off-thread constraint holds (long-running work must stay off request threads) and that new fields are validated at the boundary (size, format, field).
+- If you touch concurrency code, explicitly test overlapping scene/camera requests and verify the concurrent calibration conflict rate remains 0.
 
 ## Verification Gate (Standardized)
 

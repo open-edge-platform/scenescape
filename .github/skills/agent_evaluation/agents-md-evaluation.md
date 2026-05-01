@@ -1,13 +1,13 @@
 <!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Agents.md Evaluation Skill
+# Agents.md Evaluation Rubric
 
-Use this skill to evaluate any service-level Agents.md file for agent usefulness and quality.
+Use this rubric to evaluate any service-level Agents.md file for agent usefulness and quality.
 
 ## When To Use
 
-Use this skill when asked to:
+Use this rubric when asked to:
 
 - Evaluate, score, review, or audit an Agents.md file.
 - Compare quality across multiple service Agents.md files.
@@ -48,6 +48,16 @@ Score each dimension:
 8. Conciseness (target under 200 lines)
 9. Change-risk coverage
 10. Audience fit (coding-agent focused)
+
+### Dimension 3 Scoring Notes (Actionability)
+
+Use these anchors when scoring `actionability`:
+
+- **0**: No conditional guidance; no "When Editing" or equivalent triggers.
+- **1**: When-Editing conditions exist but are a generic checklist (for example, "if models change, review migration") with no cross-references to specific KPI thresholds or constraint names stated elsewhere in the document.
+- **2**: When-Editing conditions are concrete AND at least one trigger explicitly cites a specific KPI value (for example, "p95 ≤ 200 ms") or a named constraint (for example, "auth regression target: 0") from the document's own KPI or Non-Obvious Constraints section, creating a navigational link that agents can follow without re-reading the full document.
+
+Rationale: efficacy testing shows that agents follow When-Editing trigger paths but do not spontaneously back-reference KPI tables or constraint sections unless the trigger text itself contains the specific value or name.
 
 ### Dimension 7 Scoring Notes (Verification Expectations)
 
