@@ -3,404 +3,54 @@ SPDX-License-Identifier: Apache-2.0
 (C) 2026 Intel Corporation
 -->
 
-# Manager Service - AI Agent Guide
+# Manager - Agent Guide
 
-## Documentation
+## Why This Service Exists
 
-- [MIGRATIONS.md](MIGRATIONS.md) - Django migrations workflow and best practices
+- Provides the control plane for SceneScape: user-facing management APIs/UI and persistent metadata.
+- Coordinates configuration workflows across services without owning real-time object tracking state.
 
-## Service Overview
+## What Matters Most
 
-The **Manager** service is the Django-based web UI and REST API gateway for Intel® SceneScape. It provides user-facing interfaces for system configuration, scene management, camera setup, and PostgreSQL-backed persistence for metadata and configuration.
+- Correct persistence and migration safety.
+- API contract stability for operators and service integrations.
+- Security posture for auth, input validation, and secret handling.
 
-**Primary Purpose**: Web interface and REST API for managing SceneScape configuration, user authentication, and metadata persistence.
+## Non-Obvious Constraints
 
-## Architecture & Components
+- Manager is authoritative for configuration metadata; runtime tracking state is external.
+- Database migration quality is a production safety issue, not a housekeeping task.
+- Cross-service workflows depend on contract consistency more than UI presentation details.
+- Operational failures often surface as partial workflow completion across services; preserve transactional intent where possible.
 
-### Core Modules
+## KPI Targets
 
-1. **Django Application** (`src/manager/`):
-   - Scene management views and APIs
-   - Camera configuration interfaces
-   - User authentication and authorization
-   - PostgreSQL ORM models
+| KPI                                          |    Target | Why                              |
+| -------------------------------------------- | --------: | -------------------------------- |
+| API latency (p95) for control operations     | <= 200 ms | UX and automation responsiveness |
+| Migration success rate in CI and staging     |      100% | Upgrade safety                   |
+| Auth/permission regression count             |         0 | Security and compliance          |
+| Config write-to-read consistency delay (p95) |    <= 1 s | Operational predictability       |
+| 5xx rate on core management endpoints        |    < 0.1% | Reliability                      |
 
-2. **REST API** (`src/manager/api.py`, `src/manager/serializers.py`, `src/manager/urls.py`):
-   - RESTful endpoints for external integrations
-   - Scene CRUD operations
-   - Camera calibration triggers
-   - Object query endpoints
+## Change Guidance
 
-3. **Management Commands** (`src/manager/management/commands/`):
-   - Database migrations
-   - Admin utilities
-   - Data import/export tools
+- Treat schema/model changes as migration-driven changes with rollback thinking.
+- Keep API behavior stable; version explicitly if breaking changes are unavoidable.
+- Preserve server-side authorization checks near protected operations.
+- Do not leak sensitive fields in logs, errors, or serialized responses.
 
-4. **Static Assets** (`src/manager/static/` and `src/static/`):
-   - Frontend JavaScript/CSS
-   - UI components
-   - Visualization tools
+## When Editing This Service
 
-5. **Templates** (`src/manager/templates/`):
-   - Django HTML templates
-   - Web UI pages
+- If models change, include migration review and compatibility notes.
+- If API serializers/views change, verify permission boundaries and negative cases.
+- If workflow orchestration changes, validate end-to-end behavior across dependent services.
 
-### Dependencies
+## Verification Gate (Standardized)
 
-- **Django**: Web framework (Python)
-- **PostgreSQL**: Database for metadata persistence
-- **Scene Common**: REST client, MQTT utilities
-- **Scene Controller**: Backend service for runtime state
-- **Gunicorn**: WSGI server for production deployment
-
-## Communication Patterns
-
-### REST API
-
-**Base URL**: `https://manager:8000/api/v1/`
-
-**Authentication**:
-
-- Session-based for web UI
-- Token-based for API clients
-- TLS mutual auth for service-to-service
-
-**Key Endpoints**:
-
-- `/api/v1/scenes/`: Scene management (CRUD)
-- `/api/v1/cameras/`: Camera configuration
-- `/api/v1/calibration/`: Trigger calibration
-- `/api/v1/objects/`: Query tracked objects
-- `/api/v1/health/`: Health check
-
-### Database Schema
-
-**Key Tables**:
-
-- `scenes`: Scene definitions (name, floor plan, coordinate system)
-- `cameras`: Camera metadata (ID, position, calibration status)
-- `users`: Authentication and permissions
-- `audit_log`: System event logging
-
-**Important**: Manager stores **metadata only**—no video streams or real-time object positions. Runtime state lives in Scene Controller.
-
-### MQTT Integration
-
-- Manager can trigger operations via REST → Scene Controller → MQTT
-- Does not directly subscribe to MQTT topics
-- Uses Scene Controller as intermediary for real-time events
-
-## Development Workflows
-
-### Building the Service
-
-```bash
-# From root directory
-make manager                            # Build image
-make rebuild-manager                    # Clean + rebuild
-
-# Build with dependencies
-make build-core                         # Includes manager
-```
-
-### Database Migrations
-
-```bash
-# Create migration after model changes
-docker compose exec manager python manage.py makemigrations
-
-# Apply migrations
-docker compose exec manager python manage.py migrate
-
-# Check migration status
-docker compose exec manager python manage.py showmigrations
-```
-
-### Testing
-
-```bash
-# Django unit tests
-docker compose exec manager python manage.py test
-
-# External acceptance tests
-SUPASS=<password> make setup_tests
-make -C tests manager-functional
-```
-
-### Running Locally
-
-```bash
-# Start with docker-compose
-docker compose up -d manager
-
-# View logs
-docker compose logs manager -f
-
-# Access Django shell
-docker compose exec manager python manage.py shell
-
-# Create superuser
-docker compose exec manager python manage.py createsuperuser
-```
-
-## Key Configuration
-
-### Environment Variables
-
-- `DATABASE_URL`: PostgreSQL connection string
-- `SECRET_KEY`: Django secret key (from `manager/secrets/django/`)
-- `DEBUG`: Enable debug mode (default: `False`)
-- `ALLOWED_HOSTS`: Comma-separated allowed hostnames
-- `SCENE_CONTROLLER_URL`: REST endpoint for Scene Controller
-- `SUPASS`: Super user password (for initial setup)
-
-### Configuration Files
-
-- `requirements-runtime.txt`: Python dependencies
-- `Dockerfile`: Container build instructions
-- `src/manager/settings.py`: Django settings
-- `secrets/`: TLS certificates, database credentials, Django secret
-
-### Secrets Management
-
-```bash
-# Initialize secrets (run once)
-make init-secrets
-
-# Regenerate secrets
-make clean-secrets && make init-secrets
-```
-
-Secrets stored in `manager/secrets/`:
-
-- `certs/`: TLS certificates (CA, server, client)
-- `django/`: Django secret key
-- `*.auth`: Service authentication tokens
-
-## Code Patterns
-
-### Creating a New Django View
-
-```python
-# In src/manager/views.py
-from django.views.generic import ListView
-from .models import Scene
-
-class SceneListView(ListView):
-    model = Scene
-    template_name = 'scene_list.html'
-    context_object_name = 'scenes'
-```
-
-### Adding REST API Endpoint
-
-```python
-# In src/manager/api.py
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-
-@api_view(['GET'])
-def scene_status(request, scene_id):
-    # Query Scene Controller for runtime state
-    controller_url = f"{settings.SCENE_CONTROLLER_URL}/scenes/{scene_id}/status"
-    response = requests.get(controller_url, cert=client_cert, verify=ca_cert)
-    return Response(response.json())
-```
-
-### Database Model
-
-```python
-# In src/manager/models.py
-from django.db import models
-
-class Camera(models.Model):
-    camera_id = models.CharField(max_length=100, unique=True)
-    scene = models.ForeignKey(Scene, on_delete=models.CASCADE)
-    position_x = models.FloatField()
-    position_y = models.FloatField()
-    position_z = models.FloatField()
-    calibrated = models.BooleanField(default=False)
-
-    class Meta:
-        db_table = 'cameras'
-```
-
-## Common Tasks
-
-### Adding New Database Model
-
-1. Define model in `src/manager/models.py`
-2. Create migration: `docker compose exec manager python manage.py makemigrations`
-3. Review migration file in `src/manager/migrations/`
-4. Commit migration file to version control
-5. Apply: `docker compose exec manager python manage.py migrate`
-6. Update admin interface if needed: `src/manager/admin.py`
-
-### Modifying Web UI
-
-1. Edit template in `src/manager/templates/`
-2. Update static assets in `src/manager/static/` (JS/CSS)
-3. No rebuild needed—Django auto-reloads in development
-4. For production, rebuild image to bundle assets
-
-### Adding Management Command
-
-```python
-# Create src/manager/management/commands/export_scenes.py
-from django.core.management.base import BaseCommand
-
-class Command(BaseCommand):
-    help = 'Export scene data to JSON'
-
-    def handle(self, *args, **options):
-        # Implementation
-        self.stdout.write(self.success('Export complete'))
-```
-
-Run with: `docker compose exec manager python manage.py export_scenes`
-
-### Debugging Database Issues
-
-```bash
-# Connect to PostgreSQL
-docker compose exec postgres psql -U scenescape -d scenescape
-
-# List tables
-\dt
-
-# Describe table schema
-\d cameras
-
-# Check Django migrations
-docker compose exec manager python manage.py showmigrations
-```
-
-## Integration Points
-
-### Scene Controller
-
-- Manager triggers operations via REST API
-- Scene Controller maintains runtime state (object tracking)
-- Manager stores persistent configuration (camera setup, scene definitions)
-
-**Flow Example**: User creates scene in Manager → REST call to Scene Controller → Controller initializes runtime state → Manager saves metadata to DB
-
-### Auto Calibration
-
-- Manager UI triggers calibration requests
-- Displays calibration status from Auto Calibration service
-- Stores completed calibration parameters in database
-
-### PostgreSQL
-
-- All metadata persistence
-- Schema managed by Django migrations
-- Backup/restore via `pg_dump`/`pg_restore`
-
-### Frontend Assets
-
-- Static files served by Django (development) or Nginx (production)
-- No separate frontend build process currently
-- Future: Could integrate React/Vue build pipeline
-
-## File Structure
-
-```
-manager/
-├── Dockerfile                          # Container build
-├── Makefile                            # Build rules
-├── requirements-runtime.txt            # Python deps
-├── src/
-│   ├── django/                        # Django app
-│   │   ├── scenescape/               # Main app
-│   │   │   ├── models.py             # Database models
-│   │   │   ├── views.py              # Web views
-│   │   │   ├── urls.py               # URL routing
-│   │   │   ├── admin.py              # Admin interface
-│   │   │   └── migrations/           # DB migrations
-│   │   └── api/                      # REST API
-│   ├── management/                    # Management commands
-│   ├── static/                        # Frontend assets
-│   └── templates/                     # HTML templates
-├── secrets/                           # Generated secrets (git-ignored)
-│   ├── certs/                        # TLS certificates
-│   └── django/                       # Django secret key
-├── config/                            # Django settings
-└── tools/                             # Utility scripts
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Database connection errors**
-   - Verify PostgreSQL container is running: `docker compose ps postgres`
-   - Check `DATABASE_URL` environment variable
-   - Ensure database initialized: `docker compose exec postgres psql -U scenescape -c '\l'`
-
-2. **Migration conflicts**
-   - Check for pending migrations: `python manage.py showmigrations`
-   - Resolve conflicts manually or fake migration: `python manage.py migrate --fake`
-   - Worst case: Reset database (loses data)
-
-3. **Static files not loading**
-   - Run collectstatic: `docker compose exec manager python manage.py collectstatic`
-   - Check `STATIC_ROOT` and `STATIC_URL` settings
-   - Verify volume mounts in docker-compose.yml
-
-4. **Authentication errors**
-   - Check `SECRET_KEY` is set consistently across restarts
-   - Verify user credentials in database
-   - Clear sessions: `docker compose exec manager python manage.py clearsessions`
-
-### Logs & Diagnostics
-
-```bash
-# Django logs
-docker compose logs manager --tail 100
-
-# Database logs
-docker compose logs postgres --tail 100
-
-# Django debug shell
-docker compose exec manager python manage.py shell
-
-# Check database connectivity
-docker compose exec manager python manage.py dbshell
-```
-
-## Testing Checklist
-
-When modifying the service, verify:
-
-- [ ] Django unit tests pass: `docker compose exec manager python manage.py test`
-- [ ] Database migrations apply cleanly
-- [ ] REST API endpoints return correct responses
-- [ ] Web UI pages render without errors
-- [ ] Authentication/authorization works correctly
-- [ ] Foreign key relationships maintained
-- [ ] No SQL injection vulnerabilities (use ORM)
-- [ ] CSRF protection enabled for forms
-
-## Security Considerations
-
-- **CSRF**: Django CSRF middleware enabled by default
-- **SQL Injection**: Always use ORM queries, never raw SQL with user input
-- **XSS**: Templates auto-escape by default
-- **Authentication**: Use Django's built-in auth framework
-- **TLS**: All external communication over HTTPS
-- **Secrets**: Never commit secrets to git—use `secrets/` folder
-
-## Performance Tips
-
-- **Database Indexes**: Add indexes for frequently queried fields
-- **Query Optimization**: Use `select_related()` and `prefetch_related()` to reduce queries
-- **Caching**: Consider Redis for session storage and query caching
-- **Static Files**: Use CDN or Nginx for production static file serving
-
-## Related Documentation
-
-- [Django Documentation](https://docs.djangoproject.com/): Official Django docs
-- [Scene Controller API](../docs/user-guide/microservices/controller/_assets/scene-controller-api.yaml): Backend API reference
-- [Testing Guide](../.github/skills/testing.md): Test creation patterns
-- [Python Conventions](../.github/skills/python.md): Python coding standards
+| Change class                              | Command path                                                                                                                                                                                                                                                    | Pass criteria                                                                                                    |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| API/schema contracts                      | `make manager && make -C manager test-build && http_proxy=http://proxy-dmz.intel.com:911 HTTP_PROXY=http://proxy-dmz.intel.com:911 https_proxy=http://proxy-dmz.intel.com:912 HTTPS_PROXY=http://proxy-dmz.intel.com:912 make -C tests django-integration-unit` | Exit code 0; no new API contract/schema/permission regressions.                                                  |
+| Workflow/business logic                   | `http_proxy=http://proxy-dmz.intel.com:911 HTTP_PROXY=http://proxy-dmz.intel.com:911 https_proxy=http://proxy-dmz.intel.com:912 HTTPS_PROXY=http://proxy-dmz.intel.com:912 make -C tests logic-unit-tests`                                                      | Exit code 0; changed workflow tests pass for positive and negative paths.                                        |
+| Performance/reliability-sensitive changes | `http_proxy=http://proxy-dmz.intel.com:911 HTTP_PROXY=http://proxy-dmz.intel.com:911 https_proxy=http://proxy-dmz.intel.com:912 HTTPS_PROXY=http://proxy-dmz.intel.com:912 make -C tests openapi-validation`                                                    | Exit code 0; no new endpoint failures and measured p95 API latency regression is within agreed budget.           |
+| Migrations/persistence                    | `make manager && make -C manager test-build && http_proxy=http://proxy-dmz.intel.com:911 HTTP_PROXY=http://proxy-dmz.intel.com:911 https_proxy=http://proxy-dmz.intel.com:912 HTTPS_PROXY=http://proxy-dmz.intel.com:912 make -C tests django-integration-unit` | Exit code 0; migration-related tests pass and DB-impacting changes include apply/check evidence in the PR notes. |
