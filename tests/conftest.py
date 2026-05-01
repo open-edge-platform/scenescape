@@ -65,6 +65,7 @@ except ImportError:
 # Environmental dependencies (host-only)
 # ---------------------------------------------------------------------------
 _ORCHESTRATION_AVAILABLE = False
+_K8S_AVAILABLE = False
 _testlog = None
 try:
   from python_on_whales import DockerClient
@@ -74,6 +75,12 @@ try:
   from utils.containers import collect_logs, wait_for_services
   from utils.profiles import WaitConfig
   _ORCHESTRATION_AVAILABLE = True
+except ImportError:
+  pass
+
+try:
+  from utils.k8s import K8sManager
+  _K8S_AVAILABLE = True
 except ImportError:
   pass
 
@@ -143,6 +150,8 @@ def pytest_addoption(parser):
                                 help="Comma-separated list of env profile names to run tests against")),
     ("--collect-container-logs", dict(default="failed", choices=["failed", "all", "none"],
                   help="Container log collection mode: failed (default), all, or none")),
+    ("--backend",          dict(default="docker", choices=["docker", "kubernetes", "all"],
+                                help="Deployment backend: docker (compose), kubernetes (KinD+helm), or all")),
   ]
   for name, kw in _opts:
     try:
@@ -367,16 +376,24 @@ def loopback_hosts():
 
 
 @pytest.fixture(scope="session")
-def install_shared_models(repo_root):
+def install_shared_models(request, repo_root):
   """Install models to a shared Docker volume once per test session.
 
   This fixture ensures models are downloaded and installed only once,
   to a fixed volume name 'scenescape_vol-models', which is then reused
   by all test profiles.
 
+  No-ops when --backend=kubernetes (Helm chart handles model installation).
+
   All test profiles mount this shared volume so models are always available
   and ready without per-profile installation.
   """
+  backend = request.config.getoption("--backend")
+  if backend == "kubernetes":
+    logger.info("Skipping model installation: Helm chart handles models for Kubernetes")
+    yield
+    return
+
   if not _ORCHESTRATION_AVAILABLE:
     logger.warning("Skipping model installation: orchestration not available")
     yield
@@ -665,10 +682,72 @@ class _ComposeManager:
 @pytest.fixture(scope="session")
 def _compose_manager(repo_root, secrets_dir, supass, tmp_path_factory, request):
   """Single session-scoped manager that runs at most one compose stack at a time."""
+  backend = request.config.getoption("--backend")
+  if backend not in ("docker", "all"):
+    yield None
+    return
+  if not _ORCHESTRATION_AVAILABLE:
+    yield None
+    return
   manager = _ComposeManager(repo_root, secrets_dir, supass, tmp_path_factory)
   request.session._compose_manager = manager
   yield manager
   manager.teardown()
+
+
+@pytest.fixture(scope="session")
+def _k8s_manager(repo_root, supass, tmp_path_factory, request):
+  """Session-scoped KinD cluster + Helm deployment manager."""
+  backend = request.config.getoption("--backend")
+  if backend not in ("kubernetes", "all"):
+    yield None
+    return
+  if not _K8S_AVAILABLE:
+    yield None
+    return
+  manager = K8sManager(repo_root, supass, tmp_path_factory)
+  manager.setup()
+  yield manager
+  manager.teardown()
+
+
+def _inject_k8s_options(config, spec, k8s_mgr):
+  """Set config.option attributes for Kubernetes backend.
+
+  Mirrors _inject_options() but uses port-forwarded endpoints and
+  secrets extracted from the Kubernetes cluster.
+  """
+  opt = config.option
+  opt.user = "admin"
+  opt.password = k8s_mgr._supass
+  opt.auth = k8s_mgr.auth_file
+  opt.rootcert = k8s_mgr.cert_file
+  opt.broker_url = "localhost"
+  opt.broker_port = k8s_mgr.mqtt_port
+  opt.weburl = f"https://localhost:{k8s_mgr.web_port}"
+  opt.resturl = f"https://localhost:{k8s_mgr.web_port}/api/v1"
+
+  # Parse extra_args (--key value pairs) into option attributes.
+  if spec.extra_args:
+    i = 0
+    while i < len(spec.extra_args):
+      arg = spec.extra_args[i]
+      if arg.startswith("--") and i + 1 < len(spec.extra_args):
+        key = arg.lstrip("-").replace("-", "_")
+        setattr(opt, key, spec.extra_args[i + 1])
+        i += 2
+      else:
+        i += 1
+
+
+@pytest.fixture
+def _backend_type(request):
+  """Indirect parametrization target for backend selection.
+
+  When --backend=all, pytest_generate_tests parametrizes this with
+  ['docker', 'kubernetes']. Otherwise returns the --backend value.
+  """
+  return request.param if hasattr(request, 'param') else request.config.getoption("--backend")
 
 
 # ---------------------------------------------------------------------------
@@ -676,16 +755,16 @@ def _compose_manager(repo_root, secrets_dir, supass, tmp_path_factory, request):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="function")
-def scenescape_env(request, _compose_manager, secrets_dir, supass, loopback_hosts,
-                   install_shared_models):
-  """Resolve the compose environment for the current test's profile.
+def scenescape_env(request, _compose_manager, _k8s_manager, secrets_dir, supass,
+                   loopback_hosts, install_shared_models):
+  """Resolve the test environment for the current test's profile and backend.
 
-  Each test that needs a compose environment must explicitly request this
-  fixture.  It reads SCENESCAPE_SPEC from the test module to determine
-  which profile to activate via the _ComposeManager.
+  Dispatches to Docker Compose (_ComposeManager) or Kubernetes (_K8sManager)
+  based on the --backend option or parametrized _backend_type value.
 
-  The install_shared_models fixture ensures models are pre-installed to a
-  shared Docker volume before any test environment is started.
+  Each test that needs an environment must explicitly request this fixture.
+  It reads SCENESCAPE_SPEC from the test module to determine which profile
+  to activate.
 
   On teardown the database is automatically restored from the baseline
   snapshot so that every test starts and ends with an identical
@@ -702,13 +781,29 @@ def scenescape_env(request, _compose_manager, secrets_dir, supass, loopback_host
       f"{request.module.__name__} requests scenescape_env but has no SCENESCAPE_SPEC"
     )
 
-  if not _ORCHESTRATION_AVAILABLE:
-    pytest.skip("python-on-whales not installed; run from host venv")
+  # Determine backend: parametrized _backend_type takes priority, then --backend.
+  backend = "docker"
+  if hasattr(request.node, 'callspec') and '_backend_type' in request.node.callspec.params:
+    backend = request.node.callspec.params['_backend_type']
+  else:
+    backend_opt = request.config.getoption("--backend")
+    if backend_opt in ("docker", "kubernetes"):
+      backend = backend_opt
 
-  env = _compose_manager.get_env(spec.profile)
-
-  # Inject per-test CLI option values.
-  _inject_options(request.config, spec, secrets_dir, supass, env=env)
+  if backend == "kubernetes":
+    if not _K8S_AVAILABLE:
+      pytest.skip("pytest-kubernetes not installed; install with: pip install pytest-kubernetes")
+    if _k8s_manager is None:
+      pytest.skip("Kubernetes manager not available")
+    env = _k8s_manager.get_env(spec)
+    _inject_k8s_options(request.config, spec, _k8s_manager)
+  else:
+    if not _ORCHESTRATION_AVAILABLE:
+      pytest.skip("python-on-whales not installed; run from host venv")
+    if _compose_manager is None:
+      pytest.skip("Docker Compose manager not available")
+    env = _compose_manager.get_env(spec.profile)
+    _inject_options(request.config, spec, secrets_dir, supass, env=env)
 
   # Track that this test used the environment for cleanup scheduling.
   request.session._scenescape_test_ran = True
@@ -746,6 +841,27 @@ def _derive_marker(item):
 # Log directory: tests/test_logs/{group}/{test_name}-{timestamp}.log
 _LOG_BASE = _TESTS_DIR / "test_logs"
 
+def pytest_generate_tests(metafunc):
+  """Parametrize tests across backends when --backend=all.
+
+  Creates test IDs like test_out_of_box[docker] and test_out_of_box[kubernetes]
+  in VS Code's test explorer.
+
+  Only applies to tests that use the scenescape_env fixture.
+  """
+  if "scenescape_env" not in metafunc.fixturenames:
+    return
+
+  backend = metafunc.config.getoption("--backend")
+  if backend == "all":
+    if "_backend_type" not in metafunc.fixturenames:
+      metafunc.fixturenames.append("_backend_type")
+    metafunc.parametrize("_backend_type", ["docker", "kubernetes"], indirect=True)
+  elif backend == "kubernetes":
+    if "_backend_type" not in metafunc.fixturenames:
+      metafunc.fixturenames.append("_backend_type")
+    metafunc.parametrize("_backend_type", ["kubernetes"], indirect=True)
+
 def _get_item_spec(item):
   """Return the FuncTestSpec for an item, preferring matrix callspec over module default."""
   if hasattr(item, 'callspec') and '_env_matrix_setup' in item.callspec.params:
@@ -766,6 +882,14 @@ def pytest_collection_modifyitems(config, items):
       marker_name = _derive_marker(item)
       config.addinivalue_line("markers", f"{marker_name}: FuncTestSpec marker")
       item.add_marker(getattr(pytest.mark, marker_name))
+
+  # Skip kubernetes_only tests when backend is docker-only.
+  backend = config.getoption("--backend")
+  if backend == "docker":
+    skip_k8s = pytest.mark.skip(reason="kubernetes-only test (--backend=docker)")
+    for item in items:
+      if item.get_closest_marker("kubernetes_only"):
+        item.add_marker(skip_k8s)
 
   # Always sort by profile so _ComposeManager only restarts the stack on profile
   # transitions.  Use PROFILE_REGISTRY order when available so --env-profiles
@@ -828,13 +952,6 @@ def _collect_container_logs_if_configured(item):
   if env is None and hasattr(item, "funcargs"):
     env = item.funcargs.get("scenescape_env")
   if env is None:
-    request = getattr(item, "_request", None)
-    if request is not None:
-      try:
-        env = request.getfixturevalue("scenescape_env")
-      except pytest.FixtureLookupError:
-        env = None
-  if env is None:
     return
   setattr(item, "_scenescape_env", env)
 
@@ -855,7 +972,10 @@ def _collect_container_logs_if_configured(item):
     logger.info("Collecting container logs for failed test: %s", item.nodeid)
   if _testlog is not None:
     _testlog.silence_console()
-  collect_logs(env.docker, scan_for_tracebacks=True)
+  if hasattr(env, 'docker'):
+    collect_logs(env.docker, scan_for_tracebacks=True)
+  else:
+    logger.info("Skipping container log collection (non-Docker backend)")
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
@@ -881,6 +1001,7 @@ def pytest_runtest_logreport(report):
 
 def pytest_configure(config):
   config.addinivalue_line("markers", "test_name(name): sets the XML test name attribute")
+  config.addinivalue_line("markers", "kubernetes_only: test only runs with --backend=kubernetes or --backend=all")
 
 
 # ---------------------------------------------------------------------------
