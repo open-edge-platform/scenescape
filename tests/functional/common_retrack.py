@@ -96,7 +96,7 @@ class RetrackTest:
       try:
         res = rest_client.deleteChildSceneLink(self.child_id)
         errors = getattr(res, 'errors', None)
-        if res.statusCode == 204:
+        if res.statusCode in (200, 204):
           log.info(f"[TEARDOWN] Unlinked child uid={self.child_id}: {res.statusCode}")
         else:
           log.error(
@@ -109,7 +109,7 @@ class RetrackTest:
       try:
         res = rest_client.deleteScene(self.parent_id)
         errors = getattr(res, 'errors', None)
-        if res.statusCode == 204:
+        if res.statusCode in (200, 204):
           log.info(f"[TEARDOWN] Deleted parent scene uid={self.parent_id}: {res.statusCode}")
         else:
           log.error(
