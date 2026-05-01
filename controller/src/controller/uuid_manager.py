@@ -526,6 +526,12 @@ class UUIDManager:
     if threshold is None:
       threshold = self.similarity_threshold
 
+    if not self._hasValidSimilarityScoreShape(similarity_scores):
+      log.warning(
+        "parseQueryResults: Invalid similarity_scores shape; expected list[list[entity]]. "
+        f"Received type={type(similarity_scores)}")
+      return None, None
+
     if similarity_scores:
       metric_candidates = [self._findBestMetricCandidate(entities)
                            for entities in similarity_scores]
@@ -542,6 +548,16 @@ class UUIDManager:
           return most_common_uuid, similarity
 
     return None, None
+
+  def _hasValidSimilarityScoreShape(self, similarity_scores):
+    """Validate that query results follow the strict list-of-lists contract."""
+    if not similarity_scores:
+      return True
+
+    if not isinstance(similarity_scores, list):
+      return False
+
+    return all(isinstance(item, list) for item in similarity_scores)
 
   def _isHigherBetterMetric(self):
     """Return True when the configured descriptor metric uses higher-is-better semantics."""

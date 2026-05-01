@@ -146,7 +146,8 @@ class TestSchemaValidation:
     db.sendQuery = Mock(return_value=([{
       'status': 0,
       'returned': 1,
-      'dimensions': 128
+      'dimensions': 128,
+      'metric': 'L2'
     }], []))
 
     with pytest.raises(RuntimeError, match="uses 128 dimensions"):
@@ -204,7 +205,8 @@ class TestSchemaValidation:
     db.sendQuery = Mock(return_value=([{
       'status': 0,
       'returned': 1,
-      'dimensions': 256
+      'dimensions': 256,
+      'metric': 'L2'
     }], []))
 
     db.ensureSchema(256)
@@ -225,7 +227,7 @@ class TestAddEntry:
     db = VDMSDatabase()
     row_vector = np.arange(12, dtype=np.float32).reshape(1, 12)
 
-    prepared = db.prepareReidDict(row_vector, dimensions=None, caller_name="unit-test")
+    prepared = db.prepareReidDict(row_vector, dimensions=None)
 
     assert prepared is not None
     assert prepared['dimensions'] == 12
@@ -241,7 +243,7 @@ class TestAddEntry:
     db = VDMSDatabase()
     row_vector = np.arange(16, dtype=np.float32).reshape(1, 16)
 
-    prepared = db.prepareReidDict(row_vector, dimensions=32, caller_name="unit-test")
+    prepared = db.prepareReidDict(row_vector, dimensions=32)
 
     assert prepared is None
 
@@ -256,7 +258,7 @@ class TestAddEntry:
     vec[0] = 3.0
     vec[1] = 4.0
 
-    prepared = db.prepareReidDict(vec, dimensions=256, caller_name="unit-test", normalize_embeddings=True)
+    prepared = db.prepareReidDict(vec, dimensions=256, normalize_embeddings=True)
 
     assert prepared is not None
     normalized = prepared['embedded_vector']
@@ -275,7 +277,7 @@ class TestAddEntry:
     vec[0] = 3.0
     vec[1] = 4.0
 
-    prepared = db.prepareReidDict(vec, dimensions=256, caller_name="unit-test", normalize_embeddings=False)
+    prepared = db.prepareReidDict(vec, dimensions=256, normalize_embeddings=False)
 
     assert prepared is not None
     raw = prepared['embedded_vector']
@@ -708,7 +710,7 @@ class TestFindMatches:
     test_vectors = [np.random.randn(256).astype(np.float32)]
     result = db.findMatches("Person", test_vectors)
 
-    assert result == []
+    assert result == [[]]
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_keeps_out_of_range_scores_for_l2_metric(self, mock_vdms_class):
@@ -1278,7 +1280,7 @@ class TestDimensionInferenceAndArbitraryDimensions:
     db = VDMSDatabase(dimensions=None)
     vec = np.random.randn(128).astype(np.float32)
 
-    prepared = db.prepareReidDict(vec, dimensions=None, caller_name="unit-test")
+    prepared = db.prepareReidDict(vec, dimensions=None)
 
     assert prepared is not None
     assert prepared['dimensions'] == 128
@@ -1293,7 +1295,7 @@ class TestDimensionInferenceAndArbitraryDimensions:
     db = VDMSDatabase(dimensions=None)
     vec = np.random.randn(512).astype(np.float32)
 
-    prepared = db.prepareReidDict(vec, dimensions=None, caller_name="unit-test")
+    prepared = db.prepareReidDict(vec, dimensions=None)
 
     assert prepared is not None
     assert prepared['dimensions'] == 512

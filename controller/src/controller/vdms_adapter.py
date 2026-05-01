@@ -255,7 +255,6 @@ class VDMSDatabase(ReIDDatabase):
       prepared_reid = self.prepareReidDict(
         reid_vector,
         self.dimensions,
-        "addEntry",
         normalize_embeddings=normalize_embeddings)
       if prepared_reid is None:
         continue
@@ -472,7 +471,6 @@ class VDMSDatabase(ReIDDatabase):
       vec_array = self.prepareReidVector(
         reid_vector,
         self.dimensions,
-        "findMatches",
         normalize_embeddings=normalize_embeddings)
       if vec_array is None:
         continue
@@ -514,6 +512,7 @@ class VDMSDatabase(ReIDDatabase):
         "[VDMS] findMatches returned %d per-vector result item(s) from %d valid "
         "query vector(s); VDMS response items=%d, input vectors=%d",
         len(result), len(blob), len(response), len(reid_vectors))
+
       return result
     log.debug("[VDMS] findMatches returned None (no response from VDMS)")
     return None

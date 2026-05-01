@@ -561,6 +561,25 @@ class TestUUIDManagerMetricAwareMatching:
   """Verify parseQueryResults follows descriptor metric semantics."""
 
   @patch('controller.uuid_manager.VDMSDatabase')
+  def test_parse_query_results_rejects_single_dimension_entity_list(self, mock_vdms_class):
+    """Flat entity lists violate contract and should be treated as no-match."""
+    mock_vdms_class.return_value = MagicMock()
+
+    manager = UUIDManager(reid_config_data={'similarity_threshold': 0.5})
+    manager.reid_database.similarity_metric = "L2"
+
+    # Invalid input shape: one vector result returned as a flat entity list.
+    similarity_scores = [
+      {'uuid': 'a', 'rvid': '1', '_distance': 0.2},
+      {'uuid': 'b', 'rvid': '2', '_distance': 0.6},
+    ]
+
+    database_id, similarity = manager.parseQueryResults(similarity_scores)
+
+    assert database_id is None
+    assert similarity is None
+
+  @patch('controller.uuid_manager.VDMSDatabase')
   def test_parse_query_results_ip_uses_higher_is_better(self, mock_vdms_class):
     """IP metric should select max `_distance` and require values above threshold."""
     mock_vdms_class.return_value = MagicMock()

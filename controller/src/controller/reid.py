@@ -9,7 +9,6 @@ from scene_common import log
 
 class ReIDDatabase(ABC):
   def prepareReidDict(self, embedding_vector, dimensions=None,
-                        caller_name="prepareReidDict",
                         normalize_embeddings=False):
     """Prepare a normalized/validated ReID payload from arbitrary vector shapes.
 
@@ -18,7 +17,7 @@ class ReIDDatabase(ABC):
     flattened vector length.
     """
     if embedding_vector is None:
-      log.warning(f"{caller_name}: Empty embedding vector, skipping this vector")
+      log.warning("prepareReidDict: Empty embedding vector, skipping this vector")
       return None
 
     vec_array = np.asarray(embedding_vector, dtype="float32").reshape(-1)
@@ -27,17 +26,17 @@ class ReIDDatabase(ABC):
 
     if inferred_dimensions != expected_dimensions:
       log.warning(
-        f"{caller_name}: Expected vector shape ({expected_dimensions},) but got {vec_array.shape}, skipping this vector")
+        f"prepareReidDict: Expected vector shape ({expected_dimensions},) but got {vec_array.shape}, skipping this vector")
       return None
 
     if not np.all(np.isfinite(vec_array)):
-      log.warning(f"{caller_name}: Vector contains non-finite values, skipping this vector")
+      log.warning("prepareReidDict: Vector contains non-finite values, skipping this vector")
       return None
 
     if normalize_embeddings:
       norm = np.linalg.norm(vec_array)
       if not np.isfinite(norm) or norm == 0.0:
-        log.warning(f"{caller_name}: Invalid vector norm ({norm}), skipping this vector")
+        log.warning(f"prepareReidDict: Invalid vector norm ({norm}), skipping this vector")
         return None
       vec_array = vec_array / norm
 
@@ -46,13 +45,12 @@ class ReIDDatabase(ABC):
       "dimensions": expected_dimensions,
     }
 
-  def prepareReidVector(self, reid_vector, dimensions, caller_name,
+  def prepareReidVector(self, reid_vector, dimensions,
                            normalize_embeddings=False):
     """Backward-compatible wrapper returning only the prepared vector."""
     prepared_reid = self.prepareReidDict(
       reid_vector,
       dimensions,
-      caller_name,
       normalize_embeddings=normalize_embeddings)
     if prepared_reid is None:
       return None
