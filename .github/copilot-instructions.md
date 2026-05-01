@@ -28,6 +28,8 @@ Consult these based on the code you're working with:
 - **Shell** (`.github/skills/shell.md`): Bash scripting guidelines
 - **Makefile** (`.github/skills/makefile.md`): Build system conventions
 - **Testing** (`.github/skills/testing.md`): Test creation frameworks
+- **Agents.md Evaluation** (`.github/skills/agent_evaluation/SKILL.md`): Scoring rubric and efficacy testing for service agent guides
+  - `agents-md-evaluation.md` in the same folder contains the rubric; SKILL.md contains the efficacy test procedure
 
 ### Skills Caching Strategy
 
@@ -45,6 +47,7 @@ Skills are loaded on-demand based on task context to optimize token usage:
 - `javascript.md` - Loaded when `.js` files are being edited
 - `shell.md` - Loaded when `.sh` files are being edited
 - `makefile.md` - Loaded when Makefile or build system changes
+- `agent_evaluation/SKILL.md` - Loaded when task asks to evaluate, score, audit, review, or test the efficacy of an `Agents.md`
 
 Skills are detected and loaded based on file type, task keywords, and context signals. Explicitly request a skill if the auto-detection doesn't load it.
 
