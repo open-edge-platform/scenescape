@@ -1,3 +1,8 @@
+---
+name: makefile
+description: Makefile standards for SceneScape — build targets, conventions, and patterns.
+---
+
 # Makefile Standards for SceneScape
 
 ## Organization
