@@ -160,7 +160,7 @@ def _to_rest_format(scene_config: dict) -> dict:
 def _free_port() -> int:
     """Return a free TCP port on localhost."""
     with socket.socket() as s:
-        s.bind(("", 0))
+        s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
 
 
