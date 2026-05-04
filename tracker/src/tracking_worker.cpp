@@ -206,7 +206,7 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
 }
 
 std::vector<Track>
-TrackingWorker::convert_tracks(const std::vector<rv::tracking::TrackedObject>& rv_tracks,
+TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tracks,
                                const std::string& category) {
     // Extract active RobotVision IDs for map update
     std::vector<int32_t> active_ids;
@@ -221,7 +221,7 @@ TrackingWorker::convert_tracks(const std::vector<rv::tracking::TrackedObject>& r
     std::vector<Track> tracks;
     tracks.reserve(rv_tracks.size());
 
-    for (const auto& rv_track : rv_tracks) {
+    for (auto& rv_track : rv_tracks) {
         Track track;
         track.id = id_map_.at(rv_track.id);
         track.category = category;
@@ -239,7 +239,7 @@ TrackingWorker::convert_tracks(const std::vector<rv::tracking::TrackedObject>& r
         // This is an inherent limitation of the RobotVision attributes API.
         auto meta_it = rv_track.attributes.find("metadata_json");
         if (meta_it != rv_track.attributes.end()) {
-            track.metadata_json = meta_it->second;
+            track.metadata_json = std::move(meta_it->second);
         }
 
         // Retrieve confidence stored in attributes by transformDetections().
@@ -272,7 +272,7 @@ std::vector<Track> TrackingWorker::match_and_convert(
 
     // Get reliable tracks and map RobotVision int IDs to UUID strings
     auto rv_tracks = tracker_.getReliableTracks();
-    auto tracks = convert_tracks(rv_tracks, chunk.category);
+    auto tracks = convert_tracks(std::move(rv_tracks), chunk.category);
 
     LOG_DEBUG("Processed chunk for {}/{}: {} detections -> {} reliable tracks", scope_.scene_id,
               scope_.category,

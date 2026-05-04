@@ -56,7 +56,7 @@
         },
         "metadata": {
           "type": "object",
-          "description": "Optional per-detection metadata passthrough (e.g., reid, gender, age). Keys and values are detector-defined.",
+          "description": "Optional per-detection metadata (e.g., reid, gender, age). Keys and values are detector-defined.",
           "additionalProperties": true
         },
         "confidence": {
