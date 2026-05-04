@@ -226,13 +226,13 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 
 **`set_custom_config()` keys**:
 
-| Key | Required | Default | Description |
-|---|---|---|---|
-| `tracker_config_path` | Yes | — | Path to tracker config JSON, mounted into the tracker container |
-| `playback_rate` | No | `1.0` | Publish pacing multiplier (e.g., `2.0` = 2× faster than real-time) |
-| `drain_timeout` | No | `5.0` | Seconds to wait for remaining tracker outputs after the last frame |
-| `broker_image` | No | `"eclipse-mosquitto"` | Docker image for the MQTT broker |
-| `scene_id` | No | derived from scene config `uid` | Override the MQTT topic scene ID |
+| Key                   | Required | Default                         | Description                                                        |
+| --------------------- | -------- | ------------------------------- | ------------------------------------------------------------------ |
+| `tracker_config_path` | Yes      | —                               | Path to tracker config JSON, mounted into the tracker container    |
+| `playback_rate`       | No       | `1.0`                           | Publish pacing multiplier (e.g., `2.0` = 2× faster than real-time) |
+| `drain_timeout`       | No       | `5.0`                           | Seconds to wait for remaining tracker outputs after the last frame |
+| `broker_image`        | No       | `"eclipse-mosquitto"`           | Docker image for the MQTT broker                                   |
+| `scene_id`            | No       | derived from scene config `uid` | Override the MQTT topic scene ID                                   |
 
 **MQTT Topics**:
 
