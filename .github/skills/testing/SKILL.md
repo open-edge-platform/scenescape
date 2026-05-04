@@ -1,3 +1,8 @@
+---
+name: testing
+description: Guide for creating SceneScape test cases — unit, functional, integration, UI, and smoke tests with positive and negative cases.
+---
+
 # AI Agent Guide: Creating Test Cases for SceneScape
 
 This guide provides comprehensive instructions for AI agents to create high-quality, well-categorized test cases for the SceneScape project.
@@ -17,7 +22,7 @@ This guide provides comprehensive instructions for AI agents to create high-qual
 
 ## Verification Workflow For AI Agents (Mandatory)
 
-Use `.github/skills/test-verification-gate.md` for runtime verification,
+Use `.github/skills/test-verification-gate/SKILL.md` for runtime verification,
 command selection, and completion reporting rules after creating or modifying
 tests.
 
