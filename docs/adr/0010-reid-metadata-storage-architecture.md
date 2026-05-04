@@ -44,7 +44,6 @@ Detection → Metadata Extraction → Vector Generation → Storage
                          ┌─────────────────────────┐
                          │ Binary Blob (Vector)    │
                          │ • 256-dim float32 vec   │
-                         │ • L2 similarity metric  │
                          └─────────────────────────┘
 
 Query → Extract Vector → Build Constraints → VDMS Search
@@ -54,7 +53,7 @@ Query → Extract Vector → Build Constraints → VDMS Search
                         TIER 1: Database-level
                         metadata filtering
                                 ↓
-                        TIER 2: L2 distance
+                        TIER 2: Vector similarity
                         on filtered candidates
 ```
 
@@ -72,7 +71,7 @@ Query → Extract Vector → Build Constraints → VDMS Search
      - Executed inside VDMS before vector search
      - Reduces candidate set significantly
    - **TIER 2**: Vector similarity search on filtered candidates
-     - L2 distance on 256-dim embeddings
+     - Similarity search on 256-dim embeddings
      - Only processes constrained candidates
      - Returns top-k results with metadata
 
