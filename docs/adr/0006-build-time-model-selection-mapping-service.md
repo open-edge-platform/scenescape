@@ -1,6 +1,6 @@
-# ADR 6: Build-Time Model Selection for 3D Mapping Service
+# ADR 6: 3D Mapping Service
 
-- **Author(s)**: [Intel SceneScape Team](https://github.com/open-edge-platform/scenescape)
+- **Author(s)**: Sarat Poluri
 - **Date**: 2025-10-30
 - **Status**: `Accepted`
 
