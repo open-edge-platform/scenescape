@@ -552,6 +552,8 @@ class SceneController:
       analytics_objects = scene.getTrackedObjects(detection_type)
       log.debug(f"Analytics-only mode - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
 
+      scene._updateVisible(analytics_objects)
+
       msg_when = get_epoch_time(jdata.get('timestamp'))
 
       scene._updateEvents(detection_type, msg_when, analytics_objects)

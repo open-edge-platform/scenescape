@@ -57,6 +57,16 @@ struct ManagerConfig {
 };
 
 /**
+ * @brief NTP server connection settings.
+ */
+constexpr int kDefaultNtpSyncIntervalS = 300;
+
+struct NtpConfig {
+    std::string server;                             ///< NTP server hostname or IP
+    int sync_interval_s = kDefaultNtpSyncIntervalS; ///< Re-sync interval in seconds
+};
+
+/**
  * @brief OTLP collector connection settings.
  */
 struct OtlpConfig {
@@ -70,6 +80,7 @@ struct OtlpConfig {
 struct InfrastructureConfig {
     MqttConfig mqtt;
     TrackerConfig tracker;
+    std::optional<NtpConfig> ntp;         ///< Optional NTP clock synchronisation
     std::optional<ManagerConfig> manager; ///< Required when scenes.source='api'
     std::optional<OtlpConfig> otlp;       ///< Required when metrics or tracing enabled
 };
@@ -170,6 +181,11 @@ constexpr char TRACKING_MAX_UNRELIABLE_TIME_S[] = "/tracking/max_unreliable_time
 constexpr char TRACKING_NON_MEASUREMENT_TIME_DYNAMIC_S[] =
     "/tracking/non_measurement_time_dynamic_s";
 constexpr char TRACKING_NON_MEASUREMENT_TIME_STATIC_S[] = "/tracking/non_measurement_time_static_s";
+
+// NTP
+constexpr char INFRASTRUCTURE_NTP[] = "/infrastructure/ntp";
+constexpr char INFRASTRUCTURE_NTP_SERVER[] = "/infrastructure/ntp/server";
+constexpr char INFRASTRUCTURE_NTP_SYNC_INTERVAL_S[] = "/infrastructure/ntp/sync_interval_s";
 
 // Manager
 constexpr char INFRASTRUCTURE_MANAGER[] = "/infrastructure/manager";
