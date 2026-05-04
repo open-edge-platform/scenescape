@@ -619,12 +619,6 @@
         },
         "validate": {
           "count": 0
-        },
-        "expected_body": {
-          "count": 0,
-          "next": null,
-          "previous": null,
-          "results": []
         }
       }
     ]
@@ -703,12 +697,6 @@
         },
         "validate": {
           "count": 0
-        },
-        "expected_body": {
-          "count": 0,
-          "next": null,
-          "previous": null,
-          "results": []
         }
       }
     ]
@@ -793,12 +781,6 @@
         },
         "validate": {
           "count": 0
-        },
-        "expected_body": {
-          "count": 0,
-          "next": null,
-          "previous": null,
-          "results": []
         }
       }
     ]
@@ -857,12 +839,6 @@
         },
         "validate": {
           "count": 0
-        },
-        "expected_body": {
-          "count": 0,
-          "next": null,
-          "previous": null,
-          "results": []
         }
       }
     ]
@@ -950,12 +926,6 @@
         },
         "validate": {
           "count": 0
-        },
-        "expected_body": {
-          "count": 0,
-          "next": null,
-          "previous": null,
-          "results": []
         }
       }
     ]
@@ -1057,12 +1027,6 @@
         },
         "validate": {
           "count": 0
-        },
-        "expected_body": {
-          "count": 0,
-          "next": null,
-          "previous": null,
-          "results": []
         }
       }
     ]
@@ -1148,12 +1112,6 @@
         },
         "validate": {
           "count": 0
-        },
-        "expected_body": {
-          "count": 0,
-          "next": null,
-          "previous": null,
-          "results": []
         }
       }
     ]
