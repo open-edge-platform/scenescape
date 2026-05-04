@@ -24,12 +24,29 @@ VDMS Query Flow:
     "Find entries where type='Person' AND gender='Female' AND age='22'"
     ↓
   TIER 2: VDMS performs vector similarity on filtered candidates
-    "Compute L2 distance between query vector and filtered candidates"
+    "Compute configured similarity metric value between query vector and filtered candidates"
     ↓
   Return top-k matches with metadata
 ```
 
 ## Key Concepts
+
+### Similarity Metric and Score Semantics
+
+The Re-ID metric is configured through `reid-config.json` (`similarity_metric`) and defaults to `L2`.
+
+When `similarity_metric` is `COSINE`, Re-ID embedding vectors are normalized to unit length before they are:
+
+- stored in VDMS (`AddDescriptor`)
+- used as query vectors in VDMS (`FindDescriptor`)
+
+For `COSINE`, SceneScape uses VDMS `IP` internally with normalized vectors, so similarity scores are expected to stay in the range `[-1, 1]`.
+
+- `1.0`: identical direction (most similar)
+- `0.0`: orthogonal embeddings
+- `-1.0`: opposite direction
+
+The controller validates returned similarity scores for the normalized-cosine path (`COSINE` mapped to VDMS `IP`) and discards out-of-range values. For non-cosine distance metrics (for example `L2`), vectors are not force-normalized and this `[-1, 1]` check is not applied.
 
 ### Confidence-Based Constraint Filtering (AND-Only)
 
@@ -148,25 +165,29 @@ controller/config/reid-config.json
 
 ```json
 {
+  "similarity_metric": "L2",
   "stale_feature_timeout_secs": 5.0,
   "stale_feature_check_interval_secs": 1.0,
   "feature_accumulation_threshold": 12,
   "minimum_bbox_area": 5000,
   "feature_slice_size": 10,
-  "similarity_threshold": 30.0
+  "similarity_threshold": 40.0
 }
 ```
 
 ### Configuration Parameters
 
-| Parameter                           | Type  | Default | Description                                                                                                                                                                        |
-| ----------------------------------- | ----- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stale_feature_timeout_secs`        | float | 5.0     | How long (seconds) to accumulate features in memory before flushing to VDMS. Features older than this threshold are persisted to the database for long-term storage.               |
-| `stale_feature_check_interval_secs` | float | 1.0     | How frequently (seconds) the background timer checks for stale features and flushes them to VDMS. More frequent checks ensure timely database updates.                             |
-| `feature_accumulation_threshold`    | int   | 12      | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.                  |
-| `minimum_bbox_area`                 | int   | 5000    | Minimum bounding-box area in pixels required before a detected object contributes a ReID embedding to quality feature accumulation.                                                |
-| `feature_slice_size`                | int   | 10      | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector.              |
-| `similarity_threshold`              | float | 40.0    | Maximum L2 distance from VDMS for a candidate to be accepted as a match. Candidates with distance **below** this threshold are considered valid. Lower values = stricter matching. |
+| Parameter                           | Type   | Default                                                | Description                                                                                                                                                                                                      |
+| ----------------------------------- | ------ | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `similarity_metric`                 | string | `L2`                                                   | Similarity metric for ReID matching. `L2` is the default distance-style metric (lower-is-better). `COSINE` is implemented using normalized vectors with VDMS `IP` (higher-is-better).                            |
+| `stale_feature_timeout_secs`        | float  | 5.0                                                    | How long (seconds) to accumulate features in memory before flushing to VDMS. Features older than this threshold are persisted to the database for long-term storage.                                             |
+| `stale_feature_check_interval_secs` | float  | 1.0                                                    | How frequently (seconds) the background timer checks for stale features and flushes them to VDMS. More frequent checks ensure timely database updates.                                                           |
+| `feature_accumulation_threshold`    | int    | 12                                                     | Minimum number of quality features required before initiating a similarity query against the database. More features = higher statistical confidence in matching.                                                |
+| `minimum_bbox_area`                 | int    | 5000                                                   | Minimum bounding-box area in pixels required before a detected object contributes a ReID embedding to quality feature accumulation.                                                                              |
+| `feature_slice_size`                | int    | 10                                                     | When persisting features to VDMS, sample every Nth feature vector from the accumulated set to reduce database bloat. Example: slice_size=10 stores every 10th vector.                                            |
+| `similarity_threshold`              | float  | metric-dependent (`40.0` for `L2`, `0.5` for `COSINE`) | Match acceptance threshold interpreted using the configured metric semantics: for `COSINE`, candidates **above** the threshold match; for `L2`-style distance metrics, candidates **below** the threshold match. |
+
+**Similarity range note**: For `COSINE` (implemented via VDMS `IP`), scores are validated against `[-1, 1]` because embeddings are normalized before storage and query. This range check is metric-specific and is not applied to non-cosine distance metrics.
 
 ### Embedding Dimension Inference
 
@@ -190,7 +211,7 @@ python scene_controller.py \
 
 **Current Implementation Note**:
 
-- `stale_feature_timeout_secs`, `stale_feature_check_interval_secs`, `feature_accumulation_threshold`, `minimum_bbox_area`, `feature_slice_size`, and `similarity_threshold` are fully implemented.
+- `similarity_metric`, `stale_feature_timeout_secs`, `stale_feature_check_interval_secs`, `feature_accumulation_threshold`, `minimum_bbox_area`, `feature_slice_size`, and `similarity_threshold` are fully implemented
 - ReID embedding dimensions are inferred at runtime from the first received embedding; there is no configuration override for dimension.
 - All semantic metadata attributes are currently used for TIER 1 filtering. Selective metadata filtering is planned for Phase 2.
 
@@ -201,7 +222,9 @@ python scene_controller.py \
 - Decrease `stale_feature_timeout_secs`: 3.0 (flush features sooner, capture recent appearances)
 - Decrease `stale_feature_check_interval_secs`: 0.5 (check for stale features more frequently)
 - Decrease `feature_accumulation_threshold`: 8 (query sooner with fewer features)
-- Increase `similarity_threshold`: 60.0 (accept less-perfect matches, wider distance budget)
+- `similarity_threshold` — direction depends on the configured metric:
+  - **`L2` (default)**: _Increase_ the threshold (e.g., 50.0) to accept candidates further away → more matches
+  - **`COSINE`**: _Decrease_ the threshold (e.g., 0.2) to accept candidates with lower cosine similarity → more matches
 - Increase `feature_slice_size`: 20 (store more diverse samples)
 
 **For Higher Precision (only confident matches)**:
@@ -209,7 +232,9 @@ python scene_controller.py \
 - Increase `stale_feature_timeout_secs`: 8.0 (accumulate more features before persisting)
 - Increase `stale_feature_check_interval_secs`: 2.0 (check less frequently, reduce overhead)
 - Increase `feature_accumulation_threshold`: 16 (require more samples for statistical confidence)
-- Decrease `similarity_threshold`: 20.0 (stricter matching, tighter distance budget)
+- `similarity_threshold` — direction depends on the configured metric:
+  - **`L2` (default)**: _Decrease_ the threshold (e.g., 20.0) so only close-distance candidates match → fewer, more confident matches
+  - **`COSINE`**: _Increase_ the threshold (e.g., 0.8) to accept only high-cosine-similarity candidates → fewer, more confident matches
 - Decrease `feature_slice_size`: 5 (store every 5th feature for better coverage)
 
 ### Future Extensibility
