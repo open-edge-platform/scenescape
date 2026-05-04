@@ -859,9 +859,6 @@
         },
         "expected_status": {
           "status_code": 201
-        },
-        "save": {
-          "CHAIN_LINK_AB_UID": "uid"
         }
       },
       {
@@ -877,9 +874,6 @@
         },
         "expected_status": {
           "status_code": 201
-        },
-        "save": {
-          "CHAIN_LINK_BC_UID": "uid"
         }
       },
       {
