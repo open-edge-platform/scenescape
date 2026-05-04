@@ -10,7 +10,7 @@ import robot_vision as rv
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
-from scene_common.geometry import Point, Region, Tripwire, getRegionEvents, getTripwireEvents
+from scene_common.geometry import Point, Region, Size, Tripwire, getRegionEvents, getTripwireEvents
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
@@ -495,6 +495,14 @@ class Scene(SceneModel):
       obj.similarity = obj_data.get('similarity')
       obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
       obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
+
+      # Construct a bbMeters-like object from the tracker's size field [length, width, height]
+      # so that computeCameraBounds can use the reprojection path.
+      size = obj_data.get('size')
+      if size and len(size) >= 3:
+        obj.bbMeters = SimpleNamespace(size=Size(size[1], size[2]), width=size[1], height=size[2])
+      else:
+        obj.bbMeters = None
 
       obj_id = obj.gid
       if 'first_seen' in obj_data:
