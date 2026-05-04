@@ -1276,7 +1276,7 @@
         "api": "child",
         "method": "deleteChildSceneLink",
         "request": {
-          "uid": "${CIRC_SCENE_D_UID}"
+          "uid": "00000000-0000-4000-8000-000000000099"
         },
         "expected_status": {
           "status_code": 404
