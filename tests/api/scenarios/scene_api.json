@@ -34,10 +34,26 @@
             "name": "Scene2",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_translation": [12.2, 248, 12],
-            "mesh_rotation": [12.2, 248, 12],
-            "mesh_scale": [1, 1, 1],
-            "tracker_config": [1, 1, 1]
+            "mesh_translation": [
+              12.2,
+              248,
+              12
+            ],
+            "mesh_rotation": [
+              12.2,
+              248,
+              12
+            ],
+            "mesh_scale": [
+              1,
+              1,
+              1
+            ],
+            "tracker_config": [
+              1,
+              1,
+              1
+            ]
           }
         },
         "expected_status": {
@@ -91,7 +107,10 @@
             "name": "Scene_MeshTranslation_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_translation": [1.0, 2.0]
+            "mesh_translation": [
+              1.0,
+              2.0
+            ]
           }
         },
         "expected_status": {
@@ -112,7 +131,10 @@
             "name": "Scene_MeshRotation_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_rotation": [12.2, 248]
+            "mesh_rotation": [
+              12.2,
+              248
+            ]
           }
         },
         "expected_status": {
@@ -133,7 +155,10 @@
             "name": "Scene_MeshScale_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_scale": [1.0, 1.0]
+            "mesh_scale": [
+              1.0,
+              1.0
+            ]
           }
         },
         "expected_status": {
@@ -198,9 +223,21 @@
           "map_type": "map_upload",
           "use_tracker": false,
           "output_lla": true,
-          "mesh_translation": [0, 0, 0],
-          "mesh_rotation": [0, 0, 0],
-          "mesh_scale": [1.0, 1.0, 1.0],
+          "mesh_translation": [
+            0,
+            0,
+            0
+          ],
+          "mesh_rotation": [
+            0,
+            0,
+            0
+          ],
+          "mesh_scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
           "regulated_rate": 30.0,
           "external_update_rate": 30.0,
           "camera_calibration": "Manual",
@@ -235,9 +272,21 @@
             "name": "Scene1_Updated_Full",
             "use_tracker": true,
             "output_lla": true,
-            "mesh_translation": [12.2, 248, 12.0],
-            "mesh_rotation": [12.2, 248, 12.0],
-            "mesh_scale": [2.0, 2.0, 2.0]
+            "mesh_translation": [
+              12.2,
+              248,
+              12.0
+            ],
+            "mesh_rotation": [
+              12.2,
+              248,
+              12.0
+            ],
+            "mesh_scale": [
+              2.0,
+              2.0,
+              2.0
+            ]
           }
         },
         "expected_status": {
@@ -265,9 +314,21 @@
           "map_type": "map_upload",
           "use_tracker": true,
           "output_lla": true,
-          "mesh_translation": [12.2, 248.0, 12.0],
-          "mesh_rotation": [12.2, 248.0, 12.0],
-          "mesh_scale": [2.0, 2.0, 2.0],
+          "mesh_translation": [
+            12.2,
+            248.0,
+            12.0
+          ],
+          "mesh_rotation": [
+            12.2,
+            248.0,
+            12.0
+          ],
+          "mesh_scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
           "regulated_rate": 30.0,
           "external_update_rate": 30.0,
           "camera_calibration": "Manual",
@@ -319,7 +380,9 @@
             "name": "Scene_Update_MeshTranslation_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_translation": [1.0]
+            "mesh_translation": [
+              1.0
+            ]
           }
         },
         "expected_status": {
@@ -341,7 +404,10 @@
             "name": "Scene_Update_MeshRotation_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_rotation": [0.0, 0.0]
+            "mesh_rotation": [
+              0.0,
+              0.0
+            ]
           }
         },
         "expected_status": {
@@ -363,7 +429,9 @@
             "name": "Scene_Update_MeshScale_Invalid",
             "use_tracker": true,
             "output_lla": false,
-            "mesh_scale": [1.0]
+            "mesh_scale": [
+              1.0
+            ]
           }
         },
         "expected_status": {
@@ -564,9 +632,21 @@
               "uid": "${CHILD_LINK_UID}",
               "child_type": "local",
               "transform": {
-                "translation": [0.0, 0.0, 0.0],
-                "rotation": [0.0, 0.0, 0.0],
-                "scale": [1.0, 1.0, 1.0]
+                "translation": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "rotation": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "scale": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
               },
               "name": "Circular_Dep_Scene_B",
               "child": "${CIRC_SCENE_B_UID}",
@@ -1111,7 +1191,78 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/30: Delete scenes by uid",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/30: Update child scene link to a different parent",
+    "test_steps": [
+      {
+        "step_name": "Create child link A -> B",
+        "api": "child",
+        "method": "createChildScene",
+        "request": {
+          "body": {
+            "child_type": "local",
+            "parent": "${CIRC_SCENE_A_UID}",
+            "child": "${CIRC_SCENE_B_UID}"
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        }
+      },
+      {
+        "step_name": "Update parent link of B from A to D",
+        "api": "child",
+        "method": "updateChildScene",
+        "request": {
+          "uid": "${CIRC_SCENE_B_UID}",
+          "body": {
+            "child_type": "local",
+            "parent": "${CIRC_SCENE_D_UID}",
+            "child": "${CIRC_SCENE_B_UID}"
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify one child scene link remains",
+        "api": "child",
+        "method": "getChildScene",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "count": 1
+        }
+      },
+      {
+        "step_name": "Delete child link D -> B",
+        "api": "child",
+        "method": "deleteChildSceneLink",
+        "request": {
+          "uid": "${CIRC_SCENE_B_UID}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify no child scene links remain",
+        "api": "child",
+        "method": "getChildScene",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "count": 0
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/31: Delete scenes by uid",
     "test_steps": [
       {
         "step_name": "Delete Scene",
@@ -1182,7 +1333,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/31: Delete non existent scene",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/32: Delete non existent scene",
     "test_steps": [
       {
         "step_name": "Delete Scene",
@@ -1193,6 +1344,22 @@
         },
         "expected_status": {
           "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/33: Delete non existent child scene link",
+    "test_steps": [
+      {
+        "step_name": "Delete Child Scene Link",
+        "api": "child",
+        "method": "deleteChildSceneLink",
+        "request": {
+          "uid": "123"
+        },
+        "expected_status": {
+          "status_code": 400
         }
       }
     ]
