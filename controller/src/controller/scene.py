@@ -431,7 +431,7 @@ class Scene(SceneModel):
 
     Args:
         detection_type: The type of detection (e.g., 'person', 'vehicle')
-        objects: List of tracked objects for this detection type
+        tracked_objects: List of tracked objects for this detection type
     """
     self.tracked_objects_cache[detection_type] = tracked_objects
 
