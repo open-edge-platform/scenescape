@@ -263,17 +263,17 @@ REID_MATRIX_CONFIG ?= $(CURDIR)/functional/config/reid-threshold-scenario.json
 
 define run-reid-matrix
 	@echo "Running $(1) matrix from $(REID_MATRIX_CONFIG)";
-	@python3 -c 'import json, sys; scenarios = json.load(open(sys.argv[1], "r", encoding="utf-8")); [print("%s|%s|%s|%s" % (s["scenario_name"], s["variant"], s["threshold"], s.get("expect_exceed_max", False))) for s in scenarios]' "$(REID_MATRIX_CONFIG)" | \
-	while IFS='|' read -r scenario_name variant threshold expect_exceed_max; do \
+	@python3 -c 'import json, sys; scenarios = json.load(open(sys.argv[1], "r", encoding="utf-8")); [print("%s|%s|%s|%s|%s" % (s["scenario_name"], s["variant"], s["threshold"], s.get("expect_exceed_max", False), s.get("metric", "L2"))) for s in scenarios]' "$(REID_MATRIX_CONFIG)" | \
+	while IFS='|' read -r scenario_name variant threshold expect_exceed_max metric; do \
 		tmp_reid_config="$(CURDIR)/functional/config/reid-config-$$scenario_name.json"; \
 		expect_arg="--expect_exceed_max=$$expect_exceed_max"; \
-		python3 -c 'import json, sys; cfg_path, out_path, threshold = sys.argv[1], sys.argv[2], float(sys.argv[3]); cfg = json.load(open(cfg_path, "r", encoding="utf-8")); cfg["similarity_threshold"] = threshold; json.dump(cfg, open(out_path, "w", encoding="utf-8"), indent=2); print()' "$(CURDIR)/../controller/config/reid-config.json" "$$tmp_reid_config" "$$threshold" || exit $$?; \
+		python3 -c 'import json, sys; cfg_path, out_path, threshold, metric = sys.argv[1], sys.argv[2], float(sys.argv[3]), sys.argv[4]; cfg = json.load(open(cfg_path, "r", encoding="utf-8")); cfg["similarity_threshold"] = threshold; cfg["similarity_metric"] = metric; json.dump(cfg, open(out_path, "w", encoding="utf-8"), indent=2); print()' "$(CURDIR)/../controller/config/reid-config.json" "$$tmp_reid_config" "$$threshold" "$$metric" || exit $$?; \
 		case "$$variant" in \
 		default) scene_compose="$(COMPOSE)/scene_reid.yml" ;; \
 		time-chunking) scene_compose="$(COMPOSE)/scene_reid_time_chunking.yml" ;; \
 		*) echo "Unsupported variant '$$variant' in $(REID_MATRIX_CONFIG)"; exit 1 ;; \
 		esac; \
-		echo "=== $(1): scenario=$$scenario_name variant=$$variant threshold=$$threshold expect_exceed_max=$$expect_exceed_max ==="; \
+		echo "=== $(1): scenario=$$scenario_name variant=$$variant threshold=$$threshold expect_exceed_max=$$expect_exceed_max metric=$$metric ==="; \
 		REID_CONFIG_FILE="$$tmp_reid_config" EXPECT_EXCEED_MAX_ARG="$$expect_arg" REID_SCENE_COMPOSE=$$scene_compose $(MAKE) $(1)-run; \
 		status=$$?; rm -f "$$tmp_reid_config"; \
 		if [ $$status -ne 0 ]; then exit $$status; fi; \

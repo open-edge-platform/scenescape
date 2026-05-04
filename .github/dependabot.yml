@@ -99,6 +99,7 @@ updates:
       - "/tools/pipeline_runner"
       - "/tracker/test/service"
       - "/tracker/test/load"
+      - "/tools/tracker/evaluation"
     schedule:
       interval: "monthly"
     commit-message:
