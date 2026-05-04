@@ -3,19 +3,21 @@
 
 from types import SimpleNamespace
 from typing import Optional
+
 import numpy as np
+
 import robot_vision as rv
-from controller.controller_mode import ControllerMode
-from controller.moving_object import ChainData
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
-from scene_common.geometry import Line, Point, Region, Tripwire, getRegionEvents, getTripwireEvents
+from scene_common.geometry import Point, Region, Tripwire, getRegionEvents, getTripwireEvents
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
+from controller.controller_mode import ControllerMode
+from controller.moving_object import ChainData
 from controller.ilabs_tracking import IntelLabsTracking
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
