@@ -12,6 +12,6 @@ pyvirtualdisplay == 3.0
 opencv-python == 4.13.0.92
 setuptools >= 78.1.1
 xmltodict == 1.0.4
-PyYAML >=6.0.1,<7.0
+PyYAML >=6.0.3,<7.0
 pylint [spelling] == 4.0.5
 flake8 == 7.3.0
