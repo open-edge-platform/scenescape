@@ -34,7 +34,7 @@ def on_message(mqttc, obj, msg):
 
 def test_mqtt_insecure_auth(record_xml_attribute):
 
-  TEST_NAME = "NEX-T10423_MQTT_INSECURE_AUTH"
+  TEST_NAME = "NEX-T21776"
   record_xml_attribute("name", TEST_NAME)
 
   print("Executing: " + TEST_NAME)

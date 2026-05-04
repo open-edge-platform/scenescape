@@ -280,6 +280,11 @@ class TestProcessInputsGuards:
 class TestProcessInputsFlow:
     """Verify the orchestration logic with Docker and paho fully mocked."""
 
+    @pytest.fixture(autouse=True)
+    def mock_wait_for_port(self):
+        """Prevent real TCP probes during unit tests."""
+        with patch("harnesses.mqtt_harness.mqtt_harness._wait_for_port"):
+            yield
     @pytest.fixture
     def configured_harness(self, harness, scene_config, tracker_config_file):
         harness.set_scene_config(scene_config)
@@ -486,6 +491,12 @@ class TestProcessInputsFlow:
 
 class TestTimestampPacing:
     """Verify that inter-frame sleep respects timestamp deltas and playback_rate."""
+
+    @pytest.fixture(autouse=True)
+    def mock_wait_for_port(self):
+        """Prevent real TCP probes during unit tests."""
+        with patch("harnesses.mqtt_harness.mqtt_harness._wait_for_port"):
+            yield
 
     @patch("harnesses.mqtt_harness.mqtt_harness.docker")
     @patch("harnesses.mqtt_harness.mqtt_harness.mqtt.Client")

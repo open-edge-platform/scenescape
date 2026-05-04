@@ -55,6 +55,32 @@ Skills are detected and loaded based on file type, task keywords, and context si
 - Avoid duplicating policy/checklist text across this file and skills.
 - If overlap is found, retain one canonical source and replace duplicates with a short pointer.
 
+## Security Defaults (Always-On)
+
+Apply secure-by-default behavior across all code generation, changes, and reviews, regardless of language or component.
+
+- Prefer least privilege across code, services, identities, file permissions, APIs, containers, and workflows; avoid insecure defaults.
+- Treat all external input as untrusted and validate format, type, range, and length at trust boundaries.
+- Never hard-code or introduce secrets, credentials, keys, tokens, or passwords in source, tests, configs, or templates; use environment variables or approved secret-management mechanisms.
+- Avoid exposing sensitive data in logs, traces, errors, metrics, or test artifacts.
+- Prevent injection vulnerabilities by avoiding unsafe string construction and using safe, context-appropriate APIs.
+- Prefer trusted, actively maintained dependencies and images; verify sources and pin versions where feasible.
+- Avoid deprecated, unmaintained, or ambiguous packages.
+- Do not suggest bypassing or weakening existing security checks or validations.
+- Keep authorization checks server-side and close to protected resources.
+- Avoid unsafe dynamic execution patterns (`eval`, `exec`, untrusted command construction).
+- Do not assume trusted inputs, networks, or environments.
+- Be explicit about assumptions and limitations.
+- Fail safely and visibly.
+
+## AI Output Trust Model
+
+Treat AI-generated output as **untrusted draft code** until reviewed and tested.
+Reject suggestions that bypass security controls for convenience or introduce unsafe defaults.
+
+For detailed security review guidance, follow:
+`.github/skills/security.md`.
+
 ## Architecture Overview
 
 **Core Components:**
