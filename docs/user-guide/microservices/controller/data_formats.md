@@ -199,7 +199,7 @@ tracked object contains the following fields:
 | `visibility`         | array of string    | Camera IDs currently observing this object                                                                                                                                                                                                                   |
 | `regions`            | object             | Map of region/sensor IDs to membership metadata. By default this is `{id: {entered: timestamp}}`. In region-scoped outputs, objects currently inside a region also include a live dwell time as `{id: {entered: timestamp, dwell: seconds}}`.                |
 | `sensors`            | object             | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`)                                                                                                                                                                                |
-| `similarity`         | number or null     | L2 distance to the matched ReID embedding in VDMS; lower values indicate a closer match. `null` when ReID is still collecting embeddings, when no database match was found, or when ReID is disabled.                                                        |
+| `similarity`         | number or null     | Similarity/distance value to the matched ReID embedding in VDMS; higher-is-better for `COSINE`; lower is better for `L2`. `null` when ReID is still collecting embeddings, when no database match was found, or when ReID is disabled.                       |
 | `reid_state`         | string             | Re-ID processing state for the object. One of: `pending_collection`, `query_no_match`, `matched`, `reid_disabled`                                                                                                                                            |
 | `previous_ids_chain` | array or absent    | History of UUID reassignments for this track. Each element is `{"id": "<uuid>", "timestamp": "<ISO 8601>", "similarity_score": <number or null>}`. Present only when the object has been re-identified at least once; omitted otherwise.                     |
 | `first_seen`         | string (ISO 8601)  | Timestamp when the track was first created                                                                                                                                                                                                                   |
@@ -213,9 +213,11 @@ tracked object contains the following fields:
 > camera input it is a base64-encoded string. `metadata` is absent when no semantic
 > analytics pipeline is configured.
 
-> **Note on `similarity`**: This field holds an L2 distance returned by VDMS, not a
-> cosine similarity score. Lower values mean the query embedding is closer to the stored
-> embedding. A value of `null` means either the ReID query has not been submitted yet
+> **Note on `similarity`**: This field holds the metric value returned by VDMS
+> in `_distance` and is evaluated by the controller using configured metric semantics.
+> For `COSINE` (implemented via VDMS `IP`), value must be above `similarity_threshold`; for distance-style metrics such as `L2`,
+> value must be below `similarity_threshold`.
+> A value of `null` means either the ReID query has not been submitted yet
 > (`pending_collection`), the query found no match below the configured
 > `similarity_threshold` (`query_no_match`), or ReID is disabled (`reid_disabled`).
 
@@ -401,18 +403,18 @@ interest changes. The `{event_type}` segment is typically `objects`.
 
 ### Region Event Top-Level Fields
 
-| Field         | Type                  | Description                                                                                                                                                                 |
-| ------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `timestamp`   | string (ISO 8601 UTC) | Event timestamp                                                                                                                                                             |
-| `scene_id`    | string                | Scene identifier (UUID)                                                                                                                                                     |
-| `scene_name`  | string                | Scene name                                                                                                                                                                  |
-| `region_id`   | string                | Region identifier (UUID)                                                                                                                                                    |
-| `region_name` | string                | Region name                                                                                                                                                                 |
-| `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                                                                                          |
-| `objects`     | array                 | Tracked objects currently inside the region. Each object includes live `regions.<region_id>.dwell` in addition to [Common Output Track Fields](#common-output-track-fields) |
-| `entered`     | array                 | Objects that entered the region during this cycle; each element is a bare track object and may include live `regions.<region_id>.dwell`. Empty when no entry occurred       |
-| `exited`      | array                 | Objects that exited the region during this cycle; each element is `{"object": <track>, "dwell": <seconds>}`. Empty when no exit occurred                                    |
-| `metadata`    | object                | Region geometry: `title`, `uuid`, `points` (polygon vertices in metres), `area` (`"poly"`), `fromSensor` (boolean)                                                          |
+| Field         | Type                  | Description                                                                                                        |
+| ------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `timestamp`   | string (ISO 8601 UTC) | Event timestamp                                                                                                    |
+| `scene_id`    | string                | Scene identifier (UUID)                                                                                            |
+| `scene_name`  | string                | Scene name                                                                                                         |
+| `region_id`   | string                | Region identifier (UUID)                                                                                           |
+| `region_name` | string                | Region name                                                                                                        |
+| `counts`      | object                | Map of category to object count currently inside the region (e.g. `{"person": 2}`)                                 |
+| `objects`     | array                 | Tracked objects currently inside the region (#common-output-track-fields)                                          |
+| `entered`     | array                 | Objects that entered the region during this cycle; Empty when no entry occurred                                    |
+| `exited`      | array                 | Objects that exited the region during this cycle; Empty when no exit occurred                                      |
+| `metadata`    | object                | Region geometry: `title`, `uuid`, `points` (polygon vertices in metres), `area` (`"poly"`), `fromSensor` (boolean) |
 
 ### Example Region Event Message
 
