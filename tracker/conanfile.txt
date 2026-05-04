@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [requires]
-quill/11.0.2
+quill/11.1.0
 cli11/2.6.0
 cpp-httplib/0.39.0
 rapidjson/cci.20250205
