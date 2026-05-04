@@ -27,6 +27,7 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
 
 DEBOUNCE_DELAY = 0.5
+MIN_FRAMES_FOR_RELIABLE_TRACK = 3
 
 class TripwireEvent:
   def __init__(self, object, direction):
@@ -307,6 +308,10 @@ class Scene(SceneModel):
     self._updateEvents(detectionType, when)
     return
 
+  def _isObjectWithinSensor(self, obj, sensor, is_scene_wide):
+    """Return True if obj is within the sensor's coverage area."""
+    return is_scene_wide or sensor.isPointWithin(obj.sceneLoc)
+
   def processSensorData(self, jdata, when):
     sensor_id = jdata['id']
     sensor = None
@@ -346,12 +351,12 @@ class Scene(SceneModel):
     if self.tracker is not None:
       for detectionType in self.tracker.trackers.keys():
         for obj in self.tracker.currentObjects(detectionType):
-          if (not self.use_tracker or obj.frameCount > 3) and (is_scene_wide or sensor.isPointWithin(obj.sceneLoc)):
+          if (not self.use_tracker or obj.frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK) and self._isObjectWithinSensor(obj, sensor, is_scene_wide):
             objects_in_sensor.append(obj)
             obj.chain_data.active_sensors.add(sensor_id)
     else:
       for obj in self._analytics_objects.values():
-        if is_scene_wide or sensor.isPointWithin(obj.sceneLoc):
+        if self._isObjectWithinSensor(obj, sensor, is_scene_wide):
           objects_in_sensor.append(obj)
           obj.chain_data.active_sensors.add(sensor_id)
 
@@ -423,6 +428,29 @@ class Scene(SceneModel):
 
     return
 
+  def syncAnalyticsObjects(self, detection_type, tracked_objects):
+    """
+    Reconcile analytics_objects with a fresh batch of tracked objects
+    for the given detection type: evict stale entries, then deserialize
+    and index the incoming objects.
+    """
+    current_ids = {obj['id'] for obj in tracked_objects if 'id' in obj}
+
+    # Only remove stale objects belonging to THIS detection type
+    stale = [
+      oid for oid, wrapper in self._analytics_objects.items()
+      if wrapper.category == detection_type and oid not in current_ids
+    ]
+    for oid in stale:
+      del self._analytics_objects[oid]
+
+    # Create or update wrappers — deserialize as a batch for efficiency,
+    # then index results by id so _analytics_objects stays consistent.
+    deserialized = self._deserializeTrackedObjects(tracked_objects)
+    for wrapper in deserialized:
+      self._analytics_objects[wrapper.gid] = wrapper
+    return
+
   def updateTrackedObjects(self, detection_type, tracked_objects):
     """
     Update the cache of tracked objects from MQTT.
@@ -435,21 +463,7 @@ class Scene(SceneModel):
     self.tracked_objects_cache[detection_type] = tracked_objects
 
     if ControllerMode.isAnalyticsOnly():
-      current_ids = {obj['id'] for obj in tracked_objects if 'id' in obj}
-
-      # Only remove stale objects belonging to THIS detection type
-      stale = [
-        oid for oid, wrapper in self._analytics_objects.items()
-        if wrapper.category == detection_type and oid not in current_ids
-      ]
-      for oid in stale:
-        del self._analytics_objects[oid]
-
-      # Create or update wrappers — deserialize as a batch for efficiency,
-      # then index results by id so _analytics_objects stays consistent.
-      deserialized = self._deserializeTrackedObjects(tracked_objects)
-      for wrapper in deserialized:
-        self._analytics_objects[wrapper.gid] = wrapper
+      self.syncAnalyticsObjects(detection_type, tracked_objects)
     return
 
   def getTrackedObjects(self, detection_type):
@@ -605,10 +619,10 @@ class Scene(SceneModel):
   def _updateTripwireEvents(self, detectionType, now, curObjects):
     # Filter to reliable objects with enough location history for crossing detection.
     # When tracker is disabled, skip the frameCount check and consider all objects;
-    # otherwise, only consider objects with frameCount > 3 as reliable.
+    # otherwise, only consider objects with frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK as reliable.
     reliable_objects = [
       obj for obj in curObjects
-      if (obj.frameCount > 3 or ControllerMode.isAnalyticsOnly())
+      if (obj.frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK or ControllerMode.isAnalyticsOnly())
       and len(obj.chain_data.publishedLocations) > 1
     ]
 
@@ -641,10 +655,10 @@ class Scene(SceneModel):
 
     # Filter to reliable objects.
     # When tracker is disabled, skip the frameCount check and consider all objects;
-    # otherwise, only consider objects with frameCount > 3 as reliable.
+    # otherwise, only consider objects with frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK as reliable.
     reliable_objects = [
       obj for obj in curObjects
-      if obj.frameCount > 3 or ControllerMode.isAnalyticsOnly()
+      if obj.frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK or ControllerMode.isAnalyticsOnly()
     ]
 
     object_locations = [obj.sceneLoc for obj in reliable_objects]
