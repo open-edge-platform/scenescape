@@ -10,7 +10,7 @@ secrets:
   django:
     file: ${SECRETSDIR}/django
   controller-auth-file:
-    file: manager/secrets/controller.auth
+    file: ${SECRETSDIR}/controller.auth
 
 services:
   tracker:
