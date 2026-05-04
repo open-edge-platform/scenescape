@@ -496,8 +496,6 @@ class Scene(SceneModel):
       obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
       obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
 
-      # Construct a bbMeters-like object from the tracker's size field [length, width, height]
-      # so that computeCameraBounds can use the reprojection path.
       size = obj_data.get('size')
       if size and len(size) >= 3:
         obj.bbMeters = SimpleNamespace(size=Size(size[1], size[2]), width=size[1], height=size[2])
