@@ -4,6 +4,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 import json
+
 from scene_common import log
 from scene_common.rest_client import RESTClient
 
