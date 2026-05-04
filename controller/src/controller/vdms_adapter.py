@@ -18,6 +18,9 @@ DIMENSIONS = 256
 K_NEIGHBORS = 1
 SCHEMA_NAME = "reid_vector"
 SIMILARITY_METRIC = "L2"
+# Tolerance applied to the theoretical [-1, 1] IP score bounds to absorb
+# float32 rounding errors from VDMS normalization and inner-product computation.
+COSINE_SIMILARITY_TOLERANCE = 1e-6
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
@@ -37,6 +40,28 @@ class VDMSDatabase(ReIDDatabase):
     self._schema_lock = threading.Lock()
     self._schema_ready = False
     return
+
+  def _usesInnerProductMetric(self):
+    """Return True when descriptor metric is Inner Product."""
+    metric = str(self.similarity_metric).strip().upper()
+    return metric == "IP"
+
+  def _isValidSimilarityScore(self, score):
+    """Validate similarity score according to active metric semantics."""
+    try:
+      value = float(score)
+    except (TypeError, ValueError):
+      return False
+
+    if not np.isfinite(value):
+      return False
+
+    # With normalized embeddings, Inner Product must stay within [-1, 1].
+    # Allow a small tolerance to absorb float32 rounding from VDMS.
+    if self._usesInnerProductMetric() and (value < -(1.0 + COSINE_SIMILARITY_TOLERANCE) or value > (1.0 + COSINE_SIMILARITY_TOLERANCE)):
+      return False
+
+    return True
 
   def sendQuery(self, query, blob=None):
     """
@@ -78,13 +103,23 @@ class VDMSDatabase(ReIDDatabase):
       self.db.connect(hostname)
       if self.dimensions is not None:
         expected_dimensions = int(self.dimensions)
+        expected_metric = str(self.similarity_metric).strip().upper()
         with self._schema_lock:
-          schema_exists, schema_dimensions = self.findSchemaDetails(self.set_name)
+          schema_exists, schema_dimensions, schema_metric = self.findSchemaMetadata(self.set_name)
           if schema_exists:
             if schema_dimensions is None:
               raise RuntimeError(
                 f"connect: VDMS descriptor set '{self.set_name}' exists but returned no dimensions. "
                 "Refusing to proceed; recreate the descriptor set to continue.")
+            if schema_metric is None:
+              raise RuntimeError(
+                f"connect: VDMS descriptor set '{self.set_name}' exists but returned no metric. "
+                "Refusing to proceed; recreate the descriptor set to continue.")
+            if str(schema_metric).strip().upper() != expected_metric:
+              raise RuntimeError(
+                f"connect: VDMS descriptor set '{self.set_name}' uses metric {schema_metric}, "
+                f"but controller is configured for {expected_metric}. "
+                "Refusing to proceed; recreate the descriptor set with matching metric.")
             if schema_dimensions != expected_dimensions:
               raise RuntimeError(
                 f"connect: VDMS descriptor set '{self.set_name}' uses {schema_dimensions} dimensions, "
@@ -135,6 +170,7 @@ class VDMSDatabase(ReIDDatabase):
     """
     with self._schema_lock:
       requested_dimensions = int(dimensions)
+      expected_metric = str(self.similarity_metric).strip().upper()
       if self._schema_ready:
         if int(self.dimensions) != requested_dimensions:
           raise ValueError(
@@ -142,12 +178,21 @@ class VDMSDatabase(ReIDDatabase):
             f"incoming vector has {requested_dimensions} dimensions. "
             f"Restart the controller and flush the VDMS descriptor set to change dimensions.")
         return
-      schema_exists, schema_dimensions = self.findSchemaDetails(self.set_name)
+      schema_exists, schema_dimensions, schema_metric = self.findSchemaMetadata(self.set_name)
       if schema_exists:
         if schema_dimensions is None:
           raise RuntimeError(
             f"ensureSchema: VDMS descriptor set '{self.set_name}' exists but dimensions were not returned. "
             "Refusing to proceed; recreate the descriptor set to continue.")
+        if schema_metric is None:
+          raise RuntimeError(
+            f"ensureSchema: VDMS descriptor set '{self.set_name}' exists but metric was not returned. "
+            "Refusing to proceed; recreate the descriptor set to continue.")
+        if str(schema_metric).strip().upper() != expected_metric:
+          raise RuntimeError(
+            f"ensureSchema: VDMS descriptor set '{self.set_name}' uses metric {schema_metric}, "
+            f"but controller is configured for {expected_metric}. "
+            "Refusing to proceed; recreate the descriptor set with matching metric.")
         if schema_dimensions != requested_dimensions:
           raise RuntimeError(
             f"ensureSchema: VDMS descriptor set '{self.set_name}' uses {schema_dimensions} dimensions, "
@@ -199,27 +244,22 @@ class VDMSDatabase(ReIDDatabase):
         # Store as string
         properties[key] = str(value)
 
-    query = {
-      "AddDescriptor": {
-        "set": f"{set_name}",
-        "properties": properties
-      }
-    }
     # Convert vectors to JSON-serializable format (float32 -> float) and to bytes
     # VDMS API expects: query([q1, q2, ...], [blob1, blob2, ...])
     # Blobs are consumed sequentially, one per AddDescriptor query (flat list)
     descriptor_blobs = []
     add_query = []
+    normalize_embeddings = self._usesInnerProductMetric()
+
     for reid_vector in reid_vectors:
-      # Decoded embeddings from decodeReIDEmbeddingVector are (1, N); flatten to
-      # (N,) so tobytes() produces the correct contiguous float32 byte sequence.
-      vec_array = np.asarray(reid_vector, dtype="float32").flatten()
-      if self.dimensions is None:
-        log.warning("addEntry: ReID dimensions not yet initialized, skipping vector")
+      prepared_reid = self.prepareReidDict(
+        reid_vector,
+        self.dimensions,
+        normalize_embeddings=normalize_embeddings)
+      if prepared_reid is None:
         continue
-      if vec_array.shape[0] != self.dimensions:
-        log.warning(f"addEntry: Expected vector shape ({self.dimensions},) but got {vec_array.shape}, skipping this vector")
-        continue
+
+      vec_array = prepared_reid["embedded_vector"]
       descriptor_blobs.append(vec_array.tobytes())
       # Create query dict for each vector
       add_query.append({
@@ -251,6 +291,10 @@ class VDMSDatabase(ReIDDatabase):
     return schema_exists
 
   def findSchemaDetails(self, set_name):
+    schema_exists, schema_dimensions, _ = self.findSchemaMetadata(set_name)
+    return schema_exists, schema_dimensions
+
+  def findSchemaMetadata(self, set_name):
     query = [{
       "FindDescriptorSet": {
         "set": f"{set_name}"
@@ -258,13 +302,14 @@ class VDMSDatabase(ReIDDatabase):
     }]
     response, _ = self.sendQuery(query)
     if not response:
-      return False, None
+      return False, None, None
     first_response = response[0]
     if first_response.get('status') != 0 or first_response.get('returned', 0) <= 0:
-      return False, None
+      return False, None, None
 
     schema_dimensions = self._extractSchemaDimensions(first_response)
-    return True, schema_dimensions
+    schema_metric = self._extractSchemaMetric(first_response)
+    return True, schema_dimensions, schema_metric
 
   def _extractSchemaDimensions(self, find_descriptor_set_response):
     # VDMS responses may return descriptor set fields at the top level or nested under
@@ -288,7 +333,24 @@ class VDMSDatabase(ReIDDatabase):
             return None
     return None
 
-  def _build_query_constraints(self, object_type, **constraints):
+  def _extractSchemaMetric(self, find_descriptor_set_response):
+    # VDMS responses may return descriptor set fields at the top level or nested under
+    # common payload keys like "entities" or "content".
+    payloads = [find_descriptor_set_response]
+    for key in ['entities', 'entity', 'content', 'results', 'DescriptorSet']:
+      value = find_descriptor_set_response.get(key)
+      if isinstance(value, dict):
+        payloads.append(value)
+      elif isinstance(value, list):
+        payloads.extend(item for item in value if isinstance(item, dict))
+
+    for payload in payloads:
+      for key in ['metric', 'distance_metric', 'similarity_metric']:
+        if key in payload and payload[key] is not None:
+          return str(payload[key])
+    return None
+
+  def _buildQueryConstraints(self, object_type, **constraints):
     """
     Build query constraints for TIER 1 metadata filtering.
 
@@ -382,7 +444,7 @@ class VDMSDatabase(ReIDDatabase):
     log.debug(f"[VDMS] findMatches constraints received: {constraints}")
 
     # TIER 1: Build dynamic constraints for metadata filtering
-    query_constraints = self._build_query_constraints(object_type, **constraints)
+    query_constraints = self._buildQueryConstraints(object_type, **constraints)
 
     find_query = {
       "FindDescriptor": {
@@ -404,12 +466,21 @@ class VDMSDatabase(ReIDDatabase):
 
     # TIER 2: Vector similarity search on filtered candidates
     blob = []
+    normalize_embeddings = self._usesInnerProductMetric()
     for reid_vector in reid_vectors:
-      # Ensure vector is float32, then convert to bytes for VDMS
-      vec_array = np.array(reid_vector, dtype="float32")
+      vec_array = self.prepareReidVector(
+        reid_vector,
+        self.dimensions,
+        normalize_embeddings=normalize_embeddings)
+      if vec_array is None:
+        continue
       blob.append(vec_array.tobytes())  # Flat list of blobs
 
-    query = [find_query] * len(reid_vectors)
+    if len(blob) == 0:
+      log.warning("findMatches: No valid vectors for similarity search")
+      return None
+
+    query = [find_query] * len(blob)
     response, _ = self.sendQuery(query, blob)
 
     log.debug(f"[VDMS] Raw VDMS response (truncated): status={response[0].get('status') if response else 'None'}, returned={response[0].get('returned') if response else 'None'}")
@@ -417,12 +488,31 @@ class VDMSDatabase(ReIDDatabase):
       log.debug(f"[VDMS] Full first response: {response[0]}")
 
     if response:
-      result = [
-        item.get('entities')
-        for item in response
-        if (item.get('status') == 0 and item.get('returned') > 0)
-      ]
-      log.debug(f"[VDMS] findMatches returned {len(result)} result(s) from {len(reid_vectors)} vector(s)")
+      result = []
+      for item in response:
+        if item.get('status') != 0 or item.get('returned') <= 0:
+          continue
+
+        valid_entities = []
+        for entity in item.get('entities', []):
+          similarity = entity.get('_distance')
+          if self._isValidSimilarityScore(similarity):
+            valid_entities.append(entity)
+          else:
+            log.warning(
+              f"findMatches: Discarding entity with invalid similarity score "
+              f"{similarity} for metric {self.similarity_metric}")
+
+        # Preserve 1:1 correspondence between query vectors and per-vector responses.
+        # A successful query response with only invalid entities should still count as
+        # "no usable match" for downstream majority-vote logic.
+        result.append(valid_entities)
+
+      log.debug(
+        "[VDMS] findMatches returned %d per-vector result item(s) from %d valid "
+        "query vector(s); VDMS response items=%d, input vectors=%d",
+        len(result), len(blob), len(response), len(reid_vectors))
+
       return result
     log.debug("[VDMS] findMatches returned None (no response from VDMS)")
     return None
