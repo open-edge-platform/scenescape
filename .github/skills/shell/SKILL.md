@@ -1,3 +1,8 @@
+---
+name: shell
+description: Shell scripting standards for SceneScape — shebang, style, and Bash guidelines.
+---
+
 # Shell Scripting Standards for SceneScape
 
 ## Shebang
