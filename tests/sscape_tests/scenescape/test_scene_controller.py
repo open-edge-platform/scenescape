@@ -158,9 +158,11 @@ class TestSceneControllerExtractReidConfigData:
 
     reid_config = {
       'feature_accumulation_threshold': 8,
+      'similarity_metric': 'L2',
       'similarity_threshold': 55,
       'stale_feature_timeout_secs': 7.5,
       'stale_feature_check_interval_secs': 2.0,
+      'minimum_bbox_area': 5000,
       'feature_slice_size': 10,
     }
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
