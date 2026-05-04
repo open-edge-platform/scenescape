@@ -537,5 +537,51 @@ class TestUUIDManagerPreviousIdChainBehavior:
     assert not (obj.reid_state == ReidState.MATCHED and obj.similarity is None)
 
 
+class TestUUIDManagerSimilarityThresholdValidation:
+  """Test metric-aware validation of configured similarity thresholds."""
+
+  def test_rejects_negative_l2_similarity_threshold(self):
+    with pytest.raises(ValueError, match="similarity_threshold for L2 must be non-negative"):
+      UUIDManager(reid_config_data={
+        'similarity_metric': 'L2',
+        'similarity_threshold': -0.1,
+        'stale_feature_check_interval_secs': 3600,
+      })
+
+  @pytest.mark.parametrize('invalid_threshold', [-1.1, 1.1])
+  def test_rejects_out_of_range_cosine_similarity_threshold(self, invalid_threshold):
+    with pytest.raises(
+      ValueError,
+      match=r"similarity_threshold for COSINE must be within \[-1.0, 1.0\]",
+    ):
+      UUIDManager(reid_config_data={
+        'similarity_metric': 'COSINE',
+        'similarity_threshold': invalid_threshold,
+        'stale_feature_check_interval_secs': 3600,
+      })
+
+  @pytest.mark.parametrize(
+    ('metric', 'threshold'),
+    [
+      ('L2', 0.0),
+      ('L2', 40.0),
+      ('COSINE', -1.0),
+      ('COSINE', 0.5),
+      ('COSINE', 1.0),
+    ],
+  )
+  def test_accepts_thresholds_at_valid_metric_boundaries(self, metric, threshold):
+    manager = UUIDManager(reid_config_data={
+      'similarity_metric': metric,
+      'similarity_threshold': threshold,
+      'stale_feature_check_interval_secs': 3600,
+    })
+
+    try:
+      assert manager.similarity_threshold == threshold
+    finally:
+      manager.shutdown()
+
+
 if __name__ == '__main__':
   pytest.main([__file__, '-v'])
