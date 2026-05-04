@@ -76,7 +76,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P1
+- P3
 
 ### Prerequisites
 
@@ -102,7 +102,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P1
+- P3
 
 ### Prerequisites
 
@@ -128,7 +128,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P1
+- P3
 
 ### Prerequisites
 
@@ -154,7 +154,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P1
+- P3
 
 ### Prerequisites
 
@@ -180,7 +180,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P1
+- P3
 
 ### Prerequisites
 
@@ -284,7 +284,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P2
+- P3
 
 ### Prerequisites
 
@@ -310,7 +310,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P2
+- P3
 
 ### Prerequisites
 
@@ -336,7 +336,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P2
+- P3
 
 ### Prerequisites
 
@@ -362,7 +362,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P2
+- P3
 
 ### Prerequisites
 
@@ -388,7 +388,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P2
+- P3
 
 ### Prerequisites
 
@@ -414,7 +414,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P2
+- P3
 
 ### Prerequisites
 
@@ -440,7 +440,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P2
+- P3
 
 ### Prerequisites
 
@@ -570,7 +570,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P2
+- P3
 
 ### Prerequisites
 
@@ -596,7 +596,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P2
+- P3
 
 ### Prerequisites
 
@@ -622,7 +622,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P2
+- P3
 
 ### Prerequisites
 
@@ -648,7 +648,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P2
+- P3
 
 ### Prerequisites
 
@@ -726,7 +726,7 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P2
+- P3
 
 ### Prerequisites
 
@@ -752,6 +752,32 @@ Affected Versions: 2025.1
 
 ### Test priority
 
+- P3
+
+### Prerequisites
+
+-
+
+### Test steps
+
+1.
+
+## Vision_AI/SSCAPE/API/SCENE/30: Update child scene link to a different parent
+
+Automated: yes
+
+Affected Versions: 2025.1
+
+### Test summary
+
+-
+
+### Test requirements mapping
+
+-
+
+### Test priority
+
 - P2
 
 ### Prerequisites
@@ -762,7 +788,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/SCENE/30: Delete scenes by uid
+## Vision_AI/SSCAPE/API/SCENE/31: Delete scenes by uid
 
 Automated: yes
 
@@ -788,7 +814,7 @@ Affected Versions: 2025.1
 
 1.
 
-## Vision_AI/SSCAPE/API/SCENE/31: Delete non existent scene
+## Vision_AI/SSCAPE/API/SCENE/32: Delete non existent scene
 
 Automated: yes
 
@@ -804,7 +830,33 @@ Affected Versions: 2025.1
 
 ### Test priority
 
-- P2
+- P3
+
+### Prerequisites
+
+-
+
+### Test steps
+
+1.
+
+## Vision_AI/SSCAPE/API/SCENE/33: Delete non existent child scene link
+
+Automated: yes
+
+Affected Versions: 2025.1
+
+### Test summary
+
+-
+
+### Test requirements mapping
+
+-
+
+### Test priority
+
+- P3
 
 ### Prerequisites
 

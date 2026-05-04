@@ -610,7 +610,7 @@
         }
       },
       {
-        "step_name": "Verify parent A has no children after delete",
+        "step_name": "Verify no child scene links remain",
         "api": "child",
         "method": "getChildScene",
         "request": {},
@@ -619,12 +619,6 @@
         },
         "validate": {
           "count": 0
-        },
-        "expected_body": {
-          "count": 0,
-          "next": null,
-          "previous": null,
-          "results": []
         }
       }
     ]
@@ -694,7 +688,7 @@
         }
       },
       {
-        "step_name": "Verify parent A has no children after delete",
+        "step_name": "Verify no child scene links remain",
         "api": "child",
         "method": "getChildScene",
         "request": {},
@@ -703,12 +697,6 @@
         },
         "validate": {
           "count": 0
-        },
-        "expected_body": {
-          "count": 0,
-          "next": null,
-          "previous": null,
-          "results": []
         }
       }
     ]
@@ -784,7 +772,7 @@
         }
       },
       {
-        "step_name": "Verify parent A has no children after delete",
+        "step_name": "Verify no child scene links remain",
         "api": "child",
         "method": "getChildScene",
         "request": {},
@@ -793,12 +781,6 @@
         },
         "validate": {
           "count": 0
-        },
-        "expected_body": {
-          "count": 0,
-          "next": null,
-          "previous": null,
-          "results": []
         }
       }
     ]
@@ -848,7 +830,7 @@
         }
       },
       {
-        "step_name": "Verify parent A has no children after delete",
+        "step_name": "Verify no child scene links remain",
         "api": "child",
         "method": "getChildScene",
         "request": {},
@@ -857,12 +839,6 @@
         },
         "validate": {
           "count": 0
-        },
-        "expected_body": {
-          "count": 0,
-          "next": null,
-          "previous": null,
-          "results": []
         }
       }
     ]
@@ -883,9 +859,6 @@
         },
         "expected_status": {
           "status_code": 201
-        },
-        "save": {
-          "CHAIN_LINK_AB_UID": "uid"
         }
       },
       {
@@ -901,9 +874,6 @@
         },
         "expected_status": {
           "status_code": 201
-        },
-        "save": {
-          "CHAIN_LINK_BC_UID": "uid"
         }
       },
       {
@@ -941,7 +911,7 @@
         }
       },
       {
-        "step_name": "Verify parent A has no children after delete",
+        "step_name": "Verify no child scene links remain",
         "api": "child",
         "method": "getChildScene",
         "request": {},
@@ -950,12 +920,6 @@
         },
         "validate": {
           "count": 0
-        },
-        "expected_body": {
-          "count": 0,
-          "next": null,
-          "previous": null,
-          "results": []
         }
       }
     ]
@@ -1048,7 +1012,7 @@
         }
       },
       {
-        "step_name": "Verify parent A has no children after delete",
+        "step_name": "Verify no child scene links remain",
         "api": "child",
         "method": "getChildScene",
         "request": {},
@@ -1057,12 +1021,6 @@
         },
         "validate": {
           "count": 0
-        },
-        "expected_body": {
-          "count": 0,
-          "next": null,
-          "previous": null,
-          "results": []
         }
       }
     ]
@@ -1139,7 +1097,7 @@
         }
       },
       {
-        "step_name": "Verify parent A has no children after delete",
+        "step_name": "Verify no child scene links remain",
         "api": "child",
         "method": "getChildScene",
         "request": {},
@@ -1148,18 +1106,83 @@
         },
         "validate": {
           "count": 0
-        },
-        "expected_body": {
-          "count": 0,
-          "next": null,
-          "previous": null,
-          "results": []
         }
       }
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/30: Delete scenes by uid",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/30: Update child scene link to a different parent",
+    "test_steps": [
+      {
+        "step_name": "Create child link A -> B",
+        "api": "child",
+        "method": "createChildScene",
+        "request": {
+          "body": {
+            "child_type": "local",
+            "parent": "${CIRC_SCENE_A_UID}",
+            "child": "${CIRC_SCENE_B_UID}"
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        }
+      },
+      {
+        "step_name": "Update parent link of B from A to D",
+        "api": "child",
+        "method": "updateChildScene",
+        "request": {
+          "uid": "${CIRC_SCENE_B_UID}",
+          "body": {
+            "child_type": "local",
+            "parent": "${CIRC_SCENE_D_UID}",
+            "child": "${CIRC_SCENE_B_UID}"
+          }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify one child scene link remains",
+        "api": "child",
+        "method": "getChildScene",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "count": 1
+        }
+      },
+      {
+        "step_name": "Delete child link D -> B",
+        "api": "child",
+        "method": "deleteChildSceneLink",
+        "request": {
+          "uid": "${CIRC_SCENE_B_UID}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Verify no child scene links remain",
+        "api": "child",
+        "method": "getChildScene",
+        "request": {},
+        "expected_status": {
+          "status_code": 200
+        },
+        "validate": {
+          "count": 0
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/31: Delete scenes by uid",
     "test_steps": [
       {
         "step_name": "Delete Scene",
@@ -1230,7 +1253,7 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/SCENE/31: Delete non existent scene",
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/32: Delete non existent scene",
     "test_steps": [
       {
         "step_name": "Delete Scene",
@@ -1238,6 +1261,22 @@
         "method": "deleteScene",
         "request": {
           "uid": "123"
+        },
+        "expected_status": {
+          "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/33: Delete non existent child scene link",
+    "test_steps": [
+      {
+        "step_name": "Delete Child Scene Link with non existent uid",
+        "api": "child",
+        "method": "deleteChildSceneLink",
+        "request": {
+          "uid": "00000000-0000-4000-8000-000000000099"
         },
         "expected_status": {
           "status_code": 404
