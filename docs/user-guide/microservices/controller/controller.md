@@ -50,7 +50,7 @@ When `similarity_metric` is `L2` (default), Re-ID vectors follow distance-style 
 
 `--visibility_topic`: Specifies the topic for publishing visibility information, which includes the visibility of objects in cameras. Options are `unregulated`, `regulated`, or `none`.
 
-`--analytics-only`: Enables analytics-only mode (experimental feature). In this mode, the Scene Controller consumes tracked objects from a separate Tracker service via MQTT instead of performing tracking internally. The tracker is not initialized, and camera/scene data processing is skipped. Child scenes are not supported. This mode can also be enabled via the `CONTROLLER_ENABLE_ANALYTICS_ONLY` environment variable set to `true`.
+`--analytics-only`: Enables analytics-only mode (experimental feature). In this mode, the Scene Controller consumes tracked objects from a separate Tracker service via MQTT instead of performing tracking internally. The tracker is not initialized, and camera/scene data processing is skipped. `camera_bounds` are still projected onto the regulated output when the incoming tracked objects include a `size` field. Child scenes are not supported. This mode can also be enabled via the `CONTROLLER_ENABLE_ANALYTICS_ONLY` environment variable set to `true`.
 
 ### Configuration
 
