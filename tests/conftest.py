@@ -755,7 +755,7 @@ def _backend_type(request):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="function")
-def scenescape_env(request, _compose_manager, _k8s_manager, secrets_dir, supass,
+def scenescape_env(request, _compose_manager, secrets_dir, supass,
                    loopback_hosts, install_shared_models):
   """Resolve the test environment for the current test's profile and backend.
 
@@ -793,6 +793,7 @@ def scenescape_env(request, _compose_manager, _k8s_manager, secrets_dir, supass,
   if backend == "kubernetes":
     if not _K8S_AVAILABLE:
       pytest.skip("pytest-kubernetes not installed; install with: pip install pytest-kubernetes")
+    _k8s_manager = request.getfixturevalue("_k8s_manager")
     if _k8s_manager is None:
       pytest.skip("Kubernetes manager not available")
     env = _k8s_manager.get_env(spec)
@@ -913,13 +914,16 @@ def pytest_runtest_setup(item):
   if not _ORCHESTRATION_AVAILABLE or _testlog is None:
     return
   spec = getattr(item, "_scenescape_spec", None)
-  if spec is None:
+  is_k8s_only = item.get_closest_marker("kubernetes_only") is not None
+  if spec is None and not is_k8s_only:
     return
   path_str = str(item.fspath)
   if "sscape_tests" in path_str:
     group = "unit"
   elif "/ui/" in path_str:
     group = "ui"
+  elif is_k8s_only:
+    group = "kubernetes"
   else:
     group = "functional"
   test_name = _derive_marker(item)
@@ -931,7 +935,8 @@ def pytest_runtest_call(item):
   if not _ORCHESTRATION_AVAILABLE or _testlog is None:
     return
   spec = getattr(item, "_scenescape_spec", None)
-  if spec is None:
+  is_k8s_only = item.get_closest_marker("kubernetes_only") is not None
+  if spec is None and not is_k8s_only:
     return
   _testlog.begin_test_phase()
 
