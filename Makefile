@@ -363,21 +363,20 @@ setup-tests: build-all-images init-secrets .env setup-pytest
 
 .PHONY: setup-pytest
 setup-pytest:
-	@set -ex
 	@if [ ! -d "$(CURDIR)/tests/.venv" ]; then \
-			python3 -m venv $(CURDIR)/tests/.venv; \
-	fi
-	@echo "Installing venv dependencies..."; \
+		python3 -m venv $(CURDIR)/tests/.venv; \
+		echo "Installing venv dependencies..."; \
 		$(CURDIR)/tests/.venv/bin/pip install --progress-bar on --upgrade pip; \
-		$(CURDIR)/tests/.venv/bin/pip install --progress-bar on -r $(CURDIR)/tests/requirements.txt;
+		cd $(CURDIR)/tests && $(CURDIR)/tests/.venv/bin/pip install --progress-bar on -r requirements.txt; \
+	fi
 	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "from fast_geometry import Point" 2>/dev/null; then \
-			echo "Building fast_geometry C++ extension..."; \
-			PATH="$(CURDIR)/tests/.venv/bin:$$PATH" \
+		echo "Building fast_geometry C++ extension..."; \
+		PATH="$(CURDIR)/tests/.venv/bin:$$PATH" \
 			$(MAKE) -C $(CURDIR)/scene_common/src/fast_geometry all install; \
 	fi
 	@if ! command -v Xvfb > /dev/null 2>&1; then \
-			echo "Installing Xvfb for UI tests..."; \
-			sudo apt-get install -y xvfb; \
+		echo "Installing Xvfb for UI tests..."; \
+		sudo apt-get install -y xvfb; \
 	fi
 
 .PHONY: run_tests
