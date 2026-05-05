@@ -44,7 +44,7 @@ concurrency:
 
 env:
   DOCKER_BUILDKIT: 1
-  SUPASS: demo
+  SUPASS: test
 
 permissions:
   contents: read
@@ -153,15 +153,28 @@ jobs:
         id: setup-cache
         uses: ./.github/actions/setup-cache
 
-      - name: "Run Basic Acceptance Tests (BAT)"
+      - name: "Clean environment"
+        run: |
+          make clean-all
+          git clean -fdx
+
+      - name: "Setup Test Environment"
         env:
           CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
           CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
           GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
-          make clean-all
-          git clean -fdx
-          make run_basic_acceptance_tests
+          make setup-tests
+
+      - name: "Install github annotate plugin"
+        run: |
+          source tests/.venv/bin/activate
+          pip install pytest-github-actions-annotate-failures==0.4.0
+
+      - name: "Run Basic Acceptance Tests (BAT)"
+        run: |
+          source tests/.venv/bin/activate
+          pytest tests -m basic_acceptance --junitxml=reports/bat_results.xml
 
       - name: Upload Logs and Reports
         if: always()
@@ -209,16 +222,27 @@ jobs:
         id: setup-cache
         uses: ./.github/actions/setup-cache
 
-      - name: Install chart with timeout
+      - name: "Setup Test Environment"
         env:
           CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
           CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
           GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
-          KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
+          make setup-tests
 
-      - name: Stability test (2m)
-        run: make -C kubernetes test
+      - name: "Install github annotate plugin"
+        run: |
+          source tests/.venv/bin/activate
+          pip install pytest-github-actions-annotate-failures==0.4.0
+
+      - name: "Run k8s tests"
+        run: |
+          source tests/.venv/bin/activate
+          pytest tests/kubernetes --junitxml=reports/k8s_results.xml
+
+      - name: Upload Logs and Reports
+        if: always()
+        uses: ./.github/actions/upload-artifacts
 
       - name: Fetch stability test logs
         if: always()
