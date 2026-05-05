@@ -22,12 +22,12 @@ Intel® SceneScape is a microservice-based spatial awareness framework for multi
 
 Consult these based on the code you're working with:
 
-- **Python** (`.github/skills/python.md`): Coding standards, imports, patterns
+- **Python** (`.github/skills/python/SKILL.md`): Coding standards, imports, patterns
   - **CRITICAL**: 2 spaces for indentation (checked by `make indent-check`)
-- **JavaScript** (`.github/skills/javascript.md`): Frontend conventions
-- **Shell** (`.github/skills/shell.md`): Bash scripting guidelines
-- **Makefile** (`.github/skills/makefile.md`): Build system conventions
-- **Testing** (`.github/skills/testing.md`): Test creation frameworks
+- **JavaScript** (`.github/skills/javascript/SKILL.md`): Frontend conventions
+- **Shell** (`.github/skills/shell/SKILL.md`): Bash scripting guidelines
+- **Makefile** (`.github/skills/makefile/SKILL.md`): Build system conventions
+- **Testing** (`.github/skills/testing/SKILL.md`): Test creation frameworks
 
 ### Skills Caching Strategy
 
@@ -79,7 +79,7 @@ Treat AI-generated output as **untrusted draft code** until reviewed and tested.
 Reject suggestions that bypass security controls for convenience or introduce unsafe defaults.
 
 For detailed security review guidance, follow:
-`.github/skills/security.md`.
+`.github/skills/security/SKILL.md`.
 
 ## Architecture Overview
 
@@ -129,7 +129,7 @@ make rebuild-core                  # Clean + build (useful after code changes)
 
 ## Testing Framework
 
-**For comprehensive test creation guidance, see `.github/skills/testing.md`** - detailed instructions on creating unit, functional, integration, UI, and smoke tests with both positive and negative cases.
+**For comprehensive test creation guidance, see `.github/skills/testing/SKILL.md`** - detailed instructions on creating unit, functional, integration, UI, and smoke tests with both positive and negative cases.
 
 **Running Tests** (must have containers running via docker-compose):
 
@@ -143,11 +143,11 @@ make -C tests geometry-unit                           # Specific test (e.g., geo
 ### Completion Gate For Test Tasks (Critical)
 
 For runtime test verification requirements, use
-`.github/skills/test-verification-gate.md`.
+`.github/skills/test-verification-gate/SKILL.md`.
 
 ### Containerized Test Image Freshness Gate (Critical)
 
-Use `.github/skills/test-verification-gate.md` as the single source of truth
+Use `.github/skills/test-verification-gate/SKILL.md` as the single source of truth
 for image freshness checks, rebuild-before-test requirements, and retry policy
 for containerized test targets.
 
@@ -259,7 +259,7 @@ pubsub.publish(topic, json_payload)
 
 ### HOW to Update Documentation
 
-**For detailed procedures, see `.github/skills/documentation-how.md`.**
+**For detailed procedures, see `.github/skills/documentation-how/SKILL.md`.**
 
 This skill contains:
 

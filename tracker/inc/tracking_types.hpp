@@ -27,6 +27,8 @@ namespace tracker {
 struct Detection {
     std::optional<int32_t> id; ///< Frame-local detection ID (optional)
     cv::Rect2f bounding_box_px;
+    std::string
+        metadata_json; ///< Raw JSON string of the detection's metadata object (empty if absent)
 };
 
 /**
@@ -91,6 +93,8 @@ struct Track {
     std::array<double, 3> velocity;    ///< Velocity [vx, vy, vz] m/s
     std::array<double, 3> size;        ///< Object size [length, width, height] meters
     std::array<double, 4> rotation;    ///< Orientation quaternion [x, y, z, w]
+    std::string
+        metadata_json; ///< Raw JSON string of the detection's metadata object (empty if absent)
 };
 
 /**

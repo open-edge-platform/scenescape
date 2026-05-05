@@ -191,6 +191,9 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         obj.length = width_m; // [width, width, height] convention
         obj.width = width_m;
         obj.height = height_m;
+        if (!detections[i].metadata_json.empty()) {
+            obj.attributes["metadata_json"] = detections[i].metadata_json;
+        }
 
         detection_valid[i] = 1;
     }
