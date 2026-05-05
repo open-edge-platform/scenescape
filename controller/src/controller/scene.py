@@ -496,8 +496,8 @@ class Scene(SceneModel):
       obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
       obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
 
-      if obj.size and len(obj.size) >= 3:
-        _, width, height, *_ = obj.size
+      if obj.size and len(obj.size) == 3:
+        _, width, height = obj.size
         obj.bbMeters = SimpleNamespace(size=Size(width, height), width=width, height=height)
       else:
         obj.bbMeters = None
