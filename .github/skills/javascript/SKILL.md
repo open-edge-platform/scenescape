@@ -1,3 +1,8 @@
+---
+name: javascript
+description: JavaScript coding standards for SceneScape — code style, conventions, and frontend patterns.
+---
+
 # JavaScript Coding Standards for SceneScape
 
 ## Code Style
