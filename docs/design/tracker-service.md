@@ -146,9 +146,9 @@ In-memory only - no persistent storage. Stateless design for horizontal scalabil
 
 The `confidence` field is passed through from the camera detection message to the corresponding track in the scene output. It is optional — when absent in the detection message it is omitted from the track output.
 
-| Field        | Type   | Description                                               |
-| ------------ | ------ | --------------------------------------------------------- |
-| `confidence` | number | Detection confidence score in \[0, 1\] from the AI model  |
+| Field        | Type   | Description                                              |
+| ------------ | ------ | -------------------------------------------------------- |
+| `confidence` | number | Detection confidence score in \[0, 1\] from the AI model |
 
 **Multi-camera limitation**: When a track is matched against detections from multiple cameras within the same time chunk, `confidence` reflects the last matched camera only (last-write-wins). This is an inherent limitation of the RobotVision attributes API used for per-track data storage.
 
