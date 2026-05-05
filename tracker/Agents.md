@@ -57,6 +57,13 @@ All `TRACKER_*` environment variables are defined in `inc/env_vars.hpp` — insp
 4. Add env var parsing in `src/config_loader.cpp`
 5. Update design docs
 
+## NTP Time Synchronization
+
+**Two clocks, two purposes — do not mix them:**
+
+- **`ClockFn` / `system_clock`** — absolute UTC time. Use `ClockFn clock_fn_` (injected via constructor, default `makeSystemClock()`) wherever code produces or compares wall-clock timestamps: message lag checks, Kalman filter time advancement, published ISO timestamps. Never call `system_clock::now()` directly in these paths — call `clock_fn_()` so NTP adjustment flows through.
+- **`steady_clock`** — monotonic relative time. Use `steady_clock::now()` for all latency/observability measurements (`receive_time`, `parse_time`, `buffer_time`, `dispatch_time`, `transform_time`, `track_time`, `publish_time`, `chunk_time`). Never replace these with `ClockFn` — `steady_clock` is immune to NTP jumps and is the correct choice for measuring durations.
+
 ## Coverage Requirements (Enforced)
 
 The Tracker Service enforces strict test coverage thresholds via CI:

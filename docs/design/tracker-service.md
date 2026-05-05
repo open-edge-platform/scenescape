@@ -48,7 +48,6 @@ Explicitly out of scope:
 - **Dynamic re-configuration** — Config changes require restart (by design for simplicity)
 - **Object re-identification** — Track IDs reset on camera handoff (when non-overlapping) or long-term occlusion or object re-entry
 - **Historical persistence** — Tracking state lost on service restart
-- **NTP time correction** — No camera clock drift compensation
 - **Lease-based scaling** — Static scene partitioning only
 - **Multi-scene fusion** — No cross-scene track handoff
 - **Scene hierarchy** — Flat scene structure only; no parent-child scene relationships or nested regions
@@ -92,6 +91,7 @@ See full schema: [`camera-data.schema.json`](../../tracker/schema/camera-data.sc
       {
         "id": 1,
         "bounding_box_px": { "x": 4, "y": 0, "width": 127, "height": 309 },
+        "metadata": { "reid": "...", "gender": "male" }
         "confidence": 0.92
       }
     ]
@@ -124,6 +124,7 @@ See full schema: [`scene-data.schema.json`](../../tracker/schema/scene-data.sche
       "velocity": [-0.04, 0.2, 0.0],
       "size": [0.5, 0.5, 1.85],
       "rotation": [0, 0, 0, 1],
+      "metadata": { "reid": "...", "gender": "male" }
       "confidence": 0.92
     }
   ]
