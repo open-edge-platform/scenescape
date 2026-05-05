@@ -29,6 +29,8 @@ The auto calibration services supports two types of camera calibration methods:
 
 - **Markerless Calibration**: This approach leverages raw RGBD data from a [Polycam](https://poly.cam/) scan to estimate the camera's position in the scene, eliminating the need for physical markers. Check out the detailed guide on how to [Autocalibrate Cameras Using Visual Features](../../how-to-guides/calibrate-cameras/autocalibrate-cameras-using-visual-features.md).
 
+For implementation-level details of markerless calibration using NetVLAD, quadtree attention, and HLoc, see [Markerless Camera Calibration Internals](./markerless-camera-calibration.md).
+
 To deploy the auto calibration service, refer to the [Get Started](./get-started.md) guide. The service supports configuration through specific arguments and flags ([listed below](#configurable-arguments-and-flags)), which default to predefined values unless explicitly modified.
 
 ## Configurable Arguments and Flags
@@ -77,6 +79,7 @@ _Figure 2: Auto Calibration Sequence diagram_
 
 - [Get Started Guide](./get-started.md)
 - [API Reference](./api-reference.md)
+- [Markerless Camera Calibration Internals](./markerless-camera-calibration.md)
 
 <!--hide_directive
 :::{toctree}
@@ -84,6 +87,7 @@ _Figure 2: Auto Calibration Sequence diagram_
 
 get-started
 api-reference
+markerless-camera-calibration
 
 :::
 hide_directive-->

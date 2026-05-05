@@ -4,6 +4,7 @@
 import logging
 import re
 import os
+import base64
 
 from flask import Flask, jsonify, request
 from flask_socketio import SocketIO
@@ -178,6 +179,21 @@ class CameraCalibrationApi:
     if len(image_data) > self.MAX_IMAGE_SIZE:
       log.warning(f"Rejecting oversized image data: {len(image_data)} bytes")
       raise ValidationError("Image data is too large")
+
+    try:
+      decoded = base64.b64decode(image_data, validate=True)
+    except Exception:
+      raise ValidationError("Image must be valid base64-encoded data")
+
+    IMAGE_SIGNATURES = [
+      b'\xff\xd8\xff',       # JPEG
+      b'\x89PNG\r\n\x1a\n',  # PNG
+      b'GIF87a', b'GIF89a',  # GIF
+      b'BM',                 # BMP
+      b'RIFF',               # WebP (starts with RIFF)
+    ]
+    if not any(decoded.startswith(sig) for sig in IMAGE_SIGNATURES):
+      raise ValidationError("Image data does not appear to be a valid image format")
 
   def _validateIntrinsics(self, intrinsics):
     """Validate camera intrinsics matrix format."""
