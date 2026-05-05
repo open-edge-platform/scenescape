@@ -507,5 +507,23 @@ TEST(CoordinateTransformerTest, UpwardRayReturnsValidResult) {
     EXPECT_EQ(result.size(), 1u);
 }
 
+//
+// metadata_json passthrough tests
+//
+
+TEST(TransformDetectionsTest, MetadataJson_PreservedThroughTransform) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+
+    Detection det = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+    det.metadata_json = R"({"reid":{"model_name":"test"},"age":{"label":"adult"}})";
+
+    auto result = transformer.transformDetections(std::vector<Detection>{det});
+
+    ASSERT_EQ(result.size(), 1u);
+    ASSERT_TRUE(result[0].attributes.count("metadata_json"));
+    EXPECT_EQ(result[0].attributes.at("metadata_json"),
+              R"({"reid":{"model_name":"test"},"age":{"label":"adult"}})");
+}
+
 } // namespace
 } // namespace tracker
