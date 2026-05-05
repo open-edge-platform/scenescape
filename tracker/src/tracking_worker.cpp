@@ -54,10 +54,11 @@ rv::tracking::TrackManagerConfig build_tracker_config(const TrackingConfig& conf
 TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int queue_capacity,
                                PublishCallback publish_callback,
                                const TrackingConfig& tracking_config,
-                               const std::unordered_map<std::string, Camera>& cameras)
+                               const std::unordered_map<std::string, Camera>& cameras,
+                               ClockFn clock_fn)
     : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
       publish_callback_(std::move(publish_callback)),
-      tracker_(build_tracker_config(tracking_config)) {
+      tracker_(build_tracker_config(tracking_config)), clock_fn_(std::move(clock_fn)) {
     // Adapt frame-rate-dependent timing parameters
     tracker_.updateTrackerParams(tracking_config.time_chunking_rate_fps);
 
@@ -157,7 +158,7 @@ void TrackingWorker::run() {
 
 void TrackingWorker::process_chunk(Chunk chunk) {
     // Compute canonical timestamp once: prefer newest batch, fall back to now.
-    auto now = std::chrono::system_clock::now();
+    auto now = clock_fn_();
     auto track_timestamp =
         chunk.camera_batches.empty() ? now : chunk.camera_batches.back().timestamp;
     std::string timestamp_iso = chunk.camera_batches.empty()

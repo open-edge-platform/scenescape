@@ -42,7 +42,8 @@ public:
      * @param publish_callback Callback for workers to publish results
      */
     TimeChunkScheduler(TimeChunkBuffer& buffer, const SceneRegistry& registry,
-                       const TrackingConfig& config, PublishCallback publish_callback);
+                       const TrackingConfig& config, PublishCallback publish_callback,
+                       ClockFn clock_fn = makeSystemClock());
 
     /// Destructor stops scheduler and all workers
     ~TimeChunkScheduler();
@@ -124,6 +125,7 @@ private:
     const SceneRegistry& registry_;
     TrackingConfig config_;
     PublishCallback publish_callback_;
+    ClockFn clock_fn_;
 
     std::chrono::milliseconds interval_;
     std::thread scheduler_thread_;
