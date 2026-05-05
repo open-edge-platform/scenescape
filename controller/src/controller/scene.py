@@ -496,6 +496,7 @@ class Scene(SceneModel):
     Returns:
         List of object-like structures with necessary attributes
     """
+
     if not serialized_objects or not isinstance(serialized_objects, list):
       return serialized_objects if serialized_objects else []
 
@@ -568,12 +569,15 @@ class Scene(SceneModel):
       obj.chain_data.regions = obj_data.get('regions', obj.chain_data.regions)
       obj.chain_data.persist = obj_data.get('persistent_data', obj.chain_data.persist)
 
+      # Convert serialized sensors into env_sensor_state and attr_sensor_events
       sensors_data = obj_data.get('sensors', {})
       for sensor_id, sensor_info in sensors_data.items():
         values = sensor_info.get('values', [])
         if not values:
           continue
+
         is_environmental = self._isEnvironmentalSensor(sensor_id, values)
+
         if is_environmental:
           obj.chain_data.env_sensor_state[sensor_id] = {'readings': values}
         else:
@@ -581,6 +585,7 @@ class Scene(SceneModel):
 
       if obj_id in self.object_history_cache:
         obj.chain_data.publishedLocations = self.object_history_cache[obj_id].get('publishedLocations', [])
+      # Store current object data for next frame
       self.object_history_cache.setdefault(obj_id, {})['publishedLocations'] = obj.chain_data.publishedLocations
       self.object_history_cache.setdefault(obj_id, {})['last_seen'] = obj.sceneLoc
 
