@@ -45,29 +45,29 @@ def container_is_ready(docker, project_name, service, log_pattern, since=None):
 
     # Check if container is running.
     if not state.running:
-      logger.debug("%s: container not running (state=%s)", service, state.status)
+      log.debug("%s: container not running (state=%s)", service, state.status)
       return False
 
     # Check Docker health status
     health = getattr(state, "health", None)
     if health:
       if health.status == "healthy":
-        logger.debug("%s: Docker health check passed", service)
+        log.debug("%s: Docker health check passed", service)
         return True
       elif health.status == "starting":
-        logger.debug("%s: Docker health check still starting", service)
+        log.debug("%s: Docker health check still starting", service)
         return False
       # If health status is "unhealthy", fall through to log check
 
     # Check container logs for readiness pattern
     logs = docker.container.logs(container_name, since=since)
     if logs and re.search(log_pattern, logs):
-      logger.debug("%s: readiness pattern found in logs", service)
+      log.debug("%s: readiness pattern found in logs", service)
       return True
 
-    logger.debug("%s: no readiness indicator yet", service)
+    log.debug("%s: no readiness indicator yet", service)
   except Exception as exc:
-    logger.debug("%s: readiness check exception: %s", service, exc)
+    log.debug("%s: readiness check exception: %s", service, exc)
 
   return False
 
