@@ -471,5 +471,74 @@ TEST_F(TrackingWorkerTest, QueueFull_IncrementsDroppedCount) {
     block_cv.notify_all();
 }
 
+// Test that metadata_json is preserved end-to-end through the tracker pipeline:
+// transform_detections() -> RobotVision tracker -> convert_tracks() -> Track::metadata_json.
+//
+// Uses max_unreliable_time_s = 0.0 so tracks become reliable on first observation,
+// guaranteeing published tracks exist and the assertion is actually exercised.
+TEST_F(TrackingWorkerTest, Tracking_MetadataJson_PreservedThroughTracker) {
+    std::vector<Track> all_published_tracks;
+    std::mutex mtx;
+    std::condition_variable cv;
+    int callback_count = 0;
+    const int kChunksToSend = 3;
+
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        std::lock_guard lock(mtx);
+        all_published_tracks.insert(all_published_tracks.end(), tracks.begin(), tracks.end());
+        callback_count++;
+        cv.notify_one();
+    };
+
+    // Set max_unreliable_time_s = 0.0 so tracks are reliable immediately
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+
+    TrackingScope scope{"scene-1", "person"};
+    TrackingWorker worker(scope, "Test Scene", 10, callback, config, cameras_);
+
+    const std::string expected_metadata = R"({"reid":{"model_name":"test"},"score":0.95})";
+
+    for (int i = 0; i < kChunksToSend; ++i) {
+        Chunk chunk;
+        chunk.scene_id = "scene-1";
+        chunk.category = "person";
+        chunk.chunk_time = std::chrono::steady_clock::now();
+
+        DetectionBatch batch;
+        batch.camera_id = "cam-1";
+        batch.timestamp_iso = std::format("2026-01-27T12:00:{:02d}.000Z", i);
+
+        Detection det;
+        det.id = 1;
+        det.bounding_box_px = cv::Rect2f(100.0f, 200.0f, 50.0f, 100.0f);
+        det.metadata_json = expected_metadata;
+        batch.detections.push_back(std::move(det));
+
+        chunk.camera_batches.push_back(std::move(batch));
+        worker.try_enqueue(std::move(chunk));
+    }
+
+    // Wait for all chunks to be processed
+    {
+        std::unique_lock lock(mtx);
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(2),
+                                [&] { return callback_count >= kChunksToSend; }))
+            << "Timed out waiting for " << kChunksToSend << " publish callbacks";
+    }
+
+    // At least one reliable track must have been published; if not, the test
+    // isn't validating the metadata passthrough path at all.
+    ASSERT_GT(all_published_tracks.size(), 0u)
+        << "No reliable tracks published — metadata passthrough cannot be verified";
+
+    // Every published track must carry the original metadata unchanged
+    for (const auto& track : all_published_tracks) {
+        EXPECT_EQ(track.metadata_json, expected_metadata)
+            << "Track " << track.id << " has wrong or missing metadata_json";
+    }
+}
+
 } // namespace
 } // namespace tracker

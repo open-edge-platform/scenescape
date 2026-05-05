@@ -3,6 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import sys
 import logging
 from pathlib import Path
@@ -18,6 +19,46 @@ if str(repo_root) not in sys.path:
 logger = logging.getLogger(__name__)
 
 DEMO_SCENE_NAME = "Demo"
+
+def pytest_addoption(parser):
+  parser.addoption("--user", required=True, help="user to log into REST server")
+  parser.addoption("--password", required=True, help="password to log into REST server")
+  parser.addoption("--auth", default="/run/secrets/controller.auth",
+                   help="user:password or JSON file for MQTT authentication")
+  parser.addoption("--rootcert", default="/run/secrets/certs/scenescape-ca.pem",
+                   help="path to ca certificate")
+  parser.addoption("--broker_url", default="broker.scenescape.intel.com",
+                   help="hostname or IP of MQTT broker")
+  parser.addoption("--broker_port", default="1883", type=int, help="Port of MQTT broker")
+  parser.addoption("--weburl", default="https://web.scenescape.intel.com",
+                   help="Web URL of the server")
+  parser.addoption("--resturl", default="https://web.scenescape.intel.com/api/v1",
+                   help="URL of REST server")
+  parser.addoption("--scene_name", default="Demo",
+                   help="name of scene to test against")
+  parser.addoption("--visibility_topic", default="regulated",
+                   help="Visibility policy: regulated, unregulated, none")
+  parser.addoption("--expect_exceed_max", default="false",
+                   help="Whether unique count is expected to exceed max (true/false)")
+
+@pytest.fixture
+def params(request):
+  return {
+    'user': request.config.getoption('--user'),
+    'password': request.config.getoption('--password'),
+
+    'auth': request.config.getoption('--auth'),
+    'rootcert': request.config.getoption('--rootcert'),
+
+    'broker_url': request.config.getoption('--broker_url'),
+    'broker_port': request.config.getoption('--broker_port'),
+
+    'weburl': request.config.getoption('--weburl'),
+    'resturl': request.config.getoption('--resturl'),
+
+    'scene_name': request.config.getoption('--scene_name'),
+    'expect_exceed_max': request.config.getoption('--expect_exceed_max'),
+  }
 
 @pytest.fixture
 def obj_location(request):
@@ -72,9 +113,16 @@ def scene_uid(rest, params):
   assert scenes, f"Scene '{name}' not found"
   return scenes[0]['uid']
 
+@pytest.hookimpl(tryfirst=True)
+def pytest_configure(config):
+  file_name = Path(config.option.file_or_dir[0]).stem
+  config.option.htmlpath = os.getcwd() + '/tests/functional/reports/test_reports/' + file_name + ".html"
 
-
-
+def pytest_runtest_makereport(item, call):
+  if call.when == "call":
+    if hasattr(item, 'callspec') and 'test_name' in item.callspec.params:
+      test_name = item.callspec.params['test_name']
+      item._nodeid = f"{item.nodeid}\n {test_name}"
 
 @pytest.fixture
 def _env_matrix_setup(request):
@@ -127,7 +175,7 @@ def pytest_generate_tests(metafunc):
     profile = PROFILE_REGISTRY[profile_name]
     if matrix is not None and profile_name not in matrix:
       # Profile not supported by this test — parametrize as skipped so it
-      # appears in the report but no environment is started.
+      # appears in the report but no environment is targeted.
       params.append(pytest.param(
         replace(spec, profile=profile),
         marks=pytest.mark.skip(reason=f"Test not designed for profile '{profile_name}'"),
@@ -145,4 +193,3 @@ def pytest_generate_tests(metafunc):
     ids=profile_names,
     indirect=True,
   )
-

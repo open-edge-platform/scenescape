@@ -1,22 +1,23 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import itertools
 from types import SimpleNamespace
 from typing import Optional
+
 import numpy as np
+
 import robot_vision as rv
-from controller.controller_mode import ControllerMode
-from controller.moving_object import ChainData
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
-from scene_common.geometry import Line, Point, Region, Tripwire
+from scene_common.geometry import Point, Region, Tripwire, getRegionEvents, getTripwireEvents
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
+from controller.controller_mode import ControllerMode
+from controller.moving_object import ChainData
 from controller.ilabs_tracking import IntelLabsTracking
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -59,6 +60,7 @@ class Scene(SceneModel):
     self.non_measurement_time_static = non_measurement_time_static
     self.suspended_track_timeout_secs = suspended_track_timeout_secs
     self.reid_config_data = reid_config_data if reid_config_data else {}
+
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
@@ -90,6 +92,9 @@ class Scene(SceneModel):
     self.trackerType = trackerType
     log.info("SETTING TRACKER TYPE", trackerType)
 
+    if self.tracker is not None:
+      self.tracker.join()
+
     args = (self.max_unreliable_time,
             self.non_measurement_time_dynamic,
             self.non_measurement_time_static)
@@ -100,25 +105,39 @@ class Scene(SceneModel):
     self.tracker = self.available_trackers[self.trackerType](*args)
     return
 
-  def updateScene(self, scene_data):
+  def _hydrateFromSceneData(self, scene_data, reid_runtime_update=True):
+    reid_config_changed = False
+    if 'reid_config_data' in scene_data:
+      new_reid_config_data = scene_data['reid_config_data']
+      reid_config_changed = new_reid_config_data != self.reid_config_data
+      if reid_config_changed:
+        self.reid_config_data = new_reid_config_data
+
     self.parent = scene_data.get('parent', None)
     self.cameraPose = None
     if 'transform' in scene_data:
       self.cameraPose = CameraPose(scene_data['transform'], None)
-    self.use_tracker = scene_data.get('use_tracker', True)
+    self.use_tracker = scene_data.get('use_tracker', True) and not ControllerMode.isAnalyticsOnly()
     self.output_lla = scene_data.get('output_lla', False)
     self.map_corners_lla = scene_data.get('map_corners_lla', None)
+    self.retrack = scene_data.get('retrack', True)
+    self.persist_attributes = scene_data.get('persist_attributes', {})
     self._updateChildren(scene_data.get('children', []))
     self.updateCameras(scene_data.get('cameras', []))
     self._updateRegions(self.regions, scene_data.get('regions', []))
     self._updateTripwires(scene_data.get('tripwires', []))
     self._updateRegions(self.sensors, scene_data.get('sensors', []))
-    # Update reid config if provided
-    if 'reid_config_data' in scene_data:
-      self.reid_config_data = scene_data['reid_config_data']
+
     tracker_config = scene_data.get('tracker_config', None)
     if tracker_config:
       self.updateTracker(tracker_config[0], tracker_config[1], tracker_config[2])
+
+    # Apply ReID config changes in-place to preserve active tracks while
+    # updating UUID manager thresholds and timers.
+    if reid_runtime_update and reid_config_changed and self.trackerType and not ControllerMode.isAnalyticsOnly():
+      log.info(f"ReID config changed for scene={self.uid}; updating tracker ReID runtime config")
+      self.tracker.updateReidConfig(self.reid_config_data)
+
     self.name = scene_data['name']
     if 'scale' in scene_data:
       self.scale = scene_data['scale']
@@ -129,6 +148,10 @@ class Scene(SceneModel):
     self._invalidate_trs_xyz_to_lla()
     # Access the property to trigger initialization
     _ = self.trs_xyz_to_lla
+    return
+
+  def updateScene(self, scene_data):
+    self._hydrateFromSceneData(scene_data, reid_runtime_update=True)
     return
 
   def updateTracker(self, max_unreliable_time, non_measurement_time_dynamic,
@@ -570,26 +593,33 @@ class Scene(SceneModel):
     return
 
   def _updateTripwireEvents(self, detectionType, now, curObjects):
-    for key in self.tripwires:
-      tripwire = self.tripwires[key]
-      tripwireObjects = tripwire.objects.get(detectionType, [])
-      objects = []
-      for obj in curObjects:
-        age = now - obj.when
-        # When tracker is disabled, skip the frameCount check and consider all objects;
-        # otherwise, only consider objects with frameCount > 3 as reliable.
-        if (obj.frameCount > 3 or ControllerMode.isAnalyticsOnly()) \
-          and len(obj.chain_data.publishedLocations) > 1:
-          d = tripwire.lineCrosses(Line(obj.chain_data.publishedLocations[0].as2Dxy,
-                                        obj.chain_data.publishedLocations[1].as2Dxy))
-          if d != 0:
-            event = TripwireEvent(obj, -d)
-            objects.append(event)
+    # Filter to reliable objects with enough location history for crossing detection.
+    # When tracker is disabled, skip the frameCount check and consider all objects;
+    # otherwise, only consider objects with frameCount > 3 as reliable.
+    reliable_objects = [
+      obj for obj in curObjects
+      if (obj.frameCount > 3 or ControllerMode.isAnalyticsOnly())
+      and len(obj.chain_data.publishedLocations) > 1
+    ]
 
-      if len(tripwireObjects) != len(objects) \
+    object_locations = [
+      obj.chain_data.publishedLocations[:2] for obj in reliable_objects
+    ]
+
+    crossing_events = getTripwireEvents(self.tripwires, object_locations)
+
+    for key, tripwire in self.tripwires.items():
+      event_matches = crossing_events.get(key, [])
+      previous_objects = tripwire.objects.get(detectionType, [])
+      crossed_objects = [
+        TripwireEvent(reliable_objects[obj_idx], direction)
+        for obj_idx, direction in event_matches
+      ]
+
+      if len(previous_objects) != len(crossed_objects) \
          and now - tripwire.when > DEBOUNCE_DELAY:
-        log.debug("TRIPWIRE EVENT", tripwireObjects, len(objects))
-        tripwire.objects[detectionType] = objects
+        log.debug("TRIPWIRE EVENT", previous_objects, len(crossed_objects))
+        tripwire.objects[detectionType] = crossed_objects
         tripwire.when = now
         if 'objects' not in self.events:
           self.events['objects'] = []
@@ -598,16 +628,27 @@ class Scene(SceneModel):
 
   def _updateRegionEvents(self, detectionType, regions, now, now_str, curObjects):
     updated = set()
-    for key in regions:
-      region = regions[key]
+
+    # Filter to reliable objects.
+    # When tracker is disabled, skip the frameCount check and consider all objects;
+    # otherwise, only consider objects with frameCount > 3 as reliable.
+    reliable_objects = [
+      obj for obj in curObjects
+      if obj.frameCount > 3 or ControllerMode.isAnalyticsOnly()
+    ]
+
+    object_locations = [obj.sceneLoc for obj in reliable_objects]
+    objects_within_region = getRegionEvents(regions, object_locations)
+
+    for key, region in regions.items():
+      matched_indices = set(objects_within_region.get(key, []))
+      # Also include objects matched by mesh intersection (requires self)
+      for obj_idx, obj in enumerate(reliable_objects):
+        if obj_idx not in matched_indices and self.isIntersecting(obj, region):
+          matched_indices.add(obj_idx)
+
+      objects = [reliable_objects[i] for i in sorted(matched_indices)]
       regionObjects = region.objects.get(detectionType, [])
-      objects = []
-      for obj in curObjects:
-        # When tracker is disabled, skip the frameCount check and consider all objects;
-        # otherwise, only consider objects with frameCount > 3 as reliable.
-        if (obj.frameCount > 3 or ControllerMode.isAnalyticsOnly()) \
-           and (region.isPointWithin(obj.sceneLoc) or self.isIntersecting(obj, region)):
-          objects.append(obj)
 
       cur = set(x.gid for x in objects)
       prev = set(x.gid for x in regionObjects)
@@ -740,38 +781,14 @@ class Scene(SceneModel):
   @classmethod
   def deserialize(cls, data):
     tracker_config = data.get('tracker_config', [])
+    reid_config_data = data.get('reid_config_data', None)
     scale_from_data = data.get('scale', None)
     scene = cls(data['name'], data.get('map', None), scale_from_data,
-                *tracker_config)
+                *tracker_config, reid_config_data=reid_config_data)
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)
-    scene.use_tracker = data.get('use_tracker', True) and not ControllerMode.isAnalyticsOnly()
-    scene.output_lla = data.get('output_lla', None)
-    scene.map_corners_lla = data.get('map_corners_lla', None)
-    scene.retrack = data.get('retrack', True)
-    scene.regulated_rate = data.get('regulated_rate', None)
-    scene.external_update_rate = data.get('external_update_rate', None)
-    scene.persist_attributes = data.get('persist_attributes', {})
-    if 'cameras' in data:
-      scene.updateCameras(data['cameras'])
-    if 'regions' in data:
-      scene._updateRegions(scene.regions, data['regions'])
-    if 'tripwires' in data:
-      scene._updateTripwires(data['tripwires'])
-    if 'sensors' in data:
-      scene._updateRegions(scene.sensors, data['sensors'])
-    if 'children' in data:
-      scene.children = [x['name'] for x in data['children']]
-    if 'parent' in data:
-      scene.parent = data['parent']
-    if 'transform' in data:
-      scene.cameraPose = CameraPose(data['transform'], None)
-    if 'tracker_config' in data:
-      tracker_config = data['tracker_config']
-      scene.updateTracker(tracker_config[0], tracker_config[1], tracker_config[2])
-    # Access the property to trigger initialization
-    _ = scene.trs_xyz_to_lla
+    scene._hydrateFromSceneData(data, reid_runtime_update=False)
     return scene
 
   def _updateChildren(self, newChildren):

@@ -41,7 +41,7 @@ def on_message(mqttc, obj, msg):
 
 def test_mqtt_insecure_cert(scenescape_env, record_xml_attribute, secrets_dir):
 
-  TEST_NAME = "NEX-T10423_MQTT_INSECURE_CERT"
+  TEST_NAME = "NEX-T21777"
   record_xml_attribute("name", TEST_NAME)
 
   print("Executing: " + TEST_NAME)

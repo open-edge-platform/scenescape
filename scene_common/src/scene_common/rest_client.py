@@ -269,7 +269,7 @@ class RESTClient:
     """Separates file fields from data dictionary for requests library"""
     files = None
     for fileField in fields:
-      if fileField in data and not isinstance(data[fileField], str):
+      if fileField in data and data[fileField] is not None and not isinstance(data[fileField], str):
         data = data.copy()
         files = {fileField: data[fileField]}
         data.pop(fileField)
