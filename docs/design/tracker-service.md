@@ -1,8 +1,8 @@
 # Design Document: Tracker Service
 
 - **Author(s)**: [Józef Daniecki](https://github.com/jdanieck)
-- **Date**: 2026-04-27
-- **Version**: 0.2
+- **Date**: 2026-01-16
+- **Version**: 0.1
 - **Status**: `Accepted`
 - **Related ADRs**:
   - [ADR-0003: Scaling Controller Performance](../adr/0003-scaling-controller-performance.md)
