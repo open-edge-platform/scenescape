@@ -497,12 +497,10 @@ class Scene(SceneModel):
       obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
 
       if obj.size and len(obj.size) >= 3:
-        obj.bbMeters = SimpleNamespace(size=Size(obj.size[1], obj.size[2]),
-                                       width=obj.size[1],
-                                       height=obj.size[2])
+        _, width, height, *_ = obj.size
+        obj.bbMeters = SimpleNamespace(size=Size(width, height), width=width, height=height)
       else:
         obj.bbMeters = None
-
       obj_id = obj.gid
       if 'first_seen' in obj_data:
         obj.when = get_epoch_time(obj_data.get('first_seen'))
