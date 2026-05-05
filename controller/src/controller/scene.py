@@ -10,7 +10,7 @@ import robot_vision as rv
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
-from scene_common.geometry import Point, Region, Tripwire, getRegionEvents, getTripwireEvents
+from scene_common.geometry import Point, Region, Size, Tripwire, getRegionEvents, getTripwireEvents
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
@@ -487,8 +487,7 @@ class Scene(SceneModel):
   def _deserializeTrackedObjects(self, serialized_objects):
     """
     Convert serialized tracked objects to a format usable by Analytics.
-    Reuses existing objects from _analytics_objects cache to preserve chain_data
-    state (sensor readings, region history) across frames.
+    This creates lightweight wrappers that mimic MovingObject interface.
     If objects are already deserialized, returns them as-is.
 
     Args:
@@ -518,7 +517,6 @@ class Scene(SceneModel):
         obj.chain_data = ChainData(regions={}, publishedLocations=[], persist={})
         self._analytics_objects[obj_id] = obj
 
-      # Update position and all fields every frame
       obj.gid = obj_id
       obj.category = obj_data.get('type', obj_data.get('category'))
       obj.sceneLoc = Point(obj_data.get('translation', [0, 0, 0]))
@@ -536,7 +534,13 @@ class Scene(SceneModel):
       obj.visibility = obj_data.get('visibility', [])
       obj.info = {'category': obj.category, 'confidence': obj.confidence}
 
-      # Extract reid from metadata if present
+      # Restore bbMeters from size if available
+      if obj.size and len(obj.size) == 3:
+        _, width, height = obj.size
+        obj.bbMeters = SimpleNamespace(size=Size(width, height), width=width, height=height)
+      else:
+        obj.bbMeters = None
+
       metadata = obj_data.get('metadata', {})
       obj.reid = metadata.get('reid') if metadata else {}
       obj.similarity = obj_data.get('similarity')
@@ -550,7 +554,6 @@ class Scene(SceneModel):
       if 'first_seen' in obj_data:
         obj.first_seen = get_epoch_time(obj_data['first_seen'])
         obj.when = obj.first_seen
-        # Cache the first_seen from MQTT data
         self.object_history_cache.setdefault(obj_id, {})['first_seen'] = obj.when
       elif obj_id in self.object_history_cache and 'first_seen' in self.object_history_cache[obj_id]:
         obj.first_seen = self.object_history_cache[obj_id]['first_seen']
@@ -562,25 +565,20 @@ class Scene(SceneModel):
         self.object_history_cache.setdefault(obj_id, {})['first_seen'] = current_time
         log.debug(f"First time seeing object id {obj_id} from MQTT; setting first_seen to current time: {current_time}")
 
-      # Update chain_data regions and persist from latest frame data
       obj.chain_data.regions = obj_data.get('regions', obj.chain_data.regions)
       obj.chain_data.persist = obj_data.get('persistent_data', obj.chain_data.persist)
 
-      # Convert serialized sensors into env_sensor_state and attr_sensor_events
       sensors_data = obj_data.get('sensors', {})
       for sensor_id, sensor_info in sensors_data.items():
         values = sensor_info.get('values', [])
         if not values:
           continue
-
         is_environmental = self._isEnvironmentalSensor(sensor_id, values)
-
         if is_environmental:
           obj.chain_data.env_sensor_state[sensor_id] = {'readings': values}
         else:
           obj.chain_data.attr_sensor_events[sensor_id] = values
 
-      # Restore published locations from history cache
       if obj_id in self.object_history_cache:
         obj.chain_data.publishedLocations = self.object_history_cache[obj_id].get('publishedLocations', [])
       self.object_history_cache.setdefault(obj_id, {})['publishedLocations'] = obj.chain_data.publishedLocations
