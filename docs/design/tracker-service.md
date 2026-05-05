@@ -89,7 +89,8 @@ See full schema: [`camera-data.schema.json`](../../tracker/schema/camera-data.sc
     "person": [
       {
         "id": 1,
-        "bounding_box_px": { "x": 4, "y": 0, "width": 127, "height": 309 }
+        "bounding_box_px": { "x": 4, "y": 0, "width": 127, "height": 309 },
+        "metadata": { "reid": "...", "gender": "male" }
       }
     ]
   }
@@ -120,7 +121,8 @@ See full schema: [`scene-data.schema.json`](../../tracker/schema/scene-data.sche
       "translation": [-0.33, 2.48, 0.0],
       "velocity": [-0.04, 0.2, 0.0],
       "size": [0.5, 0.5, 1.85],
-      "rotation": [0, 0, 0, 1]
+      "rotation": [0, 0, 0, 1],
+      "metadata": { "reid": "...", "gender": "male" }
     }
   ]
 }

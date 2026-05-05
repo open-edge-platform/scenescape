@@ -155,7 +155,7 @@ private:
      * @param category Object category for the output tracks
      * @return Vector of Track structs ready for publishing
      */
-    std::vector<Track> convert_tracks(const std::vector<rv::tracking::TrackedObject>& rv_tracks,
+    std::vector<Track> convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tracks,
                                       const std::string& category);
 
     TrackingScope scope_;

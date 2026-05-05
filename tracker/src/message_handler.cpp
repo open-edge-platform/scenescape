@@ -434,6 +434,14 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
                                                    static_cast<float>(bbox_width->GetDouble()),
                                                    static_cast<float>(bbox_height->GetDouble()));
 
+            // Optional metadata - serialize the entire metadata object as a raw JSON string
+            if (det.HasMember("metadata") && det["metadata"].IsObject()) {
+                rapidjson::StringBuffer meta_buf;
+                rapidjson::Writer<rapidjson::StringBuffer> meta_writer(meta_buf);
+                det["metadata"].Accept(meta_writer);
+                detection.metadata_json = meta_buf.GetString();
+            }
+
             detections.push_back(detection);
         }
 
