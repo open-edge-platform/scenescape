@@ -1,3 +1,8 @@
+---
+name: test-verification-gate
+description: Runtime test verification gate for SceneScape — image freshness checks, rebuild-before-test requirements, and retry policy.
+---
+
 <!--
 SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0

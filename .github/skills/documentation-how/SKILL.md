@@ -1,3 +1,8 @@
+---
+name: documentation-how
+description: Procedures for updating SceneScape documentation — where to make changes and what to update for each type of modification.
+---
+
 # Documentation Update Procedures
 
 For guidance on WHEN to update documentation, see the "Documentation Requirements (Always-On)" section in `.github/copilot-instructions.md`.
