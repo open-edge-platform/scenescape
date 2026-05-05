@@ -10,7 +10,7 @@ import robot_vision as rv
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
-from scene_common.geometry import Point, Region, Tripwire, getRegionEvents, getTripwireEvents
+from scene_common.geometry import Point, Region, Size, Tripwire, getRegionEvents, getTripwireEvents
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
@@ -496,6 +496,11 @@ class Scene(SceneModel):
       obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
       obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
 
+      if obj.size and len(obj.size) == 3:
+        _, width, height = obj.size
+        obj.bbMeters = SimpleNamespace(size=Size(width, height), width=width, height=height)
+      else:
+        obj.bbMeters = None
       obj_id = obj.gid
       if 'first_seen' in obj_data:
         obj.when = get_epoch_time(obj_data.get('first_seen'))

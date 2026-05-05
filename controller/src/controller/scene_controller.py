@@ -248,13 +248,13 @@ class SceneController:
       is_regulated = self.visibility_topic == 'regulated'
 
       msg_objects_lookup = {}
-      if is_regulated and not ControllerMode.isAnalyticsOnly():
+      if is_regulated:
         for obj in msg_objects:
           msg_objects_lookup[obj.gid] = obj
 
       for key in scene['objects']:
         for obj in scene['objects'][key]:
-          if is_regulated and not ControllerMode.isAnalyticsOnly():
+          if is_regulated:
             aobj = msg_objects_lookup.get(obj['id'], None)
             if aobj is not None:
               computeCameraBounds(scene_obj, aobj, obj)
