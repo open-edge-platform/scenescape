@@ -278,7 +278,7 @@ def test_deserialize_tracked_objects_uses_configured_attribute_singleton_type():
     'weight-sensor': SimpleNamespace(singleton_type='attribute')
   }
   scene.object_history_cache = {}
-
+  scene._analytics_objects = {}
   objects = scene._deserializeTrackedObjects([
     {
       'id': 'object-1',
@@ -303,7 +303,7 @@ def test_deserialize_tracked_objects_defaults_unknown_sensor_to_environmental():
   scene = scene_module.Scene.__new__(scene_module.Scene)
   scene.sensors = {}
   scene.object_history_cache = {}
-
+  scene._analytics_objects = {}
   objects = scene._deserializeTrackedObjects([
     {
       'id': 'object-1',
@@ -330,7 +330,7 @@ def test_deserialize_tracked_objects_defaults_missing_singleton_type_to_environm
     'sensor-without-type': SimpleNamespace(singleton_type=None)
   }
   scene.object_history_cache = {}
-
+  scene._analytics_objects = {}
   objects = scene._deserializeTrackedObjects([
     {
       'id': 'object-1',
