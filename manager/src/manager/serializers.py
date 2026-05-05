@@ -556,6 +556,13 @@ class SceneSerializer(NonNullSerializer):
   trs_matrix = serializers.SerializerMethodField('get_trs_matrix')
 
   def validate(self, attrs):
+    if not self.initial_data:
+      raise serializers.ValidationError({'body': ['Request body is required.']})
+
+    name = attrs.get('name', None)
+    if (name is None and not self.partial) or (name is not None and not name.strip()):
+      raise serializers.ValidationError({'name': ['This field is required.']})
+
     allowed = set(self.fields.keys()) | {
         "mesh_translation",
         "mesh_rotation",
@@ -822,6 +829,31 @@ class PubSubACLSerializer(NonNullSerializer):
 class UserSerializer(NonNullSerializer):
   uid = serializers.CharField(source="pk", read_only=True)
   acls = PubSubACLSerializer(many=True, required=False)
+
+  def validate(self, attrs):
+    is_update = self.instance is not None
+
+    if not is_update:
+      username = attrs.get('username', None)
+      password = attrs.get('password', None)
+
+      if not username or not username.strip():
+        raise serializers.ValidationError({'username': ['This field is required.']})
+      if not password:
+        raise serializers.ValidationError({'password': ['This field is required.']})
+
+    else:
+      if 'username' in self.initial_data:
+        username = attrs.get('username', '')
+        if not username or not username.strip():
+          raise serializers.ValidationError({'username': ['This field may not be blank.']})
+
+      if 'password' in self.initial_data:
+        password = attrs.get('password', '')
+        if not password or not password.strip():
+          raise serializers.ValidationError({'password': ['This field may not be blank.']})
+
+    return super().validate(attrs)
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None

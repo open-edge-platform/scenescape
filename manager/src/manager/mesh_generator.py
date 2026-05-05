@@ -26,6 +26,7 @@ from scene_common.timestamp import get_iso_time
 from scene_common.mesh_util import mergeMesh
 from scene_common.options import QUATERNION
 from scene_common import log
+from manager.serializers import CamSerializer
 
 ALLOWED_VIDEO_MIME_TYPES = {
     "video/mp4",
@@ -157,6 +158,7 @@ class MappingServiceClient:
     self,
     images: Dict[str, Dict],
     camera_order: List[str],
+    camera_location_order: List,
     mesh_type: str = "mesh",
     uploaded_map=None,
   ):
@@ -178,6 +180,10 @@ class MappingServiceClient:
         "mesh_type": mesh_type,
     }
 
+    camera_loc_by_id = {
+      cam_id: cam_loc
+      for cam_id, cam_loc in zip(camera_order, camera_location_order)
+    }
     log.info(f"Sending {len(images)} images to mapping service for reconstruction")
 
     files = []
@@ -201,6 +207,16 @@ class MappingServiceClient:
                 )
             )
             files.append(("camera_ids", (None, camera_id)))
+            cam_loc = camera_loc_by_id.get(camera_id)
+            if cam_loc is not None:
+              cam_loc_clean = {
+                "translation": list(cam_loc["translation"]),
+                "rotation": list(cam_loc["rotation"]),
+                "scale": list(cam_loc.get("scale", [1.0, 1.0, 1.0])),
+              }
+              files.append(("camera_locations", (None, json.dumps(cam_loc_clean))))
+            else:
+              log.warning(f"No camera location for {camera_id}")
           else:
             log.warning(
                 f"Camera {camera_id} in camera_order but not in images dict"
@@ -414,9 +430,30 @@ class MeshGenerator:
       log.info(f"Collected {len(images)} images, calling mapping service")
       # Call mapping service to generate mesh
       # Pass camera IDs in order to ensure correct pose association
-      camera_order = [camera.sensor_id for camera in cameras]
+
+      camera_location_order = []
+      camera_order = []
+      serializer = CamSerializer()
+
+      for camera in cameras:
+        cam_id = camera.sensor_id
+        camera_order.append(cam_id)
+
+        t = serializer.get_translation(camera)
+        q = serializer.get_rotation(camera)
+        s = serializer.get_scale(camera) or [1.0, 1.0, 1.0]
+
+        if t is None or q is None:
+          raise ValueError(f"Missing pose for camera {cam_id}: t={t} q={q}")
+
+        camera_location_order.append({
+          "translation": list(t),
+          "rotation": list(q),
+          "scale": list(s),
+        })
+
       started = self.mapping_client.startReconstructMesh(
-        images, camera_order, mesh_type, uploaded_map_path
+        images, camera_order, camera_location_order, mesh_type, uploaded_map_path
       )
       rid = started.get("request_id")
       if not rid:

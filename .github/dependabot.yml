@@ -95,8 +95,11 @@ updates:
       - "/cluster_analytics"
       - "/mapping"
       - "/mapping/tests"
+      - "/tests/pipeline_runner"
+      - "/tools/pipeline_runner"
       - "/tracker/test/service"
       - "/tracker/test/load"
+      - "/tools/tracker/evaluation"
     schedule:
       interval: "monthly"
     commit-message:

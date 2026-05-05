@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Import the shared test infrastructure from test_reid_unique_count
-from tests.functional.test_reid_unique_count import run_test
+from tests.functional.test_reid_unique_count import run_test, get_scene_count_bounds
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import REID_SEMANTIC
 from tests.utils.log import get_logger
@@ -27,12 +27,14 @@ def test_reid_semantic_unique_count(params, record_xml_attribute):
   log.info("Executing: " + TEST_NAME)
   log.info("Test the unique count for each scene when RE-ID with semantic classification is enabled.")
 
+  minimum, maximum = get_scene_count_bounds()
   scene_config = {
     "302cf49a-97ec-402d-a324-c5077b280b7b": {
       "error": False,
       "current": 0,
-      "maximum": 10
+      "minimum": minimum,
+      "maximum": maximum
     }
   }
 
-  return run_test(TEST_NAME, "Test the unique count for each scene when RE-ID with semantic classification is enabled.", scene_config, params)
+  run_test(TEST_NAME, "Test the unique count for each scene when RE-ID with semantic classification is enabled.", scene_config, params)

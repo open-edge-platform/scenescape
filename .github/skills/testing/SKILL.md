@@ -1,3 +1,8 @@
+---
+name: testing
+description: Guide for creating SceneScape test cases — unit, functional, integration, UI, and smoke tests with positive and negative cases.
+---
+
 # AI Agent Guide: Creating Test Cases for SceneScape
 
 This guide provides comprehensive instructions for AI agents to create high-quality, well-categorized test cases for the SceneScape project.
@@ -17,7 +22,7 @@ This guide provides comprehensive instructions for AI agents to create high-qual
 
 ## Verification Workflow For AI Agents (Mandatory)
 
-Use `.github/skills/test-verification-gate.md` for runtime verification,
+Use `.github/skills/test-verification-gate/SKILL.md` for runtime verification,
 command selection, and completion reporting rules after creating or modifying
 tests.
 
@@ -70,6 +75,16 @@ Run this workflow before executing any test command:
 - Do not run broad aggregate targets unless no narrow target exists or the user explicitly requests a sweep.
 - Do not report completion without runtime verification for the resolved target (unless blocked).
 - Always report: should-run target, whether it was run, exact command, and pass/fail summary (or blocker).
+
+## Test Configuration Hygiene (Mandatory)
+
+- Do not add new environment variables to `tools/scenescape-start` for test-only behavior.
+- Treat `tools/scenescape-start` as a stable shared launcher, not a per-test configuration surface.
+- For test scenario inputs, prefer one of these paths:
+  - test configuration files (for example scenario JSON, service config JSON)
+  - test runner arguments (for example pytest options)
+  - Makefile variables scoped to test targets
+- If a new environment variable is absolutely required for non-test runtime behavior, document and justify it in the related service docs; do not introduce it solely to satisfy a test matrix.
 
 ### Quick Mapping Examples
 
