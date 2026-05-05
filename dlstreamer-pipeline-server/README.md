@@ -209,7 +209,7 @@ Following are short steps to enable pose metadata for the out-of-box **Queuing**
 
 ```bash
 docker create --name scenescape-models -v scenescape_vol-models:/models alpine
-docker cp ./models/public/yolo11n-pose scenescape-models:/models/public/
+docker cp ./models/public/yolo11n-pose scenescape-models:/models/public/yolo11n-pose
 docker rm scenescape-models
 ```
 
