@@ -49,8 +49,8 @@ against the `detector` definition in
 | `id`                   | integer ≥ 0        |  Yes ②   | Per-frame detection index                                                                                                                                   |
 | `rotation`             | array[4] of number |    No    | Object orientation as a quaternion                                                                                                                          |
 | `distance`             | number             |    No    | Distance from the camera to the detection in metres                                                                                                         |
-| `keypoints`            | array of objects   |    No    | Pose keypoints when a pose estimation model is used; each entry: `{"name": "<joint>", "x": <0–1>, "y": <0–1>}` (coordinates normalized to frame dimensions) |
-| `keypoint_connections` | array of strings   |    No    | Flat list of joint-name pairs defining skeleton bones (e.g. `["nose","eye_l","nose","eye_r",...]`); length is always `2 × number_of_bones`                  |
+| `keypoints`            | array of objects   |    No    | Pose keypoints when a pose estimation model is used; each entry: `{"name": "<keypoint>", "x": <0–1>, "y": <0–1>}` (coordinates normalized to frame dimensions) |
+| `keypoint_connections` | array of strings   |    No    | Flat list of keypoint-name pairs defining connections (e.g. `["nose","eye_l","nose","eye_r",...]`); length is always `2 × number_of_connections`                  |
 | `metadata`             | object             |    No    | Semantic attribute bag (see [Semantic Metadata Fields](#semantic-metadata-fields))                                                                          |
 
 > **① Location constraint**: every detection must provide location in exactly one
@@ -216,6 +216,8 @@ tracked object contains the following fields:
 | `velocity`           | array[3] of number | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                                                                                         |
 | `rotation`           | array[4] of number | Orientation quaternion                                                                                                                                                                                                                                       |
 | `visibility`         | array of string    | Camera IDs currently observing this object                                                                                                                                                                                                                   |
+| `keypoints`          | array of objects   | Pose keypoints propagated from detections when available; each entry uses `{"name": "<keypoint>", "x": <0-1>, "y": <0-1>}` coordinates normalized to frame dimensions                                                                                  |
+| `keypoint_connections` | array of strings | Flat list of keypoint-name pairs defining the skeleton edges (e.g. `["nose","eye_l","nose","eye_r",...]`); length is always `2 x number_of_connections`                                                                                              |
 | `regions`            | object             | Map of region/sensor IDs to membership metadata. By default this is `{id: {entered: timestamp}}`. In region-scoped outputs, objects currently inside a region also include a live dwell time as `{id: {entered: timestamp, dwell: seconds}}`.                |
 | `sensors`            | object             | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`)                                                                                                                                                                                |
 | `similarity`         | number or null     | Similarity/distance value to the matched ReID embedding in VDMS; higher-is-better for `COSINE`; lower is better for `L2`. `null` when ReID is still collecting embeddings, when no database match was found, or when ReID is disabled.                       |
@@ -231,6 +233,10 @@ tracked object contains the following fields:
 > `reid.embedding_vector` is a **2D float array** (`[[...numbers...]]`), whereas in
 > camera input it is a base64-encoded string. `metadata` is absent when no semantic
 > analytics pipeline is configured.
+
+> **Note on keypoint propagation**: `keypoints` and `keypoint_connections` are
+> optional pass-through fields from object detections. They are included in output
+> objects when present on the contributing detection data.
 
 > **Note on `similarity`**: This field holds the metric value returned by VDMS
 > in `_distance` and is evaluated by the controller using configured metric semantics.
