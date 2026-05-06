@@ -61,7 +61,7 @@
         },
         "confidence": {
           "type": "number",
-          "description": "Detection confidence score in [0, 1]",
+          "description": "Optional detection confidence score in [0, 1]",
           "minimum": 0,
           "maximum": 1
         }

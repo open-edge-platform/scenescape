@@ -101,7 +101,7 @@
         },
         "confidence": {
           "type": "number",
-          "description": "Detection confidence score in [0, 1], passed through from the originating detection",
+          "description": "Optional detection confidence score in [0, 1], passed through from the originating detection",
           "minimum": 0,
           "maximum": 1
         }
