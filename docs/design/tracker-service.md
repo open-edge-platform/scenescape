@@ -52,7 +52,7 @@ Explicitly out of scope:
 - **Multi-scene fusion** — No cross-scene track handoff
 - **Scene hierarchy** — Flat scene structure only; no parent-child scene relationships or nested regions
 - **Sensor tagging of a track** — No visibility array or per-sensor metadata on tracks
-- **Multi-camera confidence merging** — When a track is observed by multiple cameras in the same time chunk, `confidence` from the last processed camera overwrites earlier values (last-write-wins, inherent RobotVision attributes API limitation)
+- **Multi-camera detection metadata merging** — When a track is observed by multiple cameras in the same time chunk, detection metadata (`confidence`, `metadata`) from the last processed camera overwrites earlier values (last-write-wins, inherent RobotVision attributes API limitation)
 
 ## Architecture
 
@@ -144,13 +144,14 @@ In-memory only - no persistent storage. Stateless design for horizontal scalabil
 
 ### Detection Data Passthrough
 
-The `confidence` field is passed through from the camera detection message to the corresponding track in the scene output. It is optional — when absent in the detection message it is omitted from the track output.
+Detection metadata fields are passed through from the camera detection message to the corresponding track in the scene output. Both fields are optional — when absent in the detection message they are omitted from the track output.
 
-| Field        | Type   | Description                                              |
-| ------------ | ------ | -------------------------------------------------------- |
-| `confidence` | number | Detection confidence score in \[0, 1\] from the AI model |
+| Field        | Type   | Description                                               |
+| ------------ | ------ | --------------------------------------------------------- |
+| `confidence` | number | Detection confidence score in \[0, 1\] from the AI model  |
+| `metadata`   | object | Semantic attributes from the AI pipeline (e.g. reid, age, gender) |
 
-**Multi-camera limitation**: When a track is matched against detections from multiple cameras within the same time chunk, `confidence` reflects the last matched camera only (last-write-wins). This is an inherent limitation of the RobotVision attributes API used for per-track data storage.
+**Multi-camera limitation**: When a track is matched against detections from multiple cameras within the same time chunk, detection metadata (`confidence`, `metadata`) reflects the last matched camera only (last-write-wins). This is an inherent limitation of the RobotVision attributes API used for per-track data storage.
 
 ## Operations
 
