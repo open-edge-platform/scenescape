@@ -47,6 +47,7 @@ RUN : \
     && cd /tmp/scene_common \
     && pip3 install --no-cache-dir pybind11 \
     && pip3 install --no-cache-dir . \
+    && make -C fast_geometry clean \
     && make -C fast_geometry -j $(nproc) all install \
     && cd .. \
     && rm -rf scene_common
