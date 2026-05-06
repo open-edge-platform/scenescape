@@ -101,6 +101,11 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
             }
         }
 
+        // Optional confidence score
+        if (track.confidence.has_value()) {
+            obj.AddMember("confidence", Value(*track.confidence), allocator);
+        }
+
         objects_array.PushBack(obj, allocator);
     }
 
