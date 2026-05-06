@@ -26,6 +26,9 @@ WALKING_SPEED = 1.2 # meters per second
 FRAMES_PER_SECOND = 10
 THING_TYPES = ["person", "chair", "table", "couch"]
 MAX_CONTROLLER_WAIT = 30 # seconds
+IMG_W = 640
+IMG_H = 480
+ANALYTICS = os.environ.get('ANALYTICS', 'false').lower() == 'true'
 
 class SensorMqttMessageFlowTest(FunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
@@ -159,62 +162,61 @@ class SensorMqttMessageFlowTest(FunctionalTest):
     course = np.dstack(course)
     return course[0]
 
-  def createDetection(self, positionNow):
-    detection = {
-      'id': self.cameraId,
-      'timestamp': get_iso_time(get_epoch_time()),
-      'objects': {
-        'person': [
-          {
-            'id': 1,
-            'category': 'person',
-            'bounding_box': {
-              'x': 0.56,
-              'y': positionNow.y,
-              'width': 0.24,
-              'height': 0.49,
-            },
-          },
-        ],
-        'chair': [
-          {
-            'id': 2,
-            'category': 'chair',
-            'bounding_box': {
-              'x': 0.68,
-              'y': positionNow.y,
-              'width': 0.24,
-              'height': 0.49,
-            },
-          },
-        ],
-        'table': [
-          {
-            'id': 3,
-            'category': 'table',
-            'bounding_box': {
-              'x': 0.44,
-              'y': positionNow.y,
-              'width': 0.30,
-              'height': 0.20,
-            },
-          },
-        ],
-        'couch': [
-          {
-            'id': 4,
-            'category': 'couch',
-            'bounding_box': {
-              'x': 0.80,
-              'y': positionNow.y,
-              'width': 0.36,
-              'height': 0.28,
-            },
-          },
-        ],
-      },
-      'rate': 9.8,
+  def to_px(self, box):
+    x = box['x']
+    y = box['y']
+    w = box['width']
+    h = box['height']
+
+    cx = (x + 1) / 2 * IMG_W
+    cy = (y + 1) / 2 * IMG_H
+
+    w_px = w * IMG_W
+    h_px = h * IMG_H
+
+    return {
+        "x": cx - w_px / 2,
+        "y": cy - h_px / 2,
+        "width": w_px,
+        "height": h_px
     }
+
+  def createDetection(self, positionNow):
+    def make_obj(obj_id, category, x, y, w, h):
+      bbox = {
+          'x': x,
+          'y': y,
+          'width': w,
+          'height': h,
+      }
+
+      return {
+          'id': obj_id,
+          'category': category,
+          'bounding_box': bbox,
+          'bounding_box_px': self.to_px(bbox),
+      }
+
+    detection = {
+        'id': self.cameraId,
+        'timestamp': get_iso_time(get_epoch_time()),
+        'objects': {
+            'person': [
+                make_obj(1, 'person', 0.56, positionNow.y, 0.24, 0.49)
+            ],
+            'chair': [
+                make_obj(2, 'chair', 0.68, positionNow.y, 0.24, 0.49)
+            ],
+            'table': [
+                make_obj(3, 'table', 0.44, positionNow.y, 0.30, 0.20)
+            ],
+            'couch': [
+                make_obj(4, 'couch', 0.80, positionNow.y, 0.36, 0.28)
+            ],
+        },
+        'rate': 9.8,
+    }
+
     return detection
 
   def _publish_scheduled_sensor_value(self, idx, now, schedule, sensor_name):
@@ -407,7 +409,9 @@ class SensorMqttMessageFlowTest(FunctionalTest):
 
   def _verify_sensor_payloads(self):
     assert self.regulatedMessages, "No regulated messages received"
-    assert self.externalMessages, "No external messages received"
+
+    if not ANALYTICS:
+      assert self.externalMessages, "No external messages received"
 
     seen_types = set()
     scene_env_types = set()
