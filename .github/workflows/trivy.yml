@@ -28,7 +28,7 @@ jobs:
     name: "Build images and run Trivy image scan"
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.event_name != 'pull_request'
     steps:
       - name: Checkout Repository
