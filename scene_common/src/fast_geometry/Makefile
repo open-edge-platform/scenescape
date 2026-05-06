@@ -73,6 +73,6 @@ install: $(TARGET)
 	install $(TARGET)$(LIB_SUFFIX) $(PYTHON_SITE_PACKAGES)/$(TARGET)/$(TARGET)$(LIB_SUFFIX)
 	install init.py $(PYTHON_SITE_PACKAGES)/$(TARGET)/__init__.py
 
-all: clean $(TARGET)
+all: $(TARGET)
 
 .DEFAULT_GOAL := all

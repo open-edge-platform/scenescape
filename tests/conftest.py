@@ -547,7 +547,7 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
 
     logger.info("Starting compose services...")
     try:
-      docker.compose.up(detach=True, pull="never", quiet=True)
+      docker.compose.up(detach=True, pull="missing", quiet=True)
     except DockerException as exc:
       logger.error("compose up failed: %s", exc)
       raise
