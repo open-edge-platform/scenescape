@@ -328,8 +328,13 @@ sensors-send-events: # NEX-T10456
 	$(eval override BASE_IMAGE := $(IMAGE)-controller-test)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
-	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_sensors_send_mqtt_messages.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(if $(ANALYTICS),\
+		$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/tracker.yml:$(COMPOSE)/controller_analytics.yml:$(COMPOSE)/web.yml) \
+		$(eval SERVICES := 'pgserver web tracker controller-analytics'),\
+		$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml) \
+		$(eval SERVICES := 'pgserver web scene')\
+	)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_sensors_send_mqtt_messages.py, $(SERVICES), true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 	$(eval override BASE_IMAGE := $(IMAGE_OLD))
 
