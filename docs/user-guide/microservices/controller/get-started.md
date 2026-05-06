@@ -117,8 +117,8 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   - `camera_bounds` are computed via projection for objects that include a `size` field in the incoming tracker MQTT data; `projected=true` entries appear in the regulated output
   - Child scenes are not supported in analytics-only mode
   - Sensors in Scene not supported and attribute persistence across moving objects not supported on data/scene MQTT topic (data available on events topic)
-  - The following object fields are not available on `event` topic: `similarity`, `confidence`, `entered`, `exited`
-  - The following object fields are not available on `data/regulated` topic: `similarity`, `confidence`
+  - The following object fields are not available on `event` topic: `similarity`, `entered`, `exited`
+  - The following object fields are not available on `data/regulated` topic: `similarity`
 
 <!--hide_directive
 :::{toctree}
