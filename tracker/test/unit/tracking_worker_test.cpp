@@ -540,5 +540,70 @@ TEST_F(TrackingWorkerTest, Tracking_MetadataJson_PreservedThroughTracker) {
     }
 }
 
+// Test that confidence is preserved end-to-end through the tracker pipeline:
+// transformDetections() -> RobotVision tracker -> convert_tracks() -> Track::confidence.
+//
+// Uses max_unreliable_time_s = 0.0 so tracks become reliable on first observation.
+TEST_F(TrackingWorkerTest, Tracking_Confidence_PreservedThroughTracker) {
+    std::vector<Track> all_published_tracks;
+    std::mutex mtx;
+    std::condition_variable cv;
+    int callback_count = 0;
+    const int kChunksToSend = 3;
+
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        std::lock_guard lock(mtx);
+        all_published_tracks.insert(all_published_tracks.end(), tracks.begin(), tracks.end());
+        callback_count++;
+        cv.notify_one();
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+
+    TrackingScope scope{"scene-1", "person"};
+    TrackingWorker worker(scope, "Test Scene", 10, callback, config, cameras_);
+
+    const double expected_confidence = 0.91;
+
+    for (int i = 0; i < kChunksToSend; ++i) {
+        Chunk chunk;
+        chunk.scene_id = "scene-1";
+        chunk.category = "person";
+        chunk.chunk_time = std::chrono::steady_clock::now();
+
+        DetectionBatch batch;
+        batch.camera_id = "cam-1";
+        batch.timestamp_iso = std::format("2026-01-27T12:00:{:02d}.000Z", i);
+
+        Detection det;
+        det.id = 1;
+        det.bounding_box_px = cv::Rect2f(100.0f, 200.0f, 50.0f, 100.0f);
+        det.confidence = expected_confidence;
+        batch.detections.push_back(std::move(det));
+
+        chunk.camera_batches.push_back(std::move(batch));
+        worker.try_enqueue(std::move(chunk));
+    }
+
+    {
+        std::unique_lock lock(mtx);
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(2),
+                                [&] { return callback_count >= kChunksToSend; }))
+            << "Timed out waiting for " << kChunksToSend << " publish callbacks";
+    }
+
+    ASSERT_GT(all_published_tracks.size(), 0u)
+        << "No reliable tracks published — confidence passthrough cannot be verified";
+
+    for (const auto& track : all_published_tracks) {
+        ASSERT_TRUE(track.confidence.has_value())
+            << "Track " << track.id << " is missing confidence";
+        EXPECT_NEAR(*track.confidence, expected_confidence, 1e-9)
+            << "Track " << track.id << " has wrong confidence";
+    }
+}
+
 } // namespace
 } // namespace tracker
