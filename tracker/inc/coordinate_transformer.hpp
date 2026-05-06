@@ -63,6 +63,7 @@ public:
      * @param detections Span of pixel-space detections (bounding boxes)
      * @return TrackedObjects with world-space position and size fields populated.
      *         id, x, y, z, length, width, height are set. Velocity/yaw are zero.
+     *         attributes["metadata_json"] is set from Detection::metadata_json when non-empty.
      */
     std::vector<rv::tracking::TrackedObject>
     transformDetections(std::span<const Detection> detections) const;
