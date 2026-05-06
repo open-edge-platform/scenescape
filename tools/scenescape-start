@@ -134,7 +134,7 @@ if [[ "${IMAGE}" == *"scenescape-manager-test"* ]] ; then
     DCKARGS+=(-u $(id -u) --userns host -w ${APPDIR} -v ${HOSTDIR}/manager/secrets:/home/scenescape/SceneScape/manager/secrets -v ${HOSTDIR}/manager/secrets/django/secrets.py:/home/scenescape/SceneScape/manager/secrets.py )
 fi
 docker run ${DCKARGS[@]} -v "${HOSTDIR}":${APPDIR} \
-        -e http_proxy -e https_proxy -e no_proxy -e PROJECT="${DCKPROJECT}"\
+        -e http_proxy -e https_proxy -e no_proxy -e PROJECT="${DCKPROJECT}" -e ANALYTICS \
         -v ${DCKPROJECT}_vol-models:${MODELDIR} -v ${DCKPROJECT}_vol-sample-data:/home/scenescape/SceneScape/sample_data -e PYTHONPATH="${APPDIR}"\
         -v ${HOSTDIR}/manager/secrets:/run/secrets \
         ${IMAGE} ${ARGS[@]} $@

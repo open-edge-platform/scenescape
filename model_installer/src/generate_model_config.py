@@ -88,10 +88,9 @@ def _classify_model_type(model_name: str) -> Tuple[str, str]:
     else:
       return 'classify', 'classificationPolicy'
 
-  # TODO: identify the correct policy for the pose estimation models
   # Pose estimation
   elif 'pose' in model_name_lower:
-    return 'inference', 'detection3DPolicy'
+    return 'detect', 'detectionPolicy'
 
   # Default to detection with detectionPolicy
   else:
