@@ -99,13 +99,13 @@ def objData():
   jdata['objects']['person'] = [obj]
   return jdata
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def rest(params):
   client = RESTClient(params['resturl'], rootcert=params['rootcert'])
   assert client.authenticate(params['user'], params['password'])
   return client
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def scene_uid(rest, params):
   name = params['scene_name']
   res = rest.getScenes({'name': name})
@@ -124,7 +124,7 @@ def pytest_runtest_makereport(item, call):
       test_name = item.callspec.params['test_name']
       item._nodeid = f"{item.nodeid}\n {test_name}"
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def _env_matrix_setup(request):
   """Override of root no-op fixture for functional tests.
 
