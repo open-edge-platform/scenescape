@@ -22,6 +22,7 @@ on:
     branches:
       - main
       - release-*
+      - feature/tests-rework-to-pytest
     types:
       - opened
       - synchronize
@@ -31,7 +32,6 @@ on:
     branches:
       - main
       - release-*
-      - feature/tests-rework-to-pytest
 
   # Trigger workflow when enqueued to a merge group
   # (must be under 'on')
