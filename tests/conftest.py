@@ -740,7 +740,7 @@ def _inject_k8s_options(config, spec, k8s_mgr):
         i += 1
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def _backend_type(request):
   """Indirect parametrization target for backend selection.
 
@@ -1018,7 +1018,7 @@ from tests.common_test_utils import record_test_result
 DEMO_SCENE_UID = "3bc091c7-e449-46a0-9540-29c499bca18c"
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def record_test_name(request, record_xml_attribute):
   """Record test name from marker if provided; otherwise do nothing."""
   marker = request.node.get_closest_marker("test_name")
@@ -1026,7 +1026,7 @@ def record_test_name(request, record_xml_attribute):
     record_xml_attribute("name", marker.args[0])
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def result_recorder(request):
   """Provides .success(); records exit code with test name on teardown."""
   marker = request.node.get_closest_marker("test_name")
@@ -1045,7 +1045,7 @@ def result_recorder(request):
     record_test_result(test_name, r.exit_code)
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def demo_scene(scenescape_env):
   """Provide the Demo scene UID.
 
