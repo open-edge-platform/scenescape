@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from controller.scene_controller import SceneController
 from controller.controller_mode import ControllerMode
 from controller.observability import metrics, tracing
+from scene_common import log
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
   def __init__(self, *args, **kwargs):
@@ -80,13 +81,22 @@ def build_argparser():
   parser.add_argument("--analytics-only", action="store_true",
                       default=os.getenv("CONTROLLER_ENABLE_ANALYTICS_ONLY") == "true",
                       help="Enable analytics-only mode. Use this when running a separate Tracker service that publishes tracking data to MQTT.")
+  parser.add_argument("--person-pose-adjustment",
+                      action=argparse.BooleanOptionalAction,
+                      default=os.getenv("CONTROLLER_ENABLE_PERSON_POSE_ADJUSTMENT", "true").lower() == "true",
+                      help="Enable pose-based person bounding box adjustment before world projection.")
   return parser
 
 def main():
   args = build_argparser().parse_args()
-
+  os.environ["CONTROLLER_ENABLE_PERSON_POSE_ADJUSTMENT"] = (
+    "true" if args.person_pose_adjustment else "false"
+  )
   ControllerMode.initialize(analytics_only=args.analytics_only)
-
+  log.info(
+    f"Controller person pose adjustment: "
+    f"{'ENABLED' if args.person_pose_adjustment else 'DISABLED'}"
+  )
   metrics.init()
   tracing.init()
   controller = SceneController(args.rewriteBadTime, args.rewriteAllTime,

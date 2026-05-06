@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from typing import Optional
 
 import numpy as np
+import os
 
 import robot_vision as rv
 from scene_common import log
@@ -18,6 +19,7 @@ from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegio
 
 from controller.controller_mode import ControllerMode
 from controller.moving_object import ChainData
+from controller.person_pose import PersonPoseAdjuster
 from controller.ilabs_tracking import IntelLabsTracking
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -25,9 +27,28 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_STATIC,
                                  EFFECTIVE_OBJECT_UPDATE_RATE,
                                  DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
+MIN_POSE_CACHE_TTL = 10.0
+POSE_CACHE_TTL_MULTIPLIER = 30
+PERSON_POSE_ADJUSTMENT_ENV_VAR = 'CONTROLLER_ENABLE_PERSON_POSE_ADJUSTMENT'
+PERSON_POSE_SKIP_CAMERAS_ENV_VAR = 'CONTROLLER_PERSON_POSE_SKIP_CAMERAS'
 
 DEBOUNCE_DELAY = 0.5
 MIN_FRAMES_FOR_RELIABLE_TRACK = 3
+
+def _env_bool(name, default):
+  value = os.getenv(name)
+  if value is None:
+    return default
+  return value.strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def _env_camera_set(name):
+  value = os.getenv(name)
+  if not value:
+    return frozenset()
+  return frozenset(
+    item.strip() for item in value.split(',') if item.strip()
+  )
 
 class TripwireEvent:
   def __init__(self, object, direction):
@@ -81,6 +102,30 @@ class Scene(SceneModel):
 
     # Cache for object history (publishedLocations, etc.) to maintain trails across frames
     self.object_history_cache = {}
+
+    self.person_pose_adjustment_enabled = _env_bool(
+      PERSON_POSE_ADJUSTMENT_ENV_VAR,
+      True,
+    )
+    self.person_pose_skip_cameras = _env_camera_set(
+      PERSON_POSE_SKIP_CAMERAS_ENV_VAR,
+    )
+    self.person_pose_adjuster = None
+    if self.person_pose_adjustment_enabled:
+      self.person_pose_adjuster = PersonPoseAdjuster(
+        max_entry_age_seconds=self._get_pose_cache_ttl()
+      )
+      if self.person_pose_skip_cameras:
+        log.info(
+          f"Person pose adjustment will SKIP cameras for scene {name}: "
+          f"{sorted(self.person_pose_skip_cameras)} "
+          f"(via {PERSON_POSE_SKIP_CAMERAS_ENV_VAR})"
+        )
+    else:
+      log.info(
+        f"Person pose adjustment DISABLED for scene {name} via "
+        f"{PERSON_POSE_ADJUSTMENT_ENV_VAR}"
+      )
 
     # FIXME - only for backwards compatibility
     self.scale = scale
@@ -166,7 +211,12 @@ class Scene(SceneModel):
       self.non_measurement_time_dynamic = non_measurement_time_dynamic
       self.non_measurement_time_static = non_measurement_time_static
       self._setTracker(self.trackerType)
+    if self.person_pose_adjuster is not None:
+      self.person_pose_adjuster.set_max_entry_age_seconds(self._get_pose_cache_ttl())
     return
+
+  def _get_pose_cache_ttl(self):
+    return max(MIN_POSE_CACHE_TTL, self.max_unreliable_time * POSE_CACHE_TTL_MULTIPLIER)
 
   def _createMovingObjectsForDetection(self, detectionType, detections, when, camera):
     objects = []
@@ -181,6 +231,44 @@ class Scene(SceneModel):
       mobj.map_rotation = scene_map_rotation
       objects.append(mobj)
     return objects
+
+  def _adjust_person_detections(self, detections, camera, when):
+    if not self.person_pose_adjustment_enabled or self.person_pose_adjuster is None:
+      return
+    if not detections:
+      return
+    if camera.cameraID in self.person_pose_skip_cameras:
+      log.debug(
+        f"Skipping pose adjustment for scene {self.name}, camera {camera.cameraID}: "
+        f"camera in skip list"
+      )
+      return
+
+    resolution = getattr(getattr(camera, 'pose', None), 'resolution', None)
+    if resolution is None and hasattr(camera.pose, 'intrinsics'):
+      resolution = camera.pose.intrinsics.getResolutionFromIntrinsics()
+    if resolution is not None:
+      resolution = tuple(resolution)
+
+    adjusted_count = 0
+
+    for detection in detections:
+      if not isinstance(detection, dict):
+        continue
+      if self.person_pose_adjuster.adjust_detection(
+        detection,
+        self.name,
+        camera.cameraID,
+        when,
+        resolution,
+      ):
+        adjusted_count += 1
+
+    log.debug(
+      f"Pose adjustment batch for scene {self.name}, camera {camera.cameraID}: "
+      f"detections={len(detections)}, adjusted={adjusted_count}, resolution={resolution}"
+    )
+    return
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
     if ControllerMode.isAnalyticsOnly():
@@ -206,6 +294,8 @@ class Scene(SceneModel):
       return True
 
     for detection_type, detections in jdata['objects'].items():
+      if detection_type == 'person':
+        self._adjust_person_detections(detections, camera, when)
       if "intrinsics" not in jdata:
         self._convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
       objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
