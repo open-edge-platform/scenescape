@@ -426,7 +426,7 @@ retrack-object:
 	$(eval override BASE_IMAGE := $(IMAGE_OLD))
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
-tracker-with-no-detections:
+tracker-with-no-detections: # NEX-T10544
 	$(eval IMAGE_OLD := $(BASE_IMAGE))
 	$(eval override BASE_IMAGE := $(IMAGE)-controller-test)
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
