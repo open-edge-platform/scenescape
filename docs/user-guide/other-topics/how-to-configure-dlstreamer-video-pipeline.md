@@ -333,7 +333,7 @@ This section describes the metadata schema and the format that the payload needs
     - `[fx, fy, cx, cy]` (focal lengths and principal point coordinates).
   - **cameraid** (string): Unique identifier for the camera.
   - **metadatagenpolicy** (string): Policy for generating metadata. Possible values:
-    - `detectionPolicy` (default): Metadata for object detection.
+    - `detectionPolicy` (default): Metadata for object detection. When a pose estimation model is used (e.g. `yolo11n-pose`), also includes `keypoints` (e.g. joints) with normalized x/y coordinates and `keypoint_connections` (e.g. skeleton bone pairs) in each detection object.
     - `reidPolicy`: Metadata for re-identification.
     - `classificationPolicy`: Metadata for classification.
   - **publish_frame** (boolean): Indicates whether to publish the video frame to MQTT.
