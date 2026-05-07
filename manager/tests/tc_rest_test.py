@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from tests.functional import FunctionalTest
@@ -120,6 +120,8 @@ class TestAPI(FunctionalTest):
           createData['sensor_id'] = createData['name']
         elif 'username' in createData:
           createData['username'] = createData['name']
+          if 'password' not in createData:
+            createData['password'] = 'test_password'
         elif 'marker_id' in createData:
           createData['marker_id'] = createData['name']
         if scene:
