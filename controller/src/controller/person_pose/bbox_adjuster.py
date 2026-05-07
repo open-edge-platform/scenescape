@@ -26,9 +26,8 @@ IDENTICAL_ANKLE_DISTANCE_FACTOR = 0.02
 MIN_SEGMENT_FACTOR = 0.05
 MAX_RATIO_VALUE = 10.0
 MAX_OFFSET_VALUE = 5.0
-DIRECT_FOOT_REWRITE_GAP_FACTOR = 0.08
+DIRECT_FOOT_REWRITE_GAP_FACTOR = 0.03
 ESTIMATED_FOOT_REWRITE_GAP_FACTOR = 0.12
-MAX_EXTENSION_FACTOR = 0.5
 HIGH_CONFIDENCE_THRESHOLD = 0.6
 MIN_ESTIMATE_CONFIDENCE_THRESHOLD = 0.4
 LOW_CONFIDENCE_ESTIMATION_METHODS = {
@@ -510,7 +509,7 @@ class PersonPoseAdjuster:
       )
       return False
 
-    if not self._has_likely_occlusion_signal(keypoints):
+    if not self._has_likely_occlusion_signal(keypoints, bbox):
       log.debug(
         f"Skipping bbox rewrite for {foot.method}: pose pattern does not suggest occlusion"
       )
@@ -521,10 +520,22 @@ class PersonPoseAdjuster:
   def _has_likely_occlusion_signal(
     self,
     keypoints: Dict[str, NamedKeypoint],
+    bbox: Dict[str, float],
   ) -> bool:
     left_ankle = keypoints.get('left_ankle')
     right_ankle = keypoints.get('right_ankle')
-    if left_ankle is not None or right_ankle is not None:
+
+    has_valid_ankle = False
+    if left_ankle is not None and self._is_valid_ankle(
+      'left_ankle', left_ankle, bbox, keypoints
+    ):
+      has_valid_ankle = True
+    if right_ankle is not None and self._is_valid_ankle(
+      'right_ankle', right_ankle, bbox, keypoints
+    ):
+      has_valid_ankle = True
+
+    if has_valid_ankle:
       return False
 
     knee_mid = midpoint(keypoints, 'left_knee', 'right_knee')
@@ -553,8 +564,7 @@ class PersonPoseAdjuster:
     )
     original_bottom = bbox['y'] + bbox['height']
     desired_bottom = foot.y + bbox['height'] * safety_margin
-    max_bottom = original_bottom + bbox['height'] * MAX_EXTENSION_FACTOR
-    bottom_y = min(desired_bottom, max_bottom)
+    bottom_y = max(original_bottom, desired_bottom)
 
     width = min(bbox['width'], frame_width)
     top_y = self._clip_value(bbox['y'], 0.0, frame_height)
@@ -564,7 +574,7 @@ class PersonPoseAdjuster:
     else:
       left_x = self._clip_value(bbox['x'], 0.0, max(frame_width - width, 0.0))
     bottom_y = self._clip_value(bottom_y, top_y, frame_height)
-    height = max(bottom_y - top_y, 1e-6)
+    height = max(bottom_y - top_y, bbox['height'])
     height = min(height, frame_height - top_y)
 
     adjusted_bbox = {
