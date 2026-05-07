@@ -118,7 +118,13 @@ class ManageThing(APIView):
       raise ValidationError({param: ["Unknown query parameter."] for param in unknown_params})
     return
 
-  def parse_uid(self, uid, thing_type):
+  def _parse_uid(self, uid, thing_type):
+    """
+    Parse and convert a UID string to its appropriate type based on the thing_type.
+
+    @param uid        The UID string to be parsed and converted
+    @param thing_type The type of object determining how the UID should be interpreted
+    """
     _, _, uid_field = get_class_and_serializer(thing_type)
 
     if uid_field in ['sensor_id', 'username', 'marker_id']:
@@ -147,7 +153,7 @@ class ManageThing(APIView):
       )
 
     try:
-      uid = self.parse_uid(uid, thing_type)
+      uid = self._parse_uid(uid, thing_type)
     except ValidationError as e:
       return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
@@ -168,7 +174,7 @@ class ManageThing(APIView):
 
     if uid is not None:
       try:
-        uid = self.parse_uid(uid, thing_type)
+        uid = self._parse_uid(uid, thing_type)
       except ValidationError as e:
         return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
@@ -200,7 +206,10 @@ class ManageThing(APIView):
     _, thing_serializer, _ = get_class_and_serializer(thing_type)
     self.validateUnknownParams(request)
     if uid is None:
-      raise ValidationError(thing_serializer.errors)
+      return Response(
+        {"error": "UID is required"},
+        status=status.HTTP_400_BAD_REQUEST
+      )
     return self.post(request, thing_type, uid)
 
   def delete(self, request, thing_type, uid=None):
@@ -215,7 +224,7 @@ class ManageThing(APIView):
       )
 
     try:
-      uid = self.parse_uid(uid, thing_type)
+      uid = self._parse_uid(uid, thing_type)
     except ValidationError as e:
       return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
