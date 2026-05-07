@@ -51,7 +51,8 @@ This reproduces the original capture cadence so the tracker's internal timing
 Topics (from scene_common.mqtt.PubSub templates)
 -------------------------------------------------
 * Publish  →  scenescape/data/camera/{camera_id}
-* Subscribe←  scenescape/data/scene/{scene_id}/+
+* Subscribe←  scenescape/regulated/scene/{scene_id}   (Controller: dense 30fps)
+* Subscribe←  scenescape/data/scene/{scene_id}/+      (Tracker service)
 
 Configuration keys (set_custom_config)
 --------------------------------------
@@ -64,7 +65,7 @@ Optional:
   scene_id        (str):   scene uid used to build the output topic;
                            defaults to config['uid'] from set_scene_config().
   playback_rate   (float): speed multiplier for frame injection (default 1.0).
-    drain_timeout   (float): idle timeout — seconds with no new output messages before
+  drain_timeout   (float): idle timeout — seconds with no new output messages before
                            outputs to arrive (default 5.0).
   broker_image    (str):   mosquitto Docker image (default "eclipse-mosquitto").
   broker_port     (int):   host port to bind the broker on (default 0 =
@@ -98,8 +99,11 @@ from utils.format_converters import write_jsonl
 # MQTT topic constants (mirrors scene_common.mqtt.PubSub._TopicTemplates)
 # ---------------------------------------------------------------------------
 _TOPIC_BASE = "scenescape"
-_TOPIC_DATA_CAMERA = _TOPIC_BASE + "/data/camera/{camera_id}"
-_TOPIC_DATA_SCENE  = _TOPIC_BASE + "/data/scene/{scene_id}/+"
+_TOPIC_DATA_CAMERA    = _TOPIC_BASE + "/data/camera/{camera_id}"
+_TOPIC_DATA_SCENE     = _TOPIC_BASE + "/data/scene/{scene_id}/+"
+# Controller publishes ALL frames at regulated_rate to this combined topic.
+# DATA_SCENE is only published selectively (when objects appear/disappear).
+_TOPIC_DATA_REGULATED = _TOPIC_BASE + "/regulated/scene/{scene_id}"
 
 # Mosquitto config that allows anonymous connections on port 1883
 _MOSQUITTO_CONF = """\
@@ -713,6 +717,11 @@ class BlackBoxHarness(TrackerHarness):
                 "--broker",             broker_name,
                 "--tracker_config_file", _CONTAINER_TRACKER_CONFIG,
                 "--rewriteAllTime",
+                # Use unregulated visibility to avoid computeCameraBounds crash
+                # on PointCorrespondenceTransform. The regulated topic still
+                # publishes dense 30fps output; only the per-camera pixel bounds
+                # are skipped (not needed for evaluation).
+                "--visibility_topic",   "unregulated",
             ],
             name=tracker_name,
             networks=[net_name],
@@ -813,7 +822,12 @@ class BlackBoxHarness(TrackerHarness):
         rewrite_timestamps = (container_type == CONTAINER_TYPE_TRACKER)
         outputs: List[Dict[str, Any]] = []
         output_lock = threading.Lock()
-        scene_topic = _TOPIC_DATA_SCENE.format(scene_id=self._scene_id)
+        # Controller publishes dense 30fps output to the regulated topic.
+        # Tracker service publishes per-type to the DATA_SCENE wildcard topic.
+        if container_type == CONTAINER_TYPE_CONTROLLER:
+            scene_topic = _TOPIC_DATA_REGULATED.format(scene_id=self._scene_id)
+        else:
+            scene_topic = _TOPIC_DATA_SCENE.format(scene_id=self._scene_id)
 
         # --- MQTT client setup ---
         client = mqtt.Client(client_id=f"black_box_harness_client_{uuid.uuid4().hex[:6]}")

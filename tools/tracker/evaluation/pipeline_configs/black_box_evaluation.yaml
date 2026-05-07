@@ -30,7 +30,7 @@ harness:
 
     # playback_rate: 1.0     # Real-time pacing (default). Increase to speed up.
     # drain_timeout: 5.0     # Seconds to wait for last tracker outputs (default).
-    # broker_image: eclipse-mosquitto  # MQTT broker image (default).
+    broker_image: eclipse-mosquitto:2.0.22  # Pin to same version as production deploy.
 
 evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
