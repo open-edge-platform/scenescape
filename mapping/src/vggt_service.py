@@ -10,7 +10,7 @@ VGGT-specific API Service
 # Import the base API service
 from api_service_base import startApp, app
 
-def initializeModel():
+def initialize_model():
   """Initialize VGGT model"""
   from vggt_model import VGGTModel
 
@@ -19,9 +19,9 @@ def initializeModel():
 
   return model, "vggt"
 
-# Override the initializeModel function in the base module
+# Override the initialize_model function in the base module
 import api_service_base
-api_service_base.initializeModel = initializeModel
+api_service_base.initialize_model = initialize_model
 
 if __name__ == "__main__":
   startApp()

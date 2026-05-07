@@ -56,7 +56,7 @@ class VGGTModel(ReconstructionModel):
     self.model_weights_url = "https://huggingface.co/facebook/VGGT-1B/resolve/main/model.pt"
     self.local_weights_path = "/workspace/model_weights/vggt_model.pt"
 
-  def loadModel(self) -> None:
+  def load_model(self) -> None:
     """Load VGGT model and weights."""
     try:
       log.info("Initializing VGGT model...")
@@ -83,7 +83,7 @@ class VGGTModel(ReconstructionModel):
       log.error(f"Failed to load VGGT model: {e}")
       raise RuntimeError(f"VGGT model loading failed: {e}")
 
-  def runInference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
+  def run_inference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Run VGGT inference on input images.
 
@@ -97,7 +97,7 @@ class VGGTModel(ReconstructionModel):
       Dictionary containing predictions, camera poses, and intrinsics
     """
     if not self.is_loaded:
-      raise RuntimeError("Model not loaded. Call loadModel() first.")
+      raise RuntimeError("Model not loaded. Call load_model() first.")
 
     self.validateImages(images)
 
@@ -134,11 +134,11 @@ class VGGTModel(ReconstructionModel):
       log.error(f"VGGT inference failed: {e}")
       raise RuntimeError(f"VGGT inference failed: {e}")
 
-  def getSupportedOutputs(self) -> List[str]:
+  def get_supported_outputs(self) -> List[str]:
     """Get supported output formats."""
     return ["pointcloud", "mesh"]
 
-  def getNativeOutput(self) -> str:
+  def get_native_output(self) -> str:
     """Get native output format."""
     return "pointcloud"
 
@@ -150,7 +150,7 @@ class VGGTModel(ReconstructionModel):
     cb = self._camera_center_from_c2w(c2w_b)
     return float(np.linalg.norm(cb - ca))
 
-  def scaleIntrinsicsToOriginalSize(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
+  def scale_intrinsics_to_original_size(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
                    preprocessing_mode: str = "crop") -> list:
     """Scale intrinsics for VGGT preprocessing (simple resize + crop/pad)"""
     if len(intrinsics.shape) == 2:
@@ -223,7 +223,7 @@ class VGGTModel(ReconstructionModel):
 
     return scaled_intrinsics
 
-  def createOutput(
+  def create_output(
     self,
     result: Dict[str, Any],
     output_format: str = None,
@@ -239,7 +239,7 @@ class VGGTModel(ReconstructionModel):
     - Fallback: original VGGT GLB export via predictions_to_glb.
 
     Args:
-      result: Result dictionary from runInference containing predictions
+      result: Result dictionary from run_inference containing predictions
       output_format: Desired output format ('pointcloud' or 'mesh'). If None, uses native format.
       voxel_size: Kept for backward compat; not used in fast mesh path.
       floor_margin: Floor flattening margin (meters) for fast mesh path.
@@ -248,11 +248,11 @@ class VGGTModel(ReconstructionModel):
       trimesh.Scene: Processed 3D scene
     """
     if output_format is None:
-      output_format = self.getNativeOutput()
+      output_format = self.get_native_output()
 
-    if output_format not in self.getSupportedOutputs():
+    if output_format not in self.get_supported_outputs():
       raise ValueError(
-        f"Output format '{output_format}' not supported. Supported formats: {self.getSupportedOutputs()}"
+        f"Output format '{output_format}' not supported. Supported formats: {self.get_supported_outputs()}"
       )
 
     predictions = result["predictions"]
@@ -547,7 +547,7 @@ class VGGTModel(ReconstructionModel):
     predictions["world_points_from_depth"] = world_points
 
     model_intrinsics = predictions["intrinsic"]  # (S, 3, 3)
-    original_intrinsics = self.scaleIntrinsicsToOriginalSize(
+    original_intrinsics = self.scale_intrinsics_to_original_size(
       model_intrinsics,
       model_size,
       original_sizes,

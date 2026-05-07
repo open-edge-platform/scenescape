@@ -28,26 +28,26 @@ class MockReconstructionModel(ReconstructionModel):
   def __init__(self, device="cpu"):
     super().__init__("mock_model", "Mock model for testing", device)
 
-  def loadModel(self):
+  def load_model(self):
     self.is_loaded = True
 
-  def runInference(self, images):
+  def run_inference(self, images):
     return {
       "predictions": {},
       "camera_poses": [],
       "intrinsics": []
     }
 
-  def getSupportedOutputs(self):
+  def get_supported_outputs(self):
     return ["mesh", "pointcloud"]
 
-  def getNativeOutput(self):
+  def get_native_output(self):
     return "mesh"
 
-  def scaleIntrinsicsToOriginalSize(self, intrinsics, model_size, original_sizes, preprocessing_mode="crop"):
+  def scale_intrinsics_to_original_size(self, intrinsics, model_size, original_sizes, preprocessing_mode="crop"):
     return [intrinsics] * len(original_sizes)
 
-  def createOutput(self, result, output_format=None):
+  def create_output(self, result, output_format=None):
     import trimesh
     return trimesh.Scene()
 
@@ -71,7 +71,7 @@ class TestReconstructionModel:
 
     assert model.isModelLoaded() is False
 
-    model.loadModel()
+    model.load_model()
     assert model.isModelLoaded() is True
 
   def test_get_model_info(self):
