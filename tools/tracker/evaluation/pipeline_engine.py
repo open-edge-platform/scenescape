@@ -349,15 +349,14 @@ class PipelineEngine:
     # Set tracker config path (required for SceneControllerHarness)
     custom_config = {}
 
-    if 'tracker_config_path' in config:
-      custom_config['tracker_config_path'] = config['tracker_config_path']
+    # container_image is consumed by the harness constructor — skip it.
+    # Everything else in the YAML config block is forwarded to set_custom_config.
+    _constructor_keys = {'container_image'}
+    custom_config = {k: v for k, v in config.items() if k not in _constructor_keys}
 
-    if 'object_classes' in config:
-      custom_config['object_classes'] = config['object_classes']
-
-    # Add any additional custom configuration
-    if 'custom_config' in config:
-      custom_config.update(config['custom_config'])
+    # Merge any nested 'custom_config' sub-block (legacy support)
+    if 'custom_config' in custom_config:
+      custom_config.update(custom_config.pop('custom_config'))
 
     if custom_config:
       self._harness.set_custom_config(custom_config)

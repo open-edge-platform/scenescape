@@ -66,7 +66,7 @@ Optional:
   playback_rate   (float): speed multiplier for frame injection (default 1.0).
   drain_timeout   (float): idle timeout — seconds with no new output messages before
                            outputs to arrive (default 5.0).
-  broker_image    (str):   mosquitto Docker image (default "eclipse-mosquitto").
+  broker_image    (str):   mosquitto Docker image (required, e.g. "eclipse-mosquitto:2.0.22").
   broker_port     (int):   host port to bind the broker on (default 0 =
                            choose a free port automatically).
 """
@@ -126,7 +126,7 @@ _TRACKER_SVC_SCHEMA        = "/scenescape/schema/config.schema.json"
 CONTAINER_TYPE_CONTROLLER = "controller"
 CONTAINER_TYPE_TRACKER    = "tracker"
 
-DEFAULT_BROKER_IMAGE  = "eclipse-mosquitto"
+
 DEFAULT_DRAIN_TIMEOUT = 5.0   # seconds of silence after last received message before stopping
 DEFAULT_PLAYBACK_RATE = 1.0   # 1.0 = real-time, 2.0 = 2× speed
 
@@ -440,7 +440,7 @@ class BlackBoxHarness(TrackerHarness):
         self._container_type: Optional[str] = None  # auto-detected when None
         self._playback_rate: float = DEFAULT_PLAYBACK_RATE
         self._drain_timeout: float = DEFAULT_DRAIN_TIMEOUT
-        self._broker_image: str = DEFAULT_BROKER_IMAGE
+        self._broker_image: str = ""
         self._broker_port: int = 0  # 0 = auto
         self._output_folder: Optional[Path] = None
 
@@ -496,7 +496,9 @@ class BlackBoxHarness(TrackerHarness):
             self._container_type = ct
         self._playback_rate  = float(config.get("playback_rate",  DEFAULT_PLAYBACK_RATE))
         self._drain_timeout  = float(config.get("drain_timeout",  DEFAULT_DRAIN_TIMEOUT))
-        self._broker_image   = str(config.get("broker_image",     DEFAULT_BROKER_IMAGE))
+        if "broker_image" not in config:
+            raise ValueError("Custom config must contain 'broker_image'")
+        self._broker_image   = str(config["broker_image"])
         self._broker_port    = int(config.get("broker_port",      0))
         return self
 
@@ -792,14 +794,17 @@ class BlackBoxHarness(TrackerHarness):
 
         def _stream():
             try:
-                # python-on-whales logs(stream=True) yields (source, bytes) tuples
-                # where source is 'stdout' or 'stderr'.
-                for _source, content in tracker_ctr.logs(stream=True, follow=True):
+                # Container.logs() instance method does not support stream/follow;
+                # use docker.container.logs() (the CLI wrapper) which yields
+                # (source, bytes) tuples where source is 'stdout' or 'stderr'.
+                for _source, content in docker.container.logs(
+                    tracker_ctr, stream=True, follow=True
+                ):
                     line = content.decode("utf-8", errors="replace")
                     print(f"[tracker] {line}", end="" if line.endswith("\n") else "\n",
                           flush=True)
-            except Exception:
-                pass  # container stopped — normal exit
+            except Exception as exc:
+                print(f"[tracker] log stream ended: {exc}", flush=True)
 
         t = threading.Thread(target=_stream, daemon=True)
         t.start()

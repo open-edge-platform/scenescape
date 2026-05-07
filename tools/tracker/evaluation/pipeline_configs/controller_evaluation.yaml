@@ -20,6 +20,7 @@ harness:
   config:
     container_image: scenescape-controller:2026.1.0-dev
     tracker_config_path: ../../../tests/system/metric/dataset/tracker-config.json
+    # tracker_config_path: ../../../tests/system/metric/dataset/tracker-config-time-chunking.json
 
 evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
