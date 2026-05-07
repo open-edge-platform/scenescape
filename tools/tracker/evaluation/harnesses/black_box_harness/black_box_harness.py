@@ -118,6 +118,7 @@ _CONTAINER_CONFIG          = _CONTAINER_WORKSPACE + "/config.json"
 _CONTAINER_TRACKER_CONFIG  = _CONTAINER_WORKSPACE + "/tracker-config.json"
 
 # Tracker-service-specific container paths
+_TRACKER_SVC_EXECUTABLE    = "/scenescape/tracker"
 _TRACKER_SVC_CONFIG        = _CONTAINER_WORKSPACE + "/tracker_svc_config.json"
 _TRACKER_SVC_SCENES        = _CONTAINER_WORKSPACE + "/scenes.json"
 _TRACKER_SVC_SCHEMA        = "/scenescape/schema/config.schema.json"
@@ -770,6 +771,7 @@ class BlackBoxHarness(TrackerHarness):
         return docker.run(
             self._container_image,
             command=[
+                _TRACKER_SVC_EXECUTABLE,
                 "--config", _TRACKER_SVC_CONFIG,
                 "--schema", _TRACKER_SVC_SCHEMA,
             ],
@@ -910,9 +912,9 @@ class BlackBoxHarness(TrackerHarness):
             cam_id = frame.get("id", "")
             topic  = _TOPIC_DATA_CAMERA.format(camera_id=cam_id)
             if rewrite_timestamps:
-                # Tracker service has no --rewriteAllTime; publish with current
-                # wall-clock timestamp so max_lag_s filter does not drop frames.
-                published_frame = {**frame, "timestamp": datetime.now(timezone.utc).isoformat()}
+                _now = datetime.now(timezone.utc)
+                now_ms = _now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{_now.microsecond // 1000:03d}Z"
+                published_frame = {**frame, "timestamp": now_ms}
             else:
                 published_frame = frame
             client.publish(topic, json.dumps(published_frame))
