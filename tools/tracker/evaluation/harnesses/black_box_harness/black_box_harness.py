@@ -64,7 +64,7 @@ Optional:
   scene_id        (str):   scene uid used to build the output topic;
                            defaults to config['uid'] from set_scene_config().
   playback_rate   (float): speed multiplier for frame injection (default 1.0).
-  drain_timeout   (float): seconds to wait after the last frame for remaining
+    drain_timeout   (float): idle timeout — seconds with no new output messages before
                            outputs to arrive (default 5.0).
   broker_image    (str):   mosquitto Docker image (default "eclipse-mosquitto").
   broker_port     (int):   host port to bind the broker on (default 0 =
@@ -124,7 +124,7 @@ CONTAINER_TYPE_CONTROLLER = "controller"
 CONTAINER_TYPE_TRACKER    = "tracker"
 
 DEFAULT_BROKER_IMAGE  = "eclipse-mosquitto"
-DEFAULT_DRAIN_TIMEOUT = 5.0   # seconds to wait after last publish
+DEFAULT_DRAIN_TIMEOUT = 5.0   # seconds of silence after last received message before stopping
 DEFAULT_PLAYBACK_RATE = 1.0   # 1.0 = real-time, 2.0 = 2× speed
 
 
@@ -853,8 +853,22 @@ class BlackBoxHarness(TrackerHarness):
                 published_frame = frame
             client.publish(topic, json.dumps(published_frame))
 
-        print(f"[BlackBoxHarness] Published {len(frames)} frames, draining for {self._drain_timeout}s ...")
-        time.sleep(self._drain_timeout)
+        print(f"[BlackBoxHarness] Published {len(frames)} frames, draining (idle timeout {self._drain_timeout}s) ...")
+        # Idle-based drain: keep collecting until no new messages arrive for
+        # drain_timeout seconds.  Uses nominal sleep increments so behaviour
+        # is predictable even when time.sleep is mocked in unit tests.
+        poll_interval = min(0.25, self._drain_timeout) if self._drain_timeout > 0 else 0.25
+        last_count = len(outputs)
+        idle_time = 0.0
+        while idle_time < self._drain_timeout:
+            time.sleep(poll_interval)
+            with output_lock:
+                current_count = len(outputs)
+            if current_count != last_count:
+                last_count = current_count
+                idle_time = 0.0
+            else:
+                idle_time += poll_interval
 
         client.loop_stop()
         client.disconnect()
