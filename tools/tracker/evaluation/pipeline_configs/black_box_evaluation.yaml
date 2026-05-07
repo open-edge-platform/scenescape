@@ -22,7 +22,7 @@ harness:
   config:
     broker_image: eclipse-mosquitto:2.0.22 # Pin to same version as production deploy.
 
-    # container_image: scenescape-controller:2026.1.0-dev
+    container_image: scenescape-controller:2026.1.0-dev
     # tracker_config_path: ../../../tests/system/metric/dataset/tracker-config.json
     # tracker_config_path: ../../../tests/system/metric/dataset/tracker-config-time-chunking.json
 
