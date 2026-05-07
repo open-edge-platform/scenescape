@@ -40,7 +40,7 @@ collect_ignore_glob = [
   "autocalibration/*",
   "mapping/*",
   "perf_tests/*",
-  "sscape_tests/account-security/*",
+  "sscape_tests/*",
   "system/metric/*",
   "pipeline_runner/*",
   "ntlb/*",
@@ -152,6 +152,8 @@ def pytest_addoption(parser):
                   help="Container log collection mode: failed (default), all, or none")),
     ("--backend",          dict(default="docker", choices=["docker", "kubernetes", "all"],
                                 help="Deployment backend: docker (compose), kubernetes (KinD+helm), or all")),
+    ("--expect_exceed_max", dict(default="false",
+                                help="Whether unique count is expected to exceed max (true/false)")),
   ]
   for name, kw in _opts:
     try:
@@ -722,10 +724,10 @@ def _inject_k8s_options(config, spec, k8s_mgr):
   opt.password = k8s_mgr._supass
   opt.auth = k8s_mgr.auth_file
   opt.rootcert = k8s_mgr.cert_file
-  opt.broker_url = "localhost"
+  opt.broker_url = "broker.scenescape.intel.com"
   opt.broker_port = k8s_mgr.mqtt_port
-  opt.weburl = f"https://localhost:{k8s_mgr.web_port}"
-  opt.resturl = f"https://localhost:{k8s_mgr.web_port}/api/v1"
+  opt.weburl = f"https://web.scenescape.intel.com:{k8s_mgr.web_port}"
+  opt.resturl = f"https://web.scenescape.intel.com:{k8s_mgr.web_port}/api/v1"
 
   # Parse extra_args (--key value pairs) into option attributes.
   if spec.extra_args:

@@ -20,26 +20,6 @@ logger = logging.getLogger(__name__)
 
 DEMO_SCENE_NAME = "Demo"
 
-def pytest_addoption(parser):
-  parser.addoption("--user", required=True, help="user to log into REST server")
-  parser.addoption("--password", required=True, help="password to log into REST server")
-  parser.addoption("--auth", default="/run/secrets/controller.auth",
-                   help="user:password or JSON file for MQTT authentication")
-  parser.addoption("--rootcert", default="/run/secrets/certs/scenescape-ca.pem",
-                   help="path to ca certificate")
-  parser.addoption("--broker_url", default="broker.scenescape.intel.com",
-                   help="hostname or IP of MQTT broker")
-  parser.addoption("--broker_port", default="1883", type=int, help="Port of MQTT broker")
-  parser.addoption("--weburl", default="https://web.scenescape.intel.com",
-                   help="Web URL of the server")
-  parser.addoption("--resturl", default="https://web.scenescape.intel.com/api/v1",
-                   help="URL of REST server")
-  parser.addoption("--scene_name", default="Demo",
-                   help="name of scene to test against")
-  parser.addoption("--visibility_topic", default="regulated",
-                   help="Visibility policy: regulated, unregulated, none")
-  parser.addoption("--expect_exceed_max", default="false",
-                   help="Whether unique count is expected to exceed max (true/false)")
 
 @pytest.fixture
 def params(request):
@@ -115,6 +95,8 @@ def scene_uid(rest, params):
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
+  if not config.option.file_or_dir:
+    return
   file_name = Path(config.option.file_or_dir[0]).stem
   config.option.htmlpath = os.getcwd() + '/tests/functional/reports/test_reports/' + file_name + ".html"
 
