@@ -185,7 +185,7 @@ class ClusterAnalyticsContext:
 
       # If parameters changed significantly, force-clear existing clusters
       if eps_change_ratio > 0.5 or min_samples_changed:
-        cleared_count = self.cluster_tracker.forceClearClustersByCategory(scene_id, category_lower)
+        cleared_count = self.cluster_tracker.force_clear_clusters_by_category(scene_id, category_lower)
         if cleared_count > 0:
           log.debug(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to significant parameter change")
 
@@ -230,7 +230,7 @@ class ClusterAnalyticsContext:
       scene_params = self.user_dbscan_params_by_scene[scene_id]
       if category_lower in scene_params:
         # Force-clear existing clusters since parameters are changing back to defaults
-        cleared_count = self.cluster_tracker.forceClearClustersByCategory(scene_id, category_lower)
+        cleared_count = self.cluster_tracker.force_clear_clusters_by_category(scene_id, category_lower)
         if cleared_count > 0:
           log.debug(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to parameter reset")
 
@@ -358,7 +358,7 @@ class ClusterAnalyticsContext:
     if len(objects) < min_required_objects:
       log.debug(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering")
       # Still process through tracker to mark existing clusters as missed
-      self.cluster_tracker.processNewDetections(scene_id, [], timestamp)
+      self.cluster_tracker.process_new_detections(scene_id, [], timestamp)
       return []
 
     # Analyze clusters for each category with multiple objects
@@ -424,14 +424,14 @@ class ClusterAnalyticsContext:
 
           raw_cluster_detections.append(cluster_detection)
 
-    self.cluster_tracker.processNewDetections(scene_id, raw_cluster_detections, timestamp)
+    self.cluster_tracker.process_new_detections(scene_id, raw_cluster_detections, timestamp)
 
     # Log when no clusters are detected by DBSCAN
     if len(raw_cluster_detections) == 0:
       log.debug(f"Scene {scene_id}: No clusters detected by DBSCAN")
 
     # Clean up old/lost clusters to prevent stale data
-    self.cluster_tracker.memory.cleanupOldClusters(timestamp)
+    self.cluster_tracker.memory.cleanup_old_clusters(timestamp)
 
     # Don't publish here - let publish_all_clusters handle it to avoid duplicates
     return raw_cluster_detections
@@ -448,13 +448,13 @@ class ClusterAnalyticsContext:
       return
 
     # Get active/stable clusters for this scene
-    tracked_clusters = self.cluster_tracker.getActiveClusters(
+    tracked_clusters = self.cluster_tracker.get_active_clusters(
             scene_id=scene_id,
             publishable_only=True
     )
 
     # Convert to dictionaries
-    cluster_dicts = [c.toDict() for c in tracked_clusters]
+    cluster_dicts = [c.to_dict() for c in tracked_clusters]
 
     try:
       # Create aggregated cluster data structure
@@ -789,7 +789,7 @@ class ClusterAnalyticsContext:
     # Start WebUI server in a separate thread if available
     if self.webUi:
       try:
-        webThread = self.webUi.runInThread(
+        webThread = self.webUi.run_in_thread(
             host='0.0.0.0',
             port=self.webui_port,
             certfile=self.webui_certfile,

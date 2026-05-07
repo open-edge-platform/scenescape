@@ -145,9 +145,9 @@ class WebUI:
         config = {}
         for category in categories:
           # Get current active parameters (user-configured or defaults) for this scene
-          params = self.clusterContext.getDbscanParamsForCategory(category, sceneId)
+          params = self.clusterContext.get_dbscan_params_for_category(category, sceneId)
           # Get default parameters to show what the recommended values are
-          defaults = self.clusterContext.getDefaultDbscanParamsForCategory(category)
+          defaults = self.clusterContext.get_default_dbscan_params_for_category(category)
 
           # Check if this category has scene-specific customization
           hasCustomParams = (sceneId in self.clusterContext.user_dbscan_params_by_scene and
@@ -197,9 +197,9 @@ class WebUI:
         config = {}
         for category in categories:
           # Get current active parameters (user-configured or defaults) for this scene
-          params = self.clusterContext.getDbscanParamsForCategory(category, self.currentSelectedScene)
+          params = self.clusterContext.get_dbscan_params_for_category(category, self.currentSelectedScene)
           # Get default parameters to show what the recommended values are
-          defaults = self.clusterContext.getDefaultDbscanParamsForCategory(category)
+          defaults = self.clusterContext.get_default_dbscan_params_for_category(category)
 
           # Check if this category has scene-specific customization
           hasCustomParams = (self.currentSelectedScene in self.clusterContext.user_dbscan_params_by_scene and
@@ -235,7 +235,7 @@ class WebUI:
       if category and eps is not None and minSamples is not None:
         # Update the parameters using the proper method for the current scene
         if self.currentSelectedScene:
-          self.clusterContext.setUserDbscanParamsForCategory(category, eps, minSamples, self.currentSelectedScene)
+          self.clusterContext.set_user_dbscan_params_for_category(category, eps, minSamples, self.currentSelectedScene)
 
           log.info(f"Updated DBSCAN parameters for '{category}' in scene '{self.currentSelectedScene}': eps={eps}, min_samples={minSamples}")
         else:
@@ -257,7 +257,7 @@ class WebUI:
             }
 
             # Perform re-clustering with new parameters
-            self.clusterContext.analyzeObjectClusters(self.currentSelectedScene, detectionData)
+            self.clusterContext.analyze_object_clusters(self.currentSelectedScene, detectionData)
 
             # Immediately send updated cluster data to frontend
             if 'clusters' in self.sceneData[self.currentSelectedScene]:
@@ -285,7 +285,7 @@ class WebUI:
 
       if category and targetScene:
         # Reset the parameters back to defaults for the target scene
-        self.clusterContext.resetUserDbscanParamsForCategory(category, targetScene)
+        self.clusterContext.reset_user_dbscan_params_for_category(category, targetScene)
 
         log.info(f"Reset DBSCAN parameters for '{category}' in scene '{targetScene}' back to defaults")
 
@@ -293,8 +293,8 @@ class WebUI:
         if targetScene in self.sceneData:
 
           # Get the default parameters that are now active for this scene
-          params = self.clusterContext.getDbscanParamsForCategory(category, targetScene)
-          defaults = self.clusterContext.getDefaultDbscanParamsForCategory(category)
+          params = self.clusterContext.get_dbscan_params_for_category(category, targetScene)
+          defaults = self.clusterContext.get_default_dbscan_params_for_category(category)
 
           emit('clustering_config_updated', {
             'category': category,
@@ -318,7 +318,7 @@ class WebUI:
             }
 
             # Perform re-clustering with reset parameters
-            self.clusterContext.analyzeObjectClusters(targetScene, detectionData)
+            self.clusterContext.analyze_object_clusters(targetScene, detectionData)
 
             # Immediately send updated cluster data to frontend
             if 'clusters' in self.sceneData[targetScene]:
@@ -420,8 +420,8 @@ class WebUI:
     """Hook into the cluster analytics context to receive data updates."""
 
     # Store original methods
-    originalAnalyzeClusters = self.clusterContext.analyzeObjectClusters
-    originalPublishClusters = self.clusterContext.publishAllClusters
+    originalAnalyzeClusters = self.clusterContext.analyze_object_clusters
+    originalPublishClusters = self.clusterContext.publish_all_clusters
 
     def enhanced_analyze_clusters(sceneId, detectionData):
       """Enhanced version that also updates WebUI data."""
@@ -439,13 +439,13 @@ class WebUI:
       result = originalPublishClusters(sceneId, detectionData, allClusters)
 
       # Get the actual tracked clusters that were published
-      tracked_clusters = self.clusterContext.cluster_tracker.getActiveClusters(
+      tracked_clusters = self.clusterContext.cluster_tracker.get_active_clusters(
           scene_id=sceneId,
           publishable_only=True
       )
 
       # Convert to dictionaries (same format as MQTT publication)
-      cluster_dicts = [c.toDict() for c in tracked_clusters]
+      cluster_dicts = [c.to_dict() for c in tracked_clusters]
 
       # Update WebUI clusters with the actual published data
       self.update_scene_clusters(sceneId, cluster_dicts)
@@ -453,8 +453,8 @@ class WebUI:
       return result
 
     # Replace methods with enhanced versions
-    self.clusterContext.analyzeObjectClusters = enhanced_analyze_clusters
-    self.clusterContext.publishAllClusters = enhanced_publish_clusters
+    self.clusterContext.analyze_object_clusters = enhanced_analyze_clusters
+    self.clusterContext.publish_all_clusters = enhanced_publish_clusters
 
   def update_scene_objects(self, sceneId, detectionData):
     """Update scene objects data for WebUI."""
