@@ -78,7 +78,7 @@ import tempfile
 import threading
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
@@ -284,6 +284,8 @@ def _build_tracker_service_config(
   Returns:
       Config dict ready to be JSON-serialised as config.json.
   """
+
+  tracking_cfg = tracker_cfg.get("tracking", tracker_cfg)
   return {
       "infrastructure": {
           "mqtt": {
@@ -297,14 +299,11 @@ def _build_tracker_service_config(
           "file_path": scenes_container_path,
       },
       "tracking": {
-          # Tracker service always uses time-chunking; fall back to 15 fps.
-          "time_chunking_rate_fps": tracker_cfg.get("time_chunking_rate_fps", 15),
-          "max_unreliable_time_s":        tracker_cfg.get("max_unreliable_time_s", 1.0),
-          "non_measurement_time_dynamic_s": tracker_cfg.get("non_measurement_time_dynamic_s", 0.8),
-          "non_measurement_time_static_s":  tracker_cfg.get("non_measurement_time_static_s", 1.6),
-          # Frames are published with current wall-clock timestamps by the
-          # harness (timestamp rewriting), so real-time lag is negligible.
-          "max_lag_s": 1.0,
+          "time_chunking_rate_fps": tracking_cfg.get("time_chunking_rate_fps", 15),
+          "max_unreliable_time_s":        tracking_cfg.get("max_unreliable_time_s", 1.0),
+          "non_measurement_time_dynamic_s": tracking_cfg.get("non_measurement_time_dynamic_s", 0.8),
+          "non_measurement_time_static_s":  tracking_cfg.get("non_measurement_time_static_s", 1.6),
+          "max_lag_s": 1e15,
       },
   }
 
@@ -747,8 +746,9 @@ class BlackBoxHarness(TrackerHarness):
 
     The Tracker service always uses time-chunking.  Camera extrinsics are
     pre-solved from the dataset's point correspondences via ``_solve_pnp``.
-    The harness rewrites frame timestamps to wall-clock time before
-    publishing (see ``_run_session``), so ``max_lag_s: 1.0`` is sufficient.
+    ``max_lag_s`` is set to a very large value so historical dataset timestamps
+    pass through unchanged, matching the ``--maxlag 1e15`` approach used for
+    the controller container.
 
     Returns:
         Running tracker service container.
@@ -854,7 +854,7 @@ class BlackBoxHarness(TrackerHarness):
     Returns:
         List of output dicts collected from the scene output topic.
     """
-    rewrite_timestamps = (container_type == CONTAINER_TYPE_TRACKER)
+    rewrite_timestamps = False  # Both container types use original dataset timestamps.
     outputs: List[Dict[str, Any]] = []
     output_lock = threading.Lock()
     # Both controller and tracker service publish one message per input
@@ -911,13 +911,7 @@ class BlackBoxHarness(TrackerHarness):
 
       cam_id = frame.get("id", "")
       topic  = _TOPIC_DATA_CAMERA.format(camera_id=cam_id)
-      if rewrite_timestamps:
-        _now = datetime.now(timezone.utc)
-        now_ms = _now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{_now.microsecond // 1000:03d}Z"
-        published_frame = {**frame, "timestamp": now_ms}
-      else:
-        published_frame = frame
-      client.publish(topic, json.dumps(published_frame))
+      client.publish(topic, json.dumps(frame))
 
     print(f"[BlackBoxHarness] Published {len(frames)} frames, draining (idle timeout {self._drain_timeout}s) ...")
     # Idle-based drain: keep collecting until no new messages arrive for

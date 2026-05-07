@@ -753,15 +753,28 @@ class TestContainerTypeConfig:
 # ---------------------------------------------------------------------------
 
 class TestTimestampRewriting:
-  """Tracker service mode: published timestamps must be current wall-clock."""
+  """Both container types must publish original dataset timestamps unchanged."""
 
   @pytest.fixture(autouse=True)
   def mock_wait_for_port(self):
     with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"):
       yield
 
-  @pytest.fixture
-  def tracker_svc_harness(self, harness, scene_config, tracker_config_file):
+  def _run_and_get_payloads(self, harness, sample_frames, container_type):
+    mock_client_instance = MagicMock()
+    with patch("harnesses.black_box_harness.black_box_harness.docker") as mock_docker, \
+         patch("harnesses.black_box_harness.black_box_harness.mqtt.Client", return_value=mock_client_instance), \
+         patch("harnesses.black_box_harness.black_box_harness.time.sleep"):
+      mock_docker.network.create = MagicMock()
+      mock_docker.network.remove = MagicMock()
+      mock_docker.run = MagicMock(return_value=MagicMock())
+      list(harness.process_inputs(iter(sample_frames)))
+    return [json.loads(c.args[1]) for c in mock_client_instance.publish.call_args_list]
+
+  def test_tracker_service_keeps_original_timestamps(
+      self, harness, scene_config, tracker_config_file, sample_frames
+  ):
+    """Tracker service: frames are published with original dataset timestamps."""
     harness.set_scene_config(scene_config)
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
@@ -770,41 +783,12 @@ class TestTimestampRewriting:
         "playback_rate": 100.0,
         "container_type": CONTAINER_TYPE_TRACKER,
     })
-    return harness
+    payloads = self._run_and_get_payloads(harness, sample_frames, CONTAINER_TYPE_TRACKER)
+    for payload, original in zip(payloads, sample_frames):
+      assert payload["timestamp"] == original["timestamp"]
 
-  @patch("harnesses.black_box_harness.black_box_harness.docker")
-  @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
-  @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
-  def test_published_timestamps_are_not_historical(
-      self, mock_sleep, MockMqttClient, mock_docker,
-      tracker_svc_harness, sample_frames
-  ):
-    """Tracker service: published frames must carry current-ish timestamps."""
-    mock_client_instance = MagicMock()
-    MockMqttClient.return_value = mock_client_instance
-    mock_docker.network.create = MagicMock()
-    mock_docker.network.remove = MagicMock()
-    mock_docker.run = MagicMock(return_value=MagicMock())
-
-    list(tracker_svc_harness.process_inputs(iter(sample_frames)))
-
-    published_payloads = [
-        json.loads(call.args[1])
-        for call in mock_client_instance.publish.call_args_list
-    ]
-    import time as _time
-    now = _time.time()
-    for payload in published_payloads:
-      ts = _parse_ts(payload["timestamp"])
-      # Should be within last 60 seconds (not 2014 dataset timestamp)
-      assert abs(ts - now) < 60, f"Published timestamp too far from now: {payload['timestamp']}"
-
-  @patch("harnesses.black_box_harness.black_box_harness.docker")
-  @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
-  @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
   def test_controller_keeps_original_timestamps(
-      self, mock_sleep, MockMqttClient, mock_docker,
-      harness, scene_config, tracker_config_file, sample_frames
+      self, harness, scene_config, tracker_config_file, sample_frames
   ):
     """Controller mode: frames are published with original dataset timestamps."""
     harness.set_scene_config(scene_config)
@@ -815,19 +799,8 @@ class TestTimestampRewriting:
         "playback_rate": 100.0,
         "container_type": CONTAINER_TYPE_CONTROLLER,
     })
-    mock_client_instance = MagicMock()
-    MockMqttClient.return_value = mock_client_instance
-    mock_docker.network.create = MagicMock()
-    mock_docker.network.remove = MagicMock()
-    mock_docker.run = MagicMock(return_value=MagicMock())
-
-    list(harness.process_inputs(iter(sample_frames)))
-
-    published_payloads = [
-        json.loads(call.args[1])
-        for call in mock_client_instance.publish.call_args_list
-    ]
-    for payload, original in zip(published_payloads, sample_frames):
+    payloads = self._run_and_get_payloads(harness, sample_frames, CONTAINER_TYPE_CONTROLLER)
+    for payload, original in zip(payloads, sample_frames):
       assert payload["timestamp"] == original["timestamp"]
 
 
