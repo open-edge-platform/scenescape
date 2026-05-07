@@ -6,7 +6,7 @@
 
 pipeline:
   output:
-    path: /tmp/tracker-evaluation
+    path: home/labrat/tracker-evaluation/tracker-evaluation
 
 dataset:
   class: datasets.metric_test_dataset.MetricTestDataset
