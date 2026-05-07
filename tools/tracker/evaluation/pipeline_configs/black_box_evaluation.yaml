@@ -25,12 +25,12 @@ harness:
 
     # tracker_config_path: ../../../tests/system/metric/dataset/tracker-config-time-chunking.json
 
-    # container_image: scenescape-tracker:2026.1.0-dev  
+    # container_image: scenescape-tracker:2026.1.0-dev
     # tracker_config_path: ../../../tracker/config/tracker.json
 
     # playback_rate: 1.0     # Real-time pacing (default). Increase to speed up.
     # drain_timeout: 5.0     # Seconds to wait for last tracker outputs (default).
-    broker_image: eclipse-mosquitto:2.0.22  # Pin to same version as production deploy.
+    broker_image: eclipse-mosquitto:2.0.22 # Pin to same version as production deploy.
 
 evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
