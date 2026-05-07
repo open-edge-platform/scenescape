@@ -63,8 +63,12 @@ Check `datasets/README.md` for more details
   - Starts an `eclipse-mosquitto` broker container and the tracker container on an isolated Docker network (`mqtt_harness_{run_id}`); both are removed after the run.
   - Publishes each input frame to `scenescape/data/camera/{camera_id}` and collects tracker outputs from `scenescape/data/scene/{scene_id}/+`.
   - Timestamps in each frame are used to pace publishing: `sleep(delta_data / playback_rate - elapsed_wall)` before each publish.
+  - **Supports two container types** (auto-detected from image metadata, or set via `container_type` config key):
+    - `controller` (`scenescape-controller`): Scene config passed via `--data_source config.json`; camera dicts include `camera points`/`map points` directly so `Camera.__init__` builds a `PointCorrespondenceTransform` (solvePnP). Timestamps are rewritten by the controller via `--rewriteAllTime`. Time-chunking controlled by `time_chunking_enabled` in tracker-config.json.
+    - `tracker` (`scenescape-tracker`): Scene config passed via `scenes.source: file` in config.json; camera extrinsics (translation, XYZ Euler degrees) are pre-solved by the harness using cv2.solvePnP. Timestamps in published frames are **rewritten to current wall-clock time** (no `--rewriteAllTime` in the C++ binary). Time-chunking always active via `time_chunking_rate_fps`.
   - `set_custom_config()` accepts:
     - `tracker_config_path` (**required**): path to the tracker config JSON mounted into the container.
+    - `container_type` (optional): `'controller'` or `'tracker'`; auto-detected when omitted.
     - `playback_rate` (default `1.0`): multiplier for timestamp-based pacing.
     - `drain_timeout` (default `5.0`): seconds to wait for final tracker outputs after the last frame.
     - `broker_image` (default `"eclipse-mosquitto"`): Docker image for the MQTT broker.
