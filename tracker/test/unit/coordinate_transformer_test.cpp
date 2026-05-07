@@ -525,5 +525,52 @@ TEST(TransformDetectionsTest, MetadataJson_PreservedThroughTransform) {
               R"({"reid":{"model_name":"test"},"age":{"label":"adult"}})");
 }
 
+//
+// confidence passthrough tests
+//
+
+TEST(TransformDetectionsTest, Confidence_PreservedThroughTransform) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+
+    Detection det = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+    det.confidence = 0.95;
+
+    auto result = transformer.transformDetections(std::vector<Detection>{det});
+
+    ASSERT_EQ(result.size(), 1u);
+    ASSERT_TRUE(result[0].attributes.count("confidence"));
+    EXPECT_NEAR(std::stod(result[0].attributes.at("confidence")), 0.95, 1e-9);
+}
+
+TEST(TransformDetectionsTest, Confidence_AbsentWhenNotProvided) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+
+    auto result = transformer.transformDetections(
+        std::vector<Detection>{make_detection(590.0f, 260.0f, 100.0f, 200.0f)});
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_FALSE(result[0].attributes.count("confidence"));
+}
+
+TEST(TransformDetectionsTest, Confidence_MultipleDetectionsPreservedInOrder) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+
+    Detection det0 = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 0);
+    det0.confidence = 0.8;
+
+    Detection det1 = make_detection(10.0f, 10.0f, 80.0f, 160.0f, 1);
+    // No confidence on det1
+
+    Detection det2 = make_detection(1190.0f, 550.0f, 80.0f, 160.0f, 2);
+    det2.confidence = 0.6;
+
+    auto result = transformer.transformDetections(std::vector<Detection>{det0, det1, det2});
+
+    ASSERT_EQ(result.size(), 3u);
+    EXPECT_NEAR(std::stod(result[0].attributes.at("confidence")), 0.8, 1e-9);
+    EXPECT_FALSE(result[1].attributes.count("confidence"));
+    EXPECT_NEAR(std::stod(result[2].attributes.at("confidence")), 0.6, 1e-9);
+}
+
 } // namespace
 } // namespace tracker
