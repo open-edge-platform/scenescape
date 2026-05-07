@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from .mqtt_harness import MqttHarness
+from .black_box_harness import BlackBoxHarness
 
-__all__ = ["MqttHarness"]
+__all__ = ["BlackBoxHarness"]

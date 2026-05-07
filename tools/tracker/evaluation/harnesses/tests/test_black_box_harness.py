@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for MqttHarness."""
+"""Unit tests for BlackBoxHarness."""
 
 import json
 import sys
@@ -14,8 +14,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from harnesses.mqtt_harness import MqttHarness
-from harnesses.mqtt_harness.mqtt_harness import (
+from harnesses.black_box_harness import BlackBoxHarness
+from harnesses.black_box_harness.black_box_harness import (
     CONTAINER_TYPE_CONTROLLER,
     CONTAINER_TYPE_TRACKER,
     DEFAULT_BROKER_IMAGE,
@@ -37,7 +37,7 @@ from harnesses.mqtt_harness.mqtt_harness import (
 
 @pytest.fixture
 def harness():
-    return MqttHarness(container_image="scenescape-controller:test")
+    return BlackBoxHarness(container_image="scenescape-controller:test")
 
 
 @pytest.fixture
@@ -134,7 +134,7 @@ class TestFreePort:
 
 class TestInitialisation:
     def test_stores_image(self):
-        h = MqttHarness("my-image:latest")
+        h = BlackBoxHarness("my-image:latest")
         assert h._container_image == "my-image:latest"
 
     def test_defaults(self, harness):
@@ -290,7 +290,7 @@ class TestProcessInputsFlow:
     @pytest.fixture(autouse=True)
     def mock_wait_for_port(self):
         """Prevent real TCP probes during unit tests."""
-        with patch("harnesses.mqtt_harness.mqtt_harness._wait_for_port"):
+        with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"):
             yield
     @pytest.fixture
     def configured_harness(self, harness, scene_config, tracker_config_file):
@@ -305,9 +305,9 @@ class TestProcessInputsFlow:
     def _make_fake_output(self):
         return {"timestamp": "2014-09-08T04:00:00.100Z", "objects": []}
 
-    @patch("harnesses.mqtt_harness.mqtt_harness.docker")
-    @patch("harnesses.mqtt_harness.mqtt_harness.mqtt.Client")
-    @patch("harnesses.mqtt_harness.mqtt_harness.time.sleep")
+    @patch("harnesses.black_box_harness.black_box_harness.docker")
+    @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
+    @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
     def test_publishes_one_topic_per_frame(
         self, mock_sleep, MockMqttClient, mock_docker,
         configured_harness, sample_frames
@@ -331,9 +331,9 @@ class TestProcessInputsFlow:
         assert published_topics.count("scenescape/data/camera/Cam_x1_0") == 2
         assert published_topics.count("scenescape/data/camera/Cam_x2_0") == 1
 
-    @patch("harnesses.mqtt_harness.mqtt_harness.docker")
-    @patch("harnesses.mqtt_harness.mqtt_harness.mqtt.Client")
-    @patch("harnesses.mqtt_harness.mqtt_harness.time.sleep")
+    @patch("harnesses.black_box_harness.black_box_harness.docker")
+    @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
+    @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
     def test_subscribes_to_scene_output_topic(
         self, mock_sleep, MockMqttClient, mock_docker,
         configured_harness, sample_frames
@@ -362,9 +362,9 @@ class TestProcessInputsFlow:
         topics = [c.args[0] for c in subscribe_calls]
         assert any("scenescape/data/scene/scene-uid-001/+" in t for t in topics)
 
-    @patch("harnesses.mqtt_harness.mqtt_harness.docker")
-    @patch("harnesses.mqtt_harness.mqtt_harness.mqtt.Client")
-    @patch("harnesses.mqtt_harness.mqtt_harness.time.sleep")
+    @patch("harnesses.black_box_harness.black_box_harness.docker")
+    @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
+    @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
     def test_broker_started_before_tracker(
         self, mock_sleep, MockMqttClient, mock_docker,
         configured_harness, sample_frames
@@ -383,9 +383,9 @@ class TestProcessInputsFlow:
         assert run_calls[0] == DEFAULT_BROKER_IMAGE        # broker first
         assert run_calls[1] == "scenescape-controller:test"  # tracker second
 
-    @patch("harnesses.mqtt_harness.mqtt_harness.docker")
-    @patch("harnesses.mqtt_harness.mqtt_harness.mqtt.Client")
-    @patch("harnesses.mqtt_harness.mqtt_harness.time.sleep")
+    @patch("harnesses.black_box_harness.black_box_harness.docker")
+    @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
+    @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
     def test_returns_collected_outputs(
         self, mock_sleep, MockMqttClient, mock_docker,
         configured_harness, sample_frames
@@ -412,9 +412,9 @@ class TestProcessInputsFlow:
         assert len(outputs) == 1
         assert outputs[0] == expected_output
 
-    @patch("harnesses.mqtt_harness.mqtt_harness.docker")
-    @patch("harnesses.mqtt_harness.mqtt_harness.mqtt.Client")
-    @patch("harnesses.mqtt_harness.mqtt_harness.time.sleep")
+    @patch("harnesses.black_box_harness.black_box_harness.docker")
+    @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
+    @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
     def test_containers_stopped_on_success(
         self, mock_sleep, MockMqttClient, mock_docker,
         configured_harness, sample_frames
@@ -432,9 +432,9 @@ class TestProcessInputsFlow:
         assert mock_ctr.stop.called
         assert mock_ctr.remove.called
 
-    @patch("harnesses.mqtt_harness.mqtt_harness.docker")
-    @patch("harnesses.mqtt_harness.mqtt_harness.mqtt.Client")
-    @patch("harnesses.mqtt_harness.mqtt_harness.time.sleep")
+    @patch("harnesses.black_box_harness.black_box_harness.docker")
+    @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
+    @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
     def test_containers_stopped_on_exception(
         self, mock_sleep, MockMqttClient, mock_docker,
         configured_harness, sample_frames
@@ -454,9 +454,9 @@ class TestProcessInputsFlow:
         assert mock_ctr.stop.called
         assert mock_ctr.remove.called
 
-    @patch("harnesses.mqtt_harness.mqtt_harness.docker")
-    @patch("harnesses.mqtt_harness.mqtt_harness.mqtt.Client")
-    @patch("harnesses.mqtt_harness.mqtt_harness.time.sleep")
+    @patch("harnesses.black_box_harness.black_box_harness.docker")
+    @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
+    @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
     def test_docker_network_removed_after_run(
         self, mock_sleep, MockMqttClient, mock_docker,
         configured_harness, sample_frames
@@ -472,9 +472,9 @@ class TestProcessInputsFlow:
 
         mock_docker.network.remove.assert_called_once()
 
-    @patch("harnesses.mqtt_harness.mqtt_harness.docker")
-    @patch("harnesses.mqtt_harness.mqtt_harness.mqtt.Client")
-    @patch("harnesses.mqtt_harness.mqtt_harness.time.sleep")
+    @patch("harnesses.black_box_harness.black_box_harness.docker")
+    @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
+    @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
     def test_persists_inputs_to_output_folder(
         self, mock_sleep, MockMqttClient, mock_docker,
         configured_harness, sample_frames, tmp_path
@@ -502,11 +502,11 @@ class TestTimestampPacing:
     @pytest.fixture(autouse=True)
     def mock_wait_for_port(self):
         """Prevent real TCP probes during unit tests."""
-        with patch("harnesses.mqtt_harness.mqtt_harness._wait_for_port"):
+        with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"):
             yield
 
-    @patch("harnesses.mqtt_harness.mqtt_harness.docker")
-    @patch("harnesses.mqtt_harness.mqtt_harness.mqtt.Client")
+    @patch("harnesses.black_box_harness.black_box_harness.docker")
+    @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
     def test_pacing_respects_playback_rate(
         self, MockMqttClient, mock_docker, harness, scene_config, tracker_config_file
     ):
@@ -536,7 +536,7 @@ class TestTimestampPacing:
             # Don't actually sleep — instant test
             pass
 
-        with patch("harnesses.mqtt_harness.mqtt_harness.time.sleep", side_effect=recording_sleep):
+        with patch("harnesses.black_box_harness.black_box_harness.time.sleep", side_effect=recording_sleep):
             list(harness.process_inputs(iter(frames)))
 
         # The 1-second inter-frame gap / rate=2.0 → expected sleep ≈ 0.5s.
@@ -673,7 +673,7 @@ class TestDetectContainerType:
         mock_img = MagicMock()
         mock_img.config.entrypoint = ["/home/scenescape/SceneScape/controller-cmd"]
         mock_img.config.cmd = []
-        with patch("harnesses.mqtt_harness.mqtt_harness.docker") as md:
+        with patch("harnesses.black_box_harness.black_box_harness.docker") as md:
             md.image.inspect.return_value = mock_img
             assert _detect_container_type("any-image") == CONTAINER_TYPE_CONTROLLER
 
@@ -681,17 +681,17 @@ class TestDetectContainerType:
         mock_img = MagicMock()
         mock_img.config.entrypoint = []
         mock_img.config.cmd = ["/scenescape/tracker", "--config", "..."]
-        with patch("harnesses.mqtt_harness.mqtt_harness.docker") as md:
+        with patch("harnesses.black_box_harness.black_box_harness.docker") as md:
             md.image.inspect.return_value = mock_img
             assert _detect_container_type("any-image") == CONTAINER_TYPE_TRACKER
 
     def test_falls_back_to_image_name_controller(self):
-        with patch("harnesses.mqtt_harness.mqtt_harness.docker") as md:
+        with patch("harnesses.black_box_harness.black_box_harness.docker") as md:
             md.image.inspect.side_effect = Exception("not found")
             assert _detect_container_type("scenescape-controller:latest") == CONTAINER_TYPE_CONTROLLER
 
     def test_falls_back_to_image_name_tracker(self):
-        with patch("harnesses.mqtt_harness.mqtt_harness.docker") as md:
+        with patch("harnesses.black_box_harness.black_box_harness.docker") as md:
             md.image.inspect.side_effect = Exception("not found")
             assert _detect_container_type("scenescape-tracker:latest") == CONTAINER_TYPE_TRACKER
 
@@ -740,7 +740,7 @@ class TestTimestampRewriting:
 
     @pytest.fixture(autouse=True)
     def mock_wait_for_port(self):
-        with patch("harnesses.mqtt_harness.mqtt_harness._wait_for_port"):
+        with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"):
             yield
 
     @pytest.fixture
@@ -754,9 +754,9 @@ class TestTimestampRewriting:
         })
         return harness
 
-    @patch("harnesses.mqtt_harness.mqtt_harness.docker")
-    @patch("harnesses.mqtt_harness.mqtt_harness.mqtt.Client")
-    @patch("harnesses.mqtt_harness.mqtt_harness.time.sleep")
+    @patch("harnesses.black_box_harness.black_box_harness.docker")
+    @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
+    @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
     def test_published_timestamps_are_not_historical(
         self, mock_sleep, MockMqttClient, mock_docker,
         tracker_svc_harness, sample_frames
@@ -781,9 +781,9 @@ class TestTimestampRewriting:
             # Should be within last 60 seconds (not 2014 dataset timestamp)
             assert abs(ts - now) < 60, f"Published timestamp too far from now: {payload['timestamp']}"
 
-    @patch("harnesses.mqtt_harness.mqtt_harness.docker")
-    @patch("harnesses.mqtt_harness.mqtt_harness.mqtt.Client")
-    @patch("harnesses.mqtt_harness.mqtt_harness.time.sleep")
+    @patch("harnesses.black_box_harness.black_box_harness.docker")
+    @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
+    @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
     def test_controller_keeps_original_timestamps(
         self, mock_sleep, MockMqttClient, mock_docker,
         harness, scene_config, tracker_config_file, sample_frames

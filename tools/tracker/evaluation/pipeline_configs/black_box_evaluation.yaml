@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# MQTT Tracker Evaluation Pipeline Configuration
-# Black-box evaluation via MQTT broker + tracker containers.
+# Black-Box Tracker Evaluation Pipeline Configuration
+# Evaluates the tracker as a black box via MQTT broker + tracker containers.
 # The harness publishes camera frames to scenescape/data/camera/{camera_id}
 # and collects tracker output from scenescape/data/scene/{scene_id}/+.
 
@@ -18,7 +18,7 @@ dataset:
     camera_fps: 30
 
 harness:
-  class: harnesses.mqtt_harness.MqttHarness
+  class: harnesses.black_box_harness.BlackBoxHarness
   config:
     container_image: scenescape-controller:2026.1.0-dev
     tracker_config_path: ../../../tests/system/metric/dataset/tracker-config.json

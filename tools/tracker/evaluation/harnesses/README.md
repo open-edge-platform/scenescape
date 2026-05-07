@@ -181,7 +181,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 - [tests/test_camera_projection_harness.py](tests/test_camera_projection_harness.py) — 23 test cases covering initialisation, scene/custom config validation (including `object_classes`), output folder, `process_inputs()` success/failure paths, reset, and helper methods.
 - [tests/test_run_projection.py](tests/test_run_projection.py) — 7 test cases covering `_build_class_map` (run without Docker). The size-offset step uses `scene_common.geometry.Line` directly so has no custom math to unit-test.
 
-### MqttHarness
+### BlackBoxHarness
 
 **Purpose**: Black-box end-to-end tracker evaluation over live MQTT messages without any dependency on internal SceneScape Python APIs.
 
@@ -189,7 +189,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 
 **Key Features**:
 
-- Starts an `eclipse-mosquitto` broker container and the tracker container on an isolated Docker network (`mqtt_harness_{run_id}`); both containers and the network are removed after the run.
+- Starts an `eclipse-mosquitto` broker container and the tracker container on an isolated Docker network (`black_box_harness_{run_id}`); both containers and the network are removed after the run.
 - Publishes each input frame to `scenescape/data/camera/{camera_id}` and collects tracker outputs from `scenescape/data/scene/{scene_id}/+`.
 - Timestamp-based pacing: waits `delta_data / playback_rate - elapsed_wall` seconds between frames so the tracker receives data at realistic intervals.
 - Persists `inputs.json` to the output folder when `set_output_folder()` is called.
@@ -204,13 +204,13 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 **Configuration**:
 
 ```python
-from harnesses.mqtt_harness import MqttHarness
+from harnesses.black_box_harness import BlackBoxHarness
 from datasets.metric_test_dataset import MetricTestDataset
 
 dataset = MetricTestDataset("path/to/dataset")
 dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
-harness = MqttHarness(container_image="scenescape-controller:2026.1.0-dev")
+harness = BlackBoxHarness(container_image="scenescape-controller:2026.1.0-dev")
 harness.set_scene_config(dataset.get_scene_config())
 harness.set_custom_config({
     "tracker_config_path": "/path/to/tracker-config.json",
@@ -239,16 +239,16 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 - Input (publish): `scenescape/data/camera/{camera_id}`
 - Output (subscribe): `scenescape/data/scene/{scene_id}/+`
 
-**Implementation**: [mqtt_harness/](mqtt_harness/)
+**Implementation**: [black_box_harness/](black_box_harness/)
 
 **Files**:
 
-- **mqtt_harness.py**: Main harness implementation
+- **black_box_harness.py**: Main harness implementation
 - `__init__.py`: Module initialisation
 
 **Tests**:
 
-- [tests/test_mqtt_harness.py](tests/test_mqtt_harness.py) — covers initialisation, config validation, timestamp pacing, full orchestration flow (Docker and paho fully mocked).
+- [tests/test_black_box_harness.py](tests/test_black_box_harness.py) — covers initialisation, config validation, timestamp pacing, full orchestration flow (Docker and paho fully mocked).
 
 ## Adding New Harnesses
 

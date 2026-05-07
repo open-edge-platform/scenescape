@@ -58,9 +58,9 @@ Check `datasets/README.md` for more details
   - Dependent on internal implementation: loads configuration file and calls API of SceneScape classes from scene_common and controller modules.
   - Uses separate frame ingestion logic depending on enabling time-chunking in the configuration.
 
-- **MqttHarness**: `harnesses/mqtt_harness/mqtt_harness.py`
+- **BlackBoxHarness**: `harnesses/black_box_harness/black_box_harness.py`
   - Black-box harness that exercises the tracker end-to-end via live MQTT messages, with no dependency on internal SceneScape Python APIs.
-  - Starts an `eclipse-mosquitto` broker container and the tracker container on an isolated Docker network (`mqtt_harness_{run_id}`); both are removed after the run.
+  - Starts an `eclipse-mosquitto` broker container and the tracker container on an isolated Docker network (`black_box_harness_{run_id}`); both are removed after the run.
   - Publishes each input frame to `scenescape/data/camera/{camera_id}` and collects tracker outputs from `scenescape/data/scene/{scene_id}/+`.
   - Timestamps in each frame are used to pace publishing: `sleep(delta_data / playback_rate - elapsed_wall)` before each publish.
   - **Supports two container types** (auto-detected from image metadata, or set via `container_type` config key):
@@ -74,7 +74,7 @@ Check `datasets/README.md` for more details
     - `broker_image` (default `"eclipse-mosquitto"`): Docker image for the MQTT broker.
     - `scene_id`: overrides the scene UID derived from `set_scene_config()`.
   - After the run, writes `inputs.json` to the output folder (if `set_output_folder()` was called).
-  - Pair this harness with any evaluator (TrackEval, Diagnostic, Jitter) and `pipeline_configs/mqtt_tracker_evaluation.yaml`.
+  - Pair this harness with any evaluator (TrackEval, Diagnostic, Jitter) and `pipeline_configs/black_box_evaluation.yaml`.
 
 - **CameraProjectionHarness**: `harnesses/camera_projection_harness/camera_projection_harness.py`
   - Bypasses the full tracker and only applies camera-pose projection to isolate per-camera calibration error.

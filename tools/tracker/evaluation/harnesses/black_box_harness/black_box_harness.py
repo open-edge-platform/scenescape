@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""MqttHarness — black-box tracker harness that communicates via MQTT.
+"""BlackBoxHarness — black-box tracker harness that communicates via MQTT.
 
 Architecture
 ------------
 Three containers are involved:
 
   ┌─────────────────────────────────────────────────┐
-  │  Docker network  "mqtt_harness_<run_id>"        │
+  │  Docker network  "black_box_harness_<run_id>"     │
   │                                                 │
   │  ┌──────────────┐     ┌─────────────────────┐  │
   │  │   broker     │ ←── │  tracker container  │  │
@@ -18,7 +18,7 @@ Three containers are involved:
   └─────────┼───────────────────────────────────────┘
             │
   ┌─────────┴──────────────────────────┐
-  │  MqttHarness process (host)        │
+  │  BlackBoxHarness process (host)     │
   │  • publishes  DATA_CAMERA frames   │
   │  • subscribes DATA_SCENE output    │
   └────────────────────────────────────┘
@@ -271,7 +271,7 @@ def _build_tracker_service_config(
 
     Args:
         broker_name:           Hostname of the MQTT broker inside the Docker
-                               network (e.g. ``"mqtt_harness_broker_<id>"``).
+                               network (e.g. ``"black_box_harness_broker_<id>"``).
         scenes_container_path: Absolute path to scenes.json *inside* the
                                container.
         tracker_cfg:           Parsed contents of tracker-config.json from the
@@ -414,7 +414,7 @@ def _merge_outputs_by_timestamp(
     return sorted(by_ts.values(), key=lambda m: m.get("timestamp", ""))
 
 
-class MqttHarness(TrackerHarness):
+class BlackBoxHarness(TrackerHarness):
     """Black-box tracker harness using MQTT as the communication channel.
 
     Starts a throw-away mosquitto broker and the tracker container on a private
@@ -424,7 +424,7 @@ class MqttHarness(TrackerHarness):
     """
 
     def __init__(self, container_image: str):
-        """Initialise MqttHarness.
+        """Initialise BlackBoxHarness.
 
         Args:
             container_image: Docker image for the tracker/controller
@@ -445,7 +445,7 @@ class MqttHarness(TrackerHarness):
     # TrackerHarness interface
     # ------------------------------------------------------------------
 
-    def set_scene_config(self, config: Dict[str, Any]) -> "MqttHarness":
+    def set_scene_config(self, config: Dict[str, Any]) -> "BlackBoxHarness":
         """Set scene configuration (dataset-specific format from config.json).
 
         Args:
@@ -463,7 +463,7 @@ class MqttHarness(TrackerHarness):
         self._scene_id = config.get("uid") or config.get("name")
         return self
 
-    def set_custom_config(self, config: Dict[str, Any]) -> "MqttHarness":
+    def set_custom_config(self, config: Dict[str, Any]) -> "BlackBoxHarness":
         """Set harness-specific options.
 
         Args:
@@ -497,7 +497,7 @@ class MqttHarness(TrackerHarness):
         self._broker_port    = int(config.get("broker_port",      0))
         return self
 
-    def set_output_folder(self, path: Path) -> "MqttHarness":
+    def set_output_folder(self, path: Path) -> "BlackBoxHarness":
         """Set folder for persisted harness artefacts (inputs / outputs JSONL).
 
         Args:
@@ -536,9 +536,9 @@ class MqttHarness(TrackerHarness):
             raise RuntimeError("Call set_custom_config() before process_inputs()")
 
         run_id  = uuid.uuid4().hex[:8]
-        net_name = f"mqtt_harness_{run_id}"
-        tmp_dir  = Path(tempfile.mkdtemp(prefix="mqtt_harness_"))
-        print(f"[MqttHarness] Temporary workspace: {tmp_dir}")
+        net_name = f"black_box_harness_{run_id}"
+        tmp_dir  = Path(tempfile.mkdtemp(prefix="black_box_harness_"))
+        print(f"[BlackBoxHarness] Temporary workspace: {tmp_dir}")
 
         # Resolve container type once so _run_session can use it for timestamp
         # rewriting without repeating the Docker inspect call.
@@ -568,7 +568,7 @@ class MqttHarness(TrackerHarness):
             if tmp_dir.exists():
                 shutil.rmtree(tmp_dir)
 
-    def reset(self) -> "MqttHarness":
+    def reset(self) -> "BlackBoxHarness":
         """Reset mutable state (scene / custom config, output folder).
 
         Returns:
@@ -616,12 +616,12 @@ class MqttHarness(TrackerHarness):
             (broker_container, tracker_container) tuple.
         """
         docker.network.create(net_name)
-        print(f"[MqttHarness] Created Docker network '{net_name}'")
+        print(f"[BlackBoxHarness] Created Docker network '{net_name}'")
 
         conf_path = self._build_mosquitto_conf(tmp_dir)
 
         # --- Broker ---
-        broker_name = f"mqtt_harness_broker_{run_id}"
+        broker_name = f"black_box_harness_broker_{run_id}"
         broker_ctr = docker.run(
             self._broker_image,
             name=broker_name,
@@ -631,23 +631,23 @@ class MqttHarness(TrackerHarness):
             detach=True,
             remove=False,
         )
-        print(f"[MqttHarness] Broker started (host port {host_port})")
+        print(f"[BlackBoxHarness] Broker started (host port {host_port})")
 
         try:
             _wait_for_port("localhost", host_port, timeout=30.0)
         except RuntimeError:
             try:
                 logs = broker_ctr.logs()
-                print(f"[MqttHarness] Broker container logs:\n{logs}")
+                print(f"[BlackBoxHarness] Broker container logs:\n{logs}")
             except Exception:
                 pass
             raise
 
         # --- Resolve container type (auto-detect if not explicitly set) ---
         container_type = self._container_type or _detect_container_type(self._container_image)
-        print(f"[MqttHarness] Container type: {container_type}")
+        print(f"[BlackBoxHarness] Container type: {container_type}")
 
-        tracker_name = f"mqtt_harness_tracker_{run_id}"
+        tracker_name = f"black_box_harness_tracker_{run_id}"
 
         if container_type == CONTAINER_TYPE_CONTROLLER:
             tracker_ctr = self._start_controller_container(
@@ -658,7 +658,7 @@ class MqttHarness(TrackerHarness):
                 tmp_dir, net_name, broker_name, tracker_name
             )
 
-        print(f"[MqttHarness] Tracker container started ({container_type})")
+        print(f"[BlackBoxHarness] Tracker container started ({container_type})")
         # Allow tracker to connect to broker and load scene config.
         time.sleep(2.0)
 
@@ -765,7 +765,7 @@ class MqttHarness(TrackerHarness):
                 ctr.stop(time=5)
                 ctr.remove()
             except Exception as exc:
-                print(f"[MqttHarness] Warning: container cleanup failed: {exc}")
+                print(f"[BlackBoxHarness] Warning: container cleanup failed: {exc}")
 
     def _run_session(
         self, frames: List[Dict[str, Any]], host_port: int, container_type: str
@@ -800,7 +800,7 @@ class MqttHarness(TrackerHarness):
         scene_topic = _TOPIC_DATA_SCENE.format(scene_id=self._scene_id)
 
         # --- MQTT client setup ---
-        client = mqtt.Client(client_id=f"mqtt_harness_client_{uuid.uuid4().hex[:6]}")
+        client = mqtt.Client(client_id=f"black_box_harness_client_{uuid.uuid4().hex[:6]}")
 
         def _on_message(_client, _userdata, message):
             try:
@@ -808,14 +808,14 @@ class MqttHarness(TrackerHarness):
                 with output_lock:
                     outputs.append(payload)
             except Exception as exc:
-                print(f"[MqttHarness] Warning: failed to parse output message: {exc}")
+                print(f"[BlackBoxHarness] Warning: failed to parse output message: {exc}")
 
         def _on_connect(_client, _userdata, _flags, rc):
             if rc == 0:
                 client.subscribe(scene_topic)
-                print(f"[MqttHarness] Subscribed to '{scene_topic}'")
+                print(f"[BlackBoxHarness] Subscribed to '{scene_topic}'")
             else:
-                print(f"[MqttHarness] Warning: MQTT connect failed rc={rc}")
+                print(f"[BlackBoxHarness] Warning: MQTT connect failed rc={rc}")
 
         client.on_connect = _on_connect
         client.on_message = _on_message
@@ -853,15 +853,15 @@ class MqttHarness(TrackerHarness):
                 published_frame = frame
             client.publish(topic, json.dumps(published_frame))
 
-        print(f"[MqttHarness] Published {len(frames)} frames, draining for {self._drain_timeout}s ...")
+        print(f"[BlackBoxHarness] Published {len(frames)} frames, draining for {self._drain_timeout}s ...")
         time.sleep(self._drain_timeout)
 
         client.loop_stop()
         client.disconnect()
 
-        print(f"[MqttHarness] Collected {len(outputs)} output messages")
+        print(f"[BlackBoxHarness] Collected {len(outputs)} output messages")
         merged = _merge_outputs_by_timestamp(outputs)
-        print(f"[MqttHarness] Merged into {len(merged)} timesteps")
+        print(f"[BlackBoxHarness] Merged into {len(merged)} timesteps")
         return merged
 
     def _persist_outputs(self, outputs: List[Dict], tmp_dir: Path) -> None:
