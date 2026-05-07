@@ -23,6 +23,24 @@ Three containers are involved:
   │  • subscribes DATA_SCENE output    │
   └────────────────────────────────────┘
 
+Supported container types
+-------------------------
+* **Controller** (``scenescape-controller``, entrypoint ``controller-cmd``):
+  - Scene config loaded via ``--data_source config.json`` (FileSceneDataSource).
+  - Config uses REST format: camera dicts contain ``camera points``/``map points``
+    directly so ``Camera.__init__`` can construct a PointCorrespondenceTransform.
+  - Timestamps from the dataset are rewritten to wall-clock time by the controller
+    via ``--rewriteAllTime``.
+  - Time-chunking is controlled by ``time_chunking_enabled`` in tracker-config.json.
+
+* **Tracker service** (``scenescape-tracker``, binary ``/scenescape/tracker``):
+  - Scene config loaded via ``scenes.source: file`` in config.json.
+  - Scene format uses pre-solved ``extrinsics`` (translation, XYZ Euler degrees)
+    computed by the harness from the dataset's camera/map point correspondences.
+  - Timestamps in published frames are **rewritten to current wall-clock time** by
+    the harness (no ``--rewriteAllTime`` equivalent in the tracker binary).
+  - Time-chunking is always active via ``tracking.time_chunking_rate_fps``.
+
 Timestamp synchronisation
 -------------------------
 Consecutive input frames are published with a wall-clock delay equal to the
@@ -41,6 +59,8 @@ Required:
   tracker_config_path (str): path to tracker-config.json mounted into the
                              tracker container at the expected location.
 Optional:
+  container_type  (str):   ``'controller'`` or ``'tracker'``; auto-detected
+                           from image metadata when omitted.
   scene_id        (str):   scene uid used to build the output topic;
                            defaults to config['uid'] from set_scene_config().
   playback_rate   (float): speed multiplier for frame injection (default 1.0).
@@ -60,7 +80,11 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple
+
+import cv2
+import numpy as np
+from scipy.spatial.transform import Rotation
 
 import paho.mqtt.client as mqtt
 from python_on_whales import docker
@@ -83,32 +107,42 @@ listener 1883
 allow_anonymous true
 """
 
-# Tracker container paths (must match what the image expects)
+# Shared workspace path inside both container types
 _CONTAINER_WORKSPACE       = "/workspace"
+
+# Controller-specific container paths
 _CONTAINER_CONFIG          = _CONTAINER_WORKSPACE + "/config.json"
 _CONTAINER_TRACKER_CONFIG  = _CONTAINER_WORKSPACE + "/tracker-config.json"
+
+# Tracker-service-specific container paths
+_TRACKER_SVC_CONFIG        = _CONTAINER_WORKSPACE + "/tracker_svc_config.json"
+_TRACKER_SVC_SCENES        = _CONTAINER_WORKSPACE + "/scenes.json"
+_TRACKER_SVC_SCHEMA        = "/scenescape/schema/config.schema.json"
+
+# Container type constants
+CONTAINER_TYPE_CONTROLLER = "controller"
+CONTAINER_TYPE_TRACKER    = "tracker"
 
 DEFAULT_BROKER_IMAGE  = "eclipse-mosquitto"
 DEFAULT_DRAIN_TIMEOUT = 5.0   # seconds to wait after last publish
 DEFAULT_PLAYBACK_RATE = 1.0   # 1.0 = real-time, 2.0 = 2× speed
 
 
-def _to_rest_format(scene_config: dict) -> dict:
-    """Convert dataset-format scene config to the REST API format expected by
-    ``FileSceneDataSource`` (``controller-cmd --data_source``).
+def _to_controller_config(scene_config: dict) -> dict:
+    """Build a ``FileSceneDataSource``-compatible scene config for ``controller-cmd``.
 
-    The dataset format uses a ``sensors`` dict keyed by camera name with
-    ``camera points``, ``map points``, ``intrinsics``, ``width``, ``height``.
-    The REST API format needs a top-level ``uid``, a ``cameras`` list where
-    each entry has ``uid``, ``intrinsics`` dict, ``transform_type``,
-    ``transforms`` (flattened cam+map point coords), ``distortion``, and
-    ``resolution``.
+    The Controller's ``Camera.__init__`` recognises two pose formats:
+    ``('translation', 'rotation', 'scale')`` and ``('camera points', 'map points')``.
+    It does NOT understand the REST ``transforms`` flat array + ``transform_type``.
+    So we embed ``camera points`` and ``map points`` directly in each camera dict;
+    ``Camera.__init__`` will then construct a ``PointCorrespondenceTransform`` and
+    solve PnP internally.
 
     Args:
         scene_config: Scene configuration in dataset-specific format.
 
     Returns:
-        Scene configuration dict ready for ``FileSceneDataSource``.
+        Scene configuration dict suitable for ``FileSceneDataSource``.
     """
     scene_uid = scene_config.get("uid") or scene_config["name"]
 
@@ -120,29 +154,21 @@ def _to_rest_format(scene_config: dict) -> dict:
             w = int(info["width"])
             h = int(info["height"])
 
-            # Build flat transforms list: all cam-point coords then all map-point coords.
-            # Map points may be 3-D; we only use X and Y (controller solvePnP uses 3-D
-            # world coords, so we preserve Z as well when present).
-            cam_pts = info.get("camera points", [])
-            map_pts = info.get("map points", [])
-            transforms: List = []
-            for pt in cam_pts:
-                transforms.extend(pt)
-            for pt in map_pts:
-                transforms.extend(pt)
-
             cameras.append({
                 "uid": cam_name,
                 "name": cam_name,
                 "intrinsics": {"fx": fx, "fy": fy, "cx": cx, "cy": cy},
-                "transform_type": "3d-2d point correspondence",
-                "transforms": transforms,
                 "distortion": {"k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0},
                 "resolution": [w, h],
+                # Embed correspondence points directly so Camera.__init__ builds
+                # a PointCorrespondenceTransform (solvePnP) instead of falling back
+                # to an identity DEFAULT_TRANSFORM.
+                "camera points": info.get("camera points", []),
+                "map points": info.get("map points", []),
                 "scene": scene_uid,
             })
 
-    rest = {
+    return {
         "uid": scene_uid,
         "name": scene_config["name"],
         "scale": scene_config.get("scale"),
@@ -150,11 +176,161 @@ def _to_rest_format(scene_config: dict) -> dict:
         "cameras": cameras,
         "use_tracker": True,
         # Rate fields required by publishExternalDetections / publishRegulatedDetections.
-        # 30 fps matches the standard SceneScape default.
         "regulated_rate": scene_config.get("regulated_rate", 30.0),
         "external_update_rate": scene_config.get("external_update_rate", 30.0),
     }
-    return rest
+
+
+def _solve_pnp(
+    camera_points: List, map_points: List, intrinsics: List
+) -> Tuple[List[float], List[float], List[float]]:
+    """Solve PnP from 2D-3D point correspondences and return camera extrinsics.
+
+    Replicates ``PointCorrespondenceTransform._calculatePoseMat`` +
+    ``CameraPose._poseMatToPose`` from scene_common using cv2 directly so the
+    harness does not need scene_common installed.
+
+    Args:
+        camera_points: List of (x, y) image-pixel coordinate pairs.
+        map_points:    List of (x, y) or (x, y, z) world-coordinate triples.
+        intrinsics:    [fx, fy, cx, cy] camera intrinsic parameters.
+
+    Returns:
+        (translation, euler_xyz_deg, scale) tuples — matching the format used
+        by ``CameraPose.asDict`` / Tracker-service scenes.json extrinsics.
+    """
+    fx, fy, cx, cy = intrinsics
+    K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float64)
+    dist = np.zeros(5, dtype=np.float64)
+
+    cam_pts = np.array(camera_points, dtype=np.float32)
+    map_pts = np.array(map_points, dtype=np.float32)
+    if map_pts.ndim == 2 and map_pts.shape[1] == 2:
+        map_pts = np.hstack([map_pts, np.zeros((map_pts.shape[0], 1), dtype=np.float32)])
+
+    _, rvec, tvec = cv2.solvePnP(map_pts, cam_pts, K, dist, flags=cv2.SOLVEPNP_ITERATIVE)
+    rmat = cv2.Rodrigues(rvec)[0]
+    # Invert to get camera-in-world (pose_mat) from world-in-camera
+    pose_mat = np.linalg.inv(np.vstack([np.hstack([rmat, tvec]), [0, 0, 0, 1]]))
+    translation = pose_mat[:3, 3].tolist()
+    euler_deg = Rotation.from_matrix(pose_mat[:3, :3]).as_euler("XYZ", degrees=True).tolist()
+    scale = [1.0, 1.0, 1.0]
+    return translation, euler_deg, scale
+
+
+def _to_tracker_service_scenes(scene_config: dict) -> List[Dict[str, Any]]:
+    """Build a Tracker-service scenes.json array from dataset scene config.
+
+    The Tracker service (C++ binary) expects a JSON *array* of scene objects,
+    each camera carrying solved ``extrinsics`` (translation, XYZ Euler degrees,
+    scale).  Intrinsics use the nested ``distortion`` sub-object format defined
+    in ``tracker/schema/scene.schema.json``.
+
+    Args:
+        scene_config: Scene configuration in dataset-specific format.
+
+    Returns:
+        JSON-serialisable list suitable for writing to scenes.json.
+    """
+    scene_uid = scene_config.get("uid") or scene_config["name"]
+
+    cameras = []
+    sensors = scene_config.get("sensors", {})
+    if isinstance(sensors, dict):
+        for cam_name, info in sensors.items():
+            fx, fy, cx, cy = info["intrinsics"]
+            cam_pts = info.get("camera points", [])
+            map_pts = info.get("map points", [])
+            translation, euler_deg, scale = _solve_pnp(cam_pts, map_pts, info["intrinsics"])
+            cameras.append({
+                "uid": cam_name,
+                "name": cam_name,
+                "intrinsics": {
+                    "fx": fx, "fy": fy, "cx": cx, "cy": cy,
+                    "distortion": {"k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0},
+                },
+                "extrinsics": {
+                    "translation": translation,
+                    "rotation": euler_deg,
+                    "scale": scale,
+                },
+            })
+
+    return [{"uid": scene_uid, "name": scene_config["name"], "cameras": cameras}]
+
+
+def _build_tracker_service_config(
+    broker_name: str,
+    scenes_container_path: str,
+    tracker_cfg: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Build the full config.json for the Tracker service container.
+
+    The Tracker service always operates with time-chunking enabled.  Tracking
+    parameters are mapped from the dataset tracker-config.json format.
+
+    Args:
+        broker_name:           Hostname of the MQTT broker inside the Docker
+                               network (e.g. ``"mqtt_harness_broker_<id>"``).
+        scenes_container_path: Absolute path to scenes.json *inside* the
+                               container.
+        tracker_cfg:           Parsed contents of tracker-config.json from the
+                               dataset.
+
+    Returns:
+        Config dict ready to be JSON-serialised as config.json.
+    """
+    return {
+        "infrastructure": {
+            "mqtt": {
+                "host": broker_name,
+                "port": 1883,
+                "insecure": True,
+            },
+        },
+        "scenes": {
+            "source": "file",
+            "file_path": scenes_container_path,
+        },
+        "tracking": {
+            # Tracker service always uses time-chunking; fall back to 15 fps.
+            "time_chunking_rate_fps": tracker_cfg.get("time_chunking_rate_fps", 15),
+            "max_unreliable_time_s":        tracker_cfg.get("max_unreliable_time_s", 1.0),
+            "non_measurement_time_dynamic_s": tracker_cfg.get("non_measurement_time_dynamic_s", 0.8),
+            "non_measurement_time_static_s":  tracker_cfg.get("non_measurement_time_static_s", 1.6),
+            # Frames are published with current wall-clock timestamps by the
+            # harness (timestamp rewriting), so real-time lag is negligible.
+            "max_lag_s": 1.0,
+        },
+    }
+
+
+def _detect_container_type(container_image: str) -> str:
+    """Auto-detect whether *container_image* is a Controller or Tracker service.
+
+    Inspects the image's ``Entrypoint`` and ``Cmd`` metadata.  Falls back to
+    image name heuristics if Docker inspection fails.
+
+    Args:
+        container_image: Docker image reference (e.g. ``"scenescape-controller:latest"``).
+
+    Returns:
+        ``CONTAINER_TYPE_CONTROLLER`` or ``CONTAINER_TYPE_TRACKER``.
+    """
+    try:
+        img = docker.image.inspect(container_image)
+        combined = " ".join((img.config.entrypoint or []) + (img.config.cmd or []))
+        if "controller-cmd" in combined:
+            return CONTAINER_TYPE_CONTROLLER
+        if "/scenescape/tracker" in combined:
+            return CONTAINER_TYPE_TRACKER
+    except Exception:
+        pass
+    # Heuristic fallback from image name
+    name = container_image.split(":")[0].lower()
+    if "tracker" in name and "controller" not in name:
+        return CONTAINER_TYPE_TRACKER
+    return CONTAINER_TYPE_CONTROLLER
 
 
 def _free_port() -> int:
@@ -258,6 +434,7 @@ class MqttHarness(TrackerHarness):
         self._scene_config: Optional[Dict[str, Any]] = None
         self._scene_id: Optional[str] = None
         self._tracker_config_path: Optional[str] = None
+        self._container_type: Optional[str] = None  # auto-detected when None
         self._playback_rate: float = DEFAULT_PLAYBACK_RATE
         self._drain_timeout: float = DEFAULT_DRAIN_TIMEOUT
         self._broker_image: str = DEFAULT_BROKER_IMAGE
@@ -306,6 +483,14 @@ class MqttHarness(TrackerHarness):
 
         if "scene_id" in config:
             self._scene_id = config["scene_id"]
+        if "container_type" in config:
+            ct = config["container_type"]
+            if ct not in (CONTAINER_TYPE_CONTROLLER, CONTAINER_TYPE_TRACKER):
+                raise ValueError(
+                    f"container_type must be '{CONTAINER_TYPE_CONTROLLER}' or "
+                    f"'{CONTAINER_TYPE_TRACKER}', got: {ct!r}"
+                )
+            self._container_type = ct
         self._playback_rate  = float(config.get("playback_rate",  DEFAULT_PLAYBACK_RATE))
         self._drain_timeout  = float(config.get("drain_timeout",  DEFAULT_DRAIN_TIMEOUT))
         self._broker_image   = str(config.get("broker_image",     DEFAULT_BROKER_IMAGE))
@@ -355,6 +540,10 @@ class MqttHarness(TrackerHarness):
         tmp_dir  = Path(tempfile.mkdtemp(prefix="mqtt_harness_"))
         print(f"[MqttHarness] Temporary workspace: {tmp_dir}")
 
+        # Resolve container type once so _run_session can use it for timestamp
+        # rewriting without repeating the Docker inspect call.
+        container_type = self._container_type or _detect_container_type(self._container_image)
+
         try:
             # Consume the iterator into a list so we can persist it and
             # calculate timestamp deltas without streaming complications.
@@ -367,7 +556,7 @@ class MqttHarness(TrackerHarness):
                 tmp_dir, net_name, host_port, run_id
             )
             try:
-                outputs = self._run_session(input_frames, host_port)
+                outputs = self._run_session(input_frames, host_port, container_type)
             finally:
                 self._stop_containers(broker_ctr, tracker_ctr)
                 docker.network.remove(net_name)
@@ -388,6 +577,7 @@ class MqttHarness(TrackerHarness):
         self._scene_config       = None
         self._scene_id           = None
         self._tracker_config_path = None
+        self._container_type     = None
         self._playback_rate      = DEFAULT_PLAYBACK_RATE
         self._drain_timeout      = DEFAULT_DRAIN_TIMEOUT
         self._output_folder      = None
@@ -419,22 +609,21 @@ class MqttHarness(TrackerHarness):
     ):
         """Create Docker network, start broker and tracker containers.
 
+        Selects the correct config format and startup command based on the
+        detected container type (Controller vs Tracker service).
+
         Returns:
             (broker_container, tracker_container) tuple.
         """
         docker.network.create(net_name)
         print(f"[MqttHarness] Created Docker network '{net_name}'")
 
-        # Write mosquitto config
         conf_path = self._build_mosquitto_conf(tmp_dir)
 
         # --- Broker ---
         broker_name = f"mqtt_harness_broker_{run_id}"
         broker_ctr = docker.run(
             self._broker_image,
-            # No command override: the image's default CMD already runs
-            # "mosquitto -c /mosquitto/config/mosquitto.conf".
-            # We mount our config at that exact path.
             name=broker_name,
             networks=[net_name],
             publish=[(host_port, 1883)],
@@ -444,11 +633,9 @@ class MqttHarness(TrackerHarness):
         )
         print(f"[MqttHarness] Broker started (host port {host_port})")
 
-        # Wait until the broker is actually accepting TCP connections.
         try:
             _wait_for_port("localhost", host_port, timeout=30.0)
         except RuntimeError:
-            # Collect container logs to aid debugging before re-raising.
             try:
                 logs = broker_ctr.logs()
                 print(f"[MqttHarness] Broker container logs:\n{logs}")
@@ -456,20 +643,54 @@ class MqttHarness(TrackerHarness):
                 pass
             raise
 
-        # Write scene config in REST API format (required by FileSceneDataSource).
-        # The dataset-specific format lacks a top-level `uid`, causing the
-        # controller to silently drop the scene and never subscribe to cameras.
-        rest_config = _to_rest_format(self._scene_config)
-        # Ensure the MQTT topic uses the same uid the controller will announce.
+        # --- Resolve container type (auto-detect if not explicitly set) ---
+        container_type = self._container_type or _detect_container_type(self._container_image)
+        print(f"[MqttHarness] Container type: {container_type}")
+
+        tracker_name = f"mqtt_harness_tracker_{run_id}"
+
+        if container_type == CONTAINER_TYPE_CONTROLLER:
+            tracker_ctr = self._start_controller_container(
+                tmp_dir, net_name, broker_name, tracker_name
+            )
+        else:
+            tracker_ctr = self._start_tracker_service_container(
+                tmp_dir, net_name, broker_name, tracker_name
+            )
+
+        print(f"[MqttHarness] Tracker container started ({container_type})")
+        # Allow tracker to connect to broker and load scene config.
+        time.sleep(2.0)
+
+        return broker_ctr, tracker_ctr
+
+    def _start_controller_container(
+        self,
+        tmp_dir: Path,
+        net_name: str,
+        broker_name: str,
+        tracker_name: str,
+    ):
+        """Start a Controller container (controller-cmd) with file-based scene config.
+
+        Writes config.json with ``camera points``/``map points`` directly in
+        each camera dict so ``Camera.__init__`` constructs a
+        ``PointCorrespondenceTransform`` (solvePnP).  The ``--rewriteAllTime``
+        flag makes the Controller replace dataset timestamps with wall-clock
+        time, matching the harness real-time pacing.
+
+        Returns:
+            Running controller container.
+        """
+        controller_cfg = _to_controller_config(self._scene_config)
+        # Ensure the scene topic UID matches what the controller will announce.
         if self._scene_id == self._scene_config.get("name"):
-            self._scene_id = rest_config["uid"]
+            self._scene_id = controller_cfg["uid"]
         config_file = tmp_dir / "config.json"
         with open(config_file, "w") as f:
-            json.dump(rest_config, f, indent=2)
+            json.dump(controller_cfg, f, indent=2)
 
-        # --- Tracker ---
-        tracker_name = f"mqtt_harness_tracker_{run_id}"
-        tracker_ctr = docker.run(
+        return docker.run(
             self._container_image,
             command=[
                 "--data_source",        _CONTAINER_CONFIG,
@@ -486,12 +707,54 @@ class MqttHarness(TrackerHarness):
             detach=True,
             remove=False,
         )
-        print(f"[MqttHarness] Tracker container started")
-        # Allow tracker to connect to broker and load scene config.
-        # Use a small fixed pause; readiness is not easily probed here.
-        time.sleep(2.0)
 
-        return broker_ctr, tracker_ctr
+    def _start_tracker_service_container(
+        self,
+        tmp_dir: Path,
+        net_name: str,
+        broker_name: str,
+        tracker_name: str,
+    ):
+        """Start a Tracker service container (/scenescape/tracker) with file scenes.
+
+        The Tracker service always uses time-chunking.  Camera extrinsics are
+        pre-solved from the dataset's point correspondences via ``_solve_pnp``.
+        The harness rewrites frame timestamps to wall-clock time before
+        publishing (see ``_run_session``), so ``max_lag_s: 1.0`` is sufficient.
+
+        Returns:
+            Running tracker service container.
+        """
+        with open(self._tracker_config_path) as f:
+            tracker_cfg = json.load(f)
+
+        scenes = _to_tracker_service_scenes(self._scene_config)
+        scenes_file = tmp_dir / "scenes.json"
+        with open(scenes_file, "w") as f:
+            json.dump(scenes, f, indent=2)
+
+        svc_config = _build_tracker_service_config(
+            broker_name, _TRACKER_SVC_SCENES, tracker_cfg
+        )
+        svc_config_file = tmp_dir / "tracker_svc_config.json"
+        with open(svc_config_file, "w") as f:
+            json.dump(svc_config, f, indent=2)
+
+        return docker.run(
+            self._container_image,
+            command=[
+                "--config", _TRACKER_SVC_CONFIG,
+                "--schema", _TRACKER_SVC_SCHEMA,
+            ],
+            name=tracker_name,
+            networks=[net_name],
+            volumes=[
+                (str(svc_config_file), _TRACKER_SVC_CONFIG, "ro"),
+                (str(scenes_file),     _TRACKER_SVC_SCENES, "ro"),
+            ],
+            detach=True,
+            remove=False,
+        )
 
     def _stop_containers(self, broker_ctr, tracker_ctr) -> None:
         """Stop and remove broker and tracker containers."""
@@ -505,20 +768,33 @@ class MqttHarness(TrackerHarness):
                 print(f"[MqttHarness] Warning: container cleanup failed: {exc}")
 
     def _run_session(
-        self, frames: List[Dict[str, Any]], host_port: int
+        self, frames: List[Dict[str, Any]], host_port: int, container_type: str
     ) -> List[Dict[str, Any]]:
         """Publish input frames and collect tracker outputs.
 
         Paces publication using the inter-frame timestamp deltas so the
         tracker experiences a realistic frame cadence.
 
+        For the **Tracker service** container type, frame timestamps are
+        rewritten to the current wall-clock time before publishing.  The
+        Tracker service has no ``--rewriteAllTime`` flag, so historical
+        dataset timestamps would be rejected by its ``max_lag_s`` filter.
+        Pacing is still driven by the *original* timestamp deltas, so the
+        tracker receives frames at the correct capture cadence regardless.
+
+        For the **Controller** container type, frames are published as-is;
+        the controller rewrites timestamps internally via ``--rewriteAllTime``.
+
         Args:
-            frames:    All input detection frames in chronological order.
-            host_port: Local port the broker is listening on.
+            frames:         All input detection frames in chronological order.
+            host_port:      Local port the broker is listening on.
+            container_type: ``CONTAINER_TYPE_CONTROLLER`` or
+                            ``CONTAINER_TYPE_TRACKER``.
 
         Returns:
             List of output dicts collected from the scene output topic.
         """
+        rewrite_timestamps = (container_type == CONTAINER_TYPE_TRACKER)
         outputs: List[Dict[str, Any]] = []
         output_lock = threading.Lock()
         scene_topic = _TOPIC_DATA_SCENE.format(scene_id=self._scene_id)
@@ -569,7 +845,13 @@ class MqttHarness(TrackerHarness):
 
             cam_id = frame.get("id", "")
             topic  = _TOPIC_DATA_CAMERA.format(camera_id=cam_id)
-            client.publish(topic, json.dumps(frame))
+            if rewrite_timestamps:
+                # Tracker service has no --rewriteAllTime; publish with current
+                # wall-clock timestamp so max_lag_s filter does not drop frames.
+                published_frame = {**frame, "timestamp": datetime.now(timezone.utc).isoformat()}
+            else:
+                published_frame = frame
+            client.publish(topic, json.dumps(published_frame))
 
         print(f"[MqttHarness] Published {len(frames)} frames, draining for {self._drain_timeout}s ...")
         time.sleep(self._drain_timeout)
