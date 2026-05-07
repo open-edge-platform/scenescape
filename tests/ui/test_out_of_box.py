@@ -11,6 +11,7 @@ import numpy as np
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 from threading import Condition, Event
+import pytest
 
 from scene_common.timestamp import get_epoch_time
 from scene_common.mqtt import PubSub

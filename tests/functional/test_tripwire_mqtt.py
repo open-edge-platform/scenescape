@@ -7,6 +7,8 @@ import os
 import time
 import json
 
+import pytest
+
 from tests.functional.test_roi_mqtt import SceneObjectMqtt
 from tests.common_test_utils import check_event_contains_data
 from scene_common.mqtt import PubSub
@@ -180,10 +182,10 @@ class WillOurShipGo(SceneObjectMqtt):
             break
           num_delays += 1
 
-      log.info()
+      log.info("")
       log.info(f"rightAcross: {rightAcross}")
       log.info(f"leftAcross: {leftAcross}")
-      log.info()
+      log.info("")
       if (rightAcross == RIGHT) and (leftAcross == LEFT):
         self.exitCode = 0
 
@@ -191,14 +193,9 @@ class WillOurShipGo(SceneObjectMqtt):
       self.recordTestResult()
     return
 
+@pytest.mark.basic_acceptance
 def test_sensor_region_events(scenescape_env, demo_scene, request, record_xml_attribute):
   test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
   test.checkForMalfunctions()
   assert test.exitCode == 0
   return
-
-def main():
-  return test_sensor_region_events(None, None)
-
-if __name__ == '__main__':
-  os._exit(main() or 0)

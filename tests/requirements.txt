@@ -5,7 +5,7 @@
 
 # Orchestration
 pytest==8.3.5
-pytest-django==4.9.0
+pytest-django==4.12.0
 pytest-kubernetes==0.7.2
 python-on-whales==0.73.0
 waiting==1.4.0
@@ -16,13 +16,13 @@ paho-mqtt==2.1.0
 numpy==2.2.6
 requests==2.31.0
 selenium==4.15.0
-Pillow==10.0.0
-scikit-image==0.22.0
-opencv-python==4.8.0.76
+Pillow==12.2.0
+scikit-image==0.24.0
+opencv-python==4.11.0.86
 pyvirtualdisplay==3.0
 psutil==5.9.0
 pupil-apriltags==1.0.0
-Django==5.2.12
+Django==5.2.13
 django-axes==8.0.0
 django-session-timeout==0.1.0
 djangorestframework==3.16.1

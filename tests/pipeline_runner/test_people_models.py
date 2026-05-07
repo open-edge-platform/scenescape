@@ -42,11 +42,10 @@ def _apply_marks(scenario: PipelineScenario):
   marks = [getattr(pytest.mark, m) for m in scenario.marks]
   return pytest.param(scenario, marks=marks, id=scenario.id)
 
-
+@pytest.mark.basic_acceptance
 class TestPeoplePipelines:
   """Integration tests for people-detection model chains on qcam1.ts."""
 
-  @pytest.mark.basic_acceptance
   @pytest.mark.parametrize(
     "camera_settings_path",
     [_apply_marks(s) for s in PEOPLE_SCENARIOS],
@@ -85,7 +84,6 @@ class TestPeoplePipelines:
         f"got {category_counts.get('person', 0)}"
       )
 
-  @pytest.mark.basic_acceptance
   def test_collect_raises_without_stopping_condition(self, tmp_path):
     """collect() must raise ValueError when called with no timeout or min_detections.
 

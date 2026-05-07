@@ -3,6 +3,8 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
+
 from scene_common import log
 from fast_geometry import Point as cppPoint, Line as cppLine
 from legacy_geometry.geometry import Point as pyPoint, Line as pyLine
@@ -29,7 +31,7 @@ def compareLines3D( cpp_ln : cppLine, py_ln : pyLine ):
     return False
   return True
 
-def testLines2D(start_range, stop_range, step):
+def Lines2D(start_range, stop_range, step):
   for x in range(start_range, stop_range, step):
     for y in range(start_range, stop_range, step):
 
@@ -47,7 +49,7 @@ def testLines2D(start_range, stop_range, step):
   log.log("Lines (2D) ok")
   return True
 
-def testLines3D(start_range, stop_range, step):
+def Lines3D(start_range, stop_range, step):
   for x in range(start_range, stop_range, step):
     for y in range(start_range, stop_range, step):
 
@@ -64,7 +66,7 @@ def testLines3D(start_range, stop_range, step):
   log.log("Lines (3D) ok")
   return True
 
-def testLines2DCross(start_range, stop_range, step):
+def Lines2DCross(start_range, stop_range, step):
   for x in range(start_range, stop_range, step):
     for y in range(start_range, stop_range, step):
 
@@ -106,12 +108,8 @@ def testLines2DCross(start_range, stop_range, step):
   log.log("Lines cross points: ok")
   return True
 
-def test():
-  assert testLines2D(-50, 50, 2)
-  assert testLines3D(-50, 50, 2)
-  assert testLines2DCross(-50, 50, 2)
-
-  return 0
-
-if __name__ == '__main__':
-  exit(test() or 0)
+@pytest.mark.basic_acceptance
+def test_geometry_line():
+  assert Lines2D(-50, 50, 2)
+  assert Lines3D(-50, 50, 2)
+  assert Lines2DCross(-50, 50, 2)

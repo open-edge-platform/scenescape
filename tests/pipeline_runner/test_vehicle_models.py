@@ -41,7 +41,7 @@ def _apply_marks(scenario: PipelineScenario):
   marks = [getattr(pytest.mark, m) for m in scenario.marks]
   return pytest.param(scenario, marks=marks, id=scenario.id)
 
-
+@pytest.mark.basic_acceptance
 class TestVehiclePipelines:
   """Integration tests for vehicle-detection model chains on car-detection.ts."""
 
@@ -50,6 +50,7 @@ class TestVehiclePipelines:
     [_apply_marks(s) for s in VEHICLE_SCENARIOS],
     indirect=True,
   )
+  @pytest.mark.basic_acceptance
   def test_detections_received_and_valid(self, camera_settings_path, schema_validator):
     """Pipeline produces detections that pass the SceneScape detector schema.
 
@@ -90,6 +91,7 @@ class TestVehiclePipelines:
     )
 
 
+  @pytest.mark.basic_acceptance
   def test_invalid_sensor_id_raises(self, tmp_path):
     """PipelineRunner raises when the camera settings file is missing sensor_id.
 
@@ -116,7 +118,7 @@ class TestVehiclePipelines:
 
     with pytest.raises(KeyError):
       PipelineRunner(str(path))  # should fail in _get_camera_id()
-
+  @pytest.mark.basic_acceptance
   def test_collect_raises_without_stopping_condition(self, tmp_path):
     """collect() must raise ValueError when called with neither timeout nor min_detections.
 

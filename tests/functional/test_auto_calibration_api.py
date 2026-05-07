@@ -243,7 +243,7 @@ class AutoCalibration(FunctionalTest):
         reg = self.register_scene(method="POST")
         self.sceneRegistered = True
         assert reg
-        assert reg['status'] == "success"
+        assert reg.get("status") == "success"
         log.info(f"Registering status: {reg}")
 
       if self.nTags > 0:
@@ -293,6 +293,7 @@ class AutoCalibration(FunctionalTest):
      [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
   ]
 )
+@pytest.mark.basic_acceptance
 def test_auto_calibration(scenescape_env, request, record_xml_attribute,
               test_name, n_tags, random_select,
               expect_status, expected_result, intrinsics, repo_root):
@@ -302,9 +303,3 @@ def test_auto_calibration(scenescape_env, request, record_xml_attribute,
   test.runAutoCalibration()
   assert test.exitCode == 0
   return test.exitCode
-
-def main():
-  return test_auto_calibration(None, None)
-
-if __name__ == "__main__":
-  os._exit(main() or 0)
