@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # prefix for volume and container names, override with the environment variable COMPOSE_PROJECT_NAME
@@ -218,7 +218,7 @@ services:
   #   restart: always
 
   mediaserver:
-    image: bluenviron/mediamtx:1.14.0
+    image: bluenviron/mediamtx:1.18.1
     networks:
       scenescape:
         aliases:
@@ -229,7 +229,7 @@ services:
     pids_limit: 1000
 
   retail-cams:
-    image: linuxserver/ffmpeg:version-8.0-cli
+    image: linuxserver/ffmpeg:version-8.1-cli
     command: |
       -nostdin
       -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts
