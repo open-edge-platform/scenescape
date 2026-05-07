@@ -145,6 +145,42 @@
       },
       "meta:extensible": true
     },
+    "keypoint": {
+      "type": "object",
+      "title": "Pose Keypoint",
+      "description": "Single pose keypoint with normalized coordinates.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Keypoint name (for example: nose, eye_l, shoulder_r)."
+        },
+        "x": {
+          "type": "number",
+          "description": "Normalized x coordinate in image space (0 to 1)."
+        },
+        "y": {
+          "type": "number",
+          "description": "Normalized y coordinate in image space (0 to 1)."
+        }
+      },
+      "required": ["name", "x", "y"]
+    },
+    "keypoints": {
+      "type": "array",
+      "title": "Pose Keypoints",
+      "description": "Pose keypoints when a pose estimation model is used. Coordinates are normalized to frame dimensions.",
+      "items": {
+        "$ref": "#/definitions/keypoint"
+      }
+    },
+    "keypoint_connections": {
+      "type": "array",
+      "title": "Keypoint Connections",
+      "description": "Flat list of keypoint-name pairs defining connections (for example: [\"nose\", \"eye_l\", \"nose\", \"eye_r\"]). Length should be 2 x number_of_connections.",
+      "items": {
+        "type": "string"
+      }
+    },
     "detection": {
       "type": "object",
       "title": "Object Detection",
@@ -216,6 +252,12 @@
           "type": "number",
           "description": "Distance from the camera/sensor to the detection in meters, for example when using RealSense or Lidar.",
           "examples": [1.2, 3.56]
+        },
+        "keypoints": {
+          "$ref": "#/definitions/keypoints"
+        },
+        "keypoint_connections": {
+          "$ref": "#/definitions/keypoint_connections"
         }
       },
       "required": ["category"],

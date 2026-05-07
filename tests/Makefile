@@ -69,6 +69,7 @@ define common-recipe =
 	      WAITFORCONTAINERS=$(CONTAINERS) \
 	      NO_PROXY=$(NO_PROXY),.scenescape.intel.com,.scenescape \
 	      no_proxy=$(no_proxy),.scenescape.intel.com,.scenescape \
+	      ANALYTICS=$(ANALYTICS) \
 	      $(RUNTEST) $(YML) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
 	                                  $${EXTRAS} 2>&1 | tee -ia $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
