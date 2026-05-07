@@ -17,7 +17,7 @@ VERIFY_CERT = "/run/secrets/certs/scenescape-ca.pem"
 MAP_APRILTAG_COUNT = 7  # number of apriltags present in Queuing scene
 
 
-class ApriltaqRegistrationUpdate(FunctionalTest):
+class ApriltagRegistrationUpdate(FunctionalTest):
   """Verify that re-registration creates/updates calibration markers and
   sets map_processed after an apriltag update"""
 
