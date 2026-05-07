@@ -641,6 +641,12 @@ class BlackBoxHarness(TrackerHarness):
                 print(f"[BlackBoxHarness] Broker container logs:\n{logs}")
             except Exception:
                 pass
+            try:
+                broker_ctr.stop(time=5)
+                broker_ctr.remove()
+                docker.network.remove(net_name)
+            except Exception:
+                pass
             raise
 
         # --- Resolve container type (auto-detect if not explicitly set) ---
@@ -649,14 +655,24 @@ class BlackBoxHarness(TrackerHarness):
 
         tracker_name = f"black_box_harness_tracker_{run_id}"
 
-        if container_type == CONTAINER_TYPE_CONTROLLER:
-            tracker_ctr = self._start_controller_container(
-                tmp_dir, net_name, broker_name, tracker_name
-            )
-        else:
-            tracker_ctr = self._start_tracker_service_container(
-                tmp_dir, net_name, broker_name, tracker_name
-            )
+        try:
+            if container_type == CONTAINER_TYPE_CONTROLLER:
+                tracker_ctr = self._start_controller_container(
+                    tmp_dir, net_name, broker_name, tracker_name
+                )
+            else:
+                tracker_ctr = self._start_tracker_service_container(
+                    tmp_dir, net_name, broker_name, tracker_name
+                )
+        except Exception:
+            # Broker was already started; clean it up before propagating.
+            try:
+                broker_ctr.stop(time=5)
+                broker_ctr.remove()
+                docker.network.remove(net_name)
+            except Exception:
+                pass
+            raise
 
         print(f"[BlackBoxHarness] Tracker container started ({container_type})")
         # Allow tracker to connect to broker and load scene config.
