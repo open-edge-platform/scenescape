@@ -8,7 +8,7 @@
 
 pipeline:
   output:
-    path: /home/labrat/tracker-evaluation/mqtt-tracker-evaluation
+    path: /home/labrat/tracker-evaluation/black-box-evaluation
 
 dataset:
   class: datasets.metric_test_dataset.MetricTestDataset
