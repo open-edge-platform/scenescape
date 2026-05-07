@@ -26,8 +26,9 @@ IDENTICAL_ANKLE_DISTANCE_FACTOR = 0.02
 MIN_SEGMENT_FACTOR = 0.05
 MAX_RATIO_VALUE = 10.0
 MAX_OFFSET_VALUE = 5.0
-DIRECT_FOOT_REWRITE_GAP_FACTOR = 0.03
+DIRECT_FOOT_REWRITE_GAP_FACTOR = 0.08
 ESTIMATED_FOOT_REWRITE_GAP_FACTOR = 0.12
+MAX_EXTENSION_FACTOR = 0.5
 HIGH_CONFIDENCE_THRESHOLD = 0.6
 MIN_ESTIMATE_CONFIDENCE_THRESHOLD = 0.4
 LOW_CONFIDENCE_ESTIMATION_METHODS = {
@@ -273,24 +274,27 @@ class PersonPoseAdjuster:
     bbox: Dict[str, float],
     keypoints: Dict[str, NamedKeypoint],
   ) -> bool:
-    hip_mid = midpoint(keypoints, 'left_hip', 'right_hip')
-    knee_mid = midpoint(keypoints, 'left_knee', 'right_knee')
+    side = 'left' if ankle_name.startswith('left') else 'right'
+    same_hip = keypoints.get(f'{side}_hip')
+    same_knee = keypoints.get(f'{side}_knee')
+    hip_ref = same_hip or midpoint(keypoints, 'left_hip', 'right_hip')
+    knee_ref = same_knee or midpoint(keypoints, 'left_knee', 'right_knee')
     box_bottom = bbox['y'] + bbox['height']
     min_segment = max(bbox['height'] * MIN_SEGMENT_FACTOR, 1e-6)
 
-    if hip_mid is not None and ankle.y <= hip_mid.y:
+    if hip_ref is not None and ankle.y <= hip_ref.y:
       log.debug(
-        f"Rejecting {ankle_name}: ankle_y={ankle.y:.4f} is above hip_y={hip_mid.y:.4f}"
+        f"Rejecting {ankle_name}: ankle_y={ankle.y:.4f} is above hip_y={hip_ref.y:.4f}"
       )
       return False
-    if knee_mid is not None and ankle.y <= knee_mid.y:
+    if knee_ref is not None and ankle.y <= knee_ref.y:
       log.debug(
-        f"Rejecting {ankle_name}: ankle_y={ankle.y:.4f} is above knee_y={knee_mid.y:.4f}"
+        f"Rejecting {ankle_name}: ankle_y={ankle.y:.4f} is above knee_y={knee_ref.y:.4f}"
       )
       return False
 
     if ankle.y <= box_bottom and (box_bottom - ankle.y) <= bbox['height'] * FOOT_NEAR_BOX_BOTTOM_MARGIN:
-      if knee_mid is None or (ankle.y - knee_mid.y) <= min_segment:
+      if knee_ref is None or (ankle.y - knee_ref.y) <= min_segment:
         log.debug(
           f"Rejecting {ankle_name}: near bbox bottom without enough separation "
           f"(ankle_y={ankle.y:.4f}, box_bottom={box_bottom:.4f})"
@@ -380,6 +384,12 @@ class PersonPoseAdjuster:
     bounds,
   ) -> Optional[FootEstimate]:
     props = self.cache.get_medians(cache_key)
+    if not props:
+      log.debug(
+        f"Skipping foot estimation for {cache_key}: "
+        "proportion cache not yet warmed up"
+      )
+      return None
     nose = keypoints.get('nose')
     head = head_point(keypoints)
     shoulder_mid = midpoint(keypoints, 'left_shoulder', 'right_shoulder')
@@ -541,10 +551,10 @@ class PersonPoseAdjuster:
       BBOX_BOTTOM_SAFETY_MARGIN_DIRECT if foot.visible_ankles > 0
       else BBOX_BOTTOM_SAFETY_MARGIN_ESTIMATED
     )
-    bottom_y = max(
-      bbox['y'] + bbox['height'],
-      foot.y + bbox['height'] * safety_margin,
-    )
+    original_bottom = bbox['y'] + bbox['height']
+    desired_bottom = foot.y + bbox['height'] * safety_margin
+    max_bottom = original_bottom + bbox['height'] * MAX_EXTENSION_FACTOR
+    bottom_y = min(desired_bottom, max_bottom)
 
     width = min(bbox['width'], frame_width)
     top_y = self._clip_value(bbox['y'], 0.0, frame_height)
@@ -554,7 +564,7 @@ class PersonPoseAdjuster:
     else:
       left_x = self._clip_value(bbox['x'], 0.0, max(frame_width - width, 0.0))
     bottom_y = self._clip_value(bottom_y, top_y, frame_height)
-    height = max(bottom_y - top_y, bbox['height'])
+    height = max(bottom_y - top_y, 1e-6)
     height = min(height, frame_height - top_y)
 
     adjusted_bbox = {
