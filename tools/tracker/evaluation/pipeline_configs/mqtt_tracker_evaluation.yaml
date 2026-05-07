@@ -8,7 +8,7 @@
 
 pipeline:
   output:
-    path: /tmp/mqtt-tracker-evaluation
+    path: /home/labrat/mqtt-tracker-evaluation
 
 dataset:
   class: datasets.metric_test_dataset.MetricTestDataset
@@ -22,6 +22,9 @@ harness:
   config:
     container_image: scenescape-controller:2026.1.0-dev
     tracker_config_path: ../../../tests/system/metric/dataset/tracker-config.json
+    # container_image: scenescape-tracker:2026.1.0-dev  
+    # tracker_config_path: ../../../tracker/config/tracker.json
+
     # playback_rate: 1.0     # Real-time pacing (default). Increase to speed up.
     # drain_timeout: 5.0     # Seconds to wait for last tracker outputs (default).
     # broker_image: eclipse-mosquitto  # MQTT broker image (default).

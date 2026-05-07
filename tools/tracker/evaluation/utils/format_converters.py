@@ -344,6 +344,7 @@ def convert_canonical_to_motchallenge_csv(
 
   # Convert tracker outputs to CSV rows
   rows = []
+  seen_frame_ids: set = set()  # deduplicate (frame, id) pairs across all messages
   for scene_data in tracker_outputs:
     # Calculate frame number from timestamp
     timestamp = datetime.fromisoformat(
@@ -360,6 +361,13 @@ def convert_canonical_to_motchallenge_csv(
         uuid_to_id_map[uuid] = next_id
         next_id += 1
       track_id = uuid_to_id_map[uuid]
+
+      # Skip if this (frame, id) was already emitted — two messages with
+      # slightly different timestamps can round to the same frame number.
+      frame_id_key = (frame, track_id)
+      if frame_id_key in seen_frame_ids:
+        continue
+      seen_frame_ids.add(frame_id_key)
 
       # Extract 3D position
       translation = obj["translation"]

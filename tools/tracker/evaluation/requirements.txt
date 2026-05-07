@@ -7,6 +7,7 @@
 PyYAML==6.0.3
 numpy==2.3.2
 orjson==3.11.6
+paho-mqtt==2.1.0
 jsonpointer==2.4
 dask==2026.3.0
 jsonschema==4.25.1
