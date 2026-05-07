@@ -167,7 +167,7 @@ cameras ──► data/camera/{camera-id} ──► Projection ──► MOT Tra
 ## Opens
 
 - **Projection / Tracker / Analytics / Clustering**:
-  - Whether Projection should be a separate service or part of Tracker Service.
+  - **DONE** ~~Whether Projection should be a separate service or part of Tracker Service.~~ - Tracker and Projectino are separate libraries in C++ with well defined interfaces that can be easily extracted into services communicating via gRPC
   - **DONE** ~~do we need to implement object permanence? if so, how to provide input which tracks should be permanent~~ **NO**
   - **DONE** how to handle non camera detections like 3D sensors (e.g. LIDARs)
     - Expected to align to the metadata that tracker expects for object detections.
@@ -179,14 +179,19 @@ cameras ──► data/camera/{camera-id} ──► Projection ──► MOT Tra
   - **DONE** ~~whether to handle sensor inputs in tracker service or analytics?~~ **in analytics**
   - **DONE** ~~whether to extend cluster analytics with scene analytics or to implement new service~~ **NO, we will create new service**
 - **Scene Hierarchy**
-  - whether it should be a separate service or part of tracker or/and analytics?
+  - **DONE** ~~which of the following should flow from child to parent:~~
+    - camera detections: NO
+    - raw tracks (tracker outputs): NO
+    - fused tracks (analytics outputs): YES
+    - analytics events: YES
+  - whether it should be a separate service or part of existing service?
     - if part of tracker / analytics, then should only analytics be aware of hierarchy or both?
-  - which of the following should flow from child to parent:
-    - camera detections
-    - raw tracks (tracker outputs)
-    - fused tracks (analytics outputs)
-    - analytics events
-  - in future how to make regions and tripwires shared across scene hierarchy (increases complexity) **need to check with Rob on the priority of this.**
+    - does it make sense to merge it with projection? there is some overlap of scene hierarchy with projection
+  - retracking functionality - do we really need it?
+    - how to handle the deduplication when overlapping in the parent w/o retracking?
+    - how to ensure that the 1st UUID assigned in the parent will persist
+  - spatial and temporal fidelity - how to do it the right way
+  - in future how to make regions and tripwires shared across scene hierarchy
 - **NTP synchronization** (affects MOT Tracking `[?]` on time sync)
   - whether to internally synchronize timestamps with external NTP service vs rely on system-level clock synchronization (and shift the responsibility onto the user)?
-    - relying on system clock NTP synchronization simplifies tracker implementation and the pipeline (we can use GStreamer timestamper then which takes time from system clock, gvapython may become deprecated), potentially decreasing pipeline latency
+  - relying on system clock NTP synchronization simplifies tracker implementation and the pipeline (we can use GStreamer timestamper then which takes time from system clock, gvapython may become deprecated), potentially decreasing pipeline latency
