@@ -338,7 +338,7 @@ class TestProcessInputsFlow:
         self, mock_sleep, MockMqttClient, mock_docker,
         configured_harness, sample_frames
     ):
-        """Client subscribes to scenescape/regulated/scene/{scene_id} for Controller."""
+        """Client subscribes to scenescape/data/scene/{scene_id}/+ for Controller."""
         mock_client_instance = MagicMock()
         MockMqttClient.return_value = mock_client_instance
         mock_docker.network.create = MagicMock()
@@ -356,10 +356,10 @@ class TestProcessInputsFlow:
 
         list(configured_harness.process_inputs(iter(sample_frames)))
 
-        # on_connect callback should subscribe with the regulated topic (Controller mode)
+        # on_connect callback should subscribe with the DATA_SCENE wildcard topic
         subscribe_calls = mock_client_instance.subscribe.call_args_list
         topics = [c.args[0] for c in subscribe_calls]
-        assert any("scenescape/regulated/scene/scene-uid-001" in t for t in topics)
+        assert any("scenescape/data/scene/scene-uid-001/+" in t for t in topics)
 
     @patch("harnesses.black_box_harness.black_box_harness.docker")
     @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")

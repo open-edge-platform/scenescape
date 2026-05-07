@@ -51,8 +51,7 @@ This reproduces the original capture cadence so the tracker's internal timing
 Topics (from scene_common.mqtt.PubSub templates)
 -------------------------------------------------
 * Publish  →  scenescape/data/camera/{camera_id}
-* Subscribe←  scenescape/regulated/scene/{scene_id}   (Controller: dense 30fps)
-* Subscribe←  scenescape/data/scene/{scene_id}/+      (Tracker service)
+* Subscribe←  scenescape/data/scene/{scene_id}/+      (Controller & Tracker service: full-rate per-frame)
 
 Configuration keys (set_custom_config)
 --------------------------------------
@@ -99,11 +98,11 @@ from utils.format_converters import write_jsonl
 # MQTT topic constants (mirrors scene_common.mqtt.PubSub._TopicTemplates)
 # ---------------------------------------------------------------------------
 _TOPIC_BASE = "scenescape"
-_TOPIC_DATA_CAMERA    = _TOPIC_BASE + "/data/camera/{camera_id}"
-_TOPIC_DATA_SCENE     = _TOPIC_BASE + "/data/scene/{scene_id}/+"
-# Controller publishes ALL frames at regulated_rate to this combined topic.
-# DATA_SCENE is only published selectively (when objects appear/disappear).
-_TOPIC_DATA_REGULATED = _TOPIC_BASE + "/regulated/scene/{scene_id}"
+_TOPIC_DATA_CAMERA = _TOPIC_BASE + "/data/camera/{camera_id}"
+# Both controller (publishSceneDetections) and tracker service publish one
+# message per input frame per object-type here — no wall-clock throttling,
+# equivalent to the metric test's per-frame buildDetectionsList() output.
+_TOPIC_DATA_SCENE  = _TOPIC_BASE + "/data/scene/{scene_id}/+"
 
 # Mosquitto config that allows anonymous connections on port 1883
 _MOSQUITTO_CONF = """\
@@ -559,10 +558,13 @@ class BlackBoxHarness(TrackerHarness):
             broker_ctr, tracker_ctr = self._start_containers(
                 tmp_dir, net_name, host_port, run_id
             )
+            log_thread = self._start_log_streaming(tracker_ctr)
             try:
                 outputs = self._run_session(input_frames, host_port, container_type)
             finally:
                 self._stop_containers(broker_ctr, tracker_ctr)
+                if log_thread is not None:
+                    log_thread.join(timeout=5.0)
                 docker.network.remove(net_name)
 
             self._persist_outputs(outputs, tmp_dir)
@@ -695,9 +697,11 @@ class BlackBoxHarness(TrackerHarness):
 
         Writes config.json with ``camera points``/``map points`` directly in
         each camera dict so ``Camera.__init__`` constructs a
-        ``PointCorrespondenceTransform`` (solvePnP).  The ``--rewriteAllTime``
-        flag makes the Controller replace dataset timestamps with wall-clock
-        time, matching the harness real-time pacing.
+        ``PointCorrespondenceTransform`` (solvePnP).  Dataset timestamps are
+        sent as-is so that frames from two cameras sharing the same timestamp
+        produce outputs at the same timestamp and can be merged correctly by
+        ``_merge_outputs_by_timestamp``.  ``--max_lag 1e15`` prevents the
+        controller from dropping historical (e.g. 2014-era) dataset timestamps.
 
         Returns:
             Running controller container.
@@ -716,12 +720,8 @@ class BlackBoxHarness(TrackerHarness):
                 "--data_source",        _CONTAINER_CONFIG,
                 "--broker",             broker_name,
                 "--tracker_config_file", _CONTAINER_TRACKER_CONFIG,
-                "--rewriteAllTime",
-                # Use unregulated visibility to avoid computeCameraBounds crash
-                # on PointCorrespondenceTransform. The regulated topic still
-                # publishes dense 30fps output; only the per-camera pixel bounds
-                # are skipped (not needed for evaluation).
-                "--visibility_topic",   "unregulated",
+                "--maxlag",             "1e15",
+                "--visibility_topic",   "none",
             ],
             name=tracker_name,
             networks=[net_name],
@@ -781,6 +781,30 @@ class BlackBoxHarness(TrackerHarness):
             remove=False,
         )
 
+    def _start_log_streaming(self, tracker_ctr) -> Optional[threading.Thread]:
+        """Stream tracker container logs to stdout in a background thread.
+
+        Returns the thread so the caller can join it after the session ends,
+        or ``None`` if streaming could not be started.
+        """
+        if tracker_ctr is None:
+            return None
+
+        def _stream():
+            try:
+                # python-on-whales logs(stream=True) yields (source, bytes) tuples
+                # where source is 'stdout' or 'stderr'.
+                for _source, content in tracker_ctr.logs(stream=True, follow=True):
+                    line = content.decode("utf-8", errors="replace")
+                    print(f"[tracker] {line}", end="" if line.endswith("\n") else "\n",
+                          flush=True)
+            except Exception:
+                pass  # container stopped — normal exit
+
+        t = threading.Thread(target=_stream, daemon=True)
+        t.start()
+        return t
+
     def _stop_containers(self, broker_ctr, tracker_ctr) -> None:
         """Stop and remove broker and tracker containers."""
         for ctr in (tracker_ctr, broker_ctr):
@@ -807,8 +831,12 @@ class BlackBoxHarness(TrackerHarness):
         Pacing is still driven by the *original* timestamp deltas, so the
         tracker receives frames at the correct capture cadence regardless.
 
-        For the **Controller** container type, frames are published as-is;
-        the controller rewrites timestamps internally via ``--rewriteAllTime``.
+        For the **Controller** container type, frames are published with their
+        original dataset timestamps so that the two cameras (which share the
+        same timestamps for each logical frame) produce outputs at the same
+        timestamp.  Those outputs are then merged by ``_merge_outputs_by_timestamp``
+        into one entry per logical frame — matching the metric test's output
+        cadence.
 
         Args:
             frames:         All input detection frames in chronological order.
@@ -822,12 +850,13 @@ class BlackBoxHarness(TrackerHarness):
         rewrite_timestamps = (container_type == CONTAINER_TYPE_TRACKER)
         outputs: List[Dict[str, Any]] = []
         output_lock = threading.Lock()
-        # Controller publishes dense 30fps output to the regulated topic.
-        # Tracker service publishes per-type to the DATA_SCENE wildcard topic.
-        if container_type == CONTAINER_TYPE_CONTROLLER:
-            scene_topic = _TOPIC_DATA_REGULATED.format(scene_id=self._scene_id)
-        else:
-            scene_topic = _TOPIC_DATA_SCENE.format(scene_id=self._scene_id)
+        # Both controller and tracker service publish one message per input
+        # frame per object-type on DATA_SCENE.  This mirrors what the metric
+        # test's buildDetectionsList() call produces — one output per frame,
+        # no wall-clock throttling.  DATA_REGULATED is wall-clock throttled
+        # (regulated_rate Hz) and emits only a handful of messages when frames
+        # are replayed faster than real-time.
+        scene_topic = _TOPIC_DATA_SCENE.format(scene_id=self._scene_id)
 
         # --- MQTT client setup ---
         client = mqtt.Client(client_id=f"black_box_harness_client_{uuid.uuid4().hex[:6]}")
