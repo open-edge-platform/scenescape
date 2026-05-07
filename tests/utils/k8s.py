@@ -262,6 +262,14 @@ class K8sManager:
     self.kubeconfig = str(self._cluster.kubeconfig)
     logger.info("KinD cluster created. Kubeconfig: %s", self.kubeconfig)
 
+    # Merge the test cluster context into ~/.kube/config so that
+    # 'kubectl' and k9s work without any extra flags or env vars.
+    subprocess.run(
+      ["kind", "export", "kubeconfig", "--name", "pytest-test-cluster"],
+      check=False, capture_output=True,
+    )
+    logger.info("Test cluster context merged into ~/.kube/config (kind-pytest-test-cluster)")
+
     # Apply ingress resources
     logger.info("Applying ingress resources...")
     self._cluster.apply(str(_INGRESS_YAML))
@@ -352,6 +360,17 @@ class K8sManager:
         self._cluster.delete()
       except Exception as exc:
         logger.warning("Failed to delete KinD cluster: %s", exc)
+
+    # Remove the test cluster context from ~/.kube/config.
+    for resource, name in [
+      ("context", "kind-pytest-test-cluster"),
+      ("cluster", "kind-pytest-test-cluster"),
+      ("user", "kind-pytest-test-cluster"),
+    ]:
+      subprocess.run(
+        ["kubectl", "config", "delete-" + resource, name],
+        capture_output=True, check=False,
+      )
 
     logger.info("Kubernetes teardown complete.")
 
