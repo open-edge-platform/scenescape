@@ -200,9 +200,15 @@ class SensorMqttRoi(SceneObjectMqtt):
     if self.isWithinRectangle(self.roiPoints[1], self.roiPoints[3], (current_point[0], current_point[1])):
       self.entered = True
       self.enteredDetected = True
+      self.object_in_region = True  # Critical: update flag for regionDataReceived callback
       print('object entered region')
       if self.enteredTimestamp is None:
         self.enteredTimestamp = region_message_ts
+
+    # Check for exit events to clear object_in_region flag
+    if 'exited' in region_data and len(region_data['exited']) > 0:
+      self.object_in_region = False  # Critical: update flag when object exits
+      print('object exited region')
 
     if self.entered and len(self.sensorHistory) > 0:
       start_idx, end_idx = self.findSensorIndexes(
