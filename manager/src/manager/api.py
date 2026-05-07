@@ -203,7 +203,6 @@ class ManageThing(APIView):
     )
 
   def put(self, request, thing_type, uid=None):
-    _, thing_serializer, _ = get_class_and_serializer(thing_type)
     self.validateUnknownParams(request)
     if uid is None:
       return Response(
