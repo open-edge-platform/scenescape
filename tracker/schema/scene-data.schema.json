@@ -98,6 +98,12 @@
           "type": "object",
           "description": "Optional passthrough metadata from the originating detection (e.g., reid, gender, age). Keys and values are detector-defined.",
           "additionalProperties": true
+        },
+        "confidence": {
+          "type": "number",
+          "description": "Optional detection confidence score in [0, 1], passed through from the originating detection",
+          "minimum": 0,
+          "maximum": 1
         }
       },
       "additionalProperties": false
