@@ -65,9 +65,16 @@ def _make_mqtt_client(params, reg_topic, regulated_msgs, lock):
   client.onMessage = _on_message
   client.connect()
   client.loopStart()
-  assert connected_event.wait(MAX_WAIT), \
-    "MQTT client failed to connect and subscribe within timeout"
-  return client
+  try:
+    assert connected_event.wait(MAX_WAIT), \
+      "MQTT client failed to connect and subscribe within timeout"
+    return client
+  except Exception:
+    try:
+      client.disconnect()
+    finally:
+      client.loopStop()
+    raise
 
 
 def _phase1_prime_tracker(obj_data, client, regulated_msgs, lock):
