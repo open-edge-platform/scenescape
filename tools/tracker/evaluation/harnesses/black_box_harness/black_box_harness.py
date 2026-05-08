@@ -666,11 +666,13 @@ class BlackBoxHarness(TrackerHarness):
     with open(self._tracker_config_path) as f:
       tracker_cfg = json.load(f)
 
-    # Auth file consumed by the Tracker Service's api_scene_loader
+    # Auth file consumed by the Tracker Service's api_scene_loader.
+    # The mock manager accepts arbitrary credentials, so avoid storing a
+    # clear-text password on disk.
     auth_file = tmp_dir / "manager_auth.json"
     auth_file.write_text(json.dumps({
         "user": _MOCK_MANAGER_USER,
-        "password": _MOCK_MANAGER_PASSWORD,
+        "token": _MOCK_MANAGER_PASSWORD,
     }))
 
     svc_config = _build_tracker_service_config(
