@@ -1,12 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# Black-Box Tracker Evaluation Pipeline Configuration
-# Evaluates the tracker as a black box via MQTT broker + tracker containers.
-# The harness publishes camera frames to scenescape/data/camera/{camera_id}
-# and collects tracker output from scenescape/data/scene/{scene_id}/+.
-
 pipeline:
+  run_name: Tracker-Service
   output:
     path: /home/labrat/tracker-evaluation/black-box-evaluation
 
@@ -20,17 +16,12 @@ dataset:
 harness:
   class: harnesses.black_box_harness.BlackBoxHarness
   config:
-    broker_image: eclipse-mosquitto:2.0.22 # Pin to same version as production deploy.
-
-    # container_image: scenescape-controller:2026.1.0-dev
-    # tracker_config_path: ../../../tests/system/metric/dataset/tracker-config.json
-    # tracker_config_path: ../../../tests/system/metric/dataset/tracker-config-time-chunking.json
-
+    broker_image: eclipse-mosquitto:2.0.22
     container_image: scenescape-tracker:2026.1.0-dev
     tracker_config_path: ../../../tracker/config/tracker.json
-
-    # playback_rate: 1.0     # Real-time pacing (default). Increase to speed up.
-    # drain_timeout: 5.0     # Seconds to wait for last tracker outputs (default).
+    startup_wait_s: 5.0
+    # playback_rate: 1.0
+    # drain_timeout: 5.0
 
 evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator

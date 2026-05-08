@@ -1,9 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# Black-Box evaluation: Controller container, time-chunking DISABLED.
-# Baseline configuration — event-based output at camera FPS.
-
 pipeline:
   run_name: Controller-NO-Time-Chunking
   output:
@@ -22,9 +19,9 @@ harness:
     broker_image: eclipse-mosquitto:2.0.22
     container_image: scenescape-controller:2026.1.0-dev
     tracker_config_path: ../../../tests/system/metric/dataset/tracker-config.json
-    # startup_wait_s: 2.0  # default — Controller starts quickly
-    # playback_rate: 1.0   # real-time pacing (default)
-    # drain_timeout: 5.0   # seconds idle before stopping (default)
+    # startup_wait_s: 2.0
+    # playback_rate: 1.0
+    # drain_timeout: 5.0
 
 evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
