@@ -116,10 +116,3 @@ def test_sensor_delete_mqtt(scenescape_env, demo_scene, request, record_xml_attr
   test = SensorDeleteMqtt(TEST_NAME, request, record_xml_attribute)
   test.runSensorMqttDelete()
   assert test.exitCode == 0
-  return test.exitCode
-
-def main():
-  return test_sensor_delete_mqtt(None, None)
-
-if __name__ == "__main__":
-  os._exit(main() or 0)

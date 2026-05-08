@@ -185,10 +185,3 @@ def test_reid_performance_degradation(scenescape_env, request, record_xml_attrib
   test = REIDPerformanceDegradation(TEST_NAME, request, record_xml_attribute)
   test.verifyThings()
   assert test.exitCode == 0
-  return test.exitCode
-
-def main():
-  return test_reid_performance_degradation(None, None)
-
-if __name__ == '__main__':
-  os._exit(main() or 0)

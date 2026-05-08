@@ -46,7 +46,3 @@ def test_scene_details_main(params, record_xml_attribute):
     browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
-  return exit_code
-
-if __name__ == '__main__':
-  exit(test_scene_details_main() or 0)

@@ -97,4 +97,3 @@ def test_live_button(params, record_xml_attribute=None):
     tests_common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
-  return exit_code

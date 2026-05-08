@@ -71,4 +71,3 @@ def test_camera_deletion_main(params, record_xml_attribute):
     browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
-  return exit_code

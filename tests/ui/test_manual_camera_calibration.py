@@ -141,4 +141,3 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
-  return exit_code

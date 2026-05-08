@@ -90,7 +90,3 @@ def test_different_formats_scene_main(params, record_xml_attribute):
       exit_code = 0
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
-  return exit_code
-
-if __name__ == '__main__':
-  exit(test_different_formats_scene_main() or 0)
