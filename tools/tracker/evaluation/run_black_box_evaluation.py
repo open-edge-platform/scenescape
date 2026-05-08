@@ -34,9 +34,9 @@ from pipeline_engine import PipelineEngine
 _SCRIPT_DIR = Path(__file__).parent
 
 CONFIGS = [
-    _SCRIPT_DIR / "pipeline_configs" / "black_box_controller_no_tc.yaml",
-    _SCRIPT_DIR / "pipeline_configs" / "black_box_controller_tc.yaml",
-    _SCRIPT_DIR / "pipeline_configs" / "black_box_tracker_service.yaml",
+    _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_controller_no_tc.yaml",
+    _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_controller_tc.yaml",
+    _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_tracker_service.yaml",
 ]
 
 DEFAULT_OUTPUT_BASE = "/home/labrat/tracker-evaluation/black-box-evaluation"
