@@ -127,8 +127,6 @@ def _compute_extrinsics(cam_pts, map_pts, intrinsics, distortion=None):
     K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype="float64")
     dist = _distortion_to_array(distortion)
 
-    # Mirror PointCorrespondenceTransform._calculatePoseMat():
-    # use SOLVEPNP_P3P for non-coplanar points with fewer than 6 correspondences.
     computation_method = cv2.SOLVEPNP_ITERATIVE
     if not _are_coplanar(map_arr.tolist()) and len(map_arr) < 6:
       computation_method = cv2.SOLVEPNP_P3P
@@ -231,8 +229,6 @@ class MockManagerHandler(BaseHTTPRequestHandler):
       return
 
     if path.startswith("/api/v1/camera/"):
-      # Controller calls updateCamera to write back calibration results.
-      # Accept and echo back the camera dict (no persistence needed).
       uid = path.removeprefix("/api/v1/camera/")
       cameras = self.server.scene.get("cameras", [])
       cam = next((c for c in cameras if c["uid"] == uid), {"uid": uid})
@@ -274,7 +270,6 @@ class MockManagerHandler(BaseHTTPRequestHandler):
 
     self._send_json(404, {"error": "not found"})
 
-
 def run(port: int, scene_config: dict) -> None:
   """Start the mock server; blocks until interrupted."""
   scene = _build_rest_scene(scene_config)
@@ -282,7 +277,6 @@ def run(port: int, scene_config: dict) -> None:
   server.scene = scene
   print(f"[MockManager] Listening on 0.0.0.0:{port}  scene={scene['uid']}", flush=True)
   server.serve_forever()
-
 
 if __name__ == "__main__":
   if len(sys.argv) != 3:

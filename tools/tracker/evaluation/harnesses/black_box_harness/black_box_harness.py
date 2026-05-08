@@ -123,13 +123,8 @@ _MOCK_MANAGER_PORT         = 8888  # internal Docker-network port
 CONTAINER_TYPE_CONTROLLER = "controller"
 CONTAINER_TYPE_TRACKER    = "tracker"
 
-
 DEFAULT_DRAIN_TIMEOUT  = 5.0   # seconds of silence after last received message before stopping
 DEFAULT_STARTUP_WAIT   = 2.0   # seconds to wait after container start before publishing frames
-
-
-
-
 
 def _build_tracker_service_config(
     broker_name: str,
@@ -551,12 +546,10 @@ class BlackBoxHarness(TrackerHarness):
         pass
       raise
 
-    # The mock server thread runs on the host.  Containers reach it via an
-    # --add-host entry that maps manager_name → Docker host gateway IP.
+
     host_gateway = self._get_docker_host_gateway(net_name)
     print(f"[BlackBoxHarness] Mock Manager hostname '{manager_name}' → {host_gateway}:{manager_port}")
 
-    # --- Resolve container type (auto-detect if not explicitly set) ---
     container_type = self._container_type or _detect_container_type(self._container_image)
     print(f"[BlackBoxHarness] Container type: {container_type}")
 
@@ -583,7 +576,6 @@ class BlackBoxHarness(TrackerHarness):
       raise
 
     print(f"[BlackBoxHarness] Tracker container started ({container_type})")
-    # Allow tracker to connect to broker and load scene config.
     print(f"[BlackBoxHarness] Waiting {self._startup_wait_s}s for container startup ...")
     time.sleep(self._startup_wait_s)
 
@@ -662,10 +654,6 @@ class BlackBoxHarness(TrackerHarness):
     """
     with open(self._tracker_config_path) as f:
       tracker_cfg = json.load(f)
-
-    # Auth file consumed by the Tracker Service's api_scene_loader.
-    # Requires "user" and "password" fields (read by api_scene_loader.cpp).
-    # The mock manager accepts any credentials.
     auth_file = tmp_dir / "manager_auth.json"
     auth_file.write_text(json.dumps({
         "user": _MOCK_MANAGER_USER,
@@ -795,17 +783,8 @@ class BlackBoxHarness(TrackerHarness):
     client.connect("localhost", host_port, keepalive=60)
     client.loop_start()
 
-    # Allow subscription to be established
     time.sleep(0.5)
 
-    # --- Publish frames paced by absolute wall-clock offset from session start ---
-    # Mirrors tests/system/metric/tc_tracker_metric.py:
-    #   expected_time = start_time + (frame_count * frame_interval)
-    #   sleep_time = expected_time - current_time
-    # Using absolute offsets avoids error accumulation from per-frame delta timing.
-    # NOTE: max_lag_s=1e15 only prevents the tracker from rejecting old timestamps;
-    # it does NOT affect the wall-clock timer that drives time-chunking.  Blasting
-    # frames without pacing starves the time-chunk scheduler.
     session_start_wall: Optional[float] = None
     session_start_data: Optional[float] = None
 
