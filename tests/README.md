@@ -1,12 +1,38 @@
-# Running tests for Intel® SceneScape on Docker
+# Running tests for Intel® SceneScape
 
-## Setup environment
+Tests support two deployment backends controlled by the `--backend` flag:
+
+| Backend | Description |
+| ------------ | --------------------------------------------------- |
+| `docker` | Docker Compose (default) |
+| `kubernetes` | KinD cluster + Helm chart |
+| `all` | Run each test against both backends |
+
+## Prerequisites
+
+### Docker backend
 
 ```bash
 # Build images, generate secrets, and install the pytest virtualenv
-SUPASS=change_me make build-all && make setup-tests
-make setup-pytest   # creates tests/.venv if not present
+SUPASS=change_me make && make setup-tests
 ```
+
+### Kubernetes backend
+
+In addition to the Docker prerequisites, the following tools must be installed
+and available on `PATH`:
+
+| Tool | Purpose |
+| ----------- | ------------------------------ |
+| `kind` | Creates the local KinD cluster |
+| `kubectl` | Manages Kubernetes resources |
+| `helm` | Deploys the SceneScape chart |
+
+The Python dependencies are installed automatically by `make setup-pytest`.
+
+The Kubernetes backend creates a fully self-contained KinD cluster, deploys
+SceneScape via the Helm chart, and tears the cluster down at the end of the
+test session.
 
 ## Running tests
 
@@ -17,14 +43,11 @@ only for failed tests. Use `--collect-container-logs {failed,all,none}` to
 change this behavior. Test specs are defined in the individual test
 modules as Python dataclasses.
 
-### Using make (recommended)
+### Running tests via make
 
 Use make targets from the repository root.
 
 ```bash
-# One-time venv setup (auto-called by group targets)
-make setup-pytest
-
 # Run all basic acceptance tests
 make run_basic_acceptance_tests
 
@@ -34,15 +57,16 @@ make run_standard_tests
 # Run all functional tests
 make run_functional_tests
 
-# Run all unit tests
-make run_unit_tests
-
 # Run all UI/Selenium tests
 make run_ui_tests
 
+# Run all unit tests
+make run_unit_tests
+
+
 ```
 
-### Using pytest directly
+### Running tests via pytest directly
 
 Run from the **repository root**:
 
@@ -50,11 +74,10 @@ Run from the **repository root**:
 # Activate the venv
 source tests/.venv/bin/activate
 
+# ── Docker backend (default) ───────────────────────────────────────────────
+
 # Run a single test by its pytest ID (use underscores)
 pytest -k mqtt_roi -v
-
-# Run multiple tests matching a keyword
-pytest -k "mqtt" -v
 
 # Run all functional tests
 pytest tests/functional -v
@@ -65,7 +88,21 @@ pytest tests/sscape_tests -v
 # Run all UI tests
 pytest tests/ui -v
 
-# Container log collection modes (default: failed)
+# ── Kubernetes backend ─────────────────────────────────────────────────────
+
+# Run a specific test against Kubernetes
+pytest tests/ui/test_out_of_box.py --backend=kubernetes -v
+
+# Run all Kubernetes-capable tests
+pytest --backend=kubernetes -v
+
+# Run only tests that require Kubernetes
+pytest -m kubernetes_only --backend=kubernetes -v
+
+# Run all tests against both backends (parametrized)
+pytest --backend=all -v
+
+# ── Container log collection ───────────────────────────────────────────────
 pytest tests/functional -v --collect-container-logs failed
 pytest tests/functional -v --collect-container-logs all
 pytest tests/functional -v --collect-container-logs none
@@ -74,11 +111,11 @@ pytest tests/functional -v --collect-container-logs none
 
 ### Environment variables
 
-| Variable        | Default            | Description                                  |
-| --------------- | ------------------ | -------------------------------------------- |
-| `SUPASS`        | random             | Superuser password passed to test containers |
-| `SECRETSDIR`    | `manager/secrets/` | Path to the secrets directory                |
-| `IMAGE_VERSION` | `latest`           | Docker image tag to use for test containers  |
+| Variable        | Default            | Backend    | Description                                  |
+| --------------- | ------------------ | ---------- | -------------------------------------------- |
+| `SUPASS`        | random             | both       | Superuser password for the test deployment   |
+| `SECRETSDIR`    | `manager/secrets/` | docker     | Path to the secrets directory                |
+| `IMAGE_VERSION` | `latest`           | docker     | Docker image tag to use for test containers  |
 
 ### Log files
 
@@ -126,6 +163,47 @@ or directly with pytest:
 pytest tests/sscape_tests -v
 ```
 
-## Running tests on kubernetes
+## Test markers
 
-Refer to [Running tests on kubernetes](kubernetes/README.md)
+| Marker | Description |
+| ------------------ | ---------------------------------------------------- |
+| `kubernetes_only` | Test runs only with `--backend=kubernetes` or `--backend=all`; skipped for Docker |
+| `preserve_db` | Skip post-test DB restore so the next test can verify persistence |
+
+## Using the VS Code Test Extension
+
+The workspace is pre-configured for the **Python Testing** extension
+(`ms-python.python`). Tests are discovered automatically from the `tests/`
+directory.
+
+### Docker backend (default)
+
+No extra configuration is needed. Open the **Testing** sidebar, click
+**Run All Tests** or select individual tests.
+
+### Kubernetes backend
+
+To run tests against the Kubernetes backend from the Test Explorer, add
+`--backend=kubernetes` to the pytest args in your VS Code workspace settings:
+
+1. Open `.vscode/settings.json` (repository root).
+2. Add `--backend=kubernetes` to `python.testing.pytestArgs`:
+
+   ```json
+   {
+     "python.testing.pytestArgs": [
+       "tests",
+       "--backend=kubernetes"
+     ],
+     "python.testing.pytestEnabled": true,
+     "python.testing.unittestEnabled": false
+   }
+   ```
+
+3. Click **Refresh Tests** in the Testing sidebar, then run as normal.
+
+### Running both backends
+
+Set `--backend=all` to parametrize every test across Docker and Kubernetes in
+a single session. Each test appears in the Test Explorer as
+`test_name[docker]` and `test_name[kubernetes]`.

@@ -12,10 +12,6 @@
 .env
 .pytest_cache
 .vscode
-!.vscode/settings.json
-!.vscode/launch.json
-!.vscode/tasks.json
-!.vscode/extensions.json
 __pycache__
 *.egg-info
 admin-pass.txt
