@@ -20,7 +20,7 @@ MIN_MESSAGES = 5
 PROPAGATION_DELAY = 0.5
 WARMUP_TIMEOUT = 15.0
 IDENTITY_QUAT = (0.0, 0.0, 0.0, 1.0)
-ALIGNMENT_PASS_RATIO = 0.90
+ALIGNMENT_PASS_RATIO = 0.98
 
 # turns a vector into a unit vector
 def normalize(v):
@@ -185,7 +185,7 @@ class RotationFromVelocityTest(FunctionalTest):
       self.collect("enabled")
       log.info(f"Collected {len(self.rotations_enabled)} samples for alignment check")
       FORWARD_AXIS = (1.0, 0.0, 0.0)
-      MIN_SPEED = 0.05
+      MIN_SPEED = 0.15
       MAX_ANGLE = 5.0
 
       checked = 0
