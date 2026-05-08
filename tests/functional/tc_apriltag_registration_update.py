@@ -44,6 +44,7 @@ class ApriltagRegistrationUpdate(FunctionalTest):
 
     scene = self._get_scene()
     current_size = scene.get('apriltag_size')
+    assert current_size is not None, "Scene missing apriltag_size"
     if self.original_apriltag_size is None:
       self.original_apriltag_size = current_size
     new_size = round(current_size + 0.001, 6)
@@ -86,7 +87,7 @@ class ApriltagRegistrationUpdate(FunctionalTest):
       self.rest.updateScene(self.scene_id,
                             {'apriltag_size': self.original_apriltag_size})
 
-  def runApriltaqRegistrationUpdate(self):
+  def runApriltagRegistrationUpdate(self):
     """when apriltag parameters are updated, registration creates/updates 
     markers and sets map_processed"""
     try:
@@ -116,7 +117,7 @@ class ApriltagRegistrationUpdate(FunctionalTest):
     finally:
       self._restore_scene()
 
-  def runApriltaqRegistrationDelete(self):
+  def runApriltagRegistrationDelete(self):
     """when DB has more markers than the scan finds, all markers are deleted"""
     try:
       # Ensure the DB has exactly MAP_APRILTAG_COUNT real markers by running
@@ -163,12 +164,12 @@ class ApriltagRegistrationUpdate(FunctionalTest):
 def test_apriltag_registration_update(request, record_xml_attribute):
   TEST_NAME = "NEX-T10483"
   record_xml_attribute("name", TEST_NAME)
-  test = ApriltaqRegistrationUpdate(
+  test = ApriltagRegistrationUpdate(
     "tc_apriltag_registration_update",
     request,
     record_xml_attribute,
   )
-  test.runApriltaqRegistrationUpdate()
+  test.runApriltagRegistrationUpdate()
   assert test.exitCode == 0
   common.record_test_result(TEST_NAME, test.exitCode)
   return test.exitCode
@@ -177,12 +178,12 @@ def test_apriltag_registration_update(request, record_xml_attribute):
 def test_apriltag_registration_delete(request, record_xml_attribute):
   TEST_NAME = "NEX-T22419"
   record_xml_attribute("name", TEST_NAME)
-  test = ApriltaqRegistrationUpdate(
+  test = ApriltagRegistrationUpdate(
     "tc_apriltag_registration_delete",
     request,
     record_xml_attribute,
   )
-  test.runApriltaqRegistrationDelete()
+  test.runApriltagRegistrationDelete()
   assert test.exitCode == 0
   common.record_test_result(TEST_NAME, test.exitCode)
   return test.exitCode
