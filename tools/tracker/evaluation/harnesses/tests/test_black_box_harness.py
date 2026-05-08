@@ -757,3 +757,123 @@ class TestMergeOutputsByTimestamp:
 
   def test_empty_input(self):
     assert _merge_outputs_by_timestamp([]) == []
+
+
+# ---------------------------------------------------------------------------
+# outputs.json persistence (_persist_outputs)
+# ---------------------------------------------------------------------------
+
+class TestPersistOutputs:
+  """_persist_outputs must create the output folder if it does not yet exist
+  and write outputs.json there, even when the harness/ subdirectory is new."""
+
+  @pytest.fixture(autouse=True)
+  def mock_wait_for_port(self):
+    with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"), \
+         patch("harnesses.black_box_harness.black_box_harness._run_mock_manager"):
+      yield
+
+  @patch("harnesses.black_box_harness.black_box_harness.docker")
+  @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
+  @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
+  def test_outputs_json_written_to_new_nested_folder(
+      self, mock_sleep, MockMqttClient, mock_docker,
+      harness, scene_config, tracker_config_file, sample_frames, tmp_path
+  ):
+    """outputs.json is created even when the output directory does not exist yet."""
+    mock_client_instance = MagicMock()
+    MockMqttClient.return_value = mock_client_instance
+    mock_docker.network.create = MagicMock()
+    mock_docker.network.remove = MagicMock()
+
+    output = {"timestamp": "2014-09-08T04:00:00.100Z", "objects": [{"id": "abc"}]}
+
+    def fake_loop_start():
+      msg = MagicMock()
+      msg.payload = json.dumps(output).encode()
+      mock_client_instance.on_message(mock_client_instance, None, msg)
+
+    mock_client_instance.loop_start.side_effect = fake_loop_start
+    mock_docker.run = MagicMock(return_value=MagicMock())
+
+    harness.set_scene_config(scene_config)
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.0.22",
+        "drain_timeout": 0.1,
+        "playback_rate": 100.0,
+    })
+    # Set a folder that does not exist yet (nested)
+    out_dir = tmp_path / "new" / "nested" / "harness"
+    harness.set_output_folder(out_dir)
+
+    list(harness.process_inputs(iter(sample_frames)))
+
+    outputs_file = out_dir / "outputs.json"
+    assert outputs_file.exists(), "outputs.json not found in output folder"
+    written = json.loads(outputs_file.read_text())
+    assert isinstance(written, list)
+    assert len(written) == 1
+    assert written[0]["objects"][0]["id"] == "abc"
+
+
+# ---------------------------------------------------------------------------
+# Tracker service auth file content
+# ---------------------------------------------------------------------------
+
+class TestTrackerServiceAuthFile:
+  """The auth file written for the Tracker Service must contain 'user' and
+  'password' fields — as required by api_scene_loader.cpp."""
+
+  @pytest.fixture(autouse=True)
+  def mock_wait_for_port(self):
+    with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"), \
+         patch("harnesses.black_box_harness.black_box_harness._run_mock_manager"):
+      yield
+
+  @patch("harnesses.black_box_harness.black_box_harness.docker")
+  @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
+  @patch("harnesses.black_box_harness.black_box_harness.time.sleep")
+  def test_auth_file_has_user_and_password(
+      self, mock_sleep, MockMqttClient, mock_docker,
+      harness, scene_config, tracker_config_file, sample_frames
+  ):
+    """Auth file written for Tracker Service contains 'user' and 'password'."""
+    mock_client_instance = MagicMock()
+    MockMqttClient.return_value = mock_client_instance
+    mock_docker.network.create = MagicMock()
+    mock_docker.network.remove = MagicMock()
+
+    written_auth = {}
+
+    real_run = mock_docker.run
+
+    def capture_run(image, *args, **kwargs):
+      # Inspect volumes to find the auth file mount and read it
+      for volume in kwargs.get("volumes", []):
+        src, dst, *_ = volume
+        if "manager_auth" in str(src):
+          try:
+            with open(src) as f:
+              written_auth.update(json.load(f))
+          except Exception:
+            pass
+      return MagicMock()
+
+    mock_docker.run.side_effect = capture_run
+
+    harness.set_scene_config(scene_config)
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.0.22",
+        "drain_timeout": 0.0,
+        "playback_rate": 100.0,
+        "container_type": "tracker",
+    })
+
+    list(harness.process_inputs(iter(sample_frames)))
+
+    assert "user" in written_auth, "Auth file missing 'user' field"
+    assert "password" in written_auth, "Auth file missing 'password' field"
+    assert "token" not in written_auth, \
+        "Auth file must not use 'token' (api_scene_loader.cpp requires 'password')"
