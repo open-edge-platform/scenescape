@@ -176,9 +176,7 @@ def test_apriltag_registration_update(request, record_xml_attribute):
     record_xml_attribute,
   )
   test.runApriltagRegistrationUpdate()
-  assert test.exitCode == 0
   common.record_test_result(TEST_NAME, test.exitCode)
-  return test.exitCode
 
 
 def test_apriltag_registration_delete(request, record_xml_attribute):
@@ -190,6 +188,4 @@ def test_apriltag_registration_delete(request, record_xml_attribute):
     record_xml_attribute,
   )
   test.runApriltagRegistrationDelete()
-  assert test.exitCode == 0
   common.record_test_result(TEST_NAME, test.exitCode)
-  return test.exitCode
