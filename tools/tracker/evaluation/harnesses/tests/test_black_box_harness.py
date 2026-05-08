@@ -23,7 +23,6 @@ from harnesses.black_box_harness.black_box_harness import (
     DEFAULT_STARTUP_WAIT,
     _detect_container_type,
     _free_port,
-    _merge_outputs_by_timestamp,
     _parse_ts,
     _solve_pnp,
     _to_controller_config,
@@ -816,57 +815,4 @@ class TestTimestampRewriting:
       assert payload["timestamp"] == original["timestamp"]
 
 
-# ---------------------------------------------------------------------------
-# _merge_outputs_by_timestamp — unit tests
-# ---------------------------------------------------------------------------
 
-class TestMergeOutputsByTimestamp:
-  """_merge_outputs_by_timestamp should deduplicate objects across same-timestamp messages."""
-
-  def test_single_message_unchanged(self):
-    msgs = [{"timestamp": "2024-01-01T00:00:00Z", "objects": [{"id": "a"}]}]
-    result = _merge_outputs_by_timestamp(msgs)
-    assert len(result) == 1
-    assert result[0]["objects"] == [{"id": "a"}]
-
-  def test_same_timestamp_merges_objects(self):
-    msgs = [
-        {"timestamp": "2024-01-01T00:00:00Z", "objects": [{"id": "a"}]},
-        {"timestamp": "2024-01-01T00:00:00Z", "objects": [{"id": "b"}]},
-    ]
-    result = _merge_outputs_by_timestamp(msgs)
-    assert len(result) == 1
-    ids = {o["id"] for o in result[0]["objects"]}
-    assert ids == {"a", "b"}
-
-  def test_duplicate_id_in_same_timestamp_deduplicated(self):
-    msgs = [
-        {"timestamp": "2024-01-01T00:00:00Z", "objects": [{"id": "a", "x": 1}]},
-        {"timestamp": "2024-01-01T00:00:00Z", "objects": [{"id": "a", "x": 2}]},
-    ]
-    result = _merge_outputs_by_timestamp(msgs)
-    assert len(result) == 1
-    assert len(result[0]["objects"]) == 1
-    # First occurrence is kept
-    assert result[0]["objects"][0]["x"] == 1
-
-  def test_different_timestamps_preserved(self):
-    msgs = [
-        {"timestamp": "2024-01-01T00:00:00Z", "objects": [{"id": "a"}]},
-        {"timestamp": "2024-01-01T00:00:01Z", "objects": [{"id": "b"}]},
-    ]
-    result = _merge_outputs_by_timestamp(msgs)
-    assert len(result) == 2
-
-  def test_output_sorted_by_timestamp(self):
-    msgs = [
-        {"timestamp": "2024-01-01T00:00:02Z", "objects": []},
-        {"timestamp": "2024-01-01T00:00:01Z", "objects": []},
-        {"timestamp": "2024-01-01T00:00:00Z", "objects": []},
-    ]
-    result = _merge_outputs_by_timestamp(msgs)
-    timestamps = [m["timestamp"] for m in result]
-    assert timestamps == sorted(timestamps)
-
-  def test_empty_input(self):
-    assert _merge_outputs_by_timestamp([]) == []

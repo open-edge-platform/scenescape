@@ -37,8 +37,8 @@ Supported container types
   - Scene config loaded via ``scenes.source: file`` in config.json.
   - Scene format uses pre-solved ``extrinsics`` (translation, XYZ Euler degrees)
     computed by the harness from the dataset's camera/map point correspondences.
-  - Timestamps in published frames are **rewritten to current wall-clock time** by
-    the harness (no ``--rewriteAllTime`` equivalent in the tracker binary).
+  - ``max_lag_s`` is set to 1e15 so historical dataset timestamps are accepted
+    without rewriting.
   - Time-chunking is always active via ``tracking.time_chunking_rate_fps``.
 
 Timestamp synchronisation
@@ -368,47 +368,6 @@ def _parse_ts(ts_str: str) -> float:
   return datetime.fromisoformat(ts_str).timestamp()
 
 
-def _merge_outputs_by_timestamp(
-    outputs: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
-  """Merge tracker output messages that share the same timestamp.
-
-  The MQTT tracker publishes one message per (camera-input, object-type)
-  combination (e.g. ``scenescape/data/scene/{uid}/person`` and
-  ``scenescape/data/scene/{uid}/FW190D``).  When two messages arrive at the
-  same wall-clock timestamp they map to the same frame number in TrackEval,
-  and having the same tracked-object UUID in both messages causes a
-  "duplicate ID in a single timestep" error.
-
-  This function groups all messages by timestamp and merges them into a
-  single output per timestep, deduplicating objects by UUID.  The merged
-  list is sorted by timestamp so the downstream frame-number calculation
-  stays monotone.
-
-  Args:
-      outputs: Raw list of dicts from the ``on_message`` callback.
-
-  Returns:
-      Sorted list of merged output dicts, one entry per unique timestamp.
-  """
-  from collections import OrderedDict
-
-  # Group by timestamp (preserve insertion order for stable sort)
-  by_ts: Dict[str, Dict[str, Any]] = OrderedDict()
-  for msg in outputs:
-    ts = msg.get("timestamp", "")
-    if ts not in by_ts:
-      # Start with a shallow copy so we own the objects list
-      by_ts[ts] = {**msg, "objects": []}
-    seen_ids = {o["id"] for o in by_ts[ts]["objects"]}
-    for obj in msg.get("objects", []):
-      if obj.get("id") not in seen_ids:
-        by_ts[ts]["objects"].append(obj)
-        seen_ids.add(obj["id"])
-
-  return sorted(by_ts.values(), key=lambda m: m.get("timestamp", ""))
-
-
 class BlackBoxHarness(TrackerHarness):
   """Black-box tracker harness using MQTT as the communication channel.
 
@@ -556,7 +515,7 @@ class BlackBoxHarness(TrackerHarness):
       )
       log_thread = self._start_log_streaming(tracker_ctr, log_file=log_file)
       try:
-        outputs = self._run_session(input_frames, host_port, container_type)
+        outputs = self._run_session(input_frames, host_port)
       finally:
         self._stop_containers(broker_ctr, tracker_ctr)
         if log_thread is not None:
@@ -697,7 +656,7 @@ class BlackBoxHarness(TrackerHarness):
     ``PointCorrespondenceTransform`` (solvePnP).  Dataset timestamps are
     sent as-is so that frames from two cameras sharing the same timestamp
     produce outputs at the same timestamp and can be merged correctly by
-    ``_merge_outputs_by_timestamp``.  ``--max_lag 1e15`` prevents the
+    ``--max_lag 1e15`` prevents the
     controller from dropping historical (e.g. 2014-era) dataset timestamps.
 
     Returns:
@@ -833,37 +792,23 @@ class BlackBoxHarness(TrackerHarness):
         print(f"[BlackBoxHarness] Warning: container cleanup failed: {exc}")
 
   def _run_session(
-      self, frames: List[Dict[str, Any]], host_port: int, container_type: str
+      self, frames: List[Dict[str, Any]], host_port: int
   ) -> List[Dict[str, Any]]:
     """Publish input frames and collect tracker outputs.
 
     Paces publication using the inter-frame timestamp deltas so the
-    tracker experiences a realistic frame cadence.
-
-    For the **Tracker service** container type, frame timestamps are
-    rewritten to the current wall-clock time before publishing.  The
-    Tracker service has no ``--rewriteAllTime`` flag, so historical
-    dataset timestamps would be rejected by its ``max_lag_s`` filter.
-    Pacing is still driven by the *original* timestamp deltas, so the
-    tracker receives frames at the correct capture cadence regardless.
-
-    For the **Controller** container type, frames are published with their
-    original dataset timestamps so that the two cameras (which share the
-    same timestamps for each logical frame) produce outputs at the same
-    timestamp.  Those outputs are then merged by ``_merge_outputs_by_timestamp``
-    into one entry per logical frame — matching the metric test's output
-    cadence.
+    tracker experiences a realistic frame cadence.  Frames are always
+    published with their original dataset timestamps; both the Controller
+    (``--maxlag 1e15``) and the Tracker service (``max_lag_s: 1e15``) are
+    configured to accept historical timestamps, so no rewriting is needed.
 
     Args:
-        frames:         All input detection frames in chronological order.
-        host_port:      Local port the broker is listening on.
-        container_type: ``CONTAINER_TYPE_CONTROLLER`` or
-                        ``CONTAINER_TYPE_TRACKER``.
+        frames:    All input detection frames in chronological order.
+        host_port: Local port the broker is listening on.
 
     Returns:
         List of output dicts collected from the scene output topic.
     """
-    rewrite_timestamps = False  # Both container types use original dataset timestamps.
     outputs: List[Dict[str, Any]] = []
     output_lock = threading.Lock()
     scene_topic = _TOPIC_DATA_SCENE.format(scene_id=self._scene_id)
@@ -938,9 +883,7 @@ class BlackBoxHarness(TrackerHarness):
     client.disconnect()
 
     print(f"[BlackBoxHarness] Collected {len(outputs)} output messages")
-    merged = _merge_outputs_by_timestamp(outputs)
-    print(f"[BlackBoxHarness] Merged into {len(merged)} timesteps")
-    return merged
+    return outputs
 
   def _persist_outputs(self, outputs: List[Dict], tmp_dir: Path) -> None:
     """Write output frames to the configured output folder."""
