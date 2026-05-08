@@ -58,7 +58,7 @@ def main():
                                         webui_port=args.webui_port,
                                         webui_certfile=args.webui_certfile,
                                         webui_keyfile=args.webui_keyfile)
-  analytics_context.loopForever()
+  analytics_context.loop_forever()
   return
 
 if __name__ == '__main__':
