@@ -20,6 +20,7 @@ from harnesses.black_box_harness.black_box_harness import (
     CONTAINER_TYPE_TRACKER,
     DEFAULT_DRAIN_TIMEOUT,
     DEFAULT_PLAYBACK_RATE,
+    DEFAULT_STARTUP_WAIT,
     _detect_container_type,
     _free_port,
     _merge_outputs_by_timestamp,
@@ -142,6 +143,7 @@ class TestInitialisation:
     assert harness._tracker_config_path is None
     assert harness._playback_rate == DEFAULT_PLAYBACK_RATE
     assert harness._drain_timeout == DEFAULT_DRAIN_TIMEOUT
+    assert harness._startup_wait_s == DEFAULT_STARTUP_WAIT
     assert harness._output_folder is None
 
 
@@ -200,6 +202,14 @@ class TestSetCustomConfig:
         "drain_timeout": 10.0,
     })
     assert harness._drain_timeout == 10.0
+
+  def test_overrides_startup_wait(self, harness, tracker_config_file):
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.0.22",
+        "startup_wait_s": 5.0,
+    })
+    assert harness._startup_wait_s == 5.0
 
   def test_overrides_broker_image(self, harness, tracker_config_file):
     harness.set_custom_config({
@@ -267,6 +277,8 @@ class TestReset:
     assert harness._scene_id is None
     assert harness._tracker_config_path is None
     assert harness._playback_rate == DEFAULT_PLAYBACK_RATE
+    assert harness._drain_timeout == DEFAULT_DRAIN_TIMEOUT
+    assert harness._startup_wait_s == DEFAULT_STARTUP_WAIT
     assert harness._output_folder is None
 
   def test_returns_self(self, harness):

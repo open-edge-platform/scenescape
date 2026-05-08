@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Black-Box evaluation: Controller container, time-chunking ENABLED at 30 fps.
+# Time-chunking merges detections from multiple cameras within a time window,
+# producing one fused output per chunk instead of one per camera frame.
+
+pipeline:
+  run_name: Controller-Time-Chunking
+  output:
+    path: /home/labrat/tracker-evaluation/black-box-evaluation
+
+dataset:
+  class: datasets.metric_test_dataset.MetricTestDataset
+  config:
+    data_path: ../../../tests/system/metric/dataset
+    cameras: [Cam_x1_0, Cam_x2_0]
+    camera_fps: 30
+
+harness:
+  class: harnesses.black_box_harness.BlackBoxHarness
+  config:
+    broker_image: eclipse-mosquitto:2.0.22
+    container_image: scenescape-controller:2026.1.0-dev
+    tracker_config_path: ../../../tests/system/metric/dataset/tracker-config-time-chunking.json
+    # startup_wait_s: 2.0  # default — Controller starts quickly
+    # playback_rate: 1.0   # real-time pacing (default) — required for TC timing
+    # drain_timeout: 5.0   # seconds idle before stopping (default)
+
+evaluators:
+  - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
+    config:
+      metrics: [HOTA, MOTA, IDF1]
+  - class: evaluators.diagnostic_evaluator.DiagnosticEvaluator
+    config:
+      metrics: [LOC_T_X, LOC_T_Y, DIST_T]
+  - class: evaluators.jitter_evaluator.JitterEvaluator
+    config:
+      metrics:
+        [
+          rms_jerk,
+          rms_jerk_gt,
+          rms_jerk_ratio,
+          acceleration_variance,
+          acceleration_variance_gt,
+          acceleration_variance_ratio,
+        ]

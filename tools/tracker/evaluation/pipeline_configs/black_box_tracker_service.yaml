@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Black-Box evaluation: Tracker Service container.
+# Tracker Service uses the nested tracker.json config format and always
+# applies time-chunking internally.  startup_wait_s is raised to 5s because
+# the Tracker Service needs longer to load its scene config and connect.
+
+pipeline:
+  run_name: Tracker-Service
+  output:
+    path: /home/labrat/tracker-evaluation/black-box-evaluation
+
+dataset:
+  class: datasets.metric_test_dataset.MetricTestDataset
+  config:
+    data_path: ../../../tests/system/metric/dataset
+    cameras: [Cam_x1_0, Cam_x2_0]
+    camera_fps: 30
+
+harness:
+  class: harnesses.black_box_harness.BlackBoxHarness
+  config:
+    broker_image: eclipse-mosquitto:2.0.22
+    container_image: scenescape-tracker:2026.1.0-dev
+    tracker_config_path: ../../../tracker/config/tracker.json
+    startup_wait_s: 5.0   # Tracker Service needs extra time to load scene config
+    # playback_rate: 1.0  # real-time pacing (default)
+    # drain_timeout: 5.0  # seconds idle before stopping (default)
+
+evaluators:
+  - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
+    config:
+      metrics: [HOTA, MOTA, IDF1]
+  - class: evaluators.diagnostic_evaluator.DiagnosticEvaluator
+    config:
+      metrics: [LOC_T_X, LOC_T_Y, DIST_T]
+  - class: evaluators.jitter_evaluator.JitterEvaluator
+    config:
+      metrics:
+        [
+          rms_jerk,
+          rms_jerk_gt,
+          rms_jerk_ratio,
+          acceleration_variance,
+          acceleration_variance_gt,
+          acceleration_variance_ratio,
+        ]

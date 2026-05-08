@@ -125,8 +125,9 @@ CONTAINER_TYPE_CONTROLLER = "controller"
 CONTAINER_TYPE_TRACKER    = "tracker"
 
 
-DEFAULT_DRAIN_TIMEOUT = 5.0   # seconds of silence after last received message before stopping
-DEFAULT_PLAYBACK_RATE = 1.0   # 1.0 = real-time, 2.0 = 2× speed
+DEFAULT_DRAIN_TIMEOUT  = 5.0   # seconds of silence after last received message before stopping
+DEFAULT_PLAYBACK_RATE  = 1.0   # 1.0 = real-time, 2.0 = 2× speed
+DEFAULT_STARTUP_WAIT   = 2.0   # seconds to wait after container start before publishing frames
 
 
 def _to_controller_config(scene_config: dict) -> dict:
@@ -429,10 +430,11 @@ class BlackBoxHarness(TrackerHarness):
     self._scene_id: Optional[str] = None
     self._tracker_config_path: Optional[str] = None
     self._container_type: Optional[str] = None  # auto-detected when None
-    self._playback_rate: float = DEFAULT_PLAYBACK_RATE
-    self._drain_timeout: float = DEFAULT_DRAIN_TIMEOUT
-    self._broker_image: str = ""
-    self._broker_port: int = 0  # 0 = auto
+    self._playback_rate: float  = DEFAULT_PLAYBACK_RATE
+    self._drain_timeout: float  = DEFAULT_DRAIN_TIMEOUT
+    self._startup_wait_s: float = DEFAULT_STARTUP_WAIT
+    self._broker_image: str     = ""
+    self._broker_port: int      = 0  # 0 = auto
     self._output_folder: Optional[Path] = None
 
   # ------------------------------------------------------------------
@@ -487,6 +489,7 @@ class BlackBoxHarness(TrackerHarness):
       self._container_type = ct
     self._playback_rate  = float(config.get("playback_rate",  DEFAULT_PLAYBACK_RATE))
     self._drain_timeout  = float(config.get("drain_timeout",  DEFAULT_DRAIN_TIMEOUT))
+    self._startup_wait_s = float(config.get("startup_wait_s", DEFAULT_STARTUP_WAIT))
     if "broker_image" not in config:
       raise ValueError("Custom config must contain 'broker_image'")
     self._broker_image   = str(config["broker_image"])
@@ -547,7 +550,11 @@ class BlackBoxHarness(TrackerHarness):
       broker_ctr, tracker_ctr = self._start_containers(
           tmp_dir, net_name, host_port, run_id
       )
-      log_thread = self._start_log_streaming(tracker_ctr)
+      log_file = (
+        self._output_folder / "tracker_logs.txt"
+        if self._output_folder else None
+      )
+      log_thread = self._start_log_streaming(tracker_ctr, log_file=log_file)
       try:
         outputs = self._run_session(input_frames, host_port, container_type)
       finally:
@@ -575,6 +582,7 @@ class BlackBoxHarness(TrackerHarness):
     self._container_type     = None
     self._playback_rate      = DEFAULT_PLAYBACK_RATE
     self._drain_timeout      = DEFAULT_DRAIN_TIMEOUT
+    self._startup_wait_s     = DEFAULT_STARTUP_WAIT
     self._output_folder      = None
     return self
 
@@ -670,7 +678,8 @@ class BlackBoxHarness(TrackerHarness):
 
     print(f"[BlackBoxHarness] Tracker container started ({container_type})")
     # Allow tracker to connect to broker and load scene config.
-    time.sleep(2.0)
+    print(f"[BlackBoxHarness] Waiting {self._startup_wait_s}s for container startup ...")
+    time.sleep(self._startup_wait_s)
 
     return broker_ctr, tracker_ctr
 
@@ -770,16 +779,28 @@ class BlackBoxHarness(TrackerHarness):
         remove=False,
     )
 
-  def _start_log_streaming(self, tracker_ctr) -> Optional[threading.Thread]:
-    """Stream tracker container logs to stdout in a background thread.
+  def _start_log_streaming(
+      self, tracker_ctr, log_file: Optional[Path] = None
+  ) -> Optional[threading.Thread]:
+    """Stream tracker container logs to stdout (and optionally a file).
 
-    Returns the thread so the caller can join it after the session ends,
-    or ``None`` if streaming could not be started.
+    Mirrors the pacing model of tests/system/metric/tc_tracker_metric.py:
+    logs are collected continuously from container start so the full
+    startup sequence is captured before any frames are published.
+
+    Args:
+        tracker_ctr: Running Docker container object.
+        log_file:    Optional path to write logs to in addition to stdout.
+                     Parent directory must already exist.
+
+    Returns:
+        Background thread (join after session ends), or ``None``.
     """
     if tracker_ctr is None:
       return None
 
     def _stream():
+      fh = open(log_file, "w") if log_file else None
       try:
         for _source, content in docker.container.logs(
             tracker_ctr, stream=True, follow=True
@@ -787,8 +808,14 @@ class BlackBoxHarness(TrackerHarness):
           line = content.decode("utf-8", errors="replace")
           print(f"[tracker] {line}", end="" if line.endswith("\n") else "\n",
                 flush=True)
+          if fh:
+            fh.write(line if line.endswith("\n") else line + "\n")
+            fh.flush()
       except Exception as exc:
         print(f"[tracker] log stream ended: {exc}", flush=True)
+      finally:
+        if fh:
+          fh.close()
 
     t = threading.Thread(target=_stream, daemon=True)
     t.start()
@@ -867,23 +894,27 @@ class BlackBoxHarness(TrackerHarness):
     # Allow subscription to be established
     time.sleep(0.5)
 
-    # --- Publish frames paced by timestamp deltas ---
-    prev_ts: Optional[float] = None
-    prev_wall: Optional[float] = None
+    # --- Publish frames paced by absolute wall-clock offset from session start ---
+    # Mirrors tests/system/metric/tc_tracker_metric.py:
+    #   expected_time = start_time + (frame_count * frame_interval)
+    #   sleep_time = expected_time - current_time
+    # Using absolute offsets avoids error accumulation from per-frame delta timing.
+    session_start_wall: Optional[float] = None
+    session_start_data: Optional[float] = None
 
     for frame in frames:
       ts_str = frame.get("timestamp")
       if ts_str:
         frame_ts = _parse_ts(ts_str)
-        now = time.monotonic()
-        if prev_ts is not None and prev_wall is not None:
-          delta_data = frame_ts - prev_ts          # seconds in data time
-          elapsed    = now - prev_wall             # seconds already waited
-          sleep_for  = delta_data / self._playback_rate - elapsed
+        if session_start_wall is None:
+          session_start_wall = time.monotonic()
+          session_start_data = frame_ts
+        else:
+          data_offset = frame_ts - session_start_data
+          expected_wall = session_start_wall + data_offset / self._playback_rate
+          sleep_for = expected_wall - time.monotonic()
           if sleep_for > 0:
             time.sleep(sleep_for)
-        prev_ts   = frame_ts
-        prev_wall = time.monotonic()
 
       cam_id = frame.get("id", "")
       topic  = _TOPIC_DATA_CAMERA.format(camera_id=cam_id)

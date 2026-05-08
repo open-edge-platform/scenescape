@@ -368,7 +368,10 @@ class PipelineEngine:
     This format ensures alphabetical order matches chronological order.
     """
     # Generate unique run ID from current local time
-    self._run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    self._run_id = (
+      self._config['pipeline'].get('run_name')
+      or datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
 
     # Get base output path from config
     base_output_path = Path(self._config['pipeline']['output']['path'])
