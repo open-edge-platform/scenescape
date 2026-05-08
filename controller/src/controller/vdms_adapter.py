@@ -90,9 +90,22 @@ class VDMSDatabase(ReIDDatabase):
           and 'FailedCommand' in query_response[0][0]):
         log.warning(f"VDMS transaction failed: {query_response[0][0]}")
         return responses, response_blob
+      # for (item, response) in zip(query, query_response[0]):
+      #   query_type = next(iter(item))
+      #   response_data = response.get(query_type, {})
+      #   responses.append(response_data)
       for (item, response) in zip(query, query_response[0]):
         query_type = next(iter(item))
-        response_data = response.get(query_type, {})
+        # VDMS wraps exception responses with the query type key containing
+        # an "[Exception] ..." string rather than a status dict.
+        # Guard against this and any other non-dict payload.
+        raw = response.get(query_type)
+        if isinstance(raw, dict):
+          response_data = raw
+        else:
+          if raw is not None:
+            log.debug(f"sendQuery: Non-dict payload for {query_type}: {raw!r}")
+          response_data = {}
         responses.append(response_data)
     else:
       log.warning(f"Failed to send query to VDMS container: {query}")
@@ -104,38 +117,83 @@ class VDMSDatabase(ReIDDatabase):
       if self.dimensions is not None:
         expected_dimensions = int(self.dimensions)
         expected_metric = str(self.similarity_metric).strip().upper()
+        print("Looking for schema - ", self.set_name)
         with self._schema_lock:
-          schema_exists, schema_dimensions, schema_metric = self.findSchemaMetadata(self.set_name)
-          if schema_exists:
-            if schema_dimensions is None:
-              raise RuntimeError(
-                f"connect: VDMS descriptor set '{self.set_name}' exists but returned no dimensions. "
-                "Refusing to proceed; recreate the descriptor set to continue.")
-            if schema_metric is None:
-              raise RuntimeError(
-                f"connect: VDMS descriptor set '{self.set_name}' exists but returned no metric. "
-                "Refusing to proceed; recreate the descriptor set to continue.")
-            if str(schema_metric).strip().upper() != expected_metric:
-              raise RuntimeError(
-                f"connect: VDMS descriptor set '{self.set_name}' uses metric {schema_metric}, "
-                f"but controller is configured for {expected_metric}. "
-                "Refusing to proceed; recreate the descriptor set with matching metric.")
-            if schema_dimensions != expected_dimensions:
-              raise RuntimeError(
-                f"connect: VDMS descriptor set '{self.set_name}' uses {schema_dimensions} dimensions, "
-                f"but controller is configured for {expected_dimensions}. "
-                "Refusing to proceed; recreate the descriptor set with matching dimensions.")
-          else:
-            if not self.addSchema(self.set_name, self.similarity_metric, expected_dimensions):
-              log.warning("connect: Schema creation failed; _schema_ready left False")
-              return
-          self.dimensions = expected_dimensions
+          if not self._connectEnsureSchema(expected_dimensions, expected_metric):
+            return
           self._schema_ready = True
     except RuntimeError as e:
       log.error(f"Failed to initialize VDMS schema: {e}")
     except socket.error as e:
       log.warning(f"Failed to connect to VDMS container: {e}")
     return
+
+  def _connectEnsureSchema(self, expected_dimensions, expected_metric):
+    """
+    Ensure the descriptor set exists with matching dimensions and metric.
+    Avoids FindDescriptorSet on a missing set (triggers a VDMS v2.12 bug).
+    Strategy: attempt AddDescriptorSet first; if it reports the set already
+    exists, then probe with FindDescriptorSet to validate the existing schema.
+    """
+    # Try to create the set. VDMS returns status=0 on success,
+    # non-zero (typically -1) if the set already exists.
+    query = [{
+        "AddDescriptorSet": {
+            "name": self.set_name,
+            "metric": expected_metric,
+            "dimensions": expected_dimensions
+        }
+    }]
+    response, _ = self.sendQuery(query)
+
+    if not response:
+      log.warning("connect: No response from VDMS during schema setup")
+      return False
+
+    status = response[0].get('status')
+
+    if status == 0:
+      # Freshly created — dimensions and metric are exactly what we asked for.
+      log.info(f"connect: Created descriptor set '{self.set_name}' "
+               f"({expected_dimensions}D, {expected_metric})")
+      self.dimensions = expected_dimensions
+      return True
+
+    # Non-zero status means the set likely already exists.
+    # Now it's safe to probe with FindDescriptorSet.
+    log.debug(f"connect: AddDescriptorSet returned status={status}; "
+              f"set may already exist, probing metadata.")
+    schema_exists, schema_dimensions, schema_metric = self.findSchemaMetadata(self.set_name)
+
+    if not schema_exists:
+      log.warning(f"connect: Schema creation failed and set not found. "
+                  f"Last AddDescriptorSet response: {response[0]}")
+      return False
+
+    # Validate existing schema matches configuration
+    if schema_dimensions is None:
+      raise RuntimeError(
+          f"connect: VDMS descriptor set '{self.set_name}' exists but returned no dimensions. "
+          "Refusing to proceed; recreate the descriptor set to continue.")
+    if schema_metric is None:
+      raise RuntimeError(
+          f"connect: VDMS descriptor set '{self.set_name}' exists but returned no metric. "
+          "Refusing to proceed; recreate the descriptor set to continue.")
+    if str(schema_metric).strip().upper() != expected_metric:
+      raise RuntimeError(
+          f"connect: VDMS descriptor set '{self.set_name}' uses metric {schema_metric}, "
+          f"but controller is configured for {expected_metric}. "
+          "Refusing to proceed; recreate the descriptor set with matching metric.")
+    if schema_dimensions != expected_dimensions:
+      raise RuntimeError(
+          f"connect: VDMS descriptor set '{self.set_name}' uses {schema_dimensions} dimensions, "
+          f"but controller is configured for {expected_dimensions}. "
+          "Refusing to proceed; recreate the descriptor set with matching dimensions.")
+
+    log.info(f"connect: Verified existing descriptor set '{self.set_name}' "
+             f"({schema_dimensions}D, {schema_metric})")
+    self.dimensions = expected_dimensions
+    return True
 
   def addSchema(self, set_name, similarity_metric, dimensions):
     query = [{
@@ -156,53 +214,59 @@ class VDMSDatabase(ReIDDatabase):
     return True
 
   def ensureSchema(self, dimensions):
-    """
-    Initialize the VDMS descriptor set schema with the given dimensions.
-    Called lazily when the first ReID embedding is observed, removing the need
-    to pre-configure vector_dimensions before runtime.
-    Thread-safe; idempotent when called with consistent dimensions.
-
-    @param   dimensions  Number of float32 elements in each embedding vector
-    @raises  ValueError  If called with dimensions inconsistent with a previously
-                         initialized schema
-    @raises  RuntimeError If schema creation fails; schema remains unavailable until
-                          schema is flushed and the controller is restarted
-    """
     with self._schema_lock:
       requested_dimensions = int(dimensions)
       expected_metric = str(self.similarity_metric).strip().upper()
       if self._schema_ready:
         if int(self.dimensions) != requested_dimensions:
           raise ValueError(
-            f"ReID schema already initialized with {self.dimensions} dimensions; "
-            f"incoming vector has {requested_dimensions} dimensions. "
-            f"Restart the controller and flush the VDMS descriptor set to change dimensions.")
+              f"ReID schema already initialized with {self.dimensions} dimensions; "
+              f"incoming vector has {requested_dimensions} dimensions. "
+              f"Restart the controller and flush the VDMS descriptor set to change dimensions.")
         return
+
+      # Use attempt-first to avoid FindDescriptorSet on missing set (VDMS v2.12 bug)
+      query = [{"AddDescriptorSet": {
+          "name": self.set_name,
+          "metric": expected_metric,
+          "dimensions": requested_dimensions
+      }}]
+      response, _ = self.sendQuery(query)
+
+      if not response:
+        raise RuntimeError(
+            f"ensureSchema: No response from VDMS for descriptor set '{self.set_name}'.")
+
+      status = response[0].get('status')
+
+      if status == 0:
+        # Freshly created
+        self.dimensions = requested_dimensions
+        self._schema_ready = True
+        return
+
+      # Non-zero: set likely exists, now safe to probe
       schema_exists, schema_dimensions, schema_metric = self.findSchemaMetadata(self.set_name)
-      if schema_exists:
-        if schema_dimensions is None:
-          raise RuntimeError(
-            f"ensureSchema: VDMS descriptor set '{self.set_name}' exists but dimensions were not returned. "
-            "Refusing to proceed; recreate the descriptor set to continue.")
-        if schema_metric is None:
-          raise RuntimeError(
-            f"ensureSchema: VDMS descriptor set '{self.set_name}' exists but metric was not returned. "
-            "Refusing to proceed; recreate the descriptor set to continue.")
-        if str(schema_metric).strip().upper() != expected_metric:
-          raise RuntimeError(
-            f"ensureSchema: VDMS descriptor set '{self.set_name}' uses metric {schema_metric}, "
-            f"but controller is configured for {expected_metric}. "
-            "Refusing to proceed; recreate the descriptor set with matching metric.")
-        if schema_dimensions != requested_dimensions:
-          raise RuntimeError(
-            f"ensureSchema: VDMS descriptor set '{self.set_name}' uses {schema_dimensions} dimensions, "
-            f"but incoming vectors use {requested_dimensions}. "
-            "Refusing to proceed; recreate the descriptor set with matching dimensions.")
-      else:
-        if not self.addSchema(self.set_name, self.similarity_metric, requested_dimensions):
-          raise RuntimeError(
+      if not schema_exists:
+        raise RuntimeError(
             f"ensureSchema: Failed to create VDMS descriptor set '{self.set_name}'; "
             "schema not confirmed. ReID writes will be skipped until schema is available.")
+
+      if schema_dimensions is None:
+        raise RuntimeError(
+            f"ensureSchema: '{self.set_name}' exists but returned no dimensions.")
+      if schema_metric is None:
+        raise RuntimeError(
+            f"ensureSchema: '{self.set_name}' exists but returned no metric.")
+      if str(schema_metric).strip().upper() != expected_metric:
+        raise RuntimeError(
+            f"ensureSchema: '{self.set_name}' uses metric {schema_metric}, "
+            f"expected {expected_metric}.")
+      if schema_dimensions != requested_dimensions:
+        raise RuntimeError(
+            f"ensureSchema: '{self.set_name}' has {schema_dimensions} dimensions, "
+            f"but incoming vectors use {requested_dimensions}.")
+
       self.dimensions = requested_dimensions
       self._schema_ready = True
 
@@ -230,9 +294,9 @@ class VDMSDatabase(ReIDDatabase):
     # Metadata can include: age, gender, color, make, model, confidence_scores, etc.
     for key, value in metadata.items():
       if isinstance(value, dict):
-        # For metadata dicts with 'label' and optional confidence, store ONLY the label
-        # This ensures VDMS constraints can match properly (e.g., gender=['==', 'Male'])
-        # Example: {'label': 'Male', 'confidence': 0.95} → store 'Male'
+      # For metadata dicts with 'label' and optional confidence, store ONLY the label
+      # This ensures VDMS constraints can match properly (e.g., gender=['==', 'Male'])
+      # Example: {'label': 'Male', 'confidence': 0.95} → store 'Male'
         if 'label' in value:
           properties[key] = str(value['label'])
           log.debug(f"[VDMS] addEntry: Extracted label '{value['label']}' from {key} metadata dict")
@@ -304,7 +368,7 @@ class VDMSDatabase(ReIDDatabase):
     if not response:
       return False, None, None
     first_response = response[0]
-    if first_response.get('status') != 0 or first_response.get('returned', 0) <= 0:
+    if not first_response or first_response.get('status') != 0 or first_response.get('returned', 0) <= 0:
       return False, None, None
 
     schema_dimensions = self._extractSchemaDimensions(first_response)
