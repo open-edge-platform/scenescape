@@ -30,7 +30,7 @@ class ClusterHistory:
 
   MAX_HISTORY_SIZE = 100
 
-  def addObservation(self, position: Tuple[float, float], velocity: Tuple[float, float],
+  def add_observation(self, position: Tuple[float, float], velocity: Tuple[float, float],
                                       size: int, shape: str, timestamp: float) -> None:
     """Add new observation and maintain history size limit"""
     self.positions.append((*position, timestamp))
@@ -103,7 +103,7 @@ class TrackedCluster:
 
     # Historical data
     self.history = ClusterHistory()
-    self.history.addObservation(
+    self.history.add_observation(
             position=(centroid['x'], centroid['y']),
             velocity=tuple(velocity_analysis['average_velocity'][:2]),
             size=self.object_count,
@@ -138,7 +138,7 @@ class TrackedCluster:
     self.frames_missed = 0
 
     # Update history
-    self.history.addObservation(
+    self.history.add_observation(
             position=(centroid['x'], centroid['y']),
             velocity=tuple(velocity_analysis['average_velocity'][:2]),
             size=self.object_count,
@@ -156,7 +156,7 @@ class TrackedCluster:
       log.debug(f"Cluster {self.uuid} state transition: {old_state} -> {self.state}")
     return
 
-  def markMissed(self, current_timestamp: float) -> None:
+  def mark_missed(self, current_timestamp: float) -> None:
     """Mark cluster as not detected in current frame"""
     old_state = self.state
 
@@ -263,24 +263,24 @@ class TrackedCluster:
     self.predicted_velocity = tuple(avg_velocity)
     return
 
-  def getAgeSeconds(self, current_time: Optional[float]) -> float:
+  def get_age_seconds(self, current_time: Optional[float]) -> float:
     """Get cluster age in seconds"""
     if current_time is None:
       return float('inf')  # Return large value if no timestamp provided
     return current_time - self.first_seen
 
-  def getTimeSinceLastSeen(self, current_time: Optional[float]) -> float:
+  def get_time_since_last_seen(self, current_time: Optional[float]) -> float:
     """Get time since last detection in seconds"""
     if current_time is None:
       return float('inf')  # Return large value if no timestamp provided
     return current_time - self.last_seen
 
-  def shouldBeArchived(self, current_time: Optional[float], max_time_lost: float = 30.0) -> bool:
+  def should_be_archived(self, current_time: Optional[float], max_time_lost: float = 30.0) -> bool:
     """Determine if cluster should be archived"""
     return (self.state == ClusterState.LOST
-                    and self.getTimeSinceLastSeen(current_time) > max_time_lost)
+                    and self.get_time_since_last_seen(current_time) > max_time_lost)
 
-  def toDict(self) -> Dict:
+  def to_dict(self) -> Dict:
     """Convert to dictionary for MQTT publishing"""
     return {
             'id': self.uuid,
@@ -351,23 +351,23 @@ class ClusterMemory:
     """Retrieve cluster by UUID"""
     return self._active_clusters.get(cluster_uuid)
 
-  def getClustersByScene(self, scene_id: str) -> List[TrackedCluster]:
+  def get_clusters_by_scene(self, scene_id: str) -> List[TrackedCluster]:
     """Get all active clusters for a scene"""
     cluster_uuids = self._clusters_by_scene.get(scene_id, [])
     return [self._active_clusters[uuid] for uuid in cluster_uuids
                     if uuid in self._active_clusters]
 
-  def getClustersByCategory(self, category: str, scene_id: Optional[str] = None) -> List[TrackedCluster]:
+  def get_clusters_by_category(self, category: str, scene_id: Optional[str] = None) -> List[TrackedCluster]:
     """Get clusters by category, optionally filtered by scene"""
     if scene_id:
-      scene_clusters = self.getClustersByScene(scene_id)
+      scene_clusters = self.get_clusters_by_scene(scene_id)
       return [c for c in scene_clusters if c.category == category]
     else:
       cluster_uuids = self._clusters_by_category.get(category, [])
       return [self._active_clusters[uuid] for uuid in cluster_uuids
                       if uuid in self._active_clusters]
 
-  def getClustersByState(self, state: str) -> List[TrackedCluster]:
+  def get_clusters_by_state(self, state: str) -> List[TrackedCluster]:
     """Get all clusters in a specific state"""
     return [c for c in self._active_clusters.values() if c.state == state]
 
@@ -388,13 +388,13 @@ class ClusterMemory:
       log.debug(f"Archived cluster {cluster_uuid} (state: {cluster.state}, lifetime: {cluster.frames_detected} frames)")
     return
 
-  def cleanupOldClusters(self, current_time: Optional[float]) -> None:
+  def cleanup_old_clusters(self, current_time: Optional[float]) -> None:
     """Archive lost clusters and limit archive size"""
     to_archive = []
 
     # Find clusters to archive
     for cluster_uuid, cluster in self._active_clusters.items():
-      if cluster.shouldBeArchived(current_time, self.ARCHIVE_TIME_THRESHOLD):
+      if cluster.should_be_archived(current_time, self.ARCHIVE_TIME_THRESHOLD):
         to_archive.append(cluster_uuid)
 
     # Archive them
@@ -413,7 +413,7 @@ class ClusterMemory:
         log.debug(f"Removed old archived cluster {cluster_uuid}")
     return
 
-  def forceClearClustersByCategory(self, scene_id: str, category: str) -> int:
+  def force_clear_clusters_by_category(self, scene_id: str, category: str) -> int:
     """Force-clear all clusters for a specific scene and category.
 
     This is useful when clustering parameters change significantly and
@@ -446,12 +446,12 @@ class ClusterMemory:
 
     return cleared_count
 
-  def getStatistics(self) -> Dict:
+  def get_statistics(self) -> Dict:
     """Get memory statistics for monitoring"""
     state_counts = {}
     for state in [ClusterState.NEW, ClusterState.ACTIVE, ClusterState.STABLE,
          ClusterState.FADING, ClusterState.LOST]:
-      state_counts[state] = len(self.getClustersByState(state))
+      state_counts[state] = len(self.get_clusters_by_state(state))
 
     return {
             'active_clusters': len(self._active_clusters),
@@ -587,7 +587,7 @@ class ClusterTracker:
     self.matcher = matcher or HungarianMatcher()
     return
 
-  def processNewDetections(self, scene_id: str, new_cluster_detections: List[Dict],
+  def process_new_detections(self, scene_id: str, new_cluster_detections: List[Dict],
                                                   timestamp: float) -> None:
     """
     Process new cluster detections and update tracking state.
@@ -608,7 +608,7 @@ class ClusterTracker:
     self._validateAllClustersInScene(scene_id, timestamp)
 
     # Cleanup old clusters
-    self.memory.cleanupOldClusters(timestamp)
+    self.memory.cleanup_old_clusters(timestamp)
     return
 
   def _groupByCategory(self, detections: List[Dict]) -> Dict[str, List[Dict]]:
@@ -629,7 +629,7 @@ class ClusterTracker:
     @param scene_id: Scene identifier
     @param timestamp: Current processing timestamp
     """
-    all_scene_clusters = self.memory.getClustersByScene(scene_id)
+    all_scene_clusters = self.memory.get_clusters_by_scene(scene_id)
     missed_count = 0
 
     for cluster in all_scene_clusters:
@@ -640,7 +640,7 @@ class ClusterTracker:
       # If cluster wasn't updated this frame (last_updated < current timestamp)
       # then mark it as missed
       if cluster.last_updated < timestamp:
-        cluster.markMissed(timestamp)
+        cluster.mark_missed(timestamp)
         missed_count += 1
         log.debug(f"Cluster {cluster.uuid} marked as missed (not updated this frame)")
 
@@ -652,7 +652,7 @@ class ClusterTracker:
                              detections: List[Dict], timestamp: float) -> None:
     """Process detections for a specific category"""
     # Get existing trackable clusters for this scene and category
-    existing_clusters = self.memory.getClustersByCategory(category, scene_id)
+    existing_clusters = self.memory.get_clusters_by_category(category, scene_id)
     trackable_clusters = [
             c for c in existing_clusters
             if c.state in [ClusterState.NEW, ClusterState.ACTIVE,
@@ -695,7 +695,7 @@ class ClusterTracker:
     # Mark unmatched existing clusters as missed
     for cluster in trackable_clusters:
       if cluster.uuid not in matched_cluster_uuids:
-        cluster.markMissed(timestamp)
+        cluster.mark_missed(timestamp)
     return
 
   def _createTrackedCluster(self, scene_id: str, detection: Dict,
@@ -712,7 +712,7 @@ class ClusterTracker:
             detection_timestamp=timestamp
     )
 
-  def getActiveClusters(self, scene_id: Optional[str] = None,
+  def get_active_clusters(self, scene_id: Optional[str] = None,
                    publishable_only: bool = True) -> List[TrackedCluster]:
     """
     Get active clusters for publishing.
@@ -722,7 +722,7 @@ class ClusterTracker:
     @return: List of TrackedCluster objects
     """
     if scene_id:
-      clusters = self.memory.getClustersByScene(scene_id)
+      clusters = self.memory.get_clusters_by_scene(scene_id)
     else:
       clusters = list(self.memory._active_clusters.values())
 
@@ -743,10 +743,10 @@ class ClusterTracker:
 
     return filtered_clusters
 
-  def forceClearClustersByCategory(self, scene_id: str, category: str) -> int:
+  def force_clear_clusters_by_category(self, scene_id: str, category: str) -> int:
     """Force-clear all clusters for a specific scene and category."""
-    return self.memory.forceClearClustersByCategory(scene_id, category)
+    return self.memory.force_clear_clusters_by_category(scene_id, category)
 
-  def getStatistics(self) -> Dict:
+  def get_statistics(self) -> Dict:
     """Get tracking statistics for monitoring"""
-    return self.memory.getStatistics()
+    return self.memory.get_statistics()
