@@ -234,9 +234,9 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 | `broker_image`        | Yes      | —                               | Docker image for the MQTT broker (e.g. `"eclipse-mosquitto:2.0.22"`) |
 | `container_type`      | No       | auto-detect from image metadata | `"controller"` or `"tracker"` — force container type                 |
 
-| `drain_timeout`       | No       | `5.0`                           | Seconds to wait for remaining tracker outputs after the last frame   |
-| `scene_id`            | No       | derived from scene config `uid` | Override the MQTT topic scene ID                                     |
-| `startup_wait_s`      | No       | `2.0`                           | Seconds to wait after container starts before publishing frames      |
+| `drain_timeout` | No | `5.0` | Seconds to wait for remaining tracker outputs after the last frame |
+| `scene_id` | No | derived from scene config `uid` | Override the MQTT topic scene ID |
+| `startup_wait_s` | No | `2.0` | Seconds to wait after container starts before publishing frames |
 
 **MQTT Topics**:
 
