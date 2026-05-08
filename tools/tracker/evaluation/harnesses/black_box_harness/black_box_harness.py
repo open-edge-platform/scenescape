@@ -40,9 +40,12 @@ Supported container types
 
 Timestamp synchronisation
 -------------------------
-Consecutive input frames are published as fast as possible.
-Both container types accept historical dataset timestamps via ``maxlag``/``max_lag_s``,
-so no pacing is required for correctness.
+Consecutive input frames are published with a wall-clock delay equal to the
+delta between their ISO 8601 timestamps.  This reproduces the original capture
+cadence so the tracker's internal timing (object ageing, time-chunking) sees a
+realistic frame rate.  ``maxlag``/``max_lag_s=1e15`` only suppresses the
+tracker's lag-rejection check; it does not affect the wall-clock timer that
+drives the time-chunk scheduler.
 
 Topics (from scene_common.mqtt.PubSub templates)
 -------------------------------------------------
@@ -795,10 +798,31 @@ class BlackBoxHarness(TrackerHarness):
     # Allow subscription to be established
     time.sleep(0.5)
 
-    # --- Publish frames as fast as possible ---
-    # Both container types accept historical dataset timestamps (maxlag/max_lag_s=1e15),
-    # so no wall-clock pacing is required.
+    # --- Publish frames paced by absolute wall-clock offset from session start ---
+    # Mirrors tests/system/metric/tc_tracker_metric.py:
+    #   expected_time = start_time + (frame_count * frame_interval)
+    #   sleep_time = expected_time - current_time
+    # Using absolute offsets avoids error accumulation from per-frame delta timing.
+    # NOTE: max_lag_s=1e15 only prevents the tracker from rejecting old timestamps;
+    # it does NOT affect the wall-clock timer that drives time-chunking.  Blasting
+    # frames without pacing starves the time-chunk scheduler.
+    session_start_wall: Optional[float] = None
+    session_start_data: Optional[float] = None
+
     for frame in frames:
+      ts_str = frame.get("timestamp")
+      if ts_str:
+        frame_ts = _parse_ts(ts_str)
+        if session_start_wall is None:
+          session_start_wall = time.monotonic()
+          session_start_data = frame_ts
+        else:
+          data_offset = frame_ts - session_start_data
+          expected_wall = session_start_wall + data_offset
+          sleep_for = expected_wall - time.monotonic()
+          if sleep_for > 0:
+            time.sleep(sleep_for)
+
       cam_id = frame.get("id", "")
       topic  = _TOPIC_DATA_CAMERA.format(camera_id=cam_id)
       client.publish(topic, json.dumps(frame))

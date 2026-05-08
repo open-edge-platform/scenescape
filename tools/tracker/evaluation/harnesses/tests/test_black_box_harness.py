@@ -630,6 +630,162 @@ class TestTimestampRewriting:
 
 
 # ---------------------------------------------------------------------------
+# Frame pacing — wall-clock delays between publishes
+# ---------------------------------------------------------------------------
+
+class TestFramePacing:
+  """Frames must be published with wall-clock delays matching the data timestamps.
+
+  The tracker's time-chunk scheduler is driven by wall-clock time, not by the
+  data timestamps embedded in each message.  Publishing all frames at once
+  without pacing causes the time-chunk scheduler to fire only a handful of
+  ticks during the burst, resulting in frozen or missing tracks.
+
+  maxlag/max_lag_s=1e15 only prevents lag-rejection; it does NOT replace pacing.
+  """
+
+  @pytest.fixture(autouse=True)
+  def mock_wait_for_port(self):
+    with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"), \
+         patch("harnesses.black_box_harness.black_box_harness._run_mock_manager"):
+      yield
+
+  @pytest.fixture
+  def paced_frames(self):
+    """Three frames at 30 fps (≈33 ms apart) plus one same-timestamp companion."""
+    return [
+        {"id": "Cam_x1_0", "timestamp": "2014-09-08T04:00:00.000Z", "objects": {}},
+        {"id": "Cam_x2_0", "timestamp": "2014-09-08T04:00:00.000Z", "objects": {}},
+        {"id": "Cam_x1_0", "timestamp": "2014-09-08T04:00:00.033Z", "objects": {}},
+        {"id": "Cam_x1_0", "timestamp": "2014-09-08T04:00:00.066Z", "objects": {}},
+    ]
+
+  def _run_and_capture_sleep_calls(self, harness, frames):
+    mock_client_instance = MagicMock()
+    sleep_calls = []
+
+    def record_sleep(duration):
+      sleep_calls.append(duration)
+
+    with patch("harnesses.black_box_harness.black_box_harness.docker") as mock_docker, \
+         patch("harnesses.black_box_harness.black_box_harness.mqtt.Client",
+               return_value=mock_client_instance), \
+         patch("harnesses.black_box_harness.black_box_harness.time.sleep",
+               side_effect=record_sleep), \
+         patch("harnesses.black_box_harness.black_box_harness.time.monotonic",
+               side_effect=[0.0] * 100):
+      mock_docker.network.create = MagicMock()
+      mock_docker.network.remove = MagicMock()
+      mock_docker.run = MagicMock(return_value=MagicMock())
+      list(harness.process_inputs(iter(frames)))
+    return sleep_calls
+
+  def test_first_frame_published_without_delay(
+      self, harness, scene_config, tracker_config_file, paced_frames
+  ):
+    """The first frame is published immediately with no inter-frame sleep."""
+    harness.set_scene_config(scene_config)
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.0.22",
+        "drain_timeout": 0.0,
+    })
+    sleep_calls = self._run_and_capture_sleep_calls(harness, paced_frames)
+    # Only the fixed startup and subscription sleeps fire before frame 1.
+    # No inter-frame sleep should have elapsed at data offset 0.
+    inter_frame_sleeps = [s for s in sleep_calls if s > 0.01]
+    # The first frame has offset 0 → sleep_for = 0 + 0 - 0 = 0 → not slept.
+    # The third frame (offset 0.033 s) and fourth (offset 0.066 s) must sleep.
+    assert len(inter_frame_sleeps) >= 2, (
+        "Expected at least 2 inter-frame sleeps for frames at +33ms and +66ms"
+    )
+
+  def test_inter_frame_delay_matches_data_timestamps(
+      self, harness, scene_config, tracker_config_file
+  ):
+    """sleep() calls reflect the data-timestamp deltas, not zero."""
+    # Two frames 100 ms apart.
+    frames = [
+        {"id": "Cam_x1_0", "timestamp": "2014-09-08T04:00:00.000Z", "objects": {}},
+        {"id": "Cam_x1_0", "timestamp": "2014-09-08T04:00:00.100Z", "objects": {}},
+    ]
+    harness.set_scene_config(scene_config)
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.0.22",
+        "drain_timeout": 0.0,
+    })
+
+    publish_times = []
+    mock_client_instance = MagicMock()
+    # Monotonic returns a sequence that simulates time passing exactly as
+    # fast as we sleep (i.e. perfect scheduling).
+    monotonic_seq = iter([0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.1, 0.1])
+    slept = []
+
+    def record_sleep(d):
+      slept.append(d)
+
+    with patch("harnesses.black_box_harness.black_box_harness.docker") as mock_docker, \
+         patch("harnesses.black_box_harness.black_box_harness.mqtt.Client",
+               return_value=mock_client_instance), \
+         patch("harnesses.black_box_harness.black_box_harness.time.sleep",
+               side_effect=record_sleep), \
+         patch("harnesses.black_box_harness.black_box_harness.time.monotonic",
+               side_effect=monotonic_seq):
+      mock_docker.network.create = MagicMock()
+      mock_docker.network.remove = MagicMock()
+      mock_docker.run = MagicMock(return_value=MagicMock())
+      list(harness.process_inputs(iter(frames)))
+
+    # Exactly one inter-frame sleep of ~0.1 s must have been requested.
+    inter_frame = [s for s in slept if abs(s - 0.1) < 0.01]
+    assert len(inter_frame) == 1, (
+        f"Expected exactly one ~100ms inter-frame sleep, got sleep calls: {slept}"
+    )
+
+  def test_same_timestamp_frames_not_delayed(
+      self, harness, scene_config, tracker_config_file
+  ):
+    """Frames sharing a timestamp (two cameras, same tick) are published without extra delay."""
+    frames = [
+        {"id": "Cam_x1_0", "timestamp": "2014-09-08T04:00:00.000Z", "objects": {}},
+        {"id": "Cam_x2_0", "timestamp": "2014-09-08T04:00:00.000Z", "objects": {}},
+    ]
+    harness.set_scene_config(scene_config)
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.0.22",
+        "drain_timeout": 0.0,
+        "startup_wait_s": 0.0,
+    })
+
+    slept = []
+    mock_client_instance = MagicMock()
+
+    with patch("harnesses.black_box_harness.black_box_harness.docker") as mock_docker, \
+         patch("harnesses.black_box_harness.black_box_harness.mqtt.Client",
+               return_value=mock_client_instance), \
+         patch("harnesses.black_box_harness.black_box_harness.time.sleep",
+               side_effect=slept.append), \
+         patch("harnesses.black_box_harness.black_box_harness.time.monotonic",
+               return_value=0.0):
+      mock_docker.network.create = MagicMock()
+      mock_docker.network.remove = MagicMock()
+      mock_docker.run = MagicMock(return_value=MagicMock())
+      list(harness.process_inputs(iter(frames)))
+
+    # Exclude known infrastructure sleeps: startup_wait (set to 0.0) and the
+    # fixed 0.5 s subscription-establishment sleep inside _run_session.
+    # Any inter-frame sleep for same-timestamp frames would have sleep_for=0
+    # (not > 0) so nothing in the range (0.01, 0.4) should appear.
+    inter_frame_sleeps = [s for s in slept if 0.01 < s < 0.4]
+    assert inter_frame_sleeps == [], (
+        f"No inter-frame sleep expected for same-timestamp frames, got: {inter_frame_sleeps}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # _merge_outputs_by_timestamp — unit tests
 # ---------------------------------------------------------------------------
 

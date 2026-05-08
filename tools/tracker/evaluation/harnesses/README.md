@@ -191,7 +191,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 
 - Starts an `eclipse-mosquitto` broker container and the tracker container on an isolated Docker network (`black_box_harness_{run_id}`); both containers and the network are removed after the run.
 - Publishes each input frame to `scenescape/data/camera/{camera_id}` and collects tracker outputs from `scenescape/data/scene/{scene_id}/+`.
-- Publishes input frames to the tracker as fast as possible. Both container types accept historical dataset timestamps via `maxlag`/`max_lag_s=1e15`, so no wall-clock pacing is required.
+- Publishes input frames paced by wall-clock delays derived from the data timestamps, reproducing the original capture cadence. `maxlag`/`max_lag_s=1e15` only suppresses lag-rejection in the tracker — it does **not** replace pacing, which is required for the time-chunk scheduler to fire at the correct rate.
 - Persists `inputs.json` and `outputs.json` to the output folder when `set_output_folder()` is called, creating the directory automatically if it does not exist.
 - Supports both **Controller** (`scenescape-controller`) and **Tracker Service** (`scenescape-tracker`) container types, auto-detected from the image metadata or set explicitly via `container_type`.
 - Runs a **Mock Manager REST API** (`mock_manager.py`) on the Docker host so both container types can load scene configuration without a real Manager deployment.
@@ -281,7 +281,7 @@ in its config). The file must contain `"user"` and `"password"` fields
 
 **Tests**:
 
-- [tests/test_black_box_harness.py](tests/test_black_box_harness.py) — 56 test cases covering initialisation, config validation, timestamp pacing, full orchestration flow (Docker and paho fully mocked), `outputs.json` persistence to new nested directories, and Tracker Service auth file `user`/`password` fields.
+- [tests/test_black_box_harness.py](tests/test_black_box_harness.py) — 56 test cases covering initialisation, config validation, timestamp pacing, wall-clock frame pacing (time-chunk scheduler correctness), full orchestration flow (Docker and paho fully mocked), `outputs.json` persistence to new nested directories, and Tracker Service auth file `user`/`password` fields.
 - [tests/test_mock_manager.py](tests/test_mock_manager.py) — 42 test cases covering `_distortion_to_array()` (None/list/dict inputs, 14-key mapping), coplanarity helpers, `_pose_mat_to_extrinsics()` (identity, translation, scale, JSON serialization), `_compute_extrinsics()` (happy path, insufficient points, 2-D map points, distortion dict), `_build_rest_scene()` structure and JSON serializability, and all HTTP endpoints via a real ephemeral HTTPServer.
 
 ## Adding New Harnesses
