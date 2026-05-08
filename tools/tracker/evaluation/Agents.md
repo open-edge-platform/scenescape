@@ -24,6 +24,7 @@ SPDX-License-Identifier: Apache-2.0
 - Example configurations:
   - Full tracker evaluation: [pipeline_configs/metric_test_evaluation.yaml](pipeline_configs/metric_test_evaluation.yaml)
   - Camera projection accuracy: [pipeline_configs/camera_projection_evaluation.yaml](pipeline_configs/camera_projection_evaluation.yaml)
+  - Black-box suite configs: [pipeline_configs/black_box/](pipeline_configs/black_box/)
 
 ## Folders structure
 
@@ -62,19 +63,21 @@ Check `datasets/README.md` for more details
   - Black-box harness that exercises the tracker end-to-end via live MQTT messages, with no dependency on internal SceneScape Python APIs.
   - Starts an `eclipse-mosquitto` broker container and the tracker container on an isolated Docker network (`black_box_harness_{run_id}`); both are removed after the run.
   - Publishes each input frame to `scenescape/data/camera/{camera_id}` and collects tracker outputs from `scenescape/data/scene/{scene_id}/+`.
-  - Timestamps in each frame are used to pace publishing: `sleep(delta_data / playback_rate - elapsed_wall)` before each publish.
+  - Timestamps in each frame are used to pace publishing: `sleep(delta_data / playback_rate - elapsed_wall)` before each publish. **Frames are always published with original dataset timestamps** for both container types; no rewriting occurs. Both the Controller (`--maxlag 1e15`) and Tracker Service (`max_lag_s: 1e15` in config) are configured to accept historical timestamps.
+  - Starts a **Mock Manager REST API** (`mock_manager.py`) as a thread on the Docker host. Both container types load scene configuration from it via HTTP on startup. The mock server computes camera extrinsics using the same logic as production (`PointCorrespondenceTransform._calculatePoseMat()` in `scene_common/transform.py`): `cv2.solvePnP` with coplanarity check, full 14-coefficient distortion array, and `_poseMatToPose()` scale extraction.
   - **Supports two container types** (auto-detected from image metadata, or set via `container_type` config key):
-    - `controller` (`scenescape-controller`): Scene config passed via `--data_source config.json`; camera dicts include `camera points`/`map points` directly so `Camera.__init__` builds a `PointCorrespondenceTransform` (solvePnP). Timestamps are rewritten by the controller via `--rewriteAllTime`. Time-chunking controlled by `time_chunking_enabled` in tracker-config.json.
-    - `tracker` (`scenescape-tracker`): Scene config passed via `scenes.source: file` in config.json; camera extrinsics (translation, XYZ Euler degrees) are pre-solved by the harness using cv2.solvePnP. Timestamps in published frames are **rewritten to current wall-clock time** (no `--rewriteAllTime` in the C++ binary). Time-chunking always active via `time_chunking_rate_fps`.
+    - `controller` (`scenescape-controller`): Connects to mock Manager via `--resturl`; camera dicts include `camera points`/`map points` so `Camera.__init__` builds a `PointCorrespondenceTransform`. Time-chunking controlled by `time_chunking_enabled` in tracker-config.json.
+    - `tracker` (`scenescape-tracker`): Connects to mock Manager via `scenes.source: api` in config.json; camera extrinsics (translation, XYZ Euler degrees, scale) are served by the mock Manager. Auth file written as `{"user": "harness", "password": "harness"}` (required by `api_scene_loader.cpp`). Time-chunking always active via `time_chunking_rate_fps`.
   - `set_custom_config()` accepts:
     - `tracker_config_path` (**required**): path to the tracker config JSON mounted into the container.
+    - `broker_image` (**required**): Docker image for the MQTT broker (e.g. `"eclipse-mosquitto:2.0.22"`).
     - `container_type` (optional): `'controller'` or `'tracker'`; auto-detected when omitted.
     - `playback_rate` (default `1.0`): multiplier for timestamp-based pacing.
     - `drain_timeout` (default `5.0`): seconds to wait for final tracker outputs after the last frame.
-    - `broker_image` (default `"eclipse-mosquitto"`): Docker image for the MQTT broker.
+    - `startup_wait_s` (default `2.0`): seconds to wait after container starts before publishing frames.
     - `scene_id`: overrides the scene UID derived from `set_scene_config()`.
-  - After the run, writes `inputs.json` to the output folder (if `set_output_folder()` was called).
-  - Pair this harness with any evaluator (TrackEval, Diagnostic, Jitter) and `pipeline_configs/black_box_evaluation.yaml`.
+  - After the run, writes `inputs.json` and `outputs.json` to the output folder (if `set_output_folder()` was called), creating the directory automatically if it does not exist.
+  - Pair this harness with any evaluator (TrackEval, Diagnostic, Jitter) and configs under `pipeline_configs/black_box/`.
 
 - **CameraProjectionHarness**: `harnesses/camera_projection_harness/camera_projection_harness.py`
   - Bypasses the full tracker and only applies camera-pose projection to isolate per-camera calibration error.
@@ -116,6 +119,8 @@ Check `evaluators/README.md` for more details
 
 ## Code Entry Points
 
+- **Black-box evaluation suite**: [run_black_box_evaluation.py](run_black_box_evaluation.py) — runs all three black-box configs (Controller-NO-TC, Controller-TC, Tracker-Service) in a single timestamped session. Usage: `python -m run_black_box_evaluation [--output <path>]`. Results land under `<output>/<YYYYMMDD_HHMMSS>/`; see [README.md](README.md) for full output structure.
+- **Mock Manager REST API**: [harnesses/black_box_harness/mock_manager.py](harnesses/black_box_harness/mock_manager.py) — minimal Manager REST server (`/api/v1/auth`, `/api/v1/scenes`, `/api/v1/camera/<uid>`) started by BlackBoxHarness on the Docker host. Computes camera extrinsics with production-identical math from `PointCorrespondenceTransform`.
 - **Pipeline orchestration**: [pipeline_engine.py](pipeline_engine.py) (methods `load_configuration()`, `run()`, `evaluate()`, CLI via `python -m pipeline_engine <config>`).
   - `_configure_harness()` forwards `object_classes` from the YAML `harness.config` block to the harness via `set_custom_config({'object_classes': ...})`.
   - `_configure_evaluators()` calls `set_scene_config(scene_config)` on each evaluator that exposes the method (checked via `hasattr`), passing the scene config returned by `dataset.get_scene_config()`.
