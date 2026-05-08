@@ -4,6 +4,7 @@
 - [Running on GPU](#running-on-gpu)
 - [Running on NPU](#running-on-npu)
 - [Enable Re-ID](#enable-reidentification)
+- [Enable Pose Estimation](#enable-pose-estimation)
 - [Creating a New Pipeline](#creating-a-new-pipeline)
 - [Using Authenticated MQTT Broker](#using-authenticated-mqtt-broker)
 - [Additional Resources](#additional-resources)
@@ -190,6 +191,35 @@ Following are the step-by-step instructions for enabling person reidentification
    ```
 
    Ensure the OMZ model `person-reidentification-retail-0277` is available in `intel/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/intel`.
+
+## Enable Pose Estimation
+
+Following are short steps to enable pose metadata for the out-of-box **Queuing** scene.
+
+1. Download the YOLO pose model using the DL Streamer helper script from the external DL Streamer repository:
+
+   Script: [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
+   Usage guide: [Download Public Models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/download_public_models.html)
+
+```bash
+./download_public_models.sh yolo11n-pose
+```
+
+2. Copy the downloaded model folder into the SceneScape models volume (`scenescape_vol-models`), for example using `docker cp`:
+
+```bash
+docker create --name scenescape-models -v scenescape_vol-models:/models alpine
+docker cp ./models/public/yolo11n-pose scenescape-models:/models/public/yolo11n-pose
+docker rm scenescape-models
+```
+
+3. Use predefined [queuing-config-pose.json](./queuing-config-pose.json):
+
+```yaml
+configs:
+  queuing-config:
+    file: ./dlstreamer-pipeline-server/queuing-config-pose.json
+```
 
 ## Creating a New Pipeline
 

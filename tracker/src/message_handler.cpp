@@ -442,6 +442,11 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
                 detection.metadata_json = meta_buf.GetString();
             }
 
+            // Optional confidence score
+            if (det.HasMember("confidence") && det["confidence"].IsNumber()) {
+                detection.confidence = det["confidence"].GetDouble();
+            }
+
             detections.push_back(detection);
         }
 
