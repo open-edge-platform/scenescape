@@ -25,6 +25,7 @@ Run as a standalone process inside the Docker network:
 """
 
 import json
+import math
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -35,39 +36,111 @@ from scipy.spatial.transform import Rotation
 
 _MOCK_TOKEN = "mock"
 
+# Distortion key order matches CameraIntrinsics.DISTORTION_KEYS in
+# scene_common/src/scene_common/transform.py.
+_DISTORTION_KEYS = (
+    'k1', 'k2', 'p1', 'p2', 'k3', 'k4', 'k5', 'k6',
+    's1', 's2', 's3', 's4', 'taux', 'tauy',
+)
 
-def _compute_extrinsics(cam_pts, map_pts, fx, fy, cx, cy):
-    """Compute camera extrinsics (translation, rotation, scale) from point correspondences.
+_MAX_COPLANAR_DETERMINANT = 0.1
 
-    Uses cv2.solvePnP to solve the world-to-camera transform, then inverts it
-    to get the camera-to-world pose, matching PointCorrespondenceTransform in
+
+def _distortion_to_array(distortion):
+    """Convert distortion (list, dict, or None) to a 14-element float64 array.
+
+    Mirrors CameraIntrinsics._setDistortion() in
     scene_common/src/scene_common/transform.py.
+    """
+    if distortion is None:
+        return np.zeros(14, dtype=np.float64)
+    if isinstance(distortion, dict):
+        distortion = [distortion.get(k, 0.0) for k in _DISTORTION_KEYS]
+    arr = np.array(distortion, dtype=np.float64)
+    return np.pad(arr, (0, 14 - len(arr)))
+
+
+def _calculate_determinant(points):
+    """Mirrors PointCorrespondenceTransform.calculateDeterminant."""
+    p1, p2, p3, p4 = points
+    v1 = np.array([p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]])
+    v2 = np.array([p3[0] - p1[0], p3[1] - p1[1], p3[2] - p1[2]])
+    v3 = np.array([p4[0] - p1[0], p4[1] - p1[1], p4[2] - p1[2]])
+    return np.linalg.det(np.array([v1, v2, v3]))
+
+
+def _are_coplanar(points):
+    """Mirrors PointCorrespondenceTransform.arePointsCoplanar."""
+    if len(points) == 5:
+        for i in range(len(points)):
+            subset = [points[j] for j in range(len(points)) if j != i]
+            if abs(_calculate_determinant(subset)) > _MAX_COPLANAR_DETERMINANT:
+                return False
+    elif len(points) == 4:
+        if abs(_calculate_determinant(points)) > _MAX_COPLANAR_DETERMINANT:
+            return False
+    return True
+
+
+def _pose_mat_to_extrinsics(mat):
+    """Extract JSON-serializable extrinsics from a 4×4 camera-to-world pose matrix.
+
+    Mirrors CameraPose._poseMatToPose() in
+    scene_common/src/scene_common/transform.py.
+    """
+    rmat = mat[0:3, 0:3]
+    translation = mat[0:3, 3].tolist()
+    euler_deg = Rotation.from_matrix(rmat).as_euler('XYZ', degrees=True).tolist()
+    scale = [
+        float(mat[3, 3] * math.sqrt(rmat[0, 0]**2 + rmat[1, 0]**2 + rmat[2, 0]**2)),
+        float(mat[3, 3] * math.sqrt(rmat[0, 1]**2 + rmat[1, 1]**2 + rmat[2, 1]**2)),
+        float(mat[3, 3] * math.sqrt(rmat[0, 2]**2 + rmat[1, 2]**2 + rmat[2, 2]**2)),
+    ]
+    return {"translation": translation, "rotation": euler_deg, "scale": scale}
+
+
+def _compute_extrinsics(cam_pts, map_pts, intrinsics, distortion=None):
+    """Compute camera extrinsics from 2-D/3-D point correspondences.
+
+    Exactly mirrors PointCorrespondenceTransform._calculatePoseMat() in
+    scene_common/src/scene_common/transform.py, including:
+    - distortion coefficients via CameraIntrinsics._setDistortion logic
+    - coplanarity check selecting SOLVEPNP_P3P vs SOLVEPNP_ITERATIVE
+    - pose extraction via _poseMatToPose
+
+    Args:
+        cam_pts:     list of [u, v] image points.
+        map_pts:     list of [x, y] or [x, y, z] world points.
+        intrinsics:  [fx, fy, cx, cy] camera intrinsics.
+        distortion:  distortion as list, dict (DISTORTION_KEYS), or None.
 
     Returns:
-        dict with keys ``translation`` ([x, y, z]), ``rotation`` (Euler XYZ degrees),
-        ``scale`` ([1.0, 1.0, 1.0]), or None if solvePnP fails.
+        dict with 'translation', 'rotation' (Euler XYZ degrees), 'scale', or None.
     """
     try:
         cam_arr = np.array(cam_pts, dtype="float32")
         map_arr = np.array(map_pts, dtype="float32")
         if map_arr.shape[1] == 2:
-            map_arr = np.hstack((map_arr, np.zeros((map_arr.shape[0], 1), dtype="float32")))
+            map_arr = np.hstack((map_arr, np.zeros((map_arr.shape[0], 1))))
+
+        fx, fy, cx, cy = intrinsics
         K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype="float64")
-        ok, rvec, tvec = cv2.solvePnP(map_arr, cam_arr, K, None)
+        dist = _distortion_to_array(distortion)
+
+        # Mirror PointCorrespondenceTransform._calculatePoseMat():
+        # use SOLVEPNP_P3P for non-coplanar points with fewer than 6 correspondences.
+        computation_method = cv2.SOLVEPNP_ITERATIVE
+        if not _are_coplanar(map_arr.tolist()) and len(map_arr) < 6:
+            computation_method = cv2.SOLVEPNP_P3P
+
+        ok, rvec, tvec = cv2.solvePnP(map_arr, cam_arr, K, dist,
+                                      flags=computation_method)
         if not ok:
             return None
+
         rmat = cv2.Rodrigues(rvec)[0]
-        # Invert world-to-camera → camera-to-world pose matrix
         pose_mat = np.linalg.inv(np.vstack((np.hstack((rmat, tvec)), [0, 0, 0, 1])))
-        # Extract translation
-        translation = pose_mat[0:3, 3].tolist()
-        # Extract scale from column norms of the rotation sub-matrix
-        r_cols = pose_mat[0:3, 0:3]
-        scale = [float(np.linalg.norm(r_cols[:, i])) for i in range(3)]
-        # Normalise rotation matrix before extracting Euler angles
-        r_norm = r_cols / np.array(scale)
-        euler_deg = Rotation.from_matrix(r_norm).as_euler('XYZ', degrees=True).tolist()
-        return {"translation": translation, "rotation": euler_deg, "scale": scale}
+        return _pose_mat_to_extrinsics(pose_mat)
     except Exception:
         return None
 
@@ -93,19 +166,22 @@ def _build_rest_scene(scene_config: dict) -> dict:
     cameras = []
     for cam_name, info in scene_config.get("sensors", {}).items():
         fx, fy, cx, cy = info["intrinsics"]
+        dist_raw = info.get("distortion")
         extrinsics = _compute_extrinsics(
             info.get("camera points", []),
             info.get("map points", []),
-            fx, fy, cx, cy,
+            info["intrinsics"],
+            dist_raw,
         )
         if extrinsics is None:
             extrinsics = {"translation": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0], "scale": [1.0, 1.0, 1.0]}
+        dist_dict = dict(zip(_DISTORTION_KEYS, _distortion_to_array(dist_raw).tolist()))
         cameras.append({
             "uid": cam_name,
             "name": cam_name,
             "scene": scene_uid,
             "intrinsics": {"fx": fx, "fy": fy, "cx": cx, "cy": cy},
-            "distortion": {"k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0},
+            "distortion": dist_dict,
             "resolution": [int(info["width"]), int(info["height"])],
             "camera points": info.get("camera points", []),
             "map points": info.get("map points", []),
