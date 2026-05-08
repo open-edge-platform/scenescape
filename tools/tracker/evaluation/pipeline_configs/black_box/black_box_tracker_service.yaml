@@ -4,7 +4,7 @@
 pipeline:
   run_name: Tracker-Service
   output:
-    path: /home/labrat/tracker-evaluation/black-box-evaluation
+    path: /tmp/black-box-evaluation
 
 dataset:
   class: datasets.metric_test_dataset.MetricTestDataset
