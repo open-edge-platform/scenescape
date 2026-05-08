@@ -230,4 +230,3 @@ class TestSceneDeserializeReidConfigPropagation:
     scene = Scene.deserialize(scene_data)
 
     assert scene.reid_config_data == reid_config
-

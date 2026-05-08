@@ -136,22 +136,11 @@ jobs:
         with:
           system-prune: "true"
 
-      - name: "Log in to GHCR"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: "Log in to DockerHub"
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           username: scenescape
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: "Setup Cache Targets"
-        id: setup-cache
-        uses: ./.github/actions/setup-cache
 
       - name: "Clean environment"
         run: |
@@ -164,12 +153,18 @@ jobs:
           python-version: "3.12"
           check-latest: true
 
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v5
+        with:
+          daemon-config: |
+            {
+              "features": {
+                "containerd-snapshotter": false
+              }
+            }
+
       - name: "Setup Test Environment"
         id: setup-test-env
-        env:
-          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
           make && make setup-tests
 
@@ -240,7 +235,7 @@ jobs:
           python-version: "3.12"
           check-latest: true
 
-        name: Set up Docker
+      - name: Set up Docker
         uses: docker/setup-docker-action@v5
         with:
           daemon-config: |
