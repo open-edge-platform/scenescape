@@ -118,78 +118,125 @@ class ManageThing(APIView):
       raise ValidationError({param: ["Unknown query parameter."] for param in unknown_params})
     return
 
-  def isValidQueryParameter(self, uid, thing_type):
-    _, thing_serializer, uid_field = get_class_and_serializer(thing_type)
-    if uid_field == 'pk' and thing_type != 'scene' and uid.isdigit():
-      return True
-    elif (uid_field == 'uuid' and thing_type in ['region', 'tripwire']) or (uid_field == 'pk' and thing_type == 'scene') or (uid_field == 'child_id' and thing_type == 'child'):
+  def _parse_uid(self, uid, thing_type):
+    """
+    Parse and convert a UID string to its appropriate type based on the thing_type.
+
+    @param uid        The UID string to be parsed and converted
+    @param thing_type The type of object determining how the UID should be interpreted
+    """
+    _, _, uid_field = get_class_and_serializer(thing_type)
+
+    if uid_field in ['sensor_id', 'username', 'marker_id']:
+      return uid
+
+    if uid_field == 'pk' and uid.isdigit():
+      return int(uid)
+
+    if uid_field in ['uuid'] or thing_type in ['region', 'tripwire', 'child', 'scene']:
       try:
-        val = uuid.UUID(uid, version=4)
-        return True
+        return uuid.UUID(uid, version=4)
       except ValueError:
-        raise ValidationError(thing_serializer.errors)
-    elif uid_field == 'sensor_id' or uid_field == 'username' or uid_field == 'marker_id':
-      return True
-    return False
+        raise ValidationError({"uid": "Invalid UUID format"})
+
+    return uid
 
   def get(self, request, thing_type, uid=None):
     thing_class, thing_serializer, uid_field = get_class_and_serializer(thing_type)
+
     self.validateUnknownParams(request)
+
     if uid is None:
-      raise ValidationError(thing_serializer.errors)
-    elif not self.isValidQueryParameter(uid, thing_type):
-      return Response(status=status.HTTP_404_NOT_FOUND)
+      return Response(
+          {"error": "UID is required"},
+          status=status.HTTP_400_BAD_REQUEST
+      )
+
+    try:
+      uid = self._parse_uid(uid, thing_type)
+    except ValidationError as e:
+      return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+
     try:
       thing = thing_class.objects.get(**{uid_field: uid})
     except thing_class.DoesNotExist:
       return Response(status=status.HTTP_404_NOT_FOUND)
+
     serializer = thing_serializer(thing)
     return Response(serializer.data)
 
   def post(self, request, thing_type, uid=None):
     thing_class, thing_serializer, uid_field = get_class_and_serializer(thing_type)
+
+    self.validateUnknownParams(request)
+
     thing = None
+
     if uid is not None:
-      if not self.isValidQueryParameter(uid, thing_type):
-        return Response(status=status.HTTP_404_NOT_FOUND)
       try:
-        thing = thing_class.objects.get(**{uid_field: uid})
-      except thing_class.DoesNotExist:
+        uid = self._parse_uid(uid, thing_type)
+      except ValidationError as e:
+        return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+
+      thing = thing_class.objects.filter(**{uid_field: uid}).first()
+
+      if thing is None:
         return Response(status=status.HTTP_404_NOT_FOUND)
-    if thing:
-      serializer = thing_serializer(thing, data=request.data, partial=True)
-    else:
-      serializer = thing_serializer(data=request.data, partial=True)
+
+    serializer = thing_serializer(
+        thing,
+        data=request.data,
+        partial=True
+    ) if thing else thing_serializer(data=request.data, partial=True)
+
     if not serializer.is_valid():
       raise ValidationError(serializer.errors)
+
     try:
       serializer.save()
     except IntegrityError as e:
       raise ValidationError(str(e))
-    return Response(serializer.data,
-                    status=status.HTTP_201_CREATED if not thing else status.HTTP_200_OK)
+
+    return Response(
+        serializer.data,
+        status=status.HTTP_201_CREATED if thing is None else status.HTTP_200_OK
+    )
 
   def put(self, request, thing_type, uid=None):
-    _, thing_serializer, _ = get_class_and_serializer(thing_type)
     self.validateUnknownParams(request)
     if uid is None:
-      raise ValidationError(thing_serializer.errors)
+      return Response(
+        {"error": "UID is required"},
+        status=status.HTTP_400_BAD_REQUEST
+      )
     return self.post(request, thing_type, uid)
 
   def delete(self, request, thing_type, uid=None):
-    thing_class, thing_serializer, uid_field = get_class_and_serializer(thing_type)
+    thing_class, _, uid_field = get_class_and_serializer(thing_type)
+
     self.validateUnknownParams(request)
+
     if uid is None:
-      raise ValidationError(thing_serializer.errors)
-    elif not self.isValidQueryParameter(uid, thing_type):
+      return Response(
+          {"error": "UID is required"},
+          status=status.HTTP_400_BAD_REQUEST
+      )
+
+    try:
+      uid = self._parse_uid(uid, thing_type)
+    except ValidationError as e:
+      return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+
+    obj = thing_class.objects.filter(**{uid_field: uid}).first()
+
+    if not obj:
       return Response(status=status.HTTP_404_NOT_FOUND)
-    thing = thing_class.objects.filter(**{uid_field: uid})
-    if not thing:
-      return Response(status=status.HTTP_404_NOT_FOUND)
-    thing[0].delete() # thing is always a list of single element
-    data = {uid_field: uid}
-    log.info("DELETED", thing_type, data)
-    return Response(data, status=status.HTTP_200_OK)
+
+    obj.delete()
+
+    log.info("DELETED", thing_type, {uid_field: uid})
+
+    return Response({uid_field: uid}, status=status.HTTP_200_OK)
 
 
 class CustomAuthToken(ObtainAuthToken):
