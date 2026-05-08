@@ -26,8 +26,9 @@ IDENTICAL_ANKLE_DISTANCE_FACTOR = 0.02
 MIN_SEGMENT_FACTOR = 0.05
 MAX_RATIO_VALUE = 10.0
 MAX_OFFSET_VALUE = 5.0
-DIRECT_FOOT_REWRITE_GAP_FACTOR = 0.03
-ESTIMATED_FOOT_REWRITE_GAP_FACTOR = 0.12
+DIRECT_FOOT_REWRITE_GAP_FACTOR = 0.25
+ESTIMATED_FOOT_REWRITE_GAP_FACTOR = 0.20
+DIRECT_ESTIMATE_DISAGREEMENT_FACTOR = 0.15
 HIGH_CONFIDENCE_THRESHOLD = 0.6
 MIN_ESTIMATE_CONFIDENCE_THRESHOLD = 0.4
 LOW_CONFIDENCE_ESTIMATION_METHODS = {
@@ -184,17 +185,28 @@ class PersonPoseAdjuster:
   ) -> Tuple[Optional[Dict[str, float]], Optional[str]]:
     direct_foot = self._direct_foot_estimate(bbox, keypoints)
     if direct_foot is not None:
+      estimated_foot = self._estimate_foot(cache_key, keypoints, bbox, bounds)
+      if estimated_foot is not None:
+        disagreement = estimated_foot.y - direct_foot.y
+        threshold = bbox['height'] * DIRECT_ESTIMATE_DISAGREEMENT_FACTOR
+        if disagreement > threshold:
+          log.debug(
+            f"Discarding direct foot for {cache_key}: "
+            f"estimated_y={estimated_foot.y:.4f} >> direct_y={direct_foot.y:.4f} "
+            f"(disagreement={disagreement:.4f} > threshold={threshold:.4f}), "
+            f"ankles likely hallucinated"
+          )
+          direct_foot = None
+
+    if direct_foot is not None:
       log.debug(
         f"Using direct foot estimate for {cache_key}: "
         f"method={direct_foot.method}, x={direct_foot.x:.4f}, y={direct_foot.y:.4f}"
       )
       self._learn_person_proportions(cache_key, keypoints, bbox, direct_foot, when)
-      if not self._should_rewrite_bbox(bbox, keypoints, direct_foot):
-        log.debug(
-          f"Skipping bbox rewrite for {cache_key}: direct foot visible but no likely occlusion"
-        )
-        return None, None
-      return self._rewrite_bbox(bbox, direct_foot, bounds), direct_foot.method
+      # Visible ankles means person's feet are in frame — not occluded from below.
+      # Only learn proportions; never rewrite bbox based on direct ankle observation.
+      return None, None
 
     estimated_foot = self._estimate_foot(cache_key, keypoints, bbox, bounds)
     if estimated_foot is None:
