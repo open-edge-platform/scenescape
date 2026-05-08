@@ -23,7 +23,7 @@ harness:
     broker_image: eclipse-mosquitto:2.0.22
     container_image: scenescape-controller:2026.1.0-dev
     tracker_config_path: ../../../tests/system/metric/dataset/tracker-config-time-chunking.json
-    # startup_wait_s: 2.0  # default — Controller starts quickly
+    startup_wait_s: 5.0
     # playback_rate: 1.0   # real-time pacing (default) — required for TC timing
     # drain_timeout: 5.0   # seconds idle before stopping (default)
 

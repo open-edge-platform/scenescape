@@ -368,6 +368,47 @@ def _parse_ts(ts_str: str) -> float:
   return datetime.fromisoformat(ts_str).timestamp()
 
 
+def _merge_outputs_by_timestamp(
+    outputs: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+  """Merge per-category MQTT messages that share the same timestamp.
+
+  Both the Controller and the Tracker service publish one MQTT message per
+  *object category* per scene update (topic suffix ``/{type}``, e.g.
+  ``…/person``, ``…/FW190D``).  The harness subscribes to the wildcard
+  ``…/+`` and therefore receives every per-category message separately.
+  Additionally, the Controller fires one scene update *per camera input*,
+  so a two-camera scene at the same timestamp produces
+  ``N_cameras × N_types`` messages.
+
+  This function groups all messages by their ISO 8601 timestamp string and
+  merges them into a single dict per logical frame, deduplicating tracked
+  objects by UUID.  The result is one entry per timestep containing all
+  categories — matching the ground-truth frame cadence expected by the
+  evaluators.
+
+  Args:
+      outputs: Raw list of dicts collected from the ``on_message`` callback.
+
+  Returns:
+      Sorted list of merged output dicts, one entry per unique timestamp.
+  """
+  from collections import OrderedDict
+
+  by_ts: Dict[str, Dict[str, Any]] = OrderedDict()
+  for msg in outputs:
+    ts = msg.get("timestamp", "")
+    if ts not in by_ts:
+      by_ts[ts] = {**msg, "objects": []}
+    seen_ids = {o["id"] for o in by_ts[ts]["objects"]}
+    for obj in msg.get("objects", []):
+      if obj.get("id") not in seen_ids:
+        by_ts[ts]["objects"].append(obj)
+        seen_ids.add(obj["id"])
+
+  return sorted(by_ts.values(), key=lambda m: m.get("timestamp", ""))
+
+
 class BlackBoxHarness(TrackerHarness):
   """Black-box tracker harness using MQTT as the communication channel.
 
@@ -883,7 +924,9 @@ class BlackBoxHarness(TrackerHarness):
     client.disconnect()
 
     print(f"[BlackBoxHarness] Collected {len(outputs)} output messages")
-    return outputs
+    merged = _merge_outputs_by_timestamp(outputs)
+    print(f"[BlackBoxHarness] Merged into {len(merged)} logical frames")
+    return merged
 
   def _persist_outputs(self, outputs: List[Dict], tmp_dir: Path) -> None:
     """Write output frames to the configured output folder."""
