@@ -118,6 +118,7 @@ class VDMSDatabase(ReIDDatabase):
       log.error(f"Failed to initialize VDMS schema: {e}")
     except socket.error as e:
       log.warning(f"Failed to connect to VDMS container: {e}")
+    return
 
   def addSchema(self, set_name, similarity_metric, dimensions):
     query = [{
@@ -206,9 +207,9 @@ class VDMSDatabase(ReIDDatabase):
       if self._schema_ready:
         if int(self.dimensions) != requested_dimensions:
           raise ValueError(
-              f"ReID schema already initialized with {self.dimensions} dimensions; "
-              f"incoming vector has {requested_dimensions} dimensions. "
-              "Restart the controller and flush the VDMS descriptor set to change dimensions.")
+            f"ReID schema already initialized with {self.dimensions} dimensions; "
+            f"incoming vector has {requested_dimensions} dimensions. "
+            "Restart the controller and flush the VDMS descriptor set to change dimensions.")
         return
       self.ensureSchemaInner(
           requested_dimensions,
@@ -240,9 +241,9 @@ class VDMSDatabase(ReIDDatabase):
     # Metadata can include: age, gender, color, make, model, confidence_scores, etc.
     for key, value in metadata.items():
       if isinstance(value, dict):
-      # For metadata dicts with 'label' and optional confidence, store ONLY the label
-      # This ensures VDMS constraints can match properly (e.g., gender=['==', 'Male'])
-      # Example: {'label': 'Male', 'confidence': 0.95} → store 'Male'
+        # For metadata dicts with 'label' and optional confidence, store ONLY the label
+        # This ensures VDMS constraints can match properly (e.g., gender=['==', 'Male'])
+        # Example: {'label': 'Male', 'confidence': 0.95} → store 'Male'
         if 'label' in value:
           properties[key] = str(value['label'])
           log.debug(f"[VDMS] addEntry: Extracted label '{value['label']}' from {key} metadata dict")
