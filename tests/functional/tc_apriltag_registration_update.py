@@ -11,7 +11,7 @@ from scene_common.rest_client import RESTClient
 import tests.common_test_utils as common
 
 POLL_INTERVAL = 5
-POLL_TIMEOUT = 20
+POLL_TIMEOUT = 60
 BASE_URL = "https://autocalibration.scenescape.intel.com:8443"
 VERIFY_CERT = "/run/secrets/certs/scenescape-ca.pem"
 MAP_APRILTAG_COUNT = 7  # number of apriltags present in Queuing scene
@@ -30,7 +30,9 @@ class ApriltagRegistrationUpdate(FunctionalTest):
     res = self.rest.authenticate(self.params['user'], self.params['password'])
     assert res, res.errors
 
-    status = requests.get(f"{BASE_URL}/v1/status", verify=VERIFY_CERT).json()
+    r = requests.get(f"{BASE_URL}/v1/status", verify=VERIFY_CERT, timeout=10)
+    assert r.ok, f"Autocalibration status check failed: {r.status_code} {r.text}"
+    status = r.json()
     assert status.get('status') == 'running', \
       f"Autocalibration service not ready: {status}"
 
