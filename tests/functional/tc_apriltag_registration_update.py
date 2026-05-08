@@ -94,7 +94,7 @@ class ApriltagRegistration(FunctionalTest):
       assert response, (response.statusCode, response.errors)
 
   def runApriltagRegistrationUpdate(self):
-    """when apriltag parameters are updated, registration creates/updates 
+    """when apriltag parameters are updated, registration creates/updates
     markers and sets map_processed"""
     try:
       self._clear_calibration_markers()
