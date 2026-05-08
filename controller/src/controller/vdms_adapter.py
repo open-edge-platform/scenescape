@@ -90,15 +90,8 @@ class VDMSDatabase(ReIDDatabase):
           and 'FailedCommand' in query_response[0][0]):
         log.warning(f"VDMS transaction failed: {query_response[0][0]}")
         return responses, response_blob
-      # for (item, response) in zip(query, query_response[0]):
-      #   query_type = next(iter(item))
-      #   response_data = response.get(query_type, {})
-      #   responses.append(response_data)
       for (item, response) in zip(query, query_response[0]):
         query_type = next(iter(item))
-        # VDMS wraps exception responses with the query type key containing
-        # an "[Exception] ..." string rather than a status dict.
-        # Guard against this and any other non-dict payload.
         raw = response.get(query_type)
         if isinstance(raw, dict):
           response_data = raw
@@ -117,7 +110,6 @@ class VDMSDatabase(ReIDDatabase):
       if self.dimensions is not None:
         expected_dimensions = int(self.dimensions)
         expected_metric = str(self.similarity_metric).strip().upper()
-        print("Looking for schema - ", self.set_name)
         with self._schema_lock:
           if not self._connectEnsureSchema(expected_dimensions, expected_metric):
             return
@@ -153,14 +145,11 @@ class VDMSDatabase(ReIDDatabase):
     status = response[0].get('status')
 
     if status == 0:
-      # Freshly created — dimensions and metric are exactly what we asked for.
       log.info(f"connect: Created descriptor set '{self.set_name}' "
                f"({expected_dimensions}D, {expected_metric})")
       self.dimensions = expected_dimensions
       return True
 
-    # Non-zero status means the set likely already exists.
-    # Now it's safe to probe with FindDescriptorSet.
     log.debug(f"connect: AddDescriptorSet returned status={status}; "
               f"set may already exist, probing metadata.")
     schema_exists, schema_dimensions, schema_metric = self.findSchemaMetadata(self.set_name)
@@ -170,7 +159,6 @@ class VDMSDatabase(ReIDDatabase):
                   f"Last AddDescriptorSet response: {response[0]}")
       return False
 
-    # Validate existing schema matches configuration
     if schema_dimensions is None:
       raise RuntimeError(
           f"connect: VDMS descriptor set '{self.set_name}' exists but returned no dimensions. "
@@ -220,12 +208,11 @@ class VDMSDatabase(ReIDDatabase):
       if self._schema_ready:
         if int(self.dimensions) != requested_dimensions:
           raise ValueError(
-              f"ReID schema already initialized with {self.dimensions} dimensions; "
-              f"incoming vector has {requested_dimensions} dimensions. "
-              f"Restart the controller and flush the VDMS descriptor set to change dimensions.")
+            f"ReID schema already initialized with {self.dimensions} dimensions; "
+            f"incoming vector has {requested_dimensions} dimensions. "
+            f"Restart the controller and flush the VDMS descriptor set to change dimensions.")
         return
 
-      # Use attempt-first to avoid FindDescriptorSet on missing set (VDMS v2.12 bug)
       query = [{"AddDescriptorSet": {
           "name": self.set_name,
           "metric": expected_metric,
@@ -240,12 +227,10 @@ class VDMSDatabase(ReIDDatabase):
       status = response[0].get('status')
 
       if status == 0:
-        # Freshly created
         self.dimensions = requested_dimensions
         self._schema_ready = True
         return
 
-      # Non-zero: set likely exists, now safe to probe
       schema_exists, schema_dimensions, schema_metric = self.findSchemaMetadata(self.set_name)
       if not schema_exists:
         raise RuntimeError(
@@ -294,9 +279,9 @@ class VDMSDatabase(ReIDDatabase):
     # Metadata can include: age, gender, color, make, model, confidence_scores, etc.
     for key, value in metadata.items():
       if isinstance(value, dict):
-      # For metadata dicts with 'label' and optional confidence, store ONLY the label
-      # This ensures VDMS constraints can match properly (e.g., gender=['==', 'Male'])
-      # Example: {'label': 'Male', 'confidence': 0.95} → store 'Male'
+        # For metadata dicts with 'label' and optional confidence, store ONLY the label
+        # This ensures VDMS constraints can match properly (e.g., gender=['==', 'Male'])
+        # Example: {'label': 'Male', 'confidence': 0.95} → store 'Male'
         if 'label' in value:
           properties[key] = str(value['label'])
           log.debug(f"[VDMS] addEntry: Extracted label '{value['label']}' from {key} metadata dict")
