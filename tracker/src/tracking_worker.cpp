@@ -11,6 +11,7 @@
 #include <rv/tracking/TrackManager.hpp>
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <numeric>
 
@@ -240,6 +241,18 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         auto meta_it = rv_track.attributes.find("metadata_json");
         if (meta_it != rv_track.attributes.end()) {
             track.metadata_json = std::move(meta_it->second);
+        }
+
+        // Retrieve confidence stored in attributes by transformDetections().
+        // NOTE: multi-camera last-write-wins — same limitation as metadata_json.
+        auto conf_it = rv_track.attributes.find("confidence");
+        if (conf_it != rv_track.attributes.end()) {
+            const auto& s = conf_it->second;
+            double value{};
+            auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), value);
+            if (ec == std::errc{} && ptr == s.data() + s.size()) {
+                track.confidence = value;
+            }
         }
 
         tracks.push_back(std::move(track));
