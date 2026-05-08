@@ -17,7 +17,7 @@ VERIFY_CERT = "/run/secrets/certs/scenescape-ca.pem"
 MAP_APRILTAG_COUNT = 7  # number of apriltags present in Queuing scene
 
 
-class ApriltagRegistrationUpdate(FunctionalTest):
+class ApriltagRegistration(FunctionalTest):
   """Verify that re-registration creates/updates calibration markers and
   sets map_processed after an apriltag update"""
 
@@ -82,6 +82,8 @@ class ApriltagRegistrationUpdate(FunctionalTest):
     if response and 'results' in response:
       for marker in response['results']:
         self.rest.deleteCalibrationMarker(marker['marker_id'])
+        assert self.rest.getCalibrationMarker(marker['marker_id']).statusCode == 404, \
+          f"Failed to delete marker {marker['marker_id']}"
 
   def _restore_scene(self):
     """Restore original apriltag_size after the test"""
@@ -135,7 +137,7 @@ class ApriltagRegistrationUpdate(FunctionalTest):
 
       extra_marker = {
         'marker_id': f"{self.scene_id}_999",
-        'apriltag_id': 999,
+        'apriltag_id': "999",
         'dims': [0.0, 0.0, 0.0],
         'scene': self.scene_id,
       }
@@ -166,7 +168,7 @@ class ApriltagRegistrationUpdate(FunctionalTest):
 def test_apriltag_registration_update(request, record_xml_attribute):
   TEST_NAME = "NEX-T10483"
   record_xml_attribute("name", TEST_NAME)
-  test = ApriltagRegistrationUpdate(
+  test = ApriltagRegistration(
     "tc_apriltag_registration_update",
     request,
     record_xml_attribute,
@@ -180,7 +182,7 @@ def test_apriltag_registration_update(request, record_xml_attribute):
 def test_apriltag_registration_delete(request, record_xml_attribute):
   TEST_NAME = "NEX-T22419"
   record_xml_attribute("name", TEST_NAME)
-  test = ApriltagRegistrationUpdate(
+  test = ApriltagRegistration(
     "tc_apriltag_registration_delete",
     request,
     record_xml_attribute,
