@@ -5,17 +5,17 @@
 
 Architecture
 ------------
-Three containers are involved:
+Four containers run on a private Docker network:
 
-  ┌─────────────────────────────────────────────────┐
-  │  Docker network  "black_box_harness_<run_id>"     │
-  │                                                 │
-  │  ┌──────────────┐     ┌─────────────────────┐  │
-  │  │   broker     │ ←── │  tracker container  │  │
-  │  │  (mosquitto) │ ──→ │  (user-supplied)    │  │
-  │  └──────┬───────┘     └─────────────────────┘  │
-  │         │ port 1883 exposed to host             │
-  └─────────┼───────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────┐
+  │  Docker network  "black_box_harness_<run_id>"            │
+  │                                                          │
+  │  ┌──────────────┐  ┌─────────────┐  ┌───────────────┐  │
+  │  │   broker     │  │   manager   │  │   tracker /   │  │
+  │  │  (mosquitto) │  │  (mock REST)│  │   controller  │  │
+  │  └──────┬───────┘  └─────────────┘  └───────────────┘  │
+  │         │ port 1883 exposed to host                     │
+  └─────────┼──────────────────────────────────────────────-┘
             │
   ┌─────────┴──────────────────────────┐
   │  BlackBoxHarness process (host)     │
@@ -26,17 +26,14 @@ Three containers are involved:
 Supported container types
 -------------------------
 * **Controller** (``scenescape-controller``, entrypoint ``controller-cmd``):
-  - Scene config loaded via ``--data_source config.json`` (FileSceneDataSource).
-  - Config uses REST format: camera dicts contain ``camera points``/``map points``
-    directly so ``Camera.__init__`` can construct a PointCorrespondenceTransform.
-  - Timestamps from the dataset are rewritten to wall-clock time by the controller
-    via ``--rewriteAllTime``.
+  - Scene config loaded via ``--resturl http://<manager>/api/v1`` exactly as in
+    production; the mock manager container serves ``GET /api/v1/scenes`` with
+    the dataset camera calibration data (``camera points`` / ``map points``).
   - Time-chunking is controlled by ``time_chunking_enabled`` in tracker-config.json.
 
 * **Tracker service** (``scenescape-tracker``, binary ``/scenescape/tracker``):
-  - Scene config loaded via ``scenes.source: file`` in config.json.
-  - Scene format uses pre-solved ``extrinsics`` (translation, XYZ Euler degrees)
-    computed by the harness from the dataset's camera/map point correspondences.
+  - Scene config loaded via ``scenes.source: api`` pointing at the same mock
+    manager container, matching the production deployment path.
   - ``max_lag_s`` is set to 1e15 so historical dataset timestamps are accepted
     without rewriting.
   - Time-chunking is always active via ``tracking.time_chunking_rate_fps``.
@@ -82,10 +79,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-import cv2
-import numpy as np
-from scipy.spatial.transform import Rotation
-
 import paho.mqtt.client as mqtt
 from python_on_whales import docker
 
@@ -93,6 +86,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from base.tracker_harness import TrackerHarness
 from utils.format_converters import write_jsonl
+from harnesses.black_box_harness.mock_manager import run as _run_mock_manager
 
 # ---------------------------------------------------------------------------
 # MQTT topic constants (mirrors scene_common.mqtt.PubSub._TopicTemplates)
@@ -111,14 +105,18 @@ allow_anonymous true
 _CONTAINER_WORKSPACE       = "/workspace"
 
 # Controller-specific container paths
-_CONTAINER_CONFIG          = _CONTAINER_WORKSPACE + "/config.json"
 _CONTAINER_TRACKER_CONFIG  = _CONTAINER_WORKSPACE + "/tracker-config.json"
 
 # Tracker-service-specific container paths
 _TRACKER_SVC_EXECUTABLE    = "/scenescape/tracker"
 _TRACKER_SVC_CONFIG        = _CONTAINER_WORKSPACE + "/tracker_svc_config.json"
-_TRACKER_SVC_SCENES        = _CONTAINER_WORKSPACE + "/scenes.json"
+_TRACKER_SVC_AUTH          = _CONTAINER_WORKSPACE + "/manager_auth.json"
 _TRACKER_SVC_SCHEMA        = "/scenescape/schema/config.schema.json"
+
+# Mock Manager REST credentials (arbitrary — server accepts any)
+_MOCK_MANAGER_USER         = "harness"
+_MOCK_MANAGER_PASSWORD     = "harness"
+_MOCK_MANAGER_PORT         = 8888  # internal Docker-network port
 
 # Container type constants
 CONTAINER_TYPE_CONTROLLER = "controller"
@@ -130,154 +128,30 @@ DEFAULT_PLAYBACK_RATE  = 1.0   # 1.0 = real-time, 2.0 = 2× speed
 DEFAULT_STARTUP_WAIT   = 2.0   # seconds to wait after container start before publishing frames
 
 
-def _to_controller_config(scene_config: dict) -> dict:
-  """Build a ``FileSceneDataSource``-compatible scene config for ``controller-cmd``.
 
-  The Controller's ``Camera.__init__`` recognises two pose formats:
-  ``('translation', 'rotation', 'scale')`` and ``('camera points', 'map points')``.
-  It does NOT understand the REST ``transforms`` flat array + ``transform_type``.
-  So we embed ``camera points`` and ``map points`` directly in each camera dict;
-  ``Camera.__init__`` will then construct a ``PointCorrespondenceTransform`` and
-  solve PnP internally.
-
-  Args:
-      scene_config: Scene configuration in dataset-specific format.
-
-  Returns:
-      Scene configuration dict suitable for ``FileSceneDataSource``.
-  """
-  scene_uid = scene_config.get("uid") or scene_config["name"]
-
-  cameras = []
-  sensors = scene_config.get("sensors", {})
-  if isinstance(sensors, dict):
-    for cam_name, info in sensors.items():
-      fx, fy, cx, cy = info["intrinsics"]
-      w = int(info["width"])
-      h = int(info["height"])
-
-      cameras.append({
-          "uid": cam_name,
-          "name": cam_name,
-          "intrinsics": {"fx": fx, "fy": fy, "cx": cx, "cy": cy},
-          "distortion": {"k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0},
-          "resolution": [w, h],
-          "camera points": info.get("camera points", []),
-          "map points": info.get("map points", []),
-          "scene": scene_uid,
-      })
-
-  return {
-      "uid": scene_uid,
-      "name": scene_config["name"],
-      "scale": scene_config.get("scale"),
-      "map": scene_config.get("map"),
-      "cameras": cameras,
-      "use_tracker": True,
-      "regulated_rate": scene_config.get("regulated_rate", 30.0),
-      "external_update_rate": scene_config.get("external_update_rate", 30.0),
-  }
-
-
-def _solve_pnp(
-    camera_points: List, map_points: List, intrinsics: List
-) -> Tuple[List[float], List[float], List[float]]:
-  """Solve PnP from 2D-3D point correspondences and return camera extrinsics.
-
-  Replicates ``PointCorrespondenceTransform._calculatePoseMat`` +
-  ``CameraPose._poseMatToPose`` from scene_common using cv2 directly so the
-  harness does not need scene_common installed.
-
-  Args:
-      camera_points: List of (x, y) image-pixel coordinate pairs.
-      map_points:    List of (x, y) or (x, y, z) world-coordinate triples.
-      intrinsics:    [fx, fy, cx, cy] camera intrinsic parameters.
-
-  Returns:
-      (translation, euler_xyz_deg, scale) tuples — matching the format used
-      by ``CameraPose.asDict`` / Tracker-service scenes.json extrinsics.
-  """
-  fx, fy, cx, cy = intrinsics
-  K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float64)
-  dist = np.zeros(5, dtype=np.float64)
-
-  cam_pts = np.array(camera_points, dtype=np.float32)
-  map_pts = np.array(map_points, dtype=np.float32)
-  if map_pts.ndim == 2 and map_pts.shape[1] == 2:
-    map_pts = np.hstack([map_pts, np.zeros((map_pts.shape[0], 1), dtype=np.float32)])
-
-  _, rvec, tvec = cv2.solvePnP(map_pts, cam_pts, K, dist, flags=cv2.SOLVEPNP_ITERATIVE)
-  rmat = cv2.Rodrigues(rvec)[0]
-  pose_mat = np.linalg.inv(np.vstack([np.hstack([rmat, tvec]), [0, 0, 0, 1]]))
-  translation = pose_mat[:3, 3].tolist()
-  euler_deg = Rotation.from_matrix(pose_mat[:3, :3]).as_euler("XYZ", degrees=True).tolist()
-  scale = [1.0, 1.0, 1.0]
-  return translation, euler_deg, scale
-
-
-def _to_tracker_service_scenes(scene_config: dict) -> List[Dict[str, Any]]:
-  """Build a Tracker-service scenes.json array from dataset scene config.
-
-  The Tracker service (C++ binary) expects a JSON *array* of scene objects,
-  each camera carrying solved ``extrinsics`` (translation, XYZ Euler degrees,
-  scale).  Intrinsics use the nested ``distortion`` sub-object format defined
-  in ``tracker/schema/scene.schema.json``.
-
-  Args:
-      scene_config: Scene configuration in dataset-specific format.
-
-  Returns:
-      JSON-serialisable list suitable for writing to scenes.json.
-  """
-  scene_uid = scene_config.get("uid") or scene_config["name"]
-
-  cameras = []
-  sensors = scene_config.get("sensors", {})
-  if isinstance(sensors, dict):
-    for cam_name, info in sensors.items():
-      fx, fy, cx, cy = info["intrinsics"]
-      cam_pts = info.get("camera points", [])
-      map_pts = info.get("map points", [])
-      translation, euler_deg, scale = _solve_pnp(cam_pts, map_pts, info["intrinsics"])
-      cameras.append({
-          "uid": cam_name,
-          "name": cam_name,
-          "intrinsics": {
-              "fx": fx, "fy": fy, "cx": cx, "cy": cy,
-              "distortion": {"k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0},
-          },
-          "extrinsics": {
-              "translation": translation,
-              "rotation": euler_deg,
-              "scale": scale,
-          },
-      })
-
-  return [{"uid": scene_uid, "name": scene_config["name"], "cameras": cameras}]
 
 
 def _build_tracker_service_config(
     broker_name: str,
-    scenes_container_path: str,
+    manager_name: str,
+    manager_port: int,
     tracker_cfg: Dict[str, Any],
 ) -> Dict[str, Any]:
   """Build the full config.json for the Tracker service container.
 
-  The Tracker service always operates with time-chunking enabled.  Tracking
-  parameters are mapped from the dataset tracker-config.json format.
+  Scene config is loaded via the mock Manager REST API (``scenes.source: api``),
+  matching the production deployment path exactly.
 
   Args:
-      broker_name:           Hostname of the MQTT broker inside the Docker
-                             network (e.g. ``"black_box_harness_broker_<id>"``).
-      scenes_container_path: Absolute path to scenes.json *inside* the
-                             container.
-      tracker_cfg:           Parsed contents of tracker-config.json from the
-                             dataset.
+      broker_name:  Hostname of the MQTT broker inside the Docker network.
+      manager_name: Hostname of the mock Manager container inside the Docker
+                    network.
+      manager_port: Host port the mock Manager REST server is listening on.
+      tracker_cfg:  Parsed contents of tracker-config.json from the dataset.
 
   Returns:
       Config dict ready to be JSON-serialised as config.json.
   """
-
   tracking_cfg = tracker_cfg.get("tracking", tracker_cfg)
   return {
       "infrastructure": {
@@ -286,10 +160,13 @@ def _build_tracker_service_config(
               "port": 1883,
               "insecure": True,
           },
+          "manager": {
+              "url": f"http://{manager_name}:{manager_port}",
+              "auth_path": _TRACKER_SVC_AUTH,
+          },
       },
       "scenes": {
-          "source": "file",
-          "file_path": scenes_container_path,
+          "source": "api",
       },
       "tracking": {
           "time_chunking_rate_fps": tracking_cfg.get("time_chunking_rate_fps", 15),
@@ -603,6 +480,26 @@ class BlackBoxHarness(TrackerHarness):
     conf.write_text(_MOSQUITTO_CONF)
     return conf
 
+  def _start_mock_manager(self, net_name: str, manager_name: str) -> Tuple[threading.Thread, int]:
+    """Start the mock Manager REST server in a daemon thread.
+
+    Picks a free port per run so that sequential evaluation configs do not
+    collide on the same port.  The thread is daemonised so it stops
+    automatically when the harness process exits.
+
+    Returns:
+        (thread, port) — the port is passed to containers via ``add_hosts``.
+    """
+    port = _free_port()
+    t = threading.Thread(
+        target=_run_mock_manager,
+        args=(port, self._scene_config),
+        daemon=True,
+    )
+    t.start()
+    print(f"[BlackBoxHarness] Mock Manager REST started on port {port}")
+    return t, port
+
   def _start_containers(
       self,
       tmp_dir: Path,
@@ -610,10 +507,11 @@ class BlackBoxHarness(TrackerHarness):
       host_port: int,
       run_id: str,
   ):
-    """Create Docker network, start broker and tracker containers.
+    """Create Docker network, start broker, mock manager, and tracker containers.
 
-    Selects the correct config format and startup command based on the
-    detected container type (Controller vs Tracker service).
+    Selects the correct startup command based on the detected container type
+    (Controller vs Tracker service).  Both container types load their scene
+    config via the mock Manager REST API.
 
     Returns:
         (broker_container, tracker_container) tuple.
@@ -622,6 +520,10 @@ class BlackBoxHarness(TrackerHarness):
     print(f"[BlackBoxHarness] Created Docker network '{net_name}'")
 
     conf_path = self._build_mosquitto_conf(tmp_dir)
+    manager_name = f"black_box_harness_manager_{run_id}"
+
+    # --- Mock Manager REST server (host thread, reachable via host-gateway) ---
+    _, manager_port = self._start_mock_manager(net_name, manager_name)
 
     # --- Broker ---
     broker_name = f"black_box_harness_broker_{run_id}"
@@ -652,6 +554,11 @@ class BlackBoxHarness(TrackerHarness):
         pass
       raise
 
+    # The mock server thread runs on the host.  Containers reach it via an
+    # --add-host entry that maps manager_name → Docker host gateway IP.
+    host_gateway = self._get_docker_host_gateway(net_name)
+    print(f"[BlackBoxHarness] Mock Manager hostname '{manager_name}' → {host_gateway}:{manager_port}")
+
     # --- Resolve container type (auto-detect if not explicitly set) ---
     container_type = self._container_type or _detect_container_type(self._container_image)
     print(f"[BlackBoxHarness] Container type: {container_type}")
@@ -661,11 +568,13 @@ class BlackBoxHarness(TrackerHarness):
     try:
       if container_type == CONTAINER_TYPE_CONTROLLER:
         tracker_ctr = self._start_controller_container(
-            tmp_dir, net_name, broker_name, tracker_name
+            tmp_dir, net_name, broker_name, tracker_name,
+            manager_name, host_gateway, manager_port,
         )
       else:
         tracker_ctr = self._start_tracker_service_container(
-            tmp_dir, net_name, broker_name, tracker_name
+            tmp_dir, net_name, broker_name, tracker_name,
+            manager_name, host_gateway, manager_port,
         )
     except Exception:
       try:
@@ -683,37 +592,43 @@ class BlackBoxHarness(TrackerHarness):
 
     return broker_ctr, tracker_ctr
 
+  def _get_docker_host_gateway(self, net_name: str) -> str:
+    """Return the IP of the Docker host gateway for the given network."""
+    info = docker.network.inspect(net_name)
+    try:
+      return info.ipam.config[0]["Gateway"]
+    except (KeyError, IndexError, TypeError):
+      return "host-gateway"
+
   def _start_controller_container(
       self,
       tmp_dir: Path,
       net_name: str,
       broker_name: str,
       tracker_name: str,
+      manager_name: str,
+      host_gateway: str,
+      manager_port: int,
   ):
-    """Start a Controller container (controller-cmd) with file-based scene config.
+    """Start a Controller container using the mock Manager REST API.
 
-    Writes config.json with ``camera points``/``map points`` directly in
-    each camera dict so ``Camera.__init__`` constructs a
-    ``PointCorrespondenceTransform`` (solvePnP).  Dataset timestamps are
-    sent as-is so that frames from two cameras sharing the same timestamp
-    produce outputs at the same timestamp and can be merged correctly by
-    ``--max_lag 1e15`` prevents the
-    controller from dropping historical (e.g. 2014-era) dataset timestamps.
+    Passes ``--resturl http://<manager>/api/v1`` so the Controller uses
+    ``RestSceneDataSource`` — identical to the production path.
+    ``--restauth harness:harness`` supplies credentials; the mock server
+    accepts any username/password.  ``--maxlag 1e15`` allows historical
+    dataset timestamps.
 
     Returns:
         Running controller container.
     """
-    controller_cfg = _to_controller_config(self._scene_config)
-    if self._scene_id == self._scene_config.get("name"):
-      self._scene_id = controller_cfg["uid"]
-    config_file = tmp_dir / "config.json"
-    with open(config_file, "w") as f:
-      json.dump(controller_cfg, f, indent=2)
+    manager_url = f"http://{manager_name}:{manager_port}/api/v1"
+    rest_auth   = f"{_MOCK_MANAGER_USER}:{_MOCK_MANAGER_PASSWORD}"
 
     return docker.run(
         self._container_image,
         command=[
-            "--data_source",        _CONTAINER_CONFIG,
+            "--resturl",            manager_url,
+            "--restauth",           rest_auth,
             "--broker",             broker_name,
             "--tracker_config_file", _CONTAINER_TRACKER_CONFIG,
             "--maxlag",             "1e15",
@@ -721,8 +636,8 @@ class BlackBoxHarness(TrackerHarness):
         ],
         name=tracker_name,
         networks=[net_name],
+        add_hosts=[(manager_name, host_gateway)],
         volumes=[
-            (str(config_file),               _CONTAINER_CONFIG,         "ro"),
             (str(self._tracker_config_path), _CONTAINER_TRACKER_CONFIG, "ro"),
         ],
         detach=True,
@@ -735,14 +650,15 @@ class BlackBoxHarness(TrackerHarness):
       net_name: str,
       broker_name: str,
       tracker_name: str,
+      manager_name: str,
+      host_gateway: str,
+      manager_port: int,
   ):
-    """Start a Tracker service container (/scenescape/tracker) with file scenes.
+    """Start a Tracker service container using the mock Manager REST API.
 
-    The Tracker service always uses time-chunking.  Camera extrinsics are
-    pre-solved from the dataset's point correspondences via ``_solve_pnp``.
-    ``max_lag_s`` is set to a very large value so historical dataset timestamps
-    pass through unchanged, matching the ``--maxlag 1e15`` approach used for
-    the controller container.
+    Uses ``scenes.source: api`` pointing at the mock Manager container,
+    matching the production deployment path.  A JSON auth file is written
+    to the workspace and mounted read-only into the container.
 
     Returns:
         Running tracker service container.
@@ -750,13 +666,15 @@ class BlackBoxHarness(TrackerHarness):
     with open(self._tracker_config_path) as f:
       tracker_cfg = json.load(f)
 
-    scenes = _to_tracker_service_scenes(self._scene_config)
-    scenes_file = tmp_dir / "scenes.json"
-    with open(scenes_file, "w") as f:
-      json.dump(scenes, f, indent=2)
+    # Auth file consumed by the Tracker Service's api_scene_loader
+    auth_file = tmp_dir / "manager_auth.json"
+    auth_file.write_text(json.dumps({
+        "user": _MOCK_MANAGER_USER,
+        "password": _MOCK_MANAGER_PASSWORD,
+    }))
 
     svc_config = _build_tracker_service_config(
-        broker_name, _TRACKER_SVC_SCENES, tracker_cfg
+        broker_name, manager_name, manager_port, tracker_cfg
     )
     svc_config_file = tmp_dir / "tracker_svc_config.json"
     with open(svc_config_file, "w") as f:
@@ -771,9 +689,10 @@ class BlackBoxHarness(TrackerHarness):
         ],
         name=tracker_name,
         networks=[net_name],
+        add_hosts=[(manager_name, host_gateway)],
         volumes=[
             (str(svc_config_file), _TRACKER_SVC_CONFIG, "ro"),
-            (str(scenes_file),     _TRACKER_SVC_SCENES, "ro"),
+            (str(auth_file),       _TRACKER_SVC_AUTH,   "ro"),
         ],
         detach=True,
         remove=False,
@@ -932,6 +851,7 @@ class BlackBoxHarness(TrackerHarness):
     """Write output frames to the configured output folder."""
     if not self._output_folder:
       return
+    self._output_folder.mkdir(parents=True, exist_ok=True)
     out_file = tmp_dir / "outputs.json"
     with open(out_file, "w") as f:
       json.dump(outputs, f)

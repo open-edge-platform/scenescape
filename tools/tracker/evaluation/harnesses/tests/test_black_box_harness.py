@@ -25,9 +25,6 @@ from harnesses.black_box_harness.black_box_harness import (
     _free_port,
     _merge_outputs_by_timestamp,
     _parse_ts,
-    _solve_pnp,
-    _to_controller_config,
-    _to_tracker_service_scenes,
 )
 
 
@@ -314,7 +311,8 @@ class TestProcessInputsFlow:
   @pytest.fixture(autouse=True)
   def mock_wait_for_port(self):
     """Prevent real TCP probes during unit tests."""
-    with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"):
+    with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"), \
+         patch("harnesses.black_box_harness.black_box_harness._run_mock_manager"):
       yield
   @pytest.fixture
   def configured_harness(self, harness, scene_config, tracker_config_file):
@@ -526,7 +524,8 @@ class TestTimestampPacing:
   @pytest.fixture(autouse=True)
   def mock_wait_for_port(self):
     """Prevent real TCP probes during unit tests."""
-    with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"):
+    with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"), \
+         patch("harnesses.black_box_harness.black_box_harness._run_mock_manager"):
       yield
 
   @patch("harnesses.black_box_harness.black_box_harness.docker")
@@ -571,120 +570,6 @@ class TestTimestampPacing:
     assert len(pacing_sleeps) > 0, "Expected at least one pacing sleep"
     for s in pacing_sleeps:
       assert s <= 0.6, f"Sleep {s}s too large for 2× playback of 1s delta"
-
-
-# ---------------------------------------------------------------------------
-# Scene config helpers — unit tests (no Docker)
-# ---------------------------------------------------------------------------
-
-# Minimal calibration data matching the Retail_Demo dataset structure
-_CAM_POINTS = [[201, 119], [592, 118], [781, 579], [2, 579]]
-_MAP_POINTS  = [[3, 15, 0], [10, 15, 0], [10, 5, 0], [3, 5, 0]]
-_INTRINSICS  = [964.24, 964.63, 400.0, 300.0]
-
-_SCENE_WITH_SENSORS = {
-    "name": "Retail_Demo",
-    "uid": "Retail_Demo",
-    "map": "map.png",
-    "scale": 38.1,
-    "sensors": {
-        "Cam_x1_0": {
-            "intrinsics": _INTRINSICS,
-            "width": 800.0,
-            "height": 600.0,
-            "camera points": _CAM_POINTS,
-            "map points": _MAP_POINTS,
-        },
-    },
-}
-
-
-class TestSolvePnP:
-  """_solve_pnp should return plausible camera extrinsics."""
-
-  def test_returns_three_lists(self):
-    t, r, s = _solve_pnp(_CAM_POINTS, _MAP_POINTS, _INTRINSICS)
-    assert isinstance(t, list) and len(t) == 3
-    assert isinstance(r, list) and len(r) == 3
-    assert isinstance(s, list) and len(s) == 3
-
-  def test_scale_is_unit(self):
-    _, _, s = _solve_pnp(_CAM_POINTS, _MAP_POINTS, _INTRINSICS)
-    assert s == [1.0, 1.0, 1.0]
-
-  def test_translation_in_plausible_range(self):
-    # Camera is above the ground (z > 0) and within tens of metres
-    t, _, _ = _solve_pnp(_CAM_POINTS, _MAP_POINTS, _INTRINSICS)
-    assert t[2] > 0, "Camera z (height) should be positive"
-    assert all(abs(v) < 100 for v in t), f"Implausibly large translation: {t}"
-
-  def test_2d_map_points_accepted(self):
-    map_pts_2d = [[pt[0], pt[1]] for pt in _MAP_POINTS]
-    t, r, s = _solve_pnp(_CAM_POINTS, map_pts_2d, _INTRINSICS)
-    assert len(t) == 3
-
-
-class TestToControllerConfig:
-  """_to_controller_config should embed camera/map points directly."""
-
-  def test_has_camera_and_map_points_in_camera_dict(self):
-    cfg = _to_controller_config(_SCENE_WITH_SENSORS)
-    cam = cfg["cameras"][0]
-    assert "camera points" in cam
-    assert "map points" in cam
-
-  def test_no_transforms_array(self):
-    cfg = _to_controller_config(_SCENE_WITH_SENSORS)
-    cam = cfg["cameras"][0]
-    assert "transforms" not in cam
-    assert "transform_type" not in cam
-
-  def test_uid_propagated(self):
-    cfg = _to_controller_config(_SCENE_WITH_SENSORS)
-    assert cfg["uid"] == "Retail_Demo"
-    assert cfg["cameras"][0]["scene"] == "Retail_Demo"
-
-  def test_intrinsics_dict(self):
-    cfg = _to_controller_config(_SCENE_WITH_SENSORS)
-    intr = cfg["cameras"][0]["intrinsics"]
-    assert all(k in intr for k in ("fx", "fy", "cx", "cy"))
-
-  def test_no_sensors_produces_empty_cameras(self):
-    cfg = _to_controller_config({"name": "Empty", "uid": "empty"})
-    assert cfg["cameras"] == []
-
-
-class TestToTrackerServiceScenes:
-  """_to_tracker_service_scenes should produce valid Tracker-service scenes."""
-
-  def test_returns_list_with_one_scene(self):
-    scenes = _to_tracker_service_scenes(_SCENE_WITH_SENSORS)
-    assert isinstance(scenes, list) and len(scenes) == 1
-
-  def test_scene_has_required_keys(self):
-    scene = _to_tracker_service_scenes(_SCENE_WITH_SENSORS)[0]
-    assert all(k in scene for k in ("uid", "name", "cameras"))
-
-  def test_camera_has_extrinsics(self):
-    cam = _to_tracker_service_scenes(_SCENE_WITH_SENSORS)[0]["cameras"][0]
-    assert "extrinsics" in cam
-    ext = cam["extrinsics"]
-    assert all(k in ext for k in ("translation", "rotation", "scale"))
-
-  def test_camera_intrinsics_nested_distortion(self):
-    cam = _to_tracker_service_scenes(_SCENE_WITH_SENSORS)[0]["cameras"][0]
-    intr = cam["intrinsics"]
-    assert "distortion" in intr
-    assert all(k in intr["distortion"] for k in ("k1", "k2", "p1", "p2"))
-
-  def test_no_transforms_key(self):
-    cam = _to_tracker_service_scenes(_SCENE_WITH_SENSORS)[0]["cameras"][0]
-    assert "transforms" not in cam
-    assert "transform_type" not in cam
-
-  def test_no_sensors_produces_empty_cameras(self):
-    scenes = _to_tracker_service_scenes({"name": "Empty", "uid": "empty"})
-    assert scenes[0]["cameras"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -769,7 +654,8 @@ class TestTimestampRewriting:
 
   @pytest.fixture(autouse=True)
   def mock_wait_for_port(self):
-    with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"):
+    with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"), \
+         patch("harnesses.black_box_harness.black_box_harness._run_mock_manager"):
       yield
 
   def _run_and_get_payloads(self, harness, sample_frames, container_type):
