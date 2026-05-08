@@ -18,7 +18,7 @@ harness:
   config:
     broker_image: eclipse-mosquitto:2.0.22
     container_image: scenescape-tracker:2026.1.0-dev
-    tracker_config_path: ../../../tracker/config/tracker.json
+    tracker_config_path: config/tracker.json
     startup_wait_s: 5.0
     # playback_rate: 1.0
     # drain_timeout: 5.0
