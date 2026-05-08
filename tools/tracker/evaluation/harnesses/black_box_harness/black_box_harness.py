@@ -40,10 +40,9 @@ Supported container types
 
 Timestamp synchronisation
 -------------------------
-Consecutive input frames are published with a wall-clock delay equal to the
-delta between their ISO 8601 timestamps multiplied by ``1 / playback_rate``.
-This reproduces the original capture cadence so the tracker's internal timing
-(object ageing, time-chunking) sees a realistic frame rate.
+Consecutive input frames are published as fast as possible.
+Both container types accept historical dataset timestamps via ``maxlag``/``max_lag_s``,
+so no pacing is required for correctness.
 
 Topics (from scene_common.mqtt.PubSub templates)
 -------------------------------------------------
@@ -60,7 +59,6 @@ Optional:
                            from image metadata when omitted.
   scene_id        (str):   scene uid used to build the output topic;
                            defaults to config['uid'] from set_scene_config().
-  playback_rate   (float): speed multiplier for frame injection (default 1.0).
   drain_timeout   (float): idle timeout — seconds with no new output messages before
                            outputs to arrive (default 5.0).
   broker_image    (str):   mosquitto Docker image (required, e.g. "eclipse-mosquitto:2.0.22").
@@ -124,7 +122,6 @@ CONTAINER_TYPE_TRACKER    = "tracker"
 
 
 DEFAULT_DRAIN_TIMEOUT  = 5.0   # seconds of silence after last received message before stopping
-DEFAULT_PLAYBACK_RATE  = 1.0   # 1.0 = real-time, 2.0 = 2× speed
 DEFAULT_STARTUP_WAIT   = 2.0   # seconds to wait after container start before publishing frames
 
 
@@ -307,7 +304,6 @@ class BlackBoxHarness(TrackerHarness):
     self._scene_id: Optional[str] = None
     self._tracker_config_path: Optional[str] = None
     self._container_type: Optional[str] = None  # auto-detected when None
-    self._playback_rate: float  = DEFAULT_PLAYBACK_RATE
     self._drain_timeout: float  = DEFAULT_DRAIN_TIMEOUT
     self._startup_wait_s: float = DEFAULT_STARTUP_WAIT
     self._broker_image: str     = ""
@@ -364,7 +360,6 @@ class BlackBoxHarness(TrackerHarness):
             f"'{CONTAINER_TYPE_TRACKER}', got: {ct!r}"
         )
       self._container_type = ct
-    self._playback_rate  = float(config.get("playback_rate",  DEFAULT_PLAYBACK_RATE))
     self._drain_timeout  = float(config.get("drain_timeout",  DEFAULT_DRAIN_TIMEOUT))
     self._startup_wait_s = float(config.get("startup_wait_s", DEFAULT_STARTUP_WAIT))
     if "broker_image" not in config:
@@ -457,7 +452,6 @@ class BlackBoxHarness(TrackerHarness):
     self._scene_id           = None
     self._tracker_config_path = None
     self._container_type     = None
-    self._playback_rate      = DEFAULT_PLAYBACK_RATE
     self._drain_timeout      = DEFAULT_DRAIN_TIMEOUT
     self._startup_wait_s     = DEFAULT_STARTUP_WAIT
     self._output_folder      = None
@@ -801,28 +795,10 @@ class BlackBoxHarness(TrackerHarness):
     # Allow subscription to be established
     time.sleep(0.5)
 
-    # --- Publish frames paced by absolute wall-clock offset from session start ---
-    # Mirrors tests/system/metric/tc_tracker_metric.py:
-    #   expected_time = start_time + (frame_count * frame_interval)
-    #   sleep_time = expected_time - current_time
-    # Using absolute offsets avoids error accumulation from per-frame delta timing.
-    session_start_wall: Optional[float] = None
-    session_start_data: Optional[float] = None
-
+    # --- Publish frames as fast as possible ---
+    # Both container types accept historical dataset timestamps (maxlag/max_lag_s=1e15),
+    # so no wall-clock pacing is required.
     for frame in frames:
-      ts_str = frame.get("timestamp")
-      if ts_str:
-        frame_ts = _parse_ts(ts_str)
-        if session_start_wall is None:
-          session_start_wall = time.monotonic()
-          session_start_data = frame_ts
-        else:
-          data_offset = frame_ts - session_start_data
-          expected_wall = session_start_wall + data_offset / self._playback_rate
-          sleep_for = expected_wall - time.monotonic()
-          if sleep_for > 0:
-            time.sleep(sleep_for)
-
       cam_id = frame.get("id", "")
       topic  = _TOPIC_DATA_CAMERA.format(camera_id=cam_id)
       client.publish(topic, json.dumps(frame))

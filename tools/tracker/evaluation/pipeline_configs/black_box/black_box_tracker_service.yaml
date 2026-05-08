@@ -19,8 +19,7 @@ harness:
     broker_image: eclipse-mosquitto:2.0.22
     container_image: scenescape-tracker:2026.1.0-dev
     tracker_config_path: pipeline_configs/black_box/config/tracker.json
-    startup_wait_s: 5.0
-    # playback_rate: 1.0
+    # startup_wait_s: 5.0
     # drain_timeout: 5.0
 
 evaluators:

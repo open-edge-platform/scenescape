@@ -20,7 +20,6 @@ harness:
     container_image: scenescape-controller:2026.1.0-dev
     tracker_config_path: ../../../tests/system/metric/dataset/tracker-config-time-chunking.json
     # startup_wait_s: 2.0
-    # playback_rate: 1.0
     # drain_timeout: 5.0
 
 evaluators:

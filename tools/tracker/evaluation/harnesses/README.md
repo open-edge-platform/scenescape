@@ -191,7 +191,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 
 - Starts an `eclipse-mosquitto` broker container and the tracker container on an isolated Docker network (`black_box_harness_{run_id}`); both containers and the network are removed after the run.
 - Publishes each input frame to `scenescape/data/camera/{camera_id}` and collects tracker outputs from `scenescape/data/scene/{scene_id}/+`.
-- Timestamp-based pacing: waits `delta_data / playback_rate - elapsed_wall` seconds between frames so the tracker receives data at realistic intervals.
+- Publishes input frames to the tracker as fast as possible. Both container types accept historical dataset timestamps via `maxlag`/`max_lag_s=1e15`, so no wall-clock pacing is required.
 - Persists `inputs.json` and `outputs.json` to the output folder when `set_output_folder()` is called, creating the directory automatically if it does not exist.
 - Supports both **Controller** (`scenescape-controller`) and **Tracker Service** (`scenescape-tracker`) container types, auto-detected from the image metadata or set explicitly via `container_type`.
 - Runs a **Mock Manager REST API** (`mock_manager.py`) on the Docker host so both container types can load scene configuration without a real Manager deployment.
@@ -218,7 +218,6 @@ harness.set_custom_config({
     "tracker_config_path": "/path/to/tracker-config.json",
     # Optional overrides:
     # "container_type": "controller",  # or "tracker" — auto-detected when omitted
-    # "playback_rate": 1.0,            # Real-time pacing multiplier
     # "drain_timeout": 5.0,            # Seconds to wait after last frame
     # "broker_image": "eclipse-mosquitto:2.0.22",
     # "scene_id": "my-scene-uid",      # Override UID from scene config
@@ -234,7 +233,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 | `tracker_config_path` | Yes      | —                               | Path to tracker config JSON, mounted into the tracker container      |
 | `broker_image`        | Yes      | —                               | Docker image for the MQTT broker (e.g. `"eclipse-mosquitto:2.0.22"`) |
 | `container_type`      | No       | auto-detect from image metadata | `"controller"` or `"tracker"` — force container type                 |
-| `playback_rate`       | No       | `1.0`                           | Publish pacing multiplier (e.g., `2.0` = 2× faster than real-time)   |
+
 | `drain_timeout`       | No       | `5.0`                           | Seconds to wait for remaining tracker outputs after the last frame   |
 | `scene_id`            | No       | derived from scene config `uid` | Override the MQTT topic scene ID                                     |
 | `startup_wait_s`      | No       | `2.0`                           | Seconds to wait after container starts before publishing frames      |

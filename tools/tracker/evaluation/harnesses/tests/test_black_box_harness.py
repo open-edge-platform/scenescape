@@ -19,7 +19,6 @@ from harnesses.black_box_harness.black_box_harness import (
     CONTAINER_TYPE_CONTROLLER,
     CONTAINER_TYPE_TRACKER,
     DEFAULT_DRAIN_TIMEOUT,
-    DEFAULT_PLAYBACK_RATE,
     DEFAULT_STARTUP_WAIT,
     _detect_container_type,
     _free_port,
@@ -138,7 +137,6 @@ class TestInitialisation:
     assert harness._scene_config is None
     assert harness._scene_id is None
     assert harness._tracker_config_path is None
-    assert harness._playback_rate == DEFAULT_PLAYBACK_RATE
     assert harness._drain_timeout == DEFAULT_DRAIN_TIMEOUT
     assert harness._startup_wait_s == DEFAULT_STARTUP_WAIT
     assert harness._output_folder is None
@@ -183,14 +181,6 @@ class TestSetCustomConfig:
     })
     assert result is harness
     assert harness._tracker_config_path == tracker_config_file
-
-  def test_overrides_playback_rate(self, harness, tracker_config_file):
-    harness.set_custom_config({
-        "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
-        "playback_rate": 2.0,
-    })
-    assert harness._playback_rate == 2.0
 
   def test_overrides_drain_timeout(self, harness, tracker_config_file):
     harness.set_custom_config({
@@ -266,14 +256,12 @@ class TestReset:
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
-        "playback_rate": 3.0,
     })
     harness.set_output_folder(tmp_path)
     harness.reset()
     assert harness._scene_config is None
     assert harness._scene_id is None
     assert harness._tracker_config_path is None
-    assert harness._playback_rate == DEFAULT_PLAYBACK_RATE
     assert harness._drain_timeout == DEFAULT_DRAIN_TIMEOUT
     assert harness._startup_wait_s == DEFAULT_STARTUP_WAIT
     assert harness._output_folder is None
@@ -321,7 +309,6 @@ class TestProcessInputsFlow:
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
         "drain_timeout": 0.1,  # fast test
-        "playback_rate": 100.0,  # skip real-time waiting
     })
     return harness
 
@@ -515,64 +502,6 @@ class TestProcessInputsFlow:
 
 
 # ---------------------------------------------------------------------------
-# Timestamp pacing
-# ---------------------------------------------------------------------------
-
-class TestTimestampPacing:
-  """Verify that inter-frame sleep respects timestamp deltas and playback_rate."""
-
-  @pytest.fixture(autouse=True)
-  def mock_wait_for_port(self):
-    """Prevent real TCP probes during unit tests."""
-    with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"), \
-         patch("harnesses.black_box_harness.black_box_harness._run_mock_manager"):
-      yield
-
-  @patch("harnesses.black_box_harness.black_box_harness.docker")
-  @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")
-  def test_pacing_respects_playback_rate(
-      self, MockMqttClient, mock_docker, harness, scene_config, tracker_config_file
-  ):
-    """At 2× rate, sleep durations are halved relative to timestamp deltas."""
-    harness.set_scene_config(scene_config)
-    harness.set_custom_config({
-        "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
-        "drain_timeout": 0.0,
-        "playback_rate": 2.0,
-    })
-
-    frames = [
-        {"id": "Cam_x1_0", "timestamp": "2014-09-08T04:00:00.000Z", "frame": 1, "objects": {}},
-        {"id": "Cam_x1_0", "timestamp": "2014-09-08T04:00:01.000Z", "frame": 2, "objects": {}},
-    ]
-
-    mock_client_instance = MagicMock()
-    MockMqttClient.return_value = mock_client_instance
-    mock_docker.network.create = MagicMock()
-    mock_docker.network.remove = MagicMock()
-    mock_docker.run = MagicMock(return_value=MagicMock())
-
-    sleep_calls = []
-
-    def recording_sleep(t):
-      sleep_calls.append(t)
-      # Don't actually sleep — instant test
-      pass
-
-    with patch("harnesses.black_box_harness.black_box_harness.time.sleep", side_effect=recording_sleep):
-      list(harness.process_inputs(iter(frames)))
-
-    # The 1-second inter-frame gap / rate=2.0 → expected sleep ≈ 0.5s.
-    # Startup sleeps (broker ready: 1.0s, tracker ready: 2.0s) are also
-    # captured; filter those out by ignoring sleeps >= 1.0s.
-    pacing_sleeps = [s for s in sleep_calls if 0 < s < 1.0]
-    assert len(pacing_sleeps) > 0, "Expected at least one pacing sleep"
-    for s in pacing_sleeps:
-      assert s <= 0.6, f"Sleep {s}s too large for 2× playback of 1s delta"
-
-
-# ---------------------------------------------------------------------------
 # Container type detection
 # ---------------------------------------------------------------------------
 
@@ -678,7 +607,6 @@ class TestTimestampRewriting:
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
         "drain_timeout": 0.0,
-        "playback_rate": 100.0,
         "container_type": CONTAINER_TYPE_TRACKER,
     })
     payloads = self._run_and_get_payloads(harness, sample_frames, CONTAINER_TYPE_TRACKER)
@@ -694,7 +622,6 @@ class TestTimestampRewriting:
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
         "drain_timeout": 0.0,
-        "playback_rate": 100.0,
         "container_type": CONTAINER_TYPE_CONTROLLER,
     })
     payloads = self._run_and_get_payloads(harness, sample_frames, CONTAINER_TYPE_CONTROLLER)
@@ -801,7 +728,6 @@ class TestPersistOutputs:
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
         "drain_timeout": 0.1,
-        "playback_rate": 100.0,
     })
     # Set a folder that does not exist yet (nested)
     out_dir = tmp_path / "new" / "nested" / "harness"
@@ -867,7 +793,6 @@ class TestTrackerServiceAuthFile:
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
         "drain_timeout": 0.0,
-        "playback_rate": 100.0,
         "container_type": "tracker",
     })
 
