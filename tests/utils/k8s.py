@@ -15,10 +15,13 @@ import base64
 import json
 import logging
 import os
+import re
 import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from pytest_kubernetes.providers.kind import KindManagerBase
+from pytest_kubernetes.options import ClusterOptions
 
 logger = logging.getLogger("test.k8s")
 
@@ -47,21 +50,65 @@ _SCENESCAPE_IMAGES = [
   "scenescape-mapping",
 ]
 
-# External images needed by helm chart hooks and deployments.
-# These must be pre-pulled on the host and loaded into KinD.
-_EXTERNAL_IMAGES = [
-  "docker.io/busybox:1.37.0",
-  "docker.io/python:3.13-slim",
-  "docker.io/ubuntu:22.04",
-  "docker.io/linuxserver/ffmpeg:version-8.0-cli",
-  "docker.io/postgres:17.6",
-  "docker.io/eclipse-mosquitto:2.0.22",
-  "docker.io/dockurr/chrony:4.8",
-  "docker.io/curlimages/curl:8.17.0",
-  "docker.io/bluenviron/mediamtx:1.14.0",
-  "docker.io/intellabs/vdms:v2.12.0",
-  "docker.io/intel/dlstreamer-pipeline-server:2026.1.0-20260414-weekly-ubuntu24",
-]
+# Regex for a valid Docker image reference.
+_DOCKER_IMAGE_RE = re.compile(
+  r'^[a-zA-Z0-9][a-zA-Z0-9._/-]*(?::[a-zA-Z0-9._\-]+)?(?:@sha256:[a-f0-9]+)?$'
+)
+
+
+def _get_chart_external_images(chart_path, supass):
+  """Derive external images by rendering the Helm chart.
+
+  Runs ``helm template`` with the test values, extracts every ``image:``
+  field from the rendered YAML, reconstructs the kubeclient dynamic image
+  from its HELM_REPO/HELM_IMAGE/HELM_TAG environment variables, normalises
+  the ``docker.io/`` registry prefix, and returns images that are not
+  SceneScape-built (i.e. do not match ``intel/scenescape-``).
+  """
+  result = subprocess.run(
+    [
+      "helm", "template", _RELEASE_NAME, chart_path,
+      "--set", f"supass={supass}",
+      "--set", f"pgserver.password={supass}",
+      "--set", "hooks.enabled=true",
+    ],
+    capture_output=True, text=True, check=True,
+  )
+  text = result.stdout
+
+  images = set()
+
+  # Collect all YAML "image: <value>" occurrences.
+  for match in re.finditer(r'^\s+(?:- )?image: (\S+)', text, re.MULTILINE):
+    images.add(match.group(1).strip())
+
+  # Kubeclient spawns pipeline-server pods via env vars; reconstruct the
+  # full image reference from HELM_REPO + HELM_IMAGE + HELM_TAG.
+  repo = re.search(r'name: HELM_REPO\n\s+value:\s+(\S+)', text)
+  img = re.search(r'name: HELM_IMAGE\n\s+value:\s+(\S+)', text)
+  tag = re.search(r'name: HELM_TAG\n\s+value:\s+(\S+)', text)
+  if repo and img and tag:
+    images.add(
+      f'{repo.group(1).strip()}/{img.group(1).strip()}:{tag.group(1).strip()}'
+    )
+
+  # Normalise: add docker.io/ prefix when the first path component contains
+  # no dot (i.e. is not already a hostname/registry).
+  # Strip any tag suffix from the first component before checking.
+  normalised = set()
+  for image in images:
+    if not _DOCKER_IMAGE_RE.match(image):
+      continue
+    parts = image.split('/')
+    first_part = parts[0].split(':')[0]  # strip tag before dot-check
+    if '.' not in first_part:
+      image = 'docker.io/' + image
+    normalised.add(image)
+
+  # Filter out locally-built SceneScape images (handled separately).
+  external = sorted(img for img in normalised if 'intel/scenescape-' not in img)
+  logger.debug("Chart external images: %s", external)
+  return external
 
 
 def _run(cmd, **kwargs):
@@ -100,7 +147,7 @@ class K8sScenescapeEnv:
 
   def restore_db(self):
     """Restore the database to baseline state via kubectl exec."""
-    web_pod = self._get_pod_name("web")
+    web_pod = self._get_pod_name(f"{self.release_name}-web")
     manage = "$SCENESCAPE_HOME/manage.py"
 
     self._kubectl_exec(web_pod, f"python {manage} flush --no-input")
@@ -125,11 +172,13 @@ class K8sScenescapeEnv:
     # Restart scene controller to refresh cache.
     logger.info("Restarting scene controller...")
     _run([
-      "kubectl", "rollout", "restart", "deployment/scene",
+      "kubectl", "rollout", "restart",
+      f"deployment/{self.release_name}-scene-dep",
       "-n", self.namespace, "--kubeconfig", self.kubeconfig,
     ])
     _run([
-      "kubectl", "rollout", "status", "deployment/scene",
+      "kubectl", "rollout", "status",
+      f"deployment/{self.release_name}-scene-dep",
       "-n", self.namespace, "--kubeconfig", self.kubeconfig,
       "--timeout=120s",
     ])
@@ -175,7 +224,6 @@ class K8sManager:
     self._cluster = None
     self._port_forwards = []  # PortForwarding objects
     self._env = None
-    self._models_preloaded = False
 
     # Populated during setup
     self.auth_file = None
@@ -186,14 +234,6 @@ class K8sManager:
 
   def setup(self):
     """Create KinD cluster, deploy Helm chart, set up port-forwarding."""
-    try:
-      from pytest_kubernetes.providers.kind import KindManagerBase
-      from pytest_kubernetes.options import ClusterOptions
-    except ImportError:
-      raise RuntimeError(
-        "pytest-kubernetes is required for --backend=kubernetes. "
-        "Install it: pip install pytest-kubernetes"
-      )
 
     logger.info("=" * 60)
     logger.info("Setting up Kubernetes test environment")
@@ -215,6 +255,14 @@ class K8sManager:
     )
     self.kubeconfig = str(self._cluster.kubeconfig)
     logger.info("KinD cluster created. Kubeconfig: %s", self.kubeconfig)
+
+    # Merge the test cluster context into ~/.kube/config so that
+    # 'kubectl' and k9s work without any extra flags or env vars.
+    subprocess.run(
+      ["kind", "export", "kubeconfig", "--name", "pytest-test-cluster"],
+      check=False, capture_output=True,
+    )
+    logger.info("Test cluster context merged into ~/.kube/config (kind-pytest-test-cluster)")
 
     # Apply ingress resources
     logger.info("Applying ingress resources...")
@@ -247,10 +295,6 @@ class K8sManager:
       cwd=str(_REPO_ROOT / "kubernetes"),
       check=True,
     )
-
-    # Pre-populate models PVC from the host Docker volume so that
-    # DL Streamer pipeline pods can start without downloading models.
-    self._preload_models_pvc()
 
     # Generate values file and deploy Helm chart
     logger.info("Deploying Helm chart...")
@@ -311,6 +355,17 @@ class K8sManager:
       except Exception as exc:
         logger.warning("Failed to delete KinD cluster: %s", exc)
 
+    # Remove the test cluster context from ~/.kube/config.
+    for resource, name in [
+      ("context", "kind-pytest-test-cluster"),
+      ("cluster", "kind-pytest-test-cluster"),
+      ("user", "kind-pytest-test-cluster"),
+    ]:
+      subprocess.run(
+        ["kubectl", "config", "delete-" + resource, name],
+        capture_output=True, check=False,
+      )
+
     logger.info("Kubernetes teardown complete.")
 
   def _wait_for_cert_manager(self):
@@ -344,33 +399,36 @@ class K8sManager:
         logger.warning("Could not tag %s → %s (may already exist)", old_tag, new_tag)
       self._cluster.load_image(new_tag)
 
-    # Pull and load external images needed by helm chart hooks/deployments
-    for image in _EXTERNAL_IMAGES:
+    # Pull and load external images needed by helm chart hooks/deployments.
+    # Strip @sha256:… digests before calling kind load docker-image.
+    external_images = _get_chart_external_images(_CHART_PATH, self._supass)
+    for image in external_images:
       logger.info("Pulling external image %s ...", image)
       try:
         docker.image.pull(image)
       except Exception:
         logger.warning("Could not pull %s (may already exist locally)", image)
-      self._cluster.load_image(image)
+      load_ref = re.sub(r'@sha256:[a-f0-9]+$', '', image)
+      self._cluster.load_image(load_ref)
 
   def _generate_values_file(self):
     """Generate a Helm values.yaml for the test deployment.
 
-    When models have been pre-loaded from the host Docker volume, hooks
-    are disabled so that the model-installer job is skipped (saving
-    significant download time).  When models are not pre-loaded, hooks
-    are enabled so that model-installer downloads them and sample-data
-    is fetched as a pre-install hook.
+    Hooks are always enabled so that sample-data and model-installer
+    run as pre-install hooks (before web/kubeclient start).  This
+    ensures the example DB is loaded and cameras are available when
+    kubeclient calls getCameras().
+    When models are pre-loaded on the PVC, model-installer skips
+    downloads (checks if dirs already exist) so it completes quickly.
     """
     tmp_dir = self._tmp_path_factory.mktemp("k8s_helm")
     values_file = tmp_dir / "values.yaml"
-    hooks_enabled = "false" if self._models_preloaded else "true"
     values_content = (
       f'supass: "{self._supass}"\n'
       f'pgserver:\n'
       f'  password: "{self._supass}"\n'
       f'hooks:\n'
-      f'  enabled: {hooks_enabled}\n'
+      f'  enabled: true\n'
       f'httpProxy: "{os.getenv("HTTP_PROXY", "")}"\n'
       f'httpsProxy: "{os.getenv("HTTPS_PROXY", "")}"\n'
       f'noProxy: "{os.getenv("NO_PROXY", "")}"\n'
@@ -389,11 +447,12 @@ class K8sManager:
     # Install without --wait: some services (NTP, dlstreamer) crash in KinD
     # due to missing capabilities (SYS_TIME) or hardware (GPU). We wait
     # selectively for only the services our tests actually require.
+    # Timeout covers pre-install hooks (model-installer, sample-data).
     _run([
       "helm", "install", _RELEASE_NAME, _CHART_PATH,
       "--namespace", _NAMESPACE,
       "--kubeconfig", self.kubeconfig,
-      "--timeout", "300s",
+      "--timeout", "600s",
       "-f", values_file,
     ])
     logger.info("Helm chart installed. Waiting for core services...")
@@ -439,117 +498,66 @@ class K8sManager:
     # Wait for camera pipeline pods (created dynamically by kubeclient).
     self._wait_for_camera_pods()
 
-  def _preload_models_pvc(self):
-    """Copy OpenVINO models from the host Docker volume into the KinD models PVC.
+    # Wait for DL Streamer to load models and start producing inference.
+    self._wait_for_inference_warmup()
 
-    When Docker-based tests have already downloaded models into the
-    ``scenescape_vol-models`` volume, we reuse them so that the KinD
-    cluster does not need internet access and model-installer can be
-    skipped, saving significant setup time.
+  def _wait_for_inference_warmup(self, timeout: int = 180):
+    """Wait for DL Streamer pipelines to start producing inference results.
+
+    Polls the logs of the first videoppl pod for evidence that the
+    GStreamer pipeline is actively processing frames (indicated by
+    'Running' pipeline state or published MQTT messages).
+    Falls back to a fixed delay if log inspection fails.
     """
-    # Locate the host Docker volume.
+    logger.info("Waiting for DL Streamer inference warmup (up to %ds)...", timeout)
+    # Find a videoppl pod to monitor.
     result = subprocess.run(
-      ["docker", "volume", "inspect", "scenescape_vol-models"],
+      ["kubectl", "get", "pods",
+       "-n", _NAMESPACE,
+       "--kubeconfig", self.kubeconfig,
+       "--no-headers"],
       capture_output=True, text=True,
     )
-    if result.returncode != 0:
-      logger.warning(
-        "Host Docker volume 'scenescape_vol-models' not found; "
-        "model-installer will run during helm install."
-      )
+    videoppl_pods = [
+      line.split()[0]
+      for line in result.stdout.splitlines()
+      if "videoppl" in line and "Running" in line
+    ]
+    if not videoppl_pods:
+      logger.warning("No running videoppl pods found; using fixed warmup delay.")
+      time.sleep(60)
       return
 
-    # Check volume is non-empty without requiring root access to the mountpoint.
-    check = subprocess.run(
-      ["docker", "run", "--rm",
-       "-v", "scenescape_vol-models:/check",
-       "busybox", "sh", "-c", "ls /check | head -1"],
-      capture_output=True, text=True,
-    )
-    if check.returncode != 0 or not check.stdout.strip():
-      logger.warning(
-        "Host models volume is empty; "
-        "model-installer will run during helm install."
-      )
-      return
+    target_pod = videoppl_pods[0]
+    logger.info("Monitoring pod %s for inference activity...", target_pod)
 
-    logger.info("Pre-loading models from host Docker volume into KinD...")
-
-    # Create namespace early so we can create the PVC.
-    subprocess.run([
-      "kubectl", "create", "namespace", _NAMESPACE,
-      "--kubeconfig", self.kubeconfig,
-    ], check=False, capture_output=True)
-
-    # Create the models PVC if it doesn't exist yet.
-    pvc_manifest = (
-      f"apiVersion: v1\nkind: PersistentVolumeClaim\n"
-      f"metadata:\n  name: {_RELEASE_NAME}-models-pvc\n  namespace: {_NAMESPACE}\n"
-      f"spec:\n  accessModes: [ReadWriteOnce]\n"
-      f"  resources:\n    requests:\n      storage: 10Gi\n"
-    )
-    subprocess.run(
-      ["kubectl", "apply", "-f", "-", "--kubeconfig", self.kubeconfig],
-      input=pvc_manifest, text=True, capture_output=True,
-    )
-
-    # Spin up a transient pod that mounts the PVC, copy models into it.
-    loader_pod = f"{_RELEASE_NAME}-model-loader"
-    pod_manifest = (
-      f"apiVersion: v1\nkind: Pod\n"
-      f"metadata:\n  name: {loader_pod}\n  namespace: {_NAMESPACE}\n"
-      f"spec:\n  restartPolicy: Never\n"
-      f"  containers:\n  - name: loader\n    image: docker.io/busybox:1.37.0\n"
-      f"    command: [\"sh\", \"-c\", \"sleep 3600\"]\n"
-      f"    volumeMounts:\n    - name: models\n      mountPath: /models\n"
-      f"  volumes:\n  - name: models\n    persistentVolumeClaim:\n"
-      f"      claimName: {_RELEASE_NAME}-models-pvc\n"
-    )
-    subprocess.run(
-      ["kubectl", "apply", "-f", "-", "--kubeconfig", self.kubeconfig],
-      input=pod_manifest, text=True, check=False, capture_output=True,
-    )
-
-    # Wait for the loader pod to be running.
-    try:
-      _run([
-        "kubectl", "wait", "--for=condition=Ready", f"pod/{loader_pod}",
-        "-n", _NAMESPACE, "--kubeconfig", self.kubeconfig, "--timeout=120s",
-      ])
-    except Exception as exc:
-      logger.warning("Loader pod did not become ready: %s; skipping model preload", exc)
-      subprocess.run(
-        ["kubectl", "delete", "pod", loader_pod, "-n", _NAMESPACE,
-         "--kubeconfig", self.kubeconfig, "--ignore-not-found"],
-        capture_output=True,
-      )
-      return
-
-    # Use docker run to stream volume contents via tar (avoids root access
-    # to /var/lib/docker/volumes), then pipe into the loader pod.
-    try:
-      tar_proc = subprocess.Popen(
-        ["docker", "run", "--rm", "-v", "scenescape_vol-models:/models",
-         "busybox", "tar", "-C", "/models", "-cf", "-", "."],
-        stdout=subprocess.PIPE,
-      )
-      subprocess.run(
-        ["kubectl", "exec", loader_pod, "-n", _NAMESPACE,
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+      logs = subprocess.run(
+        ["kubectl", "logs", target_pod,
+         "-n", _NAMESPACE,
          "--kubeconfig", self.kubeconfig,
-         "--", "tar", "-C", "/models", "-xf", "-"],
-        stdin=tar_proc.stdout, check=True, capture_output=True,
+         "--tail=50"],
+        capture_output=True, text=True,
       )
-      tar_proc.wait()
-      logger.info("Models copied into KinD models PVC successfully.")
-      self._models_preloaded = True
-    except Exception as exc:
-      logger.warning("Failed to copy models into KinD: %s", exc)
-    finally:
-      subprocess.run(
-        ["kubectl", "delete", "pod", loader_pod, "-n", _NAMESPACE,
-         "--kubeconfig", self.kubeconfig, "--ignore-not-found"],
-        capture_output=True,
-      )
+      log_text = logs.stdout
+      # DL Streamer logs "Setting pipeline" or "RUNNING" when the
+      # GStreamer pipeline transitions to the playing state, and
+      # "Objects detected" or publishes to MQTT when inference runs.
+      if any(indicator in log_text for indicator in [
+        "RUNNING", "Objects detected", "publish", "Setting pipeline",
+        "Pipeline running", "pipeline_running",
+      ]):
+        logger.info("Inference activity detected in %s.", target_pod)
+        # Give a small additional buffer for scene controller to receive frames.
+        time.sleep(10)
+        return
+      time.sleep(10)
+
+    logger.warning(
+      "No inference activity detected after %ds. "
+      "DL Streamer may still be loading models. Test may fail.", timeout,
+    )
 
   def _wait_for_camera_pods(self, timeout: int = 300):
     """Wait for at least one camera pipeline pod to be running.
@@ -571,7 +579,7 @@ class K8sManager:
       video_deps = [
         line.split()[0]
         for line in result.stdout.splitlines()
-        if "-video-dep" in line
+        if "videoppl" in line
       ]
       if video_deps:
         logger.info("Camera pods found: %s", video_deps)

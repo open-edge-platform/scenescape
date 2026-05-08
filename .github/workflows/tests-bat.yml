@@ -268,7 +268,7 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/kubernetes --junitxml=reports/k8s_results.xml
+          pytest tests/kubernetes --backend=kubernetes --junitxml=reports/k8s_results.xml
 
       - name: Upload Logs and Reports
         if: always()
