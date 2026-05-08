@@ -58,7 +58,7 @@ class ApriltagRegistration(FunctionalTest):
     """Explicitly POST to the autocalibration service to start scene registration"""
 
     url = f"{BASE_URL}/v1/scenes/{self.scene_id}/registration"
-    r = requests.post(url, json={}, verify=VERIFY_CERT)
+    r = requests.post(url, json={}, verify=VERIFY_CERT, timeout=10)
     assert r.status_code in (200, 202), \
       f"POST registration returned {r.status_code}: {r.text}"
 
@@ -77,19 +77,21 @@ class ApriltagRegistration(FunctionalTest):
 
   def _clear_calibration_markers(self):
     """Delete all calibration markers for the test scene"""
-    
+
     response = self.rest.getCalibrationMarkers({'scene': self.scene_id})
     if response and 'results' in response:
       for marker in response['results']:
-        self.rest.deleteCalibrationMarker(marker['marker_id'])
+        r = self.rest.deleteCalibrationMarker(marker['marker_id'])
+        assert r, (r.statusCode, r.errors)
         assert self.rest.getCalibrationMarker(marker['marker_id']).statusCode == 404, \
           f"Failed to delete marker {marker['marker_id']}"
 
   def _restore_scene(self):
     """Restore original apriltag_size after the test"""
     if self.original_apriltag_size is not None:
-      self.rest.updateScene(self.scene_id,
+      response = self.rest.updateScene(self.scene_id,
                             {'apriltag_size': self.original_apriltag_size})
+      assert response, (response.statusCode, response.errors)
 
   def runApriltagRegistrationUpdate(self):
     """when apriltag parameters are updated, registration creates/updates 
