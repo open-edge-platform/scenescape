@@ -99,9 +99,6 @@ from utils.format_converters import write_jsonl
 # ---------------------------------------------------------------------------
 _TOPIC_BASE = "scenescape"
 _TOPIC_DATA_CAMERA = _TOPIC_BASE + "/data/camera/{camera_id}"
-# Both controller (publishSceneDetections) and tracker service publish one
-# message per input frame per object-type here — no wall-clock throttling,
-# equivalent to the metric test's per-frame buildDetectionsList() output.
 _TOPIC_DATA_SCENE  = _TOPIC_BASE + "/data/scene/{scene_id}/+"
 
 # Mosquitto config that allows anonymous connections on port 1883
@@ -164,9 +161,6 @@ def _to_controller_config(scene_config: dict) -> dict:
           "intrinsics": {"fx": fx, "fy": fy, "cx": cx, "cy": cy},
           "distortion": {"k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0},
           "resolution": [w, h],
-          # Embed correspondence points directly so Camera.__init__ builds
-          # a PointCorrespondenceTransform (solvePnP) instead of falling back
-          # to an identity DEFAULT_TRANSFORM.
           "camera points": info.get("camera points", []),
           "map points": info.get("map points", []),
           "scene": scene_uid,
@@ -179,7 +173,6 @@ def _to_controller_config(scene_config: dict) -> dict:
       "map": scene_config.get("map"),
       "cameras": cameras,
       "use_tracker": True,
-      # Rate fields required by publishExternalDetections / publishRegulatedDetections.
       "regulated_rate": scene_config.get("regulated_rate", 30.0),
       "external_update_rate": scene_config.get("external_update_rate", 30.0),
   }
@@ -214,7 +207,6 @@ def _solve_pnp(
 
   _, rvec, tvec = cv2.solvePnP(map_pts, cam_pts, K, dist, flags=cv2.SOLVEPNP_ITERATIVE)
   rmat = cv2.Rodrigues(rvec)[0]
-  # Invert to get camera-in-world (pose_mat) from world-in-camera
   pose_mat = np.linalg.inv(np.vstack([np.hstack([rmat, tvec]), [0, 0, 0, 1]]))
   translation = pose_mat[:3, 3].tolist()
   euler_deg = Rotation.from_matrix(pose_mat[:3, :3]).as_euler("XYZ", degrees=True).tolist()
@@ -413,7 +405,6 @@ def _merge_outputs_by_timestamp(
         by_ts[ts]["objects"].append(obj)
         seen_ids.add(obj["id"])
 
-  # Return sorted by timestamp string (ISO 8601 lexicographic sort is correct)
   return sorted(by_ts.values(), key=lambda m: m.get("timestamp", ""))
 
 
@@ -545,13 +536,9 @@ class BlackBoxHarness(TrackerHarness):
     tmp_dir  = Path(tempfile.mkdtemp(prefix="black_box_harness_"))
     print(f"[BlackBoxHarness] Temporary workspace: {tmp_dir}")
 
-    # Resolve container type once so _run_session can use it for timestamp
-    # rewriting without repeating the Docker inspect call.
     container_type = self._container_type or _detect_container_type(self._container_image)
 
     try:
-      # Consume the iterator into a list so we can persist it and
-      # calculate timestamp deltas without streaming complications.
       input_frames: List[Dict[str, Any]] = list(inputs)
       self._write_inputs(input_frames, tmp_dir)
 
@@ -673,7 +660,6 @@ class BlackBoxHarness(TrackerHarness):
             tmp_dir, net_name, broker_name, tracker_name
         )
     except Exception:
-      # Broker was already started; clean it up before propagating.
       try:
         broker_ctr.stop(time=5)
         broker_ctr.remove()
@@ -709,7 +695,6 @@ class BlackBoxHarness(TrackerHarness):
         Running controller container.
     """
     controller_cfg = _to_controller_config(self._scene_config)
-    # Ensure the scene topic UID matches what the controller will announce.
     if self._scene_id == self._scene_config.get("name"):
       self._scene_id = controller_cfg["uid"]
     config_file = tmp_dir / "config.json"
@@ -796,9 +781,6 @@ class BlackBoxHarness(TrackerHarness):
 
     def _stream():
       try:
-        # Container.logs() instance method does not support stream/follow;
-        # use docker.container.logs() (the CLI wrapper) which yields
-        # (source, bytes) tuples where source is 'stdout' or 'stderr'.
         for _source, content in docker.container.logs(
             tracker_ctr, stream=True, follow=True
         ):
@@ -857,12 +839,6 @@ class BlackBoxHarness(TrackerHarness):
     rewrite_timestamps = False  # Both container types use original dataset timestamps.
     outputs: List[Dict[str, Any]] = []
     output_lock = threading.Lock()
-    # Both controller and tracker service publish one message per input
-    # frame per object-type on DATA_SCENE.  This mirrors what the metric
-    # test's buildDetectionsList() call produces — one output per frame,
-    # no wall-clock throttling.  DATA_REGULATED is wall-clock throttled
-    # (regulated_rate Hz) and emits only a handful of messages when frames
-    # are replayed faster than real-time.
     scene_topic = _TOPIC_DATA_SCENE.format(scene_id=self._scene_id)
 
     # --- MQTT client setup ---
@@ -914,9 +890,6 @@ class BlackBoxHarness(TrackerHarness):
       client.publish(topic, json.dumps(frame))
 
     print(f"[BlackBoxHarness] Published {len(frames)} frames, draining (idle timeout {self._drain_timeout}s) ...")
-    # Idle-based drain: keep collecting until no new messages arrive for
-    # drain_timeout seconds.  Uses nominal sleep increments so behaviour
-    # is predictable even when time.sleep is mocked in unit tests.
     poll_interval = min(0.25, self._drain_timeout) if self._drain_timeout > 0 else 0.25
     last_count = len(outputs)
     idle_time = 0.0

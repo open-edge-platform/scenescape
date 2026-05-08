@@ -362,8 +362,6 @@ def convert_canonical_to_motchallenge_csv(
         next_id += 1
       track_id = uuid_to_id_map[uuid]
 
-      # Skip if this (frame, id) was already emitted — two messages with
-      # slightly different timestamps can round to the same frame number.
       frame_id_key = (frame, track_id)
       if frame_id_key in seen_frame_ids:
         continue
