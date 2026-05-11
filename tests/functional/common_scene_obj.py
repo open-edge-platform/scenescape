@@ -116,6 +116,15 @@ class SceneObjectMqtt(FunctionalTest):
       "Expected DATA_REGION timestamps to advance across in-region updates"
     return
 
+  def verifyRegionDataUpdates(self):
+    """Verify that DATA_REGION updates continue while object remains in region."""
+    assert self.regionDataNonEmptyCount > 0, "Expected at least one non-empty DATA_REGION message"
+    assert len(self.regionDataTimestampsWhileInside) >= 2, \
+      "Expected repeated DATA_REGION updates while object is inside region"
+    assert self.regionDataTimestampsWhileInside[-1] > self.regionDataTimestampsWhileInside[0], \
+      "Expected DATA_REGION timestamps to advance across in-region updates"
+    return
+
   def isWithinRectangle(self, bl, tr, curr_point):
     if (curr_point[0] > bl[0] and curr_point[0] < tr[0] and \
       curr_point[1] > bl[1] and curr_point[1] < tr[1]):
