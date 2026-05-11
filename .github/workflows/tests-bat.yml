@@ -159,11 +159,18 @@ jobs:
 
       - name: Run Pipeline Runner tests
         if: always() && steps.setup-test-env.outcome == 'success'
+        env:
+          GPU_DEVICE_COUNT: 0
+          NPU_DEVICE_COUNT: 0
         run: |
-          source tests/.venv/bin/activate
           mkdir -p reports
           cd tests/pipeline_runner
-          pytest . --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
+          rm -rf .venv
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -q -r requirements-ppl-test.txt
+          pytest --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
 
       - name: Upload Test Report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
