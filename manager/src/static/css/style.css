@@ -1,6 +1,8 @@
 /*
  * SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
  * SPDX-License-Identifier: Apache-2.0
+ * Modifications:
+ * Nokia VPOD (Emerging Products, BLR), 2026
  */
 
 body {
@@ -177,12 +179,12 @@ polygon {
   fill: #ffffff;
   opacity: 0.4;
   stroke: red;
-  stroke-width: 3px;
+  stroke-width: calc(1.5px * var(--svg-scale-factor, 1));
 }
 
 .tripwire line,
 .child_tripwire line {
-  stroke-width: 2px;
+  stroke-width: calc(2px * var(--svg-scale-factor, 1));
   stroke: #00aa00;
 }
 
@@ -190,6 +192,7 @@ polygon {
 .child_tripwire circle {
   fill: #00aa00;
   cursor: crosshair;
+  r: calc(3px * var(--svg-scale-factor, 1));
 }
 
 .roi text,
@@ -197,7 +200,7 @@ polygon {
 .tripwire text,
 .child_tripwire text,
 .area-group text {
-  font-size: 16px;
+  font-size: calc(14px * var(--svg-scale-factor, 1));
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
     Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
@@ -233,19 +236,40 @@ polygon {
 }
 
 .mark circle {
-  stroke-width: 4px;
+  stroke-width: calc(2px * var(--svg-scale-factor, 1));
   opacity: 0.9;
 }
 
 .trail line {
-  stroke-width: 2px;
+  stroke-width: calc(1px * var(--svg-scale-factor, 1));
 }
 
 .mark text {
   text-anchor: middle;
   alignment-baseline: middle;
   fill: white;
-  font: bold 18px sans-serif;
+  font-weight: bold;
+  font-size: calc(18px * var(--svg-scale-factor, 1));
+  font-family: sans-serif;
+}
+
+.mark-id-label-hide {
+  display: none;
+}
+
+.mark-id-content {
+  display: inline-block;
+  transform: scale(var(--svg-scale-factor, 1));
+  transform-origin: bottom left;
+  font-size: 0.875rem;
+  font-weight: bold;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #000;
+  background-color: #fff;
+  opacity: 0.85;
+  border: solid 1px #000;
+  padding: 2px 5px;
+  white-space: nowrap;
 }
 
 .person circle {
@@ -269,7 +293,7 @@ polygon {
   fill: #ffffff;
   opacity: 0.4;
   stroke: blue;
-  stroke-width: 3px;
+  stroke-width: calc(3px * var(--svg-scale-factor, 1));
 }
 
 .autoshow-pane {
@@ -338,6 +362,16 @@ polygon {
   bottom: 5px;
   left: 20px;
   opacity: 0.5;
+}
+
+#display-scale {
+  display: inline-block;
+  width: auto;
+  margin-right: 5px;
+}
+
+#svgout {
+  --svg-scale-factor: 1;
 }
 
 .scene-map {
@@ -531,7 +565,7 @@ ul.errorlist {
 
 .roi-help line {
   stroke: red;
-  stroke-width: 3;
+  stroke-width: calc(3px * var(--svg-scale-factor, 1));
 }
 
 .roi-help .dotted-line {

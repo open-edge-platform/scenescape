@@ -2,6 +2,8 @@
 
 # SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
 from scene_common.mqtt import _Topic
 
@@ -59,6 +61,7 @@ CAM_FILTER_CHOICES = [
 CV_SUBSYSTEM_CHOICES = [
   ('AUTO', 'AUTO'),
   ('GPU', 'GPU'),
+  ('GPU_NVIDIA', 'GPU (NVIDIA)'),
   ('CPU', 'CPU')
 ]
 

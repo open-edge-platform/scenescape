@@ -1,6 +1,8 @@
 // Copyright 2018 The Apollo Authors. All Rights Reserved.
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+// Modifications:
+// Nokia VPOD (Emerging Products, BLR), 2026
 
 #pragma once
 
@@ -9,6 +11,12 @@
 #include <map>
 #include <utility>
 #include <vector>
+
+#ifdef PROFILE_HUNGARIAN
+#include <chrono>
+#include <iomanip>
+#include <iostream>
+#endif
 
 // invalidate glog checks done by apollo
 #define CHECK(condition) (void)0;
@@ -157,6 +165,17 @@ void GatedHungarianMatcher<T>::Match(T cost_thresh,
   this->ComputeConnectedComponents(&row_components, &col_components);
   CHECK_EQ(row_components.size(), col_components.size());
 
+#ifdef PROFILE_HUNGARIAN
+  auto start = std::chrono::high_resolution_clock::now();
+  size_t num_components = row_components.size();
+  size_t total_rows = rows_num_;
+  size_t total_cols = cols_num_;
+  std::vector<size_t> component_sizes;
+  for (size_t i = 0; i < row_components.size(); ++i) {
+    component_sizes.push_back(row_components[i].size() + col_components[i].size());
+  }
+#endif
+
   /* compute assignments */
   assignments_ptr_->clear();
   assignments_ptr_->reserve(std::max(rows_num_, cols_num_));
@@ -164,6 +183,24 @@ void GatedHungarianMatcher<T>::Match(T cost_thresh,
   {
     this->OptimizeConnectedComponent(row_components[i], col_components[i]);
   }
+
+#ifdef PROFILE_HUNGARIAN
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration_us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+  double duration_ms = duration_us / 1000.0;
+  
+  std::cerr << "[PROFILE_HUNGARIAN] tracks=" << total_rows
+            << ", objects=" << total_cols
+            << ", components=" << num_components
+            << ", time_ms=" << std::fixed << std::setprecision(3) << duration_ms
+            << ", sizes=[";
+  for (size_t i = 0; i < component_sizes.size() && i < 10; ++i) {
+    if (i > 0) std::cerr << ",";
+    std::cerr << component_sizes[i];
+  }
+  if (component_sizes.size() > 10) std::cerr << ",... (" << component_sizes.size() << " total)";
+  std::cerr << "]" << std::endl;
+#endif
 
   this->GenerateUnassignedData(unassigned_rows, unassigned_cols);
 }

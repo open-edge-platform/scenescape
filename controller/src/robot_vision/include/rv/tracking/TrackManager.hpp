@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: 2017 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+// Modifications:
+// Nokia VPOD (Emerging Products, BLR), 2026
 
 #pragma once
 
@@ -62,7 +64,7 @@ struct TrackManagerConfig
       + std::to_string(mMaxUnreliableTime) + ", reactivation_frames:" + std::to_string(mReactivationFrames)
       + ", default_process_noise:" + std::to_string(mDefaultProcessNoise) + ", default_measurement_noise:"
       + std::to_string(mDefaultMeasurementNoise) + ", init_state_covariance:"
-      + std::to_string(mInitStateCovariance) + ", suspended_track_max_age_secs:" + std::to_string(mSuspendedTrackMaxAgeSecs) + motionModelsText + ")";
+      + std::to_string(mInitStateCovariance) + ", suspended_track_max_age_secs:" + std::to_string(mSuspendedTrackMaxAgeSecs) + motionModelsText + ")";  
   }
 };
 

@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# Modifications:
+# Nokia VPOD (Emerging Products, BLR), 2026
 
-ARG RUNTIME_OS_IMAGE=ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061
+ARG RUNTIME_OS_IMAGE=ubuntu:noble-20260113@sha256:cd1dba651b3080c3686ecf4e3c4220f026b521fb76978881737d24f200828b2b
 
 # -------------- Common Base Stage (ported to Ubuntu 24.04) --------------
-FROM ubuntu:24.04@sha256:a08e551cb33850e4740772b38217fc1796a66da2506d312abe51acda354ff061 AS scenescape-common-base-24-04
+FROM ${RUNTIME_OS_IMAGE} AS scenescape-common-base-24-04
 
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
 # hadolint ignore=DL3002
@@ -113,6 +115,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 USER root
 
+# Nokia addition: install ps, htop for easier resource usage / performance measurement inside the container
 RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -124,6 +127,7 @@ RUN : \
         netbase \
         python3-pip \
         sudo \
+        procps htop \
     && rm -rf /usr/lib/x86_64-linux-gnu/libLLVM-15.so.1 \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
