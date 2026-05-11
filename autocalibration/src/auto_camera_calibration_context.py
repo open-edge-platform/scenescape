@@ -31,19 +31,19 @@ class CameraCalibrationContext:
 
     return
 
-  def preprocessScenes(self):
+  def preprocess_scenes(self):
     """! For all scenes in database, preprocess the scene map and store/update results
 
     @return  None
     """
-    all_scene_objects = self.calibration_data_interface.allScenes()
+    all_scene_objects = self.calibration_data_interface.all_scenes()
     for scene_object in all_scene_objects:
       if scene_object.camera_calibration != "Manual":
-        self.sceneUpdateThreadWrapper(scene_object, map_update=False)
+        self.scene_update_thread_wrapper(scene_object, map_update=False)
         log.info(f"Validating Scene = {scene_object.name} on start.")
     return
 
-  def sceneUpdateThreadWrapper(self, sceneobj, map_update=False):
+  def scene_update_thread_wrapper(self, sceneobj, map_update=False):
     """! function checks if lock is not acquired and processes the
     scene with updated metadata.
     status.
@@ -53,11 +53,11 @@ class CameraCalibrationContext:
     @return  None
     """
     if not self.register_thread_lock.locked():
-      thread = threading.Thread(target=self.processScene, args=(sceneobj, map_update))
+      thread = threading.Thread(target=self.process_scene, args=(sceneobj, map_update))
       thread.start()
     return
 
-  def processScene(self, sceneobj, map_update):
+  def process_scene(self, sceneobj, map_update):
     """! function processes the uploaded scene(image/glb) and publish back the
     status.
     @param   sceneobj      scene object.
@@ -67,19 +67,19 @@ class CameraCalibrationContext:
     """
     with self.register_thread_lock:
       try:
-        response_dict = self.scene_strategies[sceneobj.camera_calibration].processSceneForCalibration(sceneobj, map_update)
+        response_dict = self.scene_strategies[sceneobj.camera_calibration].process_scene_for_calibration(sceneobj, map_update)
       except (FileNotFoundError, KeyError) as e:
         log.error(f"Error in register dataset : {e}")
     self.current_processing_scene = {}
     return
 
-  def calibrateCameraThreadWrapper(self, sceneobj, cameraId, intrinsics, cam_frame_data):
+  def calibrate_camera_thread_wrapper(self, sceneobj, cameraId, intrinsics, cam_frame_data):
     """
     Starts a background thread to process camera calibration for REST API.
     """
     if not self.calibration_thread_lock.locked():
       self.socketio.start_background_task(
-          self.processCameraCalibration,
+          self.process_camera_calibration,
           sceneobj, cameraId, intrinsics, cam_frame_data
       )
       self.calibration_results[cameraId] = {
@@ -92,7 +92,7 @@ class CameraCalibrationContext:
           "message": "Another calibration is already in progress"
       }
 
-  def processCameraCalibration(self, sceneobj, cameraId, intrinsics, cam_frame_data):
+  def process_camera_calibration(self, sceneobj, cameraId, intrinsics, cam_frame_data):
     """
     Processes camera calibration in a background thread for REST API.
     Stores or updates calibration status/result in a suitable place.
@@ -108,7 +108,7 @@ class CameraCalibrationContext:
               "message": "Calibration strategy not found"
           }
         else:
-          result = strategy.generateCalibration(sceneobj, intrinsics, cam_frame_data)
+          result = strategy.generate_calibration(sceneobj, intrinsics, cam_frame_data)
       except Exception as e:
         result = {
             "status": "error",
