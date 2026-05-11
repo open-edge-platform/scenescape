@@ -146,7 +146,7 @@ class VDMSDatabase(ReIDDatabase):
     @param   expected_metric       Similarity metric (e.g. 'L2', 'IP')
     @param   caller                Name of the calling method for log messages
     @raises  RuntimeError          On schema mismatch or unrecoverable VDMS error
-    @return  True on success, False if VDMS gave no response
+    @return  None. Updates self.dimensions on success.
     """
     response, _ = self.sendQuery([{
         "AddDescriptorSet": {
