@@ -2,17 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Default Code Owners
-@saratpoluri
-@ltalarcz
-@tdorauintc
-@MikolajKasprzak
-@dmytroye
-@GrzegorzWrobel
-@Irakus
-@daddo-intel
-@sarthakdeva-intel
-@sbelhaik
+*                         @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+
+
+# Tests content
+
+autocalibration/tests/    @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+cluster_analytics/tests/  @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+controller/tests/         @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+manager/test/             @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+mapping/tests/            @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+tracker/test/             @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+tests/                    @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
 
 # documentation content
-/docs/               @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @GrzegorzWrobel @Irakus @daddo-intel @sarthakdeva-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write
-/README.md           @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @GrzegorzWrobel @Irakus @daddo-intel @sarthakdeva-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write
+/docs/                    @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write
+/README.md                @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write
