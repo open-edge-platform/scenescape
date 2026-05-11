@@ -178,14 +178,14 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests -m basic_acceptance --junitxml=reports/bat_results.xml
+          pytest tests -m basic_acceptance --junitxml=reports/bat_results.xml --log-level=ERROR
 
       - name: "Run Unit Tests"
         if: always() && steps.setup-test-env.outcome == 'success'
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/sscape_tests --junitxml=reports/unit_results.xml
+          pytest tests/sscape_tests --junitxml=reports/unit_results.xml --log-level=ERROR
 
       - name: Run Pipeline Runner tests
         if: always() && steps.setup-test-env.outcome == 'success'
