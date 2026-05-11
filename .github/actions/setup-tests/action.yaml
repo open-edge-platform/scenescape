@@ -11,9 +11,10 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+    - name: Set up Python
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
       with:
-        python-version: "3.x"
+        python-version: "3.12"
         check-latest: true
 
     - name: "Log in to DockerHub"
@@ -21,12 +22,6 @@ runs:
       with:
         username: scenescape
         password: ${{ inputs.dockerhub-token }}
-
-    - name: Set up Python
-      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-      with:
-        python-version: "3.12"
-        check-latest: true
 
     - name: Set up Docker
       uses: docker/setup-docker-action@v5
@@ -37,6 +32,20 @@ runs:
               "containerd-snapshotter": false
             }
           }
+
+    - name: Install firefox
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y firefox
+
+    - name: Set up geckodriver
+      shell: bash
+      run: |
+        GECKODRIVER_VERSION=$(curl -sL https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+        wget https://github.com/mozilla/geckodriver/releases/download/v$GECKODRIVER_VERSION/geckodriver-v$GECKODRIVER_VERSION-linux64.tar.gz
+        tar -xvzf geckodriver-v$GECKODRIVER_VERSION-linux64.tar.gz
+        sudo mv geckodriver /usr/local/bin/
 
     - name: "Setup Test Environment"
       shell: bash
