@@ -159,7 +159,7 @@ class ManageThing(APIView):
 
     try:
       thing = thing_class.objects.get(**{uid_field: uid})
-    except thing_class.DoesNotExist:
+    except (thing_class.DoesNotExist, ValueError, TypeError):
       return Response(status=status.HTTP_404_NOT_FOUND)
 
     serializer = thing_serializer(thing)
@@ -178,7 +178,10 @@ class ManageThing(APIView):
       except ValidationError as e:
         return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
-      thing = thing_class.objects.filter(**{uid_field: uid}).first()
+      try:
+        thing = thing_class.objects.filter(**{uid_field: uid}).first()
+      except (ValueError, TypeError):
+        return Response(status=status.HTTP_404_NOT_FOUND)
 
       if thing is None:
         return Response(status=status.HTTP_404_NOT_FOUND)
@@ -227,7 +230,10 @@ class ManageThing(APIView):
     except ValidationError as e:
       return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
-    obj = thing_class.objects.filter(**{uid_field: uid}).first()
+    try:
+      obj = thing_class.objects.filter(**{uid_field: uid}).first()
+    except (ValueError, TypeError):
+      return Response(status=status.HTTP_404_NOT_FOUND)
 
     if not obj:
       return Response(status=status.HTTP_404_NOT_FOUND)
