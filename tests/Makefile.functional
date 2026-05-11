@@ -39,6 +39,13 @@ scene-import-json: # NEX-T15347
 	$(call common-recipe, $(COMPOSE_FILES), controller/tests/tc_scene_import_json.py, 'scene', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
 
+scene-crud-mqtt-update: # NEX-SCENE-CRUD-MQTT-UPDATE
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_scene_creation_sends_update.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+
 scenes-summary: # NEX-T21883
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
