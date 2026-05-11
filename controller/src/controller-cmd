@@ -83,7 +83,7 @@ def build_argparser():
                       help="Enable analytics-only mode. Use this when running a separate Tracker service that publishes tracking data to MQTT.")
   parser.add_argument("--person-pose-adjustment",
                       action=argparse.BooleanOptionalAction,
-                      default=os.getenv("CONTROLLER_ENABLE_PERSON_POSE_ADJUSTMENT", "true").lower() == "true",
+                      default=os.getenv("CONTROLLER_ENABLE_PERSON_POSE_ADJUSTMENT", "false").lower() == "true",
                       help="Enable pose-based person bounding box adjustment before world projection.")
   return parser
 

@@ -120,6 +120,58 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   - The following object fields are not available on `event` topic: `similarity`, `confidence`, `entered`, `exited`
   - The following object fields are not available on `data/regulated` topic: `similarity`, `confidence`
 
+## Enabling Person Pose Adjustment
+
+When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer video pipeline, the Scene Controller can use pose keypoints to refine person bounding boxes before projecting them into world coordinates. This improves localization accuracy. The feature is disabled by default.
+
+- **Enable pose adjustment via CLI flag**:
+
+  Add the `--person-pose-adjustment` flag to the docker run command:
+
+  ```bash
+  docker run --rm \
+  --init \
+  --network scenescape \
+  -v scenescape_vol-media:/home/scenescape/SceneScape/media \
+  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
+  -v $(pwd)/controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json \
+  -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
+  -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
+  -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
+  --name scene \
+  scenescape-controller \
+  controller \
+  --broker broker.scenescape.intel.com \
+  --tracker_config_file /home/scenescape/SceneScape/tracker-config.json \
+  --reid_config_file /home/scenescape/SceneScape/reid-config.json \
+  --ntp ntpserv \
+  --person-pose-adjustment
+  ```
+
+  Alternatively, use the environment variable:
+
+  ```bash
+  docker run --rm \
+  --init \
+  --network scenescape \
+  -e CONTROLLER_ENABLE_PERSON_POSE_ADJUSTMENT=true \
+  -v scenescape_vol-media:/home/scenescape/SceneScape/media \
+  -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
+  -v $(pwd)/controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json \
+  -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
+  -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
+  -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
+  --name scene \
+  scenescape-controller \
+  controller \
+  --broker broker.scenescape.intel.com \
+  --tracker_config_file /home/scenescape/SceneScape/tracker-config.json \
+  --reid_config_file /home/scenescape/SceneScape/reid-config.json \
+  --ntp ntpserv
+  ```
+
+- **Note**: This feature requires the DL Streamer video pipeline to use a pose estimation model (e.g. `yolo11n-pose`) that provides keypoint data. See the [DL Streamer Pipeline Server documentation](/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for pipeline setup instructions.
+
 <!--hide_directive
 :::{toctree}
 :hidden:

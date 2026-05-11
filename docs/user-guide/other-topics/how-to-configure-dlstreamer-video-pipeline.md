@@ -61,6 +61,8 @@ Use the following short names to refer to each model in the chain:
 |                      | person-attributes-recognition-crossroad-0238 | personattr | Person attributes (age, gender, clothing) |
 |                      | age-gender-recognition-retail-0013           | agegender  | Age and gender classification             |
 | **Vehicle Analysis** | vehicle-attributes-recognition-barrier-0042  | vehattr    | Vehicle attributes (color, type)          |
+| **Pose Estimation** | yolo11n-pose                                  | pose       | Person pose estimation with keypoints     |
+| **ReID (Public)**    | mars-small128                                 | marsreid   | Lightweight person re-identification      |
 
 ##### Common Chaining Patterns
 
@@ -77,6 +79,18 @@ retail+personattr
 retail=GPU+agegender=GPU
 
 ```
+
+**Pose Estimation Workflows:**
+
+```
+
+# Pose estimation with re-identification
+pose+marsreid
+```
+
+> **Note**: The `yolo11n-pose` and `mars-small128` models are not included in the default model set. They must be downloaded separately using the DL Streamer `download_public_models.sh` script and copied into the Models Volume. See the [DL Streamer Pipeline Server documentation](/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for setup instructions.
+
+> **Note**: To enable pose-based bounding box adjustment in the Scene Controller, set the `--person-pose-adjustment` flag or `CONTROLLER_ENABLE_PERSON_POSE_ADJUSTMENT=true` environment variable. See the [Scene Controller documentation](../microservices/controller/controller.md) for details.
 
 **Vehicle Analytics Workflows:**
 

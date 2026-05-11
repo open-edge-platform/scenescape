@@ -30,7 +30,6 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
 MIN_POSE_CACHE_TTL = 10.0
 POSE_CACHE_TTL_MULTIPLIER = 30
 PERSON_POSE_ADJUSTMENT_ENV_VAR = 'CONTROLLER_ENABLE_PERSON_POSE_ADJUSTMENT'
-PERSON_POSE_SKIP_CAMERAS_ENV_VAR = 'CONTROLLER_PERSON_POSE_SKIP_CAMERAS'
 
 DEBOUNCE_DELAY = 0.5
 MIN_FRAMES_FOR_RELIABLE_TRACK = 3
@@ -41,14 +40,6 @@ def _env_bool(name, default):
     return default
   return value.strip().lower() in ('1', 'true', 'yes', 'on')
 
-
-def _env_camera_set(name):
-  value = os.getenv(name)
-  if not value:
-    return frozenset()
-  return frozenset(
-    item.strip() for item in value.split(',') if item.strip()
-  )
 
 class TripwireEvent:
   def __init__(self, object, direction):
@@ -107,20 +98,11 @@ class Scene(SceneModel):
       PERSON_POSE_ADJUSTMENT_ENV_VAR,
       True,
     )
-    self.person_pose_skip_cameras = _env_camera_set(
-      PERSON_POSE_SKIP_CAMERAS_ENV_VAR,
-    )
     self.person_pose_adjuster = None
     if self.person_pose_adjustment_enabled:
       self.person_pose_adjuster = PersonPoseAdjuster(
         max_entry_age_seconds=self._get_pose_cache_ttl()
       )
-      if self.person_pose_skip_cameras:
-        log.info(
-          f"Person pose adjustment will SKIP cameras for scene {name}: "
-          f"{sorted(self.person_pose_skip_cameras)} "
-          f"(via {PERSON_POSE_SKIP_CAMERAS_ENV_VAR})"
-        )
     else:
       log.info(
         f"Person pose adjustment DISABLED for scene {name} via "
@@ -236,12 +218,6 @@ class Scene(SceneModel):
     if not self.person_pose_adjustment_enabled or self.person_pose_adjuster is None:
       return
     if not detections:
-      return
-    if camera.cameraID in self.person_pose_skip_cameras:
-      log.debug(
-        f"Skipping pose adjustment for scene {self.name}, camera {camera.cameraID}: "
-        f"camera in skip list"
-      )
       return
 
     resolution = getattr(getattr(camera, 'pose', None), 'resolution', None)
