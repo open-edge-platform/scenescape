@@ -23,7 +23,7 @@ class CameraCalibrationController(ABC):
     self.socketio = None
     self.socket_scene_clients = None
 
-  def notifySceneRegistration(self, scene_id, response):
+  def notify_scene_registration(self, scene_id, response):
     if not self.socket_scene_clients:
       return
 
@@ -35,7 +35,7 @@ class CameraCalibrationController(ABC):
     return
 
   @abstractmethod
-  def processSceneForCalibration(self, sceneobj, map_update=False):
+  def process_scene_for_calibration(self, sceneobj, map_update=False):
     """! The following tasks are done in this function:
          1) Create AutoCalibration Object.
          2) If Scene is not updated, use data stored in database.
@@ -49,7 +49,7 @@ class CameraCalibrationController(ABC):
     raise NotImplementedError
 
   @abstractmethod
-  def resetScene(self, scene):
+  def reset_scene(self, scene):
     """! Function resets map_processed and calibration data.
     @param   scene             Scene database object.
 
@@ -58,7 +58,7 @@ class CameraCalibrationController(ABC):
     raise NotImplementedError
 
   @abstractmethod
-  def isMapUpdated(self, sceneobj):
+  def is_map_updated(self, sceneobj):
     """! function used to check if the map is updated and reset the scene when map is None.
     @param   sceneobj      scene object.
 
@@ -66,7 +66,7 @@ class CameraCalibrationController(ABC):
     """
     raise NotImplementedError
 
-  def isMapProcessed(self, sceneobj):
+  def is_map_processed(self, sceneobj):
     """! function used to check if the map is processed.
     @param   sceneobj      scene object.
 
@@ -87,7 +87,7 @@ class CameraCalibrationController(ABC):
 
     return sceneobj.map_processed < map_mtime
 
-  def saveToDatabase(self, scene):
+  def save_to_database(self, scene):
     """! Function stores baseapriltag data into db.
     @param   scene             Scene database object.
 
@@ -96,7 +96,7 @@ class CameraCalibrationController(ABC):
     raise NotImplementedError
 
   @abstractmethod
-  def generateCalibration(self, sceneobj, camera_intrinsics, msg):
+  def generate_calibration(self, sceneobj, camera_intrinsics, msg):
     """! Generates the camera pose.
     @param   sceneobj           Scene object
     @param   camera_intrinsics  Camera Intrinsics
