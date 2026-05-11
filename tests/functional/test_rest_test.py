@@ -125,6 +125,8 @@ class TestAPI(FunctionalTest):
           createData['sensor_id'] = createData['name']
         elif 'username' in createData:
           createData['username'] = createData['name']
+          if 'password' not in createData:
+            createData['password'] = 'test_password'
         elif 'marker_id' in createData:
           createData['marker_id'] = createData['name']
         if scene:
