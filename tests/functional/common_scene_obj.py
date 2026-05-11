@@ -57,6 +57,24 @@ class SceneObjectMqtt(FunctionalTest):
     self.verifyRegionEvent(regionData)
     return
 
+  def regionDataReceived(self, pahoClient, userdata, message):
+    region_data = json.loads(message.payload.decode("utf-8"))
+
+    if getattr(self, "roi_deleted", False):
+      self.message_received_after_delete = True
+      print("Region data received after ROI deletion (unexpected)")
+      return
+
+    objects = region_data.get('objects', [])
+    if not objects:
+      return
+
+    self.regionDataNonEmptyCount += 1
+    if self.object_in_region:
+      region_ts = get_epoch_time(region_data['timestamp'])
+      self.regionDataTimestampsWhileInside.append(region_ts)
+    return
+
   def verifyRegionEvent(self, regionEvent):
     self.entered = False
     self.exited = False
@@ -70,6 +88,7 @@ class SceneObjectMqtt(FunctionalTest):
             self.expectedExit.append(event['id'])
             self.expectedEnter.remove(event['id'])
             self.entered = True
+            self.object_in_region = True
             # Track entry time for dwell verification
             if event['id'] not in self.objectEntryTimes:
               self.objectEntryTimes[event['id']] = get_epoch_time()
@@ -81,7 +100,17 @@ class SceneObjectMqtt(FunctionalTest):
         if event['object']['id'] in self.expectedExit:
           self.expectedExit.remove(event['object']['id'])
           self.exited = True
+          self.object_in_region = False
           print("object with id {} exited region\n".format(event['object']['id']))
+    return
+
+  def verifyRegionDataUpdates(self):
+    """Verify that DATA_REGION updates continue while object remains in region."""
+    assert self.regionDataNonEmptyCount > 0, "Expected at least one non-empty DATA_REGION message"
+    assert len(self.regionDataTimestampsWhileInside) >= 2, \
+      "Expected repeated DATA_REGION updates while object is inside region"
+    assert self.regionDataTimestampsWhileInside[-1] > self.regionDataTimestampsWhileInside[0], \
+      "Expected DATA_REGION timestamps to advance across in-region updates"
     return
 
   def isWithinRectangle(self, bl, tr, curr_point):
@@ -99,6 +128,10 @@ class SceneObjectMqtt(FunctionalTest):
     topic = PubSub.formatTopic(PubSub.EVENT, event_type="count", scene_id=self.sceneUID,
                                region_id=self.roi_uid, region_type=REGION)
     self.pubsub.addCallback(topic, self.eventReceived)
+
+    data_topic = PubSub.formatTopic(PubSub.DATA_REGION, scene_id=self.sceneUID,
+                    region_id=self.roi_uid, thing_type=PERSON)
+    self.pubsub.addCallback(data_topic, self.regionDataReceived)
 
 
     assert res['points']
@@ -132,6 +165,9 @@ class SceneObjectMqtt(FunctionalTest):
     self.roiPoints = ((0.9, 4.0), (0.9, 2.4),
                       (8.1, 2.4), (8.1, 4.0))
     self.message_received_after_delete = False
+    self.object_in_region = False
+    self.regionDataNonEmptyCount = 0
+    self.regionDataTimestampsWhileInside = []
     self.objectEntryTimes = {}  # Track when each object entered region for dwell verification
     self.previousDwellTimes = {}  # Track previous dwell times to verify monotonic increase
     if self.testName and self.recordXMLAttribute:
@@ -234,9 +270,15 @@ class SceneObjectMqtt(FunctionalTest):
     return
 
   def runROIMqttVerifyPassed(self):
-    return self.exited and self.entered == False \
-              and len(self.expectedExit) == 0 \
-              and len(self.expectedEnter) == 0
+    if not (
+      self.exited and self.entered == False
+      and len(self.expectedExit) == 0
+      and len(self.expectedEnter) == 0
+    ):
+      return False
+
+    self.verifyRegionDataUpdates()
+    return True
 
   def runROIMqttVerifyNoEventsAfterDelete(self):
 
