@@ -770,6 +770,8 @@ class SceneSerializer(NonNullSerializer):
       for key, value in validated_data.items():
         setattr(instance, key, value)
       instance.save(send_update_command=send_update_command)
+    else:
+      instance.notifydbupdate()
     return instance
 
   def create(self, validated_data):
