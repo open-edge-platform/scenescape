@@ -136,42 +136,11 @@ jobs:
         with:
           system-prune: "true"
 
-      - name: "Log in to DockerHub"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          username: scenescape
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: "Clean environment"
-        run: |
-          make clean-all
-          git clean -fdx
-
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-        with:
-          python-version: "3.12"
-          check-latest: true
-
-      - name: Set up Docker
-        uses: docker/setup-docker-action@v5
-        with:
-          daemon-config: |
-            {
-              "features": {
-                "containerd-snapshotter": false
-              }
-            }
-
-      - name: "Setup Test Environment"
+      - name: Setup Tests Environment
         id: setup-test-env
-        run: |
-          make && make setup-tests
-
-      - name: "Install github annotate plugin"
-        run: |
-          source tests/.venv/bin/activate
-          pip install -r .github/resources/requirements-pytest.txt
+        uses: ./.github/actions/setup-tests
+        with:
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: "Run Basic Acceptance Tests (BAT)"
         if: always() && steps.setup-test-env.outcome == 'success'
@@ -221,36 +190,11 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
 
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
         with:
-          python-version: "3.x"
-          check-latest: true
-
-      - name: "Log in to DockerHub"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          username: scenescape
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-        with:
-          python-version: "3.12"
-          check-latest: true
-
-      - name: Set up Docker
-        uses: docker/setup-docker-action@v5
-        with:
-          daemon-config: |
-            {
-              "features": {
-                "containerd-snapshotter": false
-              }
-            }
-
-      - name: "Setup Test Environment"
-        run: |
-          make && make setup-tests
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: "Install github annotate plugin"
         run: |

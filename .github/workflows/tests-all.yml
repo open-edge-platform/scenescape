@@ -72,34 +72,17 @@ jobs:
         with:
           system-prune: "true"
 
-      - name: "Log in to GHCR"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: "Log in to DockerHub"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          username: scenescape
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: "Setup Cache Targets"
-        id: setup-cache
-        uses: ./.github/actions/setup-cache
-
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Run Functional Tests
-        env:
-          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
-          make clean-all
-          make run_functional_tests
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/functional --junitxml=reports/functional_results.xml --log-level=ERROR
 
       - name: Upload Logs and Reports
         if: always() && (!contains(toJSON(inputs), 'save_artifacts') || inputs.save_artifacts)
