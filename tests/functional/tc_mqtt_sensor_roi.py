@@ -115,8 +115,12 @@ class SensorMqttRoi(SceneObjectMqtt):
 
   def eventReceived(self, pahoClient, userdata, message):
     region_data = json.loads(message.payload.decode("utf-8"))
-
-    if len(region_data['objects']):
+    has_objects = len(region_data.get('objects', [])) > 0
+    has_region_transitions = (
+      len(region_data.get('entered', [])) > 0
+      or len(region_data.get('exited', [])) > 0
+    )
+    if has_objects or has_region_transitions:
       self.handleRegionData(region_data)
 
     return
@@ -192,30 +196,40 @@ class SensorMqttRoi(SceneObjectMqtt):
     return found_error is False
 
   def handleRegionData(self, region_data):
-    if not 'objects' in region_data:
+    objects = region_data.get('objects', [])
+    if len(objects) == 0:
       print("No objects in region!")
 
-    current_point = region_data['objects'][0]['translation']
     region_message_ts = get_epoch_time(region_data['timestamp'])
-    if self.isWithinRectangle(self.roiPoints[1], self.roiPoints[3], (current_point[0], current_point[1])):
-      self.entered = True
-      self.enteredDetected = True
-      print('object entered region')
-      if self.enteredTimestamp is None:
-        self.enteredTimestamp = region_message_ts
+    if len(objects) > 0:
+      current_point = objects[0]['translation']
+      if self.isWithinRectangle(self.roiPoints[1], self.roiPoints[3], (current_point[0], current_point[1])):
+        self.entered = True
+        self.enteredDetected = True
+        self.object_in_region = True  # Critical: update flag for regionDataReceived callback
+        print('object entered region')
+        if self.enteredTimestamp is None:
+          self.enteredTimestamp = region_message_ts
 
+    # Check for exit events to clear object_in_region flag
+    exited_objects = region_data.get('exited', [])
+    if len(exited_objects) > 0:
+      self.object_in_region = False  # Critical: update flag when object exits
+      print('object exited region')
+
+    entered_objects = region_data.get('entered', [])
     if self.entered and len(self.sensorHistory) > 0:
       start_idx, end_idx = self.findSensorIndexes(
         self.enteredTimestamp, region_message_ts, self.exitedTimestamp)
-      if not self.handleEnteredExitedObjects(region_data['entered'],
-                                            self.sensorHistory[start_idx:end_idx]):
+      if not self.handleEnteredExitedObjects(entered_objects,
+                                             self.sensorHistory[start_idx:end_idx]):
         print("Found error in 'entered' objects!")
         self.errorInSensor = True
       else:
         self.checkedEntered += 1
 
-      if not self.handleEnteredExitedObjects(region_data['exited'],
-                                            self.sensorHistory[start_idx:end_idx]):
+      if not self.handleEnteredExitedObjects(exited_objects,
+                                             self.sensorHistory[start_idx:end_idx]):
         print("Found error in 'exited' objects!")
         self.errorInSensor = True
       else:
