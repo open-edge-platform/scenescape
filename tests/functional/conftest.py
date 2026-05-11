@@ -87,6 +87,21 @@ def objData():
   jdata['objects']['person'] = [obj]
   return jdata
 
+@pytest.fixture
+def scene_uid(params):
+  """! Resolve and return the UID of the scene named by --scene_name.
+
+  @param    params    Connection parameters from conftest.
+  @return   Scene UID string.
+  """
+  from scene_common.rest_client import RESTClient
+  rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
+  assert rest.authenticate(params['user'], params['password']), \
+    "REST authentication failed"
+  res = rest.getScenes({'name': params['scene_name']})
+  assert res['count'] > 0, f"Scene '{params['scene_name']}' not found"
+  return res['results'][0]['uid']
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
   file_name = Path(config.option.file_or_dir[0]).stem
