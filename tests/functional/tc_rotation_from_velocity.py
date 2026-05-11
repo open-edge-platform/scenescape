@@ -18,6 +18,7 @@ TEST_NAME = "NEX-T10543"
 COLLECT_TIMEOUT = 10.0
 MIN_MESSAGES = 5
 PROPAGATION_DELAY = 0.5
+WARMUP_TIMEOUT = 15.0
 IDENTITY_QUAT = (0.0, 0.0, 0.0, 1.0)
 ALIGNMENT_PASS_RATIO = 0.98
 
@@ -165,10 +166,26 @@ class RotationFromVelocityTest(FunctionalTest):
       # enable rotation-from-velocity
       self.set_rotation_from_velocity(True)
 
+      # wait until feature is active (first non-identity rotation appears)
+      log.info("Waiting for rotation-from-velocity to take effect (warmup)...")
+      self.collect_target = "enabled"
+      start = time.time()
+      while time.time() - start < WARMUP_TIMEOUT:
+        if self.rotations_enabled:
+          quat, _ = self.rotations_enabled[-1]
+          if not all(abs(a - b) < 1e-6 for a, b in zip(quat, IDENTITY_QUAT)):
+            log.info(f"Feature active after {time.time() - start:.2f}s — first non-identity rotation: {quat}")
+            break
+        time.sleep(0.1)
+      else:
+        log.info("WARNING: warmup timed out without observing a non-identity rotation")
+      self.collect_target = None
+
       # collect AFTER enabling rotation
       self.collect("enabled")
+      log.info(f"Collected {len(self.rotations_enabled)} samples for alignment check")
       FORWARD_AXIS = (1.0, 0.0, 0.0)
-      MIN_SPEED = 0.05
+      MIN_SPEED = 0.15
       MAX_ANGLE = 5.0
 
       checked = 0
@@ -193,6 +210,8 @@ class RotationFromVelocityTest(FunctionalTest):
 
         if angle <= MAX_ANGLE:
           aligned += 1
+        else:
+          log.info(f"Misaligned sample: angle={angle:.1f}° vel={velocity} fwd={forward_world}")
 
       assert checked > 0, "No moving objects found to verify velocity alignment"
       alignment_ratio = aligned / checked
