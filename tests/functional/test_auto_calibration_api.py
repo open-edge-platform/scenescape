@@ -242,8 +242,9 @@ class AutoCalibration(FunctionalTest):
       if not self.sceneRegistered:
         reg = self.register_scene(method="POST")
         self.sceneRegistered = True
-        assert reg
-        assert reg.get("status") == "success"
+        assert reg, "Scene registration returned no response"
+        assert 'status' in reg, f"Registration response missing 'status': {reg}"
+        assert reg['status'] == "success", f"Registration failed: {reg}"
         log.info(f"Registering status: {reg}")
 
       if self.nTags > 0:

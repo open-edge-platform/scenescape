@@ -40,7 +40,6 @@ collect_ignore_glob = [
   "autocalibration/*",
   "mapping/*",
   "perf_tests/*",
-  "sscape_tests/*",
   "system/metric/*",
   "pipeline_runner/*",
   "ntlb/*",
@@ -235,6 +234,29 @@ class ScenescapeEnv:
       logger.info("Scene controller restarted and ready.")
     except Exception as exc:
       logger.warning("Scene controller restart failed: %s", exc)
+
+    # Restart the autocalibration service if it is running
+    try:
+      from datetime import datetime, timezone
+      import time
+      containers = self.docker.compose.ps()
+      autocalib_running = any(
+        c.name and "autocalibration" in c.name and "init" not in c.name
+        for c in containers
+      )
+      if autocalib_running:
+        logger.info("Restarting autocalibration service (auth token refresh)...")
+        restart_time = datetime.now(timezone.utc)
+        self.docker.compose.restart("autocalibration")
+        time.sleep(0.5)
+        wait_for_services(
+          self.docker, self.project_name,
+          {"autocalibration": WaitConfig(timeout=120)},
+          since=restart_time,
+        )
+        logger.info("Autocalibration service restarted and ready.")
+    except Exception as exc:
+      logger.warning("Autocalibration restart failed: %s", exc)
 
 
 # ---------------------------------------------------------------------------
