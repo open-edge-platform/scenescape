@@ -144,7 +144,15 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope='session')
 def base_url():
-  return os.environ.get("API_BASE_URL", "https://localhost")
+  if "API_BASE_URL" in os.environ:
+    return os.environ["API_BASE_URL"]
+
+  # In tests/runtest harness, API tests run in a separate container where
+  # localhost points to the test container itself; use the web service alias.
+  if os.environ.get("PROJECT"):
+    return "https://web.scenescape.intel.com"
+
+  return "https://localhost"
 
 @pytest.fixture(scope='session')
 def username():

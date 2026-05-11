@@ -358,11 +358,9 @@ def execute_step(api_map, step, step_number, total_steps):
     response_body = response.text
 
   logger.debug(f"    Response Status: {response.status_code}")
-  logger.debug(f"    Response Body: {json.dumps(
-      response_body,
-      indent=2) if isinstance(
-      response_body,
-      dict) else response_body}")
+  response_body_log = json.dumps(response_body, indent=2) \
+    if isinstance(response_body, dict) else response_body
+  logger.debug(f"    Response Body: {response_body_log}")
 
   # Check status code
   expected_status = expected_status.get("status_code", 200)

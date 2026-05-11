@@ -896,6 +896,8 @@ class Asset3DSerializer(NonNullSerializer):
 
   def validate_name(self, value):
     qs = Asset3D.objects.filter(name=value)
+    if self.instance is not None:
+      qs = qs.exclude(pk=self.instance.pk)
     if qs.exists():
       raise serializers.ValidationError(f"An object library with the name '{value}' already exists.")
     return value
