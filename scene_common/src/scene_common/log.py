@@ -16,32 +16,17 @@ LVL_MIN = 99
 # log.LVL_TRACK = 20
 # log.LVL_MIN = log.LVL_INFO
 
-
-def _effective_level(level):
-  if LVL_MIN != 99:
-    return LVL_MIN
-  return level
-
-
-def _ensure_logger(level):
-  effective_level = _effective_level(level)
+def log(*args, level=logging.INFO):
   if not hasattr(log, "logger"):
     log.logger = logging.getLogger(__name__)
-    log.logger.setLevel(effective_level)
-    log.logger.propagate = False
+    log.logger.setLevel(level)
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter("%(asctime)s %(message)s",
                                            datefmt="%Y-%m-%d %H:%M:%S"))
     # handler.setFormatter(logging.Formatter("%(message)s"))
     log.logger.addHandler(handler)
-  elif LVL_MIN != 99 and log.logger.level != effective_level:
-    log.logger.setLevel(effective_level)
-  return log.logger
-
-def log(*args, level=logging.INFO):
-  logger = _ensure_logger(level)
   outstr = " ".join(map(str, args))
-  logger.log(level, outstr)
+  log.logger.log(level, outstr)
   return
 
 def info(*args):
