@@ -23,7 +23,7 @@ class ServiceMqttTest:
   ``None`` for plain-string payloads.
   """
 
-  MAX_WAIT = 60
+  MAX_WAIT = 30
 
   def __init__(self, params):
     """! Initialise the helper bound to the given connection parameters.
