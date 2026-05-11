@@ -89,4 +89,3 @@ def test_controller_publishes_tracking_on_detection(record_xml_attribute, params
     tester.disconnect()
   
   common.record_test_result(TEST_NAME, exit_code)
-  
