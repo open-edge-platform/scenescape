@@ -137,24 +137,45 @@ class TestSchemaValidation:
     assert metric == 'L2'
 
   @patch('controller.vdms_adapter.vdms.vdms')
-  def test_ensure_schema_raises_on_existing_dimension_mismatch(self, mock_vdms_class):
-    """Verify ensureSchema fails fast when existing descriptor dimensions differ."""
+  def test_ensure_schema_add_descriptor_set_success_path(self, mock_vdms_class):
+    """Verify ensureSchema succeeds directly when AddDescriptorSet returns success."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase(dimensions=None)
-    db.sendQuery = Mock(return_value=([{
-      'status': 0,
-      'returned': 1,
-      'dimensions': 128,
-      'metric': 'L2'
-    }], []))
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
-    with pytest.raises(RuntimeError, match="uses 128 dimensions"):
+    db.ensureSchema(256)
+
+    assert db._schema_ready is True
+    assert db.dimensions == 256
+    assert db.sendQuery.call_count == 1
+    query = db.sendQuery.call_args_list[0][0][0]
+    assert 'AddDescriptorSet' in query[0]
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_ensure_schema_raises_on_existing_dimension_mismatch(self, mock_vdms_class):
+    """Verify fallback metadata check fails when existing descriptor dimensions differ."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=None)
+    db.sendQuery = Mock(side_effect=[
+      ([{'status': 1}], []),
+      ([{
+        'status': 0,
+        'returned': 1,
+        'dimensions': 128,
+        'metric': 'L2'
+      }], []),
+    ])
+
+    with pytest.raises(RuntimeError, match="has 128 dimensions"):
       db.ensureSchema(256)
 
     assert db._schema_ready is False
     assert db.dimensions is None
+    assert db.sendQuery.call_count == 2
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_ensure_schema_raises_when_dimensions_not_reported(self, mock_vdms_class):
@@ -163,56 +184,72 @@ class TestSchemaValidation:
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase(dimensions=None)
-    db.sendQuery = Mock(return_value=([{
-      'status': 0,
-      'returned': 1,
-      'name': SCHEMA_NAME
-    }], []))
+    db.sendQuery = Mock(side_effect=[
+      ([{'status': 1}], []),
+      ([{
+        'status': 0,
+        'returned': 1,
+        'name': SCHEMA_NAME
+      }], []),
+    ])
 
-    with pytest.raises(RuntimeError, match="dimensions were not returned"):
+    with pytest.raises(RuntimeError, match="returned no dimensions"):
       db.ensureSchema(256)
 
     assert db._schema_ready is False
     assert db.dimensions is None
+    assert db.sendQuery.call_count == 2
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_ensure_schema_raises_on_existing_metric_mismatch(self, mock_vdms_class):
-    """Verify ensureSchema fails fast when existing descriptor metric differs."""
+    """Verify fallback metadata check fails when existing descriptor metric differs."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase(similarity_metric="IP", dimensions=None)
-    db.sendQuery = Mock(return_value=([{
-      'status': 0,
-      'returned': 1,
-      'dimensions': 256,
-      'metric': 'L2'
-    }], []))
+    db.sendQuery = Mock(side_effect=[
+      ([{'status': 1}], []),
+      ([{
+        'status': 0,
+        'returned': 1,
+        'dimensions': 256,
+        'metric': 'L2'
+      }], []),
+    ])
 
     with pytest.raises(RuntimeError, match="uses metric L2"):
       db.ensureSchema(256)
 
     assert db._schema_ready is False
     assert db.dimensions is None
+    assert db.sendQuery.call_count == 2
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_ensure_schema_accepts_matching_existing_dimensions(self, mock_vdms_class):
-    """Verify ensureSchema succeeds when descriptor dimensions match requested size."""
+    """Verify fallback metadata check succeeds when schema already exists and matches."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
-    db.sendQuery = Mock(return_value=([{
-      'status': 0,
-      'returned': 1,
-      'dimensions': 256,
-      'metric': 'L2'
-    }], []))
+    db.sendQuery = Mock(side_effect=[
+      ([{'status': 1}], []),
+      ([{
+        'status': 0,
+        'returned': 1,
+        'dimensions': 256,
+        'metric': 'L2'
+      }], []),
+    ])
 
     db.ensureSchema(256)
 
     assert db._schema_ready is True
     assert db.dimensions == 256
+    assert db.sendQuery.call_count == 2
+    first_query = db.sendQuery.call_args_list[0][0][0]
+    second_query = db.sendQuery.call_args_list[1][0][0]
+    assert 'AddDescriptorSet' in first_query[0]
+    assert 'FindDescriptorSet' in second_query[0]
 
 
 class TestAddEntry:
