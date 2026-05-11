@@ -16,9 +16,9 @@ import time
 from scene_common import log
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
-import tests.common_test_utils as common
 
 from tests.functional.common_service import ServiceMqttTest
+import tests.common_test_utils as common
 
 FRAME_RATE = 10
 CAMERA_ID = "camera1"

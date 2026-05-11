@@ -15,6 +15,7 @@ from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 
 from tests.functional.common_service import ServiceMqttTest
+import tests.common_test_utils as common
 
 TEST_SCENE_NAME = "manager-scene"
 
@@ -53,10 +54,13 @@ def test_manager_publishes_cmd_database_on_scene_create(record_xml_attribute, pa
       f"{h.MAX_WAIT}s after scene creation"
     )
     log.info("PASS: CMD_DATABASE 'update' received after scene creation")
+    exit_code = 0
   finally:
     h.disconnect()
     if created_uid is not None:
       rest.deleteScene(created_uid)
+  
+  common.record_test_result(TEST_NAME, exit_code)
 
 
 def test_manager_publishes_cmd_scene_update_on_scene_modify(record_xml_attribute, params,
@@ -96,9 +100,12 @@ def test_manager_publishes_cmd_scene_update_on_scene_modify(record_xml_attribute
       f"within {h.MAX_WAIT}s after scene update"
     )
     log.info("PASS: CMD_SCENE_UPDATE 'update' received after scene modification")
+    exit_code = 0
   finally:
     h.disconnect()
     rest.updateScene(scene_uid, {'name': original_name})
+  
+  common.record_test_result(TEST_NAME, exit_code)
 
 
 def test_manager_no_mqtt_on_readonly_request(record_xml_attribute, params, scene_uid):
@@ -135,8 +142,11 @@ def test_manager_no_mqtt_on_readonly_request(record_xml_attribute, params, scene
       "after a read-only GET request"
     )
     log.info("PASS: no MQTT messages triggered by read-only REST request")
+    exit_code = 0
   finally:
     h.disconnect()
+
+  common.record_test_result(TEST_NAME, exit_code)
 
 def test_manager_publishes_cmd_database_on_scene_delete(record_xml_attribute, params,
                                                          scene_uid):
@@ -171,5 +181,8 @@ def test_manager_publishes_cmd_database_on_scene_delete(record_xml_attribute, pa
       f"within {h.MAX_WAIT}s after scene delete"
     )
     log.info("PASS: CMD_DATABASE 'update' received after scene delete")
+    exit_code = 0
   finally:
     h.disconnect()
+
+  common.record_test_result(TEST_NAME, exit_code)
