@@ -92,12 +92,9 @@ class VDMSDatabase(ReIDDatabase):
         return responses, response_blob
       for (item, response) in zip(query, query_response[0]):
         query_type = next(iter(item))
-        raw = response.get(query_type)
-        if isinstance(raw, dict):
-          response_data = raw
-        else:
-          if raw is not None:
-            log.debug(f"sendQuery: Non-dict payload for {query_type}: {raw!r}")
+        response_data = response.get(query_type, {})
+        if not isinstance(response_data, dict):
+          log.debug(f"sendQuery: Non-dict payload for {query_type}: {response_data!r}")
           response_data = {}
         responses.append(response_data)
     else:
