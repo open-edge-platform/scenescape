@@ -192,11 +192,14 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/pipeline_runner --junitxml=reports/unit_results.xml
+          pytest tests/pipeline_runner --junitxml=reports/unit_results.xml --log-level=ERROR
 
-      - name: Upload Logs and Reports
-        if: always()
-        uses: ./.github/actions/upload-artifacts
+      - name: Upload Test Report
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: bat-report
+          path: |
+            **/reports/*.xml
 
       - name: Cleanup
         if: always()
@@ -258,11 +261,14 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/kubernetes --backend=kubernetes --junitxml=reports/k8s_results.xml
+          pytest tests/kubernetes --backend=kubernetes --junitxml=reports/k8s_results.xml --log-level=ERROR
 
-      - name: Upload Logs and Reports
-        if: always()
-        uses: ./.github/actions/upload-artifacts
+      - name: Upload Test Report
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: k8s-report
+          path: |
+            **/reports/*.xml
 
       - name: Cleanup
         if: always()

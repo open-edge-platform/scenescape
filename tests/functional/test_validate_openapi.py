@@ -5,7 +5,7 @@ import pytest
 @pytest.mark.basic_acceptance
 def test_validate_openapi():
     """Validate OpenAPI schema using swagger-cli."""
-    docs_path = os.path.join(os.path.dirname(__file__), "../../../docs/user-guide/api-docs/")
+    docs_path = os.path.join(os.path.dirname(__file__), "../../docs/user-guide/api-docs/")
     docs_path = os.path.abspath(docs_path)
 
     # Install swagger-cli
