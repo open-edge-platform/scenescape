@@ -22,6 +22,11 @@ from pathlib import Path
 # Listed as paths relative to this conftest's directory.
 _NATIVE_ONLY_DIRS = {"autocamcalib", "markerless", "robot_vision"}
 
+# Import controller module
+_controller_src = Path(__file__).resolve().parent.parent.parent / "controller" / "src"
+if str(_controller_src) not in sys.path:
+  sys.path.insert(0, str(_controller_src))
+
 def pytest_ignore_collect(collection_path, config):
   """Skip test directories that need C++ extensions not installed on host."""
   if collection_path.is_dir() and collection_path.name in _NATIVE_ONLY_DIRS:

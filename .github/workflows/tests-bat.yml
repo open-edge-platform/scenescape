@@ -154,14 +154,16 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/sscape_tests --junitxml=reports/unit_results.xml --log-level=ERROR
+          cd tests/sscape_tests
+          pytest . --junitxml=../../reports/unit_results.xml --log-level=ERROR
 
       - name: Run Pipeline Runner tests
         if: always() && steps.setup-test-env.outcome == 'success'
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/pipeline_runner --junitxml=reports/pipeline_runner_results.xml --log-level=ERROR
+          cd tests/pipeline_runner
+          pytest . --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
 
       - name: Upload Test Report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0

@@ -36,8 +36,8 @@ runs:
     - name: Install firefox
       shell: bash
       run: |
-        sudo apt-get update
-        sudo apt-get install -y firefox
+        sudo apt update
+        sudo apt install -y --upgrade firefox
 
     - name: Set up geckodriver
       shell: bash
