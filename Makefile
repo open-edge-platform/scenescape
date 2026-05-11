@@ -374,9 +374,13 @@ setup-pytest:
 			PATH="$(CURDIR)/tests/.venv/bin:$$PATH" \
 					$(MAKE) -C $(CURDIR)/scene_common/src/fast_geometry all install; \
 	fi
+	@if ! command -v firefox > /dev/null 2>&1; then \
+			echo "ERROR: Firefox is required for UI tests. See README.md for installation instructions."; \
+			exit 1; \
+	fi
 	@if ! command -v Xvfb > /dev/null 2>&1; then \
-			echo "Installing Xvfb for UI tests..."; \
-			sudo apt-get install -y xvfb; \
+			echo "ERROR: Xvfb is required for UI tests. See README.md for installation instructions."; \
+			exit 1; \
 	fi
 
 .PHONY: run_tests

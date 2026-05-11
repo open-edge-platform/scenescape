@@ -6,6 +6,7 @@
 import os
 import shutil
 import time
+import geckodriver_autoinstaller
 from selenium.webdriver import Firefox
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.firefox.options import Options
@@ -28,7 +29,8 @@ class Browser(Firefox):
       options.add_argument('--headless')
 
     options.add_argument("--window-size=1080,1920")
-    s = Service(shutil.which("geckodriver") or "/usr/local/bin/geckodriver")
+    geckodriver_path = shutil.which("geckodriver") or geckodriver_autoinstaller.install()
+    s = Service(geckodriver_path)
     super().__init__(options=options, service=s)
     return
 
