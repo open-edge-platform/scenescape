@@ -186,6 +186,34 @@ class CamCreateForm(forms.ModelForm):
     super().__init__(*args, **kwargs)
     self.fields['scene'].required = False
 
+  # Added validation to ensure all models in camerachain exist in model_config
+  def clean_camerachain(self):
+    camerachain = self.cleaned_data.get('camerachain', '').strip()
+    if not camerachain:
+      return camerachain
+
+    from pathlib import Path
+    from manager.ppl_generator.model_chain import parse_model_chain
+    from manager.ppl_generator import PipelineGenerationValueError, PipelineGenerationNotImplementedError
+
+    modelconfig_name = getattr(self.instance, 'modelconfig', None) or 'model_config.json'
+    model_config_path = Path(os.environ.get('MODEL_CONFIGS_FOLDER', '/models/model_configs')) / modelconfig_name
+    if not model_config_path.is_file():
+      raise ValidationError(f"Model config file not found at {model_config_path}")
+
+    try:
+      with open(model_config_path, 'r') as f:
+        model_config = json.load(f)
+    except (json.JSONDecodeError, IOError) as e:
+      raise ValidationError(f"Error reading model config: {str(e)}")
+
+    try:
+      parse_model_chain(camerachain, settings.MODEL_ROOT, model_config)
+    except (PipelineGenerationValueError, PipelineGenerationNotImplementedError) as e:
+      raise ValidationError(str(e))
+
+    return camerachain
+
 class ChildSceneForm(forms.ModelForm):
   class Meta:
     model = ChildScene
