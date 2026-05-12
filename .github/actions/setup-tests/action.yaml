@@ -8,6 +8,9 @@ inputs:
   dockerhub-token:
     description: 'DockerHub token'
     required: true
+  github-token:
+    description: 'GitHub token'
+    required: true
 runs:
   using: "composite"
   steps:
@@ -28,7 +31,7 @@ runs:
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        password: ${{ inputs.github-token }}
 
     - name: "Setup Cache Targets"
       id: setup-cache
