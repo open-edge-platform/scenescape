@@ -23,13 +23,24 @@ runs:
         username: scenescape
         password: ${{ inputs.dockerhub-token }}
 
-    - name: Set up Docker
+    - name: "Log in to GHCR"
+      uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: "Setup Cache Targets"
+      id: setup-cache
+      uses: ./.github/actions/setup-cache
+
+    - name: Set up Docker # Enable containerd backend for image caching during setup
       uses: docker/setup-docker-action@v5
       with:
         daemon-config: |
           {
             "features": {
-              "containerd-snapshotter": false
+              "containerd-snapshotter": true
             }
           }
 
@@ -66,8 +77,22 @@ runs:
 
     - name: "Setup Test Environment"
       shell: bash
+      env:
+        CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+        CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+        GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
       run: |
         make && make setup-tests
+
+    - name: Set up Docker # Turn off containerd backend during tests execution
+      uses: docker/setup-docker-action@v5
+      with:
+        daemon-config: |
+          {
+            "features": {
+              "containerd-snapshotter": false
+            }
+          }
 
     - name: "Install github annotate plugin"
       shell: bash
