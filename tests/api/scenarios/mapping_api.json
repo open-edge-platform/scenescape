@@ -8,9 +8,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": [
-              "test_media/atag-calib-demo-map.png"
-            ],
+            "images": ["test_media/atag-calib-demo-map.png"],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -64,9 +62,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "video": [
-              "test_media/lab_vid.mp4"
-            ],
+            "video": ["test_media/lab_vid.mp4"],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -120,12 +116,8 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": [
-              "test_media/atag-calib-demo-map.png"
-            ],
-            "video": [
-              "test_media/lab_vid.mp4"
-            ],
+            "images": ["test_media/atag-calib-demo-map.png"],
+            "video": ["test_media/lab_vid.mp4"],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -237,9 +229,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": [
-              "test_media/atag-calib-demo-map.png"
-            ],
+            "images": ["test_media/atag-calib-demo-map.png"],
             "output_format": "glb",
             "mesh_type": "pointcloud",
             "use_keyframes": true
@@ -293,9 +283,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": [
-              "test_media/atag-calib-demo-map.png"
-            ],
+            "images": ["test_media/atag-calib-demo-map.png"],
             "output_format": "json",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -369,9 +357,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": [
-              "test_media/atag-calib-demo-map.png"
-            ],
+            "images": ["test_media/atag-calib-demo-map.png"],
             "output_format": "invalid_format",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -392,9 +378,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "video": [
-              "test_media/large_file.bin"
-            ],
+            "video": ["test_media/large_file.bin"],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
