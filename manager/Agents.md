@@ -116,8 +116,6 @@ docker compose exec manager python manage.py migrate
 docker compose exec manager python manage.py showmigrations
 ```
 
-
-
 ### Running Locally
 
 ```bash

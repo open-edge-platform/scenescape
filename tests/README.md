@@ -2,11 +2,11 @@
 
 Tests support two deployment backends controlled by the `--backend` flag:
 
-| Backend | Description |
-| ------------ | --------------------------------------------------- |
-| `docker` | Docker Compose (default) |
-| `kubernetes` | KinD cluster + Helm chart |
-| `all` | Run each test against both backends |
+| Backend      | Description                         |
+| ------------ | ----------------------------------- |
+| `docker`     | Docker Compose (default)            |
+| `kubernetes` | KinD cluster + Helm chart           |
+| `all`        | Run each test against both backends |
 
 ## Prerequisites
 
@@ -22,11 +22,11 @@ SUPASS=change_me make && make setup-tests
 In addition to the Docker prerequisites, the following tools must be installed
 and available on `PATH`:
 
-| Tool | Purpose |
-| ----------- | ------------------------------ |
-| `kind` | Creates the local KinD cluster |
-| `kubectl` | Manages Kubernetes resources |
-| `helm` | Deploys the SceneScape chart |
+| Tool      | Purpose                        |
+| --------- | ------------------------------ |
+| `kind`    | Creates the local KinD cluster |
+| `kubectl` | Manages Kubernetes resources   |
+| `helm`    | Deploys the SceneScape chart   |
 
 The Python dependencies are installed automatically by `make setup-pytest`.
 
@@ -111,11 +111,11 @@ pytest tests/functional -v --collect-container-logs none
 
 ### Environment variables
 
-| Variable        | Default            | Backend    | Description                                  |
-| --------------- | ------------------ | ---------- | -------------------------------------------- |
-| `SUPASS`        | random             | both       | Superuser password for the test deployment   |
-| `SECRETSDIR`    | `manager/secrets/` | docker     | Path to the secrets directory                |
-| `IMAGE_VERSION` | `latest`           | docker     | Docker image tag to use for test containers  |
+| Variable        | Default            | Backend | Description                                 |
+| --------------- | ------------------ | ------- | ------------------------------------------- |
+| `SUPASS`        | random             | both    | Superuser password for the test deployment  |
+| `SECRETSDIR`    | `manager/secrets/` | docker  | Path to the secrets directory               |
+| `IMAGE_VERSION` | `latest`           | docker  | Docker image tag to use for test containers |
 
 ### Log files
 
@@ -138,8 +138,8 @@ messages are written to the per-test log file.
 
 ## Available test groups
 
-| Make target              | Description                            |
-| ------------------------ | -------------------------------------- |
+| Make target                  | Description                            |
+| ---------------------------- | -------------------------------------- |
 | `run_basic_acceptance_tests` | Core smoke tests (functional + unit)   |
 | `run_standard_tests`         | Full functional and UI test suite      |
 | `run_functional_tests`       | All functional API/MQTT tests          |
@@ -165,10 +165,10 @@ pytest tests/sscape_tests -v
 
 ## Test markers
 
-| Marker | Description |
-| ------------------ | ---------------------------------------------------- |
+| Marker            | Description                                                                       |
+| ----------------- | --------------------------------------------------------------------------------- |
 | `kubernetes_only` | Test runs only with `--backend=kubernetes` or `--backend=all`; skipped for Docker |
-| `preserve_db` | Skip post-test DB restore so the next test can verify persistence |
+| `preserve_db`     | Skip post-test DB restore so the next test can verify persistence                 |
 
 ## Using the VS Code Test Extension
 
@@ -191,10 +191,7 @@ To run tests against the Kubernetes backend from the Test Explorer, add
 
    ```json
    {
-     "python.testing.pytestArgs": [
-       "tests",
-       "--backend=kubernetes"
-     ],
+     "python.testing.pytestArgs": ["tests", "--backend=kubernetes"],
      "python.testing.pytestEnabled": true,
      "python.testing.unittestEnabled": false
    }
