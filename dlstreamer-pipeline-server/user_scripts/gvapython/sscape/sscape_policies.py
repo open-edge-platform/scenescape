@@ -6,23 +6,8 @@ import base64
 
 ## Policies to post process data
 
-def _extractKeypoints(item):
-  # Format 1: keypoints in tensors (older model-proc based pipelines)
-  for tensor in item.get('tensors', []):
-    if tensor.get('format') == 'keypoints':
-      data = tensor.get('data', [])
-      names = tensor.get('point_names', [])
-      keypoints = [
-        {'name': names[i], 'x': data[i * 2], 'y': data[i * 2 + 1]}
-        for i in range(len(names))
-        if i * 2 + 1 < len(data)
-      ]
-      return {
-        'keypoints': keypoints,
-        'keypoint_connections': tensor.get('point_connections', [])
-      }
-
-  # Format 2: keypoints from gvametaconvert (yolo11-pose and similar)
+def _extractKeypointsFromGvametaconvert(item):
+  """Extract keypoints from gvametaconvert format (yolo11-pose and similar)."""
   raw_keypoints = item.get('keypoints')
   if isinstance(raw_keypoints, list):
     for kp_group in raw_keypoints:
@@ -50,8 +35,26 @@ def _extractKeypoints(item):
           'keypoints': keypoints,
           'keypoint_connections': connections,
         }
-
   return {}
+
+def _extractKeypoints(item):
+  # Format 1: keypoints in tensors (older model-proc based pipelines)
+  for tensor in item.get('tensors', []):
+    if tensor.get('format') == 'keypoints':
+      data = tensor.get('data', [])
+      names = tensor.get('point_names', [])
+      keypoints = [
+        {'name': names[i], 'x': data[i * 2], 'y': data[i * 2 + 1]}
+        for i in range(len(names))
+        if i * 2 + 1 < len(data)
+      ]
+      return {
+        'keypoints': keypoints,
+        'keypoint_connections': tensor.get('point_connections', [])
+      }
+
+  # Format 2: keypoints from gvametaconvert (yolo11-pose and similar)
+  return _extractKeypointsFromGvametaconvert(item)
 
 def detectionPolicy(pobj, item, fw, fh):
   detection = item['detection']

@@ -222,9 +222,6 @@ class PostInferenceDataPublish:
     return len(existing_objects) + 1
 
   def buildObjData(self, gvadata):
-    # print("\nBuilding object data with gvadata: \n")
-    # print(gvadata)
-    # print("\nCurrent frame_level_data before update: \n")
     now = time.time()
     self.frame_level_data.update({
       'timestamp': gvadata['postdecode_timestamp'],
