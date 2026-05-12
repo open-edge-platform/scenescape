@@ -238,12 +238,20 @@
               "type": "string"
             },
             {
-              "type": "array"
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
             },
             {
               "type": "object",
               "properties": {
-                "embedding_vector": {},
+                "embedding_vector": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  }
+                },
                 "model_name": {
                   "type": "string"
                 }
