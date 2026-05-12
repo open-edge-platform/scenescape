@@ -76,6 +76,7 @@ def test_controller_publishes_tracking_on_detection(record_xml_attribute, params
   reg_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid)
 
   tester = ServiceMqttTest(params)
+  exit_code = 1
   try:
     tester.connect([reg_topic])
     found = _wait_for_controller_output(tester, cam_topic)
