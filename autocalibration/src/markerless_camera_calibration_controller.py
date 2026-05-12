@@ -11,7 +11,7 @@ from pathlib import Path
 from auto_camera_calibration_controller import CameraCalibrationController
 from markerless_camera_calibration import \
     CameraCalibrationMonocularPoseEstimate
-from polycam_to_images import transformDataset
+from polycam_to_images import transform_dataset
 from pytz import timezone
 
 from scene_common import log
@@ -27,7 +27,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
   Strategy.
   """
 
-  def generateCalibration(self, sceneobj, camera_intrinsics, cam_frame_data):
+  def generate_calibration(self, sceneobj, camera_intrinsics, cam_frame_data):
     """! Generates the camera pose.
     @param   sceneobj   Scene object
     @param   camera_intrinsics  Camera Intrinsics
@@ -66,7 +66,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
         "details": cam_calib_data  # Optionally include all returned data
     }
 
-  def processSceneForCalibration(self, sceneobj, map_update=False):
+  def process_scene_for_calibration(self, sceneobj, map_update=False):
     """! The following tasks are done in this function:
          1) Pre-process the uploaded polycam zip file.
          2) Using the global feature matching algorithm, performs feature
@@ -80,7 +80,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     response_dict = {'status': "success"}
     log.info("processing markerless scene for calibration")
     try:
-      preprocess = self.preprocessPolycamDataset(sceneobj)
+      preprocess = self.preprocess_polycam_dataset(sceneobj)
     except FileNotFoundError as fnfe:
       log.error(fnfe)
       response_dict['status'] = str(fnfe)
@@ -108,8 +108,8 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     if sceneobj.map_processed is None or map_update:
       try:
         with self.cam_calib_objs[sceneobj.id].cam_calib_lock:
-          sceneobj = self.cam_calib_objs[sceneobj.id].registerDataset(sceneobj)
-          self.saveToDatabase(sceneobj)
+          sceneobj = self.cam_calib_objs[sceneobj.id].register_dataset(sceneobj)
+          self.save_to_database(sceneobj)
           log.info("Dataset registered")
       except FileNotFoundError as e:
         if "global-feats-netvlad.h5" in str(e):
@@ -120,7 +120,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
         return response_dict
     else:
       try:
-        sceneobj = self.cam_calib_objs[sceneobj.id].registerDataset(sceneobj)
+        sceneobj = self.cam_calib_objs[sceneobj.id].register_dataset(sceneobj)
         log.info("Dataset registered", self.cam_calib_objs[sceneobj.id].config)
       except FileNotFoundError as e:
         if "global-feats-netvlad.h5" in str(e):
@@ -130,10 +130,10 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
           response_dict['status'] = str(e)
         return response_dict
 
-    self.notifySceneRegistration(sceneobj.id, response_dict)
+    self.notify_scene_registration(sceneobj.id, response_dict)
     return response_dict
 
-  def isPolycamDataProcessed(self, sceneobj):
+  def is_polycam_data_processed(self, sceneobj):
     """! function used to check if the polycam data is processed.
     @param   sceneobj      scene object.
 
@@ -142,7 +142,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     return (sceneobj.map_processed < datetime.fromtimestamp(
         os.path.getmtime(sceneobj.polycam_data), tz=timezone(TIMEZONE)))
 
-  def isMapUpdated(self, sceneobj):
+  def is_map_updated(self, sceneobj):
     """! function used to check if the map is updated and reset the scene when map is None.
     @param   sceneobj      scene object.
 
@@ -150,27 +150,27 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     """
     if not sceneobj.map or not sceneobj.polycam_data:
       return False
-    elif (sceneobj.map_processed is None) or (self.isMapProcessed(sceneobj)) or (
-            self.isPolycamDataProcessed(sceneobj)):
+    elif (sceneobj.map_processed is None) or (self.is_map_processed(sceneobj)) or (
+            self.is_polycam_data_processed(sceneobj)):
       return True
 
-  def saveToDatabase(self, scene):
+  def save_to_database(self, scene):
     """! Function updates polycam processed timestamp data into db.
     @param   scene             Scene database object.
 
     @return  None
     """
-    self.calibration_data_interface.updateMapProcessed(scene.id, get_iso_time())
+    self.calibration_data_interface.update_map_processed(scene.id, get_iso_time())
     return
 
-  def resetScene(self, scene):
+  def reset_scene(self, scene):
     self.cam_calib_objs.pop(scene.id, None)
     if (hasattr(scene, 'output_dir') and os.path.exists(scene.output_dir)
             and os.path.isdir(scene.output_dir)):
       shutil.rmtree(scene.output_dir)
     return
 
-  def preprocessPolycamDataset(self, scene_obj):
+  def preprocess_polycam_dataset(self, scene_obj):
     """! Preprocess the polycam zip file uploaded via UI, extracts data
     appropriately and organizes the dataset for markerless camera
     calibration registerdataset function.
@@ -193,7 +193,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     if dataset_dir.is_file():
       dataset_dir = dataset_dir.parent
     output_dir = base_dataset_path / "output_dir"
-    transformDataset(str(dataset_dir), str(output_dir))
+    transform_dataset(str(dataset_dir), str(output_dir))
     response_dict["dataset_dir"] = str(dataset_dir)
     response_dict["output_dir"] = str(output_dir)
     log.info("Polycam dataset preprocessing complete", response_dict)
