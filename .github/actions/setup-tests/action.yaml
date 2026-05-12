@@ -50,11 +50,20 @@ runs:
     - name: Install firefox
       shell: bash
       run: |
+        sudo snap remove --purge firefox
+        sudo apt purge -y firefox
         sudo apt update
-        sudo apt install -y --no-install-recommends libpci-dev libnss3-tools
-        sudo apt install -y --upgrade xvfb
-        sudo apt remove -y --purge firefox
-        sudo snap install firefox
+        sudo apt install -y --no-install-recommends \
+          wget libpci-dev libnss3-tools xvfb
+        sudo install -d -m 0755 /etc/apt/keyrings
+        wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg -O- \
+          | sudo tee /etc/apt/keyrings/packages.mozilla.org.asc > /dev/null
+        echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" \
+          | sudo tee /etc/apt/sources.list.d/mozilla.list > /dev/null
+        echo -e 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000' \
+          | sudo tee /etc/apt/preferences.d/mozilla > /dev/null
+        sudo apt update
+        sudo apt install -y --no-install-recommends firefox-esr
 
     - name: Print Firefox version
       shell: bash
