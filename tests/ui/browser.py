@@ -10,9 +10,37 @@ from selenium.webdriver.firefox.options import Options
 from selenium.common.exceptions import NoSuchElementException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
+from pathlib import Path
+from shutil import which
+from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
+import subprocess
 
-MAX_RETRIES = 5
-RETRY_DELAY = 30
+def _validate_firefox(binary):
+    result = subprocess.run([binary, "--version"], capture_output=True, text=True)
+    if result.returncode != 0 or "Firefox" not in result.stdout + result.stderr:
+        raise RuntimeError(f"Invalid Firefox binary: {binary}")
+
+def _find_firefox_binary():
+    candidates = [
+        which("firefox"),
+        which("firefox-esr"),
+        "/usr/bin/firefox",
+        "/usr/bin/firefox-esr",
+        "/snap/bin/firefox",
+    ]
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        p = Path(candidate)
+        if p.is_file() and p.stat().st_mode & 0o111:
+            return str(p)
+
+    raise RuntimeError(
+        "No valid Firefox executable found. Checked firefox/firefox-esr in PATH "
+        "and common system locations."
+    )
 
 class Browser(Firefox):
   def __init__(self, headless=True):
@@ -36,9 +64,9 @@ class Browser(Firefox):
     options.set_preference("gfx.webrender.software", True)
     options.set_preference("network.proxy.type", 0)
 
-    firefox_path = shutil.which("firefox") or shutil.which("firefox-esr") or "firefox"
-    if firefox_path:
-      options.binary_location = firefox_path
+    binary = _find_firefox_binary()
+    _validate_firefox(binary)
+    options.binary_location = binary
 
     geckodriver_path = shutil.which("geckodriver") or geckodriver_autoinstaller.install()
     service = Service(geckodriver_path)

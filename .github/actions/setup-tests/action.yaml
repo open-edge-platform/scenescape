@@ -42,6 +42,12 @@ runs:
         sudo apt remove -y --purge firefox
         sudo snap install firefox
 
+    - name: Print Firefox version
+      shell: bash
+      run: |
+        which firefox
+        firefox --version
+
     - name: Set Firefox profile
       shell: bash
       run: |
