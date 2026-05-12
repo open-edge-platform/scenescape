@@ -49,9 +49,9 @@ def _wait_for_controller_output(tester, cam_topic):
 
   @param    tester      ServiceMqttTest instance (connected).
   @param    cam_topic   DATA_CAMERA topic string.
-  @return   True if objects were received within MAX_WAIT, False on timeout.
+  @return   True if objects were received within MAX_WAIT_S, False on timeout.
   """
-  end = time.time() + tester.MAX_WAIT
+  end = time.time() + tester.MAX_WAIT_S
   while time.time() < end:
     tester.publish(cam_topic, json.dumps(_detection(CAMERA_ID)))
     time.sleep(1.0 / FRAME_RATE)
@@ -82,7 +82,7 @@ def test_controller_publishes_tracking_on_detection(record_xml_attribute, params
     found = _wait_for_controller_output(tester, cam_topic)
     assert found, (
       f"No DATA_REGULATED message with tracked objects received on "
-      f"{reg_topic} within {tester.MAX_WAIT}s"
+      f"{reg_topic} within {tester.MAX_WAIT_S}s"
     )
     log.info("PASS: controller published tracking output on DATA_REGULATED")
     exit_code = 0

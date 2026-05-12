@@ -23,7 +23,7 @@ class ServiceMqttTest:
   ``None`` for plain-string payloads.
   """
 
-  MAX_WAIT = 30
+  MAX_WAIT_S = 30
 
   def __init__(self, params):
     """! Initialise the helper bound to the given connection parameters.
@@ -71,7 +71,7 @@ class ServiceMqttTest:
     self._client.onMessage = _on_message
     self._client.connect()
     self._client.loopStart()
-    assert connected.wait(self.MAX_WAIT), "MQTT client did not connect within timeout"
+    assert connected.wait(self.MAX_WAIT_S), "MQTT client did not connect within timeout"
 
   def disconnect(self):
     """! Disconnect and stop the MQTT client loop."""
@@ -99,10 +99,10 @@ class ServiceMqttTest:
     """! Block until a message with the given raw string payload arrives.
 
     @param    expected_payload    Exact string to match against message payload.
-    @param    timeout             Seconds to wait; defaults to MAX_WAIT.
+    @param    timeout             Seconds to wait; defaults to MAX_WAIT_S.
     @return   True if the payload was received, False on timeout.
     """
-    end = time.time() + (timeout or self.MAX_WAIT)
+    end = time.time() + (timeout or self.MAX_WAIT_S)
     while time.time() < end:
       with self._lock:
         if any(m['payload'] == expected_payload for m in self._messages):

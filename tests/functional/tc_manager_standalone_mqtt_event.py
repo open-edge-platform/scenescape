@@ -55,7 +55,7 @@ def test_manager_publishes_cmd_database_on_scene_create(record_xml_attribute, pa
     received = h.wait_for_payload("update")
     assert received, (
       f"No CMD_DATABASE 'update' message received on {db_topic} within "
-      f"{h.MAX_WAIT}s after scene creation"
+      f"{h.MAX_WAIT_S}s after scene creation"
     )
     log.info("PASS: CMD_DATABASE 'update' received after scene creation")
     exit_code = 0
@@ -102,7 +102,7 @@ def test_manager_publishes_cmd_scene_update_on_scene_modify(record_xml_attribute
     received = h.wait_for_payload("update")
     assert received, (
       f"No CMD_SCENE_UPDATE 'update' message received on {scene_update_topic} "
-      f"within {h.MAX_WAIT}s after scene update"
+      f"within {h.MAX_WAIT_S}s after scene update"
     )
     log.info("PASS: CMD_SCENE_UPDATE 'update' received after scene modification")
     exit_code = 0
@@ -183,7 +183,7 @@ def test_manager_publishes_cmd_database_on_scene_delete(record_xml_attribute, pa
     received = h.wait_for_payload("update")
     assert received, (
       f"No CMD_DATABASE 'update' message received on {db_topic} "
-      f"within {h.MAX_WAIT}s after scene delete"
+      f"within {h.MAX_WAIT_S}s after scene delete"
     )
     log.info("PASS: CMD_DATABASE 'update' received after scene delete")
     exit_code = 0
