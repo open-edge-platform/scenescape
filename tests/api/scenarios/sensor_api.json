@@ -13,8 +13,15 @@
             "sensor_id": "sensor_minimal",
             "area": "circle",
             "radius": 2.5,
-            "center": [3.81, 4.59],
-            "translation": [1, 1, 1]
+            "center": [
+              3.81,
+              4.59
+            ],
+            "translation": [
+              1,
+              1,
+              1
+            ]
           }
         },
         "expected_status": {
@@ -40,8 +47,15 @@
             "sensor_id": "sensor_full",
             "area": "circle",
             "radius": 2.5,
-            "center": [3.81, 4.59],
-            "translation": [1, 1, 1],
+            "center": [
+              3.81,
+              4.59
+            ],
+            "translation": [
+              1,
+              1,
+              1
+            ],
             "singleton_type": "attribute",
             "color_ranges": {
               "sectors": [
@@ -84,7 +98,11 @@
             "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
             "sensor_id": "sensor_entire_scene",
             "area": "scene",
-            "translation": [1, 1, 1],
+            "translation": [
+              1,
+              1,
+              1
+            ],
             "singleton_type": "attribute",
             "color_ranges": {
               "sectors": [
@@ -128,11 +146,24 @@
             "sensor_id": "sensor_polygon",
             "area": "poly",
             "points": [
-              [3.81, 4.59],
-              [5.42, 5.12],
-              [5.82, 3.57]
+              [
+                3.81,
+                4.59
+              ],
+              [
+                5.42,
+                5.12
+              ],
+              [
+                5.82,
+                3.57
+              ]
             ],
-            "translation": [1, 1, 1],
+            "translation": [
+              1,
+              1,
+              1
+            ],
             "singleton_type": "attribute",
             "color_ranges": {
               "sectors": [
@@ -208,7 +239,12 @@
           "body": {
             "name": "bad_points",
             "area": "poly",
-            "points": [[1, 2]]
+            "points": [
+              [
+                1,
+                2
+              ]
+            ]
           }
         },
         "expected_status": {
@@ -229,7 +265,10 @@
             "name": "circle_no_radius",
             "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
             "area": "circle",
-            "center": [1, 2]
+            "center": [
+              1,
+              2
+            ]
           }
         },
         "expected_status": {
@@ -270,7 +309,9 @@
             "name": "bad_center",
             "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
             "area": "circle",
-            "center": [1]
+            "center": [
+              1
+            ]
           }
         },
         "expected_status": {
@@ -290,7 +331,10 @@
           "body": {
             "name": "bad_translation",
             "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
-            "translation": [1, 1]
+            "translation": [
+              1,
+              1
+            ]
           }
         },
         "expected_status": {
@@ -339,8 +383,15 @@
           "name": "sensor_minimal",
           "area": "circle",
           "radius": 2.5,
-          "center": [3.81, 4.59],
-          "translation": [3.81, 4.59, 0.0],
+          "center": [
+            3.81,
+            4.59
+          ],
+          "translation": [
+            3.81,
+            4.59,
+            0.0
+          ],
           "singleton_type": "environmental"
         }
       }
@@ -389,8 +440,15 @@
               "name": "sensor_minimal",
               "area": "circle",
               "radius": 2.5,
-              "center": [3.81, 4.59],
-              "translation": [1, 1, 1],
+              "center": [
+                3.81,
+                4.59
+              ],
+              "translation": [
+                3.81,
+                4.59,
+                0.0
+              ],
               "singleton_type": "environmental"
             },
             {
@@ -400,9 +458,33 @@
               "name": "sensor_full",
               "area": "circle",
               "radius": 2.5,
-              "center": [3.81, 4.59],
-              "translation": [1, 1, 1],
-              "singleton_type": "attribute"
+              "center": [
+                3.81,
+                4.59
+              ],
+              "translation": [
+                3.81,
+                4.59,
+                0.0
+              ],
+              "singleton_type": "attribute",
+              "color_ranges": {
+                "sectors": [
+                  {
+                    "color": "green",
+                    "color_min": 0
+                  },
+                  {
+                    "color": "yellow",
+                    "color_min": 2
+                  },
+                  {
+                    "color": "red",
+                    "color_min": 5
+                  }
+                ],
+                "range_max": 10
+              }
             }
           ]
         }
@@ -462,9 +544,18 @@
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "area": "poly",
             "points": [
-              [1, 1],
-              [2, 2],
-              [3, 1]
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                2
+              ],
+              [
+                3,
+                1
+              ]
             ]
           }
         },
@@ -489,8 +580,15 @@
             "sensor_id": "sensor_full",
             "area": "circle",
             "radius": 2.5,
-            "center": [3.81, 4.59],
-            "translation": [1, 1, 1],
+            "center": [
+              3.81,
+              4.59
+            ],
+            "translation": [
+              1,
+              1,
+              1
+            ],
             "singleton_type": "attribute",
             "color_ranges": {
               "sectors": [
@@ -530,7 +628,12 @@
             "name": "sensor_minimal_updated",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "area": "poly",
-            "points": [[1, 1]]
+            "points": [
+              [
+                1,
+                1
+              ]
+            ]
           }
         },
         "expected_status": {
@@ -554,8 +657,15 @@
             "sensor_id": "sensor_full",
             "area": "circle",
             "radius": 2.5,
-            "center": [3.81, 4.59],
-            "translation": [1, 1, 1],
+            "center": [
+              3.81,
+              4.59
+            ],
+            "translation": [
+              1,
+              1,
+              1
+            ],
             "singleton_type": "attribute",
             "color_ranges": {
               "sectors": [

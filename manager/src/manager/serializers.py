@@ -181,17 +181,39 @@ class SingletonSerializer(NonNullSerializer):
   def validate(self, data):
     area = data.get('area')
     name = data.get('name')
-    qs = SingletonSensor.objects.filter(name=name)
+    is_update = self.instance is not None
 
-    if self.instance:
-      qs = qs.exclude(pk=self.instance.pk)
+    if not name and not is_update:
+      raise serializers.ValidationError({'name': 'This field is required.'})
 
-    if qs.exists():
-      sensor = qs.first()
-      if hasattr(sensor, 'scene') and sensor.scene is not None:
-        raise serializers.ValidationError(f"A sensor with the name '{name}' already exists.")
-      else:
-        raise serializers.ValidationError(f"orphaned sensor with the name '{name}' already exists.")
+    scene_data = data.get('scene')
+    if scene_data is not None:
+      import uuid as _uuid
+      scene_pk = scene_data.get('pk') if isinstance(scene_data, dict) else scene_data
+      try:
+        _uuid.UUID(str(scene_pk), version=4)
+      except (ValueError, AttributeError):
+        raise serializers.ValidationError({'scene': 'Invalid UUID format.'})
+      if not Scene.objects.filter(pk=scene_pk).exists():
+        raise serializers.ValidationError({'scene': f"Scene '{scene_pk}' does not exist."})
+
+    translation = self.initial_data.get('translation') if hasattr(self, 'initial_data') else None
+    if translation is not None:
+      if not isinstance(translation, (list, tuple)) or len(translation) != 3:
+        raise serializers.ValidationError(
+          {'translation': 'Must be a list of exactly 3 numeric values [x, y, z].'}
+        )
+
+    if name:
+      qs = SingletonSensor.objects.filter(name=name)
+      if self.instance:
+        qs = qs.exclude(pk=self.instance.pk)
+      if qs.exists():
+        sensor = qs.first()
+        if hasattr(sensor, 'scene') and sensor.scene is not None:
+          raise serializers.ValidationError(f"A sensor with the name '{name}' already exists.")
+        else:
+          raise serializers.ValidationError(f"orphaned sensor with the name '{name}' already exists.")
 
     if area is not None and area not in [x[0] for x in AREA_CHOICES]:
       raise serializers.ValidationError({"area": "invalid area: \"" + str(area) + "\""})
@@ -205,6 +227,12 @@ class SingletonSerializer(NonNullSerializer):
         val = data.get(field)
         if val is None:
           raise serializers.ValidationError({field: "required"})
+    if area == "poly":
+      points = data.get('points')
+      if points is not None and len(points) < 3:
+        raise serializers.ValidationError(
+          {'points': 'A polygon area requires at least 3 points.'}
+        )
     if 'singleton_scalar_threshold' in data:
       SingletonScalarThresholdSerializer.validateColorRanges(data['singleton_scalar_threshold'])
     return data
@@ -487,6 +515,13 @@ class RegionSerializer(NonNullSerializer):
   scene = serializers.CharField(source='scene.pk')
   color_ranges = RegionOccupancyThresholdSerializer(source='roi_occupancy_threshold')
 
+  def validate(self, data):
+    name = data.get('name')
+    is_update = self.instance is not None
+    if (name is None and not is_update) or (name is not None and not name.strip()):
+      raise serializers.ValidationError({'name': ['This field is required.']})
+    return data
+
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
 
@@ -560,7 +595,8 @@ class SceneSerializer(NonNullSerializer):
       raise serializers.ValidationError({'body': ['Request body is required.']})
 
     name = attrs.get('name', None)
-    if (name is None and not self.partial) or (name is not None and not name.strip()):
+    is_update = self.instance is not None
+    if (name is None and not is_update) or (name is not None and not name.strip()):
       raise serializers.ValidationError({'name': ['This field is required.']})
 
     allowed = set(self.fields.keys()) | {

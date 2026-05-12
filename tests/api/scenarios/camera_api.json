@@ -242,10 +242,10 @@
     ]
   },
   {
-    "test_name": "Vision_AI/SSCAPE/API/CAMERA/08: Update camera with missing required field name",
+    "test_name": "Vision_AI/SSCAPE/API/CAMERA/08: Update camera without name (name not required for updates)",
     "test_steps": [
       {
-        "step_name": "Attempt to update camera without name",
+        "step_name": "Update camera without name (partial update is valid)",
         "api": "camera",
         "method": "updateCamera",
         "request": {
@@ -261,7 +261,7 @@
           }
         },
         "expected_status": {
-          "status_code": 400
+          "status_code": 200
         }
       }
     ]
