@@ -3,6 +3,7 @@
 
 from collections import OrderedDict
 import os
+import uuid as _uuid
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
@@ -43,6 +44,17 @@ class CustomAuthTokenSerializer(serializers.Serializer):
       else:
         raise serializers.ValidationError("Incorrect Username/Password. ")
     return
+
+def validate_scene_uid(scene_pk, check_exists=True):
+  """Raise ValidationError if scene_pk is not a valid UUID-v4, or if check_exists
+  is True and the scene does not exist in the database."""
+  try:
+    _uuid.UUID(str(scene_pk), version=4)
+  except (ValueError, AttributeError):
+    raise serializers.ValidationError({'scene': 'Invalid UUID format.'})
+  if check_exists and not Scene.objects.filter(pk=scene_pk).exists():
+    raise serializers.ValidationError({'scene': f"Scene '{scene_pk}' does not exist."})
+
 
 class NonNullSerializer(serializers.ModelSerializer):
   def to_representation(self, instance):
@@ -188,14 +200,8 @@ class SingletonSerializer(NonNullSerializer):
 
     scene_data = data.get('scene')
     if scene_data is not None:
-      import uuid as _uuid
       scene_pk = scene_data.get('pk') if isinstance(scene_data, dict) else scene_data
-      try:
-        _uuid.UUID(str(scene_pk), version=4)
-      except (ValueError, AttributeError):
-        raise serializers.ValidationError({'scene': 'Invalid UUID format.'})
-      if not Scene.objects.filter(pk=scene_pk).exists():
-        raise serializers.ValidationError({'scene': f"Scene '{scene_pk}' does not exist."})
+      validate_scene_uid(scene_pk)
 
     translation = self.initial_data.get('translation') if hasattr(self, 'initial_data') else None
     if translation is not None:
@@ -888,6 +894,10 @@ class UserSerializer(NonNullSerializer):
         password = attrs.get('password', '')
         if not password or not password.strip():
           raise serializers.ValidationError({'password': ['This field may not be blank.']})
+
+    scene_data = self.initial_data.get('scene') if hasattr(self, 'initial_data') else None
+    if scene_data is not None:
+      validate_scene_uid(scene_data, check_exists=False)
 
     return super().validate(attrs)
 

@@ -200,20 +200,10 @@
           "status_code": 200
         },
         "expected_body": {
-          "count": 8,
+          "count": 6,
           "next": null,
           "previous": null,
           "results": [
-            {
-              "uid": "4",
-              "username": "admin",
-              "is_active": true,
-              "is_staff": true,
-              "is_superuser": true,
-              "first_name": "",
-              "last_name": "",
-              "email": "admin@domain.com"
-            },
             {
               "uid": "1",
               "username": "calibration",
@@ -365,6 +355,16 @@
                   "access": 1
                 }
               ]
+            },
+            {
+              "uid": "4",
+              "username": "admin",
+              "is_active": true,
+              "is_staff": true,
+              "is_superuser": true,
+              "first_name": "",
+              "last_name": "",
+              "email": "admin@domain.com"
             },
             {
               "uid": "${USER_ID}",
