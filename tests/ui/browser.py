@@ -16,6 +16,9 @@ from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 import subprocess
 
+MAX_RETRIES = 5
+RETRY_DELAY = 30
+
 def _validate_firefox(binary):
     result = subprocess.run([binary, "--version"], capture_output=True, text=True)
     if result.returncode != 0 or "Firefox" not in result.stdout + result.stderr:
