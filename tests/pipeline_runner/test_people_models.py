@@ -51,7 +51,7 @@ class TestPeoplePipelines:
     [_apply_marks(s) for s in PEOPLE_SCENARIOS],
     indirect=True,
   )
-  def test_detections_received_and_valid(self, camera_settings_path, schema_validator):
+  def test_detections_received_and_valid(self, camera_settings_path, schema_validator, sample_data):
     """Pipeline produces detections that pass the SceneScape detector schema.
 
     Positive test: for each scenario launch the pipeline, collect
@@ -84,7 +84,7 @@ class TestPeoplePipelines:
         f"got {category_counts.get('person', 0)}"
       )
 
-  def test_collect_raises_without_stopping_condition(self, tmp_path):
+  def test_collect_raises_without_stopping_condition(self, tmp_path, sample_data):
     """collect() must raise ValueError when called with no timeout or min_detections.
 
     Negative test: calling collect() without any stopping condition is a

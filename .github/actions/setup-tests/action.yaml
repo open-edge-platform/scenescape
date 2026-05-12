@@ -37,16 +37,6 @@ runs:
       id: setup-cache
       uses: ./.github/actions/setup-cache
 
-    - name: Set up Docker # Enable containerd backend for image caching during setup
-      uses: docker/setup-docker-action@v5
-      with:
-        daemon-config: |
-          {
-            "features": {
-              "containerd-snapshotter": true
-            }
-          }
-
     - name: Install firefox
       shell: bash
       run: |
