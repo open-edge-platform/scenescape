@@ -1,8 +1,6 @@
 <!--
 SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
-Modifications:
-Nokia VPOD (Emerging Products, BLR), 2026
 -->
 
 {% extends 'sscape/base.html' %}
@@ -58,9 +56,9 @@ Nokia VPOD (Emerging Products, BLR), 2026
   <div class="scene-map">
     <div id="map">
       {% if scene.thumbnail %}
-        <img src="{{ scene.thumbnail.url }}" alt="{{ scene.name }}" style="display:none" />
+        <img src="{{ scene.thumbnail.url }}" alt="{{ scene.name }}" />
       {% elif scene.map %}
-        <img src="{{ scene.map.url }}" alt="{{ scene.name }}" style="display:none" />
+        <img src="{{ scene.map.url }}" alt="{{ scene.name }}" />
       {% endif %}
       <input type="hidden" name="scale" id="scale" value="{{ scene.scale }}" />
       <input type="hidden" name="scene" id="scene" value="{{ scene.id }}" />
@@ -75,13 +73,6 @@ Nokia VPOD (Emerging Products, BLR), 2026
       </desc>
     </svg>
     <div id="map-controls">
-      <select id="display-scale" class="form-control form-control-sm" title="Map display size">
-        <option value="fit" selected>Fit to Screen</option>
-        <option value="1.0">Native (1:1)</option>
-        <option value="0.75">75%</option>
-        <option value="0.5">50%</option>
-        <option value="0.33">33%</option>
-      </select>
       <input
         type="button"
         class="btn btn-sm btn-secondary"
@@ -188,21 +179,6 @@ Nokia VPOD (Emerging Products, BLR), 2026
           title="Toggle Show Telemetry"
           id="show-telemetry-label"
           >Show&nbsp;Telemetry</label
-        >
-      </div>
-      <div class="custom-control custom-switch switch">
-        <input
-          type="checkbox"
-          class="custom-control-input"
-          id="show-ids"
-          aria-labelledby="show-ids-label"
-        />
-        <label
-          class="custom-control-label"
-          for="show-ids"
-          title="Toggle Object IDs"
-          id="show-ids-label"
-          >Show&nbsp;IDs</label
         >
       </div>
       <div class="custom-control custom-switch switch">

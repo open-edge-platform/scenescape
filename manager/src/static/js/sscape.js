@@ -1,7 +1,5 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-// Modifications:
-// Nokia VPOD (Emerging Products, BLR), 2026
 
 "use strict";
 
@@ -42,9 +40,7 @@ var scene_id = $("#scene").val();
 var icon_size = 24;
 var show_telemetry = false;
 var show_trails = false;
-var show_ids = false;
 var scene_y_max = 480; // Scene image height in pixels
-var native_w, native_h; // Native SVG dimensions for viewBox scaling
 var savedElements = [];
 var is_coloring_enabled = false; // Default state of the coloring feature
 var roi_color_sectors = {};
@@ -208,7 +204,6 @@ async function checkBrokerConnections() {
           svgCanvas,
           show_telemetry,
           show_trails,
-          show_ids,
         );
       } else if (topic.includes("event")) {
         var etype = topic.split("/")[2];
@@ -717,47 +712,7 @@ function closePolygon() {
   stringifyRois();
 }
 
-function screenToSVG(clientX, clientY) {
-  var svgEl = document.getElementById("svgout");
-  var pt = svgEl.createSVGPoint();
-  pt.x = clientX;
-  pt.y = clientY;
-  return pt.matrixTransform(svgEl.getScreenCTM().inverse());
-}
-
-// Scale factor for converting Snap.svg drag deltas (screen pixels) to SVG units
-function getDragScaleFactor() {
-  var svgEl = document.getElementById("svgout");
-  var displayWidth = svgEl.getBoundingClientRect().width;
-  return displayWidth > 0 ? native_w / displayWidth : 1;
-}
-
-// Apply display scale to SVG element via CSS width/height (viewBox handles coordinate mapping)
-function applyDisplayScale(scaleValue) {
-  var svgEl = document.getElementById("svgout");
-  var aspectRatio = native_h / native_w;
-  var displayWidth;
-  if (scaleValue === "fit") {
-    var containerWidth = $(".scene-map").width();
-    var maxHeight = window.innerHeight * 0.40;
-    var widthFromContainer = Math.min(containerWidth, native_w);
-    var widthFromHeight = maxHeight / aspectRatio;
-    displayWidth = Math.min(widthFromContainer, widthFromHeight);
-  } else {
-    var s = parseFloat(scaleValue);
-    var containerWidth = $(".scene-map").width();
-    displayWidth = Math.min(Math.round(native_w * s), containerWidth);
-  }
-  svgEl.style.width = Math.round(displayWidth) + "px";
-  svgEl.style.height = Math.round(displayWidth * aspectRatio) + "px";
-  // Update CSS custom property so mark ID labels counter-scale to screen pixel size
-  svgEl.style.setProperty("--svg-scale-factor", native_w / displayWidth);
-}
-
 function move(dx, dy) {
-  var sf = getDragScaleFactor();
-  dx *= sf;
-  dy *= sf;
   var group = this.parent();
   var circles = group.selectAll("circle");
   group.select("polygon").remove();
@@ -786,9 +741,6 @@ function move(dx, dy) {
 }
 
 function move1(dx, dy) {
-  var sf = getDragScaleFactor();
-  dx *= sf;
-  dy *= sf;
   // Circles use cx, cy instead of x, y
   if (this.type === "circle") {
     this.attr({
@@ -847,9 +799,6 @@ function stop1() {
 }
 
 function dragTripwire(dx, dy) {
-  var sf = getDragScaleFactor();
-  dx *= sf;
-  dy *= sf;
   var group = this.parent();
   var line = group.select("line");
 
@@ -1007,17 +956,11 @@ function updateArrow(group) {
   var a = [-l * (v[1] / magV), l * (v[0] / magV)];
   var mid = [x1 + (x2 - x1) / 2, y1 + (y2 - y1) / 2];
 
-  // Label near start point, offset scales with viewBox so it stays clear at any zoom
-  var sf = getDragScaleFactor();
-  var perpNorm = [-(y2 - y1) / magV, (x2 - x1) / magV];
-  var labelDist = 20 * sf; // 20 screen-pixels of clearance
-  var labelPos = [x1 - perpNorm[0] * labelDist, y1 - perpNorm[1] * labelDist];
-
   if (arrow == null) {
     arrow = group
       .line(mid[0], mid[1], mid[0] + a[0], mid[1] + a[1])
       .addClass("arrow");
-    label = group.text(labelPos[0], labelPos[1], "").addClass("label");
+    label = group.text(mid[0] - a[0], mid[1] - a[1], "").addClass("label");
   } else {
     arrow.attr({
       x1: mid[0],
@@ -1027,8 +970,8 @@ function updateArrow(group) {
     });
 
     label.attr({
-      x: labelPos[0],
-      y: labelPos[1],
+      x: mid[0] - a[0],
+      y: mid[1] - a[1],
     });
   }
 }
@@ -1142,8 +1085,11 @@ if (svgCanvas) {
     if (dragging || !adding) return;
     drawing = true;
 
-    var svgPt = screenToSVG(e.clientX, e.clientY);
-    var thisPoint = [parseInt(svgPt.x), parseInt(svgPt.y)];
+    var offset = $("#svgout").offset();
+    var thisPoint = [
+      parseInt(e.pageX - offset.left),
+      parseInt(e.pageY - offset.top),
+    ];
 
     var circle;
 
@@ -1915,7 +1861,7 @@ $(document).ready(function () {
     // SVG scene implementation
     if (svgCanvas) {
       var $image = $("#map img");
-      var image_w = $image[0].naturalWidth;
+      var image_w = $image.width();
       var $rois = $("#id_rois");
       var $tripwires = $("#tripwires");
       var $child_rois = $("#id_child_rois");
@@ -1925,19 +1871,10 @@ $(document).ready(function () {
       var image_src = $image.attr("src");
 
       // Save image height as global for use in plotting
-      scene_y_max = $image[0].naturalHeight;
+      scene_y_max = $image.height();
       $image.remove();
 
-      native_w = image_w;
-      native_h = scene_y_max;
-
-      // Set viewBox to native dimensions — all internal coords stay in native space
-      var svgEl = document.getElementById("svgout");
-      svgEl.setAttribute("viewBox", "0 0 " + native_w + " " + native_h);
-      $("#svgout").attr("width", native_w).attr("height", native_h);
-      // Apply fit scale BEFORE showing SVG to prevent 4K flash
-      applyDisplayScale("fit");
-
+      $("#svgout").width(image_w).height(scene_y_max);
       var image = svgCanvas.image(image_src, 0, 0, image_w, scene_y_max);
 
       $("#svgout").show();
@@ -2177,7 +2114,6 @@ $(document).ready(function () {
       $(".hide-fullscreen").show();
       $(this).val("^");
       fullscreen = false;
-      applyDisplayScale($("#display-scale").val());
     } else {
       $(".scene-map, .wrapper").removeClass("container-fluid");
       $("body").css({
@@ -2188,7 +2124,6 @@ $(document).ready(function () {
       $(".hide-fullscreen").hide();
       $(this).val("v");
       fullscreen = true;
-      applyDisplayScale("1.0");
     }
   });
 
@@ -2200,14 +2135,6 @@ $(document).ready(function () {
   $("input#show-telemetry").on("change", function () {
     if ($(this).is(":checked")) show_telemetry = true;
     else show_telemetry = false;
-  });
-
-  $("#display-scale").on("change", function () {
-    applyDisplayScale($(this).val());
-  });
-
-  $("input#show-ids").on("change", function () {
-    show_ids = $(this).is(":checked");
   });
 
   $(".form-group")
