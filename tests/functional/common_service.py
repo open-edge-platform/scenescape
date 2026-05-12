@@ -50,11 +50,16 @@ class ServiceMqttTest:
         connected.set()
 
     def _on_message(_mqttc, _obj, msg):
-      raw = msg.payload.decode('utf-8')
       try:
-        data = json.loads(raw)
-      except (json.JSONDecodeError, UnicodeDecodeError):
+        raw = msg.payload.decode('utf-8')
+      except UnicodeDecodeError:
+        raw = msg.payload.decode('utf-8', errors='replace')
         data = None
+      else:
+        try:
+          data = json.loads(raw)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+          data = None
       with self._lock:
         self._messages.append({'topic': msg.topic, 'payload': raw, 'data': data})
 
