@@ -61,8 +61,8 @@ Use the following short names to refer to each model in the chain:
 |                      | person-attributes-recognition-crossroad-0238 | personattr | Person attributes (age, gender, clothing) |
 |                      | age-gender-recognition-retail-0013           | agegender  | Age and gender classification             |
 | **Vehicle Analysis** | vehicle-attributes-recognition-barrier-0042  | vehattr    | Vehicle attributes (color, type)          |
-| **Pose Estimation** | yolo11n-pose                                  | pose       | Person pose estimation with keypoints     |
-| **ReID (Public)**    | mars-small128                                 | marsreid   | Lightweight person re-identification      |
+| **Pose Estimation**  | yolo11n-pose                                 | pose       | Person pose estimation with keypoints     |
+| **ReID (Public)**    | mars-small128                                | marsreid   | Lightweight person re-identification      |
 
 ##### Common Chaining Patterns
 

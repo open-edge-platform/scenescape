@@ -222,7 +222,6 @@ Following are step-by-step instructions for enabling pose estimation for the out
    docker rm scenescape-models
    ```
 
-
 3. **Use the predefined pipeline configuration** [queuing-config-pose.json](./queuing-config-pose.json):
 
    ```yaml
