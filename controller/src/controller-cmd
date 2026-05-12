@@ -81,7 +81,7 @@ def build_argparser():
 
 def main():
   args = build_argparser().parse_args()
-  
+
   # Initialize profiler if requested
   profiler = None
   if args.profile:
@@ -89,7 +89,7 @@ def main():
     profiler = cProfile.Profile()
     profiler.enable()
     print(f"[PROFILER] cProfile enabled, output: {args.profile_output}")
-  
+
   metrics.init()
   tracing.init()
 

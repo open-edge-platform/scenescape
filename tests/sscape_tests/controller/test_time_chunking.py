@@ -14,49 +14,8 @@ Tests verify:
 
 import time
 import unittest
-import sys
-import types
 from unittest.mock import Mock, MagicMock, patch
 from queue import Queue
-
-sys.modules.setdefault("robot_vision", types.SimpleNamespace(tracking=types.SimpleNamespace()))
-sys.modules.setdefault("cv2", types.SimpleNamespace())
-sys.modules.setdefault("open3d", types.SimpleNamespace())
-sys.modules.setdefault("vdms", types.SimpleNamespace())
-if "scipy" not in sys.modules:
-  scipy_module = types.ModuleType("scipy")
-  spatial_module = types.ModuleType("scipy.spatial")
-  transform_module = types.ModuleType("scipy.spatial.transform")
-
-  class _DummyRotation:
-    pass
-
-  transform_module.Rotation = _DummyRotation
-  spatial_module.transform = transform_module
-  scipy_module.spatial = spatial_module
-  sys.modules["scipy"] = scipy_module
-  sys.modules["scipy.spatial"] = spatial_module
-  sys.modules["scipy.spatial.transform"] = transform_module
-if "fast_geometry" not in sys.modules:
-  fast_geometry = types.ModuleType("fast_geometry")
-
-  class _DummyPoint:
-    def __init__(self, *args):
-      if len(args) == 1 and isinstance(args[0], (tuple, list)):
-        args = args[0]
-      padded = list(args) + [0.0, 0.0, 0.0]
-      self.x, self.y, self.z = padded[:3]
-
-  class _DummyShape:
-    def __init__(self, *args, **kwargs):
-      pass
-
-  fast_geometry.Point = _DummyPoint
-  fast_geometry.Line = _DummyShape
-  fast_geometry.Rectangle = _DummyShape
-  fast_geometry.Polygon = _DummyShape
-  fast_geometry.Size = _DummyShape
-  sys.modules["fast_geometry"] = fast_geometry
 
 from controller.time_chunking import (
     SceneAwareCategoryBuffer,
@@ -124,18 +83,18 @@ class TestSceneAwareCategoryBuffer(unittest.TestCase):
 
   def test_pop_stale_scenes(self):
     """Test that pop_stale_scenes() returns scenes older than timeout."""
-    now = time.time()
+    # Staleness uses arrival monotonic time, not message timestamp.
+    # First 3 arrivals are old (100.0), next 2 are recent (100.45),
+    # pop happens at 100.5 => only scene_1 is stale for timeout 0.2.
+    with patch('controller.time_chunking.time.monotonic',
+               side_effect=[100.0, 100.0, 100.0, 100.45, 100.45, 100.5]):
+      for i in range(1, 4):
+        self.buffer.update(f"cam_{i}", "scene_1", [f"obj{i}"], time.time() - 0.5, [])
 
-    # Add partial scene with old timestamp
-    for i in range(1, 4):
-      self.buffer.update(f"cam_{i}", "scene_1", [f"obj{i}"], now - 0.5, [])
+      for i in range(4, 6):
+        self.buffer.update(f"cam_{i}", "scene_2", [f"obj{i}"], time.time() - 0.05, [])
 
-    # Add partial scene with recent timestamp
-    for i in range(4, 6):
-      self.buffer.update(f"cam_{i}", "scene_2", [f"obj{i}"], now - 0.05, [])
-
-    # Pop stale scenes (timeout 0.2 seconds)
-    stale = self.buffer.pop_stale_scenes(0.2)
+      stale = self.buffer.pop_stale_scenes(0.2)
 
     # Verify only scene_1 returned (0.5s old > 0.2s timeout)
     self.assertEqual(len(stale), 1)
@@ -225,16 +184,16 @@ class TestTimeChunkProcessor(unittest.TestCase):
 
   def test_partial_scene_timeout_dispatch(self, _mock_camera_count):
     """Test that partial scenes are dispatched after timeout."""
-    now = time.time()
+    # All arrivals at 100.0, dispatch checks staleness at 100.5 => stale.
+    with patch('controller.time_chunking.time.monotonic',
+               side_effect=[100.0, 100.0, 100.0, 100.0, 100.0, 100.5]):
+      now = time.time()
+      for i in range(1, 6):
+        self.processor.add_message(
+            f"cam_{i}", "scene_1", "person", [f"obj{i}"], now - 0.5, []
+        )
 
-    # Add partial scene (5 cameras) with old timestamp
-    for i in range(1, 6):
-      self.processor.add_message(
-          f"cam_{i}", "scene_1", "person", [f"obj{i}"], now - 0.5, []
-      )
-
-    # Dispatch manually
-    self.processor._dispatch_category("person")
+      self.processor._dispatch_category("person")
 
     # Verify one batch dispatched (via timeout fallback)
     self.assertEqual(self.mock_tracker.queue.qsize(), 1)
@@ -287,21 +246,24 @@ class TestTimeChunkProcessor(unittest.TestCase):
 
   def test_no_scene_starvation_with_complete_and_stale_scenes(self, _mock_camera_count):
     """Verify one hot scene does not starve another partial scene."""
-    now = time.time()
+    # scene_1 arrivals at 100.4 => complete and dispatched immediately.
+    # scene_2 arrivals at 100.0 => stale by dispatch check at 100.5.
+    with patch('controller.time_chunking.time.monotonic',
+               side_effect=[100.4, 100.4, 100.4, 100.4, 100.4, 100.4,
+                            100.0, 100.0, 100.0,
+                            100.5]):
+      now = time.time()
+      for i in range(1, 7):
+        self.processor.add_message(
+            f"cam_{i}", "scene_1", "person", [f"obj1_{i}"], now, []
+        )
 
-    # scene_1 is complete and should dispatch immediately.
-    for i in range(1, 7):
-      self.processor.add_message(
-          f"cam_{i}", "scene_1", "person", [f"obj1_{i}"], now, []
-      )
+      for i in range(7, 10):
+        self.processor.add_message(
+            f"cam_{i}", "scene_2", "person", [f"obj2_{i}"], now - 1.0, []
+        )
 
-    # scene_2 is partial and old enough for timeout fallback.
-    for i in range(7, 10):
-      self.processor.add_message(
-          f"cam_{i}", "scene_2", "person", [f"obj2_{i}"], now - 1.0, []
-      )
-
-    self.processor._dispatch_category("person")
+      self.processor._dispatch_category("person")
 
     self.assertEqual(self.mock_tracker.queue.qsize(), 2)
 

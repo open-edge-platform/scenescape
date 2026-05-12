@@ -223,6 +223,7 @@ _unit-tests: \
   account-security-unit \
   autocamcalib-unit \
   cam-unit \
+  controller-unit \
   geometry-unit \
   geospatial-unit \
   markerless-unit \

@@ -46,6 +46,9 @@ account-security-unit:
 cam-unit:
 	$(call unit-recipe, cam, $(IMAGE)-manager-test)
 
+controller-unit:
+	$(call unit-recipe, controller, $(IMAGE)-controller-test)
+
 geometry-unit: # NEX-T10454
 	$(call unit-recipe, geometry, $(IMAGE)-manager-test)
 

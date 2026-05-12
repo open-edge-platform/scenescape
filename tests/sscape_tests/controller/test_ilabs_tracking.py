@@ -1,51 +1,9 @@
 # SPDX-FileCopyrightText: (C) 2026 Nokia
 # SPDX-License-Identifier: Apache-2.0
 
-import sys
-import types
 from types import SimpleNamespace
 from unittest.mock import Mock
 import unittest
-
-
-sys.modules.setdefault("robot_vision", types.SimpleNamespace(tracking=types.SimpleNamespace()))
-sys.modules.setdefault("cv2", types.SimpleNamespace())
-sys.modules.setdefault("open3d", types.SimpleNamespace())
-sys.modules.setdefault("vdms", types.SimpleNamespace())
-if "scipy" not in sys.modules:
-  scipy_module = types.ModuleType("scipy")
-  spatial_module = types.ModuleType("scipy.spatial")
-  transform_module = types.ModuleType("scipy.spatial.transform")
-
-  class _DummyRotation:
-    pass
-
-  transform_module.Rotation = _DummyRotation
-  spatial_module.transform = transform_module
-  scipy_module.spatial = spatial_module
-  sys.modules["scipy"] = scipy_module
-  sys.modules["scipy.spatial"] = spatial_module
-  sys.modules["scipy.spatial.transform"] = transform_module
-if "fast_geometry" not in sys.modules:
-  fast_geometry = types.ModuleType("fast_geometry")
-
-  class _DummyPoint:
-    def __init__(self, *args):
-      if len(args) == 1 and isinstance(args[0], (tuple, list)):
-        args = args[0]
-      padded = list(args) + [0.0, 0.0, 0.0]
-      self.x, self.y, self.z = padded[:3]
-
-  class _DummyShape:
-    def __init__(self, *args, **kwargs):
-      pass
-
-  fast_geometry.Point = _DummyPoint
-  fast_geometry.Line = _DummyShape
-  fast_geometry.Rectangle = _DummyShape
-  fast_geometry.Polygon = _DummyShape
-  fast_geometry.Size = _DummyShape
-  sys.modules["fast_geometry"] = fast_geometry
 
 from controller.ilabs_tracking import IntelLabsTracking
 

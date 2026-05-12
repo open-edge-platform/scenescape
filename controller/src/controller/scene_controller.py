@@ -1002,8 +1002,9 @@ class SceneController:
       1. Store latest frame in overwrite buffer (under _latest_frame_lock, fast)
       2. Check pending work (under _pending_work_lock, fast dict check only)
       3. Acquire semaphore (non-blocking)
-      4. Get executor and submit (NO lock held — may spawn process)
-      5. Store Future in _pending_work (under _pending_work_lock, fast)
+      4. Peek latest frame, get executor and submit (NO lock held — may spawn process)
+      5. Consume frame from overwrite buffer only after successful submit
+      6. Store Future in _pending_work (under _pending_work_lock, fast)
     """
     # Extract camera_id for per-camera buffer management
     topic = PubSub.parseTopic(topic_str)
@@ -1041,8 +1042,9 @@ class SceneController:
       metrics.inc_dropped(metric_attributes)
       return
 
-    # Get frame and executor (NO lock held — executor creation may be slow)
-    frame = self._get_latest_frame(camera_id)
+    # Peek frame and executor (NO lock held — executor creation may be slow).
+    # Do not remove buffered frame until submit succeeds.
+    frame = self._get_latest_frame(camera_id, remove=False)
     if frame is None:
       self._inflight_semaphore.release()
       return
@@ -1064,6 +1066,9 @@ class SceneController:
           _worker_handle_message,
           frame[0], frame[1], frame[2]
       )
+      # Consume buffered frame only when submit succeeds.
+      # If a newer frame overwrote it, keep the newer one in the buffer.
+      self._remove_frame_if_unchanged(camera_id, frame)
       with self._pending_work_lock:
         self._pending_work[camera_id] = future
       future.add_done_callback(
@@ -1086,14 +1091,30 @@ class SceneController:
       metrics.inc_dropped(metric_attributes)
       return
 
-  def _get_latest_frame(self, camera_id):
-    """Atomically retrieve and clear the latest frame for a camera."""
+  def _get_latest_frame(self, camera_id, remove=True):
+    """Atomically get latest frame for a camera.
+
+    Args:
+      camera_id: camera or scene identifier used for buffering.
+      remove: when True, remove the frame from buffer; otherwise return a peek.
+    """
     with self._latest_frame_lock:
       if camera_id in self._latest_frame:
         frame = self._latest_frame[camera_id]
-        del self._latest_frame[camera_id]
+        if remove:
+          del self._latest_frame[camera_id]
         return frame
       return None
+
+  def _remove_frame_if_unchanged(self, camera_id, frame):
+    """Remove buffered frame only if it is still the same object.
+
+    This avoids deleting a newer frame that overwrote the buffer while submit
+    was in progress.
+    """
+    with self._latest_frame_lock:
+      if self._latest_frame.get(camera_id) is frame:
+        del self._latest_frame[camera_id]
 
   def _handle_work_complete(self, camera_id, scene_uid):
     """Called when worker completes — sole owner of re-submission for this camera.
@@ -1111,7 +1132,8 @@ class SceneController:
     """
     self._inflight_semaphore.release()
 
-    frame = self._get_latest_frame(camera_id)
+    # Peek buffered frame first; consume only after successful re-submit.
+    frame = self._get_latest_frame(camera_id, remove=False)
 
     if frame is not None:
       # Newer data arrived during processing — re-submit
@@ -1133,6 +1155,7 @@ class SceneController:
             _worker_handle_message,
             frame[0], frame[1], frame[2]
         )
+        self._remove_frame_if_unchanged(camera_id, frame)
         with self._pending_work_lock:
           self._pending_work[camera_id] = future
         future.add_done_callback(
