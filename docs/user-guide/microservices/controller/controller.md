@@ -96,6 +96,7 @@ how-to-configure-tracker.md
 Extended-ReID.md
 API Reference <api-reference.md>
 data_formats.md
+person_pose.md
 
 :::
 hide_directive-->
