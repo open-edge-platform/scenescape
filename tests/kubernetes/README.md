@@ -2,18 +2,18 @@
 
 All Kubernetes tests are driven by pytest with the `--backend=kubernetes` flag.
 This creates a KinD cluster, deploys SceneScape via Helm, runs the tests, and
-destroys the cluster automatically at the end of the session.  No
+destroys the cluster automatically at the end of the session. No
 separately-running cluster is required.
 
 ## Prerequisites
 
 Install the following tools and make them available on `PATH`:
 
-| Tool | Installation |
-| ----------- | ----------------------------------- |
-| `kind` | https://kind.sigs.k8s.io/docs/user/quick-start/#installation |
-| `kubectl` | https://kubernetes.io/docs/tasks/tools/ |
-| `helm` | https://helm.sh/docs/intro/install/ |
+| Tool      | Installation                                                 |
+| --------- | ------------------------------------------------------------ |
+| `kind`    | https://kind.sigs.k8s.io/docs/user/quick-start/#installation |
+| `kubectl` | https://kubernetes.io/docs/tasks/tools/                      |
+| `helm`    | https://helm.sh/docs/intro/install/                          |
 
 Python dependencies (`pytest-kubernetes`, `python-on-whales`) are installed
 automatically by `make setup-tests`.
@@ -48,10 +48,7 @@ Add `--backend=kubernetes` to `python.testing.pytestArgs` in
 
 ```json
 {
-  "python.testing.pytestArgs": [
-    "tests",
-    "--backend=kubernetes"
-  ],
+  "python.testing.pytestArgs": ["tests", "--backend=kubernetes"],
   "python.testing.pytestEnabled": true,
   "python.testing.unittestEnabled": false
 }
