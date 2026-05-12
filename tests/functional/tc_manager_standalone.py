@@ -19,6 +19,12 @@ import tests.common_test_utils as common
 
 TEST_SCENE_NAME = "manager-scene"
 
+def _create_scene(rest, name=TEST_SCENE_NAME):
+  res = rest.createScene({'name': name})
+  assert res.statusCode == 201, f"Failed to create scene: {res.errors}"
+  created_uid = res['uid']
+  log.info(f"Created scene uid={created_uid}")
+  return created_uid
 
 def test_manager_publishes_cmd_database_on_scene_create(record_xml_attribute, params):
   """! Verify that creating a scene via the REST API causes the Manager to
@@ -40,13 +46,11 @@ def test_manager_publishes_cmd_database_on_scene_create(record_xml_attribute, pa
 
   h = ServiceMqttTest(params)
   created_uid = None
+  exit_code = 1
   try:
     h.connect([db_topic])
 
-    res = rest.createScene({'name': TEST_SCENE_NAME})
-    assert res.statusCode == 201, f"Failed to create scene: {res.errors}"
-    created_uid = res['uid']
-    log.info(f"Created scene uid={created_uid}")
+    created_uid = _create_scene(rest, TEST_SCENE_NAME)
 
     received = h.wait_for_payload("update")
     assert received, (
@@ -87,6 +91,7 @@ def test_manager_publishes_cmd_scene_update_on_scene_modify(record_xml_attribute
   original_name = original_res['results'][0]['name']
 
   h = ServiceMqttTest(params)
+  exit_code = 1
   try:
     h.connect([scene_update_topic])
 
@@ -127,6 +132,7 @@ def test_manager_no_mqtt_on_readonly_request(record_xml_attribute, params, scene
     "REST authentication failed"
 
   h = ServiceMqttTest(params)
+  exit_code = 1
   try:
     h.connect([db_topic, scene_update_topic])
     h.clear_messages()
@@ -148,15 +154,13 @@ def test_manager_no_mqtt_on_readonly_request(record_xml_attribute, params, scene
 
   common.record_test_result(TEST_NAME, exit_code)
 
-def test_manager_publishes_cmd_database_on_scene_delete(record_xml_attribute, params,
-                                                         scene_uid):
+def test_manager_publishes_cmd_database_on_scene_delete(record_xml_attribute, params):
   """! Verify that deleting a scene via the REST API causes the Manager to
   publish an 'update' message on the CMD_DATABASE MQTT topic. CMD_SCENE_UPDATE
   is not published on delete because the scene no longer exists.
 
   @param    record_xml_attribute    Pytest fixture for XML result tagging.
   @param    params                  Dict of functional-test connection parameters.
-  @param    scene_uid               UID of the test scene.
   """
   TEST_NAME = "NEX-T12750"
   record_xml_attribute("name", TEST_NAME)
@@ -168,12 +172,13 @@ def test_manager_publishes_cmd_database_on_scene_delete(record_xml_attribute, pa
     "REST authentication failed"
 
   h = ServiceMqttTest(params)
+  exit_code = 1
   try:
     h.connect([db_topic])
-
-    res = rest.deleteScene(scene_uid)
+    created_uid = _create_scene(rest, TEST_SCENE_NAME)
+    res = rest.deleteScene(created_uid)
     assert res.statusCode == 200, f"Failed to delete scene: {res.errors}"
-    log.info(f"Deleted scene uid={scene_uid}")
+    log.info(f"Deleted scene uid={created_uid}")
 
     received = h.wait_for_payload("update")
     assert received, (
@@ -184,5 +189,7 @@ def test_manager_publishes_cmd_database_on_scene_delete(record_xml_attribute, pa
     exit_code = 0
   finally:
     h.disconnect()
+    if created_uid is not None:
+      rest.deleteScene(created_uid)
 
   common.record_test_result(TEST_NAME, exit_code)
