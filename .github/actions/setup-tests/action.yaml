@@ -86,3 +86,12 @@ runs:
       run: |
         source tests/.venv/bin/activate
         pip install -r .github/resources/requirements-pytest.txt
+
+    - name: Add SceneScape host aliases
+      shell: bash
+      run: |
+        HOST_IP="$(hostname -I | awk '{print $1}')"
+        for h in broker.scenescape.intel.com web.scenescape.intel.com autocalibration.scenescape.intel.com vdms.scenescape.intel.com; do
+          echo "$HOST_IP $h" | sudo tee -a /etc/hosts > /dev/null
+        done
+        grep -E 'scenescape.intel.com' /etc/hosts

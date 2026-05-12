@@ -150,28 +150,28 @@ jobs:
           mkdir -p reports
           pytest tests/ui/test_out_of_box.py -m basic_acceptance --junitxml=reports/bat_results.xml --log-level=DEBUG
 
-      # - name: "Run Unit Tests"
-      #   if: always() && steps.setup-test-env.outcome == 'success'
-      #   run: |
-      #     source tests/.venv/bin/activate
-      #     mkdir -p reports
-      #     cd tests/sscape_tests
-      #     pytest . --junitxml=../../reports/unit_results.xml --log-level=ERROR
+      - name: "Run Unit Tests"
+        if: always() && steps.setup-test-env.outcome == 'success'
+        run: |
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          cd tests/sscape_tests
+          pytest . --junitxml=../../reports/unit_results.xml --log-level=DEBUG
 
-      # - name: Run Pipeline Runner tests
-      #   if: always() && steps.setup-test-env.outcome == 'success'
-      #   env:
-      #     GPU_DEVICE_COUNT: 0
-      #     NPU_DEVICE_COUNT: 0
-      #   run: |
-      #     mkdir -p reports
-      #     cd tests/pipeline_runner
-      #     rm -rf .venv
-      #     python3 -m venv .venv
-      #     source .venv/bin/activate
-      #     pip install --upgrade pip
-      #     pip install -q -r requirements-ppl-test.txt
-      #     pytest --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
+      - name: Run Pipeline Runner tests
+        if: always() && steps.setup-test-env.outcome == 'success'
+        env:
+          GPU_DEVICE_COUNT: 0
+          NPU_DEVICE_COUNT: 0
+        run: |
+          mkdir -p reports
+          cd tests/pipeline_runner
+          rm -rf .venv
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -q -r requirements-ppl-test.txt
+          pytest --junitxml=../../reports/pipeline_runner_results.xml --log-level=DEBUG
 
       - name: Upload Test Report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
