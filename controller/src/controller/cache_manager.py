@@ -24,6 +24,7 @@ class CacheManager:
     self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
+    self._refresh_in_progress = False
 
     if rest_url and rest_auth:
       self.data_source = RestSceneDataSource(rest_url, rest_auth, root_cert)
@@ -227,15 +228,19 @@ class CacheManager:
     now = get_epoch_time()
     needs_refresh = False
     with self._lock:
-      if not hasattr(self, 'cached_scenes_by_uid') \
-         or self.cached_scenes_by_uid is None \
-         or not hasattr(self, '_cache_refreshed') \
-         or now - self._cache_refreshed > REFRESH_TIME:
-        needs_refresh = True
-        # Set timestamp now to prevent thundering herd (multiple threads all refreshing)
-        self._cache_refreshed = now
+      if (not hasattr(self, 'cached_scenes_by_uid')
+          or self.cached_scenes_by_uid is None
+          or not hasattr(self, '_cache_refreshed')
+          or now - self._cache_refreshed > REFRESH_TIME):
+        if not self._refresh_in_progress:
+          needs_refresh = True
+          self._refresh_in_progress = True
     if needs_refresh:
-      self.refreshScenes()  # HTTP calls happen OUTSIDE the lock
+      try:
+        self.refreshScenes()  # HTTP calls happen OUTSIDE the lock
+      finally:
+        with self._lock:
+          self._refresh_in_progress = False
     return
 
   def allScenes(self):

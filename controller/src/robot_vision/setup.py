@@ -62,9 +62,9 @@ class CMakeBuild(build_ext):
 
     env = os.environ.copy()
     
-    # Optional PROFILE_HUNGARIAN flag (enabled by default)
-    # Set ENABLE_HUNGARIAN_PROFILING=0 to disable
-    enable_hungarian_profiling = os.environ.get('ENABLE_HUNGARIAN_PROFILING', '1') == '1'
+    # Optional PROFILE_HUNGARIAN flag (disabled by default)
+    # Set ENABLE_HUNGARIAN_PROFILING=1 to enable
+    enable_hungarian_profiling = os.environ.get('ENABLE_HUNGARIAN_PROFILING', '0') == '1'
     hungarian_flag = ' -DPROFILE_HUNGARIAN' if enable_hungarian_profiling else ''
     
     env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"{}'.format(
