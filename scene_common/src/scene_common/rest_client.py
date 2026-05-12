@@ -6,15 +6,28 @@
 import os
 import json
 import re
+import logging
 import requests
 import sys
 from http import HTTPStatus
 from urllib.parse import urljoin
 
+def _get_rest_http_timeout():
+  """Get REST timeout from environment with safe fallback."""
+  timeout_env = os.environ.get('REST_HTTP_TIMEOUT_SECONDS', '10.0')
+  try:
+    return float(timeout_env)
+  except (TypeError, ValueError):
+    logging.getLogger(__name__).warning(
+      "Invalid REST_HTTP_TIMEOUT_SECONDS=%r; using default 10.0",
+      timeout_env
+    )
+    return 10.0
+
 # Default HTTP timeout for all REST API calls (seconds).
 # Prevents indefinite blocking on slow or unresponsive endpoints.
 # Override via REST_HTTP_TIMEOUT_SECONDS environment variable.
-REST_HTTP_TIMEOUT = float(os.environ.get('REST_HTTP_TIMEOUT_SECONDS', '10.0'))
+REST_HTTP_TIMEOUT = _get_rest_http_timeout()
 
 
 class RESTResult(dict):
@@ -25,8 +38,8 @@ class RESTResult(dict):
     return
 
 class RESTClient:
-  def __init__(self, url=None, token=None, auth=None,
-               rootcert=None, verify_ssl=False, timeout=REST_HTTP_TIMEOUT):
+  def __init__(self, url=None, rootcert=None, auth=None,
+               token=None, verify_ssl=True, timeout=REST_HTTP_TIMEOUT):
     self.url = url
     self.rootcert = rootcert
     self.verify_ssl = verify_ssl

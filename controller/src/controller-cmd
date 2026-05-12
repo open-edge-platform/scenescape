@@ -105,6 +105,7 @@ def main():
                                 args.restauth, args.cert,
                                 args.rootcert, args.ntp, args.tracker_config_file, args.schema_file,
                                 args.visibility_topic, args.data_source)
+    controller.extractReidConfigData(args.reid_config_file)
     controller.loopForever()
   finally:
     # Save profile on clean exit

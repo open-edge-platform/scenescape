@@ -614,7 +614,11 @@ class SceneController:
       log.warning(f"ReID config file not found: {reid_config_file}")
       return
     with open(reid_config_file) as json_file:
-      self.reid_config_data = orjson.loads(json_file.read())
+      loaded_data = orjson.loads(json_file.read())
+      self.reid_config_data.clear()
+      self.reid_config_data.update(loaded_data)
+      if hasattr(self, 'cache_manager') and self.cache_manager is not None:
+        self.cache_manager.reid_config_data = self.reid_config_data
       log.info(f"Loaded ReID config: {self.reid_config_data}")
     return
 

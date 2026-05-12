@@ -71,7 +71,7 @@ def _get_scene_camera_count(scene_id):
   scene is not (yet) in the cache. Uses _fast (dict-only) lookup — safe to
   call from any thread without triggering HTTP.
 
-  Lock safety: acquires only _cache_manager._lock (RLock). Callers holding
+  Lock safety: acquires only _cache_manager._lock (Lock). Callers holding
   buffer._lock must ensure consistent lock ordering (buffer._lock acquired
   first, then _cache_manager._lock via this function).
   """
