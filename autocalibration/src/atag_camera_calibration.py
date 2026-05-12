@@ -82,7 +82,7 @@ class CameraCalibrationApriltag:
     return
 
 
-  def renderCamView(self, mesh, tensor_mesh, intrinsic_matrix, extrinsic_matrix, res_x, res_y):
+  def render_cam_view(self, mesh, tensor_mesh, intrinsic_matrix, extrinsic_matrix, res_x, res_y):
     """! Render an image on camera plane with given intrinsic and extrinsic matrices
     @param   mesh                Triangular mesh.
     @param   intrinsic_matrix    Camera intrinsic matrix.
@@ -109,7 +109,7 @@ class CameraCalibrationApriltag:
     img = renderer.render_to_image()
     return np.array(img)
 
-  def findApriltagsInFrame(self, source_image, store=False, intrinsics=None):
+  def find_apriltags_in_frame(self, source_image, store=False, intrinsics=None):
     """! Detects the apriltags in the source image using the apriltag class detector.
     @param   source_image    Image in which apriltags are to be detected.
     @param   store           Store 2d-apriltag info in CameraCalibrationApriltag class.
@@ -131,7 +131,7 @@ class CameraCalibrationApriltag:
       self.apriltags_2d_data = apriltag_2d_centers
     return apriltag_2d_centers
 
-  def identifyApriltagsInScene(self, res_x, res_y, rotational_matrix):
+  def identify_apriltags_in_scene(self, res_x, res_y, rotational_matrix):
     """! Identify apriltags in a scene map, based on a bounding box approach.
     @param   res_x               Image resolution in x-axis.
     @param   res_y               Image resolution in y-axis.
@@ -162,12 +162,12 @@ class CameraCalibrationApriltag:
         camera_pose = CameraPose(pose=pose_dict,
                                  intrinsics=new_intrinsic_matrix)
         extrinsic_matrix = np.linalg.inv(camera_pose.pose_mat)
-        rendered_img = self.renderCamView(self.triangle_mesh,
+        rendered_img = self.render_cam_view(self.triangle_mesh,
                                           self.tensor_tmesh,
                                           new_intrinsic_matrix.intrinsics,
                                           extrinsic_matrix,
                                           res_x, res_y)
-        imgpts = self.findApriltagsInFrame(rendered_img, intrinsics=new_intrinsic_matrix.intrinsics)
+        imgpts = self.find_apriltags_in_frame(rendered_img, intrinsics=new_intrinsic_matrix.intrinsics)
         if len(imgpts) != 0:
           current_apriltags = self.getCorresponding3DPoints(imgpts,
                                                             new_intrinsic_matrix.intrinsics,
@@ -180,7 +180,7 @@ class CameraCalibrationApriltag:
     self.result_data_3d = apriltag_3d_data
     return
 
-  def createRaysForCasting(self, img_pts, pose_mat, intrinsic_matrix):
+  def create_rays_for_casting(self, img_pts, pose_mat, intrinsic_matrix):
     """! Generate Rays for casting.
     @param    img_pts           Apriltag Points in 2d plane.
     @param    pose_mat          Camera Pose Matrix.
@@ -203,7 +203,7 @@ class CameraCalibrationApriltag:
     rays = o3d.core.Tensor(rays, dtype=o3d.core.Dtype.Float32)
     return rays
 
-  def getImagePointsFromRayCasting(self, rays, img_pts, cast_results):
+  def get_image_points_from_ray_casting(self, rays, img_pts, cast_results):
     """! Based on ray casting(Open3d), get matching 2d image points in 3d plane.
     @param    rays              Rays from ray casting.
     @param    img_pts           Image points in 2d image space.
@@ -223,15 +223,15 @@ class CameraCalibrationApriltag:
     return result_array_3d
 
   def getCorresponding3DPoints(self, points_2d, intrinsics, pose_mat, scene):
-    rays = self.createRaysForCasting(points_2d,
+    rays = self.create_rays_for_casting(points_2d,
                                      pose_mat,
                                      intrinsics)
     cast_results = scene.cast_rays(rays)
-    return self.getImagePointsFromRayCasting(rays,
+    return self.get_image_points_from_ray_casting(rays,
                                              points_2d,
                                              cast_results)
 
-  def getPointCorrespondences(self):
+  def get_point_correspondences(self):
     """! Returns correspondences between points in 2D and 3D.
 
     @return  points_3d, points_2d   Points in 3D and 2D plane.
@@ -243,7 +243,7 @@ class CameraCalibrationApriltag:
         points_3d.append(self.result_data_3d[point])
     return points_3d, points_2d
 
-  def getCameraPoseInScene(self):
+  def get_camera_pose_in_scene(self):
     """! Function calculates the pose of the camera with respect
          to the scene based on solvepnp function from Opencv.
 
@@ -267,7 +267,7 @@ class CameraCalibrationApriltag:
     return CameraPose(pose=computed_pose_data,
                       intrinsics=camera_intrinsics).pose_mat
 
-  def getCameraFrustum(self):
+  def get_camera_frustum(self):
     """! Creates 5 points, when connected by a line, looks like a camera view of the scene.
 
     @return  points   Five points on image, when connected by a line looks like a frustum.
