@@ -38,7 +38,9 @@ runs:
       run: |
         sudo apt update
         sudo apt install -y --no-install-recommends libpci-dev libnss3-tools
-        sudo apt install -y --upgrade firefox xvfb
+        sudo apt install -y --upgrade xvfb
+        sudo apt remove -y --purge firefox
+        sudo snap install firefox
 
     - name: Set Firefox profile
       shell: bash
