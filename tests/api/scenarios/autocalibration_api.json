@@ -104,11 +104,23 @@
             "cameraId": "atag-qcam1"
           },
           "body": {
-            "image": "/9j/4AAQSkZJRgABAQAAAQABAAD...",
+            "image": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCABkAGQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA/9k=",
             "intrinsics": [
-              [1000, 0, 640],
-              [0, 1000, 360],
-              [0, 0, 1]
+              [
+                1000,
+                0,
+                640
+              ],
+              [
+                0,
+                1000,
+                360
+              ],
+              [
+                0,
+                0,
+                1
+              ]
             ]
           }
         },
@@ -150,9 +162,21 @@
           },
           "body": {
             "intrinsics": [
-              [1000, 0, 640],
-              [0, 1000, 360],
-              [0, 0, 1]
+              [
+                1000,
+                0,
+                640
+              ],
+              [
+                0,
+                1000,
+                360
+              ],
+              [
+                0,
+                0,
+                1
+              ]
             ]
           }
         },
@@ -176,9 +200,21 @@
           "body": {
             "image": "",
             "intrinsics": [
-              [1000, 0, 640],
-              [0, 1000, 360],
-              [0, 0, 1]
+              [
+                1000,
+                0,
+                640
+              ],
+              [
+                0,
+                1000,
+                360
+              ],
+              [
+                0,
+                0,
+                1
+              ]
             ]
           }
         },
@@ -202,9 +238,21 @@
           "body": {
             "image": "INVALID_BASE64",
             "intrinsics": [
-              [1000, 0, 640],
-              [0, 1000, 360],
-              [0, 0, 1]
+              [
+                1000,
+                0,
+                640
+              ],
+              [
+                0,
+                1000,
+                360
+              ],
+              [
+                0,
+                0,
+                1
+              ]
             ]
           }
         },
@@ -260,6 +308,44 @@
         "request": {},
         "expected_status": {
           "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/14: Calibrate a camera with oversized image payload",
+    "test_steps": [
+      {
+        "step_name": "POST /cameras/atag-qcam1/calibration \u2014 oversized body",
+        "api": "autocalibration",
+        "method": "calibrateCamera",
+        "request": {
+          "path_params": {
+            "cameraId": "atag-qcam1"
+          },
+          "body": {
+            "image": "@b64file:test_media/oversize_calib.bin",
+            "intrinsics": [
+              [
+                1000,
+                0,
+                640
+              ],
+              [
+                0,
+                1000,
+                360
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ]
+          }
+        },
+        "expected_status": {
+          "status_code": 413
         }
       }
     ]

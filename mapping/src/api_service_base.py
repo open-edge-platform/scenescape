@@ -199,6 +199,23 @@ def reconstruct3D():
   request_id = uuid.uuid4().hex
   start_time = time.time()
 
+  # Check content length before reading body to return clean 413
+  max_size = app.config.get('MAX_CONTENT_LENGTH')
+  if max_size and request.content_length and request.content_length > max_size:
+    # Drain the request body so the client can cleanly receive the 413 response
+    try:
+      wsgi_input = request.environ.get('wsgi.input')
+      if wsgi_input:
+        remaining = request.content_length
+        while remaining > 0:
+          chunk = wsgi_input.read(min(65536, remaining))
+          if not chunk:
+            break
+          remaining -= len(chunk)
+    except Exception:
+      pass
+    return jsonify({"error": "Request too large"}), 413
+
   # Create initial status
   set_status(
     request_id,
@@ -284,7 +301,7 @@ def reconstruct3D():
     validateReconstructionRequest(inference_payload)
   except ValueError as e:
     # Log detailed validation error on the server, but do not expose it to the client
-    log(f"Reconstruction request validation failed for {request_id}: {e}")
+    log.error(f"Reconstruction request validation failed for {request_id}: {e}")
     generic_error = "Invalid reconstruction request"
     set_status(request_id, state="failed", updated_at=time.time(), error=generic_error)
     return jsonify({"success": False, "request_id": request_id, "error": generic_error}), 400

@@ -277,6 +277,30 @@ class CameraCalibrationApi:
       }
       return jsonify(response), 413
 
+    max_request_size = self.MAX_REQUEST_SIZE
+
+    @self.app.before_request
+    def checkContentLength():
+      """Pre-check content length to drain body and return 413 cleanly."""
+      cl = request.content_length
+      if cl and cl > max_request_size:
+        try:
+          wsgi_input = request.environ.get('wsgi.input')
+          if wsgi_input:
+            remaining = cl
+            while remaining > 0:
+              chunk = wsgi_input.read(min(65536, remaining))
+              if not chunk:
+                break
+              remaining -= len(chunk)
+        except Exception:
+          pass
+        response = {
+            self.OpenApi.CODE: 413,
+            self.OpenApi.MESSAGE: "Request payload too large"
+        }
+        return jsonify(response), 413
+
     @self.app.errorhandler(Exception)
     def handleUnexpectedError(error):
       """Handle unexpected errors."""

@@ -10,12 +10,26 @@ Combines model download coordination and individual model management.
 """
 
 import os
+import re
 import sys
 
 from scene_common import log
 
 from download_mapanything import ensureMapanythingModel
 from download_vggt import ensureVGGTModel
+
+def _sanitize_no_proxy():
+  """Fix malformed no_proxy entries where host:port syntax used a dot-prefix
+  domain as the port (e.g. '.svc.cluster.local:.scenescape.intel.com').
+  Such entries cause urllib3 to raise 'Invalid port' errors.
+  """
+  for var in ('no_proxy', 'NO_PROXY'):
+    value = os.environ.get(var, '')
+    if not value:
+      continue
+    cleaned = re.sub(r'([^,]+):(\.[^,]+)', r'\1,\2', value)
+    if cleaned != value:
+      os.environ[var] = cleaned
 
 def ensureModel() -> bool:
   """
@@ -38,6 +52,7 @@ def ensureModel() -> bool:
 
 def main():
   """Main function for standalone execution."""
+  _sanitize_no_proxy()
   success = ensureModel()
   if success:
     log.info("Required model is available.")

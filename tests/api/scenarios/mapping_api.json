@@ -3,12 +3,14 @@
     "test_name": "Vision_AI/SSCAPE/API/MAPPING/01: Perform GLB reconstruction request with image",
     "test_steps": [
       {
-        "step_name": "POST /reconstruction — upload image",
+        "step_name": "POST /reconstruction \u2014 upload image",
         "api": "mapping",
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": ["test_media/atag-calib-demo-map.png"],
+            "images": [
+              "test_media/atag-calib-demo-map.png"
+            ],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -26,7 +28,7 @@
         }
       },
       {
-        "step_name": "GET /reconstruction/status/{id} — poll until state == complete",
+        "step_name": "GET /reconstruction/status/{id} \u2014 poll until state == complete",
         "api": "mapping",
         "method": "getReconstructionStatus",
         "request": {
@@ -34,12 +36,18 @@
             "request_id": "${IMAGE_REQUEST_ID}"
           }
         },
-        "expected_status": { "status_code": 200 },
+        "expected_status": {
+          "status_code": 200
+        },
         "poll": {
           "interval_s": 2,
           "timeout_s": 420,
-          "until": { "state": "complete" },
-          "fail_if": { "state": "failed" }
+          "until": {
+            "state": "complete"
+          },
+          "fail_if": {
+            "state": "failed"
+          }
         },
         "validate": {
           "state": "complete"
@@ -51,12 +59,14 @@
     "test_name": "Vision_AI/SSCAPE/API/MAPPING/02: Perform GLB reconstruction request with video",
     "test_steps": [
       {
-        "step_name": "POST /reconstruction — upload video",
+        "step_name": "POST /reconstruction \u2014 upload video",
         "api": "mapping",
         "method": "performReconstruction",
         "request": {
           "body": {
-            "video": ["test_media/lab_vid.mp4"],
+            "video": [
+              "test_media/lab_vid.mp4"
+            ],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -74,7 +84,7 @@
         }
       },
       {
-        "step_name": "GET /reconstruction/status/{id} — poll until state == complete",
+        "step_name": "GET /reconstruction/status/{id} \u2014 poll until state == complete",
         "api": "mapping",
         "method": "getReconstructionStatus",
         "request": {
@@ -82,12 +92,18 @@
             "request_id": "${VIDEO_REQUEST_ID}"
           }
         },
-        "expected_status": { "status_code": 200 },
+        "expected_status": {
+          "status_code": 200
+        },
         "poll": {
           "interval_s": 2,
           "timeout_s": 420,
-          "until": { "state": "complete" },
-          "fail_if": { "state": "failed" }
+          "until": {
+            "state": "complete"
+          },
+          "fail_if": {
+            "state": "failed"
+          }
         },
         "validate": {
           "state": "complete"
@@ -99,13 +115,17 @@
     "test_name": "Vision_AI/SSCAPE/API/MAPPING/03: Perform GLB reconstruction request with image and video",
     "test_steps": [
       {
-        "step_name": "POST /reconstruction — upload video",
+        "step_name": "POST /reconstruction \u2014 upload video",
         "api": "mapping",
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": ["test_media/atag-calib-demo-map.png"],
-            "video": ["test_media/lab_vid.mp4"],
+            "images": [
+              "test_media/atag-calib-demo-map.png"
+            ],
+            "video": [
+              "test_media/lab_vid.mp4"
+            ],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -123,7 +143,7 @@
         }
       },
       {
-        "step_name": "GET /reconstruction/status/{id} — poll until state == complete",
+        "step_name": "GET /reconstruction/status/{id} \u2014 poll until state == complete",
         "api": "mapping",
         "method": "getReconstructionStatus",
         "request": {
@@ -131,12 +151,18 @@
             "request_id": "${IMAGE_VIDEO_REQUEST_ID}"
           }
         },
-        "expected_status": { "status_code": 200 },
+        "expected_status": {
+          "status_code": 200
+        },
         "poll": {
           "interval_s": 2,
           "timeout_s": 420,
-          "until": { "state": "complete" },
-          "fail_if": { "state": "failed" }
+          "until": {
+            "state": "complete"
+          },
+          "fail_if": {
+            "state": "failed"
+          }
         },
         "validate": {
           "state": "complete"
@@ -148,7 +174,7 @@
     "test_name": "Vision_AI/SSCAPE/API/MAPPING/04: Perform GLB reconstruction request with multiple images",
     "test_steps": [
       {
-        "step_name": "POST /reconstruction — upload multiple images",
+        "step_name": "POST /reconstruction \u2014 upload multiple images",
         "api": "mapping",
         "method": "performReconstruction",
         "request": {
@@ -175,7 +201,7 @@
         }
       },
       {
-        "step_name": "GET /reconstruction/status/{id} — poll until state == complete",
+        "step_name": "GET /reconstruction/status/{id} \u2014 poll until state == complete",
         "api": "mapping",
         "method": "getReconstructionStatus",
         "request": {
@@ -183,12 +209,18 @@
             "request_id": "${IMAGES_REQUEST_ID}"
           }
         },
-        "expected_status": { "status_code": 200 },
+        "expected_status": {
+          "status_code": 200
+        },
         "poll": {
           "interval_s": 2,
           "timeout_s": 420,
-          "until": { "state": "complete" },
-          "fail_if": { "state": "failed" }
+          "until": {
+            "state": "complete"
+          },
+          "fail_if": {
+            "state": "failed"
+          }
         },
         "validate": {
           "state": "complete"
@@ -200,12 +232,14 @@
     "test_name": "Vision_AI/SSCAPE/API/MAPPING/05: Perform reconstruction request with point cloud output",
     "test_steps": [
       {
-        "step_name": "POST /reconstruction — upload image",
+        "step_name": "POST /reconstruction \u2014 upload image",
         "api": "mapping",
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": ["test_media/atag-calib-demo-map.png"],
+            "images": [
+              "test_media/atag-calib-demo-map.png"
+            ],
             "output_format": "glb",
             "mesh_type": "pointcloud",
             "use_keyframes": true
@@ -223,7 +257,7 @@
         }
       },
       {
-        "step_name": "GET /reconstruction/status/{id} — poll until state == complete",
+        "step_name": "GET /reconstruction/status/{id} \u2014 poll until state == complete",
         "api": "mapping",
         "method": "getReconstructionStatus",
         "request": {
@@ -231,12 +265,18 @@
             "request_id": "${CLOUD_POINT_REQUEST_ID}"
           }
         },
-        "expected_status": { "status_code": 200 },
+        "expected_status": {
+          "status_code": 200
+        },
         "poll": {
           "interval_s": 2,
           "timeout_s": 420,
-          "until": { "state": "complete" },
-          "fail_if": { "state": "failed" }
+          "until": {
+            "state": "complete"
+          },
+          "fail_if": {
+            "state": "failed"
+          }
         },
         "validate": {
           "state": "complete"
@@ -248,12 +288,14 @@
     "test_name": "Vision_AI/SSCAPE/API/MAPPING/06: Perform reconstruction request with json output",
     "test_steps": [
       {
-        "step_name": "POST /reconstruction — upload image",
+        "step_name": "POST /reconstruction \u2014 upload image",
         "api": "mapping",
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": ["test_media/atag-calib-demo-map.png"],
+            "images": [
+              "test_media/atag-calib-demo-map.png"
+            ],
             "output_format": "json",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -271,7 +313,7 @@
         }
       },
       {
-        "step_name": "GET /reconstruction/status/{id} — poll until state == complete",
+        "step_name": "GET /reconstruction/status/{id} \u2014 poll until state == complete",
         "api": "mapping",
         "method": "getReconstructionStatus",
         "request": {
@@ -279,12 +321,18 @@
             "request_id": "${JSON_REQUEST_ID}"
           }
         },
-        "expected_status": { "status_code": 200 },
+        "expected_status": {
+          "status_code": 200
+        },
         "poll": {
           "interval_s": 2,
           "timeout_s": 420,
-          "until": { "state": "complete" },
-          "fail_if": { "state": "failed" }
+          "until": {
+            "state": "complete"
+          },
+          "fail_if": {
+            "state": "failed"
+          }
         },
         "validate": {
           "state": "complete"
@@ -296,7 +344,7 @@
     "test_name": "Vision_AI/SSCAPE/API/MAPPING/07: Perform reconstruction request with missing required field",
     "test_steps": [
       {
-        "step_name": "POST /reconstruction — upload image",
+        "step_name": "POST /reconstruction \u2014 upload image",
         "api": "mapping",
         "method": "performReconstruction",
         "request": {
@@ -316,12 +364,14 @@
     "test_name": "Vision_AI/SSCAPE/API/MAPPING/08: Invalid output format in reconstruction request",
     "test_steps": [
       {
-        "step_name": "POST /reconstruction — upload image",
+        "step_name": "POST /reconstruction \u2014 upload image",
         "api": "mapping",
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": ["test_media/atag-calib-demo-map.png"],
+            "images": [
+              "test_media/atag-calib-demo-map.png"
+            ],
             "output_format": "invalid_format",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -333,17 +383,18 @@
       }
     ]
   },
-
   {
     "test_name": "Vision_AI/SSCAPE/API/MAPPING/09: Verify excessively large input data in reconstruction request",
     "test_steps": [
       {
-        "step_name": "POST /reconstruction — upload video",
+        "step_name": "POST /reconstruction \u2014 upload video",
         "api": "mapping",
         "method": "performReconstruction",
         "request": {
           "body": {
-            "video": ["test_media/ParkingVideoTrimmed2.mp4"],
+            "video": [
+              "test_media/large_file.bin"
+            ],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -359,11 +410,13 @@
     "test_name": "Vision_AI/SSCAPE/API/MAPPING/10: Verify health check",
     "test_steps": [
       {
-        "step_name": "GET /health — API is up and model is loaded",
+        "step_name": "GET /health \u2014 API is up and model is loaded",
         "api": "mapping",
         "method": "healthCheckEndpoint",
         "request": {},
-        "expected_status": { "status_code": 200 },
+        "expected_status": {
+          "status_code": 200
+        },
         "validate": {
           "model_loaded": true
         }
@@ -374,11 +427,13 @@
     "test_name": "Vision_AI/SSCAPE/API/MAPPING/11: List available models and their status",
     "test_steps": [
       {
-        "step_name": "GET /models — model info is available",
+        "step_name": "GET /models \u2014 model info is available",
         "api": "mapping",
         "method": "listModels",
         "request": {},
-        "expected_status": { "status_code": 200 }
+        "expected_status": {
+          "status_code": 200
+        }
       }
     ]
   }

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import base64
 import logging
 import os
 import sys
@@ -123,11 +124,19 @@ def resolve_file_paths(data):
   Any string value containing 'test_media/' is resolved and opened as a
   binary file handle for multipart upload. Only called for RESTClient APIs;
   MappingClient opens its own file paths internally.
+
+  Strings starting with '@b64file:' are read from disk and returned as
+  base64-encoded strings, suitable for JSON body fields.
   """
   if isinstance(data, dict):
     return {k: resolve_file_paths(v) for k, v in data.items()}
   elif isinstance(data, list):
     return [resolve_file_paths(item) for item in data]
+  elif isinstance(data, str) and data.startswith("@b64file:"):
+    file_path = data[len("@b64file:"):]
+    resolved = os.path.normpath(os.path.join(TESTS_API_DIR, file_path))
+    with open(resolved, "rb") as fh:
+      return base64.b64encode(fh.read()).decode("utf-8")
   elif isinstance(data, str) and "test_media/" in data:
     resolved = os.path.normpath(os.path.join(TESTS_API_DIR, data))
     if os.path.isfile(resolved):
