@@ -353,7 +353,8 @@ class TimeChunkProcessor(threading.Thread):
 
   def _dispatch_category_complete_only(self, category: str):
     """Fast path for early wakes: dispatch only complete scenes for a category."""
-    buffer = self._buffers.get(category)
+    with self._buffers_lock:
+      buffer = self._buffers.get(category)
     if buffer is None:
       return
 
@@ -372,7 +373,8 @@ class TimeChunkProcessor(threading.Thread):
 
   def _dispatch_category(self, category: str):
     """Dispatch buffered cameras for one category to tracker, grouped by scene."""
-    buffer = self._buffers.get(category)
+    with self._buffers_lock:
+      buffer = self._buffers.get(category)
     if buffer is None:
       return
 

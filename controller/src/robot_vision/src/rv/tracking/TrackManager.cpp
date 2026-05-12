@@ -1,7 +1,5 @@
 // SPDX-FileCopyrightText: (C) 2017 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-// Modifications:
-// Nokia VPOD (Emerging Products, BLR), 2026
 
 #include "rv/Utils.hpp"
 #include "rv/tracking/TrackManager.hpp"
@@ -110,7 +108,7 @@ void TrackManager::predict(const std::chrono::system_clock::time_point &timestam
 void TrackManager::predict(double deltaT)
 {
   cleanupOldSuspendedTracks(mConfig.mSuspendedTrackMaxAgeSecs);
-  
+
   // Convert map to vector for parallel iteration
   std::vector<std::reference_wrapper<MultiModelKalmanEstimator>> estimators;
   estimators.reserve(mKalmanEstimators.size());

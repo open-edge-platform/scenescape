@@ -119,48 +119,19 @@ class IntelLabsTracking(Tracking):
     return
 
   def from_tracked_object(self, tracked_object, objects):
-    """Get associated sscape object from reliable tracked object"""
-    uuid = tracked_object.attributes['info']
-    sscape_object = None
-    for obj in objects:
-      if uuid == obj.uuid:
-        sscape_object = obj
-        break
-    if not sscape_object:
-      for obj in self.all_tracker_objects:
-        if uuid == obj.uuid:
-          return obj
-      # Neither current objects nor all_tracker_objects matched this UUID.
-      # This can happen if a tracked object's UUID was invalidated between frames.
-      log.warning(f"No sscape_object found for tracked UUID {uuid}, track_id={tracked_object.id}")
-      return None
+    """Get associated sscape object from reliable tracked object."""
+    objects_by_uuid = {obj.uuid: obj for obj in objects if hasattr(obj, 'uuid')}
+    tracker_by_uuid = {obj.uuid: obj for obj in self.all_tracker_objects if hasattr(obj, 'uuid')}
+    tracker_by_rv_id = {obj.rv_id: obj for obj in self.all_tracker_objects if hasattr(obj, 'rv_id')}
+    return self._from_tracked_object_indexed(
+        tracked_object,
+        objects_by_uuid,
+        tracker_by_uuid,
+        tracker_by_rv_id
+    )
 
-    sscape_object.location[0].point = Point(tracked_object.x, tracked_object.y,
-                                            tracked_object.z)
-    sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, 0.0))
-
-    sscape_object.rv_id = tracked_object.id
-    found = False
-    for obj in self.all_tracker_objects:
-      if hasattr(obj, 'rv_id') and sscape_object.rv_id == obj.rv_id:
-        found = True
-        sscape_object.setPrevious(obj)
-        sscape_object.inferRotationFromVelocity()
-        break
-    if not found:
-      # Preserve existing UUID mapping if one exists for this rv_id
-      existing_gid = self.uuid_manager.active_ids.get(sscape_object.rv_id, [None])[0]
-      if existing_gid is None:
-        sscape_object.setGID(uuid)
-      else:
-        sscape_object.setGID(existing_gid)
-
-    self.uuid_manager.assignID(sscape_object)
-
-    return sscape_object
-
-  def from_tracked_object_fast(self, tracked_object, objects_by_uuid, tracker_by_uuid, tracker_by_rv_id):
-    """Optimized version using pre-built hash maps for O(1) lookup instead of O(n) loops.
+  def _from_tracked_object_indexed(self, tracked_object, objects_by_uuid, tracker_by_uuid, tracker_by_rv_id):
+    """Get associated sscape object using pre-built O(1) lookup maps.
 
     Args:
         tracked_object: The tracked object from robot_vision tracker
@@ -332,7 +303,7 @@ class IntelLabsTracking(Tracking):
     tracker_by_rv_id = {obj.rv_id: obj for obj in self.all_tracker_objects if hasattr(obj, 'rv_id')}
 
     tracks_from_detections = [t for t in (
-        self.from_tracked_object_fast(tracked_object, objects_by_uuid, tracker_by_uuid, tracker_by_rv_id)
+        self._from_tracked_object_indexed(tracked_object, objects_by_uuid, tracker_by_uuid, tracker_by_rv_id)
         for tracked_object in tracked_objects
     ) if t is not None]
     t_from = (time.time_ns() - t_from_start) / 1e6

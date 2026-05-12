@@ -48,9 +48,9 @@ spec:
           - name: VDMS_HOSTNAME
             value: vdms.{{ .Release.Namespace }}.svc.cluster.local
           - name: CONTROLLER_MAX_WORKERS
-            value: {{ .Values.scene.maxWorkers | default 0 | quote }}
+            value: {{ .Values.scene.maxWorkers | quote }}
           - name: OMP_NUM_THREADS
-            value: {{ .Values.scene.ompNumThreads | default 8 | quote }}
+            value: {{ .Values.scene.ompNumThreads | quote }}
             {{ include "proxy_envs" . | indent 10 }}
           readinessProbe:
             exec:

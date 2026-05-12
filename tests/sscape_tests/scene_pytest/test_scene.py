@@ -49,6 +49,28 @@ def test_processCameraData(scene_obj, camera_obj, jdata):
 
   return
 
+def test_processCameraData_accumulates_events_across_detection_types(scene_obj, camera_obj, monkeypatch):
+  """Verify events are accumulated across categories in a single frame."""
+  scene_obj.cameras[camera_obj.cameraID] = camera_obj
+  frame = copy.deepcopy(jdata)
+  frame['objects']['vehicle'] = [{
+    "id": 99,
+    "category": "vehicle",
+    "confidence": 0.95,
+    "bounding_box": {"x": 0.1, "y": 0.2, "width": 0.1, "height": 0.1}
+  }]
+
+  def fake_finish_processing(detection_type, when, objects, already_tracked_objects=None, camera_id=None):
+    scene_obj.events.setdefault('objects', [])
+    scene_obj.events['objects'].append((detection_type, len(objects)))
+    return
+
+  monkeypatch.setattr(scene_obj, "_finishProcessing", fake_finish_processing)
+
+  assert scene_obj.processCameraData(frame)
+  categories = [cat for cat, _count in scene_obj.events.get('objects', [])]
+  assert categories == ['person', 'vehicle']
+
 @pytest.mark.parametrize("detectionType, jdata, when", [(thing_type, jdata, when)])
 def test_visible(scene_obj, camera_obj, detectionType, jdata, when):
   """!
