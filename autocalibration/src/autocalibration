@@ -38,7 +38,7 @@ def main():
       args.restauth,
   )
 
-  camera_calibration_controller.preprocessScenes()
+  camera_calibration_controller.preprocess_scenes()
   api = CameraCalibrationApi(camera_calibration_controller)
   api.start(
     port=args.restport,

@@ -48,7 +48,7 @@ services:
       - "DBHOST=pgserver"
       - "DBPORT=5432"
       - "DBTYPE=postgres"
-      - "DBROOT"
+      - "DBROOT=/workspace"
       - "SUPASS"
     cap_add:
       - SYS_ADMIN
