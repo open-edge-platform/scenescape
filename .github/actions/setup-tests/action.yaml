@@ -37,7 +37,15 @@ runs:
       shell: bash
       run: |
         sudo apt update
-        sudo apt install -y --upgrade firefox
+        sudo apt install -y --no-install-recommends libpci-dev libnss3-tools
+        sudo apt install -y --upgrade firefox xvfb
+
+    - name: Set Firefox profile
+      shell: bash
+      run: |
+        mkdir -p $HOME/.mozilla/
+        cp manager/test/firefox-profile.tar $HOME/.mozilla/
+        chmod -R a+rwx $HOME/.mozilla/
 
     - name: Set up geckodriver
       shell: bash
