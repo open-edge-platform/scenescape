@@ -8,7 +8,9 @@ import os
 import time
 
 import cv2
+import pytest
 
+import robot_vision as rv
 import controller.tools.analytics.library.json_helper as json_helper
 import controller.tools.analytics.library.metrics as metrics
 import tests.common_test_utils as common
@@ -57,7 +59,7 @@ def track(params):
   @param    params        Dict of parameters needed for tracking
   @return   tracked_data  The filled list of tracked data
   """
-  if int(params["camera_frame_rate"]) in [10, 1]:
+  if params["camera_frame_rate"] and int(params["camera_frame_rate"]) in [10, 1]:
     # run the tests with 1 fps camera files
     dir = os.path.dirname(os.path.abspath(__file__))
     input_cam_1 = os.path.join(dir, "dataset/Cam_x1_0_"+str(params["camera_frame_rate"])+"fps.json")
