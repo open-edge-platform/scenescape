@@ -143,7 +143,7 @@ jobs:
   #       with:
   #         dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
   #         docker-context: ${{ env.DOCKER_CONTEXT }}
-
+  #         ghcr-token: ${{ secrets.GITHUB_TOKEN }}
   #     - name: "Run Basic Acceptance Tests (BAT)"
   #       if: always() && steps.setup-test-env.outcome == 'success'
   #       run: |
@@ -207,6 +207,7 @@ jobs:
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           docker-context: ${{ env.DOCKER_CONTEXT }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Install github annotate plugin"
         run: |

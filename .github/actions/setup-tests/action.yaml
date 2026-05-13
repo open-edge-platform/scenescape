@@ -11,17 +11,20 @@ inputs:
   docker-context:
     description: 'Docker context used in tests'
     required: true
+  ghcr-token:
+    description: 'GitHub Container Registry token'
+    required: true
 runs:
   using: "composite"
   steps:
-    - name: Set up Docker # Turn off containerd backend during tests execution
-      uses: docker/setup-docker-action@v5
+    - name: Set up Docker # Turn on containerd backend during setup
+      uses: docker/setup-docker-action@b2189fbf2a6592b51fee7cdd93ee2bfaeba733db # v5
       with:
-        context: ${{ inputs.docker-context }}
+        context: setup-context
         daemon-config: |
           {
             "features": {
-              "containerd-snapshotter": false
+              "containerd-snapshotter": true
             }
           }
 
@@ -36,6 +39,13 @@ runs:
       with:
         username: scenescape
         password: ${{ inputs.dockerhub-token }}
+
+    - name: "Log in to GHCR"
+      uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.ghcr-token }}
 
     - name: Install firefox
       shell: bash
@@ -77,8 +87,16 @@ runs:
         tar -xzf geckodriver.tar.gz
         sudo mv geckodriver /usr/local/bin/
 
+    - name: "Setup Cache Targets"
+      id: setup-cache
+      uses: ./.github/actions/setup-cache
+
     - name: "Setup Test Environment"
       shell: bash
+      env:
+        CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+        CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+        GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
       run: |
         make && make setup-tests
 
@@ -97,7 +115,13 @@ runs:
         done
         grep -E 'scenescape.intel.com' /etc/hosts
 
-    - name: Print containers
-      shell: bash
-      run: |
-        docker ps -a
+    - name: Set up Docker # Turn off containerd backend during tests execution
+      uses: docker/setup-docker-action@b2189fbf2a6592b51fee7cdd93ee2bfaeba733db # v5
+      with:
+        context: ${{ inputs.docker-context }}
+        daemon-config: |
+          {
+            "features": {
+              "containerd-snapshotter": false
+            }
+          }
