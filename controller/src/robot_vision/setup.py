@@ -1,7 +1,5 @@
-# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-# Modifications:
-# Nokia VPOD (Emerging Products, BLR), 2026
 
 import os
 import re
@@ -62,15 +60,9 @@ class CMakeBuild(build_ext):
 
     env = os.environ.copy()
 
-    # Optional PROFILE_HUNGARIAN flag (disabled by default)
-    # Set ENABLE_HUNGARIAN_PROFILING=1 to enable
-    enable_hungarian_profiling = os.environ.get('ENABLE_HUNGARIAN_PROFILING', '0') == '1'
-    hungarian_flag = ' -DPROFILE_HUNGARIAN' if enable_hungarian_profiling else ''
-
     env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"{}'.format(
       env.get('CXXFLAGS', ''),
-      self.distribution.get_version(),
-      hungarian_flag
+      self.distribution.get_version()
     )
     if not os.path.exists(self.build_temp):
       os.makedirs(self.build_temp)
