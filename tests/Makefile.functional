@@ -102,8 +102,8 @@ api-large-strings: # NEX-T10583
 	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_api_large_strings.py, 'pgserver web', true, /run/secrets/controller.auth)
 
 auto-calibration:  # NEX-XXXXXX
-	$(eval SERVICES := $(strip pgserver web queuing-video autocalibration))
-	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web_calibration.yml:$(COMPOSE)/dlstreamer/queuing_video.yml:$(COMPOSE)/autocalibration.yml:$(COMPOSE)/cams.yml)
+	$(eval SERVICES := $(strip pgserver web autocalibration))
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web_calibration.yml:$(COMPOSE)/autocalibration.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_auto_calibration.py, '$(SERVICES)', true, /run/secrets/browser.auth,tests/calibrationdb.tar.bz2)
@@ -442,4 +442,18 @@ tracker-with-no-detections: # NEX-T10544
 	$(eval SECRETSDIR := $(PWD)/manager/secrets)
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_tracker_with_no_detection.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 	$(eval override BASE_IMAGE := $(IMAGE_OLD))
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+
+controller-standalone: # NEX-T12595
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_controller_standalone.py, 'pgserver web scene', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+
+manager-standalone: # NEX-T12750
+	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_manager_standalone.py, 'pgserver web broker', true, /run/secrets/controller.auth)
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
