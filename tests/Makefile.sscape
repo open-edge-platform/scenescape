@@ -52,7 +52,7 @@ database-update-tracker-creation-unit:
 	  ; echo RUNNING TEST $@ \
 	  ; cd .. \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; tools/scenescape-start --image $(IMAGE)-controller-test sh -c "export PYTHONPATH=/home/scenescape/SceneScape/ && pytest -s $(GENERATE_JUNITXML_UNITTEST) controller/tests/test_database_update_triggers_tracker_creation.py --password=$(SUPASS)" 2>&1 | tee -i $(LOGFILE) \
+	  ; tools/scenescape-start --image $(IMAGE)-controller-test sh -c "export PYTHONPATH=/home/scenescape/SceneScape/ && pytest -s $(GENERATE_JUNITXML_UNITTEST) controller/tests/tc_database_update_triggers_tracker_creation.py --password=$(SUPASS)" 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 
