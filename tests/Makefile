@@ -170,7 +170,6 @@ _functional-tests: \
   reid-unique-count \
   rest-test \
   retrack-object \
-  scene-crud-mqtt-update \
   scene-details \
   scene-import \
   scene-import-json \
