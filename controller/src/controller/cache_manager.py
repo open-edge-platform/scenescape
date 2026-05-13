@@ -144,9 +144,6 @@ class CacheManager:
     return
 
   def refreshScenesForCamParams(self, jdata):
-    import time
-    t_start = time.time_ns()
-
     # Check for changes and collect work (INSIDE LOCK - fast, no HTTP).
     # Minimizes lock hold time by only performing dict lookups and comparisons.
     cameras_to_update = []
@@ -184,11 +181,6 @@ class CacheManager:
     if needs_refresh:
       log.warning(f"[PROFILE_CACHE] Triggering refreshScenes due to intrinsics/distortion change for camera {jdata['id']}")
       self.refreshScenes()
-
-    t_end = time.time_ns()
-    elapsed_ms = (t_end - t_start) / 1e6
-    if elapsed_ms > 1.0:  # Only log if > 1ms
-      log.info(f"[PROFILE_CACHE] refreshScenesForCamParams took {elapsed_ms:.3f}ms")
     return
 
   def updateCamera(self, cam):
