@@ -8,8 +8,8 @@ inputs:
   dockerhub-token:
     description: 'DockerHub token'
     required: true
-  github-token:
-    description: 'GitHub token'
+  docker-context:
+    description: 'Docker context used in tests'
     required: true
 runs:
   using: "composite"
@@ -17,6 +17,7 @@ runs:
     - name: Set up Docker # Turn off containerd backend during tests execution
       uses: docker/setup-docker-action@v5
       with:
+        context: ${{ inputs.docker-context }}
         daemon-config: |
           {
             "features": {
