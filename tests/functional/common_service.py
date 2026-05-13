@@ -14,13 +14,6 @@ class ServiceMqttTest:
 
   Manages a single PubSub connection, collects all received messages, and
   provides query helpers used by both controller and manager standalone tests.
-
-  Each received message is stored as::
-
-    {'topic': <str>, 'payload': <raw str>, 'data': <dict|None>}
-
-  where ``data`` is the JSON-parsed payload when parsing succeeds, or
-  ``None`` for plain-string payloads.
   """
 
   MAX_WAIT_S = 30
@@ -99,7 +92,7 @@ class ServiceMqttTest:
     """! Block until a message with the given raw string payload arrives.
 
     @param    expected_payload    Exact string to match against message payload.
-    @param    timeout             Seconds to wait; defaults to MAX_WAIT_S.
+    @param    timeout             Seconds to wait, defaults to MAX_WAIT_S.
     @return   True if the payload was received, False on timeout.
     """
     end = time.time() + (timeout or self.MAX_WAIT_S)
