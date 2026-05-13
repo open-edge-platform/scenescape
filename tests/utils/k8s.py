@@ -20,6 +20,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from python_on_whales import docker
 from pytest_kubernetes.providers.kind import KindManagerBase
 from pytest_kubernetes.options import ClusterOptions
 
@@ -391,7 +392,6 @@ class K8sManager:
 
   def _load_images(self):
     """Tag and load SceneScape + external images into the KinD cluster."""
-    from python_on_whales import docker
 
     version_file = Path(self._repo_root) / "version.txt"
     version = version_file.read_text().strip()
