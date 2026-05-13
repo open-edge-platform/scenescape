@@ -61,7 +61,7 @@ def _setup_docker_context():
   _DOCKER_CONTEXT = os.getenv("DOCKER_CONTEXT")
   if _DOCKER_CONTEXT:
     logger.info("Using Docker context '%s' for image loading", _DOCKER_CONTEXT)
-    docker = docker.context.use(_DOCKER_CONTEXT)
+    docker.context.use(_DOCKER_CONTEXT)
   else:
     logger.info("Using default Docker context for image loading")
 
