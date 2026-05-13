@@ -31,16 +31,17 @@ added or removed without requiring config changes. If the CacheManager lookup fa
 USAGE:
 TimeChunkedIntelLabsTracking is configurable via tracker-config.json:
 - Set "time_chunking_enabled": true to enable time-chunked tracking
-- Set "time_chunking_interval_milliseconds": 200 for 200ms batching interval
+- Set "time_chunking_interval_milliseconds": 50 to set processing interval (optional, defaults to 50ms if not present)
+The Scene class will automatically select TimeChunkedIntelLabsTracking when enabled, otherwise uses standard IntelLabsTracking.
 
 Example tracker-config.json:
 {
   "max_unreliable_frames": 10,
-  "non_measurement_frames_dynamic": 20,
-  "non_measurement_frames_static": 30,
-  "baseline_frame_rate": 10,
+  "non_measurement_frames_dynamic": 8,
+  "non_measurement_frames_static": 16,
+  "baseline_frame_rate": 30,
   "time_chunking_enabled": true,
-  "time_chunking_interval_milliseconds": 200
+  "time_chunking_interval_milliseconds": 50
 }
 """
 

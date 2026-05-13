@@ -32,7 +32,6 @@ from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
 from controller.observability import metrics
-from controller.controller_mode import ControllerMode
 from controller.time_chunking import DEFAULT_CHUNKING_INTERVAL_MS, set_cache_manager
 AVG_FRAMES = 100
 
@@ -109,7 +108,7 @@ class SceneController:
     self._data_source = data_source
     self.tracker_config_data = {}
     self.tracker_config_file = tracker_config_file
-    if tracker_config_file is not None and not ControllerMode.isAnalyticsOnly():
+    if tracker_config_file is not None:
       self.extractTrackerConfigData(tracker_config_file)
 
     self.last_time_sync = None
@@ -652,8 +651,7 @@ class SceneController:
       "scene": scene.name
     }
     metrics.record_object_count(len(objects), metric_attributes)
-    if not ControllerMode.isAnalyticsOnly():
-      self.publishSceneDetections(scene, objects, otype, jdata)
+    self.publishSceneDetections(scene, objects, otype, jdata)
     self.publishRegulatedDetections(scene, objects, otype, jdata, camera_id)
     self.publishRegionDetections(scene, objects, otype, jdata)
     return
@@ -713,8 +711,6 @@ class SceneController:
     scene['objects'][otype] = jdata['objects']
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
-    elif ControllerMode.isAnalyticsOnly():
-      scene['rate'] = jdata.get('rate', {})
 
     now = get_epoch_time()
     if self.shouldPublish(scene['last'], now, 1/scene_obj.regulated_rate):
@@ -893,45 +889,6 @@ class SceneController:
     jdata['scene_name'] = scene.name
 
     self.publishEvents(scene, jdata['timestamp'])
-    return
-
-  def handleSceneDataMessage(self, client, userdata, message):
-    """Handle scene data messages for analytics-only mode.
-    Receives tracked objects from upstream controller and updates local scene cache."""
-    try:
-      topic_str = message.topic
-      payload = message.payload.decode('utf-8')
-      jdata = orjson.loads(payload)
-
-      topic = PubSub.parseTopic(topic_str)
-      scene_id = topic.get('scene_id', None)
-      thing_type = topic.get('thing_type', None)
-
-      if scene_id is None or thing_type is None:
-        return
-
-      scene = self.cache_manager.sceneWithID(scene_id)
-      if scene is None:
-        return
-
-      objects_data = jdata.get('objects', [])
-      scene.updateTrackedObjects(thing_type, objects_data)
-
-      ts_str = jdata.get('timestamp', get_iso_time(get_epoch_time()))
-      msg_when = get_epoch_time(jdata['timestamp']) if 'timestamp' in jdata else get_epoch_time()
-
-      scene.events = {}
-      scene._updateEvents(thing_type, msg_when)
-
-      jdata['id'] = scene.uid
-      jdata['name'] = scene.name
-      jdata['unique_detection_count'] = len(objects_data)
-
-      self.publishDetections(scene, scene._deserializeTrackedObjects(objects_data),
-                            msg_when, thing_type, jdata, None)
-      self.publishEvents(scene, ts_str)
-    except Exception as e:
-      log.error(f"Error handling scene data message: {type(e).__name__}: {e}")
     return
 
   def _route_message(self, topic_str):
@@ -1581,14 +1538,9 @@ class SceneController:
 
     self.scenes = self.cache_manager.allScenes()
     for scene in self.scenes:
-      if ControllerMode.isAnalyticsOnly():
-        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
-                                               thing_type="+"),
-                            self.handleSceneDataMessage))
-      else:
-        for camera in scene.cameras:
-          need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
-                              self.handleMovingObjectMessage))
+      for camera in scene.cameras:
+        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
+                            self.handleMovingObjectMessage))
       for sensor in scene.sensors:
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=sensor),
                             self.handleSensorMessage))

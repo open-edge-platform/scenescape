@@ -25,7 +25,6 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC,
                                  DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
-from controller.controller_mode import ControllerMode
 from types import SimpleNamespace
 
 DEBOUNCE_DELAY = 0.5
@@ -64,12 +63,9 @@ class Scene(SceneModel):
     self.trackerType = None
     self.persist_attributes = {}
     self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
-    if not ControllerMode.isAnalyticsOnly():
-      self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
+    self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
     self._trs_xyz_to_lla = None
     self.use_tracker = True
-    self.tracked_objects_cache = {}
-    self.object_history_cache = {}
 
     # Legacy field retained for backwards compatibility with older scene definitions.
     self.scale = scale
@@ -149,9 +145,6 @@ class Scene(SceneModel):
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
     t_start = time.time_ns()
-    if ControllerMode.isAnalyticsOnly():
-      return True
-
     camera_id = jdata['id']
     camera = None
 
@@ -285,10 +278,7 @@ class Scene(SceneModel):
     if already_tracked_objects is None:
       already_tracked_objects = []
 
-    t_start = time.time_ns()
-
     self._updateVisible(objects)
-    t_visible = time.time_ns()
 
     # Use scene UID from database (loaded by cache_manager)
     if not hasattr(self, 'uid') or self.uid is None:
@@ -296,25 +286,16 @@ class Scene(SceneModel):
     else:
       scene_id_to_use = self.uid
 
-    if not ControllerMode.isAnalyticsOnly():
-      self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
-                                self.ref_camera_frame_rate,
-                                self.max_unreliable_time,
-                                self.non_measurement_time_dynamic,
-                                self.non_measurement_time_static,
-                                self.use_tracker,
-                                scene_id=scene_id_to_use,
-                                camera_id=camera_id)
-    t_track = time.time_ns()
+    self.tracker.trackObjects(objects, already_tracked_objects, when, [detectionType],
+                              self.ref_camera_frame_rate,
+                              self.max_unreliable_time,
+                              self.non_measurement_time_dynamic,
+                              self.non_measurement_time_static,
+                              self.use_tracker,
+                              scene_id=scene_id_to_use,
+                              camera_id=camera_id)
 
     self._updateEvents(detectionType, when)
-    t_events = time.time_ns()
-
-    visible_ms = (t_visible - t_start) / 1e6
-    track_ms = (t_track - t_visible) / 1e6
-    events_ms = (t_events - t_track) / 1e6
-    log.debug(f"[PROFILE_FINISH] cat={detectionType}, objs={len(objects)}, "
-             f"visible_ms={visible_ms:.3f}, trackObjects_ms={track_ms:.3f}, updateEvents_ms={events_ms:.3f}")
     return
 
   def _updateSensorObjects(self, name, sensor, objects=None):
@@ -360,10 +341,7 @@ class Scene(SceneModel):
 
   def _updateEvents(self, detectionType, now):
     now_str = get_iso_time(now)
-    if ControllerMode.isAnalyticsOnly():
-      curObjects = self._deserializeTrackedObjects(self.getTrackedObjects(detectionType))
-    else:
-      curObjects = self.tracker.currentObjects(detectionType)
+    curObjects = self.tracker.currentObjects(detectionType)
     for obj in curObjects:
       obj.chain_data.publishedLocations.insert(0, obj.sceneLoc)
 
@@ -407,7 +385,7 @@ class Scene(SceneModel):
       for obj in curObjects:
         # When tracker is disabled, skip the frameCount check and consider all objects;
         # otherwise, only consider objects with frameCount > 3 as reliable.
-        if (obj.frameCount > 3 or not self.use_tracker or ControllerMode.isAnalyticsOnly()) \
+        if (obj.frameCount > 3 or not self.use_tracker) \
            and (region.isPointWithin(obj.sceneLoc) or self.isIntersecting(obj, region)):
           objects.append(obj)
 
@@ -491,39 +469,6 @@ class Scene(SceneModel):
       obj.visibility = vis
     return
 
-  def updateTrackedObjects(self, detection_type, tracked_objects_data):
-    """Update tracked objects cache from scene data messages (analytics-only mode)."""
-    self.tracked_objects_cache[detection_type] = tracked_objects_data
-    return
-
-  def getTrackedObjects(self, detection_type):
-    """Get tracked objects from cache (analytics-only mode)."""
-    return self.tracked_objects_cache.get(detection_type, [])
-
-  def _deserializeTrackedObjects(self, objects_data):
-    """Create lightweight object wrappers from serialized tracked object data."""
-    result = []
-    for obj_data in objects_data:
-      obj = SimpleNamespace()
-      obj.gid = obj_data.get('id', None)
-      obj.oid = obj_data.get('id', None)
-      obj.category = obj_data.get('type', 'object')
-      obj.sceneLoc = Point(obj_data.get('translation', [0, 0, 0]))
-      obj.velocity = Point(obj_data.get('velocity', [0, 0, 0]))
-      obj.size = obj_data.get('size', None)
-      obj.rotation = obj_data.get('rotation', None)
-      obj.confidence = obj_data.get('confidence', None)
-      obj.visibility = obj_data.get('visibility', [])
-      obj.info = obj_data
-      obj.chain_data = SimpleNamespace(regions={}, publishedLocations=[], sensors={}, persist={})
-      obj.frameCount = obj_data.get('frame_count', 1)
-      obj.first_seen = obj_data.get('first_seen', None)
-      obj.vectors = []
-      obj.reidVector = None
-      obj.boundingBox = None
-      result.append(obj)
-    return result
-
   @classmethod
   def deserialize(cls, data):
     tracker_config = data.get('tracker_config', [])
@@ -539,8 +484,6 @@ class Scene(SceneModel):
     scene.regulated_rate = data.get('regulated_rate', None)
     scene.external_update_rate = data.get('external_update_rate', None)
     scene.persist_attributes = data.get('persist_attributes', {})
-    if ControllerMode.isAnalyticsOnly():
-      scene.use_tracker = False
     if 'cameras' in data:
       scene.updateCameras(data['cameras'])
     if 'regions' in data:
