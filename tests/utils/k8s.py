@@ -390,6 +390,13 @@ class K8sManager:
     # Give cert-manager webhook a moment to become fully operational.
     time.sleep(5)
 
+  def _image_exists(ref: str) -> bool:
+    try:
+      docker.image.inspect(ref)
+      return True
+    except Exception:
+      return False
+
   def _load_images(self):
     """Tag and load SceneScape + external images into the KinD cluster."""
 
@@ -400,10 +407,22 @@ class K8sManager:
     for image_name in _SCENESCAPE_IMAGES:
       old_tag = f"{image_name}:latest"
       new_tag = f"intel/{image_name}:{version}"
-      try:
-        docker.image.tag(old_tag, new_tag)
-      except Exception as exc:
-        raise RuntimeError(f"Failed tagging {old_tag} -> {new_tag}: {exc}") from exc
+
+      if not _image_exists(old_tag):
+        raise RuntimeError(
+          f"Required local image missing: {old_tag}. "
+          f"Build images before running k8s tests."
+        )
+
+      if not _image_exists(new_tag):
+        try:
+          docker.image.tag(old_tag, new_tag)
+          logger.info("Tagged %s -> %s", old_tag, new_tag)
+        except Exception as exc:
+          raise RuntimeError(f"Failed tagging {old_tag} -> {new_tag}: {exc}") from exc
+      else:
+        logger.info("Tag already exists: %s", new_tag)
+
       try:
         self._cluster.load_image(new_tag)
         logger.info("Loaded image into kind: %s", new_tag)
