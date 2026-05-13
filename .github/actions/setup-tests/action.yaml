@@ -96,3 +96,8 @@ runs:
           echo "$HOST_IP $h" | sudo tee -a /etc/hosts > /dev/null
         done
         grep -E 'scenescape.intel.com' /etc/hosts
+
+    - name: Print containers
+      shell: bash
+      run: |
+        docker ps -a

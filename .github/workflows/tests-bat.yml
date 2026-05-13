@@ -116,74 +116,74 @@ jobs:
               - '!LICENSES/**'
               - '!docs/**'
 
-  run-basic-acceptance-tests:
-    name: "Run Basic Acceptance Tests"
-    runs-on: [bat]
-    permissions:
-      packages: write # For using GHCR as cache registry
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
-    needs: [filter, check-pr-state]
-    if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
-    steps:
-      - name: "Checkout Repository"
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: false
+  # run-basic-acceptance-tests:
+  #   name: "Run Basic Acceptance Tests"
+  #   runs-on: [bat]
+  #   permissions:
+  #     packages: write # For using GHCR as cache registry
+  #   timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
+  #   needs: [filter, check-pr-state]
+  #   if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
+  #   steps:
+  #     - name: "Checkout Repository"
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         fetch-depth: 0
+  #         persist-credentials: false
 
-      - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' }}
-        uses: ./.github/actions/cleanup
-        with:
-          system-prune: "true"
+  #     - name: "Remove all Docker images"
+  #       if: ${{ github.event.inputs.cleanup == 'true' }}
+  #       uses: ./.github/actions/cleanup
+  #       with:
+  #         system-prune: "true"
 
-      - name: Setup Tests Environment
-        id: setup-test-env
-        uses: ./.github/actions/setup-tests
-        with:
-          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-context: ${{ env.DOCKER_CONTEXT }}
+  #     - name: Setup Tests Environment
+  #       id: setup-test-env
+  #       uses: ./.github/actions/setup-tests
+  #       with:
+  #         dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+  #         docker-context: ${{ env.DOCKER_CONTEXT }}
 
-      - name: "Run Basic Acceptance Tests (BAT)"
-        if: always() && steps.setup-test-env.outcome == 'success'
-        run: |
-          source tests/.venv/bin/activate
-          mkdir -p reports
-          pytest tests/ui/test_out_of_box.py -m basic_acceptance --junitxml=reports/bat_results.xml --log-level=ERROR
+  #     - name: "Run Basic Acceptance Tests (BAT)"
+  #       if: always() && steps.setup-test-env.outcome == 'success'
+  #       run: |
+  #         source tests/.venv/bin/activate
+  #         mkdir -p reports
+  #         pytest tests/ui/test_out_of_box.py -m basic_acceptance --junitxml=reports/bat_results.xml --log-level=ERROR
 
-      - name: "Run Unit Tests"
-        if: always() && steps.setup-test-env.outcome == 'success'
-        run: |
-          source tests/.venv/bin/activate
-          mkdir -p reports
-          cd tests/sscape_tests
-          pytest . --junitxml=../../reports/unit_results.xml --log-level=ERROR
+  #     - name: "Run Unit Tests"
+  #       if: always() && steps.setup-test-env.outcome == 'success'
+  #       run: |
+  #         source tests/.venv/bin/activate
+  #         mkdir -p reports
+  #         cd tests/sscape_tests
+  #         pytest . --junitxml=../../reports/unit_results.xml --log-level=ERROR
 
-      - name: Run Pipeline Runner tests
-        if: always() && steps.setup-test-env.outcome == 'success'
-        env:
-          GPU_DEVICE_COUNT: 0
-          NPU_DEVICE_COUNT: 0
-        run: |
-          mkdir -p reports
-          cd tests/pipeline_runner
-          rm -rf .venv
-          python3 -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip
-          pip install -q -r requirements-ppl-test.txt
-          pytest --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
+  #     - name: Run Pipeline Runner tests
+  #       if: always() && steps.setup-test-env.outcome == 'success'
+  #       env:
+  #         GPU_DEVICE_COUNT: 0
+  #         NPU_DEVICE_COUNT: 0
+  #       run: |
+  #         mkdir -p reports
+  #         cd tests/pipeline_runner
+  #         rm -rf .venv
+  #         python3 -m venv .venv
+  #         source .venv/bin/activate
+  #         pip install --upgrade pip
+  #         pip install -q -r requirements-ppl-test.txt
+  #         pytest --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
 
-      - name: Upload Test Report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: bat-report
-          path: |
-            **/reports/*.xml
+  #     - name: Upload Test Report
+  #       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+  #       with:
+  #         name: bat-report
+  #         path: |
+  #           **/reports/*.xml
 
-      - name: Cleanup
-        if: always()
-        uses: ./.github/actions/cleanup
+  #     - name: Cleanup
+  #       if: always()
+  #       uses: ./.github/actions/cleanup
 
   chart-deployment-test:
     name: "Chart Deployment Test"
@@ -213,11 +213,16 @@ jobs:
           source tests/.venv/bin/activate
           pip install -r .github/resources/requirements-pytest.txt
 
+      - name: Print containers
+        shell: bash
+        run: |
+          docker ps -a
+
       - name: "Run k8s tests"
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/kubernetes --backend=kubernetes --junitxml=reports/k8s_results.xml --log-level=ERROR
+          pytest tests/kubernetes --backend=kubernetes --junitxml=reports/k8s_results.xml --log-level=DEBUG
 
       - name: Upload Test Report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0

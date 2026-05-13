@@ -402,21 +402,27 @@ class K8sManager:
       new_tag = f"intel/{image_name}:{version}"
       try:
         docker.image.tag(old_tag, new_tag)
-      except Exception:
-        logger.warning("Could not tag %s → %s (may already exist)", old_tag, new_tag)
-      self._cluster.load_image(new_tag)
+      except Exception as exc:
+        raise RuntimeError(f"Failed tagging {old_tag} -> {new_tag}: {exc}") from exc
+      try:
+        self._cluster.load_image(new_tag)
+        logger.info("Loaded image into kind: %s", new_tag)
+      except Exception as exc:
+        raise RuntimeError(f"Failed loading image into kind: {new_tag}: {exc}") from exc
 
     # Pull and load external images needed by helm chart hooks/deployments.
     # Strip @sha256:… digests before calling kind load docker-image.
     external_images = _get_chart_external_images(_CHART_PATH, self._supass)
     for image in external_images:
-      logger.info("Pulling external image %s ...", image)
-      try:
-        docker.image.pull(image)
-      except Exception:
-        logger.warning("Could not pull %s (may already exist locally)", image)
       load_ref = re.sub(r'@sha256:[a-f0-9]+$', '', image)
-      self._cluster.load_image(load_ref)
+      try:
+        if not _image_exists(load_ref):
+          logger.info("Pulling external image %s ...", image)
+          docker.image.pull(image)
+        self._cluster.load_image(load_ref)
+        logger.info("Loaded external image into kind: %s", load_ref)
+      except Exception as exc:
+        raise RuntimeError(f"Failed external image flow for {image}: {exc}") from exc
 
   def _generate_values_file(self):
     """Generate a Helm values.yaml for the test deployment.
