@@ -67,7 +67,7 @@ def test_manager_publishes_cmd_database_on_scene_create(record_xml_attribute, pa
   common.record_test_result(TEST_NAME, exit_code)
 
 
-def test_manager_publishes_cmd_scene_update_on_scene_modify(record_xml_attribute, params,
+def test_manager_publishes_cmd_scene_update_on_scene_update(record_xml_attribute, params,
                                                              scene_uid):
   """! Verify that updating a scene via the REST API causes the Manager to
   publish an 'update' message on the CMD_SCENE_UPDATE MQTT topic for that
@@ -77,7 +77,7 @@ def test_manager_publishes_cmd_scene_update_on_scene_modify(record_xml_attribute
   @param    params                  Dict of functional-test connection parameters.
   @param    scene_uid               UID of the test scene.
   """
-  TEST_NAME = "NEX-T12750"
+  TEST_NAME = "NEX-T22790"
   record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
 
@@ -121,7 +121,7 @@ def test_manager_no_mqtt_on_readonly_request(record_xml_attribute, params, scene
   @param    params                  Dict of functional-test connection parameters.
   @param    scene_uid               UID of the test scene.
   """
-  TEST_NAME = "NEX-T12750"
+  TEST_NAME = "NEX-T22791"
   record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
 
@@ -156,13 +156,12 @@ def test_manager_no_mqtt_on_readonly_request(record_xml_attribute, params, scene
 
 def test_manager_publishes_cmd_database_on_scene_delete(record_xml_attribute, params):
   """! Verify that deleting a scene via the REST API causes the Manager to
-  publish an 'update' message on the CMD_DATABASE MQTT topic. CMD_SCENE_UPDATE
-  is not published on delete because the scene no longer exists.
+  publish an 'update' message on the CMD_DATABASE MQTT topic.
 
   @param    record_xml_attribute    Pytest fixture for XML result tagging.
   @param    params                  Dict of functional-test connection parameters.
   """
-  TEST_NAME = "NEX-T12750"
+  TEST_NAME = "NEX-T22792"
   record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
 
