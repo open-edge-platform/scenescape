@@ -56,12 +56,14 @@ _DOCKER_IMAGE_RE = re.compile(
   r'^[a-zA-Z0-9][a-zA-Z0-9._/-]*(?::[a-zA-Z0-9._\-]+)?(?:@sha256:[a-f0-9]+)?$'
 )
 
-_DOCKER_CONTEXT = os.getenv("DOCKER_CONTEXT")
-if _DOCKER_CONTEXT:
-  logger.info("Using Docker context '%s' for image loading", _DOCKER_CONTEXT)
-  docker = docker.context.use(_DOCKER_CONTEXT)
-else:
-  logger.info("Using default Docker context for image loading")
+def _setup_docker_context():
+  """Set docker context"""
+  _DOCKER_CONTEXT = os.getenv("DOCKER_CONTEXT")
+  if _DOCKER_CONTEXT:
+    logger.info("Using Docker context '%s' for image loading", _DOCKER_CONTEXT)
+    docker = docker.context.use(_DOCKER_CONTEXT)
+  else:
+    logger.info("Using default Docker context for image loading")
 
 
 def _get_chart_external_images(chart_path, supass):
@@ -244,6 +246,7 @@ class K8sManager:
     self.mqtt_port = None
     self.web_port = None
     self.kubeconfig = None
+    _setup_docker_context()
 
   def setup(self):
     """Create KinD cluster, deploy Helm chart, set up port-forwarding."""
