@@ -24,8 +24,7 @@ available_databases = {
 }
 
 class UUIDManager:
-  def __init__(self, database=DEFAULT_DATABASE, reid_config_data=None):
-    self.reid_config_data = reid_config_data or {}
+  def __init__(self, database=DEFAULT_DATABASE):
     self.active_ids = {}
     self.active_ids_lock = threading.Lock()
     self.active_query = {}

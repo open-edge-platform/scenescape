@@ -466,12 +466,10 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   def __init__(self, max_unreliable_time, non_measurement_time_dynamic,
                non_measurement_time_static, baseline_frame_rate=10,
                suspended_track_timeout_secs=60.0,
-               reid_config_data=None,
                time_chunking_interval_milliseconds=DEFAULT_CHUNKING_INTERVAL_MS):
     super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static,
                      baseline_frame_rate=baseline_frame_rate,
-                     suspended_track_timeout_secs=suspended_track_timeout_secs,
-                     reid_config_data=reid_config_data)
+                     suspended_track_timeout_secs=suspended_track_timeout_secs)
     self.time_chunking_interval_ms = time_chunking_interval_milliseconds
     self.time_chunk_processor = None  # Created lazily in _createIlabsTrackers
 
@@ -554,8 +552,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
       if category not in self.trackers:
         tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic,
                                     non_measurement_time_static,
-                                    baseline_frame_rate=self.ref_camera_frame_rate,
-                                    reid_config_data=self.reid_config_data)
+                                    baseline_frame_rate=self.ref_camera_frame_rate)
         self.trackers[category] = tracker
         tracker.start()
         log.info(f"Started IntelLabs tracker thread for category: {category}")

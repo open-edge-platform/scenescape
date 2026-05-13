@@ -38,13 +38,13 @@ class Tracking(Thread):
   multiprocessing: each tracker can move to a dedicated process without
   sharing mutable state."""
 
-  def __init__(self, reid_config_data=None):
+  def __init__(self):
     super().__init__(daemon=True)
     self.trackers = {}
     self.all_tracker_objects = self.curObjects = []
     self.already_tracked_objects = []
     self.queue = Queue()
-    self.uuid_manager = UUIDManager(reid_config_data=reid_config_data or {})
+    self.uuid_manager = UUIDManager()
     # Thread identity recorded at run() start — used to assert ownership
     self._owner_thread_id = None
     return

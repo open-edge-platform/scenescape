@@ -50,8 +50,7 @@ class Scene(SceneModel):
                time_chunking_enabled = False,
                time_chunking_interval_milliseconds = DEFAULT_CHUNKING_INTERVAL_MS,
                baseline_frame_rate = 10,
-               suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
-               reid_config_data=None):
+               suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static)
     super().__init__(name, map_file, scale)
@@ -65,7 +64,6 @@ class Scene(SceneModel):
     self.trackerType = None
     self.persist_attributes = {}
     self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
-    self.reid_config_data = reid_config_data
     if not ControllerMode.isAnalyticsOnly():
       self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
     self._trs_xyz_to_lla = None
@@ -89,8 +87,7 @@ class Scene(SceneModel):
             self.non_measurement_time_dynamic,
             self.non_measurement_time_static,
             self.baseline_frame_rate,
-            self.suspended_track_timeout_secs,
-            self.reid_config_data)
+            self.suspended_track_timeout_secs)
     if trackerType == "time_chunked_intel_labs":
       args += (self.time_chunking_interval_milliseconds,)
     self.tracker = self.available_trackers[self.trackerType](*args)

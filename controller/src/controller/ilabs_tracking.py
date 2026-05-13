@@ -26,7 +26,7 @@ class IntelLabsTracking(Tracking):
 
   def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static,
                baseline_frame_rate=10, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
-               reid_config_data=None, name=None):
+               name=None):
     """Initialize the tracker with tracker configuration parameters"""
     super().__init__()
     self.name = name if name is not None else "IntelLabsTracking"
@@ -62,7 +62,6 @@ class IntelLabsTracking(Tracking):
       tracker_config.suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 
     self.tracker = rv.tracking.MultipleObjectTracker(tracker_config)
-    self.reid_config_data = reid_config_data
     log.info(f"Multiple Object Tracker {self.__str__()} initialized")
     log.info("Tracker config: {}".format(tracker_config))
     self.tracker.update_tracker_params(self.ref_camera_frame_rate)

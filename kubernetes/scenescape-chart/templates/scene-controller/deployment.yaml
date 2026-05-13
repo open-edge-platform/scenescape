@@ -92,9 +92,6 @@ spec:
           - mountPath: /home/scenescape/SceneScape/tracker-config.json
             name: tracker-config
             subPath: tracker-config.json
-          - mountPath: /home/scenescape/SceneScape/reid-config.json
-            name: reid-config
-            subPath: reid-config.json
           - mountPath: /dev/shm
             name: dshm
       restartPolicy: Always
@@ -116,9 +113,6 @@ spec:
       - name: tracker-config
         configMap:
           name: {{ .Release.Name }}-tracker-config
-      - name: reid-config
-        configMap:
-          name: {{ .Release.Name }}-reid-config
       - name: dshm
         emptyDir:
           medium: Memory

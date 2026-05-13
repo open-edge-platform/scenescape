@@ -130,8 +130,7 @@ class SceneController:
     if _is_worker:
       self.pubsub.loopStart()
 
-    self.reid_config_data = {}
-    self.cache_manager = CacheManager(data_source, rest_url, rest_auth, root_cert, self.tracker_config_data, reid_config_data=self.reid_config_data)
+    self.cache_manager = CacheManager(data_source, rest_url, rest_auth, root_cert, self.tracker_config_data)
     # Inject cache_manager into time_chunking module for scene_id derivation
     set_cache_manager(self.cache_manager)
 
@@ -602,22 +601,6 @@ class SceneController:
         else:
           log.error("Invalid persist_attributes format in tracker config file")
           self.tracker_config_data["persist_attributes"] = {}
-    return
-
-  def extractReidConfigData(self, reid_config_file):
-    if reid_config_file is None:
-      return
-    if not os.path.exists(reid_config_file) and not os.path.isabs(reid_config_file):
-      script = os.path.realpath(__file__)
-      reid_config_file = os.path.join(os.path.dirname(script), reid_config_file)
-    if not os.path.exists(reid_config_file):
-      log.warning(f"ReID config file not found: {reid_config_file}")
-      return
-    with open(reid_config_file) as json_file:
-      loaded_data = orjson.loads(json_file.read())
-      self.reid_config_data.clear()
-      self.reid_config_data.update(loaded_data)
-      log.info(f"Loaded ReID config: {self.reid_config_data}")
     return
 
   def _extractTimeChunkingEnabled(self, tracker_config):

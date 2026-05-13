@@ -69,8 +69,6 @@ def build_argparser():
                       help="Enable cProfile profiling of controller (disabled by default)")
   parser.add_argument("--profile-output", type=str, default="/dev/shm/controller_profile.stats",
                       help="Output file for profile stats (default: /dev/shm/controller_profile.stats)")
-  parser.add_argument("--reid_config_file", help="JSON file with reid configuration",
-            default=None)
   parser.add_argument("--analytics-only", dest="analytics_only", action="store_true",
                       default=os.environ.get("CONTROLLER_ENABLE_ANALYTICS_ONLY", "false").lower() == "true",
                       help="Run controller in analytics-only mode (tracker disabled)")
@@ -105,7 +103,6 @@ def main():
                                 args.restauth, args.cert,
                                 args.rootcert, args.ntp, args.tracker_config_file, args.schema_file,
                                 args.visibility_topic, args.data_source)
-    controller.extractReidConfigData(args.reid_config_file)
     controller.loopForever()
   finally:
     # Save profile on clean exit
