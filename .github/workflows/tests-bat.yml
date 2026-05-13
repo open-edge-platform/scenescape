@@ -148,7 +148,7 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/ui/test_out_of_box.py -m basic_acceptance --junitxml=reports/bat_results.xml --log-level=DEBUG
+          pytest tests/ui/test_out_of_box.py -m basic_acceptance --junitxml=reports/bat_results.xml --log-level=ERROR
 
       - name: "Run Unit Tests"
         if: always() && steps.setup-test-env.outcome == 'success'
@@ -156,7 +156,7 @@ jobs:
           source tests/.venv/bin/activate
           mkdir -p reports
           cd tests/sscape_tests
-          pytest . --junitxml=../../reports/unit_results.xml --log-level=DEBUG
+          pytest . --junitxml=../../reports/unit_results.xml --log-level=ERROR
 
       - name: Run Pipeline Runner tests
         if: always() && steps.setup-test-env.outcome == 'success'
@@ -171,7 +171,7 @@ jobs:
           source .venv/bin/activate
           pip install --upgrade pip
           pip install -q -r requirements-ppl-test.txt
-          pytest --junitxml=../../reports/pipeline_runner_results.xml --log-level=DEBUG
+          pytest --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
 
       - name: Upload Test Report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -184,46 +184,46 @@ jobs:
         if: always()
         uses: ./.github/actions/cleanup
 
-  # chart-deployment-test:
-  #   name: "Chart Deployment Test"
-  #   runs-on: [bat]
-  #   permissions:
-  #     packages: write # For using GHCR as cache registry
-  #   needs: [filter, check-pr-state]
-  #   if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-  #       with:
-  #         fetch-depth: 0
+  chart-deployment-test:
+    name: "Chart Deployment Test"
+    runs-on: [bat]
+    permissions:
+      packages: write # For using GHCR as cache registry
+    needs: [filter, check-pr-state]
+    if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
 
-  #     - name: Set up Helm
-  #       uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+      - name: Set up Helm
+        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
 
-  #     - name: Setup Tests Environment
-  #       id: setup-test-env
-  #       uses: ./.github/actions/setup-tests
-  #       with:
-  #         dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
+        with:
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  #     - name: "Install github annotate plugin"
-  #       run: |
-  #         source tests/.venv/bin/activate
-  #         pip install -r .github/resources/requirements-pytest.txt
+      - name: "Install github annotate plugin"
+        run: |
+          source tests/.venv/bin/activate
+          pip install -r .github/resources/requirements-pytest.txt
 
-  #     - name: "Run k8s tests"
-  #       run: |
-  #         source tests/.venv/bin/activate
-  #         mkdir -p reports
-  #         pytest tests/kubernetes --backend=kubernetes --junitxml=reports/k8s_results.xml --log-level=ERROR
+      - name: "Run k8s tests"
+        run: |
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/kubernetes --backend=kubernetes --junitxml=reports/k8s_results.xml --log-level=ERROR
 
-  #     - name: Upload Test Report
-  #       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-  #       with:
-  #         name: k8s-report
-  #         path: |
-  #           **/reports/*.xml
+      - name: Upload Test Report
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: k8s-report
+          path: |
+            **/reports/*.xml
 
-  #     - name: Cleanup
-  #       if: always()
-  #       uses: ./.github/actions/cleanup
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup
