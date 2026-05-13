@@ -216,7 +216,12 @@ class K8sScenescapeEnv:
       "--", "sh", "-c", command,
     ])
 
-
+def _image_exists(ref: str) -> bool:
+  try:
+    docker.image.inspect(ref)
+    return True
+  except Exception:
+    return False
 class K8sManager:
   """Manages a KinD Kubernetes cluster lifecycle for test sessions.
 
@@ -390,13 +395,6 @@ class K8sManager:
     # Give cert-manager webhook a moment to become fully operational.
     time.sleep(5)
 
-  def _image_exists(ref: str) -> bool:
-    try:
-      docker.image.inspect(ref)
-      return True
-    except Exception:
-      return False
-
   def _load_images(self):
     """Tag and load SceneScape + external images into the KinD cluster."""
     version_file = Path(self._repo_root) / "version.txt"
@@ -406,13 +404,13 @@ class K8sManager:
       old_tag = f"{image_name}:latest"
       new_tag = f"intel/{image_name}:{version}"
 
-      if not self._image_exists(old_tag):
+      if not _image_exists(old_tag):
         raise RuntimeError(
           f"Required local image missing: {old_tag}. "
           f"Build images before running k8s tests."
         )
 
-      if not self._image_exists(new_tag):
+      if not _image_exists(new_tag):
         try:
           docker.image.tag(old_tag, new_tag)
           logger.info("Tagged %s -> %s", old_tag, new_tag)
@@ -431,7 +429,7 @@ class K8sManager:
     for image in external_images:
       load_ref = re.sub(r'@sha256:[a-f0-9]+$', '', image)
       try:
-        if not self._image_exists(load_ref):
+        if not _image_exists(load_ref):
           logger.info("Pulling external image %s ...", image)
           docker.image.pull(image)
         self._cluster.load_image(load_ref)
