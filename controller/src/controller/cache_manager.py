@@ -91,7 +91,7 @@ class CacheManager:
                                         self.tracker_config_data["non_measurement_time_static"],
                                         self.tracker_config_data["time_chunking_enabled"],
                                         self.tracker_config_data["time_chunking_interval_milliseconds"],
-                                        self.tracker_config_data.get("baseline_frame_rate", 10),
+                                        self.tracker_config_data.get("baseline_frame_rate", 30),
                                         self.tracker_config_data.get("suspended_track_timeout_secs", 60.0)]
           scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
 
@@ -246,46 +246,26 @@ class CacheManager:
     with self._lock:
       return list(self.cached_scenes_by_uid.values())
 
-  def sceneWithID(self, sceneID):
-    self.checkRefresh()
-    with self._lock:
-      return self.cached_scenes_by_uid.get(sceneID, None)
-
-  def sceneWithCameraID(self, cameraID):
-    self.checkRefresh()
-    with self._lock:
-      return self._cached_scenes_by_cameraID.get(cameraID, None)
-
-  def sceneWithSensorID(self, sensorID):
-    self.checkRefresh()
-    with self._lock:
-      return self._cached_scenes_by_sensorID.get(sensorID, None)
-
-  def sceneWithRemoteChildID(self, childID):
-    self.checkRefresh()
-    with self._lock:
-      return self.cached_child_transforms_by_uid.get(childID, None)
-
   # --- Fast lookup methods (no HTTP, no checkRefresh) ---
   # These are safe to call from the MQTT callback thread because they
   # only do in-memory dict lookups under the lock. They never trigger
   # HTTP calls, so they cannot block the paho network loop.
 
-  def sceneWithCameraID_fast(self, cameraID):
+  def sceneWithCameraID(self, cameraID):
     with self._lock:
       return self._cached_scenes_by_cameraID.get(cameraID, None)
 
-  def sceneWithSensorID_fast(self, sensorID):
+  def sceneWithSensorID(self, sensorID):
     with self._lock:
       return self._cached_scenes_by_sensorID.get(sensorID, None)
 
-  def sceneWithID_fast(self, sceneID):
+  def sceneWithID(self, sceneID):
     with self._lock:
       if self.cached_scenes_by_uid:
         return self.cached_scenes_by_uid.get(sceneID, None)
       return None
 
-  def sceneWithRemoteChildID_fast(self, childID):
+  def sceneWithRemoteChildID(self, childID):
     with self._lock:
       return self.cached_child_transforms_by_uid.get(childID, None)
 
@@ -293,7 +273,7 @@ class CacheManager:
     """Start background thread for periodic cache refresh.
 
     Replaces on-demand checkRefresh() calls on the MQTT callback thread.
-    The MQTT thread now uses _fast lookup methods (dict-only, no HTTP).
+    The MQTT thread now uses lookup methods (dict-only, no HTTP).
     This background thread handles the periodic HTTP refresh instead.
     """
     if interval is None:
@@ -330,7 +310,7 @@ class CacheManager:
   def invalidate(self):
     with self._lock:
       self.cached_scenes_by_uid = None
-      # Clear lookup dicts so _fast methods don't return stale results
+      # Clear lookup dicts
       self._cached_scenes_by_cameraID = {}
       self._cached_scenes_by_sensorID = {}
       if not hasattr(self, 'cached_child_transforms_by_uid') or self.cached_child_transforms_by_uid is None:

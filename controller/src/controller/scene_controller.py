@@ -137,7 +137,7 @@ class SceneController:
     # Start background cache refresh for both main process and workers.
     # This replaces on-demand checkRefresh() which was called on the MQTT
     # callback thread, blocking it with HTTP calls and causing paho deadlocks.
-    # Workers also need this: they use _fast dict lookups but the dict must be
+    # Workers also need this: they use dict lookups but the dict must be
     # populated via periodic HTTP refresh. Workers don't have MQTT callback
     # threads, so the background HTTP thread is safe.
     self.cache_manager.startPeriodicRefresh()
@@ -874,7 +874,7 @@ class SceneController:
       return
 
     sensor_id = jdata['id']
-    scene = self.cache_manager.sceneWithSensorID_fast(sensor_id)
+    scene = self.cache_manager.sceneWithSensorID(sensor_id)
     if scene is None:
       return
 
@@ -910,7 +910,7 @@ class SceneController:
       if scene_id is None or thing_type is None:
         return
 
-      scene = self.cache_manager.sceneWithID_fast(scene_id)
+      scene = self.cache_manager.sceneWithID(scene_id)
       if scene is None:
         return
 
@@ -943,12 +943,12 @@ class SceneController:
       topic = PubSub.parseTopic(topic_str)
       scene = None
       if 'camera_id' in topic:
-        scene = self.cache_manager.sceneWithCameraID_fast(topic['camera_id'])
+        scene = self.cache_manager.sceneWithCameraID(topic['camera_id'])
       elif 'scene_id' in topic:
         # Child scene message — route by parent scene
-        sender = self.cache_manager.sceneWithID_fast(topic['scene_id'])
+        sender = self.cache_manager.sceneWithID(topic['scene_id'])
         if sender and hasattr(sender, 'parent') and sender.parent:
-          scene = self.cache_manager.sceneWithID_fast(sender.parent)
+          scene = self.cache_manager.sceneWithID(sender.parent)
         else:
           scene = sender
       if scene is not None:
@@ -1242,8 +1242,7 @@ class SceneController:
     else:
       detection_types = list(jdata['objects'].keys())
       camera_id = sender_id = topic['camera_id']
-      # Use _fast lookup to avoid 60-second HTTP refresh latency spikes in worker
-      sender = self.cache_manager.sceneWithCameraID_fast(sender_id)
+      sender = self.cache_manager.sceneWithCameraID(sender_id)
       if sender is None:
         log.error("UNKNOWN SENDER", sender_id)
         return None
@@ -1366,9 +1365,9 @@ class SceneController:
       return
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
-    sender = self.cache_manager.sceneWithID_fast(sender_id)
+    sender = self.cache_manager.sceneWithID(sender_id)
     if sender is None:
-      remote_sender = self.cache_manager.sceneWithRemoteChildID_fast(sender_id)
+      remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
         log.error("UNKNOWN SENDER")
         return False, None
@@ -1379,7 +1378,7 @@ class SceneController:
       log.error("UNKNOWN PARENT", sender_id)
       return False, sender
 
-    scene = self.cache_manager.sceneWithID_fast(sender.parent)
+    scene = self.cache_manager.sceneWithID(sender.parent)
     if scene is None:
       log.error(f"Parent scene not found in cache for sender {sender_id}")
       return False, None
@@ -1525,9 +1524,9 @@ class SceneController:
     msg = orjson.loads(message.payload.decode('utf-8'))
 
     sender_id = topic['scene_id']
-    sender = self.cache_manager.sceneWithID_fast(sender_id)
+    sender = self.cache_manager.sceneWithID(sender_id)
     if sender is None:
-      remote_sender = self.cache_manager.sceneWithRemoteChildID_fast(sender_id)
+      remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
         log.error("UNKNOWN SENDER")
         return
@@ -1538,7 +1537,7 @@ class SceneController:
       log.error("UNKNOWN PARENT", sender_id)
       return
 
-    scene = self.cache_manager.sceneWithID_fast(sender.parent)
+    scene = self.cache_manager.sceneWithID(sender.parent)
     if scene is None:
       log.error(f"Parent scene not found in cache for sender {sender_id}")
       return

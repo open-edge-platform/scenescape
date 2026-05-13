@@ -60,7 +60,7 @@ class CMakeBuild(build_ext):
 
     env = os.environ.copy()
 
-    env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"{}'.format(
+    env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"'.format(
       env.get('CXXFLAGS', ''),
       self.distribution.get_version()
     )

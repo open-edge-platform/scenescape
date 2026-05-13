@@ -68,7 +68,7 @@ def _get_scene_camera_count(scene_id):
   """Look up actual camera count for a scene from CacheManager.
 
   Returns the number of cameras registered for this scene, or None if the
-  scene is not (yet) in the cache. Uses _fast (dict-only) lookup — safe to
+  scene is not (yet) in the cache. Uses (dict-only) lookup — safe to
   call from any thread without triggering HTTP.
 
   Lock safety: acquires only _cache_manager._lock (Lock). Callers holding
@@ -76,7 +76,7 @@ def _get_scene_camera_count(scene_id):
   first, then _cache_manager._lock via this function).
   """
   if _cache_manager is not None:
-    scene = _cache_manager.sceneWithID_fast(scene_id)
+    scene = _cache_manager.sceneWithID(scene_id)
     if scene is not None and hasattr(scene, 'cameras'):
       count = len(scene.cameras)
       if count > 0:
@@ -522,7 +522,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
       global _cache_manager
       if _cache_manager is not None:
         try:
-          scene = _cache_manager.sceneWithCameraID_fast(camera_id)
+          scene = _cache_manager.sceneWithCameraID(camera_id)
           if scene and hasattr(scene, 'uid') and scene.uid:
             scene_id = scene.uid
             log.debug(f"[TIME_CHUNK] Derived scene_id={scene_id[:8]}... from camera {camera_id}")
