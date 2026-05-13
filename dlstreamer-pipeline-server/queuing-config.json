@@ -76,7 +76,7 @@
               "ntpServer": "ntpserv"
             },
             "frame_ntp_config": {
-              "useFrameNtpTimestamp": true
+              "useFrameNtpTimestamp": false
             },
             "camera_config": {
               "cameraid": "atag-qcam1",
@@ -157,7 +157,7 @@
               "ntpServer": "ntpserv"
             },
             "frame_ntp_config": {
-              "useFrameNtpTimestamp": true
+              "useFrameNtpTimestamp": false
             },
             "camera_config": {
               "cameraid": "atag-qcam2",
