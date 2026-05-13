@@ -17,6 +17,15 @@ outputs:
 runs:
   using: "composite"
   steps:
+    - name: Setup Docker with containerd storage backend
+      uses: docker/setup-docker-action@v5
+      with:
+        daemon-config: |
+          {
+            "features": {
+              "containerd-snapshotter": true
+            }
+          }
     - name: Setup Cache Targets
       id: cache
       shell: bash
