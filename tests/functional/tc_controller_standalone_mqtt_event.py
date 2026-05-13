@@ -27,20 +27,20 @@ CAMERA_ID = "camera1"
 
 def _detection(camera_id, with_objects=True):
   payload = {
-    "id": camera_id,
-    "objects": {},
-    "rate": float(FRAME_RATE),
-    "timestamp": get_iso_time(),
+      "id": camera_id,
+      "objects": {},
+      "rate": float(FRAME_RATE),
+      "timestamp": get_iso_time(),
   }
   if with_objects:
     payload["objects"] = {
-      "person": [
-        {
-          "id": 1,
-          "category": "person",
-          "bounding_box": {"x": 0.5, "y": 0.1, "width": 0.2, "height": 0.4},
-        }
-      ]
+        "person": [
+            {
+                "id": 1,
+                "category": "person",
+                "bounding_box": {"x": 0.5, "y": 0.1, "width": 0.2, "height": 0.4},
+            }
+        ]
     }
   return payload
 
@@ -83,21 +83,21 @@ def test_controller_publishes_tracking_on_detection(record_xml_attribute, params
     h.connect([reg_topic])
     ctrl_up = _publish_detections_until_tracked(h, cam_topic)
     assert ctrl_up, (
-      f"No DATA_REGULATED message with tracked objects received on "
-      f"{reg_topic} within {h.MAX_WAIT_S}s"
+        f"No DATA_REGULATED message with tracked objects received on "
+        f"{reg_topic} within {h.MAX_WAIT_S}s"
     )
     log.info("PASS: controller published tracking output on DATA_REGULATED")
     exit_code = 0
   finally:
     h.disconnect()
-  
+
   common.record_test_result(TEST_NAME, exit_code)
 
 
 def test_controller_creates_tracker_after_scene_update(record_xml_attribute, params, scene_uid):
   """! Verify that the Controller creates a new tracker for a scene after
   receiving an 'update' message on CMD_DATABASE.
-    
+
   @param    record_xml_attribute    Pytest fixture for XML result tagging.
   @param    params                  Dict of functional-test connection parameters.
   @param    scene_uid               UID of the test scene.
@@ -111,7 +111,7 @@ def test_controller_creates_tracker_after_scene_update(record_xml_attribute, par
 
   rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
   assert rest.authenticate(params['user'], params['password']), \
-    "REST authentication failed"
+      "REST authentication failed"
 
   original_res = rest.getScenes({'id': scene_uid})
   assert original_res['count'] > 0, f"Scene uid={scene_uid} not found"
@@ -124,28 +124,30 @@ def test_controller_creates_tracker_after_scene_update(record_xml_attribute, par
 
     ctrl_up = _publish_detections_until_tracked(h, cam_topic)
     assert ctrl_up, (
-      f"No DATA_REGULATED message with tracked objects received on "
-      f"{reg_topic} within {h.MAX_WAIT_S}s"
+        f"No DATA_REGULATED message with tracked objects received on "
+        f"{reg_topic} within {h.MAX_WAIT_S}s"
     )
 
     ids_before = h.get_tracked_ids()
     res = rest.updateScene(scene_uid, {'name': original_name + "-modified"})
     assert res.statusCode == 200, f"Failed to update scene: {res.errors}"
-    log.info(f"Updated scene uid={scene_uid} via REST, waiting for tracking to resume")
+    log.info(
+        f"Updated scene uid={scene_uid} via REST, waiting for tracking to resume")
     h.clear_messages()
 
     resumed = _publish_detections_until_tracked(h, cam_topic)
     assert resumed, (
-      f"No DATA_REGULATED message with tracked objects received on "
-      f"{reg_topic} within {h.MAX_WAIT_S}s after scene REST update"
+        f"No DATA_REGULATED message with tracked objects received on "
+        f"{reg_topic} within {h.MAX_WAIT_S}s after scene REST update"
     )
 
     ids_after = h.get_tracked_ids()
     assert ids_before.isdisjoint(ids_after), (
-      f"Tracked object IDs overlap before and after scene update "
-      f"(before={ids_before}, after={ids_after}); tracker may not have been reset"
+        f"Tracked object IDs overlap before and after scene update "
+        f"(before={ids_before}, after={ids_after}); tracker may not have been reset"
     )
-    log.info("PASS: controller resumed tracking with fresh IDs after scene REST update")
+    log.info(
+        "PASS: controller resumed tracking with fresh IDs after scene REST update")
     exit_code = 0
   finally:
     h.disconnect()
