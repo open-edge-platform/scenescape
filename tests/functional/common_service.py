@@ -128,3 +128,22 @@ class ServiceMqttTest:
         isinstance(m['data'], dict) and len(m['data'].get('objects', [])) > 0
         for m in self._messages
       )
+
+  def get_tracked_ids(self):
+    """! Return the set of object 'id' values seen across all received messages.
+
+    Collects the 'id' field from every entry in the 'objects' array of each
+    JSON message.  Used to verify whether a fresh tracker has reset its ID
+    sequence.
+
+    @return   set of object id values (any type, as received in the payload).
+    """
+    ids = set()
+    with self._lock:
+      for m in self._messages:
+        if not isinstance(m['data'], dict):
+          continue
+        for obj in m['data'].get('objects', []):
+          if 'id' in obj:
+            ids.add(obj['id'])
+    return ids
