@@ -29,7 +29,7 @@ def compareLines3D( cpp_ln : cppLine, py_ln : pyLine ):
     return False
   return True
 
-def testLines2D(start_range, stop_range, step):
+def _testLines2D(start_range, stop_range, step):
   for x in range(start_range, stop_range, step):
     for y in range(start_range, stop_range, step):
 
@@ -47,7 +47,7 @@ def testLines2D(start_range, stop_range, step):
   log.log("Lines (2D) ok")
   return True
 
-def testLines3D(start_range, stop_range, step):
+def _testLines3D(start_range, stop_range, step):
   for x in range(start_range, stop_range, step):
     for y in range(start_range, stop_range, step):
 
@@ -64,7 +64,7 @@ def testLines3D(start_range, stop_range, step):
   log.log("Lines (3D) ok")
   return True
 
-def testLines2DCross(start_range, stop_range, step):
+def _testLines2DCross(start_range, stop_range, step):
   for x in range(start_range, stop_range, step):
     for y in range(start_range, stop_range, step):
 
@@ -107,9 +107,9 @@ def testLines2DCross(start_range, stop_range, step):
   return True
 
 def test():
-  assert testLines2D(-50, 50, 2)
-  assert testLines3D(-50, 50, 2)
-  assert testLines2DCross(-50, 50, 2)
+  assert _testLines2D(-50, 50, 2)
+  assert _testLines3D(-50, 50, 2)
+  assert _testLines2DCross(-50, 50, 2)
 
   return 0
 
