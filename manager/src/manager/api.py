@@ -130,8 +130,10 @@ class ManageThing(APIView):
     if uid_field in ['sensor_id', 'username', 'marker_id']:
       return uid
 
-    if uid_field == 'pk' and uid.isdigit():
-      return int(uid)
+    if uid_field == 'pk' and thing_type not in ['scene']:
+      if uid.isdigit():
+        return int(uid)
+      return None
 
     if uid_field in ['uuid'] or thing_type in ['region', 'tripwire', 'child', 'scene']:
       try:
