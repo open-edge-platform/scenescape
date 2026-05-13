@@ -101,7 +101,7 @@ api-large-strings: # NEX-T10583
 	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
 	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_api_large_strings.py, 'pgserver web', true, /run/secrets/controller.auth)
 
-auto-calibration:  # NEX-XXXXXX
+auto-calibration:  # NEX-T17850
 	$(eval SERVICES := $(strip pgserver web autocalibration))
 	$(eval COMPOSE_FILES := $(COMPOSE)/dlstreamer/broker.yml:$(COMPOSE)/ntp.yml:$(COMPOSE)/pgserver.yml:$(COMPOSE)/scene.yml:$(COMPOSE)/web_calibration.yml:$(COMPOSE)/autocalibration.yml)
 	$(eval OLDSECRETSDIR := $(SECRETSDIR))
