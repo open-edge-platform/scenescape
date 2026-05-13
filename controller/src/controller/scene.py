@@ -292,7 +292,6 @@ class Scene(SceneModel):
 
     # Use scene UID from database (loaded by cache_manager)
     if not hasattr(self, 'uid') or self.uid is None:
-      log.error(f"[SCENE_DEBUG] Scene.uid is None! name={self.name}, using name as fallback")
       scene_id_to_use = self.name
     else:
       scene_id_to_use = self.uid

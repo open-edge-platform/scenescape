@@ -343,6 +343,14 @@ class TimeChunkProcessor(threading.Thread):
         for category in categories:
           self._dispatch_category_complete_only(category)
 
+    # Final drain on shutdown: flush all remaining buffered scenes once so
+    # late frames are not dropped when tests/application stop the tracker.
+    with self._buffers_lock:
+      categories = list(self._buffers.keys())
+
+    for category in categories:
+      self._dispatch_category(category)
+
     log.info(f"[TIME_CHUNK] Dispatch thread exiting. "
              f"dispatches={self._dispatch_count}, skips={self._skip_count}, "
              f"complete_scenes={self._complete_scene_dispatches}, "
