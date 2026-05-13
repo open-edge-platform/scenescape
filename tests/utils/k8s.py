@@ -399,11 +399,9 @@ class K8sManager:
 
   def _load_images(self):
     """Tag and load SceneScape + external images into the KinD cluster."""
-
     version_file = Path(self._repo_root) / "version.txt"
     version = version_file.read_text().strip()
 
-    # Load SceneScape images (already built locally)
     for image_name in _SCENESCAPE_IMAGES:
       old_tag = f"{image_name}:latest"
       new_tag = f"intel/{image_name}:{version}"
@@ -429,8 +427,6 @@ class K8sManager:
       except Exception as exc:
         raise RuntimeError(f"Failed loading image into kind: {new_tag}: {exc}") from exc
 
-    # Pull and load external images needed by helm chart hooks/deployments.
-    # Strip @sha256:… digests before calling kind load docker-image.
     external_images = _get_chart_external_images(_CHART_PATH, self._supass)
     for image in external_images:
       load_ref = re.sub(r'@sha256:[a-f0-9]+$', '', image)
