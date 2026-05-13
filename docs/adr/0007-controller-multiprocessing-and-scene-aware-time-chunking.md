@@ -8,10 +8,10 @@
 
 Controller throughput and reliability degrade when all work is performed on the MQTT callback thread. Under multi-camera load this causes:
 
-- callback-thread blocking (tracking/HTTP/publish),
-- stale frame backlog,
-- weak isolation when a tracker worker crashes,
-- inefficient batching when camera frames from different scenes are mixed.
+- callback-thread blocking (tracking/HTTP/publish)
+- stale frame backlog
+- weak isolation when a tracker worker crashes
+- inefficient batching when camera frames from different scenes are mixed
 
 Time-chunking already provides batching. Controller-level queueing and scheduling must avoid redundant buffering behavior while preserving freshness and fairness across scenes.
 

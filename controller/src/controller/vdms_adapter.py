@@ -122,7 +122,7 @@ class VDMSDatabase(ReIDDatabase):
       return True
     return False
 
-  def findMatches(self, object_type, reid_vectors, set_name=SCHEMA_NAME,
+  def findSimilarityScores(self, object_type, reid_vectors, set_name=SCHEMA_NAME,
                   k_neighbors=K_NEIGHBORS, **constraints):
     find_query = {
       "FindDescriptor": {

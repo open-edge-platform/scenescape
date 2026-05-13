@@ -192,7 +192,7 @@ class UUIDManager:
     reid_vectors = self.quality_features.get(sscape_object.rv_id)
     log.debug(f"Finding similarity scores for track {sscape_object.rv_id}")
     start_time = get_epoch_time()
-    scores = self.reid_database.findMatches(sscape_object.category, reid_vectors)
+    scores = self.reid_database.findSimilarityScores(sscape_object.category, reid_vectors)
     query_time = get_epoch_time() - start_time
     log.debug(
       f"Similarity scores for track {sscape_object.rv_id} found in {query_time} seconds")

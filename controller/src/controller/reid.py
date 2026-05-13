@@ -52,7 +52,7 @@ class ReIDDatabase(ABC):
     return
 
   @abstractmethod
-  def findMatches(self, object_type, reid_vectors, set_name, k_neighbors, **constraints):
+  def findSimilarityScores(self, object_type, reid_vectors, set_name, k_neighbors, **constraints):
     """
     Search the database for entries with the closest similarity scores to the given vector
 
