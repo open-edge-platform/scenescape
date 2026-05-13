@@ -1,3 +1,4 @@
+
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
@@ -7,13 +8,14 @@ info:
   version: 1.0.0
   description: REST API for managing scenes, cameras, sensors, regions, and more.
   license:
-  name: License
-  url: "https://github.com/open-edge-platform/scenescape/blob/main/LICENSES/Apache-2.0.txt"
+    name: License
+    url: "https://github.com/open-edge-platform/scenescape/blob/main/LICENSES/Apache-2.0.txt"
 
-host: "<user-defined>"
+servers:
+  - url: "https://<user-defined>/api/v1"
 
 paths:
-  /api/v1/asset:
+  /asset:
     post:
       operationId: asset_create
       summary: Create a new thing
@@ -38,7 +40,7 @@ paths:
           description: Created
         '400':
           description: Validation error
-  /api/v1/asset/{uid}:
+  /asset/{uid}:
     get:
       operationId: asset_detail_retrieve
       summary: Retrieve a thing by type and UID
@@ -111,9 +113,31 @@ paths:
           description: UID required or invalid format
         '404':
           description: Not found
-  /api/v1/auth:
+  /assets:
+    get:
+      operationId: assets_retrieve
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAsset3DList'
+          description: ''
+  /auth:
     post:
       operationId: v1_auth_create
+      summary: Obtain authentication token
       tags:
       - v1
       requestBody:
@@ -128,16 +152,16 @@ paths:
             schema:
               $ref: '#/components/schemas/CustomAuthToken'
         required: true
-      security:
-      - tokenAuth: []
       responses:
         '200':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CustomAuthToken'
+                $ref: '#/components/schemas/AuthTokenResponse'
           description: ''
-  /api/v1/calibrationmarker:
+        '400':
+          description: Invalid credentials
+  /calibrationmarker:
     post:
       operationId: calibrationmarker_create
       summary: Create a new thing
@@ -162,7 +186,7 @@ paths:
           description: Created
         '400':
           description: Validation error
-  /api/v1/calibrationmarker/{uid}:
+  /calibrationmarker/{uid}:
     get:
       operationId: calibrationmarker_detail_retrieve
       summary: Retrieve a thing by type and UID
@@ -235,7 +259,28 @@ paths:
           description: UID required or invalid format
         '404':
           description: Not found
-  /api/v1/camera:
+  /calibrationmarkers:
+    get:
+      operationId: calibrationmarkers_retrieve
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCalibrationMarkerList'
+          description: ''
+  /camera:
     post:
       operationId: camera_create
       summary: Create a new thing
@@ -260,7 +305,7 @@ paths:
           description: Created
         '400':
           description: Validation error
-  /api/v1/camera/{uid}:
+  /camera/{uid}:
     get:
       operationId: camera_detail_retrieve
       summary: Retrieve a thing by type and UID
@@ -333,7 +378,28 @@ paths:
           description: UID required or invalid format
         '404':
           description: Not found
-  /api/v1/child:
+  /cameras:
+    get:
+      operationId: cameras_retrieve
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCamList'
+          description: ''
+  /child:
     post:
       operationId: child_create
       summary: Create a new thing
@@ -358,7 +424,7 @@ paths:
           description: Created
         '400':
           description: Validation error
-  /api/v1/child/{uid}:
+  /child/{uid}:
     get:
       operationId: child_detail_retrieve
       summary: Retrieve a thing by type and UID
@@ -431,7 +497,39 @@ paths:
           description: UID required or invalid format
         '404':
           description: Not found
-  /api/v1/region:
+  /frame:
+    get:
+      operationId: v1_frame_retrieve
+      summary: Get camera frame or video
+      parameters:
+      - in: query
+        name: camera
+        schema:
+          type: string
+        description: Camera ID
+        required: true
+      - in: query
+        name: timestamp
+        schema:
+          type: string
+        description: ISO timestamp (required for frame)
+      - in: query
+        name: type
+        schema:
+          type: string
+        description: Frame type filter
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          description: Frame data or video file
+        '404':
+          description: Not found
+        '503':
+          description: Broker unavailable
+  /region:
     post:
       operationId: region_create
       summary: Create a new thing
@@ -456,7 +554,7 @@ paths:
           description: Created
         '400':
           description: Validation error
-  /api/v1/region/{uid}:
+  /region/{uid}:
     get:
       operationId: region_detail_retrieve
       summary: Retrieve a thing by type and UID
@@ -529,7 +627,28 @@ paths:
           description: UID required or invalid format
         '404':
           description: Not found
-  /api/v1/scene:
+  /regions:
+    get:
+      operationId: regions_retrieve
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRegionList'
+          description: ''
+  /scene:
     post:
       operationId: scene_create
       summary: Create a new thing
@@ -554,7 +673,7 @@ paths:
           description: Created
         '400':
           description: Validation error
-  /api/v1/scene/{uid}:
+  /scene/{uid}:
     get:
       operationId: scene_detail_retrieve
       summary: Retrieve a thing by type and UID
@@ -627,7 +746,28 @@ paths:
           description: UID required or invalid format
         '404':
           description: Not found
-  /api/v1/sensor:
+  /scenes:
+    get:
+      operationId: scenes_retrieve
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSceneList'
+          description: ''
+  /sensor:
     post:
       operationId: sensor_create
       summary: Create a new thing
@@ -652,7 +792,7 @@ paths:
           description: Created
         '400':
           description: Validation error
-  /api/v1/sensor/{uid}:
+  /sensor/{uid}:
     get:
       operationId: sensor_detail_retrieve
       summary: Retrieve a thing by type and UID
@@ -725,7 +865,28 @@ paths:
           description: UID required or invalid format
         '404':
           description: Not found
-  /api/v1/tripwire:
+  /sensors:
+    get:
+      operationId: sensors_retrieve
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSingletonList'
+          description: ''
+  /tripwire:
     post:
       operationId: tripwire_create
       summary: Create a new thing
@@ -750,7 +911,7 @@ paths:
           description: Created
         '400':
           description: Validation error
-  /api/v1/tripwire/{uid}:
+  /tripwire/{uid}:
     get:
       operationId: tripwire_detail_retrieve
       summary: Retrieve a thing by type and UID
@@ -823,7 +984,28 @@ paths:
           description: UID required or invalid format
         '404':
           description: Not found
-  /api/v1/user:
+  /tripwires:
+    get:
+      operationId: tripwires_retrieve
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTripwireList'
+          description: ''
+  /user:
     post:
       operationId: user_create
       summary: Create a new thing
@@ -848,7 +1030,7 @@ paths:
           description: Created
         '400':
           description: Validation error
-  /api/v1/user/{uid}:
+  /user/{uid}:
     get:
       operationId: user_detail_retrieve
       summary: Retrieve a thing by type and UID
@@ -921,6 +1103,59 @@ paths:
           description: UID required or invalid format
         '404':
           description: Not found
+  /users:
+    get:
+      operationId: users_retrieve
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserList'
+          description: ''
+  /video:
+    get:
+      operationId: v1_video_retrieve
+      summary: Get camera frame or video
+      parameters:
+      - in: query
+        name: camera
+        schema:
+          type: string
+        description: Camera ID
+        required: true
+      - in: query
+        name: timestamp
+        schema:
+          type: string
+        description: ISO timestamp (required for frame)
+      - in: query
+        name: type
+        schema:
+          type: string
+        description: Frame type filter
+      tags:
+      - v1
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          description: Frame data or video file
+        '404':
+          description: Not found
+        '503':
+          description: Broker unavailable
 components:
   schemas:
     AccessEnum:
@@ -1111,6 +1346,13 @@ components:
       required:
       - name
       - uid
+    AuthTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+      required:
+      - token
     BlankEnum:
       enum:
       - ''
@@ -1148,25 +1390,67 @@ components:
           type: string
           writeOnly: true
         intrinsics:
-          type: string
+          type: object
+          properties:
+            fx:
+              type: number
+              format: double
+            fy:
+              type: number
+              format: double
+            cx:
+              type: number
+              format: double
+            cy:
+              type: number
+              format: double
           readOnly: true
         transform_type:
           type: string
           readOnly: true
         transforms:
-          type: string
+          type: array
+          items:
+            type: number
+            format: double
           readOnly: true
         distortion:
-          type: string
+          type: object
+          properties:
+            k1:
+              type: number
+              format: double
+            k2:
+              type: number
+              format: double
+            p1:
+              type: number
+              format: double
+            p2:
+              type: number
+              format: double
+            k3:
+              type: number
+              format: double
+          nullable: true
           readOnly: true
         translation:
-          type: string
+          type: array
+          items:
+            type: number
+            format: double
           readOnly: true
         rotation:
-          type: string
+          type: array
+          items:
+            type: number
+            format: double
           readOnly: true
         scale:
-          type: string
+          type: array
+          items:
+            type: number
+            format: double
           readOnly: true
         resolution:
           type: object
@@ -1413,6 +1697,190 @@ components:
       description: |-
         * `True` - Yes
         * `False` - No
+    PaginatedAsset3DList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Asset3D'
+    PaginatedCalibrationMarkerList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CalibrationMarker'
+    PaginatedCamList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Cam'
+    PaginatedRegionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Region'
+    PaginatedSceneList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Scene'
+    PaginatedSingletonList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Singleton'
+    PaginatedTripwireList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tripwire'
+    PaginatedUserList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
     PubSubACL:
       type: object
       properties:
@@ -1430,13 +1898,16 @@ components:
       properties:
         uid:
           type: string
+          format: uuid
           readOnly: true
         name:
           type: string
           maxLength: 150
         points:
-          type: object
-          additionalProperties: {}
+          type: array
+          items:
+            type: number
+            format: double
         scene:
           type: string
         buffer_size:
@@ -1474,6 +1945,7 @@ components:
       properties:
         uid:
           type: string
+          nullable: true
           readOnly: true
         name:
           type: string
@@ -1492,7 +1964,13 @@ components:
           - $ref: '#/components/schemas/OutputLlaEnum'
           - $ref: '#/components/schemas/NullEnum'
         trs_matrix:
-          type: string
+          type: array
+          nullable: true
+          items:
+            type: array
+            items:
+              type: number
+              format: double
           readOnly: true
         map_corners_lla:
           nullable: true
@@ -1514,10 +1992,14 @@ components:
           readOnly: true
           nullable: true
         cameras:
-          type: string
+          type: array
+          items:
+            $ref: '#/components/schemas/Cam'
           readOnly: true
         sensors:
-          type: string
+          type: array
+          items:
+            $ref: '#/components/schemas/Singleton'
           readOnly: true
         regions:
           type: array
@@ -1533,13 +2015,22 @@ components:
           type: object
           additionalProperties: {}
         mesh_translation:
-          type: string
+          type: array
+          items:
+            type: number
+            format: double
           readOnly: true
         mesh_rotation:
-          type: string
+          type: array
+          items:
+            type: number
+            format: double
           readOnly: true
         mesh_scale:
-          type: string
+          type: array
+          items:
+            type: number
+            format: double
           readOnly: true
         scale:
           type: number
@@ -1548,7 +2039,9 @@ components:
           nullable: true
           title: Pixels per meter
         children:
-          type: string
+          type: array
+          items:
+            $ref: '#/components/schemas/ChildScene'
           readOnly: true
         regulated_rate:
           type: number
@@ -1679,17 +2172,25 @@ components:
         area:
           $ref: '#/components/schemas/AreaEnum'
         points:
-          type: object
-          additionalProperties: {}
+          type: array
+          items:
+            type: number
+            format: double
         radius:
           type: number
           format: double
           nullable: true
         center:
-          type: object
-          additionalProperties: {}
+          type: array
+          items:
+            type: number
+            format: double
+          nullable: true
         translation:
-          type: string
+          type: array
+          items:
+            type: number
+            format: double
           readOnly: true
         singleton_type:
           allOf:
@@ -1775,13 +2276,16 @@ components:
       properties:
         uid:
           type: string
+          format: uuid
           readOnly: true
         name:
           type: string
           maxLength: 150
         points:
-          type: object
-          additionalProperties: {}
+          type: array
+          items:
+            type: number
+            format: double
         height:
           type: number
           format: double
