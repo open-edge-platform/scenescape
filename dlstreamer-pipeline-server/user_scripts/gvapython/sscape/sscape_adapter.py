@@ -63,7 +63,7 @@ class PostDecodeTimestampCapture:
     self.fps_calc_interval = 1 # calculate fps every 1s
     self.frame_cnt = 0
 
-  def extract_ntp_timestamp(self, frame):
+  def _extract_ntp_timestamp(self, frame: VideoFrame) -> Optional[str]:
     """Extract the NTP timestamp embedded in the video frame's GStreamer reference metadata.
 
     Retrieves the NTP reference timestamp attached by rtspsrc (via
@@ -103,7 +103,7 @@ class PostDecodeTimestampCapture:
     self.log.debug(f"NTP={ntp_datetime_utc}, delta={time.time() - system_timestamp}, raw_ts={ntp_timestamp_seconds}")
     return f"{ntp_datetime_local.strftime(DATETIME_FORMAT)[:-3]}Z"
 
-  def processFrame(self, frame):
+  def processFrame(self, frame: VideoFrame) -> bool:
     now = time.time()
     self.frame_cnt += 1
     if not self.last_calculated_fps_ts:
@@ -125,7 +125,7 @@ class PostDecodeTimestampCapture:
 
     postdecode_timestamp = f"{datetime.fromtimestamp(now, tz=timezone(TIMEZONE)).strftime(DATETIME_FORMAT)[:-3]}Z"
     if self.use_frame_ntp_timestamp:
-      extracted_ntp_timestamp = self.extract_ntp_timestamp(frame)
+      extracted_ntp_timestamp = self._extract_ntp_timestamp(frame)
       if extracted_ntp_timestamp:
         postdecode_timestamp = extracted_ntp_timestamp
 
