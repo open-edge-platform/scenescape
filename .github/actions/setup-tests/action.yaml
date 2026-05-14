@@ -128,7 +128,7 @@ runs:
     - name: Set up Docker # Turn off containerd backend during tests execution
       uses: docker/setup-docker-action@b2189fbf2a6592b51fee7cdd93ee2bfaeba733db # v5
       with:
-        context: ${{ inputs.docker-context }}
+        context: test-context
         daemon-config: |
           {
             "features": {

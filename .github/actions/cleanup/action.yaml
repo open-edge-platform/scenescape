@@ -54,13 +54,3 @@ runs:
         done
         sudo systemctl daemon-reload
         sudo systemctl restart docker
-
-    - name: Clean up corrupted Docker contexts
-      shell: bash
-      run: |
-        set +e  # Don't fail on errors
-
-        # Remove corrupted context metadata directory
-        if [ -d "$HOME/.docker/contexts/meta" ]; then
-          find "$HOME/.docker/contexts/meta" -type d -empty -delete 2>/dev/null || true
-        fi

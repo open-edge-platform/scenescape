@@ -45,7 +45,6 @@ concurrency:
 env:
   DOCKER_BUILDKIT: 1
   SUPASS: test
-  DOCKER_CONTEXT: test-context
 
 permissions:
   contents: read
@@ -206,7 +205,6 @@ jobs:
         uses: ./.github/actions/setup-tests
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-context: ${{ env.DOCKER_CONTEXT }}
           ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Install github annotate plugin"
