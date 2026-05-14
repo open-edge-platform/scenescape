@@ -418,6 +418,15 @@ class K8sManager:
           check=True, capture_output=True, text=True,
         )
         logger.info("Loaded image into kind: %s", new_tag)
+      except subprocess.CalledProcessError as exc:
+        logger.error("Failed loading image into kind: %s", new_tag)
+        if exc.stdout:
+          logger.error("kind load stdout: %s", exc.stdout.strip())
+        if exc.stderr:
+          logger.error("kind load stderr: %s", exc.stderr.strip())
+        raise RuntimeError(
+          f"Failed loading image into kind: {new_tag} (exit {exc.returncode})"
+        ) from exc
       except Exception as exc:
         raise RuntimeError(f"Failed loading image into kind: {new_tag}: {exc}") from exc
 
