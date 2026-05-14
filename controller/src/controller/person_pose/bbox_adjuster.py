@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+"""Person bounding-box adjustment using pose keypoints and learned body proportions."""
+
 import math
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
@@ -38,7 +40,76 @@ LOW_CONFIDENCE_ESTIMATION_METHODS = {
 
 
 @dataclass(frozen=True)
+class ProportionRule:
+  """Rule mapping a pair of body landmarks to a learned ankle-position ratio."""
+
+  ratio_name: str
+  default_ratio: float
+  denom_top_key: str
+  denom_bottom_key: str
+  anchor_is_bottom: bool
+  method: str
+  learn_x_offset_name: Optional[str] = None
+  estimate_x_offset_name: Optional[str] = None
+  exclude_if_present: Optional[str] = None
+
+
+PROPORTION_RULES = (
+  ProportionRule(
+    ratio_name='ratio_ankle_knee_hip',
+    default_ratio=DEFAULT_RATIO_ANKLE_KNEE_HIP,
+    denom_top_key='hip_mid',
+    denom_bottom_key='knee_mid',
+    anchor_is_bottom=True,
+    method='estimated_knee_hip',
+    learn_x_offset_name='x_offset_from_knee',
+    estimate_x_offset_name='x_offset_from_knee',
+  ),
+  ProportionRule(
+    ratio_name='ratio_ankle_nose_hip',
+    default_ratio=DEFAULT_RATIO_ANKLE_NOSE_HIP,
+    denom_top_key='nose',
+    denom_bottom_key='hip_mid',
+    anchor_is_bottom=False,
+    method='estimated_nose_hip',
+    learn_x_offset_name='x_offset_from_hip',
+    estimate_x_offset_name='x_offset_from_hip',
+  ),
+  ProportionRule(
+    ratio_name='ratio_ankle_head_hip',
+    default_ratio=DEFAULT_RATIO_ANKLE_HEAD_HIP,
+    denom_top_key='head',
+    denom_bottom_key='hip_mid',
+    anchor_is_bottom=False,
+    method='estimated_head_hip',
+    estimate_x_offset_name='x_offset_from_hip',
+    exclude_if_present='nose',
+  ),
+  ProportionRule(
+    ratio_name='ratio_ankle_shoulder_hip',
+    default_ratio=DEFAULT_RATIO_ANKLE_SHOULDER_HIP,
+    denom_top_key='shoulder_mid',
+    denom_bottom_key='hip_mid',
+    anchor_is_bottom=False,
+    method='estimated_shoulder_hip',
+    learn_x_offset_name='x_offset_from_torso',
+    estimate_x_offset_name='x_offset_from_torso',
+  ),
+  ProportionRule(
+    ratio_name='ratio_ankle_nose_shoulder',
+    default_ratio=DEFAULT_RATIO_ANKLE_NOSE_SHOULDER,
+    denom_top_key='nose',
+    denom_bottom_key='shoulder_mid',
+    anchor_is_bottom=False,
+    method='estimated_nose_shoulder',
+  ),
+)
+
+
+@dataclass(frozen=True)
 class FootEstimate:
+  """Estimated or directly observed foot position for a person detection."""
+
   x: float
   y: float
   method: str
@@ -60,6 +131,7 @@ class PersonPoseAdjuster:
     self.cache = ProportionCache(max_samples, max_entry_age_seconds, min_observations)
 
   def set_max_entry_age_seconds(self, max_entry_age_seconds: float) -> None:
+    """Update the maximum age before a cached proportion entry is pruned."""
     self.cache.set_max_entry_age_seconds(max_entry_age_seconds)
 
   def adjust_detection(
@@ -71,9 +143,7 @@ class PersonPoseAdjuster:
     resolution=None,
   ) -> bool:
     """Adjust a person detection in place when enough pose information is available."""
-    if not isinstance(detection, dict):
-      return False
-    if detection.get('category') != 'person':
+    if not isinstance(detection, dict) or detection.get('category') != 'person':
       return False
 
     detection_id = detection.get('id')
@@ -95,9 +165,6 @@ class PersonPoseAdjuster:
     self.cache.prune(when)
     self.cache.mark_seen(cache_key, when)
 
-    adjusted_bbox = None
-    method = None
-
     normalized_bbox = self._coerce_bbox(detection.get('bounding_box'))
     pixel_bbox = self._coerce_bbox(detection.get('bounding_box_px'))
     bbox_mode = (
@@ -111,69 +178,80 @@ class PersonPoseAdjuster:
     )
 
     if normalized_bbox is not None:
-      frame_keypoints = scale_keypoints(keypoints, None, normalized_bbox)
-      adjusted_bbox, method = self._adjust_bbox(
-        normalized_bbox,
-        frame_keypoints,
-        cache_key,
-        when,
-        bounds=(1.0, 1.0),
-      )
-      if adjusted_bbox is None:
-        log.debug(
-          f"No normalized-space pose adjustment produced for {cache_key}: "
-          f"bbox={normalized_bbox}"
-        )
-        return False
-
-      detection['bounding_box'] = adjusted_bbox
-      if pixel_bbox is not None:
-        derived_pixel_bbox = self._scale_bbox(adjusted_bbox, resolution)
-        if derived_pixel_bbox is not None:
-          detection['bounding_box_px'] = derived_pixel_bbox
-        else:
-          detection.pop('bounding_box_px', None)
-      log.debug(
-        f"Adjusted normalized bbox for {cache_key} using {method}: "
-        f"before={normalized_bbox}, after={adjusted_bbox}, "
-        f"pixel_bbox={detection.get('bounding_box_px')}"
+      method = self._apply_normalized_bbox(
+        detection, normalized_bbox, pixel_bbox, keypoints, cache_key, when, resolution,
       )
     elif pixel_bbox is not None:
-      if resolution is None or len(resolution) != 2:
-        log.debug(
-          f"Skipping pixel-space pose adjustment for {cache_key}: missing resolution"
-        )
-        return False
-      pixel_keypoints = scale_keypoints(keypoints, resolution, pixel_bbox)
-      adjusted_bbox, method = self._adjust_bbox(
-        pixel_bbox,
-        pixel_keypoints,
-        cache_key,
-        when,
-        bounds=resolution,
-      )
-      if adjusted_bbox is None:
-        log.debug(
-          f"No pixel-space pose adjustment produced for {cache_key}: "
-          f"bbox={pixel_bbox}"
-        )
-        return False
-
-      detection['bounding_box_px'] = adjusted_bbox
-      detection.pop('bounding_box', None)
-      log.debug(
-        f"Adjusted pixel bbox for {cache_key} using {method}: "
-        f"before={pixel_bbox}, after={adjusted_bbox}"
+      method = self._apply_pixel_bbox(
+        detection, pixel_bbox, keypoints, cache_key, when, resolution,
       )
     else:
       log.debug(f"Skipping pose adjustment for {cache_key}: no usable bbox fields")
       return False
 
-    if method is not None:
-      log.debug(
-        f"Adjusted person bbox for camera {camera_id} detection {detection_id} using {method}"
-      )
+    if method is None:
+      return False
+    log.debug(
+      f"Adjusted person bbox for camera {camera_id} detection {detection_id} using {method}"
+    )
     return True
+
+  def _apply_normalized_bbox(
+    self, detection, normalized_bbox, pixel_bbox, keypoints, cache_key, when, resolution,
+  ) -> Optional[str]:
+    """Attempt pose adjustment in normalized coordinate space."""
+    frame_keypoints = scale_keypoints(keypoints, None, normalized_bbox)
+    adjusted_bbox, method = self._adjust_bbox(
+      normalized_bbox, frame_keypoints, cache_key, when, bounds=(1.0, 1.0),
+    )
+    if adjusted_bbox is None:
+      log.debug(
+        f"No normalized-space pose adjustment produced for {cache_key}: "
+        f"bbox={normalized_bbox}"
+      )
+      return None
+
+    detection['bounding_box'] = adjusted_bbox
+    if pixel_bbox is not None:
+      derived_pixel_bbox = self._scale_bbox(adjusted_bbox, resolution)
+      if derived_pixel_bbox is not None:
+        detection['bounding_box_px'] = derived_pixel_bbox
+      else:
+        detection.pop('bounding_box_px', None)
+    log.debug(
+      f"Adjusted normalized bbox for {cache_key} using {method}: "
+      f"before={normalized_bbox}, after={adjusted_bbox}, "
+      f"pixel_bbox={detection.get('bounding_box_px')}"
+    )
+    return method
+
+  def _apply_pixel_bbox(
+    self, detection, pixel_bbox, keypoints, cache_key, when, resolution,
+  ) -> Optional[str]:
+    """Attempt pose adjustment in pixel coordinate space."""
+    if resolution is None or len(resolution) != 2:
+      log.debug(
+        f"Skipping pixel-space pose adjustment for {cache_key}: missing resolution"
+      )
+      return None
+    pixel_keypoints = scale_keypoints(keypoints, resolution, pixel_bbox)
+    adjusted_bbox, method = self._adjust_bbox(
+      pixel_bbox, pixel_keypoints, cache_key, when, bounds=resolution,
+    )
+    if adjusted_bbox is None:
+      log.debug(
+        f"No pixel-space pose adjustment produced for {cache_key}: "
+        f"bbox={pixel_bbox}"
+      )
+      return None
+
+    detection['bounding_box_px'] = adjusted_bbox
+    detection.pop('bounding_box', None)
+    log.debug(
+      f"Adjusted pixel bbox for {cache_key} using {method}: "
+      f"before={pixel_bbox}, after={adjusted_bbox}"
+    )
+    return method
 
   def _adjust_bbox(
     self,
@@ -304,7 +382,9 @@ class PersonPoseAdjuster:
       )
       return False
 
-    if ankle.y <= box_bottom and (box_bottom - ankle.y) <= bbox['height'] * FOOT_NEAR_BOX_BOTTOM_MARGIN:
+    near_bottom = (ankle.y <= box_bottom
+                   and (box_bottom - ankle.y) <= bbox['height'] * FOOT_NEAR_BOX_BOTTOM_MARGIN)
+    if near_bottom:
       if knee_ref is None or (ankle.y - knee_ref.y) <= min_segment:
         log.debug(
           f"Rejecting {ankle_name}: near bbox bottom without enough separation "
@@ -323,6 +403,18 @@ class PersonPoseAdjuster:
     threshold = max(min(bbox['width'], bbox['height']) * IDENTICAL_ANKLE_DISTANCE_FACTOR, 1e-6)
     return math.hypot(left_ankle.x - right_ankle.x, left_ankle.y - right_ankle.y) < threshold
 
+  def _resolve_landmarks(
+    self,
+    keypoints: Dict[str, NamedKeypoint],
+  ) -> Dict[str, Optional[NamedKeypoint]]:
+    return {
+      'nose': keypoints.get('nose'),
+      'head': head_point(keypoints),
+      'shoulder_mid': midpoint(keypoints, 'left_shoulder', 'right_shoulder'),
+      'hip_mid': midpoint(keypoints, 'left_hip', 'right_hip'),
+      'knee_mid': midpoint(keypoints, 'left_knee', 'right_knee'),
+    }
+
   def _learn_person_proportions(
     self,
     cache_key: Tuple[str, str, str],
@@ -333,59 +425,43 @@ class PersonPoseAdjuster:
   ) -> None:
     ankle_x = foot.learning_x if foot.learning_x is not None else foot.x
     ankle_y = foot.y
-    nose = keypoints.get('nose')
-    head = head_point(keypoints)
-    shoulder_mid = midpoint(keypoints, 'left_shoulder', 'right_shoulder')
-    hip_mid = midpoint(keypoints, 'left_hip', 'right_hip')
-    knee_mid = midpoint(keypoints, 'left_knee', 'right_knee')
+    landmarks = self._resolve_landmarks(keypoints)
     min_segment = max(bbox['height'] * MIN_SEGMENT_FACTOR, 1e-6)
-    ratios = {}
-    allow_x_offset_learning = foot.visible_ankles >= 2 and foot.allow_horizontal_shift
-
-    if nose is not None and hip_mid is not None:
-      denom = hip_mid.y - nose.y
-      if denom > min_segment:
-        ratios['ratio_ankle_nose_hip'] = (ankle_y - nose.y) / denom
-        if allow_x_offset_learning:
-          ratios['x_offset_from_hip'] = (ankle_x - hip_mid.x) / denom
-
-    if shoulder_mid is not None and hip_mid is not None:
-      denom = hip_mid.y - shoulder_mid.y
-      if denom > min_segment:
-        ratios['ratio_ankle_shoulder_hip'] = (ankle_y - shoulder_mid.y) / denom
-        if allow_x_offset_learning:
-          ratios['x_offset_from_torso'] = (ankle_x - hip_mid.x) / denom
-
-    if nose is not None and shoulder_mid is not None:
-      denom = shoulder_mid.y - nose.y
-      if denom > min_segment:
-        ratios['ratio_ankle_nose_shoulder'] = (ankle_y - nose.y) / denom
-
-    if head is not None and hip_mid is not None and nose is None:
-      denom = hip_mid.y - head.y
-      if denom > min_segment:
-        ratios['ratio_ankle_head_hip'] = (ankle_y - head.y) / denom
-
-    if knee_mid is not None and hip_mid is not None:
-      denom = knee_mid.y - hip_mid.y
-      if denom > min_segment:
-        ratios['ratio_ankle_knee_hip'] = (ankle_y - knee_mid.y) / denom
-        if allow_x_offset_learning:
-          ratios['x_offset_from_knee'] = (ankle_x - knee_mid.x) / denom
-
-    filtered_ratios = {}
-    for name, value in ratios.items():
-      if not math.isfinite(value):
-        continue
-      abs_limit = MAX_OFFSET_VALUE if name.startswith('x_offset_') else MAX_RATIO_VALUE
-      if abs(value) > abs_limit:
-        continue
-      filtered_ratios[name] = value
+    allow_x_offset = foot.visible_ankles >= 2 and foot.allow_horizontal_shift
+    filtered_ratios = self._compute_ratios(
+      landmarks, min_segment, ankle_x, ankle_y, allow_x_offset,
+    )
 
     log.debug(
-      f"Learning pose proportions for {cache_key}: raw={ratios}, filtered={filtered_ratios}"
+      f"Learning pose proportions for {cache_key}: filtered={filtered_ratios}"
     )
     self.cache.add_observation(cache_key, filtered_ratios, when)
+
+  def _compute_ratios(
+    self, landmarks, min_segment, ankle_x, ankle_y, allow_x_offset,
+  ) -> Dict[str, float]:
+    """Compute body-proportion ratios from landmarks and ankle position."""
+    ratios = {}
+    for rule in PROPORTION_RULES:
+      top = landmarks.get(rule.denom_top_key)
+      bottom = landmarks.get(rule.denom_bottom_key)
+      if top is None or bottom is None:
+        continue
+      if rule.exclude_if_present and landmarks.get(rule.exclude_if_present) is not None:
+        continue
+      denom = bottom.y - top.y
+      if denom <= min_segment:
+        continue
+      anchor = bottom if rule.anchor_is_bottom else top
+      ratios[rule.ratio_name] = (ankle_y - anchor.y) / denom
+      if allow_x_offset and rule.learn_x_offset_name is not None:
+        ratios[rule.learn_x_offset_name] = (ankle_x - bottom.x) / denom
+
+    return {
+      name: value for name, value in ratios.items()
+      if math.isfinite(value)
+      and abs(value) <= (MAX_OFFSET_VALUE if name.startswith('x_offset_') else MAX_RATIO_VALUE)
+    }
 
   def _estimate_foot(
     self,
@@ -401,75 +477,21 @@ class PersonPoseAdjuster:
         "proportion cache not yet warmed up"
       )
       return None
-    nose = keypoints.get('nose')
-    head = head_point(keypoints)
-    shoulder_mid = midpoint(keypoints, 'left_shoulder', 'right_shoulder')
-    hip_mid = midpoint(keypoints, 'left_hip', 'right_hip')
-    knee_mid = midpoint(keypoints, 'left_knee', 'right_knee')
+    landmarks = self._resolve_landmarks(keypoints)
     min_segment = max(bbox['height'] * MIN_SEGMENT_FACTOR, 1e-6)
-    est_x = None
-    est_y = None
-    method = None
+    result = self._estimate_foot_from_rules(landmarks, props, min_segment)
 
-    if knee_mid is not None and hip_mid is not None:
-      denom = knee_mid.y - hip_mid.y
-      if denom > min_segment:
-        ratio = props.get('ratio_ankle_knee_hip', DEFAULT_RATIO_ANKLE_KNEE_HIP)
-        x_offset = props.get('x_offset_from_knee', DEFAULT_X_OFFSET)
-        est_y = knee_mid.y + ratio * denom
-        est_x = knee_mid.x + x_offset * denom
-        confidence = self._mean_confidence([knee_mid, hip_mid])
-        method = 'estimated_knee_hip'
+    if result is None:
+      hip_mid = landmarks.get('hip_mid')
+      if hip_mid is not None:
+        result = (hip_mid.x, hip_mid.y + bbox['height'] * 0.55,
+                  hip_mid.confidence, 'estimated_hip')
 
-    if est_y is None and nose is not None and hip_mid is not None:
-      denom = hip_mid.y - nose.y
-      if denom > min_segment:
-        ratio = props.get('ratio_ankle_nose_hip', DEFAULT_RATIO_ANKLE_NOSE_HIP)
-        x_offset = props.get('x_offset_from_hip', DEFAULT_X_OFFSET)
-        est_y = nose.y + ratio * denom
-        est_x = hip_mid.x + x_offset * denom
-        confidence = self._mean_confidence([nose, hip_mid])
-        method = 'estimated_nose_hip'
-
-    if est_y is None and head is not None and hip_mid is not None and nose is None:
-      denom = hip_mid.y - head.y
-      if denom > min_segment:
-        ratio = props.get('ratio_ankle_head_hip', DEFAULT_RATIO_ANKLE_HEAD_HIP)
-        x_offset = props.get('x_offset_from_hip', DEFAULT_X_OFFSET)
-        est_y = head.y + ratio * denom
-        est_x = hip_mid.x + x_offset * denom
-        confidence = self._mean_confidence([head, hip_mid])
-        method = 'estimated_head_hip'
-
-    if est_y is None and shoulder_mid is not None and hip_mid is not None:
-      denom = hip_mid.y - shoulder_mid.y
-      if denom > min_segment:
-        ratio = props.get('ratio_ankle_shoulder_hip', DEFAULT_RATIO_ANKLE_SHOULDER_HIP)
-        x_offset = props.get('x_offset_from_torso', DEFAULT_X_OFFSET)
-        est_y = shoulder_mid.y + ratio * denom
-        est_x = hip_mid.x + x_offset * denom
-        confidence = self._mean_confidence([shoulder_mid, hip_mid])
-        method = 'estimated_shoulder_hip'
-
-    if est_y is None and nose is not None and shoulder_mid is not None:
-      denom = shoulder_mid.y - nose.y
-      if denom > min_segment:
-        ratio = props.get('ratio_ankle_nose_shoulder', DEFAULT_RATIO_ANKLE_NOSE_SHOULDER)
-        est_y = nose.y + ratio * denom
-        est_x = shoulder_mid.x
-        confidence = self._mean_confidence([nose, shoulder_mid])
-        method = 'estimated_nose_shoulder'
-
-    if est_y is None and hip_mid is not None:
-      est_y = hip_mid.y + bbox['height'] * 0.55
-      est_x = hip_mid.x
-      confidence = hip_mid.confidence
-      method = 'estimated_hip'
-
-    if est_y is None or est_x is None:
+    if result is None:
       log.debug(f"Unable to estimate foot for {cache_key}: insufficient usable joints")
       return None
 
+    est_x, est_y, confidence, method = result
     est_x, est_y = self._clip_point(est_x, est_y, bounds)
     log.debug(
       f"Estimated foot for {cache_key}: method={method}, x={est_x:.4f}, y={est_y:.4f}"
@@ -482,6 +504,32 @@ class PersonPoseAdjuster:
       visible_ankles=0,
       allow_horizontal_shift=False,
     )
+
+  def _estimate_foot_from_rules(
+    self, landmarks, props, min_segment,
+  ) -> Optional[Tuple[float, float, Optional[float], str]]:
+    """Find the first matching proportion rule and return (x, y, confidence, method)."""
+    for rule in PROPORTION_RULES:
+      top = landmarks.get(rule.denom_top_key)
+      bottom = landmarks.get(rule.denom_bottom_key)
+      if top is None or bottom is None:
+        continue
+      if rule.exclude_if_present and landmarks.get(rule.exclude_if_present) is not None:
+        continue
+      denom = bottom.y - top.y
+      if denom <= min_segment:
+        continue
+      ratio = props.get(rule.ratio_name, rule.default_ratio)
+      anchor = bottom if rule.anchor_is_bottom else top
+      est_y = anchor.y + ratio * denom
+      if rule.estimate_x_offset_name is not None:
+        x_offset = props.get(rule.estimate_x_offset_name, DEFAULT_X_OFFSET)
+        est_x = bottom.x + x_offset * denom
+      else:
+        est_x = bottom.x
+      confidence = self._mean_confidence([top, bottom])
+      return (est_x, est_y, confidence, rule.method)
+    return None
 
   def _should_rewrite_bbox(
     self,
@@ -574,45 +622,42 @@ class PersonPoseAdjuster:
       BBOX_BOTTOM_SAFETY_MARGIN_DIRECT if foot.visible_ankles > 0
       else BBOX_BOTTOM_SAFETY_MARGIN_ESTIMATED
     )
-    original_bottom = bbox['y'] + bbox['height']
     desired_bottom = foot.y + bbox['height'] * safety_margin
-    bottom_y = max(original_bottom, desired_bottom)
+    bottom_y = max(bbox['y'] + bbox['height'], desired_bottom)
 
     width = min(bbox['width'], frame_width)
     top_y = self._clip_value(bbox['y'], 0.0, frame_height)
-    if foot.allow_horizontal_shift:
-      center_x = foot.x if foot.x is not None else (bbox['x'] + bbox['width'] / 2)
-      left_x = self._clip_value(center_x - width / 2, 0.0, max(frame_width - width, 0.0))
-    else:
-      left_x = self._clip_value(bbox['x'], 0.0, max(frame_width - width, 0.0))
+    left_x = self._compute_left_x(bbox, foot, width, frame_width)
     bottom_y = self._clip_value(bottom_y, top_y, frame_height)
-    height = max(bottom_y - top_y, bbox['height'])
-    height = min(height, frame_height - top_y)
+    height = min(max(bottom_y - top_y, bbox['height']), frame_height - top_y)
 
-    adjusted_bbox = {
-      'x': left_x,
-      'y': top_y,
-      'width': width,
-      'height': height,
-    }
-
-    if frame_width > 1.0 or frame_height > 1.0:
-      final_bbox = {
-        'x': int(round(adjusted_bbox['x'])),
-        'y': int(round(adjusted_bbox['y'])),
-        'width': int(round(adjusted_bbox['width'])),
-        'height': int(round(adjusted_bbox['height'])),
-      }
-    else:
-      final_bbox = {
-        key: round(value, 6) for key, value in adjusted_bbox.items()
-      }
+    adjusted_bbox = {'x': left_x, 'y': top_y, 'width': width, 'height': height}
+    final_bbox = self._quantize_bbox(adjusted_bbox, frame_width, frame_height)
 
     log.debug(
       f"Rewriting bbox using {foot.method}: before={bbox}, after={final_bbox}, "
       f"foot=({foot.x:.4f}, {foot.y:.4f}), shift_x={foot.allow_horizontal_shift}"
     )
     return final_bbox
+
+  def _compute_left_x(
+    self, bbox: Dict[str, float], foot: FootEstimate,
+    width: float, frame_width: float,
+  ) -> float:
+    """Compute the left-x coordinate, optionally centering on the foot."""
+    max_left = max(frame_width - width, 0.0)
+    if foot.allow_horizontal_shift:
+      center_x = foot.x if foot.x is not None else (bbox['x'] + bbox['width'] / 2)
+      return self._clip_value(center_x - width / 2, 0.0, max_left)
+    return self._clip_value(bbox['x'], 0.0, max_left)
+
+  def _quantize_bbox(
+    self, bbox: Dict[str, float], frame_width: float, frame_height: float,
+  ) -> Dict:
+    """Round bbox values to integers for pixel space or 6 decimals for normalized."""
+    if frame_width > 1.0 or frame_height > 1.0:
+      return {key: int(round(value)) for key, value in bbox.items()}
+    return {key: round(value, 6) for key, value in bbox.items()}
 
   def _mean_confidence(self, keypoints) -> Optional[float]:
     confidences = [

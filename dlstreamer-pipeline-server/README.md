@@ -204,7 +204,7 @@ Following are step-by-step instructions for enabling pose estimation for the out
    Download the YOLO pose model:
 
    ```bash
-   ./download_public_models.sh yolo11n-pose
+   ./download_public_models.sh yolo11m-pose
    ```
 
    For pipelines that combine pose estimation with re-identification (as in [queuing-config-pose.json](./queuing-config-pose.json) `qcam1`), also download the `mars-small128` ReID model:
@@ -217,7 +217,7 @@ Following are step-by-step instructions for enabling pose estimation for the out
 
    ```bash
    docker create --name scenescape-models -v scenescape_vol-models:/models alpine
-   docker cp ./models/public/yolo11n-pose scenescape-models:/models/public/yolo11n-pose
+   docker cp ./models/public/yolo11m-pose scenescape-models:/models/public/yolo11m-pose
    docker cp ./models/public/mars-small128 scenescape-models:/models/public/mars-small128
    docker rm scenescape-models
    ```
