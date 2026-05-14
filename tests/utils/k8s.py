@@ -437,11 +437,22 @@ class K8sManager:
         if not _image_exists(load_ref):
           logger.info("Pulling external image %s ...", image)
           docker.image.pull(image)
+          time.sleep(10)
+          print(docker.images)
         subprocess.run(
-          ["kind", "load", "docker-image", load_ref, "--name", "pytest-test-cluster"],
+          ["kind", "load", "docker-image", image, "--name", "pytest-test-cluster"],
           check=True, capture_output=True, text=True,
         )
         logger.info("Loaded external image into kind: %s", load_ref)
+      except subprocess.CalledProcessError as exc:
+        logger.error("Failed loading image into kind: %s", load_ref)
+        if exc.stdout:
+          logger.error("kind load stdout: %s", exc.stdout.strip())
+        if exc.stderr:
+          logger.error("kind load stderr: %s", exc.stderr.strip())
+        raise RuntimeError(
+          f"Failed loading image into kind: {load_ref} (exit {exc.returncode})"
+        ) from exc
       except Exception as exc:
         raise RuntimeError(f"Failed external image flow for {image}: {exc}") from exc
 
