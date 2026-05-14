@@ -17,6 +17,11 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Print env
+      shell: bash
+      run: |
+        printenv
+
     - name: Set up Docker # Turn on containerd backend during setup
       uses: docker/setup-docker-action@b2189fbf2a6592b51fee7cdd93ee2bfaeba733db # v5
       with:
