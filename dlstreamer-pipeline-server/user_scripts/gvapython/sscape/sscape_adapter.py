@@ -15,7 +15,9 @@ import ntplib
 import numpy as np
 import paho.mqtt.client as mqtt
 from gi.repository import Gst
+from gstgva.video_frame import VideoFrame
 from pytz import timezone
+from typing import Optional
 
 from utils import publisher_utils as utils
 from sscape_policies import (
