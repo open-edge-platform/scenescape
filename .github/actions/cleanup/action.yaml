@@ -46,11 +46,11 @@ runs:
       if: always()
       shell: bash
       run: |
+        docker context use default
         # Remove all non-default contexts
         docker context ls -q | grep -v '^default$' | while read ctx; do
           echo "Removing context: $ctx"
           docker context rm -f "$ctx" || true
         done
-        docker context use default
         sudo systemctl daemon-reload
         sudo systemctl restart docker
