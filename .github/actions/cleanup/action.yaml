@@ -52,5 +52,3 @@ runs:
           echo "Removing context: $ctx"
           docker context rm -f "$ctx" || true
         done
-        sudo systemctl daemon-reload
-        sudo systemctl restart docker
