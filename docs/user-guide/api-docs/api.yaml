@@ -75,7 +75,7 @@ paths:
       tags:
       - asset
       operationId: asset_detail_retrieve
-      summary: Retrieve a thing by type and UID
+      summary: Get an asset by UID
       parameters:
       - in: path
         name: uid
@@ -95,7 +95,7 @@ paths:
       tags:
       - asset
       operationId: asset_detail_update
-      summary: Update a thing by UID
+      summary: Update an asset by UID
       parameters:
       - in: path
         name: uid
@@ -125,7 +125,7 @@ paths:
           description: Not found
     delete:
       operationId: asset_detail_destroy
-      summary: Delete a thing by UID
+      summary: Delete an asset by UID
       parameters:
         - in: path
           name: uid
@@ -146,6 +146,7 @@ paths:
   /assets:
     get:
       operationId: assets_retrieve
+      summary: List all assets
       parameters:
         - name: page
           required: false
@@ -195,7 +196,7 @@ paths:
   /calibrationmarker:
     post:
       operationId: calibrationmarker_create
-      summary: Create a new thing
+      summary: Create a calibration marker
       tags:
       - calibrationmarker
       requestBody:
@@ -220,7 +221,7 @@ paths:
   /calibrationmarker/{uid}:
     get:
       operationId: calibrationmarker_detail_retrieve
-      summary: Retrieve a thing by type and UID
+      summary: Get a calibration marker by UID
       parameters:
         - in: path
           name: uid
@@ -240,7 +241,7 @@ paths:
           description: Not found
     put:
       operationId: calibrationmarker_detail_update
-      summary: Update a thing by UID
+      summary: Update a calibration marker by UID
       parameters:
         - in: path
           name: uid
@@ -272,7 +273,7 @@ paths:
           description: Not found
     delete:
       operationId: calibrationmarker_detail_destroy
-      summary: Delete a thing by UID
+      summary: Delete a calibration marker by UID
       parameters:
         - in: path
           name: uid
@@ -293,6 +294,7 @@ paths:
   /calibrationmarkers:
     get:
       operationId: calibrationmarkers_retrieve
+      summary: List all calibration markers
       parameters:
         - name: page
           required: false
@@ -314,7 +316,7 @@ paths:
   /camera:
     post:
       operationId: camera_create
-      summary: Create a new thing
+      summary: Create a camera
       tags:
       - camera
       requestBody:
@@ -339,7 +341,7 @@ paths:
   /camera/{uid}:
     get:
       operationId: camera_detail_retrieve
-      summary: Retrieve a thing by type and UID
+      summary: Get a camera by UID
       parameters:
         - in: path
           name: uid
@@ -359,7 +361,7 @@ paths:
           description: Not found
     put:
       operationId: camera_detail_update
-      summary: Update a thing by UID
+      summary: Update a camera by UID
       parameters:
         - in: path
           name: uid
@@ -391,7 +393,7 @@ paths:
           description: Not found
     delete:
       operationId: camera_detail_destroy
-      summary: Delete a thing by UID
+      summary: Delete a camera by UID
       parameters:
         - in: path
           name: uid
@@ -412,6 +414,7 @@ paths:
   /cameras:
     get:
       operationId: cameras_retrieve
+      summary: List all cameras
       parameters:
         - name: page
           required: false
@@ -433,7 +436,7 @@ paths:
   /child:
     post:
       operationId: child_create
-      summary: Create a new thing
+      summary: Create a child scene
       tags:
       - child
       requestBody:
@@ -458,7 +461,7 @@ paths:
   /child/{uid}:
     get:
       operationId: child_detail_retrieve
-      summary: Retrieve a thing by type and UID
+      summary: Get a child scene by UID
       parameters:
         - in: path
           name: uid
@@ -478,7 +481,7 @@ paths:
           description: Not found
     put:
       operationId: child_detail_update
-      summary: Update a thing by UID
+      summary: Update a child scene by UID
       parameters:
         - in: path
           name: uid
@@ -510,7 +513,7 @@ paths:
           description: Not found
     delete:
       operationId: child_detail_destroy
-      summary: Delete a thing by UID
+      summary: Delete a child scene by UID
       parameters:
         - in: path
           name: uid
@@ -531,7 +534,7 @@ paths:
   /frame:
     get:
       operationId: v1_frame_retrieve
-      summary: Get camera frame or video
+      summary: Get a camera frame
       parameters:
         - in: query
           name: camera
@@ -563,7 +566,7 @@ paths:
   /region:
     post:
       operationId: region_create
-      summary: Create a new thing
+      summary: Create a region
       tags:
       - region
       requestBody:
@@ -588,7 +591,7 @@ paths:
   /region/{uid}:
     get:
       operationId: region_detail_retrieve
-      summary: Retrieve a thing by type and UID
+      summary: Get a region by UID
       parameters:
         - in: path
           name: uid
@@ -608,7 +611,7 @@ paths:
           description: Not found
     put:
       operationId: region_detail_update
-      summary: Update a thing by UID
+      summary: Update a region by UID
       parameters:
         - in: path
           name: uid
@@ -640,7 +643,7 @@ paths:
           description: Not found
     delete:
       operationId: region_detail_destroy
-      summary: Delete a thing by UID
+      summary: Delete a region by UID
       parameters:
         - in: path
           name: uid
@@ -661,6 +664,7 @@ paths:
   /regions:
     get:
       operationId: regions_retrieve
+      summary: List all regions
       parameters:
         - name: page
           required: false
@@ -682,7 +686,7 @@ paths:
   /scene:
     post:
       operationId: scene_create
-      summary: Create a new thing
+      summary: Create a scene
       tags:
       - scene
       requestBody:
@@ -707,7 +711,7 @@ paths:
   /scene/{uid}:
     get:
       operationId: scene_detail_retrieve
-      summary: Retrieve a thing by type and UID
+      summary: Get a scene by UID
       parameters:
         - in: path
           name: uid
@@ -727,7 +731,7 @@ paths:
           description: Not found
     put:
       operationId: scene_detail_update
-      summary: Update a thing by UID
+      summary: Update a scene by UID
       parameters:
         - in: path
           name: uid
@@ -759,7 +763,7 @@ paths:
           description: Not found
     delete:
       operationId: scene_detail_destroy
-      summary: Delete a thing by UID
+      summary: Delete a scene by UID
       parameters:
         - in: path
           name: uid
@@ -780,6 +784,7 @@ paths:
   /scenes:
     get:
       operationId: scenes_retrieve
+      summary: List all scenes
       parameters:
         - name: page
           required: false
@@ -801,7 +806,7 @@ paths:
   /sensor:
     post:
       operationId: sensor_create
-      summary: Create a new thing
+      summary: Create a sensor
       tags:
       - sensor
       requestBody:
@@ -826,7 +831,7 @@ paths:
   /sensor/{uid}:
     get:
       operationId: sensor_detail_retrieve
-      summary: Retrieve a thing by type and UID
+      summary: Get a sensor by UID
       parameters:
         - in: path
           name: uid
@@ -846,7 +851,7 @@ paths:
           description: Not found
     put:
       operationId: sensor_detail_update
-      summary: Update a thing by UID
+      summary: Update a sensor by UID
       parameters:
         - in: path
           name: uid
@@ -878,7 +883,7 @@ paths:
           description: Not found
     delete:
       operationId: sensor_detail_destroy
-      summary: Delete a thing by UID
+      summary: Delete a sensor by UID
       parameters:
         - in: path
           name: uid
@@ -899,6 +904,7 @@ paths:
   /sensors:
     get:
       operationId: sensors_retrieve
+      summary: List all sensors
       parameters:
         - name: page
           required: false
@@ -920,7 +926,7 @@ paths:
   /tripwire:
     post:
       operationId: tripwire_create
-      summary: Create a new thing
+      summary: Create a tripwire
       tags:
       - tripwire
       requestBody:
@@ -945,7 +951,7 @@ paths:
   /tripwire/{uid}:
     get:
       operationId: tripwire_detail_retrieve
-      summary: Retrieve a thing by type and UID
+      summary: Get a tripwire by UID
       parameters:
         - in: path
           name: uid
@@ -965,7 +971,7 @@ paths:
           description: Not found
     put:
       operationId: tripwire_detail_update
-      summary: Update a thing by UID
+      summary: Update a tripwire by UID
       parameters:
         - in: path
           name: uid
@@ -997,7 +1003,7 @@ paths:
           description: Not found
     delete:
       operationId: tripwire_detail_destroy
-      summary: Delete a thing by UID
+      summary: Delete a tripwire by UID
       parameters:
         - in: path
           name: uid
@@ -1018,6 +1024,7 @@ paths:
   /tripwires:
     get:
       operationId: tripwires_retrieve
+      summary: List all tripwires
       parameters:
         - name: page
           required: false
@@ -1039,7 +1046,7 @@ paths:
   /user:
     post:
       operationId: user_create
-      summary: Create a new thing
+      summary: Create a user
       tags:
       - user
       requestBody:
@@ -1064,7 +1071,7 @@ paths:
   /user/{uid}:
     get:
       operationId: user_detail_retrieve
-      summary: Retrieve a thing by type and UID
+      summary: Get a user by UID
       parameters:
         - in: path
           name: uid
@@ -1084,7 +1091,7 @@ paths:
           description: Not found
     put:
       operationId: user_detail_update
-      summary: Update a thing by UID
+      summary: Update a user by UID
       parameters:
         - in: path
           name: uid
@@ -1116,7 +1123,7 @@ paths:
           description: Not found
     delete:
       operationId: user_detail_destroy
-      summary: Delete a thing by UID
+      summary: Delete a user by UID
       parameters:
         - in: path
           name: uid
@@ -1137,6 +1144,7 @@ paths:
   /users:
     get:
       operationId: users_retrieve
+      summary: List all users
       parameters:
         - name: page
           required: false
@@ -1158,7 +1166,7 @@ paths:
   /video:
     get:
       operationId: v1_video_retrieve
-      summary: Get camera frame or video
+      summary: Get a video
       parameters:
         - in: query
           name: camera
