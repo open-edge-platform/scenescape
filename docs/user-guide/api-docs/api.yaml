@@ -1965,9 +1965,7 @@ components:
           $ref: "#/components/schemas/TopicEnum"
         access:
           allOf:
-            - $ref: "#/components/schemas/AccessEnum"
-          minimum: -2147483648
-          maximum: 2147483647
+          - $ref: '#/components/schemas/AccessEnum'
       required:
         - topic
     Region:
