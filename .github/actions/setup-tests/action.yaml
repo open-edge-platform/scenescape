@@ -8,9 +8,6 @@ inputs:
   dockerhub-token:
     description: 'DockerHub token'
     required: true
-  docker-context:
-    description: 'Docker context used in tests'
-    required: true
   ghcr-token:
     description: 'GitHub Container Registry token'
     required: true
@@ -88,3 +85,8 @@ runs:
           echo "$HOST_IP $h" | sudo tee -a /etc/hosts > /dev/null
         done
         grep -E 'scenescape.intel.com' /etc/hosts
+
+    - name: Get Kind Version
+      shell: bash
+      run: |
+        kind version

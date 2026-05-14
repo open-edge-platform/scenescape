@@ -56,16 +56,6 @@ _DOCKER_IMAGE_RE = re.compile(
   r'^[a-zA-Z0-9][a-zA-Z0-9._/-]*(?::[a-zA-Z0-9._\-]+)?(?:@sha256:[a-f0-9]+)?$'
 )
 
-def _setup_docker_context():
-  """Set docker context"""
-  _DOCKER_CONTEXT = os.getenv("DOCKER_CONTEXT")
-  if _DOCKER_CONTEXT:
-    logger.info("Using Docker context '%s' for image loading", _DOCKER_CONTEXT)
-    docker.context.use(_DOCKER_CONTEXT)
-  else:
-    logger.info("Using default Docker context for image loading")
-
-
 def _get_chart_external_images(chart_path, supass):
   """Derive external images by rendering the Helm chart.
 
@@ -246,7 +236,6 @@ class K8sManager:
     self.mqtt_port = None
     self.web_port = None
     self.kubeconfig = None
-    _setup_docker_context()
 
   def setup(self):
     """Create KinD cluster, deploy Helm chart, set up port-forwarding."""
@@ -423,7 +412,11 @@ class K8sManager:
         logger.info("Tag already exists: %s", new_tag)
 
       try:
-        self._cluster.load_image(new_tag)
+        # self._cluster.load_image(new_tag)
+        subprocess.run(
+          ["kind", "load", "docker-image", new_tag, "--name", "pytest-test-cluster"],
+          check=True, capture_output=True, text=True,
+        )
         logger.info("Loaded image into kind: %s", new_tag)
       except Exception as exc:
         raise RuntimeError(f"Failed loading image into kind: {new_tag}: {exc}") from exc
@@ -435,7 +428,10 @@ class K8sManager:
         if not _image_exists(load_ref):
           logger.info("Pulling external image %s ...", image)
           docker.image.pull(image)
-        self._cluster.load_image(load_ref)
+        subprocess.run(
+          ["kind", "load", "docker-image", load_ref, "--name", "pytest-test-cluster"],
+          check=True, capture_output=True, text=True,
+        )
         logger.info("Loaded external image into kind: %s", load_ref)
       except Exception as exc:
         raise RuntimeError(f"Failed external image flow for {image}: {exc}") from exc

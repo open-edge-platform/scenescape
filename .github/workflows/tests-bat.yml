@@ -141,7 +141,6 @@ jobs:
   #       uses: ./.github/actions/setup-tests
   #       with:
   #         dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
-  #         docker-context: ${{ env.DOCKER_CONTEXT }}
   #         ghcr-token: ${{ secrets.GITHUB_TOKEN }}
   #     - name: "Run Basic Acceptance Tests (BAT)"
   #       if: always() && steps.setup-test-env.outcome == 'success'
