@@ -497,7 +497,7 @@ class K8sManager:
       "helm", "install", _RELEASE_NAME, _CHART_PATH,
       "--namespace", _NAMESPACE,
       "--kubeconfig", self.kubeconfig,
-      "--timeout", "600s",
+      "--timeout", "1200s",
       "-f", values_file,
     ])
     logger.info("Helm chart installed. Waiting for core services...")
