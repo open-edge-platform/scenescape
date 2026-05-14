@@ -552,22 +552,23 @@ paths:
       operationId: frame_retrieve
       summary: Get a camera frame
       parameters:
-        - in: query
-          name: camera
-          schema:
-            type: string
-          description: Camera ID
-          required: true
-        - in: query
-          name: timestamp
-          schema:
-            type: string
-          description: ISO timestamp (required for frame)
-        - in: query
-          name: type
-          schema:
-            type: string
-          description: Frame type filter
+      - in: query
+        name: camera
+        schema:
+          type: string
+        description: Camera ID
+        required: true
+      - in: query
+        name: timestamp
+        schema:
+          type: string
+        description: ISO timestamp (required for frame)
+        required: true
+      - in: query
+        name: type
+        schema:
+          type: string
+        description: Frame type filter
       tags:
       - frame
       security:
@@ -1250,6 +1251,7 @@ components:
       properties:
         uid:
           type: string
+          readOnly: true
         name:
           type: string
           maxLength: 150
@@ -1274,8 +1276,6 @@ components:
           title: Tracking radius (meters)
         shift_type:
           nullable: true
-          minimum: -2147483648
-          maximum: 2147483647
           oneOf:
             - $ref: "#/components/schemas/ShiftTypeEnum"
             - $ref: "#/components/schemas/NullEnum"
@@ -1409,8 +1409,7 @@ components:
           nullable: true
           description: Friction coefficients [static, dynamic]
       required:
-        - name
-        - uid
+      - name
     AuthTokenResponse:
       type: object
       properties:
@@ -1454,6 +1453,7 @@ components:
         sensor_id:
           type: string
           writeOnly: true
+          maxLength: 20
         intrinsics:
           type: object
           properties:
@@ -1522,6 +1522,7 @@ components:
           additionalProperties: {}
         scene:
           type: string
+          format: uuid
           nullable: true
         threshold:
           type: number
@@ -1962,6 +1963,7 @@ components:
             format: double
         scene:
           type: string
+          format: uuid
         buffer_size:
           type: number
           format: double
@@ -1978,11 +1980,10 @@ components:
         color_ranges:
           $ref: "#/components/schemas/RegionOccupancyThreshold"
       required:
-        - color_ranges
-        - name
-        - points
-        - scene
-        - uid
+      - color_ranges
+      - name
+      - points
+      - scene
     RegionOccupancyThreshold:
       type: object
       properties:
@@ -2063,6 +2064,7 @@ components:
             $ref: "#/components/schemas/Tripwire"
         parent:
           type: string
+          format: uuid
         transform:
           type: object
           additionalProperties: {}
@@ -2117,6 +2119,7 @@ components:
         map_processed:
           type: string
           format: date-time
+          nullable: true
         polycam_data:
           type: string
           format: uri
@@ -2200,6 +2203,7 @@ components:
           readOnly: true
         scene:
           type: string
+          format: uuid
           nullable: true
         sensor_id:
           type: string
@@ -2323,11 +2327,11 @@ components:
           format: double
         scene:
           type: string
+          format: uuid
       required:
-        - name
-        - points
-        - scene
-        - uid
+      - name
+      - points
+      - scene
     User:
       type: object
       properties:
@@ -2377,9 +2381,8 @@ components:
           items:
             $ref: "#/components/schemas/PubSubACL"
       required:
-        - password
-        - uid
-        - username
+      - password
+      - username
   securitySchemes:
     tokenAuth:
       type: apiKey
