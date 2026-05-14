@@ -22,6 +22,8 @@ from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
 from scene_common.cam_fields import CAM_SERIALIZER_FIELDS
 
+from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.types import OpenApiTypes
 
 class CustomAuthTokenSerializer(serializers.Serializer):
   username = serializers.CharField(max_length=150)
@@ -52,6 +54,7 @@ class NonNullSerializer(serializers.ModelSerializer):
                             not isinstance(result[key], list)
                             and not isinstance(result[key], tuple)) or result[key]])
 
+@extend_schema_field({'type': 'array', 'items': {'type': 'number', 'format': 'double'}, 'nullable': True})
 class CenterSerializerField(serializers.DictField):
   def to_representation(self, obj):
     if hasattr(obj, 'map_x') and hasattr(obj, 'map_y') \
@@ -62,6 +65,7 @@ class CenterSerializerField(serializers.DictField):
   def to_internal_value(self, data):
     return {'center': data}
 
+@extend_schema_field({'type': 'array', 'items': {'type': 'number', 'format': 'double'}})
 class PointsSerializerField(serializers.DictField):
   def to_representation(self, obj):
     points = []
@@ -87,6 +91,7 @@ class PointsSerializerField(serializers.DictField):
                                         x=point[0], y=point[1])
     return
 
+@extend_schema_field({'type': 'object', 'additionalProperties': {}})
 class ResolutionSerializerField(serializers.DictField):
   def to_representation(self, obj):
     if hasattr(obj, 'width') and hasattr(obj, 'height') \
@@ -175,6 +180,7 @@ class SingletonSerializer(NonNullSerializer):
   translation = serializers.SerializerMethodField('get_translation')
   color_ranges = SingletonScalarThresholdSerializer(source='singleton_scalar_threshold')
 
+  @extend_schema_field({'type': 'array', 'items': {'type': 'number', 'format': 'double'}})
   def get_translation(self, obj):
     return [obj.map_x, obj.map_y, 0.0]
 
@@ -399,6 +405,15 @@ class CamSerializer(NonNullSerializer):
     instance.scene.scenescapeSceneUpdateSensors(instance.scene.scenescapeScene)
     return
 
+  @extend_schema_field({
+    'type': 'object',
+    'properties': {
+        'fx': {'type': 'number', 'format': 'double'},
+        'fy': {'type': 'number', 'format': 'double'},
+        'cx': {'type': 'number', 'format': 'double'},
+        'cy': {'type': 'number', 'format': 'double'},
+    }
+  })
   def get_intrinsics(self, obj):
     cam = obj.cam
     if cam.intrinsics_fx != None and cam.intrinsics_fy != None \
@@ -420,6 +435,17 @@ class CamSerializer(NonNullSerializer):
       }
     return None
 
+  @extend_schema_field({
+    'type': 'object',
+    'properties': {
+        'k1': {'type': 'number', 'format': 'double'},
+        'k2': {'type': 'number', 'format': 'double'},
+        'p1': {'type': 'number', 'format': 'double'},
+        'p2': {'type': 'number', 'format': 'double'},
+        'k3': {'type': 'number', 'format': 'double'},
+    },
+    'nullable': True
+  })
   def get_distortion(self, obj):
     cam = obj.cam
     distortion = {}
@@ -433,6 +459,7 @@ class CamSerializer(NonNullSerializer):
       distortion = None
     return distortion
 
+  @extend_schema_field({'type': 'array', 'items': {'type': 'number', 'format': 'double'}})
   def get_translation(self, obj):
     if not obj.scene:
       return None
@@ -443,6 +470,7 @@ class CamSerializer(NonNullSerializer):
     return camera.pose.translation.asNumpyCartesian.tolist() if camera \
       and hasattr(camera, 'pose') else None
 
+  @extend_schema_field({'type': 'array', 'items': {'type': 'number', 'format': 'double'}})
   def get_rotation(self, obj):
     if not obj.scene:
       return None
@@ -453,16 +481,19 @@ class CamSerializer(NonNullSerializer):
     return getattr(camera.pose, 'euler_rotation', None) \
       if camera and hasattr(camera, 'pose') else None
 
+  @extend_schema_field({'type': 'array', 'items': {'type': 'number', 'format': 'double'}})
   def get_transform(self, obj):
     if not obj.scene:
       return None
     return obj.cam.transforms
 
+  @extend_schema_field({'type': 'string'})
   def get_transform_type(self, obj):
     if not obj.scene:
       return None
     return obj.cam.transform_type
 
+  @extend_schema_field({'type': 'array', 'items': {'type': 'number', 'format': 'double'}})
   def get_scale(self, obj):
     if not obj.scene:
       return None
@@ -520,6 +551,7 @@ class RegionSerializer(NonNullSerializer):
   def update(self, instance, validated_data):
     return self.create_update(validated_data, instance)
 
+  @extend_schema_field({'type': 'string', 'format': 'uuid'})
   def get_uuid(self, obj):
     return str(obj.uuid)
 
@@ -532,6 +564,7 @@ class TripwireSerializer(RegionSerializer):
     model = Tripwire
     fields = ['uid', 'name', 'points', 'height', 'scene']
 
+@extend_schema_field({'type': 'object', 'additionalProperties': {}})
 class TransformSerializerField(serializers.DictField):
   def to_representation(self, obj):
     return obj.asDict
@@ -601,6 +634,14 @@ class SceneSerializer(NonNullSerializer):
       raise serializers.ValidationError(f"A scene with the name '{value}' already exists.")
     return value
 
+  @extend_schema_field({
+    'type': 'array',
+    'nullable': True,
+    'items': {
+        'type': 'array',
+        'items': {'type': 'number', 'format': 'double'}
+    }
+  })
   def get_trs_matrix(self, obj):
     if obj.trs_matrix:
       return obj.trs_matrix
@@ -612,27 +653,34 @@ class SceneSerializer(NonNullSerializer):
       ret.pop('trs_matrix', None)
     return ret
 
+  @extend_schema_field({'type': 'string', 'nullable': True})
   def get_uid(self, obj):
     return obj.id
 
+  @extend_schema_field({'type': 'array', 'items': {'$ref': '#/components/schemas/Cam'}})
   def get_cameras(self, obj):
     queryset = Cam.objects.filter(scene=obj)
     return CamSerializer(queryset, many=True, context=self.context).data
 
+  @extend_schema_field({'type': 'array', 'items': {'$ref': '#/components/schemas/Singleton'}})
   def get_sensors(self, obj):
     queryset = [SingletonSensor.objects.get(pk=x.id) for x in obj.sensor_set.all()
                 if x.type == "generic"]
     return SingletonSerializer(queryset, many=True).data
 
+  @extend_schema_field({'type': 'array', 'items': {'type': 'number', 'format': 'double'}})
   def get_rotation(self, obj):
     return [obj.rotation_x, obj.rotation_y, obj.rotation_z] if obj.rotation_x else [0, 0, 0]
 
+  @extend_schema_field({'type': 'array', 'items': {'type': 'number', 'format': 'double'}})
   def get_translation(self, obj):
     return [obj.translation_x, obj.translation_y, obj.translation_z] if obj.translation_x else [0, 0, 0]
 
+  @extend_schema_field({'type': 'array', 'items': {'type': 'number', 'format': 'double'}})
   def get_scale(self, obj):
     return [obj.scale_x, obj.scale_y, obj.scale_z] if obj.scale_x else [1, 1, 1]
 
+  @extend_schema_field({'type': 'array', 'items': {'$ref': '#/components/schemas/ChildScene'}})
   def get_children(self, obj):
     children = []
 
@@ -928,6 +976,7 @@ class ChildSceneSerializer(NonNullSerializer):
   uid = serializers.CharField(source='pk', read_only=True)
   transform = TransformSerializerField(source="cameraPose")
 
+  @extend_schema_field({'type': 'string', 'readOnly': True})
   def getChildName(self, obj):
     return obj.child.name if obj.child else obj.child_name
 

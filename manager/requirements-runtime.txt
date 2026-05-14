@@ -25,3 +25,4 @@ scipy==1.17.1
 trimesh==4.11.5
 urllib3==2.6.3
 websockets==15.0.1
+drf-spectacular

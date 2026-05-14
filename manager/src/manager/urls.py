@@ -12,6 +12,7 @@ from django.conf import settings
 from manager import views
 from manager.calculate_intrinsics_view import CalculateCameraIntrinsics
 from manager.model_directory_view import ModelDirectory
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 # Imports for REST API
 from django.urls import re_path
@@ -83,36 +84,73 @@ if settings.KUBERNETES_SERVICE_HOST:
 
 # REST API
 
+# Scenes
 urlpatterns += [
-  re_path(r'api/v1/(scenes)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(scene)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(scene)/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(cameras)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(camera)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(camera)/([^/]+)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(sensors)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(sensor)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(sensor)/([^/]+)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(regions)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(region)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(region)/([^/]+)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(tripwires)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(tripwire)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(tripwire)/([^/]+)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(users)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(user)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(user)/([^/]+)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(frame)$', api.CameraManager.as_view()),
-  re_path(r'api/v1/(video)$', api.CameraManager.as_view()),
-  re_path(r'api/v1/(assets)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(asset)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(asset)/([^/]+)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/scenes/(child)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(child)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(child)/([^/]+)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(calibrationmarkers)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(calibrationmarker)$', api.ManageThing.as_view()),
-  re_path(r'api/v1/(calibrationmarker)/([^/]+)$', api.ManageThing.as_view())
+  path('api/v1/scenes', api.ListThings.as_view(), {'thing_type': 'scene'}, name='api-scene-list'),
+  path('api/v1/scene', api.ManageThing.as_view(), {'thing_type': 'scene'}, name='api-scene-create'),
+  path('api/v1/scene/<str:uid>', api.ManageThing.as_view(), {'thing_type': 'scene'}, name='api-scene-detail'),
+]
+
+# Cameras
+urlpatterns += [
+  path('api/v1/cameras', api.ListThings.as_view(), {'thing_type': 'camera'}, name='api-camera-list'),
+  path('api/v1/camera', api.ManageThing.as_view(), {'thing_type': 'camera'}, name='api-camera-create'),
+  path('api/v1/camera/<str:uid>', api.ManageThing.as_view(), {'thing_type': 'camera'}, name='api-camera-detail'),
+]
+
+# Sensors
+urlpatterns += [
+  path('api/v1/sensors', api.ListThings.as_view(), {'thing_type': 'sensor'}, name='api-sensor-list'),
+  path('api/v1/sensor', api.ManageThing.as_view(), {'thing_type': 'sensor'}, name='api-sensor-create'),
+  path('api/v1/sensor/<str:uid>', api.ManageThing.as_view(), {'thing_type': 'sensor'}, name='api-sensor-detail'),
+]
+
+# Regions
+urlpatterns += [
+  path('api/v1/regions', api.ListThings.as_view(), {'thing_type': 'region'}, name='api-region-list'),
+  path('api/v1/region', api.ManageThing.as_view(), {'thing_type': 'region'}, name='api-region-create'),
+  path('api/v1/region/<str:uid>', api.ManageThing.as_view(), {'thing_type': 'region'}, name='api-region-detail'),
+]
+
+# Tripwires
+urlpatterns += [
+  path('api/v1/tripwires', api.ListThings.as_view(), {'thing_type': 'tripwire'}, name='api-tripwire-list'),
+  path('api/v1/tripwire', api.ManageThing.as_view(), {'thing_type': 'tripwire'}, name='api-tripwire-create'),
+  path('api/v1/tripwire/<str:uid>', api.ManageThing.as_view(), {'thing_type': 'tripwire'}, name='api-tripwire-detail'),
+]
+
+# Users
+urlpatterns += [
+  path('api/v1/users', api.ListThings.as_view(), {'thing_type': 'user'}, name='api-user-list'),
+  path('api/v1/user', api.ManageThing.as_view(), {'thing_type': 'user'}, name='api-user-create'),
+  path('api/v1/user/<str:uid>', api.ManageThing.as_view(), {'thing_type': 'user'}, name='api-user-detail'),
+]
+
+# Assets
+urlpatterns += [
+  path('api/v1/assets', api.ListThings.as_view(), {'thing_type': 'asset'}, name='api-asset-list'),
+  path('api/v1/asset', api.ManageThing.as_view(), {'thing_type': 'asset'}, name='api-asset-create'),
+  path('api/v1/asset/<str:uid>', api.ManageThing.as_view(), {'thing_type': 'asset'}, name='api-asset-detail'),
+]
+
+# Children
+urlpatterns += [
+  path('api/v1/scenes/child', api.ListThings.as_view(), {'thing_type': 'child'}, name='api-child-list'),
+  path('api/v1/child', api.ManageThing.as_view(), {'thing_type': 'child'}, name='api-child-create'),
+  path('api/v1/child/<str:uid>', api.ManageThing.as_view(), {'thing_type': 'child'}, name='api-child-detail'),
+]
+
+# Calibration Markers
+urlpatterns += [
+  path('api/v1/calibrationmarkers', api.ListThings.as_view(), {'thing_type': 'calibrationmarker'}, name='api-calibrationmarker-list'),
+  path('api/v1/calibrationmarker', api.ManageThing.as_view(), {'thing_type': 'calibrationmarker'}, name='api-calibrationmarker-create'),
+  path('api/v1/calibrationmarker/<str:uid>', api.ManageThing.as_view(), {'thing_type': 'calibrationmarker'}, name='api-calibrationmarker-detail'),
+]
+
+# Frame / video — these don't have a thing_type pattern so keep as-is
+urlpatterns += [
+  path('api/v1/frame', api.CameraManager.as_view(), {'thing_type': 'frame'}, name='api-frame'),
+  path('api/v1/video', api.CameraManager.as_view(), {'thing_type': 'video'}, name='api-video'),
 ]
 
 urlpatterns += [
@@ -123,6 +161,11 @@ urlpatterns += [
   path('api/v1/aclcheck', api.ACLCheck.as_view()),
   path("api/v1/import-scene/", api.SceneImportAPIView.as_view())
 
+]
+
+urlpatterns += [
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 ]
 
 if settings.KUBERNETES_SERVICE_HOST:

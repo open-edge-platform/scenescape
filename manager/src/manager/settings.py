@@ -31,13 +31,23 @@ INSTALLED_APPS = [
   'django.contrib.sessions',
   'django.contrib.messages',
   'django.contrib.staticfiles',
+  'drf_spectacular',
   'rest_framework',
   'rest_framework.authtoken',
   'axes',
   APP_NAME,
 ]
 
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'SceneScape API',
+    'DESCRIPTION': 'REST API for managing scenes, cameras, sensors, regions, and more.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'OPERATION_ID_GENERATION': 'url',
+}
+
 REST_FRAMEWORK = {
+  'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
   'DEFAULT_AUTHENTICATION_CLASSES': [
     'rest_framework.authentication.TokenAuthentication',
   ],

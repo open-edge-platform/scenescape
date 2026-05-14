@@ -27,6 +27,74 @@ from scene_common.mqtt import PubSub
 from scene_common.options import *
 from scene_common import log
 
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, inline_serializer
+from drf_spectacular.types import OpenApiTypes
+from manager.serializers import (
+    SceneSerializer, CamSerializer, RegionSerializer,
+    TripwireSerializer, SingletonSerializer, UserSerializer,
+    Asset3DSerializer, ChildSceneSerializer, CalibrationMarkerSerializer
+)
+
+from drf_spectacular.openapi import AutoSchema
+
+THING_TYPE_SERIALIZER_MAP = {
+    'scene': SceneSerializer,
+    'camera': CamSerializer,
+    'sensor': SingletonSerializer,
+    'region': RegionSerializer,
+    'tripwire': TripwireSerializer,
+    'user': UserSerializer,
+    'asset': Asset3DSerializer,
+    'child': ChildSceneSerializer,
+    'calibrationmarker': CalibrationMarkerSerializer,
+}
+
+class PathPrefixedAutoSchema(AutoSchema):
+    def get_operation_id(self):
+        path = self.path.replace('/api/v1/', '').replace('{uid}', 'detail').replace('/', '_')
+        method = self.method.lower()
+        action = {'get': 'retrieve', 'post': 'create', 'put': 'update', 'delete': 'destroy'}.get(method, method)
+        return f"{path}_{action}"
+
+    def _get_serializer(self):
+        # Extract thing_type from path: /api/v1/cameras -> 'camera', /api/v1/scene/{uid} -> 'scene'
+        parts = [p for p in self.path.strip('/').split('/') if p and p != '{uid}']
+        thing_type = parts[-1].rstrip('s') if parts else None  # strip plural 's'
+        # Handle irregulars
+        if thing_type == 'calibrationmarker':
+            pass  # already correct
+        elif thing_type == 'scene' and 'child' in self.path:
+            thing_type = 'child'
+        serializer_class = THING_TYPE_SERIALIZER_MAP.get(thing_type)
+        return serializer_class() if serializer_class else super()._get_serializer()
+
+    def get_path_fields(self):
+        fields = super().get_path_fields()
+        return [f for f in fields if f.name != 'thing_type']
+
+    def get_operation(self, path, path_regex, path_prefix, method, registry):
+      # Get the last path segment without {uid}
+      parts = [p for p in path.strip('/').split('/') if p and p != '{uid}']
+      last_segment = parts[-1] if parts else ''
+
+      # ManageThing routes are singular (scene, camera, sensor...)
+      # ListThings routes are plural (scenes, cameras, sensors...)
+      is_singular = not last_segment.endswith('s') or last_segment == 'calibrationmarker'
+
+      if '{uid}' in path and method == 'POST':
+          return None
+      if '{uid}' not in path and is_singular and method in ('GET', 'PUT', 'DELETE'):
+          return None
+      return super().get_operation(path, path_regex, path_prefix, method, registry)
+
+    def get_request_serializer(self):
+      parts = [p for p in self.path.strip('/').split('/') if p and p != '{uid}']
+      thing_type = parts[-1] if parts else None
+      # strip plural s for list endpoints
+      if thing_type and thing_type.endswith('s') and thing_type != 'calibrationmarkers':
+          thing_type = thing_type[:-1]
+      serializer_class = THING_TYPE_SERIALIZER_MAP.get(thing_type)
+      return serializer_class() if serializer_class else super().get_request_serializer()
 
 class IsAdminOrReadOnly(permissions.BasePermission):
   def has_permission(self, request, view):
@@ -60,9 +128,15 @@ def get_class_and_serializer(thing_type):
 class ListThings(generics.ListCreateAPIView):
   authentication_classes = [authentication.TokenAuthentication]
   permission_classes = [permissions.IsAuthenticated]
+  schema = PathPrefixedAutoSchema()
+  http_method_names = ['get', 'head', 'options']
 
+  def _get_thing_type(self):
+    # path() passes thing_type as a kwarg; old regex used self.args[0]
+    return self.kwargs.get('thing_type') or (self.args[0] if self.args else None)
+ 
   def get_queryset(self):
-    thing_class, _, _ = get_class_and_serializer(self.args[0])
+    thing_class, _, _ = get_class_and_serializer(self._get_thing_type())
     queryset = thing_class.objects.all()
     query_params = self.request.query_params
     if query_params:
@@ -71,7 +145,7 @@ class ListThings(generics.ListCreateAPIView):
       if bad_keys:
         log.warning(f"Invalid key(s) in query params: {bad_keys}")
         return []
-
+ 
       filter_params = {}
       for key in keys:
         filter_params[key] = query_params.get(key)
@@ -83,10 +157,14 @@ class ListThings(generics.ListCreateAPIView):
     return queryset
 
   def get_serializer_class(self):
-    _, thing_serializer, _ = get_class_and_serializer(self.args[0])
+    thing_type = self._get_thing_type()
+    if thing_type is None:
+        return SceneSerializer  # fallback for spectacular introspection
+    _, thing_serializer, _ = get_class_and_serializer(thing_type)
     return thing_serializer
 
 class SceneImportAPIView(APIView):
+  @extend_schema(exclude=True)
   def post(self, request, *args, **kwargs):
     if "zipFile" not in request.FILES:
       return Response({"error": "zipFile is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -108,6 +186,7 @@ class SceneImportAPIView(APIView):
 class ManageThing(APIView):
   authentication_classes = [authentication.TokenAuthentication]
   permission_classes = [IsAdminOrReadOnly]
+  schema = PathPrefixedAutoSchema()
 
   def validateUnknownParams(self, request, allowed_query_params=None):
     allowed_query_params = allowed_query_params or set()
@@ -143,6 +222,16 @@ class ManageThing(APIView):
 
     return uid
 
+  @extend_schema(
+        summary='Retrieve a thing by type and UID',
+        parameters=[
+            OpenApiParameter('uid', OpenApiTypes.STR, OpenApiParameter.PATH, required=False),
+        ],
+        responses={
+            200: OpenApiResponse(description='Success'),
+            400: OpenApiResponse(description='Bad request - UID required or invalid format'),
+            404: OpenApiResponse(description='Not found'),
+        },)
   def get(self, request, thing_type, uid=None):
     thing_class, thing_serializer, uid_field = get_class_and_serializer(thing_type)
 
@@ -167,6 +256,13 @@ class ManageThing(APIView):
     serializer = thing_serializer(thing)
     return Response(serializer.data)
 
+  @extend_schema(
+      summary='Create a new thing',
+      parameters=[],
+      responses={
+        201: OpenApiResponse(description='Created'),
+        400: OpenApiResponse(description='Validation error'),}
+  )
   def post(self, request, thing_type, uid=None):
     thing_class, thing_serializer, uid_field = get_class_and_serializer(thing_type)
 
@@ -204,6 +300,17 @@ class ManageThing(APIView):
         status=status.HTTP_201_CREATED if thing is None else status.HTTP_200_OK
     )
 
+  @extend_schema(
+        summary='Update a thing by UID',
+        parameters=[
+            OpenApiParameter('uid', OpenApiTypes.STR, OpenApiParameter.PATH),
+        ],
+        responses={
+            200: OpenApiResponse(description='Updated'),
+            400: OpenApiResponse(description='Validation error or UID required'),
+            404: OpenApiResponse(description='Not found'),
+        }
+  )
   def put(self, request, thing_type, uid=None):
     self.validateUnknownParams(request)
     if uid is None:
@@ -213,6 +320,17 @@ class ManageThing(APIView):
       )
     return self.post(request, thing_type, uid)
 
+  @extend_schema(
+        summary='Delete a thing by UID',
+        parameters=[
+            OpenApiParameter('uid', OpenApiTypes.STR, OpenApiParameter.PATH),
+        ],
+        responses={
+            200: OpenApiResponse(description='Deleted'),
+            400: OpenApiResponse(description='UID required or invalid format'),
+            404: OpenApiResponse(description='Not found'),
+        }
+  )
   def delete(self, request, thing_type, uid=None):
     thing_class, _, uid_field = get_class_and_serializer(thing_type)
 
@@ -244,6 +362,17 @@ class ManageThing(APIView):
 class CustomAuthToken(ObtainAuthToken):
   serializer_class = CustomAuthTokenSerializer
 
+  @extend_schema(
+    summary='Obtain authentication token',
+    auth=[],  # no auth required
+    responses={
+        200: inline_serializer(
+            name='AuthTokenResponse',
+            fields={'token': serializers.CharField()}
+        ),
+        400: OpenApiResponse(description='Invalid credentials'),
+    }
+  )
   def post(self, request, *args, **kwargs):
     serializer = self.serializer_class(data=request.data,
                                            context={'request': request})
@@ -262,6 +391,7 @@ class DatabaseReady(APIView):
     except OperationalError:
       return False
 
+  @extend_schema(exclude=True)
   def get(self, request):
     db_status = DatabaseStatus.objects.first()
     if not self.checkDatabase() or not db_status or not db_status.is_ready:
@@ -298,6 +428,22 @@ class CameraManager(APIView):
     pubsub.loopStart()
     return pubsub
 
+  @extend_schema(
+    summary='Get camera frame or video',
+    parameters=[
+        OpenApiParameter('camera', OpenApiTypes.STR, OpenApiParameter.QUERY, required=True,
+                         description='Camera ID'),
+        OpenApiParameter('timestamp', OpenApiTypes.STR, OpenApiParameter.QUERY, required=False,
+                         description='ISO timestamp (required for frame)'),
+        OpenApiParameter('type', OpenApiTypes.STR, OpenApiParameter.QUERY, required=False,
+                         description='Frame type filter'),
+    ],
+    responses={
+        200: OpenApiResponse(description='Frame data or video file'),
+        404: OpenApiResponse(description='Not found'),
+        503: OpenApiResponse(description='Broker unavailable'),
+    },
+  )
   def get(self, request, thing_type):
     pubsub = self.openPubSub()
     query = request.data
@@ -375,6 +521,7 @@ class CameraManager(APIView):
 
 
 class ACLCheck(APIView):
+  @extend_schema(exclude=True)
   def post(self, request):
     username = request.data.get('username')
     currentTopic = request.data.get('topic')

@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from scipy.spatial.transform import Rotation
 
 from scene_common import log
+from drf_spectacular.utils import extend_schema
 
 def y_up_to_y_down(rotation_matrix):
   rotate_y = Rotation.from_euler('Y', np.pi).as_matrix()
@@ -32,6 +33,7 @@ def calculate_pose(rvec, tvec):
   return euler, position
 
 class CalculateCameraIntrinsics(APIView):
+  @extend_schema(exclude=True)
   def post(self, request):
     log.info(f"Received request to calculate intrinsics with {request.data}")
     try:
