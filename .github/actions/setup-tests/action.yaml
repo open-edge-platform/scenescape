@@ -21,7 +21,6 @@ runs:
       uses: docker/setup-docker-action@b2189fbf2a6592b51fee7cdd93ee2bfaeba733db # v5
       with:
         context: setup-context
-        set-host: true
         daemon-config: |
           {
             "features": {
@@ -101,6 +100,11 @@ runs:
       run: |
         make && make setup-tests
 
+    - name: Print Docker images
+      shell: bash
+      run: |
+        docker image ls
+
     - name: "Install github annotate plugin"
       shell: bash
       run: |
@@ -120,10 +124,14 @@ runs:
       uses: docker/setup-docker-action@b2189fbf2a6592b51fee7cdd93ee2bfaeba733db # v5
       with:
         context: ${{ inputs.docker-context }}
-        set-host: true
         daemon-config: |
           {
             "features": {
               "containerd-snapshotter": false
             }
           }
+
+    - name: Print Docker images
+      shell: bash
+      run: |
+        docker image ls
