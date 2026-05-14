@@ -17,15 +17,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Reset Docker context to default
-      shell: bash
-      run: |
-        # Remove all non-default contexts
-        docker context ls -q | grep -v '^default$' | while read ctx; do
-          echo "Removing context: $ctx"
-          docker context rm -f "$ctx" || true
-        done
-
     - name: Set up Docker # Turn on containerd backend during setup
       uses: docker/setup-docker-action@b2189fbf2a6592b51fee7cdd93ee2bfaeba733db # v5
       with:
