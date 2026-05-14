@@ -14,14 +14,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: "Install Kind"
-      shell: bash
-      run: |
-        KIND_VERSION="v0.31.0"
-        curl -sSL --retry 5 --retry-delay 3 -o kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-$(uname)-amd64"
-        chmod +x ./kind
-        sudo mv kind /usr/local/bin/
-
     - name: Set up Python
       uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
       with:
@@ -93,11 +85,3 @@ runs:
           echo "$HOST_IP $h" | sudo tee -a /etc/hosts > /dev/null
         done
         grep -E 'scenescape.intel.com' /etc/hosts
-
-    - name: DEBUG
-      shell: bash
-      run: |
-        kind version
-        docker version
-        docker context ls
-        cat /etc/docker/daemon.json || echo "No daemon.json"

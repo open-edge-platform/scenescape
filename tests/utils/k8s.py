@@ -51,66 +51,6 @@ _SCENESCAPE_IMAGES = [
   "scenescape-mapping",
 ]
 
-# Regex for a valid Docker image reference.
-_DOCKER_IMAGE_RE = re.compile(
-  r'^[a-zA-Z0-9][a-zA-Z0-9._/-]*(?::[a-zA-Z0-9._\-]+)?(?:@sha256:[a-f0-9]+)?$'
-)
-
-def _get_chart_external_images(chart_path, supass):
-  """Derive external images by rendering the Helm chart.
-
-  Runs ``helm template`` with the test values, extracts every ``image:``
-  field from the rendered YAML, reconstructs the kubeclient dynamic image
-  from its HELM_REPO/HELM_IMAGE/HELM_TAG environment variables, normalises
-  the ``docker.io/`` registry prefix, and returns images that are not
-  SceneScape-built (i.e. do not match ``intel/scenescape-``).
-  """
-  result = subprocess.run(
-    [
-      "helm", "template", _RELEASE_NAME, chart_path,
-      "--set", f"supass={supass}",
-      "--set", f"pgserver.password={supass}",
-      "--set", "hooks.enabled=true",
-    ],
-    capture_output=True, text=True, check=True,
-  )
-  text = result.stdout
-
-  images = set()
-
-  # Collect all YAML "image: <value>" occurrences.
-  for match in re.finditer(r'^\s+(?:- )?image: (\S+)', text, re.MULTILINE):
-    images.add(match.group(1).strip())
-
-  # Kubeclient spawns pipeline-server pods via env vars; reconstruct the
-  # full image reference from HELM_REPO + HELM_IMAGE + HELM_TAG.
-  repo = re.search(r'name: HELM_REPO\n\s+value:\s+(\S+)', text)
-  img = re.search(r'name: HELM_IMAGE\n\s+value:\s+(\S+)', text)
-  tag = re.search(r'name: HELM_TAG\n\s+value:\s+(\S+)', text)
-  if repo and img and tag:
-    images.add(
-      f'{repo.group(1).strip()}/{img.group(1).strip()}:{tag.group(1).strip()}'
-    )
-
-  # Normalise: add docker.io/ prefix when the first path component contains
-  # no dot (i.e. is not already a hostname/registry).
-  # Strip any tag suffix from the first component before checking.
-  normalised = set()
-  for image in images:
-    if not _DOCKER_IMAGE_RE.match(image):
-      continue
-    parts = image.split('/')
-    first_part = parts[0].split(':')[0]  # strip tag before dot-check
-    if '.' not in first_part:
-      image = 'docker.io/' + image
-    normalised.add(image)
-
-  # Filter out locally-built SceneScape images (handled separately).
-  external = sorted(img for img in normalised if 'intel/scenescape-' not in img)
-  logger.debug("Chart external images: %s", external)
-  return external
-
-
 def _run(cmd, **kwargs):
   """Run a subprocess command, raising on failure with stderr included."""
   kwargs.setdefault("check", False)
@@ -429,32 +369,6 @@ class K8sManager:
         ) from exc
       except Exception as exc:
         raise RuntimeError(f"Failed loading image into kind: {new_tag}: {exc}") from exc
-
-    external_images = _get_chart_external_images(_CHART_PATH, self._supass)
-    for image in external_images:
-      load_ref = re.sub(r'@sha256:[a-f0-9]+$', '', image)
-      try:
-        if not _image_exists(load_ref):
-          logger.info("Pulling external image %s ...", image)
-          docker.image.pull(image)
-          time.sleep(10)
-          print(docker.images)
-        subprocess.run(
-          ["kind", "load", "docker-image", image, "--name", "pytest-test-cluster"],
-          check=True, capture_output=True, text=True,
-        )
-        logger.info("Loaded external image into kind: %s", load_ref)
-      except subprocess.CalledProcessError as exc:
-        logger.error("Failed loading image into kind: %s", load_ref)
-        if exc.stdout:
-          logger.error("kind load stdout: %s", exc.stdout.strip())
-        if exc.stderr:
-          logger.error("kind load stderr: %s", exc.stderr.strip())
-        raise RuntimeError(
-          f"Failed loading image into kind: {load_ref} (exit {exc.returncode})"
-        ) from exc
-      except Exception as exc:
-        raise RuntimeError(f"Failed external image flow for {image}: {exc}") from exc
 
   def _generate_values_file(self):
     """Generate a Helm values.yaml for the test deployment.
