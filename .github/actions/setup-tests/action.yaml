@@ -17,22 +17,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Print env
-      shell: bash
-      run: |
-        printenv
-
-    - name: Set up Docker # Turn on containerd backend during setup
-      uses: docker/setup-docker-action@b2189fbf2a6592b51fee7cdd93ee2bfaeba733db # v5
-      with:
-        context: setup-context
-        daemon-config: |
-          {
-            "features": {
-              "containerd-snapshotter": true
-            }
-          }
-
     - name: Set up Python
       uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
       with:
@@ -44,13 +28,6 @@ runs:
       with:
         username: scenescape
         password: ${{ inputs.dockerhub-token }}
-
-    - name: "Log in to GHCR"
-      uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ inputs.ghcr-token }}
 
     - name: Install firefox
       shell: bash
@@ -92,23 +69,10 @@ runs:
         tar -xzf geckodriver.tar.gz
         sudo mv geckodriver /usr/local/bin/
 
-    - name: "Setup Cache Targets"
-      id: setup-cache
-      uses: ./.github/actions/setup-cache
-
     - name: "Setup Test Environment"
       shell: bash
-      env:
-        CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-        CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-        GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
       run: |
         make && make setup-tests
-
-    - name: Print Docker images
-      shell: bash
-      run: |
-        docker image ls
 
     - name: "Install github annotate plugin"
       shell: bash
@@ -124,19 +88,3 @@ runs:
           echo "$HOST_IP $h" | sudo tee -a /etc/hosts > /dev/null
         done
         grep -E 'scenescape.intel.com' /etc/hosts
-
-    - name: Set up Docker # Turn off containerd backend during tests execution
-      uses: docker/setup-docker-action@b2189fbf2a6592b51fee7cdd93ee2bfaeba733db # v5
-      with:
-        context: test-context
-        daemon-config: |
-          {
-            "features": {
-              "containerd-snapshotter": false
-            }
-          }
-
-    - name: Print Docker images
-      shell: bash
-      run: |
-        docker image ls
