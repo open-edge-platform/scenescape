@@ -1576,17 +1576,7 @@ components:
             applying.
           maxLength: 5000
       required:
-        - distortion
-        - intrinsics
-        - name
-        - resolution
-        - rotation
-        - scale
-        - scene
-        - transform_type
-        - transforms
-        - translation
-        - uid
+      - name
     CameraCalibrationEnum:
       enum:
         - AprilTag
@@ -1711,10 +1701,7 @@ components:
           format: double
           nullable: true
       required:
-        - name
-        - parent
-        - transform
-        - uid
+      - parent
     CustomAuthToken:
       type: object
       properties:
@@ -2196,21 +2183,7 @@ components:
           title: Map Bearing/Rotation (degrees)
           description: Rotation angle for the geospatial map view in degrees
       required:
-        - cameras
-        - children
-        - map_processed
-        - mesh_rotation
-        - mesh_scale
-        - mesh_translation
-        - name
-        - parent
-        - regions
-        - sensors
-        - thumbnail
-        - transform
-        - tripwires
-        - trs_matrix
-        - uid
+      - name
     ShiftTypeEnum:
       enum:
         - 1
@@ -2264,13 +2237,7 @@ components:
         color_ranges:
           $ref: "#/components/schemas/SingletonScalarThreshold"
       required:
-        - center
-        - color_ranges
-        - name
-        - points
-        - scene
-        - translation
-        - uid
+      - name
     SingletonScalarThreshold:
       type: object
       properties:
