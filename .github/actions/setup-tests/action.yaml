@@ -86,7 +86,13 @@ runs:
         done
         grep -E 'scenescape.intel.com' /etc/hosts
 
-    - name: Get Kind Version
+    - name: DEBUG
       shell: bash
       run: |
         kind version
+        docker version
+        docker context ls
+        cat /etc/docker/daemon.json || echo "No daemon.json"
+
+
+
