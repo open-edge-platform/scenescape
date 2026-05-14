@@ -20,9 +20,7 @@ runs:
     - name: Ensure Docker daemon config is writable
       shell: bash
       run: |
-        sudo mkdir -p /etc/docker
-        sudo touch /etc/docker/daemon.json
-        sudo chmod 644 /etc/docker/daemon.json
+        sudo rm -f /etc/docker/daemon.json
 
     - name: Set up Docker # Turn on containerd backend during setup
       uses: docker/setup-docker-action@b2189fbf2a6592b51fee7cdd93ee2bfaeba733db # v5
