@@ -42,7 +42,7 @@ runs:
       run: |
         sudo git clean -fxd || true
 
-    - name: Reset Docker context to default
+    - name: Reset Docker
       if: always()
       shell: bash
       run: |
@@ -52,3 +52,5 @@ runs:
           docker context rm -f "$ctx" || true
         done
         docker context use default
+        sudo systemctl daemon-reload
+        sudo systemctl restart docker
