@@ -87,7 +87,11 @@ paths:
       responses:
         "200":
           description: Success
-        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset3D'
+        '400':
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
@@ -235,7 +239,11 @@ paths:
       responses:
         "200":
           description: Success
-        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalibrationMarker'
+        '400':
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
@@ -355,7 +363,11 @@ paths:
       responses:
         "200":
           description: Success
-        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cam'
+        '400':
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
@@ -475,7 +487,11 @@ paths:
       responses:
         "200":
           description: Success
-        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChildScene'
+        '400':
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
@@ -605,7 +621,11 @@ paths:
       responses:
         "200":
           description: Success
-        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Region'
+        '400':
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
@@ -725,7 +745,11 @@ paths:
       responses:
         "200":
           description: Success
-        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scene'
+        '400':
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
@@ -845,7 +869,11 @@ paths:
       responses:
         "200":
           description: Success
-        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Singleton'
+        '400':
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
@@ -965,7 +993,11 @@ paths:
       responses:
         "200":
           description: Success
-        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tripwire'
+        '400':
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
@@ -1085,7 +1117,11 @@ paths:
       responses:
         "200":
           description: Success
-        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
