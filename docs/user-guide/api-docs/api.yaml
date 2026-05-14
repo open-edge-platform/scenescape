@@ -1204,22 +1204,12 @@ paths:
       operationId: v1_video_retrieve
       summary: Get a video
       parameters:
-        - in: query
-          name: camera
-          schema:
-            type: string
-          description: Camera ID
-          required: true
-        - in: query
-          name: timestamp
-          schema:
-            type: string
-          description: ISO timestamp (required for frame)
-        - in: query
-          name: type
-          schema:
-            type: string
-          description: Frame type filter
+      - in: query
+        name: camera
+        schema:
+          type: string
+        description: Camera ID
+        required: true
       tags:
       - video
       security:
