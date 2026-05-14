@@ -41,14 +41,3 @@ runs:
       shell: bash
       run: |
         sudo git clean -fxd || true
-
-    - name: Reset Docker
-      if: always()
-      shell: bash
-      run: |
-        docker context use default
-        # Remove all non-default contexts
-        docker context ls -q | grep -v '^default$' | while read ctx; do
-          echo "Removing context: $ctx"
-          docker context rm -f "$ctx" || true
-        done
