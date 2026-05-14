@@ -17,13 +17,40 @@ info:
 servers:
   - url: "https://localhost/api/v1"
 
+tags:
+  - name: "asset"
+    description: "Operations related to assets"
+  - name: "auth"
+    description: "Operations related to authentication"
+  - name: "calibrationmarker"
+    description: "Operations related to calibration markers"
+  - name: "camera"
+    description: "Operations related to cameras"
+  - name: "frame"
+    description: "Operations related to camera frames"
+  - name: "region"
+    description: "Operations related to regions"
+  - name: "scene"
+    description: "Operations related to scenes"
+  - name: "child"
+    description: "Operations related to children"
+  - name: "sensor"
+    description: "Operations related to sensors"
+  - name: "tripwire"
+    description: "Operations related to tripwires"
+  - name: "user"
+    description: "Operations related to users"
+  - name: "video"
+    description: "Operations related to camera videos"
+  
+
 paths:
   /asset:
     post:
-      operationId: asset_create
-      summary: Create a new thing
       tags:
-        - v1
+      - asset
+      operationId: asset_create
+      summary: Create a new asset
       requestBody:
         content:
           application/json:
@@ -45,16 +72,16 @@ paths:
           description: Validation error
   /asset/{uid}:
     get:
+      tags:
+      - asset
       operationId: asset_detail_retrieve
       summary: Retrieve a thing by type and UID
       parameters:
-        - in: path
-          name: uid
-          schema:
-            type: string
-          required: true
-      tags:
-        - v1
+      - in: path
+        name: uid
+        schema:
+          type: string
+        required: true
       security:
         - tokenAuth: []
       responses:
@@ -65,16 +92,16 @@ paths:
         "404":
           description: Not found
     put:
+      tags:
+      - asset
       operationId: asset_detail_update
       summary: Update a thing by UID
       parameters:
-        - in: path
-          name: uid
-          schema:
-            type: string
-          required: true
-      tags:
-        - v1
+      - in: path
+        name: uid
+        schema:
+          type: string
+        required: true
       requestBody:
         content:
           application/json:
@@ -106,7 +133,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - asset
       security:
         - tokenAuth: []
       responses:
@@ -127,7 +154,7 @@ paths:
           schema:
             type: integer
       tags:
-        - v1
+      - asset
       security:
         - tokenAuth: []
       responses:
@@ -142,7 +169,7 @@ paths:
       operationId: v1_auth_create
       summary: Obtain authentication token
       tags:
-        - v1
+      - auth
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -155,6 +182,7 @@ paths:
             schema:
               $ref: "#/components/schemas/CustomAuthToken"
         required: true
+      security: []
       responses:
         "200":
           content:
@@ -169,7 +197,7 @@ paths:
       operationId: calibrationmarker_create
       summary: Create a new thing
       tags:
-        - v1
+      - calibrationmarker
       requestBody:
         content:
           application/json:
@@ -200,7 +228,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - calibrationmarker
       security:
         - tokenAuth: []
       responses:
@@ -220,7 +248,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - calibrationmarker
       requestBody:
         content:
           application/json:
@@ -252,7 +280,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - calibrationmarker
       security:
         - tokenAuth: []
       responses:
@@ -273,7 +301,7 @@ paths:
           schema:
             type: integer
       tags:
-        - v1
+      - calibrationmarker
       security:
         - tokenAuth: []
       responses:
@@ -288,7 +316,7 @@ paths:
       operationId: camera_create
       summary: Create a new thing
       tags:
-        - v1
+      - camera
       requestBody:
         content:
           application/json:
@@ -319,7 +347,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - camera
       security:
         - tokenAuth: []
       responses:
@@ -339,7 +367,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - camera
       requestBody:
         content:
           application/json:
@@ -371,7 +399,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - camera
       security:
         - tokenAuth: []
       responses:
@@ -392,7 +420,7 @@ paths:
           schema:
             type: integer
       tags:
-        - v1
+      - camera
       security:
         - tokenAuth: []
       responses:
@@ -407,7 +435,7 @@ paths:
       operationId: child_create
       summary: Create a new thing
       tags:
-        - v1
+      - child
       requestBody:
         content:
           application/json:
@@ -438,7 +466,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - child
       security:
         - tokenAuth: []
       responses:
@@ -458,7 +486,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - child
       requestBody:
         content:
           application/json:
@@ -490,7 +518,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - child
       security:
         - tokenAuth: []
       responses:
@@ -522,7 +550,7 @@ paths:
             type: string
           description: Frame type filter
       tags:
-        - v1
+      - frame
       security:
         - tokenAuth: []
       responses:
@@ -537,7 +565,7 @@ paths:
       operationId: region_create
       summary: Create a new thing
       tags:
-        - v1
+      - region
       requestBody:
         content:
           application/json:
@@ -568,7 +596,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - region
       security:
         - tokenAuth: []
       responses:
@@ -588,7 +616,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - region
       requestBody:
         content:
           application/json:
@@ -620,7 +648,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - region
       security:
         - tokenAuth: []
       responses:
@@ -641,7 +669,7 @@ paths:
           schema:
             type: integer
       tags:
-        - v1
+      - region
       security:
         - tokenAuth: []
       responses:
@@ -656,7 +684,7 @@ paths:
       operationId: scene_create
       summary: Create a new thing
       tags:
-        - v1
+      - scene
       requestBody:
         content:
           application/json:
@@ -687,7 +715,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - scene
       security:
         - tokenAuth: []
       responses:
@@ -707,7 +735,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - scene
       requestBody:
         content:
           application/json:
@@ -739,7 +767,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - scene
       security:
         - tokenAuth: []
       responses:
@@ -760,7 +788,7 @@ paths:
           schema:
             type: integer
       tags:
-        - v1
+      - scene
       security:
         - tokenAuth: []
       responses:
@@ -775,7 +803,7 @@ paths:
       operationId: sensor_create
       summary: Create a new thing
       tags:
-        - v1
+      - sensor
       requestBody:
         content:
           application/json:
@@ -806,7 +834,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - sensor
       security:
         - tokenAuth: []
       responses:
@@ -826,7 +854,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - sensor
       requestBody:
         content:
           application/json:
@@ -858,7 +886,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - sensor
       security:
         - tokenAuth: []
       responses:
@@ -879,7 +907,7 @@ paths:
           schema:
             type: integer
       tags:
-        - v1
+      - sensor
       security:
         - tokenAuth: []
       responses:
@@ -894,7 +922,7 @@ paths:
       operationId: tripwire_create
       summary: Create a new thing
       tags:
-        - v1
+      - tripwire
       requestBody:
         content:
           application/json:
@@ -925,7 +953,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - tripwire
       security:
         - tokenAuth: []
       responses:
@@ -945,7 +973,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - tripwire
       requestBody:
         content:
           application/json:
@@ -977,7 +1005,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - tripwire
       security:
         - tokenAuth: []
       responses:
@@ -998,7 +1026,7 @@ paths:
           schema:
             type: integer
       tags:
-        - v1
+      - tripwire
       security:
         - tokenAuth: []
       responses:
@@ -1013,7 +1041,7 @@ paths:
       operationId: user_create
       summary: Create a new thing
       tags:
-        - v1
+      - user
       requestBody:
         content:
           application/json:
@@ -1044,7 +1072,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - user
       security:
         - tokenAuth: []
       responses:
@@ -1064,7 +1092,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - user
       requestBody:
         content:
           application/json:
@@ -1096,7 +1124,7 @@ paths:
             type: string
           required: true
       tags:
-        - v1
+      - user
       security:
         - tokenAuth: []
       responses:
@@ -1117,7 +1145,7 @@ paths:
           schema:
             type: integer
       tags:
-        - v1
+      - user
       security:
         - tokenAuth: []
       responses:
@@ -1149,7 +1177,7 @@ paths:
             type: string
           description: Frame type filter
       tags:
-        - v1
+      - video
       security:
         - tokenAuth: []
       responses:
