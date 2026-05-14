@@ -187,7 +187,7 @@ jobs:
 
   chart-deployment-test:
     name: "Chart Deployment Test"
-    runs-on: [bat]
+    runs-on: [pytest]
     permissions:
       packages: write # For using GHCR as cache registry
     needs: [filter, check-pr-state]
