@@ -171,7 +171,7 @@ paths:
           description: ""
   /auth:
     post:
-      operationId: v1_auth_create
+      operationId: auth_create
       summary: Obtain authentication token
       tags:
       - auth
@@ -549,7 +549,7 @@ paths:
           description: Not found
   /frame:
     get:
-      operationId: v1_frame_retrieve
+      operationId: frame_retrieve
       summary: Get a camera frame
       parameters:
         - in: query
@@ -1201,7 +1201,7 @@ paths:
           description: ""
   /video:
     get:
-      operationId: v1_video_retrieve
+      operationId: video_retrieve
       summary: Get a video
       parameters:
       - in: query
