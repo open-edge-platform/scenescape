@@ -4,6 +4,7 @@
 #include "coordinate_transformer.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <vector>
 
@@ -193,6 +194,13 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         obj.height = height_m;
         if (!detections[i].metadata_json.empty()) {
             obj.attributes["metadata_json"] = detections[i].metadata_json;
+        }
+        if (detections[i].confidence.has_value()) {
+            char buf[32];
+            auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), *detections[i].confidence);
+            if (ec == std::errc{}) {
+                obj.attributes["confidence"] = std::string(buf, ptr);
+            }
         }
 
         detection_valid[i] = 1;
