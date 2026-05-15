@@ -155,6 +155,18 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: name
+        required: false
+        in: query
+        description: Filter by asset name.
+        schema:
+          type: string
+      - name: id
+        required: false
+        in: query
+        description: Filter by asset ID.
+        schema:
+          type: string
       security:
       - tokenAuth: []
       responses:
@@ -292,6 +304,25 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: name
+        required: false
+        in: query
+        description: Filter by marker name.
+        schema:
+          type: string
+      - name: scene
+        required: false
+        in: query
+        description: Filter by scene UUID.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        required: false
+        in: query
+        description: Filter by marker ID.
+        schema:
+          type: string
       security:
       - tokenAuth: []
       responses:
@@ -404,6 +435,25 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: name
+        required: false
+        in: query
+        description: Filter by camera name.
+        schema:
+          type: string
+      - name: scene
+        required: false
+        in: query
+        description: Filter by scene UUID.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        required: false
+        in: query
+        description: Filter by camera ID.
+        schema:
+          type: string
       security:
       - tokenAuth: []
       responses:
@@ -516,6 +566,19 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: parent
+        required: false
+        in: query
+        description: Filter by parent scene UUID.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        required: false
+        in: query
+        description: Filter by child scene link ID.
+        schema:
+          type: string
       security:
       - tokenAuth: []
       responses:
@@ -661,6 +724,25 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: name
+        required: false
+        in: query
+        description: Filter by region name.
+        schema:
+          type: string
+      - name: scene
+        required: false
+        in: query
+        description: Filter by scene UUID.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        required: false
+        in: query
+        description: Filter by region ID.
+        schema:
+          type: string
       security:
       - tokenAuth: []
       responses:
@@ -779,6 +861,25 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: name
+        required: false
+        in: query
+        description: Filter by scene name.
+        schema:
+          type: string
+      - name: parent
+        required: false
+        in: query
+        description: Filter by parent scene UUID.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        required: false
+        in: query
+        description: Filter by scene ID.
+        schema:
+          type: string
       security:
       - tokenAuth: []
       responses:
@@ -891,6 +992,25 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: name
+        required: false
+        in: query
+        description: Filter by sensor name.
+        schema:
+          type: string
+      - name: scene
+        required: false
+        in: query
+        description: Filter by scene UUID.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        required: false
+        in: query
+        description: Filter by sensor ID.
+        schema:
+          type: string
       security:
       - tokenAuth: []
       responses:
@@ -1003,6 +1123,25 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: name
+        required: false
+        in: query
+        description: Filter by tripwire name.
+        schema:
+          type: string
+      - name: scene
+        required: false
+        in: query
+        description: Filter by scene UUID.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        required: false
+        in: query
+        description: Filter by tripwire ID.
+        schema:
+          type: string
       security:
       - tokenAuth: []
       responses:
@@ -1115,6 +1254,18 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: username
+        required: false
+        in: query
+        description: Filter by username.
+        schema:
+          type: string
+      - name: id
+        required: false
+        in: query
+        description: Filter by user ID.
+        schema:
+          type: string
       security:
       - tokenAuth: []
       responses:
