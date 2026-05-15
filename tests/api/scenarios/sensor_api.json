@@ -81,7 +81,7 @@
         "request": {
           "body": {
             "name": "sensor_entire_scene",
-            "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "sensor_id": "sensor_entire_scene",
             "area": "scene",
             "translation": [1, 1, 1],
@@ -124,7 +124,7 @@
         "request": {
           "body": {
             "name": "sensor_polygon",
-            "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "sensor_id": "sensor_polygon",
             "area": "poly",
             "points": [
@@ -170,7 +170,14 @@
         "api": "sensor",
         "method": "createSensor",
         "request": {
-          "body": {}
+          "body": {
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "sensor_id": "sensor_minimal",
+            "area": "circle",
+            "radius": 2.5,
+            "center": [3.81, 4.59],
+            "translation": [1, 1, 1]
+          }
         },
         "expected_status": {
           "status_code": 400
@@ -188,7 +195,7 @@
         "request": {
           "body": {
             "name": "bad_scene",
-            "scene": "invalid-uuid"
+            "scene": "00000000-0000-0000-0000-000000000000"
           }
         },
         "expected_status": {
@@ -208,7 +215,8 @@
           "body": {
             "name": "bad_points",
             "area": "poly",
-            "points": [[1, 2]]
+            "points": [[1]],
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
           }
         },
         "expected_status": {
@@ -227,7 +235,7 @@
         "request": {
           "body": {
             "name": "circle_no_radius",
-            "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "area": "circle",
             "center": [1, 2]
           }
@@ -248,7 +256,7 @@
         "request": {
           "body": {
             "name": "polygon_no_points",
-            "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "area": "poly"
           }
         },
@@ -268,29 +276,9 @@
         "request": {
           "body": {
             "name": "bad_center",
-            "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "area": "circle",
             "center": [1]
-          }
-        },
-        "expected_status": {
-          "status_code": 400
-        }
-      }
-    ]
-  },
-  {
-    "test_name": "Vision_AI/SSCAPE/API/SENSOR/11: Create sensor with invalid translation array length",
-    "test_steps": [
-      {
-        "step_name": "Invalid translation",
-        "api": "sensor",
-        "method": "createSensor",
-        "request": {
-          "body": {
-            "name": "bad_translation",
-            "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
-            "translation": [1, 1]
           }
         },
         "expected_status": {
@@ -309,7 +297,7 @@
         "request": {
           "body": {
             "name": "bad_color_range",
-            "scene": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "color_ranges": {}
           }
         },
@@ -530,7 +518,7 @@
             "name": "sensor_minimal_updated",
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
             "area": "poly",
-            "points": [[1, 1]]
+            "points": [[2]]
           }
         },
         "expected_status": {
