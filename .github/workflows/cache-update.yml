@@ -22,9 +22,7 @@ jobs:
     runs-on: [self-hosted]
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
-    needs: [filter, check-pr-state]
-    if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
+    timeout-minutes: 60
     steps:
       - name: "Checkout Repository"
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -33,7 +31,6 @@ jobs:
           persist-credentials: false
 
       - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
         with:
           system-prune: "true"
