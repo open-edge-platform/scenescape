@@ -7,8 +7,9 @@ run-name: "[CI] Update Image Caches"
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 0 * * *" # Every Sunday at midnight
+  push:
+    branches:
+      - main
 
 env:
   DOCKER_BUILDKIT: 1
