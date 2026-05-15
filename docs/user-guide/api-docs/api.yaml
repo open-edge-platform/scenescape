@@ -220,15 +220,15 @@ paths:
           description: Created
         '400':
           description: Validation error
-  /calibrationmarker/{uid}:
+  /calibrationmarker/{marker_id}:
     get:
       tags:
       - calibrationmarker
       operationId: calibrationmarker_detail_retrieve
-      summary: Get a calibration marker by UID
+      summary: Get a calibration marker by marker ID
       parameters:
       - in: path
-        name: uid
+        name: marker_id
         schema:
           type: string
         required: true
@@ -249,10 +249,10 @@ paths:
       tags:
       - calibrationmarker
       operationId: calibrationmarker_detail_update
-      summary: Update a calibration marker by UID
+      summary: Update a calibration marker by marker ID
       parameters:
       - in: path
-        name: uid
+        name: marker_id
         schema:
           type: string
         required: true
@@ -275,10 +275,10 @@ paths:
       tags:
       - calibrationmarker
       operationId: calibrationmarker_detail_destroy
-      summary: Delete a calibration marker by UID
+      summary: Delete a calibration marker by marker ID
       parameters:
       - in: path
-        name: uid
+        name: marker_id
         schema:
           type: string
         required: true
@@ -351,15 +351,15 @@ paths:
           description: Created
         '400':
           description: Validation error
-  /camera/{uid}:
+  /camera/{sensor_id}:
     get:
       tags:
       - camera
       operationId: camera_detail_retrieve
-      summary: Get a camera by UID
+      summary: Get a camera by sensor ID
       parameters:
       - in: path
-        name: uid
+        name: sensor_id
         schema:
           type: string
         required: true
@@ -380,10 +380,10 @@ paths:
       tags:
       - camera
       operationId: camera_detail_update
-      summary: Update a camera by UID
+      summary: Update a camera by sensor ID
       parameters:
       - in: path
-        name: uid
+        name: sensor_id
         schema:
           type: string
         required: true
@@ -406,10 +406,10 @@ paths:
       tags:
       - camera
       operationId: camera_detail_destroy
-      summary: Delete a camera by UID
+      summary: Delete a camera by sensor ID
       parameters:
       - in: path
-        name: uid
+        name: sensor_id
         schema:
           type: string
         required: true
@@ -908,15 +908,15 @@ paths:
           description: Created
         '400':
           description: Validation error
-  /sensor/{uid}:
+  /sensor/{sensor_id}:
     get:
       tags:
       - sensor
       operationId: sensor_detail_retrieve
-      summary: Get a sensor by UID
+      summary: Get a sensor by sensor ID
       parameters:
       - in: path
-        name: uid
+        name: sensor_id
         schema:
           type: string
         required: true
@@ -937,10 +937,10 @@ paths:
       tags:
       - sensor
       operationId: sensor_detail_update
-      summary: Update a sensor by UID
+      summary: Update a sensor by sensor ID
       parameters:
       - in: path
-        name: uid
+        name: sensor_id
         schema:
           type: string
         required: true
@@ -963,10 +963,10 @@ paths:
       tags:
       - sensor
       operationId: sensor_detail_destroy
-      summary: Delete a sensor by UID
+      summary: Delete a sensor by sensor ID
       parameters:
       - in: path
-        name: uid
+        name: sensor_id
         schema:
           type: string
         required: true
@@ -1170,15 +1170,15 @@ paths:
           description: Created
         '400':
           description: Validation error
-  /user/{uid}:
+  /user/{username}:
     get:
       tags:
       - user
       operationId: user_detail_retrieve
-      summary: Get a user by UID
+      summary: Get a user by username
       parameters:
       - in: path
-        name: uid
+        name: username
         schema:
           type: string
         required: true
@@ -1199,10 +1199,10 @@ paths:
       tags:
       - user
       operationId: user_detail_update
-      summary: Update a user by UID
+      summary: Update a user by username
       parameters:
       - in: path
-        name: uid
+        name: username
         schema:
           type: string
         required: true
@@ -1225,10 +1225,10 @@ paths:
       tags:
       - user
       operationId: user_detail_destroy
-      summary: Delete a user by UID
+      summary: Delete a user by username
       parameters:
       - in: path
-        name: uid
+        name: username
         schema:
           type: string
         required: true
