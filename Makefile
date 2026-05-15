@@ -377,16 +377,22 @@ setup-pytest:
 	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision, 'tracking')" 2>/dev/null; then \
 		echo "Building robot_vision C++ extension..."; \
 		$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir scikit-build-core cmake; \
+		if ! dpkg -s libopencv-dev > /dev/null 2>&1; then \
+			echo "ERROR: libopencv-dev is required to build robot_vision. See tests/README.md for installation instructions."; \
+			exit 1; \
+		fi; \
+		if ! dpkg -s libeigen3-dev > /dev/null 2>&1; then \
+			echo "ERROR: libeigen3-dev is required to build robot_vision. See tests/README.md for installation instructions."; \
+			exit 1; \
+		fi; \
 		OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
 			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(CURDIR)/controller/src/robot_vision; \
 	fi
 	@if ! command -v firefox > /dev/null 2>&1; then \
-		echo "ERROR: Firefox is required for UI tests. See README.md for installation instructions."; \
-		exit 1; \
+		echo "WARNING: Firefox is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
 	fi
 	@if ! command -v Xvfb > /dev/null 2>&1; then \
-		echo "ERROR: Xvfb is required for UI tests. See README.md for installation instructions."; \
-		exit 1; \
+		echo "WARNING: Xvfb is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
 	fi
 
 .PHONY: run_tests
