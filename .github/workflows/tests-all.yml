@@ -95,8 +95,7 @@ jobs:
       - name: Run Functional Tests
         env:
           CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
+          GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
         run: |
           make clean-all
           make run_functional_tests
@@ -133,31 +132,16 @@ jobs:
         with:
           system-prune: "true"
 
-      - name: "Log in to GHCR"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: "Log in to DockerHub"
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           username: scenescape
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: "Setup Cache Targets"
-        id: setup-cache
-        uses: ./.github/actions/setup-cache
-
       - name: "Run Setup"
         uses: ./.github/actions/setup-env
 
       - name: Run Non-Functional Tests
-        env:
-          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
         run: |
           make clean-all
           make run_non_functional_tests
@@ -217,8 +201,7 @@ jobs:
       - name: Run Metric Tests
         env:
           CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
+          GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
         run: |
           make clean-all
           make run_metric_tests
@@ -278,8 +261,7 @@ jobs:
       - name: Run UI Tests
         env:
           CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
+          GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
         run: |
           make clean-all
           make run_ui_tests
@@ -339,8 +321,7 @@ jobs:
       - name: Run Unit Tests
         env:
           CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
+          GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
         run: |
           make clean-all
           make run_unit_tests

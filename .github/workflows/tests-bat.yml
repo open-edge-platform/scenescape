@@ -155,8 +155,7 @@ jobs:
       - name: "Run Basic Acceptance Tests (BAT)"
         env:
           CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
+          GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
         run: |
           make clean-all
           git clean -fdx
@@ -211,8 +210,7 @@ jobs:
       - name: Install chart with timeout
         env:
           CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
+          GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
         run: |
           KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
 

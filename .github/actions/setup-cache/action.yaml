@@ -8,12 +8,9 @@ outputs:
   cache_registry:
     description: "The cache registry path"
     value: ${{ steps.cache.outputs.CACHE_REGISTRY }}
-  cache_tag:
-    description: "The cache tag"
-    value: ${{ steps.cache.outputs.CACHE_TAG }}
-  github_actions_cache:
-    description: "Whether GitHub Actions cache is enabled"
-    value: ${{ steps.cache.outputs.GITHUB_ACTIONS_CACHE }}
+  ghcr_cache:
+    description: "Whether GHCR cache is enabled"
+    value: ${{ steps.cache.outputs.GHCR_CACHE }}
 runs:
   using: "composite"
   steps:
@@ -32,7 +29,5 @@ runs:
       env:
         TAG_BASE: ${{ github.head_ref || github.ref_name }}
       run: |
-        CACHE_TAG=$(echo "$TAG_BASE" | tr '/' '_' | tr '-' '_')
         echo "CACHE_REGISTRY=${{ github.repository }}" >> "$GITHUB_OUTPUT"
-        echo "CACHE_TAG=${CACHE_TAG}" >> "$GITHUB_OUTPUT"
-        echo "GITHUB_ACTIONS_CACHE=true" >> "$GITHUB_OUTPUT"
+        echo "GHCR_CACHE=true" >> "$GITHUB_OUTPUT"
