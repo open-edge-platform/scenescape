@@ -100,7 +100,7 @@ jobs:
     name: "Non-Functional Tests"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Remove test_data folder
         run: |
@@ -113,21 +113,21 @@ jobs:
           persist-credentials: false
           ref: ${{ inputs.ref }}
 
-      - name: "Remove all Docker images"
-        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
-        uses: ./.github/actions/cleanup
+      - name: "Log in to DockerHub"
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
-          system-prune: "true"
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Setup Tests Environment
-        id: setup-test-env
-        uses: ./.github/actions/setup-tests
-        with:
-          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Setup Non Functional Tests
+        run: |
+          make setup-pytest
+          source tests/.venv/bin/activate
+          pip install -r .github/resources/requirements-pytest.txt
 
       - name: Remove images to measure build time without cache
         run: |
-          docker rmi -f $(docker images -q) || true
+          docker system prune -af --volumes
 
       - name: Run Non Functional Tests
         run: |

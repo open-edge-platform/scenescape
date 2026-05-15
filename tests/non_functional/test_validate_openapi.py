@@ -2,11 +2,15 @@ import subprocess
 import os
 import pytest
 
+TEST_NAME = "NEX-T10572"
+
 @pytest.mark.basic_acceptance
-def test_validate_openapi():
+def test_validate_openapi(record_xml_attribute):
     """Validate OpenAPI schema using swagger-cli."""
     docs_path = os.path.join(os.path.dirname(__file__), "../../docs/user-guide/api-docs/")
     docs_path = os.path.abspath(docs_path)
+
+    record_xml_attribute("name", TEST_NAME)
 
     # Install swagger-cli
     subprocess.run(
