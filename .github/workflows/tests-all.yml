@@ -86,6 +86,7 @@ jobs:
 
       - name: Upload Test Report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
         with:
           name: functional-report
           path: |
@@ -100,7 +101,7 @@ jobs:
     name: "Non-Functional Tests"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Remove test_data folder
         run: |
@@ -137,6 +138,7 @@ jobs:
 
       - name: Upload Test Report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
         with:
           name: non-functional-report
           path: |
@@ -185,6 +187,7 @@ jobs:
 
       - name: Upload Test Report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
         with:
           name: metric-report
           path: |
@@ -232,6 +235,7 @@ jobs:
 
       - name: Upload Test Report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
         with:
           name: ui-report
           path: |
@@ -246,7 +250,7 @@ jobs:
     name: "Unit Tests"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Remove test_data folder
         run: |
@@ -281,6 +285,7 @@ jobs:
 
       - name: Upload Test Report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
         with:
           name: unit-report
           path: |
