@@ -36,8 +36,7 @@
             "output_lla": false,
             "mesh_translation": [12.2, 248, 12],
             "mesh_rotation": [12.2, 248, 12],
-            "mesh_scale": [1, 1, 1],
-            "tracker_config": [1, 1, 1]
+            "mesh_scale": [1, 1, 1]
           }
         },
         "expected_status": {
@@ -175,7 +174,7 @@
           "body": {
             "name": "Scene1_Updated",
             "use_tracker": false,
-            "output_lla": true
+            "output_lla": false
           }
         },
         "expected_status": {
@@ -197,7 +196,7 @@
           "name": "Scene1_Updated",
           "map_type": "map_upload",
           "use_tracker": false,
-          "output_lla": true,
+          "output_lla": false,
           "mesh_translation": [0, 0, 0],
           "mesh_rotation": [0, 0, 0],
           "mesh_scale": [1.0, 1.0, 1.0],
@@ -234,7 +233,7 @@
           "body": {
             "name": "Scene1_Updated_Full",
             "use_tracker": true,
-            "output_lla": true,
+            "output_lla": false,
             "mesh_translation": [12.2, 248, 12.0],
             "mesh_rotation": [12.2, 248, 12.0],
             "mesh_scale": [2.0, 2.0, 2.0]
@@ -264,7 +263,7 @@
           "name": "Scene1_Updated_Full",
           "map_type": "map_upload",
           "use_tracker": true,
-          "output_lla": true,
+          "output_lla": false,
           "mesh_translation": [12.2, 248.0, 12.0],
           "mesh_rotation": [12.2, 248.0, 12.0],
           "mesh_scale": [2.0, 2.0, 2.0],
