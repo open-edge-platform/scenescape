@@ -1990,7 +1990,6 @@ components:
         color_ranges:
           $ref: '#/components/schemas/RegionOccupancyThreshold'
       required:
-      - color_ranges
       - name
       - points
       - scene
