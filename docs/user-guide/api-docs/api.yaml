@@ -1164,7 +1164,8 @@ paths:
               required:
               - zipFile
         required: true
-      security: []
+      security:
+      - tokenAuth: []
       responses:
         '201':
           description: Scene imported successfully
@@ -1190,7 +1191,8 @@ paths:
               required:
               - image_data
         required: true
-      security: []
+      security:
+      - tokenAuth: []
       responses:
         '200':
           description: Snapshot saved successfully
