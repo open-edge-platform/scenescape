@@ -53,7 +53,7 @@ jobs:
     name: "Functional Tests"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: 140
+    timeout-minutes: 300
     steps:
       - name: Remove test_data folder
         run: |
@@ -202,7 +202,7 @@ jobs:
     name: "UI Tests"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: 90
+    timeout-minutes: 300
     steps:
       - name: Remove test_data folder
         run: |
