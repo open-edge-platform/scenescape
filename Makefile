@@ -364,23 +364,29 @@ setup-tests: build-all-images init-secrets .env setup-pytest
 .PHONY: setup-pytest
 setup-pytest:
 	@if [ ! -d "$(CURDIR)/tests/.venv" ]; then \
-			python3 -m venv $(CURDIR)/tests/.venv; \
+		python3 -m venv $(CURDIR)/tests/.venv; \
 	fi
 	@echo "Installing venv dependencies..."; \
 	$(CURDIR)/tests/.venv/bin/pip install --progress-bar on --upgrade pip; \
 	cd $(CURDIR)/tests && $(CURDIR)/tests/.venv/bin/pip install --progress-bar on -r requirements.txt;
 	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "from fast_geometry import Point" 2>/dev/null; then \
-			echo "Building fast_geometry C++ extension..."; \
-			PATH="$(CURDIR)/tests/.venv/bin:$$PATH" \
-					$(MAKE) -C $(CURDIR)/scene_common/src/fast_geometry all install; \
+		echo "Building fast_geometry C++ extension..."; \
+		PATH="$(CURDIR)/tests/.venv/bin:$$PATH" \
+			$(MAKE) -C $(CURDIR)/scene_common/src/fast_geometry all install; \
+	fi
+	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision, 'tracking')" 2>/dev/null; then \
+		echo "Building robot_vision C++ extension..."; \
+		$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir scikit-build-core cmake; \
+		OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
+			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(CURDIR)/controller/src/robot_vision; \
 	fi
 	@if ! command -v firefox > /dev/null 2>&1; then \
-			echo "ERROR: Firefox is required for UI tests. See README.md for installation instructions."; \
-			exit 1; \
+		echo "ERROR: Firefox is required for UI tests. See README.md for installation instructions."; \
+		exit 1; \
 	fi
 	@if ! command -v Xvfb > /dev/null 2>&1; then \
-			echo "ERROR: Xvfb is required for UI tests. See README.md for installation instructions."; \
-			exit 1; \
+		echo "ERROR: Xvfb is required for UI tests. See README.md for installation instructions."; \
+		exit 1; \
 	fi
 
 .PHONY: run_tests
@@ -513,7 +519,7 @@ line-conformance:
 GENERATE_JUNITXML = -o junit_logging=all --junitxml tests/reports/test_reports/$@.xml
 
 .PHONY: run_metric_tests
-run_metric_tests: setup-tests
+run_metric_tests: setup-tests  setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running metric tests..."
 	$(MAKE) -j $(NPROCS) _run_metric_tests SUPASS=$(SUPASS) || (echo "Metric tests failed" && exit 1)
@@ -529,14 +535,14 @@ define metric-recipe =
 	@set -ex \
 	  ; echo RUNNING METRIC TEST $@ \
 	  ; if [ -n "$3" ] && [ -n "$4" ] && [ -n "$5" ]; then \
-	        METRIC="--metric $3" ; \
-	        THRESHOLD="--threshold $4" ; \
-	        FRAME_RATE="--camera_frame_rate $5" \
+		METRIC="--metric $3" ; \
+		THRESHOLD="--threshold $4" ; \
+		FRAME_RATE="--camera_frame_rate $5" \
 	  ; fi \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; $(DOCKER_RUN_CONTROLLER) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
-	                                   $${METRIC} $${THRESHOLD} $${FRAME_RATE} \
-	                                   -o junit_suite_name=$(TEST_SUITE) | tee -i $(LOGFILE) \
+	  ; $(PYTEST) -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
+			$${METRIC} $${THRESHOLD} $${FRAME_RATE} \
+			-o junit_suite_name=$(TEST_SUITE) | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 endef
