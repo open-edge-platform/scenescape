@@ -15,39 +15,39 @@ info:
     url: "https://github.com/open-edge-platform/scenescape/blob/main/LICENSES/Apache-2.0.txt"
 
 servers:
-- url: "https://localhost/api/v1"
+  - url: "https://localhost/api/v1"
 
 tags:
-- name: "asset"
-  description: "Operations related to assets"
-- name: "auth"
-  description: "Operations related to authentication"
-- name: "calibrationmarker"
-  description: "Operations related to calibration markers"
-- name: "camera"
-  description: "Operations related to cameras"
-- name: "child"
-  description: "Operations related to children"
-- name: "frame"
-  description: "Operations related to camera frames"
-- name: "region"
-  description: "Operations related to regions"
-- name: "scene"
-  description: "Operations related to scenes"
-- name: "sensor"
-  description: "Operations related to sensors"
-- name: "tripwire"
-  description: "Operations related to tripwires"
-- name: "user"
-  description: "Operations related to users"
-- name: "video"
-  description: "Operations related to camera videos"
+  - name: "asset"
+    description: "Operations related to assets"
+  - name: "auth"
+    description: "Operations related to authentication"
+  - name: "calibrationmarker"
+    description: "Operations related to calibration markers"
+  - name: "camera"
+    description: "Operations related to cameras"
+  - name: "child"
+    description: "Operations related to children"
+  - name: "frame"
+    description: "Operations related to camera frames"
+  - name: "region"
+    description: "Operations related to regions"
+  - name: "scene"
+    description: "Operations related to scenes"
+  - name: "sensor"
+    description: "Operations related to sensors"
+  - name: "tripwire"
+    description: "Operations related to tripwires"
+  - name: "user"
+    description: "Operations related to users"
+  - name: "video"
+    description: "Operations related to camera videos"
 
 paths:
   /asset:
     post:
       tags:
-      - asset
+        - asset
       operationId: asset_create
       summary: Create a new asset
       requestBody:
@@ -60,28 +60,28 @@ paths:
               $ref: "#/components/schemas/Asset3D"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "201":
           description: Created
         "400":
           description: Validation error
-        '401':
+        "401":
           description: Unauthorized
   /asset/{uid}:
     get:
       tags:
-      - asset
+        - asset
       operationId: asset_detail_retrieve
       summary: Get an asset by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Success
@@ -93,19 +93,19 @@ paths:
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     put:
       tags:
-      - asset
+        - asset
       operationId: asset_detail_update
       summary: Update an asset by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       requestBody:
         content:
           application/json:
@@ -116,7 +116,7 @@ paths:
               $ref: "#/components/schemas/Asset3D"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Updated
@@ -124,21 +124,21 @@ paths:
           description: Validation error or UID required
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     delete:
       tags:
-      - asset
+        - asset
       operationId: asset_detail_destroy
       summary: Delete an asset by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Deleted
@@ -146,35 +146,35 @@ paths:
           description: UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
   /assets:
     get:
       tags:
-      - asset
+        - asset
       operationId: assets_retrieve
       summary: List all assets
       parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - name: name
-        required: false
-        in: query
-        description: Filter by asset name.
-        schema:
-          type: string
-      - name: id
-        required: false
-        in: query
-        description: Filter by asset ID.
-        schema:
-          type: string
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: name
+          required: false
+          in: query
+          description: Filter by asset name.
+          schema:
+            type: string
+        - name: id
+          required: false
+          in: query
+          description: Filter by asset ID.
+          schema:
+            type: string
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           content:
@@ -187,7 +187,7 @@ paths:
   /auth:
     post:
       tags:
-      - auth
+        - auth
       operationId: auth_create
       summary: Obtain authentication token
       requestBody:
@@ -209,12 +209,14 @@ paths:
           description: ""
         "400":
           description: Invalid credentials
-        '401':
+        "401":
           description: Unauthorized
+        "411":
+          description: Length Required - missing Content-Length header
   /calibrationmarker:
     post:
       tags:
-      - calibrationmarker
+        - calibrationmarker
       operationId: calibrationmarker_create
       summary: Create a calibration marker
       requestBody:
@@ -224,28 +226,28 @@ paths:
               $ref: "#/components/schemas/CalibrationMarker"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "201":
           description: Created
         "400":
           description: Validation error
-        '401':
+        "401":
           description: Unauthorized
   /calibrationmarker/{marker_id}:
     get:
       tags:
-      - calibrationmarker
+        - calibrationmarker
       operationId: calibrationmarker_detail_retrieve
       summary: Get a calibration marker by marker ID
       parameters:
-      - in: path
-        name: marker_id
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: marker_id
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Success
@@ -257,19 +259,19 @@ paths:
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     put:
       tags:
-      - calibrationmarker
+        - calibrationmarker
       operationId: calibrationmarker_detail_update
       summary: Update a calibration marker by marker ID
       parameters:
-      - in: path
-        name: marker_id
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: marker_id
+          schema:
+            type: string
+          required: true
       requestBody:
         content:
           application/json:
@@ -277,7 +279,7 @@ paths:
               $ref: "#/components/schemas/CalibrationMarker"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Updated
@@ -285,21 +287,21 @@ paths:
           description: Validation error or UID required
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     delete:
       tags:
-      - calibrationmarker
+        - calibrationmarker
       operationId: calibrationmarker_detail_destroy
       summary: Delete a calibration marker by marker ID
       parameters:
-      - in: path
-        name: marker_id
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: marker_id
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Deleted
@@ -307,42 +309,42 @@ paths:
           description: UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
   /calibrationmarkers:
     get:
       tags:
-      - calibrationmarker
+        - calibrationmarker
       operationId: calibrationmarkers_retrieve
       summary: List all calibration markers
       parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - name: name
-        required: false
-        in: query
-        description: Filter by marker name.
-        schema:
-          type: string
-      - name: scene
-        required: false
-        in: query
-        description: Filter by scene UUID.
-        schema:
-          type: string
-          format: uuid
-      - name: id
-        required: false
-        in: query
-        description: Filter by marker ID.
-        schema:
-          type: string
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: name
+          required: false
+          in: query
+          description: Filter by marker name.
+          schema:
+            type: string
+        - name: scene
+          required: false
+          in: query
+          description: Filter by scene UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          required: false
+          in: query
+          description: Filter by marker ID.
+          schema:
+            type: string
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           content:
@@ -355,7 +357,7 @@ paths:
   /camera:
     post:
       tags:
-      - camera
+        - camera
       operationId: camera_create
       summary: Create a camera
       requestBody:
@@ -365,28 +367,28 @@ paths:
               $ref: "#/components/schemas/Cam"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "201":
           description: Created
         "400":
           description: Validation error
-        '401':
+        "401":
           description: Unauthorized
   /camera/{sensor_id}:
     get:
       tags:
-      - camera
+        - camera
       operationId: camera_detail_retrieve
       summary: Get a camera by sensor ID
       parameters:
-      - in: path
-        name: sensor_id
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: sensor_id
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Success
@@ -398,19 +400,19 @@ paths:
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     put:
       tags:
-      - camera
+        - camera
       operationId: camera_detail_update
       summary: Update a camera by sensor ID
       parameters:
-      - in: path
-        name: sensor_id
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: sensor_id
+          schema:
+            type: string
+          required: true
       requestBody:
         content:
           application/json:
@@ -418,7 +420,7 @@ paths:
               $ref: "#/components/schemas/Cam"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Updated
@@ -426,21 +428,21 @@ paths:
           description: Validation error or UID required
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     delete:
       tags:
-      - camera
+        - camera
       operationId: camera_detail_destroy
       summary: Delete a camera by sensor ID
       parameters:
-      - in: path
-        name: sensor_id
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: sensor_id
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Deleted
@@ -448,42 +450,42 @@ paths:
           description: UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
   /cameras:
     get:
       tags:
-      - camera
+        - camera
       operationId: cameras_retrieve
       summary: List all cameras
       parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - name: name
-        required: false
-        in: query
-        description: Filter by camera name.
-        schema:
-          type: string
-      - name: scene
-        required: false
-        in: query
-        description: Filter by scene UUID.
-        schema:
-          type: string
-          format: uuid
-      - name: id
-        required: false
-        in: query
-        description: Filter by camera ID.
-        schema:
-          type: string
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: name
+          required: false
+          in: query
+          description: Filter by camera name.
+          schema:
+            type: string
+        - name: scene
+          required: false
+          in: query
+          description: Filter by scene UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          required: false
+          in: query
+          description: Filter by camera ID.
+          schema:
+            type: string
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           content:
@@ -496,7 +498,7 @@ paths:
   /child:
     post:
       tags:
-      - child
+        - child
       operationId: child_create
       summary: Create a child scene
       requestBody:
@@ -506,28 +508,28 @@ paths:
               $ref: "#/components/schemas/ChildScene"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "201":
           description: Created
         "400":
           description: Validation error
-        '401':
+        "401":
           description: Unauthorized
   /child/{uid}:
     get:
       tags:
-      - child
+        - child
       operationId: child_detail_retrieve
       summary: Get a child scene by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Success
@@ -539,19 +541,19 @@ paths:
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     put:
       tags:
-      - child
+        - child
       operationId: child_detail_update
       summary: Update a child scene by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       requestBody:
         content:
           application/json:
@@ -559,7 +561,7 @@ paths:
               $ref: "#/components/schemas/ChildScene"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Updated
@@ -567,21 +569,21 @@ paths:
           description: Validation error or UID required
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     delete:
       tags:
-      - child
+        - child
       operationId: child_detail_destroy
       summary: Delete a child scene by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Deleted
@@ -589,36 +591,36 @@ paths:
           description: UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
   /scenes/child:
     get:
       tags:
-      - child
+        - child
       operationId: scenes_child_list
       summary: List all child scene links
       parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - name: parent
-        required: false
-        in: query
-        description: Filter by parent scene UUID.
-        schema:
-          type: string
-          format: uuid
-      - name: id
-        required: false
-        in: query
-        description: Filter by child scene link ID.
-        schema:
-          type: string
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: parent
+          required: false
+          in: query
+          description: Filter by parent scene UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          required: false
+          in: query
+          description: Filter by child scene link ID.
+          schema:
+            type: string
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Success
@@ -631,29 +633,29 @@ paths:
   /frame:
     get:
       tags:
-      - frame
+        - frame
       operationId: frame_retrieve
       summary: Get a camera frame
       parameters:
-      - in: query
-        name: camera
-        schema:
-          type: string
-        description: Camera ID
-        required: true
-      - in: query
-        name: timestamp
-        schema:
-          type: string
-        description: ISO timestamp (required for frame)
-        required: true
-      - in: query
-        name: type
-        schema:
-          type: string
-        description: Frame type filter
+        - in: query
+          name: camera
+          schema:
+            type: string
+          description: Camera ID
+          required: true
+        - in: query
+          name: timestamp
+          schema:
+            type: string
+          description: ISO timestamp (required for frame)
+          required: true
+        - in: query
+          name: type
+          schema:
+            type: string
+          description: Frame type filter
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Frame data or video file
@@ -661,12 +663,12 @@ paths:
           description: Not found
         "503":
           description: Broker unavailable
-        '401':
+        "401":
           description: Unauthorized
   /region:
     post:
       tags:
-      - region
+        - region
       operationId: region_create
       summary: Create a region
       requestBody:
@@ -676,28 +678,28 @@ paths:
               $ref: "#/components/schemas/Region"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "201":
           description: Created
         "400":
           description: Validation error
-        '401':
+        "401":
           description: Unauthorized
   /region/{uid}:
     get:
       tags:
-      - region
+        - region
       operationId: region_detail_retrieve
       summary: Get a region by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Success
@@ -709,19 +711,19 @@ paths:
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     put:
       tags:
-      - region
+        - region
       operationId: region_detail_update
       summary: Update a region by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       requestBody:
         content:
           application/json:
@@ -729,7 +731,7 @@ paths:
               $ref: "#/components/schemas/Region"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Updated
@@ -737,21 +739,21 @@ paths:
           description: Validation error or UID required
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     delete:
       tags:
-      - region
+        - region
       operationId: region_detail_destroy
       summary: Delete a region by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Deleted
@@ -759,42 +761,42 @@ paths:
           description: UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
   /regions:
     get:
       tags:
-      - region
+        - region
       operationId: regions_retrieve
       summary: List all regions
       parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - name: name
-        required: false
-        in: query
-        description: Filter by region name.
-        schema:
-          type: string
-      - name: scene
-        required: false
-        in: query
-        description: Filter by scene UUID.
-        schema:
-          type: string
-          format: uuid
-      - name: id
-        required: false
-        in: query
-        description: Filter by region ID.
-        schema:
-          type: string
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: name
+          required: false
+          in: query
+          description: Filter by region name.
+          schema:
+            type: string
+        - name: scene
+          required: false
+          in: query
+          description: Filter by scene UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          required: false
+          in: query
+          description: Filter by region ID.
+          schema:
+            type: string
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           content:
@@ -807,7 +809,7 @@ paths:
   /scene:
     post:
       tags:
-      - scene
+        - scene
       operationId: scene_create
       summary: Create a scene
       requestBody:
@@ -820,28 +822,28 @@ paths:
               $ref: "#/components/schemas/Scene"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "201":
           description: Created
         "400":
           description: Validation error
-        '401':
+        "401":
           description: Unauthorized
   /scene/{uid}:
     get:
       tags:
-      - scene
+        - scene
       operationId: scene_detail_retrieve
       summary: Get a scene by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Success
@@ -853,19 +855,19 @@ paths:
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     put:
       tags:
-      - scene
+        - scene
       operationId: scene_detail_update
       summary: Update a scene by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       requestBody:
         content:
           application/json:
@@ -876,7 +878,7 @@ paths:
               $ref: "#/components/schemas/Scene"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Updated
@@ -884,21 +886,21 @@ paths:
           description: Validation error or UID required
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     delete:
       tags:
-      - scene
+        - scene
       operationId: scene_detail_destroy
       summary: Delete a scene by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Deleted
@@ -906,42 +908,42 @@ paths:
           description: UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
   /scenes:
     get:
       tags:
-      - scene
+        - scene
       operationId: scenes_retrieve
       summary: List all scenes
       parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - name: name
-        required: false
-        in: query
-        description: Filter by scene name.
-        schema:
-          type: string
-      - name: parent
-        required: false
-        in: query
-        description: Filter by parent scene UUID.
-        schema:
-          type: string
-          format: uuid
-      - name: id
-        required: false
-        in: query
-        description: Filter by scene ID.
-        schema:
-          type: string
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: name
+          required: false
+          in: query
+          description: Filter by scene name.
+          schema:
+            type: string
+        - name: parent
+          required: false
+          in: query
+          description: Filter by parent scene UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          required: false
+          in: query
+          description: Filter by scene ID.
+          schema:
+            type: string
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           content:
@@ -954,7 +956,7 @@ paths:
   /sensor:
     post:
       tags:
-      - sensor
+        - sensor
       operationId: sensor_create
       summary: Create a sensor
       requestBody:
@@ -964,28 +966,28 @@ paths:
               $ref: "#/components/schemas/Singleton"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "201":
           description: Created
         "400":
           description: Validation error
-        '401':
+        "401":
           description: Unauthorized
   /sensor/{sensor_id}:
     get:
       tags:
-      - sensor
+        - sensor
       operationId: sensor_detail_retrieve
       summary: Get a sensor by sensor ID
       parameters:
-      - in: path
-        name: sensor_id
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: sensor_id
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Success
@@ -997,19 +999,19 @@ paths:
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     put:
       tags:
-      - sensor
+        - sensor
       operationId: sensor_detail_update
       summary: Update a sensor by sensor ID
       parameters:
-      - in: path
-        name: sensor_id
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: sensor_id
+          schema:
+            type: string
+          required: true
       requestBody:
         content:
           application/json:
@@ -1017,7 +1019,7 @@ paths:
               $ref: "#/components/schemas/Singleton"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Updated
@@ -1025,21 +1027,21 @@ paths:
           description: Validation error or UID required
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     delete:
       tags:
-      - sensor
+        - sensor
       operationId: sensor_detail_destroy
       summary: Delete a sensor by sensor ID
       parameters:
-      - in: path
-        name: sensor_id
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: sensor_id
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Deleted
@@ -1047,42 +1049,42 @@ paths:
           description: UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
   /sensors:
     get:
       tags:
-      - sensor
+        - sensor
       operationId: sensors_retrieve
       summary: List all sensors
       parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - name: name
-        required: false
-        in: query
-        description: Filter by sensor name.
-        schema:
-          type: string
-      - name: scene
-        required: false
-        in: query
-        description: Filter by scene UUID.
-        schema:
-          type: string
-          format: uuid
-      - name: id
-        required: false
-        in: query
-        description: Filter by sensor ID.
-        schema:
-          type: string
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: name
+          required: false
+          in: query
+          description: Filter by sensor name.
+          schema:
+            type: string
+        - name: scene
+          required: false
+          in: query
+          description: Filter by scene UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          required: false
+          in: query
+          description: Filter by sensor ID.
+          schema:
+            type: string
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           content:
@@ -1095,7 +1097,7 @@ paths:
   /tripwire:
     post:
       tags:
-      - tripwire
+        - tripwire
       operationId: tripwire_create
       summary: Create a tripwire
       requestBody:
@@ -1105,28 +1107,28 @@ paths:
               $ref: "#/components/schemas/Tripwire"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "201":
           description: Created
         "400":
           description: Validation error
-        '401':
+        "401":
           description: Unauthorized
   /tripwire/{uid}:
     get:
       tags:
-      - tripwire
+        - tripwire
       operationId: tripwire_detail_retrieve
       summary: Get a tripwire by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Success
@@ -1138,19 +1140,19 @@ paths:
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     put:
       tags:
-      - tripwire
+        - tripwire
       operationId: tripwire_detail_update
       summary: Update a tripwire by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       requestBody:
         content:
           application/json:
@@ -1158,7 +1160,7 @@ paths:
               $ref: "#/components/schemas/Tripwire"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Updated
@@ -1166,21 +1168,21 @@ paths:
           description: Validation error or UID required
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     delete:
       tags:
-      - tripwire
+        - tripwire
       operationId: tripwire_detail_destroy
       summary: Delete a tripwire by UID
       parameters:
-      - in: path
-        name: uid
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Deleted
@@ -1188,42 +1190,42 @@ paths:
           description: UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
   /tripwires:
     get:
       tags:
-      - tripwire
+        - tripwire
       operationId: tripwires_retrieve
       summary: List all tripwires
       parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - name: name
-        required: false
-        in: query
-        description: Filter by tripwire name.
-        schema:
-          type: string
-      - name: scene
-        required: false
-        in: query
-        description: Filter by scene UUID.
-        schema:
-          type: string
-          format: uuid
-      - name: id
-        required: false
-        in: query
-        description: Filter by tripwire ID.
-        schema:
-          type: string
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: name
+          required: false
+          in: query
+          description: Filter by tripwire name.
+          schema:
+            type: string
+        - name: scene
+          required: false
+          in: query
+          description: Filter by scene UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          required: false
+          in: query
+          description: Filter by tripwire ID.
+          schema:
+            type: string
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           content:
@@ -1236,7 +1238,7 @@ paths:
   /user:
     post:
       tags:
-      - user
+        - user
       operationId: user_create
       summary: Create a user
       requestBody:
@@ -1246,28 +1248,28 @@ paths:
               $ref: "#/components/schemas/User"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "201":
           description: Created
         "400":
           description: Validation error
-        '401':
+        "401":
           description: Unauthorized
   /user/{username}:
     get:
       tags:
-      - user
+        - user
       operationId: user_detail_retrieve
       summary: Get a user by username
       parameters:
-      - in: path
-        name: username
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: username
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Success
@@ -1279,19 +1281,19 @@ paths:
           description: Bad request - UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     put:
       tags:
-      - user
+        - user
       operationId: user_detail_update
       summary: Update a user by username
       parameters:
-      - in: path
-        name: username
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: username
+          schema:
+            type: string
+          required: true
       requestBody:
         content:
           application/json:
@@ -1299,7 +1301,7 @@ paths:
               $ref: "#/components/schemas/User"
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Updated
@@ -1307,21 +1309,21 @@ paths:
           description: Validation error or UID required
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
     delete:
       tags:
-      - user
+        - user
       operationId: user_detail_destroy
       summary: Delete a user by username
       parameters:
-      - in: path
-        name: username
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: username
+          schema:
+            type: string
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Deleted
@@ -1329,35 +1331,35 @@ paths:
           description: UID required or invalid format
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
   /users:
     get:
       tags:
-      - user
+        - user
       operationId: users_retrieve
       summary: List all users
       parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - name: username
-        required: false
-        in: query
-        description: Filter by username.
-        schema:
-          type: string
-      - name: id
-        required: false
-        in: query
-        description: Filter by user ID.
-        schema:
-          type: string
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: username
+          required: false
+          in: query
+          description: Filter by username.
+          schema:
+            type: string
+        - name: id
+          required: false
+          in: query
+          description: Filter by user ID.
+          schema:
+            type: string
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           content:
@@ -1370,18 +1372,18 @@ paths:
   /video:
     get:
       tags:
-      - video
+        - video
       operationId: video_retrieve
       summary: Get a video
       parameters:
-      - in: query
-        name: camera
-        schema:
-          type: string
-        description: Camera ID
-        required: true
+        - in: query
+          name: camera
+          schema:
+            type: string
+          description: Camera ID
+          required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Frame data or video file
@@ -1389,12 +1391,12 @@ paths:
           description: Not found
         "503":
           description: Broker unavailable
-        '401':
+        "401":
           description: Unauthorized
   /database-ready:
     get:
       tags:
-      - auth
+        - auth
       operationId: database_ready_retrieve
       summary: Check if the database is ready
       description: >-
@@ -1423,12 +1425,12 @@ paths:
                     type: boolean
         "404":
           description: Not found
-        '401':
+        "401":
           description: Unauthorized
   /calculateintrinsics:
     post:
       tags:
-      - camera
+        - camera
       operationId: calculate_intrinsics_create
       summary: Calculate camera intrinsics from point correspondences
       description: >-
@@ -1483,13 +1485,13 @@ paths:
                   additionalProperties:
                     type: boolean
               required:
-              - mapPoints
-              - camPoints
-              - intrinsics
-              - distortion
-              - imageSize
+                - mapPoints
+                - camPoints
+                - intrinsics
+                - distortion
+                - imageSize
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Intrinsics calculated successfully
@@ -1528,12 +1530,12 @@ paths:
                     description: Calibrated distortion coefficients
         "400":
           description: Invalid input (mismatched point counts, fewer than 4 points, or calculation error)
-        '401':
+        "401":
           description: Unauthorized
   /aclcheck:
     post:
       tags:
-      - auth
+        - auth
       operationId: acl_check_create
       summary: Check MQTT ACL permissions for a user and topic
       description: >-
@@ -1557,9 +1559,9 @@ paths:
                   type: integer
                   description: Requested access level (1=read, 2=write, 3=read+write, 4=subscribe)
               required:
-              - username
-              - topic
-              - acc
+                - username
+                - topic
+                - acc
       security: []
       responses:
         "200":
@@ -1572,7 +1574,7 @@ paths:
                   result:
                     type: string
                     enum:
-                    - allow
+                      - allow
                   acc:
                     type: integer
         "400":
@@ -1587,13 +1589,13 @@ paths:
                   result:
                     type: string
                     enum:
-                    - deny
-        '401':
+                      - deny
+        "401":
           description: Unauthorized
   /import-scene:
     post:
       tags:
-      - scene
+        - scene
       operationId: import_scene_create
       summary: Import a scene from a ZIP archive
       requestBody:
@@ -1606,23 +1608,25 @@ paths:
                   type: string
                   format: binary
               required:
-              - zipFile
+                - zipFile
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "201":
           description: Scene imported successfully
         "400":
           description: Missing or invalid zip file
+        "401":
+          description: Unauthorized
+        "405":
+          description: Method not allowed
         "500":
           description: Internal server error
-        '401':
-          description: Unauthorized
   /save-geospatial-snapshot:
     post:
       tags:
-      - scene
+        - scene
       operationId: save_geospatial_snapshot_create
       summary: Save a geospatial map snapshot as PNG
       requestBody:
@@ -1635,31 +1639,24 @@ paths:
                   type: string
                   description: Base64-encoded PNG image (data URL or raw base64)
               required:
-              - image_data
+                - image_data
         required: true
       security:
-      - tokenAuth: []
+        - tokenAuth: []
       responses:
         "200":
           description: Snapshot saved successfully
           content:
-            application/json:
+            text/html:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  filename:
-                    type: string
-                  media_url:
-                    type: string
+                type: string
         "400":
           description: Missing or invalid image data
         "405":
           description: Method not allowed
         "500":
           description: Internal server error
-        '401':
+        "401":
           description: Unauthorized
 components:
   schemas:
@@ -1714,7 +1711,6 @@ components:
           format: double
           title: Tracking radius (meters)
         shift_type:
-          nullable: true
           oneOf:
             - $ref: "#/components/schemas/ShiftTypeEnum"
             - $ref: "#/components/schemas/NullEnum"
@@ -1731,12 +1727,10 @@ components:
           format: double
           nullable: true
         project_to_map:
-          nullable: true
           oneOf:
             - $ref: "#/components/schemas/OutputLlaEnum"
             - $ref: "#/components/schemas/NullEnum"
         rotation_from_velocity:
-          nullable: true
           oneOf:
             - $ref: "#/components/schemas/OutputLlaEnum"
             - $ref: "#/components/schemas/NullEnum"
@@ -1803,7 +1797,6 @@ components:
           nullable: true
           description: Center of mass offset [x, y, z] in meters from geometric center
         is_static:
-          nullable: true
           description: |-
             Whether object can move on its own
 
@@ -1972,7 +1965,6 @@ components:
           nullable: true
           maxLength: 64
         cv_subsystem:
-          nullable: true
           title: Decode Device
           oneOf:
             - $ref: "#/components/schemas/CvSubsystemEnum"
@@ -1987,10 +1979,7 @@ components:
         use_camera_pipeline:
           type: boolean
           nullable: true
-          description:
-            Enable to directly apply the Camera Pipeline string in the
-            camera VA pipeline instead of generating it automatically from camera
-            settings.
+          description: Enable to directly apply the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings.
         detection_labels:
           type: string
           nullable: true
@@ -2011,9 +2000,9 @@ components:
           nullable: true
           description:
             The camera pipeline string in gst-launch-1.0 syntax which will
-            be applied in camera VA pipeline once 'Use Camera Pipeline' is enabled
-            and 'Save Camera' button is clicked. Please review and/or adjust it before
-            applying.
+            be applied in camera VA pipeline once 'Use Camera Pipeline'
+            is enabled and 'Save Camera' button is clicked.
+            Please review and/or adjust it before applying.
           maxLength: 5000
       required:
         - name
@@ -2182,7 +2171,7 @@ components:
         * `geospatial_map` - Geospatial Map
     NullEnum:
       enum:
-        - null
+        -
     OutputLlaEnum:
       enum:
         - true
@@ -2435,7 +2424,6 @@ components:
           format: double
           minimum: 0.001
         volumetric:
-          nullable: true
           oneOf:
             - $ref: "#/components/schemas/OutputLlaEnum"
             - $ref: "#/components/schemas/NullEnum"
@@ -2465,14 +2453,12 @@ components:
           type: string
           maxLength: 150
         map_type:
-          nullable: true
           oneOf:
             - $ref: "#/components/schemas/MapTypeEnum"
             - $ref: "#/components/schemas/NullEnum"
         use_tracker:
           $ref: "#/components/schemas/OutputLlaEnum"
         output_lla:
-          nullable: true
           title: Output geospatial coordinates
           oneOf:
             - $ref: "#/components/schemas/OutputLlaEnum"
@@ -2487,6 +2473,7 @@ components:
               format: double
           readOnly: true
         map_corners_lla:
+          type: array
           nullable: true
           title: Geospatial coordinates of the four map corners in JSON format
           description: |-
@@ -2550,7 +2537,7 @@ components:
         scale:
           type: number
           format: double
-          minimum: 5.0e-324
+          minimum: 4.9e-324
           nullable: true
           title: Pixels per meter
         children:
@@ -2596,8 +2583,10 @@ components:
           title: Global Feature Matching Algorithm
           maxLength: 200
         local_feature:
+          type: string
           nullable: true
         matcher:
+          type: string
           nullable: true
         minimum_number_of_matches:
           type: integer
@@ -2610,7 +2599,6 @@ components:
           minimum: 0.0
           title: Feature Match Confidence Threshold
         geospatial_provider:
-          nullable: true
           title: Geospatial Map Provider
           description: |-
             The map provider used for geospatial maps (google or mapbox)
@@ -2801,9 +2789,7 @@ components:
           readOnly: true
         username:
           type: string
-          description:
-            Required. 150 characters or fewer. Letters, digits and @/./+/-/_
-            only.
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.
           pattern: ^[\w.@+-]+$
           maxLength: 150
         password:
@@ -2813,9 +2799,7 @@ components:
         is_active:
           type: boolean
           title: Active
-          description:
-            Designates whether this user should be treated as active. Unselect
-            this instead of deleting accounts.
+          description: Designates whether this user should be treated as active. Unselect this instead of deleting accounts.
         is_staff:
           type: boolean
           title: Staff status
@@ -2823,9 +2807,7 @@ components:
         is_superuser:
           type: boolean
           title: Superuser status
-          description:
-            Designates that this user has all permissions without explicitly
-            assigning them.
+          description: Designates that this user has all permissions without explicitly assigning them.
         first_name:
           type: string
           maxLength: 150
