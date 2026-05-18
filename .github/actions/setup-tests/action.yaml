@@ -66,6 +66,12 @@ runs:
         tar -xzf geckodriver.tar.gz
         sudo mv geckodriver /usr/local/bin/
 
+    - name: "Install robot_vision dependencies"
+      shell: bash
+      run: |
+        sudo apt update
+        sudo apt install -y libopencv-dev libeigen3-dev
+
     - name: "Setup Test Environment"
       shell: bash
       run: |
