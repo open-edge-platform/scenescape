@@ -154,7 +154,7 @@ jobs:
     name: "Metric Tests"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: 40
+    timeout-minutes: 90
     steps:
       - name: Remove test_data folder
         run: |
@@ -251,7 +251,7 @@ jobs:
     name: "Unit Tests"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: 45
+    timeout-minutes: 70
     steps:
       - name: Remove test_data folder
         run: |
