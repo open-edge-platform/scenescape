@@ -23,5 +23,5 @@ PyYAML==6.0.3
 requests==2.33.0
 scipy==1.17.1
 trimesh==4.11.5
-urllib3==2.6.3
+urllib3==2.7.0
 websockets==15.0.1
