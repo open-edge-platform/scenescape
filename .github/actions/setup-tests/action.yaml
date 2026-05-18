@@ -11,6 +11,11 @@ inputs:
   ghcr-token:
     description: 'GitHub Container Registry token'
     required: true
+  skip-image-build:
+    description: 'Skip building Docker images'
+    required: false
+    default: false
+    type: boolean
 runs:
   using: "composite"
   steps:
@@ -72,10 +77,16 @@ runs:
         sudo apt update
         sudo apt install -y libopencv-dev libeigen3-dev
 
+    - name: "Build images"
+      if: ${{ inputs.skip-image-build == 'false' }}
+      shell: bash
+      run: |
+        make
+
     - name: "Setup Test Environment"
       shell: bash
       run: |
-        make && make setup-tests
+        make setup-tests
 
     - name: "Install github annotate plugin"
       shell: bash
