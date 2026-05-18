@@ -10,11 +10,7 @@ secrets:
 
 services:
   queuing-video:
-<<<<<<< feature/tests-rework-to-pytest
-    image: docker.io/intel/dlstreamer-pipeline-server:${DLSTREAMER_VERSION:-2026.1.0-20260428-weekly-ubuntu24}
-=======
     image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24-rc1
->>>>>>> main
     networks:
       scenescape-test:
     tty: true
