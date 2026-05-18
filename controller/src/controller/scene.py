@@ -19,7 +19,10 @@ from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegio
 
 from controller.controller_mode import ControllerMode
 from controller.moving_object import ChainData
-from controller.person_pose import PersonPoseAdjuster
+from controller.person_pose import (PersonPoseAdjuster,
+                                     MIN_POSE_CACHE_TTL,
+                                     POSE_CACHE_TTL_MULTIPLIER,
+                                     PERSON_POSE_ADJUSTMENT_ENV_VAR)
 from controller.ilabs_tracking import IntelLabsTracking
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -27,9 +30,6 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_STATIC,
                                  EFFECTIVE_OBJECT_UPDATE_RATE,
                                  DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
-MIN_POSE_CACHE_TTL = 10.0
-POSE_CACHE_TTL_MULTIPLIER = 30
-PERSON_POSE_ADJUSTMENT_ENV_VAR = 'CONTROLLER_ENABLE_PERSON_POSE_ADJUSTMENT'
 
 DEBOUNCE_DELAY = 0.5
 MIN_FRAMES_FOR_RELIABLE_TRACK = 3
