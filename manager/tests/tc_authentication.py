@@ -145,8 +145,8 @@ def test_auth_unauthenticated_request_is_rejected(params, record_xml_attribute):
   exit_code = 1
 
   try:
-    response = requests.get(
-      f"{params['resturl']}/scenes",
+    response = requests.post(
+      f"{params['resturl']}/save-geospatial-snapshot",
       verify=params["rootcert"],
     )
     assert response.status_code == HTTPStatus.UNAUTHORIZED, \
