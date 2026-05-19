@@ -18,6 +18,8 @@ from http import HTTPStatus
 from scene_common.rest_client import RESTClient
 from tests.common_test_utils import record_test_result
 
+_TEST_USER = "general_user"
+_TEST_PASS = "general_pass"
 
 def test_auth_token_generation_with_valid_credentials(params, record_xml_attribute):
   """Verify that POST /auth returns HTTP 200 and a non-empty token when
@@ -32,14 +34,14 @@ def test_auth_token_generation_with_valid_credentials(params, record_xml_attribu
     "Admin authentication failed"
 
   try:
-    result = rest.createUser({"username": "new_user", "password": "new_pass"})
+    result = rest.createUser({"username": _TEST_USER, "password": _TEST_PASS})
     assert result.statusCode == HTTPStatus.CREATED, \
       f"Failed to create test user: {result.errors}"
     user_created = True
 
     response = requests.post(
       f"{params['resturl']}/auth",
-      data={"username": "new_user", "password": "new_pass"},
+      data={"username": _TEST_USER, "password": _TEST_PASS},
       verify=params["rootcert"],
     )
     assert response.status_code == HTTPStatus.OK, \
@@ -53,7 +55,7 @@ def test_auth_token_generation_with_valid_credentials(params, record_xml_attribu
     exit_code = 0
   finally:
     if user_created:
-      rest.deleteUser("new_user")
+      rest.deleteUser(_TEST_USER)
     record_test_result(TEST_NAME, exit_code)
 
 
@@ -90,14 +92,14 @@ def test_auth_invalid_password_is_rejected(params, record_xml_attribute):
     "Admin authentication failed"
 
   try:
-    result = rest.createUser({"username": "new_user", "password": "new_pass"})
+    result = rest.createUser({"username": _TEST_USER, "password": _TEST_PASS})
     assert result.statusCode == HTTPStatus.CREATED, \
       f"Failed to create test user: {result.errors}"
     user_created = True
 
     response = requests.post(
       f"{params['resturl']}/auth",
-      data={"username": "new_user", "password": "WrongPassword!"},
+      data={"username": _TEST_USER, "password": "WrongPassword!"},
       verify=params["rootcert"],
     )
     assert response.status_code == HTTPStatus.BAD_REQUEST, \
@@ -106,7 +108,7 @@ def test_auth_invalid_password_is_rejected(params, record_xml_attribute):
     exit_code = 0
   finally:
     if user_created:
-      rest.deleteUser("new_user")
+      rest.deleteUser(_TEST_USER)
     record_test_result(TEST_NAME, exit_code)
 
 
@@ -124,7 +126,7 @@ def test_auth_missing_required_field_is_rejected(params, record_xml_attribute):
   try:
     response = requests.post(
       f"{params['resturl']}/auth",
-      data={"username": params["user"]},
+      data={"username": _TEST_USER},
       verify=params["rootcert"],
     )
     assert response.status_code == HTTPStatus.BAD_REQUEST, \
