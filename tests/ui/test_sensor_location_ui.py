@@ -9,6 +9,8 @@ from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -28,7 +30,8 @@ def change_sensor_location(browser, sensor_name):
   if map_canvas is None:
     return retVal
   browser.execute_script("window.scrollTo(0,100);")
-  sensor_draggable = browser.find_elements(By.CSS_SELECTOR, ".is-handle")
+  sensor_draggable = browser.find_elements_with_wait(By.CSS_SELECTOR, ".is-handle")
+  assert len(sensor_draggable) > 0, "Sensor location element not found"
   sensor = sensor_draggable[-1]
 
   action = browser.actionChains()

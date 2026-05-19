@@ -78,8 +78,8 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     initial_cam_x = cam_values_init[0][0]
     initial_map_x = map_values_init[0][0]
     log.info("Take_screenshot before manual calibration")
-    camera_view_before = browser.find_element(By.ID, 'camera_img_canvas')
-    map_view_before = browser.find_element(By.ID, 'map_canvas_3D')
+    camera_view_before = browser.find_elements_with_wait(By.ID, 'camera_img_canvas',30)
+    map_view_before = browser.find_elements_with_wait(By.ID, 'map_canvas_3D',30)
     cam_pic_before = common.get_element_screenshot(camera_view_before)
     map_pic_before = common.get_element_screenshot(map_view_before)
     log.info("Screenshot taken before manual calibration")
@@ -96,8 +96,8 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     time.sleep(TEST_WAIT_TIME)
 
     log.info("Take_screenshot after saving manual calibration")
-    camera_view_after = browser.find_element(By.ID, 'camera_img_canvas')
-    map_view_after = browser.find_element(By.ID, 'map_canvas_3D')
+    camera_view_after = browser.find_elements_with_wait(By.ID, 'camera_img_canvas',30)
+    map_view_after = browser.find_elements_with_wait(By.ID, 'map_canvas_3D',30)
     cam_pic_after = common.get_element_screenshot(camera_view_after)
     map_pic_after = common.get_element_screenshot(map_view_after)
     log.info("Screenshot taken after saving manual calibration")

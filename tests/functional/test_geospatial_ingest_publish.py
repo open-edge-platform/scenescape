@@ -137,7 +137,7 @@ class GeospatialIngestPublish(FunctionalTest):
     assert res, (res.statusCode, res.errors)
     time.sleep(MAX_WAIT_TIMEOUT)
     res = self.rest.getScene(self.sceneUID)
-    assert res['trs_matrix']
+    assert 'trs_matrix' in res and res['trs_matrix']
     res = self.rest.updateScene(self.sceneUID, {'output_lla': False})
     assert 'trs_matrix' not in res
     return
