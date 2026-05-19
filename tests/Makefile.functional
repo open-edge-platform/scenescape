@@ -443,3 +443,10 @@ tracker-with-no-detections: # NEX-T10544
 	$(call common-recipe, $(COMPOSE_FILES), tests/functional/tc_tracker_with_no_detection.py, 'pgserver web scene', true, /run/secrets/controller.auth)
 	$(eval override BASE_IMAGE := $(IMAGE_OLD))
 	$(eval SECRETSDIR := $(OLDSECRETSDIR))
+
+sscape-auth:
+	$(eval COMPOSE_FILES := $(COMPOSE)/pgserver.yml:$(COMPOSE)/web.yml)
+	$(eval OLDSECRETSDIR := $(SECRETSDIR))
+	$(eval SECRETSDIR := $(PWD)/manager/secrets)
+	$(call common-recipe, $(COMPOSE_FILES), manager/tests/tc_auth.py, 'pgserver web', true, /run/secrets/controller.auth)
+	$(eval SECRETSDIR := $(OLDSECRETSDIR))
