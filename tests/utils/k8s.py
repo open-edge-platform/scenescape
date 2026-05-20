@@ -352,11 +352,11 @@ class K8sManager:
         logger.info("Tag already exists: %s", new_tag)
 
       try:
-        # self._cluster.load_image(new_tag)
-        subprocess.run(
-          ["kind", "load", "docker-image", new_tag, "--name", "pytest-test-cluster"],
-          check=True, capture_output=True, text=True,
-        )
+        self._cluster.load_image(new_tag)
+        # subprocess.run(
+        #   ["kind", "load", "docker-image", new_tag, "--name", "pytest-test-cluster"],
+        #   check=True, capture_output=True, text=True,
+        # )
         logger.info("Loaded image into kind: %s", new_tag)
       except subprocess.CalledProcessError as exc:
         logger.error("Failed loading image into kind: %s", new_tag)

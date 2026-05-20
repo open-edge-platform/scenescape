@@ -106,6 +106,7 @@ runs:
     - name: Add SceneScape host aliases
       shell: bash
       run: |
+        sudo rm -f /etc/hosts || true
         HOST_IP="$(hostname -I | awk '{print $1}')"
         for h in broker.scenescape.intel.com web.scenescape.intel.com autocalibration.scenescape.intel.com vdms.scenescape.intel.com; do
           echo "$HOST_IP $h" | sudo tee -a /etc/hosts > /dev/null
