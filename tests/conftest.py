@@ -121,9 +121,9 @@ def pytest_addoption(parser):
                                 help="user to log into REST server")),
     ("--password",         dict(default=None,
                                 help="password to log into REST server")),
-    ("--auth",             dict(default="/run/secrets/controller.auth",
+    ("--auth",             dict(default=str(_REPO_ROOT / "manager" / "secrets" / "controller.auth"),
                                 help="user:password or JSON file for MQTT authentication")),
-    ("--rootcert",         dict(default="/run/secrets/certs/scenescape-ca.pem",
+    ("--rootcert",         dict(default=str(_REPO_ROOT / "manager" / "secrets" / "certs" / "scenescape-ca.pem"),
                                 help="path to CA certificate")),
     ("--broker_url",       dict(default="broker.scenescape.intel.com",
                                 help="hostname or IP of MQTT broker")),
@@ -303,6 +303,7 @@ def params(request, scenescape_env):
     'weburl': request.config.getoption('--weburl'),
     'resturl': request.config.getoption('--resturl'),
     'scene_name': request.config.getoption('--scene_name'),
+    'expect_exceed_max': request.config.getoption('--expect_exceed_max'),
   }
 
 def pytest_runtest_makereport(item, call):
