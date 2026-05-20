@@ -41,3 +41,12 @@ runs:
       shell: bash
       run: |
         sudo git clean -fxd || true
+
+    - name: "Reset docker"
+      if: always()
+      shell: bash
+      run: |
+        sudo rm -f /etc/docker/daemon.json || true
+        sudo systemctl daemon-reload || true
+        sudo systemctl restart docker || true
+        docker context use default || true
