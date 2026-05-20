@@ -181,6 +181,20 @@ MARKERLESS = ServiceProfile(
   },
 )
 
+INFERENCE_PERF = ServiceProfile(
+  name="inference_perf",
+  compose_files=(
+    f"{DLS}/broker.yml",
+    f"{COMPOSE}/ntp.yml",
+    f"{COMPOSE}/cams.yml",
+    f"{DLS}/retail_video.yml",
+  ),
+  wait_for={
+    "broker": _BROKER,
+    "retail-video": WaitConfig(timeout=120),
+  },
+)
+
 # Registry: maps profile name -> ServiceProfile for CLI lookup
 PROFILE_REGISTRY: dict = {
   p.name: p
@@ -192,5 +206,6 @@ PROFILE_REGISTRY: dict = {
     FULL_STACK_AUTOCALIBRATION,
     SCENE_NO_DB,
     MARKERLESS,
+    INFERENCE_PERF,
   ]
 }
