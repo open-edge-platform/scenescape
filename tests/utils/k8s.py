@@ -569,7 +569,6 @@ class K8sManager:
     encoded = secret_data["data"][key]
     decoded = base64.b64decode(encoded).decode("utf-8")
     output_path.write_text(decoded)
-    logger.info("Extracted secret %s/%s → %s", secret_name, key, output_path)
     return output_path
 
   def _port_forward(self, target, local_port, remote_port):
