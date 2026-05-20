@@ -21,6 +21,31 @@ from tests.common_test_utils import record_test_result
 _TEST_USER = "general_user"
 _TEST_PASS = "general_pass"
 
+POST_ENTITIES = [
+"/asset",
+"/auth",
+"/calibrationmarker",
+"/camera",
+"/child",
+"/region",
+"/scene",
+"/sensor",
+"/tripwire",
+"/user",
+]
+
+GET_ENTITIES = [
+"/assets",
+"/calibrationmarkers",
+"/cameras",
+"/scenes/child",
+"/regions",
+"/scenes",
+"/sensors",
+"/tripwires",
+"/users",
+]
+
 def test_auth_token_generation_with_valid_credentials(params, record_xml_attribute):
   """Verify that POST /auth returns HTTP 200 and a non-empty token when
   called with valid credentials."""
@@ -143,14 +168,35 @@ def test_auth_unauthenticated_request_is_rejected(params, record_xml_attribute):
   TEST_NAME = "NEX-T23057"
   record_xml_attribute("name", TEST_NAME)
   exit_code = 1
+  failures = []
 
   try:
-    response = requests.get(
-      f"{params['resturl']}/scenes",
-      verify=params["rootcert"],
-    )
-    assert response.status_code == HTTPStatus.UNAUTHORIZED, \
-      f"Expected 401 Unauthorized with no token, got {response.status_code}"
+    for endpoint in GET_ENTITIES:
+      response = requests.get(
+        f"{params['resturl']}{endpoint}",
+        verify=params["rootcert"],
+      )
+      if response.status_code != HTTPStatus.UNAUTHORIZED:
+        failures.append(
+          f"GET {endpoint}: expected 401, got {response.status_code}"
+        )
+
+    for endpoint in POST_ENTITIES:
+      response = requests.post(
+        f"{params['resturl']}{endpoint}",
+        verify=params["rootcert"],
+      )
+      if endpoint == "/auth":
+        # username and password are required fields for /auth
+        assert response.status_code == HTTPStatus.BAD_REQUEST, \
+          f"Expected 400 BAD REQUEST for POST {endpoint}, got {response.status_code}: {response.text}"
+      else:
+        if response.status_code != HTTPStatus.UNAUTHORIZED:
+          failures.append(
+            f"POST {endpoint}: expected 401, got {response.status_code}"
+          )
+
+    assert not failures, "Unauthenticated access checks failed:\n" + "\n".join(failures)
 
     exit_code = 0
   finally:

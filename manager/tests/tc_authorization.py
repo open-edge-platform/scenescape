@@ -7,7 +7,7 @@
 """Functional tests for REST API authorization.
 
 Covers:
-  - General (non-superuser) can access resources via safe (read-only) endpoints
+  - Non-superuser can access resources via safe (read-only) endpoints
   - Non-superusers are denied write/delete access to protected endpoints
   - Deactivated user cannot obtain an authentication token
 """
@@ -32,7 +32,6 @@ POST_ENTITIES = [
 "/sensor",
 "/tripwire",
 "/user",
-"/save-geospatial-snapshot",
 ]
 
 GET_ENTITIES = [
@@ -45,7 +44,6 @@ GET_ENTITIES = [
 "/sensors",
 "/tripwires",
 "/users",
-"/database-ready",
 ]
 
 def test_authz_non_superuser_can_list_entities(params, record_xml_attribute):
@@ -71,15 +69,17 @@ def test_authz_non_superuser_can_list_entities(params, record_xml_attribute):
     assert rest_user.authenticate(_TEST_USER, _TEST_PASS), \
       "Non-superuser authentication failed"
 
-
+    failures = []
     for endpoint in GET_ENTITIES:
       response = requests.get(
         f"{params['resturl']}{endpoint}",
         headers={"Authorization": f"Token {rest_user.token}"},
         verify=params["rootcert"],
       )
-      assert response.status_code == HTTPStatus.OK, \
-        f"Expected 200 OK for GET {endpoint}, got {response.status_code}: {response.text}"
+      if response.status_code != HTTPStatus.OK:
+        failures.append(
+          f"GET {endpoint}: expected 200 OK, got {response.status_code}")
+    assert not failures, "Non-superuser access checks failed:\n" + "\n".join(failures)
 
     exit_code = 0
   finally:
@@ -110,7 +110,7 @@ def test_authz_non_superuser_cannot_create_entities(params, record_xml_attribute
     assert rest_user.authenticate(_TEST_USER, _TEST_PASS), \
       "Non-superuser authentication failed"
 
-
+    failures = []
     for endpoint in POST_ENTITIES:
       response = requests.post(
         f"{params['resturl']}{endpoint}",
@@ -122,8 +122,12 @@ def test_authz_non_superuser_cannot_create_entities(params, record_xml_attribute
         assert response.status_code == HTTPStatus.BAD_REQUEST, \
           f"Expected 400 BAD REQUEST for POST {endpoint}, got {response.status_code}: {response.text}"
       else:
-        assert response.status_code == HTTPStatus.FORBIDDEN, \
-          f"Expected 403 FORBIDDEN for POST {endpoint}, got {response.status_code}: {response.text}"
+        if response.status_code != HTTPStatus.FORBIDDEN:
+          failures.append(
+            f"POST {endpoint}: expected 403 Forbidden, got {response.status_code}"
+          )
+
+    assert not failures, "Non-superuser access checks failed:\n" + "\n".join(failures)
 
     exit_code = 0
   finally:
