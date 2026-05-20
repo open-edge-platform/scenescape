@@ -45,9 +45,6 @@ def _apply_marks(scenario: PipelineScenario):
 class TestVehiclePipelines:
   """Integration tests for vehicle-detection model chains on car-detection.ts."""
 
-  def __init__(self, *sample_data):
-    self.sample_data = sample_data
-
   @pytest.mark.parametrize(
     "camera_settings_path",
     [_apply_marks(s) for s in VEHICLE_SCENARIOS],
