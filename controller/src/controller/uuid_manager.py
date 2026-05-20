@@ -290,8 +290,8 @@ class UUIDManager:
         if sscape_object.rv_id not in self.active_query:
           self.active_query[sscape_object.rv_id] = True
           self.pool.submit(self.querySimilarity, sscape_object)
-      else:
-        # Re-ID is disabled or we don't have enough features; fall back to using the generated GID
+      elif not self.reid_enabled:
+        # Re-ID is disabled; fall back to using the generated GID
         with self.active_ids_lock:
           if self.active_ids.get(sscape_object.rv_id, [None])[0] is None:
             self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
