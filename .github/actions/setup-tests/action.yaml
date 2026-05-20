@@ -8,9 +8,6 @@ inputs:
   dockerhub-token:
     description: 'DockerHub token'
     required: true
-  ghcr-token:
-    description: 'GitHub Container Registry token'
-    required: true
   skip-image-build:
     description: 'Skip building Docker images'
     required: false

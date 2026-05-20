@@ -93,35 +93,35 @@ source tests/.venv/bin/activate
 # ── Docker backend (default) ───────────────────────────────────────────────
 
 # Run a single test by its pytest ID (use underscores)
-pytest -k mqtt_roi -v
+pytest -k mqtt_roi
 
 # Run all functional tests
-pytest tests/functional -v
+pytest tests/functional
 
 # Run all unit tests
-pytest tests/sscape_tests -v
+pytest tests/sscape_tests
 
 # Run all UI tests
-pytest tests/ui -v
+pytest tests/ui
 
 # ── Kubernetes backend ─────────────────────────────────────────────────────
 
 # Run a specific test against Kubernetes
-pytest tests/ui/test_out_of_box.py --backend=kubernetes -v
+pytest tests/ui/test_out_of_box.py --backend=kubernetes
 
 # Run all Kubernetes-capable tests
-pytest --backend=kubernetes -v
+pytest --backend=kubernetes
 
 # Run only tests that require Kubernetes
-pytest -m kubernetes_only --backend=kubernetes -v
+pytest -m kubernetes_only --backend=kubernetes
 
 # Run all tests against both backends (parametrized)
-pytest --backend=all -v
+pytest --backend=all
 
 # ── Container log collection ───────────────────────────────────────────────
-pytest tests/functional -v --collect-container-logs failed
-pytest tests/functional -v --collect-container-logs all
-pytest tests/functional -v --collect-container-logs none
+pytest tests/functional --collect-container-logs failed
+pytest tests/functional --collect-container-logs all
+pytest tests/functional --collect-container-logs none
 
 ```
 
@@ -176,7 +176,7 @@ make run_unit_tests
 or directly with pytest:
 
 ```bash
-pytest tests/sscape_tests -v
+pytest tests/sscape_tests
 ```
 
 ## Test markers

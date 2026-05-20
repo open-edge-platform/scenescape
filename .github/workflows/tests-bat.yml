@@ -141,7 +141,6 @@ jobs:
         uses: ./.github/actions/setup-tests
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
-          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Run Basic Acceptance Tests (BAT)"
         if: always() && steps.setup-test-env.outcome == 'success'
@@ -186,7 +185,7 @@ jobs:
 
   chart-deployment-test:
     name: "Chart Deployment Test"
-    runs-on: [pytest]
+    runs-on: [bat]
     permissions:
       packages: write # For using GHCR as cache registry
     needs: [filter, check-pr-state]
@@ -205,7 +204,6 @@ jobs:
         uses: ./.github/actions/setup-tests
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
-          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Install github annotate plugin"
         run: |
