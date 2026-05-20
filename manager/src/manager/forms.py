@@ -4,6 +4,7 @@
 import hashlib
 import json
 import os
+from pathlib import Path
 
 from django import forms
 from django.conf import settings
@@ -12,6 +13,8 @@ from django.forms import ModelForm, ValidationError
 
 from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
 from manager.validators import validate_zip_file
+from manager.ppl_generator import PipelineGenerationValueError, PipelineGenerationNotImplementedError
+from manager.ppl_generator.model_chain import parse_model_chain
 from scene_common.options import SINGLETON_CHOICES, AREA_CHOICES
 from scene_common.cam_fields import (
     CAM_FORM_FIELDS, CAM_FORM_ONLY_FIELDS,
@@ -188,12 +191,8 @@ class CamCreateForm(forms.ModelForm):
     if not camerachain:
       return camerachain
 
-    from pathlib import Path
-    from manager.ppl_generator.model_chain import parse_model_chain
-    from manager.ppl_generator import PipelineGenerationValueError, PipelineGenerationNotImplementedError
-
-    modelconfig_name = getattr(self.instance, 'modelconfig', None) or 'model_config.json'
-    model_config_path = Path(os.environ.get('MODEL_CONFIGS_FOLDER', '/models/model_configs')) / modelconfig_name
+    model_config_filename = getattr(self.instance, 'modelconfig', None) or 'model_config.json'
+    model_config_path = Path(os.environ.get('MODEL_CONFIGS_FOLDER', '/models/model_configs')) / model_config_filename
     if not model_config_path.is_file():
       raise ValidationError(f"Model config file not found at {model_config_path}")
 
