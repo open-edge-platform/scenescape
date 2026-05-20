@@ -795,13 +795,12 @@ class UUIDManager:
     # If reid is disabled, mark object state immediately (no query will be made)
     if not self.reid_enabled:
       sscape_object.reid_state = ReidState.REID_DISABLED
-
     # Continue gathering features until we have enough or query is already submitted
-    if sscape_object.rv_id not in self.active_query and self.reid_enabled:
+    elif sscape_object.rv_id not in self.active_query:
       self.gatherQualityVisualFeatures(sscape_object)
       sufficient_features = self.haveSufficientVisualFeatures(sscape_object)
       feature_count = len(self.quality_features.get(sscape_object.rv_id, []))
-      log.debug(f"assignID: rv_id={sscape_object.rv_id}, sufficient_features={sufficient_features}")
+      log.debug(f"assignID: rv_id={sscape_object.rv_id}, sufficient_features={sufficient_features}, feature_count={feature_count}")
 
       # Submit query once we have enough features
       if sufficient_features:
