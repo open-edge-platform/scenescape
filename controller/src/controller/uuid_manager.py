@@ -46,7 +46,7 @@ class UUIDManager:
 
     @param  tracked_objects  The objects currently tracked by the tracker
     """
-    active_tracks = [tracked_object.id for tracked_object in tracked_objects]
+    active_tracks = {tracked_object.id for tracked_object in tracked_objects}
     inactive_tracks = []
     new_active_ids = {}
     with self.active_ids_lock:
@@ -290,6 +290,11 @@ class UUIDManager:
         if sscape_object.rv_id not in self.active_query:
           self.active_query[sscape_object.rv_id] = True
           self.pool.submit(self.querySimilarity, sscape_object)
+      else:
+        # Re-ID is disabled or we don't have enough features; fall back to using the generated GID
+        with self.active_ids_lock:
+          if self.active_ids.get(sscape_object.rv_id, [None])[0] is None:
+            self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
     else:
       self.pickBestID(sscape_object)
     return

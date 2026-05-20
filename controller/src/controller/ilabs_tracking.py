@@ -129,7 +129,13 @@ class IntelLabsTracking(Tracking):
         sscape_object.inferRotationFromVelocity()
         break
     if not found:
-      sscape_object.setGID(uuid)
+      # Check if UUID manager already has a mapping for this rv_id
+      with self.uuid_manager.active_ids_lock:
+        existing_gid = self.uuid_manager.active_ids.get(sscape_object.rv_id, [None])[0]
+      if existing_gid is None:
+        sscape_object.setGID(uuid)
+      else:
+        sscape_object.setGID(existing_gid)
 
     self.uuid_manager.assignID(sscape_object)
 
@@ -176,8 +182,13 @@ class IntelLabsTracking(Tracking):
     """Create reliable tracks for objects detected and tracks detected"""
     when = datetime.fromtimestamp(when)
     self.update_tracks(objects, when)
-    tracked_objects = self.tracker.get_reliable_tracks()
-    self.uuid_manager.pruneInactiveTracks(tracked_objects)
+    reliable_tracks = self.tracker.get_reliable_tracks()
+    # Include ALL active C++ tracks to preserve UUID mappings
+    all_active_tracks = set(reliable_tracks +
+                            self.tracker.get_unreliable_tracks() +
+                            self.tracker.get_suspended_tracks())
+    tracked_objects = reliable_tracks
+    self.uuid_manager.pruneInactiveTracks(all_active_tracks)
     tracks_from_detections = [self.from_tracked_object(tracked_object, objects)
                      for tracked_object in tracked_objects]
 
@@ -190,8 +201,13 @@ class IntelLabsTracking(Tracking):
     """Create reliable tracks for objects from multiple cameras using batched tracking"""
     when = datetime.fromtimestamp(when)
     self.update_tracks_batched(objects_per_camera, when)
-    tracked_objects = self.tracker.get_reliable_tracks()
-    self.uuid_manager.pruneInactiveTracks(tracked_objects)
+    reliable_tracks = self.tracker.get_reliable_tracks()
+    # Include ALL active C++ tracks to preserve UUID mappings
+    all_active_tracks = set(reliable_tracks +
+                            self.tracker.get_unreliable_tracks() +
+                            self.tracker.get_suspended_tracks())
+    tracked_objects = reliable_tracks
+    self.uuid_manager.pruneInactiveTracks(all_active_tracks)
 
     # Flatten all objects for from_tracked_object lookup
     all_objects = [obj for camera_objects in objects_per_camera for obj in camera_objects]
