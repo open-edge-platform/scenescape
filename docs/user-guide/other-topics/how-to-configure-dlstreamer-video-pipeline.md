@@ -92,6 +92,8 @@ pose+marsreid
 
 > **Note**: To enable pose-based bounding box adjustment in the Scene Controller, set the `--person-pose-adjustment` flag or `CONTROLLER_ENABLE_PERSON_POSE_ADJUSTMENT=true` environment variable. See the [Scene Controller documentation](../microservices/controller/controller.md) for details.
 
+> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `pose+marsreid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--person-pose-adjustment` controller flag is also incompatible with Extended ReID (VDMS-based cross-camera re-identification).
+
 **Vehicle Analytics Workflows:**
 
 ```
@@ -233,6 +235,7 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 - Cross-stream batching is not supported since in Intel® SceneScape Kubernetes deployment each camera pipeline is running in a separate Pod.
 - Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html).
 - MP4 input files are not reliably supported. This is due to a GStreamer limitation: the combination of `multifilesrc` and `decodebin3` elements may fail because MP4 container metadata is unavailable when data is provided as discrete file fragments. As a workaround, convert MP4 files to a streaming-friendly format such as MPEG-TS (.ts).
+- Pose estimation pipelines using `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128`) are not compatible with `reidPolicy`. These cameras must use `detectionPolicy`. Additionally, the controller `--person-pose-adjustment` flag cannot be used together with Extended ReID.
 
 ### Troubleshooting
 
