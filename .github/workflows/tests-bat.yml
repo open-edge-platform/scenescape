@@ -209,6 +209,10 @@ jobs:
           source tests/.venv/bin/activate
           pip install -r .github/resources/requirements-pytest.txt
 
+      - name: "Print all built images"
+        run: |
+          docker images
+
       - name: "Run k8s tests"
         run: |
           source tests/.venv/bin/activate
