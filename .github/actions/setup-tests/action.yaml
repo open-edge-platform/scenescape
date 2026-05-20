@@ -22,16 +22,6 @@ runs:
         python-version: "3.12"
         check-latest: true
 
-    - name: Set up Docker
-      uses: docker/setup-docker-action@b2189fbf2a6592b51fee7cdd93ee2bfaeba733db # v5
-      with:
-        daemon-config: |
-          {
-            "features": {
-              "containerd-snapshotter": false
-            }
-          }
-
     - name: "Log in to DockerHub"
       uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
       continue-on-error: true

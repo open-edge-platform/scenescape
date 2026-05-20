@@ -183,8 +183,7 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          cd tests/system/metric
-          pytest . --junitxml=../../../reports/metric_results.xml --log-level=ERROR
+          pytest tests/system/metric --junitxml=reports/metric_results.xml --log-level=ERROR
 
       - name: Upload Test Report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -281,8 +280,7 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          cd tests/sscape_tests
-          pytest . --junitxml=../../reports/unit_results.xml --log-level=ERROR
+          pytest tests/sscape_tests --junitxml=reports/unit_results.xml --log-level=ERROR
 
       - name: Upload Test Report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
