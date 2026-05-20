@@ -172,7 +172,7 @@
         "request": {
           "body": {
             "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
-            "sensor_id": "sensor_minimal",
+            "sensor_id": "sensor_missing_name",
             "area": "circle",
             "radius": 2.5,
             "center": [3.81, 4.59],
@@ -366,7 +366,7 @@
           "status_code": 200
         },
         "expected_body": {
-          "count": 2,
+          "count": 4,
           "next": null,
           "previous": null,
           "results": [
@@ -378,7 +378,7 @@
               "area": "circle",
               "radius": 2.5,
               "center": [3.81, 4.59],
-              "translation": [1, 1, 1],
+              "translation": [3.81, 4.59, 0.0],
               "singleton_type": "environmental"
             },
             {
@@ -389,8 +389,82 @@
               "area": "circle",
               "radius": 2.5,
               "center": [3.81, 4.59],
-              "translation": [1, 1, 1],
-              "singleton_type": "attribute"
+              "translation": [3.81, 4.59, 0.0],
+              "singleton_type": "attribute",
+              "color_ranges": {
+                "sectors": [
+                  {
+                    "color": "green",
+                    "color_min": 0
+                  },
+                  {
+                    "color": "yellow",
+                    "color_min": 2
+                  },
+                  {
+                    "color": "red",
+                    "color_min": 5
+                  }
+                ],
+                "range_max": 10
+              }
+            },
+            {
+              "uid": "${SENSOR_UID_ENTIRE}",
+              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+              "sensor_id": "sensor_entire_scene",
+              "name": "sensor_entire_scene",
+              "area": "scene",
+              "translation": [null, null, 0.0],
+              "singleton_type": "attribute",
+              "color_ranges": {
+                "sectors": [
+                  {
+                    "color": "green",
+                    "color_min": 0
+                  },
+                  {
+                    "color": "yellow",
+                    "color_min": 2
+                  },
+                  {
+                    "color": "red",
+                    "color_min": 5
+                  }
+                ],
+                "range_max": 10
+              }
+            },
+            {
+              "uid": "${SENSOR_UID_POLYGON}",
+              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+              "sensor_id": "sensor_polygon",
+              "name": "sensor_polygon",
+              "area": "poly",
+              "points": [
+                [3.81, 4.59],
+                [5.42, 5.12],
+                [5.82, 3.57]
+              ],
+              "translation": [null, null, 0.0],
+              "singleton_type": "attribute",
+              "color_ranges": {
+                "sectors": [
+                  {
+                    "color": "green",
+                    "color_min": 0
+                  },
+                  {
+                    "color": "yellow",
+                    "color_min": 2
+                  },
+                  {
+                    "color": "red",
+                    "color_min": 5
+                  }
+                ],
+                "range_max": 10
+              }
             }
           ]
         }
