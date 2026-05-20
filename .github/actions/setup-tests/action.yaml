@@ -6,10 +6,10 @@ name: "Setup Test Environment"
 description: "Install Pytest and dependencies for testing, setup Docker and Python"
 inputs:
   dockerhub-token:
-    description: 'DockerHub token'
+    description: "DockerHub token"
     required: true
   skip-image-build:
-    description: 'Skip building Docker images'
+    description: "Skip building Docker images"
     required: false
     default: false
     type: boolean
