@@ -34,8 +34,8 @@ from django.core.files.storage import default_storage
 from django.urls import reverse
 from rest_framework.views import APIView
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.permissions import IsAuthenticated
 
+from manager.api import IsAdminOrReadOnly
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
@@ -811,7 +811,7 @@ def getAllChildrenMetaData(scene_id):
 class SaveGeospatialSnapshot(APIView):
   """Save geospatial snapshot as PNG and return filename for map field."""
   authentication_classes = [TokenAuthentication]
-  permission_classes = [IsAuthenticated]
+  permission_classes = [IsAdminOrReadOnly]
 
   def post(self, request):
     try:
