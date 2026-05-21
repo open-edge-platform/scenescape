@@ -20,6 +20,15 @@ Intel® SceneScape makes writing applications based on sensor data faster, easie
 
 - To report a bug, file a documentation issue, or submit a feature request, please open a [GitHub issue](https://github.com/open-edge-platform/scenescape/issues).
 
+## Prerequisites for Running Tests
+
+The following system packages are required to run UI tests:
+
+- **Firefox**: `sudo snap install firefox`
+- **Xvfb** (virtual display for headless UI tests): `sudo apt-get install -y xvfb`
+
+All other test dependencies (including `geckodriver`) are installed automatically via `make setup-pytest`.
+
 ## Contributing
 
 We welcome contributions! Check out our [Contributing Guide](./CONTRIBUTING.md) to get started.

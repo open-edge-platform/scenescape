@@ -22,6 +22,7 @@ on:
     branches:
       - main
       - release-*
+      - feature/tests-rework-to-pytest
     types:
       - opened
       - synchronize

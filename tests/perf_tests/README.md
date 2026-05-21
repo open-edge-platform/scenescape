@@ -15,12 +15,12 @@ There are 3 tests included:
 Run the inference_performance script:
 
 ...
-tests/perf_tests/tc_inference_performance.sh
+tests/perf_tests/test_inference_performance.sh
 ...
 
 #### Inference Conformance
 
 Run the inference_conformance script:
 ...
-tests/perf_tests/tc_inference_conformance.sh
+tests/perf_tests/test_inference_conformance.sh
 ...
