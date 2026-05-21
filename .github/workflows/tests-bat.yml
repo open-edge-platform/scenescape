@@ -213,6 +213,10 @@ jobs:
         run: |
           docker images
 
+      - name: "Print Daemon config"
+        run: |
+          cat /etc/docker/daemon.json || echo "No daemon.json found"
+
       - name: "Run k8s tests"
         run: |
           source tests/.venv/bin/activate
