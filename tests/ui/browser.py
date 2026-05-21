@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -29,6 +29,16 @@ class Browser(Firefox):
       options.add_argument('--headless')
 
     options.add_argument("--window-size=1080,1920")
+    # Resolve SceneScape service hostnames to loopback inside the Firefox process.
+    # This applies to geckodriver subprocess, which is unaffected by the Python-level
+    # socket.getaddrinfo patch in conftest.py.
+    _host_aliases = [
+      "broker.scenescape.intel.com",
+      "web.scenescape.intel.com",
+      "autocalibration.scenescape.intel.com",
+      "vdms.scenescape.intel.com",
+    ]
+    options.set_preference("network.dns.localDomains", ",".join(_host_aliases))
     geckodriver_path = shutil.which("geckodriver") or geckodriver_autoinstaller.install()
     s = Service(geckodriver_path)
     super().__init__(options=options, service=s)

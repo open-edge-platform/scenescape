@@ -243,26 +243,3 @@ noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local,10.244.0.0/16,10.96.0.0
 # disable pre-install and post-install hooks for cluster compatibility
 hooks:
   enabled: true
-
-# enable to start SceneScape in validation mode
-tests:
-  enabled: false
-  access:
-    secretKey: "abcdefg"
-    service:
-      annotations: {}
-    nodePort:
-      enabled: true
-      annotations: {}
-      nodePort: 30700
-    loadBalancer:
-      enabled: false
-      externalTrafficPolicy: Local
-      loadBalancerIP: ""
-      annotations: {}
-  storage: 500Mi
-  storageClassName: ""
-  image: init-tests
-  # absolute path to frps/frps images
-  frpsImage: snowdreamtech/frps
-  frpcImage: snowdreamtech/frpc
