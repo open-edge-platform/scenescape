@@ -1,23 +1,7 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for controller.UUIDManager.
-
-Covers:
-  - PR #1155: preserve UUID for static objects after occlusion
-      * pruneInactiveTracks correctly prunes only truly inactive tracks when
-        given a set of all active C++ tracker objects (reliable + unreliable +
-        suspended).
-      * pickBestID restores a previously assigned GID from active_ids so a
-        reappearing static object keeps its original identity.
-  - Current PR fix: prevent Re-ID fallback from firing while features are
-    still being gathered
-      * When Re-ID is enabled but the feature count has not yet reached the
-        minimum, active_ids[rv_id] stays [None, None] (no premature lock-in).
-      * When Re-ID is explicitly disabled the GID fallback fires immediately.
-      * When Re-ID is enabled and sufficient features exist the similarity
-        query is submitted to the thread pool.
-"""
+"""Unit tests for controller.UUIDManager."""
 
 import collections
 import sys
@@ -31,7 +15,6 @@ import pytest
 sys.modules.setdefault('vdms', MagicMock())
 
 from controller.uuid_manager import (DEFAULT_MINIMUM_FEATURE_COUNT,
-                                     DEFAULT_MINIMUM_BBOX_AREA,
                                      UUIDManager)
 
 
@@ -225,10 +208,6 @@ class TestPickBestID:
 
     assert len(uuid_manager.features_for_database[sscape_object.rv_id]['reid_vectors']) == 1
 
-
-# ===========================================================================
-# Current PR fix – elif not self.reid_enabled
-# ===========================================================================
 
 class TestAssignIDFallbackBehavior:
   """The GID fallback in assignID must fire ONLY when re-id is explicitly

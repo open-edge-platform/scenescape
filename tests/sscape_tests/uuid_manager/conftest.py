@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import sys
@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import tests.common_test_utils as common
 
-TEST_NAME = "NEX-T10700"
+TEST_NAME = "NEX-T19884"
 
 # Mock the vdms module before importing controller modules that depend on it.
 sys.modules.setdefault('vdms', MagicMock())
