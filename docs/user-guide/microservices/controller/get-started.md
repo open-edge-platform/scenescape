@@ -126,7 +126,7 @@ When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer vide
 
 - **Enable pose adjustment via CLI flag**:
 
-  Add the `--person-pose-adjustment` flag to the docker run command:
+  Add the `--pose-adjustment` flag to the docker run command:
 
   ```bash
   docker run --rm \
@@ -145,7 +145,7 @@ When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer vide
   --tracker_config_file /home/scenescape/SceneScape/tracker-config.json \
   --reid_config_file /home/scenescape/SceneScape/reid-config.json \
   --ntp ntpserv \
-  --person-pose-adjustment
+  --pose-adjustment
   ```
 
   Alternatively, use the environment variable:
@@ -154,7 +154,7 @@ When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer vide
   docker run --rm \
   --init \
   --network scenescape \
-  -e CONTROLLER_ENABLE_PERSON_POSE_ADJUSTMENT=true \
+  -e CONTROLLER_ENABLE_POSE_ADJUSTMENT=true \
   -v scenescape_vol-media:/home/scenescape/SceneScape/media \
   -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
   -v $(pwd)/controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json \

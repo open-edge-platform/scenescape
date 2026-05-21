@@ -3,13 +3,13 @@ SPDX-License-Identifier: Apache-2.0
 (C) 2026 Intel Corporation
 -->
 
-# Person Pose Package Design
+# Pose Adjustment Package Design
 
 ## Overview
 
-The `person_pose` package in the SceneScape Controller microservice provides utilities for refining and adjusting person bounding boxes using pose keypoints and learned body proportions. It is designed to improve the accuracy of person localization by leveraging pose estimation outputs, such as those from keypoint detectors, and maintaining adaptive statistics about human body proportions.
+The `pose_adjustment` package in the SceneScape Controller microservice provides utilities for refining detections using pose keypoints and learned body proportions. It is organized around a strategy-based coordinator so additional detection types can plug in their own pose-adjustment behavior.
 
-## Flowchart: Person Pose Adjustment Pipeline
+## Flowchart: Pose Adjustment Pipeline
 
 ```mermaid
 flowchart TD
@@ -19,14 +19,14 @@ flowchart TD
 	C -- No --> E[Retain original coordinates]
 	D --> F[Refine bounding box using pose]
 	E --> F[Refine bounding box using pose]
-	F --> G[Update body proportion statistics]
+	F --> G[Update strategy-specific statistics]
 	F --> H[Output improved bounding box]
 	G --> F
 ```
 
 ## Key Behaviors and Components
 
-- **Bounding box refinement**: Adjusts the detected region around a person using pose keypoints and learned body proportions, resulting in more accurate localization.
+- **Bounding box refinement**: Adjusts detected regions using pose keypoints and learned body proportions, resulting in more accurate localization.
 - **Keypoint normalization and scaling**: Converts incoming keypoints from various formats to a standard set of joint names, and scales them to the appropriate coordinate system (pixel or normalized) as needed.
 - **Body proportion statistics**: Maintains adaptive statistics about human body proportions for each detected individual, using recent observations to improve future bounding box adjustments.
 
@@ -44,9 +44,9 @@ flowchart TD
 - For each individual, a rolling window of recent samples is maintained for each ratio, along with counts of detections and observations, and timestamps for when the person was last seen.
 - Stale statistics are pruned, and the system only uses learned medians when enough observations have been collected to ensure reliability.
 
-### 3. Refining Person Localization
+### 3. Refining Detection Localization
 
-- The system uses pose keypoints and learned body proportions to refine the detected region around each person.
+- The system uses pose keypoints and learned body proportions to refine the detected region for supported detection types.
 - It supports both direct and estimated methods for determining foot position, applies safety margins, and adapts its approach based on the confidence of the keypoint data.
 - The behavior can be tuned with parameters such as the number of samples to remember, how long to keep statistics, and how many observations are needed before using learned proportions.
 

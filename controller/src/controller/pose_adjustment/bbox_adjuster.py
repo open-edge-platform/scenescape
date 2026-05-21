@@ -7,10 +7,10 @@ import math
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
-from controller.person_pose.named_keypoints import (NamedKeypoint, head_point,
-                                                    midpoint, parse_named_keypoints,
-                                                    scale_keypoints)
-from controller.person_pose.proportion_cache import ProportionCache
+from controller.pose_adjustment.named_keypoints import (NamedKeypoint, head_point,
+                                                        midpoint, parse_named_keypoints,
+                                                        scale_keypoints)
+from controller.pose_adjustment.proportion_cache import ProportionCache
 from scene_common import log
 
 

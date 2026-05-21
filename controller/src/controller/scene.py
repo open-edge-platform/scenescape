@@ -5,7 +5,6 @@ from types import SimpleNamespace
 from typing import Optional
 
 import numpy as np
-import os
 
 import robot_vision as rv
 from scene_common import log
@@ -19,10 +18,9 @@ from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegio
 
 from controller.controller_mode import ControllerMode
 from controller.moving_object import ChainData
-from controller.person_pose import (PersonPoseAdjuster,
-                                     MIN_POSE_CACHE_TTL,
-                                     POSE_CACHE_TTL_MULTIPLIER,
-                                     PERSON_POSE_ADJUSTMENT_ENV_VAR)
+from controller.pose_adjustment import (PoseAdjustment,
+                                        MIN_POSE_CACHE_TTL,
+                                        POSE_CACHE_TTL_MULTIPLIER)
 from controller.ilabs_tracking import IntelLabsTracking
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -33,12 +31,6 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
 
 DEBOUNCE_DELAY = 0.5
 MIN_FRAMES_FOR_RELIABLE_TRACK = 3
-
-def _env_bool(name, default):
-  value = os.getenv(name)
-  if value is None:
-    return default
-  return value.strip().lower() in ('1', 'true', 'yes', 'on')
 
 
 class TripwireEvent:
@@ -94,20 +86,10 @@ class Scene(SceneModel):
     # Cache for object history (publishedLocations, etc.) to maintain trails across frames
     self.object_history_cache = {}
 
-    self.person_pose_adjustment_enabled = _env_bool(
-      PERSON_POSE_ADJUSTMENT_ENV_VAR,
-      True,
+    self.pose_adjustment = PoseAdjustment.from_env(
+      max_entry_age_seconds=self._get_pose_cache_ttl(),
+      default_enabled=True,
     )
-    self.person_pose_adjuster = None
-    if self.person_pose_adjustment_enabled:
-      self.person_pose_adjuster = PersonPoseAdjuster(
-        max_entry_age_seconds=self._get_pose_cache_ttl()
-      )
-    else:
-      log.info(
-        f"Person pose adjustment DISABLED for scene {name} via "
-        f"{PERSON_POSE_ADJUSTMENT_ENV_VAR}"
-      )
 
     # FIXME - only for backwards compatibility
     self.scale = scale
@@ -193,8 +175,8 @@ class Scene(SceneModel):
       self.non_measurement_time_dynamic = non_measurement_time_dynamic
       self.non_measurement_time_static = non_measurement_time_static
       self._setTracker(self.trackerType)
-    if self.person_pose_adjuster is not None:
-      self.person_pose_adjuster.set_max_entry_age_seconds(self._get_pose_cache_ttl())
+    if self.pose_adjustment is not None:
+      self.pose_adjustment.set_max_entry_age_seconds(self._get_pose_cache_ttl())
     return
 
   def _get_pose_cache_ttl(self):
@@ -213,38 +195,6 @@ class Scene(SceneModel):
       mobj.map_rotation = scene_map_rotation
       objects.append(mobj)
     return objects
-
-  def _adjust_person_detections(self, detections, camera, when):
-    if not self.person_pose_adjustment_enabled or self.person_pose_adjuster is None:
-      return
-    if not detections:
-      return
-
-    resolution = getattr(getattr(camera, 'pose', None), 'resolution', None)
-    if resolution is None and hasattr(camera.pose, 'intrinsics'):
-      resolution = camera.pose.intrinsics.getResolutionFromIntrinsics()
-    if resolution is not None:
-      resolution = tuple(resolution)
-
-    adjusted_count = 0
-
-    for detection in detections:
-      if not isinstance(detection, dict):
-        continue
-      if self.person_pose_adjuster.adjust_detection(
-        detection,
-        self.name,
-        camera.cameraID,
-        when,
-        resolution,
-      ):
-        adjusted_count += 1
-
-    log.debug(
-      f"Pose adjustment batch for scene {self.name}, camera {camera.cameraID}: "
-      f"detections={len(detections)}, adjusted={adjusted_count}, resolution={resolution}"
-    )
-    return
 
   def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
     if ControllerMode.isAnalyticsOnly():
@@ -270,8 +220,13 @@ class Scene(SceneModel):
       return True
 
     for detection_type, detections in jdata['objects'].items():
-      if detection_type == 'person':
-        self._adjust_person_detections(detections, camera, when)
+      self.pose_adjustment.adjust_detections(
+        detection_type,
+        detections,
+        self.name,
+        camera,
+        when,
+      )
       if "intrinsics" not in jdata:
         self._convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
       objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)

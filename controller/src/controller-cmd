@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from controller.scene_controller import SceneController
 from controller.controller_mode import ControllerMode
 from controller.observability import metrics, tracing
+from controller.pose_adjustment import POSE_ADJUSTMENT_ENV_VAR
 from scene_common import log
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -39,6 +40,17 @@ def start_health_server(port):
   thread = threading.Thread(target=server.serve_forever, daemon=True)
   thread.start()
   return server
+
+
+def _env_bool(name, default):
+  value = os.getenv(name)
+  if value is None:
+    return default
+  return value.strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def _pose_adjustment_default_enabled():
+  return _env_bool(POSE_ADJUSTMENT_ENV_VAR, False)
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -81,21 +93,22 @@ def build_argparser():
   parser.add_argument("--analytics-only", action="store_true",
                       default=os.getenv("CONTROLLER_ENABLE_ANALYTICS_ONLY") == "true",
                       help="Enable analytics-only mode. Use this when running a separate Tracker service that publishes tracking data to MQTT.")
-  parser.add_argument("--person-pose-adjustment",
+  parser.add_argument("--pose-adjustment",
+                      dest="pose_adjustment",
                       action=argparse.BooleanOptionalAction,
-                      default=os.getenv("CONTROLLER_ENABLE_PERSON_POSE_ADJUSTMENT", "false").lower() == "true",
+                      default=_pose_adjustment_default_enabled(),
                       help="Enable pose-based person bounding box adjustment before world projection.")
   return parser
 
 def main():
   args = build_argparser().parse_args()
-  os.environ["CONTROLLER_ENABLE_PERSON_POSE_ADJUSTMENT"] = (
-    "true" if args.person_pose_adjustment else "false"
+  os.environ[POSE_ADJUSTMENT_ENV_VAR] = (
+    "true" if args.pose_adjustment else "false"
   )
   ControllerMode.initialize(analytics_only=args.analytics_only)
   log.info(
-    f"Controller person pose adjustment: "
-    f"{'ENABLED' if args.person_pose_adjustment else 'DISABLED'}"
+    f"Controller pose adjustment: "
+    f"{'ENABLED' if args.pose_adjustment else 'DISABLED'}"
   )
   metrics.init()
   tracing.init()
