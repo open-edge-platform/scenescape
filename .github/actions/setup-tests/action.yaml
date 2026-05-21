@@ -26,11 +26,6 @@ runs:
         sudo systemctl daemon-reload || true
         sudo systemctl restart docker || true
 
-    - name: "Check Docker is working"
-      shell: bash
-      run: |
-        docker info
-
     - name: Set up Python
       uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
       with:
@@ -44,45 +39,12 @@ runs:
         username: scenescape
         password: ${{ inputs.dockerhub-token }}
 
-    - name: Install firefox
-      shell: bash
-      run: |
-        sudo snap remove --purge firefox
-        sudo apt purge -y firefox
-        sudo apt update
-        sudo apt install -y --no-install-recommends \
-          wget libpci-dev libnss3-tools xvfb
-        sudo install -d -m 0755 /etc/apt/keyrings
-        wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg -O- \
-          | sudo tee /etc/apt/keyrings/packages.mozilla.org.asc > /dev/null
-        echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" \
-          | sudo tee /etc/apt/sources.list.d/mozilla.list > /dev/null
-        echo -e 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000' \
-          | sudo tee /etc/apt/preferences.d/mozilla > /dev/null
-        sudo apt update
-        sudo apt install -y --no-install-recommends firefox-esr
-
-    - name: Print Firefox version
-      shell: bash
-      run: |
-        which firefox
-        firefox --version
-
     - name: Set Firefox profile
       shell: bash
       run: |
         mkdir -p $HOME/.mozilla/
         cp manager/test/firefox-profile.tar $HOME/.mozilla/
         chmod -R a+rwx $HOME/.mozilla/
-
-    - name: Set up geckodriver
-      shell: bash
-      run: |
-        GECKODRIVER_VERSION=$(curl -sSL --retry 5 --retry-delay 3 https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
-        curl -sSL --retry 5 --retry-delay 3 -o geckodriver.tar.gz \
-          "https://github.com/mozilla/geckodriver/releases/download/v${GECKODRIVER_VERSION}/geckodriver-v${GECKODRIVER_VERSION}-linux64.tar.gz"
-        tar -xzf geckodriver.tar.gz
-        sudo mv -f geckodriver /usr/local/bin/
 
     - name: "Install robot_vision dependencies"
       shell: bash
@@ -106,13 +68,3 @@ runs:
       run: |
         source tests/.venv/bin/activate
         pip install -r .github/resources/requirements-pytest.txt
-
-    - name: Add SceneScape host aliases
-      shell: bash
-      run: |
-        sudo rm -f /etc/hosts || true
-        HOST_IP="$(hostname -I | awk '{print $1}')"
-        for h in broker.scenescape.intel.com web.scenescape.intel.com autocalibration.scenescape.intel.com vdms.scenescape.intel.com; do
-          echo "$HOST_IP $h" | sudo tee -a /etc/hosts > /dev/null
-        done
-        grep -E 'scenescape.intel.com' /etc/hosts
