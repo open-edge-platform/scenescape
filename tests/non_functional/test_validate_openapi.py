@@ -17,7 +17,7 @@ def test_validate_openapi(record_xml_attribute, swagger_cli):
 
     # Validate api.yaml
     result = subprocess.run(
-        ["npx", "swagger-cli", "validate", "api.yaml"],
+        ["npx", "--yes", "swagger-cli", "validate", "api.yaml"],
         cwd=docs_path,
         check=True
     )

@@ -16,15 +16,19 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: "Reset docker settings"
+    - name: "Reset Docker Context"
       shell: bash
-      continue-on-error: true
       run: |
-        docker context use default || true
+        docker context use default
         docker context ls --format '{{.Name}}' | grep -v '^default$' | xargs -r docker context rm -f
-        echo '{"features":{"containerd-snapshotter":false}}' | sudo tee /etc/docker/daemon.json > /dev/null
-        sudo systemctl daemon-reload || true
-        sudo systemctl restart docker || true
+
+    - name: "Reset Docker Config"
+      shell: bash
+      run: |
+        sudo rm -f /etc/docker/daemon.json
+        echo '{"features":{"containerd-snapshotter":false}}' | sudo tee /etc/docker/daemon.json
+        sudo systemctl daemon-reload
+        sudo systemctl restart docker
 
     - name: Set up Python
       uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
