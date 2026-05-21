@@ -4,6 +4,7 @@
 import subprocess
 import os
 import pytest
+import openapi_spec_validator
 from openapi_spec_validator import validate
 from openapi_spec_validator.readers import read_from_filename
 
@@ -14,14 +15,8 @@ def test_validate_openapi(record_xml_attribute):
   """Validate OpenAPI schema using swagger-cli."""
   record_xml_attribute("name", TEST_NAME)
 
-  spec_dict, base_uri = read_from_filename(api_path)
-
-  # If no exception is raised by validate(), the spec is valid.
-  validate(spec_dict)
-
-
   api_path = os.path.join(os.path.dirname(__file__), "../../docs/user-guide/api-docs/api.yaml")
-  spec_dict, base_uri = read_from_filename(api_path)
+  spec_dict = read_from_filename(api_path)[0]
 
   try:
     validate(spec_dict)
