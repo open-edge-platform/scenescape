@@ -6,9 +6,7 @@ from typing import Callable, Collection, Dict, Optional, Protocol
 
 from scene_common import log
 
-from controller.pose_adjustment.core.bbox_utils import (bounds as bbox_bounds,
-                                                        clip_value,
-                                                        quantize_bbox)
+from controller.pose_adjustment.core.bbox_utils import (bounds as bbox_bounds, clip_value, quantize_bbox)
 
 
 class RewriteAnchorEstimateLike(Protocol):
