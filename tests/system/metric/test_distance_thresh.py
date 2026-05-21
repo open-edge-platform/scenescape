@@ -78,7 +78,6 @@ def get_msoce_value(params):
   print("msoce: {}".format(msoce))
   return msoce
 
-@pytest.mark.basic_acceptance
 def test_distance_msoce(params, assets, record_xml_attribute):
   """! This function calculates msoce based on the default input variables
   then compares it with the modified calculated values based on the modified

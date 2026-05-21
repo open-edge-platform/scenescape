@@ -170,7 +170,6 @@ def track(params):
   scene.tracker.join()
   return tracked_data
 
-@pytest.mark.basic_acceptance
 def test_tracker_metric(params, assets, record_xml_attribute):
   """! This function calulcates max_velocity, msoce or idc-error and
   compares it to a desired threshold value
