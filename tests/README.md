@@ -30,7 +30,7 @@ Install them with `apt-get` (or equivalent for your distribution):
 
 ```bash
 # Build images, generate secrets, and install the pytest virtualenv
-SUPASS=change_me make && make setup-tests
+SUPASS=change_me make build-all && make setup-tests
 ```
 
 ### Kubernetes backend

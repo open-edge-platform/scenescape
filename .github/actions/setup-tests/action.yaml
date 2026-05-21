@@ -22,7 +22,7 @@ runs:
       run: |
         docker context use default || true
         docker context ls --format '{{.Name}}' | grep -v '^default$' | xargs -r docker context rm -f
-        sudo rm -f /etc/docker/daemon.json || true
+        echo '{"features":{"containerd-snapshotter":false}}' | sudo tee /etc/docker/daemon.json > /dev/null
         sudo systemctl daemon-reload || true
         sudo systemctl restart docker || true
 
@@ -82,7 +82,7 @@ runs:
         curl -sSL --retry 5 --retry-delay 3 -o geckodriver.tar.gz \
           "https://github.com/mozilla/geckodriver/releases/download/v${GECKODRIVER_VERSION}/geckodriver-v${GECKODRIVER_VERSION}-linux64.tar.gz"
         tar -xzf geckodriver.tar.gz
-        sudo mv geckodriver /usr/local/bin/
+        sudo mv -f geckodriver /usr/local/bin/
 
     - name: "Install robot_vision dependencies"
       shell: bash
