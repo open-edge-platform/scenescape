@@ -74,6 +74,17 @@ class Browser(Firefox):
     _validate_firefox(binary)
     options.binary_location = binary
 
+    options.add_argument("--window-size=1080,1920")
+    # Resolve SceneScape service hostnames to loopback inside the Firefox process.
+    # This applies to geckodriver subprocess, which is unaffected by the Python-level
+    # socket.getaddrinfo patch in conftest.py.
+    _host_aliases = [
+      "broker.scenescape.intel.com",
+      "web.scenescape.intel.com",
+      "autocalibration.scenescape.intel.com",
+      "vdms.scenescape.intel.com",
+    ]
+    options.set_preference("network.dns.localDomains", ",".join(_host_aliases))
     geckodriver_path = shutil.which("geckodriver") or geckodriver_autoinstaller.install()
     service = Service(geckodriver_path)
 
