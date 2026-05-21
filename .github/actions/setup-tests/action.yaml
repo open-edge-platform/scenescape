@@ -16,12 +16,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: "Reset Docker Context"
-      shell: bash
-      run: |
-        docker context use default
-        docker context ls --format '{{.Name}}' | grep -v '^default$' | xargs -r docker context rm -f
-
     - name: "Reset Docker Config"
       shell: bash
       run: |
