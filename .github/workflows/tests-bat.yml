@@ -148,6 +148,9 @@ jobs:
           username: scenescape
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: "Run Setup"
+        uses: ./.github/actions/setup-env
+
       - name: "Setup Cache Targets"
         id: setup-cache
         uses: ./.github/actions/setup-cache
@@ -203,6 +206,9 @@ jobs:
         with:
           username: scenescape
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: "Run Setup"
+        uses: ./.github/actions/setup-env
 
       - name: "Setup Cache Targets"
         id: setup-cache
