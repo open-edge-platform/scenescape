@@ -34,11 +34,16 @@ if str(_TESTS_DIR) not in sys.path:
 if str(_REPO_ROOT) not in sys.path:
   sys.path.insert(0, str(_REPO_ROOT))
 
-# TODO: Exclude satellite test suites that need deps only available inside Docker.
+_PERF_TESTS_DIR = _TESTS_DIR / "perf_tests"
+if str(_PERF_TESTS_DIR) not in sys.path:
+  sys.path.insert(0, str(_PERF_TESTS_DIR))
+
+# Exclude satellite test suites that need deps only available inside Docker.
 collect_ignore_glob = [
   "api/*",
   "autocalibration/*",
   "mapping/*",
+  "pipeline_runner/*",
   "ntlb/*",
   "tools/*",
   "tracker/*",

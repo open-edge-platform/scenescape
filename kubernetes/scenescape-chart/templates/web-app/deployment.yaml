@@ -183,9 +183,4 @@ spec:
       - name: migrations-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-migrations-pvc
-      {{- if .Values.tests.enabled }}
-      - name: tests-storage
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-tests-pvc
-      {{- end }}
 status: {}

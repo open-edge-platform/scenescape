@@ -128,14 +128,3 @@ make -C kubernetes install
 ```
 
 This enables the `chartdebug=true` setting in the Helm chart, which keeps debugging resources after installation.
-
-### Validation Mode
-
-To deploy Intel® SceneScape in validation/testing mode:
-
-```console
-export VALIDATION=1
-make -C kubernetes install
-```
-
-This enables additional testing components and configurations.
