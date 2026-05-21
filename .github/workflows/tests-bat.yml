@@ -113,7 +113,6 @@ jobs:
               - '!**/*.pdf'
               - '!LICENSES/**'
               - '!docs/**'
-              - 'docs/user-guide/api-docs/api.yaml'
 
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
