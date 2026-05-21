@@ -7,12 +7,11 @@ import math
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
-from controller.pose_adjustment.core.bbox_utils import (bounds as bbox_bounds,
-                                                        clip_point,
-                                                        clip_value,
+from controller.pose_adjustment.core.bbox_utils import (clip_point,
                                                         coerce_bbox,
-                                                        quantize_bbox,
                                                         scale_bbox)
+from controller.pose_adjustment.core.bbox_rewrite_policy import (BoundingBoxRewritePolicy,
+                                                                 BoundingBoxRewriteThresholds)
 from controller.pose_adjustment.strategies.person.named_keypoints import (NamedKeypoint, head_point,
                                                                           midpoint, parse_named_keypoints,
                                                                           scale_keypoints)
@@ -121,7 +120,7 @@ class FootEstimate:
   method: str
   learning_x: Optional[float] = None
   confidence: Optional[float] = None
-  visible_ankles: int = 0
+  direct_observation_count: int = 0
   allow_horizontal_shift: bool = False
 
 
@@ -135,6 +134,17 @@ class PersonPoseAdjuster:
     min_observations: int = 3,
   ):
     self.cache = ProportionCache(max_samples, max_entry_age_seconds, min_observations)
+    self._rewrite_policy = BoundingBoxRewritePolicy(
+      thresholds=BoundingBoxRewriteThresholds(
+        direct_safety_margin=BBOX_BOTTOM_SAFETY_MARGIN_DIRECT,
+        estimated_safety_margin=BBOX_BOTTOM_SAFETY_MARGIN_ESTIMATED,
+        direct_gap_factor=DIRECT_FOOT_REWRITE_GAP_FACTOR,
+        estimated_gap_factor=ESTIMATED_FOOT_REWRITE_GAP_FACTOR,
+        min_estimate_confidence_threshold=MIN_ESTIMATE_CONFIDENCE_THRESHOLD,
+        low_confidence_estimation_methods=LOW_CONFIDENCE_ESTIMATION_METHODS,
+      ),
+      has_likely_occlusion_signal=self._has_likely_occlusion_signal,
+    )
 
   def set_max_entry_age_seconds(self, max_entry_age_seconds: float) -> None:
     """Update the maximum age before a cached proportion entry is pruned."""
@@ -297,7 +307,7 @@ class PersonPoseAdjuster:
       log.debug(f"No pose-based foot estimate available for {cache_key}: bbox={bbox}")
       return None, None
 
-    if not self._should_rewrite_bbox(bbox, keypoints, estimated_foot):
+    if not self._rewrite_policy.should_rewrite_bbox(bbox, keypoints, estimated_foot):
       log.debug(
         f"Skipping bbox rewrite for {cache_key}: estimated foot does not indicate likely occlusion"
       )
@@ -307,7 +317,7 @@ class PersonPoseAdjuster:
       f"Using estimated foot for {cache_key}: "
       f"method={estimated_foot.method}, x={estimated_foot.x:.4f}, y={estimated_foot.y:.4f}"
     )
-    return self._rewrite_bbox(bbox, estimated_foot, bounds), estimated_foot.method
+    return self._rewrite_policy.rewrite_bbox(bbox, estimated_foot, bounds), estimated_foot.method
 
   def _direct_foot_estimate(
     self,
@@ -346,7 +356,7 @@ class PersonPoseAdjuster:
         'detected_ankles',
         learning_x=foot_x,
         confidence=confidence,
-        visible_ankles=2,
+        direct_observation_count=2,
         allow_horizontal_shift=self._is_high_confidence(confidence),
       )
 
@@ -358,7 +368,7 @@ class PersonPoseAdjuster:
       'detected_single_ankle',
       learning_x=candidates[0].x,
       confidence=confidence,
-      visible_ankles=1,
+      direct_observation_count=1,
       allow_horizontal_shift=False,
     )
 
@@ -433,7 +443,7 @@ class PersonPoseAdjuster:
     ankle_y = foot.y
     landmarks = self._resolve_landmarks(keypoints)
     min_segment = max(bbox['height'] * MIN_SEGMENT_FACTOR, 1e-6)
-    allow_x_offset = foot.visible_ankles >= 2 and foot.allow_horizontal_shift
+    allow_x_offset = foot.direct_observation_count >= 2 and foot.allow_horizontal_shift
     filtered_ratios = self._compute_ratios(
       landmarks, min_segment, ankle_x, ankle_y, allow_x_offset,
     )
@@ -507,7 +517,7 @@ class PersonPoseAdjuster:
       est_y,
       method,
       confidence=confidence,
-      visible_ankles=0,
+      direct_observation_count=0,
       allow_horizontal_shift=False,
     )
 
@@ -536,52 +546,6 @@ class PersonPoseAdjuster:
       confidence = self._mean_confidence([top, bottom])
       return (est_x, est_y, confidence, rule.method)
     return None
-
-  def _should_rewrite_bbox(
-    self,
-    bbox: Dict[str, float],
-    keypoints: Dict[str, NamedKeypoint],
-    foot: FootEstimate,
-  ) -> bool:
-    box_bottom = bbox['y'] + bbox['height']
-    safety_margin = (
-      BBOX_BOTTOM_SAFETY_MARGIN_DIRECT if foot.visible_ankles > 0
-      else BBOX_BOTTOM_SAFETY_MARGIN_ESTIMATED
-    )
-    desired_bottom = foot.y + bbox['height'] * safety_margin
-    required_extension = desired_bottom - box_bottom
-    min_extension = bbox['height'] * (
-      DIRECT_FOOT_REWRITE_GAP_FACTOR if foot.visible_ankles > 0
-      else ESTIMATED_FOOT_REWRITE_GAP_FACTOR
-    )
-
-    if required_extension <= min_extension:
-      log.debug(
-        f"Skipping bbox rewrite for {foot.method}: extension={required_extension:.4f} "
-        f"threshold={min_extension:.4f}"
-      )
-      return False
-
-    if foot.visible_ankles > 0:
-      return True
-
-    if foot.method in LOW_CONFIDENCE_ESTIMATION_METHODS:
-      log.debug(f"Skipping bbox rewrite for {foot.method}: low-confidence estimate method")
-      return False
-
-    if foot.confidence is not None and foot.confidence < MIN_ESTIMATE_CONFIDENCE_THRESHOLD:
-      log.debug(
-        f"Skipping bbox rewrite for {foot.method}: estimate confidence={foot.confidence:.4f}"
-      )
-      return False
-
-    if not self._has_likely_occlusion_signal(keypoints, bbox):
-      log.debug(
-        f"Skipping bbox rewrite for {foot.method}: pose pattern does not suggest occlusion"
-      )
-      return False
-
-    return True
 
   def _has_likely_occlusion_signal(
     self,
@@ -616,46 +580,6 @@ class PersonPoseAdjuster:
       return True
 
     return False
-
-  def _rewrite_bbox(
-    self,
-    bbox: Dict[str, float],
-    foot: FootEstimate,
-    bounds,
-  ) -> Dict[str, float]:
-    frame_width, frame_height = bbox_bounds(bounds)
-    safety_margin = (
-      BBOX_BOTTOM_SAFETY_MARGIN_DIRECT if foot.visible_ankles > 0
-      else BBOX_BOTTOM_SAFETY_MARGIN_ESTIMATED
-    )
-    desired_bottom = foot.y + bbox['height'] * safety_margin
-    bottom_y = max(bbox['y'] + bbox['height'], desired_bottom)
-
-    width = min(bbox['width'], frame_width)
-    top_y = clip_value(bbox['y'], 0.0, frame_height)
-    left_x = self._compute_left_x(bbox, foot, width, frame_width)
-    bottom_y = clip_value(bottom_y, top_y, frame_height)
-    height = min(max(bottom_y - top_y, bbox['height']), frame_height - top_y)
-
-    adjusted_bbox = {'x': left_x, 'y': top_y, 'width': width, 'height': height}
-    final_bbox = quantize_bbox(adjusted_bbox, frame_width, frame_height)
-
-    log.debug(
-      f"Rewriting bbox using {foot.method}: before={bbox}, after={final_bbox}, "
-      f"foot=({foot.x:.4f}, {foot.y:.4f}), shift_x={foot.allow_horizontal_shift}"
-    )
-    return final_bbox
-
-  def _compute_left_x(
-    self, bbox: Dict[str, float], foot: FootEstimate,
-    width: float, frame_width: float,
-  ) -> float:
-    """Compute the left-x coordinate, optionally centering on the foot."""
-    max_left = max(frame_width - width, 0.0)
-    if foot.allow_horizontal_shift:
-      center_x = foot.x if foot.x is not None else (bbox['x'] + bbox['width'] / 2)
-      return clip_value(center_x - width / 2, 0.0, max_left)
-    return clip_value(bbox['x'], 0.0, max_left)
 
   def _mean_confidence(self, keypoints) -> Optional[float]:
     confidences = [
