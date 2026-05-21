@@ -4,22 +4,26 @@
 import subprocess
 import os
 import pytest
+from openapi_spec_validator import validate
+from openapi_spec_validator.readers import read_from_filename
 
 TEST_NAME = "NEX-T10572"
 
 @pytest.mark.basic_acceptance
-def test_validate_openapi(record_xml_attribute, swagger_cli):
-    """Validate OpenAPI schema using swagger-cli."""
-    docs_path = os.path.join(os.path.dirname(__file__), "../../docs/user-guide/api-docs/")
-    docs_path = os.path.abspath(docs_path)
+def test_validate_openapi(record_xml_attribute):
+  """Validate OpenAPI schema using swagger-cli."""
+  record_xml_attribute("name", TEST_NAME)
 
-    record_xml_attribute("name", TEST_NAME)
+  spec_dict, base_uri = read_from_filename(api_path)
 
-    # Validate api.yaml
-    result = subprocess.run(
-        ["npx", "--yes", "swagger-cli", "validate", "api.yaml"],
-        cwd=docs_path,
-        check=True
-    )
+  # If no exception is raised by validate(), the spec is valid.
+  validate(spec_dict)
 
-    assert result.returncode == 0
+
+  api_path = os.path.join(os.path.dirname(__file__), "../../docs/user-guide/api-docs/api.yaml")
+  spec_dict, base_uri = read_from_filename(api_path)
+
+  try:
+    validate(spec_dict)
+  except Exception as e:
+    pytest.fail(f"OpenAPI validation failed: {e}")

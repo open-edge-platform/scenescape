@@ -47,5 +47,8 @@ geckodriver-autoinstaller==0.1.0
 # Build dependencies for fast_geometry C++ extension
 pybind11==3.0.4
 
+# API validation dependencies
+openapi-spec-validator==0.9.0
+
 # SceneScape shared library (installed as editable from repo)
 -e ../scene_common/src
