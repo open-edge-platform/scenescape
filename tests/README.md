@@ -25,12 +25,13 @@ Install them with `apt-get` (or equivalent for your distribution):
 > **Note**: `firefox` and `xvfb` are only needed when running UI/Selenium tests.
 > `libopencv-dev` and `libeigen3-dev` are required to compile the `robot_vision`
 > C++ extension used by tracker metric and scene tests.
+> On Ubuntu, Firefox must be installed via apt — the snap version is not compatible with Selenium.
 
 ### Docker backend
 
 ```bash
 # Build images, generate secrets, and install the pytest virtualenv
-SUPASS=change_me make build-all && make setup-tests
+SUPASS=change_me make && make setup-tests
 ```
 
 ### Kubernetes backend
