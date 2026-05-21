@@ -7,10 +7,16 @@ import math
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
-from controller.pose_adjustment.named_keypoints import (NamedKeypoint, head_point,
-                                                        midpoint, parse_named_keypoints,
-                                                        scale_keypoints)
-from controller.pose_adjustment.proportion_cache import ProportionCache
+from controller.pose_adjustment.core.bbox_utils import (bounds as bbox_bounds,
+                                                        clip_point,
+                                                        clip_value,
+                                                        coerce_bbox,
+                                                        quantize_bbox,
+                                                        scale_bbox)
+from controller.pose_adjustment.strategies.person.named_keypoints import (NamedKeypoint, head_point,
+                                                                          midpoint, parse_named_keypoints,
+                                                                          scale_keypoints)
+from controller.pose_adjustment.strategies.person.proportion_cache import ProportionCache
 from scene_common import log
 
 
@@ -165,8 +171,8 @@ class PersonPoseAdjuster:
     self.cache.prune(when)
     self.cache.mark_seen(cache_key, when)
 
-    normalized_bbox = self._coerce_bbox(detection.get('bounding_box'))
-    pixel_bbox = self._coerce_bbox(detection.get('bounding_box_px'))
+    normalized_bbox = coerce_bbox(detection.get('bounding_box'))
+    pixel_bbox = coerce_bbox(detection.get('bounding_box_px'))
     bbox_mode = (
       'normalized' if normalized_bbox is not None
       else 'pixel' if pixel_bbox is not None
@@ -213,7 +219,7 @@ class PersonPoseAdjuster:
 
     detection['bounding_box'] = adjusted_bbox
     if pixel_bbox is not None:
-      derived_pixel_bbox = self._scale_bbox(adjusted_bbox, resolution)
+      derived_pixel_bbox = scale_bbox(adjusted_bbox, resolution)
       if derived_pixel_bbox is not None:
         detection['bounding_box_px'] = derived_pixel_bbox
       else:
@@ -492,7 +498,7 @@ class PersonPoseAdjuster:
       return None
 
     est_x, est_y, confidence, method = result
-    est_x, est_y = self._clip_point(est_x, est_y, bounds)
+    est_x, est_y = clip_point(est_x, est_y, bounds)
     log.debug(
       f"Estimated foot for {cache_key}: method={method}, x={est_x:.4f}, y={est_y:.4f}"
     )
@@ -617,7 +623,7 @@ class PersonPoseAdjuster:
     foot: FootEstimate,
     bounds,
   ) -> Dict[str, float]:
-    frame_width, frame_height = self._bounds(bounds)
+    frame_width, frame_height = bbox_bounds(bounds)
     safety_margin = (
       BBOX_BOTTOM_SAFETY_MARGIN_DIRECT if foot.visible_ankles > 0
       else BBOX_BOTTOM_SAFETY_MARGIN_ESTIMATED
@@ -626,13 +632,13 @@ class PersonPoseAdjuster:
     bottom_y = max(bbox['y'] + bbox['height'], desired_bottom)
 
     width = min(bbox['width'], frame_width)
-    top_y = self._clip_value(bbox['y'], 0.0, frame_height)
+    top_y = clip_value(bbox['y'], 0.0, frame_height)
     left_x = self._compute_left_x(bbox, foot, width, frame_width)
-    bottom_y = self._clip_value(bottom_y, top_y, frame_height)
+    bottom_y = clip_value(bottom_y, top_y, frame_height)
     height = min(max(bottom_y - top_y, bbox['height']), frame_height - top_y)
 
     adjusted_bbox = {'x': left_x, 'y': top_y, 'width': width, 'height': height}
-    final_bbox = self._quantize_bbox(adjusted_bbox, frame_width, frame_height)
+    final_bbox = quantize_bbox(adjusted_bbox, frame_width, frame_height)
 
     log.debug(
       f"Rewriting bbox using {foot.method}: before={bbox}, after={final_bbox}, "
@@ -648,16 +654,8 @@ class PersonPoseAdjuster:
     max_left = max(frame_width - width, 0.0)
     if foot.allow_horizontal_shift:
       center_x = foot.x if foot.x is not None else (bbox['x'] + bbox['width'] / 2)
-      return self._clip_value(center_x - width / 2, 0.0, max_left)
-    return self._clip_value(bbox['x'], 0.0, max_left)
-
-  def _quantize_bbox(
-    self, bbox: Dict[str, float], frame_width: float, frame_height: float,
-  ) -> Dict:
-    """Round bbox values to integers for pixel space or 6 decimals for normalized."""
-    if frame_width > 1.0 or frame_height > 1.0:
-      return {key: int(round(value)) for key, value in bbox.items()}
-    return {key: round(value, 6) for key, value in bbox.items()}
+      return clip_value(center_x - width / 2, 0.0, max_left)
+    return clip_value(bbox['x'], 0.0, max_left)
 
   def _mean_confidence(self, keypoints) -> Optional[float]:
     confidences = [
@@ -670,53 +668,3 @@ class PersonPoseAdjuster:
 
   def _is_high_confidence(self, confidence: Optional[float]) -> bool:
     return confidence is not None and confidence >= HIGH_CONFIDENCE_THRESHOLD
-
-  def _scale_bbox(self, bbox: Dict[str, float], resolution) -> Optional[Dict[str, int]]:
-    if resolution is None or len(resolution) != 2:
-      return None
-    width, height = float(resolution[0]), float(resolution[1])
-    scaled_bbox = {
-      'x': bbox['x'] * width,
-      'y': bbox['y'] * height,
-      'width': bbox['width'] * width,
-      'height': bbox['height'] * height,
-    }
-    return {
-      key: int(round(value)) for key, value in scaled_bbox.items()
-    }
-
-  def _coerce_bbox(self, bbox) -> Optional[Dict[str, float]]:
-    if not isinstance(bbox, dict):
-      return None
-    try:
-      x_coord = float(bbox['x'])
-      y_coord = float(bbox['y'])
-      width = float(bbox['width'])
-      height = float(bbox['height'])
-    except (KeyError, TypeError, ValueError):
-      return None
-
-    if width <= 0 or height <= 0:
-      return None
-
-    return {
-      'x': x_coord,
-      'y': y_coord,
-      'width': width,
-      'height': height,
-    }
-
-  def _clip_point(self, x_coord: float, y_coord: float, bounds) -> Tuple[float, float]:
-    frame_width, frame_height = self._bounds(bounds)
-    return (
-      self._clip_value(x_coord, 0.0, frame_width),
-      self._clip_value(y_coord, 0.0, frame_height),
-    )
-
-  def _clip_value(self, value: float, minimum: float, maximum: float) -> float:
-    return max(minimum, min(value, maximum))
-
-  def _bounds(self, bounds) -> Tuple[float, float]:
-    if bounds is None or len(bounds) != 2:
-      return (1.0, 1.0)
-    return (float(bounds[0]), float(bounds[1]))
