@@ -18,6 +18,7 @@ runs:
   steps:
     - name: "Reset docker settings"
       shell: bash
+      continue-on-error: true
       run: |
         docker context use default || true
         docker context ls --format '{{.Name}}' | grep -v '^default$' | xargs -r docker context rm -f
