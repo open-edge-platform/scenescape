@@ -145,7 +145,7 @@ class TestReconstructionModel:
     img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
 
     # Decode
-    img_array = model.decodeBase64Image(img_base64)
+    img_array = model.decode_base64_image(img_base64)
 
     assert isinstance(img_array, np.ndarray)
     assert img_array.shape == (100, 100, 3)
@@ -165,7 +165,7 @@ class TestReconstructionModel:
     data_url = f"data:image/png;base64,{img_base64}"
 
     # Decode
-    img_array = model.decodeBase64Image(data_url)
+    img_array = model.decode_base64_image(data_url)
 
     assert isinstance(img_array, np.ndarray)
     assert img_array.shape == (50, 50, 3)
@@ -181,7 +181,7 @@ class TestReconstructionModel:
     img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
 
     # Decode
-    img_array = model.decodeBase64Image(img_base64)
+    img_array = model.decode_base64_image(img_base64)
 
     assert isinstance(img_array, np.ndarray)
     assert img_array.shape == (50, 50, 3)  # Should be converted to RGB
@@ -191,7 +191,7 @@ class TestReconstructionModel:
     model = MockReconstructionModel()
 
     with pytest.raises(ValueError, match="Failed to decode"):
-      model.decodeBase64Image("invalid_base64_data")
+      model.decode_base64_image("invalid_base64_data")
 
   def test_rotation_matrix_to_quaternion_identity(self):
     """Test rotation matrix to quaternion conversion for identity matrix"""

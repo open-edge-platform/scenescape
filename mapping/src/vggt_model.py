@@ -99,7 +99,7 @@ class VGGTModel(ReconstructionModel):
     if not self.is_loaded:
       raise RuntimeError("Model not loaded. Call load_model() first.")
 
-    self.validateImages(images)
+    self.validate_images(images)
 
     try:
       # Decode images and get original sizes
@@ -109,24 +109,24 @@ class VGGTModel(ReconstructionModel):
       camera_locations = []
 
       for img_data in images:
-        img_array = self.decodeBase64Image(img_data["data"])
+        img_array = self.decode_base64_image(img_data["data"])
         camera_ids.append(img_data.get("camera_id"))
         camera_locations.append(img_data.get("camera_location"))
         # Apply CLAHE for improved contrast
-        img_array = self._applyCLAHE(img_array)
+        img_array = self._apply_clahe(img_array)
         pil_image = Image.fromarray(img_array)
         pil_images.append(pil_image)
         original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
 
       # Preprocess images using VGGT's logic
-      images_tensor, model_size = self._preprocessImages(pil_images)
+      images_tensor, model_size = self._preprocess_images(pil_images)
 
       # Run inference
       log.info(f"Running VGGT inference on device: {self.device}")
-      predictions = self._runModelInference(images_tensor)
+      predictions = self._run_model_inference(images_tensor)
 
       # Process outputs
-      result = self._processOutputs(predictions, original_sizes, model_size, camera_ids=camera_ids, camera_locations=camera_locations)
+      result = self._process_outputs(predictions, original_sizes, model_size, camera_ids=camera_ids, camera_locations=camera_locations)
 
       return result
 
@@ -409,7 +409,7 @@ class VGGTModel(ReconstructionModel):
     finally:
       shutil.rmtree(temp_dir, ignore_errors=True)
 
-  def _preprocessImages(self, pil_images: List[Image.Image]) -> tuple:
+  def _preprocess_images(self, pil_images: List[Image.Image]) -> tuple:
     """
     No-padding preprocess:
     1) Resize so the SHORTER side becomes 518 (keeps aspect ratio).
@@ -449,7 +449,7 @@ class VGGTModel(ReconstructionModel):
     model_size = (target, target)
     return images_tensor, model_size
 
-  def _runModelInference(self, images_tensor: torch.Tensor) -> Dict[str, Any]:
+  def _run_model_inference(self, images_tensor: torch.Tensor) -> Dict[str, Any]:
     """
     Run the VGGT model inference.
 
@@ -511,7 +511,7 @@ class VGGTModel(ReconstructionModel):
       log.exception(f"Failed to compute baseline from camera_locations: {e}")
       return 0.0
 
-  def _processOutputs(self, predictions: Dict[str, Any], original_sizes: List[tuple],
+  def _process_outputs(self, predictions: Dict[str, Any], original_sizes: List[tuple],
             model_size: tuple, camera_ids: List[Any] = None, camera_locations: List[Any] = None) -> Dict[str, Any]:
     """
     Process VGGT outputs into standard format.
@@ -624,7 +624,7 @@ class VGGTModel(ReconstructionModel):
       K = original_intrinsics[i]
 
       rotation_matrix = camera_to_world[:3, :3]
-      quaternion = self.rotationMatrixToQuaternion(rotation_matrix)
+      quaternion = self.rotation_matrix_to_quaternion(rotation_matrix)
 
       camera_poses.append({
         "camera_id": cam_id,

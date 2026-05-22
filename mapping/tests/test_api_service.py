@@ -33,15 +33,15 @@ class TestAPIService:
     # Create mock model
     mock_model = Mock()
     mock_model.is_loaded = True
-    mock_model.runInference = Mock(return_value={
+    mock_model.run_inference = Mock(return_value={
       "predictions": {"world_points": [], "images": [], "final_masks": []},
       "camera_poses": [
         {"rotation": [1.0, 0.0, 0.0, 0.0], "translation": [0.0, 0.0, 0.0]}
       ],
       "intrinsics": [[[1000, 0, 500], [0, 1000, 500], [0, 0, 1]]]
     })
-    mock_model.createOutput = Mock(return_value=MagicMock())
-    mock_model.getModelInfo = Mock(return_value={
+    mock_model.create_output = Mock(return_value=MagicMock())
+    mock_model.get_model_info = Mock(return_value={
       "name": "test_model",
       "description": "Test model",
       "device": "cpu",
@@ -146,14 +146,14 @@ class TestAPIService:
 
     with patch('api_service_base.loaded_model') as mock_model:
       mock_model.is_loaded = True
-      mock_model.runInference = Mock(return_value={
+      mock_model.run_inference = Mock(return_value={
         "predictions": {"world_points": [], "images": [], "final_masks": []},
         "camera_poses": [
           {"rotation": [1.0, 0.0, 0.0, 0.0], "translation": [0.0, 0.0, 0.0]}
         ],
         "intrinsics": [[[1000, 0, 500], [0, 1000, 500], [0, 0, 1]]]
       })
-      mock_model.createOutput = Mock(return_value=mock_scene)
+      mock_model.create_output = Mock(return_value=mock_scene)
 
       # Mock get_mesh_info to return valid mesh info
       with patch('api_service_base.get_mesh_info', return_value={

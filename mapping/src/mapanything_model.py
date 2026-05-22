@@ -76,7 +76,7 @@ class MapAnythingModel(ReconstructionModel):
     if not self.is_loaded:
       raise RuntimeError("Model not loaded. Call load_model() first.")
 
-    self.validateImages(frames)
+    self.validate_images(frames)
 
     try:
       pil_images = []
@@ -85,14 +85,14 @@ class MapAnythingModel(ReconstructionModel):
 
       for img_data in frames:
         camera_ids.append(img_data.get("camera_id"))
-        img_array = self.decodeBase64Image(img_data["data"])
+        img_array = self.decode_base64_image(img_data["data"])
         # Apply CLAHE for improved contrast
-        img_array = self._applyCLAHE(img_array)
+        img_array = self._apply_clahe(img_array)
         pil_image = Image.fromarray(img_array)
         pil_images.append(pil_image)
         original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
 
-      views = self._preprocessImages(pil_images)
+      views = self._preprocess_images(pil_images)
       if not views:
         raise ValueError("No valid images processed")
 
@@ -105,7 +105,7 @@ class MapAnythingModel(ReconstructionModel):
         memory_efficient_inference=True,
         amp_dtype="fp32"
       )
-      return self._processOutputs(
+      return self._process_outputs(
           outputs,
           original_sizes,
           model_size,
@@ -221,7 +221,7 @@ class MapAnythingModel(ReconstructionModel):
       scene = predictions_to_glb(predictions, as_mesh=True)
       return scene
 
-  def _preprocessImages(self, pil_images: List[Image.Image]) -> List[Dict[str, Any]]:
+  def _preprocess_images(self, pil_images: List[Image.Image]) -> List[Dict[str, Any]]:
     """
     Preprocess images using MapAnything's logic.
 
@@ -264,7 +264,7 @@ class MapAnythingModel(ReconstructionModel):
 
     return views
 
-  def _processOutputs(self, outputs: List[Dict], original_sizes: List[tuple],
+  def _process_outputs(self, outputs: List[Dict], original_sizes: List[tuple],
             model_size: tuple, camera_ids: Optional[List[Any]] = None) -> Dict[str, Any]:
     """
     Process MapAnything outputs into standard format.
@@ -332,7 +332,7 @@ class MapAnythingModel(ReconstructionModel):
 
       # Convert rotation matrix to quaternion
       rotation_matrix = rotated_pose[:3, :3]
-      quaternion = self.rotationMatrixToQuaternion(rotation_matrix)
+      quaternion = self.rotation_matrix_to_quaternion(rotation_matrix)
 
       camera_poses.append({
         "camera_id": cam_id,

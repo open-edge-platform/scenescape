@@ -186,7 +186,7 @@ class ReconstructionModel(ABC):
       if not isinstance(img['data'], str):
         raise ValueError(f"Image {i} data must be a base64 string")
 
-  def decodeBase64Image(self, image_data: str) -> np.ndarray:
+  def decode_base64_image(self, image_data: str) -> np.ndarray:
     """
     Decode base64 image data to numpy array.
 
@@ -226,7 +226,7 @@ class ReconstructionModel(ABC):
     except Exception as e:
       raise ValueError(f"Failed to decode image data: {e}")
 
-  def _applyCLAHE(self, img_array: np.ndarray, clip_limit: float = 2.0, tile_grid_size: tuple = (8, 8)) -> np.ndarray:
+  def _apply_clahe(self, img_array: np.ndarray, clip_limit: float = 2.0, tile_grid_size: tuple = (8, 8)) -> np.ndarray:
     """
     Apply Contrast Limited Adaptive Histogram Equalization (CLAHE) to improve image contrast.
 
@@ -293,7 +293,7 @@ class ReconstructionModel(ABC):
 
     return np.array([x, y, z, w])
 
-  def _maxFramesForTimeBudget(
+  def _max_frames_for_time_budget(
     self,
     time_budget_seconds: float,
     overhead: float,
@@ -313,7 +313,7 @@ class ReconstructionModel(ABC):
     max_frames = int(math.floor(usable / max(1e-6, sec_per_frame)))
     return max_frames
 
-  def _framesFromVideoAsBase64Dicts(
+  def _frames_from_video_as_base64_dicts(
     self,
     video_path: str,
     max_frames: int,

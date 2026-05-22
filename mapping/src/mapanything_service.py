@@ -8,14 +8,14 @@ MapAnything-specific API Service
 """
 
 # Import the base API service
-from api_service_base import startApp, app
+from api_service_base import start_app, app
 
 def initialize_model():
   """Initialize MapAnything model"""
   from mapanything_model import MapAnythingModel
 
   model = MapAnythingModel(device="cpu")
-  model.loadModel()
+  model.load_model()
 
   return model, "mapanything"
 
@@ -24,4 +24,4 @@ import api_service_base
 api_service_base.initialize_model = initialize_model
 
 if __name__ == "__main__":
-  startApp()
+  start_app()

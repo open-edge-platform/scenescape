@@ -144,9 +144,9 @@ def run_model_inference(input_data: Dict[str, Any]) -> Dict[str, Any]:
         use_keyframes = use_keyframes.lower() in ("1", "true", "yes", "y", "on")
 
       # Extract frames from video using the model's internal method
-      video_frames = loaded_model._framesFromVideoAsBase64Dicts(
+      video_frames = loaded_model._frames_from_video_as_base64_dicts(
         video_path=video,
-        max_frames=loaded_model._maxFramesForTimeBudget(
+        max_frames=loaded_model._max_frames_for_time_budget(
           time_budget_seconds=int(os.getenv("GUNICORN_TIMEOUT", "300")),
           overhead=30
         ),
@@ -159,7 +159,7 @@ def run_model_inference(input_data: Dict[str, Any]) -> Dict[str, Any]:
       raise RuntimeError("No frames available for inference")
 
     log.info(f"Running inference on {len(all_frames)} total frames")
-    return loaded_model.runInference(all_frames)
+    return loaded_model.run_inference(all_frames)
 
   except Exception as e:
     log.error(f"Model inference failed: {e}")
@@ -172,8 +172,8 @@ def create_glb_file(result: Dict[str, Any], mesh_type: str = "mesh") -> str:
   temp_glb_fd, temp_glb_path = tempfile.mkstemp(suffix=".glb")
 
   try:
-    # Use the model's createOutput method
-    scene_3d = loaded_model.createOutput(result, output_format=mesh_type)
+    # Use the model's create_output method
+    scene_3d = loaded_model.create_output(result, output_format=mesh_type)
     scene_3d.export(temp_glb_path)
 
     mesh_info = get_mesh_info(scene_3d)
@@ -363,7 +363,7 @@ def list_models():
 
   model_info = None
   if loaded_model is not None:
-    model_info = loaded_model.getModelInfo()
+    model_info = loaded_model.get_model_info()
 
   models_data = {
     "model": model_name,
