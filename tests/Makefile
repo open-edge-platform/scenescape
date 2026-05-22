@@ -233,6 +233,7 @@ _unit-tests: \
   singleton-sensor-unit \
   timestamp-unit \
   transform-unit \
+  uuid-manager-unit \
   views-unit \
 
 include Makefile.sscape Makefile.functional Makefile.perf \
