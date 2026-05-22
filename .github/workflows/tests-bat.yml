@@ -170,7 +170,6 @@ jobs:
           NPU_DEVICE_COUNT: 0
         run: |
           mkdir -p reports
-          rm -rf .venv
           cd tests/pipeline_runner/
           python3 -m venv .venv
           source .venv/bin/activate
