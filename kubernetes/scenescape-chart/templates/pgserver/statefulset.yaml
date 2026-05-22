@@ -51,11 +51,6 @@ spec:
               subPath: pgdata
             - mountPath: /workspace/media
               name: media-storage
-{{- if .Values.tests.enabled }}
-            - mountPath: /workspace/tests
-              name: tests-storage
-              subPath: tests
-{{- end }}
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -68,11 +63,6 @@ spec:
         - name: media-storage
           persistentVolumeClaim:
             claimName: {{ .Release.Name }}-media-pvc
-{{- if .Values.tests.enabled }}
-        - name: tests-storage
-          persistentVolumeClaim:
-            claimName: {{ .Release.Name }}-tests-pvc
-{{- end }}
   volumeClaimTemplates:
   - metadata:
       name: pgserver-storage

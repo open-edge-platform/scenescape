@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # ================ Makefile for Intel® SceneScape ====================
@@ -122,8 +122,8 @@ help:
 	@echo "  run_ui_tests                Run UI tests"
 	@echo "  run_unit_tests              Run unit tests"
 	@echo "  run_stability_tests         Run stability tests"
-	@echo "  run_performance_tests       Run performance tests (Docker-based)"
-	@echo "  run_metric_tests            Run metric tests (Docker-based)"
+	@echo "  run_performance_tests       Run performance tests (inference requires Docker Compose stack)"
+	@echo "  run_metric_tests            Run metric tests"
 	@echo "  setup-pytest                Create tests/.venv and install dependencies"
 	@echo ""
 	@echo "  lint-all                    Lint entire code base"
@@ -286,6 +286,7 @@ clean-secrets:
 .PHONY: clean-tests
 clean-tests:
 	@echo "==> Cleaning test artifacts..."
+	@-rm -rf test_data/
 	@-rm -rf tests/test_logs tests/.venv
 	@echo "Cleaning fast_geometry build artifacts..."
 	@-rm -f scene_common/src/fast_geometry/*.oxx scene_common/src/fast_geometry/*.so
@@ -464,24 +465,13 @@ run_stability_tests: setup-tests setup-pytest
 		$(PYTEST) $(TESTS_DIR)/system/stability/ $(PYTEST_FLAGS) || (echo "Stability tests failed" && exit 1)
 	@echo "DONE ==> Running stability tests"
 
-# --- Docker-based test helpers (perf, metric) ---
-# These tests run inside Docker containers, not the pytest venv.
-
-_UID := $(shell id -u)
-_GID := $(shell id -g)
-
-_DOCKER_FLAGS = --rm --privileged --cap-add=SYS_ADMIN --cap-add=SYS_PTRACE --workdir=/workspace
-_DOCKER_MOUNTS = --volume="$(CURDIR):/workspace:rw" --volume="scenescape_vol-models:/opt/intel/openvino/deployment_tools/intel_models:rw" --volume="scenescape_vol-sample-data:/home/scenescape/SceneScape/sample_data:rw" --volume="$(CURDIR)/manager/secrets:/run/secrets:ro"
-_DOCKER_ENV = -e PYTHONPATH=/workspace -e SECRETSDIR=/run/secrets
-
-DOCKER_RUN_MANAGER = docker run $(_DOCKER_FLAGS) -u $(_UID) --userns=host $(_DOCKER_MOUNTS) --volume="$(CURDIR)/manager/secrets:/home/scenescape/SceneScape/manager/secrets:ro" --volume="$(CURDIR)/manager/secrets/django/secrets.py:/home/scenescape/SceneScape/manager/secrets.py:ro" $(_DOCKER_ENV) $(IMAGE_PREFIX)-manager-test:$(VERSION)
-DOCKER_RUN_CONTROLLER = docker run $(_DOCKER_FLAGS) -u $(_UID):$(_GID) $(_DOCKER_MOUNTS) $(_DOCKER_ENV) $(IMAGE_PREFIX)-controller-test:$(VERSION)
+# --- Performance and metric tests ---
 
 TEST_DATA ?= test_data
 PERF_TESTS_PATH := tests/perf_tests
 
 .PHONY: run_performance_tests
-run_performance_tests: setup-tests
+run_performance_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running performance tests..."
 	$(MAKE) _run_performance_tests SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
@@ -496,36 +486,20 @@ inference-performance: # NEX-T10412
 	@set -ex \
 	  ; echo RUNNING TEST $@ \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; env IMAGE=$(IMAGE_PREFIX)-manager-test:$(VERSION) $(PERF_TESTS_PATH)/test_inference_performance.sh 2>&1 | tee -i $(LOGFILE) \
+	  ; $(PERF_TESTS_PATH)/test_inference_performance.sh 2>&1 | tee -i $(LOGFILE) \
 	  ; echo END TEST $@
 
 .PHONY: geometry-conformance
-geometry-conformance: point-conformance line-conformance
-
-.PHONY: point-conformance
-point-conformance:
-	$(eval LOGDIR=$(TEST_DATA)/infra)
-	$(eval LOGFILE=$(LOGDIR)/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; mkdir -p $(LOGDIR) \
-	  ; $(DOCKER_RUN_MANAGER) python3 $(PERF_TESTS_PATH)/test_geometry_point.py | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
-
-.PHONY: line-conformance
-line-conformance:
-	$(eval LOGDIR=$(TEST_DATA)/infra)
-	$(eval LOGFILE=$(LOGDIR)/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; mkdir -p $(LOGDIR) \
-	  ; $(DOCKER_RUN_MANAGER) python3 $(PERF_TESTS_PATH)/test_geometry_line.py | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
+geometry-conformance:
+	@echo "Running geometry conformance tests..."
+	$(PYTEST) $(TESTS_DIR)/perf_tests/test_geometry_point.py \
+		$(TESTS_DIR)/perf_tests/test_geometry_line.py $(PYTEST_FLAGS) \
+		|| (echo "Geometry conformance tests failed" && exit 1)
 
 GENERATE_JUNITXML = -o junit_logging=all --junitxml tests/reports/test_reports/$@.xml
 
 .PHONY: run_metric_tests
-run_metric_tests: setup-tests  setup-pytest
+run_metric_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running metric tests..."
 	$(MAKE) -j $(NPROCS) _run_metric_tests SUPASS=$(SUPASS) || (echo "Metric tests failed" && exit 1)
