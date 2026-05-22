@@ -27,3 +27,5 @@ services:
 
 volumes:
   vol-models:
+    external: true
+    name: scenescape_vol-models

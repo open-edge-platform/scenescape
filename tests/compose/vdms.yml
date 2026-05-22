@@ -16,6 +16,8 @@ services:
   vdms:
     image: intellabs/vdms:v2.12.0
     init: true
+    ports:
+      - "55555:55555"
     networks:
       scenescape-test:
         aliases:

@@ -202,12 +202,14 @@ class TestSceneDeserializeReidConfigPropagation:
     mock_tracking.return_value = mock_tracker_instance
 
     from controller.scene import Scene
-    scene_data = {
-      'uid': 'test-uid-1',
-      'name': 'test_scene',
-      'map': None,
-    }
-    scene = Scene.deserialize(scene_data)
+    with patch.object(Scene, 'available_trackers', {'intel_labs': mock_tracking,
+                                                    'time_chunked_intel_labs': mock_tracking}):
+      scene_data = {
+        'uid': 'test-uid-1',
+        'name': 'test_scene',
+        'map': None,
+      }
+      scene = Scene.deserialize(scene_data)
 
     assert scene.reid_config_data == {}
 
@@ -221,15 +223,17 @@ class TestSceneDeserializeReidConfigPropagation:
     mock_tracking.return_value = MagicMock()
 
     from controller.scene import Scene
-    reid_config = {'feature_accumulation_threshold': 8, 'similarity_threshold': 55}
-    scene_data = {
-      'uid': 'test-uid-2',
-      'name': 'test_scene',
-      'map': None,
-      'reid_config_data': reid_config,
-      'tracker_config': [1.0, 2.0, 3.0, 15, True, 15, 5.0],
-    }
-    scene = Scene.deserialize(scene_data)
+    with patch.object(Scene, 'available_trackers', {'intel_labs': mock_tracking,
+                                                    'time_chunked_intel_labs': mock_tracking}):
+      reid_config = {'feature_accumulation_threshold': 8, 'similarity_threshold': 55}
+      scene_data = {
+        'uid': 'test-uid-2',
+        'name': 'test_scene',
+        'map': None,
+        'reid_config_data': reid_config,
+        'tracker_config': [1.0, 2.0, 3.0, 15, True, 15, 5.0],
+      }
+      scene = Scene.deserialize(scene_data)
 
     assert scene.reid_config_data == reid_config
 

@@ -1,26 +1,18 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
 
 from scene_common.schema import SchemaValidation
-import tests.common_test_utils as common
+import sys
+from pathlib import Path
 
-TEST_NAME = "NEX-T10458"
-SCHEMA_PATH = "controller/src/schema/metadata.schema.json"
-INVALID_SCHEMA_PATH = "../schema/metadata.schema.json"
-
-def pytest_sessionstart():
-  print("Executing: " + TEST_NAME)
-  return
-
-def pytest_sessionfinish(exitstatus):
-  common.record_test_result(TEST_NAME, exitstatus)
-  return
+SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent.parent / "controller" / "src" / "schema" / "metadata.schema.json"
+INVALID_SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent.parent / "controller" / "src" / "schema" / "invalid.metadata.schema.json"
 
 @pytest.fixture
 def schemaObject():
-  schemaObj = SchemaValidation(SCHEMA_PATH, is_multi_message=True)
+  schemaObj = SchemaValidation(str(SCHEMA_PATH), is_multi_message=True)
   return schemaObj
 
 @pytest.fixture
