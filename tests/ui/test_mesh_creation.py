@@ -7,6 +7,13 @@ import time
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 from selenium.webdriver.support.ui import WebDriverWait
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import FULL_STACK_WITH_MAPPING_AND_VIDEO
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK_WITH_MAPPING_AND_VIDEO,
+  require_password=True, auth="",
+)
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException
@@ -81,14 +88,16 @@ def test_mesh_creation(params, record_xml_attribute):
 
     browser.find_element(By.ID, "scene-edit").click()
     browser.refresh()
+    found = False
     for attempt in range(MAX_ATTEMPTS):
-      found = common.wait_for_elements(browser, "generate_mesh", findBy=By.ID)
-      if found:
+      elements = browser.find_elements(By.ID, "generate_mesh")
+      if elements and elements[0].is_displayed():
+        found = True
         break
       browser.refresh()
-      time.sleep(1)
+      time.sleep(2)
 
-    assert found, "generate_mesh button not found after retries"
+    assert found, "generate_mesh button not found or not visible after retries"
     create_mesh_from_cameras(browser)
     create_mesh_from_video(browser, video_file)
     exit_code = 0
