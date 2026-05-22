@@ -132,6 +132,77 @@ Run the pipeline:
 python -m pipeline_engine config.yaml
 ```
 
+### Black-Box Evaluation Suite
+
+`run_black_box_evaluation.py` runs the complete black-box evaluation across all three
+production container types in a single timestamped session:
+
+| Config                            | Container               | Description                            |
+| --------------------------------- | ----------------------- | -------------------------------------- |
+| `black_box_controller_no_tc.yaml` | `scenescape-controller` | Controller without time-chunking       |
+| `black_box_controller_tc.yaml`    | `scenescape-controller` | Controller with time-chunking enabled  |
+| `black_box_tracker_service.yaml`  | `scenescape-tracker`    | Standalone Tracker Service (Go binary) |
+
+**Prerequisites** (in addition to the general prerequisites above):
+
+- `scenescape-controller:2026.1.0-dev` Docker image available locally
+- `scenescape-tracker:2026.1.0-dev` Docker image available locally
+- `eclipse-mosquitto:2.0.22` Docker image available locally
+
+Verify:
+
+```bash
+docker images | grep -E "scenescape-controller|scenescape-tracker|eclipse-mosquitto"
+```
+
+**Run** (from `tools/tracker/evaluation/`):
+
+```bash
+source .venv/bin/activate
+python -m run_black_box_evaluation
+```
+
+By default results land under `/home/labrat/tracker-evaluation/black-box-evaluation/<YYYYMMDD_HHMMSS>/`.
+Use `--output` to override:
+
+```bash
+python -m run_black_box_evaluation --output /custom/output/path
+```
+
+**Output structure**:
+
+```
+<output>/<YYYYMMDD_HHMMSS>/
+  Controller-NO-Time-Chunking/
+    dataset/
+    harness/
+      inputs.json          # All input frames published to MQTT
+      outputs.json         # All tracker output frames collected from MQTT
+      tracker_logs.txt     # Container stdout/stderr
+    evaluators/
+      TrackEvalEvaluator/
+      DiagnosticEvaluator/
+      JitterEvaluator/
+  Controller-Time-Chunking/
+    ...
+  Tracker-Service/
+    ...
+```
+
+The session summary is printed to stdout at the end:
+
+```
+========================================================================
+  Session: /path/to/<YYYYMMDD_HHMMSS>
+========================================================================
+  [black_box_controller_no_tc]
+    TrackEvalEvaluator:
+      HOTA: 0.7943
+      MOTA: 0.9930
+      IDF1: 0.9966
+    ...
+```
+
 **Output Structure**: Each pipeline run creates a unique timestamped directory:
 
 ```
