@@ -55,7 +55,7 @@ def comparePointCartesianAttributes3D(cpp_pt : cppPoint, py_pt : pyPoint):
     return False
   return True
 
-def pointsPolarAttributes3D(start_range, stop_range, step):
+def PointsPolarAttributes3D(start_range, stop_range, step):
   for x in range(start_range, stop_range, step):
     for y in range(start_range, stop_range, step):
       for z in range(start_range, stop_range, step):
@@ -68,7 +68,7 @@ def pointsPolarAttributes3D(start_range, stop_range, step):
   log.log("Cartesian to Polar (3D) ok")
   return True
 
-def pointsPolarAttributes2D(start_range, stop_range, step):
+def PointsPolarAttributes2D(start_range, stop_range, step):
   for x in range(start_range, stop_range, step):
     for y in range(start_range, stop_range, step):
       cpp_pt = cppPoint(x, y, polar=False)
@@ -80,7 +80,7 @@ def pointsPolarAttributes2D(start_range, stop_range, step):
   log.log("Cartesian to Polar (2D) ok")
   return True
 
-def pointsCartesianAttributes3D(start_range, stop_range, step):
+def PointsCartesianAttributes3D(start_range, stop_range, step):
   for r_radius in range(1, 100, 1):
     # This simply generates radius values from 0.1 to 10.1
     radius = float(r_radius - 1) / 10.0 + 0.1
@@ -112,7 +112,7 @@ def pointsCartesianAttributes3D(start_range, stop_range, step):
   log.log("Polar to Cartesian (3D) ok")
   return True
 
-def pointsCartesianAttributes2D(start_range, stop_range, step):
+def PointsCartesianAttributes2D(start_range, stop_range, step):
   for r_radius in range(1, 100, 1):
     # This simply generates radius values from 0.1 to 10.1
     radius = float(r_radius - 1) / 10.0 + 0.1
@@ -128,7 +128,7 @@ def pointsCartesianAttributes2D(start_range, stop_range, step):
 
 @pytest.mark.basic_acceptance
 def test_geometry_point():
-  assert pointsPolarAttributes2D(-50, 50, 2)
-  assert pointsPolarAttributes3D(-50, 50, 2)
-  assert pointsCartesianAttributes2D(-50, 50, 2)
-  assert pointsCartesianAttributes3D(-50, 50, 2)
+  assert PointsPolarAttributes2D(-50, 50, 2)
+  assert PointsPolarAttributes3D(-50, 50, 2)
+  assert PointsCartesianAttributes2D(-50, 50, 2)
+  assert PointsCartesianAttributes3D(-50, 50, 2)

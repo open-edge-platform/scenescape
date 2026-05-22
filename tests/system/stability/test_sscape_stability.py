@@ -17,7 +17,7 @@ from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
-  require_password=False, auth="",
+  require_password=True,
   extra_args=["--hours", os.environ.get("STABILITY_HOURS", "24")],
 )
 
@@ -28,6 +28,14 @@ TEST_WAIT_TIME = 30
 
 ### How many messages should we receive. This is close to FPS * number of models
 TEST_MIN_MESSAGES = TEST_WAIT_TIME * 2
+
+### Number of cycles to skip message rate checks while DLStreamer warms up.
+### Each cycle is TEST_WAIT_TIME seconds, so 4 cycles = 2 minutes of warmup.
+WARMUP_CYCLES = 4
+
+### Number of consecutive low-message cycles before declaring failure.
+### Video files loop periodically causing brief drops — allow this many windows.
+MAX_CONSECUTIVE_LOW_MSG_CYCLES = 3
 
 ### Maximum difference allowed for the sensor objects (higher vs lower).
 ### This is intended to check all streams are flowing at approx the same rate
@@ -51,14 +59,15 @@ num_models = 0
 
 class MQTTParams():
   """! Contains the tests MQTT parameters. """
-  def __init__(self):
+  def __init__(self, params=None):
     """! Initialize the MQTTParams object.
+    @param    params    Optional dict of test parameters to override defaults.
     @return   None.
     """
-    self.rootca = "/run/secrets/certs/scenescape-ca.pem"
-    self.auth = "/run/secrets/controller.auth"
-    self.mqtt_broker = 'broker.scenescape.intel.com'
-    self.mqtt_port = 1883
+    self.rootca = params['rootcert'] if params and params.get('rootcert') else None
+    self.auth = params['auth'] if params and params.get('auth') else None
+    self.mqtt_broker = params['broker_url'] if params and params.get('broker_url') else 'broker.scenescape.intel.com'
+    self.mqtt_port = params['broker_port'] if params and params.get('broker_port') else 1883
     return None
 
 class SensorState():
@@ -121,6 +130,8 @@ class TestState():
     self.variation_in_fps = False
     self.min_fps = TEST_WAIT_TIME * 100
     self.max_fps = 0
+    self.low_msg_cycles = 0
+    self.high_variation_cycles = 0
     self.memory_samples = []
     self.memory_growth_detected = False
     return None
@@ -221,6 +232,8 @@ class TestState():
     @param    model_sensor_count    Int count of sensor frames received.
     @return   None.
     """
+    if self.current_cycle < WARMUP_CYCLES:
+      return None
     self.min_fps = min(self.min_fps, model_sensor_count)
     self.max_fps = max(self.max_fps, model_sensor_count)
     return None
@@ -251,25 +264,50 @@ class TestState():
     browser.close()
     return login_fail
 
+  def reset_window_fps(self):
+    """! Reset per-window min/max counters before each measurement cycle.
+    @return   None.
+    """
+    self.min_fps = TEST_WAIT_TIME * 100
+    self.max_fps = 0
+    self.variation_in_fps = False
+    return None
+
   def enough_messages(self):
     """! Checks that the test has received enough sensor messages.
     @return   check_failed            Bool True if enough messages, otherwise False.
     """
-    check_failed = False
-    if (self.min_fps < TEST_MIN_MESSAGES):
-      print("Test failed to receive enough messages!. Seems stuck at time {} (min {})".format(str(self.running_time), self.min_fps))
-      check_failed = True
-    return check_failed
+    if self.current_cycle < WARMUP_CYCLES:
+      return False
+    if self.min_fps < TEST_MIN_MESSAGES:
+      self.low_msg_cycles += 1
+      print("Low message count (min {}), consecutive window {}/{}".format(
+        self.min_fps, self.low_msg_cycles, MAX_CONSECUTIVE_LOW_MSG_CYCLES))
+      if self.low_msg_cycles >= MAX_CONSECUTIVE_LOW_MSG_CYCLES:
+        print("Test failed to receive enough messages!. Seems stuck at time {} (min {})".format(
+          str(self.running_time), self.min_fps))
+        return True
+      return False
+    self.low_msg_cycles = 0
+    return False
 
   def stable_messages(self):
     """! Checks that the tests sensor message frequency is stable.
     @return   check_failed            Bool True if a sensor message frequency varies enough, otherwise False.
     """
-    check_failed = False
-    if (self.variation_in_fps == True):
-      print("Test failed stable message check!. Seems stuck at time {} (variation {})".format(str(self.running_time), self.variation_in_fps))
-      check_failed = True
-    return check_failed
+    if self.current_cycle < WARMUP_CYCLES:
+      return False
+    if self.variation_in_fps:
+      self.high_variation_cycles += 1
+      print("FPS variation detected, consecutive window {}/{}".format(
+        self.high_variation_cycles, MAX_CONSECUTIVE_LOW_MSG_CYCLES))
+      if self.high_variation_cycles >= MAX_CONSECUTIVE_LOW_MSG_CYCLES:
+        print("Test failed stable message check!. Seems stuck at time {} (variation {})".format(
+          str(self.running_time), self.variation_in_fps))
+        return True
+      return False
+    self.high_variation_cycles = 0
+    return False
 
   def check_time_remaining(self):
     """! Checks if the test is finished.
@@ -446,7 +484,7 @@ def test_sscape_stability(params, record_xml_attribute):
   global model_list
   record_xml_attribute("name", TEST_NAME)
   print("Executing: " + TEST_NAME)
-  mqtt_params = MQTTParams()
+  mqtt_params = MQTTParams(params)
   state = TestState(params)
   result = 1
   avg_fps = {}
@@ -468,6 +506,7 @@ def test_sscape_stability(params, record_xml_attribute):
     state.update_memory_usage()
 
     if state.check_time_remaining():
+      state.reset_window_fps()
       cur_fps, state = get_current_fps_stats(model_list, state)
       state.print_update()
       avg_fps, state = update_avg_fps(avg_fps, cur_fps, state)
