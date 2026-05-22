@@ -736,3 +736,43 @@ class TestConfigureEvaluators:
 
     captured = capsys.readouterr()
     assert summary_text in captured.out
+
+
+class TestConfigureDataset:
+  """Unit tests for _configure_dataset() category handling."""
+
+  def test_categories_forwarded_to_dataset(self, engine, temp_output_dir):
+    """categories key in dataset config calls set_object_categories."""
+    from unittest.mock import MagicMock
+
+    mock_dataset = MagicMock()
+    engine._dataset = mock_dataset
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'dataset': {
+        'config': {
+          'categories': ['person', 'FW190D'],
+        }
+      }
+    }
+
+    engine._configure_dataset()
+
+    mock_dataset.set_object_categories.assert_called_once_with(['person', 'FW190D'])
+
+  def test_no_categories_key_skips_call(self, engine, temp_output_dir):
+    """Without categories key, set_object_categories is not called."""
+    from unittest.mock import MagicMock
+
+    mock_dataset = MagicMock()
+    engine._dataset = mock_dataset
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'dataset': {
+        'config': {}
+      }
+    }
+
+    engine._configure_dataset()
+
+    mock_dataset.set_object_categories.assert_not_called()

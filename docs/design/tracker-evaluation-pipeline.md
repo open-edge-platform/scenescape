@@ -169,6 +169,12 @@ Implementation of the component class must implement the following abstract meth
   - Returns: self for method chaining
   - Raises: ValueError if invalid, RuntimeError on other errors
 
+- **set_object_categories**(categories: Optional[List[str]]) -> TrackingDataset
+  - Restrict inputs and ground truth to the given object categories
+  - Args: list of category name strings to keep, or None to reset (keep all)
+  - Returns: self for method chaining
+  - Raises: ValueError if an empty list is provided
+
 - **set_output_folder**(path: Path) -> TrackingDataset
   - Set folder where dataset-specific outputs or cached artifacts should be stored
   - Args: path to output folder (created if it does not exist)

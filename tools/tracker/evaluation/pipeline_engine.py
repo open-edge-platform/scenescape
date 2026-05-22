@@ -348,6 +348,10 @@ class PipelineEngine:
     if 'custom_config' in config:
       self._dataset.set_custom_config(config['custom_config'])
 
+    # Configure object categories if specified
+    if 'categories' in config:
+      self._dataset.set_object_categories(config['categories'])
+
   def _configure_harness(self):
     """Configure harness component."""
     config = self._config['harness']['config']
