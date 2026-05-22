@@ -62,9 +62,13 @@ class ServiceMqttTest:
     )
     self._client.onConnect = _on_connect
     self._client.onMessage = _on_message
-    self._client.connect()
-    self._client.loopStart()
-    assert connected.wait(self.MAX_WAIT_S), "MQTT client did not connect within timeout"
+    try:
+      self._client.connect()
+      self._client.loopStart()
+      assert connected.wait(self.MAX_WAIT_S), "MQTT client did not connect within timeout"
+    except Exception:
+      self.disconnect()
+      raise
 
   def disconnect(self):
     """! Disconnect and stop the MQTT client loop."""
