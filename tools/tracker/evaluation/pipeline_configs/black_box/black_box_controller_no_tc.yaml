@@ -12,13 +12,14 @@ dataset:
     data_path: ../../../tests/system/metric/dataset
     cameras: [Cam_x1_0, Cam_x2_0]
     camera_fps: 30
+    categories: [person]
 
 harness:
   class: harnesses.black_box_harness.BlackBoxHarness
   config:
     broker_image: eclipse-mosquitto:2.0.22
     container_type: controller
-    container_image: scenescape-controller:2026.1.0-dev
+    container_image: scenescape-controller:latest
     tracker_config_path: ../../../tests/system/metric/dataset/tracker-config.json
     # startup_wait_s: 2.0
     # drain_timeout: 5.0
