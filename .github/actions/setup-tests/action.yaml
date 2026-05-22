@@ -61,7 +61,7 @@ runs:
       if: ${{ inputs.skip-image-build == 'false' }}
       shell: bash
       run: |
-        make build-all-images
+        make build-all
 
     - name: "Setup Test Environment"
       shell: bash
