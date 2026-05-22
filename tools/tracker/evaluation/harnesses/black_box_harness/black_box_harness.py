@@ -57,14 +57,13 @@ Configuration keys (set_custom_config)
 Required:
   tracker_config_path (str): path to tracker-config.json mounted into the
                              tracker container at the expected location.
+  container_type  (str):   ``'controller'`` or ``'tracker'``.
+  broker_image    (str):   mosquitto Docker image (e.g. "eclipse-mosquitto:2.0.22").
 Optional:
-  container_type  (str):   ``'controller'`` or ``'tracker'``; auto-detected
-                           from image metadata when omitted.
   scene_id        (str):   scene uid used to build the output topic;
                            defaults to config['uid'] from set_scene_config().
   drain_timeout   (float): idle timeout — seconds with no new output messages before
                            outputs to arrive (default 5.0).
-  broker_image    (str):   mosquitto Docker image (required, e.g. "eclipse-mosquitto:2.0.22").
   broker_port     (int):   host port to bind the broker on (default 0 =
                            choose a free port automatically).
 """
@@ -172,33 +171,6 @@ def _build_tracker_service_config(
       },
   }
 
-
-def _detect_container_type(container_image: str) -> str:
-  """Auto-detect whether *container_image* is a Controller or Tracker service.
-
-  Inspects the image's ``Entrypoint`` and ``Cmd`` metadata.  Falls back to
-  image name heuristics if Docker inspection fails.
-
-  Args:
-      container_image: Docker image reference (e.g. ``"scenescape-controller:latest"``).
-
-  Returns:
-      ``CONTAINER_TYPE_CONTROLLER`` or ``CONTAINER_TYPE_TRACKER``.
-  """
-  try:
-    img = docker.image.inspect(container_image)
-    combined = " ".join((img.config.entrypoint or []) + (img.config.cmd or []))
-    if "controller-cmd" in combined:
-      return CONTAINER_TYPE_CONTROLLER
-    if "/scenescape/tracker" in combined:
-      return CONTAINER_TYPE_TRACKER
-  except Exception:
-    pass
-  # Heuristic fallback from image name
-  name = container_image.split(":")[0].lower()
-  if "tracker" in name and "controller" not in name:
-    return CONTAINER_TYPE_TRACKER
-  return CONTAINER_TYPE_CONTROLLER
 
 
 def _free_port() -> int:
@@ -350,14 +322,15 @@ class BlackBoxHarness(TrackerHarness):
 
     if "scene_id" in config:
       self._scene_id = config["scene_id"]
-    if "container_type" in config:
-      ct = config["container_type"]
-      if ct not in (CONTAINER_TYPE_CONTROLLER, CONTAINER_TYPE_TRACKER):
-        raise ValueError(
-            f"container_type must be '{CONTAINER_TYPE_CONTROLLER}' or "
-            f"'{CONTAINER_TYPE_TRACKER}', got: {ct!r}"
-        )
-      self._container_type = ct
+    if "container_type" not in config:
+      raise ValueError("Custom config must contain 'container_type'")
+    ct = config["container_type"]
+    if ct not in (CONTAINER_TYPE_CONTROLLER, CONTAINER_TYPE_TRACKER):
+      raise ValueError(
+          f"container_type must be '{CONTAINER_TYPE_CONTROLLER}' or "
+          f"'{CONTAINER_TYPE_TRACKER}', got: {ct!r}"
+      )
+    self._container_type = ct
     self._drain_timeout  = float(config.get("drain_timeout",  DEFAULT_DRAIN_TIMEOUT))
     self._startup_wait_s = float(config.get("startup_wait_s", DEFAULT_STARTUP_WAIT))
     if "broker_image" not in config:
@@ -408,8 +381,6 @@ class BlackBoxHarness(TrackerHarness):
     net_name = f"black_box_harness_{run_id}"
     tmp_dir  = Path(tempfile.mkdtemp(prefix="black_box_harness_"))
     print(f"[BlackBoxHarness] Temporary workspace: {tmp_dir}")
-
-    container_type = self._container_type or _detect_container_type(self._container_image)
 
     try:
       input_frames: List[Dict[str, Any]] = list(inputs)
@@ -550,7 +521,7 @@ class BlackBoxHarness(TrackerHarness):
     host_gateway = self._get_docker_host_gateway(net_name)
     print(f"[BlackBoxHarness] Mock Manager hostname '{manager_name}' → {host_gateway}:{manager_port}")
 
-    container_type = self._container_type or _detect_container_type(self._container_image)
+    container_type = self._container_type
     print(f"[BlackBoxHarness] Container type: {container_type}")
 
     tracker_name = f"black_box_harness_tracker_{run_id}"

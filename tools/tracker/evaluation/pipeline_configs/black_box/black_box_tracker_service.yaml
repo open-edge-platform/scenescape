@@ -17,6 +17,7 @@ harness:
   class: harnesses.black_box_harness.BlackBoxHarness
   config:
     broker_image: eclipse-mosquitto:2.0.22
+    container_type: tracker
     container_image: scenescape-tracker:2026.1.0-dev
     tracker_config_path: pipeline_configs/black_box/config/tracker.json
     # startup_wait_s: 5.0

@@ -20,7 +20,6 @@ from harnesses.black_box_harness.black_box_harness import (
     CONTAINER_TYPE_TRACKER,
     DEFAULT_DRAIN_TIMEOUT,
     DEFAULT_STARTUP_WAIT,
-    _detect_container_type,
     _free_port,
     _merge_outputs_by_timestamp,
     _parse_ts,
@@ -502,44 +501,17 @@ class TestProcessInputsFlow:
 
 
 # ---------------------------------------------------------------------------
-# Container type detection
-# ---------------------------------------------------------------------------
-
-class TestDetectContainerType:
-  """_detect_container_type should return correct type from image metadata."""
-
-  def test_detects_controller_from_entrypoint(self):
-    mock_img = MagicMock()
-    mock_img.config.entrypoint = ["/home/scenescape/SceneScape/controller-cmd"]
-    mock_img.config.cmd = []
-    with patch("harnesses.black_box_harness.black_box_harness.docker") as md:
-      md.image.inspect.return_value = mock_img
-      assert _detect_container_type("any-image") == CONTAINER_TYPE_CONTROLLER
-
-  def test_detects_tracker_from_cmd(self):
-    mock_img = MagicMock()
-    mock_img.config.entrypoint = []
-    mock_img.config.cmd = ["/scenescape/tracker", "--config", "..."]
-    with patch("harnesses.black_box_harness.black_box_harness.docker") as md:
-      md.image.inspect.return_value = mock_img
-      assert _detect_container_type("any-image") == CONTAINER_TYPE_TRACKER
-
-  def test_falls_back_to_image_name_controller(self):
-    with patch("harnesses.black_box_harness.black_box_harness.docker") as md:
-      md.image.inspect.side_effect = Exception("not found")
-      assert _detect_container_type("scenescape-controller:latest") == CONTAINER_TYPE_CONTROLLER
-
-  def test_falls_back_to_image_name_tracker(self):
-    with patch("harnesses.black_box_harness.black_box_harness.docker") as md:
-      md.image.inspect.side_effect = Exception("not found")
-      assert _detect_container_type("scenescape-tracker:latest") == CONTAINER_TYPE_TRACKER
-
-
-# ---------------------------------------------------------------------------
 # Container type config validation
 # ---------------------------------------------------------------------------
 
 class TestContainerTypeConfig:
+  def test_requires_container_type(self, harness, tracker_config_file):
+    with pytest.raises(ValueError, match="container_type"):
+      harness.set_custom_config({
+          "tracker_config_path": tracker_config_file,
+          "broker_image": "eclipse-mosquitto:2.0.22",
+      })
+
   def test_accepts_controller_type(self, harness, tracker_config_file):
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
