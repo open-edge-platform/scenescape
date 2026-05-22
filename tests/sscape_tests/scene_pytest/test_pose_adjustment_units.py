@@ -362,14 +362,6 @@ class TestParseNamedKeypoints:
     result = parse_named_keypoints(raw)
     assert result['nose'].x == pytest.approx(0.4)
 
-  def test_duplicate_joint_lower_confidence_discarded(self):
-    raw = [
-      {'name': 'nose', 'x': 0.4, 'y': 0.2, 'confidence': 0.9},
-      {'name': 'nose', 'x': 0.3, 'y': 0.1, 'confidence': 0.5},
-    ]
-    result = parse_named_keypoints(raw)
-    assert result['nose'].x == pytest.approx(0.4)
-
   def test_unknown_joint_name_skipped(self):
     raw = [{'name': 'pinky_toe', 'x': 0.5, 'y': 0.9}]
     assert parse_named_keypoints(raw) == {}

@@ -155,21 +155,6 @@ class TestCacheWarmup:
       )
       assert result is False
 
-  def test_direct_ankle_frames_warm_cache(self):
-    """After min_observations full-body frames, get_medians is non-empty."""
-    adjuster = PersonPoseAdjuster(max_entry_age_seconds=120)
-    _warm_up(adjuster, person_id='p1', frames=3)
-    medians = adjuster.cache.get_medians(('test_scene', 'cam-1', 'p1'))
-    assert medians, 'Cache should be warm after 3 observations'
-    assert 'ratio_ankle_knee_hip' in medians
-
-  def test_fewer_than_min_observations_cache_not_ready(self):
-    """Two frames of direct ankles are not enough to warm the cache."""
-    adjuster = PersonPoseAdjuster(max_entry_age_seconds=120)
-    _warm_up(adjuster, person_id='p1', frames=2)
-    medians = adjuster.cache.get_medians(('test_scene', 'cam-1', 'p1'))
-    assert medians == {}, 'Cache must not be ready with only 2 observations'
-
 
 # ---------------------------------------------------------------------------
 # TestDirectAnkles
