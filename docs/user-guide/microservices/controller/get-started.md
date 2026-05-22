@@ -120,9 +120,9 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   - The following object fields are not available on `event` topic: `similarity`, `entered`, `exited`
   - The following object fields are not available on `data/regulated` topic: `similarity`
 
-## Enabling Person Pose Adjustment
+## Enabling Pose Adjustment
 
-When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer video pipeline, the Scene Controller can use pose keypoints to refine person bounding boxes before projecting them into world coordinates. This improves localization accuracy. The feature is disabled by default.
+When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer video pipeline, the Scene Controller can use pose keypoints to refine bounding boxes for supported detection types before projecting them into world coordinates. This improves localization accuracy. The feature is disabled by default.
 
 - **Enable pose adjustment via CLI flag**:
 
