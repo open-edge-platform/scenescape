@@ -29,19 +29,6 @@ runs:
         username: scenescape
         password: ${{ inputs.dockerhub-token }}
 
-    - name: Set Firefox profile
-      shell: bash
-      run: |
-        mkdir -p $HOME/.mozilla/
-        cp manager/test/firefox-profile.tar $HOME/.mozilla/
-        chmod -R a+rwx $HOME/.mozilla/
-
-    - name: "Install robot_vision dependencies"
-      shell: bash
-      run: |
-        sudo apt update
-        sudo apt install -y libopencv-dev libeigen3-dev
-
     - name: "Build images"
       if: ${{ inputs.skip-image-build == 'false' }}
       shell: bash
