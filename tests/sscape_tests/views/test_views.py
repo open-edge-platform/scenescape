@@ -15,7 +15,6 @@ from manager.views import SingletonSensorDeleteView, SingletonSensorCreateView, 
 from unittest.mock import MagicMock, patch
 from django.contrib.auth.models import User
 from django.test.client import RequestFactory
-from django.test.client import RequestFactory
 from manager.settings import AXES_FAILURE_LIMIT
 from pathlib import Path
 
