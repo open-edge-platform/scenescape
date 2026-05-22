@@ -14,6 +14,13 @@ import tests.common_test_utils as common
 from tests.common_test_utils import check_event_contains_data
 from tests.functional.common_child import ChildSceneTest, MAX_WAIT
 from scene_common import log
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
 
 def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, params):

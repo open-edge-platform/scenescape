@@ -144,4 +144,3 @@ def test_camera_bound_visibility(
   exit_code = test.run(params, visibility_topic, test_name)
 
   assert exit_code == 0
-  return exit_code

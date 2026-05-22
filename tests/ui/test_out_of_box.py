@@ -11,6 +11,7 @@ import numpy as np
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 from threading import Condition, Event
+import pytest
 
 from scene_common.timestamp import get_epoch_time
 from scene_common.mqtt import PubSub
@@ -144,6 +145,7 @@ def check_person_marks(browser, camera_id):
     log.info(f"co-ordinates after {marks_after}")
   return False
 
+@pytest.mark.basic_acceptance
 def test_out_of_box(params, record_xml_attribute):
   """! Checks that the person marks in the scene and the image stream for
   camera 1 are both changing in time.

@@ -657,10 +657,3 @@ def test_sensor_mqtt_message_flow(scenescape_env, demo_scene, request, record_xm
   test = SensorMqttMessageFlowTest(TEST_NAME, request, record_xml_attribute)
   test.checkForMalfunctions()
   assert test.exitCode == 0
-  return
-
-def main():
-  return test_sensor_mqtt_message_flow(None, None)
-
-if __name__ == '__main__':
-  os._exit(main() or 0)

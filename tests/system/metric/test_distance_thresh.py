@@ -1,8 +1,7 @@
-#!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
 import controller.tools.analytics.library.json_helper as json_helper
 import controller.tools.analytics.library.metrics as metrics
 import tests.common_test_utils as common
@@ -122,7 +121,3 @@ def test_distance_msoce(params, assets, record_xml_attribute):
     common.record_test_result(TEST_NAME, result)
 
   assert result == 0
-
-
-if __name__ == "__main__":
-  exit(test_distance_msoce() or 0)

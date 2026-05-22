@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import time
@@ -219,4 +217,3 @@ def test_scene_control_panel(params, record_xml_attribute):
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
-  return exit_code

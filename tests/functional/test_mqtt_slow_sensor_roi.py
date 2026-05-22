@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -21,10 +21,3 @@ def test_slow_sensor_roi_mqtt(scenescape_env, demo_scene, request, record_xml_at
   test = SensorMqttRoi(TEST_NAME, request, SENSOR_DELAY, record_xml_attribute)
   test.runROIMqtt()
   assert test.exitCode == 0
-  return test.exitCode
-
-def main():
-  return test_slow_sensor_roi_mqtt(None, None)
-
-if __name__ == '__main__':
-  os._exit(main() or 0)

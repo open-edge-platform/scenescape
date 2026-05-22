@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import time
@@ -83,10 +81,10 @@ def validate_polygon_sensor_area(browser):
   time.sleep(1)
   action2.click()
 
-  polygon_list = browser.find_elements(By.TAG_NAME, "polygon")
+  polygon_list = browser.find_elements_with_wait(By.TAG_NAME, "polygon")
   polygon_points = polygon_list[-1].get_attribute("points")
   p_list = list(map(float, polygon_points.split(",")))
-  all_points = browser.find_elements(By.CLASS_NAME, "vertex")
+  all_points = browser.find_elements_with_wait(By.CLASS_NAME, "vertex")
   save_polygon = browser.find_element(By.NAME, "save")
   for point in all_points:
     if float(point.get_attribute("cx")) == p_list[0] and float(point.get_attribute("cy")) == p_list[1]:
@@ -96,7 +94,7 @@ def validate_polygon_sensor_area(browser):
       time.sleep(3)
       break
 
-  verify_polygon = browser.find_elements(By.TAG_NAME, "polygon")
+  verify_polygon = browser.find_elements_with_wait(By.TAG_NAME, "polygon")
   verify_points = verify_polygon[-1].get_attribute("points")
   verify_list = list(map(float, verify_points.split(",")))
   assert p_list == verify_list

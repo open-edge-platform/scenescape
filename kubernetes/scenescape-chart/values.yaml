@@ -71,12 +71,12 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "2026.1.0-20260428-weekly-ubuntu24"
+    tag: "2026.1.0-ubuntu24-rc1.1"
     pullPolicy: IfNotPresent
 
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
-  tag: "2026.1.0-20260428-weekly-ubuntu24"
+  tag: "2026.1.0-ubuntu24-rc1.1"
   pullPolicy: IfNotPresent
   storageClassName: ""
   cameras:
@@ -90,7 +90,7 @@ retail:
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
-  tag: "2026.1.0-20260428-weekly-ubuntu24"
+  tag: "2026.1.0-ubuntu24-rc1.1"
   storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
@@ -243,26 +243,3 @@ noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local,10.244.0.0/16,10.96.0.0
 # disable pre-install and post-install hooks for cluster compatibility
 hooks:
   enabled: true
-
-# enable to start SceneScape in validation mode
-tests:
-  enabled: false
-  access:
-    secretKey: "abcdefg"
-    service:
-      annotations: {}
-    nodePort:
-      enabled: true
-      annotations: {}
-      nodePort: 30700
-    loadBalancer:
-      enabled: false
-      externalTrafficPolicy: Local
-      loadBalancerIP: ""
-      annotations: {}
-  storage: 500Mi
-  storageClassName: ""
-  image: init-tests
-  # absolute path to frps/frps images
-  frpsImage: snowdreamtech/frps
-  frpcImage: snowdreamtech/frpc

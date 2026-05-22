@@ -294,6 +294,7 @@ class AutoCalibration(FunctionalTest):
      [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
   ]
 )
+@pytest.mark.basic_acceptance
 def test_auto_calibration(scenescape_env, request, record_xml_attribute,
               test_name, n_tags, random_select,
               expect_status, expected_result, intrinsics, repo_root):
@@ -302,10 +303,3 @@ def test_auto_calibration(scenescape_env, request, record_xml_attribute,
              expected_result, intrinsics=intrinsics, repo_root=repo_root)
   test.runAutoCalibration()
   assert test.exitCode == 0
-  return test.exitCode
-
-def main():
-  return test_auto_calibration(None, None)
-
-if __name__ == "__main__":
-  os._exit(main() or 0)

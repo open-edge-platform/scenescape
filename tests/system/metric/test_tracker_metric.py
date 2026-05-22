@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
@@ -8,7 +6,9 @@ import os
 import time
 
 import cv2
+import pytest
 
+import robot_vision as rv
 import controller.tools.analytics.library.json_helper as json_helper
 import controller.tools.analytics.library.metrics as metrics
 import tests.common_test_utils as common
@@ -18,6 +18,7 @@ from scene_common.json_track_data import CamManager
 from scene_common.scenescape import SceneLoader
 from scene_common.camera import Camera
 from scene_common.geometry import Region, Tripwire
+import pytest
 
 MSOCE_MEAN = 0.3344
 IDC_MEAN = 0.007
@@ -57,7 +58,7 @@ def track(params):
   @param    params        Dict of parameters needed for tracking
   @return   tracked_data  The filled list of tracked data
   """
-  if int(params["camera_frame_rate"]) in [10, 1]:
+  if params["camera_frame_rate"] and int(params["camera_frame_rate"]) in [10, 1]:
     # run the tests with 1 fps camera files
     dir = os.path.dirname(os.path.abspath(__file__))
     input_cam_1 = os.path.join(dir, "dataset/Cam_x1_0_"+str(params["camera_frame_rate"])+"fps.json")
@@ -215,7 +216,3 @@ def test_tracker_metric(params, assets, record_xml_attribute):
   finally:
     common.record_test_result(TEST_NAME, result)
   assert result == 0
-
-
-if __name__ == "__main__":
-  exit(test_tracker_metric() or 0)

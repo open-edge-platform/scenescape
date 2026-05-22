@@ -20,6 +20,9 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from python_on_whales import docker
+from pytest_kubernetes.providers.kind import KindManagerBase
+from pytest_kubernetes.options import ClusterOptions
 
 logger = logging.getLogger("test.k8s")
 
@@ -47,67 +50,6 @@ _SCENESCAPE_IMAGES = [
   "scenescape-cluster-analytics",
   "scenescape-mapping",
 ]
-
-# Regex for a valid Docker image reference.
-_DOCKER_IMAGE_RE = re.compile(
-  r'^[a-zA-Z0-9][a-zA-Z0-9._/-]*(?::[a-zA-Z0-9._\-]+)?(?:@sha256:[a-f0-9]+)?$'
-)
-
-
-def _get_chart_external_images(chart_path, supass):
-  """Derive external images by rendering the Helm chart.
-
-  Runs ``helm template`` with the test values, extracts every ``image:``
-  field from the rendered YAML, reconstructs the kubeclient dynamic image
-  from its HELM_REPO/HELM_IMAGE/HELM_TAG environment variables, normalises
-  the ``docker.io/`` registry prefix, and returns images that are not
-  SceneScape-built (i.e. do not match ``intel/scenescape-``).
-  """
-  result = subprocess.run(
-    [
-      "helm", "template", _RELEASE_NAME, chart_path,
-      "--set", f"supass={supass}",
-      "--set", f"pgserver.password={supass}",
-      "--set", "hooks.enabled=true",
-    ],
-    capture_output=True, text=True, check=True,
-  )
-  text = result.stdout
-
-  images = set()
-
-  # Collect all YAML "image: <value>" occurrences.
-  for match in re.finditer(r'^\s+(?:- )?image: (\S+)', text, re.MULTILINE):
-    images.add(match.group(1).strip())
-
-  # Kubeclient spawns pipeline-server pods via env vars; reconstruct the
-  # full image reference from HELM_REPO + HELM_IMAGE + HELM_TAG.
-  repo = re.search(r'name: HELM_REPO\n\s+value:\s+(\S+)', text)
-  img = re.search(r'name: HELM_IMAGE\n\s+value:\s+(\S+)', text)
-  tag = re.search(r'name: HELM_TAG\n\s+value:\s+(\S+)', text)
-  if repo and img and tag:
-    images.add(
-      f'{repo.group(1).strip()}/{img.group(1).strip()}:{tag.group(1).strip()}'
-    )
-
-  # Normalise: add docker.io/ prefix when the first path component contains
-  # no dot (i.e. is not already a hostname/registry).
-  # Strip any tag suffix from the first component before checking.
-  normalised = set()
-  for image in images:
-    if not _DOCKER_IMAGE_RE.match(image):
-      continue
-    parts = image.split('/')
-    first_part = parts[0].split(':')[0]  # strip tag before dot-check
-    if '.' not in first_part:
-      image = 'docker.io/' + image
-    normalised.add(image)
-
-  # Filter out locally-built SceneScape images (handled separately).
-  external = sorted(img for img in normalised if 'intel/scenescape-' not in img)
-  logger.debug("Chart external images: %s", external)
-  return external
-
 
 def _run(cmd, **kwargs):
   """Run a subprocess command, raising on failure with stderr included."""
@@ -206,7 +148,12 @@ class K8sScenescapeEnv:
       "--", "sh", "-c", command,
     ])
 
-
+def _image_exists(ref: str) -> bool:
+  try:
+    docker.image.inspect(ref)
+    return True
+  except Exception:
+    return False
 class K8sManager:
   """Manages a KinD Kubernetes cluster lifecycle for test sessions.
 
@@ -232,14 +179,6 @@ class K8sManager:
 
   def setup(self):
     """Create KinD cluster, deploy Helm chart, set up port-forwarding."""
-    try:
-      from pytest_kubernetes.providers.kind import KindManagerBase
-      from pytest_kubernetes.options import ClusterOptions
-    except ImportError:
-      raise RuntimeError(
-        "pytest-kubernetes is required for --backend=kubernetes. "
-        "Install it: pip install pytest-kubernetes"
-      )
 
     logger.info("=" * 60)
     logger.info("Setting up Kubernetes test environment")
@@ -390,32 +329,42 @@ class K8sManager:
 
   def _load_images(self):
     """Tag and load SceneScape + external images into the KinD cluster."""
-    from python_on_whales import docker
-
     version_file = Path(self._repo_root) / "version.txt"
     version = version_file.read_text().strip()
 
-    # Load SceneScape images (already built locally)
     for image_name in _SCENESCAPE_IMAGES:
       old_tag = f"{image_name}:latest"
       new_tag = f"intel/{image_name}:{version}"
-      try:
-        docker.image.tag(old_tag, new_tag)
-      except Exception:
-        logger.warning("Could not tag %s → %s (may already exist)", old_tag, new_tag)
-      self._cluster.load_image(new_tag)
 
-    # Pull and load external images needed by helm chart hooks/deployments.
-    # Strip @sha256:… digests before calling kind load docker-image.
-    external_images = _get_chart_external_images(_CHART_PATH, self._supass)
-    for image in external_images:
-      logger.info("Pulling external image %s ...", image)
+      if not _image_exists(old_tag):
+        raise RuntimeError(
+          f"Required local image missing: {old_tag}. "
+          f"Build images before running k8s tests."
+        )
+
+      if not _image_exists(new_tag):
+        try:
+          docker.image.tag(old_tag, new_tag)
+          logger.info("Tagged %s -> %s", old_tag, new_tag)
+        except Exception as exc:
+          raise RuntimeError(f"Failed tagging {old_tag} -> {new_tag}: {exc}") from exc
+      else:
+        logger.info("Tag already exists: %s", new_tag)
+
       try:
-        docker.image.pull(image)
-      except Exception:
-        logger.warning("Could not pull %s (may already exist locally)", image)
-      load_ref = re.sub(r'@sha256:[a-f0-9]+$', '', image)
-      self._cluster.load_image(load_ref)
+        self._cluster.load_image(new_tag)
+        logger.info("Loaded image into kind: %s", new_tag)
+      except subprocess.CalledProcessError as exc:
+        logger.error("Failed loading image into kind: %s", new_tag)
+        if exc.stdout:
+          logger.error("kind load stdout: %s", exc.stdout.strip())
+        if exc.stderr:
+          logger.error("kind load stderr: %s", exc.stderr.strip())
+        raise RuntimeError(
+          f"Failed loading image into kind: {new_tag} (exit {exc.returncode})"
+        ) from exc
+      except Exception as exc:
+        raise RuntimeError(f"Failed loading image into kind: {new_tag}: {exc}") from exc
 
   def _generate_values_file(self):
     """Generate a Helm values.yaml for the test deployment.
@@ -458,7 +407,7 @@ class K8sManager:
       "helm", "install", _RELEASE_NAME, _CHART_PATH,
       "--namespace", _NAMESPACE,
       "--kubeconfig", self.kubeconfig,
-      "--timeout", "600s",
+      "--timeout", "1200s",
       "-f", values_file,
     ])
     logger.info("Helm chart installed. Waiting for core services...")
@@ -616,7 +565,6 @@ class K8sManager:
     encoded = secret_data["data"][key]
     decoded = base64.b64decode(encoded).decode("utf-8")
     output_path.write_text(decoded)
-    logger.info("Extracted secret %s/%s → %s", secret_name, key, output_path)
     return output_path
 
   def _port_forward(self, target, local_port, remote_port):

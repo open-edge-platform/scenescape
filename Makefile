@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # ================ Makefile for Intel® SceneScape ====================
@@ -122,8 +122,8 @@ help:
 	@echo "  run_ui_tests                Run UI tests"
 	@echo "  run_unit_tests              Run unit tests"
 	@echo "  run_stability_tests         Run stability tests"
-	@echo "  run_performance_tests       Run performance tests (Docker-based)"
-	@echo "  run_metric_tests            Run metric tests (Docker-based)"
+	@echo "  run_performance_tests       Run performance tests"
+	@echo "  run_metric_tests            Run metric tests"
 	@echo "  setup-pytest                Create tests/.venv and install dependencies"
 	@echo ""
 	@echo "  lint-all                    Lint entire code base"
@@ -286,6 +286,7 @@ clean-secrets:
 .PHONY: clean-tests
 clean-tests:
 	@echo "==> Cleaning test artifacts..."
+	@-rm -rf test_data/
 	@-rm -rf tests/test_logs tests/.venv
 	@echo "Cleaning fast_geometry build artifacts..."
 	@-rm -f scene_common/src/fast_geometry/*.oxx scene_common/src/fast_geometry/*.so
@@ -353,7 +354,7 @@ PYTEST_FLAGS := --rootdir=$(CURDIR)/tests -v --tb=short
 TESTS_DIR := $(CURDIR)/tests
 
 .PHONY: setup-tests
-setup-tests: build-all-images init-secrets .env setup-pytest
+setup-tests: init-secrets .env setup-pytest
 	@echo "Setting up test environment..."
 	for dir in $(TEST_IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir test-build; \
@@ -364,23 +365,35 @@ setup-tests: build-all-images init-secrets .env setup-pytest
 .PHONY: setup-pytest
 setup-pytest:
 	@if [ ! -d "$(CURDIR)/tests/.venv" ]; then \
-			python3 -m venv $(CURDIR)/tests/.venv; \
+		python3 -m venv $(CURDIR)/tests/.venv; \
 	fi
 	@echo "Installing venv dependencies..."; \
 	$(CURDIR)/tests/.venv/bin/pip install --progress-bar on --upgrade pip; \
 	cd $(CURDIR)/tests && $(CURDIR)/tests/.venv/bin/pip install --progress-bar on -r requirements.txt;
 	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "from fast_geometry import Point" 2>/dev/null; then \
-			echo "Building fast_geometry C++ extension..."; \
-			PATH="$(CURDIR)/tests/.venv/bin:$$PATH" \
-					$(MAKE) -C $(CURDIR)/scene_common/src/fast_geometry all install; \
+		echo "Building fast_geometry C++ extension..."; \
+		PATH="$(CURDIR)/tests/.venv/bin:$$PATH" \
+			$(MAKE) -C $(CURDIR)/scene_common/src/fast_geometry all install; \
+	fi
+	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision, 'tracking')" 2>/dev/null; then \
+		echo "Building robot_vision C++ extension..."; \
+		$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir scikit-build-core cmake; \
+		if ! dpkg -s libopencv-dev > /dev/null 2>&1; then \
+			echo "ERROR: libopencv-dev is required to build robot_vision. See tests/README.md for installation instructions."; \
+			exit 1; \
+		fi; \
+		if ! dpkg -s libeigen3-dev > /dev/null 2>&1; then \
+			echo "ERROR: libeigen3-dev is required to build robot_vision. See tests/README.md for installation instructions."; \
+			exit 1; \
+		fi; \
+		OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
+			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(CURDIR)/controller/src/robot_vision; \
 	fi
 	@if ! command -v firefox > /dev/null 2>&1; then \
-			echo "ERROR: Firefox is required for UI tests. See README.md for installation instructions."; \
-			exit 1; \
+		echo "WARNING: Firefox is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
 	fi
 	@if ! command -v Xvfb > /dev/null 2>&1; then \
-			echo "ERROR: Xvfb is required for UI tests. See README.md for installation instructions."; \
-			exit 1; \
+		echo "WARNING: Xvfb is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
 	fi
 
 .PHONY: run_tests
@@ -452,24 +465,11 @@ run_stability_tests: setup-tests setup-pytest
 		$(PYTEST) $(TESTS_DIR)/system/stability/ $(PYTEST_FLAGS) || (echo "Stability tests failed" && exit 1)
 	@echo "DONE ==> Running stability tests"
 
-# --- Docker-based test helpers (perf, metric) ---
-# These tests run inside Docker containers, not the pytest venv.
-
-_UID := $(shell id -u)
-_GID := $(shell id -g)
-
-_DOCKER_FLAGS = --rm --privileged --cap-add=SYS_ADMIN --cap-add=SYS_PTRACE --workdir=/workspace
-_DOCKER_MOUNTS = --volume="$(CURDIR):/workspace:rw" --volume="scenescape_vol-models:/opt/intel/openvino/deployment_tools/intel_models:rw" --volume="scenescape_vol-sample-data:/home/scenescape/SceneScape/sample_data:rw" --volume="$(CURDIR)/manager/secrets:/run/secrets:ro"
-_DOCKER_ENV = -e PYTHONPATH=/workspace -e SECRETSDIR=/run/secrets
-
-DOCKER_RUN_MANAGER = docker run $(_DOCKER_FLAGS) -u $(_UID) --userns=host $(_DOCKER_MOUNTS) --volume="$(CURDIR)/manager/secrets:/home/scenescape/SceneScape/manager/secrets:ro" --volume="$(CURDIR)/manager/secrets/django/secrets.py:/home/scenescape/SceneScape/manager/secrets.py:ro" $(_DOCKER_ENV) $(IMAGE_PREFIX)-manager-test:$(VERSION)
-DOCKER_RUN_CONTROLLER = docker run $(_DOCKER_FLAGS) -u $(_UID):$(_GID) $(_DOCKER_MOUNTS) $(_DOCKER_ENV) $(IMAGE_PREFIX)-controller-test:$(VERSION)
+# --- Performance and metric tests ---
 
 TEST_DATA ?= test_data
-PERF_TESTS_PATH := tests/perf_tests
-
 .PHONY: run_performance_tests
-run_performance_tests: setup-tests
+run_performance_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running performance tests..."
 	$(MAKE) _run_performance_tests SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
@@ -480,40 +480,22 @@ _run_performance_tests: inference-performance geometry-conformance
 
 .PHONY: inference-performance
 inference-performance: # NEX-T10412
-	$(eval LOGFILE=$(TEST_DATA)/perf/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; env IMAGE=$(IMAGE_PREFIX)-manager-test:$(VERSION) $(PERF_TESTS_PATH)/test_inference_performance.sh 2>&1 | tee -i $(LOGFILE) \
-	  ; echo END TEST $@
+	@echo "Running inference performance test..."
+	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
+		$(PYTEST) $(TESTS_DIR)/perf_tests/test_inference_performance.py $(PYTEST_FLAGS) \
+		|| (echo "Inference performance test failed" && exit 1)
 
 .PHONY: geometry-conformance
-geometry-conformance: point-conformance line-conformance
-
-.PHONY: point-conformance
-point-conformance:
-	$(eval LOGDIR=$(TEST_DATA)/infra)
-	$(eval LOGFILE=$(LOGDIR)/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; mkdir -p $(LOGDIR) \
-	  ; $(DOCKER_RUN_MANAGER) python3 $(PERF_TESTS_PATH)/test_geometry_point.py | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
-
-.PHONY: line-conformance
-line-conformance:
-	$(eval LOGDIR=$(TEST_DATA)/infra)
-	$(eval LOGFILE=$(LOGDIR)/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; mkdir -p $(LOGDIR) \
-	  ; $(DOCKER_RUN_MANAGER) python3 $(PERF_TESTS_PATH)/test_geometry_line.py | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
+geometry-conformance:
+	@echo "Running geometry conformance tests..."
+	$(PYTEST) $(TESTS_DIR)/perf_tests/test_geometry_point.py \
+		$(TESTS_DIR)/perf_tests/test_geometry_line.py $(PYTEST_FLAGS) \
+		|| (echo "Geometry conformance tests failed" && exit 1)
 
 GENERATE_JUNITXML = -o junit_logging=all --junitxml tests/reports/test_reports/$@.xml
 
 .PHONY: run_metric_tests
-run_metric_tests: setup-tests
+run_metric_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running metric tests..."
 	$(MAKE) -j $(NPROCS) _run_metric_tests SUPASS=$(SUPASS) || (echo "Metric tests failed" && exit 1)
@@ -529,14 +511,14 @@ define metric-recipe =
 	@set -ex \
 	  ; echo RUNNING METRIC TEST $@ \
 	  ; if [ -n "$3" ] && [ -n "$4" ] && [ -n "$5" ]; then \
-	        METRIC="--metric $3" ; \
-	        THRESHOLD="--threshold $4" ; \
-	        FRAME_RATE="--camera_frame_rate $5" \
+		METRIC="--metric $3" ; \
+		THRESHOLD="--threshold $4" ; \
+		FRAME_RATE="--camera_frame_rate $5" \
 	  ; fi \
 	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; $(DOCKER_RUN_CONTROLLER) pytest -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
-	                                   $${METRIC} $${THRESHOLD} $${FRAME_RATE} \
-	                                   -o junit_suite_name=$(TEST_SUITE) | tee -i $(LOGFILE) \
+	  ; $(PYTEST) -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
+			$${METRIC} $${THRESHOLD} $${FRAME_RATE} \
+			-o junit_suite_name=$(TEST_SUITE) | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 endef
