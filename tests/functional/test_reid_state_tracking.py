@@ -584,6 +584,7 @@ class TestUUIDManagerSimilarityThresholdValidation:
       manager.shutdown()
 
 
+# Keep these in sync with the existing @pytest.mark.parametrize values above.
 PARAMETERIZED_CASES = {
   "check_save_previous_object_id_rejects_invalid_previous_id": [
     (None,), ("",), ("   ",), ("not-a-uuid",), (-1,), (0,), (1.5,), ([],),
@@ -601,7 +602,7 @@ PARAMETERIZED_CASES = {
 }
 
 
-def _run_check_method(instance, method_name, args=()):
+def run_check_method(instance, method_name, args=()):
   setup = getattr(instance, "setup_method", None)
   teardown = getattr(instance, "teardown_method", None)
   if callable(setup):
@@ -613,28 +614,28 @@ def _run_check_method(instance, method_name, args=()):
       teardown()
 
 
-def _run_check_class(test_class):
+def run_check_class(test_class):
   for method_name, method in inspect.getmembers(test_class, predicate=inspect.isfunction):
     if not method_name.startswith("check_"):
       continue
     cases = PARAMETERIZED_CASES.get(method_name)
     if cases is None:
-      _run_check_method(test_class(), method_name)
+      run_check_method(test_class(), method_name)
       continue
     for args in cases:
-      _run_check_method(test_class(), method_name, args)
+      run_check_method(test_class(), method_name, args)
 
 
 def test_reid_state_tracking_suite():
-  _run_check_class(TestReidStateEnum)
-  _run_check_class(TestMovingObjectReidStateInitialization)
-  _run_check_class(TestRecordIdChange)
-  _run_check_class(TestIsReided)
-  _run_check_class(TestGetPreviousIds)
-  _run_check_class(TestStateTransitions)
-  _run_check_class(TestChainDataIntegrity)
-  _run_check_class(TestUUIDManagerPreviousIdChainBehavior)
-  _run_check_class(TestUUIDManagerSimilarityThresholdValidation)
+  run_check_class(TestReidStateEnum)
+  run_check_class(TestMovingObjectReidStateInitialization)
+  run_check_class(TestRecordIdChange)
+  run_check_class(TestIsReided)
+  run_check_class(TestGetPreviousIds)
+  run_check_class(TestStateTransitions)
+  run_check_class(TestChainDataIntegrity)
+  run_check_class(TestUUIDManagerPreviousIdChainBehavior)
+  run_check_class(TestUUIDManagerSimilarityThresholdValidation)
 
 
 if __name__ == '__main__':
