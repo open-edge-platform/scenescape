@@ -4,7 +4,6 @@
 import os
 import shutil
 import time
-import geckodriver_autoinstaller
 from selenium.webdriver import Firefox
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.firefox.options import Options
@@ -85,7 +84,11 @@ class Browser(Firefox):
       "vdms.scenescape.intel.com",
     ]
     options.set_preference("network.dns.localDomains", ",".join(_host_aliases))
-    geckodriver_path = shutil.which("geckodriver") or geckodriver_autoinstaller.install()
+    geckodriver_path = shutil.which("geckodriver")
+    if not geckodriver_path:
+      raise RuntimeError(
+        "geckodriver not found. Run 'make setup-tests' to install it."
+      )
     service = Service(geckodriver_path)
 
     super().__init__(options=options, service=service)

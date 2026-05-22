@@ -392,6 +392,13 @@ setup-pytest:
 	@if ! command -v firefox > /dev/null 2>&1; then \
 		echo "WARNING: Firefox is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
 	fi
+	@if ! command -v geckodriver > /dev/null 2>&1; then \
+		echo "Installing geckodriver into test venv..."; \
+		GECKODRIVER_VERSION=$$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep '"tag_name"' | cut -d'"' -f4) && \
+		curl -sL "https://github.com/mozilla/geckodriver/releases/download/$${GECKODRIVER_VERSION}/geckodriver-$${GECKODRIVER_VERSION}-linux64.tar.gz" \
+			| tar -xz -C $(CURDIR)/tests/.venv/bin && \
+		echo "geckodriver $${GECKODRIVER_VERSION} installed to tests/.venv/bin/"; \
+	fi
 	@if ! command -v Xvfb > /dev/null 2>&1; then \
 		echo "WARNING: Xvfb is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
 	fi
