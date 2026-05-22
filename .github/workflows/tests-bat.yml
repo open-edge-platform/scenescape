@@ -210,35 +210,7 @@ jobs:
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
-<<<<<<< HEAD
       - name: "Install github annotate plugin"
-=======
-      - name: "Log in to GHCR"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: "Log in to DockerHub"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          username: scenescape
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
-
-      - name: "Setup Cache Targets"
-        id: setup-cache
-        uses: ./.github/actions/setup-cache
-
-      - name: Install chart with timeout
-        env:
-          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
->>>>>>> 8ec5c37c9cbd9574cc608a9fc0052820cb68d5ef
         run: |
           source tests/.venv/bin/activate
           pip install -r .github/resources/requirements-pytest.txt
