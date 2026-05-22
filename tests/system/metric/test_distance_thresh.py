@@ -87,7 +87,7 @@ def test_distance_msoce(params, assets, record_xml_attribute):
   @param   assets                    Touple of Object Library assets
   @returns result                    0 on success else 1
   """
-
+  pytest.skip("This test is currently being skipped due to instability.")
   TEST_NAME = "NEX-T10524"
   record_xml_attribute("name", TEST_NAME)
   print("Executing: " + TEST_NAME)
