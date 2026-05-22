@@ -333,9 +333,15 @@ class PipelineEngine:
       self._dataset.set_scene(config['scene'])
 
     # Configure time range if specified
-    if 'start_time' in config or 'end_time' in config:
-      start = config.get('start_time')
-      end = config.get('end_time')
+    if 'time_start' in config or 'time_end' in config:
+      start = config.get('time_start')
+      end = config.get('time_end')
+      # PyYAML parses ISO 8601 timestamps as datetime objects;
+      # the dataset expects ISO 8601 strings for comparison.
+      if isinstance(start, datetime):
+        start = start.strftime("%Y-%m-%dT%H:%M:%S.") + f"{start.microsecond // 1000:03d}Z"
+      if isinstance(end, datetime):
+        end = end.strftime("%Y-%m-%dT%H:%M:%S.") + f"{end.microsecond // 1000:03d}Z"
       self._dataset.set_time_range(start, end)
 
     # Configure custom config if specified

@@ -44,8 +44,8 @@ def temp_config_file(temp_output_dir):
         'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
         'cameras': ['Cam_x1_0', 'Cam_x2_0'],
         'camera_fps': 30,
-        'start_time': TEST_TIME_RANGE_START,
-        'end_time': TEST_TIME_RANGE_END
+        'time_start': TEST_TIME_RANGE_START,
+        'time_end': TEST_TIME_RANGE_END
       }
     },
     'harness': {
@@ -90,8 +90,8 @@ def temp_multi_evaluator_config_file(temp_output_dir):
         'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
         'cameras': ['Cam_x1_0', 'Cam_x2_0'],
         'camera_fps': 30,
-        'start_time': TEST_TIME_RANGE_START,
-        'end_time': TEST_TIME_RANGE_END
+        'time_start': TEST_TIME_RANGE_START,
+        'time_end': TEST_TIME_RANGE_END
       }
     },
     'harness': {
