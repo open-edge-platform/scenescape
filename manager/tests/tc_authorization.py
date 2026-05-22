@@ -32,6 +32,8 @@ POST_ENTITIES = [
 "/sensor",
 "/tripwire",
 "/user",
+"/calculateintrinsics",
+"/save-geospatial-snapshot",
 ]
 
 GET_ENTITIES = [
