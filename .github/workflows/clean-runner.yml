@@ -52,6 +52,7 @@ jobs:
           sudo apt remove --purge -y firefox || true
           sudo apt update
           sudo apt install -y firefox || true
+          sudo apt install -y xvfb || true
 
       - name: "Install Geckodriver"
         shell: bash
@@ -62,6 +63,12 @@ jobs:
           tar -xzf geckodriver.tar.gz
           sudo mv -f geckodriver /usr/local/bin/
           rm geckodriver.tar.gz
+
+      - name: "Install robot_vision dependencies"
+        shell: bash
+        run: |
+          sudo apt update
+          sudo apt install -y libopencv-dev libeigen3-dev
 
       - name: Cleanup
         if: always()
