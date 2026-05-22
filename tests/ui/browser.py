@@ -22,30 +22,30 @@ MAX_RETRIES = 5
 RETRY_DELAY = 30
 
 def _validate_firefox(binary):
-    result = subprocess.run([binary, "--version"], capture_output=True, text=True)
-    if result.returncode != 0 or "Firefox" not in result.stdout + result.stderr:
-        raise RuntimeError(f"Invalid Firefox binary: {binary}")
+  result = subprocess.run([binary, "--version"], capture_output=True, text=True)
+  if result.returncode != 0 or "Firefox" not in result.stdout + result.stderr:
+    raise RuntimeError(f"Invalid Firefox binary: {binary}")
 
 def _find_firefox_binary():
-    candidates = [
-        which("firefox"),
-        which("firefox-esr"),
-        "/usr/bin/firefox",
-        "/usr/bin/firefox-esr",
-        "/snap/bin/firefox",
-    ]
+  candidates = [
+    which("firefox"),
+    which("firefox-esr"),
+    "/usr/bin/firefox",
+    "/usr/bin/firefox-esr",
+    "/snap/bin/firefox",
+  ]
 
-    for candidate in candidates:
-        if not candidate:
-            continue
-        p = Path(candidate)
-        if p.is_file() and p.stat().st_mode & 0o111:
-            return str(p)
+  for candidate in candidates:
+    if not candidate:
+      continue
+    p = Path(candidate)
+    if p.is_file() and p.stat().st_mode & 0o111:
+      return str(p)
 
-    raise RuntimeError(
-        "No valid Firefox executable found. Checked firefox/firefox-esr in PATH "
-        "and common system locations."
-    )
+  raise RuntimeError(
+    "No valid Firefox executable found. Checked firefox/firefox-esr in PATH "
+    "and common system locations."
+  )
 
 class Browser(Firefox):
   def __init__(self, headless=True):
