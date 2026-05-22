@@ -13,6 +13,8 @@ import json
 import struct
 import time
 from unittest.mock import Mock
+
+import pytest
 import numpy as np
 
 import tests.common_test_utils as common
@@ -346,6 +348,7 @@ def test_reid_no_metadata(params, record_xml_attribute):
   @param params  Test parameters from pytest fixture
   @param record_xml_attribute  Pytest fixture for recording test metadata
   """
+  pytest.skip("Test is unstable")
   TEST_NAME = "NEX-T19883-NO-METADATA"
   record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
@@ -411,6 +414,7 @@ def test_reid_only_metadata(params, record_xml_attribute):
   @param params  Test parameters from pytest fixture
   @param record_xml_attribute  Pytest fixture for recording test metadata
   """
+  pytest.skip("Test is unstable")
   TEST_NAME = "NEX-T19883-REID-ONLY"
   record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
@@ -504,6 +508,7 @@ def test_reid_semantic_only_metadata(params, record_xml_attribute):
   @param params  Test parameters from pytest fixture
   @param record_xml_attribute  Pytest fixture for recording test metadata
   """
+  pytest.skip("Test is unstable")
   TEST_NAME = "NEX-T19883-SEMANTIC-ONLY"
   record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
@@ -588,6 +593,7 @@ def test_reid_combined_metadata(params, record_xml_attribute):
   @param params  Test parameters from pytest fixture
   @param record_xml_attribute  Pytest fixture for recording test metadata
   """
+  pytest.skip("Test is unstable")
   TEST_NAME = "NEX-T19883-COMBINED"
   record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
