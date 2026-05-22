@@ -177,6 +177,7 @@ class TestSetCustomConfig:
     result = harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "controller",
     })
     assert result is harness
     assert harness._tracker_config_path == tracker_config_file
@@ -185,6 +186,7 @@ class TestSetCustomConfig:
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "controller",
         "drain_timeout": 10.0,
     })
     assert harness._drain_timeout == 10.0
@@ -193,6 +195,7 @@ class TestSetCustomConfig:
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "controller",
         "startup_wait_s": 5.0,
     })
     assert harness._startup_wait_s == 5.0
@@ -201,6 +204,7 @@ class TestSetCustomConfig:
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
         "broker_image": "custom-mosquitto:2.0",
+        "container_type": "controller",
     })
     assert harness._broker_image == "custom-mosquitto:2.0"
 
@@ -208,6 +212,7 @@ class TestSetCustomConfig:
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "controller",
         "scene_id": "override-uid",
     })
     assert harness._scene_id == "override-uid"
@@ -226,7 +231,7 @@ class TestSetCustomConfig:
 
   def test_rejects_missing_broker_image(self, harness, tracker_config_file):
     with pytest.raises(ValueError, match="broker_image"):
-      harness.set_custom_config({"tracker_config_path": tracker_config_file})
+      harness.set_custom_config({"tracker_config_path": tracker_config_file, "container_type": "controller"})
 
 
 # ---------------------------------------------------------------------------
@@ -255,6 +260,7 @@ class TestReset:
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "controller",
     })
     harness.set_output_folder(tmp_path)
     harness.reset()
@@ -278,6 +284,7 @@ class TestProcessInputsGuards:
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "controller",
     })
     with pytest.raises(RuntimeError, match="set_scene_config"):
       list(harness.process_inputs(iter([])))
@@ -307,6 +314,7 @@ class TestProcessInputsFlow:
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "controller",
         "drain_timeout": 0.1,  # fast test
     })
     return harness
@@ -660,6 +668,7 @@ class TestFramePacing:
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "controller",
         "drain_timeout": 0.0,
     })
     sleep_calls = self._run_and_capture_sleep_calls(harness, paced_frames)
@@ -685,6 +694,7 @@ class TestFramePacing:
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "controller",
         "drain_timeout": 0.0,
     })
 
@@ -728,6 +738,7 @@ class TestFramePacing:
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "controller",
         "drain_timeout": 0.0,
         "startup_wait_s": 0.0,
     })
@@ -855,6 +866,7 @@ class TestPersistOutputs:
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
         "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "controller",
         "drain_timeout": 0.1,
     })
     # Set a folder that does not exist yet (nested)
