@@ -339,7 +339,7 @@ class Scene(models.Model):
       transaction.on_commit(partial(sendUpdateCommand, scene_id=updated_scene))
     return
 
-  def notifydbupdate(self):
+  def notifyDbUpdate(self):
     transaction.on_commit(sendUpdateCommand)
     return
 
