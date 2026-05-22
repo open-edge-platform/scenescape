@@ -13,7 +13,15 @@ from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 
 from tests.functional import FunctionalTest
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK_WITH_MAPPING_AND_VIDEO
+
 log = get_logger(__name__)
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK_WITH_MAPPING_AND_VIDEO,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T10543"
 COLLECT_TIMEOUT = 10.0
@@ -68,7 +76,7 @@ class RotationFromVelocityTest(FunctionalTest):
     res = self.rest.createAsset(asset_data)
     assert res.statusCode in (HTTPStatus.OK, HTTPStatus.CREATED)
     self.asset_uid = res["uid"]
-    log.info(f"Created PERSON asset UID:", self.asset_uid)
+    log.info(f"Created PERSON asset UID: {self.asset_uid}")
 
     # MQTT setup
     self.client = PubSub(self.params["auth"], None, self.params["rootcert"], self.params["broker_url"],
@@ -126,7 +134,7 @@ class RotationFromVelocityTest(FunctionalTest):
       {"rotation_from_velocity": bool(enable)}
     )
     assert update.statusCode == HTTPStatus.OK, f"Update failed: {update.errors}"
-    log.info(f"Set rotation_from_velocity =", enable)
+    log.info(f"Set rotation_from_velocity = {enable}")
     time.sleep(PROPAGATION_DELAY)
 
   # Collect messages from the topic
@@ -231,7 +239,7 @@ class RotationFromVelocityTest(FunctionalTest):
 
       self.collect("disabled")
       disabled_set = set(self.rotations_disabled)
-      log.info(f"Rotation after disabling rotation-from-velocity (feature OFF):", disabled_set)
+      log.info(f"Rotation after disabling rotation-from-velocity (feature OFF): {disabled_set}")
 
       assert all(all(abs(a - b) < 1e-6 for a, b in zip(q, IDENTITY_QUAT)) for q in disabled_set), \
         "Rotations did not return to identity after disabling rotation"
@@ -253,7 +261,7 @@ class RotationFromVelocityTest(FunctionalTest):
     return
 
 # Pytest entrypoint
-def test_rotation_from_velocity(request, record_xml_attribute):
+def test_rotation_from_velocity(scenescape_env, demo_scene, request, record_xml_attribute):
   test = RotationFromVelocityTest(TEST_NAME, request, record_xml_attribute)
   test.run()
   assert test.exitCode == 0
