@@ -430,10 +430,10 @@ class BlackBoxHarness(TrackerHarness):
 
   def _write_inputs(self, frames: List[Dict], tmp_dir: Path) -> None:
     """Persist input frames for debugging / output folder artefacts."""
-    inputs_file = tmp_dir / "inputs.json"
+    inputs_file = tmp_dir / "inputs.jsonl"
     write_jsonl(iter(frames), str(inputs_file))
     if self._output_folder:
-      shutil.copy(inputs_file, self._output_folder / "inputs.json")
+      shutil.copy(inputs_file, self._output_folder / "inputs.jsonl")
 
   def _build_mosquitto_conf(self, tmp_dir: Path) -> Path:
     """Write a minimal anonymous mosquitto.conf and return its path."""
@@ -796,7 +796,6 @@ class BlackBoxHarness(TrackerHarness):
     if not self._output_folder:
       return
     self._output_folder.mkdir(parents=True, exist_ok=True)
-    out_file = tmp_dir / "outputs.json"
-    with open(out_file, "w") as f:
-      json.dump(outputs, f)
-    shutil.copy(out_file, self._output_folder / "outputs.json")
+    out_file = tmp_dir / "outputs.jsonl"
+    write_jsonl(iter(outputs), str(out_file))
+    shutil.copy(out_file, self._output_folder / "outputs.jsonl")
