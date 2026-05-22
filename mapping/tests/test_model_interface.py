@@ -69,15 +69,15 @@ class TestReconstructionModel:
     """Test isModelLoaded returns correct status"""
     model = MockReconstructionModel(device="cpu")
 
-    assert model.isModelLoaded() is False
+    assert model.is_model_loaded() is False
 
     model.load_model()
-    assert model.isModelLoaded() is True
+    assert model.is_model_loaded() is True
 
   def test_get_model_info(self):
     """Test getModelInfo returns correct information"""
     model = MockReconstructionModel(device="cpu")
-    info = model.getModelInfo()
+    info = model.get_model_info()
 
     assert info["name"] == "mock_model"
     assert info["description"] == "Mock model for testing"
@@ -97,42 +97,42 @@ class TestReconstructionModel:
     ]
 
     # Should not raise any exception
-    model.validateImages(valid_images)
+    model.validate_images(valid_images)
 
   def test_validate_images_empty_list(self):
     """Test validateImages rejects empty list"""
     model = MockReconstructionModel()
 
     with pytest.raises(ValueError, match="non-empty list"):
-      model.validateImages([])
+      model.validate_images([])
 
   def test_validate_images_not_list(self):
     """Test validateImages rejects non-list input"""
     model = MockReconstructionModel()
 
     with pytest.raises(ValueError, match="non-empty list"):
-      model.validateImages({"data": "test"})
+      model.validate_images({"data": "test"})
 
   def test_validate_images_not_dict(self):
     """Test validateImages rejects non-dict items"""
     model = MockReconstructionModel()
 
     with pytest.raises(ValueError, match="must be a dictionary"):
-      model.validateImages(["not_a_dict"])
+      model.validate_images(["not_a_dict"])
 
   def test_validate_images_missing_data(self):
     """Test validateImages rejects items without 'data' field"""
     model = MockReconstructionModel()
 
     with pytest.raises(ValueError, match="missing required field: data"):
-      model.validateImages([{"other_field": "value"}])
+      model.validate_images([{"other_field": "value"}])
 
   def test_validate_images_data_not_string(self):
     """Test validateImages rejects non-string data"""
     model = MockReconstructionModel()
 
     with pytest.raises(ValueError, match="must be a base64 string"):
-      model.validateImages([{"data": 12345}])
+      model.validate_images([{"data": 12345}])
 
   def test_decode_base64_image(self):
     """Test decodeBase64Image converts base64 to numpy array"""
@@ -199,7 +199,7 @@ class TestReconstructionModel:
 
     # Identity rotation
     R = np.eye(3)
-    quat = model.rotationMatrixToQuaternion(R)
+    quat = model.rotation_matrix_to_quaternion(R)
 
     assert quat.shape == (4,)
     # Identity quaternion is [0, 0, 0, 1] (x, y, z, w format)
@@ -216,7 +216,7 @@ class TestReconstructionModel:
       [0, 1, 0]
     ], dtype=np.float64)
 
-    quat = model.rotationMatrixToQuaternion(R)
+    quat = model.rotation_matrix_to_quaternion(R)
 
     # Expected quaternion for 90° around X in [x, y, z, w] format: [sin(45°), 0, 0, cos(45°)]
     expected = np.array([np.sqrt(2)/2, 0.0, 0.0, np.sqrt(2)/2])
@@ -233,7 +233,7 @@ class TestReconstructionModel:
       [-1, 0, 0]
     ], dtype=np.float64)
 
-    quat = model.rotationMatrixToQuaternion(R)
+    quat = model.rotation_matrix_to_quaternion(R)
 
     # Expected quaternion for 90° around Y in [x, y, z, w] format: [0, sin(45°), 0, cos(45°)]
     expected = np.array([0.0, np.sqrt(2)/2, 0.0, np.sqrt(2)/2])
@@ -250,7 +250,7 @@ class TestReconstructionModel:
       [0, 0, 1]
     ], dtype=np.float64)
 
-    quat = model.rotationMatrixToQuaternion(R)
+    quat = model.rotation_matrix_to_quaternion(R)
 
     # Expected quaternion for 90° around Z in [x, y, z, w] format: [0, 0, sin(45°), cos(45°)]
     expected = np.array([0.0, 0.0, np.sqrt(2)/2, np.sqrt(2)/2])
@@ -267,7 +267,7 @@ class TestReconstructionModel:
       [0, 0, -1]
     ], dtype=np.float64)
 
-    quat = model.rotationMatrixToQuaternion(R)
+    quat = model.rotation_matrix_to_quaternion(R)
 
     # Expected quaternion for 180° around X in [x, y, z, w] format: [1, 0, 0, 0]
     expected = np.array([1.0, 0.0, 0.0, 0.0])
@@ -291,7 +291,7 @@ class TestReconstructionModel:
       [t*x*z - s*y,  t*y*z + s*x,  t*z*z + c]
     ], dtype=np.float64)
 
-    quat = model.rotationMatrixToQuaternion(R)
+    quat = model.rotation_matrix_to_quaternion(R)
 
     # Verify quaternion is normalized
     magnitude = np.linalg.norm(quat)

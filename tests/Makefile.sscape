@@ -99,7 +99,7 @@ mapping-unit:
 	      --entrypoint pytest \
 	      -w /home/scenescape/SceneScape/tests \
 	      $(IMAGE)-mapping-test:$(VERSION) \
-	      -v $(GENERATE_JUNITXML_UNITTEST) 2>&1 | tee -i $(LOGFILE) \
+	      -v $(GENERATE_JUNITXML_UNITTEST) . 2>&1 | tee -i $(LOGFILE) \
 	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
 	  ; echo END TEST $@
 

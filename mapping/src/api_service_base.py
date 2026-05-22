@@ -27,7 +27,7 @@ from flask_cors import CORS
 
 from scene_common import log
 
-from mesh_utils import getMeshInfo
+from mesh_utils import get_mesh_info
 
 RECON_STATUS = {}
 RECON_LOCK = threading.Lock()
@@ -176,7 +176,7 @@ def create_glb_file(result: Dict[str, Any], mesh_type: str = "mesh") -> str:
     scene_3d = loaded_model.createOutput(result, output_format=mesh_type)
     scene_3d.export(temp_glb_path)
 
-    mesh_info = getMeshInfo(scene_3d)
+    mesh_info = get_mesh_info(scene_3d)
     log.info(f"GLB created: {mesh_info}")
 
     return temp_glb_path

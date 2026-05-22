@@ -211,8 +211,8 @@ class MapAnythingModel(ReconstructionModel):
     if output_format == "pointcloud":
       # Convert MapAnything mesh to point cloud
       log.info("Converting MapAnything mesh to point cloud format...")
-      from mesh_utils import createPointcloudFromMesh
-      scene = createPointcloudFromMesh(predictions)
+      from mesh_utils import create_pointcloud_from_mesh
+      scene = create_pointcloud_from_mesh(predictions)
       return scene
     else:
       # Use MapAnything's default GLB export (mesh)
