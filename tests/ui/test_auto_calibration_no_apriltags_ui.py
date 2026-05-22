@@ -9,6 +9,13 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from tests.ui import UserInterfaceTest
 from tests.ui import common
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS,
+  require_password=True, auth="",
+)
 
 class NoAprilTagCalibrationTest(UserInterfaceTest):
   def __init__(self, testName, request, recordXMLAttribute):
@@ -57,7 +64,7 @@ class NoAprilTagCalibrationTest(UserInterfaceTest):
       print("Autocalibration label or button state is incorrect.")
 
 @common.mock_display
-def test_no_april_tag(request, record_xml_attribute):
+def test_no_april_tag(request, record_xml_attribute, scenescape_env):
   """! Checks that the ACC displays an appropriate error message and disables the calibration button when no April tags are present in the scene.
   @param    request                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.
