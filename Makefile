@@ -122,7 +122,7 @@ help:
 	@echo "  run_ui_tests                Run UI tests"
 	@echo "  run_unit_tests              Run unit tests"
 	@echo "  run_stability_tests         Run stability tests"
-	@echo "  run_performance_tests       Run performance tests (inference requires Docker Compose stack)"
+	@echo "  run_performance_tests       Run performance tests"
 	@echo "  run_metric_tests            Run metric tests"
 	@echo "  setup-pytest                Create tests/.venv and install dependencies"
 	@echo ""
@@ -468,8 +468,6 @@ run_stability_tests: setup-tests setup-pytest
 # --- Performance and metric tests ---
 
 TEST_DATA ?= test_data
-PERF_TESTS_PATH := tests/perf_tests
-
 .PHONY: run_performance_tests
 run_performance_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
@@ -482,12 +480,10 @@ _run_performance_tests: inference-performance geometry-conformance
 
 .PHONY: inference-performance
 inference-performance: # NEX-T10412
-	$(eval LOGFILE=$(TEST_DATA)/perf/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING TEST $@ \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; $(PERF_TESTS_PATH)/test_inference_performance.sh 2>&1 | tee -i $(LOGFILE) \
-	  ; echo END TEST $@
+	@echo "Running inference performance test..."
+	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
+		$(PYTEST) $(TESTS_DIR)/perf_tests/test_inference_performance.py $(PYTEST_FLAGS) \
+		|| (echo "Inference performance test failed" && exit 1)
 
 .PHONY: geometry-conformance
 geometry-conformance:
