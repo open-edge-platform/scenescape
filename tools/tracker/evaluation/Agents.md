@@ -65,13 +65,13 @@ Check `datasets/README.md` for more details
   - Publishes each input frame to `scenescape/data/camera/{camera_id}` and collects tracker outputs from `scenescape/data/scene/{scene_id}/+`.
   - Frames are published as fast as possible. **Frames always carry original dataset timestamps**; no rewriting occurs. Both the Controller (`--maxlag 1e15`) and Tracker Service (`max_lag_s: 1e15` in config) are configured to accept historical timestamps.
   - Starts a **Mock Manager REST API** (`mock_manager.py`) as a thread on the Docker host. Both container types load scene configuration from it via HTTP on startup. The mock server computes camera extrinsics using the same logic as production (`PointCorrespondenceTransform._calculatePoseMat()` in `scene_common/transform.py`): `cv2.solvePnP` with coplanarity check, full 14-coefficient distortion array, and `_poseMatToPose()` scale extraction.
-  - **Supports two container types** (auto-detected from image metadata, or set via `container_type` config key):
+  - **Supports two container types** (must be specified explicitly via the required `container_type` config key):
     - `controller` (`scenescape-controller`): Connects to mock Manager via `--resturl`; camera dicts include `camera points`/`map points` so `Camera.__init__` builds a `PointCorrespondenceTransform`. Time-chunking controlled by `time_chunking_enabled` in tracker-config.json.
     - `tracker` (`scenescape-tracker`): Connects to mock Manager via `scenes.source: api` in config.json; camera extrinsics (translation, XYZ Euler degrees, scale) are served by the mock Manager. Auth file written as `{"user": "harness", "password": "harness"}` (required by `api_scene_loader.cpp`). Time-chunking always active via `time_chunking_rate_fps`.
   - `set_custom_config()` accepts:
     - `tracker_config_path` (**required**): path to the tracker config JSON mounted into the container.
     - `broker_image` (**required**): Docker image for the MQTT broker (e.g. `"eclipse-mosquitto:2.0.22"`).
-    - `container_type` (optional): `'controller'` or `'tracker'`; auto-detected when omitted.
+    - `container_type` (**required**): `'controller'` or `'tracker'`.
     - `drain_timeout` (default `5.0`): seconds to wait for final tracker outputs after the last frame.
     - `startup_wait_s` (default `2.0`): seconds to wait after container starts before publishing frames.
     - `scene_id`: overrides the scene UID derived from `set_scene_config()`.
