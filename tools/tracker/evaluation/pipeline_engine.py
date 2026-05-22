@@ -153,7 +153,8 @@ class PipelineEngine:
 
     try:
       # Get inputs from dataset
-      inputs = self._dataset.get_inputs()
+      inputs = list(self._dataset.get_inputs())
+      print(f"Tracker input frames: {len(inputs)}")
 
       # Configure harness with scene config
       scene_config = self._dataset.get_scene_config()
@@ -161,7 +162,8 @@ class PipelineEngine:
 
       # Run tracker — materialise into a list once so evaluate() can
       # pass the same list to multiple evaluators without re-consuming an iterator.
-      self._tracker_outputs = list(self._harness.process_inputs(inputs))
+      self._tracker_outputs = list(self._harness.process_inputs(iter(inputs)))
+      print(f"Tracker output frames: {len(self._tracker_outputs)}")
 
       return self
 
@@ -193,6 +195,8 @@ class PipelineEngine:
 
     try:
       ground_truth = self._dataset.get_ground_truth()
+      gt_line_count = sum(1 for _ in open(ground_truth)) if Path(ground_truth).is_file() else 0
+      print(f"Ground-truth frames: {gt_line_count}")
       all_metrics: Dict[str, Dict[str, float]] = {}
 
       for i, evaluator in enumerate(self._evaluators):
