@@ -4,13 +4,15 @@
 import pytest
 
 from scene_common.schema import SchemaValidation
+import sys
+from pathlib import Path
 
-SCHEMA_PATH = "controller/src/schema/metadata.schema.json"
-INVALID_SCHEMA_PATH = "../schema/metadata.schema.json"
+SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent.parent / "controller" / "src" / "schema" / "metadata.schema.json"
+INVALID_SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent.parent / "controller" / "src" / "schema" / "invalid.metadata.schema.json"
 
 @pytest.fixture
 def schemaObject():
-  schemaObj = SchemaValidation(SCHEMA_PATH, is_multi_message=True)
+  schemaObj = SchemaValidation(str(SCHEMA_PATH), is_multi_message=True)
   return schemaObj
 
 @pytest.fixture

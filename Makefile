@@ -354,7 +354,7 @@ PYTEST_FLAGS := --rootdir=$(CURDIR)/tests -v --tb=short
 TESTS_DIR := $(CURDIR)/tests
 
 .PHONY: setup-tests
-setup-tests: build-all-images init-secrets .env setup-pytest
+setup-tests: init-secrets .env setup-pytest
 	@echo "Setting up test environment..."
 	for dir in $(TEST_IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir test-build; \

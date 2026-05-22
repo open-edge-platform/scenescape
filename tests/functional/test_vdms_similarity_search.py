@@ -103,10 +103,3 @@ def test_vdms_similarity_search(scenescape_env, request, record_xml_attribute):
     test.recordTestResult()
 
   assert test.exitCode == 0
-  return test.exitCode
-
-def main():
-  return test_vdms_similarity_search(None, None)
-
-if __name__ == '__main__':
-  os._exit(main() or 0)

@@ -1,8 +1,7 @@
-#!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
 import cv2
 import json
 import time
@@ -125,6 +124,7 @@ def on_message(mqttc, data, msg):
   mqttc.publish(PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=used_camera), "getimage")
   return
 
+@pytest.mark.basic_acceptance
 def test_bounding_box(params, record_xml_attribute):
   """! Checks that red object detection bounding boxes appear in the camera 1 image stream.
   @param    params                  Dict of test parameters.

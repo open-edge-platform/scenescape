@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
@@ -20,6 +18,7 @@ from scene_common.json_track_data import CamManager
 from scene_common.scenescape import SceneLoader
 from scene_common.camera import Camera
 from scene_common.geometry import Region, Tripwire
+import pytest
 
 MSOCE_MEAN = 0.3344
 IDC_MEAN = 0.007
@@ -217,7 +216,3 @@ def test_tracker_metric(params, assets, record_xml_attribute):
   finally:
     common.record_test_result(TEST_NAME, result)
   assert result == 0
-
-
-if __name__ == "__main__":
-  exit(test_tracker_metric() or 0)

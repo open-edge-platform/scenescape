@@ -9,6 +9,7 @@ from http import HTTPStatus
 import pytest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+from scene_common import log
 
 log = get_logger(__name__)
 
@@ -172,7 +173,7 @@ def test_persistence_on_restart_api(params, rest, result_recorder):
     assert cam["scene"] == scene_uid, \
       f"Camera '{CAMERA_NAME}' is not linked to scene '{sceneName}' after restart"
 
-  logging.info(
+  log.info(
     "Scene and camera persist after restart: "
     f"scene='{sceneName}', camera name='{CAMERA_NAME}'"
   )

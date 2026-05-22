@@ -15,16 +15,18 @@ Tests support two deployment backends controlled by the `--backend` flag:
 The following packages must be installed on the host before running `make setup-tests`.
 Install them with `apt-get` (or equivalent for your distribution):
 
-| Package          | Minimum version | Required for          | Install command                         |
-| ---------------- | --------------- | --------------------- | --------------------------------------- |
-| `firefox`        | 150.0.2         | UI / Selenium tests   | `sudo apt-get install -y firefox`       |
-| `xvfb`           | 21.1            | UI / Selenium tests   | `sudo apt-get install -y xvfb`          |
-| `libopencv-dev`  | 4.6             | `robot_vision` build  | `sudo apt-get install -y libopencv-dev` |
-| `libeigen3-dev`  | 3.4             | `robot_vision` build  | `sudo apt-get install -y libeigen3-dev` |
+| Package         | Minimum version | Required for         | Install command                         |
+| --------------- | --------------- | -------------------- | --------------------------------------- |
+| `firefox`       | 150.0.2         | UI / Selenium tests  | `sudo apt-get install -y firefox`       |
+| `geckodriver`   | 0.36.0          | UI / Selenium tests  | Check https://github.com/mozilla/geckodriver |
+| `xvfb`          | 21.1            | UI / Selenium tests  | `sudo apt-get install -y xvfb`          |
+| `libopencv-dev` | 4.6             | `robot_vision` build | `sudo apt-get install -y libopencv-dev` |
+| `libeigen3-dev` | 3.4             | `robot_vision` build | `sudo apt-get install -y libeigen3-dev` |
 
 > **Note**: `firefox` and `xvfb` are only needed when running UI/Selenium tests.
 > `libopencv-dev` and `libeigen3-dev` are required to compile the `robot_vision`
 > C++ extension used by tracker metric and scene tests.
+> On Ubuntu, Firefox must be installed via apt — the snap version is not compatible with Selenium.
 
 ### Docker backend
 
@@ -93,35 +95,35 @@ source tests/.venv/bin/activate
 # ── Docker backend (default) ───────────────────────────────────────────────
 
 # Run a single test by its pytest ID (use underscores)
-pytest -k mqtt_roi -v
+pytest -k mqtt_roi
 
 # Run all functional tests
-pytest tests/functional -v
+pytest tests/functional
 
 # Run all unit tests
-pytest tests/sscape_tests -v
+pytest tests/sscape_tests
 
 # Run all UI tests
-pytest tests/ui -v
+pytest tests/ui
 
 # ── Kubernetes backend ─────────────────────────────────────────────────────
 
 # Run a specific test against Kubernetes
-pytest tests/ui/test_out_of_box.py --backend=kubernetes -v
+pytest tests/ui/test_out_of_box.py --backend=kubernetes
 
 # Run all Kubernetes-capable tests
-pytest --backend=kubernetes -v
+pytest --backend=kubernetes
 
 # Run only tests that require Kubernetes
-pytest -m kubernetes_only --backend=kubernetes -v
+pytest -m kubernetes_only --backend=kubernetes
 
 # Run all tests against both backends (parametrized)
-pytest --backend=all -v
+pytest --backend=all
 
 # ── Container log collection ───────────────────────────────────────────────
-pytest tests/functional -v --collect-container-logs failed
-pytest tests/functional -v --collect-container-logs all
-pytest tests/functional -v --collect-container-logs none
+pytest tests/functional --collect-container-logs failed
+pytest tests/functional --collect-container-logs all
+pytest tests/functional --collect-container-logs none
 
 ```
 
@@ -176,7 +178,7 @@ make run_unit_tests
 or directly with pytest:
 
 ```bash
-pytest tests/sscape_tests -v
+pytest tests/sscape_tests
 ```
 
 ## Test markers

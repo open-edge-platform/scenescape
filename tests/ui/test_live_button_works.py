@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -97,4 +95,3 @@ def test_live_button(params, record_xml_attribute=None):
     tests_common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
-  return exit_code

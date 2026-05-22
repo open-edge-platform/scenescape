@@ -207,7 +207,7 @@ class TestAPI(FunctionalTest):
     return
 
   def verifyAPI(self, thing, testCases):
-    log.info()
+    log.info("")
     if thing == 'User':
       self.nameField = 'username'
       self.uidField = 'username'
@@ -220,7 +220,7 @@ class TestAPI(FunctionalTest):
     self.createThing(thing, testCases['create'], testCases['scene'])
     log.info(f"Running update{thing} test..")
     self.updateThing(thing, testCases['update'], testCases['scene'])
-    log.info()
+    log.info("")
     log.info(f"verifying create{thing} test..")
     self.verifyCreate(thing, testCases['create'])
     log.info(f"verifying update{thing} test..")

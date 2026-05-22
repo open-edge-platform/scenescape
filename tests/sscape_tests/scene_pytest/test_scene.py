@@ -32,8 +32,9 @@ def test_init(scene_obj, scene_obj_with_scale):
   """
 
   assert scene_obj.name == name
+  assert scene_obj.background is not None
   assert (scene_obj.background == cv2.imread(mapFile)).all()
-  assert scene_obj.scale == None
+  assert scene_obj.scale is None
   assert scene_obj_with_scale.scale == scale
   return
 

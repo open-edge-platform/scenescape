@@ -3,6 +3,8 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
+
 from tests.functional.common_scene_obj import SceneObjectMqtt
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
@@ -31,15 +33,10 @@ def runROIMqttCreate(self):
     self.runSceneObjMqttFinally()
   return
 
+@pytest.mark.basic_acceptance
 def test_roi_create(scenescape_env, demo_scene, request, record_xml_attribute):
   test_name = getattr(request.node, '_scenescape_test_name', TEST_NAME)
   test = SceneObjectMqtt(test_name, request, record_xml_attribute)
   runROIMqttCreate(test)
   assert test.exitCode == 0
   return
-
-def main():
-  return test_roi_create(None, None)
-
-if __name__ == '__main__':
-  os._exit(main() or 0)
