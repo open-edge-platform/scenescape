@@ -39,22 +39,19 @@ CONFIGS = [
     _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_tracker_service.yaml",
 ]
 
-DEFAULT_OUTPUT_BASE = "/home/labrat/tracker-evaluation/black-box-evaluation"
+DEFAULT_OUTPUT_BASE = _SCRIPT_DIR / "output" / "black-box-evaluation"
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _run_config(config_path: Path, session_output: Path) -> dict:
-  """Load *config_path*, override its output path to *session_output*, run it.
+def _run_config(config_path: Path) -> dict:
+  """Load *config_path* and run it.
 
   Returns the metrics dict from PipelineEngine.evaluate().
   """
   with open(config_path) as f:
     cfg = yaml.safe_load(f)
-
-  # Redirect output into the shared session directory.
-  cfg["pipeline"]["output"]["path"] = str(session_output)
 
   engine = PipelineEngine()
   # Inject patched config directly so we don't need a temp file.
@@ -121,7 +118,7 @@ def main() -> int:
     print(f"  Running: {config_path.name}")
     print(f"{'─' * 60}")
     try:
-      metrics = _run_config(config_path, session_output)
+      metrics = _run_config(config_path)
       results.append((run_name, metrics))
     except Exception as exc:
       traceback.print_exc()
