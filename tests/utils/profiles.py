@@ -223,8 +223,20 @@ MARKERLESS = ServiceProfile(
   },
 )
 
-# Full stack with autocalibration service but using the default testdb (no April tags).
-# Used for tests that verify the ACC correctly reports missing April tags.
+INFERENCE_PERF = ServiceProfile(
+  name="inference_perf",
+  compose_files=(
+    f"{DLS}/broker.yml",
+    f"{COMPOSE}/ntp.yml",
+    f"{COMPOSE}/cams.yml",
+    f"{DLS}/retail_video.yml",
+  ),
+  wait_for={
+    "broker": _BROKER,
+    "retail-video": WaitConfig(timeout=120),
+  },
+)
+
 FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS = ServiceProfile(
   name="full_stack_autocalibration_no_apriltags",
   compose_files=(
@@ -258,5 +270,6 @@ PROFILE_REGISTRY: dict = {
     FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS,
     SCENE_NO_DB,
     MARKERLESS,
+    INFERENCE_PERF,
   ]
 }
