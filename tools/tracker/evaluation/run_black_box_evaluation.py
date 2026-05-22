@@ -45,13 +45,17 @@ DEFAULT_OUTPUT_BASE = _SCRIPT_DIR / "output" / "black-box-evaluation"
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _run_config(config_path: Path) -> dict:
-  """Load *config_path* and run it.
+def _run_config(config_path: Path, session_output: Path) -> dict:
+  """Load *config_path*, set its output base to *session_output*, run it.
 
   Returns the metrics dict from PipelineEngine.evaluate().
   """
   with open(config_path) as f:
     cfg = yaml.safe_load(f)
+
+  # Redirect output into the shared session directory.
+  # PipelineEngine will append run_name as a subdirectory.
+  cfg["pipeline"]["output"]["path"] = str(session_output)
 
   engine = PipelineEngine()
   # Inject patched config directly so we don't need a temp file.
@@ -118,7 +122,7 @@ def main() -> int:
     print(f"  Running: {config_path.name}")
     print(f"{'─' * 60}")
     try:
-      metrics = _run_config(config_path)
+      metrics = _run_config(config_path, session_output)
       results.append((run_name, metrics))
     except Exception as exc:
       traceback.print_exc()
