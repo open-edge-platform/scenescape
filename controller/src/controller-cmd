@@ -93,6 +93,9 @@ def build_argparser():
   parser.add_argument("--analytics-only", action="store_true",
                       default=os.getenv("CONTROLLER_ENABLE_ANALYTICS_ONLY") == "true",
                       help="Enable analytics-only mode. Use this when running a separate Tracker service that publishes tracking data to MQTT.")
+  parser.add_argument("--pose_adjustment_config_file",
+                      help="JSON file with pose adjustment routing configuration",
+                      default=os.path.join(os.path.dirname(script_path), "pose-adjustment-route.json"))
   parser.add_argument("--pose-adjustment",
                       dest="pose_adjustment",
                       action=argparse.BooleanOptionalAction,
@@ -117,7 +120,8 @@ def main():
                               args.brokerauth, args.resturl,
                               args.restauth, args.cert,
                               args.rootcert, args.ntp, args.tracker_config_file, args.schema_file,
-                              args.visibility_topic, args.data_source, args.reid_config_file)
+                              args.visibility_topic, args.data_source,
+                              args.reid_config_file, args.pose_adjustment_config_file)
 
   # Start health check server if port is specified
   if args.healthcheck_port > 0:

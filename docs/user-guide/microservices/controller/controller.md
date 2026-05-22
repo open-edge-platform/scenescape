@@ -54,6 +54,19 @@ When `similarity_metric` is `L2` (default), Re-ID vectors follow distance-style 
 
 `--pose-adjustment`: Enables pose-based bounding box adjustment before world projection. When enabled, the controller uses pose keypoints (e.g. from a `yolo11n-pose` model) to refine the bounding box used for projecting detections into world coordinates. This is disabled by default. Not supported in `--analytics-only` mode. Cannot be used together with Extended ReID (VDMS-based cross-camera re-identification); see [Extended Re-ID](./Extended-ReID.md) for details. Can also be enabled via the `CONTROLLER_ENABLE_POSE_ADJUSTMENT` environment variable set to `true`. Requires the DL Streamer video pipeline to use a pose estimation model that provides keypoint data. See the [DL Streamer Pipeline Server documentation](../../../dlstreamer-pipeline-server/README.md#enable-pose-estimation) for pipeline setup.
 
+`--pose_adjustment_config_file`: JSON file that defines pose-adjustment label routing. The default file is `pose-adjustment-route.json` next to the controller executable. Use this file to map each registered pose-adjustment strategy label to the incoming labels that should dispatch to it.
+
+Example `pose-adjustment-route.json`:
+
+```json
+{
+  "person": ["human", "pedestrian"],
+  "vehicle": ["car", "truck", "sedan"]
+}
+```
+
+Resolution order is: exact label, then configured route labels. Routes are flattened at startup so message-time dispatch remains a direct lookup.
+
 ### Configuration
 
 For detailed configuration guidance:

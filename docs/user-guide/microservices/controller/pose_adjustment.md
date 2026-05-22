@@ -54,7 +54,29 @@ flowchart TD
 
 1. Parse and standardize incoming keypoints from the detector.
 2. Scale keypoints to the appropriate coordinate system if needed.
-3. Invoke the registered strategy for the detection type, which refines the bounding box and updates the spatial proportion statistics for future improvements.
+3. Resolve detection type routing with exact label lookup first, then optional configured route labels.
+4. Invoke the resolved strategy, which refines the bounding box and updates the spatial proportion statistics for future improvements.
+
+### Detection Type Routing Configuration
+
+The coordinator supports optional file-based routing rules loaded from the controller's `pose-adjustment-route.json` configuration.
+The file maps a canonical strategy label to the list of incoming labels that should dispatch to it.
+
+Example:
+
+```json
+{
+  "person": ["human", "pedestrian"],
+  "vehicle": ["car", "truck", "sedan"]
+}
+```
+
+Dispatch order is deterministic:
+
+1. Try exact detection label.
+2. Try any configured route label that maps to a registered strategy.
+
+Resolved routes are flattened once during initialization, so recurring labels do not pay additional routing cost during message processing.
 
 ## Extensibility
 

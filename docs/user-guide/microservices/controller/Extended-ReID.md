@@ -51,7 +51,7 @@ The controller validates returned similarity scores for the normalized-cosine pa
 ### Limitations
 
 - Extended ReID is not compatible with the `--pose-adjustment` controller flag. When pose-based bounding box adjustment is enabled, Extended ReID must be disabled.
-- Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128` for deep-sort tracking) cannot use `reidPolicy` as their metadata generation policy. These cameras must use `detectionPolicy`.
+- Cameras using pose estimation pipelines with `gvainference` + `gvatrack` (e.g. `mars-small128` + `yolo11n-pose` for deep-sort tracking) cannot use `reidPolicy` as their metadata generation policy. These cameras must use `detectionPolicy`.
 
 ### Confidence-Based Constraint Filtering (AND-Only)
 

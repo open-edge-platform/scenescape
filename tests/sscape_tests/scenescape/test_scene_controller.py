@@ -187,6 +187,39 @@ class TestSceneControllerExtractReidConfigData:
       scene_controller.extractReidConfigData('definitely-missing-reid-config.json')
 
 
+class TestSceneControllerExtractPoseAdjustmentConfigData:
+  """Regression tests for pose-adjustment config file loading."""
+
+  def test_extracts_pose_adjustment_routes(self):
+    """Pose adjustment route config file is loaded into scene_controller.pose_adjustment_config_data."""
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.pose_adjustment_config_data = {}
+
+    pose_adjustment_config = {
+      'person': ['pedestrian', 'human'],
+    }
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+      json.dump(pose_adjustment_config, f)
+      tmp_path = f.name
+
+    try:
+      scene_controller.extractPoseAdjustmentConfigData(tmp_path)
+    finally:
+      os.unlink(tmp_path)
+
+    assert scene_controller.pose_adjustment_config_data == pose_adjustment_config
+
+  def test_extract_pose_adjustment_config_data_raises_for_missing_file(self):
+    """Missing pose-adjustment config file propagates FileNotFoundError."""
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.pose_adjustment_config_data = {}
+
+    with pytest.raises(FileNotFoundError):
+      scene_controller.extractPoseAdjustmentConfigData(
+        'definitely-missing-pose-adjustment-config.json'
+      )
+
+
 class TestSceneDeserializeReidConfigPropagation:
   """Regression tests: Scene.deserialize must propagate reid_config_data to the tracker."""
 
@@ -236,6 +269,31 @@ class TestSceneDeserializeReidConfigPropagation:
       scene = Scene.deserialize(scene_data)
 
     assert scene.reid_config_data == reid_config
+
+  @patch('controller.scene.ControllerMode')
+  @patch('controller.scene.IntelLabsTracking')
+  def test_deserialize_with_pose_adjustment_config_stores_routing_on_scene(
+    self, mock_tracking, mock_mode
+  ):
+    """Scene deserialized with pose adjustment config applies configured label routes."""
+    mock_mode.isAnalyticsOnly.return_value = False
+    mock_tracking.return_value = MagicMock()
+
+    from controller.scene import Scene
+    with patch.object(Scene, 'available_trackers', {'intel_labs': mock_tracking,
+                                                    'time_chunked_intel_labs': mock_tracking}):
+      scene_data = {
+        'uid': 'test-uid-3',
+        'name': 'test_scene',
+        'map': None,
+        'pose_adjustment_config_data': {
+          'person': ['pedestrian', 'human'],
+        },
+      }
+      scene = Scene.deserialize(scene_data)
+
+    assert scene.pose_adjustment_config_data == scene_data['pose_adjustment_config_data']
+    assert scene.pose_adjustment._resolved_detection_types['pedestrian'] == 'person'
 
 
 class TestSceneControllerPublishers:

@@ -29,6 +29,7 @@
   -v scenescape_vol-media:/home/scenescape/SceneScape/media \
   -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
   -v $(pwd)/controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json \
+  -v $(pwd)/controller/config/pose-adjustment-route.json:/home/scenescape/SceneScape/pose-adjustment-route.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
@@ -144,6 +145,7 @@ When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer vide
   --broker broker.scenescape.intel.com \
   --tracker_config_file /home/scenescape/SceneScape/tracker-config.json \
   --reid_config_file /home/scenescape/SceneScape/reid-config.json \
+  --pose_adjustment_config_file /home/scenescape/SceneScape/pose-adjustment-route.json \
   --ntp ntpserv \
   --pose-adjustment
   ```
@@ -158,6 +160,7 @@ When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer vide
   -v scenescape_vol-media:/home/scenescape/SceneScape/media \
   -v $(pwd)/controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json \
   -v $(pwd)/controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json \
+  -v $(pwd)/controller/config/pose-adjustment-route.json:/home/scenescape/SceneScape/pose-adjustment-route.json \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
@@ -167,7 +170,16 @@ When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer vide
   --broker broker.scenescape.intel.com \
   --tracker_config_file /home/scenescape/SceneScape/tracker-config.json \
   --reid_config_file /home/scenescape/SceneScape/reid-config.json \
+  --pose_adjustment_config_file /home/scenescape/SceneScape/pose-adjustment-route.json \
   --ntp ntpserv
+  ```
+
+- **Configure label routing via `pose-adjustment-route.json`**:
+
+  ```json
+  {
+    "person": ["human", "pedestrian"]
+  }
   ```
 
 - **Note**: This feature requires the DL Streamer video pipeline to use a pose estimation model (e.g. `yolo11n-pose`) that provides keypoint data. See the [DL Streamer Pipeline Server documentation](/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for pipeline setup instructions.

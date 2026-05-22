@@ -461,3 +461,77 @@ class TestPoseAdjustmentCoordinator:
     strategy = pa._strategies.get('person')
     assert strategy is not None
     assert strategy._adjuster.cache.max_entry_age_seconds == 300
+
+  def test_route_mapping_routes_to_registered_strategy(self):
+    """Configured route labels (e.g. pedestrian -> person) are resolved before dispatch."""
+    class _PersonStrategy:
+      def detection_type(self):
+        return 'person'
+      def adjust_detections(self, detections, scene_name, camera, when):
+        return 7
+      def set_max_entry_age_seconds(self, v):
+        pass
+
+    pa = PoseAdjustment(
+      enabled=True,
+      max_entry_age_seconds=120,
+      strategies=[_PersonStrategy()],
+      detection_type_routes={'person': ['pedestrian']},
+    )
+    camera = self._make_camera()
+    result = pa.adjust_detections(
+      'pedestrian', [_full_body_detection()], 'scene', camera, when=1.0,
+    )
+    assert result == 7
+
+  def test_route_mapping_supports_multiple_labels_per_strategy(self):
+    """A strategy can advertise multiple external labels through route config."""
+    class _VehicleStrategy:
+      def detection_type(self):
+        return 'vehicle'
+      def adjust_detections(self, detections, scene_name, camera, when):
+        return 42
+      def set_max_entry_age_seconds(self, v):
+        pass
+
+    pa = PoseAdjustment(
+      enabled=True,
+      max_entry_age_seconds=120,
+      strategies=[_VehicleStrategy()],
+      detection_type_routes={'vehicle': ['car', 'truck']},
+    )
+    camera = self._make_camera()
+    result = pa.adjust_detections(
+      'truck', [_full_body_detection()], 'scene', camera, when=1.0,
+    )
+    assert result == 42
+
+  def test_exact_match_precedes_route_mapping(self):
+    """Directly registered labels are preferred before configured route labels."""
+    class _TruckStrategy:
+      def detection_type(self):
+        return 'truck'
+      def adjust_detections(self, detections, scene_name, camera, when):
+        return 11
+      def set_max_entry_age_seconds(self, v):
+        pass
+
+    class _VehicleStrategy:
+      def detection_type(self):
+        return 'vehicle'
+      def adjust_detections(self, detections, scene_name, camera, when):
+        return 42
+      def set_max_entry_age_seconds(self, v):
+        pass
+
+    pa = PoseAdjustment(
+      enabled=True,
+      max_entry_age_seconds=120,
+      strategies=[_TruckStrategy(), _VehicleStrategy()],
+      detection_type_routes={'vehicle': ['truck']},
+    )
+    camera = self._make_camera()
+    result = pa.adjust_detections(
+      'truck', [_full_body_detection()], 'scene', camera, when=1.0,
+    )
+    assert result == 11
