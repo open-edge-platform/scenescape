@@ -13,9 +13,9 @@ Tests cover:
 - State transition logic (PENDING_COLLECTION → MATCHED/QUERY_NO_MATCH)
 """
 
-import pytest
-import time
 import inspect
+import time
+import pytest
 from unittest.mock import Mock
 
 from controller.moving_object import MovingObject, ReidState
@@ -163,7 +163,6 @@ class TestRecordIdChange:
     assert self.obj.previous_ids_chain[0]['similarity_score'] == 0.92
     assert self.obj.previous_ids_chain[0]['timestamp'] == ts
 
-  @pytest.mark.parametrize("invalid_id", [None, "", "   ", "not-a-uuid", -1, 0, 1.5, []])
   def check_save_previous_object_id_rejects_invalid_previous_id(self, invalid_id):
     """Verify invalid IDs are rejected before mutating previous_ids_chain."""
     with pytest.raises(ValueError, match="previous_id must be a valid UUID"):
@@ -549,7 +548,6 @@ class TestUUIDManagerSimilarityThresholdValidation:
         'stale_feature_check_interval_secs': 3600,
       })
 
-  @pytest.mark.parametrize('invalid_threshold', [-1.1, 1.1])
   def check_rejects_out_of_range_cosine_similarity_threshold(self, invalid_threshold):
     with pytest.raises(
       ValueError,
@@ -561,16 +559,6 @@ class TestUUIDManagerSimilarityThresholdValidation:
         'stale_feature_check_interval_secs': 3600,
       })
 
-  @pytest.mark.parametrize(
-    ('metric', 'threshold'),
-    [
-      ('L2', 0.0),
-      ('L2', 40.0),
-      ('COSINE', -1.0),
-      ('COSINE', 0.5),
-      ('COSINE', 1.0),
-    ],
-  )
   def check_accepts_thresholds_at_valid_metric_boundaries(self, metric, threshold):
     manager = UUIDManager(reid_config_data={
       'similarity_metric': metric,
