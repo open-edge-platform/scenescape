@@ -61,12 +61,12 @@ Run this workflow before executing any test command:
 
 1. Identify changed files.
 2. Classify each changed file scope: unit, functional, ui, perf, or integration.
-3. Resolve the concrete target from the relevant Makefile(s):
-   - `tests/Makefile`
-   - `tests/Makefile.functional`
-   - `tests/Makefile.user_interface`
-   - `tests/Makefile.sscape`
+3. Resolve the concrete target from the root `Makefile` test targets (for example,
+   `run_unit_tests`, `run_functional_tests`, `run_ui_tests`,
+   `run_basic_acceptance_tests`, `run_performance_tests`, `run_metric_tests`).
 4. Choose the narrowest target that directly validates the changed file(s).
+   If no narrow root target exists, run a direct `pytest` command for the specific
+   module or test case.
 5. Run that target with required environment variables.
 
 ### Anti-Miss Checklist
@@ -88,9 +88,9 @@ Run this workflow before executing any test command:
 
 ### Quick Mapping Examples
 
-- `tests/functional/tc_sensors_send_mqtt_messages.py` -> `make -C tests sensors-send-events`
-- `tests/functional/tc_mqtt_sensor_roi.py` -> `make -C tests mqtt-sensor-roi`
-- `tests/functional/tc_tripwire_mqtt.py` -> `make -C tests mqtt-tripwire`
+- `tests/functional/tc_sensors_send_mqtt_messages.py` -> `make run_functional_tests`
+- `tests/functional/tc_mqtt_sensor_roi.py` -> `make run_functional_tests`
+- `tests/functional/tc_tripwire_mqtt.py` -> `make run_functional_tests`
 
 ## Test Categories
 
@@ -1099,7 +1099,7 @@ def test_time_dependent_function(mock_datetime):
 
 ```bash
 # Run all unit tests
-make -C tests unit-tests
+make run_unit_tests
 
 # Run specific test module
 pytest tests/sscape_tests/geometry/test_point.py -v
@@ -1143,7 +1143,7 @@ When creating or modifying tests, verify:
 - [ ] Test is independent (doesn't rely on other tests)
 - [ ] Fixtures used for shared data
 - [ ] Documentation strings explain what is being tested
-- [ ] Repo-preferred test command used for validation (prefer `make -C tests <target>` when available)
+- [ ] Repo-preferred test command used for validation (prefer root `make run_*` targets; use focused `pytest` selection when needed)
 - [ ] New or changed tests executed after the last code edit
 - [ ] Final response includes current pass/fail status and any warnings or known gaps
 

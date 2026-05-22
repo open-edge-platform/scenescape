@@ -20,8 +20,8 @@ Ensure runtime verification is completed and reported consistently.
 
 1. Select a repository Makefile target that covers the modified tests.
 2. Prefer a root target when practical (for example, `make run_unit_tests`).
-3. Otherwise select the narrowest scoped target in `tests/Makefile`
-   (for example, `make -C tests scenescape-unit`).
+3. Otherwise execute the narrowest pytest selection that validates the changed tests
+   (for example, `pytest tests/sscape_tests/geometry/test_point.py -v`).
 4. If the selected target runs in a service `...-test` container image,
    rebuild images for changed services before executing tests.
 5. Execute the target.
@@ -33,10 +33,10 @@ Ensure runtime verification is completed and reported consistently.
 
 ## Image Freshness Mapping (Common)
 
-- Changed `controller/src/**` + `make -C tests scene-unit`:
+- Changed `controller/src/**` + `make run_unit_tests`:
   - `make controller`
   - `make -C controller test-build`
-  - then run `make -C tests scene-unit SUPASS=<password>`
+  - then run `SUPASS=<password> make run_unit_tests`
 
 Apply the same pattern to other services: rebuild runtime + test image before
 running containerized test targets.

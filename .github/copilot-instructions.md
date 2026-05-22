@@ -136,8 +136,8 @@ make rebuild-core                  # Clean + build (useful after code changes)
 ```bash
 SUPASS=<password> make setup-tests                    # Build test images
 make run_basic_acceptance_tests                       # Quick acceptance tests
-make -C tests unit-tests                              # Unit tests only
-make -C tests geometry-unit                           # Specific test (e.g., geometry)
+make run_unit_tests                                   # Unit tests only
+pytest tests/sscape_tests/geometry/test_point.py -v  # Specific test (e.g., geometry)
 ```
 
 ### Completion Gate For Test Tasks (Critical)
@@ -242,7 +242,7 @@ pubsub.publish(topic, json_payload)
 - **`.env`**: Runtime environment (database password, metrics config, COMPOSE_PROJECT_NAME)
 - **`scene_common/src/scene_common/`**: Reusable modules (MQTT, REST, geometry, schema, logging)
 - **`manager/secrets/`**: TLS certificates, auth tokens (never committed; generated per build)
-- **`tests/Makefile`** and **`tests/Makefile.sscape`**: Test orchestration with Zephyr ID tracking
+- **Root `Makefile` test targets** (for example, `run_unit_tests`, `run_functional_tests`, `run_basic_acceptance_tests`): Test orchestration with Zephyr ID tracking
 
 ## Documentation Requirements (Always-On)
 

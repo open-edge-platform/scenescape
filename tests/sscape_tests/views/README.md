@@ -1,6 +1,6 @@
 # Steps to Run
 
-- make -C tests views-unit
+- make run_unit_tests
 
 # Expected Results
 
