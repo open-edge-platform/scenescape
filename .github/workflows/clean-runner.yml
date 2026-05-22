@@ -19,10 +19,50 @@ jobs:
       - name: "Clean workdir before checkout"
         run: |
           sudo rm -rf $GITHUB_WORKSPACE/* || true
+
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+
+      - name: "Reset Docker Context"
+        run: |
+          docker context use default || true
+          docker context ls --format '{{.Name}}' | grep -v '^default$' | xargs -r docker context rm -f
+
+      - name: "Reset Docker config"
+        shell: bash
+        run: |
+          sudo rm -f /etc/docker/daemon.json || true
+          echo '{"features":{"containerd-snapshotter":false}}' | sudo tee /etc/docker/daemon.json > /dev/null
+          sudo systemctl daemon-reload || true
+          sudo systemctl restart docker || true
+
+      - name: Install Kind in newest version
+        shell: bash
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/
+
+      - name: "Install Firefox"
+        shell: bash
+        run: |
+          sudo snap remove --purge firefox || true
+          sudo apt remove --purge -y firefox || true
+          sudo apt update
+          sudo apt install -y firefox || true
+
+      - name: "Install Geckodriver"
+        shell: bash
+        run: |
+          GECKODRIVER_VERSION=$(curl -sSL https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+          curl -sSL -o geckodriver.tar.gz \
+            "https://github.com/mozilla/geckodriver/releases/download/v${GECKODRIVER_VERSION}/geckodriver-v${GECKODRIVER_VERSION}-linux64.tar.gz"
+          tar -xzf geckodriver.tar.gz
+          sudo mv -f geckodriver /usr/local/bin/
+          rm geckodriver.tar.gz
+
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
