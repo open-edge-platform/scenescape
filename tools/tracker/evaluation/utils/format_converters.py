@@ -342,7 +342,7 @@ def convert_canonical_to_motchallenge_csv(
   )
   frame_duration_seconds = 1.0 / camera_fps
 
-  # Convert tracker outputs to CSV rows.
+  # Convert tracker outputs to CSV rows
   rows = []
   seen_frame_ids: set = set()
   for scene_data in tracker_outputs:
