@@ -15,6 +15,7 @@ Tests cover:
 
 import inspect
 import time
+
 import pytest
 from unittest.mock import Mock
 
@@ -606,12 +607,13 @@ def run_check_class(test_class):
   for method_name, method in inspect.getmembers(test_class, predicate=inspect.isfunction):
     if not method_name.startswith("check_"):
       continue
+    instance = test_class()
     cases = PARAMETERIZED_CASES.get(method_name)
     if cases is None:
-      run_check_method(test_class(), method_name)
+      run_check_method(instance, method_name)
       continue
     for args in cases:
-      run_check_method(test_class(), method_name, args)
+      run_check_method(instance, method_name, args)
 
 
 def test_reid_state_tracking_suite():
