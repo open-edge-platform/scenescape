@@ -64,8 +64,8 @@ class MQTTParams():
     @param    params    Optional dict of test parameters to override defaults.
     @return   None.
     """
-    self.rootca = params['rootcert'] if params and params.get('rootcert') else "/run/secrets/certs/scenescape-ca.pem"
-    self.auth = params['auth'] if params and params.get('auth') else "/run/secrets/controller.auth"
+    self.rootca = params['rootcert'] if params and params.get('rootcert') else None
+    self.auth = params['auth'] if params and params.get('auth') else None
     self.mqtt_broker = params['broker_url'] if params and params.get('broker_url') else 'broker.scenescape.intel.com'
     self.mqtt_port = params['broker_port'] if params and params.get('broker_port') else 1883
     return None
