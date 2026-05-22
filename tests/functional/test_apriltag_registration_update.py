@@ -9,11 +9,17 @@ import requests
 from tests.functional import FunctionalTest
 from scene_common.rest_client import RESTClient
 import tests.common_test_utils as common
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK_AUTOCALIBRATION,
+  auth=AUTH_CONTROLLER,
+)
 
 POLL_INTERVAL = 5
 POLL_TIMEOUT = 60
 BASE_URL = "https://autocalibration.scenescape.intel.com:8443"
-VERIFY_CERT = "/run/secrets/certs/scenescape-ca.pem"
 MAP_APRILTAG_COUNT = 7  # number of apriltags present in Queuing scene
 
 
@@ -26,11 +32,12 @@ class ApriltagRegistration(FunctionalTest):
     self.scene_id = '302cf49a-97ec-402d-a324-c5077b280b7b'
     self.original_apriltag_size = None
 
+    self.rootcert = self.params['rootcert']
     self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
     res = self.rest.authenticate(self.params['user'], self.params['password'])
     assert res, res.errors
 
-    r = requests.get(f"{BASE_URL}/v1/status", verify=VERIFY_CERT, timeout=10)
+    r = requests.get(f"{BASE_URL}/v1/status", verify=self.rootcert, timeout=10)
     assert r.ok, f"Autocalibration status check failed: {r.status_code} {r.text}"
     status = r.json()
     assert status.get('status') == 'running', \
@@ -58,7 +65,7 @@ class ApriltagRegistration(FunctionalTest):
     """Explicitly POST to the autocalibration service to start scene registration"""
 
     url = f"{BASE_URL}/v1/scenes/{self.scene_id}/registration"
-    r = requests.post(url, json={}, verify=VERIFY_CERT, timeout=10)
+    r = requests.post(url, json={}, verify=self.rootcert, timeout=10)
     assert r.status_code in (200, 202), \
       f"POST registration returned {r.status_code}: {r.text}"
 
@@ -167,11 +174,11 @@ class ApriltagRegistration(FunctionalTest):
       self._restore_scene()
 
 
-def test_apriltag_registration_update(request, record_xml_attribute):
+def test_apriltag_registration_update(request, record_xml_attribute, params):
   TEST_NAME = "NEX-T10483"
   record_xml_attribute("name", TEST_NAME)
   test = ApriltagRegistration(
-    "tc_apriltag_registration_update",
+    "test_apriltag_registration_update",
     request,
     record_xml_attribute,
   )
@@ -179,11 +186,11 @@ def test_apriltag_registration_update(request, record_xml_attribute):
   common.record_test_result(TEST_NAME, test.exitCode)
 
 
-def test_apriltag_registration_delete(request, record_xml_attribute):
+def test_apriltag_registration_delete(request, record_xml_attribute, params):
   TEST_NAME = "NEX-T22419"
   record_xml_attribute("name", TEST_NAME)
   test = ApriltagRegistration(
-    "tc_apriltag_registration_delete",
+    "test_apriltag_registration_delete",
     request,
     record_xml_attribute,
   )

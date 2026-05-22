@@ -22,8 +22,15 @@ from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
 from scene_common import log
 import tests.common_test_utils as common
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
 
 from tests.functional.common_retrack import RetrackTest
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
 
 def test_scene_retrack_disabled_objects_propagate_to_parent(

@@ -40,6 +40,7 @@ _BROKER = WaitConfig(log_pattern=r"mosquitto version .* running")
 _WEB = WaitConfig()
 _SCENE = WaitConfig(log_pattern="Subscribed to")
 _AUTOCALIBRATION = WaitConfig(timeout=1200)
+_MAPPING = WaitConfig(timeout=600)
 
 
 # ---------------------------------------------------------------------------
@@ -60,6 +61,47 @@ FULL_STACK = ServiceProfile(
     "web": _WEB,
     "scene": _SCENE,
     "broker": _BROKER,
+  },
+)
+
+FULL_STACK_WITH_MAPPING = ServiceProfile(
+  name="full_stack_with_mapping",
+  compose_files=(
+    f"{DLS}/broker.yml",
+    f"{COMPOSE}/ntp.yml",
+    f"{COMPOSE}/pgserver.yml",
+    f"{COMPOSE}/scene.yml",
+    f"{COMPOSE}/web.yml",
+    f"{COMPOSE}/mapping.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "broker": _BROKER,
+    "mapping": _MAPPING,
+  },
+)
+
+FULL_STACK_WITH_MAPPING_AND_VIDEO = ServiceProfile(
+  name="full_stack_with_mapping_and_video",
+  compose_files=(
+    f"{DLS}/broker.yml",
+    f"{COMPOSE}/ntp.yml",
+    f"{COMPOSE}/pgserver.yml",
+    f"{DLS}/retail_video.yml",
+    f"{COMPOSE}/scene.yml",
+    f"{COMPOSE}/web.yml",
+    f"{COMPOSE}/cams.yml",
+    f"{COMPOSE}/mapping.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "broker": _BROKER,
+    "retail-video": WaitConfig(),
+    "mapping": _MAPPING,
   },
 )
 
@@ -181,15 +223,39 @@ MARKERLESS = ServiceProfile(
   },
 )
 
+# Full stack with autocalibration service but using the default testdb (no April tags).
+# Used for tests that verify the ACC correctly reports missing April tags.
+FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS = ServiceProfile(
+  name="full_stack_autocalibration_no_apriltags",
+  compose_files=(
+    f"{DLS}/broker.yml",
+    f"{COMPOSE}/ntp.yml",
+    f"{COMPOSE}/pgserver.yml",
+    f"{COMPOSE}/scene.yml",
+    f"{COMPOSE}/web_default.yml",
+    f"{COMPOSE}/autocalibration.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "broker": _BROKER,
+    "scene": _SCENE,
+    "autocalibration": _AUTOCALIBRATION,
+    "web": _WEB,
+  },
+)
+
 # Registry: maps profile name -> ServiceProfile for CLI lookup
 PROFILE_REGISTRY: dict = {
   p.name: p
   for p in [
     FULL_STACK,
+    FULL_STACK_WITH_MAPPING,
+    FULL_STACK_WITH_MAPPING_AND_VIDEO,
     FULL_STACK_WITH_VIDEO_AND_RETAIL,
     REID,
     REID_SEMANTIC,
     FULL_STACK_AUTOCALIBRATION,
+    FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS,
     SCENE_NO_DB,
     MARKERLESS,
   ]

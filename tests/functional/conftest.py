@@ -22,25 +22,6 @@ DEMO_SCENE_NAME = "Demo"
 
 
 @pytest.fixture
-def params(request):
-  return {
-    'user': request.config.getoption('--user'),
-    'password': request.config.getoption('--password'),
-
-    'auth': request.config.getoption('--auth'),
-    'rootcert': request.config.getoption('--rootcert'),
-
-    'broker_url': request.config.getoption('--broker_url'),
-    'broker_port': request.config.getoption('--broker_port'),
-
-    'weburl': request.config.getoption('--weburl'),
-    'resturl': request.config.getoption('--resturl'),
-
-    'scene_name': request.config.getoption('--scene_name'),
-    'expect_exceed_max': request.config.getoption('--expect_exceed_max'),
-  }
-
-@pytest.fixture
 def obj_location(request):
   """! Moving object locations used in test_roi_mqtt.py.
   @return   location    Object location.
