@@ -18,6 +18,7 @@ Install them with `apt-get` (or equivalent for your distribution):
 | Package         | Minimum version | Required for         | Install command                         |
 | --------------- | --------------- | -------------------- | --------------------------------------- |
 | `firefox`       | 150.0.2         | UI / Selenium tests  | `sudo apt-get install -y firefox`       |
+| `geckodriver`   | 0.36.0          | UI / Selenium tests  | Check https://github.com/mozilla/geckodriver |
 | `xvfb`          | 21.1            | UI / Selenium tests  | `sudo apt-get install -y xvfb`          |
 | `libopencv-dev` | 4.6             | `robot_vision` build | `sudo apt-get install -y libopencv-dev` |
 | `libeigen3-dev` | 3.4             | `robot_vision` build | `sudo apt-get install -y libeigen3-dev` |
