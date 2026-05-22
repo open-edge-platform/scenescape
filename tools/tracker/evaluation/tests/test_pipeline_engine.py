@@ -579,6 +579,82 @@ class TestConfigureHarness:
 
     mock_harness.set_custom_config.assert_not_called()
 
+  def test_nested_custom_config_flattened(self, engine, temp_output_dir):
+    """A nested 'custom_config' key is merged into the top-level custom config dict."""
+    from unittest.mock import MagicMock
+
+    mock_harness = MagicMock()
+    engine._harness = mock_harness
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'harness': {
+        'config': {
+          'container_image': 'test-image',
+          'tracker_config_path': '/some/path.json',
+          'custom_config': {
+            'extra_key': 'extra_value',
+          },
+        }
+      }
+    }
+
+    engine._configure_harness()
+
+    call_kwargs = mock_harness.set_custom_config.call_args[0][0]
+    assert 'custom_config' not in call_kwargs, "Nested custom_config must be unpacked"
+    assert call_kwargs.get('extra_key') == 'extra_value'
+    assert call_kwargs.get('tracker_config_path') == '/some/path.json'
+    assert 'container_image' not in call_kwargs
+
+
+class TestCreateRunOutputDirectory:
+  """Unit tests for _create_run_output_directory()."""
+
+  def test_run_name_used_as_run_id(self, engine, temp_output_dir):
+    """When pipeline.run_name is set, it becomes the run ID instead of a timestamp."""
+    engine._config = {
+      'pipeline': {
+        'run_name': 'my-custom-run',
+        'output': {'path': temp_output_dir},
+      }
+    }
+
+    engine._create_run_output_directory()
+
+    assert engine._run_id == 'my-custom-run'
+    assert engine._output_path == Path(temp_output_dir) / 'my-custom-run'
+    assert engine._output_path.exists()
+
+  def test_timestamp_run_id_when_no_run_name(self, engine, temp_output_dir):
+    """When pipeline.run_name is absent, the run ID is a YYYYMMDD_HHMMSS timestamp."""
+    import re
+    engine._config = {
+      'pipeline': {
+        'output': {'path': temp_output_dir},
+      }
+    }
+
+    engine._create_run_output_directory()
+
+    assert re.fullmatch(r'\d{8}_\d{6}', engine._run_id), (
+      f"Expected timestamp run ID, got: {engine._run_id!r}"
+    )
+    assert engine._output_path.exists()
+
+  def test_empty_run_name_falls_back_to_timestamp(self, engine, temp_output_dir):
+    """An empty-string run_name (falsy) falls back to a generated timestamp."""
+    import re
+    engine._config = {
+      'pipeline': {
+        'run_name': '',
+        'output': {'path': temp_output_dir},
+      }
+    }
+
+    engine._create_run_output_directory()
+
+    assert re.fullmatch(r'\d{8}_\d{6}', engine._run_id)
+
 
 class TestConfigureEvaluators:
   """Unit tests for _configure_evaluators() new behaviour."""

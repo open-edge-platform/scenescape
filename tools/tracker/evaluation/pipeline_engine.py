@@ -349,15 +349,11 @@ class PipelineEngine:
     # Set tracker config path (required for SceneControllerHarness)
     custom_config = {}
 
-    if 'tracker_config_path' in config:
-      custom_config['tracker_config_path'] = config['tracker_config_path']
+    _constructor_keys = {'container_image'}
+    custom_config = {k: v for k, v in config.items() if k not in _constructor_keys}
 
-    if 'object_classes' in config:
-      custom_config['object_classes'] = config['object_classes']
-
-    # Add any additional custom configuration
-    if 'custom_config' in config:
-      custom_config.update(config['custom_config'])
+    if 'custom_config' in custom_config:
+      custom_config.update(custom_config.pop('custom_config'))
 
     if custom_config:
       self._harness.set_custom_config(custom_config)
@@ -372,7 +368,10 @@ class PipelineEngine:
     This format ensures alphabetical order matches chronological order.
     """
     # Generate unique run ID from current local time
-    self._run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    self._run_id = (
+      self._config['pipeline'].get('run_name')
+      or datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
 
     # Get base output path from config
     base_output_path = Path(self._config['pipeline']['output']['path'])
