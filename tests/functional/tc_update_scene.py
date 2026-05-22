@@ -6,7 +6,10 @@
 """Functional tests verifying that scene property updates are reflected in the
 scene controller:
   - Scene name changes appear in scenescape/data/scene MQTT topic metadata.
-  - Scene scale changes are acknowledged by the controller and persist."""
+  - Scene scale changes are acknowledged by the controller and persist.
+  - Regulated_rate and external_update_rate changes affect the frequency of
+    scenescape/regulated/scene and scenescape/external/{scene_id} messages, respectively.
+    """
 
 import json
 import threading
@@ -284,7 +287,7 @@ def test_scene_external_rate_update_changes_message_frequency(
   frequency of scenescape/external/{scene_id} messages.
 
   Phase 1: external_update_rate = 1 Hz: the count must fall within the 1 Hz
-  band and must be less than the Phase 1 count, confirming the rate decrease
+  band and must be less than the Phase 2 count, confirming the rate decrease
   took effect.
   Phase 2: external_update_rate = 10 Hz: DATA_EXTERNAL messages with objects
   must arrive within the 10 Hz band over MEASURE_WINDOW_S seconds.
@@ -328,7 +331,7 @@ def test_scene_external_rate_update_changes_message_frequency(
 
     client = helper.make_client(topics=[ext_topic], on_msg=_on_ext)
 
-    log.info("Phase 1: setting external_update_rate=10 Hz")
+    log.info("Phase 1: setting external_update_rate=1 Hz")
     helper.set_external_rate(rest, 1)
 
     send_thread = threading.Thread(
