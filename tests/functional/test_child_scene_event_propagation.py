@@ -23,7 +23,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 
-def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, params):
+def check_child_roi_event_propagated_to_parent(objData, record_xml_attribute, params):
   """! Verify that ROI entry/exit events from a child scene are republished on
   the parent scene's MQTT EVENT topic.
 
@@ -89,7 +89,7 @@ def test_child_roi_event_propagated_to_parent(objData, record_xml_attribute, par
   assert exit_code == 0
 
 
-def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute, params):
+def check_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute, params):
   """! Verify that tripwire crossing events from a child scene are republished
   on the parent scene's MQTT EVENT topic.
 
@@ -145,7 +145,7 @@ def test_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute
   assert exit_code == 0
 
 
-def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, params):
+def check_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, params):
   """! Verify that environmental sensor events from a child scene are
   republished on the parent scene's MQTT EVENT topic.
 
@@ -220,7 +220,7 @@ def test_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, 
   assert exit_code == 0
 
 
-def test_parent_event_attributes_match_child_event(objData, record_xml_attribute, params):
+def check_parent_event_attributes_match_child_event(objData, record_xml_attribute, params):
   """! Verify that region_id, region_name, count category keys and values, and
   the from_child_scene metadata attribution in the parent's republished event
   match those in the child's original event.
@@ -285,7 +285,7 @@ def test_parent_event_attributes_match_child_event(objData, record_xml_attribute
   assert exit_code == 0
 
 
-def test_child_event_propagation_is_timely(objData, record_xml_attribute, params):
+def check_child_event_propagation_is_timely(objData, record_xml_attribute, params):
   """! Verify that event propagation from child to parent occurs with minimal
   delay (within MAX_WAIT seconds of the first child event).
 
@@ -334,7 +334,7 @@ def test_child_event_propagation_is_timely(objData, record_xml_attribute, params
   assert exit_code == 0
 
 
-def test_no_events_without_parent_link(objData, record_xml_attribute, params):
+def check_no_events_without_parent_link(objData, record_xml_attribute, params):
   """! Verify that child scene events are NOT republished on a parent topic
   when no parent-child link exists (unlinked child).
 
@@ -378,7 +378,7 @@ def test_no_events_without_parent_link(objData, record_xml_attribute, params):
   assert exit_code == 0
 
 
-def test_event_region_id_matches_child_definition(objData, record_xml_attribute, params):
+def check_event_region_id_matches_child_definition(objData, record_xml_attribute, params):
   """! Verify that the region_id in a parent scene ROI event matches the ROI
   uid originally defined in the child scene.
 
@@ -423,7 +423,7 @@ def test_event_region_id_matches_child_definition(objData, record_xml_attribute,
   assert exit_code == 0
 
 
-def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params):
+def check_events_stop_after_child_unlinked(objData, record_xml_attribute, params):
   """! Verify that after unlinking a child from its parent, subsequent child
   events are no longer republished on the parent's MQTT EVENT topic.
 
@@ -489,3 +489,14 @@ def test_events_stop_after_child_unlinked(objData, record_xml_attribute, params)
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+
+
+def test_child_scene_event_propagation_suite(objData, record_xml_attribute, params):
+  check_child_roi_event_propagated_to_parent(objData, record_xml_attribute, params)
+  check_child_tripwire_event_propagated_to_parent(objData, record_xml_attribute, params)
+  check_child_sensor_event_propagated_to_parent(objData, record_xml_attribute, params)
+  check_parent_event_attributes_match_child_event(objData, record_xml_attribute, params)
+  check_child_event_propagation_is_timely(objData, record_xml_attribute, params)
+  check_no_events_without_parent_link(objData, record_xml_attribute, params)
+  check_event_region_id_matches_child_definition(objData, record_xml_attribute, params)
+  check_events_stop_after_child_unlinked(objData, record_xml_attribute, params)

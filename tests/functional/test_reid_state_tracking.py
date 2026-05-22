@@ -15,6 +15,7 @@ Tests cover:
 
 import pytest
 import time
+import inspect
 from unittest.mock import Mock
 
 from controller.moving_object import MovingObject, ReidState
@@ -28,7 +29,7 @@ def make_uuid(index):
 class TestReidStateEnum:
   """Test ReidState enum definition and values."""
 
-  def test_reid_state_enum_has_four_states(self):
+  def check_reid_state_enum_has_four_states(self):
     """Verify ReidState enum has all required states."""
     states = [state.value for state in ReidState]
     assert len(states) == 4
@@ -37,14 +38,14 @@ class TestReidStateEnum:
     assert "matched" in states
     assert "reid_disabled" in states
 
-  def test_reid_state_enum_values_are_strings(self):
+  def check_reid_state_enum_values_are_strings(self):
     """Verify ReidState enum values are properly formatted strings."""
     assert ReidState.PENDING_COLLECTION.value == "pending_collection"
     assert ReidState.QUERY_NO_MATCH.value == "query_no_match"
     assert ReidState.MATCHED.value == "matched"
     assert ReidState.REID_DISABLED.value == "reid_disabled"
 
-  def test_reid_state_enum_equality(self):
+  def check_reid_state_enum_equality(self):
     """Verify ReidState enum comparison works correctly."""
     state1 = ReidState.MATCHED
     state2 = ReidState.MATCHED
@@ -67,7 +68,7 @@ class TestMovingObjectReidStateInitialization:
       return_value=Mock()
     )
 
-  def test_moving_object_initializes_with_pending_collection_state(self):
+  def check_moving_object_initializes_with_pending_collection_state(self):
     """Verify new MovingObject starts in PENDING_COLLECTION state."""
     info = {'id': '1', 'confidence': 0.95}
     timestamp = time.time()
@@ -77,7 +78,7 @@ class TestMovingObjectReidStateInitialization:
     assert obj.reid_state == ReidState.PENDING_COLLECTION
     assert obj.reid_state.value == "pending_collection"
 
-  def test_moving_object_initializes_with_none_similarity(self):
+  def check_moving_object_initializes_with_none_similarity(self):
     """Verify similarity score is None at initialization."""
     info = {'id': '1', 'confidence': 0.95}
     timestamp = time.time()
@@ -86,7 +87,7 @@ class TestMovingObjectReidStateInitialization:
 
     assert obj.similarity is None
 
-  def test_moving_object_initializes_with_empty_chain(self):
+  def check_moving_object_initializes_with_empty_chain(self):
     """Verify previous_ids_chain is empty list at initialization."""
     info = {'id': '1', 'confidence': 0.95}
     timestamp = time.time()
@@ -113,7 +114,7 @@ class TestRecordIdChange:
     self.timestamp = time.time()
     self.obj = MovingObject(self.info, self.timestamp, self.mock_camera)
 
-  def test_save_previous_object_id_adds_entry_to_chain(self):
+  def check_save_previous_object_id_adds_entry_to_chain(self):
     """Verify save_previous_object_id() adds entry to previous_ids_chain."""
     new_id = make_uuid(123)
     similarity = 0.87
@@ -126,7 +127,7 @@ class TestRecordIdChange:
     assert self.obj.previous_ids_chain[0]['similarity_score'] == similarity
     assert self.obj.previous_ids_chain[0]['timestamp'] == ts
 
-  def test_save_previous_object_id_with_none_similarity(self):
+  def check_save_previous_object_id_with_none_similarity(self):
     """Verify save_previous_object_id() handles None similarity (new object case)."""
     new_id = make_uuid(456)
     ts = time.time()
@@ -138,7 +139,7 @@ class TestRecordIdChange:
     assert self.obj.previous_ids_chain[0]['similarity_score'] is None
     assert self.obj.previous_ids_chain[0]['timestamp'] == ts
 
-  def test_save_previous_object_id_uses_current_time_when_timestamp_not_provided(self):
+  def check_save_previous_object_id_uses_current_time_when_timestamp_not_provided(self):
     """Verify save_previous_object_id() uses current time if timestamp is None."""
     new_id = make_uuid(789)
     before = time.time()
@@ -150,7 +151,7 @@ class TestRecordIdChange:
 
     assert before <= recorded_time <= after
 
-  def test_save_previous_object_id_accepts_non_empty_string_uuid(self):
+  def check_save_previous_object_id_accepts_non_empty_string_uuid(self):
     """Verify tracker-provided UUID strings are accepted as previous IDs."""
     previous_id = "a3f7f02a-2d54-4bf2-83b5-0f3d89267410"
     ts = time.time()
@@ -163,14 +164,14 @@ class TestRecordIdChange:
     assert self.obj.previous_ids_chain[0]['timestamp'] == ts
 
   @pytest.mark.parametrize("invalid_id", [None, "", "   ", "not-a-uuid", -1, 0, 1.5, []])
-  def test_save_previous_object_id_rejects_invalid_previous_id(self, invalid_id):
+  def check_save_previous_object_id_rejects_invalid_previous_id(self, invalid_id):
     """Verify invalid IDs are rejected before mutating previous_ids_chain."""
     with pytest.raises(ValueError, match="previous_id must be a valid UUID"):
       self.obj.save_previous_object_id(invalid_id, similarity_score=0.92)
 
     assert self.obj.previous_ids_chain == []
 
-  def test_save_previous_object_id_appends_multiple_entries(self):
+  def check_save_previous_object_id_appends_multiple_entries(self):
     """Verify multiple save_previous_object_id() calls build chain correctly."""
     ts1 = time.time()
     self.obj.save_previous_object_id(make_uuid(1), similarity_score=0.85, timestamp=ts1)
@@ -202,25 +203,25 @@ class TestIsReided:
     self.info = {'id': '1', 'confidence': 0.95}
     self.obj = MovingObject(self.info, time.time(), self.mock_camera)
 
-  def test_is_reidentified_returns_false_for_pending_collection(self):
+  def check_is_reidentified_returns_false_for_pending_collection(self):
     """Verify is_reidentified() returns False when state is PENDING_COLLECTION."""
     self.obj.reid_state = ReidState.PENDING_COLLECTION
 
     assert self.obj.is_reidentified() is False
 
-  def test_is_reidentified_returns_false_for_query_no_match(self):
+  def check_is_reidentified_returns_false_for_query_no_match(self):
     """Verify is_reidentified() returns False when state is QUERY_NO_MATCH."""
     self.obj.reid_state = ReidState.QUERY_NO_MATCH
 
     assert self.obj.is_reidentified() is False
 
-  def test_is_reidentified_returns_true_for_matched(self):
+  def check_is_reidentified_returns_true_for_matched(self):
     """Verify is_reidentified() returns True when state is MATCHED."""
     self.obj.reid_state = ReidState.MATCHED
 
     assert self.obj.is_reidentified() is True
 
-  def test_is_reidentified_returns_false_for_reid_disabled(self):
+  def check_is_reidentified_returns_false_for_reid_disabled(self):
     """Verify is_reidentified() returns False when state is REID_DISABLED."""
     self.obj.reid_state = ReidState.REID_DISABLED
 
@@ -242,14 +243,14 @@ class TestGetPreviousIds:
     self.info = {'id': '1', 'confidence': 0.95}
     self.obj = MovingObject(self.info, time.time(), self.mock_camera)
 
-  def test_get_previous_ids_returns_empty_list_on_new_object(self):
+  def check_get_previous_ids_returns_empty_list_on_new_object(self):
     """Verify get_previous_ids() returns empty list for new object."""
     ids = self.obj.get_previous_ids()
 
     assert isinstance(ids, list)
     assert len(ids) == 0
 
-  def test_get_previous_ids_returns_copy_not_reference(self):
+  def check_get_previous_ids_returns_copy_not_reference(self):
     """Verify get_previous_ids() returns copy, not direct reference."""
     ts = time.time()
     self.obj.save_previous_object_id(make_uuid(1), similarity_score=0.85, timestamp=ts)
@@ -264,7 +265,7 @@ class TestGetPreviousIds:
     assert len(ids2) == 1
     assert ids2[0]['id'] == make_uuid(1)
 
-  def test_get_previous_ids_returns_all_chain_entries(self):
+  def check_get_previous_ids_returns_all_chain_entries(self):
     """Verify get_previous_ids() returns all entries in chain."""
     ts_base = time.time()
     for i in range(5):
@@ -277,7 +278,7 @@ class TestGetPreviousIds:
     assert ids[0]['id'] == make_uuid(1)
     assert ids[4]['id'] == make_uuid(5)
 
-  def test_get_previous_ids_preserves_entry_structure(self):
+  def check_get_previous_ids_preserves_entry_structure(self):
     """Verify get_previous_ids() preserves complete entry structure."""
     ts = time.time()
     self.obj.save_previous_object_id(make_uuid(42), similarity_score=0.92, timestamp=ts)
@@ -308,7 +309,7 @@ class TestStateTransitions:
     self.info = {'id': '1', 'confidence': 0.95}
     self.obj = MovingObject(self.info, time.time(), self.mock_camera)
 
-  def test_transition_pending_to_matched(self):
+  def check_transition_pending_to_matched(self):
     """Simulate state transition: PENDING_COLLECTION → MATCHED."""
     assert self.obj.reid_state == ReidState.PENDING_COLLECTION
     assert self.obj.is_reidentified() is False
@@ -325,7 +326,7 @@ class TestStateTransitions:
     assert len(self.obj.previous_ids_chain) == 1
     assert self.obj.previous_ids_chain[0]['id'] == make_uuid(123)
 
-  def test_transition_pending_to_query_no_match(self):
+  def check_transition_pending_to_query_no_match(self):
     """Simulate state transition: PENDING_COLLECTION → QUERY_NO_MATCH."""
     assert self.obj.reid_state == ReidState.PENDING_COLLECTION
 
@@ -342,7 +343,7 @@ class TestStateTransitions:
     assert self.obj.previous_ids_chain[0]['id'] == make_uuid(456)
     assert self.obj.previous_ids_chain[0]['similarity_score'] is None
 
-  def test_multi_frame_tracking_with_state_persistence(self):
+  def check_multi_frame_tracking_with_state_persistence(self):
     """Test realistic scenario: object tracked across multiple frames with state persistence."""
     # Frame 1: New detection, pending reid collection
     assert self.obj.reid_state == ReidState.PENDING_COLLECTION
@@ -368,7 +369,7 @@ class TestStateTransitions:
     assert chain[1]['id'] == make_uuid(2)
     assert chain[1]['similarity_score'] == 0.88
 
-  def test_transition_pending_to_reid_disabled(self):
+  def check_transition_pending_to_reid_disabled(self):
     """Simulate state transition: PENDING_COLLECTION → REID_DISABLED (when VDMS disabled)."""
     assert self.obj.reid_state == ReidState.PENDING_COLLECTION
     assert len(self.obj.previous_ids_chain) == 0
@@ -399,7 +400,7 @@ class TestChainDataIntegrity:
     self.info = {'id': '1', 'confidence': 0.95}
     self.obj = MovingObject(self.info, time.time(), self.mock_camera)
 
-  def test_chain_with_mixed_similarity_scores(self):
+  def check_chain_with_mixed_similarity_scores(self):
     """Test chain tracking with varying similarity scores."""
     ts_base = time.time()
 
@@ -416,7 +417,7 @@ class TestChainDataIntegrity:
     assert chain[1]['similarity_score'] == 0.51
     assert chain[2]['similarity_score'] is None
 
-  def test_chain_with_float_similarity_precision(self):
+  def check_chain_with_float_similarity_precision(self):
     """Test that similarity scores maintain floating-point precision."""
     ts = time.time()
     precision_value = 0.8675309
@@ -426,7 +427,7 @@ class TestChainDataIntegrity:
     chain = self.obj.get_previous_ids()
     assert chain[0]['similarity_score'] == precision_value
 
-  def test_chain_with_boundary_similarity_values(self):
+  def check_chain_with_boundary_similarity_values(self):
     """Test chain with boundary similarity values (0.0 and 1.0)."""
     ts_base = time.time()
 
@@ -440,7 +441,7 @@ class TestChainDataIntegrity:
     assert chain[0]['similarity_score'] == 1.0
     assert chain[1]['similarity_score'] == 0.0
 
-  def test_large_chain_integrity(self):
+  def check_large_chain_integrity(self):
     """Test chain integrity with large number of entries."""
     ts_base = time.time()
     chain_size = 1000
@@ -481,7 +482,7 @@ class TestUUIDManagerPreviousIdChainBehavior:
     self.manager.quality_features[rv_id] = []
     return obj
 
-  def test_update_active_dict_records_old_gid_on_match_transition(self):
+  def check_update_active_dict_records_old_gid_on_match_transition(self):
     obj = self._build_sscape_object(rv_id=11, gid=make_uuid(101))
     self.manager.active_ids[obj.rv_id] = [None, None]
 
@@ -492,7 +493,7 @@ class TestUUIDManagerPreviousIdChainBehavior:
       make_uuid(101), similarity_score=0.91, timestamp=123.0)
     assert obj.gid == make_uuid(202)
 
-  def test_update_active_dict_records_old_gid_on_no_match_new_assignment(self):
+  def check_update_active_dict_records_old_gid_on_no_match_new_assignment(self):
     obj = self._build_sscape_object(rv_id=22, gid=make_uuid(303))
     self.manager.active_ids[999] = [make_uuid(303), None]
     self.manager.active_ids[obj.rv_id] = [None, None]
@@ -509,7 +510,7 @@ class TestUUIDManagerPreviousIdChainBehavior:
       make_uuid(303), similarity_score=None, timestamp=456.0)
     assert obj.gid == 404
 
-  def test_update_active_dict_does_not_record_when_gid_unchanged(self):
+  def check_update_active_dict_does_not_record_when_gid_unchanged(self):
     obj = self._build_sscape_object(rv_id=33, gid=make_uuid(505))
     self.manager.active_ids[obj.rv_id] = [None, None]
 
@@ -519,7 +520,7 @@ class TestUUIDManagerPreviousIdChainBehavior:
     obj.save_previous_object_id.assert_not_called()
     assert obj.gid == make_uuid(505)
 
-  def test_update_active_dict_never_sets_matched_with_null_similarity(self):
+  def check_update_active_dict_never_sets_matched_with_null_similarity(self):
     """Matched state must always carry a non-null similarity score."""
     obj = self._build_sscape_object(rv_id=44, gid=make_uuid(606))
     self.manager.active_ids[obj.rv_id] = [None, None]
@@ -540,7 +541,7 @@ class TestUUIDManagerPreviousIdChainBehavior:
 class TestUUIDManagerSimilarityThresholdValidation:
   """Test metric-aware validation of configured similarity thresholds."""
 
-  def test_rejects_negative_l2_similarity_threshold(self):
+  def check_rejects_negative_l2_similarity_threshold(self):
     with pytest.raises(ValueError, match="similarity_threshold for L2 must be non-negative"):
       UUIDManager(reid_config_data={
         'similarity_metric': 'L2',
@@ -549,7 +550,7 @@ class TestUUIDManagerSimilarityThresholdValidation:
       })
 
   @pytest.mark.parametrize('invalid_threshold', [-1.1, 1.1])
-  def test_rejects_out_of_range_cosine_similarity_threshold(self, invalid_threshold):
+  def check_rejects_out_of_range_cosine_similarity_threshold(self, invalid_threshold):
     with pytest.raises(
       ValueError,
       match=r"similarity_threshold for COSINE must be within \[-1.0, 1.0\]",
@@ -570,7 +571,7 @@ class TestUUIDManagerSimilarityThresholdValidation:
       ('COSINE', 1.0),
     ],
   )
-  def test_accepts_thresholds_at_valid_metric_boundaries(self, metric, threshold):
+  def check_accepts_thresholds_at_valid_metric_boundaries(self, metric, threshold):
     manager = UUIDManager(reid_config_data={
       'similarity_metric': metric,
       'similarity_threshold': threshold,
@@ -581,6 +582,59 @@ class TestUUIDManagerSimilarityThresholdValidation:
       assert manager.similarity_threshold == threshold
     finally:
       manager.shutdown()
+
+
+PARAMETERIZED_CASES = {
+  "check_save_previous_object_id_rejects_invalid_previous_id": [
+    (None,), ("",), ("   ",), ("not-a-uuid",), (-1,), (0,), (1.5,), ([],),
+  ],
+  "check_rejects_out_of_range_cosine_similarity_threshold": [
+    (-1.1,), (1.1,),
+  ],
+  "check_accepts_thresholds_at_valid_metric_boundaries": [
+    ('L2', 0.0),
+    ('L2', 40.0),
+    ('COSINE', -1.0),
+    ('COSINE', 0.5),
+    ('COSINE', 1.0),
+  ],
+}
+
+
+def _run_check_method(instance, method_name, args=()):
+  setup = getattr(instance, "setup_method", None)
+  teardown = getattr(instance, "teardown_method", None)
+  if callable(setup):
+    setup()
+  try:
+    getattr(instance, method_name)(*args)
+  finally:
+    if callable(teardown):
+      teardown()
+
+
+def _run_check_class(test_class):
+  for method_name, method in inspect.getmembers(test_class, predicate=inspect.isfunction):
+    if not method_name.startswith("check_"):
+      continue
+    cases = PARAMETERIZED_CASES.get(method_name)
+    if cases is None:
+      _run_check_method(test_class(), method_name)
+      continue
+    for args in cases:
+      _run_check_method(test_class(), method_name, args)
+
+
+def test_reid_state_tracking_suite():
+  _run_check_class(TestReidStateEnum)
+  _run_check_class(TestMovingObjectReidStateInitialization)
+  _run_check_class(TestRecordIdChange)
+  _run_check_class(TestIsReided)
+  _run_check_class(TestGetPreviousIds)
+  _run_check_class(TestStateTransitions)
+  _run_check_class(TestChainDataIntegrity)
+  _run_check_class(TestUUIDManagerPreviousIdChainBehavior)
+  _run_check_class(TestUUIDManagerSimilarityThresholdValidation)
 
 
 if __name__ == '__main__':

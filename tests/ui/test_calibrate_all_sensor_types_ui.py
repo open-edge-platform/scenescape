@@ -61,7 +61,7 @@ class TestSensorCalibrationBase(ABC):
     self.elements["sensor_graphic_width"] = self.elements["sensor_graphic"].size["width"]
     return
 
-  def test_values(self):
+  def check_values(self):
     """! Check test assertions equality and count tests.
     @return   None
     """
@@ -86,7 +86,7 @@ class TestSensorCalibrationBase(ABC):
     self.create_sensor(args)
     time.sleep(5)
     self.get_elements(args[0])
-    self.test_values()
+    self.check_values()
     return
 
   @abstractmethod

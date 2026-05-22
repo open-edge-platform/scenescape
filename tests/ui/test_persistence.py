@@ -25,7 +25,7 @@ SCALE = 1000
 
 @pytest.mark.test_name("NEX-T10393_PAGE_NAVIGATE")
 @pytest.mark.preserve_db
-def test_persistence_on_page_navigate(params, result_recorder):
+def check_persistence_on_page_navigate(params, result_recorder):
   """! Checks that a scene can be created and a camera added.
   @param    params                  Dict of test parameters.
   """
@@ -71,7 +71,7 @@ def test_persistence_on_page_navigate(params, result_recorder):
 
 
 @pytest.mark.test_name("NEX-T10393_RESTART")
-def test_persistence_on_restart(params, result_recorder):
+def check_persistence_on_restart(params, result_recorder):
   """! Checks that the scene constructed in test_persistence_on_page_navigate is
   still in the scenescape database after a restart.
   @param    params                  Dict of test parameters.
@@ -110,3 +110,10 @@ def test_persistence_on_restart(params, result_recorder):
     result_recorder.success()
   finally:
     browser.close()
+
+
+@pytest.mark.test_name("NEX-T10393_SUITE")
+@pytest.mark.preserve_db
+def test_persistence_suite(params, result_recorder):
+  check_persistence_on_page_navigate(params, result_recorder)
+  check_persistence_on_restart(params, result_recorder)

@@ -174,7 +174,7 @@ class ApriltagRegistration(FunctionalTest):
       self._restore_scene()
 
 
-def test_apriltag_registration_update(request, record_xml_attribute, params):
+def check_apriltag_registration_update(request, record_xml_attribute, params):
   TEST_NAME = "NEX-T10483"
   record_xml_attribute("name", TEST_NAME)
   test = ApriltagRegistration(
@@ -186,7 +186,7 @@ def test_apriltag_registration_update(request, record_xml_attribute, params):
   common.record_test_result(TEST_NAME, test.exitCode)
 
 
-def test_apriltag_registration_delete(request, record_xml_attribute, params):
+def check_apriltag_registration_delete(request, record_xml_attribute, params):
   TEST_NAME = "NEX-T22419"
   record_xml_attribute("name", TEST_NAME)
   test = ApriltagRegistration(
@@ -196,3 +196,8 @@ def test_apriltag_registration_delete(request, record_xml_attribute, params):
   )
   test.runApriltagRegistrationDelete()
   common.record_test_result(TEST_NAME, test.exitCode)
+
+
+def test_apriltag_registration_suite(request, record_xml_attribute, params):
+  check_apriltag_registration_update(request, record_xml_attribute, params)
+  check_apriltag_registration_delete(request, record_xml_attribute, params)

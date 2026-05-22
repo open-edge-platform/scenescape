@@ -25,7 +25,7 @@ CAMERA_SENSOR_ID = "camtest1"
 
 @pytest.mark.test_name("NEX-T10393-API")
 @pytest.mark.preserve_db
-def test_persistence_on_page_navigate_api(params, rest, result_recorder):
+def check_persistence_on_page_navigate_api(params, rest, result_recorder):
   sceneName = params["scene_name"]
 
   def _cleanup_test_artifacts():
@@ -129,7 +129,7 @@ def test_persistence_on_page_navigate_api(params, rest, result_recorder):
 
 
 @pytest.mark.test_name("NEX-T10393-RESTART-API")
-def test_persistence_on_restart_api(params, rest, result_recorder):
+def check_persistence_on_restart_api(params, rest, result_recorder):
   sceneName = params["scene_name"]
 
   def _cleanup_test_artifacts(scene_uid):
@@ -182,3 +182,10 @@ def test_persistence_on_restart_api(params, rest, result_recorder):
   _cleanup_test_artifacts(scene_uid)
 
   result_recorder.success()
+
+
+@pytest.mark.test_name("NEX-T10393-SUITE-API")
+@pytest.mark.preserve_db
+def test_persistence_api_suite(params, rest, result_recorder):
+  check_persistence_on_page_navigate_api(params, rest, result_recorder)
+  check_persistence_on_restart_api(params, rest, result_recorder)
