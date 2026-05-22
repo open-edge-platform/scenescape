@@ -1,8 +1,9 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
 import os
+import shlex
 import subprocess
 import time
 
@@ -14,13 +15,13 @@ def run_command(command, description, timed=False):
   logger.info(f"Running {description} command: {command}")
   start_time = time.time() if timed else None
 
+  cmd = command if isinstance(command, (list, tuple)) else shlex.split(command)
   process = subprocess.Popen(
-    command,
+    cmd,
     cwd=os.getcwd(),
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
     text=True,
-    shell=True
   )
 
   for line in process.stdout:

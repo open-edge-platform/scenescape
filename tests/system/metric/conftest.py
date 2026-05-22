@@ -19,8 +19,6 @@ _common_test_utils_src = Path(__file__).resolve().parent.parent.parent.parent
 if str(_common_test_utils_src) not in sys.path:
   sys.path.insert(0, str(_common_test_utils_src))
 
-print(f"sys.path: {sys.path} ")
-from tests.common_test_utils import record_test_result
 
 from controller.controller_mode import ControllerMode
 
