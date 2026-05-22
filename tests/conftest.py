@@ -43,7 +43,6 @@ collect_ignore_glob = [
   "api/*",
   "autocalibration/*",
   "mapping/*",
-  "pipeline_runner/*",
   "ntlb/*",
   "tools/*",
   "tracker/*",
