@@ -611,7 +611,8 @@ class TestCreateRunOutputDirectory:
   """Unit tests for _create_run_output_directory()."""
 
   def test_run_name_used_as_run_id(self, engine, temp_output_dir):
-    """When pipeline.run_name is set, it becomes the run ID instead of a timestamp."""
+    """When pipeline.run_name is set, the run ID is timestamp_run_name."""
+    import re
     engine._config = {
       'pipeline': {
         'run_name': 'my-custom-run',
@@ -621,8 +622,9 @@ class TestCreateRunOutputDirectory:
 
     engine._create_run_output_directory()
 
-    assert engine._run_id == 'my-custom-run'
-    assert engine._output_path == Path(temp_output_dir) / 'my-custom-run'
+    assert re.fullmatch(r'\d{8}_\d{6}_my-custom-run', engine._run_id), (
+      f"Expected timestamp_run_name run ID, got: {engine._run_id!r}"
+    )
     assert engine._output_path.exists()
 
   def test_timestamp_run_id_when_no_run_name(self, engine, temp_output_dir):

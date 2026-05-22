@@ -374,14 +374,14 @@ class PipelineEngine:
     Creates directory structure:
       <pipeline.output.path>/<run-ID>/
 
-    where <run-ID> is a timestamp in format YYYYMMDD_HHMMSS.
+    where <run-ID> is a timestamp in format YYYYMMDD_HHMMSS, optionally
+    suffixed with the run_name if provided (e.g. YYYYMMDD_HHMMSS_MyRun).
     This format ensures alphabetical order matches chronological order.
     """
     # Generate unique run ID from current local time
-    self._run_id = (
-      self._config['pipeline'].get('run_name')
-      or datetime.now().strftime("%Y%m%d_%H%M%S")
-    )
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_name = self._config['pipeline'].get('run_name')
+    self._run_id = f"{timestamp}_{run_name}" if run_name else timestamp
 
     # Get base output path from config
     base_output_path = Path(self._config['pipeline']['output']['path'])
