@@ -228,11 +228,11 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 
 **`set_custom_config()` keys**:
 
-| Key                   | Required | Default                         | Description                                                          |
-| --------------------- | -------- | ------------------------------- | -------------------------------------------------------------------- |
-| `tracker_config_path` | Yes      | —                               | Path to tracker config JSON, mounted into the tracker container      |
-| `broker_image`        | Yes      | —                               | Docker image for the MQTT broker (e.g. `"eclipse-mosquitto:2.0.22"`) |
-| `container_type`      | Yes      | —                               | `"controller"` or `"tracker"`                                        |
+| Key                   | Required | Default | Description                                                          |
+| --------------------- | -------- | ------- | -------------------------------------------------------------------- |
+| `tracker_config_path` | Yes      | —       | Path to tracker config JSON, mounted into the tracker container      |
+| `broker_image`        | Yes      | —       | Docker image for the MQTT broker (e.g. `"eclipse-mosquitto:2.0.22"`) |
+| `container_type`      | Yes      | —       | `"controller"` or `"tracker"`                                        |
 
 | `drain_timeout` | No | `5.0` | Seconds to wait for remaining tracker outputs after the last frame |
 | `scene_id` | No | derived from scene config `uid` | Override the MQTT topic scene ID |
