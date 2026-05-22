@@ -286,5 +286,5 @@ python-indent-check: # NEX-T10448
 
 openapi-validation: # NEX-T10572
 	@cd ../docs/user-guide/api-docs/ \
-	; npm install --save-dev swagger-cli@2.0.0 \
-	; npx swagger-cli validate api.yaml
+	; pip install openapi-spec-validator \
+	; openapi-spec-validator api.yaml
