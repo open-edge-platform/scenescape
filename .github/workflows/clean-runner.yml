@@ -57,9 +57,8 @@ jobs:
       - name: "Install Geckodriver"
         shell: bash
         run: |
-          GECKODRIVER_VERSION=$(curl -sSL https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
           curl -sSL -o geckodriver.tar.gz \
-            "https://github.com/mozilla/geckodriver/releases/download/v${GECKODRIVER_VERSION}/geckodriver-v${GECKODRIVER_VERSION}-linux64.tar.gz"
+            "https://github.com/mozilla/geckodriver/releases/download/v0.36.0/geckodriver-v${GECKODRIVER_VERSION}-linux64.tar.gz"
           tar -xzf geckodriver.tar.gz
           sudo mv -f geckodriver /usr/local/bin/
           rm geckodriver.tar.gz
