@@ -17,7 +17,7 @@ on:
         description: "Timeout for the job in minutes"
         required: false
         type: number
-        default: 60
+        default: 80
   pull_request:
     branches:
       - main
@@ -43,7 +43,7 @@ concurrency:
 
 env:
   DOCKER_BUILDKIT: 1
-  SUPASS: demo
+  SUPASS: test
 
 permissions:
   contents: read
@@ -119,7 +119,7 @@ jobs:
     runs-on: [bat]
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '80') }}
     needs: [filter, check-pr-state]
     if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
@@ -135,39 +135,53 @@ jobs:
         with:
           system-prune: "true"
 
-      - name: "Log in to GHCR"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: "Log in to DockerHub"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          username: scenescape
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
-
-      - name: "Setup Cache Targets"
-        id: setup-cache
-        uses: ./.github/actions/setup-cache
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: "Run Basic Acceptance Tests (BAT)"
-        env:
-          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
+        if: always() && steps.setup-test-env.outcome == 'success'
         run: |
-          make clean-all
-          git clean -fdx
-          make run_basic_acceptance_tests
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests -m basic_acceptance --junitxml=reports/bat_results.xml --log-level=ERROR
 
-      - name: Upload Logs and Reports
-        if: always()
-        uses: ./.github/actions/upload-artifacts
+      - name: "Run Metric Tests"
+        if: always() && steps.setup-test-env.outcome == 'success'
+        run: |
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/system/metric --junitxml=reports/metric_results.xml --log-level=ERROR
+
+      - name: "Run Unit Tests"
+        if: always() && steps.setup-test-env.outcome == 'success'
+        run: |
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/sscape_tests/ --junitxml=reports/unit_results.xml --log-level=ERROR
+
+      - name: Run Pipeline Runner tests
+        if: always() && steps.setup-test-env.outcome == 'success'
+        env:
+          GPU_DEVICE_COUNT: 0
+          NPU_DEVICE_COUNT: 0
+        run: |
+          mkdir -p reports
+          cd tests/pipeline_runner/
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -q -r requirements-ppl-test.txt
+          pytest . --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
+
+      - name: Upload Test Report
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: bat-report
+          path: |
+            **/reports/*.xml
 
       - name: Cleanup
         if: always()
@@ -189,54 +203,38 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
 
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
         with:
-          python-version: "3.x"
-          check-latest: true
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: "Log in to GHCR"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: "Log in to DockerHub"
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          username: scenescape
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: "Run Setup"
-        uses: ./.github/actions/setup-env
-
-      - name: "Setup Cache Targets"
-        id: setup-cache
-        uses: ./.github/actions/setup-cache
-
-      - name: Install chart with timeout
-        env:
-          CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-          CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
-          GITHUB_ACTIONS_CACHE: ${{ steps.setup-cache.outputs.github_actions_cache }}
+      - name: "Install github annotate plugin"
         run: |
-          KUBERNETES=1 DEPLOYMENT_TEST=1 ./deploy.sh
+          source tests/.venv/bin/activate
+          pip install -r .github/resources/requirements-pytest.txt
 
-      - name: Stability test (2m)
-        run: make -C kubernetes test
-
-      - name: Fetch stability test logs
-        if: always()
-        run: kubectl logs  -n scenescape scenescape-release-1-test-stability || true
-
-      - name: Print all pods
-        if: always()
-        run: kubectl get pods,deployments,services -n scenescape -o wide
-
-      - name: Print all logs
-        if: always()
+      - name: "Print all built images"
         run: |
-          kubectl get pods -n scenescape -o name   | xargs -r -n1 -I{} sh -c 'echo "===== {} ====="; kubectl logs -n '"$NAMESPACE"' {} --all-containers --tail=500 || true'
+          docker info
+          docker images
+
+      - name: "Print Daemon config"
+        run: |
+          cat /etc/docker/daemon.json || echo "No daemon.json found"
+
+      - name: "Run k8s tests"
+        run: |
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/kubernetes --backend=kubernetes --junitxml=reports/k8s_results.xml --log-level=ERROR
+
+      - name: Upload Test Report
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: k8s-report
+          path: |
+            **/reports/*.xml
 
       - name: Cleanup
         if: always()

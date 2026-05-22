@@ -109,22 +109,6 @@ make build-experimental                 # Build mapping + cluster_analytics
 make build-all                          # All services including experimental
 ```
 
-### Testing
-
-```bash
-# Unit tests
-make -C tests mapping-unit
-
-# Functional tests (requires running containers)
-SUPASS=<password> make setup_tests
-make -C tests mapping-functional
-
-# Manual API testing
-curl -X POST http://localhost:8080/api/v1/maps/create \
-  -H "Content-Type: application/json" \
-  -d '{"video_url": "rtsp://camera1/stream"}'
-```
-
 ### Running Locally
 
 ```bash
@@ -368,7 +352,7 @@ docker stats mapping
 
 When modifying the service, verify:
 
-- [ ] Unit tests pass: `make -C tests mapping-unit`
+- [ ] Unit tests pass: `make run_unit_tests`
 - [ ] API endpoints return correct status codes
 - [ ] Model loads successfully on target device (CPU/GPU)
 - [ ] Map creation completes without errors
