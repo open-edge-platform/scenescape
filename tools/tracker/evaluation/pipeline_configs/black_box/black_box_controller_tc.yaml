@@ -4,7 +4,7 @@
 pipeline:
   run_name: Controller-Time-Chunking
   output:
-    path: /tmp/black-box-evaluation
+    path: ./output/black-box-evaluation
 
 dataset:
   class: datasets.metric_test_dataset.MetricTestDataset

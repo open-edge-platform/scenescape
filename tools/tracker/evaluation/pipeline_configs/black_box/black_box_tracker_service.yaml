@@ -4,7 +4,7 @@
 pipeline:
   run_name: Tracker-Service
   output:
-    path: /tmp/black-box-evaluation
+    path: ./output/black-box-evaluation
 
 dataset:
   class: datasets.metric_test_dataset.MetricTestDataset
