@@ -55,11 +55,7 @@ def comparePointCartesianAttributes3D(cpp_pt : cppPoint, py_pt : pyPoint):
     return False
   return True
 
-<<<<<<< dpitulax-stability_test_fix
-def _testPointsPolarAttributes3D(start_range, stop_range, step):
-=======
-def pointsPolarAttributes3D(start_range, stop_range, step):
->>>>>>> feature/tests-rework-to-pytest
+def PointsPolarAttributes3D(start_range, stop_range, step):
   for x in range(start_range, stop_range, step):
     for y in range(start_range, stop_range, step):
       for z in range(start_range, stop_range, step):
@@ -72,11 +68,7 @@ def pointsPolarAttributes3D(start_range, stop_range, step):
   log.log("Cartesian to Polar (3D) ok")
   return True
 
-<<<<<<< dpitulax-stability_test_fix
-def _testPointsPolarAttributes2D(start_range, stop_range, step):
-=======
-def pointsPolarAttributes2D(start_range, stop_range, step):
->>>>>>> feature/tests-rework-to-pytest
+def PointsPolarAttributes2D(start_range, stop_range, step):
   for x in range(start_range, stop_range, step):
     for y in range(start_range, stop_range, step):
       cpp_pt = cppPoint(x, y, polar=False)
@@ -88,11 +80,7 @@ def pointsPolarAttributes2D(start_range, stop_range, step):
   log.log("Cartesian to Polar (2D) ok")
   return True
 
-<<<<<<< dpitulax-stability_test_fix
-def _testPointsCartesianAttributes3D(start_range, stop_range, step):
-=======
-def pointsCartesianAttributes3D(start_range, stop_range, step):
->>>>>>> feature/tests-rework-to-pytest
+def PointsCartesianAttributes3D(start_range, stop_range, step):
   for r_radius in range(1, 100, 1):
     # This simply generates radius values from 0.1 to 10.1
     radius = float(r_radius - 1) / 10.0 + 0.1
@@ -124,11 +112,7 @@ def pointsCartesianAttributes3D(start_range, stop_range, step):
   log.log("Polar to Cartesian (3D) ok")
   return True
 
-<<<<<<< dpitulax-stability_test_fix
-def _testPointsCartesianAttributes2D(start_range, stop_range, step):
-=======
-def pointsCartesianAttributes2D(start_range, stop_range, step):
->>>>>>> feature/tests-rework-to-pytest
+def PointsCartesianAttributes2D(start_range, stop_range, step):
   for r_radius in range(1, 100, 1):
     # This simply generates radius values from 0.1 to 10.1
     radius = float(r_radius - 1) / 10.0 + 0.1
@@ -142,22 +126,9 @@ def pointsCartesianAttributes2D(start_range, stop_range, step):
   log.log("Polar to Cartesian (2D) ok")
   return True
 
-<<<<<<< dpitulax-stability_test_fix
-def test():
-  assert _testPointsPolarAttributes2D(-50, 50, 2)
-  assert _testPointsPolarAttributes3D(-50, 50, 2)
-  assert _testPointsCartesianAttributes2D(-50, 50, 2)
-  assert _testPointsCartesianAttributes3D(-50, 50, 2)
-
-  return 0
-
-if __name__ == '__main__':
-  exit(test() or 0)
-=======
 @pytest.mark.basic_acceptance
 def test_geometry_point():
-  assert pointsPolarAttributes2D(-50, 50, 2)
-  assert pointsPolarAttributes3D(-50, 50, 2)
-  assert pointsCartesianAttributes2D(-50, 50, 2)
-  assert pointsCartesianAttributes3D(-50, 50, 2)
->>>>>>> feature/tests-rework-to-pytest
+  assert PointsPolarAttributes2D(-50, 50, 2)
+  assert PointsPolarAttributes3D(-50, 50, 2)
+  assert PointsCartesianAttributes2D(-50, 50, 2)
+  assert PointsCartesianAttributes3D(-50, 50, 2)
