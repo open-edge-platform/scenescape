@@ -76,7 +76,6 @@ def run_command(command, env_extra=None) -> tuple[int, float]:
   return process.returncode, duration
 
 @pytest.mark.parametrize("image", IMAGES_REQUIREMENTS, ids=lambda img: img.name)
-@pytest.mark.basic_acceptance
 def test_build_time(record_xml_attribute, image):
   record_xml_attribute("name", f"{TEST_NAME}-{image.name}")
 
