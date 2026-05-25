@@ -1,0 +1,87 @@
+---
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[CI] Tracker Regression Evaluation"
+run-name: "[CI] Tracker Regression Evaluation"
+
+on: # yamllint disable-line rule:truthy
+  pull_request:
+    branches:
+      - main
+      - release-*
+  workflow_dispatch: {}
+
+concurrency:
+  group: tracker-regression-eval-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  detect-changes:
+    name: "Detect Controller/Tracker Changes"
+    runs-on: [bat]
+    permissions:
+      contents: read
+    outputs:
+      run-jobs: ${{ steps.changes.outputs.src }}
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # Fetch all history for accurate diff
+
+      - name: "Detect controller and tracker changes"
+        id: changes
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        with:
+          filters: |
+            src:
+              - 'controller/**'
+              - 'tracker/**'
+              - '.github/workflows/tracker-regression-eval.yml'
+
+  tracker-regression-eval:
+    name: "Black-box regression evaluation"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
+    runs-on: [bat]
+
+    steps:
+      - name: "Clean workdir before checkout"
+        run: sudo rm -rf $GITHUB_WORKSPACE/* || true
+
+      - name: "Checkout code"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      # -- Build Docker images from the PR branch ------------------------------
+      - name: "Set up Docker Buildx"
+        uses: docker/setup-buildx-action@b5730e8d9a6d07d33f9e3dbf5cf87e3f6c3e8d2f # v3.10.0
+
+      - name: "Build scenescape-controller image"
+        run: make -C controller build-image
+
+      - name: "Build scenescape-tracker image"
+        run: make -C tracker build-image
+
+      # -- Run regression evaluation via pytest --------------------------------
+      - name: "Run regression evaluation"
+        run: make run-regression-eval
+
+      # -- Artifacts -----------------------------------------------------------
+      - name: "Upload test report"
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tracker-regression-eval-results
+          path: tests/reports/test_reports/run-regression-eval.xml
+          retention-days: 30
+
+      - name: "Cleanup"
+        if: always()
+        uses: ./.github/actions/cleanup
