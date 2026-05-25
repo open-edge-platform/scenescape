@@ -9,6 +9,7 @@ import time
 from collections import defaultdict
 from datetime import datetime
 from uuid import getnode as get_mac
+from typing import Optional
 
 import cv2
 import ntplib
@@ -17,7 +18,6 @@ import paho.mqtt.client as mqtt
 from gi.repository import Gst
 from gstgva.video_frame import VideoFrame
 from pytz import timezone
-from typing import Optional
 
 from utils import publisher_utils as utils
 from sscape_policies import (
@@ -64,6 +64,10 @@ class PostDecodeTimestampCapture:
     self.last_calculated_fps_ts = None
     self.fps_calc_interval = 1 # calculate fps every 1s
     self.frame_cnt = 0
+    self._ntp_caps = Gst.Caps.from_string("timestamp/x-ntp")
+    if not self._ntp_caps:
+      self.log.error("Failed to create caps for timestamp/x-ntp")
+      return None
 
   def _extract_ntp_timestamp(self, frame: VideoFrame) -> Optional[str]:
     """Extract the NTP timestamp embedded in the video frame's GStreamer reference metadata.
@@ -75,24 +79,26 @@ class PostDecodeTimestampCapture:
 
     Args:
         frame: GVA VideoFrame whose underlying GstBuffer may carry
-               a GstReferenceTimestampMeta with caps "timestamp/x-ntp".
+               a GstReferenceTimestampMeta with caps matching _NTP_CAPS ("timestamp/x-ntp").
 
     Returns:
         str: UTC ISO 8601 timestamp string (e.g. "2026-05-13T06:35:01.123Z"),
              or None if the NTP metadata is missing or invalid.
     """
+    # gstgva.VideoFrame has no public API to retrieve the underlying Gst.Buffer.
+    # The buffer is stored only as the name-mangled private attribute __buffer.
+    # getattr with a None default ensures graceful fallback if the internal name
+    # changes in a future gstgva release.
     gst_buffer = getattr(frame, "_VideoFrame__buffer", None)
 
     if not gst_buffer:
-      self.log.warning("No GstBuffer found in frame, using fallback timestamp")
+      self.log.debug("No GstBuffer found in frame, using fallback timestamp")
       return None
 
-    ntp_caps = Gst.Caps.from_string("timestamp/x-ntp")
-    if not ntp_caps:
-      self.log.error("Failed to create caps for timestamp/x-ntp")
+    if not self._ntp_caps:
       return None
 
-    ntp_meta = gst_buffer.get_reference_timestamp_meta(ntp_caps)
+    ntp_meta = gst_buffer.get_reference_timestamp_meta(self._ntp_caps)
     if not ntp_meta:
       self.log.debug("No NTP timestamp metadata found, using fallback timestamp")
       return None
