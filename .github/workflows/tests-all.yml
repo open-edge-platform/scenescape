@@ -126,10 +126,6 @@ jobs:
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Remove images to measure build time without cache
-        run: |
-          docker system prune -af --volumes
-
       - name: Run Non Functional Tests
         run: |
           source tests/.venv/bin/activate
