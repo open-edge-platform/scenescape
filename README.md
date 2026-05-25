@@ -20,6 +20,10 @@ Intel® SceneScape makes writing applications based on sensor data faster, easie
 
 - To report a bug, file a documentation issue, or submit a feature request, please open a [GitHub issue](https://github.com/open-edge-platform/scenescape/issues).
 
+## Testing
+
+All instructions and requirements for testing Intel® SceneScape can be found in [Testing Readme](tests/README.md).
+
 ## Contributing
 
 We welcome contributions! Check out our [Contributing Guide](./CONTRIBUTING.md) to get started.

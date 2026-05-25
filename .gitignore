@@ -6,11 +6,14 @@
 *.orig
 *.tar
 *~
+*oxx
+*so
 .coverage_*
 .env
 .pytest_cache
 .vscode
 __pycache__
+*.egg-info
 admin-pass.txt
 apriltag-cam[0-9].json
 build
@@ -23,6 +26,9 @@ manager/src/manager/static/bootstrap*
 manager/src/manager/static/examples
 manager/secrets
 manager/src/manager/secrets.py
+manager/src/static/assets
+manager/src/static/bootstrap*
+manager/src/static/examples
 docker-compose.yml
 kubernetes/setup/
 kubernetes/manager
@@ -50,3 +56,5 @@ coverity_tool.tgz
 *.pem
 kubernetes/scenescape-chart/files/*
 .venv
+test_db.sqlite3
+tests/ui/test_media/Empty.zip

@@ -134,7 +134,7 @@ make rebuild-core                  # Clean + build (useful after code changes)
 **Running Tests** (must have containers running via docker-compose):
 
 ```bash
-SUPASS=<password> make setup_tests                    # Build test images
+SUPASS=<password> make setup-tests                    # Build test images
 make run_basic_acceptance_tests                       # Quick acceptance tests
 make -C tests unit-tests                              # Unit tests only
 make -C tests geometry-unit                           # Specific test (e.g., geometry)
