@@ -23,14 +23,14 @@ import time
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 POLL_TIMEOUT = 900
 
-def encodeImageToBase64(image_path: str) -> str:
+def encode_image_to_base64(image_path: str) -> str:
   """Encode image file to base64 string"""
   with open(image_path, "rb") as f:
     image_data = f.read()
     encoded = base64.b64encode(image_data).decode('utf-8')
     return encoded
 
-def sendReconstructionRequest(
+def send_reconstruction_request(
   api_url: str,
   image_paths: List[str],
   video_path: str,
@@ -122,7 +122,7 @@ def sendReconstructionRequest(
     print(f"❌ Error: {e}")
     return None
 
-def saveGlbFile(glb_data: str, output_path: str):
+def save_glb_file(glb_data: str, output_path: str):
   """Save base64 encoded GLB data to file"""
   try:
     glb_bytes = base64.b64decode(glb_data)
@@ -132,7 +132,7 @@ def saveGlbFile(glb_data: str, output_path: str):
   except Exception as e:
     print(f"❌ Failed to save GLB file: {e}")
 
-def checkAPIHealth(api_url: str, verify_ssl: bool = True):
+def check_api_health(api_url: str, verify_ssl: bool = True):
   """Check API health and available models"""
   try:
     # Health check
@@ -223,7 +223,7 @@ def main():
   verify_ssl = not args.insecure
 
   # Check API health
-  if not checkAPIHealth(args.api_url, verify_ssl=verify_ssl):
+  if not check_api_health(args.api_url, verify_ssl=verify_ssl):
     return 1
 
   if args.health_check:
@@ -235,7 +235,7 @@ def main():
     return 1
 
   # Send reconstruction request
-  result = sendReconstructionRequest(
+  result = send_reconstruction_request(
     args.api_url,
     args.images,
     args.video,
@@ -252,7 +252,7 @@ def main():
     print(f"   - Intrinsics matrices: {len(result['intrinsics'])}")
 
     if args.format == "glb" and result.get("glb_data"):
-      saveGlbFile(result["glb_data"], args.output)
+      save_glb_file(result["glb_data"], args.output)
     elif args.format == "json":
       # Save full JSON result
       with open(args.output, "w") as f:
