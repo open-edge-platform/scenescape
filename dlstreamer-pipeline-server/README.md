@@ -5,6 +5,7 @@
 - [Running on NPU](#running-on-npu)
 - [Enable Re-ID](#enable-reidentification)
 - [Enable Pose Estimation](#enable-pose-estimation)
+- [Enable Frame NTP Timestamp Extraction](#enable-frame-ntp-timestamp-extraction)
 - [Creating a New Pipeline](#creating-a-new-pipeline)
 - [Using Authenticated MQTT Broker](#using-authenticated-mqtt-broker)
 - [Additional Resources](#additional-resources)
@@ -220,6 +221,39 @@ configs:
   queuing-config:
     file: ./dlstreamer-pipeline-server/queuing-config-pose.json
 ```
+
+## Enable Frame NTP Timestamp Extraction
+
+Following are short steps to enable NTP timestamp extraction from an RTSP camera stream for the out-of-box **Queuing** scene.
+
+When an RTSP source provides NTP timing in its stream (via RTCP Sender Reports), GStreamer's `rtspsrc` element can
+attach that NTP reference timestamp to each buffer using `add-reference-timestamp-meta=true`. Enabling
+`useFrameNtpTimestamp` in the pipeline configuration causes SceneScape to read that metadata and use it as the frame
+timestamp instead of the post-decode system clock time. This improves timing accuracy when the camera and server are
+synchronized to the same NTP source.
+
+> **Note:** This feature requires an RTSP source that provides NTP timestamps in its stream. It has no effect on
+> file-based sources such as `multifilesrc`.
+
+1. Ensure the `rtspsrc` element in your pipeline string includes `add-reference-timestamp-meta=true`. The out-of-box
+   [queuing-config.json](./queuing-config.json) already includes this setting.
+
+2. Set `useFrameNtpTimestamp` to `true` in the `frame_ntp_config` section of your pipeline payload. In
+   `queuing-config.json` this is the `"parameters"` → `"frame_ntp_config"` block:
+
+```json
+"frame_ntp_config": {
+  "useFrameNtpTimestamp": true
+}
+```
+
+3. Restart the DL Streamer Pipeline Server service to apply the change:
+
+```sh
+docker compose restart queuing-video
+```
+
+If the NTP metadata is absent on a given frame, the pipeline falls back to the system clock automatically.
 
 ## Creating a New Pipeline
 
