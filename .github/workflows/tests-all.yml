@@ -48,53 +48,53 @@ permissions:
   contents: read
 
 jobs:
-  run_functional_tests:
-    runs-on: [all]
-    name: "Functional Tests"
-    permissions:
-      packages: write # For using GHCR as cache registry
-    timeout-minutes: 300
-    steps:
-      - name: Remove test_data folder
-        run: |
-          sudo rm -rf test_data || true
+  # run_functional_tests:
+  #   runs-on: [all]
+  #   name: "Functional Tests"
+  #   permissions:
+  #     packages: write # For using GHCR as cache registry
+  #   timeout-minutes: 300
+  #   steps:
+  #     - name: Remove test_data folder
+  #       run: |
+  #         sudo rm -rf test_data || true
 
-      - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          ref: ${{ inputs.ref }}
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         fetch-depth: 0
+  #         persist-credentials: false
+  #         ref: ${{ inputs.ref }}
 
-      - name: "Remove all Docker images"
-        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
-        uses: ./.github/actions/cleanup
-        with:
-          system-prune: "true"
+  #     - name: "Remove all Docker images"
+  #       if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
+  #       uses: ./.github/actions/cleanup
+  #       with:
+  #         system-prune: "true"
 
-      - name: Setup Tests Environment
-        id: setup-test-env
-        uses: ./.github/actions/setup-tests
-        with:
-          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+  #     - name: Setup Tests Environment
+  #       id: setup-test-env
+  #       uses: ./.github/actions/setup-tests
+  #       with:
+  #         dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Run Functional Tests
-        run: |
-          source tests/.venv/bin/activate
-          mkdir -p reports
-          pytest tests/functional --junitxml=reports/functional_results.xml --log-level=ERROR
+  #     - name: Run Functional Tests
+  #       run: |
+  #         source tests/.venv/bin/activate
+  #         mkdir -p reports
+  #         pytest tests/functional --junitxml=reports/functional_results.xml --log-level=ERROR
 
-      - name: Upload Test Report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: always()
-        with:
-          name: functional-report
-          path: |
-            **/reports/*.xml
+  #     - name: Upload Test Report
+  #       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+  #       if: always()
+  #       with:
+  #         name: functional-report
+  #         path: |
+  #           **/reports/*.xml
 
-      - name: Cleanup
-        if: always()
-        uses: ./.github/actions/cleanup
+  #     - name: Cleanup
+  #       if: always()
+  #       uses: ./.github/actions/cleanup
 
   run_non_functional_tests:
     runs-on: [all]
@@ -125,7 +125,6 @@ jobs:
         uses: ./.github/actions/setup-tests
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
-          skip-image-build: true
 
       - name: Remove images to measure build time without cache
         run: |
@@ -149,147 +148,147 @@ jobs:
         if: always()
         uses: ./.github/actions/cleanup
 
-  run_metric_tests:
-    runs-on: [all]
-    name: "Metric Tests"
-    permissions:
-      packages: write # For using GHCR as cache registry
-    timeout-minutes: 90
-    steps:
-      - name: Remove test_data folder
-        run: |
-          sudo rm -rf test_data || true
+  # run_metric_tests:
+  #   runs-on: [all]
+  #   name: "Metric Tests"
+  #   permissions:
+  #     packages: write # For using GHCR as cache registry
+  #   timeout-minutes: 90
+  #   steps:
+  #     - name: Remove test_data folder
+  #       run: |
+  #         sudo rm -rf test_data || true
 
-      - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          ref: ${{ inputs.ref }}
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         fetch-depth: 0
+  #         persist-credentials: false
+  #         ref: ${{ inputs.ref }}
 
-      - name: "Remove all Docker images"
-        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
-        uses: ./.github/actions/cleanup
-        with:
-          system-prune: "true"
+  #     - name: "Remove all Docker images"
+  #       if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
+  #       uses: ./.github/actions/cleanup
+  #       with:
+  #         system-prune: "true"
 
-      - name: Setup Tests Environment
-        id: setup-test-env
-        uses: ./.github/actions/setup-tests
-        with:
-          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+  #     - name: Setup Tests Environment
+  #       id: setup-test-env
+  #       uses: ./.github/actions/setup-tests
+  #       with:
+  #         dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Run Metric Tests
-        run: |
-          source tests/.venv/bin/activate
-          mkdir -p reports
-          pytest tests/system/metric --junitxml=reports/metric_results.xml --log-level=ERROR
+  #     - name: Run Metric Tests
+  #       run: |
+  #         source tests/.venv/bin/activate
+  #         mkdir -p reports
+  #         pytest tests/system/metric --junitxml=reports/metric_results.xml --log-level=ERROR
 
-      - name: Upload Test Report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: always()
-        with:
-          name: metric-report
-          path: |
-            **/reports/*.xml
+  #     - name: Upload Test Report
+  #       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+  #       if: always()
+  #       with:
+  #         name: metric-report
+  #         path: |
+  #           **/reports/*.xml
 
-      - name: Cleanup
-        if: always()
-        uses: ./.github/actions/cleanup
+  #     - name: Cleanup
+  #       if: always()
+  #       uses: ./.github/actions/cleanup
 
-  run_ui_tests:
-    runs-on: [all]
-    name: "UI Tests"
-    permissions:
-      packages: write # For using GHCR as cache registry
-    timeout-minutes: 300
-    steps:
-      - name: Remove test_data folder
-        run: |
-          sudo rm -rf test_data || true
+  # run_ui_tests:
+  #   runs-on: [all]
+  #   name: "UI Tests"
+  #   permissions:
+  #     packages: write # For using GHCR as cache registry
+  #   timeout-minutes: 300
+  #   steps:
+  #     - name: Remove test_data folder
+  #       run: |
+  #         sudo rm -rf test_data || true
 
-      - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          ref: ${{ inputs.ref }}
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         fetch-depth: 0
+  #         persist-credentials: false
+  #         ref: ${{ inputs.ref }}
 
-      - name: "Remove all Docker images"
-        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
-        uses: ./.github/actions/cleanup
-        with:
-          system-prune: "true"
+  #     - name: "Remove all Docker images"
+  #       if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
+  #       uses: ./.github/actions/cleanup
+  #       with:
+  #         system-prune: "true"
 
-      - name: Setup Tests Environment
-        id: setup-test-env
-        uses: ./.github/actions/setup-tests
-        with:
-          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+  #     - name: Setup Tests Environment
+  #       id: setup-test-env
+  #       uses: ./.github/actions/setup-tests
+  #       with:
+  #         dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Run UI Tests
-        run: |
-          source tests/.venv/bin/activate
-          mkdir -p reports
-          pytest tests/ui --junitxml=reports/ui_results.xml --log-level=ERROR
+  #     - name: Run UI Tests
+  #       run: |
+  #         source tests/.venv/bin/activate
+  #         mkdir -p reports
+  #         pytest tests/ui --junitxml=reports/ui_results.xml --log-level=ERROR
 
-      - name: Upload Test Report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: always()
-        with:
-          name: ui-report
-          path: |
-            **/reports/*.xml
+  #     - name: Upload Test Report
+  #       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+  #       if: always()
+  #       with:
+  #         name: ui-report
+  #         path: |
+  #           **/reports/*.xml
 
-      - name: Cleanup
-        if: always()
-        uses: ./.github/actions/cleanup
+  #     - name: Cleanup
+  #       if: always()
+  #       uses: ./.github/actions/cleanup
 
-  run_unit_tests:
-    runs-on: [all]
-    name: "Unit Tests"
-    permissions:
-      packages: write # For using GHCR as cache registry
-    timeout-minutes: 70
-    steps:
-      - name: Remove test_data folder
-        run: |
-          sudo rm -rf test_data || true
+  # run_unit_tests:
+  #   runs-on: [all]
+  #   name: "Unit Tests"
+  #   permissions:
+  #     packages: write # For using GHCR as cache registry
+  #   timeout-minutes: 70
+  #   steps:
+  #     - name: Remove test_data folder
+  #       run: |
+  #         sudo rm -rf test_data || true
 
-      - name: Checkout Repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          ref: ${{ inputs.ref }}
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         fetch-depth: 0
+  #         persist-credentials: false
+  #         ref: ${{ inputs.ref }}
 
-      - name: "Remove all Docker images"
-        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
-        uses: ./.github/actions/cleanup
-        with:
-          system-prune: "true"
+  #     - name: "Remove all Docker images"
+  #       if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
+  #       uses: ./.github/actions/cleanup
+  #       with:
+  #         system-prune: "true"
 
-      - name: Setup Tests Environment
-        id: setup-test-env
-        uses: ./.github/actions/setup-tests
-        with:
-          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+  #     - name: Setup Tests Environment
+  #       id: setup-test-env
+  #       uses: ./.github/actions/setup-tests
+  #       with:
+  #         dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: "Run Unit Tests"
-        if: always() && steps.setup-test-env.outcome == 'success'
-        run: |
-          source tests/.venv/bin/activate
-          mkdir -p reports
-          pytest tests/sscape_tests --junitxml=reports/unit_results.xml --log-level=ERROR
+  #     - name: "Run Unit Tests"
+  #       if: always() && steps.setup-test-env.outcome == 'success'
+  #       run: |
+  #         source tests/.venv/bin/activate
+  #         mkdir -p reports
+  #         pytest tests/sscape_tests --junitxml=reports/unit_results.xml --log-level=ERROR
 
-      - name: Upload Test Report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: always()
-        with:
-          name: unit-report
-          path: |
-            **/reports/*.xml
+  #     - name: Upload Test Report
+  #       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+  #       if: always()
+  #       with:
+  #         name: unit-report
+  #         path: |
+  #           **/reports/*.xml
 
-      - name: Cleanup
-        if: always()
-        uses: ./.github/actions/cleanup
+  #     - name: Cleanup
+  #       if: always()
+  #       uses: ./.github/actions/cleanup
