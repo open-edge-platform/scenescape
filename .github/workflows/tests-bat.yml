@@ -208,6 +208,7 @@ jobs:
         uses: ./.github/actions/setup-tests
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Install github annotate plugin"
         run: |
