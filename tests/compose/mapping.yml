@@ -58,8 +58,11 @@ services:
 
 volumes:
   vol-mapping-model-weights:
-    driver: local
+    external: true
+    name: scenescape_vol-mapping-model-weights
   vol-mapping-torch-cache:
-    driver: local
+    external: true
+    name: scenescape_vol-mapping-torch-cache
   vol-mapping-hf-cache:
-    driver: local
+    external: true
+    name: scenescape_vol-mapping-hf-cache

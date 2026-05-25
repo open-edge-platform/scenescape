@@ -1,35 +1,97 @@
-#!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import shutil
 import time
 from selenium.webdriver import Firefox
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.firefox.options import Options
 from selenium.common.exceptions import NoSuchElementException, WebDriverException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
+from pathlib import Path
+from shutil import which
+from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
+import subprocess
 
 MAX_RETRIES = 5
 RETRY_DELAY = 30
 
+def _validate_firefox(binary):
+  result = subprocess.run([binary, "--version"], capture_output=True, text=True)
+  if result.returncode != 0 or "Firefox" not in result.stdout + result.stderr:
+    raise RuntimeError(f"Invalid Firefox binary: {binary}")
+
+def _find_firefox_binary():
+  candidates = [
+    which("firefox"),
+    which("firefox-esr"),
+    "/usr/bin/firefox",
+    "/usr/bin/firefox-esr",
+    "/snap/bin/firefox",
+  ]
+
+  for candidate in candidates:
+    if not candidate:
+      continue
+    p = Path(candidate)
+    if p.is_file() and p.stat().st_mode & 0o111:
+      return str(p)
+
+  raise RuntimeError(
+    "No valid Firefox executable found. Checked firefox/firefox-esr in PATH "
+    "and common system locations."
+  )
+
 class Browser(Firefox):
   def __init__(self, headless=True):
-    # Must remove proxy settings from environment otherwise Jenkins testing fails
-    for key in os.environ:
-      if 'proxy' in key or 'PROXY' in key:
-        del os.environ[key]
+    # Remove proxy settings safely
+    for key in list(os.environ):
+      if 'proxy' in key.lower():
+        os.environ.pop(key, None)
+
+    # Make headless explicit for Firefox in CI
+    if headless:
+      os.environ["MOZ_HEADLESS"] = "1"
 
     options = Options()
     if headless:
-      options.add_argument('--headless')
+      options.add_argument("--headless")
+
+    options.add_argument("--width=1080")
+    options.add_argument("--height=1920")
+    options.set_preference("webgl.disabled", True)
+    options.set_preference("media.hardware-video-decoding.enabled", False)
+    options.set_preference("gfx.webrender.software", True)
+    options.set_preference("network.proxy.type", 0)
+
+    binary = _find_firefox_binary()
+    _validate_firefox(binary)
+    options.binary_location = binary
 
     options.add_argument("--window-size=1080,1920")
-    s = Service("/usr/local/bin/geckodriver")
-    super().__init__(options=options, service=s)
-    return
+    # Resolve SceneScape service hostnames to loopback inside the Firefox process.
+    # This applies to geckodriver subprocess, which is unaffected by the Python-level
+    # socket.getaddrinfo patch in conftest.py.
+    _host_aliases = [
+      "broker.scenescape.intel.com",
+      "web.scenescape.intel.com",
+      "autocalibration.scenescape.intel.com",
+      "vdms.scenescape.intel.com",
+    ]
+    options.set_preference("network.dns.localDomains", ",".join(_host_aliases))
+    geckodriver_path = shutil.which("geckodriver")
+    if not geckodriver_path:
+      raise RuntimeError(
+        "geckodriver not found. Run 'make setup-tests' to install it."
+      )
+    service = Service(geckodriver_path)
+
+    super().__init__(options=options, service=service)
 
   def getPage(self, url, expected_title, retries=MAX_RETRIES, delay=RETRY_DELAY):
     '''
@@ -114,3 +176,8 @@ class Browser(Firefox):
 
   def actionChains(self):
     return ActionChains(self)
+
+  def find_elements_with_wait(self, by, value, timeout=10):
+    return WebDriverWait(self, timeout).until(
+      EC.presence_of_all_elements_located((by, value))
+    )

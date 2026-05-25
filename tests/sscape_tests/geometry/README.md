@@ -1,11 +1,11 @@
 # Steps to Run
 
-- tools/scenescape-start --shell
-- pytest tests/sscape_tests/geometry/
+From the repo root:
 
-or
-
-- make -C tests geometry-unit
+```bash
+make setup-pytest
+tests/.venv/bin/pytest tests/sscape_tests/geometry/ -v
+```
 
 # Expected Results
 

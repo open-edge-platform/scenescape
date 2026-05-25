@@ -1,0 +1,47 @@
+---
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "Setup Test Environment"
+description: "Install Pytest and dependencies for testing, setup Docker and Python"
+inputs:
+  dockerhub-token:
+    description: "DockerHub token"
+    required: true
+  skip-image-build:
+    description: "Skip building Docker images"
+    required: false
+    default: false
+    type: boolean
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      with:
+        python-version: "3.12"
+        check-latest: true
+
+    - name: "Log in to DockerHub"
+      uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+      continue-on-error: true
+      with:
+        username: scenescape
+        password: ${{ inputs.dockerhub-token }}
+
+    - name: "Build images"
+      if: ${{ inputs.skip-image-build == 'false' }}
+      shell: bash
+      run: |
+        make build-all-images
+
+    - name: "Setup Test Environment"
+      shell: bash
+      run: |
+        make setup-tests
+
+    - name: "Install github annotate plugin"
+      shell: bash
+      run: |
+        source tests/.venv/bin/activate
+        pip install -r .github/resources/requirements-pytest.txt
