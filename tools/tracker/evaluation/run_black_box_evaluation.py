@@ -13,9 +13,11 @@ All results land under a shared session directory:
 Usage (from tools/tracker/evaluation/):
   python run_black_box_evaluation.py
   python run_black_box_evaluation.py --output /custom/output/path
+  python run_black_box_evaluation.py --image-tag 2026.1.0-rc1.1
 """
 
 import argparse
+import csv
 import sys
 import traceback
 from datetime import datetime
@@ -45,8 +47,11 @@ DEFAULT_OUTPUT_BASE = _SCRIPT_DIR / "output" / "black-box-evaluation"
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _run_config(config_path: Path, session_output: Path) -> dict:
+def _run_config(config_path: Path, session_output: Path, image_tag: str | None = None) -> dict:
   """Load *config_path*, set its output base to *session_output*, run it.
+
+  If *image_tag* is given, the tag portion of the harness ``container_image``
+  is replaced with that value so the locally-built images are used.
 
   Returns the metrics dict from PipelineEngine.evaluate().
   """
@@ -56,6 +61,11 @@ def _run_config(config_path: Path, session_output: Path) -> dict:
   # Redirect output into the shared session directory.
   # PipelineEngine will append run_name as a subdirectory.
   cfg["pipeline"]["output"]["path"] = str(session_output)
+
+  if image_tag:
+    existing = cfg["harness"]["config"].get("container_image", "")
+    image_name = existing.rsplit(":", 1)[0] if ":" in existing else existing
+    cfg["harness"]["config"]["container_image"] = f"{image_name}:{image_tag}"
 
   engine = PipelineEngine()
   # Inject patched config directly so we don't need a temp file.
@@ -75,6 +85,26 @@ def _run_config(config_path: Path, session_output: Path) -> dict:
   metrics = engine.evaluate()
   print(f"\nResults saved to: {engine._output_path}")
   return metrics
+
+
+def _save_metrics_csv(session_output: Path, results: list[tuple[str, dict | Exception]]) -> Path:
+  """Write all successful evaluation results to *session_output*/metrics.csv.
+
+  CSV columns: run_name, evaluator, metric, value
+
+  Returns the path to the written CSV file.
+  """
+  csv_path = session_output / "metrics.csv"
+  with open(csv_path, "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["run_name", "evaluator", "metric", "value"])
+    for run_name, result in results:
+      if isinstance(result, Exception):
+        continue
+      for evaluator, metrics in result.items():
+        for metric, value in metrics.items():
+          writer.writerow([run_name, evaluator, metric, value])
+  return csv_path
 
 
 def _print_summary(session_output: Path, results: list[tuple[str, dict | Exception]]) -> None:
@@ -107,6 +137,10 @@ def main() -> int:
       "--output", default=DEFAULT_OUTPUT_BASE,
       help=f"Base output directory (default: {DEFAULT_OUTPUT_BASE})",
   )
+  parser.add_argument(
+      "--image-tag", default=None, dest="image_tag",
+      help="Override the container image tag in every harness config (e.g. from version.txt)",
+  )
   args = parser.parse_args()
 
   session_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -122,13 +156,15 @@ def main() -> int:
     print(f"  Running: {config_path.name}")
     print(f"{'─' * 60}")
     try:
-      metrics = _run_config(config_path, session_output)
+      metrics = _run_config(config_path, session_output, args.image_tag)
       results.append((run_name, metrics))
     except Exception as exc:
       traceback.print_exc()
       results.append((run_name, exc))
 
   _print_summary(session_output, results)
+  csv_path = _save_metrics_csv(session_output, results)
+  print(f"Metrics CSV: {csv_path}")
   failed = sum(1 for _, r in results if isinstance(r, Exception))
   return failed
 

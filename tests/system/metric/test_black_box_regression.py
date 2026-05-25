@@ -23,7 +23,7 @@ import pytest
 # Paths
 # ---------------------------------------------------------------------------
 _THIS_DIR = Path(__file__).resolve().parent
-_REPO_ROOT = _THIS_DIR.parent.parent.parent.parent
+_REPO_ROOT = _THIS_DIR.parent.parent.parent
 _EVAL_SCRIPT = _REPO_ROOT / "tools" / "tracker" / "evaluation" / "run_black_box_evaluation.py"
 
 # ---------------------------------------------------------------------------
@@ -83,7 +83,7 @@ def black_box_metrics(request, tmp_path_factory) -> dict[tuple, float]:
   if image_tag:
     cmd += ["--image-tag", image_tag]
 
-  result = subprocess.run(cmd, capture_output=True, text=True)
+  result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(_EVAL_SCRIPT.parent))
   if result.returncode != 0:
     pytest.fail(
       f"run_black_box_evaluation.py failed (exit {result.returncode}):\n"
