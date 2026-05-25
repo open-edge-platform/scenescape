@@ -504,6 +504,9 @@ run_metric_tests: setup-tests setup-pytest
 
 .PHONY: run-regression-eval
 run-regression-eval: setup-pytest
+	@echo "Building images for black-box regression evaluation (tag: $(VERSION))..."
+	$(MAKE) -C controller build-image
+	$(MAKE) -C tracker build-image
 	@echo "Running black-box regression evaluation (image tag: $(VERSION))..."
 	$(CURDIR)/tests/.venv/bin/pip install -q -r tools/tracker/evaluation/requirements.txt
 	$(PYTEST) $(PYTEST_FLAGS) tests/system/metric/test_black_box_regression.py \
