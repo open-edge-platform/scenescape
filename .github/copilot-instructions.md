@@ -136,25 +136,25 @@ make rebuild-core                  # Clean + build (useful after code changes)
 **Running Tests** (from repo root):
 
 ```bash
-make setup-tests                                      # Build test images, secrets, venv
-make run_basic_acceptance_tests                       # Smoke tests (functional + ui + unit + stability)
-make run_standard_tests                               # Functional + UI + security + stability
-make run_functional_tests                             # Functional tests only
-make run_ui_tests                                     # UI/Selenium tests only
-make run_unit_tests                                   # Unit tests only (sscape_tests)
-make run_metric_tests                                 # Tracker quality metrics
-make run_performance_tests                            # Inference performance + geometry
-make run_stability_tests HOURS=24                     # Long-running stability
+make setup-tests                                            # Build test images, secrets, venv
+make run_basic_acceptance_tests                             # Smoke tests (functional + ui + unit + stability)
+make run_standard_tests                                     # Functional + UI + security + stability
+make run_functional_tests                                   # Functional tests only
+make run_ui_tests                                           # UI/Selenium tests only
+make run_unit_tests                                         # Unit tests only (sscape_tests)
+make run_metric_tests                                       # Tracker quality metrics
+make run_performance_tests                                  # Inference performance + geometry
+make run_stability_tests HOURS=24                           # Long-running stability
 ```
 
-**Running tests directly with pytest** (from `tests/` with venv activated):
+**Running tests directly with pytest** (from repo root, with tests/.venv activated):
 
 ```bash
-pytest sscape_tests                                   # Unit tests
-pytest functional                                     # All functional tests
-pytest functional/test_roi_mqtt.py                    # Single functional test
-pytest -m basic_acceptance                            # Smoke suite only
-pytest --junitxml=results.xml 2>&1 | tee output.log   # Save results to file
+pytest tests/sscape_tests                                   # Unit tests
+pytest tests/functional                                     # All functional tests
+pytest tests/functional/test_roi_mqtt.py                    # Single functional test
+pytest tests/ -m basic_acceptance                           # Smoke suite only
+pytest tests/ --junitxml=results.xml 2>&1 | tee output.log  # Save results to file
 ```
 
 ### Completion Gate For Test Tasks (Critical)

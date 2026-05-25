@@ -867,31 +867,31 @@ make run_metric_tests                                 # Tracker quality metrics
 make run_performance_tests                            # Inference performance + geometry
 make run_stability_tests HOURS=24                     # Long-running stability
 
-# Direct pytest (from tests/ with venv activated)
-pytest sscape_tests                                   # All unit tests
-pytest functional                                     # All functional tests
-pytest ui                                             # All UI tests
-pytest functional/test_roi_mqtt.py                    # Single functional test
-pytest -m basic_acceptance                            # BAT suite only
+# Direct pytest (from repo root, with tests/.venv activated)
+pytest tests/sscape_tests                             # All unit tests
+pytest tests/functional                               # All functional tests
+pytest tests/ui                                       # All UI tests
+pytest tests/functional/test_roi_mqtt.py              # Single functional test
+pytest tests/ -m basic_acceptance                     # BAT suite only
 
 # Specific test
-pytest sscape_tests/geometry/test_point.py::TestPoint::test_constructor
+pytest tests/sscape_tests/geometry/test_point.py::TestPoint::test_constructor
 
 # Save results
-pytest --junitxml=results.xml 2>&1 | tee output.log
+pytest tests/ --junitxml=results.xml 2>&1 | tee output.log
 
 # Multi-backend testing
-pytest functional --backend=docker                    # Docker only (default)
-pytest functional --backend=kubernetes                # Kubernetes only
-pytest functional --backend=all                       # Both backends
+pytest tests/functional --backend=docker              # Docker only (default)
+pytest tests/functional --backend=kubernetes          # Kubernetes only
+pytest tests/functional --backend=all                 # Both backends
 
 # Multi-profile testing
-pytest functional/test_roi_mqtt.py --env-profiles=full_stack,full_stack_with_mapping
+pytest tests/functional/test_roi_mqtt.py --env-profiles=full_stack,full_stack_with_mapping
 
 # Container log collection
-pytest functional --collect-container-logs=failed     # Collect on failure (default)
-pytest functional --collect-container-logs=all        # Collect always
-pytest functional --collect-container-logs=none       # Never collect
+pytest tests/functional --collect-container-logs=failed   # Collect on failure (default)
+pytest tests/functional --collect-container-logs=all      # Collect always
+pytest tests/functional --collect-container-logs=none     # Never collect
 ```
 
 ## Test Checklist
