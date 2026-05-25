@@ -67,7 +67,6 @@ class PostDecodeTimestampCapture:
     self._ntp_caps = Gst.Caps.from_string("timestamp/x-ntp")
     if not self._ntp_caps:
       self.log.error("Failed to create caps for timestamp/x-ntp")
-      return None
 
   def _extract_ntp_timestamp(self, frame: VideoFrame) -> Optional[str]:
     """Extract the NTP timestamp embedded in the video frame's GStreamer reference metadata.
@@ -106,9 +105,8 @@ class PostDecodeTimestampCapture:
     # Convert NTP timestamp (nanoseconds) to system time
     ntp_timestamp_seconds = ntp_meta.timestamp / 1e9
     system_timestamp = ntplib.ntp_to_system_time(ntp_timestamp_seconds)
-    ntp_datetime_utc = datetime.fromtimestamp(system_timestamp)
-    ntp_datetime_local = ntp_datetime_utc.astimezone(timezone(TIMEZONE))
-    self.log.debug(f"NTP={ntp_datetime_utc}, delta={time.time() - system_timestamp}, raw_ts={ntp_timestamp_seconds}")
+    ntp_datetime_local = datetime.fromtimestamp(system_timestamp, tz=timezone(TIMEZONE))
+    self.log.debug(f"NTP={ntp_datetime_local}, delta={time.time() - system_timestamp}, raw_ts={ntp_timestamp_seconds}")
     return f"{ntp_datetime_local.strftime(DATETIME_FORMAT)[:-3]}Z"
 
   def processFrame(self, frame: VideoFrame) -> bool:
