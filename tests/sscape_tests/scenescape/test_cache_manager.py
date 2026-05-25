@@ -131,6 +131,42 @@ class TestCacheManagerRefreshScenes:
     assert hasattr(cache_mgr, '_cache_refreshed')
     assert cache_mgr._cache_refreshed > 0
 
+  def test_refresh_scenes_injects_pose_adjustment_config_into_scene_data(self):
+    """Configured pose-adjustment routing is added to scene data before deserialization."""
+    mock_data_source = Mock()
+    mock_data_source.getScenes.return_value = {
+      'results': [
+        {
+          'uid': 'scene-1',
+          'name': 'scene-1',
+          'map': None,
+          'cameras': [],
+          'sensors': [],
+        }
+      ]
+    }
+
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr.cached_scenes_by_uid = {}
+    cache_mgr._cached_scenes_by_cameraID = {}
+    cache_mgr._cached_scenes_by_sensorID = {}
+    cache_mgr.tracker_config_data = {}
+    cache_mgr.reid_config_data = {}
+    cache_mgr.pose_adjustment_config_data = {'person': ['pedestrian']}
+    cache_mgr.data_source = mock_data_source
+
+    with patch('controller.cache_manager.Scene.deserialize') as mock_deserialize:
+      scene = MagicMock(spec=Scene)
+      scene.uid = 'scene-1'
+      scene.cameras = {}
+      scene.sensors = {}
+      mock_deserialize.return_value = scene
+
+      cache_mgr.refreshScenes()
+
+    scene_data = mock_deserialize.call_args.args[0]
+    assert scene_data['pose_adjustment_config_data'] == cache_mgr.pose_adjustment_config_data
+
 
 class TestCacheManagerCameraParameters:
   """Test camera parameter management."""

@@ -11,11 +11,15 @@ REFRESH_TIME = 60
 
 class CacheManager:
   def __init__(self, data_source=None, rest_url=None, rest_auth=None,
-               root_cert=None, tracker_config_data={}, reid_config_data={}):
+               root_cert=None, tracker_config_data={}, reid_config_data={},
+               pose_adjustment_config_data=None):
     self.cached_child_transforms_by_uid = {}
     self.camera_parameters = {}
     self.tracker_config_data = tracker_config_data
     self.reid_config_data = reid_config_data
+    self.pose_adjustment_config_data = (
+      pose_adjustment_config_data if pose_adjustment_config_data else {}
+    )
     self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
@@ -60,6 +64,8 @@ class CacheManager:
         scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
       if self.reid_config_data:
         scene_data["reid_config_data"] = self.reid_config_data
+      if getattr(self, 'pose_adjustment_config_data', {}):
+        scene_data["pose_adjustment_config_data"] = self.pose_adjustment_config_data
 
       uid = scene_data['uid']
       if uid not in self.cached_scenes_by_uid:
