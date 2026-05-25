@@ -9,11 +9,14 @@ import time
 from collections import defaultdict
 from datetime import datetime
 from uuid import getnode as get_mac
+from typing import Optional
 
 import cv2
 import ntplib
 import numpy as np
 import paho.mqtt.client as mqtt
+from gi.repository import Gst
+from gstgva.video_frame import VideoFrame
 from pytz import timezone
 
 from utils import publisher_utils as utils
@@ -47,11 +50,12 @@ def getMACAddress():
   return ":".join(i + next(h) for i in h)
 
 class PostDecodeTimestampCapture:
-  def __init__(self, ntpServer=None):
+  def __init__(self, ntpServer=None, useFrameNtpTimestamp=False):
     self.log = logging.getLogger('SSCAPE_ADAPTER')
     self.log.setLevel(logging.INFO)
     self.ntpClient = ntplib.NTPClient()
     self.ntpServer = ntpServer
+    self.use_frame_ntp_timestamp = useFrameNtpTimestamp
     self.lastTimeSync = None
     self.timeOffset = 0
     self.timestamp_for_next_block = None
@@ -60,8 +64,54 @@ class PostDecodeTimestampCapture:
     self.last_calculated_fps_ts = None
     self.fps_calc_interval = 1 # calculate fps every 1s
     self.frame_cnt = 0
+    self._ntp_caps = Gst.Caps.from_string("timestamp/x-ntp")
+    if not self._ntp_caps:
+      self.log.error("Failed to create caps for timestamp/x-ntp")
+      return None
 
-  def processFrame(self, frame):
+  def _extract_ntp_timestamp(self, frame: VideoFrame) -> Optional[str]:
+    """Extract the NTP timestamp embedded in the video frame's GStreamer reference metadata.
+
+    Retrieves the NTP reference timestamp attached by rtspsrc (via
+    add-reference-timestamp-meta=true) and converts it to a UTC ISO 8601
+    string. Returns None when the metadata is absent or cannot be parsed,
+    allowing the caller to fall back to an alternative timestamp source.
+
+    Args:
+        frame: GVA VideoFrame whose underlying GstBuffer may carry
+               a GstReferenceTimestampMeta with caps matching _NTP_CAPS ("timestamp/x-ntp").
+
+    Returns:
+        str: UTC ISO 8601 timestamp string (e.g. "2026-05-13T06:35:01.123Z"),
+             or None if the NTP metadata is missing or invalid.
+    """
+    # gstgva.VideoFrame has no public API to retrieve the underlying Gst.Buffer.
+    # The buffer is stored only as the name-mangled private attribute __buffer.
+    # getattr with a None default ensures graceful fallback if the internal name
+    # changes in a future gstgva release.
+    gst_buffer = getattr(frame, "_VideoFrame__buffer", None)
+
+    if not gst_buffer:
+      self.log.debug("No GstBuffer found in frame, using fallback timestamp")
+      return None
+
+    if not self._ntp_caps:
+      return None
+
+    ntp_meta = gst_buffer.get_reference_timestamp_meta(self._ntp_caps)
+    if not ntp_meta:
+      self.log.debug("No NTP timestamp metadata found, using fallback timestamp")
+      return None
+
+    # Convert NTP timestamp (nanoseconds) to system time
+    ntp_timestamp_seconds = ntp_meta.timestamp / 1e9
+    system_timestamp = ntplib.ntp_to_system_time(ntp_timestamp_seconds)
+    ntp_datetime_utc = datetime.fromtimestamp(system_timestamp)
+    ntp_datetime_local = ntp_datetime_utc.astimezone(timezone(TIMEZONE))
+    self.log.debug(f"NTP={ntp_datetime_utc}, delta={time.time() - system_timestamp}, raw_ts={ntp_timestamp_seconds}")
+    return f"{ntp_datetime_local.strftime(DATETIME_FORMAT)[:-3]}Z"
+
+  def processFrame(self, frame: VideoFrame) -> bool:
     now = time.time()
     self.frame_cnt += 1
     if not self.last_calculated_fps_ts:
@@ -80,8 +130,15 @@ class PostDecodeTimestampCapture:
 
     now += self.timeOffset
     self.timestamp_for_next_block = now
+
+    postdecode_timestamp = f"{datetime.fromtimestamp(now, tz=timezone(TIMEZONE)).strftime(DATETIME_FORMAT)[:-3]}Z"
+    if self.use_frame_ntp_timestamp:
+      extracted_ntp_timestamp = self._extract_ntp_timestamp(frame)
+      if extracted_ntp_timestamp:
+        postdecode_timestamp = extracted_ntp_timestamp
+
     frame.add_message(json.dumps({
-      'postdecode_timestamp': f"{datetime.fromtimestamp(now, tz=timezone(TIMEZONE)).strftime(DATETIME_FORMAT)[:-3]}Z",
+      'postdecode_timestamp': postdecode_timestamp,
       'timestamp_for_next_block': now,
       'fps': self.fps
     }))
