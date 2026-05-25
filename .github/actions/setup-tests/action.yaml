@@ -29,9 +29,17 @@ runs:
         username: scenescape
         password: ${{ inputs.dockerhub-token }}
 
+    - name: "Setup Cache Targets"
+      id: setup-cache
+      uses: ./.github/actions/setup-cache
+
     - name: "Build images"
       if: ${{ inputs.skip-image-build == 'false' }}
       shell: bash
+      env:
+        CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+        CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
+        GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
       run: |
         make build-all-images
 
