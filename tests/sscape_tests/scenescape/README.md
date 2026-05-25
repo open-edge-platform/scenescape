@@ -1,7 +1,11 @@
 # Steps to Run
 
-- tools/scenescape-start --shell
-- pytest -v tests/sscape_tests/scenescape/
+From the repo root:
+
+```bash
+make setup-pytest
+tests/.venv/bin/pytest tests/sscape_tests/scenescape/ -v
+```
 
 # Expected Results
 

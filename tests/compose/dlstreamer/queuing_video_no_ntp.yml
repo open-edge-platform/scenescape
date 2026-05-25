@@ -63,6 +63,8 @@ configs:
 
 volumes:
   vol-models:
+    external: true
+    name: scenescape_vol-models
   vol-sample-data:
   vol-dlstreamer-pipeline-server-pipeline-root-queuing:
     driver: local
