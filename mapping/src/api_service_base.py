@@ -27,7 +27,7 @@ from flask_cors import CORS
 
 from scene_common import log
 
-from mesh_utils import getMeshInfo
+from mesh_utils import get_mesh_info
 
 RECON_STATUS = {}
 RECON_LOCK = threading.Lock()
@@ -53,7 +53,7 @@ def prune_status(max_age_seconds=3600):
       del RECON_STATUS[rid]
 
 # Helper functions for request validation
-def validateReconstructionRequest(data):
+def validate_reconstruction_request(data):
   """Validate reconstruction request data (supports images OR video)"""
 
   if not isinstance(data, dict):
@@ -106,11 +106,11 @@ CORS(app)  # Enable CORS for all routes
 # Configure Flask app
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max request size
 
-def initializeModel():
+def initialize_model():
   """Initialize the model - this will be overridden by model-specific services"""
   raise NotImplementedError("This should be overridden by model-specific services")
 
-def runModelInference(input_data: Dict[str, Any]) -> Dict[str, Any]:
+def run_model_inference(input_data: Dict[str, Any]) -> Dict[str, Any]:
   """
   Run inference using the loaded model.
 
@@ -144,9 +144,9 @@ def runModelInference(input_data: Dict[str, Any]) -> Dict[str, Any]:
         use_keyframes = use_keyframes.lower() in ("1", "true", "yes", "y", "on")
 
       # Extract frames from video using the model's internal method
-      video_frames = loaded_model._framesFromVideoAsBase64Dicts(
+      video_frames = loaded_model._frames_from_video_as_base64_dicts(
         video_path=video,
-        max_frames=loaded_model._maxFramesForTimeBudget(
+        max_frames=loaded_model._max_frames_for_time_budget(
           time_budget_seconds=int(os.getenv("GUNICORN_TIMEOUT", "300")),
           overhead=30
         ),
@@ -159,24 +159,24 @@ def runModelInference(input_data: Dict[str, Any]) -> Dict[str, Any]:
       raise RuntimeError("No frames available for inference")
 
     log.info(f"Running inference on {len(all_frames)} total frames")
-    return loaded_model.runInference(all_frames)
+    return loaded_model.run_inference(all_frames)
 
   except Exception as e:
     log.error(f"Model inference failed: {e}")
     raise RuntimeError(f"Model inference failed: {e}")
 
-def createGlbFile(result: Dict[str, Any], mesh_type: str = "mesh") -> str:
+def create_glb_file(result: Dict[str, Any], mesh_type: str = "mesh") -> str:
   """Create GLB file from model results and return file path"""
   global loaded_model
 
   temp_glb_fd, temp_glb_path = tempfile.mkstemp(suffix=".glb")
 
   try:
-    # Use the model's createOutput method
-    scene_3d = loaded_model.createOutput(result, output_format=mesh_type)
+    # Use the model's create_output method
+    scene_3d = loaded_model.create_output(result, output_format=mesh_type)
     scene_3d.export(temp_glb_path)
 
-    mesh_info = getMeshInfo(scene_3d)
+    mesh_info = get_mesh_info(scene_3d)
     log.info(f"GLB created: {mesh_info}")
 
     return temp_glb_path
@@ -281,7 +281,7 @@ def reconstruct3D():
   }
 
   try:
-    validateReconstructionRequest(inference_payload)
+    validate_reconstruction_request(inference_payload)
   except ValueError as e:
     # Log detailed validation error on the server, but do not expose it to the client
     log(f"Reconstruction request validation failed for {request_id}: {e}")
@@ -294,12 +294,12 @@ def reconstruct3D():
     glb_path = None
     try:
       set_status(request_id, state="processing", updated_at=time.time(), message="running inference")
-      result = runModelInference(inference_payload)
+      result = run_model_inference(inference_payload)
 
       glb_data = None
       if output_format == "glb":
         set_status(request_id, state="processing", updated_at=time.time(), message="generating glb")
-        glb_path = createGlbFile(result, mesh_type)
+        glb_path = create_glb_file(result, mesh_type)
         with open(glb_path, "rb") as f:
           glb_data = base64.b64encode(f.read()).decode("utf-8")
 
@@ -342,7 +342,7 @@ def reconstruct3D():
 
 
 @app.route("/health", methods=["GET"])
-def healthCheck():
+def health_check():
   """Health check endpoint"""
   global loaded_model, model_name
 
@@ -357,13 +357,13 @@ def healthCheck():
   return jsonify(health_status), 200
 
 @app.route("/models", methods=["GET"])
-def listModels():
+def list_models():
   """List the available model and its status"""
   global loaded_model, model_name
 
   model_info = None
   if loaded_model is not None:
-    model_info = loaded_model.getModelInfo()
+    model_info = loaded_model.get_model_info()
 
   models_data = {
     "model": model_name,
@@ -377,7 +377,7 @@ def listModels():
   return jsonify(models_data), 200
 
 @app.route("/reconstruction/status/<request_id>", methods=["GET"])
-def reconstructionStatus(request_id):
+def reconstruction_status(request_id):
   prune_status()
   status = get_status(request_id)
   if not status:
@@ -386,27 +386,27 @@ def reconstructionStatus(request_id):
 
 # Error handlers
 @app.errorhandler(404)
-def notFound(error):
+def not_found(error):
   return jsonify({"error": "Endpoint not found"}), 404
 
 @app.errorhandler(405)
-def methodNotAllowed(error):
+def method_not_allowed(error):
   return jsonify({"error": "Method not allowed"}), 405
 
 @app.errorhandler(413)
-def requestEntityTooLarge(error):
+def request_entity_too_large(error):
   return jsonify({"error": "Request too large"}), 413
 
 @app.errorhandler(500)
-def internalServerError(error):
+def internal_server_error(error):
   return jsonify({"error": "Internal server error"}), 500
 
-def signalHandler(sig, frame):
+def signal_handler(sig, frame):
   """Handle SIGINT (Ctrl+C) gracefully"""
   log.info("Received SIGINT (Ctrl+C), shutting down gracefully...")
   sys.exit(0)
 
-def runDevelopmentServer():
+def run_development_server():
   """Run Flask development server"""
   log.info("Starting in DEVELOPMENT mode...")
   log.info("Flask development server starting on https://0.0.0.0:8444")
@@ -427,7 +427,7 @@ def runDevelopmentServer():
   finally:
     log.info("Server shutdown complete")
 
-def runProductionServer(cert_file=None, key_file=None):
+def run_production_server(cert_file=None, key_file=None):
   """Run Gunicorn production server with TLS"""
   log.info("Starting in PRODUCTION mode with TLS...")
 
@@ -488,7 +488,7 @@ def runProductionServer(cert_file=None, key_file=None):
     log.error(f"Server error: {e}")
     sys.exit(1)
 
-def startApp():
+def start_app():
   """Start the application with command line argument parsing"""
   parser = argparse.ArgumentParser(description="3D Mapping Models API Server")
   parser.add_argument(
@@ -515,8 +515,8 @@ def startApp():
   args = parser.parse_args()
 
   # Set up signal handler for graceful shutdown
-  signal.signal(signal.SIGINT, signalHandler)
-  signal.signal(signal.SIGTERM, signalHandler)
+  signal.signal(signal.SIGINT, signal_handler)
+  signal.signal(signal.SIGTERM, signal_handler)
 
   log.info("Starting 3D Mapping API server...")
 
@@ -531,14 +531,14 @@ def startApp():
   try:
     if dev_mode:
       # For development server, initialize model here (single process)
-      loaded_model, model_name = initializeModel()
+      loaded_model, model_name = initialize_model()
       log.info("API Service startup completed successfully")
-      runDevelopmentServer()
+      run_development_server()
     else:
       # For production server, model will be initialized in each worker via post_fork hook
       # Don't initialize here as Gunicorn will fork workers with separate memory spaces
       log.info("API Service starting (model will be initialized in Gunicorn workers)")
-      runProductionServer(cert_file=args.cert_file, key_file=args.key_file)
+      run_production_server(cert_file=args.cert_file, key_file=args.key_file)
 
   except KeyboardInterrupt:
     log.info("Server interrupted by user")
@@ -549,4 +549,4 @@ def startApp():
     log.info("Server shutdown complete")
 
 if __name__ == "__main__":
-  startApp()
+  start_app()
