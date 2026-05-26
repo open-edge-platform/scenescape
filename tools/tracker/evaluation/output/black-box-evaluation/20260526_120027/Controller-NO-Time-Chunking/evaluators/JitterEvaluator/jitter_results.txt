@@ -1,0 +1,8 @@
+Jitter Evaluation Results
+========================================
+rms_jerk: 959.167931
+rms_jerk_gt: 49.468612
+rms_jerk_ratio: 19.389425
+acceleration_variance: 218.391480
+acceleration_variance_gt: 1.166100
+acceleration_variance_ratio: 187.283586

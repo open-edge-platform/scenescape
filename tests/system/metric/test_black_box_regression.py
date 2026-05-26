@@ -7,8 +7,13 @@ Runs the full black-box evaluation suite (all three container modes) once per
 pytest session and asserts that TrackEval (HOTA, MOTA, IDF1) and JitterEvaluator
 (rms_jerk_ratio, acceleration_variance_ratio) metrics meet the defined thresholds.
 
+Runs as part of the standard ``pytest tests/system/metric`` collection (metrics /
+BAT groups).  When ``--image-tag`` is not supplied the image tag is read from
+``version.txt`` at the repository root.
+
 Usage::
 
+  pytest tests/system/metric/test_black_box_regression.py
   pytest tests/system/metric/test_black_box_regression.py --image-tag 2026.1.0
 """
 
@@ -25,6 +30,8 @@ import pytest
 _THIS_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _THIS_DIR.parent.parent.parent
 _EVAL_SCRIPT = _REPO_ROOT / "tools" / "tracker" / "evaluation" / "run_black_box_evaluation.py"
+_EVAL_REQUIREMENTS = _REPO_ROOT / "tools" / "tracker" / "evaluation" / "requirements.txt"
+_VERSION_FILE = _REPO_ROOT / "version.txt"
 
 # ---------------------------------------------------------------------------
 # Evaluation modes (stem of the pipeline config file name)
@@ -67,16 +74,31 @@ _JITTER_PARAMS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Session-scoped fixture
+# Session-scoped fixtures
 # ---------------------------------------------------------------------------
+@pytest.fixture(scope="session", autouse=False)
+def _eval_deps_installed():
+  """Ensure evaluation pipeline requirements are present in the active venv."""
+  subprocess.run(
+    [sys.executable, "-m", "pip", "install", "-q", "-r", str(_EVAL_REQUIREMENTS)],
+    check=True,
+  )
+
+
 @pytest.fixture(scope="session")
-def black_box_metrics(request, tmp_path_factory) -> dict[tuple, float]:
+def black_box_metrics(request, tmp_path_factory, _eval_deps_installed) -> dict[tuple, float]:
   """Run all black-box evaluation modes once per session.
+
+  The container image tag is taken from ``--image-tag`` if supplied, otherwise
+  read from ``version.txt`` at the repository root.
 
   Returns:
     Dict mapping (run_name, evaluator, metric) -> float value.
   """
   image_tag = request.config.getoption("--image-tag")
+  if not image_tag and _VERSION_FILE.exists():
+    image_tag = _VERSION_FILE.read_text().strip()
+
   output_dir = tmp_path_factory.mktemp("bb_eval")
 
   cmd = [sys.executable, str(_EVAL_SCRIPT), "--output", str(output_dir)]

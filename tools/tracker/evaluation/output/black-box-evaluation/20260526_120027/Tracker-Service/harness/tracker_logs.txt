@@ -1,0 +1,36 @@
+{"timestamp":"2026-05-26T10:03:52.796Z","level":"INFO","msg":"Healthcheck server listening","component":"healthcheck","port":8080}
+{"timestamp":"2026-05-26T10:03:52.796Z","level":"INFO","msg":"OpenTelemetry disabled (metrics=false, tracing=false)","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.796Z","level":"INFO","msg":"Tracker service starting","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.798Z","level":"INFO","msg":"Authenticated with Manager API successfully","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.798Z","level":"INFO","msg":"Fetched scenes from Manager API (1628 bytes)","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.799Z","level":"INFO","msg":"Loaded 1 scenes from Manager API","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.799Z","level":"INFO","msg":"Loaded 1 scenes with 2 cameras","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.799Z","level":"INFO","msg":"MQTT client initializing: tcp://black_box_harness_broker_670d84fc:1883 (client_id: tracker-c0806aa125d2-1)","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.799Z","level":"INFO","msg":"Schema validation enabled for MQTT messages","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.799Z","level":"INFO","msg":"Dynamic mode enabled - will subscribe to database update topic","component":"mqtt","_":"","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.799Z","level":"INFO","msg":"MQTT connecting to black_box_harness_broker_670d84fc:1883 (insecure=true)","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.800Z","level":"INFO","msg":"TimeChunkScheduler started (interval=33ms, max_workers=50)","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.800Z","level":"INFO","msg":"Queued camera subscriptions","component":"mqtt","operation":"2 cameras","_":"","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.800Z","level":"INFO","msg":"Queued database update subscription","component":"mqtt","operation":"scenescape/cmd/database","_":"","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.800Z","level":"INFO","msg":"Tracker service running (chunking @ 30fps, max_workers=50)","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.810Z","level":"INFO","msg":"MQTT connected","component":"mqtt","operation":"connect onSuccess called","_":"","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.810Z","level":"INFO","msg":"MQTT subscription successful","component":"mqtt","mqtt":{"topic":"scenescape/cmd/database","direction":"subscribe"},"_":"","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.810Z","level":"INFO","msg":"MQTT subscription successful","component":"mqtt","mqtt":{"topic":"scenescape/data/camera/Cam_x1_0","direction":"subscribe"},"_":"","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:52.852Z","level":"INFO","msg":"MQTT subscription successful","component":"mqtt","mqtt":{"topic":"scenescape/data/camera/Cam_x2_0","direction":"subscribe"},"_":"","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:55.346Z","level":"INFO","msg":"TrackingWorker initialized with 2 cameras for scope Retail_Demo/FW190D","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:55.346Z","level":"INFO","msg":"Created TrackingWorker for scope Retail_Demo/FW190D (total workers: 1, cameras: 2)","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:55.346Z","level":"INFO","msg":"TrackingWorker initialized with 2 cameras for scope Retail_Demo/person","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:55.346Z","level":"INFO","msg":"Created TrackingWorker for scope Retail_Demo/person (total workers: 2, cameras: 2)","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:55.346Z","level":"INFO","msg":"TrackingWorker started for scope Retail_Demo/FW190D","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:03:55.346Z","level":"INFO","msg":"TrackingWorker started for scope Retail_Demo/person","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:05:20.658Z","level":"INFO","msg":"Tracker service shutting down gracefully","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:05:20.658Z","level":"INFO","msg":"MessageHandler stopping (received: 4800, buffered: 9600, rejected: 0, lagged: 0)","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:05:20.658Z","level":"INFO","msg":"MQTT unsubscribing from: scenescape/data/camera/Cam_x2_0","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:05:20.658Z","level":"INFO","msg":"MQTT unsubscribing from: scenescape/data/camera/Cam_x1_0","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:05:20.658Z","level":"INFO","msg":"MQTT unsubscribing from: scenescape/cmd/database","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:05:20.658Z","level":"INFO","msg":"TimeChunkScheduler stopping...","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:05:20.768Z","level":"INFO","msg":"Healthcheck server stopped","component":"healthcheck"}
+{"timestamp":"2026-05-26T10:05:20.658Z","level":"INFO","msg":"TrackingWorker stopped for scope Retail_Demo/FW190D (processed=2347, dropped=0)","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:05:20.658Z","level":"INFO","msg":"TrackingWorker stopped for scope Retail_Demo/person (processed=2347, dropped=0)","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:05:20.666Z","level":"INFO","msg":"TimeChunkScheduler stopped (dispatched=4694, scope_limit_drops=0)","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}
+{"timestamp":"2026-05-26T10:05:20.666Z","level":"INFO","msg":"MQTT disconnecting (drain timeout: 2000ms)","service":"tracker","version":"2026.1.0-rc1.1","commit":"unknown"}

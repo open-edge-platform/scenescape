@@ -124,7 +124,6 @@ help:
 	@echo "  run_stability_tests         Run stability tests"
 	@echo "  run_performance_tests       Run performance tests"
 	@echo "  run_metric_tests            Run metric tests"
-	@echo "  run-regression-eval         Run black-box regression evaluation (TrackEval + Jitter)"
 	@echo "  setup-pytest                Create tests/.venv and install dependencies"
 	@echo ""
 	@echo "  lint-all                    Lint entire code base"
@@ -501,19 +500,6 @@ run_metric_tests: setup-tests setup-pytest
 	@echo "Running metric tests..."
 	$(MAKE) -j $(NPROCS) _run_metric_tests SUPASS=$(SUPASS) || (echo "Metric tests failed" && exit 1)
 	@echo "DONE ==> Running metric tests"
-
-.PHONY: run-regression-eval
-run-regression-eval: setup-pytest
-	@echo "Building images for black-box regression evaluation (tag: $(VERSION))..."
-	$(MAKE) -C controller build-image
-	$(MAKE) -C tracker build-image
-	@echo "Running black-box regression evaluation (image tag: $(VERSION))..."
-	$(CURDIR)/tests/.venv/bin/pip install -q -r tools/tracker/evaluation/requirements.txt
-	$(PYTEST) $(PYTEST_FLAGS) tests/system/metric/test_black_box_regression.py \
-		--image-tag=$(VERSION) \
-		$(GENERATE_JUNITXML) \
-		-o junit_suite_name=regression-eval
-	@echo "DONE ==> Running black-box regression evaluation"
 
 .PHONY: _run_metric_tests
 _run_metric_tests: idc-error-metric msoce-metric velocity-metric
