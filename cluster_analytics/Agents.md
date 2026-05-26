@@ -139,20 +139,6 @@ make build-experimental                 # Build experimental services
 make build-all                          # All services including experimental
 ```
 
-### Testing
-
-```bash
-# Unit tests
-make -C tests cluster-analytics-unit
-
-# Functional tests (requires running containers)
-SUPASS=<password> make setup_tests
-make -C tests cluster-analytics-functional
-
-# Specific test module
-pytest tests/sscape_tests/cluster_analytics/test_tracker.py -v
-```
-
 ### Running Locally
 
 ```bash
@@ -446,7 +432,7 @@ docker compose exec cluster-analytics python -m pdb src/cluster_analytics.py
 
 When modifying the service, verify:
 
-- [ ] Unit tests pass: `make -C tests cluster-analytics-unit`
+- [ ] Unit tests pass: `make run_unit_tests`
 - [ ] DBSCAN produces expected clusters with test data
 - [ ] Cluster tracking maintains IDs across frames
 - [ ] State transitions (new → active → inactive) work correctly

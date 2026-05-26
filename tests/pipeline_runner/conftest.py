@@ -13,6 +13,7 @@ are automatically skipped when the corresponding count is insufficient.
 
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -133,3 +134,12 @@ def schema_validator():
   from scene_common.schema import SchemaValidation
   schema_path = str(_REPO_ROOT / "controller" / "src" / "schema" / "metadata.schema.json")
   return SchemaValidation(schema_path, is_multi_message=True)
+
+@pytest.fixture(scope="session")
+def sample_data():
+  subprocess.run(
+    ["make", "init-sample-data"],
+    cwd=_REPO_ROOT,
+    check=True,
+  )
+  yield None

@@ -214,6 +214,13 @@ class PostInferenceDataPublish:
     imgdatadict['image'] = jpeg
     return
 
+  def _resolve_object_id(self, det, existing_objects):
+    """Preserve tracker ID when available; otherwise use sequential fallback."""
+    tracker_id = det.get('id')
+    if tracker_id is not None:
+      return tracker_id
+    return len(existing_objects) + 1
+
   def buildObjData(self, gvadata):
     now = time.time()
     self.frame_level_data.update({
@@ -241,19 +248,19 @@ class PostInferenceDataPublish:
             continue
           region_id = det.get('region_id')
           parent_id = det.get('parent_id')
-          ordered_dets.append((vaobj, region_id, parent_id))
+          ordered_dets.append((det, vaobj, region_id, parent_id))
           if region_id is not None:
             region_id_map[region_id] = vaobj
 
-        for vaobj, region_id, parent_id in ordered_dets:
+        for det, vaobj, region_id, parent_id in ordered_dets:
           otype = vaobj['category']
           if parent_id is not None and parent_id in region_id_map:
             parent_obj = region_id_map[parent_id]
             sub_objects = parent_obj.setdefault('sub_objects', defaultdict(list))
-            vaobj['id'] = len(sub_objects[otype]) + 1
+            vaobj['id'] = self._resolve_object_id(det, sub_objects[otype])
             sub_objects[otype].append(vaobj)
           else:
-            vaobj['id'] = len(objects[otype]) + 1
+            vaobj['id'] = self._resolve_object_id(det, objects[otype])
             objects[otype].append(vaobj)
 
         # Convert sub_objects defaultdicts to plain dicts
@@ -269,7 +276,7 @@ class PostInferenceDataPublish:
           if self.detection_labels and vaobj['category'] not in self.detection_labels:
             continue
           otype = vaobj['category']
-          vaobj['id'] = len(objects[otype]) + 1
+          vaobj['id'] = self._resolve_object_id(det, objects[otype])
           objects[otype].append(vaobj)
 
     self.processSubDetections(objects)

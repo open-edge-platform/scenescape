@@ -14,6 +14,9 @@ from scene_common import log
 
 DEFAULT_HOSTNAME = os.getenv("VDMS_HOSTNAME", "vdms.scenescape.intel.com")
 DEFAULT_CONFIDENCE_THRESHOLD = float(os.getenv("VDMS_CONFIDENCE_THRESHOLD", "0.8"))
+DEFAULT_CA_CERT = os.getenv("VDMS_CA_CERT", "/run/secrets/certs/scenescape-ca.pem")
+DEFAULT_CLIENT_CERT = os.getenv("VDMS_CLIENT_CERT", "/run/secrets/certs/scenescape-vdms-c.crt")
+DEFAULT_CLIENT_KEY = os.getenv("VDMS_CLIENT_KEY", "/run/secrets/certs/scenescape-vdms-c.key")
 DIMENSIONS = 256
 K_NEIGHBORS = 1
 SCHEMA_NAME = "reid_vector"
@@ -25,12 +28,14 @@ COSINE_SIMILARITY_TOLERANCE = 1e-6
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
                similarity_metric=SIMILARITY_METRIC, dimensions=DIMENSIONS,
-               confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD):
+               confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD,
+               ca_cert=DEFAULT_CA_CERT, client_cert=DEFAULT_CLIENT_CERT,
+               client_key=DEFAULT_CLIENT_KEY):
     self.db = vdms.vdms(
       use_tls=True,
-      ca_cert_file="/run/secrets/certs/scenescape-ca.pem",
-      client_cert_file="/run/secrets/certs/scenescape-vdms-c.crt",
-      client_key_file="/run/secrets/certs/scenescape-vdms-c.key"
+      ca_cert_file=ca_cert,
+      client_cert_file=client_cert,
+      client_key_file=client_key
     )
     self.set_name = set_name
     self.similarity_metric = similarity_metric

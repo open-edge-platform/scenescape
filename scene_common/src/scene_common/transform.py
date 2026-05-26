@@ -168,7 +168,7 @@ class CameraIntrinsics:
     pt = np.array([point[0] + self.crop[2], point[1] + self.crop[0], 1]).reshape(3, 1)
     pt = np.matmul(inverted, pt)[:2].reshape(-1, 1, 2)
     return Point(cv2.fisheye.distortPoints(pt, self.intrinsics,
-                                           self.distortion).reshape(-1, 2))
+                                           self.distortion[:4]).reshape(-1))
 
   def mapPixelToNormalizedImagePlane(self, coords, distance=None):
     """Convert pixel coordinates to normalized image plane of the camera
@@ -472,7 +472,7 @@ class CameraPose:
   @staticmethod
   def _poseMatToPose(mat):
     rmat = mat[0:3, 0:3]
-    cam_pos = mat[0:3, 3:4] #also T_mat
+    cam_pos = mat[0:3, 3] #also T_mat
     rot = Rotation.from_matrix(rmat).as_euler('XYZ', degrees=True)
 
     scale = [mat[3, 3] * math.sqrt(rmat[0, 0]**2 + rmat[1, 0]**2 + rmat[2, 0]**2),

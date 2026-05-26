@@ -4,8 +4,16 @@
 import subprocess
 import re
 from datetime import datetime
-from scene_common import log
 from tests.common_test_utils import record_test_result
+from tests.utils.log import get_logger
+from tests.utils.spec import FuncTestSpec
+from tests.utils.profiles import FULL_STACK
+
+log = get_logger(__name__)
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK,
+)
 
 def get_container_name(pattern, log):
   """Returns the name of a container with specific pattern in name"""
@@ -77,7 +85,7 @@ def validate_timestamp_format(rows):
   )
 
 
-def test_timestamp_format():
+def test_timestamp_format(scenescape_env):
   """ Verifies that all timestamps are utilizing ISO 8601 UTC format.
 
   Steps:
@@ -100,7 +108,8 @@ def test_timestamp_format():
       SELECT attempt_time FROM axes_accesslog;
     """
 
-    pg_container = get_container_name('pgserver', log)
+    pg_container = get_container_name(f"{scenescape_env.project_name}-pgserver", log)
+    assert pg_container is not None, "pgserver container not found for this test stack"
     output = run_psql(pg_container, query)
     log.info("Timestamp data from selected fields obtained.")
 
