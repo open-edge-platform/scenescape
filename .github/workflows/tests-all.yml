@@ -125,11 +125,6 @@ jobs:
         uses: ./.github/actions/setup-tests
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
-          skip-image-build: true
-
-      - name: Remove images to measure build time without cache
-        run: |
-          docker system prune -af --volumes
 
       - name: Run Non Functional Tests
         run: |
