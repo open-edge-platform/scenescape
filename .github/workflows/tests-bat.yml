@@ -116,7 +116,7 @@ jobs:
 
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
-    runs-on: [cache]
+    runs-on: [bat]
     permissions:
       packages: write # For using GHCR as cache registry
     timeout-minutes: ${{ fromJSON(inputs.timeout || '80') }}
@@ -190,7 +190,7 @@ jobs:
 
   chart-deployment-test:
     name: "Chart Deployment Test"
-    runs-on: [cache]
+    runs-on: [bat]
     permissions:
       packages: write # For using GHCR as cache registry
     needs: [filter, check-pr-state]
