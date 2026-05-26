@@ -216,15 +216,6 @@ jobs:
           source tests/.venv/bin/activate
           pip install -r .github/resources/requirements-pytest.txt
 
-      - name: "Print all built images"
-        run: |
-          docker info
-          docker images
-
-      - name: "Print Daemon config"
-        run: |
-          cat /etc/docker/daemon.json || echo "No daemon.json found"
-
       - name: "Run k8s tests"
         run: |
           source tests/.venv/bin/activate
