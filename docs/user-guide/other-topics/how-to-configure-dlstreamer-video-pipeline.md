@@ -307,6 +307,20 @@ This section describes the metadata schema and the format that the payload needs
                 }
             }
         },
+        "frame_ntp_config": {
+            "element": {
+                "name": "timesync",
+                "property": "kwarg",
+                "format": "json"
+            },
+            "type": "object",
+            "properties": {
+                "useFrameNtpTimestamp": {
+                    "type": "boolean",
+                    "description": "When true, use the NTP timestamp embedded in the RTSP frame metadata instead of the post-decode system time."
+                }
+            }
+        },
         "camera_config": {
             "element": {
                 "name": "datapublisher",
@@ -343,6 +357,12 @@ This section describes the metadata schema and the format that the payload needs
 
 - **ntp_config**: Configuration for time synchronization.
   - **ntpServer** (string): Specifies the NTP server to synchronize time with.
+- **frame_ntp_config**: Configuration for using the NTP timestamp embedded in RTSP frame metadata as the frame timestamp. This is an alternative to using the post-decode system clock timestamp. When the RTSP source is configured with `add-reference-timestamp-meta=true`, GStreamer attaches NTP reference timestamp metadata to each buffer.
+  - **useFrameNtpTimestamp** (boolean): When `true`, the NTP timestamp extracted from the RTSP frame metadata
+    (`GstReferenceTimestampMeta`, caps `timestamp/x-ntp`) is used as the frame timestamp instead of the post-decode
+    system time. This can improve timing accuracy when camera and server clocks are synchronized to the same NTP server.
+    Defaults to `false`. If the metadata is absent on a given frame, the pipeline falls back to the
+    system clock automatically.
 - **camera_config**: Configuration for the camera and its metadata publishing.
   - **intrinsics** (array of numbers): Defines the camera intrinsics. This can be specified as:
     - `[diagonal_fov]` (diagonal field of view),
@@ -369,6 +389,9 @@ The payload section is the actual values for the specific pipeline being configu
     "parameters": {
         "ntp_config": {
             "ntpServer": "ntpserv"
+        },
+        "frame_ntp_config": {
+            "useFrameNtpTimestamp": false
         },
         "camera_config": {
             "cameraid": "atag-qcam1",
