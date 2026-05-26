@@ -32,7 +32,10 @@ from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
 from django.urls import reverse
+from rest_framework.views import APIView
+from rest_framework.authentication import TokenAuthentication
 
+from manager.api import IsAdminOrReadOnly
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
@@ -805,52 +808,52 @@ def getAllChildrenMetaData(scene_id):
 
   return json.dumps(child_rois), json.dumps(child_trips), json.dumps(child_sensors)
 
-@login_required
-def save_geospatial_snapshot(request):
+class SaveGeospatialSnapshot(APIView):
   """Save geospatial snapshot as PNG and return filename for map field."""
-  if request.method != 'POST':
-    return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+  authentication_classes = [TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
 
-  try:
-    import base64
-    from django.utils import timezone
-
-    # Get the image data from the request
-    image_data = request.POST.get('image_data')
-    if not image_data:
-      return JsonResponse({'error': 'No image data provided'}, status=400)
-
-    # Remove data URL prefix if present
-    if image_data.startswith('data:image/png;base64,'):
-      image_data = image_data.replace('data:image/png;base64,', '')
-
-    # Decode base64 image data
+  def post(self, request):
     try:
-      image_binary = base64.b64decode(image_data)
-    except Exception as decode_error:
-      return JsonResponse({'error': 'Failed to decode image data'}, status=400)
+      import base64
+      from django.utils import timezone
 
-    # Generate unique filename
-    timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'geospatial_map_{timestamp}.png'
+      # Get the image data from the request
+      image_data = request.data.get('image_data')
+      if not image_data:
+        return JsonResponse({'error': 'No image data provided'}, status=400)
 
-    # Save to media directory
-    file_path = os.path.join(settings.MEDIA_ROOT, filename)
-    os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+      # Remove data URL prefix if present
+      if image_data.startswith('data:image/png;base64,'):
+        image_data = image_data.replace('data:image/png;base64,', '')
 
-    with open(file_path, 'wb') as f:
-      f.write(image_binary)
+      # Decode base64 image data
+      try:
+        image_binary = base64.b64decode(image_data)
+      except Exception as decode_error:
+        return JsonResponse({'error': 'Failed to decode image data'}, status=400)
 
-    # Return the filename for the map field
-    return JsonResponse({
-      'success': True,
-      'filename': filename,
-      'media_url': settings.MEDIA_URL + filename
-    })
+      # Generate unique filename
+      timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+      filename = f'geospatial_map_{timestamp}.png'
 
-  except Exception as e:
-    log.error("Error saving geospatial snapshot")
-    return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+      # Save to media directory
+      file_path = os.path.join(settings.MEDIA_ROOT, filename)
+      os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+
+      with open(file_path, 'wb') as f:
+        f.write(image_binary)
+
+      # Return the filename for the map field
+      return JsonResponse({
+        'success': True,
+        'filename': filename,
+        'media_url': settings.MEDIA_URL + filename
+      })
+
+    except Exception as e:
+      log.error("Error saving geospatial snapshot")
+      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
 @superuser_required
 def generate_camera_pipeline(request, sensor_id):

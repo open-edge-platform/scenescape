@@ -41,7 +41,6 @@ def _apply_marks(scenario: PipelineScenario):
   marks = [getattr(pytest.mark, m) for m in scenario.marks]
   return pytest.param(scenario, marks=marks, id=scenario.id)
 
-
 class TestVehiclePipelines:
   """Integration tests for vehicle-detection model chains on car-detection.ts."""
 
@@ -50,7 +49,7 @@ class TestVehiclePipelines:
     [_apply_marks(s) for s in VEHICLE_SCENARIOS],
     indirect=True,
   )
-  def test_detections_received_and_valid(self, camera_settings_path, schema_validator):
+  def test_detections_received_and_valid(self, camera_settings_path, schema_validator, sample_data):
     """Pipeline produces detections that pass the SceneScape detector schema.
 
     Positive test: for each scenario launch the pipeline, collect
@@ -90,7 +89,7 @@ class TestVehiclePipelines:
     )
 
 
-  def test_invalid_sensor_id_raises(self, tmp_path):
+  def test_invalid_sensor_id_raises(self, tmp_path, sample_data):
     """PipelineRunner raises when the camera settings file is missing sensor_id.
 
     Negative test: a settings file without the required ``sensor_id`` key
@@ -117,7 +116,7 @@ class TestVehiclePipelines:
     with pytest.raises(KeyError):
       PipelineRunner(str(path))  # should fail in _get_camera_id()
 
-  def test_collect_raises_without_stopping_condition(self, tmp_path):
+  def test_collect_raises_without_stopping_condition(self, tmp_path, sample_data):
     """collect() must raise ValueError when called with neither timeout nor min_detections.
 
     Negative test: calling collect() without any stopping condition is a

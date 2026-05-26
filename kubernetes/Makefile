@@ -16,16 +16,10 @@ VERSION:=$(shell cat ../version.txt)
 NAMESPACE=scenescape
 WORKINGDIR=$(shell dirname $(shell pwd))
 ORGANIZATION?=intel
-VALIDATION=
-VALIDATION_FLAG=
 DEPLOYMENT_TEST=
 TEST_FLAGS=
 # it may need to be increased if all models are being downloaded (see values.yaml)
 INSTALL_TIMEOUT?=600s
-
-ifeq ($(VALIDATION), 1)
-    VALIDATION_FLAG=--set tests.enabled=true
-endif
 
 ifeq ($(DEPLOYMENT_TEST), 1)
     TEST_FLAGS=--wait --timeout $(INSTALL_TIMEOUT) --debug
@@ -229,7 +223,7 @@ install: copy-files chart.yaml
 		MODE_ARG="--set mapping.enabled=true --set clusterAnalytics.enabled=true"; \
 	fi; \
 	REPOSITORY_ARG="--set repository=$(REGISTRY)"; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${SUPASS_ARG} $${PGPASS_ARG} $${MODE_ARG} $${VALUES_FILE} $(VALIDATION_FLAG) $(TEST_FLAGS);
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${SUPASS_ARG} $${PGPASS_ARG} $${MODE_ARG} $${VALUES_FILE} $(TEST_FLAGS);
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi
@@ -262,19 +256,6 @@ rebuild-demo:
 rebuild-core: uninstall delete-namespace build-core install
 
 rebuild-all: uninstall delete-namespace build-all install
-
-build-validation: build-validation-demo
-
-build-validation-demo:
-	@if [ "$(DEMO_K8S_MODE)" = "all" ]; then \
-		$(MAKE) build-validation-all; \
-	else \
-		$(MAKE) build-validation-core; \
-	fi
-
-build-validation-core: delete-namespace build-core install wait-for-ready
-
-build-validation-all: delete-namespace build-all install wait-for-ready
 
 test:
 	@helm test $(RELEASE) -n $(NAMESPACE) --timeout 240s

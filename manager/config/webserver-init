@@ -11,7 +11,16 @@ echo "export HOME=${WSHOME}" >> /etc/apache2/envvars
 cd ${MANAGERDIR}
 
 mkdir -p ${MANAGERDIR}/media/
-cp -nr ${DBROOT}/media/* ${MANAGERDIR}/media/
+# Copy media files from DBROOT if any exist.
+# Guard against empty/missing source (e.g. K8s deployment before sample-data is loaded).
+if [ -d "${DBROOT}/media" ]; then
+  shopt -s nullglob
+  _media_files=( ${DBROOT}/media/* )
+  shopt -u nullglob
+  if [ ${#_media_files[@]} -gt 0 ]; then
+    cp -nr "${_media_files[@]}" ${MANAGERDIR}/media/
+  fi
+fi
 # Remove symlink and make a copy
 rm -f ${MANAGERDIR}/manager/secrets.py
 cp ${RUNSECRETS}/django/secrets.py ${MANAGERDIR}/manager/secrets.py
