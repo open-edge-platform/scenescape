@@ -25,49 +25,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: "Reset Docker Context"
-        run: |
-          docker context use default || true
-          docker context ls --format '{{.Name}}' | grep -v '^default$' | xargs -r docker context rm -f
-
       - name: "Reset Docker config"
         shell: bash
         run: |
           sudo rm -f /etc/docker/daemon.json || true
-          echo '{"features":{"containerd-snapshotter":false}}' | sudo tee /etc/docker/daemon.json > /dev/null
+          echo '{"features":{"containerd-snapshotter":true}}' | sudo tee /etc/docker/daemon.json > /dev/null
           sudo systemctl daemon-reload || true
           sudo systemctl restart docker || true
-
-      - name: Install Kind in newest version
-        shell: bash
-        run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/
-
-      - name: "Install Firefox"
-        shell: bash
-        run: |
-          sudo snap remove --purge firefox || true
-          sudo apt remove --purge -y firefox || true
-          sudo apt update
-          sudo apt install -y firefox || true
-          sudo apt install -y xvfb || true
-
-      - name: "Install Geckodriver"
-        shell: bash
-        run: |
-          curl -sSL -o geckodriver.tar.gz \
-            "https://github.com/mozilla/geckodriver/releases/download/v0.36.0/geckodriver-v0.36.0-linux64.tar.gz"
-          tar -xzf geckodriver.tar.gz
-          sudo mv -f geckodriver /usr/local/bin/
-          rm geckodriver.tar.gz
-
-      - name: "Install robot_vision dependencies"
-        shell: bash
-        run: |
-          sudo apt update
-          sudo apt install -y libopencv-dev libeigen3-dev
 
       - name: Cleanup
         if: always()
