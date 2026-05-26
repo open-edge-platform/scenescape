@@ -417,12 +417,20 @@ class PipelineEngine:
     """
     scene_config = self._dataset.get_scene_config() if self._dataset else None
 
+    # Pass dataset camera_fps to evaluators so that timestamp-to-frame
+    # conversion uses the same rate as ground-truth frame numbering.
+    dataset_config = self._config.get('dataset', {}).get('config', {})
+    camera_fps = dataset_config.get('camera_fps')
+
     for i, evaluator in enumerate(self._evaluators):
       config = self._config['evaluators'][i]['config']
       evaluator_key = self._get_evaluator_key(i)
 
       if 'metrics' in config:
         evaluator.configure_metrics(config['metrics'])
+
+      if camera_fps is not None:
+        evaluator.set_base_fps(camera_fps)
 
       # Pass scene config so evaluators that need camera geometry can use it
       if scene_config is not None and hasattr(evaluator, 'set_scene_config'):

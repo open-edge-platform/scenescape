@@ -586,3 +586,55 @@ class TestPlotCameraDistances:
     cam_df = self._make_cam_df()
     ev._plot_camera_distances(cam_df, "TestCam", tmp_path, cam_pos=None)
     assert (tmp_path / "trajectories_TestCam.png").exists()
+
+
+class TestSetBaseFps:
+  """Test set_base_fps method."""
+
+  def test_returns_self(self):
+    """Method returns self for chaining."""
+    ev = CameraAccuracyEvaluator()
+    assert ev.set_base_fps(30.0) is ev
+
+  def test_none_resets(self):
+    """None resets to auto-compute."""
+    ev = CameraAccuracyEvaluator()
+    ev.set_base_fps(30.0)
+    ev.set_base_fps(None)
+    assert ev._base_fps is None
+
+  def test_zero_raises(self):
+    """Zero fps raises ValueError."""
+    ev = CameraAccuracyEvaluator()
+    with pytest.raises(ValueError, match="must be > 0"):
+      ev.set_base_fps(0)
+
+  def test_negative_raises(self):
+    """Negative fps raises ValueError."""
+    ev = CameraAccuracyEvaluator()
+    with pytest.raises(ValueError, match="must be > 0"):
+      ev.set_base_fps(-1.0)
+
+  def test_reset_clears(self):
+    """reset() clears base_fps."""
+    ev = CameraAccuracyEvaluator()
+    ev.set_base_fps(30.0)
+    ev.reset()
+    assert ev._base_fps is None
+
+  def test_overrides_computed_fps(self):
+    """When set, base_fps is used instead of auto-computed value."""
+    ev = CameraAccuracyEvaluator()
+    ev.set_base_fps(10.0)
+
+    # Create projected outputs with 5 frames at 100ms interval (default 10fps)
+    projected_outputs = _make_projected_outputs(frames_per_cam=5, tracks_per_cam=1)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+      tmp_path = Path(tmpdir)
+      ev.set_output_folder(tmp_path)
+      ev.configure_metrics(['DIST_T'])
+      ev.process_projected_outputs(projected_outputs, ground_truth=None)
+
+      # FPS should be the one we set, not auto-computed
+      assert ev._camera_fps == 10.0

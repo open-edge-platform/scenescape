@@ -221,6 +221,14 @@ share the same class name, an index suffix is appended to keep keys unique
 **Multiple evaluators**: The `evaluators` list accepts any number of entries. Each evaluator runs
 against the same tracker outputs independently.
 
+## Frame Rate Assumption
+
+The pipeline assumes that **tracker output uses the same frame rate as the input dataset**. The `camera_fps` value in the dataset configuration is used to convert tracker timestamps to frame numbers for comparison with ground-truth.
+
+**Important**: If the tracker drops frames (e.g., due to missed detections or processing bottlenecks), the tracker output will have fewer frames than the input, but the frame rate used for time-to-frame conversion should still match the input dataset's frame rate. The pipeline will automatically handle frame count mismatches by matching frames based on timestamps.
+
+If you need to override the frame rate for a specific evaluator run, use `set_base_fps(fps)` on the evaluator before `process_tracker_outputs()` or `process_projected_outputs()` is called. The pipeline engine automatically calls this method when `camera_fps` is configured in the dataset section.
+
 ## Directory Structure
 
 ```

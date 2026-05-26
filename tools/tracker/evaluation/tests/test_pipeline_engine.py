@@ -737,6 +737,72 @@ class TestConfigureEvaluators:
     captured = capsys.readouterr()
     assert summary_text in captured.out
 
+  def test_set_base_fps_called_with_dataset_fps(self, engine, temp_output_dir):
+    """set_base_fps is called on each evaluator with dataset camera_fps."""
+    from unittest.mock import MagicMock
+
+    mock_evaluator = MagicMock()
+    engine._evaluators = [mock_evaluator]
+    engine._dataset = None
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'dataset': {
+        'config': {
+          'camera_fps': 30.0
+        }
+      },
+      'evaluators': [{'class': 'evaluators.mock_ev.MockEv', 'config': {}}]
+    }
+
+    engine._configure_evaluators()
+
+    mock_evaluator.set_base_fps.assert_called_once_with(30.0)
+
+  def test_set_base_fps_not_called_when_camera_fps_missing(self, engine, temp_output_dir):
+    """set_base_fps is not called when dataset camera_fps is not set."""
+    from unittest.mock import MagicMock
+
+    mock_evaluator = MagicMock()
+    engine._evaluators = [mock_evaluator]
+    engine._dataset = None
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'dataset': {
+        'config': {}
+      },
+      'evaluators': [{'class': 'evaluators.mock_ev.MockEv', 'config': {}}]
+    }
+
+    engine._configure_evaluators()
+
+    mock_evaluator.set_base_fps.assert_not_called()
+
+  def test_set_base_fps_called_on_multiple_evaluators(self, engine, temp_output_dir):
+    """set_base_fps is called on all evaluators with the same camera_fps."""
+    from unittest.mock import MagicMock
+
+    mock_ev1 = MagicMock()
+    mock_ev2 = MagicMock()
+    engine._evaluators = [mock_ev1, mock_ev2]
+    engine._dataset = None
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'dataset': {
+        'config': {
+          'camera_fps': 25.0
+        }
+      },
+      'evaluators': [
+        {'class': 'evaluators.mock_ev.MockEv', 'config': {}},
+        {'class': 'evaluators.mock_ev.MockEv', 'config': {}}
+      ]
+    }
+
+    engine._configure_evaluators()
+
+    mock_ev1.set_base_fps.assert_called_once_with(25.0)
+    mock_ev2.set_base_fps.assert_called_once_with(25.0)
+
 
 class TestConfigureDataset:
   """Unit tests for _configure_dataset() category handling."""

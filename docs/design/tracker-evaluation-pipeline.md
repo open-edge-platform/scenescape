@@ -260,6 +260,13 @@ Implementation of the component class must implement the following abstract meth
   - Returns: self for method chaining
   - Raises: ValueError if path invalid, RuntimeError on other errors
 
+- **set_base_fps**(fps: Optional[float]) -> TrackerEvaluator
+  - Set base frame rate for timestamp-to-frame-number conversion
+  - When set, evaluators use this FPS instead of computing it from tracker output timestamps; passing None reverts to automatic computation
+  - Args: frames per second (must be > 0), or None to reset
+  - Returns: self for method chaining
+  - Raises: ValueError if fps is not None and <= 0
+
 - **process_tracker_outputs**(tracker_outputs: Iterator[Dict[str, Any]], ground_truth: Iterator[Dict[str, Any]]) -> TrackerEvaluator
   - Process tracker outputs and ground-truth for evaluation
   - Args:
