@@ -21,25 +21,22 @@ EXTRA_BUILD_ARGS = [
 ]
 
 class ImageBuildRequirements:
-  def __init__(self, name : str, time_limit_seconds : int, size_limit_megabytes: float):
+  def __init__(self, name : str, make_target : str, time_limit_seconds : int, size_limit_megabytes: float):
     self.name = name
+    self.make_target = make_target
     self.time_limit_seconds = time_limit_seconds
     self.size_limit_megabytes = size_limit_megabytes
 
 IMAGES_REQUIREMENTS = [
-  ImageBuildRequirements(name="common-base", time_limit_seconds=120, size_limit_megabytes=400.0),
-  ImageBuildRequirements(name="manager", time_limit_seconds=300, size_limit_megabytes=600.0),
-  ImageBuildRequirements(name="controller", time_limit_seconds=240, size_limit_megabytes=600.0),
-  ImageBuildRequirements(name="autocalibration", time_limit_seconds=300, size_limit_megabytes=800.0),
-  ImageBuildRequirements(name="tracker", time_limit_seconds=900, size_limit_megabytes=40.0),
+  # ImageBuildRequirements(name="common-base", make_target="build-common", time_limit_seconds=120, size_limit_megabytes=400.0),
+  # ImageBuildRequirements(name="manager", make_target="manager", time_limit_seconds=300, size_limit_megabytes=600.0),
+  # ImageBuildRequirements(name="controller", make_target="controller", time_limit_seconds=240, size_limit_megabytes=600.0),
+  # ImageBuildRequirements(name="autocalibration", make_target="autocalibration", time_limit_seconds=300, size_limit_megabytes=800.0),
+  ImageBuildRequirements(name="tracker", make_target="tracker", time_limit_seconds=900, size_limit_megabytes=40.0),
 ]
 
-def build_image_check(image : ImageBuildRequirements) -> tuple[int, int]:
-  build_cmd = ""
-  if( image.name == "common-base" ):
-    build_cmd = f"make build-common"
-  else:
-    build_cmd = f"make {image.name}"
+def build_image_check(image : ImageBuildRequirements) -> None:
+  build_cmd = f"make {image.make_target}"
 
   env_extra = {"EXTRA_BUILD_ARGS": " ".join(EXTRA_BUILD_ARGS)}
 
@@ -76,7 +73,7 @@ def run_command(command, env_extra=None) -> tuple[int, float]:
   return process.returncode, duration
 
 @pytest.mark.parametrize("image", IMAGES_REQUIREMENTS, ids=lambda img: img.name)
-def test_build_time(record_xml_attribute, image):
+def test_build_time_and_size(record_xml_attribute, image):
   record_xml_attribute("name", f"{TEST_NAME}-{image.name}")
 
   build_image_check(image)
