@@ -27,11 +27,11 @@ class ImageBuildRequirements:
     self.size_limit_megabytes = size_limit_megabytes
 
 IMAGES_REQUIREMENTS = [
-  ImageBuildRequirements("common-base", 120, 400.0),
-  ImageBuildRequirements("manager", 300, 600.0),
-  ImageBuildRequirements("controller", 240, 600.0),
-  ImageBuildRequirements("autocalibration", 300, 800.0),
-  ImageBuildRequirements("tracker", 900, 40.0),
+  ImageBuildRequirements("common-base", time_limit_seconds=120, size_limit_megabytes=400.0),
+  ImageBuildRequirements("manager", time_limit_seconds=300, size_limit_megabytes=600.0),
+  ImageBuildRequirements("controller", time_limit_seconds=240, size_limit_megabytes=600.0),
+  ImageBuildRequirements("autocalibration", time_limit_seconds=300, size_limit_megabytes=800.0),
+  ImageBuildRequirements("tracker", time_limit_seconds=900, size_limit_megabytes=40.0),
 ]
 
 def build_image_check(image : ImageBuildRequirements) -> tuple[int, int]:
