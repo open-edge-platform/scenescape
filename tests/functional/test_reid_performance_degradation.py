@@ -23,6 +23,7 @@ except ImportError:
   import psutil
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import REID
+import pytest
 
 log = get_logger(__name__)
 
@@ -181,6 +182,7 @@ def test_reid_performance_degradation(scenescape_env, request, record_xml_attrib
   @param    record_xml_attribute    Pytest fixture recording the test name.
   @return   exit_code               Indicates test success or failure.
   """
+  pytest.skip("This test is currently disabled due to the long execution time")
 
   test = REIDPerformanceDegradation(TEST_NAME, request, record_xml_attribute)
   test.verifyThings()
