@@ -43,7 +43,6 @@ runs:
       shell: bash
       env:
         CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
-        CACHE_TAG: ${{ steps.setup-cache.outputs.cache_tag }}
         GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
       run: |
         make build-all-images
