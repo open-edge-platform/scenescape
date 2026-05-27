@@ -39,6 +39,14 @@ runs:
       id: setup-cache
       uses: ./.github/actions/setup-cache
 
+    - name: "Build common base"
+      shell: bash
+      env:
+        CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+        GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
+      run: |
+        make build-common
+
     - name: "Build images"
       shell: bash
       env:
