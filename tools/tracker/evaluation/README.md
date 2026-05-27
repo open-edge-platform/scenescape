@@ -141,7 +141,7 @@ production container types in a single timestamped session:
 | --------------------------------- | ----------------------- | -------------------------------------- |
 | `black_box_controller_no_tc.yaml` | `scenescape-controller` | Controller without time-chunking       |
 | `black_box_controller_tc.yaml`    | `scenescape-controller` | Controller with time-chunking enabled  |
-| `black_box_tracker_service.yaml`  | `scenescape-tracker`    | Standalone Tracker Service (Go binary) |
+| `black_box_tracker_service.yaml`  | `scenescape-tracker`    | Standalone Tracker Service             |
 
 **Prerequisites** (in addition to the general prerequisites above):
 
