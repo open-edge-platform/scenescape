@@ -12,6 +12,7 @@ tracker evaluation workflow:
 5. Save results to unique run-specific output directory
 """
 
+import shutil
 import sys
 import yaml
 from pathlib import Path
@@ -74,6 +75,7 @@ class PipelineEngine:
     self._tracker_outputs = None
     self._run_id: Optional[str] = None
     self._output_path: Optional[Path] = None
+    self._config_path: Optional[Path] = None
 
   def load_configuration(self, config_path: str) -> 'PipelineEngine':
     """Load and parse YAML configuration file.
@@ -99,6 +101,7 @@ class PipelineEngine:
     config_path = Path(config_path)
     if not config_path.exists():
       raise FileNotFoundError(f"Configuration file not found: {config_path}")
+    self._config_path = config_path.resolve()
 
     # Load YAML configuration
     try:
@@ -112,6 +115,11 @@ class PipelineEngine:
 
     # Create unique run ID and output directory
     self._create_run_output_directory()
+
+    # Persist a copy of the pipeline configuration
+    config_dir = self._output_path / 'config'
+    config_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(self._config_path, config_dir / self._config_path.name)
 
     # Import and instantiate components
     try:
@@ -467,25 +475,28 @@ def main():
     print("Evaluating metrics...")
     metrics = engine.evaluate()
 
-    # Print results
-    print("\n=== Evaluation Results ===")
+    # Build summary text
     evaluator_by_key = {
       engine._get_evaluator_key(i): ev
       for i, ev in enumerate(engine._evaluators)
     }
+    lines = ["\n=== Evaluation Results ==="]
     for evaluator_name, evaluator_metrics in metrics.items():
-      print(f"\n[{evaluator_name}]")
+      lines.append(f"\n[{evaluator_name}]")
       evaluator = evaluator_by_key.get(evaluator_name)
       if evaluator is not None and hasattr(evaluator, 'format_summary'):
-        print(evaluator.format_summary())
+        lines.append(evaluator.format_summary())
       else:
         for metric_name, metric_value in evaluator_metrics.items():
           if isinstance(metric_value, int):
-            print(f"  {metric_name}: {metric_value}")
+            lines.append(f"  {metric_name}: {metric_value}")
           else:
-            print(f"  {metric_name}: {metric_value:.4f}")
+            lines.append(f"  {metric_name}: {metric_value:.4f}")
+    summary = "\n".join(lines)
 
-    # Print output location
+    # Print to stdout and save to file
+    print(summary)
+    (engine._output_path / "summary.txt").write_text(summary.lstrip("\n") + "\n")
     print(f"\nResults saved to: {engine._output_path}")
 
   except Exception as e:
