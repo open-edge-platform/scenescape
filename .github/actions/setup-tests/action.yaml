@@ -8,6 +8,9 @@ inputs:
   dockerhub-token:
     description: "DockerHub token"
     required: true
+  ghcr-token:
+    description: "GHCR token"
+    required: true
 runs:
   using: "composite"
   steps:
@@ -24,11 +27,33 @@ runs:
         username: scenescape
         password: ${{ inputs.dockerhub-token }}
 
-    - name: "Build images"
-      if: ${{ inputs.skip-image-build == 'false' }}
+    - name: "Log in to GHCR"
+      uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+      continue-on-error: true
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.ghcr-token }}
+
+    - name: "Setup Cache Targets"
+      id: setup-cache
+      uses: ./.github/actions/setup-cache
+
+    - name: "Build common base"
       shell: bash
+      env:
+        CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+        GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
       run: |
-        make
+        make build-common
+
+    - name: "Build images"
+      shell: bash
+      env:
+        CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
+        GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
+      run: |
+        make build-all
 
     - name: "Setup Test Environment"
       shell: bash
