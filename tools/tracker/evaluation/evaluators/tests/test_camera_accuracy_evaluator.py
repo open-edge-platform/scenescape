@@ -627,14 +627,26 @@ class TestSetBaseFps:
     ev = CameraAccuracyEvaluator()
     ev.set_base_fps(10.0)
 
-    # Create projected outputs with 5 frames at 100ms interval (default 10fps)
-    projected_outputs = _make_projected_outputs(frames_per_cam=5, tracks_per_cam=1)
+    # Use two frames 33ms apart: auto-computed FPS would map to frames 1 and 2,
+    # but base_fps=10 (100ms/frame) maps both timestamps to frame 1.
+    projected_outputs = [
+      {
+        "timestamp": "2024-01-01T00:00:00.000Z",
+        "cam_id": "Cam1",
+        "objects": [
+          {"id": "Cam1:1", "translation": [0.0, 0.0, 0.0], "category": "person"}
+        ],
+      },
+      {
+        "timestamp": "2024-01-01T00:00:00.033Z",
+        "cam_id": "Cam1",
+        "objects": [
+          {"id": "Cam1:1", "translation": [1.0, 1.0, 0.0], "category": "person"}
+        ],
+      },
+    ]
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-      tmp_path = Path(tmpdir)
-      ev.set_output_folder(tmp_path)
-      ev.configure_metrics(['DIST_T'])
-      ev.process_projected_outputs(projected_outputs, ground_truth=None)
+    ev._parse_projected_outputs(projected_outputs)
 
-      # FPS should be the one we set, not auto-computed
-      assert ev._camera_fps == 10.0
+    track = ev._projected_tracks[("Cam1", "1")]
+    assert sorted(track.keys()) == [1]
