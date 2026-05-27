@@ -77,6 +77,7 @@ jobs:
         uses: ./.github/actions/setup-tests
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Functional Tests
         run: |
@@ -125,6 +126,7 @@ jobs:
         uses: ./.github/actions/setup-tests
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Non Functional Tests
         run: |
@@ -173,6 +175,7 @@ jobs:
         uses: ./.github/actions/setup-tests
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Metric Tests
         run: |
@@ -221,6 +224,7 @@ jobs:
         uses: ./.github/actions/setup-tests
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run UI Tests
         run: |
@@ -265,13 +269,12 @@ jobs:
           system-prune: "true"
 
       - name: Setup Tests Environment
-        id: setup-test-env
         uses: ./.github/actions/setup-tests
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Run Unit Tests"
-        if: always() && steps.setup-test-env.outcome == 'success'
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports

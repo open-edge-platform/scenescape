@@ -1,0 +1,31 @@
+---
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "Setup Cache Targets"
+description: "Setup environment variables for caching image layers"
+outputs:
+  cache_registry:
+    description: "The cache registry path"
+    value: ${{ steps.cache.outputs.CACHE_REGISTRY }}
+  ghcr_cache:
+    description: "Whether GHCR cache is enabled"
+    value: ${{ steps.cache.outputs.GHCR_CACHE }}
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Docker with containerd storage backend
+      shell: bash
+      continue-on-error: true
+      run: |
+        sudo rm -f /etc/docker/daemon.json
+        echo '{"features":{"containerd-snapshotter":true}}' | sudo tee /etc/docker/daemon.json
+        sudo systemctl restart docker
+    - name: Setup Cache Targets
+      id: cache
+      shell: bash
+      env:
+        TAG_BASE: ${{ github.head_ref || github.ref_name }}
+      run: |
+        echo "CACHE_REGISTRY=${{ github.repository }}" >> "$GITHUB_OUTPUT"
+        echo "GHCR_CACHE=true" >> "$GITHUB_OUTPUT"
