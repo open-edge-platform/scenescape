@@ -420,8 +420,7 @@ run_functional_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running functional tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
-		$(PYTEST) $(TESTS_DIR)/functional/ \
-		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ $(PYTEST_FLAGS) || (echo "Functional tests failed" && exit 1)
+		$(PYTEST) $(TESTS_DIR)/functional/ $(PYTEST_FLAGS) || (echo "Functional tests failed" && exit 1)
 	@echo "DONE ==> Running functional tests"
 
 .PHONY: run_non_functional_tests
