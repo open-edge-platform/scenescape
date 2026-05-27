@@ -45,7 +45,7 @@ runs:
         CACHE_REGISTRY: ${{ steps.setup-cache.outputs.cache_registry }}
         GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
       run: |
-        make build-all-images
+        make
 
     - name: "Setup Test Environment"
       shell: bash
