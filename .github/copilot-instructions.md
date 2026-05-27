@@ -131,13 +131,30 @@ make rebuild-core                  # Clean + build (useful after code changes)
 
 **For comprehensive test creation guidance, see `.github/skills/testing/SKILL.md`** - detailed instructions on creating unit, functional, integration, UI, and smoke tests with both positive and negative cases.
 
-**Running Tests** (must have containers running via docker-compose):
+**Test infrastructure** is fully pytest-based. Docker Compose lifecycle is managed by session-scoped fixtures in `tests/conftest.py`. Tests declare their service requirements via a module-level `SCENESCAPE_SPEC` using `FuncTestSpec` + `ServiceProfile`.
+
+**Running Tests** (from repo root):
 
 ```bash
-SUPASS=<password> make setup-tests                    # Build test images
-make run_basic_acceptance_tests                       # Quick acceptance tests
-make -C tests unit-tests                              # Unit tests only
-make -C tests geometry-unit                           # Specific test (e.g., geometry)
+make setup-tests                                            # Build test images, secrets, venv
+make run_basic_acceptance_tests                             # Smoke tests (functional + ui + unit + stability)
+make run_standard_tests                                     # Functional + UI + security + stability
+make run_functional_tests                                   # Functional tests only
+make run_ui_tests                                           # UI/Selenium tests only
+make run_unit_tests                                         # Unit tests only (sscape_tests)
+make run_metric_tests                                       # Tracker quality metrics
+make run_performance_tests                                  # Inference performance + geometry
+make run_stability_tests HOURS=24                           # Long-running stability
+```
+
+**Running tests directly with pytest** (from repo root, with tests/.venv activated):
+
+```bash
+pytest tests/sscape_tests                                   # Unit tests
+pytest tests/functional                                     # All functional tests
+pytest tests/functional/test_roi_mqtt.py                    # Single functional test
+pytest tests/ -m basic_acceptance                           # Smoke suite only
+pytest tests/ --junitxml=results.xml 2>&1 | tee output.log  # Save results to file
 ```
 
 ### Completion Gate For Test Tasks (Critical)
@@ -205,9 +222,10 @@ pubsub.publish(topic, json_payload)
 
 **Debugging Tests**:
 
-- Use `debugtest.py` for running tests without pytest harness (useful in containers)
-- View test output: `docker compose exec <service> cat <logfile>`
-- Specific test: `pytest tests/sscape_tests/geometry/test_point.py::TestPoint::test_constructor -v`
+- Run specific test: `pytest tests/sscape_tests/geometry/test_point.py::TestPoint::test_constructor`
+- Per-test logs: `tests/test_logs/<category>/<test_name>-<timestamp>/` (includes container logs)
+- Container log collection: `--collect-container-logs {failed,all,none}` (default: `failed`)
+- Multi-backend: `--backend=docker` (default), `--backend=kubernetes`, `--backend=all`
 
 ## Integration Points & Dependencies
 
@@ -242,7 +260,8 @@ pubsub.publish(topic, json_payload)
 - **`.env`**: Runtime environment (database password, metrics config, COMPOSE_PROJECT_NAME)
 - **`scene_common/src/scene_common/`**: Reusable modules (MQTT, REST, geometry, schema, logging)
 - **`manager/secrets/`**: TLS certificates, auth tokens (never committed; generated per build)
-- **`tests/Makefile`** and **`tests/Makefile.sscape`**: Test orchestration with Zephyr ID tracking
+- **`tests/conftest.py`**: Session-scoped pytest fixtures for Docker Compose lifecycle, test ordering, and environment injection
+- **`tests/utils/`**: Test infrastructure (`spec.py`, `profiles.py`, `containers.py`, `log.py`)
 
 ## Documentation Requirements (Always-On)
 
