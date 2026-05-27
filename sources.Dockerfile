@@ -131,6 +131,7 @@ WORKDIR /sources/python
 RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git
 RUN : \
     ; git clone --depth 1 https://github.com/certifi/python-certifi \
+    ; git clone --depth 1 https://github.com/dranjan/python-plyfile \
     ; git clone --depth 1 https://github.com/eclipse-paho/paho.mqtt.python \
     ; git clone --depth 1 https://github.com/jab/bidict \
     ; git clone --depth 1 https://github.com/psycopg/psycopg2 \
