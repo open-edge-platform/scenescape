@@ -61,11 +61,7 @@ Run this workflow before executing any test command:
 
 1. Identify changed files.
 2. Classify each changed file scope: unit, functional, ui, perf, or integration.
-3. Resolve the concrete target from the relevant Makefile(s):
-   - `tests/Makefile`
-   - `tests/Makefile.functional`
-   - `tests/Makefile.user_interface`
-   - `tests/Makefile.sscape`
+3. Resolve the concrete target from the `Makefile` test targets.
 4. Choose the narrowest target that directly validates the changed file(s).
 5. Run that target with required environment variables.
 
@@ -76,21 +72,11 @@ Run this workflow before executing any test command:
 - Do not report completion without runtime verification for the resolved target (unless blocked).
 - Always report: should-run target, whether it was run, exact command, and pass/fail summary (or blocker).
 
-## Test Configuration Hygiene (Mandatory)
-
-- Do not add new environment variables to `tools/scenescape-start` for test-only behavior.
-- Treat `tools/scenescape-start` as a stable shared launcher, not a per-test configuration surface.
-- For test scenario inputs, prefer one of these paths:
-  - test configuration files (for example scenario JSON, service config JSON)
-  - test runner arguments (for example pytest options)
-  - Makefile variables scoped to test targets
-- If a new environment variable is absolutely required for non-test runtime behavior, document and justify it in the related service docs; do not introduce it solely to satisfy a test matrix.
-
 ### Quick Mapping Examples
 
-- `tests/functional/tc_sensors_send_mqtt_messages.py` -> `make -C tests sensors-send-events`
-- `tests/functional/tc_mqtt_sensor_roi.py` -> `make -C tests mqtt-sensor-roi`
-- `tests/functional/tc_tripwire_mqtt.py` -> `make -C tests mqtt-tripwire`
+- `tests/functional/test_roi_mqtt.py` -> `pytest tests/functional/test_roi_mqtt.py`
+- `tests/ui/test_out_of_box.py` -> `pytest tests/ui/test_out_of_box.py`
+- `tests/sscape_tests/geometry/test_point.py` -> `pytest tests/sscape_tests/geometry/test_point.py`
 
 ## Test Categories
 
@@ -291,7 +277,9 @@ def sample_detection():
 
 **Characteristics**:
 
-- Require running Docker containers
+- Docker Compose lifecycle managed automatically by pytest fixtures (`scenescape_env`)
+- Tests declare required services via module-level `SCENESCAPE_SPEC` using `FuncTestSpec` + `ServiceProfile`
+- Database restored automatically after each test (unless `@pytest.mark.preserve_db`)
 - Test real interactions between services (REST API, MQTT, database)
 - Longer execution time (seconds to minutes)
 - Use real data, not mocks
@@ -305,195 +293,125 @@ def sample_detection():
 - Testing camera calibration workflows
 - Testing object tracking across multiple frames
 
+**Infrastructure**: The `scenescape_env` fixture in `tests/conftest.py` reads `SCENESCAPE_SPEC` from the test module, starts the required Docker Compose services via `ServiceProfile`, waits for readiness, injects connection parameters into `params`, and restores the database on teardown.
+
+**Available profiles**: Check `tests/utils/profiles.py` for predefined `ServiceProfile` configurations.
+
 **Structure**:
 
 ```python
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from tests.functional import FunctionalTest
-import json
-import time
+import pytest
 
-TEST_NAME = "NEX-T##### "  # Always include Zephyr test ID
+from tests.functional.common_scene_obj import SceneObjectMqtt
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
 
-class CameraManagementTest(FunctionalTest):
-    """Test camera management via REST API"""
+# Declare required Docker Compose services
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
-    def setUp(self):
-        """Setup test with real REST client"""
-        super().setUp()
-        self.scene_id = self.args.scene_id
-        self.camera_data = {
-            "name": "test_camera_1",
-            "type": "rgb",
-            "location": {"x": 0, "y": 0, "z": 3}
-        }
+# Optional: map profile names to Zephyr IDs for --env-profiles matrix
+SCENESCAPE_ENV_MATRIX = {
+  "full_stack": "NEX-T10404",
+}
 
-    def tearDown(self):
-        """Cleanup test data"""
-        # Delete created cameras
-        if hasattr(self, 'created_camera_id'):
-            self.rest.delete(f"/scenes/{self.scene_id}/cameras/{self.created_camera_id}")
-        super().tearDown()
-
-    # Positive tests
-    def test_create_camera(self):
-        """Test creating a camera via REST API"""
-        response = self.rest.post(
-            f"/scenes/{self.scene_id}/cameras",
-            json=self.camera_data
-        )
-
-        assert response.status_code == 201
-        data = response.json()
-        assert 'id' in data
-        assert data['name'] == self.camera_data['name']
-
-        self.created_camera_id = data['id']
-
-    def test_get_camera(self):
-        """Test retrieving camera details"""
-        # First create a camera
-        create_response = self.rest.post(
-            f"/scenes/{self.scene_id}/cameras",
-            json=self.camera_data
-        )
-        camera_id = create_response.json()['id']
-        self.created_camera_id = camera_id
-
-        # Now retrieve it
-        get_response = self.rest.get(
-            f"/scenes/{self.scene_id}/cameras/{camera_id}"
-        )
-
-        assert get_response.status_code == 200
-        data = get_response.json()
-        assert data['id'] == camera_id
-        assert data['name'] == self.camera_data['name']
-
-    # Negative tests
-    def test_create_camera_invalid_scene(self):
-        """Test creating camera with non-existent scene ID"""
-        response = self.rest.post(
-            "/scenes/invalid-scene-id/cameras",
-            json=self.camera_data
-        )
-
-        assert response.status_code == 404
-
-    def test_create_camera_missing_required_field(self):
-        """Test creating camera without required fields"""
-        invalid_data = {"name": "incomplete_camera"}  # Missing type and location
-
-        response = self.rest.post(
-            f"/scenes/{self.scene_id}/cameras",
-            json=invalid_data
-        )
-
-        assert response.status_code == 400
-
-    def test_get_nonexistent_camera(self):
-        """Test retrieving camera that doesn't exist"""
-        response = self.rest.get(
-            f"/scenes/{self.scene_id}/cameras/nonexistent-id"
-        )
-
-        assert response.status_code == 404
-
-    def test_delete_camera_twice(self):
-        """Test that deleting same camera twice fails"""
-        # Create and delete camera
-        create_response = self.rest.post(
-            f"/scenes/{self.scene_id}/cameras",
-            json=self.camera_data
-        )
-        camera_id = create_response.json()['id']
-
-        delete_response = self.rest.delete(
-            f"/scenes/{self.scene_id}/cameras/{camera_id}"
-        )
-        assert delete_response.status_code == 204
-
-        # Try to delete again
-        second_delete = self.rest.delete(
-            f"/scenes/{self.scene_id}/cameras/{camera_id}"
-        )
-        assert second_delete.status_code == 404
+TEST_NAME = "NEX-T10404"
 
 
-# Pytest entry point
-def test_camera_management(request, record_xml_attribute):
-    """Pytest entry point for camera management tests"""
-    test = CameraManagementTest(TEST_NAME, request, record_xml_attribute)
-    test.run()
+@pytest.mark.basic_acceptance
+def test_roi_create(scenescape_env, demo_scene, request, record_xml_attribute):
+  """Test ROI creation via MQTT.
+
+  Requesting scenescape_env triggers Docker Compose startup with FULL_STACK
+  profile. The params fixture provides broker_url, resturl, auth, etc.
+  """
+  test_name = getattr(request.node, '_scenescape_test_name', TEST_NAME)
+  test = SceneObjectMqtt(test_name, request, record_xml_attribute)
+  runROIMqttCreate(test)
+  assert test.exitCode == 0
+```
+
+**FuncTestSpec fields**:
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class FuncTestSpec:
+  profile: object              # ServiceProfile (from tests/utils/profiles.py)
+  auth: str = ""              # AUTH_CONTROLLER or AUTH_BROWSER
+  require_password: bool = True
+  test_name: str = ""         # NEX ID for XML reporting
+  extra_args: list = None     # Extra --key value pairs for params
+  exampledb: str = ""         # Override baseline DB (e.g., "calibrationdb.tar.bz2")
+```
+
+**Multi-profile testing** (via `--env-profiles`):
+
+```bash
+# Run test against multiple profiles
+pytest tests/functional/test_roi_mqtt.py --env-profiles=full_stack,full_stack_with_mapping
+# Generates: test_roi_create[full_stack], test_roi_create[full_stack_with_mapping]
 ```
 
 **MQTT functional test example**:
 
 ```python
-class MQTTDetectionTest(FunctionalTest):
-    """Test detection message flow through MQTT"""
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
 
-    def setUp(self):
-        """Setup MQTT connection"""
-        super().setUp()
-        self.detection_received = False
-        self.tracking_data = None
+import json
+import time
+import pytest
 
-        # Setup MQTT subscriber
-        self.pubsub.addCallback("tracking/+", self.on_tracking)
+from scene_common.mqtt import PubSub
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
 
-    def on_tracking(self, client, userdata, message):
-        """Callback for tracking messages"""
-        self.tracking_data = json.loads(message.payload.decode('utf-8'))
-        self.detection_received = True
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
-    # Positive test
-    def test_detection_produces_tracking(self):
-        """Test that detection message produces tracking output"""
-        detection = {
-            "id": "camera1",
-            "timestamp": get_iso_time(),
-            "objects": {
-                "person": [{
-                    "id": 1,
-                    "category": "person",
-                    "bounding_box": {"x": 0.5, "y": 0.5, "width": 0.1, "height": 0.2}
-                }]
-            }
-        }
+TEST_NAME = "NEX-T#####"
 
-        # Publish detection
-        self.pubsub.publish("detection/camera1", json.dumps(detection))
+def test_detection_produces_tracking(scenescape_env, params, record_xml_attribute):
+  """Test that detection message produces tracking output."""
+  record_xml_attribute("name", TEST_NAME)
 
-        # Wait for tracking response
-        timeout = 10
-        elapsed = 0
-        while not self.detection_received and elapsed < timeout:
-            time.sleep(0.5)
-            elapsed += 0.5
+  tracking_data = []
 
-        assert self.detection_received, "No tracking message received"
-        assert self.tracking_data is not None
-        assert 'objects' in self.tracking_data
+  def on_tracking(client, userdata, message):
+    data = json.loads(message.payload.decode('utf-8'))
+    tracking_data.append(data)
 
-    # Negative test
-    def test_invalid_detection_rejected(self):
-        """Test that malformed detection is rejected"""
-        invalid_detection = {
-            "id": "camera1",
-            # Missing timestamp and objects
-        }
+  pubsub = PubSub(params['auth'], None, params['rootcert'],
+                   params['broker_url'], port=int(params['broker_port']))
+  pubsub.addCallback("tracking/+", on_tracking)
 
-        # Publish invalid detection
-        self.pubsub.publish("detection/camera1", json.dumps(invalid_detection))
+  detection = {
+    "id": "camera1",
+    "timestamp": "2026-01-06T12:00:00.000Z",
+    "objects": {
+      "person": [{"id": 1, "category": "person",
+                   "bounding_box": {"x": 0.5, "y": 0.5, "width": 0.1, "height": 0.2}}]
+    }
+  }
+  pubsub.publish("detection/camera1", json.dumps(detection))
 
-        # Wait briefly
-        time.sleep(2)
+  timeout = 10
+  elapsed = 0
+  while not tracking_data and elapsed < timeout:
+    time.sleep(0.5)
+    elapsed += 0.5
 
-        # Should not receive tracking
-        assert not self.detection_received, "Invalid detection should not produce tracking"
+  assert tracking_data, "No tracking message received"
+  assert 'objects' in tracking_data[0]
 ```
 
 ### 3. Integration Tests
@@ -504,11 +422,12 @@ class MQTTDetectionTest(FunctionalTest):
 
 **Characteristics**:
 
-- Require multiple running containers
+- Require multiple running containers (managed by `scenescape_env` fixture)
 - Test real service-to-service communication
 - Use actual databases, message brokers, and services
 - Test realistic data flows
 - Longer execution times
+- Use `SCENESCAPE_SPEC` with appropriate `ServiceProfile` for required services
 
 **When to create integration tests**:
 
@@ -521,121 +440,62 @@ class MQTTDetectionTest(FunctionalTest):
 **Structure**:
 
 ```python
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from tests.functional import FunctionalTest
 import json
 import time
+import pytest
+
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
 TEST_NAME = "NEX-T#####"
 
-class EndToEndTrackingTest(FunctionalTest):
-    """Integration test for complete tracking pipeline"""
+def test_complete_detection_tracking_pipeline(scenescape_env, params, record_xml_attribute):
+  """Integration test: detection → controller → tracking → database."""
+  record_xml_attribute("name", TEST_NAME)
 
-    def setUp(self):
-        """Setup REST and MQTT connections"""
-        super().setUp()
-        self.tracking_results = []
-        self.pubsub.addCallback("tracking/+", self.on_tracking)
+  rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
+  assert rest.authenticate(params['user'], params['password'])
 
-    def on_tracking(self, client, userdata, message):
-        """Collect tracking messages"""
-        data = json.loads(message.payload.decode('utf-8'))
-        self.tracking_results.append(data)
+  tracking_results = []
 
-    # Positive integration test
-    def test_complete_detection_tracking_storage_pipeline(self):
-        """Test full pipeline: detection → controller → tracking → database"""
+  def on_tracking(client, userdata, message):
+    data = json.loads(message.payload.decode('utf-8'))
+    tracking_results.append(data)
 
-        # Step 1: Create scene via REST API
-        scene_data = {
-            "name": "Integration Test Scene",
-            "floor_plan": {"width": 10, "height": 10}
-        }
-        scene_response = self.rest.post("/scenes", json=scene_data)
-        assert scene_response.status_code == 201
-        scene_id = scene_response.json()['id']
+  pubsub = PubSub(params['auth'], None, params['rootcert'],
+                   params['broker_url'], port=int(params['broker_port']))
+  pubsub.addCallback("tracking/+", on_tracking)
 
-        # Step 2: Add camera to scene
-        camera_data = {
-            "name": "test_camera",
-            "type": "rgb",
-            "location": {"x": 5, "y": 5, "z": 3}
-        }
-        camera_response = self.rest.post(
-            f"/scenes/{scene_id}/cameras",
-            json=camera_data
-        )
-        assert camera_response.status_code == 201
-        camera_id = camera_response.json()['id']
+  # Publish detection via MQTT
+  detection = {
+    "id": "camera1",
+    "timestamp": "2026-01-06T12:00:00.000Z",
+    "objects": {
+      "person": [{"id": 1, "category": "person",
+                   "bounding_box": {"x": 0.5, "y": 0.5, "width": 0.1, "height": 0.2}}]
+    }
+  }
+  pubsub.publish("detection/camera1", json.dumps(detection))
 
-        # Step 3: Publish detection via MQTT
-        detection = {
-            "id": camera_id,
-            "timestamp": get_iso_time(),
-            "objects": {
-                "person": [{
-                    "id": 1,
-                    "category": "person",
-                    "bounding_box": {"x": 0.5, "y": 0.5, "width": 0.1, "height": 0.2}
-                }]
-            }
-        }
-        self.pubsub.publish(f"detection/{camera_id}", json.dumps(detection))
+  # Wait for tracking output
+  timeout = 15
+  elapsed = 0
+  while not tracking_results and elapsed < timeout:
+    time.sleep(0.5)
+    elapsed += 0.5
 
-        # Step 4: Wait for tracking output
-        timeout = 15
-        elapsed = 0
-        while len(self.tracking_results) == 0 and elapsed < timeout:
-            time.sleep(0.5)
-            elapsed += 0.5
-
-        assert len(self.tracking_results) > 0, "No tracking output received"
-        tracking = self.tracking_results[0]
-        assert 'objects' in tracking
-
-        # Step 5: Verify data was stored in database via REST API
-        objects_response = self.rest.get(f"/scenes/{scene_id}/objects")
-        assert objects_response.status_code == 200
-        objects = objects_response.json()
-        assert len(objects) > 0
-
-        # Cleanup
-        self.rest.delete(f"/scenes/{scene_id}")
-
-    # Negative integration test
-    def test_detection_with_uncalibrated_camera_rejected(self):
-        """Test that detection from uncalibrated camera is rejected"""
-
-        # Create scene and camera without calibration
-        scene_response = self.rest.post("/scenes", json={"name": "Test Scene"})
-        scene_id = scene_response.json()['id']
-
-        camera_response = self.rest.post(
-            f"/scenes/{scene_id}/cameras",
-            json={"name": "uncalibrated_cam", "type": "rgb"}
-        )
-        camera_id = camera_response.json()['id']
-
-        # Publish detection
-        detection = {
-            "id": camera_id,
-            "timestamp": get_iso_time(),
-            "objects": {"person": [{"id": 1, "category": "person", "bounding_box": {}}]}
-        }
-        self.pubsub.publish(f"detection/{camera_id}", json.dumps(detection))
-
-        # Wait briefly
-        time.sleep(3)
-
-        # Should not produce tracking
-        assert len(self.tracking_results) == 0, "Uncalibrated camera should not produce tracking"
-
-        # Cleanup
-        self.rest.delete(f"/scenes/{scene_id}")
+  assert tracking_results, "No tracking output received"
+  assert 'objects' in tracking_results[0]
 ```
 
 ### 4. UI Tests
@@ -646,8 +506,9 @@ class EndToEndTrackingTest(FunctionalTest):
 
 **Characteristics**:
 
-- Use Selenium WebDriver
-- Require running web server and backend services
+- Use Selenium WebDriver (Firefox/geckodriver with Xvfb for headless)
+- Docker Compose lifecycle managed by `scenescape_env` fixture via `SCENESCAPE_SPEC`
+- Use `AUTH_BROWSER` for web UI authentication
 - Test user interactions and workflows
 - Verify visual elements and user feedback
 - Slower execution
@@ -663,128 +524,57 @@ class EndToEndTrackingTest(FunctionalTest):
 **Structure**:
 
 ```python
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 
-class TestSceneManagementUI:
-    """UI tests for scene management interface"""
+from tests.ui.browser import Browser, By
+import tests.ui.common_ui_test_utils as common
+from scene_common.mqtt import PubSub
+from tests.utils.spec import FuncTestSpec, AUTH_BROWSER
+from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 
-    @pytest.fixture(scope="class")
-    def driver(self, params):
-        """Setup Selenium WebDriver"""
-        options = webdriver.ChromeOptions()
-        options.add_argument('--headless')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  auth=AUTH_BROWSER,
+)
 
-        driver = webdriver.Chrome(options=options)
-        driver.implicitly_wait(10)
+TEST_NAME = "NEX-T#####"
 
-        # Login
-        driver.get(params['weburl'])
-        driver.find_element(By.ID, "username").send_keys(params['user'])
-        driver.find_element(By.ID, "password").send_keys(params['password'])
-        driver.find_element(By.ID, "login-button").click()
+@pytest.mark.basic_acceptance
+def test_out_of_box(scenescape_env, params, record_xml_attribute):
+  """Test out-of-box experience via web UI."""
+  record_xml_attribute("name", TEST_NAME)
 
-        yield driver
-        driver.quit()
+  # params contains: user, password, broker_url, weburl, resturl, auth, rootcert
+  browser = Browser()
+  try:
+    common.login(browser, params['weburl'], params['user'], params['password'])
 
-    # Positive UI test
-    def test_create_scene_via_ui(self, driver, params):
-        """Test creating a scene through the web interface"""
-        # Navigate to scenes page
-        driver.get(f"{params['weburl']}/scenes")
+    # Verify scene list is visible
+    browser.wait_for_element(By.ID, "scene-list", timeout=10)
+    scene_list = browser.find_element(By.ID, "scene-list")
+    assert scene_list is not None, "Scene list not found"
 
-        # Click create scene button
-        create_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.ID, "create-scene-btn"))
-        )
-        create_button.click()
-
-        # Fill in scene form
-        name_input = driver.find_element(By.ID, "scene-name")
-        name_input.send_keys("UI Test Scene")
-
-        # Submit form
-        submit_button = driver.find_element(By.ID, "submit-scene")
-        submit_button.click()
-
-        # Verify success message
-        success_msg = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "success-message"))
-        )
-        assert "Scene created successfully" in success_msg.text
-
-        # Verify scene appears in list
-        scene_list = driver.find_element(By.ID, "scene-list")
-        assert "UI Test Scene" in scene_list.text
-
-    # Negative UI test
-    def test_create_scene_with_empty_name(self, driver, params):
-        """Test that creating scene with empty name shows error"""
-        driver.get(f"{params['weburl']}/scenes")
-
-        # Click create button
-        create_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.ID, "create-scene-btn"))
-        )
-        create_button.click()
-
-        # Leave name field empty and submit
-        submit_button = driver.find_element(By.ID, "submit-scene")
-        submit_button.click()
-
-        # Verify error message
-        error_msg = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "error-message"))
-        )
-        assert "Scene name is required" in error_msg.text
-
-    def test_scene_list_pagination(self, driver, params):
-        """Test scene list pagination"""
-        driver.get(f"{params['weburl']}/scenes")
-
-        # Check if pagination controls exist when there are many scenes
-        try:
-            pagination = WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "pagination"))
-            )
-
-            # Click next page
-            next_button = pagination.find_element(By.CLASS_NAME, "next-page")
-            next_button.click()
-
-            # Verify page changed
-            WebDriverWait(driver, 5).until(
-                EC.staleness_of(next_button)
-            )
-
-        except TimeoutException:
-            # No pagination (not enough scenes)
-            pytest.skip("Not enough scenes for pagination test")
+  finally:
+    browser.quit()
 ```
 
-### 5. Smoke Tests
+### 5. BAT Tests
 
 **Purpose**: Quick sanity checks to verify basic system functionality
 
-**Location**: `tests/functional/` with `@pytest.mark.smoke` marker
+**Location**: `tests/functional/` or `tests/ui/` with `@pytest.mark.basic_acceptance` marker
 
 **Characteristics**:
 
-- Fast execution (< 30 seconds total)
+- Run via `make run_basic_acceptance_tests` or `pytest -m basic_acceptance`
 - Test critical paths only
 - Verify system is operational
 - Run before more extensive tests
 
-**When to create smoke tests**:
+**When to create BAT tests**:
 
 - After deployments
 - Before running full test suite
@@ -794,39 +584,25 @@ class TestSceneManagementUI:
 **Structure**:
 
 ```python
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
-from tests.functional import FunctionalTest
 
-@pytest.mark.smoke
-class SmokeTest(FunctionalTest):
-    """Basic smoke tests for system health"""
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
 
-    def test_rest_api_accessible(self):
-        """Smoke test: Verify REST API is responding"""
-        response = self.rest.get("/health")
-        assert response.status_code == 200
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
-    def test_mqtt_broker_accessible(self):
-        """Smoke test: Verify MQTT broker is accessible"""
-        assert self.pubsub.isConnected(), "MQTT broker not accessible"
-
-    def test_database_accessible(self):
-        """Smoke test: Verify database is accessible via REST API"""
-        response = self.rest.get("/scenes")
-        assert response.status_code in [200, 401]  # 200 OK or 401 if not authenticated
-
-    def test_scene_controller_responding(self):
-        """Smoke test: Verify scene controller is processing messages"""
-        # Publish a simple message
-        test_msg = {"test": "ping"}
-        self.pubsub.publish("test/smoke", json.dumps(test_msg))
-
-        # Just verify no crashes (negative test would be timeout/error)
-        time.sleep(1)
-        assert True  # If we got here, controller didn't crash
+@pytest.mark.basic_acceptance
+def test_rest_api_accessible(scenescape_env, params):
+  """BAT test: Verify REST API is responding."""
+  from scene_common.rest_client import RESTClient
+  client = RESTClient(params['resturl'], rootcert=params['rootcert'])
+  assert client.authenticate(params['user'], params['password'])
 ```
 
 ## Pytest Markers
@@ -836,24 +612,19 @@ Use pytest markers to categorize tests:
 ```python
 import pytest
 
-# Unit test
-@pytest.mark.unit
-def test_geometry_calculation():
-    pass
-
-# Integration test
-@pytest.mark.integration
-def test_mqtt_to_database_flow():
-    pass
-
-# Slow test
-@pytest.mark.slow
-def test_long_running_calibration():
-    pass
-
-# Smoke test
-@pytest.mark.smoke
+# Basic acceptance / BAT test (included in make run_basic_acceptance_tests)
+@pytest.mark.basic_acceptance
 def test_api_health():
+    pass
+
+# Preserve database state for next test (skip automatic DB restore)
+@pytest.mark.preserve_db
+def test_persistence_check():
+    pass
+
+# Kubernetes-only test (skipped on --backend=docker)
+@pytest.mark.kubernetes_only
+def test_k8s_deployment():
     pass
 
 # Parametrized test
@@ -889,70 +660,54 @@ def test_absolute_value(input, expected):
 ```python
 TEST_NAME = "NEX-T10454"  # At top of file
 
-def pytest_sessionstart():
-    """Executes at the beginning of the session."""
-    print(f"Executing: {TEST_NAME}")
-    return
+# For functional/UI tests: set via record_xml_attribute
+def test_something(scenescape_env, params, record_xml_attribute):
+  record_xml_attribute("name", TEST_NAME)
+  # ... test logic ...
 
-def pytest_sessionfinish(exitstatus):
-    """Executes at the end of the session."""
-    common.record_test_result(TEST_NAME, exitstatus)
-    return
+# For unit tests: set via conftest.py session hooks
+# See "Unit Test conftest.py with Zephyr Tracking" below
 ```
 
 ## Conftest Patterns
 
-**conftest.py** provides shared fixtures for test modules:
+### Root conftest.py (`tests/conftest.py`)
+
+The root conftest manages the entire test session lifecycle:
+
+- **Session-scoped fixtures**: `repo_root`, `version`, `secrets_dir`, `supass`, `loopback_hosts`, `install_shared_models`, `_compose_manager`
+- **Function-scoped fixtures**: `scenescape_env` (orchestrates Docker Compose), `params` (connection parameters)
+- **Pytest hooks**: `pytest_collection_modifyitems` (sorts tests by profile to minimize stack restarts), `pytest_addoption` (CLI options), `pytest_runtest_setup/call/makereport` (per-test logging and container log collection)
+
+### Functional conftest.py (`tests/functional/conftest.py`)
+
+Adds functional-specific fixtures:
 
 ```python
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
-from unittest.mock import Mock
+from scene_common.rest_client import RESTClient
 
-# Session-level fixtures (created once per test session)
-@pytest.fixture(scope="session")
-def test_config():
-    """Provide test configuration"""
-    return {
-        "timeout": 30,
-        "retry_count": 3,
-    }
+@pytest.fixture(scope="function")
+def rest(params):
+  """Authenticated REST client from params fixture."""
+  client = RESTClient(params['resturl'], rootcert=params['rootcert'])
+  assert client.authenticate(params['user'], params['password'])
+  return client
 
-# Module-level fixtures (created once per test module)
-@pytest.fixture(scope="module")
-def database_connection():
-    """Provide database connection for all tests in module"""
-    conn = create_connection()
-    yield conn
-    conn.close()
-
-# Function-level fixtures (created for each test function)
-@pytest.fixture
-def sample_data():
-    """Provide fresh sample data for each test"""
-    return {"id": "test", "value": 123}
-
-# Parametrized fixtures
-@pytest.fixture(params=[2, 3, 4])
-def dimensions(request):
-    """Test with different dimensions"""
-    return request.param
-
-# Command-line options
-def pytest_addoption(parser):
-    parser.addoption("--user", required=True, help="User for authentication")
-    parser.addoption("--password", required=True, help="Password for authentication")
-
-@pytest.fixture
-def credentials(request):
-    """Provide credentials from command line"""
-    return {
-        'user': request.config.getoption('--user'),
-        'password': request.config.getoption('--password'),
-    }
+@pytest.fixture(scope="function")
+def scene_uid(rest, params):
+  """UID of the demo scene."""
+  name = params['scene_name']
+  res = rest.getScenes({'name': name})
+  scenes = res.get('results', []) if isinstance(res, dict) else []
+  assert scenes, f"Scene '{name}' not found"
+  return scenes[0]['uid']
 ```
+
+Also provides `pytest_generate_tests` for `--env-profiles` matrix parametrization and `_env_matrix_setup` fixture.
 
 ### Unit Test conftest.py with Zephyr Tracking
 
@@ -1098,28 +853,45 @@ def test_time_dependent_function(mock_datetime):
 ## Running Tests
 
 ```bash
-# Run all unit tests
-make -C tests unit-tests
+# Setup (from repo root)
+make setup-tests                                      # Build test images, secrets, venv
+                                                      # Create venv + install deps + build C++ extensions
 
-# Run specific test module
-pytest tests/sscape_tests/geometry/test_point.py -v
+# Make targets (from repo root)
+make run_basic_acceptance_tests                       # BAT tests (basic_acceptance marker)
+make run_standard_tests                               # Functional + UI + security + stability
+make run_functional_tests                             # Functional
+make run_ui_tests                                     # UI/Selenium tests only
+make run_unit_tests                                   # Unit tests only (sscape_tests)
+make run_metric_tests                                 # Tracker quality metrics
+make run_performance_tests                            # Inference performance + geometry
+make run_stability_tests HOURS=24                     # Long-running stability
 
-# Run specific test
-pytest tests/sscape_tests/geometry/test_point.py::TestPoint::test_constructor -v
+# Direct pytest (from repo root, with tests/.venv activated)
+pytest tests/sscape_tests                             # All unit tests
+pytest tests/functional                               # All functional tests
+pytest tests/ui                                       # All UI tests
+pytest tests/functional/test_roi_mqtt.py              # Single functional test
+pytest tests/ -m basic_acceptance                     # BAT suite only
 
-# Run tests with markers
-pytest -m unit  # Only unit tests
-pytest -m "not slow"  # Exclude slow tests
-pytest -m smoke  # Only smoke tests
+# Specific test
+pytest tests/sscape_tests/geometry/test_point.py::TestPoint::test_constructor
 
-# Run with coverage
-pytest --cov=src --cov-report=html
+# Save results
+pytest tests/ --junitxml=results.xml 2>&1 | tee output.log
 
-# Run functional tests (requires running containers)
-make run_basic_acceptance_tests
+# Multi-backend testing
+pytest tests/functional --backend=docker              # Docker only (default)
+pytest tests/functional --backend=kubernetes          # Kubernetes only
+pytest tests/functional --backend=all                 # Both backends
 
-# Run tests with verbose output
-pytest -v -s  # -s shows print statements
+# Multi-profile testing
+pytest tests/functional/test_roi_mqtt.py --env-profiles=full_stack,full_stack_with_mapping
+
+# Container log collection
+pytest tests/functional --collect-container-logs=failed   # Collect on failure (default)
+pytest tests/functional --collect-container-logs=all      # Collect always
+pytest tests/functional --collect-container-logs=none     # Never collect
 ```
 
 ## Test Checklist
@@ -1134,7 +906,8 @@ When creating or modifying tests, verify:
 - [ ] Both positive and negative cases covered
 - [ ] Boundary conditions tested
 - [ ] At least one negative case exists per function or behavior under test, unless explicitly not applicable
-- [ ] Appropriate markers applied (`@pytest.mark.unit`, etc.)
+- [ ] Appropriate markers applied (`@pytest.mark.basic_acceptance`, `@pytest.mark.preserve_db`, etc.)
+- [ ] Functional/UI tests declare `SCENESCAPE_SPEC` with correct `ServiceProfile`
 - [ ] Mocking used for external dependencies (unit tests)
 - [ ] Real data used for integration tests
 - [ ] Proper setup and teardown
@@ -1143,16 +916,16 @@ When creating or modifying tests, verify:
 - [ ] Test is independent (doesn't rely on other tests)
 - [ ] Fixtures used for shared data
 - [ ] Documentation strings explain what is being tested
-- [ ] Repo-preferred test command used for validation (prefer `make -C tests <target>` when available)
+- [ ] Repo-preferred test command used for validation (prefer `pytest tests/<path>/<test_file>.py` for targeted runs; use `make run_*` only for broad suite sweeps)
 - [ ] New or changed tests executed after the last code edit
 - [ ] Final response includes current pass/fail status and any warnings or known gaps
 
 ## Quick Reference
 
-**Unit Test**: Fast, isolated, mocked dependencies
-**Functional Test**: Real services, end-to-end workflows
-**Integration Test**: Cross-service interactions, real data
-**UI Test**: Browser automation, user interactions
-**Smoke Test**: Quick sanity checks, critical paths only
+**Unit Test**: Fast, isolated, mocked dependencies, in `tests/sscape_tests/`
+**Functional Test**: Real services via `SCENESCAPE_SPEC` + `FuncTestSpec`, in `tests/functional/`
+**Integration Test**: Cross-service interactions, real data, in `tests/functional/` or `tests/system/`
+**UI Test**: Selenium browser automation via `AUTH_BROWSER`, in `tests/ui/`
+**Smoke Test**: Quick sanity checks, `@pytest.mark.basic_acceptance` marker
 
 **Always create BOTH positive (happy path) and negative (error cases) tests!**
