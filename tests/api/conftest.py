@@ -173,11 +173,11 @@ def http_client(token, base_url) -> RESTClient:
 
 @pytest.fixture(scope='session')
 def autocalib_client(token, base_url) -> RESTClient:
-  return RESTClient(url=f"{base_url}/v1", token=token, verify_ssl=False)
+  return RESTClient(url=f"{base_url}/api/v1/autocalibration", token=token, verify_ssl=False)
 
 @pytest.fixture(scope='session')
 def mapping_client(token, base_url) -> MappingClient:
-  return MappingClient(url=f"{base_url}:8444", token=token, verify_ssl=False)
+  return MappingClient(url=f"{base_url}/api/v1/mapping/", token=token, verify_ssl=False)
 
 @pytest.fixture(scope='session')
 def api_map(http_client, autocalib_client, mapping_client):

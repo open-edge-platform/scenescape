@@ -20,7 +20,7 @@ info:
 servers:
   - url: https://localhost:8444
     description: Direct standalone access
-  - url: https://localhost/api/mapping
+  - url: https://localhost/api/v1/mapping
     description: Access via Apache reverse proxy when web service is running
 
 tags:
