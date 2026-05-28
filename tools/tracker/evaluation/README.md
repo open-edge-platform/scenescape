@@ -176,8 +176,8 @@ python -m run_black_box_evaluation --output /custom/output/path
   Controller-NO-Time-Chunking/
     dataset/
     harness/
-      inputs.json          # All input frames published to MQTT
-      outputs.json         # All tracker output frames collected from MQTT
+      inputs.jsonl         # All input frames published to MQTT
+      outputs.jsonl        # All tracker output frames collected from MQTT
       tracker_logs.txt     # Container stdout/stderr
     evaluators/
       TrackEvalEvaluator/
@@ -207,11 +207,13 @@ The session summary is printed to stdout at the end:
 
 ```
 <pipeline.output.path>/
-  └── <run-ID>/                        # Format: YYYYMMDD_HHMMSS
+  └── <run-ID>/                        # Format: YYYYMMDD_HHMMSS[_RunName]
+      ├── config/                      # Copy of the pipeline YAML config
       ├── dataset/                     # Dataset-specific caches or exports
       ├── harness/                     # Harness logs or artifacts
-      └── evaluators/
-          └── <evaluator-key>/         # One folder per evaluator
+      ├── evaluators/
+      │   └── <evaluator-key>/         # One folder per evaluator
+      └── summary.txt                  # Evaluation summary
 ```
 
 The `<evaluator-key>` is the evaluator class name (e.g., `TrackEvalEvaluator`). When two evaluators
