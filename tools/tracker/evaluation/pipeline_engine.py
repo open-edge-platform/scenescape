@@ -85,6 +85,7 @@ class PipelineEngine:
     self._run_id: Optional[str] = None
     self._output_path: Optional[Path] = None
     self._config_path: Optional[Path] = None
+    self._summary: Optional[str] = None
 
   def load_configuration(self, config_path: str) -> 'PipelineEngine':
     """Load and parse YAML configuration file.
@@ -226,6 +227,7 @@ class PipelineEngine:
       print(f"Ground-truth frames: {gt_line_count}")
       all_metrics: Dict[str, Dict[str, float]] = {}
 
+      evaluator_by_key: Dict[str, Any] = {}
       for i, evaluator in enumerate(self._evaluators):
         evaluator_key = self._get_evaluator_key(i)
         evaluator.process_tracker_outputs(
@@ -233,11 +235,43 @@ class PipelineEngine:
           ground_truth=ground_truth
         )
         all_metrics[evaluator_key] = evaluator.evaluate_metrics()
+        evaluator_by_key[evaluator_key] = evaluator
+
+      # Build and persist evaluation summary
+      lines = ["=== Evaluation Results ==="]
+      for evaluator_name, evaluator_metrics in all_metrics.items():
+        lines.append(f"\n[{evaluator_name}]")
+        evaluator = evaluator_by_key.get(evaluator_name)
+        if evaluator is not None and hasattr(evaluator, 'format_summary'):
+          lines.append(evaluator.format_summary())
+        else:
+          for metric_name, metric_value in evaluator_metrics.items():
+            if isinstance(metric_value, int):
+              lines.append(f"  {metric_name}: {metric_value}")
+            else:
+              lines.append(f"  {metric_name}: {metric_value:.4f}")
+      self._summary = "\n".join(lines)
+      (self._output_path / "summary.txt").write_text(self._summary + "\n")
 
       return all_metrics
 
     except Exception as e:
       raise RuntimeError(f"Metric evaluation failed: {e}") from e
+
+  def get_summary(self) -> str:
+    """Return the evaluation summary text.
+
+    Returns:
+      Summary string built by evaluate().
+
+    Raises:
+      RuntimeError: If evaluate() has not been called yet.
+    """
+    if self._summary is None:
+      raise RuntimeError(
+        "Summary not available. Call evaluate() first."
+      )
+    return self._summary
 
   def _validate_configuration(self):
     """Validate configuration structure.
@@ -492,30 +526,9 @@ def main():
 
     # Evaluate metrics
     print("Evaluating metrics...")
-    metrics = engine.evaluate()
+    engine.evaluate()
 
-    # Build summary text
-    evaluator_by_key = {
-      engine._get_evaluator_key(i): ev
-      for i, ev in enumerate(engine._evaluators)
-    }
-    lines = ["\n=== Evaluation Results ==="]
-    for evaluator_name, evaluator_metrics in metrics.items():
-      lines.append(f"\n[{evaluator_name}]")
-      evaluator = evaluator_by_key.get(evaluator_name)
-      if evaluator is not None and hasattr(evaluator, 'format_summary'):
-        lines.append(evaluator.format_summary())
-      else:
-        for metric_name, metric_value in evaluator_metrics.items():
-          if isinstance(metric_value, int):
-            lines.append(f"  {metric_name}: {metric_value}")
-          else:
-            lines.append(f"  {metric_name}: {metric_value:.4f}")
-    summary = "\n".join(lines)
-
-    # Print to stdout and save to file
-    print(summary)
-    (engine._output_path / "summary.txt").write_text(summary.lstrip("\n") + "\n")
+    print(f"\n{engine.get_summary()}")
     print(f"\nResults saved to: {engine._output_path}")
 
   except Exception as e:
