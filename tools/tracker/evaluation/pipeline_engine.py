@@ -169,17 +169,23 @@ class PipelineEngine:
       )
 
     try:
-      # Get inputs from dataset
-      inputs = list(self._dataset.get_inputs())
-      print(f"Tracker input frames: {len(inputs)}")
-
       # Configure harness with scene config
       scene_config = self._dataset.get_scene_config()
       self._harness.set_scene_config(scene_config)
 
-      # Run tracker — materialise into a list once so evaluate() can
+      # Stream inputs through a counting wrapper so we can log the
+      # frame count without materializing the full dataset into memory.
+      input_count = 0
+      def _counted_inputs():
+        nonlocal input_count
+        for frame in self._dataset.get_inputs():
+          input_count += 1
+          yield frame
+
+      # Run tracker — materialise outputs into a list so evaluate() can
       # pass the same list to multiple evaluators without re-consuming an iterator.
-      self._tracker_outputs = list(self._harness.process_inputs(iter(inputs)))
+      self._tracker_outputs = list(self._harness.process_inputs(_counted_inputs()))
+      print(f"Tracker input frames: {input_count}")
       print(f"Tracker output frames: {len(self._tracker_outputs)}")
 
       return self
