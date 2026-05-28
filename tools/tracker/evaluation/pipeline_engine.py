@@ -55,7 +55,16 @@ class PipelineEngine:
 
   The pipeline creates a unique output directory for each run:
     <pipeline.output.path>/<run-ID>/
-  where <run-ID> is a timestamp in format YYYYMMDD_HHMMSS.
+  where <run-ID> is a timestamp in format YYYYMMDD_HHMMSS, optionally
+  suffixed with the run_name if provided (e.g. YYYYMMDD_HHMMSS_MyRun).
+
+  Output directory layout:
+    <pipeline.output.path>/<run-ID>/
+      config/                          Pipeline YAML config copy
+      dataset/                         Dataset-specific caches or exports
+      harness/                         Harness logs or artifacts
+      evaluators/<evaluator-key>/      One folder per evaluator
+      summary.txt                      Evaluation summary
 
   Evaluator results are saved to:
     <pipeline.output.path>/<run-ID>/evaluators/<evaluator-key>/
