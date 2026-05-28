@@ -8,7 +8,7 @@ matched output tracks and ground-truth tracks using bipartite assignment
 that minimizes mean Euclidean distance over overlapping frames.
 """
 
-from typing import Iterator, List, Dict, Any
+from typing import Iterator, List, Dict, Any, Optional
 from pathlib import Path
 from datetime import datetime
 import sys
@@ -59,7 +59,7 @@ class DiagnosticEvaluator(TrackerEvaluator):
     self._output_tracks: Dict[int, Dict[int, tuple]] = {}
     self._gt_tracks: Dict[int, Dict[int, tuple]] = {}
     self._uuid_to_id_map: Dict[str, int] = {}
-    self._base_fps: float = None
+    self._base_fps: Optional[float] = None
 
   def configure_metrics(self, metrics: List[str]) -> 'DiagnosticEvaluator':
     """Configure which metrics to evaluate.

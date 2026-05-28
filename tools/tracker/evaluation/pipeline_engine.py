@@ -203,7 +203,11 @@ class PipelineEngine:
 
     try:
       ground_truth = self._dataset.get_ground_truth()
-      gt_line_count = sum(1 for _ in open(ground_truth)) if Path(ground_truth).is_file() else 0
+      if Path(ground_truth).is_file():
+        with open(ground_truth) as f:
+          gt_line_count = sum(1 for _ in f)
+      else:
+        gt_line_count = 0
       print(f"Ground-truth frames: {gt_line_count}")
       all_metrics: Dict[str, Dict[str, float]] = {}
 

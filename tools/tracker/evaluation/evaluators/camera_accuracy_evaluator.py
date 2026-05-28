@@ -112,7 +112,7 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     self._last_camera_ids: List[str] = []
     self._last_gt_obj_ids: List[str] = []
     self._last_results: Dict[str, Any] = {}
-    self._base_fps: float = None
+    self._base_fps: Optional[float] = None
 
   # ------------------------------------------------------------------
   # TrackerEvaluator interface

@@ -7,7 +7,7 @@ Integrates with TrackEval library to compute industry-standard tracking metrics
 including HOTA, MOTA, IDF1, and CLEAR MOT metrics for 3D point tracking.
 """
 
-from typing import Iterator, List, Dict, Any
+from typing import Iterator, List, Dict, Any, Optional
 from pathlib import Path
 import sys
 import tempfile
@@ -224,7 +224,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
     self._class_name: str = "pedestrian"  # Class name used in MOTChallenge format
     self._num_frames: int = 0
     self._camera_fps: float = 30.0
-    self._base_fps: float = None
+    self._base_fps: Optional[float] = None
     self._uuid_to_id_map: Dict[str, int] = {}
 
   def configure_metrics(self, metrics: List[str]) -> 'TrackEvalEvaluator':

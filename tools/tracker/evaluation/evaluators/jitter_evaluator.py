@@ -69,7 +69,7 @@ class JitterEvaluator(TrackerEvaluator):
     self._gt_track_histories: Dict[str, List[tuple]] = {}
     # FPS derived from tracker output timestamps (used to convert GT frame → time)
     self._camera_fps: float = 30.0
-    self._base_fps: float = None
+    self._base_fps: Optional[float] = None
 
   # ------------------------------------------------------------------
   # TrackerEvaluator interface
