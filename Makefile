@@ -726,7 +726,7 @@ $(SECRETSDIR):
 	mkdir -p $@
 	@if ! chmod go-rwx $(SECRETSDIR); then \
 		if [ "$${CI}" = "true" ]; then \
-			echo "Warning: could not set restrictive permissions on $(SECRETSDIR) in CI; continuing."; \
+			echo "Warning: could not set restrictive permissions on $(SECRETSDIR) in CI; secrets may be more exposed on this filesystem."; \
 		else \
 			exit 1; \
 		fi; \
