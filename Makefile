@@ -724,7 +724,13 @@ init-secrets: $(SECRETSDIR) certificates auth-secrets
 
 $(SECRETSDIR):
 	mkdir -p $@
-	chmod go-rwx $(SECRETSDIR)
+	@if ! chmod go-rwx $(SECRETSDIR); then \
+		if [ "$${CI}" = "true" ]; then \
+			echo "Warning: could not set restrictive permissions on $(SECRETSDIR) in CI; continuing."; \
+		else \
+			exit 1; \
+		fi; \
+	fi
 
 .PHONY: $(SECRETSDIR) certificates
 certificates:
