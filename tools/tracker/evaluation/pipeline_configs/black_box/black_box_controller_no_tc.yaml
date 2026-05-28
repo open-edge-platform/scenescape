@@ -10,7 +10,7 @@ dataset:
   class: datasets.metric_test_dataset.MetricTestDataset
   config:
     data_path: ../../../tests/system/metric/dataset
-    cameras: [Cam_x2_0, Cam_x1_0]
+    cameras: [Cam_x1_0, Cam_x2_0]
     camera_fps: 30
 
 harness:
