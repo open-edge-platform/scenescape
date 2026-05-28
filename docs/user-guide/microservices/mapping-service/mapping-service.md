@@ -130,34 +130,39 @@ the service from source and running it.
 ```python
 import base64
 import requests
+from pathlib import Path
 
-# Encode images to base64
-def encode_image(image_path):
-    with open(image_path, "rb") as f:
-        return base64.b64encode(f.read()).decode('utf-8')
+# Prepare multipart request
+files = []
+handles = []
+for image_path in ["image1.jpg", "image2.jpg"]:
+  path = Path(image_path)
+  handle = path.open("rb")
+  handles.append(handle)
+  files.append(("images", (path.name, handle, "image/jpeg")))
 
-# Prepare request
-payload = {
-    "images": [
-        {"data": encode_image("image1.jpg"), "filename": "image1.jpg"},
-        {"data": encode_image("image2.jpg"), "filename": "image2.jpg"}
-    ],
-    "output_format": "glb"
+data = {
+  "output_format": "glb",
+  "mesh_type": "mesh",
 }
 
-# Send request directly to mapping service
-response = requests.post("https://localhost:8444/reconstruction", json=payload)
-result = response.json()
+try:
+  # Send request through the Apache reverse proxy used in the full stack deployment
+  response = requests.post("https://localhost/api/v1/mapping/reconstruction", data=data, files=files)
+  result = response.json()
 
-if result["success"]:
+  if result["success"]:
     # Save GLB file
     glb_data = base64.b64decode(result["glb_data"])
     with open("output.glb", "wb") as f:
-        f.write(glb_data)
+      f.write(glb_data)
 
     print(f"Model used: {result['model']}")
     print(f"Processing time: {result['processing_time']:.2f}s")
     print(f"Camera poses: {len(result['camera_poses'])}")
+finally:
+  for handle in handles:
+    handle.close()
 ```
 
 ### Using the Included Client
