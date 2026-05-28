@@ -145,7 +145,7 @@ payload = {
     "output_format": "glb"
 }
 
-# Send request
+# Send request directly to mapping service
 response = requests.post("https://localhost:8444/reconstruction", json=payload)
 result = response.json()
 

@@ -543,8 +543,8 @@ services:
       scenescape:
         aliases:
           - mapping.scenescape.intel.com
-    ports:
-      - "8444:8444"
+    # ports:
+    #   - "8444:8444"
     volumes:
       - vol-mapping-model-weights:/workspace/model_weights
       - vol-mapping-torch-cache:/workspace/.cache/torch
