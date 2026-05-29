@@ -72,4 +72,3 @@ runs:
         sudo apt remove -y firefox
         sudo snap remove --purge firefox
         sudo apt install -y firefox
-
