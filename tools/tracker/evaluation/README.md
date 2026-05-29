@@ -132,6 +132,30 @@ Run the pipeline:
 python -m pipeline_engine config.yaml
 ```
 
+**Output Structure**: Each pipeline run creates a unique timestamped directory:
+
+The pipeline creates a unique output directory for each run: `<pipeline.output.path>/<run-ID>/` where `<run-ID>` is a timestamp in format `YYYYMMDD_HHMMSS`, optionally suffixed with the run_name if provided (e.g. `YYYYMMDD_HHMMSS_MyRun`).
+
+Output directory layout:
+
+```
+  <pipeline.output.path>/<run-ID>/
+    config/                          Pipeline YAML config copy
+    dataset/                         Dataset-specific caches or exports
+    harness/                         Harness logs or artifacts
+    evaluators/<evaluator-key>/      One folder per evaluator
+    summary.txt                      Evaluation summary
+```
+
+Evaluator results are saved to: `<pipeline.output.path>/<run-ID>/evaluators/<evaluator-key>/`
+
+The `<evaluator-key>` is the evaluator class name (e.g., `TrackEvalEvaluator`). When two evaluators
+share the same class name, an index suffix is appended to keep keys unique
+(e.g., `TrackEvalEvaluator_0/`, `TrackEvalEvaluator_1/`).
+
+**Multiple evaluators**: The `evaluators` list accepts any number of entries. Each evaluator runs
+against the same tracker outputs independently.
+
 ### Black-Box Evaluation Suite
 
 `run_black_box_evaluation.py` runs the complete black-box evaluation across all three
@@ -202,26 +226,6 @@ The session summary is printed to stdout at the end:
       IDF1: 0.9966
     ...
 ```
-
-**Output Structure**: Each pipeline run creates a unique timestamped directory:
-
-```
-<pipeline.output.path>/
-  └── <run-ID>/                        # Format: YYYYMMDD_HHMMSS[_RunName]
-      ├── config/                      # Copy of the pipeline YAML config
-      ├── dataset/                     # Dataset-specific caches or exports
-      ├── harness/                     # Harness logs or artifacts
-      ├── evaluators/
-      │   └── <evaluator-key>/         # One folder per evaluator
-      └── summary.txt                  # Evaluation summary
-```
-
-The `<evaluator-key>` is the evaluator class name (e.g., `TrackEvalEvaluator`). When two evaluators
-share the same class name, an index suffix is appended to keep keys unique
-(e.g., `TrackEvalEvaluator_0/`, `TrackEvalEvaluator_1/`).
-
-**Multiple evaluators**: The `evaluators` list accepts any number of entries. Each evaluator runs
-against the same tracker outputs independently.
 
 ## Frame Rate Assumption
 
