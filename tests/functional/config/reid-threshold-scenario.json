@@ -7,9 +7,9 @@
     "expect_exceed_max": true
   },
   {
-    "scenario_name": "reid-l2-tight-time-chunking",
+    "scenario_name": "reid-l2-tight-no-time-chunking",
     "metric": "L2",
-    "variant": "time-chunking",
+    "variant": "no-time-chunking",
     "threshold": 1,
     "expect_exceed_max": true
   },
@@ -21,9 +21,9 @@
     "expect_exceed_max": true
   },
   {
-    "scenario_name": "reid-cosine-tight-time-chunking",
+    "scenario_name": "reid-cosine-tight-no-time-chunking",
     "metric": "cosine",
-    "variant": "time-chunking",
+    "variant": "no-time-chunking",
     "threshold": 0.99,
     "expect_exceed_max": true
   },
@@ -35,9 +35,9 @@
     "expect_exceed_max": false
   },
   {
-    "scenario_name": "reid-l2-loose-time-chunking",
+    "scenario_name": "reid-l2-loose-no-time-chunking",
     "metric": "L2",
-    "variant": "time-chunking",
+    "variant": "no-time-chunking",
     "threshold": 30,
     "expect_exceed_max": false
   },
@@ -49,9 +49,9 @@
     "expect_exceed_max": false
   },
   {
-    "scenario_name": "reid-cosine-loose-time-chunking",
+    "scenario_name": "reid-cosine-loose-no-time-chunking",
     "metric": "cosine",
-    "variant": "time-chunking",
+    "variant": "no-time-chunking",
     "threshold": 0.01,
     "expect_exceed_max": false
   }
