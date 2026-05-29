@@ -29,7 +29,6 @@ _THIS_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _THIS_DIR.parent.parent.parent
 _EVAL_SCRIPT = _REPO_ROOT / "tools" / "tracker" / "evaluation" / "run_black_box_evaluation.py"
 _EVAL_REQUIREMENTS = _REPO_ROOT / "tools" / "tracker" / "evaluation" / "requirements.txt"
-_VERSION_FILE = _REPO_ROOT / "version.txt"
 
 # ---------------------------------------------------------------------------
 # Evaluation modes (stem of the pipeline config file name)
@@ -97,10 +96,9 @@ def black_box_metrics(tmp_path_factory, _eval_deps_installed) -> dict[tuple, flo
     sys.path.insert(0, str(_EVAL_SCRIPT.parent))
   from run_black_box_evaluation import run_all  # noqa: PLC0415
 
-  image_tag = _VERSION_FILE.read_text().strip() if _VERSION_FILE.exists() else None
   output_dir = tmp_path_factory.mktemp("bb_eval")
 
-  results = run_all(image_tag=image_tag, output_dir=output_dir)
+  results = run_all(output_dir=output_dir)
 
   if all(isinstance(r, Exception) for _, r in results):
     pytest.fail("All evaluation runs failed — check container images and harness setup")
@@ -117,6 +115,8 @@ def black_box_metrics(tmp_path_factory, _eval_deps_installed) -> dict[tuple, flo
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+@pytest.mark.basic_acceptance
+@pytest.mark.metric
 @pytest.mark.parametrize("run,metric,min_threshold", _TRACKEVAL_PARAMS)
 def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold):
   """TrackEval metric (HOTA/MOTA/IDF1) must meet the minimum threshold."""
@@ -129,6 +129,8 @@ def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold):
   )
 
 
+@pytest.mark.basic_acceptance
+@pytest.mark.metric
 @pytest.mark.parametrize("run,metric,max_threshold", _JITTER_PARAMS)
 def test_jitter_threshold(black_box_metrics, run, metric, max_threshold):
   """JitterEvaluator metric must not exceed the maximum threshold."""

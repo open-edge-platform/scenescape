@@ -13,12 +13,11 @@ All results land under a shared session directory:
 Usage (from any directory):
   python run_black_box_evaluation.py
   python run_black_box_evaluation.py --output /custom/output/path
-  python run_black_box_evaluation.py --image-tag 2026.1.0-rc1.1
 
 Programmatic use::
 
   from run_black_box_evaluation import run_all
-  results = run_all(image_tag="2026.1.0")  # list of (run_name, metrics|Exception)
+  results = run_all()  # list of (run_name, metrics|Exception)
 """
 
 import argparse
@@ -51,11 +50,8 @@ DEFAULT_OUTPUT_BASE = _SCRIPT_DIR / "output" / "black-box-evaluation"
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _run_config(config_path: Path, session_output: Path, image_tag: str | None = None) -> dict:
+def _run_config(config_path: Path, session_output: Path) -> dict:
   """Load *config_path*, set its output base to *session_output*, run it.
-
-  If *image_tag* is given, the tag portion of the harness ``container_image``
-  is replaced with that value so the locally-built images are used.
 
   Returns the metrics dict from PipelineEngine.evaluate().
   """
@@ -74,11 +70,6 @@ def _run_config(config_path: Path, session_output: Path, image_tag: str | None =
     cfg["dataset"]["config"]["data_path"] = str(
       (_SCRIPT_DIR / raw_path).resolve()
     )
-
-  if image_tag:
-    existing = cfg["harness"]["config"].get("container_image", "")
-    image_name = existing.rsplit(":", 1)[0] if ":" in existing else existing
-    cfg["harness"]["config"]["container_image"] = f"{image_name}:{image_tag}"
 
   engine = PipelineEngine()
   # Inject patched config directly so we don't need a temp file.
@@ -125,14 +116,11 @@ def _print_summary(session_output: Path, results: list[tuple[str, dict | Excepti
 # ---------------------------------------------------------------------------
 
 def run_all(
-  image_tag: str | None = None,
   output_dir: Path | None = None,
 ) -> list[tuple[str, dict | Exception]]:
   """Run all black-box evaluation configs and return results.
 
   Args:
-    image_tag:  Container image tag to use.  When *None* the tag already
-                present in each config file is used.
     output_dir: Base directory for session output.  Defaults to
                 ``DEFAULT_OUTPUT_BASE``.
 
@@ -152,7 +140,7 @@ def run_all(
     print(f"  Running: {config_path.name}")
     print(f"{'─' * 60}")
     try:
-      metrics = _run_config(config_path, session_output, image_tag)
+      metrics = _run_config(config_path, session_output)
       results.append((run_name, metrics))
     except Exception as exc:
       traceback.print_exc()
@@ -172,13 +160,9 @@ def main() -> int:
       "--output", default=DEFAULT_OUTPUT_BASE,
       help=f"Base output directory (default: {DEFAULT_OUTPUT_BASE})",
   )
-  parser.add_argument(
-      "--image-tag", default=None, dest="image_tag",
-      help="Override the container image tag in every harness config (e.g. from version.txt)",
-  )
   args = parser.parse_args()
 
-  results = run_all(image_tag=args.image_tag, output_dir=args.output)
+  results = run_all(output_dir=args.output)
   failed = sum(1 for _, r in results if isinstance(r, Exception))
   return failed
 
