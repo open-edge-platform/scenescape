@@ -13,7 +13,7 @@ repository root.
 
 Usage::
 
-  pytest tests/system/metric/test_black_box_regression.py
+  pytest tests/system/metric/test_black_box_evaluation.py
 """
 
 import subprocess
