@@ -14,7 +14,7 @@ Usage (from any directory):
   python run_black_box_evaluation.py
   python run_black_box_evaluation.py --output /custom/output/path
 
-Programmatic use::
+Programmatic use:
 
   from run_black_box_evaluation import run_all
   results = run_all()  # list of (run_name, metrics|Exception)
@@ -50,8 +50,12 @@ DEFAULT_OUTPUT_BASE = _SCRIPT_DIR / "output" / "black-box-evaluation"
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _run_config(config_path: Path, session_output: Path) -> dict:
+def _run_config(config_path: Path, session_output: Path, image_tag: str | None = None) -> dict:
   """Load *config_path*, set its output base to *session_output*, run it.
+
+  If *image_tag* is given, the tag portion of the harness ``container_image``
+  is replaced with that value.  When *None* the tag from the YAML file is used
+  unchanged (intended for manual runs where the user edits the YAML directly).
 
   Returns the metrics dict from PipelineEngine.evaluate().
   """
@@ -70,6 +74,11 @@ def _run_config(config_path: Path, session_output: Path) -> dict:
     cfg["dataset"]["config"]["data_path"] = str(
       (_SCRIPT_DIR / raw_path).resolve()
     )
+
+  if image_tag:
+    existing = cfg["harness"]["config"].get("container_image", "")
+    image_name = existing.rsplit(":", 1)[0] if ":" in existing else existing
+    cfg["harness"]["config"]["container_image"] = f"{image_name}:{image_tag}"
 
   engine = PipelineEngine()
   # Inject patched config directly so we don't need a temp file.
@@ -116,11 +125,15 @@ def _print_summary(session_output: Path, results: list[tuple[str, dict | Excepti
 # ---------------------------------------------------------------------------
 
 def run_all(
+  image_tag: str | None = None,
   output_dir: Path | None = None,
 ) -> list[tuple[str, dict | Exception]]:
   """Run all black-box evaluation configs and return results.
 
   Args:
+    image_tag:  Override the container image tag in every harness config.
+                When *None* the tag already present in each YAML file is used
+                (intended for manual runs where the user edits the YAML).
     output_dir: Base directory for session output.  Defaults to
                 ``DEFAULT_OUTPUT_BASE``.
 
@@ -140,7 +153,7 @@ def run_all(
     print(f"  Running: {config_path.name}")
     print(f"{'─' * 60}")
     try:
-      metrics = _run_config(config_path, session_output)
+      metrics = _run_config(config_path, session_output, image_tag)
       results.append((run_name, metrics))
     except Exception as exc:
       traceback.print_exc()
