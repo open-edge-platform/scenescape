@@ -92,17 +92,7 @@ def black_box_metrics(tmp_path_factory, _eval_deps_installed) -> dict[tuple, flo
   Returns:
     Dict mapping (run_name, evaluator, metric) -> float value.
   """
-  # Lazy import after dependencies have been installed by _eval_deps_installed.
-  #
-  # pytest adds tests/ (its rootdir) to sys.path early, which causes
-  # tests/utils/ to be cached in sys.modules as the bare 'utils' package.
-  # The evaluation package has its own utils/format_converters module that
-  # would be shadowed by that cached entry.  We therefore:
-  #   1. insert the evaluation root at sys.path[0] so it wins the search, and
-  #   2. temporarily evict any stale 'utils' entries from sys.modules so the
-  #      evaluation's utils/ is loaded fresh from the correct location.
-  # After run_all() completes the stale entries are restored so the rest of
-  # the test session continues to see tests/utils as expected.
+
   eval_dir = str(_EVAL_SCRIPT.parent)
   if eval_dir not in sys.path:
     sys.path.insert(0, eval_dir)
