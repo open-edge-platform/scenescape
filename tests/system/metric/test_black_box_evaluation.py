@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Black-box regression evaluation tests.
+"""Black-box evaluation tests.
 
 Runs the full black-box evaluation suite (all three container modes) once per
 pytest session and asserts that TrackEval (HOTA, MOTA, IDF1) and JitterEvaluator
