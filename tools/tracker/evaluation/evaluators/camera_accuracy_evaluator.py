@@ -112,6 +112,7 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     self._last_camera_ids: List[str] = []
     self._last_gt_obj_ids: List[str] = []
     self._last_results: Dict[str, Any] = {}
+    self._base_fps: Optional[float] = None
 
   # ------------------------------------------------------------------
   # TrackerEvaluator interface
@@ -150,6 +151,23 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
       path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
     self._output_folder = path
+    return self
+
+  def set_base_fps(self, fps=None) -> 'CameraAccuracyEvaluator':
+    """Set base frame rate for timestamp-to-frame-number conversion.
+
+    Args:
+      fps: Frames per second (> 0), or None to auto-compute from timestamps.
+
+    Returns:
+      Self for method chaining.
+
+    Raises:
+      ValueError: If fps is not None and <= 0.
+    """
+    if fps is not None and fps <= 0:
+      raise ValueError("fps must be > 0")
+    self._base_fps = fps
     return self
 
   def set_scene_config(self, config: Dict[str, Any]) -> 'CameraAccuracyEvaluator':
@@ -545,6 +563,7 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     self._last_camera_ids = []
     self._last_gt_obj_ids = []
     self._last_results = {}
+    self._base_fps = None
     return self
 
   # ------------------------------------------------------------------
@@ -577,7 +596,9 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
 
     # Use unique timestamps to compute FPS (each camera may emit its own stream)
     unique_ts = sorted(set(timestamps))
-    if len(unique_ts) > 1:
+    if self._base_fps is not None:
+      fps = self._base_fps
+    elif len(unique_ts) > 1:
       span = (unique_ts[-1] - unique_ts[0]).total_seconds()
       fps = (len(unique_ts) - 1) / span if span > 0 else 30.0
     else:
