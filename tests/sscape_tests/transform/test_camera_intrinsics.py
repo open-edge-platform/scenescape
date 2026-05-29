@@ -135,21 +135,14 @@ class TestCameraIntrinsics:
 
   def test_rewarp_point(self):
     """Test rewarping point using fisheye model"""
-    # Use exactly 4 distortion parameters as required by OpenCV fisheye
-    # Make sure intrinsics is correct type and distortion has exactly 4 elements
     intrinsics = CameraIntrinsics([400.0, 400.0, 320.0, 240.0], [-0.2, 0.1, -0.05, 0.02])
-    # First unwarp an image to set up the maps
     image = np.ones((480, 640, 3), dtype=np.uint8) * 128
 
-    try:
-      intrinsics.unwarp(image)
-      point = Point(150.3, 200.7)
-      rewarped_point = intrinsics.rewarpPoint(point)
-      assert isinstance(rewarped_point, Point)
-      assert not math.isclose(rewarped_point.x, point.x, abs_tol=1e-6)
-    except cv2.error:
-      # Skip this test if OpenCV fisheye distortion has compatibility issues
-      pytest.skip("OpenCV fisheye distortion compatibility issue")
+    intrinsics.unwarp(image)
+    point = Point(150.3, 200.7)
+    rewarped_point = intrinsics.rewarpPoint(point)
+    assert isinstance(rewarped_point, Point)
+    assert not math.isclose(rewarped_point.x, point.x, abs_tol=1e-6)
 
   def test_as_dict(self):
     """Test converting intrinsics to dictionary"""

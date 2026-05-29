@@ -15,10 +15,12 @@ from manager.views import SingletonSensorDeleteView, SingletonSensorCreateView, 
 from unittest.mock import MagicMock, patch
 from django.contrib.auth.models import User
 from django.test.client import RequestFactory
-from django.test.client import RequestFactory
 from manager.settings import AXES_FAILURE_LIMIT
+from pathlib import Path
 
 test_scene_id = None
+
+SENSOR_ICON_PATH = Path(__file__).resolve().parent.parent.parent / 'ui' / 'test_media' / 'SensorIcon.png'
 
 class SetUpTestCases(TestCase):
   def setUp(self):
@@ -245,7 +247,7 @@ class TestCameraViews(TestCase):
     return
 
   def test_camera_calibrate_elif_2(self):
-    with open('tests/ui/test_media/SensorIcon.png', 'rb') as img:
+    with open(str(SENSOR_ICON_PATH), 'rb') as img:
       dummy = self.camera_intrinsics.copy()
       dummy.update({'save_camera_advanced': 1,'icon': img})
       response = self.client.post('/cam/calibrate/1', data = dummy)
@@ -378,7 +380,7 @@ class TestSingletonSensorViews(TestCase):
 
   def test_generic_calibrate_else(self):
     views.SingletonDetailsForm = MagicMock()
-    with open('tests/ui/test_media/SensorIcon.png', 'rb') as img:
+    with open(str(SENSOR_ICON_PATH), 'rb') as img:
       dummy = self.sensor_intrinsics.copy()
       dummy.update({'icon': img, 'save_sensor_details': 1})
       response = self.client.post('/singleton_sensor/calibrate/1', data = dummy)
@@ -387,7 +389,7 @@ class TestSingletonSensorViews(TestCase):
 
   def test_generic_calibrate_else_point_gt_zero(self):
     views.len = MagicMock(return_value = 1)
-    with open('tests/ui/test_media/SensorIcon.png', 'rb') as img:
+    with open(str(SENSOR_ICON_PATH), 'rb') as img:
       dummy = self.sensor_intrinsics.copy()
       dummy.update({'icon': img})
       response = self.client.post('/singleton_sensor/calibrate/1', data = dummy)

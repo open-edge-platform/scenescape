@@ -1,10 +1,14 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from pathlib import Path
+
 import pytest
-from conftest import SCHEMA_PATH, INVALID_SCHEMA_PATH
 import json
 from types import SimpleNamespace
+
+SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent.parent / "controller" / "src" / "schema" / "metadata.schema.json"
+INVALID_SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent.parent / "controller" / "src" / "schema" / "invalid.metadata.schema.json"
 
 def mockPayload(objData):
   objData = json.dumps(objData).encode("utf-8")

@@ -194,32 +194,47 @@ Following are the step-by-step instructions for enabling person reidentification
 
 ## Enable Pose Estimation
 
-Following are short steps to enable pose metadata for the out-of-box **Queuing** scene.
+Following are step-by-step instructions for enabling pose estimation for the out-of-box **Queuing** scene.
 
-1. Download the YOLO pose model using the DL Streamer helper script from the external DL Streamer repository:
+1. **Download the required models** using the DL Streamer helper script from the external DL Streamer repository:
 
    Script: [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
    Usage guide: [Download Public Models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/download_public_models.html)
 
-```bash
-./download_public_models.sh yolo11n-pose
-```
+   Download the YOLO pose model:
 
-2. Copy the downloaded model folder into the SceneScape models volume (`scenescape_vol-models`), for example using `docker cp`:
+   ```bash
+   ./download_public_models.sh yolo11m-pose
+   ```
 
-```bash
-docker create --name scenescape-models -v scenescape_vol-models:/models alpine
-docker cp ./models/public/yolo11n-pose scenescape-models:/models/public/yolo11n-pose
-docker rm scenescape-models
-```
+   For pipelines that combine pose estimation with re-identification (as in [queuing-config-pose.json](./queuing-config-pose.json) `qcam1`), also download the `mars-small128` ReID model:
 
-3. Use predefined [queuing-config-pose.json](./queuing-config-pose.json):
+   ```bash
+   ./download_public_models.sh mars-small128
+   ```
 
-```yaml
-configs:
-  queuing-config:
-    file: ./dlstreamer-pipeline-server/queuing-config-pose.json
-```
+2. **Copy the downloaded model folders** into the SceneScape models volume (`scenescape_vol-models`):
+
+   ```bash
+   docker create --name scenescape-models -v scenescape_vol-models:/models alpine
+   docker cp ./models/public/yolo11m-pose scenescape-models:/models/public/yolo11m-pose
+   docker cp ./models/public/mars-small128 scenescape-models:/models/public/mars-small128
+   docker rm scenescape-models
+   ```
+
+3. **Use the predefined pipeline configuration** [queuing-config-pose.json](./queuing-config-pose.json):
+
+   ```yaml
+   configs:
+     queuing-config:
+       file: ./dlstreamer-pipeline-server/queuing-config-pose.json
+   ```
+
+4. **Enable pose-based bounding box adjustment** in the Scene Controller (optional):
+
+   To enable improved localization using pose keypoints, pass the `--pose-adjustment` flag or set the `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable on the `scene` service. This feature is disabled by default. See the [Scene Controller documentation](../docs/user-guide/microservices/controller/controller.md) for details.
+
+> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128` for deep-sort tracking) must use `detectionPolicy` as the metadata generation policy — `reidPolicy` is not supported for these pipelines. Additionally, the `--pose-adjustment` controller flag cannot be used together with Extended ReID (VDMS-based cross-camera re-identification).
 
 ## Creating a New Pipeline
 

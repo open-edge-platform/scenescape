@@ -1,18 +1,31 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import numpy as np
 import random
 from tests.functional import FunctionalTest
-from scene_common import log
 from controller.vdms_adapter import VDMSDatabase, vdms
+from tests.utils.log import get_logger
+
+log = get_logger(__name__)
 
 class BackendFunctionalTest(FunctionalTest):
   def vdms_connect(self, use_tls=True):
-    self.vdb = VDMSDatabase()
+    rootcert = self.params.get('rootcert', '/run/secrets/certs/scenescape-ca.pem')
+    secrets_dir = os.path.dirname(os.path.dirname(rootcert))
+    certs_dir = os.path.join(secrets_dir, 'certs')
+    client_cert = os.path.join(certs_dir, 'scenescape-vdms-c.crt')
+    client_key = os.path.join(certs_dir, 'scenescape-vdms-c.key')
+    self.vdb = VDMSDatabase(
+      ca_cert=rootcert,
+      client_cert=client_cert,
+      client_key=client_key,
+    )
     if not use_tls:
       self.vdb.db = vdms.vdms(use_tls=False)
     self.vdb.connect()
+    assert self.vdb.db.connected, "Failed to connect to VDMS. Is the VDMS service running?"
     return
 
   def generate_random_vector(self, floor=-1, ceiling=1, vsize=256):
@@ -51,5 +64,4 @@ class BackendFunctionalTest(FunctionalTest):
     }]
 
     query = find * len(reid_vectors)
-    response, res_arr = self.vdb.db.query(query, blob)
-    return (response, res_arr)
+    return self.vdb.sendQuery(query, blob)

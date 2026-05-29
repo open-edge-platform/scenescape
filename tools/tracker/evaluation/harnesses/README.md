@@ -181,6 +181,109 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 - [tests/test_camera_projection_harness.py](tests/test_camera_projection_harness.py) — 23 test cases covering initialisation, scene/custom config validation (including `object_classes`), output folder, `process_inputs()` success/failure paths, reset, and helper methods.
 - [tests/test_run_projection.py](tests/test_run_projection.py) — 7 test cases covering `_build_class_map` (run without Docker). The size-offset step uses `scene_common.geometry.Line` directly so has no custom math to unit-test.
 
+### BlackBoxHarness
+
+**Purpose**: Black-box end-to-end tracker evaluation over live MQTT messages without any dependency on internal SceneScape Python APIs.
+
+**Mode**: **Synchronous batch processing** — processes all inputs and returns outputs.
+
+**Key Features**:
+
+- Starts an `eclipse-mosquitto` broker container and the tracker container on an isolated Docker network (`black_box_harness_{run_id}`); both containers and the network are removed after the run.
+- Publishes each input frame to `scenescape/data/camera/{camera_id}` and collects tracker outputs from `scenescape/data/scene/{scene_id}/+`.
+- Publishes input frames paced by wall-clock delays derived from the data timestamps, reproducing the original capture cadence. `maxlag`/`max_lag_s=1e15` only suppresses lag-rejection in the tracker — it does **not** replace pacing, which is required for the time-chunk scheduler to fire at the correct rate.
+- Persists `inputs.json` and `outputs.json` to the output folder when `set_output_folder()` is called, creating the directory automatically if it does not exist.
+- Supports both **Controller** (`scenescape-controller`) and **Tracker Service** (`scenescape-tracker`) container types, set explicitly via the required `container_type` config key.
+- Runs a **Mock Manager REST API** (`mock_manager.py`) on the Docker host so both container types can load scene configuration without a real Manager deployment.
+
+**Prerequisites**:
+
+- Docker installed and running
+- `eclipse-mosquitto` image available (or override `broker_image`)
+- Tracker container image available (e.g., `scenescape-controller:2026.1.0-dev` or `scenescape-tracker:2026.1.0-dev`)
+- `paho-mqtt>=1.6.1` installed (included in `requirements.txt`)
+
+**Configuration**:
+
+```python
+from harnesses.black_box_harness import BlackBoxHarness
+from datasets.metric_test_dataset import MetricTestDataset
+
+dataset = MetricTestDataset("path/to/dataset")
+dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
+
+harness = BlackBoxHarness(container_image="scenescape-controller:2026.1.0-dev")
+harness.set_scene_config(dataset.get_scene_config())
+harness.set_custom_config({
+    "tracker_config_path": "/path/to/tracker-config.json",
+    "container_type": "controller",  # required: "controller" or "tracker"
+    "broker_image": "eclipse-mosquitto:2.0.22",
+    # Optional overrides:
+    # "drain_timeout": 5.0,            # Seconds to wait after last frame
+    # "scene_id": "my-scene-uid",      # Override UID from scene config
+})
+
+outputs = list(harness.process_inputs(dataset.get_inputs()))
+```
+
+**`set_custom_config()` keys**:
+
+| Key                   | Required | Default | Description                                                          |
+| --------------------- | -------- | ------- | -------------------------------------------------------------------- |
+| `tracker_config_path` | Yes      | —       | Path to tracker config JSON, mounted into the tracker container      |
+| `broker_image`        | Yes      | —       | Docker image for the MQTT broker (e.g. `"eclipse-mosquitto:2.0.22"`) |
+| `container_type`      | Yes      | —       | `"controller"` or `"tracker"`                                        |
+
+| `drain_timeout` | No | `5.0` | Seconds to wait for remaining tracker outputs after the last frame |
+| `scene_id` | No | derived from scene config `uid` | Override the MQTT topic scene ID |
+| `startup_wait_s` | No | `2.0` | Seconds to wait after container starts before publishing frames |
+
+**MQTT Topics**:
+
+- Input (publish): `scenescape/data/camera/{camera_id}`
+- Output (subscribe): `scenescape/data/scene/{scene_id}/+`
+
+**Mock Manager REST API**:
+
+Both container types call a Manager REST API to load scene configuration on startup.
+The harness starts `mock_manager.py` as a thread on the Docker host and registers it via
+`--add-host` so containers can reach it at `http://<manager_hostname>:8888/api/v1`.
+
+Endpoints served:
+
+| Method | Path                   | Description                                                  |
+| ------ | ---------------------- | ------------------------------------------------------------ |
+| POST   | `/api/v1/auth`         | Returns `{"token": "mock"}` — accepts any credentials        |
+| GET    | `/api/v1/scenes`       | Returns the full scene with cameras and computed extrinsics  |
+| GET    | `/api/v1/scenes/child` | Returns `{"results": []}` (no child scenes)                  |
+| GET    | `/api/v1/assets`       | Returns `{"results": []}` (no assets)                        |
+| GET    | `/api/v1/camera/<uid>` | Returns per-camera data including calibration and extrinsics |
+| POST   | `/api/v1/camera/<uid>` | Accepts calibration updates (no-op — not persisted)          |
+
+Camera extrinsics (`translation`, `rotation`, `scale`) are computed from the dataset's
+`camera points` / `map points` using the same logic as production:
+`PointCorrespondenceTransform._calculatePoseMat()` in `scene_common/transform.py`,
+including distortion coefficients, coplanarity check, and `_poseMatToPose()` scale extraction.
+
+**Tracker Service auth file**:
+
+The Tracker Service reads a JSON auth file at startup (path set via `scenes.manager.auth_path`
+in its config). The file must contain `"user"` and `"password"` fields
+(validated by `api_scene_loader.cpp`). The harness writes `{"user": "harness", "password": "harness"}`.
+
+**Implementation**: [black_box_harness/](black_box_harness/)
+
+**Files**:
+
+- **black_box_harness.py**: Main harness implementation — Docker orchestration, MQTT publishing/collecting, timestamp pacing
+- **mock_manager.py**: Minimal Manager REST API server — extrinsics computation, scene/camera endpoints
+- `__init__.py`: Module initialisation
+
+**Tests**:
+
+- [tests/test_black_box_harness.py](tests/test_black_box_harness.py) — 56 test cases covering initialisation, config validation, timestamp pacing, wall-clock frame pacing (time-chunk scheduler correctness), full orchestration flow (Docker and paho fully mocked), `outputs.json` persistence to new nested directories, and Tracker Service auth file `user`/`password` fields.
+- [tests/test_mock_manager.py](tests/test_mock_manager.py) — 42 test cases covering `_distortion_to_array()` (None/list/dict inputs, 14-key mapping), coplanarity helpers, `_pose_mat_to_extrinsics()` (identity, translation, scale, JSON serialization), `_compute_extrinsics()` (happy path, insufficient points, 2-D map points, distortion dict), `_build_rest_scene()` structure and JSON serializability, and all HTTP endpoints via a real ephemeral HTTPServer.
+
 ## Adding New Harnesses
 
 To add support for a new tracker deployment method:

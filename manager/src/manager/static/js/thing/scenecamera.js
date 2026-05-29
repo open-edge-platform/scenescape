@@ -489,6 +489,7 @@ export default class SceneCamera extends THREE.Object3D {
       control = this.controlsFolder.add(panelSettings, "delete");
       control.$button.id = this.name.concat("-", "delete-camera");
       control = this.controlsFolder.add(panelSettings, "auto calibrate");
+      control.$button.id = this.name.concat("-", "auto-calibrate");
       control.domElement.classList.add("disabled");
     }
 
