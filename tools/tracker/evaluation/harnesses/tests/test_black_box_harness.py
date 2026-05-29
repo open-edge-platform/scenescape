@@ -495,7 +495,7 @@ class TestProcessInputsFlow:
       self, mock_sleep, MockMqttClient, mock_docker,
       configured_harness, sample_frames, tmp_path
   ):
-    """inputs.json is written to the output folder when one is set."""
+    """inputs.jsonl is written to the output folder when one is set."""
     mock_client_instance = MagicMock()
     MockMqttClient.return_value = mock_client_instance
     mock_docker.network.create = MagicMock()
@@ -505,7 +505,7 @@ class TestProcessInputsFlow:
     configured_harness.set_output_folder(tmp_path / "out")
     list(configured_harness.process_inputs(iter(sample_frames)))
 
-    assert (tmp_path / "out" / "inputs.json").exists()
+    assert (tmp_path / "out" / "inputs.jsonl").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -846,7 +846,7 @@ class TestPersistOutputs:
       self, mock_sleep, MockMqttClient, mock_docker,
       harness, scene_config, tracker_config_file, sample_frames, tmp_path
   ):
-    """outputs.json is created even when the output directory does not exist yet."""
+    """outputs.jsonl is created even when the output directory does not exist yet."""
     mock_client_instance = MagicMock()
     MockMqttClient.return_value = mock_client_instance
     mock_docker.network.create = MagicMock()
@@ -875,9 +875,9 @@ class TestPersistOutputs:
 
     list(harness.process_inputs(iter(sample_frames)))
 
-    outputs_file = out_dir / "outputs.json"
-    assert outputs_file.exists(), "outputs.json not found in output folder"
-    written = json.loads(outputs_file.read_text())
+    outputs_file = out_dir / "outputs.jsonl"
+    assert outputs_file.exists(), "outputs.jsonl not found in output folder"
+    written = [json.loads(line) for line in outputs_file.read_text().splitlines() if line.strip()]
     assert isinstance(written, list)
     assert len(written) == 1
     assert written[0]["objects"][0]["id"] == "abc"
