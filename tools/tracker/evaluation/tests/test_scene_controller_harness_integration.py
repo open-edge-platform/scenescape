@@ -204,3 +204,37 @@ class TestSceneControllerHarnessIntegration:
     # Check that object has some expected fields (may vary based on actual output)
     assert isinstance(first_object, dict), "Object should be a dictionary"
     # Note: Not checking specific fields as format is being validated by schema test
+
+  def test_category_filter_reduces_output_objects(self, harness, dataset):
+    """Filtering input categories reduces the number of tracked objects."""
+    harness.set_scene_config(dataset.get_scene_config())
+    harness.set_custom_config({
+      'tracker_config_path': str(TRACKER_CONFIG_PATH)
+    })
+
+    # Run without category filter
+    limited_inputs = itertools.islice(dataset.get_inputs(), NUM_INPUT_FRAMES)
+    outputs_all = list(harness.process_inputs(limited_inputs))
+    ids_all = {
+      obj.get("id") for out in outputs_all
+      for obj in out.get("objects", [])
+    }
+
+    # Run with "person" only
+    harness.reset()
+    dataset.set_object_categories(["person"])
+    harness.set_scene_config(dataset.get_scene_config())
+    harness.set_custom_config({
+      'tracker_config_path': str(TRACKER_CONFIG_PATH)
+    })
+    limited_inputs = itertools.islice(dataset.get_inputs(), NUM_INPUT_FRAMES)
+    outputs_filtered = list(harness.process_inputs(limited_inputs))
+    ids_filtered = {
+      obj.get("id") for out in outputs_filtered
+      for obj in out.get("objects", [])
+    }
+
+    assert len(ids_filtered) < len(ids_all), (
+      f"Filtering to 'person' should produce fewer unique object IDs "
+      f"({len(ids_filtered)} vs {len(ids_all)})"
+    )

@@ -44,8 +44,8 @@ def temp_config_file(temp_output_dir):
         'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
         'cameras': ['Cam_x1_0', 'Cam_x2_0'],
         'camera_fps': 30,
-        'start_time': TEST_TIME_RANGE_START,
-        'end_time': TEST_TIME_RANGE_END
+        'time_start': TEST_TIME_RANGE_START,
+        'time_end': TEST_TIME_RANGE_END
       }
     },
     'harness': {
@@ -90,8 +90,8 @@ def temp_multi_evaluator_config_file(temp_output_dir):
         'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
         'cameras': ['Cam_x1_0', 'Cam_x2_0'],
         'camera_fps': 30,
-        'start_time': TEST_TIME_RANGE_START,
-        'end_time': TEST_TIME_RANGE_END
+        'time_start': TEST_TIME_RANGE_START,
+        'time_end': TEST_TIME_RANGE_END
       }
     },
     'harness': {
@@ -611,7 +611,8 @@ class TestCreateRunOutputDirectory:
   """Unit tests for _create_run_output_directory()."""
 
   def test_run_name_used_as_run_id(self, engine, temp_output_dir):
-    """When pipeline.run_name is set, it becomes the run ID instead of a timestamp."""
+    """When pipeline.run_name is set, the run ID is timestamp_run_name."""
+    import re
     engine._config = {
       'pipeline': {
         'run_name': 'my-custom-run',
@@ -621,8 +622,9 @@ class TestCreateRunOutputDirectory:
 
     engine._create_run_output_directory()
 
-    assert engine._run_id == 'my-custom-run'
-    assert engine._output_path == Path(temp_output_dir) / 'my-custom-run'
+    assert re.fullmatch(r'\d{8}_\d{6}_my-custom-run', engine._run_id), (
+      f"Expected timestamp_run_name run ID, got: {engine._run_id!r}"
+    )
     assert engine._output_path.exists()
 
   def test_timestamp_run_id_when_no_run_name(self, engine, temp_output_dir):
@@ -734,3 +736,109 @@ class TestConfigureEvaluators:
 
     captured = capsys.readouterr()
     assert summary_text in captured.out
+
+  def test_set_base_fps_called_with_dataset_fps(self, engine, temp_output_dir):
+    """set_base_fps is called on each evaluator with dataset camera_fps."""
+    from unittest.mock import MagicMock
+
+    mock_evaluator = MagicMock()
+    engine._evaluators = [mock_evaluator]
+    engine._dataset = None
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'dataset': {
+        'config': {
+          'camera_fps': 30.0
+        }
+      },
+      'evaluators': [{'class': 'evaluators.mock_ev.MockEv', 'config': {}}]
+    }
+
+    engine._configure_evaluators()
+
+    mock_evaluator.set_base_fps.assert_called_once_with(30.0)
+
+  def test_set_base_fps_not_called_when_camera_fps_missing(self, engine, temp_output_dir):
+    """set_base_fps is not called when dataset camera_fps is not set."""
+    from unittest.mock import MagicMock
+
+    mock_evaluator = MagicMock()
+    engine._evaluators = [mock_evaluator]
+    engine._dataset = None
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'dataset': {
+        'config': {}
+      },
+      'evaluators': [{'class': 'evaluators.mock_ev.MockEv', 'config': {}}]
+    }
+
+    engine._configure_evaluators()
+
+    mock_evaluator.set_base_fps.assert_not_called()
+
+  def test_set_base_fps_called_on_multiple_evaluators(self, engine, temp_output_dir):
+    """set_base_fps is called on all evaluators with the same camera_fps."""
+    from unittest.mock import MagicMock
+
+    mock_ev1 = MagicMock()
+    mock_ev2 = MagicMock()
+    engine._evaluators = [mock_ev1, mock_ev2]
+    engine._dataset = None
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'dataset': {
+        'config': {
+          'camera_fps': 25.0
+        }
+      },
+      'evaluators': [
+        {'class': 'evaluators.mock_ev.MockEv', 'config': {}},
+        {'class': 'evaluators.mock_ev.MockEv', 'config': {}}
+      ]
+    }
+
+    engine._configure_evaluators()
+
+    mock_ev1.set_base_fps.assert_called_once_with(25.0)
+    mock_ev2.set_base_fps.assert_called_once_with(25.0)
+
+
+class TestConfigureDataset:
+  """Unit tests for _configure_dataset() category handling."""
+
+  def test_categories_forwarded_to_dataset(self, engine, temp_output_dir):
+    """categories key in dataset config calls set_object_categories."""
+    from unittest.mock import MagicMock
+
+    mock_dataset = MagicMock()
+    engine._dataset = mock_dataset
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'dataset': {
+        'config': {
+          'categories': ['person', 'FW190D'],
+        }
+      }
+    }
+
+    engine._configure_dataset()
+
+    mock_dataset.set_object_categories.assert_called_once_with(['person', 'FW190D'])
+
+  def test_no_categories_key_skips_call(self, engine, temp_output_dir):
+    """Without categories key, set_object_categories is not called."""
+    from unittest.mock import MagicMock
+
+    mock_dataset = MagicMock()
+    engine._dataset = mock_dataset
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'dataset': {
+        'config': {}
+      }
+    }
+
+    engine._configure_dataset()
+
+    mock_dataset.set_object_categories.assert_not_called()
