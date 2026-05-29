@@ -111,12 +111,12 @@ class TestOcrPolicyGuard:
 class TestWithRealMetadata:
   """Verify policies against real DLS metadata samples."""
 
-  @pytest.fixture
+  @pytest.fixture(scope='function')
   def detections_metadata(self):
     path = DATA_DIR / 'dls_metadata_detections.json'
     return json.loads(path.read_text())
 
-  @pytest.fixture
+  @pytest.fixture(scope='function')
   def mixed_metadata(self):
     path = DATA_DIR / 'dls_metadata_mixed.json'
     return json.loads(path.read_text())
