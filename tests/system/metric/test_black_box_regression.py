@@ -8,16 +8,14 @@ pytest session and asserts that TrackEval (HOTA, MOTA, IDF1) and JitterEvaluator
 (rms_jerk_ratio, acceleration_variance_ratio) metrics meet the defined thresholds.
 
 Runs as part of the standard ``pytest tests/system/metric`` collection (metrics /
-BAT groups).  When ``--image-tag`` is not supplied the image tag is read from
-``version.txt`` at the repository root.
+BAT groups).  The container image tag is read from ``version.txt`` at the
+repository root.
 
 Usage::
 
   pytest tests/system/metric/test_black_box_regression.py
-  pytest tests/system/metric/test_black_box_regression.py --image-tag 2026.1.0
 """
 
-import csv
 import subprocess
 import sys
 from pathlib import Path
@@ -86,41 +84,34 @@ def _eval_deps_installed():
 
 
 @pytest.fixture(scope="session")
-def black_box_metrics(request, tmp_path_factory, _eval_deps_installed) -> dict[tuple, float]:
+def black_box_metrics(tmp_path_factory, _eval_deps_installed) -> dict[tuple, float]:
   """Run all black-box evaluation modes once per session.
 
-  The container image tag is taken from ``--image-tag`` if supplied, otherwise
-  read from ``version.txt`` at the repository root.
+  The container image tag is read from ``version.txt`` at the repository root.
 
   Returns:
     Dict mapping (run_name, evaluator, metric) -> float value.
   """
-  image_tag = request.config.getoption("--image-tag")
-  if not image_tag and _VERSION_FILE.exists():
-    image_tag = _VERSION_FILE.read_text().strip()
+  # Lazy import after dependencies have been installed by _eval_deps_installed.
+  if str(_EVAL_SCRIPT.parent) not in sys.path:
+    sys.path.insert(0, str(_EVAL_SCRIPT.parent))
+  from run_black_box_evaluation import run_all  # noqa: PLC0415
 
+  image_tag = _VERSION_FILE.read_text().strip() if _VERSION_FILE.exists() else None
   output_dir = tmp_path_factory.mktemp("bb_eval")
 
-  cmd = [sys.executable, str(_EVAL_SCRIPT), "--output", str(output_dir)]
-  if image_tag:
-    cmd += ["--image-tag", image_tag]
+  results = run_all(image_tag=image_tag, output_dir=output_dir)
 
-  result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(_EVAL_SCRIPT.parent))
-  if result.returncode != 0:
-    pytest.fail(
-      f"run_black_box_evaluation.py failed (exit {result.returncode}):\n"
-      f"{result.stdout}\n{result.stderr}"
-    )
-
-  csv_files = list(output_dir.rglob("metrics.csv"))
-  if not csv_files:
-    pytest.fail("metrics.csv not found in evaluation output")
+  if all(isinstance(r, Exception) for _, r in results):
+    pytest.fail("All evaluation runs failed — check container images and harness setup")
 
   metrics: dict[tuple, float] = {}
-  with open(csv_files[0], newline="") as f:
-    for row in csv.DictReader(f):
-      key = (row["run_name"], row["evaluator"], row["metric"])
-      metrics[key] = float(row["value"])
+  for run_name, result in results:
+    if isinstance(result, Exception):
+      continue
+    for evaluator_name, evaluator_metrics in result.items():
+      for metric, value in evaluator_metrics.items():
+        metrics[(run_name, evaluator_name, metric)] = value
   return metrics
 
 # ---------------------------------------------------------------------------

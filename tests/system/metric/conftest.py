@@ -56,7 +56,6 @@ def pytest_addoption(parser):
   parser.addoption("--metric", action="store", help="metric type (filters parametrized metrics)")
   parser.addoption("--threshold", action="store", help="threshold as the % of the distance error")
   parser.addoption("--camera_frame_rate", action="store", help="enables tests with input camera running on this frame rate")
-  parser.addoption("--image-tag", action="store", default=None, help="container image tag used for black-box regression evaluation")
   return
 
 @pytest.fixture(

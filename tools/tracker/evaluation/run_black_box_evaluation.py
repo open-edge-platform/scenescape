@@ -10,14 +10,18 @@ All results land under a shared session directory:
     Controller-Time-Chunking/
     Tracker-Service/
 
-Usage (from tools/tracker/evaluation/):
+Usage (from any directory):
   python run_black_box_evaluation.py
   python run_black_box_evaluation.py --output /custom/output/path
   python run_black_box_evaluation.py --image-tag 2026.1.0-rc1.1
+
+Programmatic use::
+
+  from run_black_box_evaluation import run_all
+  results = run_all(image_tag="2026.1.0")  # list of (run_name, metrics|Exception)
 """
 
 import argparse
-import csv
 import sys
 import traceback
 from datetime import datetime
@@ -62,6 +66,15 @@ def _run_config(config_path: Path, session_output: Path, image_tag: str | None =
   # PipelineEngine will append run_name as a subdirectory.
   cfg["pipeline"]["output"]["path"] = str(session_output)
 
+  # Resolve data_path relative to _SCRIPT_DIR so this function can be called
+  # from any working directory (not just tools/tracker/evaluation/).
+  dataset_cfg = cfg.get("dataset", {}).get("config", {})
+  raw_path = dataset_cfg.get("data_path", "")
+  if raw_path and not Path(raw_path).is_absolute():
+    cfg["dataset"]["config"]["data_path"] = str(
+      (_SCRIPT_DIR / raw_path).resolve()
+    )
+
   if image_tag:
     existing = cfg["harness"]["config"].get("container_image", "")
     image_name = existing.rsplit(":", 1)[0] if ":" in existing else existing
@@ -87,26 +100,6 @@ def _run_config(config_path: Path, session_output: Path, image_tag: str | None =
   return metrics
 
 
-def _save_metrics_csv(session_output: Path, results: list[tuple[str, dict | Exception]]) -> Path:
-  """Write all successful evaluation results to *session_output*/metrics.csv.
-
-  CSV columns: run_name, evaluator, metric, value
-
-  Returns the path to the written CSV file.
-  """
-  csv_path = session_output / "metrics.csv"
-  with open(csv_path, "w", newline="") as f:
-    writer = csv.writer(f)
-    writer.writerow(["run_name", "evaluator", "metric", "value"])
-    for run_name, result in results:
-      if isinstance(result, Exception):
-        continue
-      for evaluator, metrics in result.items():
-        for metric, value in metrics.items():
-          writer.writerow([run_name, evaluator, metric, value])
-  return csv_path
-
-
 def _print_summary(session_output: Path, results: list[tuple[str, dict | Exception]]) -> None:
   """Print a compact per-config metrics table."""
   divider = "=" * 72
@@ -128,6 +121,48 @@ def _print_summary(session_output: Path, results: list[tuple[str, dict | Excepti
 
 
 # ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def run_all(
+  image_tag: str | None = None,
+  output_dir: Path | None = None,
+) -> list[tuple[str, dict | Exception]]:
+  """Run all black-box evaluation configs and return results.
+
+  Args:
+    image_tag:  Container image tag to use.  When *None* the tag already
+                present in each config file is used.
+    output_dir: Base directory for session output.  Defaults to
+                ``DEFAULT_OUTPUT_BASE``.
+
+  Returns:
+    List of ``(run_name, metrics_dict)`` pairs.  On failure for a run the
+    second element is the raised :class:`Exception`.
+  """
+  session_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+  session_output = Path(output_dir or DEFAULT_OUTPUT_BASE) / session_ts
+  session_output.mkdir(parents=True, exist_ok=True)
+  print(f"Session output: {session_output}")
+
+  results: list[tuple[str, dict | Exception]] = []
+  for config_path in CONFIGS:
+    run_name = config_path.stem
+    print(f"\n{'─' * 60}")
+    print(f"  Running: {config_path.name}")
+    print(f"{'─' * 60}")
+    try:
+      metrics = _run_config(config_path, session_output, image_tag)
+      results.append((run_name, metrics))
+    except Exception as exc:
+      traceback.print_exc()
+      results.append((run_name, exc))
+
+  _print_summary(session_output, results)
+  return results
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -143,28 +178,7 @@ def main() -> int:
   )
   args = parser.parse_args()
 
-  session_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-  session_output = Path(args.output) / session_ts
-  session_output.mkdir(parents=True, exist_ok=True)
-  print(f"Session output: {session_output}")
-
-  results: list[tuple[str, dict | Exception]] = []
-
-  for config_path in CONFIGS:
-    run_name = config_path.stem
-    print(f"\n{'─' * 60}")
-    print(f"  Running: {config_path.name}")
-    print(f"{'─' * 60}")
-    try:
-      metrics = _run_config(config_path, session_output, args.image_tag)
-      results.append((run_name, metrics))
-    except Exception as exc:
-      traceback.print_exc()
-      results.append((run_name, exc))
-
-  _print_summary(session_output, results)
-  csv_path = _save_metrics_csv(session_output, results)
-  print(f"Metrics CSV: {csv_path}")
+  results = run_all(image_tag=args.image_tag, output_dir=args.output)
   failed = sum(1 for _, r in results if isinstance(r, Exception))
   return failed
 
