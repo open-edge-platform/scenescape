@@ -21,7 +21,7 @@ DATASET_PATH = Path(__file__).parent.parent.parent.parent.parent / \
   "tests" / "system" / "metric" / "dataset"
 SCHEMA_PATH = Path(__file__).parent.parent.parent.parent.parent / \
   "tracker" / "schema"
-TRACKER_CONFIG_PATH = DATASET_PATH / "tracker-config-time-chunking.json"
+TRACKER_CONFIG_PATH = DATASET_PATH / "tracker-config.json"
 
 # Test configuration
 NUM_INPUT_FRAMES = 120  # Number of input frames to process in integration tests
