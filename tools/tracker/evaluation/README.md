@@ -197,7 +197,8 @@ python -m run_black_box_evaluation --output /custom/output/path
 
 ```
 <output>/<YYYYMMDD_HHMMSS>/
-  Controller-NO-Time-Chunking/
+  <YYYYMMDD_HHMMSS>_Controller-NO-Time-Chunking/
+    config/                # Pipeline YAML config copy
     dataset/
     harness/
       inputs.jsonl         # All input frames published to MQTT
@@ -207,9 +208,10 @@ python -m run_black_box_evaluation --output /custom/output/path
       TrackEvalEvaluator/
       DiagnosticEvaluator/
       JitterEvaluator/
-  Controller-Time-Chunking/
+    summary.txt            # Evaluation summary
+  <YYYYMMDD_HHMMSS>_Controller-Time-Chunking/
     ...
-  Tracker-Service/
+  <YYYYMMDD_HHMMSS>_Tracker-Service/
     ...
 ```
 
