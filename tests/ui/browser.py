@@ -28,11 +28,10 @@ def _validate_firefox(binary):
 
 def _find_firefox_binary():
   candidates = [
-    which("firefox"),
-    which("firefox-esr"),
     "/usr/bin/firefox",
     "/usr/bin/firefox-esr",
-    "/snap/bin/firefox",
+    which("firefox"),
+    which("firefox-esr"),
   ]
 
   for candidate in candidates:

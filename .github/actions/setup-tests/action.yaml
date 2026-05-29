@@ -65,3 +65,10 @@ runs:
       run: |
         source tests/.venv/bin/activate
         pip install -r .github/resources/requirements-pytest.txt
+
+    - name: "Set correct Firefox version for tests"
+      shell: bash
+      run: |
+        sudo apt remove -y firefox
+        sudo snap remove --purge firefox
+        sudo apt install -y firefox
