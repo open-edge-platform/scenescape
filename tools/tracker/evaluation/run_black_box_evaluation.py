@@ -75,6 +75,14 @@ def _run_config(config_path: Path, session_output: Path, image_tag: str | None =
       (_SCRIPT_DIR / raw_path).resolve()
     )
 
+  # Resolve tracker_config_path the same way.
+  harness_cfg = cfg.get("harness", {}).get("config", {})
+  raw_tracker_cfg = harness_cfg.get("tracker_config_path", "")
+  if raw_tracker_cfg and not Path(raw_tracker_cfg).is_absolute():
+    cfg["harness"]["config"]["tracker_config_path"] = str(
+      (_SCRIPT_DIR / raw_tracker_cfg).resolve()
+    )
+
   if image_tag:
     existing = cfg["harness"]["config"].get("container_image", "")
     image_name = existing.rsplit(":", 1)[0] if ":" in existing else existing

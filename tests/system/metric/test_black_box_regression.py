@@ -93,14 +93,38 @@ def black_box_metrics(tmp_path_factory, _eval_deps_installed) -> dict[tuple, flo
     Dict mapping (run_name, evaluator, metric) -> float value.
   """
   # Lazy import after dependencies have been installed by _eval_deps_installed.
-  if str(_EVAL_SCRIPT.parent) not in sys.path:
-    sys.path.insert(0, str(_EVAL_SCRIPT.parent))
+  #
+  # pytest adds tests/ (its rootdir) to sys.path early, which causes
+  # tests/utils/ to be cached in sys.modules as the bare 'utils' package.
+  # The evaluation package has its own utils/format_converters module that
+  # would be shadowed by that cached entry.  We therefore:
+  #   1. insert the evaluation root at sys.path[0] so it wins the search, and
+  #   2. temporarily evict any stale 'utils' entries from sys.modules so the
+  #      evaluation's utils/ is loaded fresh from the correct location.
+  # After run_all() completes the stale entries are restored so the rest of
+  # the test session continues to see tests/utils as expected.
+  eval_dir = str(_EVAL_SCRIPT.parent)
+  if eval_dir not in sys.path:
+    sys.path.insert(0, eval_dir)
+  else:
+    # Ensure it comes before tests/ even if already present
+    sys.path.remove(eval_dir)
+    sys.path.insert(0, eval_dir)
+
+  stale_utils = {k: v for k, v in sys.modules.items()
+                 if k == "utils" or k.startswith("utils.")}
+  for key in stale_utils:
+    del sys.modules[key]
+
   from run_black_box_evaluation import run_all  # noqa: PLC0415
 
   image_tag = _VERSION_FILE.read_text().strip() if _VERSION_FILE.exists() else None
   output_dir = tmp_path_factory.mktemp("bb_eval")
 
   results = run_all(image_tag=image_tag, output_dir=output_dir)
+
+  # Restore tests/utils to sys.modules for the remainder of the test session.
+  sys.modules.update(stale_utils)
 
   if all(isinstance(r, Exception) for _, r in results):
     pytest.fail("All evaluation runs failed — check container images and harness setup")
