@@ -18,6 +18,7 @@ Usage::
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -28,7 +29,6 @@ import pytest
 _THIS_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _THIS_DIR.parent.parent.parent
 _EVAL_SCRIPT = _REPO_ROOT / "tools" / "tracker" / "evaluation" / "run_black_box_evaluation.py"
-_EVAL_REQUIREMENTS = _REPO_ROOT / "tools" / "tracker" / "evaluation" / "requirements.txt"
 _VERSION_FILE = _REPO_ROOT / "version.txt"
 
 # ---------------------------------------------------------------------------
@@ -101,30 +101,20 @@ Path({results_file}).write_text(json.dumps(serialised, default=float))
 def black_box_metrics(tmp_path_factory) -> dict[tuple, float]:
   """Run all black-box evaluation modes once per session.
 
-  The evaluation runs in an isolated virtualenv so its pinned dependencies
-  (numpy, pandas, pytest, …) cannot affect the running test process.
+  The evaluation script is executed as a subprocess using the same Python
+  interpreter as the test suite (all required packages are already present in
+  the test environment).  Running it out-of-process keeps the evaluation's
+  ``sys.path`` manipulations isolated from the test process.
 
   The container image tag is read from ``version.txt`` at the repository root.
 
   Returns:
     Dict mapping (run_name, evaluator, metric) -> float value.
   """
-  import venv as _venv
-
   work_dir = tmp_path_factory.mktemp("bb_eval")
-  venv_dir = work_dir / "venv"
   output_dir = work_dir / "output"
   output_dir.mkdir()
   results_file = work_dir / "results.json"
-
-  # Build an isolated virtualenv so the evaluation's pinned deps do not
-  # mutate the active test-process environment.
-  _venv.create(str(venv_dir), with_pip=True, clear=True)
-  venv_python = venv_dir / "bin" / "python"
-  subprocess.run(
-    [str(venv_python), "-m", "pip", "install", "-q", "-r", str(_EVAL_REQUIREMENTS)],
-    check=True,
-  )
 
   image_tag = _VERSION_FILE.read_text().strip() if _VERSION_FILE.exists() else ""
 
@@ -139,7 +129,7 @@ def black_box_metrics(tmp_path_factory) -> dict[tuple, float]:
   )
 
   proc = subprocess.run(
-    [str(venv_python), str(driver)],
+    [sys.executable, str(driver)],
     capture_output=True,
     text=True,
     cwd=str(_EVAL_SCRIPT.parent),
