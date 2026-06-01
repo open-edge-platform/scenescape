@@ -20,7 +20,7 @@ harness:
     broker_image: eclipse-mosquitto:2.0.22
     container_type: controller
     container_image: scenescape-controller:latest
-    tracker_config_path: ../../../tests/system/metric/dataset/tracker-config-time-chunking.json
+    tracker_config_path: ../../../tests/system/metric/dataset/tracker-config.json
     # startup_wait_s: 2.0
     # drain_timeout: 5.0
 
