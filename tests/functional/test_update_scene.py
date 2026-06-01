@@ -14,12 +14,22 @@ scene controller:
 import json
 import threading
 import time
+import pytest
 
-from scene_common import log
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
-import tests.common_test_utils as common
+# import tests.common_test_utils as common
 from tests.functional.common_retrack import RetrackTest
+from tests.utils.log import get_logger
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+log = get_logger(__name__)
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
 
 DEMO_SCENE_NAME = "Demo"
 WAIT_TIMEOUT_S = 30
@@ -96,8 +106,47 @@ class UpdateSceneTest(RetrackTest):
       f"data/scene message with name='{name}' not found after event fired")
 
 
+@pytest.fixture
+def demo_scene(params):
+  """Provide (helper, rest, scene) for Demo scene tests and restore scene
+  properties on teardown."""
+  helper = UpdateSceneTest(params)
+  rest = helper.make_rest_client()
+  scene = helper.get_demo_scene(rest)
+  original = {
+    "name": scene["name"],
+    "regulated_rate": scene.get("regulated_rate", 30),
+  }
+  yield helper, rest, scene
+  try:
+    res = rest.updateScene(scene["uid"], original)
+    if res.statusCode == 200:
+      log.info(f"Restored Demo scene properties: {original}")
+    else:
+      log.error(f"Failed to restore Demo scene: {res.statusCode}: {res.errors}")
+  except Exception as exc:
+    log.error(f"Exception restoring Demo scene: {exc}")
+
+
+@pytest.fixture
+def child_scene(params):
+  """Provide (helper, rest) with a child scene set up via helper.setup_scenes,
+  and tear it down on fixture teardown."""
+  helper = UpdateSceneTest(params)
+  rest = helper.make_rest_client()
+  helper.setup_scenes(rest)
+  try:
+    yield helper, rest
+  finally:
+    try:
+      helper.teardown_scenes(rest)
+    except Exception as exc:
+      log.error(f"Exception tearing down child scene: {exc}")
+
+
+@pytest.mark.test_name("NEX-T10565")
 def test_scene_name_update_reflected_in_data_scene_topic(
-    objData, record_xml_attribute, params):
+    objData, result_recorder, demo_scene):
   """Verify that when a scene name is updated via REST, subsequent
   scenescape/data/scene MQTT messages carry the new name in their metadata.
 
@@ -106,20 +155,14 @@ def test_scene_name_update_reflected_in_data_scene_topic(
     2. Send detections and confirm baseline messages carry the original name.
     3. Update the scene name via REST, wait for CMD_DATABASE notification.
     4. Send more detections and confirm messages carry the updated name.
-    5. Restore the original name in the finally block.
 
-  @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @param    params                  Dict of test parameters.
+  @param    objData            Pytest fixture with detection data.
+  @param    result_recorder    Pytest fixture recording test pass/fail.
+  @param    demo_scene         Fixture yielding (helper, rest, scene) and
+                               restoring scene state on teardown.
   """
-  TEST_NAME = "NEX-T10565"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
-  exit_code = 1
 
-  helper = UpdateSceneTest(params)
-  rest = helper.make_rest_client()
-  scene = helper.get_demo_scene(rest)
+  helper, rest, scene = demo_scene
   scene_uid = scene["uid"]
   original_name = scene["name"]
   new_name = "updated_scene"
@@ -145,7 +188,6 @@ def test_scene_name_update_reflected_in_data_scene_topic(
     helper.await_cmd_database(_update_name)
     log.info("Controller acknowledged name update via CMD_DATABASE")
 
-    # Verify updated name appears in data/scene messages
     helper.publish_data(objData, client)
     updated = helper.wait_for_name(new_name)
     assert updated["name"] == new_name, \
@@ -154,26 +196,16 @@ def test_scene_name_update_reflected_in_data_scene_topic(
       f"Scene UID mismatch in updated message: {updated['id']}"
 
     log.info(f"PASS: data/scene reflects updated scene name='{new_name}'")
-    exit_code = 0
+    result_recorder.success()
 
   finally:
-    try:
-      res = rest.updateScene(scene_uid, {"name": original_name})
-      if res.statusCode == 200:
-        log.info(f"Restored scene name to '{original_name}'")
-      else:
-        log.error(f"Failed to restore scene name: {res.statusCode}: {res.errors}")
-    except Exception as exc:
-      log.error(f"Exception restoring scene name: {exc}")
     if client is not None:
       client.loopStop()
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
 
 
+@pytest.mark.test_name("NEX-T10570")
 def test_scene_regulated_rate_update_changes_message_frequency(
-    objData, record_xml_attribute, params):
+    objData, result_recorder, demo_scene):
   """Verify that updating regulated_rate on the Demo scene changes the
   frequency of scenescape/regulated/scene messages.
 
@@ -182,20 +214,13 @@ def test_scene_regulated_rate_update_changes_message_frequency(
   Phase 2: regulated_rate = 10 Hz: the count must fall within the 10 Hz band
   and must exceed the Phase 1 count, confirming the rate increase took effect.
 
-  @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @param    params                  Dict of test parameters.
+  @param    objData            Pytest fixture with detection data.
+  @param    result_recorder    Pytest fixture recording test pass/fail.
+  @param    demo_scene         Fixture yielding (helper, rest, scene) and
+                               restoring scene state on teardown.
   """
-  TEST_NAME = "NEX-T10570"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
-  exit_code = 1
-
-  helper = UpdateSceneTest(params)
-  rest = helper.make_rest_client()
-  scene = helper.get_demo_scene(rest)
+  helper, rest, scene = demo_scene
   scene_uid = scene["uid"]
-  original_rate = scene.get("regulated_rate", 30)
   client = None
 
   try:
@@ -214,21 +239,23 @@ def test_scene_regulated_rate_update_changes_message_frequency(
 
     client = helper.make_client(topics=[reg_topic], on_msg=_on_reg)
 
+    def _measure(rate_hz):
+      helper.set_regulated_rate(rest, scene_uid, rate_hz)
+      time.sleep(0.2)
+      with msg_lock:
+        reg_msgs.clear()
+      t = threading.Thread(
+        target=RetrackTest.publish_timed,
+        args=(objData, client, RetrackTest.FRAME_RATE, MEASURE_WINDOW_S),
+        daemon=True)
+      t.start()
+      t.join()
+      time.sleep(1.0)
+      with msg_lock:
+        return len(reg_msgs)
+
     log.info("Phase 1: setting regulated_rate=1 Hz")
-    helper.set_regulated_rate(rest, scene_uid, 1)
-
-    send_thread = threading.Thread(
-      target=RetrackTest.publish_timed,
-      args=(objData, client, RetrackTest.FRAME_RATE, MEASURE_WINDOW_S),
-      daemon=True)
-    send_thread.start()
-    send_thread.join()
-    time.sleep(1.0)
-
-    with msg_lock:
-      count_1hz = len(reg_msgs)
-      reg_msgs.clear()
-
+    count_1hz = _measure(1)
     max_1hz = int(1 * MEASURE_WINDOW_S * 2)
     min_1hz = int(1 * MEASURE_WINDOW_S * 0.4)
     log.info(f"Phase 1 (1 Hz): {count_1hz} messages (expect {min_1hz}–{max_1hz})")
@@ -238,19 +265,7 @@ def test_scene_regulated_rate_update_changes_message_frequency(
       f"Too many DATA_REGULATED messages at 1 Hz: {count_1hz} > {max_1hz}"
 
     log.info("Phase 2: setting regulated_rate=10 Hz")
-    helper.set_regulated_rate(rest, scene_uid, 10)
-
-    send_thread = threading.Thread(
-      target=RetrackTest.publish_timed,
-      args=(objData, client, RetrackTest.FRAME_RATE, MEASURE_WINDOW_S),
-      daemon=True)
-    send_thread.start()
-    send_thread.join()
-    time.sleep(1.0)
-
-    with msg_lock:
-      count_10hz = len(reg_msgs)
-
+    count_10hz = _measure(10)
     max_10hz = int(10 * MEASURE_WINDOW_S * 2)
     min_10hz = int(10 * MEASURE_WINDOW_S * 0.4)
     log.info(f"Phase 2 (10 Hz): {count_10hz} messages (expect {min_10hz}–{max_10hz})")
@@ -266,23 +281,16 @@ def test_scene_regulated_rate_update_changes_message_frequency(
     log.info(
       f"PASS: regulated_rate changes message frequency "
       f"(1 Hz: {count_1hz} msgs, 10 Hz: {count_10hz} msgs over {MEASURE_WINDOW_S}s)")
-    exit_code = 0
+    result_recorder.success()
 
   finally:
-    try:
-      helper.set_regulated_rate(rest, scene_uid, original_rate)
-      log.info(f"Restored regulated_rate={original_rate}")
-    except Exception as exc:
-      log.error(f"Failed to restore regulated_rate: {exc}")
     if client is not None:
       client.loopStop()
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
 
 
+@pytest.mark.test_name("NEX-T23097")
 def test_scene_external_rate_update_changes_message_frequency(
-    objData, record_xml_attribute, params):
+    objData, result_recorder, child_scene):
   """Verify that updating external_update_rate on a child scene changes the
   frequency of scenescape/external/{scene_id} messages.
 
@@ -292,29 +300,20 @@ def test_scene_external_rate_update_changes_message_frequency(
   Phase 2: external_update_rate = 10 Hz: DATA_EXTERNAL messages with objects
   must arrive within the 10 Hz band over MEASURE_WINDOW_S seconds.
 
-  @param    objData                 Pytest fixture with detection data.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @param    params                  Dict of test parameters.
+  @param    objData            Pytest fixture with detection data.
+  @param    result_recorder    Pytest fixture recording test pass/fail.
+  @param    child_scene        Fixture yielding (helper, rest) with a child
+                               scene set up and torn down on teardown.
   """
-  TEST_NAME = "NEX-T23097"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
-  exit_code = 1
-
-  helper = UpdateSceneTest(params)
-  rest = helper.make_rest_client()
-  original_ext_rate = None
+  helper, rest = child_scene
+  scene_data = rest.getScene(helper.child_id)
+  assert scene_data.statusCode == 200, \
+    f"getScene({helper.child_id}) failed: {getattr(scene_data, 'errors', None)}"
+  original_ext_rate = scene_data.get("external_update_rate", 30)
+  log.info(f"Original external_update_rate={original_ext_rate}")
   client = None
 
   try:
-    helper.setup_scenes(rest)
-
-    scene_data = rest.getScene(helper.child_id)
-    assert scene_data.statusCode == 200, \
-      f"getScene({helper.child_id}) failed: {getattr(scene_data, 'errors', None)}"
-    original_ext_rate = scene_data.get("external_update_rate", 30)
-    log.info(f"Original external_update_rate={original_ext_rate}")
-
     ext_topic = PubSub.formatTopic(
       PubSub.DATA_EXTERNAL, scene_id=helper.child_id, thing_type="+")
     ext_msgs = []
@@ -331,21 +330,23 @@ def test_scene_external_rate_update_changes_message_frequency(
 
     client = helper.make_client(topics=[ext_topic], on_msg=_on_ext)
 
+    def _measure(rate_hz):
+      helper.set_external_rate(rest, rate_hz)
+      time.sleep(0.2)
+      with msg_lock:
+        ext_msgs.clear()
+      t = threading.Thread(
+        target=RetrackTest.publish_timed,
+        args=(objData, client, RetrackTest.FRAME_RATE, MEASURE_WINDOW_S),
+        daemon=True)
+      t.start()
+      t.join()
+      time.sleep(1.0)
+      with msg_lock:
+        return len(ext_msgs)
+
     log.info("Phase 1: setting external_update_rate=1 Hz")
-    helper.set_external_rate(rest, 1)
-
-    send_thread = threading.Thread(
-      target=RetrackTest.publish_timed,
-      args=(objData, client, RetrackTest.FRAME_RATE, MEASURE_WINDOW_S),
-      daemon=True)
-    send_thread.start()
-    send_thread.join()
-    time.sleep(1.0)
-
-    with msg_lock:
-      count_1hz = len(ext_msgs)
-      ext_msgs.clear()
-
+    count_1hz = _measure(1)
     max_1hz = int(1 * MEASURE_WINDOW_S * 2)
     min_1hz = int(1 * MEASURE_WINDOW_S * 0.4)
     log.info(f"Phase 1 (1 Hz): {count_1hz} messages (expect {min_1hz}–{max_1hz})")
@@ -355,19 +356,7 @@ def test_scene_external_rate_update_changes_message_frequency(
       f"Too many DATA_EXTERNAL messages at 1 Hz: {count_1hz} > {max_1hz}"
 
     log.info("Phase 2: setting external_update_rate=10 Hz")
-    helper.set_external_rate(rest, 10)
-
-    send_thread = threading.Thread(
-      target=RetrackTest.publish_timed,
-      args=(objData, client, RetrackTest.FRAME_RATE, MEASURE_WINDOW_S),
-      daemon=True)
-    send_thread.start()
-    send_thread.join()
-    time.sleep(1.0)
-
-    with msg_lock:
-      count_10hz = len(ext_msgs)
-
+    count_10hz = _measure(10)
     max_10hz = int(10 * MEASURE_WINDOW_S * 2)
     min_10hz = int(10 * MEASURE_WINDOW_S * 0.4)
     log.info(f"Phase 2 (10 Hz): {count_10hz} messages (expect {min_10hz}–{max_10hz})")
@@ -383,18 +372,13 @@ def test_scene_external_rate_update_changes_message_frequency(
     log.info(
       f"PASS: external_update_rate changes message frequency "
       f"(10 Hz: {count_10hz} msgs, 1 Hz: {count_1hz} msgs over {MEASURE_WINDOW_S}s)")
-    exit_code = 0
+    result_recorder.success()
 
   finally:
-    if helper.child_id and original_ext_rate is not None:
-      try:
-        helper.set_external_rate(rest, original_ext_rate)
-        log.info(f"Restored external_update_rate={original_ext_rate}")
-      except Exception as exc:
-        log.warning(f"Failed to restore external_update_rate: {exc}")
+    try:
+      helper.set_external_rate(rest, original_ext_rate)
+      log.info(f"Restored external_update_rate={original_ext_rate}")
+    except Exception as exc:
+      log.warning(f"Failed to restore external_update_rate: {exc}")
     if client is not None:
       client.loopStop()
-    helper.teardown_scenes(rest)
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
