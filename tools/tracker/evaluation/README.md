@@ -132,16 +132,40 @@ Run the pipeline:
 python -m pipeline_engine config.yaml
 ```
 
+**Output Structure**: Each pipeline run creates a unique timestamped directory:
+
+The pipeline creates a unique output directory for each run: `<pipeline.output.path>/<run-ID>/` where `<run-ID>` is a timestamp in format `YYYYMMDD_HHMMSS`, optionally suffixed with the run_name if provided (e.g. `YYYYMMDD_HHMMSS_MyRun`).
+
+Output directory layout:
+
+```
+  <pipeline.output.path>/<run-ID>/
+    config/                          Pipeline YAML config copy
+    dataset/                         Dataset-specific caches or exports
+    harness/                         Harness logs or artifacts
+    evaluators/<evaluator-key>/      One folder per evaluator
+    summary.txt                      Evaluation summary
+```
+
+Evaluator results are saved to: `<pipeline.output.path>/<run-ID>/evaluators/<evaluator-key>/`
+
+The `<evaluator-key>` is the evaluator class name (e.g., `TrackEvalEvaluator`). When two evaluators
+share the same class name, an index suffix is appended to keep keys unique
+(e.g., `TrackEvalEvaluator_0/`, `TrackEvalEvaluator_1/`).
+
+**Multiple evaluators**: The `evaluators` list accepts any number of entries. Each evaluator runs
+against the same tracker outputs independently.
+
 ### Black-Box Evaluation Suite
 
 `run_black_box_evaluation.py` runs the complete black-box evaluation across all three
 production container types in a single timestamped session:
 
-| Config                            | Container               | Description                            |
-| --------------------------------- | ----------------------- | -------------------------------------- |
-| `black_box_controller_no_tc.yaml` | `scenescape-controller` | Controller without time-chunking       |
-| `black_box_controller_tc.yaml`    | `scenescape-controller` | Controller with time-chunking enabled  |
-| `black_box_tracker_service.yaml`  | `scenescape-tracker`    | Standalone Tracker Service (Go binary) |
+| Config                            | Container               | Description                           |
+| --------------------------------- | ----------------------- | ------------------------------------- |
+| `black_box_controller_no_tc.yaml` | `scenescape-controller` | Controller without time-chunking      |
+| `black_box_controller_tc.yaml`    | `scenescape-controller` | Controller with time-chunking enabled |
+| `black_box_tracker_service.yaml`  | `scenescape-tracker`    | Standalone Tracker Service            |
 
 **Prerequisites** (in addition to the general prerequisites above):
 
@@ -173,19 +197,21 @@ python -m run_black_box_evaluation --output /custom/output/path
 
 ```
 <output>/<YYYYMMDD_HHMMSS>/
-  Controller-NO-Time-Chunking/
+  <YYYYMMDD_HHMMSS>_Controller-NO-Time-Chunking/
+    config/                # Pipeline YAML config copy
     dataset/
     harness/
-      inputs.json          # All input frames published to MQTT
-      outputs.json         # All tracker output frames collected from MQTT
+      inputs.jsonl         # All input frames published to MQTT
+      outputs.jsonl        # All tracker output frames collected from MQTT
       tracker_logs.txt     # Container stdout/stderr
     evaluators/
       TrackEvalEvaluator/
       DiagnosticEvaluator/
       JitterEvaluator/
-  Controller-Time-Chunking/
+    summary.txt            # Evaluation summary
+  <YYYYMMDD_HHMMSS>_Controller-Time-Chunking/
     ...
-  Tracker-Service/
+  <YYYYMMDD_HHMMSS>_Tracker-Service/
     ...
 ```
 
@@ -203,23 +229,13 @@ The session summary is printed to stdout at the end:
     ...
 ```
 
-**Output Structure**: Each pipeline run creates a unique timestamped directory:
+## Frame Rate Assumption
 
-```
-<pipeline.output.path>/
-  └── <run-ID>/                        # Format: YYYYMMDD_HHMMSS
-      ├── dataset/                     # Dataset-specific caches or exports
-      ├── harness/                     # Harness logs or artifacts
-      └── evaluators/
-          └── <evaluator-key>/         # One folder per evaluator
-```
+The pipeline assumes that **tracker output uses the same frame rate as the input dataset**. The `camera_fps` value in the dataset configuration is used to convert tracker timestamps to frame numbers for comparison with ground-truth.
 
-The `<evaluator-key>` is the evaluator class name (e.g., `TrackEvalEvaluator`). When two evaluators
-share the same class name, an index suffix is appended to keep keys unique
-(e.g., `TrackEvalEvaluator_0/`, `TrackEvalEvaluator_1/`).
+**Important**: If the tracker drops frames (e.g., due to missed detections or processing bottlenecks), the tracker output will have fewer frames than the input, but the frame rate used for time-to-frame conversion should still match the input dataset's frame rate. The pipeline will automatically handle frame count mismatches by matching frames based on timestamps.
 
-**Multiple evaluators**: The `evaluators` list accepts any number of entries. Each evaluator runs
-against the same tracker outputs independently.
+If you need to override the frame rate for a specific evaluator run, use `set_base_fps(fps)` on the evaluator before `process_tracker_outputs()` or `process_projected_outputs()` is called. The pipeline engine automatically calls this method when `camera_fps` is configured in the dataset section.
 
 ## Directory Structure
 

@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from base.tracker_harness import TrackerHarness
-from utils.format_converters import write_jsonl
+from utils.format_converters import write_jsonl, stream_jsonl
 
 
 class SceneControllerHarness(TrackerHarness):
@@ -142,8 +142,8 @@ class SceneControllerHarness(TrackerHarness):
       # Write all inputs to single file for data exchange with container
       # (newline-delimited JSON format)
       self._write_input_file(inputs)
-      input_file = self._temp_dir / "inputs.json"
-      self._persist_artifact(input_file, "inputs.json")
+      input_file = self._temp_dir / "inputs.jsonl"
+      self._persist_artifact(input_file, "inputs.jsonl")
 
       # Write scene configuration
       scene_config_file = self._temp_dir / "config.json"
@@ -158,14 +158,13 @@ class SceneControllerHarness(TrackerHarness):
       self._copy_tracking_script()
 
       # Run container
-      output_file = self._temp_dir / "output.json"
+      output_file = self._temp_dir / "output.jsonl"
       self._run_container()
 
       # Read and return outputs
       if output_file.exists():
-        self._persist_artifact(output_file, "outputs.json")
-        with open(output_file, 'r') as f:
-          outputs = json.load(f)
+        self._persist_artifact(output_file, "outputs.jsonl")
+        outputs = list(stream_jsonl(str(output_file)))
         return iter(outputs)
       else:
         raise RuntimeError("Tracker execution completed but no output file generated")
@@ -206,7 +205,7 @@ class SceneControllerHarness(TrackerHarness):
     Args:
       inputs: Iterator of input detection frames
     """
-    output_file = self._temp_dir / "inputs.json"
+    output_file = self._temp_dir / "inputs.jsonl"
     write_jsonl(inputs, str(output_file))
 
   def _copy_tracking_script(self) -> None:
