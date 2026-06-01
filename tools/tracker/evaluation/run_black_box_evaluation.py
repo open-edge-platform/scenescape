@@ -67,6 +67,23 @@ def _run_config(config_path: Path, session_output: Path, image_tag: str | None =
   # PipelineEngine will append run-ID as a subdirectory.
   cfg["pipeline"]["output"]["path"] = str(session_output)
 
+  # Resolve data_path relative to _SCRIPT_DIR so this function works
+  # regardless of the caller's working directory.
+  dataset_cfg = cfg.get("dataset", {}).get("config", {})
+  raw_path = dataset_cfg.get("data_path", "")
+  if raw_path and not Path(raw_path).is_absolute():
+    cfg["dataset"]["config"]["data_path"] = str(
+      (_SCRIPT_DIR / raw_path).resolve()
+    )
+
+  # Resolve tracker_config_path the same way.
+  harness_cfg = cfg.get("harness", {}).get("config", {})
+  raw_tracker_cfg = harness_cfg.get("tracker_config_path", "")
+  if raw_tracker_cfg and not Path(raw_tracker_cfg).is_absolute():
+    cfg["harness"]["config"]["tracker_config_path"] = str(
+      (_SCRIPT_DIR / raw_tracker_cfg).resolve()
+    )
+
   # Write the patched config to a temp file so load_configuration() can
   # persist the config copy and run full validation.
   with tempfile.NamedTemporaryFile(

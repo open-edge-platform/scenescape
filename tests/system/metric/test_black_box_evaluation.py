@@ -7,8 +7,8 @@ Runs the full black-box evaluation suite (all three container modes) once per
 pytest session and asserts that TrackEval (HOTA, MOTA, IDF1) and JitterEvaluator
 (rms_jerk_ratio, acceleration_variance_ratio) metrics meet the defined thresholds.
 
-Runs as part of the standard ``pytest tests/system/metric`` collection (metrics /
-BAT groups).  The container image tag is read from ``version.txt`` at the
+Runs as part of the standard ``pytest tests/system/metric`` collection.
+The container image tag is read from ``version.txt`` at the
 repository root.
 
 Usage::
@@ -33,7 +33,7 @@ _VERSION_FILE = _REPO_ROOT / "version.txt"
 # Evaluation modes (stem of the pipeline config file name)
 # ---------------------------------------------------------------------------
 _RUNS = [
-  "black_box_controller_no_tc",
+  "black_box_controller_immediate",
   "black_box_controller_tc",
   "black_box_tracker_service",
 ]
@@ -83,23 +83,40 @@ def black_box_metrics(tmp_path_factory) -> dict[tuple, float]:
   """
   eval_dir = str(_EVAL_SCRIPT.parent)
 
-  # Temporarily prepend the evaluation directory so run_black_box_evaluation
-  # and its siblings can be imported.  We restore sys.path afterwards so the
-  # test session is not affected.
+  # The test suite has its own ``tests/utils`` package already cached in
+  # sys.modules under the name ``utils``.  The evaluation package has its own
+  # ``utils`` (containing format_converters, etc.) that lives in eval_dir.
+  # We must evict the test-suite ``utils`` from the module cache for the
+  # duration of the evaluation call, then restore everything afterwards so
+  # the rest of the test session is unaffected.
+  _evicted = {k: v for k, v in sys.modules.items()
+              if k == "utils" or k.startswith("utils.")}
+  _eval_modules = [
+    "run_black_box_evaluation", "pipeline_engine",
+  ]
+  _evicted.update({k: v for k, v in sys.modules.items()
+                   if k in _eval_modules or k.startswith(tuple(m + "." for m in _eval_modules))})
+  for k in _evicted:
+    del sys.modules[k]
+
   sys.path.insert(0, eval_dir)
   try:
-    # Re-import in case a previous run left a stale cached module.
     import importlib
     import run_black_box_evaluation as _rbbe  # noqa: PLC0415
     importlib.reload(_rbbe)
-    run_all = _rbbe.run_all
+
+    image_tag = _VERSION_FILE.read_text().strip() if _VERSION_FILE.exists() else None
+    output_dir = tmp_path_factory.mktemp("bb_eval")
+
+    results = _rbbe.run_all(image_tag=image_tag, output_dir=output_dir)
   finally:
     sys.path.remove(eval_dir)
-
-  image_tag = _VERSION_FILE.read_text().strip() if _VERSION_FILE.exists() else None
-  output_dir = tmp_path_factory.mktemp("bb_eval")
-
-  results = run_all(image_tag=image_tag, output_dir=output_dir)
+    # Remove all modules that were imported from eval_dir.
+    for k in list(sys.modules):
+      if k == "utils" or k.startswith("utils."):
+        del sys.modules[k]
+    # Restore the test-suite modules.
+    sys.modules.update(_evicted)
 
   errors: list[str] = []
   metrics: dict[tuple, float] = {}
