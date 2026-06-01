@@ -16,8 +16,8 @@ Usage::
   pytest tests/system/metric/test_black_box_evaluation.py
 """
 
+import json
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -72,60 +72,101 @@ _JITTER_PARAMS = [
 ]
 
 # ---------------------------------------------------------------------------
+# Driver script template — executed inside an isolated virtualenv
+# ---------------------------------------------------------------------------
+_DRIVER_TEMPLATE = """\
+import json, sys
+from pathlib import Path
+
+sys.path.insert(0, {eval_dir})
+from run_black_box_evaluation import run_all
+
+results = run_all(image_tag={image_tag} or None, output_dir=Path({output_dir}))
+
+serialised = []
+for name, v in results:
+    if isinstance(v, Exception):
+        serialised.append([name, {{"__error__": str(v)}}])
+    else:
+        serialised.append([name, v])
+
+Path({results_file}).write_text(json.dumps(serialised, default=float))
+"""
+
+
+# ---------------------------------------------------------------------------
 # Session-scoped fixtures
 # ---------------------------------------------------------------------------
-@pytest.fixture(scope="session", autouse=False)
-def _eval_deps_installed():
-  """Ensure evaluation pipeline requirements are present in the active venv."""
-  subprocess.run(
-    [sys.executable, "-m", "pip", "install", "-q", "-r", str(_EVAL_REQUIREMENTS)],
-    check=True,
-  )
-
-
 @pytest.fixture(scope="session")
-def black_box_metrics(tmp_path_factory, _eval_deps_installed) -> dict[tuple, float]:
+def black_box_metrics(tmp_path_factory) -> dict[tuple, float]:
   """Run all black-box evaluation modes once per session.
+
+  The evaluation runs in an isolated virtualenv so its pinned dependencies
+  (numpy, pandas, pytest, …) cannot affect the running test process.
 
   The container image tag is read from ``version.txt`` at the repository root.
 
   Returns:
     Dict mapping (run_name, evaluator, metric) -> float value.
   """
+  import venv as _venv
 
-  eval_dir = str(_EVAL_SCRIPT.parent)
-  if eval_dir not in sys.path:
-    sys.path.insert(0, eval_dir)
-  else:
-    # Ensure it comes before tests/ even if already present
-    sys.path.remove(eval_dir)
-    sys.path.insert(0, eval_dir)
+  work_dir = tmp_path_factory.mktemp("bb_eval")
+  venv_dir = work_dir / "venv"
+  output_dir = work_dir / "output"
+  output_dir.mkdir()
+  results_file = work_dir / "results.json"
 
-  stale_utils = {k: v for k, v in sys.modules.items()
-                 if k == "utils" or k.startswith("utils.")}
-  for key in stale_utils:
-    del sys.modules[key]
+  # Build an isolated virtualenv so the evaluation's pinned deps do not
+  # mutate the active test-process environment.
+  _venv.create(str(venv_dir), with_pip=True, clear=True)
+  venv_python = venv_dir / "bin" / "python"
+  subprocess.run(
+    [str(venv_python), "-m", "pip", "install", "-q", "-r", str(_EVAL_REQUIREMENTS)],
+    check=True,
+  )
 
-  from run_black_box_evaluation import run_all  # noqa: PLC0415
+  image_tag = _VERSION_FILE.read_text().strip() if _VERSION_FILE.exists() else ""
 
-  image_tag = _VERSION_FILE.read_text().strip() if _VERSION_FILE.exists() else None
-  output_dir = tmp_path_factory.mktemp("bb_eval")
+  driver = work_dir / "_eval_driver.py"
+  driver.write_text(
+    _DRIVER_TEMPLATE.format(
+      eval_dir=repr(str(_EVAL_SCRIPT.parent)),
+      image_tag=repr(image_tag),
+      output_dir=repr(str(output_dir)),
+      results_file=repr(str(results_file)),
+    )
+  )
 
-  results = run_all(image_tag=image_tag, output_dir=output_dir)
+  proc = subprocess.run(
+    [str(venv_python), str(driver)],
+    capture_output=True,
+    text=True,
+  )
+  if proc.returncode != 0:
+    pytest.fail(
+      f"Evaluation subprocess failed (exit {proc.returncode}):\n"
+      f"{proc.stderr or proc.stdout}"
+    )
 
-  # Restore tests/utils to sys.modules for the remainder of the test session.
-  sys.modules.update(stale_utils)
+  raw = json.loads(results_file.read_text())
 
-  if all(isinstance(r, Exception) for _, r in results):
-    pytest.fail("All evaluation runs failed — check container images and harness setup")
-
+  errors: list[str] = []
   metrics: dict[tuple, float] = {}
-  for run_name, result in results:
-    if isinstance(result, Exception):
+  for run_name, result in raw:
+    if "__error__" in result:
+      errors.append(f"{run_name}: {result['__error__']}")
       continue
     for evaluator_name, evaluator_metrics in result.items():
       for metric, value in evaluator_metrics.items():
-        metrics[(run_name, evaluator_name, metric)] = value
+        metrics[(run_name, evaluator_name, metric)] = float(value)
+
+  if not metrics and errors:
+    pytest.fail(
+      "All evaluation runs failed — check container images and harness setup:\n"
+      + "\n".join(errors)
+    )
+
   return metrics
 
 # ---------------------------------------------------------------------------
