@@ -69,6 +69,7 @@ class JitterEvaluator(TrackerEvaluator):
     self._gt_track_histories: Dict[str, List[tuple]] = {}
     # FPS derived from tracker output timestamps (used to convert GT frame → time)
     self._camera_fps: float = 30.0
+    self._base_fps: Optional[float] = None
 
   # ------------------------------------------------------------------
   # TrackerEvaluator interface
@@ -111,6 +112,23 @@ class JitterEvaluator(TrackerEvaluator):
       path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
     self._output_folder = path
+    return self
+
+  def set_base_fps(self, fps=None) -> 'JitterEvaluator':
+    """Set base frame rate for timestamp-to-frame-number conversion.
+
+    Args:
+      fps: Frames per second (> 0), or None to auto-compute from timestamps.
+
+    Returns:
+      Self for method chaining.
+
+    Raises:
+      ValueError: If fps is not None and <= 0.
+    """
+    if fps is not None and fps <= 0:
+      raise ValueError("fps must be > 0")
+    self._base_fps = fps
     return self
 
   def process_tracker_outputs(
@@ -188,7 +206,9 @@ class JitterEvaluator(TrackerEvaluator):
         datetime.fromisoformat(f.get('timestamp', '').replace('Z', '+00:00'))
         for f in deduplicated
       )
-      if len(all_timestamps) > 1:
+      if self._base_fps is not None:
+        self._camera_fps = self._base_fps
+      elif len(all_timestamps) > 1:
         span = (all_timestamps[-1] - all_timestamps[0]).total_seconds()
         self._camera_fps = (len(all_timestamps) - 1) / span if span > 0 else 30.0
       else:
@@ -278,6 +298,7 @@ class JitterEvaluator(TrackerEvaluator):
     self._track_histories = {}
     self._gt_track_histories = {}
     self._camera_fps = 30.0
+    self._base_fps = None
     return self
 
   # ------------------------------------------------------------------

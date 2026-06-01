@@ -563,3 +563,113 @@ class TestTimestampIntervals:
     """Test camera x2 at 30 FPS has correct timestamp intervals."""
     self._verify_fps_intervals(dataset, "Cam_x2_0", 30)
 
+
+class TestObjectCategories:
+  """Test set_object_categories filtering."""
+
+  def test_set_object_categories_returns_self(self, dataset):
+    """Method returns self for chaining."""
+    result = dataset.set_object_categories(["person"])
+    assert result is dataset
+
+  def test_set_object_categories_none_resets(self, dataset):
+    """Passing None removes the category filter."""
+    dataset.set_object_categories(["person"])
+    dataset.set_object_categories(None)
+    assert dataset._object_categories is None
+
+  def test_set_object_categories_empty_raises(self, dataset):
+    """Empty list raises ValueError."""
+    with pytest.raises(ValueError, match="must not be empty"):
+      dataset.set_object_categories([])
+
+  def test_inputs_filtered_by_category(self, dataset):
+    """Inputs contain only the requested categories."""
+    dataset.set_cameras(["Cam_x1_0"]).set_object_categories(["person"])
+    inputs = list(dataset.get_inputs("Cam_x1_0"))
+
+    assert len(inputs) > 0
+    for frame in inputs:
+      assert set(frame["objects"].keys()) <= {"person"}
+    # At least some frames should contain person objects
+    frames_with_person = [f for f in inputs if "person" in f["objects"]]
+    assert len(frames_with_person) > 0
+
+  def test_inputs_multiple_categories(self, dataset):
+    """Multiple categories are all included."""
+    dataset.set_cameras(["Cam_x1_0"]).set_object_categories(["person", "FW190D"])
+    inputs = list(dataset.get_inputs("Cam_x1_0"))
+
+    assert len(inputs) > 0
+    categories_seen = set()
+    for frame in inputs:
+      categories_seen.update(frame["objects"].keys())
+    assert categories_seen == {"person", "FW190D"}
+
+  def test_inputs_no_filter_returns_all(self, dataset):
+    """Without category filter, all categories are returned."""
+    dataset.set_cameras(["Cam_x1_0"])
+    inputs = list(dataset.get_inputs("Cam_x1_0"))
+
+    categories_seen = set()
+    for frame in inputs:
+      categories_seen.update(frame["objects"].keys())
+    assert len(categories_seen) >= 2
+
+  def test_inputs_frame_count_unchanged(self, dataset):
+    """Category filtering does not change the number of frames."""
+    dataset.set_cameras(["Cam_x1_0"])
+    all_inputs = list(dataset.get_inputs("Cam_x1_0"))
+
+    dataset.set_object_categories(["person"])
+    filtered_inputs = list(dataset.get_inputs("Cam_x1_0"))
+
+    assert len(filtered_inputs) == len(all_inputs)
+
+  def test_ground_truth_filtered_by_category(self, dataset):
+    """Ground truth contains fewer objects when filtered by category."""
+    gt_all = dataset.get_ground_truth()
+    df_all = read_csv_to_dataframe(
+      gt_all, has_header=False,
+      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
+    )
+
+    dataset.set_object_categories(["person"])
+    gt_filtered = dataset.get_ground_truth()
+    df_filtered = read_csv_to_dataframe(
+      gt_filtered, has_header=False,
+      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
+    )
+
+    assert len(df_filtered) < len(df_all)
+    assert len(df_filtered) > 0
+
+  def test_ground_truth_category_ids_match(self, dataset):
+    """Filtered GT only contains object IDs from the requested categories."""
+    # In the dataset, "person" category has IDs 0 and 1,
+    # "Person" has ID 0, "FW190D" has ID 2
+    dataset.set_object_categories(["FW190D"])
+    gt_path = dataset.get_ground_truth()
+    df = read_csv_to_dataframe(
+      gt_path, has_header=False,
+      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
+    )
+
+    assert set(df["id"].unique()) == {2}
+
+  def test_reset_clears_categories(self, dataset):
+    """Reset removes the category filter."""
+    dataset.set_object_categories(["person"])
+    dataset.reset()
+    assert dataset._object_categories is None
+
+  def test_multi_camera_inputs_filtered(self, dataset):
+    """Category filtering works for multi-camera merge path."""
+    dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"])
+    dataset.set_object_categories(["person"])
+    inputs = list(dataset.get_inputs())
+
+    assert len(inputs) > 0
+    for frame in inputs:
+      assert set(frame["objects"].keys()) <= {"person"}
+
