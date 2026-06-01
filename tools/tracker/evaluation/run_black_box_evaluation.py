@@ -6,7 +6,7 @@
 All results land under a shared session directory:
 
   <base_output_path>/<YYYYMMDD_HHMMSS>/
-    Controller-NO-Time-Chunking/
+    Controller-Immediate/
     Controller-Time-Chunking/
     Tracker-Service/
 
@@ -17,6 +17,7 @@ Usage (from tools/tracker/evaluation/):
 
 import argparse
 import sys
+import tempfile
 import traceback
 from datetime import datetime
 from pathlib import Path
@@ -34,9 +35,9 @@ from pipeline_engine import PipelineEngine
 _SCRIPT_DIR = Path(__file__).parent
 
 CONFIGS = [
-    _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_controller_no_tc.yaml",
-    _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_controller_tc.yaml",
-    _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_tracker_service.yaml",
+  _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_controller_immediate.yaml",
+  _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_controller_tc.yaml",
+  _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_tracker_service.yaml",
 ]
 
 DEFAULT_OUTPUT_BASE = _SCRIPT_DIR / "output" / "black-box-evaluation"
@@ -54,27 +55,26 @@ def _run_config(config_path: Path, session_output: Path) -> dict:
     cfg = yaml.safe_load(f)
 
   # Redirect output into the shared session directory.
-  # PipelineEngine will append run_name as a subdirectory.
+  # PipelineEngine will append run-ID as a subdirectory.
   cfg["pipeline"]["output"]["path"] = str(session_output)
 
-  engine = PipelineEngine()
-  # Inject patched config directly so we don't need a temp file.
-  engine._config = cfg
-  engine._create_run_output_directory()
-  engine._dataset = engine._create_component("dataset")
-  engine._harness = engine._create_component("harness")
-  engine._evaluators = [
-      engine._create_component("evaluators", index=i)
-      for i in range(len(cfg["evaluators"]))
-  ]
-  engine._configure_dataset()
-  engine._configure_harness()
-  engine._configure_evaluators()
+  # Write the patched config to a temp file so load_configuration() can
+  # persist the config copy and run full validation.
+  with tempfile.NamedTemporaryFile(
+    mode="w", suffix=".yaml", prefix=config_path.stem + "_", delete=False
+  ) as tmp:
+    yaml.safe_dump(cfg, tmp)
+    tmp_path = tmp.name
 
-  engine.run()
-  metrics = engine.evaluate()
-  print(f"\nResults saved to: {engine._output_path}")
-  return metrics
+  try:
+    engine = PipelineEngine()
+    engine.load_configuration(tmp_path)
+    engine.run()
+    metrics = engine.evaluate()
+    print(f"\nResults saved to: {engine._output_path}")
+    return metrics
+  finally:
+    Path(tmp_path).unlink(missing_ok=True)
 
 
 def _print_summary(session_output: Path, results: list[tuple[str, dict | Exception]]) -> None:

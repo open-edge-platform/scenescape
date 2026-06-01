@@ -5,6 +5,7 @@
 - [Running on NPU](#running-on-npu)
 - [Enable Re-ID](#enable-reidentification)
 - [Enable Pose Estimation](#enable-pose-estimation)
+- [Enable Frame NTP Timestamp Extraction](#enable-frame-ntp-timestamp-extraction)
 - [Creating a New Pipeline](#creating-a-new-pipeline)
 - [Using Authenticated MQTT Broker](#using-authenticated-mqtt-broker)
 - [Additional Resources](#additional-resources)
@@ -235,6 +236,41 @@ Following are step-by-step instructions for enabling pose estimation for the out
    To enable improved localization using pose keypoints, pass the `--pose-adjustment` flag or set the `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable on the `scene` service. This feature is disabled by default. See the [Scene Controller documentation](../docs/user-guide/microservices/controller/controller.md) for details.
 
 > **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128` for deep-sort tracking) must use `detectionPolicy` as the metadata generation policy — `reidPolicy` is not supported for these pipelines. Additionally, the `--pose-adjustment` controller flag cannot be used together with Extended ReID (VDMS-based cross-camera re-identification).
+
+## Enable Frame NTP Timestamp Extraction
+
+Following are short steps to enable NTP timestamp extraction from an RTSP camera stream for the out-of-box **Queuing** scene.
+
+When an RTSP source provides NTP timing in its stream (via RTCP Sender Reports), GStreamer's `rtspsrc` element can
+attach that NTP reference timestamp to each buffer using `add-reference-timestamp-meta=true`. Enabling
+`useFrameNtpTimestamp` in the pipeline configuration causes SceneScape to read that metadata and use it as the frame
+timestamp instead of the post-decode system clock time. This improves timing accuracy when the camera and server are
+synchronized to the same NTP source.
+
+> **Note:** This feature requires an RTSP source that provides NTP timestamps in its stream. It has no effect on
+> file-based sources such as `multifilesrc`.
+
+1. Ensure the `rtspsrc` element in your pipeline string includes `add-reference-timestamp-meta=true`. The out-of-box
+   [queuing-config.json](./queuing-config.json) already includes this setting.
+
+2. Set `useFrameNtpTimestamp` to `true` in the `frame_ntp_config` section of your pipeline payload. In
+   `queuing-config.json` this is the `payload.parameters.frame_ntp_config` block:
+
+```json
+{
+  "frame_ntp_config": {
+    "useFrameNtpTimestamp": true
+  }
+}
+```
+
+3. Restart the DL Streamer Pipeline Server service to apply the change:
+
+```sh
+docker compose restart queuing-video
+```
+
+If the NTP metadata is absent on a given frame, the pipeline falls back to the system clock automatically.
 
 ## Creating a New Pipeline
 
