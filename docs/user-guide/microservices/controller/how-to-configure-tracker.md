@@ -112,23 +112,26 @@ You may need to adjust the time-based parameters depending on:
 
 Always experimentally verify which parameters work best for your specific use case.
 
-## Disabling Time-Chunking
+## Immediate Mode (Time-Chunking Disabled)
+
+Immediate mode means `time_chunking_enabled` is set to `false`, so inputs are
+processed as they arrive without time-chunk buffering.
 
 If time-chunking is disabled, the tracker processes each camera frame individually, meaning it
 processes data at a rate equal to the cumulative camera FPS.
 
 In the `configs` section of your `docker-compose.yml`, change the `tracker-config` to point
-to `controller/config/tracker-config-no-time-chunking.json`:
+to `controller/config/tracker-config-immediate.json`:
 
 ```yaml
 configs:
   tracker-config:
-    # Use this configuration file to run tracking without time-chunking
-    file: ./controller/config/tracker-config-no-time-chunking.json
+    # Use this configuration file to run tracking in immediate mode
+    file: ./controller/config/tracker-config-immediate.json
     # file: ./controller/config/tracker-config.json
 ```
 
-The content of the `tracker-config-no-time-chunking.json` file is shown below.
+The content of the `tracker-config-immediate.json` file is shown below.
 
 ```json
 {
@@ -167,7 +170,7 @@ specific deployment scenario.
 
 If you have an older configuration that has proven to work well using frame-based parameters, use the following instructions to convert it to the time-based format.
 
-### Converting with Time-Chunking Disabled
+### Converting with Immediate Mode
 
 First, determine the `effective_object_update_rate` as described above, then apply the following conversion formula:
 
@@ -240,5 +243,5 @@ The tracker may accumulate suspended tracks for some time for re-tracking purpos
 - **Parameter:** `suspended_track_timeout_secs`
 - **Meaning:** Maximum age in seconds for suspended tracks before they are cleaned up. Default: `60.0` seconds.
 - **How to set it:**
-  - Add `"suspended_track_timeout_secs": <value>` to `controller/config/tracker-config.json` (or `tracker-config-no-time-chunking.json` for non-time-chunked mode).
+  - Add `"suspended_track_timeout_secs": <value>` to `controller/config/tracker-config.json` (or `tracker-config-immediate.json` for immediate mode).
   - The parameter follows the same configuration flow as other tracker parameters like `max_unreliable_time_s` and `non_measurement_time_dynamic_s`.

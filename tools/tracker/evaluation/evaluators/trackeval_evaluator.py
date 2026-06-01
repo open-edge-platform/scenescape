@@ -327,7 +327,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
       if not tracker_output_list:
         raise RuntimeError("No tracker outputs provided")
 
-      # drop duplicated timestamps when production tracker runs metrics dataset without time-chunking
+      # Drop duplicated timestamps when production tracker runs metrics dataset in immediate mode.
       seen_timestamps = set()
       filtered_outputs = []
       for data in tracker_output_list:
