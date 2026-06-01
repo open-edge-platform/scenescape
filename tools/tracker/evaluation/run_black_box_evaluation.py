@@ -6,7 +6,7 @@
 All results land under a shared session directory:
 
   <base_output_path>/<YYYYMMDD_HHMMSS>/
-    Controller-NO-Time-Chunking/
+    Controller-Immediate/
     Controller-Time-Chunking/
     Tracker-Service/
 
@@ -35,9 +35,9 @@ from pipeline_engine import PipelineEngine
 _SCRIPT_DIR = Path(__file__).parent
 
 CONFIGS = [
-    _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_controller_no_tc.yaml",
-    _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_controller_tc.yaml",
-    _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_tracker_service.yaml",
+  _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_controller_immediate.yaml",
+  _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_controller_tc.yaml",
+  _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_tracker_service.yaml",
 ]
 
 DEFAULT_OUTPUT_BASE = _SCRIPT_DIR / "output" / "black-box-evaluation"
