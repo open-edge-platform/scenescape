@@ -114,23 +114,24 @@ jobs:
           echo "Tagged ${{ matrix.images }}:latest as intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
 
       - name: "Log in to DockerHub"
-        if: ${{ inputs.publish }}
+        if: ${{ github.event.inputs.publish == 'true' }}
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           username: scenescape
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: "Push images"
-        if: ${{ inputs.publish }}
+        if: ${{ github.event.inputs.publish == 'true' }}
         run: |
           docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
 
       - name: Install skopeo
+        if: ${{ github.event.inputs.publish == 'true' }}
         run: sudo apt update && sudo apt install -y skopeo jq
 
       - name: "Get image digest"
         id: digest
-        if: ${{ inputs.publish }}
+        if: ${{ github.event.inputs.publish == 'true' }}
         env:
           IMAGE: intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
         run: |
@@ -138,17 +139,18 @@ jobs:
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
 
       - name: "Install Cosign"
+        if: ${{ github.event.inputs.publish == 'true' }}
         uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
 
       - name: "Sign Docker images using Cosign (keyless)"
-        if: ${{ inputs.publish }}
+        if: ${{ github.event.inputs.publish == 'true' }}
         run: |
           cosign sign --yes intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}
           echo "Signed intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}"
 
       - name: "Save ${{ matrix.images }} image info"
         id: save-image-info
-        if: ${{ inputs.publish }}
+        if: ${{ github.event.inputs.publish == 'true' }}
         run: |
           echo "image_name=intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
           echo "image_name=intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
