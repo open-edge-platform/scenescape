@@ -205,6 +205,11 @@ class SingletonSerializer(NonNullSerializer):
         val = data.get(field)
         if val is None:
           raise serializers.ValidationError({field: "required"})
+    scene = data.get('scene')
+    if scene is not None:
+      scene_pk = scene.get('pk') if isinstance(scene, dict) else scene
+      if scene_pk and not Scene.objects.filter(pk=scene_pk).exists():
+        raise serializers.ValidationError({"scene": "Scene with given UUID does not exist."})
     if 'singleton_scalar_threshold' in data:
       SingletonScalarThresholdSerializer.validateColorRanges(data['singleton_scalar_threshold'])
     return data
@@ -470,6 +475,11 @@ class CamSerializer(NonNullSerializer):
     return camera.pose.scale if camera and hasattr(camera, 'pose') else None
 
   def validate(self, data):
+    scene = data.get('scene')
+    if scene is not None:
+      scene_pk = scene.get('pk') if isinstance(scene, dict) else scene
+      if scene_pk and not Scene.objects.filter(pk=scene_pk).exists():
+        raise serializers.ValidationError({"scene": "Scene with given UUID does not exist."})
     if data.get('use_camera_pipeline') and not data.get('camera_pipeline'):
       raise serializers.ValidationError({
         'camera_pipeline': 'camera_pipeline cannot be empty when use_camera_pipeline is true.'
