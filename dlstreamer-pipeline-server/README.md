@@ -254,7 +254,7 @@ synchronized to the same NTP source.
    [queuing-config.json](./queuing-config.json) already includes this setting.
 
 2. Set `useFrameNtpTimestamp` to `true` in the `frame_ntp_config` section of your pipeline payload. In
-   `queuing-config.json` this is the `"parameters"` → `"frame_ntp_config"` block:
+   `queuing-config.json` this is the `payload.parameters.frame_ntp_config` block:
 
 ```json
 "frame_ntp_config": {
