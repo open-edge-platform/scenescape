@@ -18,6 +18,9 @@ from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegio
 
 from controller.controller_mode import ControllerMode
 from controller.moving_object import ChainData
+from controller.pose_adjustment import (PoseAdjustment,
+                                        MIN_POSE_CACHE_TTL,
+                                        POSE_CACHE_TTL_MULTIPLIER)
 from controller.ilabs_tracking import IntelLabsTracking
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -28,6 +31,7 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
 
 DEBOUNCE_DELAY = 0.5
 MIN_FRAMES_FOR_RELIABLE_TRACK = 3
+
 
 class TripwireEvent:
   def __init__(self, object, direction):
@@ -50,7 +54,8 @@ class Scene(SceneModel):
                time_chunking_enabled = False,
                time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS,
                suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
-               reid_config_data = None):
+               reid_config_data = None,
+               pose_adjustment_config_data = None):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static,
              "analytics_only=" + str(ControllerMode.isAnalyticsOnly()))
@@ -61,6 +66,9 @@ class Scene(SceneModel):
     self.non_measurement_time_static = non_measurement_time_static
     self.suspended_track_timeout_secs = suspended_track_timeout_secs
     self.reid_config_data = reid_config_data if reid_config_data else {}
+    self.pose_adjustment_config_data = (
+      pose_adjustment_config_data if pose_adjustment_config_data else {}
+    )
 
     self.tracker = None
     self.trackerType = None
@@ -81,6 +89,12 @@ class Scene(SceneModel):
 
     # Cache for object history (publishedLocations, etc.) to maintain trails across frames
     self.object_history_cache = {}
+
+    self.pose_adjustment = PoseAdjustment.from_env(
+      max_entry_age_seconds=self._get_pose_cache_ttl(),
+      default_enabled=True,
+      pose_adjustment_config_data=self.pose_adjustment_config_data,
+    )
 
     # FIXME - only for backwards compatibility
     self.scale = scale
@@ -166,7 +180,12 @@ class Scene(SceneModel):
       self.non_measurement_time_dynamic = non_measurement_time_dynamic
       self.non_measurement_time_static = non_measurement_time_static
       self._setTracker(self.trackerType)
+    if self.pose_adjustment is not None:
+      self.pose_adjustment.set_max_entry_age_seconds(self._get_pose_cache_ttl())
     return
+
+  def _get_pose_cache_ttl(self):
+    return max(MIN_POSE_CACHE_TTL, self.max_unreliable_time * POSE_CACHE_TTL_MULTIPLIER)
 
   def _createMovingObjectsForDetection(self, detectionType, detections, when, camera):
     objects = []
@@ -206,6 +225,13 @@ class Scene(SceneModel):
       return True
 
     for detection_type, detections in jdata['objects'].items():
+      self.pose_adjustment.adjust_detections(
+        detection_type,
+        detections,
+        self.name,
+        camera,
+        when,
+      )
       if "intrinsics" not in jdata:
         self._convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
       objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
@@ -809,9 +835,12 @@ class Scene(SceneModel):
   def deserialize(cls, data):
     tracker_config = data.get('tracker_config', [])
     reid_config_data = data.get('reid_config_data', None)
+    pose_adjustment_config_data = data.get('pose_adjustment_config_data', None)
     scale_from_data = data.get('scale', None)
     scene = cls(data['name'], data.get('map', None), scale_from_data,
-                *tracker_config, reid_config_data=reid_config_data)
+                *tracker_config,
+                reid_config_data=reid_config_data,
+                pose_adjustment_config_data=pose_adjustment_config_data)
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)

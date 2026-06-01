@@ -48,6 +48,11 @@ For `COSINE`, SceneScape uses VDMS `IP` internally with normalized vectors, so s
 
 The controller validates returned similarity scores for the normalized-cosine path (`COSINE` mapped to VDMS `IP`) and discards out-of-range values. For non-cosine distance metrics (for example `L2`), vectors are not force-normalized and this `[-1, 1]` check is not applied.
 
+### Limitations
+
+- Extended ReID is not compatible with the `--pose-adjustment` controller flag. When pose-based bounding box adjustment is enabled, Extended ReID must be disabled.
+- Cameras using pose estimation pipelines with `gvainference` + `gvatrack` (e.g. `mars-small128` + `yolo11n-pose` for deep-sort tracking) cannot use `reidPolicy` as their metadata generation policy. These cameras must use `detectionPolicy`.
+
 ### Confidence-Based Constraint Filtering (AND-Only)
 
 The 2-tier implementation uses metadata confidence scores to determine which constraints are applied in TIER 1 filtering. **Only high-confidence (≥ 0.8) constraints are used for strict AND filtering**. Low-confidence constraints are skipped in TIER 1, allowing TIER 2 vector similarity to handle flexible matching:

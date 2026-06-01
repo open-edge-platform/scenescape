@@ -12,15 +12,21 @@ There are 3 tests included:
 
 #### Inference Performance
 
-Run the inference_performance script:
+Run via make:
 
-...
-tests/perf_tests/tc_inference_performance.sh
-...
+```
+make inference-performance
+```
+
+Or directly:
+
+```
+pytest tests/perf_tests/test_inference_performance.py
+```
 
 #### Inference Conformance
 
 Run the inference_conformance script:
 ...
-tests/perf_tests/tc_inference_conformance.sh
+tests/perf_tests/test_inference_conformance.sh
 ...

@@ -17,7 +17,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
-from mesh_utils import createPointcloudFromMesh, getMeshInfo
+from mesh_utils import create_pointcloud_from_mesh, get_mesh_info
 
 
 class TestMeshUtils:
@@ -32,7 +32,7 @@ class TestMeshUtils:
       "final_masks": np.ones((2, 100, 100), dtype=bool)
     }
 
-    scene = createPointcloudFromMesh(predictions)
+    scene = create_pointcloud_from_mesh(predictions)
 
     assert isinstance(scene, trimesh.Scene)
     assert len(scene.geometry) > 0
@@ -44,7 +44,7 @@ class TestMeshUtils:
       "images": np.random.randint(0, 255, (2, 50, 50, 3), dtype=np.uint8),
     }
 
-    scene = createPointcloudFromMesh(predictions)
+    scene = create_pointcloud_from_mesh(predictions)
 
     assert isinstance(scene, trimesh.Scene)
     assert len(scene.geometry) > 0
@@ -56,7 +56,7 @@ class TestMeshUtils:
       "final_masks": np.ones((2, 50, 50), dtype=bool)
     }
 
-    scene = createPointcloudFromMesh(predictions)
+    scene = create_pointcloud_from_mesh(predictions)
 
     assert isinstance(scene, trimesh.Scene)
     assert len(scene.geometry) > 0
@@ -73,7 +73,7 @@ class TestMeshUtils:
       "final_masks": masks
     }
 
-    scene = createPointcloudFromMesh(predictions)
+    scene = create_pointcloud_from_mesh(predictions)
 
     assert isinstance(scene, trimesh.Scene)
     # Check that point cloud was created with filtered points
@@ -94,7 +94,7 @@ class TestMeshUtils:
       "final_masks": np.ones((2, 50, 50), dtype=bool)
     }
 
-    scene = createPointcloudFromMesh(predictions)
+    scene = create_pointcloud_from_mesh(predictions)
 
     assert isinstance(scene, trimesh.Scene)
     # Verify no NaN points in the final point cloud
@@ -114,7 +114,7 @@ class TestMeshUtils:
       "final_masks": np.ones((2, 50, 50), dtype=bool)
     }
 
-    scene = createPointcloudFromMesh(predictions)
+    scene = create_pointcloud_from_mesh(predictions)
 
     assert isinstance(scene, trimesh.Scene)
     # Verify no infinite points in the final point cloud
@@ -130,7 +130,7 @@ class TestMeshUtils:
       "final_masks": np.ones((1, 10, 10), dtype=bool)
     }
 
-    scene = createPointcloudFromMesh(predictions)
+    scene = create_pointcloud_from_mesh(predictions)
 
     # Check that colors are normalized
     for geom in scene.geometry.values():
@@ -147,7 +147,7 @@ class TestMeshUtils:
     }
 
     with pytest.raises(ValueError, match="No world_points found"):
-      createPointcloudFromMesh(predictions)
+      create_pointcloud_from_mesh(predictions)
 
   def test_get_mesh_info_with_mesh(self):
     """Test getMeshInfo with a mesh"""
@@ -168,7 +168,7 @@ class TestMeshUtils:
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
     scene = trimesh.Scene([mesh])
 
-    info = getMeshInfo(scene)
+    info = get_mesh_info(scene)
 
     assert info["geometries"] == 1
     assert info["total_vertices"] == 4
@@ -184,7 +184,7 @@ class TestMeshUtils:
     pointcloud = trimesh.PointCloud(vertices=points, colors=colors)
     scene = trimesh.Scene([pointcloud])
 
-    info = getMeshInfo(scene)
+    info = get_mesh_info(scene)
 
     assert info["geometries"] == 1
     assert info["total_vertices"] == 100
@@ -205,7 +205,7 @@ class TestMeshUtils:
 
     scene = trimesh.Scene([mesh, pointcloud])
 
-    info = getMeshInfo(scene)
+    info = get_mesh_info(scene)
 
     assert info["geometries"] == 2
     assert info["total_vertices"] == 53  # 3 from mesh + 50 from pointcloud
@@ -217,7 +217,7 @@ class TestMeshUtils:
     """Test getMeshInfo with empty scene"""
     scene = trimesh.Scene()
 
-    info = getMeshInfo(scene)
+    info = get_mesh_info(scene)
 
     assert info["geometries"] == 0
     assert info["total_vertices"] == 0
@@ -231,7 +231,7 @@ class TestMeshUtils:
     mesh = trimesh.creation.box()
     scene = trimesh.Scene([mesh])
 
-    info = getMeshInfo(scene)
+    info = get_mesh_info(scene)
 
     assert info["is_watertight"] is True
 
@@ -243,7 +243,7 @@ class TestMeshUtils:
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
     scene = trimesh.Scene([mesh])
 
-    info = getMeshInfo(scene)
+    info = get_mesh_info(scene)
 
     assert info["is_watertight"] is False
 

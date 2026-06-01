@@ -116,17 +116,6 @@ docker compose exec manager python manage.py migrate
 docker compose exec manager python manage.py showmigrations
 ```
 
-### Testing
-
-```bash
-# Django unit tests
-docker compose exec manager python manage.py test
-
-# External acceptance tests
-SUPASS=<password> make setup_tests
-make -C tests manager-functional
-```
-
 ### Running Locally
 
 ```bash
@@ -373,7 +362,7 @@ docker compose exec manager python manage.py dbshell
 
 When modifying the service, verify:
 
-- [ ] Django unit tests pass: `docker compose exec manager python manage.py test`
+- [ ] Functional tests pass: `make run_functional_tests` (starts Docker stacks automatically)
 - [ ] Database migrations apply cleanly
 - [ ] REST API endpoints return correct responses
 - [ ] Web UI pages render without errors

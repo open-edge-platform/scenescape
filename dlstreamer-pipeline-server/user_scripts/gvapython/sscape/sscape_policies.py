@@ -6,7 +6,44 @@ import base64
 
 ## Policies to post process data
 
+def _isDetection(item):
+  """Check if item contains valid detection metadata."""
+  detection = item.get('detection')
+  return isinstance(detection, dict) and 'confidence' in detection
+
+def _extractKeypointsFromGvametaconvert(item):
+  """Extract keypoints from gvametaconvert format (yolo11-pose and similar)."""
+  raw_keypoints = item.get('keypoints')
+  if isinstance(raw_keypoints, list):
+    for kp_group in raw_keypoints:
+      points = kp_group.get('points', [])
+      if points:
+        keypoints = [
+          {
+            'name': p['name'],
+            'x': p['x'],
+            'y': p['y'],
+            'confidence': p.get('confidence'),
+          }
+          for p in points
+          if 'name' in p and 'x' in p and 'y' in p
+        ]
+        skeleton = kp_group.get('skeleton', [])
+        point_names = [p.get('name', '') for p in points]
+        connections = []
+        for pair in skeleton:
+          if (isinstance(pair, (list, tuple)) and len(pair) == 2
+              and pair[0] < len(point_names) and pair[1] < len(point_names)):
+            connections.append(point_names[pair[0]])
+            connections.append(point_names[pair[1]])
+        return {
+          'keypoints': keypoints,
+          'keypoint_connections': connections,
+        }
+  return {}
+
 def _extractKeypoints(item):
+  # Format 1: keypoints in tensors (older model-proc based pipelines)
   for tensor in item.get('tensors', []):
     if tensor.get('format') == 'keypoints':
       data = tensor.get('data', [])
@@ -20,9 +57,13 @@ def _extractKeypoints(item):
         'keypoints': keypoints,
         'keypoint_connections': tensor.get('point_connections', [])
       }
-  return {}
+
+  # Format 2: keypoints from gvametaconvert (yolo11-pose and similar)
+  return _extractKeypointsFromGvametaconvert(item)
 
 def detectionPolicy(pobj, item, fw, fh):
+  if not _isDetection(item):
+    return
   detection = item['detection']
   # If label is missing use label_id to avoid KeyError exception.
   category = detection.get('label') or str(detection['label_id'])
@@ -37,6 +78,8 @@ def detectionPolicy(pobj, item, fw, fh):
   return
 
 def detection3DPolicy(pobj, item, fw, fh):
+  if not _isDetection(item):
+    return
   pobj.update({
     'category': item['detection']['label'],
     'confidence': item['detection']['confidence'],
@@ -49,6 +92,8 @@ def detection3DPolicy(pobj, item, fw, fh):
   return
 
 def reidPolicy(pobj, item, fw, fh):
+  if not _isDetection(item):
+    return
   classificationPolicy(pobj, item, fw, fh)
   for tensor in item.get('tensors', [{}]):
     name = tensor.get('name','')
@@ -78,6 +123,8 @@ def reidPolicy(pobj, item, fw, fh):
 
 def classificationPolicy(pobj, item, fw, fh):
   """Extract detection and classification metadata from tensors and update pobj"""
+  if not _isDetection(item):
+    return
   detectionPolicy(pobj, item, fw, fh)
 
   # Initialize metadata dict if it doesn't exist
@@ -101,6 +148,8 @@ def classificationPolicy(pobj, item, fw, fh):
   return
 
 def ocrPolicy(pobj, item, fw, fh):
+  if not _isDetection(item):
+    return
   detection3DPolicy(pobj, item, fw, fh)
   pobj['text'] = ''
   for key, value in item.items():

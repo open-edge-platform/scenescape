@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import cv2
@@ -12,6 +12,7 @@ from unittest.mock import Mock
 
 import controller.scene as scene_module
 from controller.moving_object import ChainData
+from controller.tracking import Tracking
 
 from scene_common.timestamp import get_epoch_time
 from scene_common.geometry import Region, Point
@@ -31,8 +32,9 @@ def test_init(scene_obj, scene_obj_with_scale):
   """
 
   assert scene_obj.name == name
+  assert scene_obj.background is not None
   assert (scene_obj.background == cv2.imread(mapFile)).all()
-  assert scene_obj.scale == None
+  assert scene_obj.scale is None
   assert scene_obj_with_scale.scale == scale
   return
 
@@ -47,10 +49,6 @@ def test_processCameraData(scene_obj, camera_obj, jdata):
   scene_obj.lastWhen = get_epoch_time()
   return_processCameraData = scene_obj.processCameraData(jdata)
   assert return_processCameraData
-
-  # Calls join to end the tracking thread gracefully
-  scene_obj.tracker.join()
-
   return
 
 @pytest.mark.parametrize("detectionType, jdata, when", [(thing_type, jdata, when)])
@@ -63,12 +61,10 @@ def test_visible(scene_obj, camera_obj, detectionType, jdata, when):
   """
   scene_obj.cameras[camera_obj.cameraID] = camera_obj
   detected_objects = jdata['objects'][thing_type]
-  mobj = scene_obj.tracker.createObject(detectionType, detected_objects[0], when, camera_obj)
-  moving_objects = []
-  moving_objects.append(mobj)
+  mobj = Tracking.createObject(detectionType, detected_objects[0], when, camera_obj)
+  moving_objects = [mobj]
   scene_obj._updateVisible(moving_objects)
   assert moving_objects[0].visibility[0] == camera_obj.cameraID
-
   return
 
 def test_isIntersecting(scene_obj):
