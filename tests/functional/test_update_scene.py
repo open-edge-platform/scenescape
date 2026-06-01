@@ -137,8 +137,9 @@ def child_scene(params):
   finally:
     try:
       helper.teardown_scenes(rest)
-    except Exception as exc:
-      log.error(f"Exception tearing down child scene: {exc}")
+    except Exception:
+      log.exception("Exception tearing down child scene")
+      raise
 
 
 @pytest.mark.test_name("NEX-T10565")
