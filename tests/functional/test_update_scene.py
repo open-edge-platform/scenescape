@@ -6,7 +6,6 @@
 """Functional tests verifying that scene property updates are reflected in the
 scene controller:
   - Scene name changes appear in scenescape/data/scene MQTT topic metadata.
-  - Scene scale changes are acknowledged by the controller and persist.
   - Regulated_rate and external_update_rate changes affect the frequency of
     scenescape/regulated/scene and scenescape/external/{scene_id} messages, respectively.
     """
