@@ -1,14 +1,18 @@
 ---
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[Build] Weekly Build Images"
-run-name: "[Build] Weekly Build Images"
+name: "[Build] Build Images And Publish To DockerHub"
+run-name: "[Build] Build Images And Publish To DockerHub"
 
 on:
-  schedule:
-    - cron: "59 6 * * 3" # Each Wednesday at 06:59 UTC (Tuesday 11:59pm PST)
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish images to DockerHub"
+        required: true
+        default: false
+        type: boolean
 permissions: {}
 
 jobs:
@@ -106,27 +110,29 @@ jobs:
 
       - name: "Tag images"
         run: |
-          docker tag ${{ matrix.images }}:latest ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
-          echo "Tagged ${{ matrix.images }}:latest as ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
+          docker tag ${{ matrix.images }}:latest intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          echo "Tagged ${{ matrix.images }}:latest as intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
 
-      - name: "Log in to GHCR"
+      - name: "Log in to DockerHub"
+        if: ${{ inputs.publish }}
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: "Push images"
+        if: ${{ inputs.publish }}
         run: |
-          docker push ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
 
       - name: Install skopeo
         run: sudo apt update && sudo apt install -y skopeo jq
 
       - name: "Get image digest"
         id: digest
+        if: ${{ inputs.publish }}
         env:
-          IMAGE: ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          IMAGE: intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
         run: |
           DIGEST=$(skopeo inspect docker://$IMAGE | jq -r '.Digest')
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
@@ -135,15 +141,17 @@ jobs:
         uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
 
       - name: "Sign Docker images using Cosign (keyless)"
+        if: ${{ inputs.publish }}
         run: |
-          cosign sign --yes ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}
-          echo "Signed ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}"
+          cosign sign --yes intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}
+          echo "Signed intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}"
 
       - name: "Save ${{ matrix.images }} image info"
         id: save-image-info
+        if: ${{ inputs.publish }}
         run: |
-          echo "image_name=ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
-          echo "image_name=ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "image_name=intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          echo "image_name=intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
           echo "image_digest=${{ steps.digest.outputs.digest }}" >> "$GITHUB_OUTPUT"
           echo "image_digest=${{ steps.digest.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
 
