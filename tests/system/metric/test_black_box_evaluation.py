@@ -106,15 +106,17 @@ def black_box_metrics(tmp_path_factory, _eval_deps_installed) -> dict[tuple, flo
   for key in stale_utils:
     del sys.modules[key]
 
-  from run_black_box_evaluation import run_all  # noqa: PLC0415
+  try:
+    from run_black_box_evaluation import run_all  # noqa: PLC0415
 
-  image_tag = _VERSION_FILE.read_text().strip() if _VERSION_FILE.exists() else None
-  output_dir = tmp_path_factory.mktemp("bb_eval")
+    image_tag = _VERSION_FILE.read_text().strip() if _VERSION_FILE.exists() else None
+    output_dir = tmp_path_factory.mktemp("bb_eval")
 
-  results = run_all(image_tag=image_tag, output_dir=output_dir)
-
-  # Restore tests/utils to sys.modules for the remainder of the test session.
-  sys.modules.update(stale_utils)
+    results = run_all(image_tag=image_tag, output_dir=output_dir)
+  finally:
+    for key in [k for k in sys.modules if k == "utils" or k.startswith("utils.")]:
+      del sys.modules[key]
+    sys.modules.update(stale_utils)
 
   if all(isinstance(r, Exception) for _, r in results):
     pytest.fail("All evaluation runs failed — check container images and harness setup")
@@ -122,7 +124,7 @@ def black_box_metrics(tmp_path_factory, _eval_deps_installed) -> dict[tuple, flo
   metrics: dict[tuple, float] = {}
   for run_name, result in results:
     if isinstance(result, Exception):
-      continue
+      pytest.fail(f"Evaluation run {run_name!r} failed: {result}")
     for evaluator_name, evaluator_metrics in result.items():
       for metric, value in evaluator_metrics.items():
         metrics[(run_name, evaluator_name, metric)] = value
