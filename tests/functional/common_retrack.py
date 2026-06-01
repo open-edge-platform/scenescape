@@ -202,7 +202,7 @@ class RetrackTest:
     def _update():
       res = rest_client.updateScene(scene_uid, {'regulated_rate': rate})
       assert res.statusCode == 200, \
-        f"Failed to set regulated_rate={rate}: {res.statusCode}"
+        f"Failed to set regulated_rate={rate}: {res.statusCode}: {res.errors}"
       log.info(f"Set regulated_rate={rate} on scene {scene_uid}")
     self._await_db_notification(_update)
 
