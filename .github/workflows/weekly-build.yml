@@ -35,8 +35,6 @@ jobs:
             scenescape-manager,
             scenescape-tracker,
             scenescape-sources,
-            scenescape-mapping-mapanything,
-            scenescape-mapping-vggt,
           ]
     steps:
       - name: "Set up Docker Buildx"
@@ -72,12 +70,6 @@ jobs:
           elif [[ "${{ matrix.images }}" == "scenescape-sources" ]]; then
             echo "Building ${{ matrix.images }}"
             make build-sources-image
-          elif [[ "${{ matrix.images }}" == "scenescape-mapping-mapanything" ]]; then
-            echo "Building ${{ matrix.images }}"
-            make -C mapping build-mapanything
-          elif [[ "${{ matrix.images }}" == "scenescape-mapping-vggt" ]]; then
-            echo "Building ${{ matrix.images }}"
-            make -C mapping build-vggt
           else
             echo "ERROR: Unexpected matrix.images value: '${{ matrix.images }}'"
             exit 1
@@ -111,27 +103,12 @@ jobs:
               tag="${version:+$version-}$date_tag"
             fi
           fi
-          # Append model type suffix for mapping images
-          if [[ "${{ matrix.images }}" == "scenescape-mapping-mapanything" ]]; then
-            tag="${tag}-mapanything"
-          elif [[ "${{ matrix.images }}" == "scenescape-mapping-vggt" ]]; then
-            tag="${tag}-vggt"
-          fi
           echo "image_tag=$tag" >> $GITHUB_OUTPUT
-
-      - name: "Compute target DockerHub image"
-        id: compute-target
-        run: |
-          if [[ "${{ matrix.images }}" == scenescape-mapping-* ]]; then
-            echo "target_image=intel/scenescape-mapping" >> $GITHUB_OUTPUT
-          else
-            echo "target_image=intel/${{ matrix.images }}" >> $GITHUB_OUTPUT
-          fi
 
       - name: "Tag images"
         run: |
-          docker tag ${{ matrix.images }}:latest ${{ steps.compute-target.outputs.target_image }}:${{ steps.determine-tag.outputs.image_tag }}
-          echo "Tagged ${{ matrix.images }}:latest as ${{ steps.compute-target.outputs.target_image }}:${{ steps.determine-tag.outputs.image_tag }}"
+          docker tag ${{ matrix.images }}:latest intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          echo "Tagged ${{ matrix.images }}:latest as intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
 
       - name: "Log in to DockerHub"
         if: ${{ github.event.inputs.publish == 'true' }}
@@ -143,7 +120,7 @@ jobs:
       - name: "Push images"
         if: ${{ github.event.inputs.publish == 'true' }}
         run: |
-          docker push ${{ steps.compute-target.outputs.target_image }}:${{ steps.determine-tag.outputs.image_tag }}
+          docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
 
       - name: Install skopeo
         if: ${{ github.event.inputs.publish == 'true' }}
@@ -152,8 +129,9 @@ jobs:
       - name: "Get image digest"
         id: digest
         if: ${{ github.event.inputs.publish == 'true' }}
+        env:
+          IMAGE: intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
         run: |
-          IMAGE="${{ steps.compute-target.outputs.target_image }}:${{ steps.determine-tag.outputs.image_tag }}"
           DIGEST=$(skopeo inspect docker://$IMAGE | jq -r '.Digest')
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
 
@@ -164,15 +142,15 @@ jobs:
       - name: "Sign Docker images using Cosign (keyless)"
         if: ${{ github.event.inputs.publish == 'true' }}
         run: |
-          cosign sign --yes ${{ steps.compute-target.outputs.target_image }}@${{ steps.digest.outputs.digest }}
-          echo "Signed ${{ steps.compute-target.outputs.target_image }}@${{ steps.digest.outputs.digest }}"
+          cosign sign --yes intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}
+          echo "Signed intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}"
 
       - name: "Save ${{ matrix.images }} image info"
         id: save-image-info
         if: ${{ github.event.inputs.publish == 'true' }}
         run: |
-          echo "image_name=${{ steps.compute-target.outputs.target_image }}:${{ steps.determine-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
-          echo "image_name=${{ steps.compute-target.outputs.target_image }}:${{ steps.determine-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "image_name=intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          echo "image_name=intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
           echo "image_digest=${{ steps.digest.outputs.digest }}" >> "$GITHUB_OUTPUT"
           echo "image_digest=${{ steps.digest.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
 
