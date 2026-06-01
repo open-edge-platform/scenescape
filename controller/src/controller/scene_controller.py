@@ -174,8 +174,8 @@ class SceneController:
   def _extractTimeChunkingEnabled(self, tracker_config):
     """Extract and validate time_chunking_enabled flag"""
     if "time_chunking_enabled" not in tracker_config:
-      log.warning("Time chunking enabled flag missing in tracker config file, disabling time chunking.")
-      self.tracker_config_data["time_chunking_enabled"] = False
+      log.warning("Time chunking enabled flag missing in tracker config file, enabling time chunking.")
+      self.tracker_config_data["time_chunking_enabled"] = True
       return
 
     try:

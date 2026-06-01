@@ -161,11 +161,11 @@ against the same tracker outputs independently.
 `run_black_box_evaluation.py` runs the complete black-box evaluation across all three
 production container types in a single timestamped session:
 
-| Config                            | Container               | Description                           |
-| --------------------------------- | ----------------------- | ------------------------------------- |
-| `black_box_controller_no_tc.yaml` | `scenescape-controller` | Controller without time-chunking      |
-| `black_box_controller_tc.yaml`    | `scenescape-controller` | Controller with time-chunking enabled |
-| `black_box_tracker_service.yaml`  | `scenescape-tracker`    | Standalone Tracker Service            |
+| Config                                | Container               | Description                                                   |
+| ------------------------------------- | ----------------------- | ------------------------------------------------------------- |
+| `black_box_controller_immediate.yaml` | `scenescape-controller` | Controller in immediate mode (`time_chunking_enabled: false`) |
+| `black_box_controller_tc.yaml`        | `scenescape-controller` | Controller with time-chunking enabled                         |
+| `black_box_tracker_service.yaml`      | `scenescape-tracker`    | Standalone Tracker Service                                    |
 
 **Prerequisites** (in addition to the general prerequisites above):
 
@@ -197,7 +197,7 @@ python -m run_black_box_evaluation --output /custom/output/path
 
 ```
 <output>/<YYYYMMDD_HHMMSS>/
-  <YYYYMMDD_HHMMSS>_Controller-NO-Time-Chunking/
+  <YYYYMMDD_HHMMSS>_Controller-Immediate/
     config/                # Pipeline YAML config copy
     dataset/
     harness/
@@ -221,7 +221,7 @@ The session summary is printed to stdout at the end:
 ========================================================================
   Session: /path/to/<YYYYMMDD_HHMMSS>
 ========================================================================
-  [black_box_controller_no_tc]
+  [black_box_controller_immediate]
     TrackEvalEvaluator:
       HOTA: 0.7943
       MOTA: 0.9930

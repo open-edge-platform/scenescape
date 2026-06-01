@@ -114,14 +114,14 @@ class _BoolRaises:
 class TestSceneControllerExtractTimeChunkingEnabled:
   """Unit tests for SceneController._extractTimeChunkingEnabled."""
 
-  def test_extract_time_chunking_enabled_defaults_to_false_when_missing(self):
-    """Sets time chunking to False when key is missing."""
+  def test_extract_time_chunking_enabled_defaults_to_true_when_missing(self):
+    """Sets time chunking to True when key is missing."""
     scene_controller = SceneController.__new__(SceneController)
     scene_controller.tracker_config_data = {}
 
     scene_controller._extractTimeChunkingEnabled({})
 
-    assert scene_controller.tracker_config_data['time_chunking_enabled'] is False
+    assert scene_controller.tracker_config_data['time_chunking_enabled'] is True
 
   @pytest.mark.parametrize(
     'raw_value,expected_value',
