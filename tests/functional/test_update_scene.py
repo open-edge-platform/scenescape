@@ -116,9 +116,12 @@ def demo_scene(params):
     "regulated_rate": scene.get("regulated_rate", 30),
   }
   yield helper, rest, scene
-  res = rest.updateScene(scene["uid"], original)
-  assert res.statusCode == 200, \
-    f"Failed to restore Demo scene: {res.statusCode}: {res.errors}"
+  def _restore():
+    res = rest.updateScene(scene["uid"], original)
+    assert res.statusCode == 200, \
+      f"Failed to restore Demo scene: {res.statusCode}: {res.errors}"
+
+  helper.await_cmd_database(_restore)
   log.info(f"Restored Demo scene properties: {original}")
 
 
