@@ -151,8 +151,9 @@ data = {
 }
 
 try:
+try:
   # Send request through the Apache reverse proxy used in the full stack deployment
-  response = requests.post("https://localhost/api/v1/mapping/reconstruction", data=data, files=files)
+  response = requests.post("https://localhost/api/v1/mapping/reconstruction", data=data, files=files, verify=False)
   result = response.json()
 
   if result["success"]:

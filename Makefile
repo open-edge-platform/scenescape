@@ -725,7 +725,7 @@ init-secrets: $(SECRETSDIR) certificates auth-secrets
 $(SECRETSDIR):
 	mkdir -p $@
 	@if ! chmod go-rwx $(SECRETSDIR); then \
-		if [ "$${CI}" = "true" ]; then \
+		if [ "$${CI}" = "true" ] || [ "$${CI}" = "1" ]; then \
 			echo "Warning: could not set restrictive permissions on $(SECRETSDIR) in CI; secrets may be more exposed on this filesystem. Ensure runner isolation controls are in place."; \
 		else \
 			exit 1; \
