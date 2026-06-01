@@ -125,7 +125,7 @@ def track():
   # Load inputs from single file (newline-delimited JSON)
   # Inputs are already sorted by timestamp from dataset
   input_frames = []
-  with open("inputs.json", 'r') as f:
+  with open("inputs.jsonl", 'r') as f:
     for line in f:
       if line.strip():
         frame = json.loads(line.strip())
@@ -179,10 +179,11 @@ def main():
   try:
     pred_data = track()
 
-    # Write output
-    with open("output.json", "w") as f:
-      json.dump(pred_data, f, indent=2)
-    print(f"Wrote {len(pred_data)} outputs to output.json")
+    # Write output as newline-delimited JSON
+    with open("output.jsonl", "w") as f:
+      for item in pred_data:
+        f.write(json.dumps(item) + "\n")
+    print(f"Wrote {len(pred_data)} outputs to output.jsonl")
     return 0
   except Exception as exc:
     print(f"Tracking run failed: {exc}")
