@@ -6,6 +6,11 @@ import base64
 
 ## Policies to post process data
 
+def _isDetection(item):
+  """Check if item contains valid detection metadata."""
+  detection = item.get('detection')
+  return isinstance(detection, dict) and 'confidence' in detection
+
 def _extractKeypointsFromGvametaconvert(item):
   """Extract keypoints from gvametaconvert format (yolo11-pose and similar)."""
   raw_keypoints = item.get('keypoints')
@@ -57,6 +62,8 @@ def _extractKeypoints(item):
   return _extractKeypointsFromGvametaconvert(item)
 
 def detectionPolicy(pobj, item, fw, fh):
+  if not _isDetection(item):
+    return
   detection = item['detection']
   # If label is missing use label_id to avoid KeyError exception.
   category = detection.get('label') or str(detection['label_id'])
@@ -71,6 +78,8 @@ def detectionPolicy(pobj, item, fw, fh):
   return
 
 def detection3DPolicy(pobj, item, fw, fh):
+  if not _isDetection(item):
+    return
   pobj.update({
     'category': item['detection']['label'],
     'confidence': item['detection']['confidence'],
@@ -83,6 +92,8 @@ def detection3DPolicy(pobj, item, fw, fh):
   return
 
 def reidPolicy(pobj, item, fw, fh):
+  if not _isDetection(item):
+    return
   classificationPolicy(pobj, item, fw, fh)
   for tensor in item.get('tensors', [{}]):
     name = tensor.get('name','')
@@ -112,6 +123,8 @@ def reidPolicy(pobj, item, fw, fh):
 
 def classificationPolicy(pobj, item, fw, fh):
   """Extract detection and classification metadata from tensors and update pobj"""
+  if not _isDetection(item):
+    return
   detectionPolicy(pobj, item, fw, fh)
 
   # Initialize metadata dict if it doesn't exist
@@ -135,6 +148,8 @@ def classificationPolicy(pobj, item, fw, fh):
   return
 
 def ocrPolicy(pobj, item, fw, fh):
+  if not _isDetection(item):
+    return
   detection3DPolicy(pobj, item, fw, fh)
   pobj['text'] = ''
   for key, value in item.items():

@@ -18,6 +18,9 @@ __pycache__/
 .coverage
 htmlcov/
 
+# Pipeline outputs
+output/
+
 # Allow datasets directory (negates top-level .gitignore)
 !datasets/
 
