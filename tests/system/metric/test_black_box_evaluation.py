@@ -16,8 +16,6 @@ Usage::
   pytest tests/system/metric/test_black_box_evaluation.py
 """
 
-import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -72,81 +70,42 @@ _JITTER_PARAMS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Driver script template — executed inside an isolated virtualenv
-# ---------------------------------------------------------------------------
-_DRIVER_TEMPLATE = """\
-import json, sys
-from pathlib import Path
-
-sys.path.insert(0, {eval_dir})
-from run_black_box_evaluation import run_all
-
-results = run_all(image_tag={image_tag} or None, output_dir=Path({output_dir}))
-
-serialised = []
-for name, v in results:
-    if isinstance(v, Exception):
-        serialised.append([name, {{"__error__": str(v)}}])
-    else:
-        serialised.append([name, v])
-
-Path({results_file}).write_text(json.dumps(serialised, default=float))
-"""
-
-
-# ---------------------------------------------------------------------------
 # Session-scoped fixtures
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope="session")
 def black_box_metrics(tmp_path_factory) -> dict[tuple, float]:
   """Run all black-box evaluation modes once per session.
 
-  The evaluation script is executed as a subprocess using the same Python
-  interpreter as the test suite (all required packages are already present in
-  the test environment).  Running it out-of-process keeps the evaluation's
-  ``sys.path`` manipulations isolated from the test process.
-
   The container image tag is read from ``version.txt`` at the repository root.
 
   Returns:
     Dict mapping (run_name, evaluator, metric) -> float value.
   """
-  work_dir = tmp_path_factory.mktemp("bb_eval")
-  output_dir = work_dir / "output"
-  output_dir.mkdir()
-  results_file = work_dir / "results.json"
+  eval_dir = str(_EVAL_SCRIPT.parent)
 
-  image_tag = _VERSION_FILE.read_text().strip() if _VERSION_FILE.exists() else ""
+  # Temporarily prepend the evaluation directory so run_black_box_evaluation
+  # and its siblings can be imported.  We restore sys.path afterwards so the
+  # test session is not affected.
+  sys.path.insert(0, eval_dir)
+  try:
+    # Re-import in case a previous run left a stale cached module.
+    import importlib
+    import run_black_box_evaluation as _rbbe  # noqa: PLC0415
+    importlib.reload(_rbbe)
+    run_all = _rbbe.run_all
+  finally:
+    sys.path.remove(eval_dir)
 
-  driver = work_dir / "_eval_driver.py"
-  driver.write_text(
-    _DRIVER_TEMPLATE.format(
-      eval_dir=repr(str(_EVAL_SCRIPT.parent)),
-      image_tag=repr(image_tag),
-      output_dir=repr(str(output_dir)),
-      results_file=repr(str(results_file)),
-    )
-  )
+  image_tag = _VERSION_FILE.read_text().strip() if _VERSION_FILE.exists() else None
+  output_dir = tmp_path_factory.mktemp("bb_eval")
 
-  proc = subprocess.run(
-    [sys.executable, str(driver)],
-    capture_output=True,
-    text=True,
-    cwd=str(_EVAL_SCRIPT.parent),
-  )
-  if proc.returncode != 0:
-    pytest.fail(
-      f"Evaluation subprocess failed (exit {proc.returncode}):\n"
-      f"{proc.stderr or proc.stdout}"
-    )
-
-  raw = json.loads(results_file.read_text())
+  results = run_all(image_tag=image_tag, output_dir=output_dir)
 
   errors: list[str] = []
   metrics: dict[tuple, float] = {}
-  for run_name, result in raw:
-    if "__error__" in result:
-      errors.append(f"{run_name}: {result['__error__']}")
+  for run_name, result in results:
+    if isinstance(result, Exception):
+      errors.append(f"{run_name}: {result}")
       continue
     for evaluator_name, evaluator_metrics in result.items():
       for metric, value in evaluator_metrics.items():
