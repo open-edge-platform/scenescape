@@ -12,7 +12,12 @@ from xml.dom import minidom
 import time
 import requests
 import os
-from mapping_client import MappingClient
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+MAPPING_SRC_DIR = ROOT_DIR / "mapping" / "src"
+AUTOCALIB_SRC_DIR = ROOT_DIR / "autocalibration" / "src"
+from scene_common.client_factory import create_scenescape_clients
 from scene_common.rest_client import RESTClient
 
 
@@ -168,16 +173,26 @@ def token(base_url, username, password):
   return api_token
 
 @pytest.fixture(scope='session')
-def http_client(token, base_url) -> RESTClient:
-  return RESTClient(url=f"{base_url}/api/v1", token=token, verify_ssl=False)
+def service_clients(token, base_url):
+  return create_scenescape_clients(
+      base_url=base_url,
+      token=token,
+      verify_ssl=False,
+      service_src_dirs=[AUTOCALIB_SRC_DIR, MAPPING_SRC_DIR],
+      strict_imports=True,
+  )
 
 @pytest.fixture(scope='session')
-def autocalib_client(token, base_url) -> RESTClient:
-  return RESTClient(url=f"{base_url}/api/v1/autocalibration", token=token, verify_ssl=False)
+def http_client(service_clients) -> RESTClient:
+  return service_clients.core
 
 @pytest.fixture(scope='session')
-def mapping_client(token, base_url) -> MappingClient:
-  return MappingClient(url=f"{base_url}/api/v1/mapping/", token=token, verify_ssl=False)
+def autocalib_client(service_clients):
+  return service_clients.autocalibration
+
+@pytest.fixture(scope='session')
+def mapping_client(service_clients):
+  return service_clients.mapping
 
 @pytest.fixture(scope='session')
 def api_map(http_client, autocalib_client, mapping_client):

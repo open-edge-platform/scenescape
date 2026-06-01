@@ -43,6 +43,10 @@ sequenceDiagram
 
 ## API Endpoints
 
+> **Security note:** Mapping service endpoints currently do not enforce endpoint-level
+> authentication or authorization. Deploy behind trusted network boundaries and reverse
+> proxy controls, and use TLS for transport protection.
+
 ### Health Check
 
 ```bash
@@ -180,13 +184,13 @@ python client_example.py --images image1.jpg image2.jpg --mesh-type pointcloud -
 
 ```bash
 # Health check
-curl https://localhost:8444/health --insecure
+curl https://localhost:8444/v1/health --insecure
 
 # List models
-curl https://localhost:8444/models --insecure
+curl https://localhost:8444/v1/models --insecure
 
 # Reconstruction with images (using multipart/form-data - recommended)
-curl -X POST "https://localhost:8444/reconstruction" \
+curl -X POST "https://localhost:8444/v1/reconstruction" \
   -F "images=@image1.jpg" \
   -F "images=@image2.jpg" \
   -F "output_format=glb" \
@@ -194,7 +198,7 @@ curl -X POST "https://localhost:8444/reconstruction" \
   --insecure
 
 # Reconstruction with video
-curl -X POST "https://localhost:8444/reconstruction" \
+curl -X POST "https://localhost:8444/v1/reconstruction" \
   -F "video=@video.mp4" \
   -F "output_format=glb" \
   -F "mesh_type=mesh" \
@@ -202,7 +206,7 @@ curl -X POST "https://localhost:8444/reconstruction" \
   --insecure
 
 # Reconstruction with both images and video
-curl -X POST "https://localhost:8444/reconstruction" \
+curl -X POST "https://localhost:8444/v1/reconstruction" \
   -F "images=@image1.jpg" \
   -F "images=@image2.jpg" \
   -F "video=@video.mp4" \
@@ -211,7 +215,7 @@ curl -X POST "https://localhost:8444/reconstruction" \
   --insecure
 
 # Save GLB output to file (requires jq for JSON parsing)
-curl -X POST "https://localhost:8444/reconstruction" \
+curl -X POST "https://localhost:8444/v1/reconstruction" \
   -F "images=@image1.jpg" \
   -F "images=@image2.jpg" \
   -F "output_format=glb" \
