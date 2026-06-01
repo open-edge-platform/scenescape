@@ -391,11 +391,9 @@ class BlackBoxHarness(TrackerHarness):
       broker_ctr, tracker_ctr = self._start_containers(
           tmp_dir, net_name, host_port, run_id
       )
-      log_file = (
-        self._output_folder / "tracker_logs.txt"
-        if self._output_folder else None
-      )
+      log_file = self._output_folder / "tracker_logs.txt" if self._output_folder else tmp_dir / "tracker_logs.txt"
       log_thread = self._start_log_streaming(tracker_ctr, log_file=log_file)
+      print(f"[BlackBoxHarness] Container logs → {log_file}")
       try:
         outputs = self._run_session(input_frames, host_port)
       finally:
@@ -432,10 +430,10 @@ class BlackBoxHarness(TrackerHarness):
 
   def _write_inputs(self, frames: List[Dict], tmp_dir: Path) -> None:
     """Persist input frames for debugging / output folder artefacts."""
-    inputs_file = tmp_dir / "inputs.json"
+    inputs_file = tmp_dir / "inputs.jsonl"
     write_jsonl(iter(frames), str(inputs_file))
     if self._output_folder:
-      shutil.copy(inputs_file, self._output_folder / "inputs.json")
+      shutil.copy(inputs_file, self._output_folder / "inputs.jsonl")
 
   def _build_mosquitto_conf(self, tmp_dir: Path) -> Path:
     """Write a minimal anonymous mosquitto.conf and return its path."""
@@ -657,9 +655,9 @@ class BlackBoxHarness(TrackerHarness):
     )
 
   def _start_log_streaming(
-      self, tracker_ctr, log_file: Optional[Path] = None
+      self, tracker_ctr, log_file: Path
   ) -> Optional[threading.Thread]:
-    """Stream tracker container logs to stdout (and optionally a file).
+    """Stream tracker container logs to a file.
 
     Mirrors the pacing model of tests/system/metric/tc_tracker_metric.py:
     logs are collected continuously from container start so the full
@@ -667,8 +665,8 @@ class BlackBoxHarness(TrackerHarness):
 
     Args:
         tracker_ctr: Running Docker container object.
-        log_file:    Optional path to write logs to in addition to stdout.
-                     Parent directory must already exist.
+        log_file:    Path to write logs to.  Parent directory must already
+                     exist.
 
     Returns:
         Background thread (join after session ends), or ``None``.
@@ -677,22 +675,16 @@ class BlackBoxHarness(TrackerHarness):
       return None
 
     def _stream():
-      fh = open(log_file, "w") if log_file else None
-      try:
-        for _source, content in docker.container.logs(
-            tracker_ctr, stream=True, follow=True
-        ):
-          line = content.decode("utf-8", errors="replace")
-          print(f"[tracker] {line}", end="" if line.endswith("\n") else "\n",
-                flush=True)
-          if fh:
+      with open(log_file, "w") as fh:
+        try:
+          for _source, content in docker.container.logs(
+              tracker_ctr, stream=True, follow=True
+          ):
+            line = content.decode("utf-8", errors="replace")
             fh.write(line if line.endswith("\n") else line + "\n")
             fh.flush()
-      except Exception as exc:
-        print(f"[tracker] log stream ended: {exc}", flush=True)
-      finally:
-        if fh:
-          fh.close()
+        except Exception as exc:
+          fh.write(f"log stream ended: {exc}\n")
 
     t = threading.Thread(target=_stream, daemon=True)
     t.start()
@@ -804,7 +796,6 @@ class BlackBoxHarness(TrackerHarness):
     if not self._output_folder:
       return
     self._output_folder.mkdir(parents=True, exist_ok=True)
-    out_file = tmp_dir / "outputs.json"
-    with open(out_file, "w") as f:
-      json.dump(outputs, f)
-    shutil.copy(out_file, self._output_folder / "outputs.json")
+    out_file = tmp_dir / "outputs.jsonl"
+    write_jsonl(iter(outputs), str(out_file))
+    shutil.copy(out_file, self._output_folder / "outputs.jsonl")

@@ -31,7 +31,7 @@ def initialize_controller_mode():
 
 TRACKER_CONFIGS = [
   "tracker-config.json",
-  "tracker-config-time-chunking.json",
+  "tracker-config-immediate.json",
 ]
 
 # Default thresholds per metric type
@@ -95,10 +95,10 @@ def params(request):
   params["mqtt_port"] = 1883
   params["trackerconfig"] = os.path.join(dir, "dataset", tracker_config)
 
-  if "time-chunking" in tracker_config:
-    params["trackerconfig_name"] = "time-chunking"
+  if "immediate" in tracker_config:
+    params["trackerconfig_name"] = "immediate"
   else:
-    params["trackerconfig_name"] = "event-based"
+    params["trackerconfig_name"] = "time-chunking"
   return params
 
 @pytest.fixture
