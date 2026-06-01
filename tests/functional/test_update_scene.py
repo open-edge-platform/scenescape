@@ -293,7 +293,7 @@ def test_scene_external_rate_update_changes_message_frequency(
   frequency of scenescape/external/{scene_id} messages.
 
   Phase 1: external_update_rate = 1 Hz: the count must fall within the 1 Hz
-  band and must be less than the Phase 2 count, confirming the rate decrease
+  band and must be less than the Phase 2 count, confirming the rate increase
   took effect.
   Phase 2: external_update_rate = 10 Hz: DATA_EXTERNAL messages with objects
   must arrive within the 10 Hz band over MEASURE_WINDOW_S seconds.
