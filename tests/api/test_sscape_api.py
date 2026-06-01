@@ -374,7 +374,7 @@ def execute_step(api_map, step, step_number, total_steps):
     logger.debug("    Validating entire response body against expected structure")
     expected_body = substitute_variables(expected_body)
     errors = compare_expected_json_body(response_body, expected_body)
-    if errors > 0:
+    if errors:
       error_msg = "Response body validation failed:\n" + \
         "\n".join(f"  - {e}" for e in errors)
       return False, response, error_msg
@@ -401,7 +401,7 @@ def execute_step(api_map, step, step_number, total_steps):
   if validate_rules:
     logger.debug(f"    Validating response against rules: {validate_rules}")
     errors = validate_response(response_body, validate_rules)
-    if errors > 0:
+    if errors:
       error_msg = "Response validation failed:\n" + \
         "\n".join(f"  - {e}" for e in errors)
       return False, response, error_msg
