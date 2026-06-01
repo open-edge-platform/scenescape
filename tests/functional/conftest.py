@@ -60,7 +60,6 @@ def objData():
   jdata['objects']['person'] = [obj]
   return jdata
 
-<<<<<<< HEAD
 @pytest.fixture
 def scene_uid(params):
   """! Resolve and return the UID of the scene named by --scene_name.
@@ -75,7 +74,7 @@ def scene_uid(params):
   res = rest.getScenes({'name': params['scene_name']})
   assert res['count'] > 0, f"Scene '{params['scene_name']}' not found"
   return res['results'][0]['uid']
-=======
+
 @pytest.fixture(scope="function")
 def rest(params):
   client = RESTClient(params['resturl'], rootcert=params['rootcert'])
@@ -89,7 +88,6 @@ def scene_uid(rest, params):
   scenes = res.get('results', []) if isinstance(res, dict) else []
   assert scenes, f"Scene '{name}' not found"
   return scenes[0]['uid']
->>>>>>> main
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
