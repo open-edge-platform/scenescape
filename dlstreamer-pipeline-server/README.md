@@ -257,8 +257,10 @@ synchronized to the same NTP source.
    `queuing-config.json` this is the `payload.parameters.frame_ntp_config` block:
 
 ```json
-"frame_ntp_config": {
-  "useFrameNtpTimestamp": true
+{
+  "frame_ntp_config": {
+    "useFrameNtpTimestamp": true
+  }
 }
 ```
 
