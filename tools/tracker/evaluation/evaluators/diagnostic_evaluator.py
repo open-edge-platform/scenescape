@@ -8,7 +8,7 @@ matched output tracks and ground-truth tracks using bipartite assignment
 that minimizes mean Euclidean distance over overlapping frames.
 """
 
-from typing import Iterator, List, Dict, Any
+from typing import Iterator, List, Dict, Any, Optional
 from pathlib import Path
 from datetime import datetime
 import sys
@@ -59,6 +59,7 @@ class DiagnosticEvaluator(TrackerEvaluator):
     self._output_tracks: Dict[int, Dict[int, tuple]] = {}
     self._gt_tracks: Dict[int, Dict[int, tuple]] = {}
     self._uuid_to_id_map: Dict[str, int] = {}
+    self._base_fps: Optional[float] = None
 
   def configure_metrics(self, metrics: List[str]) -> 'DiagnosticEvaluator':
     """Configure which metrics to evaluate.
@@ -97,6 +98,23 @@ class DiagnosticEvaluator(TrackerEvaluator):
       path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
     self._output_folder = path
+    return self
+
+  def set_base_fps(self, fps=None) -> 'DiagnosticEvaluator':
+    """Set base frame rate for timestamp-to-frame-number conversion.
+
+    Args:
+      fps: Frames per second (> 0), or None to auto-compute from timestamps.
+
+    Returns:
+      Self for method chaining.
+
+    Raises:
+      ValueError: If fps is not None and <= 0.
+    """
+    if fps is not None and fps <= 0:
+      raise ValueError("fps must be > 0")
+    self._base_fps = fps
     return self
 
   def process_tracker_outputs(
@@ -228,6 +246,7 @@ class DiagnosticEvaluator(TrackerEvaluator):
     self._output_tracks = {}
     self._gt_tracks = {}
     self._uuid_to_id_map = {}
+    self._base_fps = None
     return self
 
   # --- Private helpers ---
@@ -254,7 +273,9 @@ class DiagnosticEvaluator(TrackerEvaluator):
       for d in tracker_output_list
     ]
     num_frames = len(timestamps)
-    if num_frames > 1:
+    if self._base_fps is not None:
+      camera_fps = self._base_fps
+    elif num_frames > 1:
       time_span = (timestamps[-1] - timestamps[0]).total_seconds()
       camera_fps = (num_frames - 1) / time_span if time_span > 0 else 30.0
     else:

@@ -301,6 +301,8 @@ class PostInferenceDataPublish:
         for det in gvadata['objects']:
           vaobj = {}
           self.metadatagenpolicy(vaobj, det, framewidth, frameheight)
+          if not vaobj:
+            continue
           if self.detection_labels and vaobj['category'] not in self.detection_labels:
             continue
           region_id = det.get('region_id')
@@ -330,6 +332,8 @@ class PostInferenceDataPublish:
         for det in gvadata['objects']:
           vaobj = {}
           self.metadatagenpolicy(vaobj, det, framewidth, frameheight)
+          if not vaobj:
+            continue
           if self.detection_labels and vaobj['category'] not in self.detection_labels:
             continue
           otype = vaobj['category']

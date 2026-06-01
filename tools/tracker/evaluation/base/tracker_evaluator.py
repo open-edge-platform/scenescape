@@ -4,7 +4,7 @@
 """Base class for tracker evaluator implementations."""
 
 from abc import ABC, abstractmethod
-from typing import Iterator, List, Dict, Any
+from typing import Iterator, List, Dict, Any, Optional
 from pathlib import Path
 
 
@@ -52,6 +52,24 @@ class TrackerEvaluator(ABC):
     Raises:
       ValueError: If path is invalid.
       RuntimeError: On other errors.
+    """
+    pass
+
+  @abstractmethod
+  def set_base_fps(self, fps: Optional[float]) -> 'TrackerEvaluator':
+    """Set base frame rate for timestamp-to-frame-number conversion.
+
+    When set, evaluators use this FPS instead of computing it from tracker
+    output timestamps.  Passing None reverts to automatic computation.
+
+    Args:
+      fps: Frames per second (must be > 0), or None to reset.
+
+    Returns:
+      Self for method chaining.
+
+    Raises:
+      ValueError: If fps is not None and <= 0.
     """
     pass
 
