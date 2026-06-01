@@ -12,350 +12,221 @@ Covers:
   - Deactivated user cannot obtain an authentication token
 """
 
+import pytest
 import requests
 from http import HTTPStatus
 from scene_common.rest_client import RESTClient
-from tests.common_test_utils import record_test_result
-from scene_common import log
+from tests.utils.log import get_logger
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+log = get_logger(__name__)
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
+
+pytestmark = pytest.mark.preserve_db
 
 _TEST_USER = "general_user"
 _TEST_PASS = "general_pass"
 
 POST_ENTITIES = [
-"/asset",
-"/auth",
-"/calibrationmarker",
-"/camera",
-"/child",
-"/region",
-"/scene",
-"/sensor",
-"/tripwire",
-"/user",
-"/calculateintrinsics",
-"/save-geospatial-snapshot",
+  "/asset",
+  "/auth",
+  "/calibrationmarker",
+  "/camera",
+  "/child",
+  "/region",
+  "/scene",
+  "/sensor",
+  "/tripwire",
+  "/user",
+  "/calculateintrinsics",
+  "/save-geospatial-snapshot/",
 ]
 
 GET_ENTITIES = [
-"/assets",
-"/calibrationmarkers",
-"/cameras",
-"/scenes/child",
-"/regions",
-"/scenes",
-"/sensors",
-"/tripwires",
-"/users",
+  "/assets",
+  "/calibrationmarkers",
+  "/cameras",
+  "/scenes/child",
+  "/regions",
+  "/scenes",
+  "/sensors",
+  "/tripwires",
+  "/users",
 ]
 
-def test_authz_non_superuser_can_list_entities(params, record_xml_attribute):
+
+@pytest.fixture
+def non_superuser_client(rest, params):
+  result = rest.createUser({"username": _TEST_USER, "password": _TEST_PASS})
+  assert result.statusCode == HTTPStatus.CREATED, \
+    f"Failed to create test user: {result.errors}"
+  try:
+    client = RESTClient(params["resturl"], rootcert=params["rootcert"])
+    assert client.authenticate(_TEST_USER, _TEST_PASS), \
+      "Non-superuser authentication failed"
+    yield client
+  finally:
+    rest.deleteUser(_TEST_USER)
+
+
+@pytest.mark.test_name("NEX-T10443")
+def test_authz_non_superuser_can_list_entities(non_superuser_client, params, result_recorder):
   """Verify that an authenticated non-superuser can list entities
   like /scenes, /cameras, /users, ...etc"""
 
-  TEST_NAME = "NEX-T10443"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
-  user_created = False
+  failures = []
+  for endpoint in GET_ENTITIES:
+    response = requests.get(
+      f"{params['resturl']}{endpoint}",
+      headers={"Authorization": f"Token {non_superuser_client.token}"},
+      verify=params["rootcert"],
+    )
+    if response.status_code != HTTPStatus.OK:
+      failures.append(
+        f"GET {endpoint}: expected 200 OK, got {response.status_code}")
+  assert not failures, "Non-superuser access checks failed:\n" + "\n".join(failures)
 
-  rest_admin = RESTClient(params["resturl"], rootcert=params["rootcert"])
-  assert rest_admin.authenticate(params["user"], params["password"]), \
-    "Authentication failed"
+  result_recorder.success()
 
-  try:
-    result = rest_admin.createUser({"username": _TEST_USER, "password": _TEST_PASS})
-    assert result.statusCode == HTTPStatus.CREATED, \
-      f"Failed to create test user: {result.errors}"
-    user_created = True
 
-    rest_user = RESTClient(params["resturl"], rootcert=params["rootcert"])
-    assert rest_user.authenticate(_TEST_USER, _TEST_PASS), \
-      "Non-superuser authentication failed"
-
-    failures = []
-    for endpoint in GET_ENTITIES:
-      response = requests.get(
-        f"{params['resturl']}{endpoint}",
-        headers={"Authorization": f"Token {rest_user.token}"},
-        verify=params["rootcert"],
-      )
-      if response.status_code != HTTPStatus.OK:
-        failures.append(
-          f"GET {endpoint}: expected 200 OK, got {response.status_code}")
-    assert not failures, "Non-superuser access checks failed:\n" + "\n".join(failures)
-
-    exit_code = 0
-  finally:
-    if user_created:
-      rest_admin.deleteUser(_TEST_USER)
-    record_test_result(TEST_NAME, exit_code)
-
-def test_authz_non_superuser_cannot_create_entities(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T23089")
+def test_authz_non_superuser_cannot_create_entities(non_superuser_client, params, result_recorder):
   """Verify that an authenticated non-superuser can't create entities
   and receives HTTP 403 for requests like POST /scene, /camera, /user, ...etc"""
 
-  TEST_NAME = "NEX-T23089"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
-  user_created = False
+  failures = []
+  for endpoint in POST_ENTITIES:
+    response = requests.post(
+      f"{params['resturl']}{endpoint}",
+      headers={"Authorization": f"Token {non_superuser_client.token}"},
+      verify=params["rootcert"],
+    )
+    if endpoint == "/auth":
+      # username and password are required fields for /auth
+      assert response.status_code == HTTPStatus.BAD_REQUEST, \
+        f"Expected 400 BAD REQUEST for POST {endpoint}, got {response.status_code}: {response.text}"
+    else:
+      if response.status_code != HTTPStatus.FORBIDDEN:
+        failures.append(
+          f"POST {endpoint}: expected 403 Forbidden, got {response.status_code}"
+        )
 
-  rest_admin = RESTClient(params["resturl"], rootcert=params["rootcert"])
-  assert rest_admin.authenticate(params["user"], params["password"]), \
-    "Authentication failed"
+  assert not failures, "Non-superuser access checks failed:\n" + "\n".join(failures)
 
-  try:
-    result = rest_admin.createUser({"username": _TEST_USER, "password": _TEST_PASS})
-    assert result.statusCode == HTTPStatus.CREATED, \
-      f"Failed to create test user: {result.errors}"
-    user_created = True
+  result_recorder.success()
 
-    rest_user = RESTClient(params["resturl"], rootcert=params["rootcert"])
-    assert rest_user.authenticate(_TEST_USER, _TEST_PASS), \
-      "Non-superuser authentication failed"
 
-    failures = []
-    for endpoint in POST_ENTITIES:
-      response = requests.post(
-        f"{params['resturl']}{endpoint}",
-        headers={"Authorization": f"Token {rest_user.token}"},
-        verify=params["rootcert"],
-      )
-      if endpoint == "/auth":
-        # username and password are required fields for /auth
-        assert response.status_code == HTTPStatus.BAD_REQUEST, \
-          f"Expected 400 BAD REQUEST for POST {endpoint}, got {response.status_code}: {response.text}"
-      else:
-        if response.status_code != HTTPStatus.FORBIDDEN:
-          failures.append(
-            f"POST {endpoint}: expected 403 Forbidden, got {response.status_code}"
-          )
-
-    assert not failures, "Non-superuser access checks failed:\n" + "\n".join(failures)
-
-    exit_code = 0
-  finally:
-    if user_created:
-      rest_admin.deleteUser(_TEST_USER)
-    record_test_result(TEST_NAME, exit_code)
-
-def test_authz_non_superuser_cannot_update_scene(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T23090")
+def test_authz_non_superuser_cannot_update_scene(rest, non_superuser_client, params, result_recorder):
   """Verify that an authenticated non-superuser receives HTTP 403 when attempting
   to update a scene via PUT /scene/{uid}."""
 
-  TEST_NAME = "NEX-T23090"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
-  user_created = False
-
-  rest_admin = RESTClient(params["resturl"], rootcert=params["rootcert"])
-  assert rest_admin.authenticate(params["user"], params["password"]), \
-    "Admin authentication failed"
-
-  scenes = rest_admin.getScenes({'name': params['scene_name']})
+  scenes = rest.getScenes({'name': params['scene_name']})
   assert scenes['count'] > 0, \
     f"Scene '{params['scene_name']}' not found"
   scene_id = scenes['results'][0]['uid']
   log.info(f"Using scene '{params['scene_name']}' uid={scene_id}")
 
-  try:
-    result = rest_admin.createUser({"username": _TEST_USER, "password": _TEST_PASS})
-    assert result.statusCode == HTTPStatus.CREATED, \
-      f"Failed to create general test user: {result.errors}"
-    user_created = True
+  response = requests.put(
+    f"{params['resturl']}/scene/{scene_id}",
+    headers={"Authorization": f"Token {non_superuser_client.token}"},
+    json={"name": "Modified Scene"},
+    verify=params["rootcert"],
+  )
+  assert response.status_code == HTTPStatus.FORBIDDEN, \
+    f"Expected 403 Forbidden for non-superuser scene update, got {response.status_code}"
 
-    rest_user = RESTClient(params["resturl"], rootcert=params["rootcert"])
-    assert rest_user.authenticate(_TEST_USER, _TEST_PASS), \
-      "Non-superuser authentication failed"
+  result_recorder.success()
 
-    response = requests.put(
-      f"{params['resturl']}/scene/{scene_id}",
-      headers={"Authorization": f"Token {rest_user.token}"},
-      json={"name": "Modified Scene"},
-      verify=params["rootcert"],
-    )
-    assert response.status_code == HTTPStatus.FORBIDDEN, \
-      f"Expected 403 Forbidden for non-superuser scene update, got {response.status_code}"
 
-    exit_code = 0
-  finally:
-    if user_created:
-      rest_admin.deleteUser(_TEST_USER)
-    record_test_result(TEST_NAME, exit_code)
-
-def test_authz_non_superuser_cannot_delete_scene(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T23091")
+def test_authz_non_superuser_cannot_delete_scene(rest, non_superuser_client, params, result_recorder):
   """Verify that an authenticated non-superuser receives HTTP 403 when attempting
-  to delete a scene via DELETE /scene/{uid}.
+  to delete a scene via DELETE /scene/{uid}."""
 
-  The permission check fires before resource lookup, so a placeholder UUID is
-  sufficient to confirm the access control policy without requiring a real scene.
-  """
-  TEST_NAME = "NEX-T23091"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
-  user_created = False
-
-  rest_admin = RESTClient(params["resturl"], rootcert=params["rootcert"])
-  assert rest_admin.authenticate(params["user"], params["password"]), \
-    "Admin authentication failed"
-
-  scenes = rest_admin.getScenes({'name': params['scene_name']})
+  scenes = rest.getScenes({'name': params['scene_name']})
   assert scenes['count'] > 0, \
     f"Scene '{params['scene_name']}' not found"
   scene_id = scenes['results'][0]['uid']
   log.info(f"Using scene '{params['scene_name']}' uid={scene_id}")
 
-  try:
-    result = rest_admin.createUser({"username": _TEST_USER, "password": _TEST_PASS})
-    assert result.statusCode == HTTPStatus.CREATED, \
-      f"Failed to create general test user: {result.errors}"
-    user_created = True
+  response = requests.delete(
+    f"{params['resturl']}/scene/{scene_id}",
+    headers={"Authorization": f"Token {non_superuser_client.token}"},
+    verify=params["rootcert"],
+  )
+  assert response.status_code == HTTPStatus.FORBIDDEN, \
+    f"Expected 403 Forbidden for non-superuser scene delete, got {response.status_code}"
 
-    rest_user = RESTClient(params["resturl"], rootcert=params["rootcert"])
-    assert rest_user.authenticate(_TEST_USER, _TEST_PASS), \
-      "Non-superuser authentication failed"
+  result_recorder.success()
 
-    response = requests.delete(
-      f"{params['resturl']}/scene/{scene_id}",
-      headers={"Authorization": f"Token {rest_user.token}"},
-      verify=params["rootcert"],
-    )
-    assert response.status_code == HTTPStatus.FORBIDDEN, \
-      f"Expected 403 Forbidden for non-superuser scene delete, got {response.status_code}"
 
-    exit_code = 0
-  finally:
-    if user_created:
-      rest_admin.deleteUser(_TEST_USER)
-    record_test_result(TEST_NAME, exit_code)
-
-def test_authz_non_superuser_cannot_create_user(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T23092")
+def test_authz_non_superuser_cannot_create_user(non_superuser_client, params, result_recorder):
   """Verify that an authenticated non-superuser receives HTTP 403 when attempting
   to create another user account via POST /user."""
-  TEST_NAME = "NEX-T23092"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
-  user_created = False
 
-  rest_admin = RESTClient(params["resturl"], rootcert=params["rootcert"])
-  assert rest_admin.authenticate(params["user"], params["password"]), \
-    "Admin authentication failed"
+  response = requests.post(
+    f"{params['resturl']}/user",
+    headers={"Authorization": f"Token {non_superuser_client.token}"},
+    json={"username": "new_user", "password": "new_password"},
+    verify=params["rootcert"],
+  )
+  assert response.status_code == HTTPStatus.FORBIDDEN, \
+    f"Expected 403 Forbidden for non-superuser user creation, got {response.status_code}"
 
-  try:
-    result = rest_admin.createUser({"username": _TEST_USER, "password": _TEST_PASS})
-    assert result.statusCode == HTTPStatus.CREATED, \
-      f"Failed to create general test user: {result.errors}"
-    user_created = True
+  result_recorder.success()
 
-    rest_user = RESTClient(params["resturl"], rootcert=params["rootcert"])
-    assert rest_user.authenticate(_TEST_USER, _TEST_PASS), \
-      "Non-superuser authentication failed"
 
-    response = requests.post(
-      f"{params['resturl']}/user",
-      headers={"Authorization": f"Token {rest_user.token}"},
-      json={"username": "new_user", "password": "new_password"},
-      verify=params["rootcert"],
-    )
-    assert response.status_code == HTTPStatus.FORBIDDEN, \
-      f"Expected 403 Forbidden for non-superuser user creation, got {response.status_code}"
-
-    exit_code = 0
-  finally:
-    if user_created:
-      rest_admin.deleteUser(_TEST_USER)
-    record_test_result(TEST_NAME, exit_code)
-
-def test_authz_non_superuser_cannot_update_user(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T23093")
+def test_authz_non_superuser_cannot_update_user(non_superuser_client, params, result_recorder):
   """Verify that an authenticated non-superuser receives HTTP 403 when attempting
   to update a user account via PUT /user/{username}, including their own account."""
-  TEST_NAME = "NEX-T23093"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
-  user_created = False
 
-  rest_admin = RESTClient(params["resturl"], rootcert=params["rootcert"])
-  assert rest_admin.authenticate(params["user"], params["password"]), \
-    "Admin authentication failed"
+  response = requests.put(
+    f"{params['resturl']}/user/{_TEST_USER}",
+    headers={"Authorization": f"Token {non_superuser_client.token}"},
+    json={"first_name": "Updated"},
+    verify=params["rootcert"],
+  )
+  assert response.status_code == HTTPStatus.FORBIDDEN, \
+    f"Expected 403 Forbidden for non-superuser user update, got {response.status_code}"
 
-  try:
-    result = rest_admin.createUser({"username": _TEST_USER, "password": _TEST_PASS})
-    assert result.statusCode == HTTPStatus.CREATED, \
-      f"Failed to create general test user: {result.errors}"
-    user_created = True
+  result_recorder.success()
 
-    rest_user = RESTClient(params["resturl"], rootcert=params["rootcert"])
-    assert rest_user.authenticate(_TEST_USER, _TEST_PASS), \
-      "Non-superuser authentication failed"
 
-    response = requests.put(
-      f"{params['resturl']}/user/{_TEST_USER}",
-      headers={"Authorization": f"Token {rest_user.token}"},
-      json={"first_name": "Updated"},
-      verify=params["rootcert"],
-    )
-    assert response.status_code == HTTPStatus.FORBIDDEN, \
-      f"Expected 403 Forbidden for non-superuser user update, got {response.status_code}"
-
-    exit_code = 0
-  finally:
-    if user_created:
-      rest_admin.deleteUser(_TEST_USER)
-    record_test_result(TEST_NAME, exit_code)
-
-def test_authz_non_superuser_cannot_delete_user(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T23094")
+def test_authz_non_superuser_cannot_delete_user(non_superuser_client, params, result_recorder):
   """Verify that an authenticated non-superuser receives HTTP 403 when attempting
   to delete a user account via DELETE /user/{username}, including their own account."""
-  TEST_NAME = "NEX-T23094"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
-  user_created = False
 
-  rest_admin = RESTClient(params["resturl"], rootcert=params["rootcert"])
-  assert rest_admin.authenticate(params["user"], params["password"]), \
-    "Admin authentication failed"
+  response = requests.delete(
+    f"{params['resturl']}/user/{_TEST_USER}",
+    headers={"Authorization": f"Token {non_superuser_client.token}"},
+    verify=params["rootcert"],
+  )
+  assert response.status_code == HTTPStatus.FORBIDDEN, \
+    f"Expected 403 Forbidden for non-superuser user delete, got {response.status_code}"
 
-  try:
-    result = rest_admin.createUser({"username": _TEST_USER, "password": _TEST_PASS})
-    assert result.statusCode == HTTPStatus.CREATED, \
-      f"Failed to create general test user: {result.errors}"
-    user_created = True
+  result_recorder.success()
 
-    rest_user = RESTClient(params["resturl"], rootcert=params["rootcert"])
-    assert rest_user.authenticate(_TEST_USER, _TEST_PASS), \
-      "Non-superuser authentication failed"
 
-    response = requests.delete(
-      f"{params['resturl']}/user/{_TEST_USER}",
-      headers={"Authorization": f"Token {rest_user.token}"},
-      verify=params["rootcert"],
-    )
-    assert response.status_code == HTTPStatus.FORBIDDEN, \
-      f"Expected 403 Forbidden for non-superuser user delete, got {response.status_code}"
-
-    exit_code = 0
-  finally:
-    if user_created:
-      rest_admin.deleteUser(_TEST_USER)
-    record_test_result(TEST_NAME, exit_code)
-
-def test_authz_deactivated_user_cannot_authenticate(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T23095")
+def test_authz_deactivated_user_cannot_authenticate(rest, params, result_recorder):
   """Verify that a deactivated (is_active=False) user cannot obtain an
   authentication token and POST /auth returns HTTP 400."""
-  TEST_NAME = "NEX-T23095"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
-  user_created = False
 
-  rest_admin = RESTClient(params["resturl"], rootcert=params["rootcert"])
-  assert rest_admin.authenticate(params["user"], params["password"]), \
-    "Admin authentication failed"
+  result = rest.createUser({"username": _TEST_USER, "password": _TEST_PASS})
+  assert result.statusCode == HTTPStatus.CREATED, \
+    f"Failed to create inactive test user: {result.errors}"
 
   try:
-    result = rest_admin.createUser({"username": _TEST_USER, "password": _TEST_PASS})
-    assert result.statusCode == HTTPStatus.CREATED, \
-      f"Failed to create inactive test user: {result.errors}"
-    user_created = True
-
-    res = rest_admin.updateUser(_TEST_USER, {"is_active": False})
+    res = rest.updateUser(_TEST_USER, {"is_active": False})
     assert res.statusCode == HTTPStatus.OK, \
       f"Admin failed to deactivate user: {res.errors}"
 
@@ -367,8 +238,6 @@ def test_authz_deactivated_user_cannot_authenticate(params, record_xml_attribute
     assert response.status_code == HTTPStatus.BAD_REQUEST, \
       f"Expected 400 Bad Request for deactivated user, got {response.status_code}"
 
-    exit_code = 0
+    result_recorder.success()
   finally:
-    if user_created:
-      rest_admin.deleteUser(_TEST_USER)
-    record_test_result(TEST_NAME, exit_code)
+    rest.deleteUser(_TEST_USER)

@@ -13,59 +13,58 @@ Covers:
   - Protected endpoints reject requests without an authorization token
 """
 
+import pytest
 import requests
 from http import HTTPStatus
-from scene_common.rest_client import RESTClient
-from tests.common_test_utils import record_test_result
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+from tests.utils.profiles import FULL_STACK
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=FULL_STACK,
+  auth=AUTH_CONTROLLER,
+)
+
+pytestmark = pytest.mark.preserve_db
 
 _TEST_USER = "general_user"
 _TEST_PASS = "general_pass"
 
 POST_ENTITIES = [
-"/asset",
-"/auth",
-"/calibrationmarker",
-"/camera",
-"/child",
-"/region",
-"/scene",
-"/sensor",
-"/tripwire",
-"/user",
-"/calculateintrinsics",
-"/save-geospatial-snapshot",
+  "/asset",
+  "/auth",
+  "/calibrationmarker",
+  "/camera",
+  "/child",
+  "/region",
+  "/scene",
+  "/sensor",
+  "/tripwire",
+  "/user",
+  "/calculateintrinsics",
+  "/save-geospatial-snapshot",
 ]
 
 GET_ENTITIES = [
-"/assets",
-"/calibrationmarkers",
-"/cameras",
-"/scenes/child",
-"/regions",
-"/scenes",
-"/sensors",
-"/tripwires",
-"/users",
+  "/assets",
+  "/calibrationmarkers",
+  "/cameras",
+  "/scenes/child",
+  "/regions",
+  "/scenes",
+  "/sensors",
+  "/tripwires",
+  "/users",
 ]
 
-def test_auth_token_generation_with_valid_credentials(params, record_xml_attribute):
-  """Verify that POST /auth returns HTTP 200 and a non-empty token when
-  called with valid credentials."""
-  TEST_NAME = "NEX-T10481"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
-  user_created = False
 
-  rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
-  assert rest.authenticate(params["user"], params["password"]), \
-    "Admin authentication failed"
+@pytest.mark.test_name("NEX-T10481")
+def test_auth_token_generation_with_valid_credentials(rest, params, result_recorder):
+  """POST /auth returns HTTP 200 and a non-empty token for valid credentials."""
+  result = rest.createUser({"username": _TEST_USER, "password": _TEST_PASS})
+  assert result.statusCode == HTTPStatus.CREATED, \
+    f"Failed to create test user: {result.errors}"
 
   try:
-    result = rest.createUser({"username": _TEST_USER, "password": _TEST_PASS})
-    assert result.statusCode == HTTPStatus.CREATED, \
-      f"Failed to create test user: {result.errors}"
-    user_created = True
-
     response = requests.post(
       f"{params['resturl']}/auth",
       data={"username": _TEST_USER, "password": _TEST_PASS},
@@ -79,51 +78,29 @@ def test_auth_token_generation_with_valid_credentials(params, record_xml_attribu
       f"Response body missing 'token' field: {list(body.keys())}"
     assert body["token"], "Token field must not be empty"
 
-    exit_code = 0
+    result_recorder.success()
   finally:
-    if user_created:
-      rest.deleteUser(_TEST_USER)
-    record_test_result(TEST_NAME, exit_code)
+    rest.deleteUser(_TEST_USER)
 
 
-def test_auth_token_authorization_grants_access(params, record_xml_attribute):
-  """Verify that a valid authorization token grants access to a protected
-  endpoint (GET /scenes returns HTTP 200)."""
-  TEST_NAME = "NEX-T10467"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
+@pytest.mark.test_name("NEX-T10467")
+def test_auth_token_authorization_grants_access(rest, result_recorder):
+  """A valid authorization token grants access to GET /scenes."""
+  result = rest.getScenes(None)
+  assert result.statusCode == HTTPStatus.OK, \
+    f"Expected 200 OK with valid token, got {result.statusCode}: {result.errors}"
 
-  rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
-  assert rest.authenticate(params["user"], params["password"]), \
-    "Admin authentication failed"
+  result_recorder.success()
+
+
+@pytest.mark.test_name("NEX-T23055")
+def test_auth_invalid_password_is_rejected(rest, params, result_recorder):
+  """POST /auth returns HTTP 400 for an incorrect password."""
+  result = rest.createUser({"username": _TEST_USER, "password": _TEST_PASS})
+  assert result.statusCode == HTTPStatus.CREATED, \
+    f"Failed to create test user: {result.errors}"
 
   try:
-    result = rest.getScenes(None)
-    assert result.statusCode == HTTPStatus.OK, \
-      f"Expected 200 OK with valid token, got {result.statusCode}: {result.errors}"
-
-    exit_code = 0
-  finally:
-    record_test_result(TEST_NAME, exit_code)
-
-
-def test_auth_invalid_password_is_rejected(params, record_xml_attribute):
-  """Verify that POST /auth returns HTTP 400 when given an incorrect password."""
-  TEST_NAME = "NEX-T23055"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
-  user_created = False
-
-  rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
-  assert rest.authenticate(params["user"], params["password"]), \
-    "Admin authentication failed"
-
-  try:
-    result = rest.createUser({"username": _TEST_USER, "password": _TEST_PASS})
-    assert result.statusCode == HTTPStatus.CREATED, \
-      f"Failed to create test user: {result.errors}"
-    user_created = True
-
     response = requests.post(
       f"{params['resturl']}/auth",
       data={"username": _TEST_USER, "password": "WrongPassword!"},
@@ -132,74 +109,51 @@ def test_auth_invalid_password_is_rejected(params, record_xml_attribute):
     assert response.status_code == HTTPStatus.BAD_REQUEST, \
       f"Expected 400 Bad Request for wrong password, got {response.status_code}"
 
-    exit_code = 0
+    result_recorder.success()
   finally:
-    if user_created:
-      rest.deleteUser(_TEST_USER)
-    record_test_result(TEST_NAME, exit_code)
+    rest.deleteUser(_TEST_USER)
 
 
-def test_auth_missing_required_field_is_rejected(params, record_xml_attribute):
-  """Verify that POST /auth returns HTTP 400 when the required password field
-  is absent from the request body."""
-  TEST_NAME = "NEX-T23056"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
+@pytest.mark.test_name("NEX-T23056")
+def test_auth_missing_required_field_is_rejected(params, result_recorder):
+  """POST /auth returns HTTP 400 when the required password field is absent."""
+  response = requests.post(
+    f"{params['resturl']}/auth",
+    data={"username": _TEST_USER},
+    verify=params["rootcert"],
+  )
+  assert response.status_code == HTTPStatus.BAD_REQUEST, \
+    f"Expected 400 Bad Request for missing password, got {response.status_code}"
 
-  rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
-  assert rest.authenticate(params["user"], params["password"]), \
-    "Admin authentication failed"
-
-  try:
-    response = requests.post(
-      f"{params['resturl']}/auth",
-      data={"username": _TEST_USER},
-      verify=params["rootcert"],
-    )
-    assert response.status_code == HTTPStatus.BAD_REQUEST, \
-      f"Expected 400 Bad Request for missing password, got {response.status_code}"
-
-    exit_code = 0
-  finally:
-    record_test_result(TEST_NAME, exit_code)
+  result_recorder.success()
 
 
-def test_auth_unauthenticated_request_is_rejected(params, record_xml_attribute):
-  """Verify that a protected endpoint (GET /scenes) returns HTTP 401 when no
-  authorization token is provided."""
-  TEST_NAME = "NEX-T23057"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
+@pytest.mark.test_name("NEX-T23057")
+def test_auth_unauthenticated_request_is_rejected(params, result_recorder):
+  """Protected endpoints return HTTP 401 when no authorization token is provided."""
   failures = []
 
-  try:
-    for endpoint in GET_ENTITIES:
-      response = requests.get(
-        f"{params['resturl']}{endpoint}",
-        verify=params["rootcert"],
-      )
+  for endpoint in GET_ENTITIES:
+    response = requests.get(
+      f"{params['resturl']}{endpoint}",
+      verify=params["rootcert"],
+    )
+    if response.status_code != HTTPStatus.UNAUTHORIZED:
+      failures.append(f"GET {endpoint}: expected 401, got {response.status_code}")
+
+  for endpoint in POST_ENTITIES:
+    response = requests.post(
+      f"{params['resturl']}{endpoint}",
+      verify=params["rootcert"],
+    )
+    if endpoint == "/auth":
+      # username and password are required fields for /auth
+      assert response.status_code == HTTPStatus.BAD_REQUEST, \
+        f"Expected 400 BAD REQUEST for POST {endpoint}, got {response.status_code}: {response.text}"
+    else:
       if response.status_code != HTTPStatus.UNAUTHORIZED:
-        failures.append(
-          f"GET {endpoint}: expected 401, got {response.status_code}"
-        )
+        failures.append(f"POST {endpoint}: expected 401, got {response.status_code}")
 
-    for endpoint in POST_ENTITIES:
-      response = requests.post(
-        f"{params['resturl']}{endpoint}",
-        verify=params["rootcert"],
-      )
-      if endpoint == "/auth":
-        # username and password are required fields for /auth
-        assert response.status_code == HTTPStatus.BAD_REQUEST, \
-          f"Expected 400 BAD REQUEST for POST {endpoint}, got {response.status_code}: {response.text}"
-      else:
-        if response.status_code != HTTPStatus.UNAUTHORIZED:
-          failures.append(
-            f"POST {endpoint}: expected 401, got {response.status_code}"
-          )
+  assert not failures, "Unauthenticated access checks failed:\n" + "\n".join(failures)
 
-    assert not failures, "Unauthenticated access checks failed:\n" + "\n".join(failures)
-
-    exit_code = 0
-  finally:
-    record_test_result(TEST_NAME, exit_code)
+  result_recorder.success()
