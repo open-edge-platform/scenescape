@@ -302,7 +302,4 @@ def test_auto_calibration(scenescape_env, request, record_xml_attribute,
              n_tags, random_select, expect_status,
              expected_result, intrinsics=intrinsics, repo_root=repo_root)
   test.runAutoCalibration()
-<<<<<<< HEAD:tests/functional/tc_auto_calibration.py
-=======
   assert test.exitCode == 0
->>>>>>> main:tests/functional/test_auto_calibration.py
