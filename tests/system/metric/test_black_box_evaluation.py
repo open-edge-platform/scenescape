@@ -16,8 +16,8 @@ Usage::
   # Run this file directly
   pytest tests/system/metric/test_black_box_evaluation.py
 
-  # Run as part of the BAT suite
-  pytest -m basic_acceptance
+  # Run as part of the BAT suite (from the tests/ directory)
+  cd tests && pytest -m basic_acceptance
 """
 
 import sys
