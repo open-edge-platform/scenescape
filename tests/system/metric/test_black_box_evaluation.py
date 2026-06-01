@@ -142,6 +142,7 @@ def black_box_metrics(tmp_path_factory) -> dict[tuple, float]:
     [str(venv_python), str(driver)],
     capture_output=True,
     text=True,
+    cwd=str(_EVAL_SCRIPT.parent),
   )
   if proc.returncode != 0:
     pytest.fail(
