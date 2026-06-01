@@ -140,6 +140,7 @@ jobs:
         uses: ./.github/actions/setup-tests
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Run Basic Acceptance Tests (BAT)"
         if: always() && steps.setup-test-env.outcome == 'success'
@@ -208,20 +209,12 @@ jobs:
         uses: ./.github/actions/setup-tests
         with:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Install github annotate plugin"
         run: |
           source tests/.venv/bin/activate
           pip install -r .github/resources/requirements-pytest.txt
-
-      - name: "Print all built images"
-        run: |
-          docker info
-          docker images
-
-      - name: "Print Daemon config"
-        run: |
-          cat /etc/docker/daemon.json || echo "No daemon.json found"
 
       - name: "Run k8s tests"
         run: |
