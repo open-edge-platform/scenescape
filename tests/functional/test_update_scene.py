@@ -17,7 +17,6 @@ import pytest
 
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
-# import tests.common_test_utils as common
 from tests.functional.common_retrack import RetrackTest
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
@@ -117,14 +116,10 @@ def demo_scene(params):
     "regulated_rate": scene.get("regulated_rate", 30),
   }
   yield helper, rest, scene
-  try:
-    res = rest.updateScene(scene["uid"], original)
-    if res.statusCode == 200:
-      log.info(f"Restored Demo scene properties: {original}")
-    else:
-      log.error(f"Failed to restore Demo scene: {res.statusCode}: {res.errors}")
-  except Exception as exc:
-    log.error(f"Exception restoring Demo scene: {exc}")
+  res = rest.updateScene(scene["uid"], original)
+  assert res.statusCode == 200, \
+    f"Failed to restore Demo scene: {res.statusCode}: {res.errors}"
+  log.info(f"Restored Demo scene properties: {original}")
 
 
 @pytest.fixture
