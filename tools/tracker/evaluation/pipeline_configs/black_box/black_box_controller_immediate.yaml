@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 pipeline:
-  run_name: Controller-NO-Time-Chunking
+  run_name: Controller-Immediate
   output:
     path: ./output/black-box-evaluation
 
@@ -20,7 +20,7 @@ harness:
     broker_image: eclipse-mosquitto:2.0.22
     container_type: controller
     container_image: scenescape-controller:latest
-    tracker_config_path: ../../../tests/system/metric/dataset/tracker-config.json
+    tracker_config_path: ../../../tests/system/metric/dataset/tracker-config-immediate.json
     # startup_wait_s: 2.0
     # drain_timeout: 5.0
 
