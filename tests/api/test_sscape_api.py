@@ -204,7 +204,7 @@ def compare_expected_json_body(actual, expected, path="root"):
         errors.append(f"{path}.{key}: unexpected key in actual response")
     for key in expected:
       if key in actual:
-        _, sub_errors = compare_expected_json_body(
+        sub_errors = compare_expected_json_body(
           actual[key], expected[key], f"{path}.{key}")
         errors.extend(sub_errors)
 
@@ -214,7 +214,7 @@ def compare_expected_json_body(actual, expected, path="root"):
         f"{path}: list length mismatch - expected {len(expected)}, got {len(actual)}")
     else:
       for i, (actual_item, expected_item) in enumerate(zip(actual, expected)):
-        _, sub_errors = compare_expected_json_body(
+        sub_errors = compare_expected_json_body(
           actual_item, expected_item, f"{path}[{i}]")
         errors.extend(sub_errors)
 
@@ -222,7 +222,7 @@ def compare_expected_json_body(actual, expected, path="root"):
     if actual != expected:
       errors.append(f"{path}: expected '{expected}', got '{actual}'")
 
-  return len(errors) == 0, errors
+  return errors
 
 
 def validate_response(response_body, validation_rules):
@@ -244,7 +244,7 @@ def validate_response(response_body, validation_rules):
         f"Field '{field}': expected '{expected_value}', got '{actual_value}'"
       )
 
-  return len(errors) == 0, errors
+  return errors
 
 
 def execute_step(api_map, step, step_number, total_steps):
@@ -327,13 +327,13 @@ def execute_step(api_map, step, step_number, total_steps):
 
         # Check fail_if conditions first
         if fail_rules:
-          _, fail_errors = validate_response(body, fail_rules)
+          fail_errors = validate_response(body, fail_rules)
           if not fail_errors:   # all fail_if conditions matched → abort
             return False, response, f"Poll aborted: fail_if condition matched {fail_rules}"
 
         # Check until conditions
         if until_rules:
-          _, until_errors = validate_response(body, until_rules)
+          until_errors = validate_response(body, until_rules)
           if not until_errors:  # all until conditions matched → done
             break
 
@@ -373,7 +373,7 @@ def execute_step(api_map, step, step_number, total_steps):
   if expected_body is not None:
     logger.debug("    Validating entire response body against expected structure")
     expected_body = substitute_variables(expected_body)
-    _, errors = compare_expected_json_body(response_body, expected_body)
+    errors = compare_expected_json_body(response_body, expected_body)
     if errors:
       error_msg = "Response body validation failed:\n" + \
         "\n".join(f"  - {e}" for e in errors)
@@ -400,7 +400,7 @@ def execute_step(api_map, step, step_number, total_steps):
   # Validate specific fields if rules provided
   if validate_rules:
     logger.debug(f"    Validating response against rules: {validate_rules}")
-    _, errors = validate_response(response_body, validate_rules)
+    errors = validate_response(response_body, validate_rules)
     if errors:
       error_msg = "Response validation failed:\n" + \
         "\n".join(f"  - {e}" for e in errors)
