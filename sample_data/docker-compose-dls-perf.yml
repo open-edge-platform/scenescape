@@ -126,8 +126,6 @@ services:
       - SUPASS=${SUPASS}
     cap_add:
       - SYS_ADMIN
-    devices:
-      - /dev/fuse
     security_opt:
       - apparmor:unconfined
     # web interface needs access to the media files

@@ -102,8 +102,6 @@ spec:
             periodSeconds: 1
           resources: {}
           volumeMounts:
-          - mountPath: /dev/fuse
-            name: dev-fuse
           - mountPath: /run/secrets/certs/scenescape-ca.pem
             subPath: scenescape-ca.pem
             name: certs
@@ -151,10 +149,6 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
-      - name: dev-fuse
-        hostPath:
-          path: /dev/fuse
-          type: CharDevice
       {{ include "certs_volume" . | indent 6 }}
       - name: supass
         secret:

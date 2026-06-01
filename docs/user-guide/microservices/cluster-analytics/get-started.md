@@ -32,7 +32,6 @@ Start the service using docker run:
 docker run --rm \
   --init \
   --cap-add=SYS_ADMIN \
-  --device=/dev/fuse \
   --security-opt apparmor:unconfined \
   --network scenescape_scenescape \
   -e EGL_PLATFORM=surfaceless \

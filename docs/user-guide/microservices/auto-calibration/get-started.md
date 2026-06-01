@@ -26,7 +26,6 @@
   docker run --rm \
   --init \
   --cap-add=SYS_ADMIN \
-  --device=/dev/fuse \
   --security-opt apparmor:unconfined \
   --network scenescape \
   -e EGL_PLATFORM=surfaceless \
