@@ -5,5 +5,5 @@
 # conflicts with pinned packages in requirements.txt.
 #
 # trackeval>=1.0.1 declares numpy>=2.3.2 (Python>=3.11) in its metadata, but
-# the package itself works with the numpy==2.2.6 pinned above.
+# the package itself works with the numpy==2.2.6 pinned in requirements.txt
 trackeval==1.0.1
