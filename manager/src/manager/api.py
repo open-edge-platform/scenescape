@@ -192,7 +192,7 @@ class ManageThing(APIView):
         thing,
         data=request.data,
         partial=True
-    ) if thing else thing_serializer(data=request.data, partial=True)
+    ) if thing else thing_serializer(data=request.data)
 
     if not serializer.is_valid():
       raise ValidationError(serializer.errors)
