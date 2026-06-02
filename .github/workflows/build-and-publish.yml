@@ -1,14 +1,18 @@
 ---
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[Build] Weekly Build Images"
-run-name: "[Build] Weekly Build Images"
+name: "[Build] Build Images And Publish To DockerHub"
+run-name: "[Build] Build Images And Publish To DockerHub"
 
 on:
-  schedule:
-    - cron: "59 6 * * 3" # Each Wednesday at 06:59 UTC (Tuesday 11:59pm PST)
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish images to DockerHub"
+        required: true
+        default: false
+        type: boolean
 permissions: {}
 
 jobs:
@@ -74,76 +78,76 @@ jobs:
       - name: "Determine Image Tag"
         id: determine-tag
         run: |
-          version=""
-          if [ -f version.txt ]; then
-            version=v$(tr -d ' \n' < version.txt)
-          else
+          if [ ! -f version.txt ]; then
             echo "version.txt not found."
             exit 1
           fi
-          # If version.txt contains "rc", use its content as image tag
+          if grep -q "dev" version.txt; then
+            echo "ERROR: version.txt contains 'dev' - publishing dev versions is not allowed."
+            exit 1
+          fi
+          version=$(tr -d ' \n' < version.txt)
+          echo "image_tag=$version" >> $GITHUB_OUTPUT
+          # Mark as release (not RC) so the latest tag is also pushed
           if grep -q "rc" version.txt; then
-            tag="$version"
-            echo "image_tag=$tag" >> $GITHUB_OUTPUT
+            echo "is_release=false" >> $GITHUB_OUTPUT
           else
-            if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-              # If version.txt contains "dev", add sha to image tag
-              if grep -q "dev" version.txt; then
-                commit_hash=$(git rev-parse --short HEAD)
-                tag="${version:+$version-}$commit_hash"
-                echo "image_tag=$tag" >> $GITHUB_OUTPUT
-              else
-                echo "No 'dev' found in version.txt. Using version from version.txt as image tag."
-                tag="$version"
-                echo "image_tag=$tag" >> $GITHUB_OUTPUT
-              fi
-            else
-              date_tag=$(date -u +'%Y%m%d')
-              tag="${version:+$version-}$date_tag"
-              echo "image_tag=$tag" >> $GITHUB_OUTPUT
-            fi
+            echo "is_release=true" >> $GITHUB_OUTPUT
           fi
 
       - name: "Tag images"
         run: |
-          docker tag ${{ matrix.images }}:latest ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
-          echo "Tagged ${{ matrix.images }}:latest as ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
+          docker tag ${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }} intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          echo "Tagged ${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }} as intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}"
+          if [[ "${{ steps.determine-tag.outputs.is_release }}" == "true" ]]; then
+            docker tag ${{ matrix.images }}:latest intel/${{ matrix.images }}:latest
+            echo "Tagged ${{ matrix.images }}:latest as intel/${{ matrix.images }}:latest"
+          fi
 
-      - name: "Log in to GHCR"
+      - name: "Log in to DockerHub"
+        if: ${{ github.event.inputs.publish == 'true' }}
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: "Push images"
+        if: ${{ github.event.inputs.publish == 'true' }}
         run: |
-          docker push ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          if [[ "${{ steps.determine-tag.outputs.is_release }}" == "true" ]]; then
+            docker push intel/${{ matrix.images }}:latest
+          fi
 
       - name: Install skopeo
+        if: ${{ github.event.inputs.publish == 'true' }}
         run: sudo apt update && sudo apt install -y skopeo jq
 
       - name: "Get image digest"
         id: digest
+        if: ${{ github.event.inputs.publish == 'true' }}
         env:
-          IMAGE: ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          IMAGE: intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
         run: |
           DIGEST=$(skopeo inspect docker://$IMAGE | jq -r '.Digest')
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
 
       - name: "Install Cosign"
+        if: ${{ github.event.inputs.publish == 'true' }}
         uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
 
       - name: "Sign Docker images using Cosign (keyless)"
+        if: ${{ github.event.inputs.publish == 'true' }}
         run: |
-          cosign sign --yes ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}
-          echo "Signed ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}"
+          cosign sign --yes intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}
+          echo "Signed intel/${{ matrix.images }}@${{ steps.digest.outputs.digest }}"
 
       - name: "Save ${{ matrix.images }} image info"
         id: save-image-info
+        if: ${{ github.event.inputs.publish == 'true' }}
         run: |
-          echo "image_name=ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
-          echo "image_name=ghcr.io/open-edge-platform/edge-ai-libraries/intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "image_name=intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          echo "image_name=intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
           echo "image_digest=${{ steps.digest.outputs.digest }}" >> "$GITHUB_OUTPUT"
           echo "image_digest=${{ steps.digest.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
 
