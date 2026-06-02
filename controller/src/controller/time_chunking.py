@@ -159,8 +159,11 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
       try:
         camera_id = objects[0].camera.cameraID
       except (AttributeError, IndexError):
-        log.warning("No camera ID found in objects, skipping time chunking processing")
-        return
+        # Child scene objects have a Scene as camera, use its uid instead
+        camera_id = getattr(objects[0].camera, 'uid', None)
+        if camera_id is None:
+          log.warning("No camera ID found in objects, skipping time chunking processing")
+          return
     else:
       # Keep retirement moving when a camera/category has no detections.
       camera_id = self.EMPTY_FRAME_CAMERA_ID
