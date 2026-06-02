@@ -160,7 +160,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
       source = objects[0].camera
       camera_id = getattr(source, 'cameraID', None) or getattr(source, 'uid', None)
       if camera_id is None:
-        log.warning("No camera ID found in objects, skipping time chunking processing")
+        log.warning("No source ID (cameraID/uid) found in objects, skipping time chunking processing")
         return
     else:
       # Keep retirement moving when a camera/category has no detections.
