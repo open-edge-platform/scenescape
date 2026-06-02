@@ -157,7 +157,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     # Extract camera_id from objects - required for time chunking.
     # Objects come from either a Camera (cameraID) or a child Scene (uid).
     if len(objects) > 0:
-      source = objects[0].camera
+      source = getattr(objects[0], 'camera', None)
       camera_id = getattr(source, 'cameraID', None) or getattr(source, 'uid', None)
       if camera_id is None:
         log.warning("No source ID (cameraID/uid) found in objects, skipping time chunking processing")
