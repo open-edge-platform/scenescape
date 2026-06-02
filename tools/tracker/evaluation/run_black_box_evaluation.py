@@ -10,7 +10,7 @@ All results land under a shared session directory:
     Controller-Time-Chunking/
     Tracker-Service/
 
-Usage (from any directory):
+Usage:
   python run_black_box_evaluation.py
   python run_black_box_evaluation.py --output /custom/output/path
 
