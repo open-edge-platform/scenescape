@@ -123,7 +123,7 @@ def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold):
   key = (run, "TrackEvalEvaluator", metric)
   value = black_box_metrics.get(key)
   if value is None:
-    pytest.skip(f"metric {key!r} not found in results (run may have been skipped)")
+    pytest.fail(f"metric {key!r} not found in results")
   assert value >= min_threshold, (
     f"[{run}] {metric} = {value:.4f} < minimum {min_threshold}"
   )
@@ -135,7 +135,7 @@ def test_jitter_threshold(black_box_metrics, run, metric, max_threshold):
   key = (run, "JitterEvaluator", metric)
   value = black_box_metrics.get(key)
   if value is None:
-    pytest.skip(f"metric {key!r} not found in results (run may have been skipped)")
+    pytest.fail(f"metric {key!r} not found in results")
   assert value <= max_threshold, (
     f"[{run}] {metric} = {value:.4f} > maximum {max_threshold}"
   )
