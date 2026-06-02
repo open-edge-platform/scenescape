@@ -52,7 +52,7 @@ class NonNullSerializer(serializers.ModelSerializer):
                             not isinstance(result[key], list)
                             and not isinstance(result[key], tuple)) or result[key]])
 
-def validate_scene_exists(data):
+def _validate_scene_exists(data):
   scene = data.get('scene')
   if scene is not None:
     scene_pk = scene.get('pk') if isinstance(scene, dict) else scene
@@ -212,7 +212,7 @@ class SingletonSerializer(NonNullSerializer):
         val = data.get(field)
         if val is None:
           raise serializers.ValidationError({field: "required"})
-    validate_scene_exists(data)
+    _validate_scene_exists(data)
     if 'singleton_scalar_threshold' in data:
       SingletonScalarThresholdSerializer.validateColorRanges(data['singleton_scalar_threshold'])
     return data
@@ -478,7 +478,7 @@ class CamSerializer(NonNullSerializer):
     return camera.pose.scale if camera and hasattr(camera, 'pose') else None
 
   def validate(self, data):
-    validate_scene_exists(data)
+    _validate_scene_exists(data)
     if data.get('use_camera_pipeline') and not data.get('camera_pipeline'):
       raise serializers.ValidationError({
         'camera_pipeline': 'camera_pipeline cannot be empty when use_camera_pipeline is true.'
@@ -497,7 +497,7 @@ class RegionSerializer(NonNullSerializer):
   color_ranges = RegionOccupancyThresholdSerializer(source='roi_occupancy_threshold')
 
   def validate(self, data):
-    validate_scene_exists(data)
+    _validate_scene_exists(data)
     return data
 
   def create_update(self, validated_data, instance=None):
