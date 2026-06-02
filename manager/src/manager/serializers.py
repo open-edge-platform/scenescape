@@ -70,6 +70,12 @@ class PointsSerializerField(serializers.DictField):
     return points
 
   def to_internal_value(self, data):
+    if not isinstance(data, list):
+      raise serializers.ValidationError("Points must be a list.")
+    for i, point in enumerate(data):
+      if not isinstance(point, (list, tuple)) or len(point) != 2:
+        raise serializers.ValidationError(
+          f"Each point must be a list of 2 coordinates, got {point} at index {i}.")
     return data
 
   @staticmethod
