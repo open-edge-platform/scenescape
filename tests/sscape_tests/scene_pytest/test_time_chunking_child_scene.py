@@ -5,8 +5,6 @@
 
 from unittest.mock import patch, MagicMock
 
-import pytest
-
 from controller.time_chunking import TimeChunkedIntelLabsTracking
 
 class _ChildSceneSource:
