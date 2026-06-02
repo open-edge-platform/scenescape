@@ -70,6 +70,12 @@ class PointsSerializerField(serializers.DictField):
     return points
 
   def to_internal_value(self, data):
+    if not isinstance(data, list):
+      raise serializers.ValidationError("Points must be a list.")
+    for i, point in enumerate(data):
+      if not isinstance(point, (list, tuple)) or len(point) != 2:
+        raise serializers.ValidationError(
+          f"Each point must be a list of 2 coordinates, got {point} at index {i}.")
     return data
 
   @staticmethod
@@ -169,11 +175,11 @@ class SingletonScalarThresholdSerializer(RegionOccupancyThresholdSerializer):
 class SingletonSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
   uid = serializers.CharField(source="sensor_id", read_only=True)
-  scene = serializers.CharField(source='scene.pk', allow_null=True)
-  center = CenterSerializerField(source='*')
-  points = PointsSerializerField()
+  scene = serializers.CharField(source='scene.pk', allow_null=True, required=False)
+  center = CenterSerializerField(source='*', required=False)
+  points = PointsSerializerField(required=False)
   translation = serializers.SerializerMethodField('get_translation')
-  color_ranges = SingletonScalarThresholdSerializer(source='singleton_scalar_threshold')
+  color_ranges = SingletonScalarThresholdSerializer(source='singleton_scalar_threshold', required=False)
 
   def get_translation(self, obj):
     return [obj.map_x, obj.map_y, 0.0]
@@ -263,9 +269,9 @@ class CamSerializer(NonNullSerializer):
   translation = serializers.SerializerMethodField('get_translation')
   rotation = serializers.SerializerMethodField('get_rotation')
   scale = serializers.SerializerMethodField('get_scale')
-  resolution = ResolutionSerializerField(source='cam')
+  resolution = ResolutionSerializerField(source='cam', required=False)
   transforms = serializers.SerializerMethodField('get_transform')
-  scene = serializers.CharField(source="scene.pk", allow_null=True)
+  scene = serializers.CharField(source="scene.pk", allow_null=True, required=False)
   transform_type = serializers.SerializerMethodField('get_transform_type')
 
   def validate_name(self, value):
@@ -485,7 +491,7 @@ class RegionSerializer(NonNullSerializer):
   uid = serializers.SerializerMethodField('get_uuid')
   points = PointsSerializerField()
   scene = serializers.CharField(source='scene.pk')
-  color_ranges = RegionOccupancyThresholdSerializer(source='roi_occupancy_threshold')
+  color_ranges = RegionOccupancyThresholdSerializer(source='roi_occupancy_threshold', required=False)
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
