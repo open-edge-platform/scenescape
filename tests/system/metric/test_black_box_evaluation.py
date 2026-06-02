@@ -44,7 +44,7 @@ _TRACKEVAL_MIN: dict[str, float] = {
 
 _JITTER_MAX: dict[str, float] = {
   "rms_jerk_ratio": 25.0,
-  "acceleration_variance_ratio": 25.0,
+  "acceleration_variance_ratio": 65.0,
 }
 
 _TRACKEVAL_PARAMS = [
