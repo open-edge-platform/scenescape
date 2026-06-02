@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
-import xml.etree.ElementTree as ET
 import requests
 import os
 from mapping_client import MappingClient
