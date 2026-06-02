@@ -117,7 +117,6 @@ def black_box_metrics(tmp_path_factory) -> dict[tuple, float]:
 
   return metrics
 
-@pytest.mark.basic_acceptance
 @pytest.mark.parametrize("run,metric,min_threshold", _TRACKEVAL_PARAMS)
 def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold):
   """TrackEval metric (HOTA/MOTA/IDF1) must meet the minimum threshold."""
@@ -130,7 +129,6 @@ def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold):
   )
 
 
-@pytest.mark.basic_acceptance
 @pytest.mark.parametrize("run,metric,max_threshold", _JITTER_PARAMS)
 def test_jitter_threshold(black_box_metrics, run, metric, max_threshold):
   """JitterEvaluator metric must not exceed the maximum threshold."""
