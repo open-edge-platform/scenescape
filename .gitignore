@@ -10,6 +10,7 @@
 *so
 .coverage_*
 .env
+.scenescape-profile
 .pytest_cache
 .vscode
 __pycache__
