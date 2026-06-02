@@ -9,13 +9,11 @@ import pytest
 
 from controller.time_chunking import TimeChunkedIntelLabsTracking
 
-
 class _ChildSceneSource:
   """Mimics a child Scene object used as 'camera' on MovingObject."""
 
   def __init__(self, uid):
     self.uid = uid
-
 
 class _FakeMovingObject:
   """Minimal MovingObject stand-in with a configurable camera attribute."""
@@ -23,7 +21,6 @@ class _FakeMovingObject:
   def __init__(self, camera):
     self.camera = camera
     self.category = "person"
-
 
 def test_time_chunking_accepts_child_scene_source():
   """trackObjects enqueues work when source has uid instead of cameraID."""
@@ -59,7 +56,6 @@ def test_time_chunking_accepts_child_scene_source():
       )
   finally:
     tracker.join()
-
 
 def test_time_chunking_no_warning_for_child_scene_source():
   """No warning emitted when source has uid instead of cameraID."""
