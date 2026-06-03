@@ -154,21 +154,22 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     if not categories:
       categories = self.trackers.keys()
 
-    # Extract camera_id from objects - required for time chunking
+    # Extract camera_id from objects - required for time chunking.
+    # Objects come from either a Camera (cameraID) or a child Scene (uid).
     if len(objects) > 0:
-      try:
-        camera_id = objects[0].camera.cameraID
-      except (AttributeError, IndexError):
-        log.warning("No camera ID found in objects, skipping time chunking processing")
+      source = getattr(objects[0], 'camera', None)
+      source_id = getattr(source, 'cameraID', None) or getattr(source, 'uid', None)
+      if source_id is None:
+        log.warning("No source ID found in objects, skipping time chunking processing")
         return
     else:
       # Keep retirement moving when a camera/category has no detections.
-      camera_id = self.EMPTY_FRAME_CAMERA_ID
+      source_id = self.EMPTY_FRAME_CAMERA_ID
 
     for category in categories:
       # Use time chunking
       self.time_chunk_processor.add_message(
-          camera_id, category, objects, when, already_tracked_objects)
+          source_id, category, objects, when, already_tracked_objects)
 
   def _createIlabsTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
     """Create IntelLabs tracker object for each category"""
