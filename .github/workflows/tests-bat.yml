@@ -63,7 +63,7 @@ jobs:
 
       - name: Checkout code
         if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -92,7 +92,7 @@ jobs:
     outputs:
       code_changed: ${{ steps.filter.outputs.code }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Set paths filter
         id: filter
         uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
@@ -124,7 +124,7 @@ jobs:
     if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
       - name: "Checkout Repository"
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -178,7 +178,7 @@ jobs:
           pytest . --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
 
       - name: Upload Test Report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: bat-report
           path: |
@@ -197,7 +197,7 @@ jobs:
     if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
 
@@ -223,7 +223,7 @@ jobs:
           pytest tests/kubernetes --backend=kubernetes --junitxml=reports/k8s_results.xml --log-level=ERROR
 
       - name: Upload Test Report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: k8s-report
           path: |
