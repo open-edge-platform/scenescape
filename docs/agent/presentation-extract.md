@@ -26,6 +26,8 @@ Installed cameras:
 
 # Slide 3: Building Solution: Exapmle of Step-by-Step Process
 
+Note: This is an example flow, other are possible too (for example SceneScape can be set up first).
+
 1. Camera Setup (detect camera IPs)
 2. Data Acquisition (synchronized video capture from all cameras with cars on the parking)
 3. Geti Training* [optional]
@@ -79,14 +81,17 @@ Note: SceneScape – VIPPET integration is higher priority than with Geti but we
 
 # Slide 9: VA Platform Integration: Proposed Timeline
 
-Phase 1 (2026.2):
+Phase 1 (2026.1)
+[As in the slide 7]
+
+Phase 2 (2026.2):
 1. Model Downloader (Manager) integration
 2. Switch to Gst Analytics Python
 3. Simplify / break down Python adapter (phase 1)
 4. VIPPET integration design
 5. Stream Manager integration design
 
-Phase 2 (2026.3):
+Phase 3 (2026.3):
 1. VIPPET integration
 2. Simplify / break down Python adapter (phase 2)
 3. Stream Manager integration
@@ -103,7 +108,7 @@ SceneScape:
 
 Model Downloader:
 - Set of already downloaded models, their paths within storage and metadata is available in run-time via REST API
-  - Covered by feature ITEP-92375 (persistent registry, GET models w/ metadata)
+  - Covered by feature ITEP-92375.xml (specifically persistent registry, GET models w/ metadata)
 - Model metadata should include model name / ID, precision, public download reference / Geti reference, checksum, optional attributes
 - Automatically check model existence in the target path and skip download for cached models that have been already downloaded [partially supported , improvements planned as part of 2026.2 feature scope]
 

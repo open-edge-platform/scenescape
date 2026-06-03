@@ -1,4 +1,6 @@
-# Plan for AI-assisted creation of documents for Open-Edge-Platform MLOps Integration and reuse
+DO NOT PROCESS THIS DOCUMENT. IT IS NOT READY YET!!
+
+# Plan for AI-assisted creation of documents for Open-Edge-Platform MLOps Integration and reuse (WIP)
 
 ## Goal
 
@@ -29,6 +31,10 @@ The documents created are deliverable for OEP 2026.1 release. The feature is pla
 JIRA item created for 2026.2 release define the exact scope.
 Important: Use the release numbers mostly for your reference and refrain from using it in the documents. Just focus on the technical aspect and refer to them as phases.
 
+## Component responsibilities
+
+
+
 ## SceneScape context
 
 SceneScape currently provides custom solutions for:
@@ -45,8 +51,8 @@ DLStreamer pipeline is customized with a dedicated, monolithic scripts (dlstream
 
 1. [PowerPoint presentation](docs/agent/presentation-extract.md)
 2. [DrawIO diagrams](docs/agent/diagrams/SceneScape_MLOps.drawio)
-  - Process Model Page
-  - Component Interaction Page
+  - Process Model Page (exported as `docs/agent/diagrams/SceneScape_MLOps-Process Model.drawio.svg`)
+  - Component Interaction Page (exported as `docs/agent/diagrams/SceneScape_MLOps-Process Model.drawio.svg`)
 2. [JIRA tickets](docs/agent/jira)
 3. [NOKIA feature request](https://github.com/open-edge-platform/scenescape/issues/782)
 
@@ -61,8 +67,9 @@ DLStreamer pipeline is customized with a dedicated, monolithic scripts (dlstream
 Follow steps below one by one. Ask for clarification if needed.
 
 1. Verify all inputs, extract information. Stop immediately and flag any issues if inputs are not clear or information is not accessible.
-2. Treat original NOKIA feature request as a reference of WHAT we are aiming in terms of UX, not a must have requirements
-3. Treat JIRA tickets, presentation and diagrams as a definition of WHAT and HOW we are going to deliver
+2. Explain each diagram and create intermediate .md files in `docs/agent/intermediate` folder with a summary.
+3. Treat original NOKIA feature request as approximation of WHAT we are aiming in terms of UX, not a must have requirements. UX KPIs like mouse-clicks are not relevant in the context of documents created.
+4. Treat JIRA tickets, presentation and diagrams as a definition of WHAT and HOW we are going to deliver
 
 ### Create ADR
 
@@ -73,3 +80,6 @@ Follow steps below one by one. Ask for clarification if needed.
 
 - Help me adopt this knowledge into template docs/design/template.md step-by-step.
 - If any parts of template are not clear or covered, do not invent on your own, but ask for input and clarification.
+- Include diagrams exported as SVG where appropriate
+- Leave placeholders for sequence diagrams. We will generate them separately once the rest of document is ready.
+
