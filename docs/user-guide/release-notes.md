@@ -1,6 +1,6 @@
 # Release Notes: Intel® SceneScape
 
-## Version 2026.01.0
+## Version 2026.1.0
 
 **June 17, 2026**
 
