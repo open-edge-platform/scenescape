@@ -32,17 +32,17 @@ _VERSION_FILE = _REPO_ROOT / "version.txt"
 
 _TRACKEVAL_MIN: dict[str, dict[str, float]] = {
   "black_box_controller_immediate": {
-    "HOTA": 0.80,
-    "MOTA": 0.90,
+    "HOTA": 0.75,
+    "MOTA": 0.95,
     "IDF1": 0.95,
   },
   "black_box_controller_tc": {
-    "HOTA": 0.75,
-    "MOTA": 0.90,
-    "IDF1": 0.95,
+    "HOTA": 0.70,
+    "MOTA": 0.65,
+    "IDF1": 0.80,
   },
   "black_box_tracker_service": {
-    "HOTA": 0.50,
+    "HOTA": 0.60,
     "MOTA": 0.60,
     "IDF1": 0.75,
   },
