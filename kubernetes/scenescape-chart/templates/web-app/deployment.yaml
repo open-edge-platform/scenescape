@@ -8,8 +8,6 @@ metadata:
   name: {{ .Release.Name }}-web-dep
   labels:
     app: {{ .Release.Name }}-web
-  annotations:
-    container.apparmor.security.beta.kubernetes.io/web: unconfined
 spec:
   replicas: 1
   selector:
@@ -90,8 +88,6 @@ spec:
             {{ include "proxy_envs" . | indent 10 }}
           securityContext:
             privileged: true
-            capabilities:
-              add: ["SYS_ADMIN"]
           ports:
           - containerPort: 443
           readinessProbe:

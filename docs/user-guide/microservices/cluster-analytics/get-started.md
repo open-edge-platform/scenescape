@@ -31,8 +31,6 @@ Start the service using docker run:
 ```bash
 docker run --rm \
   --init \
-  --cap-add=SYS_ADMIN \
-  --security-opt apparmor:unconfined \
   --network scenescape_scenescape \
   -e EGL_PLATFORM=surfaceless \
   -e DBROOT \
