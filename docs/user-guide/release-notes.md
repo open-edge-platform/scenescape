@@ -30,7 +30,7 @@
   - Improved test stability and fixtures
   - Added weekly test coverage for releases
 
-- Docuemntation:
+- Documentation:
   - Major documentation restructuring and alignment
   - Improved navigation, references, and formatting
   - Standardized message format documentation
