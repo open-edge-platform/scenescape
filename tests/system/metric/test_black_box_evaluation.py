@@ -18,6 +18,8 @@ from pathlib import Path
 
 import pytest
 
+import tests.common_test_utils as common
+
 _THIS_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _THIS_DIR.parent.parent.parent
 _EVAL_SCRIPT = _REPO_ROOT / "tools" / "tracker" / "evaluation" / "run_black_box_evaluation.py"
@@ -67,6 +69,8 @@ _JITTER_PARAMS = [
   for run, thresholds in _JITTER_MAX.items()
   for metric, threshold in thresholds.items()
 ]
+
+TEST_NAME = "NEX-T10463"
 
 @pytest.fixture(scope="session")
 def black_box_metrics(tmp_path_factory) -> dict[tuple, float]:
@@ -127,24 +131,38 @@ def black_box_metrics(tmp_path_factory) -> dict[tuple, float]:
   return metrics
 
 @pytest.mark.parametrize("run,metric,min_threshold", _TRACKEVAL_PARAMS)
-def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold):
+def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold, record_xml_attribute):
   """TrackEval metric (HOTA/MOTA/IDF1) must meet the minimum threshold."""
+  record_xml_attribute("name", TEST_NAME)
+  print("Executing: " + TEST_NAME)
+  exit_code = 1
   key = (run, "TrackEvalEvaluator", metric)
   value = black_box_metrics.get(key)
   if value is None:
+    common.record_test_result(TEST_NAME, exit_code)
     pytest.fail(f"metric {key!r} not found in results")
-  assert value >= min_threshold, (
+  passed = value >= min_threshold
+  exit_code = 0 if passed else 1
+  common.record_test_result(TEST_NAME, exit_code)
+  assert passed, (
     f"[{run}] {metric} = {value:.4f} < minimum {min_threshold}"
   )
 
 
 @pytest.mark.parametrize("run,metric,max_threshold", _JITTER_PARAMS)
-def test_jitter_threshold(black_box_metrics, run, metric, max_threshold):
+def test_jitter_threshold(black_box_metrics, run, metric, max_threshold, record_xml_attribute):
   """JitterEvaluator metric must not exceed the maximum threshold."""
+  record_xml_attribute("name", TEST_NAME)
+  print("Executing: " + TEST_NAME)
+  exit_code = 1
   key = (run, "JitterEvaluator", metric)
   value = black_box_metrics.get(key)
   if value is None:
+    common.record_test_result(TEST_NAME, exit_code)
     pytest.fail(f"metric {key!r} not found in results")
-  assert value <= max_threshold, (
+  passed = value <= max_threshold
+  exit_code = 0 if passed else 1
+  common.record_test_result(TEST_NAME, exit_code)
+  assert passed, (
     f"[{run}] {metric} = {value:.4f} > maximum {max_threshold}"
   )
