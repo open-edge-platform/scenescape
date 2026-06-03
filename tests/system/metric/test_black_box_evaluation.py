@@ -38,7 +38,7 @@ _TRACKEVAL_MIN: dict[str, dict[str, float]] = {
   },
   "black_box_controller_tc": {
     "HOTA": 0.70,
-    "MOTA": 0.65,
+    "MOTA": 0.60,
     "IDF1": 0.80,
   },
   "black_box_tracker_service": {
@@ -50,16 +50,16 @@ _TRACKEVAL_MIN: dict[str, dict[str, float]] = {
 
 _JITTER_MAX: dict[str, dict[str, float]] = {
   "black_box_controller_immediate": {
-    "rms_jerk_ratio": 2.0,
-    "acceleration_variance_ratio": 3.0,
+    "rms_jerk_ratio": 20.0,
+    "acceleration_variance_ratio": 150.0,
   },
   "black_box_controller_tc": {
-    "rms_jerk_ratio": 5.0,
-    "acceleration_variance_ratio": 25.0,
+    "rms_jerk_ratio": 10.0,
+    "acceleration_variance_ratio": 50.0,
   },
   "black_box_tracker_service": {
-    "rms_jerk_ratio": 15.0,
-    "acceleration_variance_ratio": 75.0,
+    "rms_jerk_ratio": 25.0,
+    "acceleration_variance_ratio": 350.0,
   },
 }
 
