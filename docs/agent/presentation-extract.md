@@ -92,9 +92,14 @@ Phase 2 (2026.2):
 5. Stream Manager integration design
 
 Phase 3 (2026.3):
-1. VIPPET integration
+1. VIPPET integration (phase 1)
 2. Simplify / break down Python adapter (phase 2)
-3. Stream Manager integration
+3. Stream Manager integration (phase 1)
+
+Phase 4 (2026.3):
+1. VIPPET integration (phase 2)
+2. Stream Manager integration (phase 2)
+
 
 # Silde 10: Requirements for SceneScape – Model Manager (Model Downloader) integration implementation
 
