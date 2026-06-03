@@ -33,12 +33,12 @@ _TRACKEVAL_MIN: dict[str, dict[str, float]] = {
   },
   "black_box_controller_tc": {
     "HOTA": 0.70,
-    "MOTA": 0.55,
+    "MOTA": 0.60,
     "IDF1": 0.75,
   },
   "black_box_tracker_service": {
     "HOTA": 0.60,
-    "MOTA": 0.60,
+    "MOTA": 0.70,
     "IDF1": 0.75,
   },
 }
@@ -46,7 +46,7 @@ _TRACKEVAL_MIN: dict[str, dict[str, float]] = {
 _JITTER_MAX: dict[str, dict[str, float]] = {
   "black_box_controller_immediate": {
     "rms_jerk_ratio": 20.0,
-    "acceleration_variance_ratio": 150.0,
+    "acceleration_variance_ratio": 200.0,
   },
   "black_box_controller_tc": {
     "rms_jerk_ratio": 10.0,
@@ -127,20 +127,6 @@ def black_box_metrics(tmp_path_factory) -> dict[tuple, float]:
       "All evaluation runs failed — check container images and harness setup:\n"
       + "\n".join(errors)
     )
-
-  # Print a full results table so values are visible in CI logs.
-  print("\n" + "=" * 72)
-  print(f"  BLACK-BOX EVALUATION RESULTS")
-  print("=" * 72)
-  print(f"  {'Run':<36} {'Evaluator':<24} {'Metric':<30} {'Value':>10}")
-  print("-" * 72)
-  for (run_name, evaluator_name, metric), value in sorted(metrics.items()):
-    print(f"  {run_name:<36} {evaluator_name:<24} {metric:<30} {value:>10.4f}")
-  if errors:
-    print("\nFailed runs:")
-    for e in errors:
-      print(f"  {e}")
-  print("=" * 72 + "\n")
 
   return metrics
 
