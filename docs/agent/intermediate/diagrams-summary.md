@@ -93,9 +93,9 @@ High-level component view showing how SceneScape interacts with the other compon
 
 ---
 
-## Open questions for the ADR
+## Clarifications resolved
 
-1. The Process Model places "Detect Camera Devices" in Stream Manager. Does SceneScape need any camera-discovery awareness, or does it consume only the resulting camera list via Stream Manager's REST API?
-2. The "Map Pipeline to Sources" step is in SceneScape's Scene Development stage but pipelines come from ViPPET. Is the mapping persisted on the SceneScape side, the ViPPET side, or both?
-3. The Package Preparation stage (*Export Scene*) implies a portable scene artifact. Is the pipeline definition embedded (by value) or referenced (by ID/version) in the exported scene?
-4. The Component Interaction shows DLSPS→Model Downloader for *Use Models*, but the Process Model has SceneScape executing *Download Models* at production deployment. Confirm: at runtime, does DLSPS read models from a volume that Model Downloader populates, or does DLSPS call Model Downloader directly?
+1. **Camera discovery**: SceneScape does **not** perform camera discovery. It consumes streams that have been discovered and exposed by Stream Manager.
+2. **Pipeline-to-source mapping**: Persisted on the **SceneScape side only**. ViPPET may maintain its own mapping for its own purposes; that mapping is not relevant to SceneScape and is not synchronized.
+3. **Exported-scene pipeline reference**: Deferred to the ADR.
+4. **Runtime model access**: DLSPS reads models from a **shared volume** that Model Downloader populates. DLSPS does not call Model Downloader directly at runtime.
