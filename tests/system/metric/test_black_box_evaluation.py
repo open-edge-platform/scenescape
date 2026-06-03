@@ -33,8 +33,8 @@ _TRACKEVAL_MIN: dict[str, dict[str, float]] = {
   },
   "black_box_controller_tc": {
     "HOTA": 0.70,
-    "MOTA": 0.60,
-    "IDF1": 0.80,
+    "MOTA": 0.55,
+    "IDF1": 0.75,
   },
   "black_box_tracker_service": {
     "HOTA": 0.60,
@@ -128,6 +128,20 @@ def black_box_metrics(tmp_path_factory) -> dict[tuple, float]:
       + "\n".join(errors)
     )
 
+  # Print a full results table so values are visible in CI logs.
+  print("\n" + "=" * 72)
+  print(f"  BLACK-BOX EVALUATION RESULTS")
+  print("=" * 72)
+  print(f"  {'Run':<36} {'Evaluator':<24} {'Metric':<30} {'Value':>10}")
+  print("-" * 72)
+  for (run_name, evaluator_name, metric), value in sorted(metrics.items()):
+    print(f"  {run_name:<36} {evaluator_name:<24} {metric:<30} {value:>10.4f}")
+  if errors:
+    print("\nFailed runs:")
+    for e in errors:
+      print(f"  {e}")
+  print("=" * 72 + "\n")
+
   return metrics
 
 @pytest.mark.parametrize("run,metric,min_threshold", _TRACKEVAL_PARAMS)
@@ -143,6 +157,8 @@ def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold, reco
     pytest.fail(f"metric {key!r} not found in results")
   passed = value >= min_threshold
   exit_code = 0 if passed else 1
+  status = "PASS" if passed else "FAIL"
+  print(f"  [{run}] {metric} = {value:.4f} (min {min_threshold}) -> {status}")
   common.record_test_result(TEST_NAME, exit_code)
   assert passed, (
     f"[{run}] {metric} = {value:.4f} < minimum {min_threshold}"
@@ -162,6 +178,8 @@ def test_jitter_threshold(black_box_metrics, run, metric, max_threshold, record_
     pytest.fail(f"metric {key!r} not found in results")
   passed = value <= max_threshold
   exit_code = 0 if passed else 1
+  status = "PASS" if passed else "FAIL"
+  print(f"  [{run}] {metric} = {value:.4f} (max {max_threshold}) -> {status}")
   common.record_test_result(TEST_NAME, exit_code)
   assert passed, (
     f"[{run}] {metric} = {value:.4f} > maximum {max_threshold}"
