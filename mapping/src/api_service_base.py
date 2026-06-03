@@ -105,6 +105,7 @@ CORS(app)  # Enable CORS for all routes
 
 # Configure Flask app
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max request size
+API_PREFIX = "/v1"
 
 def initialize_model():
   """Initialize the model - this will be overridden by model-specific services"""
@@ -189,7 +190,7 @@ def create_glb_file(result: Dict[str, Any], mesh_type: str = "mesh") -> str:
   finally:
     os.close(temp_glb_fd)
 
-@app.route("/reconstruction", methods=["POST"])
+@app.route(f"{API_PREFIX}/reconstruction", methods=["POST"])
 def reconstruct3D():
   """
   Perform 3D reconstruction from multipart images OR video
@@ -341,7 +342,7 @@ def reconstruct3D():
   return jsonify({"success": True, "request_id": request_id, "state": "processing"}), 200
 
 
-@app.route("/health", methods=["GET"])
+@app.route(f"{API_PREFIX}/health", methods=["GET"])
 def health_check():
   """Health check endpoint"""
   global loaded_model, model_name
@@ -356,7 +357,7 @@ def health_check():
   log.debug(f"Health check: {health_status}")
   return jsonify(health_status), 200
 
-@app.route("/models", methods=["GET"])
+@app.route(f"{API_PREFIX}/models", methods=["GET"])
 def list_models():
   """List the available model and its status"""
   global loaded_model, model_name
@@ -376,7 +377,7 @@ def list_models():
   }
   return jsonify(models_data), 200
 
-@app.route("/reconstruction/status/<request_id>", methods=["GET"])
+@app.route(f"{API_PREFIX}/reconstruction/status/<request_id>", methods=["GET"])
 def reconstruction_status(request_id):
   prune_status()
   status = get_status(request_id)

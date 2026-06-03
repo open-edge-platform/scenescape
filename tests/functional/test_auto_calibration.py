@@ -31,7 +31,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 MAX_WAIT = 5
-BASE_URL = "https://autocalibration.scenescape.intel.com:8443"
 
 EXPECTED_RESULT_1 = {
   "calibration_points_2d": [
@@ -108,6 +107,7 @@ class AutoCalibration(FunctionalTest):
     self.intrinsics = intrinsics
     self.expectedResult = expectedResult
     self.rootcert = self.params['rootcert']
+    self.autocalib_base = f"{self.params['weburl']}/api/v1/autocalibration"
 
     self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
     res = self.rest.authenticate(self.params['user'], self.params['password'])
@@ -164,7 +164,7 @@ class AutoCalibration(FunctionalTest):
     return base64.b64encode(buf).decode("utf-8")
 
   def get_status(self):
-    url = f"{BASE_URL}/v1/status"
+    url = f"{self.autocalib_base}/status"
     try:
       r = requests.get(url, verify=self.rootcert)
       log.info(f"Service status: {r.json()}")
@@ -174,7 +174,7 @@ class AutoCalibration(FunctionalTest):
       return None
 
   def register_scene(self, method="POST", poll_interval=5, timeout=60):
-    url = f"{BASE_URL}/v1/scenes/{self.scene_id}/registration"
+    url = f"{self.autocalib_base}/scenes/{self.scene_id}/registration"
     try:
       if method.upper() == "POST":
         r = requests.post(url, json={}, verify=self.rootcert)
@@ -208,7 +208,7 @@ class AutoCalibration(FunctionalTest):
       return None
 
   def start_calibration(self, image_b64, intrinsics=None):
-    url = f"{BASE_URL}/v1/cameras/{self.camera_id}/calibration"
+    url = f"{self.autocalib_base}/cameras/{self.camera_id}/calibration"
     payload = {"image": image_b64}
     if intrinsics is not None:
       payload["intrinsics"] = intrinsics
@@ -221,7 +221,7 @@ class AutoCalibration(FunctionalTest):
       return None
 
   def get_calibration_status(self):
-    url = f"{BASE_URL}/v1/cameras/{self.camera_id}/calibration"
+    url = f"{self.autocalib_base}/cameras/{self.camera_id}/calibration"
     try:
       r = requests.get(url, verify=self.rootcert)
       data = r.json()

@@ -43,6 +43,10 @@ sequenceDiagram
 
 ## API Endpoints
 
+> **Security note:** Mapping service endpoints currently do not enforce endpoint-level
+> authentication or authorization. Deploy behind trusted network boundaries and reverse
+> proxy controls, and use TLS for transport protection.
+
 ### Health Check
 
 ```bash
@@ -130,34 +134,40 @@ the service from source and running it.
 ```python
 import base64
 import requests
+from pathlib import Path
 
-# Encode images to base64
-def encode_image(image_path):
-    with open(image_path, "rb") as f:
-        return base64.b64encode(f.read()).decode('utf-8')
+# Prepare multipart request
+files = []
+handles = []
+for image_path in ["image1.jpg", "image2.jpg"]:
+  path = Path(image_path)
+  handle = path.open("rb")
+  handles.append(handle)
+  files.append(("images", (path.name, handle, "image/jpeg")))
 
-# Prepare request
-payload = {
-    "images": [
-        {"data": encode_image("image1.jpg"), "filename": "image1.jpg"},
-        {"data": encode_image("image2.jpg"), "filename": "image2.jpg"}
-    ],
-    "output_format": "glb"
+data = {
+  "output_format": "glb",
+  "mesh_type": "mesh",
 }
 
-# Send request
-response = requests.post("https://localhost:8444/reconstruction", json=payload)
-result = response.json()
+try:
+try:
+  # Send request through the Apache reverse proxy used in the full stack deployment
+  response = requests.post("https://localhost/api/v1/mapping/reconstruction", data=data, files=files, verify=False)
+  result = response.json()
 
-if result["success"]:
+  if result["success"]:
     # Save GLB file
     glb_data = base64.b64decode(result["glb_data"])
     with open("output.glb", "wb") as f:
-        f.write(glb_data)
+      f.write(glb_data)
 
     print(f"Model used: {result['model']}")
     print(f"Processing time: {result['processing_time']:.2f}s")
     print(f"Camera poses: {len(result['camera_poses'])}")
+finally:
+  for handle in handles:
+    handle.close()
 ```
 
 ### Using the Included Client
@@ -175,13 +185,13 @@ python client_example.py --images image1.jpg image2.jpg --mesh-type pointcloud -
 
 ```bash
 # Health check
-curl https://localhost:8444/health --insecure
+curl https://localhost:8444/v1/health --insecure
 
 # List models
-curl https://localhost:8444/models --insecure
+curl https://localhost:8444/v1/models --insecure
 
 # Reconstruction with images (using multipart/form-data - recommended)
-curl -X POST "https://localhost:8444/reconstruction" \
+curl -X POST "https://localhost:8444/v1/reconstruction" \
   -F "images=@image1.jpg" \
   -F "images=@image2.jpg" \
   -F "output_format=glb" \
@@ -189,7 +199,7 @@ curl -X POST "https://localhost:8444/reconstruction" \
   --insecure
 
 # Reconstruction with video
-curl -X POST "https://localhost:8444/reconstruction" \
+curl -X POST "https://localhost:8444/v1/reconstruction" \
   -F "video=@video.mp4" \
   -F "output_format=glb" \
   -F "mesh_type=mesh" \
@@ -197,7 +207,7 @@ curl -X POST "https://localhost:8444/reconstruction" \
   --insecure
 
 # Reconstruction with both images and video
-curl -X POST "https://localhost:8444/reconstruction" \
+curl -X POST "https://localhost:8444/v1/reconstruction" \
   -F "images=@image1.jpg" \
   -F "images=@image2.jpg" \
   -F "video=@video.mp4" \
@@ -206,7 +216,7 @@ curl -X POST "https://localhost:8444/reconstruction" \
   --insecure
 
 # Save GLB output to file (requires jq for JSON parsing)
-curl -X POST "https://localhost:8444/reconstruction" \
+curl -X POST "https://localhost:8444/v1/reconstruction" \
   -F "images=@image1.jpg" \
   -F "images=@image2.jpg" \
   -F "output_format=glb" \
