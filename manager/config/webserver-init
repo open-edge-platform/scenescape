@@ -67,8 +67,8 @@ fi
 if [ -n "${KUBERNETES_SERVICE_HOST}" ] ; then
     sed -i '/<\/VirtualHost>/i \
     SSLProxyEngine on \
-    ProxyPass /api/v1/mapping/ https://mapping.scenescape.intel.com:8444/ \
-    ProxyPassReverse /api/v1/mapping/ https://mapping.scenescape.intel.com:8444/ \
+    ProxyPass /api/v1/mapping/ https://mapping.scenescape.intel.com:8444/v1/ \
+    ProxyPassReverse /api/v1/mapping/ https://mapping.scenescape.intel.com:8444/v1/ \
     ProxyPass /mqtt wss://broker.scenescape.intel.com:1884/ \
     ProxyPassReverse /mqtt wss://broker.scenescape.intel.com:1884/ \
     ProxyPass /api/v1/autocalibration/ https://autocalibration.scenescape.intel.com:8443/v1/ \

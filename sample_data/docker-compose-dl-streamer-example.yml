@@ -455,8 +455,8 @@ services:
       - http_proxy=${http_proxy}
       - HTTPS_PROXY=${HTTPS_PROXY}
       - https_proxy=${https_proxy}
-      - NO_PROXY=${NO_PROXY},scenescape.intel.com
-      - no_proxy=${no_proxy},scenescape.intel.com
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+      - no_proxy=${no_proxy},.scenescape.intel.com
     volumes:
       - vol-media:/home/scenescape/SceneScape/media
       - vol-datasets:/home/scenescape/SceneScape/datasets
