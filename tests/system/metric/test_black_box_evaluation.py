@@ -7,17 +7,10 @@ Runs the full black-box evaluation suite (all three container modes) once per
 pytest session and asserts that TrackEval (HOTA, MOTA, IDF1) and JitterEvaluator
 (rms_jerk_ratio, acceleration_variance_ratio) metrics meet the defined thresholds.
 
-All tests are marked ``basic_acceptance`` so they are included in the BAT GHA
-workflow via ``pytest -m basic_acceptance``.  The container image tag is read
-from ``version.txt`` at the repository root.
-
 Usage::
 
   # Run this file directly
   pytest tests/system/metric/test_black_box_evaluation.py
-
-  # Run as part of the BAT suite (from the tests/ directory)
-  cd tests && pytest -m basic_acceptance
 """
 
 import sys
