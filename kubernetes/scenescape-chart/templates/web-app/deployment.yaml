@@ -86,7 +86,6 @@ spec:
             value: {{ .Values.dbroot }}
 {{- end }}
             {{ include "proxy_envs" . | indent 10 }}
-          securityContext:
           ports:
           - containerPort: 443
           readinessProbe:
