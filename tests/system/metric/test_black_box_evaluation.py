@@ -150,7 +150,6 @@ def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold, reco
     f"[{run}] {metric} = {value:.4f} < minimum {min_threshold}"
   )
 
-
 @pytest.mark.parametrize("run,metric,max_threshold", _JITTER_PARAMS)
 def test_jitter_threshold(black_box_metrics, run, metric, max_threshold, record_xml_attribute):
   """JitterEvaluator metric must not exceed the maximum threshold."""
