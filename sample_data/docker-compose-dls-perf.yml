@@ -124,12 +124,6 @@ services:
     environment:
       - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
-    cap_add:
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media

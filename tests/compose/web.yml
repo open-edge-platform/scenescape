@@ -49,12 +49,6 @@ services:
       - "DBPORT=5432"
       - "DBTYPE=postgres"
       - "SUPASS"
-    cap_add:
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
     # web interface needs access to the media files
     volumes:
       - ./tests/testdb.tar.bz2:/home/scenescape/SceneScape/tests/testdb.tar.bz2
