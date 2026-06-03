@@ -533,7 +533,7 @@ services:
     profiles:
       - experimental
       - mapping
-    image: scenescape-mapping:${VERSION:-latest}
+    image: scenescape-mapping-${MAPPING_MODEL:-mapanything}:${VERSION:-latest}
     init: true
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     networks:
