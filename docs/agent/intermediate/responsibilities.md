@@ -18,7 +18,7 @@
 - Persistence of **pipeline-to-source mapping** (which ViPPET pipeline runs against which Stream Manager source on which camera in which scene).
 - Orchestration of pipeline runs against DLSPS (start/stop, lifecycle).
 - Multimodal sensor fusion, object tracking, scene state, event publication to business logic.
-- Scene **export/import** for production packaging.
+- Scene **export/import** (used both for production packaging and for general scene-configuration portability across deployments).
 - Consumption of:
   - Video sources from **Stream Manager** (live + replay).
   - Pipeline definitions from **ViPPET**.
@@ -70,7 +70,8 @@
 
 - Scene-level mapping of which pipeline runs on which scene's camera (SceneScape).
 - Production pipeline orchestration (DLSPS, driven by SceneScape).
-- Model storage (Model Downloader).
+
+> Model storage ownership is intentionally not asserted here: it may be co-owned by ViPPET and Model Downloader when Model Downloader is part of ViPPET's deployment.
 
 **SceneScape's contract with ViPPET:**
 
@@ -103,7 +104,7 @@
 - Persistent model registry; tracking which models are installed.
 - Model download from Geti (and other registered sources).
 - Populates the shared model volume read by DLSPS (and by ViPPET during authoring).
-- Exposes model query/delete endpoints for SceneScape (and other consumers).
+- Exposes model **download** and **listing** endpoints used by SceneScape (other endpoints exist but are not consumed by SceneScape).
 
 **Does NOT own:**
 
@@ -113,7 +114,9 @@
 
 **SceneScape's contract with Model Downloader:**
 
-- SceneScape queries available models, requests downloads at deployment time, and references models in pipeline definitions by ID. SceneScape does not read model files directly.
+- Model downloads are triggered as part of the SceneScape deployment process (by an external script or deployment-time job, not by the SceneScape runtime application itself), using Model Downloader's listing and download endpoints to ensure the required models are present on the shared model volume.
+- The SceneScape application calls the Model Downloader **listing endpoint directly at runtime** in the case where the user needs to see available models to use or update a model in a pipeline definition.
+- For model **file** access at runtime, consumption is indirect: pipelines executed by DLSPS read model files from the shared model volume. SceneScape does not read model files directly and does not call Model Downloader's download endpoint at runtime.
 
 ### 1.6 Geti
 
@@ -155,21 +158,27 @@
 This is the set of changes SceneScape must absorb to participate in the target architecture. It is the practical scope of the ADR for the SceneScape team.
 
 1. **Consume Stream Manager APIs** instead of (or alongside) direct RTSP/file sources for cameras.
-2. **Consume ViPPET pipeline definitions** as a first-class source of pipeline configuration, replacing or augmenting today's static `dlstreamer-pipeline-server/*-config.json` files.
-3. **Use Model Downloader as the single front door for models**, replacing today's `model_installer` direct-to-OpenVINO-Zoo flow where applicable, and aligning the production deployment to download models from a registry populated by Model Downloader.
-4. **Persist and manage the scene-level pipeline-to-source mapping** so that an exported scene can be re-instantiated in production against the same logical sources.
-5. **Evolve the DLSPS integration** from static JSON / pod-recreation reconfiguration toward the runtime pipeline API model that the JIRA roadmap targets — without breaking existing deployments during the transition.
-6. **Export/Import scene packages** that reference (or embed) pipeline definitions and model identifiers in a form Model Downloader and DLSPS can satisfy at deployment time.
+2. **Consume ViPPET pipeline definitions** as a first-class source of pipeline configuration. This replaces both:
+   - today's static `dlstreamer-pipeline-server/*-config.json` files, and
+   - today's dynamic pipeline configuration that generates static JSON config-maps via SceneScape's custom pipeline generator (`manager/src/manager/ppl_generator`).
+3. **Use models from the shared model volume** populated by Model Downloader, replacing today's `model_installer` direct-to-OpenVINO-Zoo flow where applicable.
+4. **Persist and manage the scene-level pipeline-to-source mapping.** Spatial-awareness tasks require specific pipelines bound to specific cameras (cf. presentation extract Slides 1–2: different cameras in the same scene serve different detection/tracking tasks); SceneScape must own this binding at the scene level.
+5. **Evolve the DLSPS integration** from static JSON / pod-recreation reconfiguration toward the runtime pipeline API model that the roadmap targets — without breaking existing deployments during the transition.
+6. **Export/Import scene packages** that reference pipeline definitions and model identifiers in a form Model Downloader and DLSPS can satisfy at deployment time.
 
 ---
 
-## 4. Open points to resolve in the ADR
+## 4. Resolutions for the ADR
 
-These are not invented design choices — they are gaps in the inputs that the ADR must close (or explicitly defer):
+Decisions confirmed by the SceneScape team to be carried into the ADR:
 
-1. **Pipeline-definition transport** between ViPPET and SceneScape: REST pull, push, file export, or registry?
-2. **Exported-scene packaging** (deferred from diagrams summary): are pipeline definitions embedded by value or referenced by ID/version?
-3. **Phased rollout boundaries**: which of the six SceneScape-side deltas above land in which Phase (Foundation; Model Management Delegation; Pipeline Building Delegation & Stream Manager Adoption; Pipeline Building & Stream Manager Adoption – Part 2)?
-4. **Backwards compatibility**: do today's static JSON pipeline configs and direct camera sources remain supported during the transition, and if so for how long?
-5. **DLSPS runtime configuration mechanism**: confirm the target (runtime pipeline API) and the interim (today's pod recreation in K8s) are both acceptable as a staged transition.
-6. **Stream Manager dependency mode**: optional (SceneScape can run without it for backward compatibility) vs. required (SceneScape always goes through Stream Manager in the target state).
+1. **Pipeline-definition transport** between ViPPET and SceneScape: **REST pull** — SceneScape queries ViPPET for pipeline definitions.
+2. **Exported-scene packaging**: pipeline definitions are **embedded by value** in the exported scene. Deployment must be possible without ViPPET, so pipeline definitions must be self-contained. Parametrization details to be clarified later.
+3. **Phased rollout** of the six SceneScape-side deltas:
+   - **Foundation** — ADR + design baseline (no SceneScape-side delta yet).
+   - **Model Management Delegation** — Delta 3 (use models from shared model volume).
+   - **Pipeline Building Delegation & Stream Manager Adoption** — Deltas 1, 4, 6 (Stream Manager consumption, scene-level pipeline-to-source mapping, scene export/import).
+   - **Pipeline Building Delegation & Stream Manager Adoption – Part 2** — Deltas 2, 5 (full consumption of ViPPET pipeline definitions, evolved DLSPS runtime integration).
+4. **Backwards compatibility**: today's static JSON configs — both manually authored Docker bind-mount configs and dynamically generated Kubernetes config maps — **remain supported until feature parity is achieved** with the ViPPET-based flow.
+5. **DLSPS runtime configuration mechanism**: both the target (runtime pipeline API) and the interim (today's pod recreation in K8s) are **acceptable as a staged transition**.
+6. **Stream Manager dependency mode**: Stream Manager is **not required**. SceneScape must continue to support deployments without Stream Manager.

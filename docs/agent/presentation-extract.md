@@ -24,7 +24,7 @@ Installed cameras:
 - Public models do not detect cars from bird-eye view well enough
 - Public models do not detect local licence plates well enough
 
-# Slide 3: Building Solution: Exapmle of Step-by-Step Process
+# Slide 3: Building Solution: Example of Step-by-Step Process
 
 Note: This is an example flow, other are possible too (for example SceneScape can be set up first).
 
@@ -87,18 +87,18 @@ Phase 1 (2026.1)
 Phase 2 (2026.2):
 1. Model Downloader (Manager) integration
 2. Switch to Gst Analytics Python
-3. Simplify / break down Python adapter (phase 1)
+3. Simplify / break down Python adapter (part 1)
 4. VIPPET integration design
 5. Stream Manager integration design
 
 Phase 3 (2026.3):
-1. VIPPET integration (phase 1)
-2. Simplify / break down Python adapter (phase 2)
-3. Stream Manager integration (phase 1)
+1. VIPPET integration (part 1)
+2. Simplify / break down Python adapter (part 2)
+3. Stream Manager integration (part 1)
 
 Phase 4 (2027.0):
-1. VIPPET integration (phase 2)
-2. Stream Manager integration (phase 2)
+1. VIPPET integration (part 2)
+2. Stream Manager integration (part 2)
 
 
 # Silde 10: Requirements for SceneScape – Model Manager (Model Downloader) integration implementation

@@ -88,6 +88,8 @@ How to treat the inputs:
 2. Explain each diagram and create intermediate .md files in `docs/agent/intermediate` folder with a summary. Ask for feedback, iterate and wait for approval.
 3. Create an intermediate file with a division of responsibilites between involved components. Ask for feedback, iterate and wait for approval.
 4. Help me adopt whole knowledge into template docs/adr/template.md step-by-step.
+  - Follow guidelines from `docs/README.md` (When to Write Each Doc)
+  - Create a separate intermediate document where you note which content goes to ADR and which to design doc. This document will help in creation of design doc later.
 5. If any parts of template are not clear or covered, do not invent on your own, but ask for input and clarification.
 6. Iterate and update the document and PR description until I approve them.
 7. Create PR description aligned with `.github/pull_request_template.md` file.
