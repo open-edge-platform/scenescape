@@ -96,7 +96,7 @@ Phase 3 (2026.3):
 2. Simplify / break down Python adapter (phase 2)
 3. Stream Manager integration (phase 1)
 
-Phase 4 (2026.3):
+Phase 4 (2027.0):
 1. VIPPET integration (phase 2)
 2. Stream Manager integration (phase 2)
 
