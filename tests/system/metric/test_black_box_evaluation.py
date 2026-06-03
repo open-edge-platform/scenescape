@@ -30,33 +30,49 @@ _REPO_ROOT = _THIS_DIR.parent.parent.parent
 _EVAL_SCRIPT = _REPO_ROOT / "tools" / "tracker" / "evaluation" / "run_black_box_evaluation.py"
 _VERSION_FILE = _REPO_ROOT / "version.txt"
 
-_RUNS = [
-  "black_box_controller_immediate",
-  "black_box_controller_tc",
-  "black_box_tracker_service",
-]
-
-_TRACKEVAL_MIN: dict[str, float] = {
-  "HOTA": 0.50,
-  "MOTA": 0.40,
-  "IDF1": 0.50,
+_TRACKEVAL_MIN: dict[str, dict[str, float]] = {
+  "black_box_controller_immediate": {
+    "HOTA": 0.80,
+    "MOTA": 0.90,
+    "IDF1": 0.95,
+  },
+  "black_box_controller_tc": {
+    "HOTA": 0.75,
+    "MOTA": 0.90,
+    "IDF1": 0.95,
+  },
+  "black_box_tracker_service": {
+    "HOTA": 0.50,
+    "MOTA": 0.60,
+    "IDF1": 0.75,
+  },
 }
 
-_JITTER_MAX: dict[str, float] = {
-  "rms_jerk_ratio": 25.0,
-  "acceleration_variance_ratio": 65.0,
+_JITTER_MAX: dict[str, dict[str, float]] = {
+  "black_box_controller_immediate": {
+    "rms_jerk_ratio": 2.0,
+    "acceleration_variance_ratio": 3.0,
+  },
+  "black_box_controller_tc": {
+    "rms_jerk_ratio": 5.0,
+    "acceleration_variance_ratio": 25.0,
+  },
+  "black_box_tracker_service": {
+    "rms_jerk_ratio": 15.0,
+    "acceleration_variance_ratio": 75.0,
+  },
 }
 
 _TRACKEVAL_PARAMS = [
   pytest.param(run, metric, threshold, id=f"{run}/{metric}")
-  for run in _RUNS
-  for metric, threshold in _TRACKEVAL_MIN.items()
+  for run, thresholds in _TRACKEVAL_MIN.items()
+  for metric, threshold in thresholds.items()
 ]
 
 _JITTER_PARAMS = [
   pytest.param(run, metric, threshold, id=f"{run}/{metric}")
-  for run in _RUNS
-  for metric, threshold in _JITTER_MAX.items()
+  for run, thresholds in _JITTER_MAX.items()
+  for metric, threshold in thresholds.items()
 ]
 
 @pytest.fixture(scope="session")
