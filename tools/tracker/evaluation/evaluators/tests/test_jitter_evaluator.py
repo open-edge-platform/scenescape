@@ -563,3 +563,86 @@ class TestSetBaseFps:
     evaluator.configure_metrics(['rms_jerk'])
     evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
     assert evaluator._camera_fps == 15.0
+
+  def test_timestamps_are_normalized_to_synthetic(self, evaluator, mock_tracker_outputs):
+    """With base_fps set, stored timestamps must be synthetic epoch-based values,
+    not the original wall-clock ISO strings."""
+    from datetime import datetime, timezone
+    evaluator.set_base_fps(30.0)
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
+    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    for ts, _ in evaluator._track_histories["track-A"]:
+      delta = (ts - epoch).total_seconds()
+      # Synthetic timestamps are epoch + frame_idx/fps; timedelta truncates to
+      # microseconds, so allow 1 µs tolerance.
+      frame_idx = round(delta * 30.0)
+      assert abs(delta - frame_idx / 30.0) < 1e-5
+
+  def _make_outputs(self, spacings_ms):
+    """Build tracker outputs for track-A with given inter-frame spacings (ms).
+
+    Positions are index-based so the trajectory shape is identical regardless
+    of timestamp spacing.
+    """
+    from datetime import datetime, timedelta, timezone
+    t = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    outputs = [{"timestamp": t.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+                "objects": [{"id": "track-A", "translation": [0.0, 0.0, 0.0]}]}]
+    for i, gap_ms in enumerate(spacings_ms, start=1):
+      t += timedelta(milliseconds=gap_ms)
+      outputs.append({
+        "timestamp": t.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+        "objects": [{"id": "track-A", "translation": [float(i), 0.0, 0.0]}],
+      })
+    return outputs
+
+  def test_metrics_identical_for_different_processing_speeds(self, mock_gt_csv):
+    """The ratio metrics must be the same whether frames arrived fast or slow.
+
+    This is the core stability requirement: on a slow platform the wall-clock
+    gaps between frames are larger, but with set_base_fps() the kinematic
+    derivatives are computed on synthetic evenly-spaced timestamps, so the
+    result must be platform-independent.
+    """
+    fast_outputs = self._make_outputs([33, 33, 33, 33, 33])   # ~30 fps
+    slow_outputs = self._make_outputs([200, 200, 200, 200, 200])  # ~5 fps
+
+    ev_fast = JitterEvaluator()
+    ev_fast.set_base_fps(30.0)
+    ev_fast.configure_metrics(['rms_jerk_ratio', 'acceleration_variance_ratio'])
+    ev_fast.process_tracker_outputs(fast_outputs, ground_truth=mock_gt_csv)
+    metrics_fast = ev_fast.evaluate_metrics()
+
+    ev_slow = JitterEvaluator()
+    ev_slow.set_base_fps(30.0)
+    ev_slow.configure_metrics(['rms_jerk_ratio', 'acceleration_variance_ratio'])
+    ev_slow.process_tracker_outputs(slow_outputs, ground_truth=mock_gt_csv)
+    metrics_slow = ev_slow.evaluate_metrics()
+
+    assert metrics_fast['rms_jerk_ratio'] == pytest.approx(
+      metrics_slow['rms_jerk_ratio'], abs=1e-9
+    )
+    assert metrics_fast['acceleration_variance_ratio'] == pytest.approx(
+      metrics_slow['acceleration_variance_ratio'], abs=1e-9
+    )
+
+  def test_absolute_metrics_also_stable_across_speeds(self):
+    """rms_jerk and acceleration_variance must be identical for any timestamp
+    spacing when set_base_fps() normalises the timeline."""
+    fast_outputs = self._make_outputs([33, 33, 33, 33, 33])
+    slow_outputs = self._make_outputs([500, 500, 500, 500, 500])
+
+    def compute(outputs):
+      ev = JitterEvaluator()
+      ev.set_base_fps(30.0)
+      ev.configure_metrics(['rms_jerk', 'acceleration_variance'])
+      ev.process_tracker_outputs(outputs, ground_truth=None)
+      return ev.evaluate_metrics()
+
+    m_fast = compute(fast_outputs)
+    m_slow = compute(slow_outputs)
+
+    assert m_fast['rms_jerk'] == pytest.approx(m_slow['rms_jerk'], abs=1e-9)
+    assert m_fast['acceleration_variance'] == pytest.approx(
+      m_slow['acceleration_variance'], abs=1e-9
+    )
