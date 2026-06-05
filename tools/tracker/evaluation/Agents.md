@@ -173,6 +173,15 @@ Check `evaluators/README.md` for more details
 - PipelineEngine test: `pytest tests/test_pipeline_engine.py -v`.
 - Full pipeline test via CLI `python pipeline_engine.py pipeline_configs/metric_test_evaluation.yaml` to ensure dataset → harness → evaluator flow succeeds.
 
+## Verification Gate (Standardized)
+
+| Change class                        | Command path                                                                                                                               | Pass criteria                                                                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| API/schema contracts                | `cd tools/tracker/evaluation && source .venv/bin/activate && pytest tests/test_pipeline_engine.py -v`                                      | Exit code 0; pipeline configuration and canonical-format wiring still load and execute without contract regressions. |
+| Evaluator/harness algorithm logic   | `cd tools/tracker/evaluation && source .venv/bin/activate && pytest . -v -m "not integration"`                                             | Exit code 0; unit tests for changed components pass with no correctness regressions.                                 |
+| Performance/scale-sensitive changes | `cd tools/tracker/evaluation && source .venv/bin/activate && python pipeline_engine.py pipeline_configs/metric_test_evaluation.yaml`       | Exit code 0; runtime and memory behavior for representative dataset runs are reported in before/after form.          |
+| Migrations/config compatibility     | `cd tools/tracker/evaluation && source .venv/bin/activate && python pipeline_engine.py pipeline_configs/camera_projection_evaluation.yaml` | Exit code 0; existing sample configs continue to run without backward-compatibility breaks.                          |
+
 ## I/O, Data Formats and Conversions
 
 - Reading and writing to files should use primitives from `tools/tracker/evaluation/utils/format_converters.py` optimized for speed and high data volume.

@@ -18,7 +18,7 @@ Intel® SceneScape is a microservice-based spatial awareness framework for multi
 - **Enforcement**: REUSE compliance checking in CI
 - Add to new files: `make add-licensing FILE=<filename>`
 
-## Language-Specific Skills (Load On-Demand)
+## Skills (Load On-Demand)
 
 Consult these based on the code you're working with:
 
@@ -28,6 +28,7 @@ Consult these based on the code you're working with:
 - **Shell** (`.github/skills/shell/SKILL.md`): Bash scripting guidelines
 - **Makefile** (`.github/skills/makefile/SKILL.md`): Build system conventions
 - **Testing** (`.github/skills/testing/SKILL.md`): Test creation frameworks
+- **Agents.md Evaluation** (`.github/skills/agent_evaluation/SKILL.md`): Scoring rubric and efficacy testing for service agent guides
 
 ### Skills Caching Strategy
 
@@ -35,16 +36,17 @@ Skills are loaded on-demand based on task context to optimize token usage:
 
 **Pre-Cached (Always Available)**:
 
-- `copilot-instructions.md` (this file, always loaded)
-- `python.md` (high frequency, pre-cached)
-- `documentation-how.md` (high frequency, pre-cached)
+- `.github/copilot-instructions.md` (this file, always loaded)
+- `.github/skills/python/SKILL.md` (high frequency, pre-cached)
+- `.github/skills/documentation-how/SKILL.md` (high frequency, pre-cached)
 
 **Loaded Automatically on Demand**:
 
-- `testing.md` - Loaded when task involves tests or `test` keyword detected
-- `javascript.md` - Loaded when `.js` files are being edited
-- `shell.md` - Loaded when `.sh` files are being edited
-- `makefile.md` - Loaded when Makefile or build system changes
+- `.github/skills/testing/SKILL.md` - Loaded when task involves tests or `test` keyword detected
+- `.github/skills/javascript/SKILL.md` - Loaded when `.js` files are being edited
+- `.github/skills/shell/SKILL.md` - Loaded when `.sh` files are being edited
+- `.github/skills/makefile/SKILL.md` - Loaded when Makefile or build system changes
+- `.github/skills/agent_evaluation/SKILL.md` - Loaded when task asks to evaluate, score, audit, review, or test the efficacy of an `Agents.md`
 
 Skills are detected and loaded based on file type, task keywords, and context signals. Explicitly request a skill if the auto-detection doesn't load it.
 
@@ -129,15 +131,16 @@ make rebuild-core                  # Clean + build (useful after code changes)
 
 ## Testing Framework
 
-Testing guidance is intentionally centralized in skills to avoid duplication.
+**For comprehensive test creation guidance, see `.github/skills/testing/SKILL.md`** - detailed instructions on creating unit, functional, integration, UI, and smoke tests with both positive and negative cases.
 
-- Canonical test authoring and categorization guidance: `.github/skills/testing/SKILL.md`
-- Canonical runtime verification and completion rules: `.github/skills/test-verification-gate/SKILL.md`
+**Running Tests** (must have containers running via docker-compose):
 
-At this level, only rely on high-level routing:
-
-- Test infrastructure is pytest-based with Docker Compose lifecycle managed in `tests/conftest.py`.
-- Prefer root `Makefile` test targets for execution unless a narrower, explicit pytest invocation is required.
+```bash
+SUPASS=<password> make setup_tests                    # Build test images
+make run_basic_acceptance_tests                       # Quick acceptance tests
+make -C tests unit-tests                              # Unit tests only
+make -C tests geometry-unit                           # Specific test (e.g., geometry)
+```
 
 ### Completion Gate For Test Tasks (Critical)
 
@@ -204,10 +207,9 @@ pubsub.publish(topic, json_payload)
 
 **Debugging Tests**:
 
-- Run specific test: `pytest tests/sscape_tests/geometry/test_point.py::TestPoint::test_constructor`
-- Per-test logs: `tests/test_logs/<category>/<test_name>-<timestamp>/` (includes container logs)
-- Container log collection: `--collect-container-logs {failed,all,none}` (default: `failed`)
-- Multi-backend: `--backend=docker` (default), `--backend=kubernetes`, `--backend=all`
+- Use `debugtest.py` for running tests without pytest harness (useful in containers)
+- View test output: `docker compose exec <service> cat <logfile>`
+- Specific test: `pytest tests/sscape_tests/geometry/test_point.py::TestPoint::test_constructor -v`
 
 ## Integration Points & Dependencies
 
@@ -242,8 +244,7 @@ pubsub.publish(topic, json_payload)
 - **`.env`**: Runtime environment (database password, metrics config, COMPOSE_PROJECT_NAME)
 - **`scene_common/src/scene_common/`**: Reusable modules (MQTT, REST, geometry, schema, logging)
 - **`manager/secrets/`**: TLS certificates, auth tokens (never committed; generated per build)
-- **`tests/conftest.py`**: Session-scoped pytest fixtures for Docker Compose lifecycle, test ordering, and environment injection
-- **`tests/utils/`**: Test infrastructure (`spec.py`, `profiles.py`, `containers.py`, `log.py`)
+- **`tests/Makefile`** and **`tests/Makefile.sscape`**: Test orchestration with Zephyr ID tracking
 
 ## Documentation Requirements (Always-On)
 

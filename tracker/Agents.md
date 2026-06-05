@@ -152,6 +152,15 @@ Before submitting changes:
 - [ ] Environment variable overrides added for new config options
 - [ ] Design docs updated if architecture/behavior changes
 
+## Verification Gate (Standardized)
+
+| Change class                  | Command path                                    | Pass criteria                                                                                                |
+| ----------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| API/schema contracts          | `cd tracker && make lint-all && make test-unit` | Exit code 0; schema/config/message changes validate and unit tests pass without contract regressions.        |
+| Tracking/time-chunk algorithm | `cd tracker && make test-unit-coverage`         | Exit code 0; coverage thresholds remain at or above 90% line and 50% branch with no algorithmic regressions. |
+| Performance-sensitive changes | `cd tracker && make test-load`                  | Exit code 0; load test passes and reported drop-rate/latency metrics do not regress beyond agreed budget.    |
+| Migrations/config evolution   | `cd tracker && make test-service`               | Exit code 0; integration checks pass and new config options include schema + env-var override support.       |
+
 ## Related Documentation
 
 - [Tracker Service Design](../docs/design/tracker-service.md) — High-level design document
