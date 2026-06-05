@@ -18,7 +18,7 @@ Intel® SceneScape is a microservice-based spatial awareness framework for multi
 - **Enforcement**: REUSE compliance checking in CI
 - Add to new files: `make add-licensing FILE=<filename>`
 
-## Language-Specific Skills (Load On-Demand)
+## Skills (Load On-Demand)
 
 Consult these based on the code you're working with:
 
@@ -29,7 +29,6 @@ Consult these based on the code you're working with:
 - **Makefile** (`.github/skills/makefile.md`): Build system conventions
 - **Testing** (`.github/skills/testing.md`): Test creation frameworks
 - **Agents.md Evaluation** (`.github/skills/agent_evaluation/SKILL.md`): Scoring rubric and efficacy testing for service agent guides
-  - `agents-md-evaluation.md` in the same folder contains the rubric; SKILL.md contains the efficacy test procedure
 
 ### Skills Caching Strategy
 
@@ -37,17 +36,17 @@ Skills are loaded on-demand based on task context to optimize token usage:
 
 **Pre-Cached (Always Available)**:
 
-- `copilot-instructions.md` (this file, always loaded)
-- `python.md` (high frequency, pre-cached)
-- `documentation-how.md` (high frequency, pre-cached)
+- `.github/copilot-instructions.md` (this file, always loaded)
+- `.github/skills/python.md` (high frequency, pre-cached)
+- `.github/skills/documentation-how.md` (high frequency, pre-cached)
 
 **Loaded Automatically on Demand**:
 
-- `testing.md` - Loaded when task involves tests or `test` keyword detected
-- `javascript.md` - Loaded when `.js` files are being edited
-- `shell.md` - Loaded when `.sh` files are being edited
-- `makefile.md` - Loaded when Makefile or build system changes
-- `agent_evaluation/SKILL.md` - Loaded when task asks to evaluate, score, audit, review, or test the efficacy of an `Agents.md`
+- `.github/skills/testing.md` - Loaded when task involves tests or `test` keyword detected
+- `.github/skills/javascript.md` - Loaded when `.js` files are being edited
+- `.github/skills/shell.md` - Loaded when `.sh` files are being edited
+- `.github/skills/makefile.md` - Loaded when Makefile or build system changes
+- `.github/skills/agent_evaluation/SKILL.md` - Loaded when task asks to evaluate, score, audit, review, or test the efficacy of an `Agents.md`
 
 Skills are detected and loaded based on file type, task keywords, and context signals. Explicitly request a skill if the auto-detection doesn't load it.
 
