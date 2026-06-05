@@ -61,6 +61,8 @@ Use the following short names to refer to each model in the chain:
 |                      | person-attributes-recognition-crossroad-0238 | personattr | Person attributes (age, gender, clothing) |
 |                      | age-gender-recognition-retail-0013           | agegender  | Age and gender classification             |
 | **Vehicle Analysis** | vehicle-attributes-recognition-barrier-0042  | vehattr    | Vehicle attributes (color, type)          |
+| **Pose Estimation**  | yolo11n-pose                                 | pose       | Person pose estimation with keypoints     |
+| **ReID (Public)**    | mars-small128                                | marsreid   | Lightweight person re-identification      |
 
 ##### Common Chaining Patterns
 
@@ -77,6 +79,20 @@ retail+personattr
 retail=GPU+agegender=GPU
 
 ```
+
+**Pose Estimation Workflows:**
+
+```
+
+# Pose estimation with re-identification
+pose+marsreid
+```
+
+> **Note**: The `yolo11n-pose` and `mars-small128` models are not included in the default model set. They must be downloaded separately using the DL Streamer `download_public_models.sh` script and copied into the Models Volume. See the [DL Streamer Pipeline Server documentation](/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for setup instructions.
+
+> **Note**: To enable pose-based bounding box adjustment in the Scene Controller, set the `--pose-adjustment` flag or `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable. See the [Scene Controller documentation](../microservices/controller/controller.md) for details.
+
+> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `pose+marsreid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--pose-adjustment` controller flag is also incompatible with Extended ReID (VDMS-based cross-camera re-identification).
 
 **Vehicle Analytics Workflows:**
 
@@ -219,6 +235,7 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 - Cross-stream batching is not supported since in Intel® SceneScape Kubernetes deployment each camera pipeline is running in a separate Pod.
 - Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html).
 - MP4 input files are not reliably supported. This is due to a GStreamer limitation: the combination of `multifilesrc` and `decodebin3` elements may fail because MP4 container metadata is unavailable when data is provided as discrete file fragments. As a workaround, convert MP4 files to a streaming-friendly format such as MPEG-TS (.ts).
+- Pose estimation pipelines using `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128`) are not compatible with `reidPolicy`. These cameras must use `detectionPolicy`. Additionally, the controller `--pose-adjustment` flag cannot be used together with Extended ReID.
 
 ### Troubleshooting
 
@@ -290,6 +307,20 @@ This section describes the metadata schema and the format that the payload needs
                 }
             }
         },
+        "frame_ntp_config": {
+            "element": {
+                "name": "timesync",
+                "property": "kwarg",
+                "format": "json"
+            },
+            "type": "object",
+            "properties": {
+                "useFrameNtpTimestamp": {
+                    "type": "boolean",
+                    "description": "When true, use the NTP timestamp embedded in the RTSP frame metadata instead of the post-decode system time."
+                }
+            }
+        },
         "camera_config": {
             "element": {
                 "name": "datapublisher",
@@ -326,6 +357,12 @@ This section describes the metadata schema and the format that the payload needs
 
 - **ntp_config**: Configuration for time synchronization.
   - **ntpServer** (string): Specifies the NTP server to synchronize time with.
+- **frame_ntp_config**: Configuration for using the NTP timestamp embedded in RTSP frame metadata as the frame timestamp. This is an alternative to using the post-decode system clock timestamp. When the RTSP source is configured with `add-reference-timestamp-meta=true`, GStreamer attaches NTP reference timestamp metadata to each buffer.
+  - **useFrameNtpTimestamp** (boolean): When `true`, the NTP timestamp extracted from the RTSP frame metadata
+    (`GstReferenceTimestampMeta`, caps `timestamp/x-ntp`) is used as the frame timestamp instead of the post-decode
+    system time. This can improve timing accuracy when camera and server clocks are synchronized to the same NTP server.
+    Defaults to `false`. If the metadata is absent on a given frame, the pipeline falls back to the
+    system clock automatically.
 - **camera_config**: Configuration for the camera and its metadata publishing.
   - **intrinsics** (array of numbers): Defines the camera intrinsics. This can be specified as:
     - `[diagonal_fov]` (diagonal field of view),
@@ -333,7 +370,7 @@ This section describes the metadata schema and the format that the payload needs
     - `[fx, fy, cx, cy]` (focal lengths and principal point coordinates).
   - **cameraid** (string): Unique identifier for the camera.
   - **metadatagenpolicy** (string): Policy for generating metadata. Possible values:
-    - `detectionPolicy` (default): Metadata for object detection.
+    - `detectionPolicy` (default): Metadata for object detection. When a pose estimation model is used (e.g. `yolo11n-pose`), also includes `keypoints` (e.g. joints) with normalized x/y coordinates and `keypoint_connections` (e.g. skeleton bone pairs) in each detection object.
     - `reidPolicy`: Metadata for re-identification.
     - `classificationPolicy`: Metadata for classification.
   - **publish_frame** (boolean): Indicates whether to publish the video frame to MQTT.
@@ -352,6 +389,9 @@ The payload section is the actual values for the specific pipeline being configu
     "parameters": {
         "ntp_config": {
             "ntpServer": "ntpserv"
+        },
+        "frame_ntp_config": {
+            "useFrameNtpTimestamp": false
         },
         "camera_config": {
             "cameraid": "atag-qcam1",

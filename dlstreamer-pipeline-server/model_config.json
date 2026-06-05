@@ -17,5 +17,23 @@
     "adapter-params": {
       "metadatagenpolicy": "reidPolicy"
     }
+  },
+  "pose": {
+    "type": "detect",
+    "params": {
+      "model": "public/yolo11n-pose/yolo11n-pose.xml"
+    },
+    "adapter-params": {
+      "metadatagenpolicy": "detectionPolicy"
+    }
+  },
+  "marsreid": {
+    "type": "inference",
+    "params": {
+      "model": "public/mars-small128/mars_small128_fp32.xml"
+    },
+    "adapter-params": {
+      "metadatagenpolicy": "reidPolicy"
+    }
   }
 }

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 networks:
@@ -51,7 +51,7 @@ services:
     init: true
 
   mediaserver:
-    image: bluenviron/mediamtx:1.17.1
+    image: bluenviron/mediamtx:1.18.1
     networks:
       scenescape-test:
         aliases:
@@ -60,7 +60,7 @@ services:
     pids_limit: 1000
 
   retail-cams:
-    image: linuxserver/ffmpeg:version-8.0.1-cli
+    image: linuxserver/ffmpeg:version-8.1-cli
     command: |
       -nostdin
       -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts
@@ -77,7 +77,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-20260428-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24-rc2
     privileged: true
     networks:
       scenescape-test:

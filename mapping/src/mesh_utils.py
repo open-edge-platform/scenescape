@@ -15,7 +15,7 @@ import trimesh
 
 from scene_common import log
 
-def createPointcloudFromMesh(predictions: Dict[str, Any]) -> 'trimesh.Scene':
+def create_pointcloud_from_mesh(predictions: Dict[str, Any]) -> 'trimesh.Scene':
   """
   Convert MapAnything mesh predictions to point cloud format.
 
@@ -78,7 +78,7 @@ def createPointcloudFromMesh(predictions: Dict[str, Any]) -> 'trimesh.Scene':
   log.info(f"Point cloud created: {len(points_flat)} points")
   return scene
 
-def getMeshInfo(scene: 'trimesh.Scene') -> Dict[str, Any]:
+def get_mesh_info(scene: 'trimesh.Scene') -> Dict[str, Any]:
   """
   Extract information about a mesh or point cloud scene.
 

@@ -998,6 +998,132 @@ TEST_F(MessageHandlerTest, StaticMode_DatabaseUpdateTreatedAsCameraMessage) {
     EXPECT_EQ(handler.getRejectedCount(), 1);
 }
 
+// Test that detection with metadata field stores it as metadata_json
+TEST_F(MessageHandlerTest, Detection_MetadataJson_ParsedWhenPresent) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{
+                "id": 1,
+                "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100},
+                "metadata": {"reid": {"embedding_vector": [0.1, 0.2]}, "age": {"label": "adult"}}
+            }]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    auto buffer_data = test_buffer_.pop_all();
+    TrackingScope expected_scope{"test-scene-001", "person"};
+    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+
+    EXPECT_FALSE(det.metadata_json.empty());
+    rapidjson::Document doc;
+    ASSERT_FALSE(doc.Parse(det.metadata_json.c_str()).HasParseError());
+    EXPECT_TRUE(doc.HasMember("reid"));
+    EXPECT_TRUE(doc.HasMember("age"));
+}
+
+// Test that metadata field that is not a JSON object is ignored
+TEST_F(MessageHandlerTest, Detection_MetadataJson_IgnoredWhenNotObject) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    // metadata is an array, not an object — must be ignored
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100},
+                        "metadata": [1, 2, 3]}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    auto buffer_data = test_buffer_.pop_all();
+    TrackingScope expected_scope{"test-scene-001", "person"};
+    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+
+    EXPECT_TRUE(det.metadata_json.empty());
+}
+
+// Test that detection with confidence field stores it correctly
+TEST_F(MessageHandlerTest, Detection_Confidence_ParsedWhenPresent) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{
+                "id": 1,
+                "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100},
+                "confidence": 0.87
+            }]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    auto buffer_data = test_buffer_.pop_all();
+    TrackingScope expected_scope{"test-scene-001", "person"};
+    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+
+    ASSERT_TRUE(det.confidence.has_value());
+    EXPECT_NEAR(*det.confidence, 0.87, 1e-9);
+}
+
+// Test that detection without confidence field has absent confidence
+TEST_F(MessageHandlerTest, Detection_Confidence_AbsentWhenNotProvided) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100}}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    auto buffer_data = test_buffer_.pop_all();
+    TrackingScope expected_scope{"test-scene-001", "person"};
+    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+
+    EXPECT_FALSE(det.confidence.has_value());
+}
+
+// Test that non-numeric confidence field is ignored
+TEST_F(MessageHandlerTest, Detection_Confidence_IgnoredWhenNotNumber) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{"id": 1, "bounding_box_px": {"x": 10, "y": 20, "width": 50, "height": 100},
+                        "confidence": "high"}]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    auto buffer_data = test_buffer_.pop_all();
+    TrackingScope expected_scope{"test-scene-001", "person"};
+    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+
+    EXPECT_FALSE(det.confidence.has_value());
+}
+
 //
 // Schema file edge case test with temp directory
 //

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # prefix for volume and container names, override with the environment variable COMPOSE_PROJECT_NAME
@@ -124,12 +124,6 @@ services:
     environment:
       - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
-    cap_add:
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
@@ -218,7 +212,7 @@ services:
   #   restart: always
 
   mediaserver:
-    image: bluenviron/mediamtx:1.14.0
+    image: bluenviron/mediamtx:1.18.1
     networks:
       scenescape:
         aliases:
@@ -229,7 +223,7 @@ services:
     pids_limit: 1000
 
   retail-cams:
-    image: linuxserver/ffmpeg:version-8.0-cli
+    image: linuxserver/ffmpeg:version-8.1-cli
     command: |
       -nostdin
       -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts
@@ -248,7 +242,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-20260428-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24-rc2
     privileged: true
     networks:
       scenescape:

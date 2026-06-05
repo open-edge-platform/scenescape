@@ -3,19 +3,24 @@
 
 from types import SimpleNamespace
 from typing import Optional
+
 import numpy as np
+
 import robot_vision as rv
-from controller.controller_mode import ControllerMode
-from controller.moving_object import ChainData
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
-from scene_common.geometry import Line, Point, Region, Tripwire, getRegionEvents, getTripwireEvents
+from scene_common.geometry import Point, Region, Size, Tripwire, getRegionEvents, getTripwireEvents
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
+from controller.controller_mode import ControllerMode
+from controller.moving_object import ChainData
+from controller.pose_adjustment import (PoseAdjustment,
+                                        MIN_POSE_CACHE_TTL,
+                                        POSE_CACHE_TTL_MULTIPLIER)
 from controller.ilabs_tracking import IntelLabsTracking
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -25,6 +30,8 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
 
 DEBOUNCE_DELAY = 0.5
+MIN_FRAMES_FOR_RELIABLE_TRACK = 3
+
 
 class TripwireEvent:
   def __init__(self, object, direction):
@@ -47,7 +54,8 @@ class Scene(SceneModel):
                time_chunking_enabled = False,
                time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS,
                suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
-               reid_config_data = None):
+               reid_config_data = None,
+               pose_adjustment_config_data = None):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static,
              "analytics_only=" + str(ControllerMode.isAnalyticsOnly()))
@@ -58,11 +66,15 @@ class Scene(SceneModel):
     self.non_measurement_time_static = non_measurement_time_static
     self.suspended_track_timeout_secs = suspended_track_timeout_secs
     self.reid_config_data = reid_config_data if reid_config_data else {}
+    self.pose_adjustment_config_data = (
+      pose_adjustment_config_data if pose_adjustment_config_data else {}
+    )
 
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
     self.time_chunking_rate_fps = time_chunking_rate_fps
+    self._analytics_objects = {}
 
     if not ControllerMode.isAnalyticsOnly():
       self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
@@ -77,6 +89,12 @@ class Scene(SceneModel):
 
     # Cache for object history (publishedLocations, etc.) to maintain trails across frames
     self.object_history_cache = {}
+
+    self.pose_adjustment = PoseAdjustment.from_env(
+      max_entry_age_seconds=self._get_pose_cache_ttl(),
+      default_enabled=True,
+      pose_adjustment_config_data=self.pose_adjustment_config_data,
+    )
 
     # FIXME - only for backwards compatibility
     self.scale = scale
@@ -162,7 +180,12 @@ class Scene(SceneModel):
       self.non_measurement_time_dynamic = non_measurement_time_dynamic
       self.non_measurement_time_static = non_measurement_time_static
       self._setTracker(self.trackerType)
+    if self.pose_adjustment is not None:
+      self.pose_adjustment.set_max_entry_age_seconds(self._get_pose_cache_ttl())
     return
+
+  def _get_pose_cache_ttl(self):
+    return max(MIN_POSE_CACHE_TTL, self.max_unreliable_time * POSE_CACHE_TTL_MULTIPLIER)
 
   def _createMovingObjectsForDetection(self, detectionType, detections, when, camera):
     objects = []
@@ -202,6 +225,13 @@ class Scene(SceneModel):
       return True
 
     for detection_type, detections in jdata['objects'].items():
+      self.pose_adjustment.adjust_detections(
+        detection_type,
+        detections,
+        self.name,
+        camera,
+        when,
+      )
       if "intrinsics" not in jdata:
         self._convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
       objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
@@ -304,6 +334,10 @@ class Scene(SceneModel):
     self._updateEvents(detectionType, when)
     return
 
+  def _isObjectWithinSensor(self, obj, sensor, is_scene_wide):
+    """Return True if obj is within the sensor's coverage area."""
+    return is_scene_wide or sensor.isPointWithin(obj.sceneLoc)
+
   def processSensorData(self, jdata, when):
     sensor_id = jdata['id']
     sensor = None
@@ -333,22 +367,23 @@ class Scene(SceneModel):
     timestamp_str = get_iso_time(when)
     timestamp_epoch = when
 
-    # Skip processing if no tracker (analytics-only mode)
-    if self.tracker is None:
-      return True
-
     # Find all objects currently in the sensor region across ALL detection types
     # Optimization: check if scene-wide to avoid redundant isPointWithin calls
     # TODO: Further optimize for scenes with many objects: spatial indexing (R-tree),
     # bounding box pre-filtering, or tracking only recently-moved objects
     is_scene_wide = sensor.area == Region.REGION_SCENE
     objects_in_sensor = []
-    for detectionType in self.tracker.trackers.keys():
-      for obj in self.tracker.currentObjects(detectionType):
-        # When tracking is disabled, do not rely on obj.frameCount being initialized
-        if (not self.use_tracker or obj.frameCount > 3) and (is_scene_wide or sensor.isPointWithin(obj.sceneLoc)):
+
+    if self.tracker is not None:
+      for detectionType in self.tracker.trackers.keys():
+        for obj in self.tracker.currentObjects(detectionType):
+          if (not self.use_tracker or obj.frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK) and self._isObjectWithinSensor(obj, sensor, is_scene_wide):
+            objects_in_sensor.append(obj)
+            obj.chain_data.active_sensors.add(sensor_id)
+    else:
+      for obj in self._analytics_objects.values():
+        if self._isObjectWithinSensor(obj, sensor, is_scene_wide):
           objects_in_sensor.append(obj)
-          # Ensure active_sensors is updated (handles scene-wide sensors or objects existing before sensor creation)
           obj.chain_data.active_sensors.add(sensor_id)
 
     log.debug("SENSOR OBJECTS FOUND", sensor_id, len(objects_in_sensor), "type:", sensor.singleton_type)
@@ -419,16 +454,42 @@ class Scene(SceneModel):
 
     return
 
-  def updateTrackedObjects(self, detection_type, objects):
+  def syncAnalyticsObjects(self, detection_type, tracked_objects):
+    """
+    Reconcile analytics_objects with a fresh batch of tracked objects
+    for the given detection type: evict stale entries, then deserialize
+    and index the incoming objects.
+    """
+    current_ids = {obj['id'] for obj in tracked_objects if 'id' in obj}
+
+    # Only remove stale objects belonging to THIS detection type
+    stale = [
+      oid for oid, wrapper in self._analytics_objects.items()
+      if wrapper.category == detection_type and oid not in current_ids
+    ]
+    for oid in stale:
+      del self._analytics_objects[oid]
+
+    # Create or update wrappers — deserialize as a batch for efficiency,
+    # then index results by id so _analytics_objects stays consistent.
+    deserialized = self._deserializeTrackedObjects(tracked_objects)
+    for wrapper in deserialized:
+      self._analytics_objects[wrapper.gid] = wrapper
+    return
+
+  def updateTrackedObjects(self, detection_type, tracked_objects):
     """
     Update the cache of tracked objects from MQTT.
     This is used by Analytics to consume tracked objects published by the Tracker service.
 
     Args:
         detection_type: The type of detection (e.g., 'person', 'vehicle')
-        objects: List of tracked objects for this detection type
+        tracked_objects: List of tracked objects for this detection type
     """
-    self.tracked_objects_cache[detection_type] = objects
+    self.tracked_objects_cache[detection_type] = tracked_objects
+
+    if ControllerMode.isAnalyticsOnly():
+      self.syncAnalyticsObjects(detection_type, tracked_objects)
     return
 
   def getTrackedObjects(self, detection_type):
@@ -443,16 +504,10 @@ class Scene(SceneModel):
     """
     # If analytics-only mode is enabled, only use MQTT cache (from separate Tracker service)
     if ControllerMode.isAnalyticsOnly():
-      if detection_type in self.tracked_objects_cache:
-        cached_objects = self.tracked_objects_cache[detection_type]
-        return self._deserializeTrackedObjects(cached_objects)
-      return []
-
-    # If tracker is enabled, use direct tracker call (traditional mode)
+      return [obj for obj in self._analytics_objects.values()
+              if obj.category == detection_type]
     if self.tracker is not None:
-      log.debug(f"Using direct tracker call for detection type: {detection_type}")
       return self.tracker.currentObjects(detection_type)
-
     return []
 
   def _deserializeTrackedObjects(self, serialized_objects):
@@ -478,8 +533,18 @@ class Scene(SceneModel):
     for obj_data in serialized_objects:
       if not isinstance(obj_data, dict):
         continue
-      obj = SimpleNamespace()
-      obj.gid = obj_data.get('id')
+
+      obj_id = obj_data.get('id')
+
+      # Reuse existing object to preserve chain_data, or create a new one
+      if obj_id in self._analytics_objects:
+        obj = self._analytics_objects[obj_id]
+      else:
+        obj = SimpleNamespace()
+        obj.chain_data = ChainData(regions={}, publishedLocations=[], persist={})
+        self._analytics_objects[obj_id] = obj
+
+      obj.gid = obj_id
       obj.category = obj_data.get('type', obj_data.get('category'))
       obj.sceneLoc = Point(obj_data.get('translation', [0, 0, 0]))
       obj.velocity = Point(obj_data.get('velocity', [0, 0, 0])) if obj_data.get('velocity') else None
@@ -487,53 +552,48 @@ class Scene(SceneModel):
       obj.confidence = obj_data.get('confidence')
       obj.frameCount = obj_data.get('frame_count', 0)
       obj.rotation = obj_data.get('rotation')
-      # Extract reid from metadata if present
-      metadata = obj_data.get('metadata', {})
-      obj.reid = metadata.get('reid') if metadata else None
-      obj.similarity = obj_data.get('similarity')
-      obj.vectors = []  # Empty list - tracked objects from MQTT don't have detection vectors
-      obj.boundingBoxPixels = None  # Will use camera_bounds from obj_data if available
-
-      obj_id = obj.gid
-      if 'first_seen' in obj_data:
-        obj.when = get_epoch_time(obj_data.get('first_seen'))
-        obj.first_seen = obj.when
-        # Cache the first_seen from MQTT data
-        if obj_id not in self.object_history_cache:
-          self.object_history_cache[obj_id] = {}
-        self.object_history_cache[obj_id]['first_seen'] = obj.when
-      else:
-        # Check if we have a cached first_seen timestamp
-        if obj_id in self.object_history_cache and 'first_seen' in self.object_history_cache[obj_id]:
-          obj.when = self.object_history_cache[obj_id]['first_seen']
-          obj.first_seen = obj.when
-        else:
-          # First time seeing this object, record current time
-          current_time = get_epoch_time()
-          obj.when = current_time
-          obj.first_seen = current_time
-          if obj_id not in self.object_history_cache:
-            self.object_history_cache[obj_id] = {}
-          self.object_history_cache[obj_id]['first_seen'] = current_time
-          log.debug(f"First time seeing object id {obj_data.get('id')} from MQTT; setting first_seen to current time: {current_time}")
+      obj.reid = {}
+      obj.metadata = {}
+      obj.vectors = []
+      obj.boundingBox = None
+      obj.boundingBoxPixels = None
+      obj.intersected = False
       obj.visibility = obj_data.get('visibility', [])
+      obj.info = {'category': obj.category, 'confidence': obj.confidence}
 
-      obj.info = {
-        'category': obj.category,
-        'confidence': obj.confidence,
-      }
+      # Restore bbMeters from size if available
+      if obj.size and len(obj.size) == 3:
+        _, width, height = obj.size
+        obj.bbMeters = SimpleNamespace(size=Size(width, height), width=width, height=height)
+      else:
+        obj.bbMeters = None
+
+      metadata = obj_data.get('metadata', {})
+      obj.reid = metadata.get('reid') if metadata else {}
+      obj.similarity = obj_data.get('similarity')
 
       if 'camera_bounds' in obj_data and obj_data['camera_bounds']:
         obj._camera_bounds = obj_data['camera_bounds']
       else:
         obj._camera_bounds = None
 
-      # Deserialize chain_data: convert sensors into env_sensor_state and attr_sensor_events
-      obj.chain_data = ChainData(
-        regions=obj_data.get('regions', {}),
-        publishedLocations=[],
-        persist=obj_data.get('persistent_data', {}),
-      )
+      # Timestamps
+      if 'first_seen' in obj_data:
+        obj.first_seen = get_epoch_time(obj_data['first_seen'])
+        obj.when = obj.first_seen
+        self.object_history_cache.setdefault(obj_id, {})['first_seen'] = obj.when
+      elif obj_id in self.object_history_cache and 'first_seen' in self.object_history_cache[obj_id]:
+        obj.first_seen = self.object_history_cache[obj_id]['first_seen']
+        obj.when = obj.first_seen
+      else:
+        current_time = get_epoch_time()
+        obj.first_seen = current_time
+        obj.when = current_time
+        self.object_history_cache.setdefault(obj_id, {})['first_seen'] = current_time
+        log.debug(f"First time seeing object id {obj_id} from MQTT; setting first_seen to current time: {current_time}")
+
+      obj.chain_data.regions = obj_data.get('regions', obj.chain_data.regions)
+      obj.chain_data.persist = obj_data.get('persistent_data', obj.chain_data.persist)
 
       # Convert serialized sensors into env_sensor_state and attr_sensor_events
       sensors_data = obj_data.get('sensors', {})
@@ -549,16 +609,11 @@ class Scene(SceneModel):
         else:
           obj.chain_data.attr_sensor_events[sensor_id] = values
 
-      obj_id = obj.gid
       if obj_id in self.object_history_cache:
         obj.chain_data.publishedLocations = self.object_history_cache[obj_id].get('publishedLocations', [])
-      else:
-        obj.chain_data.publishedLocations = []
-        self.object_history_cache[obj_id] = {}
-
       # Store current object data for next frame
-      self.object_history_cache[obj_id]['publishedLocations'] = obj.chain_data.publishedLocations
-      self.object_history_cache[obj_id]['last_seen'] = obj.sceneLoc
+      self.object_history_cache.setdefault(obj_id, {})['publishedLocations'] = obj.chain_data.publishedLocations
+      self.object_history_cache.setdefault(obj_id, {})['last_seen'] = obj.sceneLoc
 
       objects.append(obj)
 
@@ -593,10 +648,10 @@ class Scene(SceneModel):
   def _updateTripwireEvents(self, detectionType, now, curObjects):
     # Filter to reliable objects with enough location history for crossing detection.
     # When tracker is disabled, skip the frameCount check and consider all objects;
-    # otherwise, only consider objects with frameCount > 3 as reliable.
+    # otherwise, only consider objects with frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK as reliable.
     reliable_objects = [
       obj for obj in curObjects
-      if (obj.frameCount > 3 or ControllerMode.isAnalyticsOnly())
+      if (obj.frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK or ControllerMode.isAnalyticsOnly())
       and len(obj.chain_data.publishedLocations) > 1
     ]
 
@@ -629,10 +684,10 @@ class Scene(SceneModel):
 
     # Filter to reliable objects.
     # When tracker is disabled, skip the frameCount check and consider all objects;
-    # otherwise, only consider objects with frameCount > 3 as reliable.
+    # otherwise, only consider objects with frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK as reliable.
     reliable_objects = [
       obj for obj in curObjects
-      if obj.frameCount > 3 or ControllerMode.isAnalyticsOnly()
+      if obj.frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK or ControllerMode.isAnalyticsOnly()
     ]
 
     object_locations = [obj.sceneLoc for obj in reliable_objects]
@@ -780,9 +835,12 @@ class Scene(SceneModel):
   def deserialize(cls, data):
     tracker_config = data.get('tracker_config', [])
     reid_config_data = data.get('reid_config_data', None)
+    pose_adjustment_config_data = data.get('pose_adjustment_config_data', None)
     scale_from_data = data.get('scale', None)
     scene = cls(data['name'], data.get('map', None), scale_from_data,
-                *tracker_config, reid_config_data=reid_config_data)
+                *tracker_config,
+                reid_config_data=reid_config_data,
+                pose_adjustment_config_data=pose_adjustment_config_data)
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)

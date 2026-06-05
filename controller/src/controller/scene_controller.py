@@ -31,7 +31,8 @@ class SceneController:
 
   def __init__(self, rewrite_bad_time, rewrite_all_time, max_lag, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert, ntp_server,
-               tracker_config_file, schema_file, visibility_topic, data_source, reid_config_file=None):
+               tracker_config_file, schema_file, visibility_topic, data_source,
+               reid_config_file=None, pose_adjustment_config_file=None):
     self.cert = client_cert
     self.root_cert = root_cert
     self.rewrite_bad_time = rewrite_bad_time
@@ -44,6 +45,8 @@ class SceneController:
     self.tracker_config_file = tracker_config_file
     self.reid_config_data = {}
     self.reid_config_file = reid_config_file
+    self.pose_adjustment_config_data = {}
+    self.pose_adjustment_config_file = pose_adjustment_config_file
 
     if tracker_config_file is not None and not ControllerMode.isAnalyticsOnly():
       self.extractTrackerConfigData(tracker_config_file)
@@ -54,6 +57,11 @@ class SceneController:
       self.extractReidConfigData(reid_config_file)
     elif ControllerMode.isAnalyticsOnly():
       log.info("Analytics-only mode: Skipping reid configuration file loading")
+
+    if pose_adjustment_config_file is not None and not ControllerMode.isAnalyticsOnly():
+      self.extractPoseAdjustmentConfigData(pose_adjustment_config_file)
+    elif ControllerMode.isAnalyticsOnly():
+      log.info("Analytics-only mode: Skipping pose adjustment configuration file loading")
 
     self.last_time_sync = None
     self.ntp_server = ntp_server
@@ -82,7 +90,15 @@ class SceneController:
     self.pubsub.onConnect = self.onConnect
     self.pubsub.connect()
 
-    self.cache_manager = CacheManager(data_source, rest_url, rest_auth, root_cert, self.tracker_config_data, self.reid_config_data)
+    self.cache_manager = CacheManager(
+      data_source,
+      rest_url,
+      rest_auth,
+      root_cert,
+      self.tracker_config_data,
+      self.reid_config_data,
+      self.pose_adjustment_config_data,
+    )
 
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
@@ -121,6 +137,20 @@ class SceneController:
       log.info(f"Loaded REID configuration from {reid_config_file}: {self.reid_config_data}")
     return
 
+  def extractPoseAdjustmentConfigData(self, pose_adjustment_config_file):
+    """Extract pose adjustment routing configuration from pose-adjustment-route.json file"""
+    if not os.path.exists(pose_adjustment_config_file) and not os.path.isabs(pose_adjustment_config_file):
+      script = os.path.realpath(__file__)
+      pose_adjustment_config_file = os.path.join(os.path.dirname(script), pose_adjustment_config_file)
+    with open(pose_adjustment_config_file) as json_file:
+      pose_adjustment_config = orjson.loads(json_file.read())
+      self.pose_adjustment_config_data = pose_adjustment_config
+      log.info(
+        f"Loaded pose adjustment configuration from {pose_adjustment_config_file}: "
+        f"{self.pose_adjustment_config_data}"
+      )
+    return
+
   def _extractTrackerRate(self, tracker_config, parameter_name, default_rate, min_rate=None, max_rate=None):
     """Extract and validate rate parameter from tracker config."""
 
@@ -144,8 +174,8 @@ class SceneController:
   def _extractTimeChunkingEnabled(self, tracker_config):
     """Extract and validate time_chunking_enabled flag"""
     if "time_chunking_enabled" not in tracker_config:
-      log.warning("Time chunking enabled flag missing in tracker config file, disabling time chunking.")
-      self.tracker_config_data["time_chunking_enabled"] = False
+      log.warning("Time chunking enabled flag missing in tracker config file, enabling time chunking.")
+      self.tracker_config_data["time_chunking_enabled"] = True
       return
 
     try:
@@ -248,13 +278,13 @@ class SceneController:
       is_regulated = self.visibility_topic == 'regulated'
 
       msg_objects_lookup = {}
-      if is_regulated and not ControllerMode.isAnalyticsOnly():
+      if is_regulated:
         for obj in msg_objects:
           msg_objects_lookup[obj.gid] = obj
 
       for key in scene['objects']:
         for obj in scene['objects'][key]:
-          if is_regulated and not ControllerMode.isAnalyticsOnly():
+          if is_regulated:
             aobj = msg_objects_lookup.get(obj['id'], None)
             if aobj is not None:
               computeCameraBounds(scene_obj, aobj, obj)

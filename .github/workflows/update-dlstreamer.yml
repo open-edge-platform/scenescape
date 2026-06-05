@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: "Get latest DLStreamer version from DockerHub"
         id: dockerhub
@@ -40,8 +40,8 @@ jobs:
           WEEKLY_VERSION=$(echo "$LATEST_WEEKLY" | cut -d'|' -f2)
           WEEKLY_DATE=$(echo "$LATEST_WEEKLY" | cut -d'|' -f1)
 
-          # Get latest RC version (format: YYYY.X.X-ubuntu24-rcX)
-          LATEST_RC=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^[0-9]{4}\\.[0-9]+\\.[0-9]+-ubuntu24-rc[0-9]+$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
+          # Get latest RC version (format: YYYY.X.X-ubuntu24-rcX or YYYY.X.X-ubuntu24-rcX.Y)
+          LATEST_RC=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^[0-9]{4}\\.[0-9]+\\.[0-9]+-ubuntu24-rc[0-9]+(\\.[0-9]+)*$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
           RC_VERSION=$(echo "$LATEST_RC" | cut -d'|' -f2)
           RC_DATE=$(echo "$LATEST_RC" | cut -d'|' -f1)
 

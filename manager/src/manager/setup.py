@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import re
+
 from setuptools import setup, find_packages
 
 import os
@@ -16,6 +18,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 try:
   with open(os.path.join(BASE_DIR, 'version.txt')) as f:
     APP_VERSION_NUMBER = f.readline().rstrip()
+    APP_VERSION_NUMBER = re.sub(r'(rc\d+)([\d.]+)', lambda m: m.group(1) + m.group(2).replace('.', '-'), APP_VERSION_NUMBER)
     print(APP_PROPER_NAME + " version " + APP_VERSION_NUMBER)
 except IOError:
   print(f"{APP_PROPER_NAME} version.txt file not found in {BASE_DIR}")

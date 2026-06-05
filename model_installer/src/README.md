@@ -56,7 +56,7 @@ The function automatically assigns metadata policies and element types based on 
 | _reidentification_, _reid_                    | `reidPolicy`           | inference | Person/object re-identification          |
 | _recognition_, _attributes_, _classification_ | `classificationPolicy` | classify  | Classification and attribute recognition |
 | _text_ + _recognition_                        | `ocrPolicy`            | classify  | Text recognition models                  |
-| _pose_                                        | `detection3DPolicy`    | inference | Human pose estimation                    |
+| _pose_                                        | `detectionPolicy`      | detect    | Human pose estimation                    |
 
 #### Model Name Mapping
 

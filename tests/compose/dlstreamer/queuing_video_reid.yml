@@ -10,7 +10,7 @@ secrets:
 
 services:
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-20260428-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24-rc2
     networks:
       scenescape-test:
     tty: true
@@ -65,6 +65,8 @@ configs:
 
 volumes:
   vol-models:
+    external: true
+    name: scenescape_vol-models
   vol-sample-data:
   vol-dlstreamer-pipeline-server-pipeline-root-queuing:
     driver: local

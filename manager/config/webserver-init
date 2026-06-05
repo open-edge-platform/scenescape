@@ -11,7 +11,16 @@ echo "export HOME=${WSHOME}" >> /etc/apache2/envvars
 cd ${MANAGERDIR}
 
 mkdir -p ${MANAGERDIR}/media/
-cp -nr ${DBROOT}/media/* ${MANAGERDIR}/media/
+# Copy media files from DBROOT if any exist.
+# Guard against empty/missing source (e.g. K8s deployment before sample-data is loaded).
+if [ -d "${DBROOT}/media" ]; then
+  shopt -s nullglob
+  _media_files=( ${DBROOT}/media/* )
+  shopt -u nullglob
+  if [ ${#_media_files[@]} -gt 0 ]; then
+    cp -nr "${_media_files[@]}" ${MANAGERDIR}/media/
+  fi
+fi
 # Remove symlink and make a copy
 rm -f ${MANAGERDIR}/manager/secrets.py
 cp ${RUNSECRETS}/django/secrets.py ${MANAGERDIR}/manager/secrets.py
@@ -58,12 +67,14 @@ fi
 if [ -n "${KUBERNETES_SERVICE_HOST}" ] ; then
     sed -i '/<\/VirtualHost>/i \
     SSLProxyEngine on \
+    ProxyPass /api/v1/mapping/ https://mapping.scenescape.intel.com:8444/v1/ \
+    ProxyPassReverse /api/v1/mapping/ https://mapping.scenescape.intel.com:8444/v1/ \
     ProxyPass /mqtt wss://broker.scenescape.intel.com:1884/ \
     ProxyPassReverse /mqtt wss://broker.scenescape.intel.com:1884/ \
-    ProxyPass /v1/ https://autocalibration.scenescape.intel.com:8443/v1/ \
-    ProxyPassReverse /v1/ https://autocalibration.scenescape.intel.com:8443/v1/ \
-    ProxyPass "/socket.io/" "wss://autocalibration.scenescape.intel.com:8443/socket.io/" \
-    ProxyPassReverse "/socket.io/" "wss://autocalibration.scenescape.intel.com:8443/socket.io/" \
+    ProxyPass /api/v1/autocalibration/ https://autocalibration.scenescape.intel.com:8443/v1/ \
+    ProxyPassReverse /api/v1/autocalibration/ https://autocalibration.scenescape.intel.com:8443/v1/ \
+    ProxyPass "/api/v1/autocalibration/socket.io/" "wss://autocalibration.scenescape.intel.com:8443/v1/socket.io/" \
+    ProxyPassReverse "/api/v1/autocalibration/socket.io/" "wss://autocalibration.scenescape.intel.com:8443/v1/socket.io/" \
     \n        WSGIPassAuthorization On' /etc/apache2/sites-available/000-default.conf
 fi
 

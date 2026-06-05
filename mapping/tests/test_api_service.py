@@ -33,15 +33,15 @@ class TestAPIService:
     # Create mock model
     mock_model = Mock()
     mock_model.is_loaded = True
-    mock_model.runInference = Mock(return_value={
+    mock_model.run_inference = Mock(return_value={
       "predictions": {"world_points": [], "images": [], "final_masks": []},
       "camera_poses": [
         {"rotation": [1.0, 0.0, 0.0, 0.0], "translation": [0.0, 0.0, 0.0]}
       ],
       "intrinsics": [[[1000, 0, 500], [0, 1000, 500], [0, 0, 1]]]
     })
-    mock_model.createOutput = Mock(return_value=MagicMock())
-    mock_model.getModelInfo = Mock(return_value={
+    mock_model.create_output = Mock(return_value=MagicMock())
+    mock_model.get_model_info = Mock(return_value={
       "name": "test_model",
       "description": "Test model",
       "device": "cpu",
@@ -146,17 +146,17 @@ class TestAPIService:
 
     with patch('api_service_base.loaded_model') as mock_model:
       mock_model.is_loaded = True
-      mock_model.runInference = Mock(return_value={
+      mock_model.run_inference = Mock(return_value={
         "predictions": {"world_points": [], "images": [], "final_masks": []},
         "camera_poses": [
           {"rotation": [1.0, 0.0, 0.0, 0.0], "translation": [0.0, 0.0, 0.0]}
         ],
         "intrinsics": [[[1000, 0, 500], [0, 1000, 500], [0, 0, 1]]]
       })
-      mock_model.createOutput = Mock(return_value=mock_scene)
+      mock_model.create_output = Mock(return_value=mock_scene)
 
-      # Mock getMeshInfo to return valid mesh info
-      with patch('api_service_base.getMeshInfo', return_value={
+      # Mock get_mesh_info to return valid mesh info
+      with patch('api_service_base.get_mesh_info', return_value={
         "vertices": 0,
         "faces": 0,
         "bounds": [[0, 0, 0], [0, 0, 0]]
@@ -366,7 +366,7 @@ class TestRequestValidation:
 
   def test_validate_reconstruction_request_valid(self):
     """Test validation with valid request"""
-    from api_service_base import validateReconstructionRequest
+    from api_service_base import validate_reconstruction_request
 
     valid_data = {
       "images": [
@@ -378,40 +378,40 @@ class TestRequestValidation:
     }
 
     # Should not raise exception
-    result = validateReconstructionRequest(valid_data)
+    result = validate_reconstruction_request(valid_data)
     assert result is True
 
   def test_validate_reconstruction_request_not_dict(self):
     """Test validation rejects non-dict input"""
-    from api_service_base import validateReconstructionRequest
+    from api_service_base import validate_reconstruction_request
 
     with pytest.raises(ValueError, match="Request must be an object"):
-      validateReconstructionRequest("not a dict")
+      validate_reconstruction_request("not a dict")
 
   def test_validate_reconstruction_request_missing_images(self):
     """Test validation rejects missing images"""
-    from api_service_base import validateReconstructionRequest
+    from api_service_base import validate_reconstruction_request
 
     with pytest.raises(ValueError, match="Provide images and/or video"):
-      validateReconstructionRequest({})
+      validate_reconstruction_request({})
 
   def test_validate_reconstruction_request_images_not_list(self):
     """Test validation rejects non-list images"""
-    from api_service_base import validateReconstructionRequest
+    from api_service_base import validate_reconstruction_request
 
     with pytest.raises(ValueError, match="non-empty list"):
-      validateReconstructionRequest({"images": "not a list"})
+      validate_reconstruction_request({"images": "not a list"})
 
   def test_validate_reconstruction_request_empty_images(self):
     """Test validation rejects empty images list"""
-    from api_service_base import validateReconstructionRequest
+    from api_service_base import validate_reconstruction_request
 
     with pytest.raises(ValueError, match="Provide images and/or video"):
-      validateReconstructionRequest({"images": []})
+      validate_reconstruction_request({"images": []})
 
   def test_validate_reconstruction_request_invalid_output_format(self):
     """Test validation rejects invalid output format"""
-    from api_service_base import validateReconstructionRequest
+    from api_service_base import validate_reconstruction_request
 
     data = {
       "images": [{"data": "test"}],
@@ -419,11 +419,11 @@ class TestRequestValidation:
     }
 
     with pytest.raises(ValueError, match="output_format must be"):
-      validateReconstructionRequest(data)
+      validate_reconstruction_request(data)
 
   def test_validate_reconstruction_request_invalid_mesh_type(self):
     """Test validation rejects invalid mesh type"""
-    from api_service_base import validateReconstructionRequest
+    from api_service_base import validate_reconstruction_request
 
     data = {
       "images": [{"data": "test"}],
@@ -431,40 +431,40 @@ class TestRequestValidation:
     }
 
     with pytest.raises(ValueError, match="mesh_type must be"):
-      validateReconstructionRequest(data)
+      validate_reconstruction_request(data)
 
   def test_validate_reconstruction_request_image_not_dict(self):
     """Test validation rejects non-dict image"""
-    from api_service_base import validateReconstructionRequest
+    from api_service_base import validate_reconstruction_request
 
     data = {
       "images": ["not a dict"]
     }
 
     with pytest.raises(ValueError, match="must be an object"):
-      validateReconstructionRequest(data)
+      validate_reconstruction_request(data)
 
   def test_validate_reconstruction_request_image_missing_data(self):
     """Test validation rejects image without data field"""
-    from api_service_base import validateReconstructionRequest
+    from api_service_base import validate_reconstruction_request
 
     data = {
       "images": [{"other_field": "value"}]
     }
 
     with pytest.raises(ValueError, match="missing required field: data"):
-      validateReconstructionRequest(data)
+      validate_reconstruction_request(data)
 
   def test_validate_reconstruction_request_image_data_not_string(self):
     """Test validation rejects non-string image data"""
-    from api_service_base import validateReconstructionRequest
+    from api_service_base import validate_reconstruction_request
 
     data = {
       "images": [{"data": 12345}]
     }
 
     with pytest.raises(ValueError, match="data must be a non-empty string"):
-      validateReconstructionRequest(data)
+      validate_reconstruction_request(data)
 
 
 if __name__ == "__main__":

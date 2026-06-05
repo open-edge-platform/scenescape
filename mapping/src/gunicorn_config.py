@@ -23,8 +23,8 @@ def post_fork(server, worker):
   log.info(f"Worker {worker.pid} forked, initializing model...")
 
   try:
-    # Import the service-specific module to ensure initializeModel is overridden
-    # This is necessary because the service module overrides initializeModel in api_service_base
+    # Import the service-specific module to ensure initialize_model is overridden
+    # This is necessary because the service module overrides initialize_model in api_service_base
     model_type = os.getenv("MODEL_TYPE", "mapanything")
     service_module_name = f"{model_type}_service"
 
@@ -38,7 +38,7 @@ def post_fork(server, worker):
 
     # Only initialize if not already loaded (defensive check)
     if api_service_base.loaded_model is None:
-      loaded_model, model_name = api_service_base.initializeModel()
+      loaded_model, model_name = api_service_base.initialize_model()
       api_service_base.loaded_model = loaded_model
       api_service_base.model_name = model_name
       log.info(f"Worker {worker.pid} model initialization completed successfully")

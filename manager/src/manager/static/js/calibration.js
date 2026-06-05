@@ -8,6 +8,7 @@ import { ConvergedCameraCalibration } from "/static/js/cameracalibrate.js";
 
 var calibration_strategy;
 let camera_calibration;
+const AUTOCALIB_PROXY_BASE = "/api/v1/autocalibration";
 
 // Initialize after DOM is ready
 document.addEventListener("DOMContentLoaded", function () {
@@ -17,14 +18,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
 async function startCameraCalibration(cameraUID, image, intrinsics) {
   try {
-    const response = await fetch(`/v1/cameras/${cameraUID}/calibration`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        image: image,
-        intrinsics: intrinsics,
-      }),
-    });
+    const response = await fetch(
+      `${AUTOCALIB_PROXY_BASE}/cameras/${cameraUID}/calibration`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image: image,
+          intrinsics: intrinsics,
+        }),
+      },
+    );
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} - ${response.statusText}`);
@@ -41,7 +45,7 @@ async function startCameraCalibration(cameraUID, image, intrinsics) {
 
 async function getCalibrationServiceStatus() {
   try {
-    const response = await fetch("/v1/status", {
+    const response = await fetch(`${AUTOCALIB_PROXY_BASE}/status`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -60,7 +64,7 @@ async function getCalibrationServiceStatus() {
 }
 
 async function registerScene(sceneId) {
-  const url = `/v1/scenes/${sceneId}/registration`;
+  const url = `${AUTOCALIB_PROXY_BASE}/scenes/${sceneId}/registration`;
 
   try {
     const response = await fetch(url, {
