@@ -219,6 +219,17 @@ rebuild-all-images: clean-images build-all-images
 .PHONY: rebuild-all
 rebuild-all: clean-all build-all
 
+# Per-folder rebuild: clean a single service image and build it again.
+# Generates rebuild-autocalibration, rebuild-controller, rebuild-manager,
+# rebuild-model_installer, rebuild-mapping, rebuild-cluster_analytics and
+# rebuild-tracker so a single microservice can be refreshed after code changes.
+.PHONY: $(addprefix rebuild-,$(IMAGE_FOLDERS))
+$(addprefix rebuild-,$(IMAGE_FOLDERS)): rebuild-%:
+	@echo "====> Rebuilding folder $*..."
+	@$(MAKE) -C $* clean 2>/dev/null || true
+	@$(MAKE) $* BUILD_DIR=$(BUILD_DIR) http_proxy=$(http_proxy) https_proxy=$(https_proxy) no_proxy=$(no_proxy)
+	@echo "DONE ====> Rebuilding folder $*"
+
 define clean-image-folders
 	@echo "==> Cleaning up all build artifacts..."
 	@for dir in $(1); do \
@@ -601,6 +612,12 @@ indent-check:
 	@echo "==> Checking Python indentation..."
 	@tests/scripts/checkIndent
 	@echo "DONE ==> Checking Python indentation"
+
+.PHONY: validate-agents-md
+validate-agents-md:
+	@echo "==> Validating AGENTS.md against the codebase..."
+	@python3 tests/scripts/validate_agents_md.py
+	@echo "DONE ==> Validating AGENTS.md"
 
 # ===================== Format Code ================================
 

@@ -269,6 +269,15 @@ This skill contains:
 - Examples and patterns for each service type
 - Cross-service documentation guidelines
 
+### Keeping agent instructions accurate
+
+Agent instruction files (`AGENTS.md`, this file, `.cursor/rules/scenescape.mdc`,
+per-service `Agents.md`, and `.github/skills/**/*.md`) are validated against the
+codebase by `make validate-agents-md` (script: `tests/scripts/validate_agents_md.py`,
+CI: `.github/workflows/agents-md-validation.yml`). It fails if a Markdown link
+points to a missing file or a documented `make <target>` no longer exists. Run it
+after changing these files or relevant `make` targets.
+
 **Quick reference - Key locations:**
 
 - `docs/user-guide/microservices/<service>/<service>.md` - Features and API endpoints

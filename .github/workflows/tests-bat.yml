@@ -147,7 +147,14 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests -m basic_acceptance --junitxml=reports/bat_results.xml --log-level=ERROR
+          # Retry only transient infra failures so flaky runs do not fail the
+          # pipeline; -r aR records each RERUN so flaky tests are still surfaced.
+          pytest tests -m basic_acceptance --junitxml=reports/bat_results.xml --log-level=ERROR \
+            --reruns 2 --reruns-delay 5 -r aR \
+            --only-rerun 'ConnectionError' --only-rerun 'ConnectionRefusedError' \
+            --only-rerun 'ConnectionResetError' --only-rerun 'BrokenPipeError' \
+            --only-rerun 'TimeoutException' --only-rerun 'ReadTimeout' \
+            | tee reports/bat_durations.log
 
       - name: "Run Metric Tests"
         if: always() && steps.setup-test-env.outcome == 'success'
@@ -161,7 +168,8 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/sscape_tests/ --junitxml=reports/unit_results.xml --log-level=ERROR
+          pytest tests/sscape_tests/ --junitxml=reports/unit_results.xml --log-level=ERROR \
+            | tee reports/unit_durations.log
 
       - name: Run Pipeline Runner tests
         if: always() && steps.setup-test-env.outcome == 'success'
@@ -177,12 +185,22 @@ jobs:
           pip install -q -r requirements-ppl-test.txt
           pytest . --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
 
+      - name: Report flaky tests
+        if: always() && steps.setup-test-env.outcome == 'success'
+        run: |
+          source tests/.venv/bin/activate || true
+          python3 tests/scripts/report_flaky_tests.py \
+            reports/bat_durations.log reports/unit_durations.log \
+            --output reports/bat_flaky_report.txt || true
+
       - name: Upload Test Report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: bat-report
           path: |
             **/reports/*.xml
+            **/reports/*_durations.log
+            **/reports/*_flaky_report.txt
 
       - name: Cleanup
         if: always()

@@ -7,6 +7,7 @@
 pytest==9.0.3
 pytest-django==4.12.0
 pytest-kubernetes==0.8.0
+pytest-rerunfailures==16.3
 python-on-whales==0.81.0
 waiting==1.4.0
 pyyaml==6.0.3

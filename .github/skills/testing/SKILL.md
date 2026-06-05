@@ -637,6 +637,39 @@ def test_absolute_value(input, expected):
     assert abs(input) == expected
 ```
 
+## Flaky Test Handling
+
+Service-dependent suites (functional, UI, metric, BAT) can fail intermittently
+due to transient infrastructure (container start-up races, MQTT/broker timing,
+Selenium driver hiccups). SceneScape manages this proactively instead of
+ignoring it:
+
+- **Automatic retries (transient only):** CI runs these suites with
+  `pytest --reruns 2 --reruns-delay 5 --only-rerun '<transient pattern>'`
+  (provided by `pytest-rerunfailures`). Only connection/timeout-style errors are
+  retried, so genuine assertion failures still fail immediately and are never
+  masked.
+- **Flaky tracking:** `-r aR` records every `RERUN`, and
+  `tests/scripts/report_flaky_tests.py` scans the captured log to list tests
+  that passed only after a retry. The list is written to the GitHub job summary
+  and uploaded as a `*_flaky_report.txt` artifact so flaky tests stay visible.
+- **C++ (tracker):** `ctest --repeat until-pass:2` retries a failing native test
+  once; only failures re-run, so stable tests are not slowed.
+
+When a test is known to be flaky, mark it explicitly and track it for a real
+fix rather than relying on blanket retries:
+
+```python
+# Retries this test up to 3 times with a 5s delay before failing the run.
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
+def test_occasionally_racy(scenescape_env, params):
+    ...
+```
+
+Prefer fixing the underlying race (explicit waits, readiness checks, isolated
+state) over adding `@pytest.mark.flaky`; the marker is a stopgap that must be
+paired with a tracking issue.
+
 ## Test Naming Conventions
 
 **Test files**: `test_<module>.py`

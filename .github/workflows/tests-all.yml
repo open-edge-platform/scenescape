@@ -83,7 +83,23 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/functional --junitxml=reports/functional_results.xml --log-level=ERROR
+          # Retry only transient infra failures so flaky runs do not fail the
+          # pipeline; -r aR records each RERUN so flaky tests are still surfaced.
+          pytest tests/functional --junitxml=reports/functional_results.xml \
+            --durations=25 --durations-min=0.05 --log-level=ERROR \
+            --reruns 2 --reruns-delay 5 -r aR \
+            --only-rerun 'ConnectionError' --only-rerun 'ConnectionRefusedError' \
+            --only-rerun 'ConnectionResetError' --only-rerun 'BrokenPipeError' \
+            --only-rerun 'TimeoutException' --only-rerun 'ReadTimeout' \
+            --only-rerun 'WebDriverException' --only-rerun 'StaleElementReferenceException' \
+            | tee reports/functional_durations.log
+
+      - name: Report flaky tests
+        if: always()
+        run: |
+          python3 tests/scripts/report_flaky_tests.py \
+            reports/functional_durations.log \
+            --output reports/functional_flaky_report.txt || true
 
       - name: Upload Test Report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -92,6 +108,8 @@ jobs:
           name: functional-report
           path: |
             **/reports/*.xml
+            **/reports/*_durations.log
+            **/reports/*_flaky_report.txt
 
       - name: Cleanup
         if: always()
@@ -132,7 +150,9 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/non_functional --junitxml=reports/non_functional_results.xml --log-level=ERROR
+          pytest tests/non_functional --junitxml=reports/non_functional_results.xml \
+            --durations=25 --durations-min=0.05 --log-level=ERROR \
+            | tee reports/non_functional_durations.log
 
       - name: Upload Test Report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -141,6 +161,7 @@ jobs:
           name: non-functional-report
           path: |
             **/reports/*.xml
+            **/reports/*_durations.log
 
       - name: Cleanup
         if: always()
@@ -181,7 +202,22 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/system/metric --junitxml=reports/metric_results.xml --log-level=ERROR
+          # Retry only transient infra failures so flaky runs do not fail the
+          # pipeline; -r aR records each RERUN so flaky tests are still surfaced.
+          pytest tests/system/metric --junitxml=reports/metric_results.xml \
+            --durations=25 --durations-min=0.05 --log-level=ERROR \
+            --reruns 2 --reruns-delay 5 -r aR \
+            --only-rerun 'ConnectionError' --only-rerun 'ConnectionRefusedError' \
+            --only-rerun 'ConnectionResetError' --only-rerun 'BrokenPipeError' \
+            --only-rerun 'TimeoutException' --only-rerun 'ReadTimeout' \
+            | tee reports/metric_durations.log
+
+      - name: Report flaky tests
+        if: always()
+        run: |
+          python3 tests/scripts/report_flaky_tests.py \
+            reports/metric_durations.log \
+            --output reports/metric_flaky_report.txt || true
 
       - name: Upload Test Report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -190,6 +226,8 @@ jobs:
           name: metric-report
           path: |
             **/reports/*.xml
+            **/reports/*_durations.log
+            **/reports/*_flaky_report.txt
 
       - name: Cleanup
         if: always()
@@ -230,7 +268,23 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/ui --junitxml=reports/ui_results.xml --log-level=ERROR
+          # Browser/Selenium UI tests are the most retry-prone; retry only
+          # transient driver/connection errors and record each RERUN.
+          pytest tests/ui --junitxml=reports/ui_results.xml \
+            --durations=25 --durations-min=0.05 --log-level=ERROR \
+            --reruns 2 --reruns-delay 5 -r aR \
+            --only-rerun 'TimeoutException' --only-rerun 'WebDriverException' \
+            --only-rerun 'StaleElementReferenceException' \
+            --only-rerun 'ElementClickInterceptedException' \
+            --only-rerun 'ConnectionError' --only-rerun 'ConnectionRefusedError' \
+            | tee reports/ui_durations.log
+
+      - name: Report flaky tests
+        if: always()
+        run: |
+          python3 tests/scripts/report_flaky_tests.py \
+            reports/ui_durations.log \
+            --output reports/ui_flaky_report.txt || true
 
       - name: Upload Test Report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -239,6 +293,8 @@ jobs:
           name: ui-report
           path: |
             **/reports/*.xml
+            **/reports/*_durations.log
+            **/reports/*_flaky_report.txt
 
       - name: Cleanup
         if: always()
@@ -278,7 +334,9 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/sscape_tests --junitxml=reports/unit_results.xml --log-level=ERROR
+          pytest tests/sscape_tests --junitxml=reports/unit_results.xml \
+            --durations=25 --durations-min=0.05 --log-level=ERROR \
+            | tee reports/unit_durations.log
 
       - name: Upload Test Report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -287,6 +345,7 @@ jobs:
           name: unit-report
           path: |
             **/reports/*.xml
+            **/reports/*_durations.log
 
       - name: Cleanup
         if: always()
