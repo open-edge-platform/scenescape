@@ -15,7 +15,7 @@ The service uses a multi-threaded pipeline: `MqttClient` receives detections →
 
 **For detailed architecture, see**: [Design Document](../docs/design/tracker-service.md) | [Implementation Guide](docs/implementation.md)
 
-**Related ADRs**: [ADR-0003](../docs/adr/0003-scaling-controller-performance.md) (C++ Implementation), [ADR-0007](../docs/adr/0007-tracker-service.md) (Time Chunking), [ADR-0008](../docs/adr/0008-tracker-service-horizontal-scaling.md) (Horizontal Scaling)
+**Related ADRs**: [ADR-0003](../docs/adr/0003-scaling-controller-performance.md) (C++ Implementation), [ADR-0007](../docs/adr/0007-tracker-service.md) (Time Chunking), [ADR-0008](../docs/adr/0008-tracker-service-horizontal-scaling.md) (Horizontal Scaling), [ADR-0012](../docs/adr/0012-probabilistic-tracking-association.md) (Probabilistic Association, proposed)
 
 ## Build System
 
