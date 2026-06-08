@@ -563,8 +563,8 @@ class SceneSerializer(NonNullSerializer):
   uid = serializers.SerializerMethodField('get_uid')
   cameras = serializers.SerializerMethodField('get_cameras')
   sensors = serializers.SerializerMethodField('get_sensors')
-  regions = RegionSerializer(many=True, required=False)
-  tripwires = TripwireSerializer(many=True, required=False)
+  regions = RegionSerializer(many=True, read_only=True)
+  tripwires = TripwireSerializer(many=True, read_only=True)
   thumbnail = serializers.ImageField(read_only=True)
   parent = serializers.CharField(source='parent.parent.pk', required=False, allow_null=True)
   transform = TransformSerializerField(source='parent.cameraPose')
@@ -736,8 +736,6 @@ class SceneSerializer(NonNullSerializer):
     send_update_command = not (is_update and request_keys == {"trs_matrix"})
 
     self.handleMeshTransform(self.initial_data, validated_data)
-    validated_data.pop('regions', None)
-    validated_data.pop('tripwires', None)
     child_data = validated_data.pop('parent', None)
     if child_data:
       if 'parent' in child_data:
