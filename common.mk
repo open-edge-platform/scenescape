@@ -31,6 +31,7 @@ build-image: $(BUILD_DIR) Dockerfile
 	@{ \
 		set -xe; \
 		set -o pipefail; \
+		EXTRA_BUILD_ARGS="$(EXTRA_BUILD_ARGS)"; \
 		if [ "$(GHCR_CACHE)" = "true" ]; then \
 		  EXTRA_BUILD_ARGS+=" --cache-from type=registry,ref=ghcr.io/${CACHE_REGISTRY}/$(IMAGE):main"; \
 			if [ "$(WRITE_CACHE)" = "true" ]; then \

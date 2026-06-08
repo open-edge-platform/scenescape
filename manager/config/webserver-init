@@ -67,12 +67,14 @@ fi
 if [ -n "${KUBERNETES_SERVICE_HOST}" ] ; then
     sed -i '/<\/VirtualHost>/i \
     SSLProxyEngine on \
+    ProxyPass /api/v1/mapping/ https://mapping.scenescape.intel.com:8444/v1/ \
+    ProxyPassReverse /api/v1/mapping/ https://mapping.scenescape.intel.com:8444/v1/ \
     ProxyPass /mqtt wss://broker.scenescape.intel.com:1884/ \
     ProxyPassReverse /mqtt wss://broker.scenescape.intel.com:1884/ \
-    ProxyPass /v1/ https://autocalibration.scenescape.intel.com:8443/v1/ \
-    ProxyPassReverse /v1/ https://autocalibration.scenescape.intel.com:8443/v1/ \
-    ProxyPass "/socket.io/" "wss://autocalibration.scenescape.intel.com:8443/socket.io/" \
-    ProxyPassReverse "/socket.io/" "wss://autocalibration.scenescape.intel.com:8443/socket.io/" \
+    ProxyPass /api/v1/autocalibration/ https://autocalibration.scenescape.intel.com:8443/v1/ \
+    ProxyPassReverse /api/v1/autocalibration/ https://autocalibration.scenescape.intel.com:8443/v1/ \
+    ProxyPass "/api/v1/autocalibration/socket.io/" "wss://autocalibration.scenescape.intel.com:8443/v1/socket.io/" \
+    ProxyPassReverse "/api/v1/autocalibration/socket.io/" "wss://autocalibration.scenescape.intel.com:8443/v1/socket.io/" \
     \n        WSGIPassAuthorization On' /etc/apache2/sites-available/000-default.conf
 fi
 

@@ -51,7 +51,7 @@ points = maps = rois = tripwires = [];
 dragging = drawing = adding = editing = fullscreen = false;
 
 const socket = io({
-  path: "/socket.io",
+  path: "/api/v1/autocalibration/socket.io",
   transports: ["websocket"],
 });
 

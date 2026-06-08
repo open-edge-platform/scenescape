@@ -7,6 +7,10 @@ info:
   description: |
     REST API service for 3D reconstruction with build-time model selection.
 
+    Authentication/Authorization status:
+    - This service currently does not implement endpoint-level AuthN/AuthZ.
+    - Protect access using trusted network boundaries, reverse proxy controls, and TLS.
+
     This service provides endpoints for performing 3D reconstruction from multiple input images. The model is selected at build time:
     - **MapAnything**: Universal Feed-Forward Metric 3D Reconstruction
     - **VGGT**: Visual Geometry Grounded Transformer for sparse view reconstruction
@@ -18,10 +22,10 @@ info:
     url: https://www.apache.org/licenses/LICENSE-2.0.html
 
 servers:
-  - url: https://localhost:8444
-    description: Local development server
-  - url: https://0.0.0.0:8444
-    description: Docker container server
+  - url: https://localhost:8444/v1
+    description: Direct standalone access
+  - url: https://localhost/api/v1/mapping
+    description: Access via Apache reverse proxy when web service is running
 
 tags:
   - name: reconstruction

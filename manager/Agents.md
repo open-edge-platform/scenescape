@@ -69,7 +69,8 @@ The **Manager** service is the Django-based web UI and REST API gateway for Inte
 
 - `/api/v1/scenes/`: Scene management (CRUD)
 - `/api/v1/cameras/`: Camera configuration
-- `/api/v1/calibration/`: Trigger calibration
+- `/api/v1/calculateintrinsics/`: Calculate camera intrinsics
+- `/api/v1/aclcheck/`: Validate broker topic ACLs
 - `/api/v1/objects/`: Query tracked objects
 - `/api/v1/health/`: Health check
 
@@ -276,8 +277,8 @@ docker compose exec manager python manage.py showmigrations
 
 ### Auto Calibration
 
-- Manager UI triggers calibration requests
-- Displays calibration status from Auto Calibration service
+- Manager UI triggers calibration requests through the web-proxied Auto Calibration service
+- Autocalibration endpoints live under `/api/v1/autocalibration/` when accessed through the web container
 - Stores completed calibration parameters in database
 
 ### PostgreSQL
