@@ -40,7 +40,7 @@ The ADR captures the **architectural decisions** SceneScape commits to. It is in
 - **Backwards compatibility:** existing static JSON pipeline configs (Docker bind-mount and K8s config maps) and the custom dynamic pipeline configuration on Kubernetes remain supported until feature parity with the ViPPET-based flow is achieved.
 - **Phased rollout** (Phase names only; no release numbers):
   - *Foundation* — ADR + design baseline.
-  - *Model Management Delegation* — adopt the shared model volume populated by Model Downloader; add a deployment-time job for downloading models; use the Model Downloader listing endpoint to enumerate installed models in the dynamic pipeline configuration flow.
+  - *Model Management Delegation* — adopt the shared model volume populated by Model Downloader; add a deployment-time job for downloading models; use the Model Downloader listing endpoint to enumerate installed models in the existing Kubernetes dynamic pipeline configuration flow.
   - *Pipeline Building Delegation & Stream Manager Adoption* — Stream Manager consumption; scene-level pipeline-to-source mapping; extend scene export/import to support externally downloaded models and embedded pipeline definitions.
   - *Pipeline Building Delegation & Stream Manager Adoption – Part 2* — full ViPPET pipeline-definition consumption; evolved DLSPS runtime integration; deprecate the custom dynamic pipeline configuration in favor of the uniform API-based dynamic pipeline configuration.
 
