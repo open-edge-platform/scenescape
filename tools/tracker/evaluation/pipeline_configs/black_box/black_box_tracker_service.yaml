@@ -22,7 +22,7 @@ harness:
     tracker_config_path: pipeline_configs/black_box/config/tracker_service.json
     # startup_wait_s: 5.0
     # drain_timeout: 5.0
-    
+
 evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
     config:
