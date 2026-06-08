@@ -5473,7 +5473,7 @@ Apache License
     meson/1.10.2
     minio==7.2.20
         Copyright (c) MinIO, Inc.
-    mod-qos/11.76
+    mod-qos/11.79
     ninja/1.13.2
     opencv/4.13.0
     openssl/3.6.2
