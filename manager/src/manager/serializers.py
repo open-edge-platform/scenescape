@@ -563,15 +563,16 @@ class SceneSerializer(NonNullSerializer):
   uid = serializers.SerializerMethodField('get_uid')
   cameras = serializers.SerializerMethodField('get_cameras')
   sensors = serializers.SerializerMethodField('get_sensors')
-  regions = RegionSerializer(many=True)
-  tripwires = TripwireSerializer(many=True)
-  parent = serializers.CharField(source='parent.parent.pk')
+  regions = RegionSerializer(many=True, required=False)
+  tripwires = TripwireSerializer(many=True, required=False)
+  thumbnail = serializers.ImageField(read_only=True)
+  parent = serializers.CharField(source='parent.parent.pk', required=False, allow_null=True)
   transform = TransformSerializerField(source='parent.cameraPose')
   mesh_translation = serializers.SerializerMethodField('get_translation')
   mesh_rotation = serializers.SerializerMethodField('get_rotation')
   mesh_scale = serializers.SerializerMethodField('get_scale')
   children = serializers.SerializerMethodField('get_children')
-  map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z")
+  map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z", read_only=True)
   trs_matrix = serializers.SerializerMethodField('get_trs_matrix')
 
   def validate(self, attrs):
@@ -593,7 +594,7 @@ class SceneSerializer(NonNullSerializer):
     if unknown:
       raise serializers.ValidationError({field: ["Unknown field."] for field in unknown})
 
-    read_only_fields = {'uid'}
+    read_only_fields = {'uid', 'thumbnail', 'map_processed'}
     attempted = set(self.initial_data.keys()) & read_only_fields
 
     if attempted:
@@ -735,6 +736,8 @@ class SceneSerializer(NonNullSerializer):
     send_update_command = not (is_update and request_keys == {"trs_matrix"})
 
     self.handleMeshTransform(self.initial_data, validated_data)
+    validated_data.pop('regions', None)
+    validated_data.pop('tripwires', None)
     child_data = validated_data.pop('parent', None)
     if child_data:
       if 'parent' in child_data:
