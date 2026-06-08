@@ -30,22 +30,27 @@ The ADR captures the **architectural decisions** SceneScape commits to. It is in
   - **Stream Manager** — camera discovery, video capture, livestream/replay; **optional** dependency for SceneScape.
   - **Geti** — model training; **no direct SceneScape↔Geti integration** (mediated via Model Downloader and Stream Manager).
 - **SceneScape retains ownership** of: scene model, scene-level pipeline-to-source mapping, pipeline runtime orchestration against DLSPS, multimodal fusion/tracking, scene export/import.
+- Adopt a **uniform dynamic API-based approach** to pipeline configuration and management for both Docker Compose and Kubernetes SceneScape deployments, replacing today's split implementation (manual static configuration for Docker Compose; custom pipeline generation with K8s config maps for Kubernetes).
 - **Exported scenes embed pipeline definitions by value** so deployment is possible without ViPPET.
-- **Backwards compatibility:** existing static JSON pipeline configs (Docker bind-mount and K8s config maps) remain supported until feature parity with the ViPPET-based flow is achieved.
+- **Exported scenes reference models by identifier** (not by value); Model Downloader is therefore required at deployment time to materialize the referenced models on the shared model volume.
+- **SceneScape does not call Model Downloader's download endpoint.** Model download is handled out-of-band:
+  - at deployment time or scene import by an **external job or script**, or
+  - during pipeline development by the user via the **ViPPET UI**, into a volume shared with SceneScape.
+  SceneScape's own runtime call to Model Downloader is limited to the **listing endpoint**, used when the user needs to see available models to choose or update a model in a pipeline definition.
+- **Backwards compatibility:** existing static JSON pipeline configs (Docker bind-mount and K8s config maps) and the custom dynamic pipeline configuration on Kubernetes remain supported until feature parity with the ViPPET-based flow is achieved.
 - **Phased rollout** (Phase names only; no release numbers):
   - *Foundation* — ADR + design baseline.
-  - *Model Management Delegation* — adopt shared model volume populated by Model Downloader.
-  - *Pipeline Building Delegation & Stream Manager Adoption* — Stream Manager consumption, scene-level pipeline-to-source mapping, scene export/import.
-  - *Pipeline Building Delegation & Stream Manager Adoption – Part 2* — full ViPPET pipeline-definition consumption, evolved DLSPS runtime integration.
+  - *Model Management Delegation* — adopt the shared model volume populated by Model Downloader; add a deployment-time job for downloading models; use the Model Downloader listing endpoint to enumerate installed models in the dynamic pipeline configuration flow.
+  - *Pipeline Building Delegation & Stream Manager Adoption* — Stream Manager consumption; scene-level pipeline-to-source mapping; extend scene export/import to support externally downloaded models and embedded pipeline definitions.
+  - *Pipeline Building Delegation & Stream Manager Adoption – Part 2* — full ViPPET pipeline-definition consumption; evolved DLSPS runtime integration; deprecate the custom dynamic pipeline configuration in favor of the uniform API-based dynamic pipeline configuration.
 
 ### Alternatives Considered (ADR)
 
-- **Status quo: keep custom SceneScape implementations** (model installer, pipeline generator, direct camera sources). Pros: no integration work. Cons: redundant with platform, ongoing maintenance, divergence from OEP roadmap, blocks DLSPS evolution.
+- **Status quo: keep custom SceneScape implementations** (model installer, pipeline generator, direct camera sources). Pros: no integration work. Cons: redundant with platform, ongoing maintenance burden, very limited interoperability with other OEP components.
 - **Push pipeline-to-source mapping into ViPPET.** Pros: single source of pipeline metadata. Cons: scene-level binding is a SceneScape domain concept (cameras serve scene-specific spatial-awareness tasks); ViPPET would need scene awareness it does not own.
-- **Direct SceneScape↔Geti integration for models.** Pros: fewer hops. Cons: duplicates Model Downloader, couples SceneScape to a training-platform API, breaks the platform's intended separation of concerns.
-- **Push pipeline definitions by reference (ID/version) in exported scenes.** Pros: smaller artifact. Cons: deployment requires ViPPET to be reachable; violates the "deployable without ViPPET" requirement.
-- **Make Stream Manager a hard dependency.** Pros: uniform video acquisition. Cons: regresses today's direct-source deployments; out of step with optional adoption goal.
-- **Skip the staged DLSPS transition; require runtime pipeline API up front.** Pros: simpler end-state. Cons: blocks delivery; today's pod-recreation flow already works and must keep working until DLSPS evolves.
+- **Direct SceneScape↔Geti integration for models.** Pros: fewer hops. Cons: duplicates Model Downloader, couples SceneScape to yet another API, breaks the platform's intended separation of concerns (ViPPET owns pipeline creation and verification).
+- **Push pipeline definitions by reference (ID/version) in exported scenes.** Pros: smaller artifact. Cons: deployment would require ViPPET to be reachable in production, but ViPPET is not intended to be deployed in production.
+- **Make Stream Manager a hard dependency.** Pros: uniform video acquisition path. Cons: regresses today's direct-source deployments and complicates usage in scenarios where Stream Manager is not desired or available.
 
 ### Consequences (ADR)
 
@@ -60,9 +65,9 @@ The ADR captures the **architectural decisions** SceneScape commits to. It is in
 **Negative**
 
 - Cross-component dependency on Model Downloader, ViPPET, DLSPS evolution, and Stream Manager delivery timelines.
-- Temporary duality: both legacy static JSON flow and new ViPPET-based flow coexist until parity.
-- New runtime call from SceneScape to Model Downloader's listing endpoint adds a small new integration surface.
-- Co-ownership of model storage between ViPPET and Model Downloader (when co-deployed) requires the deployment design to disambiguate.
+- Temporary duality: both the legacy flow (static JSON configs plus custom dynamic pipeline configuration on Kubernetes) and the new ViPPET-based flow coexist until parity.
+- New runtime call from SceneScape to Model Downloader's listing endpoint adds a small new integration surface; it is needed only until the custom dynamic pipeline configuration on Kubernetes is deprecated (full parity with ViPPET).
+- When ViPPET is deployed with its own embedded Model Downloader instance, and SceneScape's DLSPS reads from a separately populated model volume, the deployment design must disambiguate which Model Downloader instance owns which model volume.
 
 ### References (ADR)
 
@@ -86,6 +91,28 @@ The Design Doc explains **how** SceneScape implements the decisions above. It is
   - SceneScape↔DLSPS (today: pod recreation in K8s; target: runtime pipeline API; MQTT inference output topic conventions).
   - SceneScape↔Model Downloader (deployment-time job semantics; runtime listing endpoint usage; shared-volume conventions).
   - SceneScape↔Geti (none; document why and what indirection looks like).
+
+### Inputs and outputs (per Process Model step and per contract)
+
+A dedicated section enumerating, for each item, the concrete data that flows in and out. Used to make the implementation contract unambiguous.
+
+**Per Process Model step** (stages 1–7 in [diagrams-summary.md §1](./diagrams-summary.md)):
+
+1. **Camera Setup** (Stream Manager) — Inputs: physical/networked camera devices. Outputs: configured camera devices with addressable identifiers (e.g., camera IPs / IDs).
+2. **Data Acquisition** (Stream Manager) — Inputs: configured cameras, capture parameters. Outputs: synchronized video files; upload to a Geti instance.
+3. **Geti Training** (Geti) — Inputs: uploaded video files. Outputs: annotated datasets, trained and validated model, model artifacts available for download.
+4. **DLS Pipeline Development** (ViPPET) — Inputs: Geti-trained model (via Model Downloader). Outputs: pipeline definition (embeddable by value), verified pipeline output.
+5. **Scene Development** (SceneScape) — Inputs: pipeline definition from ViPPET (REST pull), available models from Model Downloader listing endpoint, video sources from Stream Manager (or direct sources). Outputs: scene map and configuration, camera poses, scene-level pipeline-to-source mapping, list of referenced models.
+6. **Package Preparation** (SceneScape) — Inputs: scene configuration, mappings, embedded pipeline definitions, model references. Outputs: exported scene artifact (self-contained except for referenced models).
+7. **Deployment** (SceneScape + Stream Manager + external job) — Inputs: exported scene artifact, target environment. Outputs: deployed scene with models materialized on the shared model volume (by the external job/script), pipelines running on DLSPS, tracked objects and events emitted to business logic.
+
+**Per contract** (per-contract specs above):
+
+- **SceneScape → Stream Manager** — In: stream/replay request parameters. Out (to SceneScape): live or replayed video stream, stream metadata.
+- **SceneScape → ViPPET** — In: pipeline-definition query (REST pull). Out (to SceneScape): pipeline definition payload suitable for embedding by value.
+- **SceneScape → DLSPS** — In: pipeline start/stop/update commands, pipeline definition payload, source binding. Out (to SceneScape): pipeline lifecycle status and MQTT inference messages.
+- **SceneScape → Model Downloader** — In: model listing query. Out (to SceneScape): list of available models with model paths, identifiers and metadata.
+- **External job/script (or ViPPET UI) → Model Downloader** — In: model download request by identifier. Out: model files materialized on the shared model volume.
 
 ### SceneScape-side deltas — implementation
 
