@@ -42,7 +42,7 @@ spec:
               command:
               - sh
               - -c
-              - curl -k -s https://localhost:8444/health
+              - curl -k -s https://localhost:8444/v1/health
             periodSeconds: 10
             timeoutSeconds: 60
             failureThreshold: 5

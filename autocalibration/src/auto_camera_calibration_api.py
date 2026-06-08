@@ -130,7 +130,7 @@ class CameraCalibrationApi:
     self.app.config['MAX_CONTENT_LENGTH'] = self.MAX_REQUEST_SIZE
     self.calibrationContext = calibrationContext
 
-    self.socketio = SocketIO(self.app, cors_allowed_origins=["*"])
+    self.socketio = SocketIO(self.app, path="/v1/socket.io/", cors_allowed_origins=["*"])
     if self.calibrationContext is not None:
       self.calibrationContext.socketio = self.socketio
     self.socket_client = {}
