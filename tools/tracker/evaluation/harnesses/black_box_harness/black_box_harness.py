@@ -308,7 +308,7 @@ class BlackBoxHarness(TrackerHarness):
     self._startup_wait_s: float             = DEFAULT_STARTUP_WAIT
     self._camera_order: Optional[List[str]] = None
     self._broker_image: str                 = ""
-    self._broker_port: int                  = 0  # 0 = auto
+    self._broker_port: int                  = 0
     self._output_folder: Optional[Path]     = None
 
   # ------------------------------------------------------------------
