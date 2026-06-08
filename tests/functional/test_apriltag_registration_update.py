@@ -19,7 +19,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 POLL_INTERVAL = 5
 POLL_TIMEOUT = 60
-BASE_URL = "https://autocalibration.scenescape.intel.com:8443"
 MAP_APRILTAG_COUNT = 7  # number of apriltags present in Queuing scene
 
 
@@ -31,13 +30,14 @@ class ApriltagRegistration(FunctionalTest):
     super().__init__(testName, request, recordXMLAttribute)
     self.scene_id = '302cf49a-97ec-402d-a324-c5077b280b7b'
     self.original_apriltag_size = None
+    self.autocalib_base = f"{self.params['weburl']}/api/v1/autocalibration"
 
     self.rootcert = self.params['rootcert']
     self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
     res = self.rest.authenticate(self.params['user'], self.params['password'])
     assert res, res.errors
 
-    r = requests.get(f"{BASE_URL}/v1/status", verify=self.rootcert, timeout=10)
+    r = requests.get(f"{self.autocalib_base}/status", verify=self.rootcert, timeout=10)
     assert r.ok, f"Autocalibration status check failed: {r.status_code} {r.text}"
     status = r.json()
     assert status.get('status') == 'running', \
@@ -64,7 +64,7 @@ class ApriltagRegistration(FunctionalTest):
   def _trigger_registration(self):
     """Explicitly POST to the autocalibration service to start scene registration"""
 
-    url = f"{BASE_URL}/v1/scenes/{self.scene_id}/registration"
+    url = f"{self.autocalib_base}/scenes/{self.scene_id}/registration"
     r = requests.post(url, json={}, verify=self.rootcert, timeout=10)
     assert r.status_code in (200, 202), \
       f"POST registration returned {r.status_code}: {r.text}"

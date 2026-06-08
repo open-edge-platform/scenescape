@@ -191,6 +191,21 @@ class RetrackTest:
       log.info(f"Set external_update_rate={rate} on scene {self.child_id}")
     self._await_db_notification(_update)
 
+  def set_regulated_rate(self, rest_client, scene_uid, rate):
+    """! Update regulated_rate on a scene and wait for the CMD_DATABASE
+    notification confirming the controller has loaded the change.
+
+    @param    rest_client   An authenticated RESTClient instance.
+    @param    scene_uid     UID of the scene to update.
+    @param    rate          Float Hz value for regulated_rate.
+    """
+    def _update():
+      res = rest_client.updateScene(scene_uid, {'regulated_rate': rate})
+      assert res.statusCode == 200, \
+        f"Failed to set regulated_rate={rate}: {res.statusCode}: {res.errors}"
+      log.info(f"Set regulated_rate={rate} on scene {scene_uid}")
+    self._await_db_notification(_update)
+
   def make_client(self, topics=None, on_msg=None):
     """! Create and start an MQTT PubSub client, subscribe to *topics* on
     connect, and block until the broker confirms connection.

@@ -3,7 +3,6 @@
 
 import logging
 import os
-import sys
 import json
 import glob
 import time
@@ -11,11 +10,8 @@ import inspect
 import pytest
 
 TESTS_API_DIR = os.path.dirname(__file__)
-if TESTS_API_DIR not in sys.path:
-  sys.path.insert(0, TESTS_API_DIR)
 
 from scene_common.rest_client import RESTClient
-from mapping_client import MappingClient
 
 # Logging Configuration
 LOG_FILE = os.path.join(os.path.dirname(__file__), "api_test.log")
@@ -148,7 +144,7 @@ def normalize_file_paths(data):
     return os.path.normpath(os.path.join(TESTS_API_DIR, data))
   return data
 
-def build_call_kwargs(request_data, api_client=None):
+def build_call_kwargs(request_data, api_name=None):
   """
   Normalise the structured request dict from the JSON scenario into a flat
   kwargs dict ready to be splatted into the API method call.
@@ -158,8 +154,8 @@ def build_call_kwargs(request_data, api_client=None):
                  Each key is unpacked directly as a kwarg.
     body         request payload; forwarded as kwarg "data".
 
-  api_client is used to skip file resolution for MappingClient, which opens
-  its own file paths internally via _build_multipart_files.
+  api_name is used to skip file resolution for mapping API, which opens
+  its own file paths internally.
   """
   kwargs = {}
 
@@ -171,8 +167,8 @@ def build_call_kwargs(request_data, api_client=None):
       else:
         logger.warning(f"    'path_params' should be a dict, got {type(value).__name__}; skipping")
     elif key == "body":
-      # MappingClient opens its own files from path strings; skip resolution
-      if isinstance(api_client, MappingClient):
+      # Mapping API opens its own files from path strings; skip resolution
+      if api_name == "mapping":
         kwargs["data"] = normalize_file_paths(value)
       else:
         kwargs["data"] = resolve_file_paths(value)
@@ -272,7 +268,7 @@ def execute_step(api_map, step, step_number, total_steps):
   # Normalize request keys to match RESTClient parameter names:
   #   "body" -> "data"  (request body)
   #   "path_params" -> extract and merge its contents into request_data
-  call_kwargs = build_call_kwargs(raw_request, api_client=api)
+  call_kwargs = build_call_kwargs(raw_request, api_name=api_name)
   open_files = [v for v in (call_kwargs.get("data") or {}).values()
                 if hasattr(v, "read")]
 

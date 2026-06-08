@@ -114,7 +114,7 @@ export default class SceneCamera extends THREE.Object3D {
     this.cameraCapture = null;
     this.currentFrame = null;
     this.socket = io({
-      path: "/socket.io",
+      path: "/api/v1/autocalibration/socket.io",
       transports: ["websocket"],
     });
 

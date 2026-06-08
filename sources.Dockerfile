@@ -20,14 +20,12 @@ RUN apt-get source --download-only \
     armadillo \
     base-files \
     bash \
-    bindfs \
     bzip2 \
     cfitsio \
     curl \
     dpkg \
     elfutils \
     fonts-dejavu-core \
-    fuse \
     fyba \
     gcc-12 \
     gcc-14 \
