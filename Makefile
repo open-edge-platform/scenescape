@@ -9,7 +9,7 @@ SHELL := /bin/bash
 # Build folders
 COMMON_FOLDER := scene_common
 CORE_IMAGE_FOLDERS := autocalibration controller manager model_installer
-IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker
+IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker scene_common
 
 # Image variables
 IMAGE_PREFIX := scenescape
