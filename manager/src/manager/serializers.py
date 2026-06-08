@@ -910,7 +910,7 @@ class UserSerializer(NonNullSerializer):
     }
 
 class Asset3DSerializer(NonNullSerializer):
-  uid = serializers.CharField(source='pk')
+  uid = serializers.CharField(source='pk', read_only=True)
   name = serializers.CharField(max_length=150)
 
   def validate_name(self, value):
