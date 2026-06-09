@@ -78,6 +78,11 @@ Follow steps below one by one. Ask for clarification if needed. Each time ask fo
 1. Verify all base inputs. Stop immediately and flag any issues if inputs are not clear or information is not accessible.
 2. Use `docs/agent/intermediate/adr-vs-design-split.md` as the structural backbone for the design document — its *Design-Doc scope* subsections seed §5 (Proposed Design) of [docs/design/template.md](docs/design/template.md). Perform a quick consistency check between this intermediate and the ADR ([docs/adr/0012-mlops-integration-reuse.md](docs/adr/0012-mlops-integration-reuse.md)) and flag any drift before proceeding.
 3. Check whether you have everything needed to generate the design document. Verify all sources for consistency and flag any issues or inconsistencies.
+4. **SceneScape granularity analysis** — Before drafting, analyze whether the term "SceneScape" in the existing inputs (ADR, intermediates, source docs) is used at the right level of abstraction. SceneScape is itself a set of microservices (Manager, Scene Controller, Auto Camera Calibration, model_installer, etc.). Determine:
+   - For each occurrence of "SceneScape" in scope of the design doc, whether it should remain as the umbrella name or be refined to a specific service.
+   - Which level of detail is appropriate for the design doc vs. the ADR (the ADR treats SceneScape as a whole; the design doc may need to be more specific in some sections).
+   - Which SceneScape services will be extended or become clients of other OEP components, and **when** that mapping is decided (now, or per phase).
+   Capture the conclusions and apply them consistently when drafting. This step exists to avoid drift between the umbrella term and concrete service-level integration responsibilities.
 
 ### Create Design Document
 
