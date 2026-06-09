@@ -1,10 +1,8 @@
-DO NOT PROCESS THIS DOCUMENT. IT IS NOT READY YET!!
-
-# Plan for AI-assisted creation of documents for Open-Edge-Platform MLOps Integration and reuse (WIP)
+# Plan for AI-assisted creation of Design Document for Open-Edge-Platform MLOps Integration and reuse (WIP)
 
 ## Goal
 
-Submit two separate PRs based on existing inputs (JIRA items, PowerPoint presentation and DrawIO diagrams, GitHub issue etc.): one for ADR and one for design doc. Prepare pull request descriptions for both using built-in GitHub template.
+Submit PR based on existing inputs with design document for "Open-Edge-Platform MLOps Integration and reuse" feature as specified below. Prepare pull request description using built-in GitHub template.
 
 ## Role of AI coding-agent in the process
 
@@ -16,6 +14,8 @@ AI coding-agent, I want you to be facilitator, coach and consultant in the proce
 
 ## Scope and components involved
 
+The design document specifies high level design and will be detailed in next phases where needed. Some of the cross-service integration details have dependency on other components' design and are going to be decided when the design is ready. Explicitely state this limitation in the design document.
+
 All components belong to Intel [Open-Edge-Platform](https://github.com/open-edge-platform) (OEP).
 
 The scope of the documents created includes integration of [SceneScape](https://github.com/open-edge-platform/scenescape) with other components, namely:
@@ -25,17 +25,7 @@ The scope of the documents created includes integration of [SceneScape](https://
 - [Geti](https://github.com/open-edge-platform/geti)
 - Stream Manager (aka Intel VST), a new service that is going to be introduced.
 
-Integration of other components than SceneScape among themselves is part of the whole solution but is not the subject of the design decisions.
-
-The documents created are deliverable for OEP 2026.1 release. The feature is planned to be delivered in phases in next releases (2026.2+).
-JIRA item created for 2026.2 release define the exact scope.
-Important: Use the release numbers mostly for your reference and refrain from using it in the documents. Just focus on the technical aspect and refer to them as phases.
-
-## Component responsibilities
-
-
-
-## SceneScape context
+## Context
 
 SceneScape currently provides custom solutions for:
 - model download (model_installer/src/README.md) and management (docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md, docs/user-guide/other-topics/model-configuration-file-format.md)
@@ -47,39 +37,42 @@ SceneScape supports dynamic pipeline configuration (currently supported only in 
 
 DLStreamer pipeline is customized with a dedicated, monolithic scripts (dlstreamer-pipeline-server/user_scripts/gvapython/sscape) running in SceneScape pipelines using `gvapython` element that is going to be deprecated in favour of Gst Analytics Python approach. This makes it difficult to integrate SceneScape pipelines with other components and delegate pipeline building. We want to address it but it will be investigated in next phase, how the custom logic can broken down.
 
-## Inputs
+## Base Inputs
 
-1. [PowerPoint presentation](docs/agent/presentation-extract.md)
-2. [DrawIO diagrams](docs/agent/diagrams/SceneScape_MLOps.drawio)
+Use these documents as a primary high-level source. All of these were created in the process of generating ADR document.
+
+1. ADR: `docs/adr/0012-mlops-integration-reuse.md`
+2. All MarkDown files in `docs/agent/intermediate` folder.
+
+## Source Inputs
+
+Use these documents as a secondary lower-level source or fall back if anything is ambiguous in base inputs. These are the primary sources of knowledge that were used in ADR document generation.
+
+Embed both the SVG diagrams in the right place in the design document.
+
+1. [presentation extract](docs/agent/presentation-extract.md)
+2. [presentation extract](docs/agent/stream-manager.md)
+3. [DrawIO diagrams](docs/agent/diagrams/SceneScape_MLOps.drawio)
   - Process Model Page (exported as `docs/agent/diagrams/SceneScape_MLOps-Process Model.drawio.svg`)
   - Component Interaction Page (exported as `docs/agent/diagrams/SceneScape_MLOps-Process Model.drawio.svg`)
-2. [JIRA tickets](docs/agent/jira)
-3. [NOKIA feature request](https://github.com/open-edge-platform/scenescape/issues/782)
 
 ## Outputs
 
-1. PR descriptions in MarkDown format: `docs/agent/` folder
-2. ADR: `docs/adr/0012-mlops-integration-reuse.md`
-3. Design doc: `docs/design/mlops-integration-reuse.md`
+1. Design doc: `docs/design/mlops-integration-reuse.md`
+2. PR description in MarkDown format: `docs/agent/` folder
 
 ## Steps
 
-Follow steps below one by one. Ask for clarification if needed.
+Follow steps below one by one. Ask for clarification if needed. Each time ask for approval before proceeding to next step.
 
-1. Verify all inputs, extract information. Stop immediately and flag any issues if inputs are not clear or information is not accessible.
-2. Explain each diagram and create intermediate .md files in `docs/agent/intermediate` folder with a summary.
-3. Treat original NOKIA feature request as approximation of WHAT we are aiming in terms of UX, not a must have requirements. UX KPIs like mouse-clicks are not relevant in the context of documents created.
-4. Treat JIRA tickets, presentation and diagrams as a definition of WHAT and HOW we are going to deliver
+1. Verify all base inputs. Stop immediately and flag any issues if inputs are not clear or information is not accessible.
+2. Analyze `docs/agent/intermediate/adr-vs-design-split.md` document and compare with ADR document for consistency.
+3. Check whether you have everything needed to generate the design document. Verify all sources for consistency and flag any issues or inconsistencies.
 
-### Create ADR
-
-- Help me adopt this knowledge into template docs/adr/template.md step-by-step.
-- If any parts of template are not clear or covered, do not invent on your own, but ask for input and clarification.
-
-### Create design doc
+### Create Design Document
 
 - Help me adopt this knowledge into template docs/design/template.md step-by-step.
 - If any parts of template are not clear or covered, do not invent on your own, but ask for input and clarification.
-- Include diagrams exported as SVG where appropriate
-- Leave placeholders for sequence diagrams. We will generate them separately once the rest of document is ready.
-
+- Include diagrams exported as SVG where appropriate.
+- Iteratively, step-by-step improve, clarify or fill in placeholders and ask for feedback.
+- As stated in the scope section, it is OK if some parts of the design are not decided at this stage. In such cases, explicitely state that those will be addressed in next phases.
