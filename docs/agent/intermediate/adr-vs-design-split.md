@@ -138,7 +138,7 @@ For each of the 6 deltas (Section 3 of `responsibilities.md`):
 ### Deployment topology
 
 - Docker Compose and Kubernetes wiring for the shared model volume.
-- Model Downloader as standalone vs. embedded in ViPPET deployment (co-ownership of model storage).
+- Model storage sharing between the SceneScape and ViPPET deployments when ViPPET is deployed with its own Model Downloader instance (enumerate options for SceneScape deployed in Docker Compose and Kuberenets. ViPPET is always deployed in Docker Compose).
 - Stream Manager opt-in deployment.
 - DLSPS configuration for both interim (config-map + pod recreation) and target (runtime API) modes.
 
