@@ -1,17 +1,19 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-IMAGE := scenescape-mapping
-TARGET = mapping-runtime
-USES_SCENE_COMMON := yes
-
 # Model selection - can be overridden with MODEL_TYPE=vggt or MODEL_TYPE=mapanything
 MODEL_TYPE ?= mapanything
+
+IMAGE := scenescape-mapping-$(MODEL_TYPE)
+TARGET = mapping-runtime
+USES_SCENE_COMMON := yes
 
 include ../common.mk
 
 # Override docker build args to include MODEL_TYPE
 EXTRA_BUILD_ARGS := --build-arg MODEL_TYPE=$(MODEL_TYPE)
+
+default: build-mapanything
 
 .PHONY: test-build
 test-build:
