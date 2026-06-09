@@ -13,8 +13,6 @@ include ../common.mk
 # Override docker build args to include MODEL_TYPE
 EXTRA_BUILD_ARGS := --build-arg MODEL_TYPE=$(MODEL_TYPE)
 
-default: build-mapanything
-
 .PHONY: test-build
 test-build:
 	$(MAKE) IMAGE="scenescape-mapping-test" TARGET="mapping-test" MODEL_TYPE=$(MODEL_TYPE)
