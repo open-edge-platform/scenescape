@@ -1,20 +1,22 @@
-# Plan for AI-assisted creation of Design Document for Open-Edge-Platform MLOps Integration and reuse (WIP)
+# Plan for AI-assisted creation of Design Document for Open-Edge-Platform MLOps Integration and reuse
 
 ## Goal
 
-Submit PR based on existing inputs with design document for "Open-Edge-Platform MLOps Integration and reuse" feature as specified below. Prepare pull request description using built-in GitHub template.
+Prepare artifacts for a PR introducing the design document for the "Open-Edge-Platform MLOps Integration and reuse" feature, based on the existing inputs specified below. The agent's responsibility ends at producing the artifacts (design document and PR-description markdown). The user commits, pushes, and opens the pull request.
+
+Prepare the pull request description using the built-in GitHub template at [.github/pull_request_template.md](../../../.github/pull_request_template.md).
 
 ## Role of AI coding-agent in the process
 
 Driving rule:
 
 ```
-AI coding-agent, I want you to be facilitator, coach and consultant in the process. If there are any inconsistencies in the architecture or design, or if some design choices and assumptions are not explicitely stated, help me identify it, flag it and support me in resolution or clarification. Do not make assuptions or design choices on your own. Help me in better analyzing, structuring and phrasing the document.
+AI coding-agent, I want you to be facilitator, coach and consultant in the process. If there are any inconsistencies in the architecture or design, or if some design choices and assumptions are not explicitly stated, help me identify it, flag it and support me in resolution or clarification. Do not make assumptions or design choices on your own. Help me in better analyzing, structuring and phrasing the document.
 ```
 
 ## Scope and components involved
 
-The design document specifies high level design and will be detailed in next phases where needed. Some of the cross-service integration details have dependency on other components' design and are going to be decided when the design is ready. Explicitely state this limitation in the design document.
+The design document specifies high level design and will be detailed in next phases where needed. Some of the cross-service integration details have dependency on other components' design and are going to be decided when the design is ready. Explicitly state this limitation in the design document.
 
 All components belong to Intel [Open-Edge-Platform](https://github.com/open-edge-platform) (OEP).
 
@@ -35,7 +37,7 @@ The goal is to delegate those functionalities and reuse existing or future compo
 
 SceneScape supports dynamic pipeline configuration (currently supported only in Kubernetes - see docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md) using DLSPS. This is caused by the fact that DLSPS lacks run-time API for arbitrary dynamic pipeline configuration and static configuration must be generated as a config map. DLSPS pods are recreated on each pipeline update (see `manager/src/manager/kubeclient.py`) because DLSPS number of pipelines is also statically configured. Improvements in DLSPS are needed but once pipeline building is delegated and DLSPS supports true dynamic pipeline configuration via REST API, the dynamic pipeline configuration in SceneScape will be possible in Docker Compose deployment as well, since no custom orchestration will be needed by SceneScape and everything will be managed via REST API calls - such universal solution with clear division of responsibilities is the ultimate goal.
 
-DLStreamer pipeline is customized with a dedicated, monolithic scripts (dlstreamer-pipeline-server/user_scripts/gvapython/sscape) running in SceneScape pipelines using `gvapython` element that is going to be deprecated in favour of Gst Analytics Python approach. This makes it difficult to integrate SceneScape pipelines with other components and delegate pipeline building. We want to address it but it will be investigated in next phase, how the custom logic can broken down.
+DLStreamer pipeline is customized with a dedicated, monolithic scripts (dlstreamer-pipeline-server/user_scripts/gvapython/sscape) running in SceneScape pipelines using `gvapython` element that is going to be deprecated in favour of Gst Analytics Python approach. This makes it difficult to integrate SceneScape pipelines with other components and delegate pipeline building. We want to address it but it will be investigated in next phase, how the custom logic can be broken down.
 
 ## Base Inputs
 
@@ -51,22 +53,30 @@ Use these documents as a secondary lower-level source or fall back if anything i
 Embed both the SVG diagrams in the right place in the design document.
 
 1. [presentation extract](docs/agent/presentation-extract.md)
-2. [presentation extract](docs/agent/stream-manager.md)
+2. [Stream Manager presentation extract](docs/agent/stream-manager.md)
 3. [DrawIO diagrams](docs/agent/diagrams/SceneScape_MLOps.drawio)
   - Process Model Page (exported as `docs/agent/diagrams/SceneScape_MLOps-Process Model.drawio.svg`)
-  - Component Interaction Page (exported as `docs/agent/diagrams/SceneScape_MLOps-Process Model.drawio.svg`)
+  - Component Interaction Page (exported as `docs/agent/diagrams/SceneScape_MLOps-Component Interaction.drawio.svg`)
+4. [JIRA tickets](docs/agent/jira)
+5. [NOKIA feature request](https://github.com/open-edge-platform/scenescape/issues/782)
+
+Important: Release numbers, JIRA IDs and GitHub issue numbers must NOT appear in the design document body. Refer to phases instead. This rule is carried forward from the ADR-PR plan.
+
+## Authoring conventions
+
+- **Reference the ADR rather than duplicate its content.** Where the ADR ([docs/adr/0012-mlops-integration-reuse.md](docs/adr/0012-mlops-integration-reuse.md)) already states the decision, motivation, or constraint, the design document should link to the ADR section instead of repeating the text. This applies to the Context, Goals, Non-Goals, and Alternatives Considered sections in particular. The design document focuses on the *how* (implementation, contracts, deltas, rollout); the ADR remains the source of truth for *what* and *why*.
 
 ## Outputs
 
 1. Design doc: `docs/design/mlops-integration-reuse.md`
-2. PR description in MarkDown format: `docs/agent/` folder
+2. PR description in MarkDown format: `docs/agent/design-pull-request-description.md`
 
 ## Steps
 
 Follow steps below one by one. Ask for clarification if needed. Each time ask for approval before proceeding to next step.
 
 1. Verify all base inputs. Stop immediately and flag any issues if inputs are not clear or information is not accessible.
-2. Analyze `docs/agent/intermediate/adr-vs-design-split.md` document and compare with ADR document for consistency.
+2. Use `docs/agent/intermediate/adr-vs-design-split.md` as the structural backbone for the design document — its *Design-Doc scope* subsections seed §5 (Proposed Design) of [docs/design/template.md](docs/design/template.md). Perform a quick consistency check between this intermediate and the ADR ([docs/adr/0012-mlops-integration-reuse.md](docs/adr/0012-mlops-integration-reuse.md)) and flag any drift before proceeding.
 3. Check whether you have everything needed to generate the design document. Verify all sources for consistency and flag any issues or inconsistencies.
 
 ### Create Design Document
@@ -75,4 +85,11 @@ Follow steps below one by one. Ask for clarification if needed. Each time ask fo
 - If any parts of template are not clear or covered, do not invent on your own, but ask for input and clarification.
 - Include diagrams exported as SVG where appropriate.
 - Iteratively, step-by-step improve, clarify or fill in placeholders and ask for feedback.
-- As stated in the scope section, it is OK if some parts of the design are not decided at this stage. In such cases, explicitely state that those will be addressed in next phases.
+- As stated in the scope section, it is OK if some parts of the design are not decided at this stage. In such cases, explicitly state that those will be addressed in next phases.
+- Apply the *Reference the ADR rather than duplicate* rule from the *Authoring conventions* section.
+
+### Create PR Description
+
+- Create a PR description aligned with [.github/pull_request_template.md](../../../.github/pull_request_template.md), saved to `docs/agent/design-pull-request-description.md`.
+- Use [docs/agent/adr-pull-request-description.md](../adr-pull-request-description.md) as a structural reference (this is a documentation-only PR).
+- Iterate until I approve.
