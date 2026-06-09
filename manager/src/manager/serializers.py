@@ -52,6 +52,13 @@ class NonNullSerializer(serializers.ModelSerializer):
                             not isinstance(result[key], list)
                             and not isinstance(result[key], tuple)) or result[key]])
 
+def _validate_scene_exists(data):
+  scene = data.get('scene')
+  if scene is not None:
+    scene_pk = scene.get('pk') if isinstance(scene, dict) else scene
+    if scene_pk and not Scene.objects.filter(pk=scene_pk).exists():
+      raise serializers.ValidationError({"scene": "Scene with given UUID does not exist."})
+
 class CenterSerializerField(serializers.DictField):
   def to_representation(self, obj):
     if hasattr(obj, 'map_x') and hasattr(obj, 'map_y') \
@@ -70,6 +77,12 @@ class PointsSerializerField(serializers.DictField):
     return points
 
   def to_internal_value(self, data):
+    if not isinstance(data, list):
+      raise serializers.ValidationError("Points must be a list.")
+    for i, point in enumerate(data):
+      if not isinstance(point, (list, tuple)) or len(point) != 2:
+        raise serializers.ValidationError(
+          f"Each point must be a list of 2 coordinates, got {point} at index {i}.")
     return data
 
   @staticmethod
@@ -169,11 +182,11 @@ class SingletonScalarThresholdSerializer(RegionOccupancyThresholdSerializer):
 class SingletonSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
   uid = serializers.CharField(source="sensor_id", read_only=True)
-  scene = serializers.CharField(source='scene.pk', allow_null=True)
-  center = CenterSerializerField(source='*')
-  points = PointsSerializerField()
+  scene = serializers.CharField(source='scene.pk', allow_null=True, required=False)
+  center = CenterSerializerField(source='*', required=False)
+  points = PointsSerializerField(required=False)
   translation = serializers.SerializerMethodField('get_translation')
-  color_ranges = SingletonScalarThresholdSerializer(source='singleton_scalar_threshold')
+  color_ranges = SingletonScalarThresholdSerializer(source='singleton_scalar_threshold', required=False)
 
   def get_translation(self, obj):
     return [obj.map_x, obj.map_y, 0.0]
@@ -205,6 +218,7 @@ class SingletonSerializer(NonNullSerializer):
         val = data.get(field)
         if val is None:
           raise serializers.ValidationError({field: "required"})
+    _validate_scene_exists(data)
     if 'singleton_scalar_threshold' in data:
       SingletonScalarThresholdSerializer.validateColorRanges(data['singleton_scalar_threshold'])
     return data
@@ -263,9 +277,9 @@ class CamSerializer(NonNullSerializer):
   translation = serializers.SerializerMethodField('get_translation')
   rotation = serializers.SerializerMethodField('get_rotation')
   scale = serializers.SerializerMethodField('get_scale')
-  resolution = ResolutionSerializerField(source='cam')
+  resolution = ResolutionSerializerField(source='cam', required=False)
   transforms = serializers.SerializerMethodField('get_transform')
-  scene = serializers.CharField(source="scene.pk", allow_null=True)
+  scene = serializers.CharField(source="scene.pk", allow_null=True, required=False)
   transform_type = serializers.SerializerMethodField('get_transform_type')
 
   def validate_name(self, value):
@@ -470,6 +484,7 @@ class CamSerializer(NonNullSerializer):
     return camera.pose.scale if camera and hasattr(camera, 'pose') else None
 
   def validate(self, data):
+    _validate_scene_exists(data)
     if data.get('use_camera_pipeline') and not data.get('camera_pipeline'):
       raise serializers.ValidationError({
         'camera_pipeline': 'camera_pipeline cannot be empty when use_camera_pipeline is true.'
@@ -485,7 +500,11 @@ class RegionSerializer(NonNullSerializer):
   uid = serializers.SerializerMethodField('get_uuid')
   points = PointsSerializerField()
   scene = serializers.CharField(source='scene.pk')
-  color_ranges = RegionOccupancyThresholdSerializer(source='roi_occupancy_threshold')
+  color_ranges = RegionOccupancyThresholdSerializer(source='roi_occupancy_threshold', required=False)
+
+  def validate(self, data):
+    _validate_scene_exists(data)
+    return data
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
@@ -770,6 +789,8 @@ class SceneSerializer(NonNullSerializer):
       for key, value in validated_data.items():
         setattr(instance, key, value)
       instance.save(send_update_command=send_update_command)
+    else:
+      instance.notifyDbUpdate()
     return instance
 
   def create(self, validated_data):

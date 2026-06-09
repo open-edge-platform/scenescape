@@ -17,6 +17,9 @@ info:
 
 servers:
   - url: "https://localhost:8443/v1"
+    description: Direct standalone access
+  - url: "https://localhost/api/v1/autocalibration"
+    description: Access via Apache reverse proxy when web service is running
 
 components:
   schemas:

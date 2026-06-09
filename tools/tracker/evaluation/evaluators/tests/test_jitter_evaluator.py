@@ -526,3 +526,40 @@ class TestReset:
     evaluator.reset()
     evaluator.configure_metrics(['acceleration_variance'])
     assert evaluator._metrics == ['acceleration_variance']
+
+
+class TestSetBaseFps:
+  """Test set_base_fps method."""
+
+  def test_returns_self(self, evaluator):
+    """Method returns self for chaining."""
+    assert evaluator.set_base_fps(30.0) is evaluator
+
+  def test_none_resets(self, evaluator):
+    """None resets to auto-compute."""
+    evaluator.set_base_fps(30.0)
+    evaluator.set_base_fps(None)
+    assert evaluator._base_fps is None
+
+  def test_zero_raises(self, evaluator):
+    """Zero fps raises ValueError."""
+    with pytest.raises(ValueError, match="must be > 0"):
+      evaluator.set_base_fps(0)
+
+  def test_negative_raises(self, evaluator):
+    """Negative fps raises ValueError."""
+    with pytest.raises(ValueError, match="must be > 0"):
+      evaluator.set_base_fps(-1.0)
+
+  def test_reset_clears(self, evaluator):
+    """reset() clears base_fps."""
+    evaluator.set_base_fps(30.0)
+    evaluator.reset()
+    assert evaluator._base_fps is None
+
+  def test_overrides_computed_fps(self, evaluator, mock_tracker_outputs):
+    """When set, base_fps overrides computed FPS."""
+    evaluator.set_base_fps(15.0)
+    evaluator.configure_metrics(['rms_jerk'])
+    evaluator.process_tracker_outputs(mock_tracker_outputs, ground_truth=None)
+    assert evaluator._camera_fps == 15.0

@@ -87,6 +87,9 @@ class ListThings(generics.ListCreateAPIView):
     return thing_serializer
 
 class SceneImportAPIView(APIView):
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [permissions.IsAuthenticated]
+
   def post(self, request, *args, **kwargs):
     if "zipFile" not in request.FILES:
       return Response({"error": "zipFile is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -189,7 +192,7 @@ class ManageThing(APIView):
         thing,
         data=request.data,
         partial=True
-    ) if thing else thing_serializer(data=request.data, partial=True)
+    ) if thing else thing_serializer(data=request.data)
 
     if not serializer.is_valid():
       raise ValidationError(serializer.errors)

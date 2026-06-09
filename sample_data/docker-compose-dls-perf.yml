@@ -124,12 +124,6 @@ services:
     environment:
       - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
-    cap_add:
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
@@ -248,7 +242,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24-rc1.1
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24-rc2
     privileged: true
     networks:
       scenescape:

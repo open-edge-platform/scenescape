@@ -3,7 +3,6 @@
 
 import logging
 import os
-import sys
 import json
 import glob
 import time
@@ -11,11 +10,8 @@ import inspect
 import pytest
 
 TESTS_API_DIR = os.path.dirname(__file__)
-if TESTS_API_DIR not in sys.path:
-  sys.path.insert(0, TESTS_API_DIR)
 
 from scene_common.rest_client import RESTClient
-from mapping_client import MappingClient
 
 # Logging Configuration
 LOG_FILE = os.path.join(os.path.dirname(__file__), "api_test.log")
@@ -148,7 +144,7 @@ def normalize_file_paths(data):
     return os.path.normpath(os.path.join(TESTS_API_DIR, data))
   return data
 
-def build_call_kwargs(request_data, api_client=None):
+def build_call_kwargs(request_data, api_name=None):
   """
   Normalise the structured request dict from the JSON scenario into a flat
   kwargs dict ready to be splatted into the API method call.
@@ -158,8 +154,8 @@ def build_call_kwargs(request_data, api_client=None):
                  Each key is unpacked directly as a kwarg.
     body         request payload; forwarded as kwarg "data".
 
-  api_client is used to skip file resolution for MappingClient, which opens
-  its own file paths internally via _build_multipart_files.
+  api_name is used to skip file resolution for mapping API, which opens
+  its own file paths internally.
   """
   kwargs = {}
 
@@ -171,8 +167,8 @@ def build_call_kwargs(request_data, api_client=None):
       else:
         logger.warning(f"    'path_params' should be a dict, got {type(value).__name__}; skipping")
     elif key == "body":
-      # MappingClient opens its own files from path strings; skip resolution
-      if isinstance(api_client, MappingClient):
+      # Mapping API opens its own files from path strings; skip resolution
+      if api_name == "mapping":
         kwargs["data"] = normalize_file_paths(value)
       else:
         kwargs["data"] = resolve_file_paths(value)
@@ -204,7 +200,7 @@ def compare_expected_json_body(actual, expected, path="root"):
         errors.append(f"{path}.{key}: unexpected key in actual response")
     for key in expected:
       if key in actual:
-        _, sub_errors = compare_expected_json_body(
+        sub_errors = compare_expected_json_body(
           actual[key], expected[key], f"{path}.{key}")
         errors.extend(sub_errors)
 
@@ -214,7 +210,7 @@ def compare_expected_json_body(actual, expected, path="root"):
         f"{path}: list length mismatch - expected {len(expected)}, got {len(actual)}")
     else:
       for i, (actual_item, expected_item) in enumerate(zip(actual, expected)):
-        _, sub_errors = compare_expected_json_body(
+        sub_errors = compare_expected_json_body(
           actual_item, expected_item, f"{path}[{i}]")
         errors.extend(sub_errors)
 
@@ -222,7 +218,7 @@ def compare_expected_json_body(actual, expected, path="root"):
     if actual != expected:
       errors.append(f"{path}: expected '{expected}', got '{actual}'")
 
-  return len(errors) == 0, errors
+  return errors
 
 
 def validate_response(response_body, validation_rules):
@@ -244,7 +240,7 @@ def validate_response(response_body, validation_rules):
         f"Field '{field}': expected '{expected_value}', got '{actual_value}'"
       )
 
-  return len(errors) == 0, errors
+  return errors
 
 
 def execute_step(api_map, step, step_number, total_steps):
@@ -272,7 +268,7 @@ def execute_step(api_map, step, step_number, total_steps):
   # Normalize request keys to match RESTClient parameter names:
   #   "body" -> "data"  (request body)
   #   "path_params" -> extract and merge its contents into request_data
-  call_kwargs = build_call_kwargs(raw_request, api_client=api)
+  call_kwargs = build_call_kwargs(raw_request, api_name=api_name)
   open_files = [v for v in (call_kwargs.get("data") or {}).values()
                 if hasattr(v, "read")]
 
@@ -327,13 +323,13 @@ def execute_step(api_map, step, step_number, total_steps):
 
         # Check fail_if conditions first
         if fail_rules:
-          _, fail_errors = validate_response(body, fail_rules)
+          fail_errors = validate_response(body, fail_rules)
           if not fail_errors:   # all fail_if conditions matched → abort
             return False, response, f"Poll aborted: fail_if condition matched {fail_rules}"
 
         # Check until conditions
         if until_rules:
-          _, until_errors = validate_response(body, until_rules)
+          until_errors = validate_response(body, until_rules)
           if not until_errors:  # all until conditions matched → done
             break
 
@@ -373,7 +369,7 @@ def execute_step(api_map, step, step_number, total_steps):
   if expected_body is not None:
     logger.debug("    Validating entire response body against expected structure")
     expected_body = substitute_variables(expected_body)
-    _, errors = compare_expected_json_body(response_body, expected_body)
+    errors = compare_expected_json_body(response_body, expected_body)
     if errors:
       error_msg = "Response body validation failed:\n" + \
         "\n".join(f"  - {e}" for e in errors)
@@ -400,7 +396,7 @@ def execute_step(api_map, step, step_number, total_steps):
   # Validate specific fields if rules provided
   if validate_rules:
     logger.debug(f"    Validating response against rules: {validate_rules}")
-    _, errors = validate_response(response_body, validate_rules)
+    errors = validate_response(response_body, validate_rules)
     if errors:
       error_msg = "Response validation failed:\n" + \
         "\n".join(f"  - {e}" for e in errors)

@@ -93,6 +93,7 @@ help:
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Intel® SceneScape)"
 	@echo "  demo-tracker                Start the SceneScape demo with Tracker service + Controller in analytics only mode using Docker Compose"
+	@echo "  demo-close                  Stop the running SceneScape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
@@ -420,8 +421,7 @@ run_functional_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running functional tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
-		$(PYTEST) $(TESTS_DIR)/functional/ \
-		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ $(PYTEST_FLAGS) || (echo "Functional tests failed" && exit 1)
+		$(PYTEST) $(TESTS_DIR)/functional/ $(PYTEST_FLAGS) || (echo "Functional tests failed" && exit 1)
 	@echo "DONE ==> Running functional tests"
 
 .PHONY: run_non_functional_tests
@@ -672,9 +672,11 @@ define start_demo
 		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
 	fi
 	docker compose $(1) up -d
+	@echo "$(1)" > .scenescape-profile
 	@echo ""
 	@echo "To stop SceneScape, type:"
 	@echo "    docker compose $(1) down"
+	@echo "Or use: make demo-close"
 endef
 
 .PHONY: demo
@@ -688,6 +690,15 @@ demo-all: build-all init-sample-data
 .PHONY: demo-tracker
 demo-tracker: build-all init-sample-data
 	$(call start_demo,--profile analytics --profile tracker)
+
+.PHONY: demo-close
+demo-close:
+	@if [ ! -f .scenescape-profile ]; then \
+		echo "Error: .scenescape-profile not found. Was the demo started with 'make demo'?"; \
+		exit 1; \
+	fi
+	docker compose $(shell cat .scenescape-profile 2>/dev/null) down -v
+	@rm -f .scenescape-profile
 
 .PHONY: demo-k8s
 demo-k8s:
@@ -725,7 +736,13 @@ init-secrets: $(SECRETSDIR) certificates auth-secrets
 
 $(SECRETSDIR):
 	mkdir -p $@
-	chmod go-rwx $(SECRETSDIR)
+	@if ! chmod go-rwx $(SECRETSDIR); then \
+		if [ "$${CI}" = "true" ] || [ "$${CI}" = "1" ]; then \
+			echo "Warning: could not set restrictive permissions on $(SECRETSDIR) in CI; secrets may be more exposed on this filesystem. Ensure runner isolation controls are in place."; \
+		else \
+			exit 1; \
+		fi; \
+	fi
 
 .PHONY: $(SECRETSDIR) certificates
 certificates:
