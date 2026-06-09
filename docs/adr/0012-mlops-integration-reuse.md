@@ -41,26 +41,28 @@ SceneScape **delegates** model management, visual pipeline building, and video-s
 - **Exported scenes embed pipeline definitions by value** so that deployment is possible without ViPPET.
 - **Exported scenes reference models by identifier** (not by value). Model Downloader is therefore required at deployment time to materialize the referenced models on a model volume shared with DLSPS.
 - **SceneScape does not call Model Downloader's download endpoint.** Model download is handled out-of-band:
+
   - at deployment time or scene import by an **external job or script**, or
   - during pipeline development by the user via the **ViPPET UI**, into a volume shared with SceneScape.
 
   SceneScape's own runtime call to Model Downloader is limited to the **listing endpoint**, used when the user needs to see available models to choose or update a model in a pipeline definition.
+
 - **Backwards compatibility:** existing static JSON pipeline configurations (Docker bind-mount and Kubernetes config maps) and the custom dynamic pipeline configuration on Kubernetes remain supported until feature parity with the ViPPET-based flow is achieved.
 
 **Phased rollout**:
 
-- *Foundation* — ADR and design baseline.
-- *Model Management Delegation* — adopt the shared model volume populated by Model Downloader; add a deployment-time job for downloading models; use the Model Downloader listing endpoint to enumerate installed models in the existing Kubernetes dynamic pipeline configuration flow.
-- *Pipeline Building Delegation & Stream Manager Adoption* — Stream Manager consumption; scene-level pipeline-to-source mapping; extend scene export/import to support externally downloaded models and embedded pipeline definitions.
-- *Pipeline Building Delegation & Stream Manager Adoption – Part 2* — full ViPPET pipeline-definition consumption; evolved DLSPS runtime integration; deprecate the custom dynamic pipeline configuration in favor of the uniform API-based dynamic pipeline configuration.
+- _Foundation_ — ADR and design baseline.
+- _Model Management Delegation_ — adopt the shared model volume populated by Model Downloader; add a deployment-time job for downloading models; use the Model Downloader listing endpoint to enumerate installed models in the existing Kubernetes dynamic pipeline configuration flow.
+- _Pipeline Building Delegation & Stream Manager Adoption_ — Stream Manager consumption; scene-level pipeline-to-source mapping; extend scene export/import to support externally downloaded models and embedded pipeline definitions.
+- _Pipeline Building Delegation & Stream Manager Adoption – Part 2_ — full ViPPET pipeline-definition consumption; evolved DLSPS runtime integration; deprecate the custom dynamic pipeline configuration in favor of the uniform API-based dynamic pipeline configuration.
 
 ## Alternatives Considered
 
-- **Status quo: keep custom SceneScape implementations** (model installer, pipeline generator, direct camera sources). *Pros*: no integration work. *Cons*: redundant with the platform, ongoing maintenance burden, very limited interoperability with other OEP components.
-- **Push pipeline-to-source mapping into ViPPET.** *Pros*: a single source of pipeline metadata. *Cons*: scene-level binding is a SceneScape domain concept — different cameras in the same scene serve different spatial-awareness tasks — and ViPPET would need scene awareness it does not own.
-- **Direct SceneScape↔Geti integration for models.** *Pros*: fewer hops. *Cons*: duplicates Model Downloader, couples SceneScape to yet another API, and breaks the platform's intended separation of concerns (ViPPET owns pipeline creation and verification).
-- **Push pipeline definitions by reference (ID/version) in exported scenes.** *Pros*: smaller artifact. *Cons*: deployment would require ViPPET to be reachable in production, but ViPPET is not intended to be deployed in production.
-- **Make Stream Manager a hard dependency.** *Pros*: a uniform video acquisition path. *Cons*: regresses today's direct-source deployments and complicates usage in scenarios where Stream Manager is not desired or available.
+- **Status quo: keep custom SceneScape implementations** (model installer, pipeline generator, direct camera sources). _Pros_: no integration work. _Cons_: redundant with the platform, ongoing maintenance burden, very limited interoperability with other OEP components.
+- **Push pipeline-to-source mapping into ViPPET.** _Pros_: a single source of pipeline metadata. _Cons_: scene-level binding is a SceneScape domain concept — different cameras in the same scene serve different spatial-awareness tasks — and ViPPET would need scene awareness it does not own.
+- **Direct SceneScape↔Geti integration for models.** _Pros_: fewer hops. _Cons_: duplicates Model Downloader, couples SceneScape to yet another API, and breaks the platform's intended separation of concerns (ViPPET owns pipeline creation and verification).
+- **Push pipeline definitions by reference (ID/version) in exported scenes.** _Pros_: smaller artifact. _Cons_: deployment would require ViPPET to be reachable in production, but ViPPET is not intended to be deployed in production.
+- **Make Stream Manager a hard dependency.** _Pros_: a uniform video acquisition path. _Cons_: regresses today's direct-source deployments and complicates usage in scenarios where Stream Manager is not desired or available.
 
 ## Consequences
 
