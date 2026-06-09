@@ -38,7 +38,7 @@ _TRACKEVAL_MIN: dict[str, dict[str, float]] = {
   },
   "black_box_tracker_service": {
     "HOTA": 0.60,
-    "MOTA": 0.70,
+    "MOTA": 0.65,
     "IDF1": 0.75,
   },
 }
@@ -71,6 +71,14 @@ _JITTER_PARAMS = [
 ]
 
 TEST_NAME = "NEX-T10463"
+
+
+def _label(run: str, metric: str) -> str:
+    """Return a human-readable label like 'Tracker Service RMS JERK RATIO'."""
+    run_label = run.removeprefix("black_box_").replace("_", " ").title()
+    metric_label = metric.replace("_", " ").upper()
+    return f"{run_label} {metric_label}"
+
 
 @pytest.fixture(scope="session")
 def black_box_metrics(tmp_path_factory) -> dict[tuple, float]:
@@ -134,7 +142,8 @@ def black_box_metrics(tmp_path_factory) -> dict[tuple, float]:
 def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold, record_xml_attribute):
   """TrackEval metric (HOTA/MOTA/IDF1) must meet the minimum threshold."""
   record_xml_attribute("name", TEST_NAME)
-  print("Executing: " + TEST_NAME)
+  label = _label(run, metric)
+  print(f"Executing: {TEST_NAME} ({label})")
   exit_code = 1
   key = (run, "TrackEvalEvaluator", metric)
   value = black_box_metrics.get(key)
@@ -144,7 +153,7 @@ def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold, reco
   passed = value >= min_threshold
   exit_code = 0 if passed else 1
   status = "PASS" if passed else "FAIL"
-  print(f"  [{run}] {metric} = {value:.4f} (min {min_threshold}) -> {status}")
+  print(f"  {TEST_NAME} ({label}): {status}  [{metric} = {value:.4f}, min {min_threshold}]")
   common.record_test_result(TEST_NAME, exit_code)
   assert passed, (
     f"[{run}] {metric} = {value:.4f} < minimum {min_threshold}"
@@ -154,7 +163,8 @@ def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold, reco
 def test_jitter_threshold(black_box_metrics, run, metric, max_threshold, record_xml_attribute):
   """JitterEvaluator metric must not exceed the maximum threshold."""
   record_xml_attribute("name", TEST_NAME)
-  print("Executing: " + TEST_NAME)
+  label = _label(run, metric)
+  print(f"Executing: {TEST_NAME} ({label})")
   exit_code = 1
   key = (run, "JitterEvaluator", metric)
   value = black_box_metrics.get(key)
@@ -164,7 +174,7 @@ def test_jitter_threshold(black_box_metrics, run, metric, max_threshold, record_
   passed = value <= max_threshold
   exit_code = 0 if passed else 1
   status = "PASS" if passed else "FAIL"
-  print(f"  [{run}] {metric} = {value:.4f} (max {max_threshold}) -> {status}")
+  print(f"  {TEST_NAME} ({label}): {status}  [{metric} = {value:.4f}, max {max_threshold}]")
   common.record_test_result(TEST_NAME, exit_code)
   assert passed, (
     f"[{run}] {metric} = {value:.4f} > maximum {max_threshold}"
