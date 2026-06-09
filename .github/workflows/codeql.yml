@@ -102,16 +102,13 @@ jobs:
           category: "/language:${{matrix.language}}"
 
       - name: "Generate Security Report"
-        id: generate-security-report
         uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
-        continue-on-error: true
         with:
           template: report
           token: ${{ secrets.GITHUB_TOKEN }}
           outputDir: codeql-report-${{ matrix.language }}
 
       - name: "GitHub Upload Release Artifacts"
-        if: ${{ steps.generate-security-report.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: codeql-report-${{ matrix.language }}
@@ -149,16 +146,13 @@ jobs:
           category: "/language:${{ matrix.language }}"
 
       - name: "Generate Security Report"
-        id: generate-security-report
         uses: rsdmike/github-security-report-action@a149b24539044c92786ec39af8ba38c93496495d # v3.0.4
-        continue-on-error: true
         with:
           template: report
           token: ${{ secrets.GITHUB_TOKEN }}
           outputDir: codeql-report-${{ matrix.language }}
 
       - name: "GitHub Upload Release Artifacts"
-        if: ${{ steps.generate-security-report.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: codeql-report-${{ matrix.language }}
