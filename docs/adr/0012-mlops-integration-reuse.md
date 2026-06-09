@@ -1,6 +1,6 @@
 # ADR 12: MLOps Integration and Reuse
 
-- **Author(s)**: [tdorau](https://github.com/tdorau)
+- **Author(s)**: [Tomasz Dorau](https://github.com/tdorau)
 - **Date**: 2026-06-08
 - **Status**: `Proposed`
 
@@ -51,7 +51,7 @@ SceneScape **delegates** model management, visual pipeline building, and video-s
 
 **Phased rollout**:
 
-- _Foundation_ — ADR and design baseline.
+- _Foundation_ (current) — ADR and design baseline.
 - _Model Management Delegation_ — adopt the shared model volume populated by Model Downloader; add a deployment-time job for downloading models; use the Model Downloader listing endpoint to enumerate installed models in the existing Kubernetes dynamic pipeline configuration flow.
 - _Pipeline Building Delegation & Stream Manager Adoption_ — Stream Manager consumption; scene-level pipeline-to-source mapping; extend scene export/import to support externally downloaded models and embedded pipeline definitions.
 - _Pipeline Building Delegation & Stream Manager Adoption – Part 2_ — full ViPPET pipeline-definition consumption; evolved DLSPS runtime integration; deprecate the custom dynamic pipeline configuration in favor of the uniform API-based dynamic pipeline configuration.
