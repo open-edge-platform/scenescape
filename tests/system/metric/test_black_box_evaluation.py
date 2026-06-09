@@ -143,7 +143,7 @@ def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold, reco
   """TrackEval metric (HOTA/MOTA/IDF1) must meet the minimum threshold."""
   record_xml_attribute("name", TEST_NAME)
   label = _label(run, metric)
-  print(f"Executing: {TEST_NAME}")
+  print(f"Executing: {TEST_NAME} ({label})")
   exit_code = 1
   key = (run, "TrackEvalEvaluator", metric)
   value = black_box_metrics.get(key)
