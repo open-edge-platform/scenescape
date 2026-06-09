@@ -25,6 +25,8 @@ from harnesses.black_box_harness.black_box_harness import (
     _parse_ts,
 )
 
+REF_CAMERA_FPS = 30  # Reference camera frame rate used in tracker configuration
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -53,7 +55,7 @@ def tracker_config_file(tmp_path):
       "non_measurement_time_dynamic_s": 1.0,
       "non_measurement_time_static_s": 3.0,
       "time_chunking_enabled": False,
-      "ref_camera_frame_rate": 30,
+      "ref_camera_frame_rate": REF_CAMERA_FPS,
   }
   p = tmp_path / "tracker-config.json"
   p.write_text(json.dumps(cfg))
