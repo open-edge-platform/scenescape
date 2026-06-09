@@ -74,10 +74,10 @@ TEST_NAME = "NEX-T10463"
 
 
 def _label(run: str, metric: str) -> str:
-    """Return a human-readable label like 'Tracker Service RMS JERK RATIO'."""
-    run_label = run.removeprefix("black_box_").replace("_", " ").title()
-    metric_label = metric.replace("_", " ").upper()
-    return f"{run_label} {metric_label}"
+  """Return a human-readable label like 'Tracker Service RMS JERK RATIO'."""
+  run_label = run.removeprefix("black_box_").replace("_", " ").title()
+  metric_label = metric.replace("_", " ").upper()
+  return f"{run_label} {metric_label}"
 
 
 @pytest.fixture(scope="session")
