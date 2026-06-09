@@ -9,9 +9,11 @@
 SceneScape today owns custom solutions for two capabilities that are also provided — or will be provided — by other Intel® [Open-Edge-Platform](https://github.com/open-edge-platform) (OEP) components:
 
 - **Model download and management**, currently handled by SceneScape's `model_installer` and a set of model-configuration conventions.
-- **Visual pipeline building**, currently handled by static JSON pipeline configurations for Docker Compose deployments and a custom pipeline generator producing Kubernetes config maps (with pod recreation on every pipeline update) for Kubernetes deployments.
+- **Visual pipeline building**, currently handled by manually authored JSON files for Docker Compose deployments and a custom pipeline generator for Kubernetes deployments.
 
-In parallel, OEP offers reusable components covering these capabilities:
+In addition, SceneScape's **existing integration with DL Streamer Pipeline Server (DLSPS)** is constrained by the absence of a runtime pipeline API: pipelines are statically configured, and Kubernetes deployments recreate DLSPS pods on every pipeline update. This integration is being **evolved**, not introduced.
+
+In parallel, OEP offers reusable components covering these capabilities and the evolving DLSPS integration:
 
 - [**Model Downloader**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/microservices/model-download) — model lifecycle and storage.
 - [**ViPPET**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/tools/visual-pipeline-and-platform-evaluation-tool) (Visual Pipeline and Platform Evaluation Tool) — pipeline authoring and verification.
@@ -25,13 +27,16 @@ Maintaining SceneScape-specific implementations of model management and pipeline
 
 SceneScape **delegates** model management, visual pipeline building, and video-source acquisition to the corresponding OEP components and **reuses** them in place of SceneScape-specific implementations.
 
-**Component assignments:**
+**Delegated capabilities and their target OEP components:**
 
 - **Model Downloader** — model lifecycle.
 - **ViPPET** — pipeline authoring. SceneScape consumes pipeline definitions via **REST pull**.
-- **DLSPS** — pipeline execution. The integration evolves from static JSON / pod recreation toward a runtime pipeline API, in stages.
 - **Stream Manager** — camera discovery, video capture, livestream and replay. Stream Manager is an **optional** dependency for SceneScape.
 - **Geti** — model training. There is **no direct SceneScape↔Geti integration**; Geti is reached indirectly via Model Downloader (for models) and Stream Manager (for training videos).
+
+**Existing DLSPS integration being evolved:**
+
+- **DLSPS** — pipeline execution. The integration evolves from static JSON / pod recreation toward a runtime pipeline API, in stages.
 
 **SceneScape retains ownership** of: the scene model, the scene-level pipeline-to-source mapping, runtime pipeline orchestration against DLSPS, multimodal fusion and tracking, and scene export/import.
 
