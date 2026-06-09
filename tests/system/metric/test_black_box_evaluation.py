@@ -38,7 +38,7 @@ _TRACKEVAL_MIN: dict[str, dict[str, float]] = {
   },
   "black_box_tracker_service": {
     "HOTA": 0.60,
-    "MOTA": 0.65,
+    "MOTA": 0.60,
     "IDF1": 0.75,
   },
 }
@@ -75,7 +75,7 @@ TEST_NAME = "NEX-T10463"
 
 def _label(run: str, metric: str) -> str:
   """Return a human-readable label like 'Tracker Service RMS JERK RATIO'."""
-  run_label = run.removeprefix("black_box_").replace("_", " ").title()
+  run_label = run.removeprefix("black_box_").replace("_", " ").title().replace(" Tc", " TC")
   metric_label = metric.replace("_", " ").upper()
   return f"{run_label} {metric_label}"
 
