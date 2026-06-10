@@ -4,8 +4,10 @@
 # Model selection - can be overridden with MODEL_TYPE=vggt or MODEL_TYPE=mapanything
 MODEL_TYPE ?= mapanything
 
-IMAGE := scenescape-mapping-$(MODEL_TYPE)
+IMAGE := intel/scenescape-mapping-$(MODEL_TYPE)
+TEST_IMAGE := intel/scenescape-mapping-$(MODEL_TYPE)-test
 TARGET = mapping-runtime
+TEST_TARGET = mapping-test
 USES_SCENE_COMMON := yes
 
 include ../common.mk
@@ -15,15 +17,15 @@ EXTRA_BUILD_ARGS := --build-arg MODEL_TYPE=$(MODEL_TYPE)
 
 .PHONY: test-build
 test-build:
-	$(MAKE) IMAGE="scenescape-mapping-test" TARGET="mapping-test" MODEL_TYPE=$(MODEL_TYPE)
+	$(MAKE) IMAGE="$(TEST_IMAGE)" TARGET="$(TEST_TARGET)" MODEL_TYPE=$(MODEL_TYPE)
 
 .PHONY: build-vggt
 build-vggt:
-	$(MAKE) MODEL_TYPE=vggt IMAGE="scenescape-mapping-vggt"
+	$(MAKE) MODEL_TYPE=vggt IMAGE="intel/scenescape-mapping-vggt"
 
 .PHONY: build-mapanything
 build-mapanything:
-	$(MAKE) MODEL_TYPE=mapanything IMAGE="scenescape-mapping-mapanything"
+	$(MAKE) MODEL_TYPE=mapanything IMAGE="intel/scenescape-mapping-mapanything"
 
 .PHONY: build-all
 build-all: build-vggt build-mapanything
@@ -37,14 +39,14 @@ mapanything: build-mapanything
 ifndef MAPPING_LIST_DEPS
 .PHONY: list-dependencies
 list-dependencies: build-vggt build-mapanything
-	$(MAKE) MODEL_TYPE=vggt IMAGE=scenescape-mapping-vggt MAPPING_LIST_DEPS=1 list-dependencies
-	$(MAKE) MODEL_TYPE=mapanything IMAGE=scenescape-mapping-mapanything MAPPING_LIST_DEPS=1 list-dependencies
+	$(MAKE) MODEL_TYPE=vggt IMAGE=intel/scenescape-mapping-vggt MAPPING_LIST_DEPS=1 list-dependencies
+	$(MAKE) MODEL_TYPE=mapanything IMAGE=intel/scenescape-mapping-mapanything MAPPING_LIST_DEPS=1 list-dependencies
 endif
 
 # Override generate-sbom to produce SBOMs for both MODEL_TYPE modes.
 ifndef MAPPING_GENERATE_SBOM
 .PHONY: generate-sbom
 generate-sbom: build-vggt build-mapanything
-	$(MAKE) ROOT_DIR=$(ROOT_DIR) MODEL_TYPE=vggt IMAGE=scenescape-mapping-vggt MAPPING_GENERATE_SBOM=1 generate-sbom
-	$(MAKE) ROOT_DIR=$(ROOT_DIR) MODEL_TYPE=mapanything IMAGE=scenescape-mapping-mapanything MAPPING_GENERATE_SBOM=1 generate-sbom
+	$(MAKE) ROOT_DIR=$(ROOT_DIR) MODEL_TYPE=vggt IMAGE=intel/scenescape-mapping-vggt MAPPING_GENERATE_SBOM=1 generate-sbom
+	$(MAKE) ROOT_DIR=$(ROOT_DIR) MODEL_TYPE=mapanything IMAGE=intel/scenescape-mapping-mapanything MAPPING_GENERATE_SBOM=1 generate-sbom
 endif
