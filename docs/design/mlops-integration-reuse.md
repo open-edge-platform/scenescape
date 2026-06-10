@@ -126,6 +126,8 @@ The process model shows the user-facing workflow for building, packaging, and de
 
 ![Process Model](../agent/diagrams/SceneScape_MLOps-Process%20Model.drawio.svg)
 
+> **One representative flow.** The diagram presents one representative end-to-end flow. The order of phases is not fixed: stages may be reordered, repeated, skipped, or run in parallel depending on the user's workflow. For example, model training (Geti) can precede or follow camera setup; pipeline development in ViPPET can be revisited after scene evaluation; data acquisition can be performed independently of any specific scene. The stages below describe the canonical happy path used to derive SceneScape's design requirements; they are not a mandatory execution order.
+
 **Stages** (top-to-bottom, summarized):
 
 1. **Camera Setup** — Stream Manager detects and configures camera devices.
@@ -183,6 +185,130 @@ This section is the source of truth for *who does what* in the integrated system
 | **Test doubles** | Each client library ships fakes / mocks usable by all SceneScape-side unit tests; integration tests run against component fakes (see the *Testing & Monitoring* section). |
 | **Backwards compatibility** | Two distinct legacy mechanisms (static JSON pipeline configs; custom dynamic K8s pipeline configuration) retain separate parity gates per the *Constraints* and *Rollout / Migration Plan* sections. |
 
+### 5.4 Client-library integration layer
+
+To avoid each SceneScape service implementing its own HTTP/MQTT plumbing, schema validation, retries, and telemetry against every OEP component, all OEP-component integrations are encapsulated in **client libraries**: small Python packages on the SceneScape side, one per OEP component, consumed by the SceneScape services that interact with that component.
+
+**Rationale.**
+
+- **Reduce the integration surface.** Each OEP component's wire-level details (auth, retries, schemas, version negotiation, telemetry) live in exactly one place. SceneScape services consume a typed Python API.
+- **Avoid tight coupling.** When an OEP component evolves (new endpoints, new payload fields, breaking-change versions), the change is absorbed inside its client library; SceneScape services see a stable Python API or a single deliberate API-evolution change.
+- **Enable parallel SceneScape work.** Multiple SceneScape services (Manager back-end, Manager UI, Auto Camera Calibration, Mapping) can adopt the same OEP component without duplicating integration code.
+- **Make testing tractable.** Each client library ships fakes / mocks; SceneScape-service tests run against those fakes without standing up an OEP component.
+
+**Naming convention.** *<Component> client library* (e.g., *Model Downloader client library*, *ViPPET client library*). The term "client" deliberately does **not** mean "thin HTTP wrapper" — a client library owns the full set of cross-cutting concerns listed in the matrix above, not just transport. The name *adapter* is reserved for the existing SceneScape-authored DLSPS extensions (`gvapython` code injected into DLSPS); the two concepts are distinct.
+
+**Client libraries.**
+
+| Client library | OEP component | SceneScape consumers | Status |
+|---|---|---|---|
+| Model Downloader client library | Model Downloader | Manager UI (runtime listing); deployment job / scripts (out-of-band download) | New |
+| ViPPET client library | ViPPET | Manager back-end (REST pull of pipeline definitions) | New |
+| DLSPS client library | DLSPS | Manager back-end (runtime pipeline lifecycle); Scene Controller (MQTT inference output — existing contract) | New for the runtime pipeline API; existing for MQTT (already encapsulated in `scene_common`) |
+| Stream Manager client library | Stream Manager | Manager back-end (livestream / replay consumption); *(deferred)* Auto Camera Calibration, Mapping | New |
+
+There is **no Geti client library** — SceneScape has no direct integration with Geti.
+
+**Concerns each client library owns** (these are realizations of the cross-cutting concerns listed above):
+
+- Transport (HTTP / MQTT / etc.), authentication, certificate handling, timeouts.
+- Typed Python API surface (request/response data classes) consumed by SceneScape services.
+- Schema validation of inbound payloads against versioned schemas.
+- Bounded retries with backoff; deterministic failure modes.
+- OpenTelemetry instrumentation (spans, metrics) named per OEP component.
+- API-version negotiation and version-mismatch reporting.
+- Test doubles (fakes / mocks) for downstream SceneScape-service tests.
+
+**Open questions for this layer:**
+
+- **Repository location.** Three candidate placements are possible: (A) extend [`scene_common/`](../../scene_common/) with an `integration/` subpackage (one module per OEP component); (B) introduce a new top-level shared library (e.g., `integration_clients/`); (C) decide per component. This decision is **deferred** and tracked in the *Open Questions* section.
+- **Distribution and versioning model** (single shared library vs. independently versioned per-component packages) follows from the repository-location choice and is deferred with it.
+
+### 5.5 Per-contract specifications
+
+This section specifies the integration contracts between SceneScape and each OEP component: the endpoints SceneScape consumes, the data SceneScape exchanges, and the SceneScape service that owns the call. Each contract is implemented inside the corresponding client library described above; the table rows therefore double as the public Python-API surface of each library.
+
+Contracts are presented at the level of detail required for SceneScape-side design (endpoint identity, payload shape, ownership, frequency, failure mode). Wire-level specifications (exact URL paths, request/response JSON schemas, authentication mechanisms) are owned by the corresponding OEP-component teams and referenced from the *References* section once published; where a SceneScape-side decision depends on a not-yet-finalized OEP-component design, this is called out explicitly.
+
+> **Manager service split.** As noted in the *Responsibility matrix*, "Manager back-end" and "Manager UI" labels are recommendations; the decision to split today's monolithic Manager is deferred. Until the split is decided, all contracts assigned to Manager back-end or Manager UI are implemented inside the current Manager service.
+
+#### 5.5.1 SceneScape ↔ Model Downloader
+
+**Purpose.** Surface installed models in the SceneScape UI so a user can select or update the model used by a pipeline definition.
+
+| Aspect | Specification |
+|---|---|
+| SceneScape consumer | Manager UI |
+| Client library | Model Downloader client library |
+| Endpoint consumed | `GET /api/v1/models[?name=<n>][&hub=<h>][&precision=<p>]` |
+| Direction | SceneScape → Model Downloader (pull) |
+| Payload | Per model: name, hub, path on shared volume, precision(s), size, install timestamp, plugin metadata. |
+| Frequency | On-demand (user opens the model-selection UI). Cached briefly by the client library to avoid amplification on rapid UI interactions. |
+| Failure mode | Listing call failures surface as a single UI error; SceneScape does not fall back to filesystem scans (the legacy `model_directory_view.py` behavior is removed at parity). |
+
+**SceneScape does not call Model Downloader's download endpoint at runtime.** Model download is performed out-of-band at deployment time by an external job or via the ViPPET UI, per [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision).
+
+#### 5.5.2 SceneScape ↔ ViPPET
+
+**Purpose.** Consume pipeline definitions authored in ViPPET and persist them in SceneScape's scene configuration.
+
+| Aspect | Specification |
+|---|---|
+| SceneScape consumer | Manager back-end |
+| Client library | ViPPET client library |
+| Endpoint consumed | ViPPET pipeline-definition REST endpoint (exact URL/shape owned by the ViPPET team; client library absorbs the wire detail). |
+| Direction | SceneScape → ViPPET (REST pull, per [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision)) |
+| Payload | A pipeline definition containing: a DLSPS-consumable pipeline definition body, parametrized model reference(s) by ID + version, and pipeline metadata. **Models are parameters of the pipeline definition; they are referenced by identifier — not embedded.** |
+| Frequency | On-demand at scene-development time (user selects/updates a pipeline definition for a scene). Cached by the client library; retrieved-once-then-embedded into the scene config. |
+| Persistence in SceneScape | The fetched pipeline definition is **persisted by value** in SceneScape's scene configuration so the scene is self-contained (deployable without ViPPET). |
+| Failure mode | Fetch failures surface as a UI error at the time of selection; once a pipeline definition is persisted in a scene, no further ViPPET call is required. |
+
+**Open dependency.** The exact pipeline-definition format (parametrization syntax, version envelope) depends on ViPPET's design and is tracked in *Open Questions*.
+
+#### 5.5.3 SceneScape ↔ DLSPS
+
+**Purpose.** Drive the runtime lifecycle of DLSPS pipelines (start, stop, reconfigure) and consume inference output. This integration is evolving from the static-JSON + pod-recreation mechanisms toward a runtime REST API.
+
+| Aspect | Specification |
+|---|---|
+| SceneScape consumer (runtime pipeline lifecycle) | Manager back-end |
+| SceneScape consumer (inference output) | Scene Controller |
+| Client library | DLSPS client library (new for the runtime pipeline API); existing MQTT-consumption code in `scene_common` for inference output |
+| Pipeline-lifecycle endpoint | DLSPS runtime REST API for start / stop / reconfigure (exact shape owned by the DLSPS team). |
+| Direction | SceneScape → DLSPS (REST control); DLSPS → Scene Controller (MQTT inference output, **existing contract, unchanged**). |
+| Payload (lifecycle) | A pipeline-instance descriptor including: the (already-resolved) pipeline definition from ViPPET, the source binding (Stream Manager URL, direct RTSP/file, etc.), and any per-instance parameters. |
+| Payload (inference output) | Per-frame inference results published to MQTT topics consumed by Scene Controller — **schema unchanged from today**. |
+| Frequency (lifecycle) | At scene start/stop and on any pipeline-to-source mapping change. |
+| Frequency (inference output) | Per inference (continuous, high rate). |
+| Failure mode | Lifecycle-call failures surface to Manager back-end; the legacy pod-recreation (Kubernetes) and static-JSON (Docker Compose) mechanisms remain available until parity, per the *Constraints* section. |
+
+**SceneScape-authored DLSPS extensions.** The `gvapython`-based extension code under [`dlstreamer-pipeline-server/user_scripts/gvapython/sscape/`](../../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/) is statically injected into DLSPS pipeline configurations and runs inside the DLSPS pipeline process. It is **not** part of the DLSPS client library (the client library is a SceneScape-side Python API; the extensions run inside DLSPS). Its migration from `gvapython` to the Gst Analytics Python API and its breakdown into smaller units are tracked in *Open Questions*.
+
+#### 5.5.4 SceneScape ↔ Stream Manager
+
+**Purpose.** Consume live video sources and replays from Stream Manager when Stream Manager is deployed. Stream Manager is an **optional** dependency; SceneScape continues to support direct RTSP/file sources when Stream Manager is not deployed.
+
+| Aspect | Specification |
+|---|---|
+| SceneScape consumer | Manager back-end (livestream / replay URLs for pipeline source binding); *(deferred)* Auto Camera Calibration, Mapping |
+| Client library | Stream Manager client library |
+| Endpoints consumed | Stream Manager livestream / replay APIs (exact shape owned by the Stream Manager team; per the *SceneScape team: livestreams/replays API* line item in the Stream Manager proposal). |
+| Direction | SceneScape → Stream Manager (REST control + stream consumption) |
+| Payload | Stream URLs / handles for livestream and replay; camera metadata used to populate scene-configuration camera entries. |
+| Frequency | At scene-configuration time (camera enumeration) and at runtime (stream URL resolution at pipeline start). |
+| Failure mode | When Stream Manager is not deployed, the client library is not loaded and source-binding falls back to direct RTSP/file sources. When Stream Manager is deployed but unreachable, errors surface to Manager back-end at pipeline start. |
+
+**Deferred SceneScape consumers.** Whether Auto Camera Calibration and Mapping consume from Stream Manager (in addition to or instead of their current direct-source paths) is a per-phase decision tracked under the Stream Manager consumption delta in the *Rollout / Migration Plan* section.
+
+#### 5.5.5 SceneScape ↔ Geti
+
+**No direct contract.** Per [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision), SceneScape does not integrate with Geti directly. Geti is reached only indirectly:
+
+- **Models** flow from Geti to SceneScape via Model Downloader (which populates the shared model volume read by DLSPS).
+- **Training videos** flow from cameras to Geti via Stream Manager.
+
+There is therefore no SceneScape-side client library for Geti and no row in the contracts above.
+
 ---
 
-*The client-library integration layer, per-contract specifications, per-service deltas, scene export/import format, deployment topology, and the remaining top-level sections (Alternatives, Risks, Rollout, Testing & Monitoring, Open Questions, References) are to be added.*
+*Per-service deltas, scene export/import format, deployment topology, and the remaining top-level sections (Alternatives, Risks, Rollout, Testing & Monitoring, Open Questions, References) are to be added.*
