@@ -25,20 +25,20 @@ There is currently no interoperability between SceneScape, Geti, and the OEP com
 
 ## Decision
 
-SceneScape **delegates** model management, visual pipeline building, and video-source acquisition to the corresponding OEP components and **reuses** them in place of SceneScape-specific implementations.
+SceneScape will **delegate** model management, visual pipeline building, and video source acquisition to their corresponding OEP components, **reusing** them instead of its own specific implementations.
 
-**Delegated capabilities and their target OEP components:**
+**Delegated Capabilities and Target OEP Components:**
 
-- **Model Downloader** — model lifecycle.
-- **ViPPET** — pipeline authoring. SceneScape consumes pipeline definitions via **REST pull**.
-- **Stream Manager** — camera discovery, video capture, livestream and replay. Stream Manager is an **optional** dependency for SceneScape.
-- **Geti** — model training. There is **no direct SceneScape↔Geti integration**; Geti is reached indirectly via Model Downloader (for models) and Stream Manager (for training videos).
+- **Model Downloader**: Manages the model lifecycle.
+- **ViPPET**: Handles pipeline authoring. SceneScape will consume self-contained pipeline definitions from ViPPET via a **REST pull** mechanism.
+- **Stream Manager**: Manages camera discovery, video capture, livestreaming, and replay. It is an **optional** dependency for SceneScape.
+- **Geti**: Used for model training. There is **no direct integration** between SceneScape and Geti. Instead, Geti is accessed indirectly through the Model Downloader (for models) and Stream Manager (for training videos).
 
-**Existing DLSPS integration being evolved:**
+**Evolving DLSPS Integration:**
 
-- **DLSPS** — pipeline execution. The integration evolves from static JSON / pod recreation toward a runtime pipeline API, in stages.
+- **DLSPS**: Continues to handle pipeline execution. The integration will evolve in stages from a static JSON and pod recreation approach to a fully runtime API, dependent on planned updates to DLSPS.
 
-**SceneScape retains ownership** of: the scene model, the scene-level pipeline-to-source mapping, runtime pipeline orchestration against DLSPS (pipeline lifecycle), multimodal fusion and tracking, and scene export/import.
+**SceneScape Retains Ownership** of the following: the scene model, scene-level pipeline-to-source mapping, runtime pipeline orchestration with DLSPS, multimodal fusion and tracking, and scene export/import.
 
 **Key design choices:**
 
