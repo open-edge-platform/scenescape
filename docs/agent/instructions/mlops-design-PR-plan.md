@@ -70,6 +70,7 @@ Important: Release numbers, JIRA IDs and GitHub issue numbers must NOT appear in
 
 1. Design doc: `docs/design/mlops-integration-reuse.md`
 2. PR description in MarkDown format: `docs/agent/design-pull-request-description.md`
+3. Design-doc decision log: `docs/agent/intermediate/design-doc-decisions.md` — living record of drafting status, decisions taken while authoring the design doc that supplement (not override) the ADR, wording disciplines, and the service-ownership matrix. Updated continuously as the design doc is drafted.
 
 ## Steps
 
@@ -92,6 +93,7 @@ Follow steps below one by one. Ask for clarification if needed. Each time ask fo
 - Iteratively, step-by-step improve, clarify or fill in placeholders and ask for feedback.
 - As stated in the scope section, it is OK if some parts of the design are not decided at this stage. In such cases, explicitly state that those will be addressed in next phases.
 - Apply the *Reference the ADR rather than duplicate* rule from the *Authoring conventions* section.
+- **Keep the design-doc decision log up to date.** After each drafting iteration (new subsection drafted, comment applied, or decision taken), update [docs/agent/intermediate/design-doc-decisions.md](../intermediate/design-doc-decisions.md) so its *Drafting status*, decision entries, and wording disciplines reflect the current state of the design doc. Read this file before starting any new subsection.
 
 ### Create PR Description
 
