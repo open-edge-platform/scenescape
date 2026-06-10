@@ -1,4 +1,4 @@
-# ADR 12: MLOps Integration and Reuse
+# ADR 12: MLOps Integration and Reuse of Pipeline Building and Model Management
 
 - **Author(s)**: [Tomasz Dorau](https://github.com/tdorau)
 - **Date**: 2026-06-08
@@ -6,22 +6,22 @@
 
 ## Context
 
-SceneScape today owns custom solutions for two capabilities that are also provided — or will be provided — by other Intel® [Open-Edge-Platform](https://github.com/open-edge-platform) (OEP) components:
+Customers using SceneScape often build custom visual analytics pipelines with models trained using [**Geti**](https://github.com/open-edge-platform/geti). A streamlined user experience (UX) and better interoperability between Geti, SceneScape, and visual analytic pipeline tools would allow customers to iterate more quickly and achieve their goals faster.
 
-- **Model download and management**, currently handled by SceneScape's `model_installer` and a set of model-configuration conventions.
-- **Visual pipeline building**, currently handled by manually authored JSON files for Docker Compose deployments and a custom pipeline generator for Kubernetes deployments.
+SceneScape currently has custom solutions for:
 
-In addition, SceneScape's **existing integration with DL Streamer Pipeline Server (DLSPS)** is constrained by the absence of a runtime pipeline API: pipelines are statically configured, and Kubernetes deployments recreate DLSPS pods on every pipeline update. This integration is being **evolved**, not introduced.
+- **Model download and management**: Handled by the `model_installer` service and a set of static configuration conventions for a limited number of models.
+- **Visual pipeline building**: Relies on manually authored JSON files for Docker Compose deployments and a custom pipeline generator for Kubernetes.
 
-In parallel, OEP offers reusable components covering these capabilities and the evolving DLSPS integration:
+Furthermore, SceneScape's integration with the [**DL Streamer Pipeline Server (DLSPS)**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/microservices/dlstreamer-pipeline-server) for pipeline execution is constrained by the lack of a runtime API. Pipelines are configured statically, and Kubernetes deployments must recreate DLSPS pods for every pipeline update. These limitations in runtime model management and dynamic pipeline configuration negatively impact the user experience.
 
-- [**Model Downloader**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/microservices/model-download) — model lifecycle and storage.
-- [**ViPPET**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/tools/visual-pipeline-and-platform-evaluation-tool) (Visual Pipeline and Platform Evaluation Tool) — pipeline authoring and verification.
-- [**DL Streamer Pipeline Server (DLSPS)**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/microservices/dlstreamer-pipeline-server) — pipeline execution (existing integration, evolving toward a runtime pipeline API).
-- **Stream Manager** — a new component for camera discovery, video capture, livestream and replay.
-- [**Geti**](https://github.com/open-edge-platform/geti) — model training (no direct SceneScape integration is intended).
+In parallel, the Intel® [Open-Edge-Platform](https://github.com/open-edge-platform) (OEP) provides reusable components that cover these functionalities:
 
-Maintaining SceneScape-specific implementations of model management and pipeline building is redundant with the platform direction, increases ongoing maintenance, and limits interoperability with other OEP components. The motivation for change is broader than UX: engineering efficiency, focus on SceneScape's core spatial-awareness functionality (sensor fusion, tracking, scene state), and reduction of redundant effort across OEP.
+- [**Model Downloader**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/microservices/model-download): Manages model lifecycle and storage.
+- [**ViPPET**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/tools/visual-pipeline-and-platform-evaluation-tool) (Visual Pipeline and Platform Evaluation Tool): Supports pipeline authoring and verification.
+- **Stream Manager**: A new component for camera discovery, video capture, livestreaming, and replay.
+
+There is currently no interoperability between SceneScape, Geti, and the OEP components mentioned. Integrating these components and reusing their capabilities in place of SceneScape's custom solutions would provide a better user experience and offer multiple advantages. The motivation for this change extends beyond UX to include improved engineering efficiency, a sharper focus on SceneScape's core spatial-awareness functionality (such as sensor fusion, tracking, and scene state), and a reduction of redundant engineering efforts across OEP.
 
 ## Decision
 
@@ -38,7 +38,7 @@ SceneScape **delegates** model management, visual pipeline building, and video-s
 
 - **DLSPS** — pipeline execution. The integration evolves from static JSON / pod recreation toward a runtime pipeline API, in stages.
 
-**SceneScape retains ownership** of: the scene model, the scene-level pipeline-to-source mapping, runtime pipeline orchestration against DLSPS, multimodal fusion and tracking, and scene export/import.
+**SceneScape retains ownership** of: the scene model, the scene-level pipeline-to-source mapping, runtime pipeline orchestration against DLSPS (pipeline lifecycle), multimodal fusion and tracking, and scene export/import.
 
 **Key design choices:**
 
