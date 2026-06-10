@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Integration with common.mk for Docker image builds
-IMAGE := scenescape-tracker
+IMAGE := intel/scenescape-tracker
 TARGET ?= runtime
 BUILD_TYPE ?= Release
 HAS_PIP := no

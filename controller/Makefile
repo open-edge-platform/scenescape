@@ -1,12 +1,14 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-IMAGE := scenescape-controller
+IMAGE := intel/scenescape-controller
+TEST_IMAGE := intel/scenescape-controller-test
 TARGET = scenescape-controller-runtime
+TEST_TARGET = scenescape-controller-test
 USES_SCENE_COMMON := yes
 
 include ../common.mk
 
 .PHONY: test-build
 test-build:
-	$(MAKE) IMAGE="scenescape-controller-test" TARGET="scenescape-controller-test"
+	$(MAKE) IMAGE="$(TEST_IMAGE)" TARGET="$(TEST_TARGET)"
