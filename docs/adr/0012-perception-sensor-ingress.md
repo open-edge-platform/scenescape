@@ -17,6 +17,12 @@ registry. Modality is declared in JSON metadata and used for routing to the prop
 projection strategy. New modalities are added by registering a strategy, not by branching existing
 code or changing external topic interfaces.
 
+Also adopt a dual-identity contract to avoid hierarchical namespace collisions while preserving
+operator-friendly configuration:
+
+- `source_uid` (UUID): canonical internal identity used for storage, joins, routing, and fusion
+- `source_key` (string alias): human/external identifier used by pipelines and UI
+
 ## Context
 
 SceneScape currently ingests all spatial detection data through a single camera-shaped path:
@@ -44,6 +50,9 @@ Adding a lidar by masquerading it as a camera creates several concrete problems:
    FOV/intrinsics controls that are meaningless for lidar or radar.
 5. **No OCP extension point.** Adding radar or thermal requires editing core handlers instead of
    registering a new strategy.
+6. **Identifier collision in scene hierarchy.** User-provided sensor IDs can collide across parent/
+   child scenes. UUIDs solve collisions, but UUID-only external configuration creates poor UX when
+   pipelines must be configured before scene objects exist.
 
 ## Decision
 
@@ -61,7 +70,9 @@ All perceptual sensor messages on the unified topic share a common envelope:
 
 ```json
 {
-  "id": "<sensor_id>",
+  "id": "<legacy alias>",
+  "source_uid": "<uuid>",
+  "source_key": "<alias>",
   "timestamp": "<ISO8601>",
   "modality": "camera | lidar | radar | thermal",
   "objects": {
@@ -78,6 +89,12 @@ All perceptual sensor messages on the unified topic share a common envelope:
   }
 }
 ```
+
+Identity rules:
+
+- `source_uid` is canonical and immutable once bound.
+- `source_key` is user-facing and scoped-unique (not globally unique).
+- `id` remains as compatibility alias during migration and maps to `source_key`.
 
 Each detection satisfies **one** of:
 
@@ -123,6 +140,14 @@ registering a strategy, with no core handler changes.
 - UI adds modality selector for new sensors; existing sensors default to `camera` behavior.
 - Camera ingress compatibility is marked deprecated for later removal.
 
+Identity compatibility and ordering:
+
+- Ingress accepts either `source_uid` or `source_key` during transition.
+- A resolver maps `source_key` -> `source_uid` using scene scope.
+- Support alias pre-registration so DLStreamer can be configured before scene sensor binding.
+- When binding is completed, reserved aliases transition to active mappings without pipeline
+  reconfiguration.
+
 ## Alternatives Considered
 
 - **Modality-specific topics (`scenescape/data/lidar/+`, `.../radar/+`)** — Rejected. Clear, but
@@ -137,12 +162,30 @@ registering a strategy, with no core handler changes.
 - New modalities require no core handler edits.
 - Calibration requirements are modality-appropriate.
 - Existing camera deployments continue working.
+- Hierarchical namespace collisions are prevented by canonical UUID routing.
+- Users can configure pipelines early with aliases and bind later via resolver.
 
 ### Negative
 
 - Consumers must inspect payload metadata to determine modality.
 - Strategy registry and envelope schema infrastructure must be built and maintained.
 - UI/docs still require migration from camera-only language.
+- Resolver and alias reservation lifecycle add state-management complexity.
+
+## Implementation Notes
+
+Recommended identifier lifecycle:
+
+1. `reserved`: `source_key` created, provisional `source_uid` allocated
+2. `bound`: alias is attached to concrete scene sensor
+3. `active`: ingestion and fusion use canonical `source_uid`
+
+Recommended uniqueness constraint:
+
+- Unique on `(tenant, site, scene_path, source_key)`
+
+This permits reuse of friendly aliases in different branches of a hierarchy while keeping
+collision-free canonical routing.
 
 ## References
 
