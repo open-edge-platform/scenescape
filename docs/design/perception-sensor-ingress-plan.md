@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Design Document: Perception Sensor Ingress — Modality-Specific Topics and Strategy Registry
+# Design Document: Perception Sensor Ingress — Unified Topic and Strategy Registry
 
 - **Author(s)**: [spoluri](https://github.com/spoluri)
 - **Date**: 2026-06-10
@@ -14,53 +14,37 @@ SPDX-License-Identifier: Apache-2.0
 
 ## 1. Overview
 
-SceneScape currently models all spatial perception sensors as cameras. This document describes the
-implementation plan to replace that approach with explicit modality-specific ingress topics and a
-plugin/strategy-based handler registry that is open for extension without modifying the core
-message handler, controller, or tracker code.
+SceneScape currently models all spatial perception sensors as cameras. This document describes a
+migration to one stable perceptual ingress topic and a plugin/strategy-based modality registry that
+is open for extension without modifying core message handlers.
 
-The migration is staged: existing camera publishers continue working throughout. Non-camera
-modalities gain first-class topics and handlers incrementally.
+The migration is staged: existing camera publishers continue working through compatibility adapters.
 
 ---
 
 ## 2. Goals
 
-- Replace camera-as-catch-all ingress with explicit `scenescape/data/{modality}/{sensor_id}` topics.
-- Introduce a `PerceptualSensorStrategy` interface so new modalities are registered, not branched.
-- Make calibration requirements modality-appropriate (intrinsics only where the model needs them).
-- Preserve full backward compatibility for existing camera deployments.
-- Eliminate camera-specific language from shared code paths in the controller, tracker, and UI.
+- Replace camera-as-catch-all ingress with one stable topic:
+  `scenescape/data/perceptual_sensor/{sensor_id}`.
+- Route by JSON metadata (`modality`) through strategy plugins.
+- Keep external interfaces stable as new modalities are introduced.
+- Make calibration requirements modality-appropriate.
+- Preserve backward compatibility for existing camera deployments.
 
 ---
 
 ## 3. Non-Goals
 
-- Rewriting tracker fusion or Kalman filter math (those stay stable during this migration).
-- Migrating discrete event sensors (`SingletonSensor`); they remain on `scenescape/data/sensor/+`.
-- Removing camera topic support within this change cycle.
+- Rewriting tracker fusion or Kalman filter math.
+- Migrating discrete event sensors (`SingletonSensor`) from `scenescape/data/sensor/+`.
+- Removing camera compatibility ingress in this change cycle.
 
 ---
 
 ## 4. Background / Context
 
-See [ADR-12](../adr/0012-perception-sensor-ingress.md) for the full problem statement. Key files
-carrying camera-specific assumptions today:
-
-| File                                                 | Camera assumption                                          |
-| ---------------------------------------------------- | ---------------------------------------------------------- |
-| `manager/src/manager/models.py`                      | `Cam.DEFAULT_INTRINSICS` auto-filled for all sensors       |
-| `manager/src/manager/serializers.py`                 | Intrinsics/distortion treated as canonical shape           |
-| `manager/src/manager/static/js/thing/scenecamera.js` | `THREE.PerspectiveCamera` frustum for all sensors          |
-| `controller/src/controller/scene.py`                 | `processCameraData` + `_convertPixelBoundingBoxesToMeters` |
-| `controller/src/schema/metadata.schema.json`         | `bounding_box_px` as primary detection format              |
-| `scene_common/src/scene_common/camera.py`            | `Camera` = sensor, `CameraIntrinsics` required             |
-| `scene_common/src/scene_common/transform.py`         | Projection math tied to pinhole model                      |
-| `tracker/schema/camera-data.schema.json`             | `bounding_box_px` required                                 |
-| `tracker/schema/scene.schema.json`                   | `cameras` array only                                       |
-| `tracker/src/message_handler.cpp`                    | Subscribes only `scenescape/data/camera/+`                 |
-| `tracker/src/coordinate_transformer.cpp`             | Pinhole ray-plane intersection hardcoded                   |
-| `scene_common/src/scene_common/mqtt.py`              | `DATA_CAMERA` topic template                               |
+See [ADR-12](../adr/0012-perception-sensor-ingress.md). The current camera assumptions are spread
+across manager, controller, scene_common, and tracker.
 
 ---
 
@@ -71,77 +55,75 @@ carrying camera-specific assumptions today:
 ```
 scenescape/
   data/
-    camera/{sensor_id}      ← existing, unchanged
-    lidar/{sensor_id}       ← new
-    radar/{sensor_id}       ← new
-    thermal/{sensor_id}     ← new
-    sensor/{sensor_id}      ← existing (discrete event), unchanged
+    perceptual_sensor/{sensor_id}  <- unified perceptual ingress
+    sensor/{sensor_id}             <- existing discrete events, unchanged
   image/
-    camera/{sensor_id}      ← existing, unchanged
-    thermal/{sensor_id}     ← new
+    camera/{sensor_id}             <- existing preview path
+    thermal/{sensor_id}            <- optional preview path
   raw/
-    lidar/{sensor_id}       ← new (optional point cloud stream)
-    radar/{sensor_id}       ← new (optional raw heatmap stream)
+    lidar/{sensor_id}              <- optional raw stream
+    radar/{sensor_id}              <- optional raw stream
 ```
+
+Notes:
+
+- `data/perceptual_sensor/{sensor_id}` is the only perceptual detection ingress.
+- Raw and preview topics can stay modality-specific because they are non-fusion side channels.
 
 ### 5.2 Shared detection envelope
 
-The common message shape is an extension of the existing detector schema in
-`controller/src/schema/metadata.schema.json`. A new top-level `modality` field is added.
-The `detection` object satisfies exactly one of:
-
-- `bounding_box_px` — pixel-space detection (camera, thermal)
-- `translation + size` — metric 3D detection already in sensor frame (lidar, radar)
-- `bounding_box_3D` — sensor-native 3D box for strategy-driven projection
+A top-level `modality` field is required for perceptual ingress.
 
 ```json
 {
-  "id": "lidar-front",
+  "id": "sensor-123",
   "timestamp": "2026-06-10T12:00:00.000Z",
-  "modality": "lidar",
+  "modality": "camera",
   "objects": {
-    "vehicle": [
+    "person": [
       {
-        "category": "vehicle",
-        "translation": [4.2, 1.1, 0.5],
-        "size": [4.5, 2.0, 1.6],
+        "category": "person",
+        "bounding_box_px": { "x": 1, "y": 2, "width": 3, "height": 4 },
+        "translation": [0.0, 0.0, 0.0],
+        "size": [0.5, 0.5, 1.7],
         "rotation": [0, 0, 0, 1],
-        "confidence": 0.92
+        "confidence": 0.9
       }
     ]
   }
 }
 ```
 
-### 5.3 PerceptualSensorStrategy interface (Python)
+Each detection satisfies exactly one of:
+
+- `bounding_box_px`
+- `translation + size`
+- `bounding_box_3D`
+
+### 5.3 PerceptualSensorStrategy interface
 
 Location: `scene_common/src/scene_common/sensor_strategy.py`
 
 ```python
-# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
-
 from abc import ABC, abstractmethod
 
 class PerceptualSensorStrategy(ABC):
-  """Modality plugin: parse, project, and declare calibration schema."""
-
   @property
   @abstractmethod
   def modality(self) -> str:
-    """Return the modality identifier, e.g. 'camera', 'lidar', 'radar'."""
+    pass
 
   @abstractmethod
   def parse(self, payload: dict) -> dict:
-    """Validate and normalise a raw MQTT payload into the shared envelope."""
+    pass
 
   @abstractmethod
   def project(self, detections: list, sensor_config: dict) -> list:
-    """Convert sensor-space detections to scene world coordinates."""
+    pass
 
   @abstractmethod
   def calibration_schema(self) -> dict:
-    """Return JSON Schema for this modality's calibration parameters."""
+    pass
 ```
 
 ### 5.4 Strategy registry
@@ -149,137 +131,94 @@ class PerceptualSensorStrategy(ABC):
 Location: `scene_common/src/scene_common/sensor_registry.py`
 
 ```python
-# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+_registry = {}
 
-_registry: dict[str, PerceptualSensorStrategy] = {}
-
-def register(strategy: PerceptualSensorStrategy) -> None:
+def register(strategy):
   _registry[strategy.modality] = strategy
 
-def get(modality: str) -> PerceptualSensorStrategy:
+def get(modality):
   strategy = _registry.get(modality)
   if strategy is None:
     raise KeyError(f"No strategy registered for modality '{modality}'")
   return strategy
 ```
 
-Built-in strategies registered at package import time:
+Routing flow:
 
-- `CameraStrategy` — wraps the existing `CameraIntrinsics` + `CameraPose` + `CoordinateTransformer` path
-- `LidarStrategy` — identity pass-through for metric 3D; optional range-image projection
-- `RadarStrategy` — polar-to-Cartesian for heatmap or range-doppler detections
+1. Subscriber receives payload on `data/perceptual_sensor/{sensor_id}`.
+2. Parse top-level `modality`.
+3. Resolve strategy from registry.
+4. Delegate parse + project to that strategy.
 
 ### 5.5 C++ tracker changes
 
-The tracker's `MessageHandler` currently subscribes only to `scenescape/data/camera/+`. The
-`main.cpp` startup registers each sensor topic from the scene config. Three changes are needed:
-
-1. **`scene.schema.json`** — replace `cameras` array with `sensors` array; each entry carries a
-   `modality` field alongside `uid`, `name`, `intrinsics` (optional), and `extrinsics`.
-2. **`message_handler.cpp`** — subscribe to `scenescape/data/{modality}/{sensor_id}` for each
-   sensor; the handler dispatches to the matching `IProjectionStrategy` (C++ equivalent of the
-   Python interface).
-3. **`coordinate_transformer.cpp`** — refactor into a `CameraProjectionStrategy` that implements
-   `IProjectionStrategy`; `LidarProjectionStrategy` passes metric 3D detections through without
-   the pinhole undistortion step.
-
-The `CoordinateTransformer` class remains intact as the implementation behind
-`CameraProjectionStrategy`; no tracking math changes.
+- `message_handler.cpp` subscribes to `scenescape/data/perceptual_sensor/+`.
+- Payload parser reads `modality` and dispatches to `IProjectionStrategy` implementation.
+- `CoordinateTransformer` is wrapped by `CameraProjectionStrategy`.
+- Add `LidarProjectionStrategy` and `RadarProjectionStrategy` implementations.
 
 ### 5.6 Manager model changes
 
-`Cam` gains a `modality` field (CharField, default `"camera"`). The `DEFAULT_INTRINSICS` auto-fill
-in `save()` is guarded by `self.modality == "camera"`. The serializer gains a
-`calibration_schema_for_modality()` method that delegates to the registered strategy.
+- Add `modality` field to `Cam` (default `"camera"`).
+- Gate `DEFAULT_INTRINSICS` auto-fill behind `modality == "camera"`.
+- Serializer validation delegates calibration fields to `calibration_schema()` for modality.
 
 ### 5.7 UI changes
 
-`scenecamera.js` is renamed to `scenesensor.js`. The sensor creation panel gains a modality
-selector. When `modality == "camera"` or `"thermal"`, the existing intrinsics/FOV/frustum controls
-are shown. For `"lidar"` or `"radar"`, a pose-only calibration panel is shown instead. The
-Three.js rendering adds modality-appropriate visualizations (point cloud origin cone for lidar,
-radar sweep arc for radar).
-
-### 5.8 MQTT topic constants
-
-`scene_common/src/scene_common/mqtt.py` gains new `_Topic` enum values and templates:
-
-```python
-DATA_LIDAR   = auto()  # scenescape/data/lidar/${sensor_id}
-DATA_RADAR   = auto()  # scenescape/data/radar/${sensor_id}
-DATA_THERMAL = auto()  # scenescape/data/thermal/${sensor_id}
-RAW_LIDAR    = auto()  # scenescape/raw/lidar/${sensor_id}
-RAW_RADAR    = auto()  # scenescape/raw/radar/${sensor_id}
-IMAGE_THERMAL = auto() # scenescape/image/thermal/${sensor_id}
-```
+- Keep existing sensor editor but add modality selector.
+- Show camera/thermal intrinsics controls only for those modalities.
+- Show pose-centric controls for lidar/radar.
+- Existing camera objects retain current UX by default.
 
 ---
 
 ## 6. Implementation Phases
 
-### Phase 1 — Foundation (prerequisite for all others)
+### Phase 1 — Foundation
 
-Files: `scene_common`, `controller/src/schema/metadata.schema.json`
+- [ ] Add required `modality` field to perceptual envelope schema.
+- [ ] Add `sensor_strategy.py` and `sensor_registry.py`.
+- [ ] Implement and register `CameraStrategy`.
+- [ ] Add unified perceptual topic constant in `mqtt.py`.
+- [ ] Add unit tests for modality registry and unknown modality behavior.
 
-- [ ] Add `modality` field to the shared detection schema (`metadata.schema.json`), remaining optional and defaulting to `"camera"` for backward compatibility.
-- [ ] Create `sensor_strategy.py` and `sensor_registry.py` in `scene_common`.
-- [ ] Implement and register `CameraStrategy` as a thin wrapper around existing logic.
-- [ ] Add `DATA_LIDAR`, `DATA_RADAR`, `DATA_THERMAL`, `RAW_LIDAR`, `RAW_RADAR`, `IMAGE_THERMAL` topic constants to `mqtt.py`.
-- [ ] Unit tests for registry lookup, camera strategy parse/project, unknown modality error.
+### Phase 2 — Compatibility adapter + lidar
 
-### Phase 2 — Lidar first-class support
+- [ ] Add compatibility bridge from `data/camera/+` to unified envelope.
+- [ ] Add `modality` field to `Cam` and DB migration.
+- [ ] Gate intrinsics autofill for camera only.
+- [ ] Implement `LidarStrategy` and register it.
+- [ ] Extend tracker parser/dispatcher for modality routing.
+- [ ] Add lidar unit tests and camera compatibility tests.
 
-Files: `manager/models.py`, `manager/serializers.py`, `controller/src/controller/scene.py`, `tracker/schema/scene.schema.json`, `tracker/src/message_handler.cpp`, `tracker/src/coordinate_transformer.cpp`
+### Phase 3 — Radar strategy
 
-- [ ] Add `modality` field (default `"camera"`) to `Cam` model; create and run DB migration.
-- [ ] Gate `DEFAULT_INTRINSICS` auto-fill on `self.modality == "camera"`.
-- [ ] Implement `LidarStrategy` in `scene_common`; register it.
-- [ ] Extend `tracker/schema/scene.schema.json` to accept `sensors` array alongside `cameras`.
-- [ ] Extend `tracker/src/message_handler.cpp` to subscribe `scenescape/data/lidar/+` and dispatch to `LidarProjectionStrategy`.
-- [ ] Implement `LidarProjectionStrategy` in C++ (metric 3D pass-through; no undistortion).
-- [ ] Controller `processCameraData` renamed `processSensorData`; dispatches to strategy via registry.
-- [ ] Unit tests for lidar parse, project, no-intrinsics-required validation.
-- [ ] Compatibility test: existing camera MQTT payloads unchanged.
+- [ ] Implement `RadarStrategy` and register it.
+- [ ] Add radar projection strategy tests.
 
-### Phase 3 — Radar support
+### Phase 4 — UI and API cleanup
 
-Files: same patterns as Phase 2 for radar.
+- [ ] Modality selector and conditional calibration UI.
+- [ ] API docs updated to show `modality` field and unified ingress contract.
 
-- [ ] Implement `RadarStrategy` (polar-to-Cartesian or metric 3D depending on pipeline output).
-- [ ] Add radar to `message_handler.cpp` subscription and strategy dispatch.
-- [ ] Unit tests for radar parse, project.
+### Phase 5 — Deprecation follow-up
 
-### Phase 4 — UI and Manager UX
-
-Files: `manager/src/manager/static/js/thing/scenecamera.js` → `scenesensor.js`, templates
-
-- [ ] Rename `scenecamera.js` to `scenesensor.js`; update all imports.
-- [ ] Add modality selector on new sensor creation form.
-- [ ] Show/hide calibration controls by modality (intrinsics+FOV for camera/thermal; pose-only for lidar/radar).
-- [ ] Add modality-appropriate 3D visualizations.
-- [ ] UI tests covering modality selector and form validation.
-
-### Phase 5 — Documentation and deprecation
-
-- [ ] Rewrite `convert-object-detections-to-normalized-image-space.md` to cover all modalities.
-- [ ] Add a migration guide for publishers currently using `scenescape/data/camera/` for non-camera sensors.
-- [ ] Mark legacy camera-only API fields as deprecated in the API reference.
-- [ ] Update `tracker/Agents.md` to describe sensor strategy interface and calibration requirements per modality.
+- [ ] Mark `data/camera/+` compatibility path deprecated.
+- [ ] Set timeline for removing compatibility bridge after migration window.
 
 ---
 
 ## 7. Validation Approach
 
-1. **Phase 1 gate**: `make run_unit_tests` passes with new strategy registry tests.
-2. **Phase 2 gate**: Existing camera integration test suite passes unchanged (compatibility). New lidar unit tests pass.
-3. **Phases 3–4 gate**: Functional tests for radar and UI modality selector.
-4. **Final gate**: Full `make run_unit_tests && make run_functional_tests` suite green.
+1. Unit tests for registry dispatch and modality validation.
+2. Backward compatibility tests for existing camera payloads.
+3. Lidar and radar modality tests on unified topic.
+4. Full run: `make run_unit_tests && make run_functional_tests`.
 
 ---
 
 ## 8. Open Questions
 
-1. Should the public REST API rename `cameras` to `sensors` immediately (Phase 2), or in a later release?
-2. Should raw lidar point cloud and radar heatmap streams be binary-encoded MQTT or a separate protocol (e.g. gRPC)?
-3. Should `SingletonSensor` (discrete events) share the `PerceptualSensorStrategy` interface for uniformity, or remain a separate hierarchy?
+1. Should `modality` be required immediately, or optional with default `camera` for one release?
+2. Should raw lidar/radar streams remain MQTT or move to another channel for high bandwidth?
+3. Should discrete event sensors eventually use a parallel strategy interface for consistency?
