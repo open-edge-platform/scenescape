@@ -14,7 +14,7 @@ secrets:
 
 services:
   mqtt_publish:
-    image: scenescape-manager
+    image: intel/scenescape-manager
     init: true
     networks:
       scenescape-test:

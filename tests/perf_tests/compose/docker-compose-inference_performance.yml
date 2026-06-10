@@ -29,7 +29,7 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
 
   average-fps:
-    image: scenescape-manager:${VERSION:-latest}
+    image: intel/scenescape-manager:${VERSION:-latest}
     command: ["/workspace/tests/perf_tests/scripts/inference_perf_test.sh"]
     networks:
       scenescape-test:

@@ -45,7 +45,7 @@ class PipelineEngine:
     harness:
       class: harnesses.scene_controller_harness.SceneControllerHarness
       config:
-        container_image: scenescape-controller:latest
+        container_image: intel/scenescape-controller:latest
         tracker_config_path: /path/to/tracker-config.json
 
     evaluators:

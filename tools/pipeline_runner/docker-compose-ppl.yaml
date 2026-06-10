@@ -59,7 +59,7 @@ services:
     pids_limit: 1000
 
   mqtt-recorder:
-    image: scenescape-manager:latest
+    image: intel/scenescape-manager:latest
     networks:
       ppl_runner:
     entrypoint: ["python3"]

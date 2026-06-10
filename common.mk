@@ -12,6 +12,7 @@ USES_SCENE_COMMON ?= no
 GITHUB_ACTIONS_CACHE ?= false
 # Read the SHA-pinned image from the Dockerfile ARG default — single source of truth
 RUNTIME_OS_IMAGE ?= $(shell sed -n 's/^ARG RUNTIME_OS_IMAGE=//p' Dockerfile)
+IMAGES_ORGANIZATION ?= intel
 
 default: build-image
 
@@ -47,14 +48,14 @@ build-image: $(BUILD_DIR) Dockerfile
 			--build-arg CERTDOMAIN=$(CERTDOMAIN) \
 			--build-arg FORCE_VAAPI=$(FORCE_VAAPI) \
 			$$EXTRA_BUILD_ARGS \
-			--rm -t $(IMAGE):$(VERSION) \
+			--rm -t $(IMAGES_ORGANIZATION)/$(IMAGE):$(VERSION) \
 			-f ./Dockerfile .. 2>&1 | tee $(LOG_FILE); \
 		then \
-			docker tag $(IMAGE):$(VERSION) $(IMAGE):latest; \
-			echo -e "$(GREEN)------- BUILD OF IMAGE $(IMAGE):$(VERSION) COMPLETED SUCCESSFULLY -------$(RESET)"; \
+			docker tag $(IMAGES_ORGANIZATION)/$(IMAGE):$(VERSION) $(IMAGES_ORGANIZATION)/$(IMAGE):latest; \
+			echo -e "$(GREEN)------- BUILD OF IMAGE $(IMAGES_ORGANIZATION)/$(IMAGE):$(VERSION) COMPLETED SUCCESSFULLY -------$(RESET)"; \
 			echo "Log file created at $(LOG_FILE)"; \
 		else \
-			echo -e "$(RED)------- BUILD OF IMAGE $(IMAGE):$(VERSION) FAILED. CHECK $(LOG_FILE) FOR DETAILS. -------$(RESET)"; \
+			echo -e "$(RED)------- BUILD OF IMAGE $(IMAGES_ORGANIZATION)/$(IMAGE):$(VERSION) FAILED. CHECK $(LOG_FILE) FOR DETAILS. -------$(RESET)"; \
 			grep --color=auto -i -r "^error" $(LOG_FILE); \
 			exit 1; \
 		fi \
@@ -66,13 +67,13 @@ rebuild:
 
 .PHONY: list-dependencies
 list-dependencies: $(BUILD_DIR)
-	@if [[ -z $$(docker images | grep "^$(IMAGE)" | grep $(VERSION)) ]]; then \
-	  echo "Error: the image $(IMAGE):$(VERSION) does not exist! Cannot generate dependency list."; \
+	@if [[ -z $$(docker images | grep "^$(IMAGES_ORGANIZATION)/$(IMAGE)" | grep $(VERSION)) ]]; then \
+	  echo "Error: the image $(IMAGES_ORGANIZATION)/$(IMAGE):$(VERSION) does not exist! Cannot generate dependency list."; \
 	  echo "Please build the image first."; \
 	  exit 1; \
 	fi
 	@if [[ "$(HAS_PIP)" == "yes" ]]; then \
-	  docker run --rm --entrypoint pip $(IMAGE):$(VERSION) freeze --all > $(BUILD_DIR)/$(IMAGE)-pip-deps.txt; \
+	  docker run --rm --entrypoint pip $(IMAGES_ORGANIZATION)/$(IMAGE):$(VERSION) freeze --all > $(BUILD_DIR)/$(IMAGE)-pip-deps.txt; \
 	  echo "Python dependencies listed in $(BUILD_DIR)/$(IMAGE)-pip-deps.txt"; \
 	fi
 	@if [[ "$(HAS_DPKG)" == "yes" ]]; then \
@@ -81,7 +82,7 @@ list-dependencies: $(BUILD_DIR)
 	    exit 1; \
 	  fi; \
 	  docker run --rm $(RUNTIME_OS_IMAGE) dpkg -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-system-packages.txt; \
-	  docker run --rm --entrypoint dpkg $(IMAGE):$(VERSION) -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-packages.txt; \
+	  docker run --rm --entrypoint dpkg $(IMAGES_ORGANIZATION)/$(IMAGE):$(VERSION) -l | awk '{ print $$2, $$3, $$4 }' > $(BUILD_DIR)/$(IMAGE)-packages.txt; \
 	  grep -Fxv -f $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt > $(BUILD_DIR)/$(IMAGE)-apt-deps.txt || true; \
 	  rm -rf $(BUILD_DIR)/$(IMAGE)-system-packages.txt $(BUILD_DIR)/$(IMAGE)-packages.txt; \
 	  echo "OS dependencies listed in $(BUILD_DIR)/$(IMAGE)-apt-deps.txt"; \
@@ -130,5 +131,5 @@ generate-sbom: $(BUILD_DIR) check-buildkit
 
 .PHONY: clean
 clean:
-	@docker rmi $(IMAGE):$(VERSION) $(IMAGE):latest || true
+	@docker rmi $(IMAGES_ORGANIZATION)/$(IMAGE):$(VERSION) $(IMAGES_ORGANIZATION)/$(IMAGE):latest || true
 	@rm -f $(BUILD_DIR)/$(IMAGE)-*deps.txt $(LOG_FILE) || true

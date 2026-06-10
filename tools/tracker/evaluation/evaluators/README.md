@@ -288,7 +288,7 @@ print(f"Overall mean error: {results['dist_mean_all']:.3f} m")
 harness:
   class: harnesses.camera_projection_harness.CameraProjectionHarness
   config:
-    container_image: scenescape-controller:latest
+    container_image: intel/scenescape-controller:latest
 
 evaluators:
   - class: evaluators.camera_accuracy_evaluator.CameraAccuracyEvaluator

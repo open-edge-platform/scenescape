@@ -97,7 +97,7 @@ _Figure 4: Enter AprilTag dimensions._
 
 ```yaml
 autocalibration:
-  image: scenescape:<version>
+  image: intel/scenescape:<version>
   networks:
     scenescape:
   depends_on:
