@@ -445,4 +445,16 @@ Per-component credentials (Model Downloader listing, ViPPET pipeline-definition 
 
 ---
 
-*The remaining top-level sections (Alternatives, Risks, Rollout, Testing & Monitoring, Open Questions, References) are to be added.*
+## 6. Alternatives Considered
+
+The architectural alternatives for the integration as a whole are evaluated in [ADR-12 §Alternatives Considered](../adr/0012-mlops-integration-reuse.md#alternatives-considered) and not repeated here.
+
+This section records design-level alternatives that arose specifically while drafting *how* the integration is implemented.
+
+| Alternative | Considered for | Outcome |
+|---|---|---|
+| **Per-service direct integration** with each OEP component (no shared client libraries; each SceneScape service implements its own transport, auth, retries, telemetry). | Client-library integration layer. | **Rejected** in favor of one client library per OEP component, to reduce the integration surface, absorb OEP-component API churn in one place, and enable parallel adoption across SceneScape services. |
+
+---
+
+*The remaining top-level sections (Rollout / Migration Plan, Testing & Monitoring, Open Questions, References) are to be added.*

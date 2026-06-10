@@ -13,7 +13,9 @@
 - §5.6 Per-service SceneScape deltas — drafted.
 - §5.7 Scene export/import format — drafted.
 - §5.8 Deployment topology — drafted.
-- §6 Alternatives, §7 Risks, §8 Rollout/Migration, §9 Testing & Monitoring, §10 Open Questions, §11 References — pending.
+- §6 Alternatives — drafted (single design-level alternative; ADR-12 covers the rest).
+- §7 Risks and Mitigations — **removed from the document** (covered by [ADR-12 §Consequences](../../adr/0012-mlops-integration-reuse.md#consequences); no design-specific risks warrant a separate section).
+- §7 Rollout/Migration, §8 Testing & Monitoring, §9 Open Questions, §10 References — pending.
 - PR description at `docs/agent/design-pull-request-description.md` — pending.
 
 > **Note on subsection numbering.** When deciding what each subsection of §5 covers, refer to the *Drafting status* list above (it tracks the actual numbering used in the document). Earlier planning notes in this file may use a different §5 sub-numbering; that is the planning sequence, not the final structure.
@@ -127,3 +129,8 @@
 12. **§5.7 Scene export/import format** — Cover **only the delta vs. today**; do not re-specify the existing format. Delta is three items: (a) camera configuration (source ID + calibration) stored separately from pipeline definition; (b) model metadata is part of pipeline definition as a template-parameter value (no separate `models` section); (c) pipeline-to-camera mapping is a first-class section. Keep concise. Container shape (single JSON / multi-file / archive) deferred to *Open Questions*.
 13. **§5.8 Multi–Model-Downloader topology** — Keep concise. **Only two options**: O1 (single shared instance) and O2 (separate instances + separate volumes). O3 (separate instances + shared volume backend) removed. Decision tracked in *Open Questions*.
 14. **§5.8 Backwards-compatibility implications for topology** — **Removed**: the *Constraints* section and the parity-criterion rows in each delta already cover this; the topology subsection added no new information.
+
+## Step-7 decisions — §6 and §7 scoping
+
+15. **§6 Alternatives** — Keep a **single** design-level alternative entry: *per-service direct integration vs. shared client libraries*. All other candidate design-level alternatives (reuse the `gvapython` adapter as the DLSPS client library; re-specify the entire scene export/import format; multi–Model-Downloader topology with shared volume) were dropped as overly elaborate — the chosen direction is sufficiently motivated by the corresponding §5 subsections without an explicit alternatives entry. Architectural alternatives stay in [ADR-12 §Alternatives Considered](../../adr/0012-mlops-integration-reuse.md#alternatives-considered).
+16. **§7 Risks and Mitigations** — **Removed entirely from the design document.** [ADR-12 §Consequences](../../adr/0012-mlops-integration-reuse.md#consequences) covers the integration-level risks; design-specific risks that arose during drafting (OEP-API churn, dual-legacy parity, gvapython migration, Stream Manager consumer fan-out, Manager BE/UI label semantics, client-library repo location, scene-export format coexistence) are either already absorbed by the *Constraints*, the per-service deltas, and the *Open Questions* placeholders, or are not material enough to warrant a top-level Risks section. Subsequent top-level sections are renumbered: Rollout becomes §7, Testing & Monitoring §8, Open Questions §9, References §10.
