@@ -309,6 +309,86 @@ Contracts are presented at the level of detail required for SceneScape-side desi
 
 There is therefore no SceneScape-side client library for Geti and no row in the contracts above.
 
+### 5.6 Per-service SceneScape deltas
+
+This section enumerates the concrete changes SceneScape must absorb to participate in the target architecture. Each delta names the SceneScape services touched, the client library involved, the affected SceneScape modules, the parity criterion that gates removal of any legacy mechanism, and a **decision-timing** note (*decided now* — the service-ownership assignment is established in this design; *deferred per phase* — the assignment is left to the phase that delivers the delta).
+
+> **Manager service split.** As elsewhere in this document, *Manager back-end* and *Manager UI* labels in the deltas below are recommendations; the Manager split decision is deferred. Until that decision is taken, all changes assigned to Manager back-end or Manager UI are implemented inside the current monolithic Manager service.
+
+The deltas are organized in the same six-item structure used in the [responsibilities intermediate](../agent/intermediate/responsibilities.md), which the rollout plan in the *Rollout / Migration Plan* section maps to deployment phases.
+
+#### 5.6.1 Stream Manager consumption
+
+| Aspect | Specification |
+|---|---|
+| Purpose | Consume Stream Manager APIs for video sources (livestream, replay) in addition to today's direct RTSP / file sources. |
+| SceneScape consumers | Manager back-end (camera enumeration, stream URL resolution for pipeline source binding); *(deferred)* Auto Camera Calibration (calibration-time images); *(deferred)* Mapping (streams / images); *(deferred)* a path for DLSPS to consume streams directly. |
+| Client library | Stream Manager client library. |
+| Affected SceneScape modules | Camera-source binding inside Manager back-end (camera-source persistence, pipeline-source resolution). When deferred consumers are activated: corresponding source-acquisition code paths in Auto Camera Calibration and Mapping. |
+| Parity criterion | Feature parity is **per consumer**: each SceneScape service that adopts Stream Manager retains its direct-source path until its Stream Manager consumption is validated end-to-end. Stream Manager remains an optional dependency overall — there is no "remove direct sources" gate. |
+| Decision timing | **Deferred per phase.** Manager back-end's Stream Manager consumption is the anchor consumer (Phase 3 in the rollout plan). The other consumers (Auto Camera Calibration, Mapping, the DLSPS-side path) are decided in their respective phases as the corresponding designs solidify. |
+| Cross-component dependency | Stream Manager API design (livestream / replay endpoints), owned by the Stream Manager team. |
+
+#### 5.6.2 ViPPET pipeline-definition consumption
+
+| Aspect | Specification |
+|---|---|
+| Purpose | Consume ViPPET pipeline definitions as a first-class source of pipeline configuration, replacing both the manually authored static JSON files (Docker Compose) and the custom pipeline generation (Kubernetes). |
+| SceneScape consumers | Manager back-end. |
+| Client library | ViPPET client library. |
+| Affected SceneScape modules | New consumer in Manager back-end for pulling pipeline definitions and persisting them by value in the scene model. Legacy mechanisms scoped for removal at parity: the static JSON files under [`dlstreamer-pipeline-server/`](../../dlstreamer-pipeline-server/) and the custom pipeline generator at [`manager/src/manager/ppl_generator/`](../../manager/src/manager/ppl_generator/). The Kubernetes config-map writer in [`manager/src/manager/kubeclient.py`](../../manager/src/manager/kubeclient.py) is affected by the DLSPS runtime API delta, not this one. |
+| Parity criterion | A scene configured exclusively via ViPPET-supplied pipeline definitions reproduces the AI-task behavior of the equivalent scene configured via today's static JSON / custom pipeline generation, for the supported set of pipelines. Each of the two legacy mechanisms (Docker Compose static JSON; Kubernetes custom pipeline generation) has its **own** parity gate per the *Constraints* section. |
+| Decision timing | **Decided now** — Manager back-end is the consumer. |
+| Cross-component dependency | ViPPET pipeline-definition format (parametrization syntax, version envelope), owned by the ViPPET team. The exact format is tracked in *Open Questions*. |
+
+#### 5.6.3 Model Downloader adoption
+
+| Aspect | Specification |
+|---|---|
+| Purpose | Replace SceneScape's custom model download with the shared-model-volume model populated by Model Downloader, and surface installed models in the UI via the Model Downloader listing endpoint. |
+| SceneScape consumers | Manager UI (runtime listing of installed models for pipeline-definition selection / update). |
+| Client library | Model Downloader client library. |
+| Affected SceneScape modules | [`model_installer/`](../../model_installer/) **removed** in favor of the shared model volume populated by Model Downloader (download is out-of-band per [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision)). [`manager/src/manager/model_directory_view.py`](../../manager/src/manager/model_directory_view.py) replaced by a Model Downloader listing call via the client library. SceneScape-specific model-configuration conventions ([model-configuration-file-format](../user-guide/other-topics/model-configuration-file-format.md)) retired in favor of model metadata returned by Model Downloader. |
+| Parity criterion | (a) An equivalent set of models can be installed via Model Downloader and consumed by DLSPS for the supported set of pipelines; (b) the Manager UI model-selection flow surfaces the same model identity (name, precision, hub) the SceneScape user expects today; (c) the OMZ-to-public-models migration (tracked in *Open Questions*) does not regress the default SceneScape pipelines. |
+| Decision timing | **Decided now** — Manager UI is the runtime consumer; `model_installer` is removed. |
+| Cross-component dependency | Model Downloader listing endpoint and shared-volume model-storage convention. |
+
+#### 5.6.4 Scene-level pipeline-to-source mapping
+
+| Aspect | Specification |
+|---|---|
+| Purpose | Persist and manage the binding between pipeline definitions and the camera sources they run against, scene-side. Different cameras in the same scene serve different spatial-awareness tasks; a pipeline definition can be mapped to one or more sources (one-to-many). |
+| SceneScape consumers | Manager back-end (scene-model owner). |
+| Client library | None — internal to SceneScape. The mapping is consumed by the DLSPS client library (when starting pipeline instances) and embedded in scene exports by the export/import code; it is not itself an OEP integration. |
+| Affected SceneScape modules | Scene model in Manager back-end (new persistent field set for the pipeline-definition-to-source mapping). Scene Controller is **not** affected: it continues to consume the existing per-camera MQTT inference output. |
+| Parity criterion | Every pipeline-to-source binding expressible via today's mechanisms (static JSON pipeline configurations for Docker Compose; custom pipeline generation for Kubernetes) is expressible via the scene-side mapping. |
+| Decision timing | **Decided now** — Manager back-end owns the scene model. |
+| Cross-component dependency | None directly; depends on the ViPPET-pipeline-definition delta for the identity of pipeline definitions that the mapping references. |
+
+#### 5.6.5 DLSPS runtime pipeline API
+
+| Aspect | Specification |
+|---|---|
+| Purpose | Drive DLSPS pipeline lifecycle (start, stop, reconfigure) via DLSPS's runtime REST API once available, replacing today's static-JSON bind-mount mechanism (Docker Compose) and pod-recreation mechanism (Kubernetes). |
+| SceneScape consumers | Manager back-end (lifecycle calls). Scene Controller (MQTT inference output) — **unchanged**. |
+| Client library | DLSPS client library (new for the runtime pipeline API). The existing MQTT-consumption code in `scene_common` covers inference output and does not change. |
+| Affected SceneScape modules | New lifecycle-management code in Manager back-end. Legacy mechanisms scoped for removal at parity: the Kubernetes config-map writer + pod-recreation logic in [`manager/src/manager/kubeclient.py`](../../manager/src/manager/kubeclient.py); the static-JSON bind-mount wiring under [`dlstreamer-pipeline-server/`](../../dlstreamer-pipeline-server/). |
+| Parity criterion | Both legacy reconfiguration mechanisms are retired and replaced by the DLSPS runtime API across both deployment targets (Docker Compose and Kubernetes). This is the exit criterion of the final rollout phase. |
+| Decision timing | **Decided now** — Manager back-end is the runtime-API consumer. The legacy pod-recreation behavior remains available as a fall-back until the parity gate is met. |
+| Cross-component dependency | DLSPS runtime REST API design, owned by the DLSPS team. The migration of the existing SceneScape-authored DLSPS extensions from `gvapython` to the Gst Analytics Python API is a related but separately tracked activity in *Open Questions* — it does not block this delta but proceeds in parallel. |
+
+#### 5.6.6 Scene export / import
+
+| Aspect | Specification |
+|---|---|
+| Purpose | Extend SceneScape's scene export/import to produce a **self-contained** scene artifact suitable for production deployment: pipeline definitions are embedded by value (deployment does not require ViPPET); models are referenced by identifier (Model Downloader required at deployment time to materialize the models). |
+| SceneScape consumers | Manager back-end. |
+| Client library | None — internal to SceneScape. The exported artifact references identities consumed by the Model Downloader and ViPPET client libraries at runtime, but the export/import flow itself is internal. |
+| Affected SceneScape modules | Extends today's [`manager/src/manager/scene_import.py`](../../manager/src/manager/scene_import.py). New fields (per the cross-references in the *Background* section and the canonical wording above): embedded pipeline definitions; model references by identifier with model ID and version recorded in both camera and scene metadata (hashes for verification); the scene-level pipeline-definition-to-source mapping from the corresponding delta. The exact on-disk format is defined in the next subsection. |
+| Parity criterion | A scene exported under the new format can be imported on a fresh deployment that has Model Downloader available, and produces the same runtime behavior as the source deployment. Existing scenes (legacy format) remain importable for the duration of the backwards-compatibility window. |
+| Decision timing | **Decided now** — Manager back-end owns scene export/import. |
+| Cross-component dependency | None directly; depends on Model Downloader's identifier scheme (for the model references in the artifact) and on ViPPET's pipeline-definition format (for the embedded pipeline definitions). |
+
 ---
 
-*Per-service deltas, scene export/import format, deployment topology, and the remaining top-level sections (Alternatives, Risks, Rollout, Testing & Monitoring, Open Questions, References) are to be added.*
+*Scene export/import format, deployment topology, and the remaining top-level sections (Alternatives, Risks, Rollout, Testing & Monitoring, Open Questions, References) are to be added.*

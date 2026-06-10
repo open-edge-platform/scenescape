@@ -10,7 +10,7 @@
 - §5.3 Responsibility matrix and cross-cutting concerns — drafted.
 - §5.4 Client-library integration layer — drafted.
 - §5.5 Per-contract specifications (one subsection per OEP component) — drafted.
-- §5.6 Per-service SceneScape deltas — pending.
+- §5.6 Per-service SceneScape deltas — drafted.
 - §5.7 Scene export/import format — pending.
 - §5.8 Deployment topology — pending.
 - §6 Alternatives, §7 Risks, §8 Rollout/Migration, §9 Testing & Monitoring, §10 Open Questions, §11 References — pending.
