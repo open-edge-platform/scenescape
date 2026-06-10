@@ -50,7 +50,7 @@ SceneScape will **delegate** model management, visual pipeline building, and vid
   - at deployment time or scene import by an **external job or script**, or
   - during pipeline development by the user via the **ViPPET UI**, into a volume shared with SceneScape.
 
-  SceneScape's own runtime call to Model Downloader is limited to the **listing endpoint**, used when the user needs to see available models to choose or update a model in a pipeline definition.
+  SceneScape's runtime interaction with the Model Downloader is limited to the **listing endpoint**. This allows users to view available models when defining a pipeline. This direct call is a temporary measure that will be removed once the transition to ViPPET-based pipeline authoring is complete, as ViPPET will then handle model selection.
 
 - **Backwards compatibility:** existing static JSON pipeline configurations (Docker bind-mount and Kubernetes config maps) and the custom dynamic pipeline configuration on Kubernetes remain supported until feature parity with the ViPPET-based flow is achieved.
 
