@@ -93,4 +93,96 @@ This subsection defines the SceneScape-internal vocabulary used in the rest of t
 
 ---
 
-*Sections 5–11 to be added.*
+## 5. Proposed Design
+
+### 5.1 Component-level architecture
+
+The component view below shows the runtime relationships between SceneScape and the OEP MLOps components. Only the interactions relevant to MLOps integration are shown; intra-SceneScape interactions (Manager ↔ Scene Controller MQTT, Auto Camera Calibration outputs, etc.) are omitted.
+
+![Component Interaction](../agent/diagrams/SceneScape_MLOps-Component%20Interaction.drawio.svg)
+
+> Each "SceneScape →" arrow in this diagram is realized inside SceneScape by the corresponding **client library** described later in this section (one per OEP component). The diagram is component-level only — protocols, transport, and auth are specified in the per-contract specifications below.
+
+**Component roles** (consolidated from [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision) and the *SceneScape today* subsection above):
+
+| Component | Status | Owned data | SceneScape's relationship |
+|---|---|---|---|
+| **Model Downloader** | Existing OEP component (new requirements) | Installed models | Runtime listing endpoint (Manager UI); no runtime download calls |
+| **ViPPET** | Existing OEP component (new requirements) | Pipeline templates and definitions | REST pull of pipeline definitions (Manager back-end); embedded by value into scene exports |
+| **DLSPS** | Already integrated; integration evolving | Running pipelines; inference output | Runtime pipeline lifecycle via DLSPS REST API (Manager back-end); MQTT inference output (Scene Controller) |
+| **Stream Manager** | New OEP component (optional) | Camera devices, live and captured video | Livestream/replay APIs (Manager back-end and, deferred, Auto Camera Calibration / Mapping) |
+| **Geti** | Existing OEP component (no changes) | Datasets, trained models | **No direct integration** — mediated via Model Downloader and Stream Manager |
+
+**Data flow at runtime:**
+
+- Models are downloaded by an out-of-band job into a **shared model volume** populated by Model Downloader and read by DLSPS. SceneScape never reads model files directly.
+- Pipeline definitions are pulled from ViPPET by Manager back-end, persisted in SceneScape's scene configuration (embedded by value), and pushed to DLSPS via its runtime API.
+- Video sources are either consumed from Stream Manager (when deployed) or accessed directly (RTSP/file) when Stream Manager is not deployed.
+- DLSPS publishes inference results to MQTT, consumed unchanged by Scene Controller (no MLOps-integration changes to Scene Controller).
+
+### 5.2 End-to-end process model
+
+The process model shows the user-facing workflow for building, packaging, and deploying a SceneScape-based solution that integrates Geti (training), ViPPET (pipeline building), DLSPS (pipeline execution), Stream Manager (video acquisition), Model Downloader (model lifecycle), and SceneScape (scene management and runtime).
+
+![Process Model](../agent/diagrams/SceneScape_MLOps-Process%20Model.drawio.svg)
+
+**Stages** (top-to-bottom, summarized):
+
+1. **Camera Setup** — Stream Manager detects and configures camera devices.
+2. **Data Acquisition** — Stream Manager captures videos and uploads them to a Geti instance for annotation.
+3. **Geti Training** — Geti annotates, trains, and validates the model.
+4. **DLS Pipeline Development** — ViPPET downloads the Geti-trained model (via Model Downloader), authors and verifies the DLSPS pipeline.
+5. **Scene Development** — SceneScape sets up scenes and cameras, consumes the ViPPET pipeline definition, maps pipelines to sources, starts pipelines, and evaluates AI-task performance.
+6. **Package Preparation** — SceneScape exports the scene (self-contained per [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision)).
+7. **Deployment** — at the production site, Model Downloader materializes the referenced models, SceneScape imports the scene and starts pipelines, Stream Manager runs alongside (when deployed) for video acquisition.
+
+**Properties of the workflow relevant to this design:**
+
+- **No direct SceneScape ↔ Geti arrow.** Confirms the corresponding non-goal stated above.
+- **Scene-evaluation feedback loop** (dashed in the diagram) returns to *Annotate*, *Build Pipeline*, or *Capture* depending on the root cause of poor AI-task performance — the design must keep this loop short, which is why pipeline-to-source mapping is owned scene-side (see *Responsibility matrix* below) and pipeline updates are dynamic via DLSPS runtime API (see the DLSPS runtime API delta).
+- **Development and production deployments are independent.** Each component can be deployed standalone for iterative development; production composition is reconstructed from the exported scene plus the required OEP components.
+
+### 5.3 Responsibility matrix and cross-cutting concerns
+
+This section is the source of truth for *who does what* in the integrated system. It collapses the per-component breakdown in *SceneScape today* and the ADR-12 component assignments into a single SceneScape-perspective view, refined to the specific SceneScape services that own each responsibility (per the *SceneScape Component Reference*).
+
+> **Note on Manager service split.** The matrix below assigns responsibilities to *Manager back-end* and *Manager UI* as a **recommendation**. The decision on whether (and when) to split today's monolithic Manager service into separate back-end and UI services is **deferred**. Until that decision is made, all rows assigned to *Manager back-end* or *Manager UI* are implemented inside the current Manager service; the BE/UI labels capture the intended responsibility boundary, not a current service boundary.
+
+**Per-component responsibility matrix:**
+
+| Concern | Owner | Notes |
+|---|---|---|
+| Scene model and persistence | Manager back-end | Scene map, cameras, ROIs, pipeline-to-source mapping. |
+| Pipeline-to-source mapping (scene-level) | Manager back-end | Persisted SceneScape-side only; ViPPET's internal mapping is not synchronized. |
+| Pipeline authoring | ViPPET | SceneScape never authors pipelines. |
+| Pipeline definition consumption | Manager back-end | REST pull from ViPPET; embedded by value into scene exports. |
+| Pipeline lifecycle (start/stop, dynamic reconfig) | Manager back-end → DLSPS REST API | Replaces both the static-JSON Docker Compose flow and the pod-recreation Kubernetes flow at parity (see the DLSPS runtime API delta). |
+| Pipeline execution | DLSPS | Reads models from shared model volume; publishes inference output to MQTT. |
+| Inference output consumption | Scene Controller | Existing MQTT contract; **no MLOps-integration changes**. |
+| Multimodal fusion, tracking, scene state | Scene Controller | Unchanged. |
+| Model lifecycle (install, list) | Model Downloader | SceneScape uses listing endpoint only at runtime. |
+| Model listing for UI selection | Manager UI → Model Downloader | New runtime call; replaces filesystem-scan behavior of today's `model_directory_view.py`. |
+| Model download (production) | External job / ViPPET UI | SceneScape does not call Model Downloader's download endpoint at runtime ([ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision)). |
+| Model storage at runtime | Model Downloader (writes) + DLSPS (reads) | Shared model volume; no direct runtime call from DLSPS to Model Downloader. |
+| Camera discovery and device configuration | Stream Manager | SceneScape consumes the resulting stream list only; ownership of camera discovery is **not** with SceneScape. |
+| Video acquisition (livestream / replay) | Stream Manager | Optional dependency; direct RTSP/file sources remain supported when Stream Manager is not deployed. |
+| Calibration-time image acquisition | Auto Camera Calibration; *(deferred)* Stream Manager | Decision deferred per phase (see the Stream Manager consumption delta). |
+| Mapping-time image / stream acquisition | Mapping; *(deferred)* Stream Manager | Decision deferred per phase (see the Stream Manager consumption delta). |
+| Scene export / import | Manager back-end | Extends today's `manager/src/manager/scene_import.py`; new format defined later in this section. |
+| Model training, dataset management | Geti | No SceneScape involvement. |
+
+**Cross-cutting concerns** (applied uniformly across all OEP integrations; mechanisms implemented inside the client libraries described later in this section):
+
+| Concern | Approach |
+|---|---|
+| **Authentication and certificates** | Per-component credentials configured at deployment; client libraries handle injection and rotation. |
+| **Retries and backoff** | Built into each client library with bounded retry counts; SceneScape services treat client-library calls as best-effort and fail visibly when retries are exhausted. |
+| **Schema validation** | Inbound payloads (pipeline definitions from ViPPET, model listings from Model Downloader) validated against versioned schemas inside the corresponding client library. |
+| **Versioning** | Each client library encodes the supported OEP-component API version range; mismatches surface as a single configuration error rather than scattered runtime failures. |
+| **Telemetry and tracing** | OpenTelemetry spans named per OEP component (e.g., `model_downloader.list_models`, `vippet.get_pipeline_definition`); per-component metrics for latency, error rate, retry count. Aligns with the existing observability conventions in `controller/observability/`. |
+| **Test doubles** | Each client library ships fakes / mocks usable by all SceneScape-side unit tests; integration tests run against component fakes (see the *Testing & Monitoring* section). |
+| **Backwards compatibility** | Two distinct legacy mechanisms (static JSON pipeline configs; custom dynamic K8s pipeline configuration) retain separate parity gates per the *Constraints* and *Rollout / Migration Plan* sections. |
+
+---
+
+*The client-library integration layer, per-contract specifications, per-service deltas, scene export/import format, deployment topology, and the remaining top-level sections (Alternatives, Risks, Rollout, Testing & Monitoring, Open Questions, References) are to be added.*
