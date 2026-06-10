@@ -99,7 +99,7 @@ This subsection defines the SceneScape-internal vocabulary used in the rest of t
 
 The component view below shows the runtime relationships between SceneScape and the OEP MLOps components. Only the interactions relevant to MLOps integration are shown; intra-SceneScape interactions (Manager ↔ Scene Controller MQTT, Auto Camera Calibration outputs, etc.) are omitted.
 
-![Component Interaction](../agent/diagrams/SceneScape_MLOps-Component%20Interaction.drawio.svg)
+![Component Interaction](./assets/SceneScape_MLOps-Component_Interaction.drawio.svg)
 
 > Each "SceneScape →" arrow in this diagram is realized inside SceneScape by the corresponding **client library** described later in this section (one per OEP component). The diagram is component-level only — protocols, transport, and auth are specified in the per-contract specifications below.
 
@@ -124,7 +124,7 @@ The component view below shows the runtime relationships between SceneScape and 
 
 The process model shows the user-facing workflow for building, packaging, and deploying a SceneScape-based solution that integrates Geti (training), ViPPET (pipeline building), DLSPS (pipeline execution), Stream Manager (video acquisition), Model Downloader (model lifecycle), and SceneScape (scene management and runtime).
 
-![Process Model](../agent/diagrams/SceneScape_MLOps-Process%20Model.drawio.svg)
+![Process Model](./assets/SceneScape_MLOps-Process_Model.drawio.svg)
 
 > **One representative flow.** The diagram presents one representative end-to-end flow. The order of phases is not fixed: stages may be reordered, repeated, skipped, or run in parallel depending on the user's workflow. For example, model training (Geti) can precede or follow camera setup; pipeline development in ViPPET can be revisited after scene evaluation; data acquisition can be performed independently of any specific scene. The stages below describe the canonical happy path used to derive SceneScape's design requirements; they are not a mandatory execution order.
 
@@ -315,7 +315,7 @@ This section enumerates the concrete changes SceneScape must absorb to participa
 
 > **Manager service split.** As elsewhere in this document, *Manager back-end* and *Manager UI* labels in the deltas below are recommendations; the Manager split decision is deferred. Until that decision is taken, all changes assigned to Manager back-end or Manager UI are implemented inside the current monolithic Manager service.
 
-The deltas are organized in the same six-item structure used in the [responsibilities intermediate](../agent/intermediate/responsibilities.md), which the rollout plan in the *Rollout / Migration Plan* section maps to deployment phases.
+The deltas are organized by area of work, and the rollout plan in the *Rollout / Migration Plan* section maps them to deployment phases.
 
 #### 5.6.1 Stream Manager consumption
 
@@ -455,6 +455,49 @@ This section records design-level alternatives that arose specifically while dra
 |---|---|---|
 | **Per-service direct integration** with each OEP component (no shared client libraries; each SceneScape service implements its own transport, auth, retries, telemetry). | Client-library integration layer. | **Rejected** in favor of one client library per OEP component, to reduce the integration surface, absorb OEP-component API churn in one place, and enable parallel adoption across SceneScape services. |
 
----
+## 7. Rollout / Migration Plan
 
-*The remaining top-level sections (Rollout / Migration Plan, Testing & Monitoring, Open Questions, References) are to be added.*
+The integration is rolled out in four phases, with each phase delivering a subset of the six deltas defined in the *Per-service SceneScape deltas* section. The mapping of deltas to phases is chosen to deliver end-to-end value at each step and to manage cross-component dependencies.
+
+| Phase | Deltas delivered | Key outcome |
+|---|---|---|
+| **Phase 1** | **(3) Model Downloader adoption.** | `model_installer` is removed. SceneScape UI lists models from Model Downloader. |
+| **Phase 2** | **(2) ViPPET pipeline-definition consumption.**<br>**4) Scene-level pipeline-to-source mapping.** | SceneScape can consume ViPPET pipeline definitions and map them to sources. Legacy pipeline mechanisms (static JSON, custom K8s generation) remain in place. |
+| **Phase 3** | **(1) Stream Manager consumption** (Manager back-end only).<br>**(6) Scene export/import.** | SceneScape can consume from Stream Manager and can export/import self-contained scenes. |
+| **Phase 4** | **(5) DLSPS runtime pipeline API.** | Legacy pipeline mechanisms are removed. DLSPS pipeline lifecycle is fully dynamic. |
+
+**Parity gates.** Each legacy mechanism (static JSON pipeline configurations for Docker Compose; custom dynamic pipeline configuration on Kubernetes) has its own parity gate per the *Constraints* section. A legacy mechanism is removed only when its full capability is reproduced by the new flow. The DLSPS runtime API delta in Phase 4 is the final gate for removing both.
+
+## 8. Testing & Monitoring
+
+**Testing.**
+
+- **Client libraries.** Each client library is tested in isolation with unit tests against its test doubles (fakes/mocks).
+- **SceneScape services.** Service-level unit tests consume the client-library test doubles.
+- **Integration tests.** A new suite of functional tests (`tests/functional/mlops/`) is added, one test per delta. These tests run against OEP-component fakes or stubs, not live components.
+- **End-to-end tests.** The existing basic acceptance tests (`tests/functional/test_basic_acceptance.py`) are extended to cover one end-to-end happy path for each phase's key outcome.
+
+**Monitoring.**
+
+- **Telemetry.** Per the *Cross-cutting concerns* matrix, each client library emits OpenTelemetry spans and metrics (latency, error rate, retry count) for its downstream OEP component. These are scraped and visualized using the existing observability stack.
+- **Health checks.** The existing health-check mechanisms are extended to include the reachability of each required OEP component's API endpoint.
+
+## 9. Open Questions
+
+This section consolidates all deferred decisions and open questions called out in the sections above.
+
+- **Client-library repository location.** Three candidate placements are possible: (A) extend [`scene_common/`](../../scene_common/) with an `integration/` subpackage; (B) introduce a new top-level shared library (e.g., `integration_clients/`); (C) decide per component. The distribution and versioning model follows from this choice.
+- **ViPPET pipeline-definition format.** The exact format for pipeline definitions consumed from ViPPET, especially the model-parametrization syntax and the version envelope, depends on the ViPPET team's design.
+- **Multi–Model-Downloader topology.** The choice between a single shared Model Downloader instance (O1) and separate instances with separate volumes (O2) for development vs. production deployments.
+- **`gvapython` to Gst Analytics Python migration.** The detailed plan for migrating the SceneScape-authored DLSPS extensions from the deprecated `gvapython` element to the Gst Analytics Python API, and for refactoring the monolithic adapter into smaller, reusable units. This proceeds in parallel with the DLSPS runtime API delta.
+- **OMZ-to-public-models migration set.** The exact set of public models that will replace the OpenVINO Model Zoo (OMZ) models used in default SceneScape pipelines.
+- **Stream Manager consumption by deferred consumers.** The decision on whether (and when) Auto Camera Calibration and Mapping will consume from Stream Manager.
+- **Manager service split.** The decision on whether (and when) to split today's monolithic Manager service into separate back-end and UI services.
+- **Scene-artifact container shape.** The concrete on-disk format for exported scenes (single JSON document, multi-file bundle, or archive).
+
+## 10. References
+
+- [ADR-12 — MLOps Integration and Reuse](../adr/0012-mlops-integration-reuse.md)
+- Diagrams:
+  - [Component Interaction](./assets/SceneScape_MLOps-Component_Interaction.drawio.svg)
+  - [Process Model](./assets/SceneScape_MLOps-Process_Model.drawio.svg)

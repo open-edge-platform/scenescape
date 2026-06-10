@@ -15,7 +15,10 @@
 - §5.8 Deployment topology — drafted.
 - §6 Alternatives — drafted (single design-level alternative; ADR-12 covers the rest).
 - §7 Risks and Mitigations — **removed from the document** (covered by [ADR-12 §Consequences](../../adr/0012-mlops-integration-reuse.md#consequences); no design-specific risks warrant a separate section).
-- §7 Rollout/Migration, §8 Testing & Monitoring, §9 Open Questions, §10 References — pending.
+- §7 Rollout/Migration — drafted.
+- §8 Testing & Monitoring — drafted.
+- §9 Open Questions — drafted.
+- §10 References — drafted.
 - PR description at `docs/agent/design-pull-request-description.md` — pending.
 
 > **Note on subsection numbering.** When deciding what each subsection of §5 covers, refer to the *Drafting status* list above (it tracks the actual numbering used in the document). Earlier planning notes in this file may use a different §5 sub-numbering; that is the planning sequence, not the final structure.
