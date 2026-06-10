@@ -11,8 +11,8 @@
 - §5.4 Client-library integration layer — drafted.
 - §5.5 Per-contract specifications (one subsection per OEP component) — drafted.
 - §5.6 Per-service SceneScape deltas — drafted.
-- §5.7 Scene export/import format — pending.
-- §5.8 Deployment topology — pending.
+- §5.7 Scene export/import format — drafted.
+- §5.8 Deployment topology — drafted.
 - §6 Alternatives, §7 Risks, §8 Rollout/Migration, §9 Testing & Monitoring, §10 Open Questions, §11 References — pending.
 - PR description at `docs/agent/design-pull-request-description.md` — pending.
 
@@ -121,3 +121,9 @@
 
 - **ADR Context**: split into delegation bullets (model management, pipeline building) + a separate paragraph for **existing DLSPS integration being evolved**.
 - **ADR Decision**: renamed "Component assignments" to "Delegated capabilities and their target OEP components" (Model Downloader, ViPPET, Stream Manager, Geti-indirect) + new "Existing DLSPS integration being evolved" subgroup (DLSPS only).
+
+## Step-6 decisions — §5.7 and §5.8 scoping
+
+12. **§5.7 Scene export/import format** — Cover **only the delta vs. today**; do not re-specify the existing format. Delta is three items: (a) camera configuration (source ID + calibration) stored separately from pipeline definition; (b) model metadata is part of pipeline definition as a template-parameter value (no separate `models` section); (c) pipeline-to-camera mapping is a first-class section. Keep concise. Container shape (single JSON / multi-file / archive) deferred to *Open Questions*.
+13. **§5.8 Multi–Model-Downloader topology** — Keep concise. **Only two options**: O1 (single shared instance) and O2 (separate instances + separate volumes). O3 (separate instances + shared volume backend) removed. Decision tracked in *Open Questions*.
+14. **§5.8 Backwards-compatibility implications for topology** — **Removed**: the *Constraints* section and the parity-criterion rows in each delta already cover this; the topology subsection added no new information.

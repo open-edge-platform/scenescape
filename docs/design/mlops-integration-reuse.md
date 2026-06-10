@@ -389,6 +389,60 @@ The deltas are organized in the same six-item structure used in the [responsibil
 | Decision timing | **Decided now** — Manager back-end owns scene export/import. |
 | Cross-component dependency | None directly; depends on Model Downloader's identifier scheme (for the model references in the artifact) and on ViPPET's pipeline-definition format (for the embedded pipeline definitions). |
 
+### 5.7 Scene export / import format — delta vs. today
+
+This section captures **only the delta** between today's scene export/import (extended from [`manager/src/manager/scene_import.py`](../../manager/src/manager/scene_import.py)) and the new format required by this design. It does not re-specify the existing format. The concrete container shape (single JSON document, multi-file bundle, or archive) is deferred to implementation (tracked in *Open Questions*).
+
+**Delta** (driven by [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision) and the scene-export/import delta):
+
+1. **Camera configuration stored separately from pipeline definitions.** Each camera entry carries its source identity (Stream Manager handle, direct RTSP URL, or file path) and calibration (intrinsics, extrinsics, pose). Cameras are no longer co-located with pipeline-specific fields.
+2. **Model metadata is part of the pipeline definition**, supplied as a template-parameter value (per the ViPPET-pipeline-definition delta: models are parameters of pipeline definitions, referenced by ID + version). Pipeline definitions are embedded by value in the artifact so deployment does not require ViPPET. Models themselves are referenced by identifier only — no model files are embedded; Model Downloader materializes them at deployment time.
+3. **Pipeline-to-camera mapping** is a first-class section of the artifact, serializing the scene-side mapping owned by Manager back-end (per the scene-level pipeline-to-source mapping delta). A pipeline definition can map to one or more cameras (one-to-many).
+
+Existing scenes exported under the legacy format remain importable for the duration of the backwards-compatibility window defined in the *Constraints* section.
+
+### 5.8 Deployment topology
+
+This section specifies the deployment-time arrangement of SceneScape and the OEP components it integrates with, for both supported targets: Docker Compose and Kubernetes. The topology is the same shape on both targets — only the orchestration mechanism differs.
+
+**Components in the SceneScape deployment.**
+
+| Component | Required | Notes |
+|---|---|---|
+| SceneScape services (Manager, Scene Controller, Auto Camera Calibration; *experimental*: Mapping) | Yes | The current set of microservices, less `model_installer` after the Model Downloader delta. |
+| DL Streamer Pipeline Server (DLSPS) | Yes | Runtime pipeline executor; reads models from the shared model volume; publishes MQTT inference output. |
+| Shared model volume | Yes | Written by Model Downloader, read by DLSPS. SceneScape does not read model files directly. |
+| Model Downloader | Required at deployment time | Populates the shared model volume. SceneScape's only runtime interaction is the listing endpoint (Manager UI). |
+| Stream Manager | Optional | When deployed, provides livestream / replay; when absent, SceneScape uses direct RTSP / file sources. |
+| ViPPET | **Not required at deployment time** | Pipeline definitions are embedded by value in the scene artifact per the scene export/import format above. ViPPET is used during scene development, not in production. |
+| Geti | Not at the SceneScape deployment site | Geti is reached only indirectly during the upstream training stages of the workflow. |
+
+**Shared model volume.**
+
+The shared model volume is the integration point between Model Downloader (writer) and DLSPS (reader). It is materialized differently per target:
+
+- **Docker Compose.** A named Docker volume mounted into the DLSPS container and into the deployment-time Model Downloader job/container.
+- **Kubernetes.** A PersistentVolumeClaim mounted into the DLSPS pod(s) and into the Model Downloader job/pod. SceneScape services do not mount this volume.
+
+The volume holds model files plus the metadata that Model Downloader's listing endpoint exposes. SceneScape services rely on the listing endpoint, not on direct volume reads, for model enumeration.
+
+**Multi–Model-Downloader topology (open).**
+
+ViPPET may be deployed with its own embedded Model Downloader instance during development. If the development setup and the SceneScape deployment use separate Model Downloader instances writing to separate model volumes, the deployment design must disambiguate which Model Downloader instance owns which model volume. Two options are under consideration:
+
+- **(O1) Single shared Model Downloader instance** across ViPPET and SceneScape — simplest; no model duplication; requires reachability between the two deployments.
+- **(O2) Separate Model Downloader instances, separate volumes** — clean separation; models must be re-downloaded into the SceneScape-side volume at production-deployment time using the IDs recorded in the exported scene.
+
+The choice is tracked in *Open Questions* and is independent of the SceneScape-side deltas: SceneScape behavior is identical across O1 and O2 because the only SceneScape runtime call is the listing endpoint of *its* Model Downloader.
+
+**Stream Manager opt-in.**
+
+Stream Manager is added to the topology only when source acquisition through Stream Manager is required. The Stream Manager client library is the only point where its presence or absence matters to SceneScape services: when Stream Manager is not deployed, source bindings in the scene artifact resolve to direct RTSP / file sources without any code path through the client library.
+
+**Network and authentication.**
+
+Per-component credentials (Model Downloader listing, ViPPET pipeline-definition endpoint when used during development, DLSPS runtime API, Stream Manager livestream / replay) are configured at deployment time and injected into the corresponding client libraries. Existing SceneScape secret-management mechanisms (under [`manager/secrets/`](../../manager/secrets/) and propagated via Docker Compose secrets or Kubernetes Secrets) are extended to cover the new credentials. The detailed list of credentials per component follows from the corresponding teams' API specifications.
+
 ---
 
-*Scene export/import format, deployment topology, and the remaining top-level sections (Alternatives, Risks, Rollout, Testing & Monitoring, Open Questions, References) are to be added.*
+*The remaining top-level sections (Alternatives, Risks, Rollout, Testing & Monitoring, Open Questions, References) are to be added.*
