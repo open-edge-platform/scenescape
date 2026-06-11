@@ -36,9 +36,9 @@ SceneScape will **delegate** model management, visual pipeline building, and vid
 
 **Evolving DLSPS Integration:**
 
-- **DLSPS**: Continues to handle pipeline execution. The integration will evolve in stages from a static JSON and pod recreation approach to a fully runtime API, dependent on planned updates to DLSPS.
+- **DLSPS**: Continues to handle pipeline execution. The integration will evolve in stages from a static JSON and pod recreation approach to a fully runtime API, dependent on planned updates to DLSPS. SceneScape will continue to provide pipeline definitions directly to DLSPS, but the responsibility for authoring those definitions will shift from SceneScape to ViPPET.
 
-**SceneScape Retains Ownership** of the following: the scene model, scene-level pipeline-to-source mapping, runtime pipeline orchestration with DLSPS, multimodal fusion and tracking, and scene export/import.
+**SceneScape Retains Ownership** of the following: the scene model, scene-level pipeline-to-source mapping, runtime pipeline orchestration with DLSPS (create, update, start, stop, remove), multimodal fusion and tracking, and scene export/import.
 
 **Key design choices:**
 
