@@ -64,22 +64,22 @@ This subsection defines the SceneScape-internal vocabulary used in the rest of t
 
 #### SceneScape components in scope of (or possibly in scope of) MLOps integration
 
-**Manager** — today a single Django service ([`manager/`](../../manager/)) combining the web UI, REST API, scene model, PostgreSQL persistence, scene import/export, and pipeline orchestration against DLSPS (both the Kubernetes pipeline-generation flow and direct interactions). In subsequent phases, Manager may be splitted into two services:
+- **Manager** — today a single Django service ([`manager/`](../../manager/)) combining the web UI, REST API, scene model, PostgreSQL persistence, scene import/export, and pipeline orchestration against DLSPS (both the Kubernetes pipeline-generation flow and direct interactions). In subsequent phases, Manager may be splitted into two services:
 
-- **Manager (back-end)** — REST API, scene model, scene import/export, and DLSPS pipeline lifecycle. The term *Manager back-end* in this document refers to this responsibility set whether implemented as the current monolith or as a future separate service.
-- **Manager (UI)** — thin front-end consuming the Manager back-end's REST API. The term *Manager UI* in this document refers to this responsibility set independent of the split timeline.
+  - **Manager (back-end)** — REST API, scene model, scene import/export, and DLSPS pipeline lifecycle. The term *Manager back-end* in this document refers to this responsibility set whether implemented as the current monolith or as a future separate service.
+  - **Manager (UI)** — thin front-end consuming the Manager back-end's REST API. The term *Manager UI* in this document refers to this responsibility set independent of the split timeline.
 
-**Auto Camera Calibration** ([`autocalibration/`](../../autocalibration/)) — computes camera intrinsics and extrinsics from sensor feeds. May consume images from Stream Manager in future phases (decision deferred).
+- **Auto Camera Calibration** ([`autocalibration/`](../../autocalibration/)) — computes camera intrinsics and extrinsics from sensor feeds. May consume images from Stream Manager in future phases (decision deferred).
 
-**Mapping** ([`mapping/`](../../mapping/), *experimental*) — may consume streams or images from Stream Manager in future phases (decision deferred).
+- **Mapping** ([`mapping/`](../../mapping/), *experimental*) — may consume streams or images from Stream Manager in future phases (decision deferred).
 
-**`model_installer`** ([`model_installer/`](../../model_installer/)) — the current model-download tool. **Removed** once Model Downloader populates the shared model volume (see the *Proposed Design* section).
+- **`model_installer`** ([`model_installer/`](../../model_installer/)) — the current model-download tool. **Removed** once Model Downloader populates the shared model volume (see the *Proposed Design* section).
 
 #### Services not in scope of MLOps integration (listed for completeness)
 
-**Scene Controller** ([`controller/`](../../controller/)) — runtime scene state, multimodal sensor fusion, multi-object tracking. Consumes DLSPS inference output via MQTT. **No MLOps-integration changes are planned.**
+- **Scene Controller** ([`controller/`](../../controller/)) — runtime scene state, multimodal sensor fusion, multi-object tracking. Consumes DLSPS inference output via MQTT. **No MLOps-integration changes are planned.**
 
-**Cluster Analytics** ([`cluster_analytics/`](../../cluster_analytics/), *experimental*) — not part of the MLOps integration scope.
+- **Cluster Analytics** ([`cluster_analytics/`](../../cluster_analytics/), *experimental*) — not part of the MLOps integration scope.
 
 ### 4.3 Constraints driving the design
 
