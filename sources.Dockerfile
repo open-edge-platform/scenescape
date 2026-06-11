@@ -114,6 +114,8 @@ RUN apt-get source --download-only \
     proj-data \
     protobuf \
     python3.11 \
+    python3-pip \
+    python3-wheel \
     qtbase-opensource-src \
     rtmpdump \
     sed \
