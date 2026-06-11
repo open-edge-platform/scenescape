@@ -9,9 +9,7 @@
 
 ## 1. Overview
 
-This document specifies the high-level design for integrating SceneScape with new Intel® [Open-Edge-Platform](https://github.com/open-edge-platform) (OEP) components — **Model Downloader**, **ViPPET**, and **Stream Manager** — and for evolving the existing integration with the **DL Streamer Pipeline Server (DLSPS)**. Geti participates in the end-to-end workflow but is reached only indirectly (via Model Downloader for models and via Stream Manager for training videos).
-
-The architectural decision and its rationale are recorded in [ADR-12](../adr/0012-mlops-integration-reuse.md). This document focuses on *how* SceneScape implements that decision: per-component contracts, the per-service changes inside SceneScape, the scene export/import format, the deployment topology, and the phased rollout plan.
+This document specifies the design for implementing [ADR-12](../adr/0012-mlops-integration-reuse.md), which delegates SceneScape's model management, pipeline building, and video acquisition to OEP components. It details the technical contracts, service-level changes, and rollout plan for this integration.
 
 Some cross-service integration details depend on other components' designs (notably ViPPET, the DLSPS runtime pipeline API, and Stream Manager). Those dependencies are called out explicitly throughout the document, and the affected design decisions are deferred to subsequent phases when the dependent designs are ready.
 
@@ -19,12 +17,12 @@ Some cross-service integration details depend on other components' designs (nota
 
 The design goals follow directly from [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision):
 
-- **Delegate** model management, visual pipeline building, and video-source acquisition to OEP components (Model Downloader, ViPPET, Stream Manager) and reuse them in place of SceneScape-specific implementations.
-- **Evolve the existing SceneScape↔DLSPS integration** toward a fully runtime API-based pipeline lifecycle, retiring the static-JSON and pod-recreation mechanisms.
-- Adopt a uniform, dynamic, API-based approach to pipeline configuration and management for both Docker Compose and Kubernetes SceneScape deployments.
-- Preserve SceneScape's ability to deploy and run **without ViPPET** (self-contained exported scenes) and **without Stream Manager** (Stream Manager is an optional dependency).
-- Keep SceneScape focused on its core spatial-awareness value (sensor fusion, multi-object tracking, scene state), reducing the maintenance burden of redundant capabilities.
-- Preserve existing SceneScape deployments throughout the phased transition (backwards compatibility until feature parity is achieved).
+- Delegate model management, pipeline building, and video acquisition to OEP components.
+- Evolve the DLSPS integration to use a runtime API.
+- Unify pipeline management across Docker and Kubernetes deployments.
+- Preserve SceneScape's ability to run without ViPPET and Stream Manager.
+- Keep SceneScape focused on its core spatial-awareness value.
+- Preserve backwards compatibility throughout the phased transition.
 
 ## 3. Non-Goals
 
@@ -40,7 +38,7 @@ The following are explicitly out of scope of this design document:
 
 ## 4. Background / Context
 
-For motivation and the high-level decision narrative, see [ADR-12 §Context](../adr/0012-mlops-integration-reuse.md#context) and [§Decision](../adr/0012-mlops-integration-reuse.md#decision). This section adds the engineering-level detail that the ADR intentionally omits.
+This section adds the engineering-level detail that [ADR-12](../adr/0012-mlops-integration-reuse.md) intentionally omits, focusing on specific code paths and implementation details relevant to the integration.
 
 ### 4.1 SceneScape today
 
@@ -148,7 +146,7 @@ The process model shows the user-facing workflow for building, packaging, and de
 
 This section is the source of truth for *who does what* in the integrated system. It collapses the per-component breakdown in *SceneScape today* and the ADR-12 component assignments into a single SceneScape-perspective view, refined to the specific SceneScape services that own each responsibility (per the *SceneScape Component Reference*).
 
-> **Note on Manager service split.** The matrix below assigns responsibilities to *Manager back-end* and *Manager UI* as a **recommendation**. The decision on whether (and when) to split today's monolithic Manager service into separate back-end and UI services is **deferred**. Until that decision is made, all rows assigned to *Manager back-end* or *Manager UI* are implemented inside the current Manager service; the BE/UI labels capture the intended responsibility boundary, not a current service boundary.
+> **Note on Manager service:** Responsibilities are assigned to *Manager back-end* and *Manager UI* to guide future development. Until the service is formally split, both sets of responsibilities reside within the current monolithic Manager service.
 
 **Per-component responsibility matrix:**
 
