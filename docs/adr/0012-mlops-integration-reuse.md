@@ -1,7 +1,7 @@
 # ADR 12: MLOps Integration and Reuse of Pipeline Building and Model Management
 
 - **Author(s)**: [Tomasz Dorau](https://github.com/tdorau)
-- **Date**: 2026-06-08
+- **Date**: 2026-06-11
 - **Status**: `Proposed`
 
 ## Context
@@ -15,13 +15,13 @@ SceneScape currently has custom solutions for:
 
 Furthermore, SceneScape's integration with the [**DL Streamer Pipeline Server (DLSPS)**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/microservices/dlstreamer-pipeline-server) for pipeline execution is constrained by the lack of a runtime API. Pipelines are configured statically, and Kubernetes deployments must recreate DLSPS pods for every pipeline update. These limitations in runtime model management and dynamic pipeline configuration negatively impact the user experience.
 
-In parallel, the Intel® [Open-Edge-Platform](https://github.com/open-edge-platform) (OEP) provides reusable components that cover these functionalities:
+In parallel, the Intel® [Open-Edge-Platform](https://github.com/open-edge-platform) (OEP) provides reusable components that cover these functionalities and enable integration with Geti:
 
 - [**Model Downloader**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/microservices/model-download): Manages model lifecycle and storage.
 - [**ViPPET**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/tools/visual-pipeline-and-platform-evaluation-tool) (Visual Pipeline and Platform Evaluation Tool): Supports pipeline authoring and verification.
 - **Stream Manager**: A new component for camera discovery, video capture, livestreaming, and replay.
 
-There is currently no interoperability between SceneScape, Geti, and the OEP components mentioned. Integrating these components and reusing their capabilities in place of SceneScape's custom solutions would provide a better user experience and offer multiple advantages. The motivation for this change extends beyond UX to include improved engineering efficiency, a sharper focus on SceneScape's core spatial-awareness functionality (such as sensor fusion, tracking, and scene state), and a reduction of redundant engineering efforts across OEP.
+There is currently no interoperability between SceneScape and the OEP components mentioned. Integrating these components and reusing their capabilities in place of SceneScape's custom solutions would provide a better user experience, including indirect integration with Geti, and offer multiple advantages. The motivation for this change extends beyond UX to include improved engineering efficiency, a sharper focus on SceneScape's core spatial-awareness functionality (such as sensor fusion, tracking, and scene state), and a reduction of redundant engineering efforts across OEP.
 
 ## Decision
 
@@ -36,9 +36,9 @@ SceneScape will **delegate** model management, visual pipeline building, and vid
 
 **Evolving DLSPS Integration:**
 
-- **DLSPS**: Continues to handle pipeline execution. The integration will evolve in stages from a static JSON and pod recreation approach to a fully runtime API, dependent on planned updates to DLSPS.
+- **DLSPS**: Continues to handle pipeline execution. The integration will evolve in stages from a static JSON and pod recreation approach to a fully runtime API, dependent on planned updates to DLSPS. SceneScape will continue to provide pipeline definitions directly to DLSPS, but the responsibility for authoring those definitions will shift from SceneScape to ViPPET.
 
-**SceneScape Retains Ownership** of the following: the scene model, scene-level pipeline-to-source mapping, runtime pipeline orchestration with DLSPS, multimodal fusion and tracking, and scene export/import.
+**SceneScape Retains Ownership** of the following: the scene model, scene-level pipeline-to-source mapping, runtime pipeline orchestration with DLSPS (create, update, start, stop, remove), multimodal fusion and tracking, and scene export/import.
 
 **Key design choices:**
 
@@ -50,7 +50,7 @@ SceneScape will **delegate** model management, visual pipeline building, and vid
   - at deployment time or scene import by an **external job or script**, or
   - during pipeline development by the user via the **ViPPET UI**, into a volume shared with SceneScape.
 
-  SceneScape's own runtime call to Model Downloader is limited to the **listing endpoint**, used when the user needs to see available models to choose or update a model in a pipeline definition.
+  SceneScape's runtime interaction with the Model Downloader is limited to the **listing endpoint**. This allows users to view available models when defining a pipeline. This direct call is a temporary measure that will be removed once the transition to ViPPET-based pipeline authoring is complete, as ViPPET will then handle model selection.
 
 - **Backwards compatibility:** existing static JSON pipeline configurations (Docker bind-mount and Kubernetes config maps) and the custom dynamic pipeline configuration on Kubernetes remain supported until feature parity with the ViPPET-based flow is achieved.
 
@@ -83,7 +83,7 @@ SceneScape will **delegate** model management, visual pipeline building, and vid
 
 - Cross-component dependency on Model Downloader availability, ViPPET delivery, DLSPS evolution, and Stream Manager delivery timelines.
 - Temporary duality: both the legacy flow (static JSON configurations plus custom dynamic pipeline configuration on Kubernetes) and the new ViPPET-based flow coexist until parity.
-- A new runtime call from SceneScape to Model Downloader's listing endpoint adds a small new integration surface.
+- A new runtime call from SceneScape to the Model Downloader's listing endpoint adds a small integration surface, but this is a temporary measure required only until the ViPPET-based flow achieves feature parity.
 - When ViPPET is deployed with its own Model Downloader instance, providing efficient model sharing between the SceneScape and ViPPET deployments — without maintaining redundant downloads or copies — may be complex from a technical or UX perspective.
 
 ## References
