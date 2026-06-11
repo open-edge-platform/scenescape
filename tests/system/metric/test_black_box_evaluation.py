@@ -149,7 +149,7 @@ def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold, reco
 
   if value is None:
     pytest.fail(f"metric {key!r} not found in results")
-  
+
   assert value >= min_threshold, (
     f"[{run}] {metric} = {value:.4f} < minimum {min_threshold}"
   )
@@ -166,7 +166,7 @@ def test_jitter_threshold(black_box_metrics, run, metric, max_threshold, record_
 
   if value is None:
     pytest.fail(f"metric {key!r} not found in results")
-  
+
   assert value <= max_threshold, (
     f"[{run}] {metric} = {value:.4f} > maximum {max_threshold}"
   )
