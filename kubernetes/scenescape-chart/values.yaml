@@ -134,6 +134,7 @@ clusterAnalytics:
 mapping:
   enabled: false
   image: intel/scenescape-mapping
+  model: mapanything # one of [mapanything, vggt]
   pullPolicy: IfNotPresent
 
 # Used as init container in some deployments to wait for dependent services
