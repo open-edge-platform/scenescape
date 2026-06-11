@@ -2,7 +2,7 @@
 
 - **Author(s)**: [Tomasz Dorau](https://github.com/tdorau)
 - **Date**: 2026-06-11
-- **Status**: `Proposed`
+- **Status**: `Accepted`
 
 ## Context
 
