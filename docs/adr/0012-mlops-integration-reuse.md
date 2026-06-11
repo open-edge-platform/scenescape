@@ -15,13 +15,13 @@ SceneScape currently has custom solutions for:
 
 Furthermore, SceneScape's integration with the [**DL Streamer Pipeline Server (DLSPS)**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/microservices/dlstreamer-pipeline-server) for pipeline execution is constrained by the lack of a runtime API. Pipelines are configured statically, and Kubernetes deployments must recreate DLSPS pods for every pipeline update. These limitations in runtime model management and dynamic pipeline configuration negatively impact the user experience.
 
-In parallel, the Intel® [Open-Edge-Platform](https://github.com/open-edge-platform) (OEP) provides reusable components that cover these functionalities:
+In parallel, the Intel® [Open-Edge-Platform](https://github.com/open-edge-platform) (OEP) provides reusable components that cover these functionalities and enable integration with Geti:
 
 - [**Model Downloader**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/microservices/model-download): Manages model lifecycle and storage.
 - [**ViPPET**](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.0.0/tools/visual-pipeline-and-platform-evaluation-tool) (Visual Pipeline and Platform Evaluation Tool): Supports pipeline authoring and verification.
 - **Stream Manager**: A new component for camera discovery, video capture, livestreaming, and replay.
 
-There is currently no interoperability between SceneScape, Geti, and the OEP components mentioned. Integrating these components and reusing their capabilities in place of SceneScape's custom solutions would provide a better user experience and offer multiple advantages. The motivation for this change extends beyond UX to include improved engineering efficiency, a sharper focus on SceneScape's core spatial-awareness functionality (such as sensor fusion, tracking, and scene state), and a reduction of redundant engineering efforts across OEP.
+There is currently no interoperability between SceneScape and the OEP components mentioned. Integrating these components and reusing their capabilities in place of SceneScape's custom solutions would provide a better user experience, including indirect integration with Geti, and offer multiple advantages. The motivation for this change extends beyond UX to include improved engineering efficiency, a sharper focus on SceneScape's core spatial-awareness functionality (such as sensor fusion, tracking, and scene state), and a reduction of redundant engineering efforts across OEP.
 
 ## Decision
 
