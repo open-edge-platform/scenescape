@@ -133,7 +133,9 @@ WORKDIR /sources/python
 RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git
 RUN : \
     ; git clone --depth 1 https://github.com/certifi/python-certifi \
+    ; git clone --depth 1 https://github.com/dranjan/python-plyfile \
     ; git clone --depth 1 https://github.com/eclipse-paho/paho.mqtt.python \
+    ; git clone --depth 1 https://github.com/ijl/orjson \
     ; git clone --depth 1 https://github.com/jab/bidict \
     ; git clone --depth 1 https://github.com/psycopg/psycopg2 \
     ; git clone --depth 1 https://github.com/tqdm/tqdm
@@ -147,7 +149,8 @@ RUN : \
     ; git clone --depth 1 https://github.com/eclipse/paho.mqtt.c \
     ; git clone --depth 1 https://github.com/eclipse/paho.mqtt.cpp \
     ; git clone --depth 1 https://github.com/eigenteam/eigen-git-mirror \
-    ; git clone --depth 1 https://github.com/gcc-mirror/gcc
+    ; git clone --depth 1 https://github.com/gcc-mirror/gcc \
+    ; git clone --depth 1 https://git.savannah.gnu.org/git/config.git gnu-config
 
 WORKDIR /sources/other
 RUN : \
