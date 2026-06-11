@@ -40,16 +40,16 @@ The following are explicitly out of scope of this design document:
 
 This section adds the engineering-level detail that [ADR-12](../adr/0012-mlops-integration-reuse.md) intentionally omits, focusing on specific code paths and implementation details relevant to the integration.
 
-### 4.1 SceneScape today
+### 4.1 SceneScape Current Implementation
 
 Two capabilities in SceneScape are being **delegated** to new OEP components, and the existing **DLSPS integration is being evolved**.
 
 **Capabilities being delegated:**
 
-1. **Model download** is today handled by [`model_installer/`](../../model_installer/), which downloads models from the OpenVINO Model Zoo into a shared volume (`vol-models`) consumed by DLSPS pipelines, governed by SceneScape-specific model-configuration conventions. **Model management** (listing installed models, surfacing them in the UI for pipeline configuration) is handled by Manager's UI, principally [`manager/src/manager/model_directory_view.py`](../../manager/src/manager/model_directory_view.py). See [model-configuration-file-format](../user-guide/other-topics/model-configuration-file-format.md).
+1. **Model download** is handled by [`model_installer/`](../../model_installer/), which downloads a basic set of models from the OpenVINO Model Zoo. Model management (listing, uploading, and removing models) is supported only on Kubernetes and is managed through the Manager UI, principally via [`manager/src/manager/model_directory_view.py`](../../manager/src/manager/model_directory_view.py). Using custom models requires manually updating a [model configuration file](../user-guide/other-topics/model-configuration-file-format.md).
 2. **Visual pipeline building.** Today handled differently per deployment target:
    - **Docker Compose**: manually authored static JSON files under [`dlstreamer-pipeline-server/`](../../dlstreamer-pipeline-server/) (one per pipeline variant), bind-mounted into DLSPS.
-   - **Kubernetes**: custom pipeline generation by [`manager/src/manager/ppl_generator/`](../../manager/src/manager/ppl_generator/), materialized as Kubernetes ConfigMaps and applied by [`manager/src/manager/kubeclient.py`](../../manager/src/manager/kubeclient.py).
+   - **Kubernetes**: A custom generator ([`manager/src/manager/ppl_generator/`](../../manager/src/manager/ppl_generator/)) creates pipelines from high-level settings in the UI. These are materialized as ConfigMaps and applied via [`manager/src/manager/kubeclient.py`](../../manager/src/manager/kubeclient.py).
 
 **Existing DLSPS integration being evolved:**
 
