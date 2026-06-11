@@ -1,7 +1,7 @@
-# Design Document: Open-Edge-Platform MLOps Integration and Reuse
+# Design Document: Open-Edge-Platform MLOps Integration and Reuse of Pipeline Building and Model Management
 
 - **Author(s)**: [Tomasz Dorau](https://github.com/tdorau)
-- **Date**: 2026-06-09
+- **Date**: 2026-06-11
 - **Status**: `Proposed`
 - **Related ADRs**: [ADR-12 — MLOps Integration and Reuse](../adr/0012-mlops-integration-reuse.md)
 
