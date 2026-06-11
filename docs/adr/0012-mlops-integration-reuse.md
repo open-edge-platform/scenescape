@@ -88,4 +88,4 @@ SceneScape will **delegate** model management, visual pipeline building, and vid
 
 ## References
 
-- Follow-up Design Doc (to be written separately): `docs/design/mlops-integration-reuse.md` (placeholder)
+- Follow-up Design Doc: `docs/design/mlops-integration-reuse.md`
