@@ -212,6 +212,36 @@ def _parse_ts(ts_str: str) -> float:
   return datetime.fromisoformat(ts_str).timestamp()
 
 
+def _sort_by_camera_order(
+    frames: List[Dict[str, Any]], camera_order: List[str]
+) -> List[Dict[str, Any]]:
+  """Return *frames* with same-timestamp groups sorted by *camera_order*.
+
+  Frames that share a timestamp are re-ordered so the camera that appears
+  first in *camera_order* is published first.  This gives the tracker a
+  deterministic input sequence regardless of OS scheduling, eliminating
+  run-to-run variance caused by non-deterministic MQTT delivery order.
+
+  Frames with IDs absent from *camera_order* are appended after the ordered
+  ones.  Relative order within a group is otherwise stable.
+  """
+  order_idx = {cam: i for i, cam in enumerate(camera_order)}
+  result: List[Dict[str, Any]] = []
+  i = 0
+  while i < len(frames):
+    ts = frames[i].get("timestamp")
+    j = i + 1
+    while j < len(frames) and frames[j].get("timestamp") == ts:
+      j += 1
+    group = sorted(
+        frames[i:j],
+        key=lambda f: order_idx.get(f.get("id", ""), len(camera_order)),
+    )
+    result.extend(group)
+    i = j
+  return result
+
+
 def _merge_outputs_by_timestamp(
     outputs: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
@@ -274,11 +304,12 @@ class BlackBoxHarness(TrackerHarness):
     self._scene_id: Optional[str] = None
     self._tracker_config_path: Optional[str] = None
     self._container_type: Optional[str] = None  # auto-detected when None
-    self._drain_timeout: float  = DEFAULT_DRAIN_TIMEOUT
-    self._startup_wait_s: float = DEFAULT_STARTUP_WAIT
-    self._broker_image: str     = ""
-    self._broker_port: int      = 0  # 0 = auto
-    self._output_folder: Optional[Path] = None
+    self._drain_timeout: float              = DEFAULT_DRAIN_TIMEOUT
+    self._startup_wait_s: float             = DEFAULT_STARTUP_WAIT
+    self._camera_order: Optional[List[str]] = None
+    self._broker_image: str                 = ""
+    self._broker_port: int                  = 0
+    self._output_folder: Optional[Path]     = None
 
   # ------------------------------------------------------------------
   # TrackerHarness interface
@@ -333,6 +364,8 @@ class BlackBoxHarness(TrackerHarness):
     self._container_type = ct
     self._drain_timeout  = float(config.get("drain_timeout",  DEFAULT_DRAIN_TIMEOUT))
     self._startup_wait_s = float(config.get("startup_wait_s", DEFAULT_STARTUP_WAIT))
+    if "camera_order" in config:
+      self._camera_order = list(config["camera_order"])
     if "broker_image" not in config:
       raise ValueError("Custom config must contain 'broker_image'")
     self._broker_image   = str(config["broker_image"])
@@ -415,13 +448,14 @@ class BlackBoxHarness(TrackerHarness):
     Returns:
         Self for method chaining.
     """
-    self._scene_config       = None
-    self._scene_id           = None
+    self._scene_config        = None
+    self._scene_id            = None
     self._tracker_config_path = None
-    self._container_type     = None
-    self._drain_timeout      = DEFAULT_DRAIN_TIMEOUT
-    self._startup_wait_s     = DEFAULT_STARTUP_WAIT
-    self._output_folder      = None
+    self._container_type      = None
+    self._drain_timeout       = DEFAULT_DRAIN_TIMEOUT
+    self._startup_wait_s      = DEFAULT_STARTUP_WAIT
+    self._camera_order        = None
+    self._output_folder       = None
     return self
 
   # ------------------------------------------------------------------
@@ -747,6 +781,9 @@ class BlackBoxHarness(TrackerHarness):
     client.loop_start()
 
     time.sleep(0.5)
+
+    if self._camera_order:
+      frames = _sort_by_camera_order(frames, self._camera_order)
 
     session_start_wall: Optional[float] = None
     session_start_data: Optional[float] = None

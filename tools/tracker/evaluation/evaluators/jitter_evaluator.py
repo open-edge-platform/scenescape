@@ -199,6 +199,23 @@ class JitterEvaluator(TrackerEvaluator):
       for track_id in track_histories:
         track_histories[track_id].sort(key=lambda entry: entry[0])
 
+      # When a fixed fps is configured, replace wall-clock timestamps with
+      # synthetic frame-index-based ones (epoch + frame_idx / fps). This
+      # mirrors _parse_gt_csv and ensures kinematic derivatives are
+      # independent of system processing speed.
+      if self._base_fps is not None:
+        epoch_dt = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        sorted_ts = sorted(
+          datetime.fromisoformat(f.get('timestamp', '').replace('Z', '+00:00'))
+          for f in deduplicated
+        )
+        ts_to_idx = {ts: i for i, ts in enumerate(sorted_ts)}
+        for track_id in track_histories:
+          track_histories[track_id] = [
+            (epoch_dt + timedelta(seconds=ts_to_idx[ts] / self._base_fps), pos)
+            for ts, pos in track_histories[track_id]
+          ]
+
       self._track_histories = track_histories
 
       # Derive FPS from tracker output timestamps
