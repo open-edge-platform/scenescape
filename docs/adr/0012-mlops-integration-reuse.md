@@ -1,7 +1,7 @@
 # ADR 12: MLOps Integration and Reuse of Pipeline Building and Model Management
 
 - **Author(s)**: [Tomasz Dorau](https://github.com/tdorau)
-- **Date**: 2026-06-08
+- **Date**: 2026-06-11
 - **Status**: `Proposed`
 
 ## Context
@@ -83,7 +83,7 @@ SceneScape will **delegate** model management, visual pipeline building, and vid
 
 - Cross-component dependency on Model Downloader availability, ViPPET delivery, DLSPS evolution, and Stream Manager delivery timelines.
 - Temporary duality: both the legacy flow (static JSON configurations plus custom dynamic pipeline configuration on Kubernetes) and the new ViPPET-based flow coexist until parity.
-- A new runtime call from SceneScape to Model Downloader's listing endpoint adds a small new integration surface.
+- A new runtime call from SceneScape to the Model Downloader's listing endpoint adds a small integration surface, but this is a temporary measure required only until the ViPPET-based flow achieves feature parity.
 - When ViPPET is deployed with its own Model Downloader instance, providing efficient model sharing between the SceneScape and ViPPET deployments — without maintaining redundant downloads or copies — may be complex from a technical or UX perspective.
 
 ## References
