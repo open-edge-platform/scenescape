@@ -35,7 +35,7 @@ Service Makefiles include `common.mk`:
 include ../common.mk
 
 # Service-specific variables and targets
-IMAGE_NAME := scenescape-controller
+IMAGE_NAME := intel/scenescape-controller
 ```
 
 ## Variables
@@ -585,7 +585,7 @@ $(SERVICES):
 ```makefile
 # Bad
 build:
-	docker build -t scenescape-controller:2026.0.0 controller/
+	docker build -t intel/scenescape-controller:2026.0.0 controller/
 
 # Good
 VERSION := $(shell cat version.txt)
@@ -663,7 +663,7 @@ rebuild: clean build
 build-controller:
 	docker build \
 		--build-arg VERSION=$(VERSION) \
-		-t scenescape-controller:$(VERSION) \
+		-t intel/scenescape-controller:$(VERSION) \
 		controller/
 ```
 

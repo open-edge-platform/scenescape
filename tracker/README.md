@@ -137,9 +137,9 @@ Three image variants are available for different use cases:
 
 | Image                               | Target    | Base Image                      | Use Case                        |
 | ----------------------------------- | --------- | ------------------------------- | ------------------------------- |
-| `scenescape-tracker`                | `runtime` | `gcr.io/distroless/cc-debian13` | Production deployment           |
-| `scenescape-tracker-debug`          | `debug`   | `debian:13-slim`                | Remote debugging with gdbserver |
-| `scenescape-tracker-relwithdebinfo` | `runtime` | `gcr.io/distroless/cc-debian13` | Profiling (optimized + symbols) |
+| `intel/scenescape-tracker`                | `runtime` | `gcr.io/distroless/cc-debian13` | Production deployment           |
+| `intel/scenescape-tracker-debug`          | `debug`   | `debian:13-slim`                | Remote debugging with gdbserver |
+| `intel/scenescape-tracker-relwithdebinfo` | `runtime` | `gcr.io/distroless/cc-debian13` | Profiling (optimized + symbols) |
 
 #### Build
 

@@ -16,7 +16,7 @@ RUNTIME_OS_IMAGE ?= $(shell sed -n 's/^ARG RUNTIME_OS_IMAGE=//p' Dockerfile)
 default: build-image
 
 $(BUILD_DIR):
-	mkdir -p $@/intel
+	mkdir -p $@
 
 # ANSI color codes
 RED    := \033[0;31m

@@ -169,8 +169,8 @@ production container types in a single timestamped session:
 
 **Prerequisites** (in addition to the general prerequisites above):
 
-- `scenescape-controller:2026.1.0-dev` Docker image available locally
-- `scenescape-tracker:2026.1.0-dev` Docker image available locally
+- `intel/scenescape-controller:2026.1.0-dev` Docker image available locally
+- `intel/scenescape-tracker:2026.1.0-dev` Docker image available locally
 - `eclipse-mosquitto:2.0.22` Docker image available locally
 
 Verify:
@@ -418,7 +418,7 @@ pytest harnesses/tests/test_scene_controller_harness.py::TestSceneControllerHarn
 Integration tests require:
 
 - Docker installed and running
-- SceneScape controller container image available (e.g., `scenescape-controller:latest`)
+- SceneScape controller container image available (e.g., `intel/scenescape-controller:latest`)
 
 Verify Docker setup:
 

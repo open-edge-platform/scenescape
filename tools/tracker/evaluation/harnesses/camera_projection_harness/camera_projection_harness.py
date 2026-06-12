@@ -15,7 +15,7 @@ can measure:
 
 The projection relies on scene_common (which requires OpenCV and open3d), so it
 is executed inside a Docker container that has those dependencies pre-installed
-(default: scenescape-controller:latest).
+(default: intel/scenescape-controller:latest).
 
 Object IDs in the output are encoded as ``{camera_id}:{object_id}`` so
 CameraAccuracyEvaluator can split them back into camera and object parts.
@@ -39,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from base.tracker_harness import TrackerHarness
 from utils.format_converters import write_jsonl
 
-DEFAULT_CONTAINER_IMAGE = "scenescape-controller:latest"
+DEFAULT_CONTAINER_IMAGE = "intel/scenescape-controller:latest"
 
 
 class CameraProjectionHarness(TrackerHarness):
@@ -75,7 +75,7 @@ class CameraProjectionHarness(TrackerHarness):
 
     Args:
       container_image: Docker image that has scene_common installed.
-                       Defaults to ``scenescape-controller:latest``.
+                       Defaults to ``intel/scenescape-controller:latest``.
     """
     self._container_image: str = container_image
     self._scene_config: Optional[Dict[str, Any]] = None

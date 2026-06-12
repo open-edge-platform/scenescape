@@ -21,7 +21,7 @@ SCHEMA_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / \
 @pytest.fixture
 def harness():
   """Create SceneControllerHarness instance."""
-  return SceneControllerHarness(container_image='scenescape-controller:test')
+  return SceneControllerHarness(container_image='intel/scenescape-controller:test')
 
 
 @pytest.fixture

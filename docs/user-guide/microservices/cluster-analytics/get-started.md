@@ -38,7 +38,7 @@ docker run --rm \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/calibration.auth:/run/secrets/calibration.auth:ro \
   --name cluster_analytics_manual \
-  scenescape-cluster-analytics \
+  intel/scenescape-cluster-analytics \
   --broker broker.scenescape.intel.com
 ```
 

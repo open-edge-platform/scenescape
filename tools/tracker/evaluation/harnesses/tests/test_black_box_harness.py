@@ -34,7 +34,7 @@ REF_CAMERA_FPS = 30  # Reference camera frame rate used in tracker configuration
 
 @pytest.fixture
 def harness():
-  return BlackBoxHarness(container_image="scenescape-controller:test")
+  return BlackBoxHarness(container_image="intel/scenescape-controller:test")
 
 
 @pytest.fixture
@@ -399,7 +399,7 @@ class TestProcessInputsFlow:
 
     assert len(run_calls) == 2
     assert run_calls[0] == "eclipse-mosquitto:2.0.22"  # broker first
-    assert run_calls[1] == "scenescape-controller:test"  # tracker second
+    assert run_calls[1] == "intel/scenescape-controller:test"  # tracker second
 
   @patch("harnesses.black_box_harness.black_box_harness.docker")
   @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")

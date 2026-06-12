@@ -34,7 +34,7 @@
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/calibration.auth:/run/secrets/calibration.auth:ro \
   --name autocalibration \
-  scenescape-autocalibration \
+  intel/scenescape-autocalibration \
   autocalibration \
   --resturl https://web.scenescape.intel.com:443/api/v1
   ```

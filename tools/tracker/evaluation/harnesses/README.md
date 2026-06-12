@@ -193,7 +193,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 - Publishes each input frame to `scenescape/data/camera/{camera_id}` and collects tracker outputs from `scenescape/data/scene/{scene_id}/+`.
 - Publishes input frames paced by wall-clock delays derived from the data timestamps, reproducing the original capture cadence. `maxlag`/`max_lag_s=1e15` only suppresses lag-rejection in the tracker — it does **not** replace pacing, which is required for the time-chunk scheduler to fire at the correct rate.
 - Persists `inputs.json` and `outputs.json` to the output folder when `set_output_folder()` is called, creating the directory automatically if it does not exist.
-- Supports both **Controller** (`scenescape-controller`) and **Tracker Service** (`scenescape-tracker`) container types, set explicitly via the required `container_type` config key.
+- Supports both **Controller** (`intel/scenescape-controller`) and **Tracker Service** (`intel/scenescape-tracker`) container types, set explicitly via the required `container_type` config key.
 - Runs a **Mock Manager REST API** (`mock_manager.py`) on the Docker host so both container types can load scene configuration without a real Manager deployment.
 
 **Prerequisites**:
