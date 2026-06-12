@@ -5,13 +5,13 @@
 # Generates all secrets required by a SceneScape deployment.
 # Usage: bash generate_secrets.sh [SUPASS]
 #
-# If SUPASS is not supplied, a random one is generated and written to secrets/supass.
-# Run this script from <deploy_dir>/.
+# If SUPASS is not supplied, a random one is generated and written to supass in this directory.
+# Run this script from <deploy_dir>/secrets/.
 
 set -euo pipefail
 
 EXEC_PATH="$(cd "$(dirname "$0")" && pwd)"
-SECRETSDIR="$EXEC_PATH/secrets"
+SECRETSDIR="$EXEC_PATH"
 CERTDOMAIN="scenescape.intel.com"
 CERTPASS=$(openssl rand -base64 33)
 DBPASS=$(openssl rand -base64 12)

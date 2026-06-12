@@ -1,97 +1,80 @@
 # DLStreamer Pipeline Config
 
-The canonical pipeline config template is `queuing-config.json` downloaded in Step 2a from
-`https://github.com/open-edge-platform/scenescape/blob/main/dlstreamer-pipeline-server/queuing-config.json`.
+Bootstrap sparse-checkouts `model-proc-files/`, `mosquitto/`, and `user_scripts/` from the
+upstream SceneScape repo into `<deploy_dir>/dlstreamer-pipeline-server/`.
 
-**Do not generate this file from scratch.** Instead, adapt the downloaded file for the user's cameras.
-The RTSP source for each pipeline is the URL provided by the user. The skill does not start or
-manage MediaMTX, `queuing-cams`, or any other RTSP simulator.
+`adapt_pipeline_config.py` **generates** `<deploy_dir>/dlstreamer-pipeline-server/pipeline-config.json`
+from `deploy-inputs.json` using the specification below. No upstream `queuing-config.json` is
+fetched or required.
 
-## Procedure
+## Output
 
-1. Copy the canonical template as the starting point:
+Top-level shape:
 
-```bash
-cp <deploy_dir>/dlstreamer-pipeline-server/queuing-config.json <deploy_dir>/pipeline-config.json
+```json
+{
+  "config": {
+    "logging": { "C_LOG_LEVEL": "INFO", "PY_LOG_LEVEL": "INFO" },
+    "pipelines": [ /* one entry per camera */ ]
+  }
+}
 ```
 
-2. Edit `<deploy_dir>/pipeline-config.json` with a JSON-aware tool. For example, set the camera IDs
-   and streams as JSON arrays in matching order, then run:
+## Per-camera pipeline entry
 
-```bash
-export DEPLOY_DIR=<deploy_dir>
-export CAMERA_IDS_JSON='["camera1"]'
-export STREAMS_JSON='["rtsp://mediaserver:8554/queuing-cam1"]'
-python3 - <<'PY'
-import copy
-import json
-import os
-from pathlib import Path
+For each `(camera_id, rtsp_url)` in `deploy-inputs.json`:
 
-deploy_dir = Path(os.environ["DEPLOY_DIR"])
-camera_ids = json.loads(os.environ["CAMERA_IDS_JSON"])
-streams = json.loads(os.environ["STREAMS_JSON"])
+| Field | Value |
+| ----- | ----- |
+| `name` | User's `camera_id` |
+| `source` | `gstreamer` |
+| `auto_start` | `true` |
+| `pipeline` | GStreamer string below with `{rtsp_url}` substituted |
+| `parameters` | MQTT parameter schema (same for every camera) |
+| `payload.parameters` | Runtime defaults below with `{camera_id}` substituted |
 
-if len(camera_ids) != len(streams):
-  raise SystemExit("CAMERA_IDS_JSON and STREAMS_JSON must have the same length")
-if not camera_ids or len(set(camera_ids)) != len(camera_ids) or any("/" in camera_id for camera_id in camera_ids):
-  raise SystemExit("camera IDs must be non-empty, unique, and contain no slash")
+### GStreamer pipeline
 
-path = deploy_dir / "pipeline-config.json"
-config = json.loads(path.read_text())
-templates = config["config"]["pipelines"]
-if not templates:
-  raise SystemExit("pipeline template contains no pipelines")
-
-pipelines = []
-for index, (camera_id, stream) in enumerate(zip(camera_ids, streams)):
-  template = templates[min(index, len(templates) - 1)]
-  entry = copy.deepcopy(template)
-  entry["name"] = camera_id
-  entry["pipeline"] = entry["pipeline"].replace(
-    "rtsp://mediaserver:8554/queuing-cam1", stream
-  ).replace(
-    "rtsp://mediaserver:8554/queuing-cam2", stream
-  ).replace(
-    "/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json",
-    "/home/pipeline-server/model-proc-files/person-detection-retail-0013.json"
-  )
-  entry["payload"]["parameters"]["camera_config"]["cameraid"] = camera_id
-  pipelines.append(entry)
-
-config["config"]["pipelines"] = pipelines
-path.write_text(json.dumps(config, indent=2) + "\n")
-PY
+```
+rtspsrc location={rtsp_url} add-reference-timestamp-meta=true latency=200
+! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR
+! gvapython class=PostDecodeTimestampCapture function=processFrame
+  module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync
+! gvadetect
+  model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml
+  model-proc=/home/pipeline-server/model-proc-files/person-detection-retail-0013.json
+! gvametaconvert add-tensor-data=true name=metaconvert
+! gvapython class=PostInferenceDataPublish function=processFrame
+  module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher
+! gvametapublish name=destination ! appsink sync=true
 ```
 
-This does the following:
+### Payload defaults
 
-- The template has two entries (`qcam1`, `qcam2`). **Add or remove entries to match the user's
-  camera count.**
-- For each camera entry, substitute:
+```json
+{
+  "ntp_config": { "ntpServer": "ntpserv" },
+  "frame_ntp_config": { "useFrameNtpTimestamp": false },
+  "camera_config": {
+    "cameraid": "{camera_id}",
+    "metadatagenpolicy": "detectionPolicy",
+    "detection_labels": ["person"]
+  }
+}
+```
 
-  | Placeholder in template                     | Replace with                |
-  | ------------------------------------------- | --------------------------- |
-  | `"name": "qcam1"` / `"name": "qcam2"`       | `"name": "<camera_id>"`     |
-  | `rtsp://mediaserver:8554/queuing-cam1`      | `<rtsp_url>`                |
-  | `rtsp://mediaserver:8554/queuing-cam2`      | `<rtsp_url>`                |
-  | `"cameraid": "atag-qcam1"` / `"atag-qcam2"` | `"cameraid": "<camera_id>"` |
+`ntpServer: ntpserv` matches the `ntpserv` service in `docker-compose.yml`.
 
-- Keep `add-reference-timestamp-meta=true` on `rtspsrc` — required for NTP timestamp extraction.
-- Keep all `sscape_adapter.py` module paths unchanged — they are container-internal paths.
-- Rewrite the `person-detection-retail-0013.json` model-proc path to
-  `/home/pipeline-server/model-proc-files/person-detection-retail-0013.json`, which matches the
-  compose mount.
-- If the user is simulating streams with MediaMTX/`queuing-cams`, use the RTSP URLs that the user
-  provides for that simulator, and verify those URLs from the SceneScape Docker network.
+## Manual re-run
+
+```bash
+python3 <skill-dir>/scripts/adapt_pipeline_config.py \
+  --deploy-dir <deploy_dir> \
+  --from-deploy-inputs
+```
 
 ## Notes
 
-- Detection model: `person-detection-retail-0013` (FP32). Downloaded automatically by the
-  `model_downloader` service into the shared `vol-models` volume.
-- The `ntpServer` value `ntpserv` matches the NTP service hostname in `docker-compose.yml`.
-- Each pipeline entry must have a unique `"name"` — use the camera ID.
-- The `user_scripts/` directory containing `sscape_adapter.py` must be volume-mounted into the
-  `video-analytics` container (see `docker-compose.yml`).
-- If an RTSP URL uses a Docker hostname such as `mediaserver`, that hostname must be resolvable from
-  the SceneScape Docker network. The skill will not create that service.
+- Model: `person-detection-retail-0013` via `download_detection_models.sh`
+- External RTSP sources must be reachable from the SceneScape Docker network
+- GPU/WSL2 segfaults with dual pipelines: see repo `queuing-config-gpu.json` / sample compose

@@ -23,9 +23,29 @@ def read_database_password(secrets_py: Path) -> str:
   return match.group(1)
 
 
+def join_no_proxy(*parts: str) -> str:
+  """Join no_proxy host entries, skipping blanks and avoiding duplicate commas."""
+  hosts: list[str] = []
+  seen: set[str] = set()
+  for part in parts:
+    for host in part.split(","):
+      host = host.strip()
+      if host and host not in seen:
+        seen.add(host)
+        hosts.append(host)
+  return ",".join(hosts)
+
+
 def main() -> None:
   parser = argparse.ArgumentParser(description="Write deployment .env from generated secrets")
   parser.add_argument("--deploy-dir", required=True, type=Path)
+  parser.add_argument(
+    "--append-no-proxy",
+    action="append",
+    default=[],
+    metavar="HOST",
+    help="Internal hostname to add to no_proxy (repeatable; safe when no_proxy is empty)",
+  )
   args = parser.parse_args()
 
   deploy_dir = args.deploy_dir
@@ -33,15 +53,19 @@ def main() -> None:
 
   database_password = read_database_password(secrets_dir / "django" / "secrets.py")
   supass = (secrets_dir / "supass").read_text(encoding="utf-8").strip()
+  no_proxy = join_no_proxy(os.getenv("no_proxy", ""), os.getenv("NO_PROXY", ""), *args.append_no_proxy)
 
   env_text = "\n".join(
     [
       f"SECRETSDIR={secrets_dir}",
       f"DATABASE_PASSWORD={database_password}",
       f"SUPASS={supass}",
+      f"VERSION={os.getenv('VERSION', 'latest')}",
+      f"MAPPING_MODEL={os.getenv('MAPPING_MODEL', 'mapanything')}",
       f"http_proxy={os.getenv('http_proxy', '')}",
       f"https_proxy={os.getenv('https_proxy', '')}",
-      f"no_proxy={os.getenv('no_proxy', '')}",
+      f"no_proxy={no_proxy}",
+      f"NO_PROXY={no_proxy}",
       "",
     ]
   )

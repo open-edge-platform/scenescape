@@ -1,93 +1,57 @@
-<!--
-SPDX-FileCopyrightText: (C) 2026 Intel Corporation
-SPDX-License-Identifier: Apache-2.0
--->
-
 # Runtime Verification and Troubleshooting
 
-Load this file only when Step 7 or Step 9 in SKILL.md fails.
+Load only when Step 7 or Step 9 fails in [SKILL.md](../SKILL.md).
 
-## Step 5 — Pipeline and User-Provided RTSP Verification
-
-Shared runtime commands are in [command-templates.md](./command-templates.md).
-
-### 1) Ensure services are running
+## Step 7 — RTSP and pipeline
 
 ```bash
 cd <deploy_dir>
-docker compose up -d broker ntpserv init-models video-analytics
-docker compose ps
+bash scripts/verify_rtsp.sh <deploy_dir> <rtsp_url> [<rtsp_url> ...]
+bash scripts/check_video_analytics.sh <deploy_dir>
 ```
 
-The RTSP stream source is external to this skill. If the user is simulating streams with MediaMTX
-and `queuing-cams`, those containers must already be running and reachable from the SceneScape
-Docker network before this verification step.
-
-### 2) Verify RTSP first using separate ffmpeg container
-
-Use the RTSP gate command template from [command-templates.md](./command-templates.md).
-
-- `EXIT:0` means cross-container RTSP is working.
-- Decoder warnings at stream start can be acceptable when exit code is 0.
-- If RTSP fails here, DLSPS will not publish detections. Fix the user-provided RTSP source,
-  Docker network reachability, or pipeline URL first.
-
-### 3) Check pipeline startup
+RTSP simulators (MediaMTX, `queuing-cams`) must run on a network reachable from
+`<project>_scenescape`. Connect orphaned containers if needed:
 
 ```bash
-docker compose logs --tail 200 video-analytics
+NET=$(docker network ls --format '{{.Name}}' | grep '_scenescape$' | head -1)
+docker network connect "$NET" <mediaserver-container> 2>/dev/null || true
 ```
 
-Verify:
+### Common video-analytics failures
 
-- pipelines initialize and enter running state
-- no persistent RTSP connection failures
-- no fatal model-load errors
+| Symptom | Fix |
+| ------- | --- |
+| `model file ... does not exist` | `bash scripts/download_detection_models.sh`, `bash scripts/check_detection_models.sh`, then `docker compose up -d video-analytics` |
+| RTSP connection errors | Fix URL or network; re-run `verify_rtsp.sh` |
+| Segfault with dual pipelines | See repo `queuing-config-gpu.json` / sample compose (GPU/WSL2) — template issue only |
 
-### 4) Additional checks when startup still fails
+Filtered logs only:
 
 ```bash
-docker compose exec video-analytics ls /home/pipeline-server/models/person-detection-retail-0013/
-docker compose exec ntpserv chronyc tracking
-docker compose config | grep -A 8 "video-analytics:"
+docker compose logs video-analytics --tail 30 2>&1 \
+  | grep -E 'ERROR|Autostarted|RUNNING|model file|Segmentation|MQTT'
 ```
 
-## Step 8 — Calibration Image Gate Before Reconstruction
+## Step 9 — Calibration MQTT
 
-### 1) Determine listener mode on broker
+Happy path: `capture_calibration_frames.py` (orchestrator step 9).
+
+Manual TLS subscribe/publish templates: [command-templates.md](./command-templates.md).
+
+Pass: JPEG on `scenescape/image/calibration/camera/<camera_id>` with keys `id`, `timestamp`,
+`image`; base64 decodes to `FFD8FF … FFD9`.
+
+## Step 10 — Mapping
 
 ```bash
-sed -n '1,120p' <deploy_dir>/dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
+bash scripts/check_mapping_health.sh
+docker compose logs mapping --tail 50
 ```
 
-Use listener mode for port `1883`. The setup skill normalizes the generated broker config so
-`1883` is plaintext and `1884` is TLS websockets:
-
-- plaintext listener: no TLS flags
-- TLS listener: use `--cafile` (and `--insecure` when host is `localhost`)
-
-### 2) Subscribe to calibration image topic, then send command
-
-Use the MQTT subscribe/publish templates from [command-templates.md](./command-templates.md):
-
-- subscribe topic: `scenescape/image/calibration/camera/<camera_id>`
-- publish topic: `scenescape/cmd/camera/<camera_id>` with payload `getcalibrationimage`
-
-Verify message contains:
-
-- topic: `scenescape/image/calibration/camera/<camera_id>`
-- JSON payload keys: `id`, `timestamp`, `image`
-- `image` decodes from base64 to valid JPEG bytes (`FFD8FF ... FFD9`)
-
-### 3) Correlate broker and DLSPS logs when no frame returns
+Permission errors on Hugging Face cache:
 
 ```bash
-docker compose logs --tail 120 broker
-docker compose logs --tail 200 video-analytics
+docker compose --profile mapping run --rm mapping-init
+docker compose --profile mapping restart mapping
 ```
-
-Look for:
-
-- DLSPS connected/subscribed to `scenescape/cmd/camera/<camera_id>`
-- command traffic arriving at broker
-- publish activity on `scenescape/image/calibration/camera/<camera_id>`

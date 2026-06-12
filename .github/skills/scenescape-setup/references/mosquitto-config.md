@@ -1,6 +1,7 @@
 # Mosquitto Broker Config
 
-Write this file to `<deploy_dir>/mosquitto.conf`:
+The deployment uses `dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf`, which enables
+**TLS on listener 1883** and TLS websockets on 1884. The content matches:
 
 ```
 allow_anonymous true
@@ -17,10 +18,13 @@ certfile /mosquitto/secrets/certs/scenescape-broker.crt
 protocol websockets
 ```
 
+All MQTT clients (video-analytics, scene controller, web manager, verification scripts) connect
+over TLS on port 1883 using the SceneScape CA certificate.
+
 ## Optional Mosquitto Password File
 
 If you need a password file for a stricter broker configuration, generate it after running
-`generate_secrets.sh` by extracting credentials from the auth JSON files:
+`<deploy_dir>/secrets/generate_secrets.sh` by extracting credentials from the auth JSON files:
 
 ```bash
 SECRETSDIR=<deploy_dir>/secrets

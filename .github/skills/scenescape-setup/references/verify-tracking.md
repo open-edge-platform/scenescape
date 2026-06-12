@@ -1,79 +1,41 @@
 # Verify End-to-End Object Tracking
 
-Subscribe to `scenescape/regulated/scene/<scene_uid>` and confirm that tracked objects
-appear within 2 minutes of containers being live.
+Happy path: `scripts/verify_tracking.sh <deploy_dir> <scene_uid>` (orchestrator step 13).
 
-## MQTT Verification
+```bash
+bash scripts/verify_tracking.sh <deploy_dir> <scene_uid> 120
+```
 
-Use MQTT flags that match the broker listener mode. For the default generated broker config,
-listener `1883` is plaintext.
+Pass: ≥1 object in the `objects` array on `scenescape/regulated/scene/<scene_uid>`.
 
-Use the MQTT subscribe template from [command-templates.md](./command-templates.md) with topic:
-`scenescape/regulated/scene/<scene_uid>`.
+## Troubleshooting
 
-Pass criteria: the message contains an `objects` array with at least one tracked object.
-
-## Troubleshooting Checklist
-
-If no objects appear:
-
-### 1. Check the Scene Controller logs
+### 1. Scene controller logs (filtered)
 
 ```bash
 cd <deploy_dir>
-docker compose logs scene --tail=50
+docker compose logs scene --tail 50 | grep -iE 'scene|camera|calibrat|error|mqtt'
 ```
 
-Look for errors about: MQTT connection failures, schema validation errors, missing cameras.
+### 2. Cameras registered
 
-### 2. Verify cameras are registered in the scene
+Use manager API or UI; see [scene-and-cameras.md](./scene-and-cameras.md).
 
-```python
-import requests
-resp = requests.get(
-    f"https://web.scenescape.intel.com/api/v1/cameras?scene={scene_uid}",
-    headers=HEADERS, verify=CA_CERT,
-)
-cameras = resp.json()
-print(f"{len(cameras)} camera(s) registered for scene {scene_uid}")
-for c in cameras:
-    print(f"  {c['name']}  sensor_id={c['sensor_id']}  uid={c['uid']}")
-```
+### 3. Non-zero camera pose
 
-### 3. Check for non-zero camera pose
+All-zero `translation` causes the controller to ignore the camera.
 
-A camera with all-zero translation will be ignored by the controller.
-Inspect `translation` in each registered camera's response JSON.
+### 4. Scene scale
 
-### 4. Check scene scale is non-zero
+Zero scale blocks regulated output — set scale in UI or PATCH the scene.
 
-```python
-resp = requests.get(
-    f"https://web.scenescape.intel.com/api/v1/scene/{scene_uid}",
-    headers=HEADERS, verify=CA_CERT,
-)
-print("scale =", resp.json().get("scale"))
-```
+### 5. Raw detections
 
-A zero scale prevents regulated topic output. Fix: set a real-world scale via the UI
-(Scene → Edit → Scale) or PATCH the field directly.
+Subscribe to `scenescape/data/camera/+` (TLS template in [command-templates.md](./command-templates.md)).
+If empty: `bash scripts/check_video_analytics.sh <deploy_dir>`.
 
-### 5. Verify raw detections are arriving from video-analytics
-
-Use the MQTT subscribe template from [command-templates.md](./command-templates.md) with topic
-`scenescape/data/camera/+`.
-
-If no messages appear, video-analytics pipelines are not detecting anything. Check:
-
-- RTSP streams are accessible from inside the container
-- The model files exist in the `vol-models` volume
-- `docker compose logs video-analytics --tail=30`
-
-### 6. Confirm controller sees the scene
+### 6. Controller loaded scene
 
 ```bash
-docker compose logs scene | grep -i "scene\|camera\|calibrat"
+docker compose logs scene | grep -E 'NEW SCENE|Subscribed to scenescape/data/camera'
 ```
-
-The controller should log something like `"Loading scene <scene_uid>"` and
-`"Camera <camera_id> calibrated"` after cameras are registered.

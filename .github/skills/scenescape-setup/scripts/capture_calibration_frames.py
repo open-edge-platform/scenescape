@@ -20,24 +20,40 @@ import time
 from pathlib import Path
 
 
-def collect_frames(project: str, camera_ids: list[str], out_dir: Path, timeout_per_camera: int = 30) -> None:
-    """Collect calibration frames using mosquitto clients on the deployment Docker network."""
+def collect_frames(
+    project: str,
+    deploy_dir: Path,
+    camera_ids: list[str],
+    out_dir: Path,
+    timeout_per_camera: int = 30,
+) -> None:
+    """Collect calibration frames using TLS mosquitto clients on the deployment Docker network."""
     network = f"{project}_scenescape"
+    ca_file = deploy_dir / "secrets" / "certs" / "scenescape-ca.pem"
+    if not ca_file.is_file():
+        raise FileNotFoundError(f"CA cert not found: {ca_file}")
+
     out_dir.mkdir(parents=True, exist_ok=True)
+    mqtt_tls = ["--cafile", "/ca.pem", "--insecure"]
+    ca_mount = ["-v", f"{ca_file.resolve()}:/ca.pem:ro"]
 
     for camera_id in camera_ids:
         image_topic = f"scenescape/image/calibration/camera/{camera_id}"
         cmd_topic = f"scenescape/cmd/camera/{camera_id}"
         sub_cmd = [
             "docker", "run", "--rm", "--network", network,
+            *ca_mount,
             "eclipse-mosquitto:2", "mosquitto_sub",
             "-h", "broker.scenescape.intel.com", "-p", "1883",
+            *mqtt_tls,
             "-t", image_topic, "-C", "1", "-W", str(timeout_per_camera),
         ]
         pub_cmd = [
             "docker", "run", "--rm", "--network", network,
+            *ca_mount,
             "eclipse-mosquitto:2", "mosquitto_pub",
             "-h", "broker.scenescape.intel.com", "-p", "1883",
+            *mqtt_tls,
             "-t", cmd_topic, "-m", "getcalibrationimage",
         ]
 
@@ -62,7 +78,12 @@ def collect_frames(project: str, camera_ids: list[str], out_dir: Path, timeout_p
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Collect calibration frames from SceneScape cameras via MQTT")
-    parser.add_argument("--deploy-dir", type=Path, help="Accepted for workflow compatibility; not required for plaintext MQTT capture")
+    parser.add_argument(
+        "--deploy-dir",
+        required=True,
+        type=Path,
+        help="Deployment directory (must contain secrets/certs/scenescape-ca.pem)",
+    )
     parser.add_argument("--cameras", required=True, nargs="+", metavar="CAMERA_ID", help="One or more camera IDs")
     parser.add_argument("--out-dir", required=True, type=Path, help="Directory to write captured JPEG files")
     parser.add_argument("--project", default="scenescape", help="Docker Compose project name (default: scenescape)")
@@ -71,6 +92,7 @@ def main() -> None:
 
     collect_frames(
         project=args.project,
+        deploy_dir=args.deploy_dir,
         camera_ids=args.cameras,
         out_dir=args.out_dir,
         timeout_per_camera=args.timeout_per_camera,

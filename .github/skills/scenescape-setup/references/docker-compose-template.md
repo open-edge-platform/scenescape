@@ -47,10 +47,10 @@ secrets:
 x-proxy-env: &proxy_env
   http_proxy: ${http_proxy}
   https_proxy: ${https_proxy}
-  no_proxy: ${no_proxy},.scenescape.intel.com
+  no_proxy: ${no_proxy:+${no_proxy},}.scenescape.intel.com
   HTTP_PROXY: ${http_proxy}
   HTTPS_PROXY: ${https_proxy}
-  NO_PROXY: ${no_proxy},.scenescape.intel.com
+  NO_PROXY: ${no_proxy:+${no_proxy},}.scenescape.intel.com
 
 services:
   ntpserv:
@@ -213,15 +213,20 @@ services:
         condition: service_started
     environment:
       MQTT_HOST: broker.scenescape.intel.com
+      MQTT_PORT: 1883
+      ROOT_CA: /run/secrets/certs/scenescape-ca.pem
       # If the user-provided RTSP host is a Docker hostname, add it to no_proxy in .env.
       <<: *proxy_env
-      no_proxy: ${no_proxy},broker.scenescape.intel.com,.scenescape.intel.com
-      NO_PROXY: ${no_proxy},broker.scenescape.intel.com,.scenescape.intel.com
+      no_proxy: ${no_proxy:+${no_proxy},}broker.scenescape.intel.com,.scenescape.intel.com
+      NO_PROXY: ${no_proxy:+${no_proxy},}broker.scenescape.intel.com,.scenescape.intel.com
     volumes:
-      - ./pipeline-config.json:/home/pipeline-server/config.json:ro
+      - ./dlstreamer-pipeline-server/pipeline-config.json:/home/pipeline-server/config.json:ro
       - vol-models:/home/pipeline-server/models:ro
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts:ro
       - ./dlstreamer-pipeline-server/model-proc-files:/home/pipeline-server/model-proc-files:ro
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
     tmpfs:
       - /var/cache/pipeline_root:mode=01777
     restart: unless-stopped
@@ -242,17 +247,38 @@ services:
       <<: *proxy_env
     restart: "no"
 
-  mapping:
-    image: scenescape-mapping:latest
+  mapping-init:
+    image: alpine:3.23
     profiles:
       - mapping
+    user: root
+    volumes:
+      - vol-mapping-model-weights:/workspace/model_weights
+      - vol-mapping-torch-cache:/workspace/.cache/torch
+      - vol-mapping-hf-cache:/workspace/.cache/huggingface
+    command: >
+      sh -c "chown -R 1001:1001 /workspace/model_weights /workspace/.cache/torch /workspace/.cache/huggingface"
+    restart: "no"
+
+  mapping:
+    image: scenescape-mapping-${MAPPING_MODEL:-mapanything}:${VERSION:-latest}
+    profiles:
+      - mapping
+    init: true
+    user: "1001:1001"
     networks:
       scenescape:
         aliases:
           - mapping.scenescape.intel.com
     ports:
       - "8444:8444"
+    depends_on:
+      mapping-init:
+        condition: service_completed_successfully
     environment:
+      MAPPING_CPU_SEC_PER_FRAME: 10
+      GUNICORN_TIMEOUT: 300
+      PYTHONDONTWRITEBYTECODE: 1
       <<: *proxy_env
     volumes:
       - vol-mapping-model-weights:/workspace/model_weights
@@ -267,25 +293,20 @@ services:
         target: certs/scenescape-ca.pem
     healthcheck:
       test:
-        [
-          "CMD",
-          "curl",
-          "-sk",
-          "https://mapping.scenescape.intel.com:8444/v1/health",
-        ]
+        ["CMD", "curl", "-k", "-I", "-s", "https://localhost:8444/v1/health"]
       interval: 15s
-      timeout: 10s
+      timeout: 60s
       retries: 20
-      start_period: 60s
+      start_period: 120s
     restart: unless-stopped
 
 configs:
   mosquitto-secure:
     file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
   tracker-config:
-    file: ./tracker-config.json
+    file: ./controller/tracker-config.json
   reid-config:
-    file: ./reid-config.json
+    file: ./controller/reid-config.json
 
 volumes:
   vol-db:
@@ -311,6 +332,12 @@ txt = open('secrets/django/secrets.py').read()
 print(re.search(r\"DATABASE_PASSWORD='([^']+)'\", txt).group(1))
 ")
 SUPASS=$(cat secrets/supass)
+VERSION=latest
+MAPPING_MODEL=mapanything
 UID=$(id -u)
 GID=$(id -g)
 ```
+
+`write_deployment_env.py` (Step 6) writes `VERSION` and `MAPPING_MODEL` automatically.
+Mapping runs as UID **1001** inside the container; `mapping-init` fixes volume ownership
+before the mapping service starts.

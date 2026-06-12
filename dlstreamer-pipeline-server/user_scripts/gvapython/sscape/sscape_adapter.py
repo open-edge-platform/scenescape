@@ -178,11 +178,12 @@ class PostInferenceDataPublish:
   def setupMQTT(self):
     self.client = mqtt.Client()
     self.client.on_connect = self.on_connect
-    self.broker = os.environ.get('MQTT_HOST', 'broker.scenescape.intel.com')
-    self.client.connect(self.broker, 1883, 120)
     self.client.on_message = self.handleCameraMessage
+    self.broker = os.environ.get('MQTT_HOST', 'broker.scenescape.intel.com')
+    port = int(os.environ.get('MQTT_PORT', '1883'))
     if ROOT_CA and os.path.exists(ROOT_CA):
       self.client.tls_set(ca_certs=ROOT_CA)
+    self.client.connect(self.broker, port, 120)
     self.client.loop_start()
     return
 

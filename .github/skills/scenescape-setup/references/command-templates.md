@@ -24,38 +24,27 @@ docker run --rm --network "$NET_NAME" \
 echo "EXIT:$?"
 ```
 
-## MQTT Subscribe (Plaintext 1883)
-
-```bash
-docker run --rm --network <project>_scenescape eclipse-mosquitto:2 \
-  mosquitto_sub -h broker.scenescape.intel.com -p 1883 \
-  -t '<topic>' -C 1 -W 120
-```
-
-## MQTT Publish (Plaintext 1883)
-
-```bash
-docker run --rm --network <project>_scenescape eclipse-mosquitto:2 \
-  mosquitto_pub -h broker.scenescape.intel.com -p 1883 \
-  -t '<topic>' -m '<payload>'
-```
-
 ## MQTT Subscribe (TLS 1883)
 
+The broker uses `mosquitto-secure.conf` with TLS on listener 1883. Mount the SceneScape CA and
+use `--insecure` because the broker certificate is issued for `broker.scenescape.intel.com`.
+
 ```bash
-docker run --rm --network <project>_scenescape eclipse-mosquitto:2 \
+docker run --rm --network <project>_scenescape \
+  -v <deploy_dir>/secrets/certs/scenescape-ca.pem:/ca.pem:ro \
+  eclipse-mosquitto:2 \
   mosquitto_sub -h broker.scenescape.intel.com -p 1883 \
-  --cafile <deploy_dir>/secrets/certs/scenescape-ca.pem \
-  --insecure \
+  --cafile /ca.pem --insecure \
   -t '<topic>' -C 1 -W 120
 ```
 
 ## MQTT Publish (TLS 1883)
 
 ```bash
-docker run --rm --network <project>_scenescape eclipse-mosquitto:2 \
+docker run --rm --network <project>_scenescape \
+  -v <deploy_dir>/secrets/certs/scenescape-ca.pem:/ca.pem:ro \
+  eclipse-mosquitto:2 \
   mosquitto_pub -h broker.scenescape.intel.com -p 1883 \
-  --cafile <deploy_dir>/secrets/certs/scenescape-ca.pem \
-  --insecure \
+  --cafile /ca.pem --insecure \
   -t '<topic>' -m '<payload>'
 ```
