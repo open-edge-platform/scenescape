@@ -50,7 +50,7 @@ spec:
               command:
                 - sh
                 - -c
-                - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB -h localhost -p 5432
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h localhost -p 5432
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 5
@@ -60,7 +60,7 @@ spec:
               command:
                 - sh
                 - -c
-                - pg_isready -U $POSTGRES_USER -d $POSTGRES_DB -h localhost -p 5432
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h localhost -p 5432
             initialDelaySeconds: 20
             periodSeconds: 10
             timeoutSeconds: 5

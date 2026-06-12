@@ -398,12 +398,18 @@ def health_check():
     )
     init_status = get_init_status()
 
+  if model_loaded:
+    service_status = "healthy"
+    status_code = 200
+  elif init_state == "failed":
+    service_status = "unhealthy"
+    status_code = 503
+  else:
+    service_status = "degraded"
+    status_code = 202
+
   health_status = {
-    "status": (
-      "healthy" if model_loaded
-      else "unhealthy" if init_state == "failed"
-      else "degraded"
-    ),
+    "status": service_status,
     "ready": model_loaded,
     "component": "mapping",
     "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -424,7 +430,6 @@ def health_check():
   }
 
   log.debug(f"Health check: {health_status}")
-  status_code = 200 if model_loaded else 503 if init_state == "failed" else 202
   return jsonify(health_status), status_code
 
 @app.route(f"{API_PREFIX}/models", methods=["GET"])
