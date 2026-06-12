@@ -25,7 +25,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: mapping
-          image: {{ .Values.repository }}/{{ .Values.mapping.image }}:{{ .Chart.AppVersion }}
+          image: {{ .Values.repository }}/{{ .Values.mapping.image }}-{{ .Values.mapping.model }}:{{ .Chart.AppVersion }}
           imagePullPolicy: {{ .Values.mapping.pullPolicy }}
           env:
           - name: PYTHONDONTWRITEBYTECODE

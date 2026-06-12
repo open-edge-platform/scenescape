@@ -93,28 +93,13 @@ _Figure 3: Upload scene image and set calibration method._
 
 _Figure 4: Enter AprilTag dimensions._
 
-5. Edit `docker-compose.yml` to enable the `autocalibration` service:
+5. Ensure `docker-compose.yml` contains `autocalibration` service:
 
 ```yaml
 autocalibration:
-  image: scenescape:<version>
-  networks:
-    scenescape:
-  depends_on:
-    - broker
-    - ntpserv
-    - pgserver
-    - scene
-  command: autocalibration --dbhost pgserver --ntp ntpserv --broker broker.scenescape.intel.com
-  privileged: true
-  environment:
-    EGL_PLATFORM: "surfaceless"
-  volumes:
-    - vol-media:/home/scenescape/SceneScape/media
-  secrets:
-    - certs
-    - django
-  restart: on-failure
+  image: scenescape-autocalibration:${VERSION:-latest}
+  # ...
+  # Refer to one of the sample docker-compose yaml files on how to configure the rest
 ```
 
 6. Restart Intel® SceneScape (see [Docker Compose Profiles](../../get-started.md#docker-compose-profiles) for details on choosing profiles):
