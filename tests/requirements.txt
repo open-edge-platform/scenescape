@@ -47,3 +47,12 @@ pybind11==3.0.4
 
 # SceneScape shared library (installed as editable from repo)
 -e ../scene_common/src
+
+# Tracker black-box evaluation pipeline dependencies (packages not already listed above)
+scipy==1.17.1
+jsonpointer==2.4
+dask==2026.3.0
+pandas==3.0.2
+pyarrow==23.0.1
+matplotlib==3.10.8
+pytest-cov==4.1.0
