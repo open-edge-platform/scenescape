@@ -203,14 +203,6 @@ flowchart LR
   style Analytics fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
 ```
 
-> Terminology: this ADR uses the names from the target diagram above. They map
-> to the [`controller-breakdown.mm.md`](./controller-breakdown.mm.md) markmap as
-> follows — *Spatial Transform & Projection Service* = "Projection"; *Tracker
-> Service* = "MOT Tracking"; *Analytics Service* = "Scene Analytics"; *Re-ID
-> Service* = "UUID Manager + ReID"; the *Subscene* edges = "Scene Hierarchy".
-> *Positioning Service*, *Scene State Persistence Service*, and the *Scene Graph*
-> are introduced here as first-class elements.
-
 ### Services and responsibilities
 
 #### Positioning Service
