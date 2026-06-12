@@ -79,6 +79,9 @@ class TestAPIService:
     assert 'model' in data
     assert 'model_loaded' in data
     assert 'device' in data
+    assert 'initialization' in data
+    assert data['initialization']['state'] == 'ready'
+    assert data['initialization']['progress'] == 100.0
 
   def test_health_check_degraded_when_model_unloaded(self, client):
     """Health endpoint reports degraded when model is not loaded."""
@@ -91,6 +94,9 @@ class TestAPIService:
     assert data['ready'] is False
     assert data['component'] == 'mapping'
     assert data['model_loaded'] is False
+    assert 'initialization' in data
+    assert 'state' in data['initialization']
+    assert 'progress' in data['initialization']
 
   def test_list_models(self, client):
     """Test /models endpoint"""

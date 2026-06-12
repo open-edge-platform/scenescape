@@ -32,6 +32,15 @@ from mesh_utils import get_mesh_info
 
 RECON_STATUS = {}
 RECON_LOCK = threading.Lock()
+INIT_STATUS_LOCK = threading.Lock()
+INIT_STATUS = {
+  "state": "starting",
+  "stage": "boot",
+  "progress": 0.0,
+  "message": "service booting",
+  "error": None,
+  "updated_at": time.time(),
+}
 
 def set_status(request_id: str, **fields):
   with RECON_LOCK:
@@ -52,6 +61,32 @@ def prune_status(max_age_seconds=3600):
     ]
     for rid in to_delete:
       del RECON_STATUS[rid]
+
+
+def set_init_status(
+  state: str,
+  stage: str | None = None,
+  progress: float | None = None,
+  message: str | None = None,
+  error: str | None = None,
+):
+  """Update mapping service initialization state exposed via /health."""
+  with INIT_STATUS_LOCK:
+    INIT_STATUS["state"] = state
+    if stage is not None:
+      INIT_STATUS["stage"] = stage
+    if progress is not None:
+      INIT_STATUS["progress"] = min(100.0, max(0.0, float(progress)))
+    if message is not None:
+      INIT_STATUS["message"] = message
+    INIT_STATUS["error"] = error
+    INIT_STATUS["updated_at"] = time.time()
+
+
+def get_init_status() -> dict[str, Any]:
+  """Return a shallow copy of current initialization state."""
+  with INIT_STATUS_LOCK:
+    return dict(INIT_STATUS)
 
 # Helper functions for request validation
 def validate_reconstruction_request(data):
@@ -349,6 +384,19 @@ def health_check():
   global loaded_model, model_name
 
   model_loaded = loaded_model is not None and loaded_model.is_loaded
+  init_status = get_init_status()
+
+  # Keep init status synchronized with readiness, regardless of startup mode.
+  if model_loaded and init_status.get("state") != "ready":
+    set_init_status(
+      state="ready",
+      stage="model_loaded",
+      progress=100.0,
+      message="model loaded",
+      error=None,
+    )
+    init_status = get_init_status()
+
   health_status = {
     "status": "healthy" if model_loaded else "degraded",
     "ready": model_loaded,
@@ -367,6 +415,7 @@ def health_check():
     "model": model_name,
     "model_loaded": model_loaded,
     "device": device,
+    "initialization": init_status,
   }
 
   log.debug(f"Health check: {health_status}")
@@ -548,18 +597,22 @@ def start_app():
   try:
     if dev_mode:
       # For development server, initialize model here (single process)
+      set_init_status("starting", "model_init_begin", 10.0, "initializing model")
       loaded_model, model_name = initialize_model()
+      set_init_status("ready", "model_loaded", 100.0, "model loaded")
       log.info("API Service startup completed successfully")
       run_development_server()
     else:
       # For production server, model will be initialized in each worker via post_fork hook
       # Don't initialize here as Gunicorn will fork workers with separate memory spaces
+      set_init_status("starting", "waiting_for_worker", 5.0, "waiting for worker model initialization")
       log.info("API Service starting (model will be initialized in Gunicorn workers)")
       run_production_server(cert_file=args.cert_file, key_file=args.key_file)
 
   except KeyboardInterrupt:
     log.info("Server interrupted by user")
   except Exception as e:
+    set_init_status("failed", "startup_error", 100.0, "startup failed", str(e))
     log.error(f"Server error: {e}")
     raise
   finally:

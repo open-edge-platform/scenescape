@@ -38,6 +38,9 @@ Validate: `len(streams) == len(camera_ids)`, ≥1 camera, valid RTSP URLs.
 
 Persist before automation:
 
+Use `python3` by default. Do not substitute a virtualenv interpreter path unless
+you have confirmed that path exists on disk.
+
 ```bash
 python3 <skill-dir>/scripts/deploy_inputs.py write \
   --deploy-dir <deploy_dir> \

@@ -215,10 +215,10 @@ services:
       MQTT_HOST: broker.scenescape.intel.com
       MQTT_PORT: 1883
       ROOT_CA: /run/secrets/certs/scenescape-ca.pem
-      # If the user-provided RTSP host is a Docker hostname, add it to no_proxy in .env.
+      # Keep mediaserver out of proxies by default; user-provided RTSP hosts are appended via .env.
       <<: *proxy_env
-      no_proxy: ${no_proxy:+${no_proxy},}broker.scenescape.intel.com,.scenescape.intel.com
-      NO_PROXY: ${no_proxy:+${no_proxy},}broker.scenescape.intel.com,.scenescape.intel.com
+      no_proxy: mediaserver,${no_proxy:+${no_proxy},}broker.scenescape.intel.com,.scenescape.intel.com
+      NO_PROXY: mediaserver,${no_proxy:+${no_proxy},}broker.scenescape.intel.com,.scenescape.intel.com
     volumes:
       - ./dlstreamer-pipeline-server/pipeline-config.json:/home/pipeline-server/config.json:ro
       - vol-models:/home/pipeline-server/models:ro

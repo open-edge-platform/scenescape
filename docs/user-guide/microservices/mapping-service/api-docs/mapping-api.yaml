@@ -189,9 +189,16 @@ paths:
                 $ref: "#/components/schemas/HealthResponse"
               example:
                 status: "healthy"
+                ready: true
                 model: "mapanything"
                 model_loaded: true
                 device: "cpu"
+                initialization:
+                  state: "ready"
+                  stage: "model_loaded"
+                  progress: 100.0
+                  message: "model loaded"
+                  error: null
 
   /models:
     get:
@@ -348,6 +355,10 @@ components:
           type: string
           description: Overall health status
           example: "healthy"
+        ready:
+          type: boolean
+          description: True when the mapping model is loaded and ready for requests
+          example: true
         model:
           type: string
           description: The model available in this container
@@ -360,6 +371,37 @@ components:
           type: string
           description: Compute device being used (cpu or cuda)
           example: "cpu"
+        initialization:
+          $ref: "#/components/schemas/InitializationStatus"
+
+    InitializationStatus:
+      type: object
+      properties:
+        state:
+          type: string
+          description: High-level initialization state (starting, ready, failed)
+          example: "starting"
+        stage:
+          type: string
+          description: Most recent initialization stage marker
+          example: "model_initializing"
+        progress:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Coarse initialization progress percentage
+          example: 65.0
+        message:
+          type: string
+          description: Human-readable initialization status message
+          example: "loading mapping model"
+        error:
+          oneOf:
+            - type: string
+            - type: "null"
+          description: Error details when initialization fails
+          example: null
 
     ModelsResponse:
       type: object
