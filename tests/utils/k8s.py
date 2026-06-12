@@ -48,7 +48,7 @@ _SCENESCAPE_IMAGES = [
   "scenescape-autocalibration",
   "scenescape-controller",
   "scenescape-cluster-analytics",
-  "scenescape-mapping",
+  "scenescape-mapping-mapanything",
 ]
 
 def _run(cmd, **kwargs):

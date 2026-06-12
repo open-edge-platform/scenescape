@@ -930,8 +930,8 @@ def pytest_collection_modifyitems(config, items):
   def _sort_key(item):
     spec = _get_item_spec(item)
     if spec is None:
-      return (999, "", item.nodeid)
-    return (profile_order.get(spec.profile.name, 998), spec.profile.name, item.nodeid)
+      return (999, "")
+    return (profile_order.get(spec.profile.name, 998), spec.profile.name)
 
   items[:] = sorted(items, key=_sort_key)
 

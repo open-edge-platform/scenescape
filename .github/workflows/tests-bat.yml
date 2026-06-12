@@ -91,6 +91,7 @@ jobs:
     if: ${{ needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch' }}
     outputs:
       code_changed: ${{ steps.filter.outputs.code }}
+      bat_workflow_changed: ${{ steps.filter.outputs.bat_workflow }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Set paths filter
@@ -113,6 +114,9 @@ jobs:
               - '!**/*.pdf'
               - '!LICENSES/**'
               - '!docs/**'
+              - '!.github/**'
+            bat_workflow:
+              - '.github/workflows/tests-bat.yml'
 
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
@@ -121,7 +125,7 @@ jobs:
       packages: write # For using GHCR as cache registry
     timeout-minutes: ${{ fromJSON(inputs.timeout || '80') }}
     needs: [filter, check-pr-state]
-    if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ (needs.filter.outputs.code_changed == 'true' || needs.filter.outputs.bat_workflow_changed == 'true') && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
       - name: "Checkout Repository"
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -194,7 +198,7 @@ jobs:
     permissions:
       packages: write # For using GHCR as cache registry
     needs: [filter, check-pr-state]
-    if: ${{ needs.filter.outputs.code_changed == 'true' && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ (needs.filter.outputs.code_changed == 'true' || needs.filter.outputs.bat_workflow_changed == 'true') && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3

@@ -17,8 +17,10 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-POLL_INTERVAL = 5
-POLL_TIMEOUT = 60
+POLL_INTERVAL_S = 5
+POLL_TIMEOUT_S = 60
+BASE_URL = "https://autocalibration.scenescape.intel.com:8443"
+
 MAP_APRILTAG_COUNT = 7  # number of apriltags present in Queuing scene
 
 
@@ -73,25 +75,26 @@ class ApriltagRegistration(FunctionalTest):
     """Poll until map_processed is not null."""
 
     start = time.time()
-    while time.time() - start < POLL_TIMEOUT:
+    while time.time() - start < POLL_TIMEOUT_S:
       try:
         if self._get_scene().get('map_processed') is not None:
           return
       except Exception:
         pass
-      time.sleep(POLL_INTERVAL)
-    raise AssertionError(f"Registration did not complete within {POLL_TIMEOUT}s")
+      time.sleep(POLL_INTERVAL_S)
+    raise AssertionError(f"Registration did not complete within {POLL_TIMEOUT_S}s")
 
   def _clear_calibration_markers(self):
     """Delete all calibration markers for the test scene"""
 
     response = self.rest.getCalibrationMarkers({'scene': self.scene_id})
-    if response and 'results' in response:
-      for marker in response['results']:
-        r = self.rest.deleteCalibrationMarker(marker['marker_id'])
-        assert r, (r.statusCode, r.errors)
-        assert self.rest.getCalibrationMarker(marker['marker_id']).statusCode == 404, \
-          f"Failed to delete marker {marker['marker_id']}"
+    assert response, (response.statusCode, response.errors)
+    assert 'results' in response, f"Invalid calibration marker response: {response}"
+    for marker in response['results']:
+      r = self.rest.deleteCalibrationMarker(marker['marker_id'])
+      assert r, (r.statusCode, r.errors)
+      assert self.rest.getCalibrationMarker(marker['marker_id']).statusCode == 404, \
+        f"Failed to delete marker {marker['marker_id']}"
 
   def _restore_scene(self):
     """Restore original apriltag_size after the test"""
