@@ -268,15 +268,6 @@ flowchart LR
 - **Communication**: MQTT ingest; gRPC/REST for state queries.
 - **Technology**: Python.
 
-#### Scene Graph
-
-- **Role**: the shared, queryable representation of scenes, their relationships
-  (parent/child), coordinate systems, and current state — the recursive backbone
-  that lets a sub-scene present itself to a parent exactly as any source presents
-  to a scene.
-- **Inputs**: pose from Positioning; state from Persistence.
-- **Communication**: query interface (gRPC/REST).
-
 #### Analytics Service
 
 - **Role**: scene analytics and events — regions, tripwires, sensor-attribute
@@ -295,24 +286,6 @@ flowchart LR
 - Cluster analytics remains an independent downstream service
   ([ADR 4](./0004-cluster-analytics-service.md)) consuming `regulated/scene`
   output. It is unchanged by this ADR and listed for completeness.
-
-#### Subscene
-
-- **Role**: a child scene that contributes its fused tracks and analytics to a
-  parent scene. A subscene is not a distinct service type — it is an instance of
-  the full pipeline (its own Spatial Transform & Projection, Tracker, Analytics)
-  whose output is presented to a parent as just another source. This is what
-  makes the hierarchy recursive (see
-  [Recursive hierarchy via sub-scenes](#recursive-hierarchy-via-sub-scenes)).
-- **Inputs**: its own sources (cameras, sensors, robots/drones, and possibly its
-  own subscenes).
-- **Outputs**: pose + observations (fused tracks and analytics, already in the
-  child coordinate system) to the parent's Spatial Transform & Projection
-  Service, carrying the global identities assigned by the shared Re-ID Service.
-- **Communication**: MQTT for streaming fused tracks/analytics upward
-  (`external/scene/{parent_id}`); the parent treats it like any other
-  observation source.
-- **Technology**: same stack as a primary scene — a subscene *is* a scene.
 
 ### Recursive hierarchy via sub-scenes
 
