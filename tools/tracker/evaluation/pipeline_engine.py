@@ -414,6 +414,13 @@ class PipelineEngine:
     if 'custom_config' in custom_config:
       custom_config.update(custom_config.pop('custom_config'))
 
+    # Inject camera_order from dataset config so the harness publishes
+    # same-timestamp frames in a fixed, deterministic order.
+    dataset_config = self._config.get('dataset', {}).get('config', {})
+    camera_order = dataset_config.get('cameras')
+    if camera_order and 'camera_order' not in custom_config:
+      custom_config['camera_order'] = camera_order
+
     if custom_config:
       self._harness.set_custom_config(custom_config)
 
