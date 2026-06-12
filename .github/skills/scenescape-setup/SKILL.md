@@ -22,6 +22,32 @@ Host needs **Docker**, **docker-compose**, and **Python 3.10+** with `requests`.
 - **Resume** with `--deploy-dir` only when `deploy-inputs.json` exists; use `--fresh` when
   cameras or streams change.
 - Load troubleshooting references only when a step fails.
+- **Never** assign `SKILL_DIR` inline with `bash` on the same command (`SKILL_DIR=x bash "$SKILL_DIR/..."` silently fails because the variable is not yet expanded). Always set `export SKILL_DIR=...` on its own line first.
+
+## Step 0 — Bootstrap skill-dir
+
+Resolve `SKILL_DIR` before any other step. Use the **first matching** strategy below:
+
+**A. Scripts already on disk** (scenescape repo is checked out locally):
+
+```bash
+export SKILL_DIR=<path-to-scenescape-checkout>/.github/skills/scenescape-setup
+```
+
+**B. Extract from git** (no full checkout needed — fast, leaves no branch state):
+
+```bash
+# Find any local scenescape clone
+SCENESCAPE_REPO=$(find ~ -maxdepth 5 -type d -name scenescape 2>/dev/null | head -1)
+# Archive just the skill directory from the feature branch
+git -C "$SCENESCAPE_REPO" fetch origin feature/sscape-app-skill
+mkdir -p /tmp/scenescape-skill
+git -C "$SCENESCAPE_REPO" archive origin/feature/sscape-app-skill \
+  -- .github/skills/scenescape-setup | tar -x -C /tmp/scenescape-skill
+export SKILL_DIR=/tmp/scenescape-skill/.github/skills/scenescape-setup
+```
+
+Verify: `ls "$SKILL_DIR/scripts/deploy_scenescape.sh"` must succeed before continuing.
 
 ## Step 1 — Gather inputs (required)
 
@@ -59,7 +85,7 @@ hardcode simulator hostnames or camera names.
 After Step 1, run:
 
 ```bash
-SKILL_DIR=<path-to-scenescape>/.github/skills/scenescape-setup
+export SKILL_DIR=<path-to-scenescape>/.github/skills/scenescape-setup
 
 bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
   --deploy-dir <deploy_dir> \
