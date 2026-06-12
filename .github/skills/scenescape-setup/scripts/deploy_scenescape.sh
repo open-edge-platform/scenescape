@@ -171,8 +171,12 @@ step_warmup_rtsp() {
   }
 
   docker compose up -d video-analytics >>"$LOG_FILE" 2>&1
-  sleep 20
-  bash scripts/check_video_analytics.sh "$DEPLOY_DIR" >>"$LOG_FILE" 2>&1 || {
+  python3 scripts/check_service_health.py \
+    --deploy-dir "$DEPLOY_DIR" \
+    --service video-analytics \
+    --require-healthy \
+    --max-attempts 24 \
+    --interval 5 >>"$LOG_FILE" 2>&1 || {
     log "STEP 7: FAIL (video-analytics)"
     exit 1
   }
@@ -186,16 +190,28 @@ step_full_stack() {
   cd "$DEPLOY_DIR"
   docker compose --profile mapping up -d >>"$LOG_FILE" 2>&1
   docker compose restart video-analytics >>"$LOG_FILE" 2>&1
-  sleep 30
 
-  for svc in broker ntpserv pgserver web scene mapping; do
-    health=$(docker compose --profile mapping ps "$svc" --format '{{.Health}}' 2>/dev/null | head -1)
-    status=$(docker compose --profile mapping ps "$svc" --format '{{.Status}}' 2>/dev/null | head -1)
-    if [[ "$status" != *"Up"* ]]; then
+  for svc in broker scene; do
+    python3 scripts/check_service_health.py \
+      --deploy-dir "$DEPLOY_DIR" \
+      --service "$svc" \
+      --max-attempts 30 \
+      --interval 2 >>"$LOG_FILE" 2>&1 || {
       log "STEP 8: FAIL ($svc not running)"
       exit 1
-    fi
-    log "  $svc: ${health:-n/a} ($status)"
+    }
+  done
+
+  for svc in ntpserv pgserver web mapping video-analytics; do
+    python3 scripts/check_service_health.py \
+      --deploy-dir "$DEPLOY_DIR" \
+      --service "$svc" \
+      --require-healthy \
+      --max-attempts 30 \
+      --interval 5 >>"$LOG_FILE" 2>&1 || {
+      log "STEP 8: FAIL ($svc not healthy)"
+      exit 1
+    }
   done
 
   state_write 8
@@ -218,7 +234,16 @@ step_calibration() {
 step_mapping_health() {
   log "STEP 10: mapping service health"
   cd "$DEPLOY_DIR"
-  bash scripts/check_mapping_health.sh 30 10 >>"$LOG_FILE" 2>&1
+  python3 scripts/check_service_health.py \
+    --deploy-dir "$DEPLOY_DIR" \
+    --service mapping \
+    --require-healthy \
+    --url https://localhost:8444/v1/health \
+    --insecure \
+    --expect-status healthy \
+    --expect-bool model_loaded=true \
+    --max-attempts 30 \
+    --interval 10 >>"$LOG_FILE" 2>&1
   state_write 10
   log "STEP 10: PASS"
 }

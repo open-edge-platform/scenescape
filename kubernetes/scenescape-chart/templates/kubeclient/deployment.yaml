@@ -80,7 +80,19 @@ spec:
               command:
               - cat
               - /tmp/healthy
-            periodSeconds: 1
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+            initialDelaySeconds: 5
+          livenessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/healthy
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+            initialDelaySeconds: 15
           resources: {}
           securityContext:
             runAsUser: 0

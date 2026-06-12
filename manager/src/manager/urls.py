@@ -118,6 +118,7 @@ urlpatterns += [
 urlpatterns += [
   path('api/', include('rest_framework.urls')),
   path('api/v1/auth', api.CustomAuthToken.as_view(), name='api_token_auth'),
+  path('api/v1/health', api.ServiceHealth.as_view()),
   path('api/v1/database-ready', api.DatabaseReady.as_view()),
   path('api/v1/calculateintrinsics', CalculateCameraIntrinsics.as_view()),
   path('api/v1/aclcheck', api.ACLCheck.as_view()),

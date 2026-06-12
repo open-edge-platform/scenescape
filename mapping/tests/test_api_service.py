@@ -72,9 +72,25 @@ class TestAPIService:
     assert response.status_code == 200
     data = json.loads(response.data)
     assert data['status'] == 'healthy'
+    assert data['ready'] is True
+    assert data['component'] == 'mapping'
+    assert 'details' in data
+    assert data['details']['models']['loaded'] is True
     assert 'model' in data
     assert 'model_loaded' in data
     assert 'device' in data
+
+  def test_health_check_degraded_when_model_unloaded(self, client):
+    """Health endpoint reports degraded when model is not loaded."""
+    with patch('api_service_base.loaded_model', None):
+      response = client.get('/health')
+
+    assert response.status_code == 202
+    data = json.loads(response.data)
+    assert data['status'] == 'degraded'
+    assert data['ready'] is False
+    assert data['component'] == 'mapping'
+    assert data['model_loaded'] is False
 
   def test_list_models(self, client):
     """Test /models endpoint"""

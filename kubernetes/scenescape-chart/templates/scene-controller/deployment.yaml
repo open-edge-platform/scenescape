@@ -56,10 +56,20 @@ spec:
             protocol: TCP
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /readyz
               port: 8080
               scheme: HTTP
             initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
             successThreshold: 1

@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import datetime, timezone
 from typing import Dict, Any
 from werkzeug.utils import secure_filename
 import uuid
@@ -344,18 +345,33 @@ def reconstruct3D():
 
 @app.route(f"{API_PREFIX}/health", methods=["GET"])
 def health_check():
-  """Health check endpoint"""
+  """Health check endpoint with unified readiness contract."""
   global loaded_model, model_name
 
+  model_loaded = loaded_model is not None and loaded_model.is_loaded
   health_status = {
-    "status": "healthy",
+    "status": "healthy" if model_loaded else "degraded",
+    "ready": model_loaded,
+    "component": "mapping",
+    "timestamp": datetime.now(timezone.utc).isoformat(),
+    "version": "1.0",
+    "details": {
+      "models": {
+        "loaded": model_loaded,
+        "active": model_name,
+      },
+      "runtime": {
+        "device": device,
+      },
+    },
     "model": model_name,
-    "model_loaded": loaded_model is not None and loaded_model.is_loaded,
+    "model_loaded": model_loaded,
     "device": device,
   }
 
   log.debug(f"Health check: {health_status}")
-  return jsonify(health_status), 200
+  status_code = 200 if model_loaded else 202
+  return jsonify(health_status), status_code
 
 @app.route(f"{API_PREFIX}/models", methods=["GET"])
 def list_models():

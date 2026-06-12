@@ -32,7 +32,7 @@ Zero scale blocks regulated output — set scale in UI or PATCH the scene.
 ### 5. Raw detections
 
 Subscribe to `scenescape/data/camera/+` (TLS template in [command-templates.md](./command-templates.md)).
-If empty: `bash scripts/check_video_analytics.sh <deploy_dir>`.
+If empty: run `python3 scripts/check_service_health.py --deploy-dir <deploy_dir> --service video-analytics --require-healthy --max-attempts 24 --interval 5`.
 
 ### 6. Controller loaded scene
 

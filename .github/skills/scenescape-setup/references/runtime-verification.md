@@ -7,7 +7,12 @@ Load only when Step 7 or Step 9 fails in [SKILL.md](../SKILL.md).
 ```bash
 cd <deploy_dir>
 bash scripts/verify_rtsp.sh <deploy_dir> <rtsp_url> [<rtsp_url> ...]
-bash scripts/check_video_analytics.sh <deploy_dir>
+python3 scripts/check_service_health.py \
+  --deploy-dir <deploy_dir> \
+  --service video-analytics \
+  --require-healthy \
+  --max-attempts 24 \
+  --interval 5
 ```
 
 RTSP simulators (MediaMTX, `queuing-cams`) must run on a network reachable from
@@ -45,7 +50,16 @@ Pass: JPEG on `scenescape/image/calibration/camera/<camera_id>` with keys `id`, 
 ## Step 10 — Mapping
 
 ```bash
-bash scripts/check_mapping_health.sh
+python3 scripts/check_service_health.py \
+  --deploy-dir <deploy_dir> \
+  --service mapping \
+  --require-healthy \
+  --url https://localhost:8444/v1/health \
+  --insecure \
+  --expect-status healthy \
+  --expect-bool model_loaded=true \
+  --max-attempts 30 \
+  --interval 10
 docker compose logs mapping --tail 50
 ```
 

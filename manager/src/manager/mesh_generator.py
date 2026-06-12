@@ -292,12 +292,21 @@ class MappingServiceClient:
         verify=self.rootcert
       )
 
-      if response.status_code == 200:
+      if response.status_code in (200, 202):
         health_data = response.json()
+        details = health_data.get('details', {})
+        models = details.get('models', {})
+        if not models and 'model_loaded' in health_data:
+          models = {
+            'loaded': health_data.get('model_loaded', False),
+            'active': health_data.get('model', 'unknown'),
+          }
+
         return {
           'available': True,
           'status': health_data.get('status', 'unknown'),
-          'models': health_data.get('models', {})
+          'ready': bool(health_data.get('ready', False)),
+          'models': models,
         }
       else:
         return {

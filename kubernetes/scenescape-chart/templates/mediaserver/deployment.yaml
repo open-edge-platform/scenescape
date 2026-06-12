@@ -39,6 +39,11 @@ spec:
               port: 8554
             initialDelaySeconds: 5
             periodSeconds: 10
+          startupProbe:
+            tcpSocket:
+              port: 8554
+            failureThreshold: 30
+            periodSeconds: 2
           readinessProbe:
             tcpSocket:
               port: 8554

@@ -18,7 +18,7 @@ Host needs **Docker**, **docker-compose**, and **Python 3.10+** with `requests`.
 - **Prefer the orchestrator** after inputs are confirmed; read `deploy.log` only on failure.
 - **Do not read** `docker-compose-template.md` or `sample_data/` unless troubleshooting a
   template bug. Pipeline generation is defined in `pipeline-config.md`.
-- **Do not** dump raw `docker compose logs`; use `check_video_analytics.sh` with grep.
+- **Do not** dump raw `docker compose logs`; use `check_service_health.py` and focused log filters.
 - **Resume** with `--deploy-dir` only when `deploy-inputs.json` exists; use `--fresh` when
   cameras or streams change.
 - Load troubleshooting references only when a step fails.
@@ -88,10 +88,10 @@ bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
 |------|--------|------|
 | 1 | `deploy_inputs.py write` | `deploy-inputs.json` valid |
 | 6 | `bootstrap_deploy.py --from-deploy-inputs` | secrets, compose, pipeline config |
-| 7 | warmup, `verify_rtsp.sh`, `check_video_analytics.sh` | RTSP + pipelines |
+| 7 | warmup, `verify_rtsp.sh`, `check_service_health.py` (video-analytics) | RTSP + pipelines |
 | 8 | full stack `up` | core services running |
 | 9 | `capture_calibration_frames.py` | JPEG per **user** camera ID |
-| 10 | `check_mapping_health.sh` | mapping healthy |
+| 10 | `check_service_health.py` (mapping endpoint + model_loaded) | mapping healthy |
 | 11–12 | `reconstruct_and_finalize.py --scene-name` | scene UID |
 | 13 | `verify_tracking.sh` | objects on regulated topic |
 
