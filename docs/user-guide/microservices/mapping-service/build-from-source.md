@@ -136,6 +136,12 @@ During startup, this endpoint may return HTTP `202` with:
 - `ready: false`
 - `initialization.state: "starting"`
 
+If startup fails permanently, this endpoint returns HTTP `503` with:
+
+- `status: "unhealthy"`
+- `ready: false`
+- `initialization.state: "failed"`
+
 You can poll startup progress without reading logs:
 
 ```bash

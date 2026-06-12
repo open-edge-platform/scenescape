@@ -385,6 +385,7 @@ def health_check():
 
   model_loaded = loaded_model is not None and loaded_model.is_loaded
   init_status = get_init_status()
+  init_state = init_status.get("state")
 
   # Keep init status synchronized with readiness, regardless of startup mode.
   if model_loaded and init_status.get("state") != "ready":
@@ -398,7 +399,11 @@ def health_check():
     init_status = get_init_status()
 
   health_status = {
-    "status": "healthy" if model_loaded else "degraded",
+    "status": (
+      "healthy" if model_loaded
+      else "unhealthy" if init_state == "failed"
+      else "degraded"
+    ),
     "ready": model_loaded,
     "component": "mapping",
     "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -419,7 +424,7 @@ def health_check():
   }
 
   log.debug(f"Health check: {health_status}")
-  status_code = 200 if model_loaded else 202
+  status_code = 200 if model_loaded else 503 if init_state == "failed" else 202
   return jsonify(health_status), status_code
 
 @app.route(f"{API_PREFIX}/models", methods=["GET"])

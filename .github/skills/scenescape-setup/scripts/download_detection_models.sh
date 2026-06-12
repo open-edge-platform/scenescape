@@ -13,6 +13,8 @@ deploy_dir=${1:-.}
 cd "$deploy_dir"
 
 MODEL_XML="intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml"
+MODEL_BIN="intel/person-detection-retail-0013/FP32/person-detection-retail-0013.bin"
+MODEL_URL_BASE="https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/intel/person-detection-retail-0013/FP32"
 
 project_name=$(docker compose config --format json \
   | python3 -c "import json,sys; print(json.load(sys.stdin).get('name', 'scenescape'))")
@@ -32,8 +34,10 @@ docker run --rm --user root \
   -e "https_proxy=${https_proxy:-}" \
   -v "${models_volume}:/models" \
   scenescape-model-installer:latest bash -c "
-pip3 install --break-system-packages openvino-dev 2>&1 | grep Successfully
-/usr/local/bin/omz_downloader --name person-detection-retail-0013 -o /models/
+set -euo pipefail
+mkdir -p /models/$(dirname "${MODEL_XML}")
+wget -nv -O /models/${MODEL_XML} ${MODEL_URL_BASE}/person-detection-retail-0013.xml
+wget -nv -O /models/${MODEL_BIN} ${MODEL_URL_BASE}/person-detection-retail-0013.bin
 chmod -R a+rX /models/
 "
 echo "Detection models ready in ${models_volume}."

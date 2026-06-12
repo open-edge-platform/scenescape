@@ -90,7 +90,7 @@ spec:
               command:
               - sh
               - -c
-              - curl -k -s https://localhost:8443/v1/status >/dev/null
+              - curl -k -fsS https://localhost:8443/v1/status >/dev/null
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3

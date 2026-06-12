@@ -261,7 +261,7 @@ class CustomAuthToken(ObtainAuthToken):
 class DatabaseReady(APIView):
   def checkDatabase(self):
     try:
-      connection.cursor()
+      connection.ensure_connection()
       return True
     except OperationalError:
       return False
@@ -279,7 +279,7 @@ class DatabaseReady(APIView):
 class ServiceHealth(APIView):
   def checkDatabase(self):
     try:
-      connection.cursor()
+      connection.ensure_connection()
       return True
     except OperationalError:
       return False
