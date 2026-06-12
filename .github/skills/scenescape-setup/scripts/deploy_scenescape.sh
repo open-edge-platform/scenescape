@@ -251,6 +251,31 @@ step_reconstruct() {
   log "STEP 12: PASS (scene_uid=$scene_uid)"
 }
 
+wait_scene_ready() {
+  # Wait for scene controller to be fully initialized: stable camera subscriptions + detections flowing
+  local max_wait=45
+  local start_time elapsed camera_count target_count
+  start_time=$(date +%s)
+  target_count=${#CAMERA_IDS[@]}
+
+  log "STEP 13: waiting for scene controller initialization (max ${max_wait}s)"
+  while (( elapsed = $(date +%s) - start_time, elapsed < max_wait )); do
+    # Count subscriptions to camera topics (should match camera count)
+    camera_count=$(docker compose logs scene --tail 100 2>&1 \
+      | grep -c 'Subscribed to scenescape/data/camera' || true)
+    
+    if (( camera_count >= target_count )); then
+      log "Scene ready (${camera_count} camera subscriptions established)"
+      sleep 3  # Settle time for tracker to accumulate initial detections
+      return 0
+    fi
+    sleep 2
+  done
+  log "WARN: scene initialization incomplete (${camera_count}/${target_count} cameras subscribed) but proceeding"
+  sleep 5  # Extra settle time as fallback
+  return 0  # Don't fail; let verify_tracking timeout handle it if truly broken
+}
+
 step_tracking() {
   log "STEP 13: verify object tracking"
   local scene_uid
@@ -261,6 +286,8 @@ step_tracking() {
   fi
 
   cd "$DEPLOY_DIR"
+  wait_scene_ready
+
   docker compose logs scene --tail 30 2>&1 \
     | grep -E 'NEW SCENE|Subscribed to scenescape/data/camera' \
     | tail -10 >>"$LOG_FILE" || true

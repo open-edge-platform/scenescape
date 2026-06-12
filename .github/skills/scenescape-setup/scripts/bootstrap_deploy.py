@@ -114,12 +114,18 @@ def generate_secrets_and_env(
     check=True,
   )
 
+  # Always include internal service hostnames for proxy bypass
+  internal_hosts = [
+    "broker.scenescape.intel.com",
+    ".scenescape.intel.com",
+  ] + no_proxy_hosts
+
   cmd = [
     sys.executable,
     str(skill_dir / "scripts" / "write_deployment_env.py"),
     "--deploy-dir", str(deploy_dir),
   ]
-  for host in no_proxy_hosts:
+  for host in internal_hosts:
     cmd.extend(["--append-no-proxy", host])
 
   subprocess.run(cmd, check=True)
