@@ -46,7 +46,6 @@ SceneScape will **delegate** model management, visual pipeline building, and vid
 - **Exported scenes embed pipeline definitions by value** so that deployment is possible without ViPPET.
 - **Exported scenes reference models by identifier** (not by value). Model Downloader is therefore required at deployment time to materialize the referenced models on a model volume shared with DLSPS.
 - **SceneScape does not call Model Downloader's download endpoint.** Model download is handled out-of-band:
-
   - at deployment time or scene import by an **external job or script**, or
   - during pipeline development by the user via the **ViPPET UI**, into a volume shared with SceneScape.
 

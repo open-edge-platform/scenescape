@@ -15,7 +15,9 @@ Top-level shape:
 {
   "config": {
     "logging": { "C_LOG_LEVEL": "INFO", "PY_LOG_LEVEL": "INFO" },
-    "pipelines": [ /* one entry per camera */ ]
+    "pipelines": [
+      /* one entry per camera */
+    ]
   }
 }
 ```
@@ -24,13 +26,13 @@ Top-level shape:
 
 For each `(camera_id, rtsp_url)` in `deploy-inputs.json`:
 
-| Field | Value |
-| ----- | ----- |
-| `name` | User's `camera_id` |
-| `source` | `gstreamer` |
-| `auto_start` | `true` |
-| `pipeline` | GStreamer string below with `{rtsp_url}` substituted |
-| `parameters` | MQTT parameter schema (same for every camera) |
+| Field                | Value                                                 |
+| -------------------- | ----------------------------------------------------- |
+| `name`               | User's `camera_id`                                    |
+| `source`             | `gstreamer`                                           |
+| `auto_start`         | `true`                                                |
+| `pipeline`           | GStreamer string below with `{rtsp_url}` substituted  |
+| `parameters`         | MQTT parameter schema (same for every camera)         |
 | `payload.parameters` | Runtime defaults below with `{camera_id}` substituted |
 
 ### GStreamer pipeline

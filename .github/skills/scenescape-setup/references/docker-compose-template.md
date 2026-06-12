@@ -132,7 +132,7 @@ services:
       --brokerauth /run/secrets/browser.auth
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
     healthcheck:
-      test: "curl --insecure -s https://localhost:443/api/v1/health | python3 -c 'import json,sys; data=json.load(sys.stdin); raise SystemExit(0 if data.get(\"ready\") is True else 1)'"
+      test: 'curl --insecure -s https://localhost:443/api/v1/health | python3 -c ''import json,sys; data=json.load(sys.stdin); raise SystemExit(0 if data.get("ready") is True else 1)'''
       interval: 10s
       timeout: 120s
       retries: 10

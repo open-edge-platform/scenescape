@@ -27,12 +27,12 @@ Host needs **Docker**, **docker-compose**, and **Python 3.10+** with `requests`.
 
 Ask the user for every new deployment:
 
-| Input | Rules |
-|-------|-------|
-| `deploy_dir` | Writable directory for generated files |
-| `streams` | One RTSP/RTSPS URL per camera, user-provided, in order |
-| `camera_ids` | Unique IDs (no `/`), same order as `streams` |
-| `scene_name` | Human-readable scene name chosen by the user |
+| Input        | Rules                                                  |
+| ------------ | ------------------------------------------------------ |
+| `deploy_dir` | Writable directory for generated files                 |
+| `streams`    | One RTSP/RTSPS URL per camera, user-provided, in order |
+| `camera_ids` | Unique IDs (no `/`), same order as `streams`           |
+| `scene_name` | Human-readable scene name chosen by the user           |
 
 Validate: `len(streams) == len(camera_ids)`, ≥1 camera, valid RTSP URLs.
 
@@ -74,46 +74,46 @@ bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
   --skill-dir "$SKILL_DIR"
 ```
 
-| Flag | Purpose |
-|------|---------|
-| `--phase all\|bootstrap\|calibrate\|scene` | Limit steps (default `all`) |
-| `--resume` | Continue from `.deploy-state.json` (default) |
-| `--fresh` | Clear checkpoint and `deploy-inputs.json`; requires new Step 1 inputs |
+| Flag                                       | Purpose                                                               |
+| ------------------------------------------ | --------------------------------------------------------------------- |
+| `--phase all\|bootstrap\|calibrate\|scene` | Limit steps (default `all`)                                           |
+| `--resume`                                 | Continue from `.deploy-state.json` (default)                          |
+| `--fresh`                                  | Clear checkpoint and `deploy-inputs.json`; requires new Step 1 inputs |
 
 **Pass:** `DEPLOY COMPLETE` with `scene_uid`. **Fail:** `deploy.log` + step reference below.
 
 ### Step map
 
-| Step | Action | Pass |
-|------|--------|------|
-| 1 | `deploy_inputs.py write` | `deploy-inputs.json` valid |
-| 6 | `bootstrap_deploy.py --from-deploy-inputs` | secrets, compose, pipeline config |
-| 7 | warmup, `verify_rtsp.sh`, `check_service_health.py` (video-analytics) | RTSP + pipelines |
-| 8 | full stack `up` | core services running |
-| 9 | `capture_calibration_frames.py` | JPEG per **user** camera ID |
-| 10 | `check_service_health.py` (mapping endpoint + model_loaded) | mapping healthy |
-| 11–12 | `reconstruct_and_finalize.py --scene-name` | scene UID |
-| 13 | `verify_tracking.sh` | objects on regulated topic |
+| Step  | Action                                                                | Pass                              |
+| ----- | --------------------------------------------------------------------- | --------------------------------- |
+| 1     | `deploy_inputs.py write`                                              | `deploy-inputs.json` valid        |
+| 6     | `bootstrap_deploy.py --from-deploy-inputs`                            | secrets, compose, pipeline config |
+| 7     | warmup, `verify_rtsp.sh`, `check_service_health.py` (video-analytics) | RTSP + pipelines                  |
+| 8     | full stack `up`                                                       | core services running             |
+| 9     | `capture_calibration_frames.py`                                       | JPEG per **user** camera ID       |
+| 10    | `check_service_health.py` (mapping endpoint + model_loaded)           | mapping healthy                   |
+| 11–12 | `reconstruct_and_finalize.py --scene-name`                            | scene UID                         |
+| 13    | `verify_tracking.sh`                                                  | objects on regulated topic        |
 
 Checkpoints: `.deploy-state.json` (progress), `deploy-inputs.json` (user inputs).
 
 ## Phased sub-skills
 
-| Skill | Phase |
-|-------|-------|
-| [scenescape-setup-bootstrap](../scenescape-setup-bootstrap/SKILL.md) | steps 6–8 |
-| [scenescape-setup-calibrate](../scenescape-setup-calibrate/SKILL.md) | steps 9–10 |
-| [scenescape-setup-scene](../scenescape-setup-scene/SKILL.md) | steps 11–13 |
+| Skill                                                                | Phase       |
+| -------------------------------------------------------------------- | ----------- |
+| [scenescape-setup-bootstrap](../scenescape-setup-bootstrap/SKILL.md) | steps 6–8   |
+| [scenescape-setup-calibrate](../scenescape-setup-calibrate/SKILL.md) | steps 9–10  |
+| [scenescape-setup-scene](../scenescape-setup-scene/SKILL.md)         | steps 11–13 |
 
 Each sub-skill still requires user inputs (or `deploy-inputs.json` on resume).
 
 ## On failure
 
-| Step | Reference |
-|------|-----------|
-| 7, 9 | [runtime-verification.md](./references/runtime-verification.md) |
-| 11–12 | [reconstruction.md](./references/reconstruction.md) |
-| 13 | [verify-tracking.md](./references/verify-tracking.md) |
+| Step  | Reference                                                       |
+| ----- | --------------------------------------------------------------- |
+| 7, 9  | [runtime-verification.md](./references/runtime-verification.md) |
+| 11–12 | [reconstruction.md](./references/reconstruction.md)             |
+| 13    | [verify-tracking.md](./references/verify-tracking.md)           |
 
 [pipeline-config.md](./references/pipeline-config.md) — how template adaptation works.
 
