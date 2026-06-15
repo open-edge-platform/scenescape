@@ -29,18 +29,71 @@ export default function AssetManager(scene, subscribeToTracking) {
     objectCache[name] = defaultBoxMesh;
   }
 
+  function colorFromId(id) {
+    const hex = String(id)
+      .replace(/[^0-9a-f]/gi, "")
+      .padEnd(6, "0")
+      .substring(0, 6);
+
+    return new THREE.Color("#" + hex);
+  }
+
+  function createIndicator(objectId) {
+    const color = colorFromId(objectId);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+
+    const ctx = canvas.getContext("2d");
+
+    // Draw downward triangle
+    ctx.fillStyle = "#" + color.getHexString();
+    ctx.beginPath();
+    ctx.moveTo(32, 56); // bottom point
+    ctx.lineTo(8, 8);   // top left
+    ctx.lineTo(56, 8);  // top right
+    ctx.closePath();
+    ctx.fill();
+
+    const texture = new THREE.CanvasTexture(canvas);
+
+    const sprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: false, // keeps it visible
+      })
+    );
+
+    sprite.name = "indicator";
+    sprite.scale.set(1, 1, 1);
+
+    return sprite;
+  }
+
   // Create a mark geometry
   function createGeometry(object) {
     let mark = new THREE.Object3D();
 
-    if (typeof objectCache[object.category] != "undefined") {
-      addDefaultMark(mark, objectCache, object.category);
+    const model = new THREE.Object3D();
+    model.name = "model";
+
+    if (objectCache[object.category]) {
+      model.add(objectCache[object.category].clone());
     } else {
-      addDefaultMark(mark, objectCache, "unknown");
-      mark.children[0].name = object.category;
+      model.add(objectCache["unknown"].clone());
     }
 
-    // Place the mark in the scene
+    const indicator = createIndicator(object.id);
+    indicator.name = "indicator";
+
+    const indicatorHolder = new THREE.Object3D();
+    indicatorHolder.add(indicator);
+
+    mark.add(model);
+    mark.add(indicatorHolder);
+
     scene.add(mark);
 
     return mark.id;
@@ -120,6 +173,18 @@ export default function AssetManager(scene, subscribeToTracking) {
       }
       thisMark.translateZ(translate);
       thisMark.scale.copy(scale);
+      const model = thisMark.getObjectByName("model");
+      const indicator = thisMark.getObjectByName("indicator");
+
+      if (model && indicator) {
+        model.updateWorldMatrix(true, true);
+
+        const box = new THREE.Box3().setFromObject(model);
+        const localBox = box.clone().applyMatrix4(thisMark.matrixWorld.clone().invert());
+
+        const top = localBox.max.z;
+        indicator.position.z = top + 0.5;
+      }
     });
   }
 
