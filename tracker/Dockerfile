@@ -96,7 +96,7 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
 CMD ["/scenescape/tracker", "--config", "/scenescape/config/tracker.json", "--schema", "/scenescape/schema/config.schema.json"]
 
 # --- Debug stage (for development with gdbserver) ---
-FROM debian:13-slim@sha256:b6e2a152f22a40ff69d92cb397223c906017e1391a73c952b588e51af8883bf8 AS debug
+FROM debian:13-slim@sha256:4e401d95de7083948053197a9c3913343cd06b706bf15eb6a0c3ccd26f436a0e AS debug
 
 # hadolint ignore=DL3008
 RUN apt-get update -qq \
