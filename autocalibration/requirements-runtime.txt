@@ -5,7 +5,6 @@
 addict==2.4.0
 kornia==0.8.2
 kubernetes==36.0.2
-=======
 kornia==0.8.3
 kubernetes==36.0.2
 numpy==2.2.6
