@@ -51,8 +51,8 @@ export default function AssetManager(scene, subscribeToTracking) {
     ctx.fillStyle = "#" + color.getHexString();
     ctx.beginPath();
     ctx.moveTo(32, 56); // bottom point
-    ctx.lineTo(8, 8);   // top left
-    ctx.lineTo(56, 8);  // top right
+    ctx.lineTo(8, 8); // top left
+    ctx.lineTo(56, 8); // top right
     ctx.closePath();
     ctx.fill();
 
@@ -63,7 +63,7 @@ export default function AssetManager(scene, subscribeToTracking) {
         map: texture,
         transparent: true,
         depthTest: false, // keeps it visible
-      })
+      }),
     );
 
     sprite.name = "indicator";
@@ -180,7 +180,9 @@ export default function AssetManager(scene, subscribeToTracking) {
         model.updateWorldMatrix(true, true);
 
         const box = new THREE.Box3().setFromObject(model);
-        const localBox = box.clone().applyMatrix4(thisMark.matrixWorld.clone().invert());
+        const localBox = box
+          .clone()
+          .applyMatrix4(thisMark.matrixWorld.clone().invert());
 
         const top = localBox.max.z;
         indicator.position.z = top + 0.5;
