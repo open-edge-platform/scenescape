@@ -47882,12 +47882,6 @@ Public License instead of this License.  But first, please read
 
 -------------------------------------------------------------
 81. Software released under the license GPL-2.0-only:
-    bindfs:1.14.7-1
-        Copyright (C) 2006-2016 Martin Pärtel <martin.partel@gmail.com>
-        Copyright (C) 2001-2006 Miklos Szeredi <miklos@szeredi.hu> (src/bindfs.c only)
-        Copyright (C) 1992-2008 Free Software Foundation, Inc.
-        Copyright (C) Scott James Remnant <scott@netsplit.com> (aclocal.m4 only)
-        Copyright (C) 1994 X Consortium
     libgssapi-krb5-2:amd64:1.20.1-2+deb12u5
     libk5crypto3:amd64:1.20.1-2+deb12u5
     libkrb5-3:amd64:1.20.1-2+deb12u5
@@ -50174,16 +50168,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 -------------------------------------------------------------
 86. Software released under the license GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.0-only:
-    fuse:2.9.9-6+b1
-        2001-2015 Miklos Szeredi <miklos@szeredi.hu>,
-        2015- Nikolaus Rath <Nikolaus@rath.org>
-        2014-     Laszlo Boszormenyi (GCS) <gcs@debian.org>,
-        2011-2014 Daniel Baumann <mail@daniel-baumann.ch>
-    libfuse2:amd64:2.9.9-6+b1
-        2001-2015 Miklos Szeredi <miklos@szeredi.hu>,
-        2015- Nikolaus Rath <Nikolaus@rath.org>
-        2014-     Laszlo Boszormenyi (GCS) <gcs@debian.org>,
-        2011-2014 Daniel Baumann <mail@daniel-baumann.ch>
 
 ============================================================--- GPL-2.0-only ---
 
