@@ -4,17 +4,190 @@
 "use strict";
 
 import * as THREE from "/static/assets/three.module.js";
+import {
+  CSS2DRenderer,
+  CSS2DObject,
+} from "/static/examples/jsm/renderers/CSS2DRenderer.js";
 import RESTClient from "/static/js/restclient.js";
 import { REST_URL, SUCCESS } from "/static/js/constants.js";
 
-export default function AssetManager(scene, subscribeToTracking) {
+export default function AssetManager(
+  scene,
+  subscribeToTracking,
+  camera,
+  domElement,
+) {
   let authToken = `Token ${document.getElementById("auth-token").value}`;
   let restclient = new RESTClient(REST_URL, authToken);
-
-  // Initialize cache of tracked objects
+  let activeCamera = camera;
   let objectCache = {};
-  // Object to hold the collection of marks across scene updates
   let marks = {};
+
+  let labelMode = "hover";
+
+  let hoveredMarkId = null;
+
+  const labelRenderer = new CSS2DRenderer();
+  labelRenderer.setSize(domElement.clientWidth, domElement.clientHeight);
+  labelRenderer.domElement.style.position = "absolute";
+  labelRenderer.domElement.style.top = "0";
+  labelRenderer.domElement.style.pointerEvents = "none";
+  domElement.parentElement.appendChild(labelRenderer.domElement);
+
+  const resizeObserver = new ResizeObserver(() => {
+    labelRenderer.setSize(domElement.clientWidth, domElement.clientHeight);
+  });
+  resizeObserver.observe(domElement);
+
+  if (!document.getElementById("asset-label-style")) {
+    const style = document.createElement("style");
+    style.id = "asset-label-style";
+    style.textContent = `
+      .asset-label {
+        background: rgba(0, 0, 0, 0.72);
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        font-size: 12px;
+        line-height: 1.5;
+        padding: 5px 9px;
+        border-radius: 6px;
+        white-space: nowrap;
+        pointer-events: none;
+        transform: translateX(-50%);
+        border: 1px solid rgba(255,255,255,0.15);
+        opacity: 0;
+        transition: opacity 0.15s ease;
+      }
+      .asset-label.visible {
+        opacity: 1;
+      }
+      .asset-label-id {
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+      .asset-label-row {
+        color: rgba(255,255,255,0.75);
+        font-size: 11px;
+      }
+      .asset-label-row span {
+        color: #fff;
+        font-weight: 500;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+
+  domElement.addEventListener("mousemove", (e) => {
+    if (labelMode !== "hover") return;
+
+    const rect = domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, activeCamera);
+
+    const targets = [];
+    for (const mark of Object.values(marks)) {
+      const obj = scene.getObjectById(mark.id);
+      if (obj) {
+        const model = obj.getObjectByName("model");
+        if (model)
+          model.traverse((child) => {
+            if (child.isMesh) targets.push(child);
+          });
+      }
+    }
+
+    const intersects = raycaster.intersectObjects(targets, false);
+
+    let newHoverId = null;
+    if (intersects.length > 0) {
+      let root = intersects[0].object;
+      while (root.parent && root.parent !== scene) root = root.parent;
+      const matchedMark = Object.values(marks).find(m => m.id === root.id);
+      newHoverId = matchedMark ? root.id : null;
+    }
+
+    if (newHoverId !== hoveredMarkId) {
+      if (hoveredMarkId !== null) {
+        const old = scene.getObjectById(hoveredMarkId);
+        if (old) setLabelVisible(old, false);
+      }
+      hoveredMarkId = newHoverId;
+      if (hoveredMarkId !== null) {
+        const next = scene.getObjectById(hoveredMarkId);
+        if (next) setLabelVisible(next, true);
+      }
+    }
+  });
+
+  domElement.addEventListener("mouseleave", () => {
+    if (hoveredMarkId !== null) {
+      const obj = scene.getObjectById(hoveredMarkId);
+      if (obj) setLabelVisible(obj, false);
+      hoveredMarkId = null;
+    }
+  });
+
+  function createLabelElement(objectId, category) {
+    const div = document.createElement("div");
+    div.className = "asset-label";
+    div.innerHTML = `
+      <div class="asset-label-id">${category} #${objectId}</div>
+      <div class="asset-label-row">Dwell: <span data-field="dwell">—</span></div>
+    `;
+    return div;
+  }
+
+  function setLabelVisible(markObject, visible) {
+    const labelObj = markObject.getObjectByName("css2dLabel");
+    if (!labelObj) return;
+    const el = labelObj.element;
+    if (visible) {
+      el.style.display = "block";
+      requestAnimationFrame(() => el.classList.add("visible"));
+    } else {
+      el.classList.remove("visible");
+      setTimeout(() => (el.style.display = "none"), 150);
+    }
+  }
+
+  function updateLabelData(markObject, obj) {
+    const labelObj = markObject.getObjectByName("css2dLabel");
+    if (!labelObj) return;
+    const el = labelObj.element;
+
+    const set = (field, val) => {
+      const span = el.querySelector(`[data-field="${field}"]`);
+      if (span) span.textContent = val ?? "—";
+    };
+
+    if (obj.regions && Object.keys(obj.regions).length > 0) {
+      Object.entries(obj.regions).forEach(([regionId, regionData]) => {
+        if (regionData.entered) {
+          set(
+            "dwell",
+            regionData.dwell != null ? `${regionData.dwell.toFixed(1)}s` : "—",
+          );
+        }
+      });
+    } else {
+      set("dwell", "—");
+    }
+  }
+
+  function setLabelMode(mode) {
+    labelMode = mode;
+    hoveredMarkId = null;
+
+    for (const mark of Object.values(marks)) {
+      const obj = scene.getObjectById(mark.id);
+      if (obj) setLabelVisible(obj, mode === "all");
+    }
+  }
 
   function addDefaultGeometryToCache(name, color, depth) {
     let material = new THREE.MeshLambertMaterial({
@@ -62,13 +235,11 @@ export default function AssetManager(scene, subscribeToTracking) {
       new THREE.SpriteMaterial({
         map: texture,
         transparent: true,
-        depthTest: false, // keeps it visible
+        depthTest: false,
       }),
     );
-
     sprite.name = "indicator";
     sprite.scale.set(1, 1, 1);
-
     return sprite;
   }
 
@@ -78,30 +249,24 @@ export default function AssetManager(scene, subscribeToTracking) {
 
     const model = new THREE.Object3D();
     model.name = "model";
-
-    if (objectCache[object.category]) {
-      model.add(objectCache[object.category].clone());
-    } else {
-      model.add(objectCache["unknown"].clone());
-    }
+    model.add((objectCache[object.category] ?? objectCache["unknown"]).clone());
 
     const indicator = createIndicator(object.id);
     indicator.name = "indicator";
-
     const indicatorHolder = new THREE.Object3D();
     indicatorHolder.add(indicator);
 
+    const labelEl = createLabelElement(object.id, object.category);
+    const labelObj = new CSS2DObject(labelEl);
+    labelObj.name = "css2dLabel";
+    labelObj.position.set(0, 0, 0);
+
     mark.add(model);
     mark.add(indicatorHolder);
+    mark.add(labelObj);
 
     scene.add(mark);
-
     return mark.id;
-  }
-
-  function addDefaultMark(mark, objectCache, category) {
-    mark.add(objectCache[category].clone());
-    mark.category = category;
   }
 
   function hideMarks() {
@@ -130,8 +295,18 @@ export default function AssetManager(scene, subscribeToTracking) {
       let val = marks[markId];
       let del = scene.getObjectById(val.id);
 
-      delete marks[markId]; // Delete from the marks object
-      scene.remove(del); // Remove from the scene
+      // Clean up CSS2D label DOM element before removing from scene
+      // Delete from the marks object
+      // Remove from the scene
+      if (del) {
+        const labelObj = del.getObjectByName("css2dLabel");
+        if (labelObj && labelObj.element && labelObj.element.parentNode) {
+          labelObj.element.parentNode.removeChild(labelObj.element);
+        }
+      }
+
+      delete marks[markId];
+      scene.remove(del);
     }
 
     // Remove oldMarks from both the scene and the marks collection
@@ -175,19 +350,49 @@ export default function AssetManager(scene, subscribeToTracking) {
       thisMark.scale.copy(scale);
       const model = thisMark.getObjectByName("model");
       const indicator = thisMark.getObjectByName("indicator");
+      const labelObj = thisMark.getObjectByName("css2dLabel");
 
       if (model && indicator) {
         model.updateWorldMatrix(true, true);
-
         const box = new THREE.Box3().setFromObject(model);
         const localBox = box
           .clone()
           .applyMatrix4(thisMark.matrixWorld.clone().invert());
-
         const top = localBox.max.z;
         indicator.position.z = top + 0.5;
+
+        // Position label just above the indicator
+        if (labelObj) {
+          labelObj.position.z = top + 1.2;
+        }
+      }
+
+      // Update label fields with latest data from the message
+      if (labelObj) {
+        updateLabelData(thisMark, obj);
+        if (labelMode === "all") setLabelVisible(thisMark, true);
       }
     });
+  }
+
+  function renderLabels() {
+    for (const mark of Object.values(marks)) {
+      const obj = scene.getObjectById(mark.id);
+      if (obj) {
+        const labelObj = obj.getObjectByName("css2dLabel");
+        if (labelObj && labelObj.element) {
+          if (!obj.visible && labelObj.element.style.display !== "none") {
+            labelObj.element.style.display = "none";
+          }
+        }
+      }
+    }
+    labelRenderer.render(scene, activeCamera);
+  }
+
+  function setCamera(newCamera) {
+    activeCamera = newCamera;
+    labelRenderer.setSize(domElement.clientWidth, domElement.clientHeight);
   }
 
   function loadAssets(gltfLoader, reload = false) {
@@ -233,18 +438,14 @@ export default function AssetManager(scene, subscribeToTracking) {
                 progressWrapper.classList.add("display-none");
                 progressWrapper.classList.remove("display-flex");
                 objectCache[asset.name] = gltf.scene;
-
                 --assetsToLoad;
-
-                if (assetsToLoad === 0 && reload === false) {
+                if (assetsToLoad === 0 && reload === false)
                   subscribeToTracking();
-                }
               },
               // Progress callback
               (xhr) => {
                 let percentBy5 = parseInt((xhr.loaded / xhr.total) * 20) * 5;
                 let percent = parseInt((xhr.loaded / xhr.total) * 100);
-
                 progressBar.classList.remove(currentProgressClass);
                 currentProgressClass = "width" + percentBy5;
                 progressBar.classList.add(currentProgressClass);
@@ -267,14 +468,12 @@ export default function AssetManager(scene, subscribeToTracking) {
           }
         });
 
-        if (assetsToLoad === 0 && reload === false) {
-          subscribeToTracking();
-        }
+        if (assetsToLoad === 0 && reload === false) subscribeToTracking();
       })
       .catch((error) => {
         console.error("Error fetching assets:", error);
       });
   }
 
-  return { loadAssets, plot, hideMarks };
+  return { loadAssets, plot, hideMarks, renderLabels, setLabelMode, setCamera };
 }
