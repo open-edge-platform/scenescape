@@ -238,14 +238,18 @@ export default function AssetManager(
                 progressWrapper.classList.add("display-none");
                 progressWrapper.classList.remove("display-flex");
                 objectCache[asset.name] = gltf.scene;
+
                 --assetsToLoad;
-                if (assetsToLoad === 0 && reload === false)
+
+                if (assetsToLoad === 0 && reload === false) {
                   subscribeToTracking();
+                }
               },
               // Progress callback
               (xhr) => {
                 let percentBy5 = parseInt((xhr.loaded / xhr.total) * 20) * 5;
                 let percent = parseInt((xhr.loaded / xhr.total) * 100);
+
                 progressBar.classList.remove(currentProgressClass);
                 currentProgressClass = "width" + percentBy5;
                 progressBar.classList.add(currentProgressClass);
@@ -268,7 +272,9 @@ export default function AssetManager(
           }
         });
 
-        if (assetsToLoad === 0 && reload === false) subscribeToTracking();
+        if (assetsToLoad === 0 && reload === false) {
+          subscribeToTracking();
+        }
       })
       .catch((error) => {
         console.error("Error fetching assets:", error);
