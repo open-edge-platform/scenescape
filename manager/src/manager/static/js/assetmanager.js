@@ -107,7 +107,7 @@ export default function AssetManager(
     if (intersects.length > 0) {
       let root = intersects[0].object;
       while (root.parent && root.parent !== scene) root = root.parent;
-      const matchedMark = Object.values(marks).find(m => m.id === root.id);
+      const matchedMark = Object.values(marks).find((m) => m.id === root.id);
       newHoverId = matchedMark ? root.id : null;
     }
 
