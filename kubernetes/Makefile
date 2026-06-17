@@ -44,7 +44,7 @@ DEMO_K8S_MODE?=core
 # they will be automatically passed to the Helm chart during installation
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
-# start kind, then install SceneScape with helm
+# start kind, then install Scenescape with helm
 default: install-deps clean-kind kind load-core install
 
 # publish to ITEP by building, packaging, then pushing

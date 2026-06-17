@@ -70,7 +70,7 @@ def test_scenescape_pipeline():
         print("  ⚠️  Scenescape pipeline missing main/run (may be optional)")
 
     except ImportError as e:
-      print(f"  ⚠️  SceneScape pipeline not found: {e}")
+      print(f"  ⚠️  Scenescape pipeline not found: {e}")
 
     print_test_result(True)
     return True

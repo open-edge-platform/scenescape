@@ -59,7 +59,7 @@ export default function AssetManager(scene, subscribeToTracking) {
 
   // Plot marks on the scene
   function plot(msg) {
-    // SceneScape sends only current marks, so we need to determine
+    // Scenescape sends only current marks, so we need to determine
     // which old marks are not in the current update and remove them
 
     // Create a set based on the current keys (object IDs) of the global
