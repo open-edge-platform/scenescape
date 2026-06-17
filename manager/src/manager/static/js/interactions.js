@@ -17,6 +17,87 @@ function isMeshToProjectOn(intersect) {
   );
 }
 
+function SetupMarkHover(scene, domElement, marks, getCamera) {
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  let labelMode = "hover";
+  let hoveredMarkId = null;
+
+  function setLabelVisible(markObject, visible) {
+    const labelObj = markObject.getObjectByName("css2dLabel");
+    if (!labelObj) return;
+    const el = labelObj.element;
+    if (visible) {
+      el.style.display = "block";
+      requestAnimationFrame(() => el.classList.add("visible"));
+    } else {
+      el.classList.remove("visible");
+      setTimeout(() => (el.style.display = "none"), 150);
+    }
+  }
+
+  domElement.addEventListener("mousemove", (e) => {
+    if (labelMode !== "hover") return;
+
+    const rect = domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, getCamera());
+
+    const targets = [];
+    for (const mark of Object.values(marks)) {
+      const obj = scene.getObjectById(mark.id);
+      if (obj) {
+        const model = obj.getObjectByName("model");
+        if (model)
+          model.traverse((child) => {
+            if (child.isMesh) targets.push(child);
+          });
+      }
+    }
+
+    const intersects = raycaster.intersectObjects(targets, false);
+    let newHoverId = null;
+    if (intersects.length > 0) {
+      let root = intersects[0].object;
+      while (root.parent && root.parent !== scene) root = root.parent;
+      const matched = Object.values(marks).find((m) => m.id === root.id);
+      newHoverId = matched ? root.id : null;
+    }
+
+    if (newHoverId !== hoveredMarkId) {
+      if (hoveredMarkId !== null) {
+        const old = scene.getObjectById(hoveredMarkId);
+        if (old) setLabelVisible(old, false);
+      }
+      hoveredMarkId = newHoverId;
+      if (hoveredMarkId !== null) {
+        const next = scene.getObjectById(hoveredMarkId);
+        if (next) setLabelVisible(next, true);
+      }
+    }
+  });
+
+  domElement.addEventListener("mouseleave", () => {
+    if (hoveredMarkId !== null) {
+      const obj = scene.getObjectById(hoveredMarkId);
+      if (obj) setLabelVisible(obj, false);
+      hoveredMarkId = null;
+    }
+  });
+
+  function setLabelMode(mode) {
+    labelMode = mode;
+    hoveredMarkId = null;
+    for (const mark of Object.values(marks)) {
+      const obj = scene.getObjectById(mark.id);
+      if (obj) setLabelVisible(obj, mode === "all");
+    }
+  }
+  return { setLabelVisible, setLabelMode, getLabelMode: () => labelMode };
+}
+
 function SetupInteractions(
   scene,
   renderer,
@@ -219,4 +300,4 @@ function SetupInteractions(
   return { setSelectedCamera, unsetSelectedCamera };
 }
 
-export { isMeshToProjectOn, SetupInteractions };
+export { isMeshToProjectOn, SetupInteractions, SetupMarkHover };

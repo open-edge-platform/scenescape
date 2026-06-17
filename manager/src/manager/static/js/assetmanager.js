@@ -4,12 +4,14 @@
 "use strict";
 
 import * as THREE from "/static/assets/three.module.js";
-import {
-  CSS2DRenderer,
-  CSS2DObject,
-} from "/static/examples/jsm/renderers/CSS2DRenderer.js";
 import RESTClient from "/static/js/restclient.js";
 import { REST_URL, SUCCESS } from "/static/js/constants.js";
+import {
+  createLabelRenderer,
+  createMarkObject,
+  updateLabelField,
+} from "/static/js/draw.js";
+import { SetupMarkHover } from "/static/js/interactions.js";
 
 export default function AssetManager(
   scene,
@@ -23,169 +25,27 @@ export default function AssetManager(
   let objectCache = {};
   let marks = {};
 
-  let labelMode = "hover";
-
-  let hoveredMarkId = null;
-
-  const labelRenderer = new CSS2DRenderer();
-  labelRenderer.setSize(domElement.clientWidth, domElement.clientHeight);
-  labelRenderer.domElement.style.position = "absolute";
-  labelRenderer.domElement.style.top = "0";
-  labelRenderer.domElement.style.pointerEvents = "none";
-  domElement.parentElement.appendChild(labelRenderer.domElement);
-
-  const resizeObserver = new ResizeObserver(() => {
-    labelRenderer.setSize(domElement.clientWidth, domElement.clientHeight);
-  });
-  resizeObserver.observe(domElement);
-
-  if (!document.getElementById("asset-label-style")) {
-    const style = document.createElement("style");
-    style.id = "asset-label-style";
-    style.textContent = `
-      .asset-label {
-        background: rgba(0, 0, 0, 0.72);
-        color: #fff;
-        font-family: system-ui, sans-serif;
-        font-size: 12px;
-        line-height: 1.5;
-        padding: 5px 9px;
-        border-radius: 6px;
-        white-space: nowrap;
-        pointer-events: none;
-        transform: translateX(-50%);
-        border: 1px solid rgba(255,255,255,0.15);
-        opacity: 0;
-        transition: opacity 0.15s ease;
-      }
-      .asset-label.visible {
-        opacity: 1;
-      }
-      .asset-label-id {
-        font-weight: 600;
-        margin-bottom: 2px;
-      }
-      .asset-label-row {
-        color: rgba(255,255,255,0.75);
-        font-size: 11px;
-      }
-      .asset-label-row span {
-        color: #fff;
-        font-weight: 500;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  const raycaster = new THREE.Raycaster();
-  const mouse = new THREE.Vector2();
-
-  domElement.addEventListener("mousemove", (e) => {
-    if (labelMode !== "hover") return;
-
-    const rect = domElement.getBoundingClientRect();
-    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-    raycaster.setFromCamera(mouse, activeCamera);
-
-    const targets = [];
-    for (const mark of Object.values(marks)) {
-      const obj = scene.getObjectById(mark.id);
-      if (obj) {
-        const model = obj.getObjectByName("model");
-        if (model)
-          model.traverse((child) => {
-            if (child.isMesh) targets.push(child);
-          });
-      }
-    }
-
-    const intersects = raycaster.intersectObjects(targets, false);
-
-    let newHoverId = null;
-    if (intersects.length > 0) {
-      let root = intersects[0].object;
-      while (root.parent && root.parent !== scene) root = root.parent;
-      const matchedMark = Object.values(marks).find((m) => m.id === root.id);
-      newHoverId = matchedMark ? root.id : null;
-    }
-
-    if (newHoverId !== hoveredMarkId) {
-      if (hoveredMarkId !== null) {
-        const old = scene.getObjectById(hoveredMarkId);
-        if (old) setLabelVisible(old, false);
-      }
-      hoveredMarkId = newHoverId;
-      if (hoveredMarkId !== null) {
-        const next = scene.getObjectById(hoveredMarkId);
-        if (next) setLabelVisible(next, true);
-      }
-    }
-  });
-
-  domElement.addEventListener("mouseleave", () => {
-    if (hoveredMarkId !== null) {
-      const obj = scene.getObjectById(hoveredMarkId);
-      if (obj) setLabelVisible(obj, false);
-      hoveredMarkId = null;
-    }
-  });
-
-  function createLabelElement(objectId, category) {
-    const div = document.createElement("div");
-    div.className = "asset-label";
-    div.innerHTML = `
-      <div class="asset-label-id">${category} #${objectId}</div>
-      <div class="asset-label-row">Dwell: <span data-field="dwell">—</span></div>
-    `;
-    return div;
-  }
-
-  function setLabelVisible(markObject, visible) {
-    const labelObj = markObject.getObjectByName("css2dLabel");
-    if (!labelObj) return;
-    const el = labelObj.element;
-    if (visible) {
-      el.style.display = "block";
-      requestAnimationFrame(() => el.classList.add("visible"));
-    } else {
-      el.classList.remove("visible");
-      setTimeout(() => (el.style.display = "none"), 150);
-    }
-  }
+  const labelRenderer = createLabelRenderer(domElement);
+  const { setLabelVisible, setLabelMode, getLabelMode } = SetupMarkHover(
+    scene,
+    domElement,
+    marks,
+    () => activeCamera,
+  );
 
   function updateLabelData(markObject, obj) {
-    const labelObj = markObject.getObjectByName("css2dLabel");
-    if (!labelObj) return;
-    const el = labelObj.element;
-
-    const set = (field, val) => {
-      const span = el.querySelector(`[data-field="${field}"]`);
-      if (span) span.textContent = val ?? "—";
-    };
-
     if (obj.regions && Object.keys(obj.regions).length > 0) {
       Object.entries(obj.regions).forEach(([regionId, regionData]) => {
         if (regionData.entered) {
-          set(
+          updateLabelField(
+            markObject,
             "dwell",
-            regionData.dwell != null ? `${regionData.dwell.toFixed(1)}s` : "—",
+            regionData.dwell != null ? `${regionData.dwell.toFixed(1)}s` : null,
           );
         }
       });
     } else {
-      set("dwell", "—");
-    }
-  }
-
-  function setLabelMode(mode) {
-    labelMode = mode;
-    hoveredMarkId = null;
-
-    for (const mark of Object.values(marks)) {
-      const obj = scene.getObjectById(mark.id);
-      if (obj) setLabelVisible(obj, mode === "all");
+      updateLabelField(markObject, "dwell", null);
     }
   }
 
@@ -202,69 +62,9 @@ export default function AssetManager(
     objectCache[name] = defaultBoxMesh;
   }
 
-  function colorFromId(id) {
-    const hex = String(id)
-      .replace(/[^0-9a-f]/gi, "")
-      .padEnd(6, "0")
-      .substring(0, 6);
-
-    return new THREE.Color("#" + hex);
-  }
-
-  function createIndicator(objectId) {
-    const color = colorFromId(objectId);
-
-    const canvas = document.createElement("canvas");
-    canvas.width = 64;
-    canvas.height = 64;
-
-    const ctx = canvas.getContext("2d");
-
-    // Draw downward triangle
-    ctx.fillStyle = "#" + color.getHexString();
-    ctx.beginPath();
-    ctx.moveTo(32, 56); // bottom point
-    ctx.lineTo(8, 8); // top left
-    ctx.lineTo(56, 8); // top right
-    ctx.closePath();
-    ctx.fill();
-
-    const texture = new THREE.CanvasTexture(canvas);
-
-    const sprite = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: texture,
-        transparent: true,
-        depthTest: false,
-      }),
-    );
-    sprite.name = "indicator";
-    sprite.scale.set(1, 1, 1);
-    return sprite;
-  }
-
   // Create a mark geometry
   function createGeometry(object) {
-    let mark = new THREE.Object3D();
-
-    const model = new THREE.Object3D();
-    model.name = "model";
-    model.add((objectCache[object.category] ?? objectCache["unknown"]).clone());
-
-    const indicator = createIndicator(object.id);
-    indicator.name = "indicator";
-    const indicatorHolder = new THREE.Object3D();
-    indicatorHolder.add(indicator);
-
-    const labelEl = createLabelElement(object.id, object.category);
-    const labelObj = new CSS2DObject(labelEl);
-    labelObj.name = "css2dLabel";
-    labelObj.position.set(0, 0, 0);
-
-    mark.add(model);
-    mark.add(indicatorHolder);
-    mark.add(labelObj);
-
+    const mark = createMarkObject(object, objectCache);
     scene.add(mark);
     return mark.id;
   }
@@ -370,7 +170,7 @@ export default function AssetManager(
       // Update label fields with latest data from the message
       if (labelObj) {
         updateLabelData(thisMark, obj);
-        if (labelMode === "all") setLabelVisible(thisMark, true);
+        if (getLabelMode() === "all") setLabelVisible(thisMark, true);
       }
     });
   }
