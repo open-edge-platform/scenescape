@@ -95,7 +95,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 FROM ${RUNTIME_OS_IMAGE} AS autocalibration-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Scenescape's Camera Calibration Service"
+LABEL org.opencontainers.image.description="Scenescape's Autocalibration Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
