@@ -21,7 +21,7 @@ Before You Begin, ensure the following:
 
 ### 1. Generate Polycam Dataset
 
-1. Open Polycam and switch to [LiDAR mode](https://learn.poly.cam/lidar-mode) or [ROOM mode](https://learn.poly.cam/room-mode).
+1. Open Polycam and switch to [LiDAR mode](https://poly.cam/tools/3d-lidar-scanner) or [ROOM mode](https://poly.cam/tools/3d-room-scanner).
 2. Enable **Developer Mode** in settings to allow raw data export.
 3. Capture a scan of the scene. After completion, export the dataset in **Raw** format.
 
