@@ -3733,7 +3733,7 @@ Apache License
         Copyright (C) 2010, Google Inc. All rights reserved.
         Copyright (C) 2011 Jeff Breidenbach <jab@debian.org>
     libwebpmux3:amd64:1.2.4-0.2+deb12u1
-    manager @ file:///home/scenescape/Scenescape/manager
+    manager @ file:///home/scenescape/SceneScape/manager
     meson/1.10.2
     mod-qos/11.79
     ninja/1.13.2
