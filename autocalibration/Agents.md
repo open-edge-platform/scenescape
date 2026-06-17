@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Service Overview
 
-The **Auto Camera Calibration** service (formerly `camcalibration`) computes camera intrinsics and extrinsics from sensor feeds using AprilTag markers or markerless calibration techniques. This microservice is critical for establishing accurate spatial awareness in SceneScape's multimodal sensor fusion framework.
+The **Auto Camera Calibration** service (formerly `camcalibration`) computes camera intrinsics and extrinsics from sensor feeds using AprilTag markers or markerless calibration techniques. This microservice is critical for establishing accurate spatial awareness in Scenescape's multimodal sensor fusion framework.
 
 **Primary Purpose**: Automatically calibrate cameras to provide accurate world-coordinate transformations for object tracking and scene understanding.
 

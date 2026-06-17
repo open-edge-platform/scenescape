@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-On-demand model loader for SceneScape 3D mapping service.
+On-demand model loader for Scenescape 3D mapping service.
 This script downloads the MapAnything and VGGT models only when needed, reducing Docker image size.
 Combines model download coordination and individual model management.
 """

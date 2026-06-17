@@ -105,9 +105,9 @@ spec:
             name: calibration-auth
             readOnly: true
             subPath: calibration.auth
-          - mountPath: /home/scenescape/SceneScape/media
+          - mountPath: /home/scenescape/Scenescape/media
             name: media-storage
-          - mountPath: /home/scenescape/SceneScape/datasets
+          - mountPath: /home/scenescape/Scenescape/datasets
             name: datasets-storage
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}

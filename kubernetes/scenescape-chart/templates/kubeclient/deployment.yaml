@@ -40,7 +40,7 @@ spec:
       containers:
         - args:
           - --shell
-          - /home/scenescape/SceneScape/manage.py
+          - /home/scenescape/Scenescape/manage.py
           - kubecommand
           - --broker
           - broker.{{ .Release.Namespace }}.svc.cluster.local

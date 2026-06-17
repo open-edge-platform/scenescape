@@ -5,7 +5,7 @@
 
 """
 Mapping Module Test Suite
-Unit tests for the SceneScape mapping service.
+Unit tests for the Scenescape mapping service.
 """
 
 __version__ = "1.0.0"

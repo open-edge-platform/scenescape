@@ -4,7 +4,7 @@
 """
 Model Configuration Generator
 
-This module provides functionality to generate model_config.json files for Intel SceneScape
+This module provides functionality to generate model_config.json files for Scenescape
 from available AI models in intel/ and public/ subfolders.
 
 The main function generate_model_config() automatically discovers models, classifies them

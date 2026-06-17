@@ -154,7 +154,7 @@ discrete identifier with a presence event.
 
 | Field       | Type                  | Required | Description                                                                  |
 | ----------- | --------------------- | :------: | ---------------------------------------------------------------------------- |
-| `id`        | string                |   Yes    | Sensor identifier; must match the provisioned sensor ID in Intel® SceneScape |
+| `id`        | string                |   Yes    | Sensor identifier; must match the provisioned sensor ID in Scenescape |
 | `timestamp` | string (ISO 8601 UTC) |   Yes    | Acquisition time of the reading                                              |
 | `value`     | any                   |   Yes    | Sensor reading — numeric scalar, string, boolean, or any JSON value          |
 | `subtype`   | string                |    No    | Sensor subtype hint (e.g. `"temperature"`, `"humidity"`)                     |

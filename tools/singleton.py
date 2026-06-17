@@ -12,7 +12,7 @@ from scene_common.timestamp import get_iso_time
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                   description='Sample of publishing pseudo-random singleton data to SceneScape.')
+                                   description='Sample of publishing pseudo-random singleton data to Scenescape.')
 
   parser.add_argument('-b', '--broker',
                       help='MQTT broker',

@@ -15,7 +15,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}SceneScape Mapping Module Test Runner${NC}"
+echo -e "${GREEN}Scenescape Mapping Module Test Runner${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 

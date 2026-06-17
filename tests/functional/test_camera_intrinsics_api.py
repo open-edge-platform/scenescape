@@ -148,8 +148,8 @@ class CameraIntrinsicsTest(FunctionalTest):
     cameraUID = None
 
     try:
-      # Make sure that the SceneScape is up and running
-      log.info("Make sure that the SceneScape is up and running")
+      # Make sure that the Scenescape is up and running
+      log.info("Make sure that the Scenescape is up and running")
       assert self.sceneScapeReady(MAX_ATTEMPTS, MAX_CONTROLLER_WAIT)
 
       # Step 1: Create test camera

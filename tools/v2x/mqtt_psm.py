@@ -3,7 +3,7 @@
 
 """MQTT to V2X PSM (Personal Safety Message) Bridge.
 
-This module subscribes to SceneScape MQTT topics and publishes pedestrian
+This module subscribes to Scenescape MQTT topics and publishes pedestrian
 detection data to V2X infrastructure as Personal Safety Messages.
 """
 

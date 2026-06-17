@@ -1,4 +1,4 @@
-# Release Notes: Intel® SceneScape
+# Release Notes: Scenescape
 
 ## Version 2026.1.0
 

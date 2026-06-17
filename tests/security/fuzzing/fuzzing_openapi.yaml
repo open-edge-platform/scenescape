@@ -3,8 +3,8 @@
 
 openapi: 3.0.0
 info:
-  title: "SceneScape API fuzz spec"
-  description: "OpenAPI spec for fuzz testing the SceneScape REST API"
+  title: "Scenescape API fuzz spec"
+  description: "OpenAPI spec for fuzz testing the Scenescape REST API"
   version: "1.0.0"
 
 servers:

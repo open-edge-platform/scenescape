@@ -5,11 +5,11 @@ openapi: 3.0.3
 info:
   title: Auto Camera Calibration API
   description: |
-    API for automatic camera calibration in Intel SceneScape.
+    API for automatic camera calibration in Scenescape.
     This API allows for calibrating cameras using AprilTag or Markerless methods.
   version: v1.0.0
   contact:
-    name: Intel SceneScape Auto Calibration Support
+    name: Scenescape Auto Calibration Support
     url: https://github.com/open-edge-platform/scenescape
   license:
     name: Apache 2.0

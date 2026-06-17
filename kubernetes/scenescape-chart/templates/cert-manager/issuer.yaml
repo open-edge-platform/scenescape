@@ -16,7 +16,7 @@ metadata:
 spec:
   secretName: {{ .Release.Name }}-scenescape-ca.pem
   isCA: true
-  commonName: "SceneScape Root CA"
+  commonName: "Scenescape Root CA"
   subject:
     organizationalUnits:
       - {{ .Release.Namespace }}

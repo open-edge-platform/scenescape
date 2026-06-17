@@ -1,6 +1,6 @@
 # Other Topics
 
-These articles describe all topics concerning Intel® SceneScape, that were not covered in previous sections.
+These articles describe all topics concerning Scenescape, that were not covered in previous sections.
 
 - [Defining Object Properties](./how-to-define-object-properties.md)
 - [Enabling Re-identification](./how-to-enable-reidentification.md)

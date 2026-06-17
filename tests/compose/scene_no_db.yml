@@ -30,8 +30,8 @@ services:
       --ntp ntpserv
     volumes:
       - ./:/workspace
-      - ./${DBROOT}/media:/home/scenescape/SceneScape/media
-      - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
+      - ./${DBROOT}/media:/home/scenescape/Scenescape/media
+      - ./controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
