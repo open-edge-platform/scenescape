@@ -169,6 +169,7 @@ flowchart TD
   Tracker["🎯 Multi-Object Tracker Service<br/>(Prediction, Interpolation, Association, Fusion)"]
   Persistence["💾 Scene State Persistence Service<br/>🆔 Re-ID"]
   Analytics["📊 Analytics Service"]
+  Clustering["📦 Clustering Service"]
 
   Subscene -->|"Pose + Observations"| Positioning 
   Sensor -->|"Measurements"| Positioning 
@@ -184,12 +185,14 @@ flowchart TD
   Persistence -->|"Update"| Subscene
 
   Persistence --> Analytics
+  Analytics -->|"regulated/scene"| Clustering
 
   style Tracker fill:#2d3748,stroke:#90cdf4,stroke-width:3px,color:#bee3f8
   style Transform fill:#2d3748,stroke:#90cdf4,stroke-width:3px,color:#bee3f8
   style Positioning fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
   style Persistence fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
   style Analytics fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
+  style Clustering fill:#5a5a5a,stroke:#b0b0b0,stroke-width:2px,color:#e0e0e0
 ```
 
 ### Services and responsibilities
