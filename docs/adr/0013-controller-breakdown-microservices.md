@@ -287,12 +287,26 @@ architecture diagram.
 
 ### Recursive hierarchy via sub-scenes
 
-A **sub-scene** presents its fused tracks and analytics to a parent through the
-same interfaces a scene exposes to its sources (pose + observations). Hierarchy
-is therefore *recursive by construction* rather than a special-cased path, and
-the fused tracks and events flowing upward carry global identities assigned by
-the shared Re-ID Service so that IDs persist up the hierarchy without
-reassignment.
+**Scene Graph**: the system maintains a hierarchical representation of spatial
+data organized in Cartesian coordinate spaces, where each scene node is an
+aggregator of its children. A node is aware only of its children's outputs; it
+has no visibility into sibling scenes or parent scenes. This aggregation-only
+design decouples hierarchy levels and simplifies the data model.
+
+**Sub-scenes** (the general term for any child data source) include child
+scenes with fused tracks and analytics, cameras observing within that scene's
+frame, moving robots with SLAM-localized pose, drones, sensors, and perception
+devices. All subscene types present their outputs through the same interface a
+scene exposes to its external sources: **pose + observations**. This recursive
+interface contract means hierarchy is *recursive by construction* rather than a
+special-cased path; parents and children speak the same language, and any node
+can be both a parent (aggregating children) and a child (feeding a parent).
+
+The outputs flowing upward — whether fused tracks and events from a child scene
+or observations from a camera or sensor — carry global identities assigned by
+the shared Re-ID Service. The first global UUID assigned to an identity at any
+level in the hierarchy remains stable for that identity throughout the entire
+hierarchy, ensuring ID consistency without reassignment across nested scenes.
 
 ### Design principles
 
