@@ -194,83 +194,89 @@ flowchart TD
 
 ### Services and responsibilities
 
+Each entry below describes a deployable service boundary aligned with the target
+architecture diagram.
+
 #### Positioning Service
 
-- **Role**: derive the **pose** (extrinsics/intrinsics) of sensors and platforms
-  from calibration and localization inputs; the single source of truth for "where
-  is this sensor/observer in the shared coordinate system."
-- **Inputs**: camera/LiDAR calibration data; pose feedback from persisted scene
-  state.
-- **Outputs**: pose to the Spatial Transform & Projection Service and to the
-  Scene Graph.
-- **Communication**: gRPC (query/response) for pose lookups; configuration via
-  the management layer.
-- **Technology**: Python (calibration tooling already lives in
-  `autocalibration/`); performance-critical math in C++ where needed.
+- **Role**: normalize and supply pose context for all incoming observations and
+  measurements so that downstream services operate in a shared spatial frame.
+- **Inputs**: camera observations, perception detections, sensor measurements,
+  subscene-provided pose/observation updates, and state-driven updates from
+  Scene State Persistence.
+- **Outputs**: pose-enriched context (pose + observations/measurements) for the
+  Spatial Transform & Projection Service.
+- **Communication**: synchronous request/response for pose retrieval and
+  updates; event-driven updates from persistence-backed state.
+- **Technology**: Python for orchestration and integration with existing
+  calibration tooling (`autocalibration/`); native math paths where throughput
+  requires it.
 
 #### Spatial Transform & Projection Service
 
-- **Role**: turn observations into the shared 3D coordinate system using pose —
-  surface placement, raycasting, depth-inaccuracy correction, and object-type
-  heuristics (flying vs. ground). Produces a clean stream of world-space
-  observations.
-- **Inputs**: observations from cameras (via positioning), robots/drones
-  (pose + observations), and sub-scenes; pose from the Positioning Service.
-- **Outputs**: world-space observations to the Tracker Service and the Analytics
+- **Role**: transform observations into world-space coordinates using pose,
+  including geometry-aware placement for non-flat environments (raycasting,
+  intersection/normal checks, depth-inaccuracy correction, and object-type
+  heuristics). On the critical real-time path; supports a lighter baseline mode
+  for flat ground-plane deployments where complex geometry is not required.
+- **Inputs**: pose plus observations and measurements from the Positioning
   Service.
-- **Communication**: gRPC for the synchronous transform path (co-locatable with
-  the Tracker to minimize latency); MQTT where async fan-out is acceptable.
-- **Technology**: C++ for the hot path, mirroring the Tracker's data-oriented
-  design.
+- **Outputs**: world-space observations for the Multi-Object Tracker Service.
+- **Communication**: low-latency synchronous path to the Tracker (co-locatable
+  to minimize boundary overhead); asynchronous fan-out only where latency
+  permits.
+- **Technology**: C++ for the critical path, mirroring the Tracker's
+  data-oriented design (see [ADR 7](./0007-tracker-service.md)).
 
-#### Tracker Service (already extracted — ADR 7)
+#### Multi-Object Tracker Service (already extracted — ADR 7)
 
-- **Role**: real-time multi-object fusion and tracking in 3D, producing reliable
-  tracks with scene-local IDs.
+- **Role**: perform real-time multi-object tracking in 3D — prediction,
+  interpolation, association, and fusion — producing reliable tracks with
+  scene-local IDs.
 - **Inputs**: world-space observations from the Spatial Transform & Projection
   Service.
-- **Outputs**: streaming tracks to the Scene State Persistence Service and the
-  Analytics Service; Re-ID match/store calls; optional feedback to projection.
-- **Communication**: MQTT for track streams; gRPC for Re-ID queries.
+- **Outputs**: streaming track updates to the Scene State Persistence Service.
+- **Communication**: streaming/event output for continuous track updates; scene
+  assignment managed via lease-based coordination with Manager in scaled
+  deployments (see [ADR 8](./0008-tracker-service-horizontal-scaling.md)).
 - **Technology**: pure C++, data-oriented design (see
   [ADR 7](./0007-tracker-service.md),
   [ADR 8](./0008-tracker-service-horizontal-scaling.md)).
 
-#### Re-ID Service (shared)
+#### Scene State Persistence Service (including Re-ID)
 
-- **Role**: store embedding vectors, answer match queries, and assign/maintain
-  global identities across scenes and over time.
-- **Inputs**: query/store calls carrying embeddings and track context.
-- **Outputs**: matched global identity / similarity results.
-- **Communication**: gRPC synchronous query/response; shared across scenes and
-  hierarchy levels.
-- **Technology**: Python service over a vector store (see
+- **Role**: maintain authoritative, cross-restart scene state; own the
+  Re-ID/identity persistence flow — embedding storage, UUID assignment and
+  lifecycle, and VDMS integration — as represented by the combined
+  `💾 Scene State Persistence / 🆔 Re-ID` block in the target architecture
+  diagram. Scene DVR and full replay capabilities are future extensions not in
+  near-term scope.
+- **Inputs**: streaming track updates from the Tracker; identity features and
+  track context for Re-ID match/store; state-query requests from downstream
+  consumers.
+- **Outputs**: SceneField updates to the Spatial Transform & Projection Service;
+  scene state updates to the Subscene layer; identity-enriched state to the
+  Analytics Service (see
   [ADR 10](./0010-reid-metadata-storage-architecture.md),
   [ADR 11](./0011-inner-product-reid-state-and-id-lineage.md)).
-
-#### Scene State Persistence Service
-
-- **Role**: maintain authoritative current scene state from the Tracker stream;
-  expose it to the Scene Graph and feed pose back to the Positioning Service.
-- **Inputs**: streaming tracks from the Tracker Service.
-- **Outputs**: state to the Scene Graph; pose feedback to Positioning.
-- **Communication**: MQTT ingest; gRPC/REST for state queries.
-- **Technology**: Python.
+- **Communication**: MQTT for track stream ingest; gRPC/REST for state and
+  identity queries.
+- **Technology**: Python service stack with storage-backed durability and
+  integrated identity components (UUID manager, VDMS adapter).
 
 #### Analytics Service
 
-- **Role**: scene analytics and events — regions, tripwires, sensor-attribute
-  fusion, sub-detection projection, camera visibility — built on top of tracks
-  and world-space observations. Accepts inputs from sources other than the
-  Tracker (e.g., tracker-less deployments).
-- **Inputs**: tracks from the Tracker Service; world-space observations from the
-  Spatial Transform & Projection Service; sensor data; sub-scene results.
-- **Outputs**: `regulated/scene/{scene_id}` and `events/+`; downstream Business
-  Logic.
+- **Role**: compute scene analytics and generate events (regions, tripwires,
+  dwell time, camera visibility) using identity-enriched scene state; the
+  successor to the Controller operating in analytics-only mode.
+- **Inputs**: identity-enriched state updates from Scene State Persistence.
+- **Outputs**: `regulated/scene/{scene_id}` and `events/+` for downstream
+  consumers.
 - **Communication**: MQTT.
-- **Technology**: Python (with C++ for the most compute-expensive functions).
+- **Technology**: Python; selective native optimization for compute-heavy
+  analytics stages.
 
-#### Clustering (existing service)
+#### Clustering (existing downstream service)
 
 - Cluster analytics remains an independent downstream service
   ([ADR 4](./0004-cluster-analytics-service.md)) consuming `regulated/scene`
