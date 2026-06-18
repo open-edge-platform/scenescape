@@ -70,10 +70,22 @@ function createLabelRenderer(domElement) {
 function createLabelElement(objectId, category) {
   const div = document.createElement("div");
   div.className = "asset-label";
-  div.innerHTML = `
-    <div class="asset-label-id">${category} #${objectId}</div>
-    <div class="asset-label-row">Dwell: <span data-field="dwell">—</span></div>
-  `;
+
+  const header = document.createElement("div");
+  header.className = "asset-label-id";
+  header.textContent = `${category} #${objectId}`;
+
+  const row = document.createElement("div");
+  row.className = "asset-label-row";
+  row.append("Dwell: ");
+
+  const span = document.createElement("span");
+  span.dataset.field = "dwell";
+  span.textContent = "—";
+  row.appendChild(span);
+
+  div.appendChild(header);
+  div.appendChild(row);
   return div;
 }
 

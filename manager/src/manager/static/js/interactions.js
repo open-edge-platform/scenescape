@@ -22,6 +22,7 @@ function SetupMarkHover(scene, domElement, marks, getCamera) {
   const mouse = new THREE.Vector2();
   let labelMode = "hover";
   let hoveredMarkId = null;
+  const hideTimers = new WeakMap();
 
   function getMarkTargets() {
     const targets = [];
@@ -50,12 +51,25 @@ function SetupMarkHover(scene, domElement, marks, getCamera) {
     const labelObj = markObject.getObjectByName("css2dLabel");
     if (!labelObj) return;
     const el = labelObj.element;
+
+    const existingTimer = hideTimers.get(el);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      hideTimers.delete(el);
+    }
+
     if (visible) {
       el.style.display = "block";
       requestAnimationFrame(() => el.classList.add("visible"));
     } else {
       el.classList.remove("visible");
-      setTimeout(() => (el.style.display = "none"), 150);
+      hideTimers.set(
+        el,
+        setTimeout(() => {
+          el.style.display = "none";
+          hideTimers.delete(el);
+        }, 150),
+      );
     }
   }
 
