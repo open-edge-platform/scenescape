@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # Script to generate Django migrations
@@ -13,7 +13,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 SECRETS_DIR="${PROJECT_ROOT}/manager/secrets"
 RUN_SECRETS="/run/secrets/django/secrets.py"
-MANAGER_DIR="/home/scenescape/SceneScape/manager"
+MANAGER_DIR="/home/scenescape/Scenescape/manager"
 
 # Where we want to copy migrations to on the host
 HOST_MIGRATIONS_DIR="${PROJECT_ROOT}/manager/src/manager/migrations"
@@ -54,7 +54,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-echo "==> Django Migration Generator for SceneScape Manager"
+echo "==> Django Migration Generator for Scenescape Manager"
 echo ""
 
 generate_migrations() {
@@ -67,14 +67,14 @@ generate_migrations() {
   -e DBHOST=pgserver \
   -e DBPORT=5432 \
   -v "${SECRETS_DIR}/django:/run/secrets/django:ro" \
-  -v "${PROJECT_ROOT}/manager/src/manager/migrations:/home/scenescape/SceneScape/manager/migrations:rw" \
-  -v "${PROJECT_ROOT}/manager/src/manager:/home/scenescape/SceneScape/manager:rw" \
+  -v "${PROJECT_ROOT}/manager/src/manager/migrations:/home/scenescape/Scenescape/manager/migrations:rw" \
+  -v "${PROJECT_ROOT}/manager/src/manager:/home/scenescape/Scenescape/manager:rw" \
   --entrypoint /bin/bash \
   "${IMAGE}" \
   -lc '
     set -euo pipefail
-    cd /home/scenescape/SceneScape
-    cp /run/secrets/django/secrets.py /home/scenescape/SceneScape/manager/secrets.py
+    cd /home/scenescape/Scenescape
+    cp /run/secrets/django/secrets.py /home/scenescape/Scenescape/manager/secrets.py
     python manage.py makemigrations manager
   '
   echo "==> Migrations can be found at ${HOST_MIGRATIONS_DIR}"
@@ -106,11 +106,11 @@ show_migrations() {
     "${IMAGE}" \
     -lc "
       set -e
-      cd /home/scenescape/SceneScape
+      cd /home/scenescape/Scenescape
       cp ${RUN_SECRETS} ${MANAGER_DIR}/secrets.py
 
       sed -i -E \"s|'HOST': '[^']*'|'HOST': '${DB_HOST}'|; s|'PORT': '[^']*'|'PORT': '${DB_PORT}'|\" \
-        /home/scenescape/SceneScape/manager/settings.py
+        /home/scenescape/Scenescape/manager/settings.py
 
       python manage.py showmigrations
     "

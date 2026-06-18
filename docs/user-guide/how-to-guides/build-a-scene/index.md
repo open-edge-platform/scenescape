@@ -1,6 +1,6 @@
 # Build a Scene
 
-These articles will teach you how to build a scene in Intel® SceneScape.
+These articles will teach you how to build a scene in Scenescape.
 
 - [Create and Configure a New Scene](./create-new-scene.md)
 - [Generate a Scene Map](./generate-scene-map.md)

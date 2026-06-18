@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -29,7 +29,7 @@ from tests.common_test_utils import record_test_result
 from tests.ui.browser import Browser, By, NoSuchElementException
 
 # FIXME - APP_PROPER_NAME is not the right way to validate correct page load
-APP_PROPER_NAME = 'Intel® SceneScape'
+APP_PROPER_NAME = 'Scenescape'
 # from manager.settings import APP_PROPER_NAME
 
 TEST_SCENE_NAME = "Demo"

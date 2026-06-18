@@ -1,6 +1,6 @@
-# Intel® SceneScape's Cluster Analytics Service
+# Scenescape's Cluster Analytics Service
 
-The Cluster Analytics microservice provides objects clustering, cluster tracking, cluster's shape and movement patterns analysis capabilities for Intel® SceneScape.
+The Cluster Analytics microservice provides objects clustering, cluster tracking, cluster's shape and movement patterns analysis capabilities for Scenescape.
 
 ## Key Features
 
