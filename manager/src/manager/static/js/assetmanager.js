@@ -9,7 +9,7 @@ import { REST_URL, SUCCESS } from "/static/js/constants.js";
 import {
   createLabelRenderer,
   createMarkObject,
-  updateLabelField,
+  updateLabelFields,
 } from "/static/js/draw.js";
 import { SetupMarkHover } from "/static/js/interactions.js";
 
@@ -37,15 +37,16 @@ export default function AssetManager(
     if (obj.regions && Object.keys(obj.regions).length > 0) {
       Object.entries(obj.regions).forEach(([regionId, regionData]) => {
         if (regionData.entered) {
-          updateLabelField(
-            markObject,
-            "dwell",
-            regionData.dwell != null ? `${regionData.dwell.toFixed(1)}s` : null,
-          );
+          updateLabelFields(markObject, {
+            dwell:
+              regionData.dwell != null
+                ? `${regionData.dwell.toFixed(1)}s`
+                : null,
+          });
         }
       });
     } else {
-      updateLabelField(markObject, "dwell", null);
+      updateLabelFields(markObject, { dwell: null });
     }
   }
 

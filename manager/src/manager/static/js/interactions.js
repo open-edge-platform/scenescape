@@ -23,7 +23,30 @@ function SetupMarkHover(scene, domElement, marks, getCamera) {
   let labelMode = "hover";
   let hoveredMarkId = null;
 
-  function setLabelVisible(markObject, visible) {
+  function getMarkTargets() {
+    const targets = [];
+    for (const mark of Object.values(marks)) {
+      const obj = scene.getObjectById(mark.id);
+      if (obj) {
+        const model = obj.getObjectByName("model");
+        if (model)
+          model.traverse((child) => {
+            if (child.isMesh) targets.push(child);
+          });
+      }
+    }
+    return targets;
+  }
+
+  function getHoveredMarkId(intersects) {
+    if (intersects.length === 0) return null;
+    let root = intersects[0].object;
+    while (root.parent && root.parent !== scene) root = root.parent;
+    const matched = Object.values(marks).find((m) => m.id === root.id);
+    return matched ? root.id : null;
+  }
+
+  function setLabelVisibility(markObject, visible) {
     const labelObj = markObject.getObjectByName("css2dLabel");
     if (!labelObj) return;
     const el = labelObj.element;
@@ -44,37 +67,18 @@ function SetupMarkHover(scene, domElement, marks, getCamera) {
     mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
     raycaster.setFromCamera(mouse, getCamera());
-
-    const targets = [];
-    for (const mark of Object.values(marks)) {
-      const obj = scene.getObjectById(mark.id);
-      if (obj) {
-        const model = obj.getObjectByName("model");
-        if (model)
-          model.traverse((child) => {
-            if (child.isMesh) targets.push(child);
-          });
-      }
-    }
-
-    const intersects = raycaster.intersectObjects(targets, false);
-    let newHoverId = null;
-    if (intersects.length > 0) {
-      let root = intersects[0].object;
-      while (root.parent && root.parent !== scene) root = root.parent;
-      const matched = Object.values(marks).find((m) => m.id === root.id);
-      newHoverId = matched ? root.id : null;
-    }
-
+    const newHoverId = getHoveredMarkId(
+      raycaster.intersectObjects(getMarkTargets(), false),
+    );
     if (newHoverId !== hoveredMarkId) {
       if (hoveredMarkId !== null) {
         const old = scene.getObjectById(hoveredMarkId);
-        if (old) setLabelVisible(old, false);
+        if (old) setLabelVisibility(old, false);
       }
       hoveredMarkId = newHoverId;
       if (hoveredMarkId !== null) {
         const next = scene.getObjectById(hoveredMarkId);
-        if (next) setLabelVisible(next, true);
+        if (next) setLabelVisibility(next, true);
       }
     }
   });
@@ -82,7 +86,7 @@ function SetupMarkHover(scene, domElement, marks, getCamera) {
   domElement.addEventListener("mouseleave", () => {
     if (hoveredMarkId !== null) {
       const obj = scene.getObjectById(hoveredMarkId);
-      if (obj) setLabelVisible(obj, false);
+      if (obj) setLabelVisibility(obj, false);
       hoveredMarkId = null;
     }
   });
@@ -92,10 +96,10 @@ function SetupMarkHover(scene, domElement, marks, getCamera) {
     hoveredMarkId = null;
     for (const mark of Object.values(marks)) {
       const obj = scene.getObjectById(mark.id);
-      if (obj) setLabelVisible(obj, mode === "all");
+      if (obj) setLabelVisibility(obj, mode === "all");
     }
   }
-  return { setLabelVisible, setLabelMode, getLabelMode: () => labelMode };
+  return { setLabelVisibility, setLabelMode, getLabelMode: () => labelMode };
 }
 
 function SetupInteractions(

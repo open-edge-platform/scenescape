@@ -64,44 +64,6 @@ function createLabelRenderer(domElement) {
     labelRenderer.setSize(domElement.clientWidth, domElement.clientHeight);
   });
   resizeObserver.observe(domElement);
-
-  if (!document.getElementById("asset-label-style")) {
-    const style = document.createElement("style");
-    style.id = "asset-label-style";
-    style.textContent = `
-      .asset-label {
-        background: rgba(0, 0, 0, 0.72);
-        color: #fff;
-        font-family: system-ui, sans-serif;
-        font-size: 12px;
-        line-height: 1.5;
-        padding: 5px 9px;
-        border-radius: 6px;
-        white-space: nowrap;
-        pointer-events: none;
-        transform: translateX(-50%);
-        border: 1px solid rgba(255,255,255,0.15);
-        opacity: 0;
-        transition: opacity 0.15s ease;
-      }
-      .asset-label.visible {
-        opacity: 1;
-      }
-      .asset-label-id {
-        font-weight: 600;
-        margin-bottom: 2px;
-      }
-      .asset-label-row {
-        color: rgba(255,255,255,0.75);
-        font-size: 11px;
-      }
-      .asset-label-row span {
-        color: #fff;
-        font-weight: 500;
-      }
-    `;
-    document.head.appendChild(style);
-  }
   return labelRenderer;
 }
 
@@ -179,11 +141,22 @@ function createMarkObject(object, objectCache) {
   return mark;
 }
 
-function updateLabelField(markObject, field, value) {
+function updateLabelFields(markObject, fields) {
   const labelObj = markObject.getObjectByName("css2dLabel");
   if (!labelObj) return;
-  const span = labelObj.element.querySelector(`[data-field="${field}"]`);
-  if (span) span.textContent = value ?? "—";
+  const el = labelObj.element;
+
+  for (const [field, value] of Object.entries(fields)) {
+    let span = el.querySelector(`[data-field="${field}"]`);
+    if (!span) {
+      const row = document.createElement("div");
+      row.className = "asset-label-row";
+      row.innerHTML = `${field}: <span data-field="${field}"></span>`;
+      el.appendChild(row);
+      span = row.querySelector(`[data-field="${field}"]`);
+    }
+    span.textContent = value ?? "—";
+  }
 }
 
 class Draw {
@@ -292,5 +265,5 @@ export {
   createLabelRenderer,
   createMarkObject,
   createLabelElement,
-  updateLabelField,
+  updateLabelFields,
 };
