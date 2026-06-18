@@ -81,6 +81,10 @@ profiles, languages of choice, scaling needs, and rates of change:
 - **New input modalities.** LiDAR and other 3D sensors, plus pose feeds from
   IMU/SLAM, require a clean separation between *positioning* (calibration →
   pose) and *transform/projection* (pose + observation → world coordinates).
+  While calibration/mapping separation already exists today, ADR 13 formalizes
+  it as a deployable service boundary with explicit pose/observation contracts,
+  independent scaling and release cadence, and consistent integration into the
+  recursive hierarchy path.
 - **Well-defined contracts.** Once projection is its own service, the Tracker's
   input becomes a clean stream of observations already in the shared coordinate
   system — a precise, testable contract.
@@ -91,6 +95,12 @@ profiles, languages of choice, scaling needs, and rates of change:
   service rather than embedded per Controller instance.
 - **Independent testability and fault isolation.** Each functionality can be
   validated, deployed, and fail independently.
+- **Reduce coupling and maintenance burden.** While logically separate
+  functionalities will remain coupled through shared contracts, explicit
+  service boundaries make those couplings visible and manageable through
+  versioning and contract evolution rather than hidden within a monolithic
+  codebase. This reduces maintenance complexity and makes integration issues
+  explicit rather than emergent.
 
 ### Current data flow
 
@@ -421,13 +431,13 @@ do not block adopting the target architecture.
   co-locate projection with the Tracker, or fall back to a shared-process
   library boundary for this hop only.
 - **Hierarchy ↔ projection integration**: hierarchy and projection both perform
-  coordinate transforms; whether (and how) to unify them, and whether the
-  Feedback Loop ("back transform via projection") should reuse the same service,
-  is open.
+  coordinate transforms; whether (and how) to unify transform ownership across
+  hierarchy and projection services, and how to partition responsibilities at
+  that boundary, is open.
 - **Feedback Loop semantics**: the Tracker → projection feedback edge is
-  proposed, not committed. Its purpose (e.g., refining placement priors,
-  back-projecting tracks to camera space) and contract need definition before it
-  becomes a phase deliverable.
+  proposed, not committed. Its purpose (e.g., refining placement priors for
+  autonomous systems), contract (payload and timing), and activation criteria
+  need definition before it becomes a phase deliverable.
 - **Retracking redesign**: how parents handle child tracks — trust child tracks
   vs. retrack — including deduplication of overlapping child coverage and
   ensuring the first-assigned global UUID persists up the hierarchy. Current
@@ -455,43 +465,26 @@ do not block adopting the target architecture.
 The breakdown is incremental and builds on the already-extracted Tracker
 Service. Each phase delivers an independently deployable, validated service
 while the legacy Controller continues to run behind feature flags until its
-responsibilities are fully migrated.
+responsibilities are fully migrated. To avoid disconnected delivery, each
+phase defines an explicit controller-parity target and a bounded legacy
+Controller role.
 
-**Phase 0 — Tracker Service (done)**
+| Phase | Deliverable | Functionalities Supported (controller parity target) | Role of legacy Controller (if any) |
+| --- | --- | --- | --- |
+| 0 (done) | Tracker Service extraction ([ADR 7](./0007-tracker-service.md), [ADR 8](./0008-tracker-service-horizontal-scaling.md)) | Real-time MOT parity for prediction, interpolation, association, and fusion on extracted tracker path | Continues running analytics, hierarchy, Re-ID, and persistence paths |
+| 1 | Shared Scene Graph foundation | Canonical scene-node model, parent/child topology, transform ownership boundaries, and graph query contract | Remains source for runtime hierarchy behavior while publishing/consuming graph metadata through compatibility adapters |
+| 2 | Spatial Transform & Projection Service | Projection/pose-adjustment parity for world-space observation output to tracker; transport and latency gate validated | Keeps fallback projection path behind feature flags for controlled cutover |
+| 3 | Scene State Persistence + shared Re-ID integration ([ADR 10](./0010-reid-metadata-storage-architecture.md), [ADR 11](./0011-inner-product-reid-state-and-id-lineage.md)) | Authoritative state, identity lineage, and cross-restart parity for scene state and ID lifecycle | Continues serving analytics APIs that still depend on legacy state views |
+| 4 | Positioning Service rollout | Calibration-to-pose parity for cameras, sensors, and mobile platforms, with pose contract consumed by projection path | Retains temporary pose adapter and non-migrated sensor handling |
+| 5 | Analytics Service extraction | Analytics/events parity on persistence-backed, identity-enriched state | Runs only non-migrated edge cases behind feature flags |
+| 6 | Dedicated hierarchy migration phase | Recursive sub-scene hierarchy parity using shared scene interfaces and first-assigned global UUID persistence rules | Legacy hierarchy path remains read-only fallback until validation gates pass |
+| 7 | Feedback Loop decision (if adopted) and monolith retirement | Final parity closure, optional feedback contract integration, and complete service-path operation | Retired after parity, performance, and reliability gates are satisfied |
 
-- Real-time MOT extracted to a pure-C++ service
-  ([ADR 7](./0007-tracker-service.md),
-  [ADR 8](./0008-tracker-service-horizontal-scaling.md)).
+Shared Scene Graph evolution is staged across phases:
 
-**Phase 1 — Spatial Transform & Projection Service**
-
-- Extract projection/pose-adjustment into its own service with a clean
-  world-space-observation output contract.
-- Benchmark the projection → Tracker boundary (gRPC vs. MQTT, co-located vs.
-  networked) and decide the transport for this hop.
-
-**Phase 2 — Analytics Service**
-
-- Refactor the remaining Controller analytics/events into a standalone Analytics
-  Service consuming tracks and world-space observations; support tracker-less
-  inputs.
-
-**Phase 3 — Re-ID Service and Scene State Persistence Service**
-
-- Promote Re-ID to a shared cross-scene service
-  ([ADR 10](./0010-reid-metadata-storage-architecture.md),
-  [ADR 11](./0011-inner-product-reid-state-and-id-lineage.md)).
-- Extract scene state persistence with state-query and pose-feedback interfaces.
-
-**Phase 4 — Positioning Service and Scene Graph**
-
-- Stand up the Positioning Service (calibration → pose) and the shared Scene
-  Graph; route pose to projection and the Scene Graph; add LiDAR/robot/drone
-  inputs.
-- Implement recursive sub-scene hierarchy over the shared interfaces.
-
-**Phase 5 — Feedback Loop and monolith retirement**
-
-- Resolve the Feedback Loop design (if adopted) and implement it.
-- Retire the legacy Controller once all responsibilities are migrated and
-  validated.
+1. Phase 1 defines graph schema, ownership boundaries, and compatibility
+   contracts.
+2. Phases 2-4 integrate projection, persistence/Re-ID, and positioning against
+   the shared graph incrementally.
+3. Phase 6 consumes the mature graph for dedicated hierarchy migration rather
+   than coupling hierarchy delivery to positioning rollout.
