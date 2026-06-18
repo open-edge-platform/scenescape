@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 set -e
@@ -8,8 +8,8 @@ set -e
 WSUSER=${WSUSER:-scenescape}
 WORKSPACE=${WORKSPACE:-/workspace}
 SECRETSDIR=${SECRETSDIR:-${WORKSPACE}/secrets}
-MANAGERDIR=SceneScape
-SAMPLEDATADIR=/home/scenescape/SceneScape/sample_data
+MANAGERDIR=Scenescape
+SAMPLEDATADIR=/home/scenescape/Scenescape/sample_data
 
 RUNSECRETS=/run/secrets
 EGL_PLATFORM=${EGL_PLATFORM:-surfaceless}

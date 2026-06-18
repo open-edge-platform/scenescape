@@ -35,10 +35,10 @@ def create_test_image(output_path: Path, width: int = 640, height: int = 480):
 
 
 def test_feature_matching():
-  """Test feature matching between images - SKIPPED (SuperGlue not used in SceneScape)."""
+  """Test feature matching between images - SKIPPED (SuperGlue not used in Scenescape)."""
   print_test_header("Feature Matching (SuperGlue) - SKIPPED")
-  print("  ⚠️  SuperGlue not used in SceneScape, test skipped")
-  print_test_result(True, "Skipped - not used in SceneScape")
+  print("  ⚠️  SuperGlue not used in Scenescape, test skipped")
+  print_test_result(True, "Skipped - not used in Scenescape")
   return True
 
 

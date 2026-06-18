@@ -32,7 +32,7 @@ def password():
 
 @pytest.fixture(scope='session')
 def token(base_url, username, password):
-  """Fetch authentication token from the SceneScape API"""
+  """Fetch authentication token from the Scenescape API"""
   response = requests.post(
     f"{base_url}/api/v1/auth",
     data={"username": username, "password": password},

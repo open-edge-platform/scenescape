@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Optional, List, Tuple, Union, Sequence
@@ -282,7 +282,7 @@ class ImagePairDataset(torch.utils.data.Dataset):
       self.pool = SimpleExecutor()
     # preprocess first dataset image to get image size
     self.preprocess(self.pairs[0][1], None, self.image_dir[1] / self.pairs[0][1])
-    if image_cache is not None:  # SceneScape message
+    if image_cache is not None:  # Scenescape message
       self.n_keep = len(image_cache)
       for name, b64im in image_cache.items():
         self.pool.submit(self.preprocess, name, b64im)

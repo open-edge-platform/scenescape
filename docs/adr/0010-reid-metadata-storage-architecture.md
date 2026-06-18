@@ -6,7 +6,7 @@
 
 ## Context
 
-SceneScape's Re-ID system currently stores only 256-dimensional float32 vectors in VDMS for object embeddings. However, real-world tracking scenarios require associating rich metadata with these embeddings:
+Scenescape's Re-ID system currently stores only 256-dimensional float32 vectors in VDMS for object embeddings. However, real-world tracking scenarios require associating rich metadata with these embeddings:
 
 - **Vehicle Re-ID**: color, make, model, license plate, body type
 - **Person Re-ID**: clothing color, gender, age, height estimate, badge ID

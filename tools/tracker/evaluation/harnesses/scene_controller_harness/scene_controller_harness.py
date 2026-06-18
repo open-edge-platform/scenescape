@@ -20,7 +20,7 @@ from utils.format_converters import write_jsonl, stream_jsonl
 
 
 class SceneControllerHarness(TrackerHarness):
-  """Tracker harness for SceneScape Scene Controller.
+  """Tracker harness for Scenescape Scene Controller.
 
   This harness executes the tracker by running it inside the scene controller
   Docker container. It operates in **synchronous batch mode** - all inputs are
