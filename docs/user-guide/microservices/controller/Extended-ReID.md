@@ -40,7 +40,7 @@ When `similarity_metric` is `COSINE`, Re-ID embedding vectors are normalized to 
 - stored in VDMS (`AddDescriptor`)
 - used as query vectors in VDMS (`FindDescriptor`)
 
-For `COSINE`, SceneScape uses VDMS `IP` internally with normalized vectors, so similarity scores are expected to stay in the range `[-1, 1]`.
+For `COSINE`, Scenescape uses VDMS `IP` internally with normalized vectors, so similarity scores are expected to stay in the range `[-1, 1]`.
 
 - `1.0`: identical direction (most similar)
 - `0.0`: orthogonal embeddings

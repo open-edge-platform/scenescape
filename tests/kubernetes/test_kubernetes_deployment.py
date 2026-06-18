@@ -44,7 +44,7 @@ def test_scenescape_installation(_k8s_manager):
 
 @pytest.mark.kubernetes_only
 def test_scenescape_pods_not_restarting(_k8s_manager):
-  """Verify core SceneScape pods don't restart within a 2-minute window.
+  """Verify core Scenescape pods don't restart within a 2-minute window.
 
   NTP (chrony) and dlstreamer (retail/queuing cams) are excluded because
   they crash in KinD due to missing capabilities (SYS_TIME) and GPU hardware.

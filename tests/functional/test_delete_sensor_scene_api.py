@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -126,8 +126,8 @@ class DeleteSensorSceneTest(FunctionalTest):
     sensorUID = None
 
     try:
-      # Make sure that the SceneScape is up and running
-      log.info("Make sure that the SceneScape is up and running")
+      # Make sure that the Scenescape is up and running
+      log.info("Make sure that the Scenescape is up and running")
       assert self.sceneScapeReady(MAX_ATTEMPTS, MAX_CONTROLLER_WAIT)
 
       # Step 1: Create test scene
