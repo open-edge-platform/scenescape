@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 ---
@@ -40,7 +40,7 @@ spec:
       containers:
         - args:
           - --shell
-          - /home/scenescape/SceneScape/manage.py
+          - /home/scenescape/Scenescape/manage.py
           - kubecommand
           - --broker
           - broker.{{ .Release.Namespace }}.svc.cluster.local

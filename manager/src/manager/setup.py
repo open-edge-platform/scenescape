@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import re
@@ -9,7 +9,7 @@ import os
 
 # Application Naming
 APP_NAME = 'manager'
-APP_PROPER_NAME = 'SceneScape'
+APP_PROPER_NAME = 'Scenescape'
 APP_BASE_NAME = 'scenescape'
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -30,5 +30,5 @@ setup(
     license='Apache-2.0',
     version=APP_VERSION_NUMBER,
     author='Intel Corporation',
-    description='SceneScape core functionality',
+    description='Scenescape core functionality',
     )

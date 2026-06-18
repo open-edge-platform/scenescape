@@ -1,7 +1,7 @@
 # How to Configure the Tracker
 
 This document guides users and developers on configuring the tracker for specific use cases
-during Intel® SceneScape deployment.
+during Scenescape deployment.
 
 > **Note:** Tracker configuration is not needed when running the Scene Controller in
 > analytics-only mode (`--analytics-only` flag or `CONTROLLER_ENABLE_ANALYTICS_ONLY=true`), as
@@ -23,7 +23,7 @@ scene:
   # mount the trackerconfig file to the container
   configs:
     - source: tracker-config
-      target: /home/scenescape/SceneScape/tracker-config.json
+      target: /home/scenescape/Scenescape/tracker-config.json
 ```
 
 The default content of the `tracker-config.json` file is shown below. It is recommended to

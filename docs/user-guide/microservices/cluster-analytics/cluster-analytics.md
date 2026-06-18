@@ -8,9 +8,9 @@ hide_directive-->
 
 # Cluster Analytics Service
 
-The Cluster Analytics service provides advanced object clustering and movement analysis capabilities for Intel® SceneScape using DBSCAN (Density-Based Spatial Clustering of Applications with Noise) algorithm combined with geometric shape detection and velocity pattern classification.
+The Cluster Analytics service provides advanced object clustering and movement analysis capabilities for Scenescape using DBSCAN (Density-Based Spatial Clustering of Applications with Noise) algorithm combined with geometric shape detection and velocity pattern classification.
 
-This service processes real-time object detection data from Intel® SceneScape scenes, applies machine learning-based clustering algorithms, and provides comprehensive analytics including:
+This service processes real-time object detection data from Scenescape scenes, applies machine learning-based clustering algorithms, and provides comprehensive analytics including:
 
 - **Spatial Clustering**: Groups objects by proximity using DBSCAN algorithm with user-configurable parameters
 - **Cluster Tracking**: Tracks clusters across frames with state-based lifecycle management (NEW → ACTIVE → STABLE → FADING → LOST)
@@ -21,7 +21,7 @@ This service processes real-time object detection data from Intel® SceneScape s
 
 ### Docker Deployment (Recommended)
 
-The cluster analytics service is included in the extended Intel® SceneScape demo docker-compose stack:
+The cluster analytics service is included in the extended Scenescape demo docker-compose stack:
 
 ```bash
 SUPASS=admin123 make
@@ -273,7 +273,7 @@ The integrated WebUI provides a comprehensive interface for cluster analysis mon
 ### Input Topics
 
 - **Topic**: `scenescape/regulated/scene/{scene_id}`
-- **Purpose**: Receives object detection data from Intel® SceneScape scenes
+- **Purpose**: Receives object detection data from Scenescape scenes
 - **Format**: JSON with objects array and scene metadata
 - **Contains**: Scene name, timestamp, object detections with world coordinates
 

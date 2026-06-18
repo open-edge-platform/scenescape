@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
@@ -166,7 +166,7 @@ class CameraCalibrationMonocularPoseEstimate:
     dataset_dir = Path(self.dataset_dir)
     output_dir = Path(self.output_dir)
     self.hloc_config.output = str(output_dir / ("-".join(
-      ("SceneScape", self.hloc_config.global_feature, str(self.hloc_config.num_loc),
+      ("Scenescape", self.hloc_config.global_feature, str(self.hloc_config.num_loc),
        *self.hloc_config.local_feature, *self.hloc_config.matcher)) + ".txt"))
     self.hloc_config.retrieval_conf = extract_features.confs[
       self.hloc_config.global_feature]
@@ -294,7 +294,7 @@ class CameraCalibrationMonocularPoseEstimate:
     return inlier_ratio >= inlier_threshold
 
   def convert_y_up_to_y_down(self, rotation, translation):
-    """!Convert pose from Y-up to Y-down to align with SceneScape coordinate system.
+    """!Convert pose from Y-up to Y-down to align with Scenescape coordinate system.
 
     @param  rotation      Rotation values of an object.
     @param  translation   Translation values of an object.
