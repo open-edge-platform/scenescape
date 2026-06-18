@@ -154,51 +154,40 @@ Interfaces follow the workload:
 ### Target architecture
 
 ```mermaid
-flowchart LR
+flowchart TD
   %% Data sources
-  Robot["🤖 Robot/Drone<br/>(IMU + POS, SLAM)"]
-  Subscene["🗂️ Subscene<br/>(Fused Tracks, Analytics)"]
-  Camera["📷 Camera"]
-  Lidar["🛰️ LiDAR"]
+  subgraph InputLayer["Input Layer"]
+    PerceptionSensor["🤖 Perception Sensor"]
+    Subscene["🗂️ Subscene<br/>(Fused Tracks, Analytics)"]
+    Camera["📷 Camera"]
+    Sensor["🛰️ Sensor"]
+  end
 
   %% Services
-  Positioning["📍 Positioning Service<br/>(Camera Calibration)"]
-  Transform["🧭 Spatial Transform &amp; Projection Service<br/>(Pose + Observation)"]
-  Tracker["🎯 Tracker Service<br/>(Fusion &amp; Tracking)"]
-  ReID["🆔 Re-ID Service<br/>(Shared)"]
-  Persistence["💾 Scene State Persistence Service"]
-  SceneGraph(("🗺️ Scene Graph"))
+  Positioning["📍 Positioning Service"]
+  Transform["🧭 Spatial Transform &amp; Projection Service"]
+  Tracker["🎯 Multi-Object Tracker Service<br/>(Prediction, Interpolation, Association, Fusion)"]
+  Persistence["💾 Scene State Persistence Service<br/>🆔 Re-ID"]
   Analytics["📊 Analytics Service"]
-  Business["🧩 Business Logic"]
-  Feedback["🔁 Feedback Loop<br/>(back transform via Projection?)"]
 
-  Robot -->|"Pose + Observations"| Transform
-  Subscene -->|"Pose + Observations"| Transform
-  Subscene -->|"Observations"| Transform
+  Subscene -->|"Pose + Observations"| Positioning 
+  Sensor -->|"Measurements"| Positioning 
+  PerceptionSensor -->|"Detections"| Positioning 
+  Camera -->|"Observations"| Positioning 
 
-  Camera --> Positioning
-  Lidar --> Positioning
-
-  Positioning -->|"Pose"| Transform
-  Positioning -->|"Pose"| SceneGraph
+  Positioning -->|"Pose + Observations"| Transform
+  Positioning -->|"Measurements & Detections"| Transform
 
   Transform --> Tracker
-  Transform --> Analytics
+  Tracker --> Persistence
+  Persistence -->|"SceneField Update"| Transform
+  Persistence -->|"Update"| Subscene
 
-  Tracker -->|"streaming"| Persistence
-  Tracker -->|"Query match / Store vectors"| ReID
-  Tracker -->|"Feedback"| Feedback
-
-  Persistence --> SceneGraph
-  Persistence -->|"Pose"| Positioning
-
-  Tracker --> Analytics
-  Analytics --> Business
+  Persistence --> Analytics
 
   style Tracker fill:#2d3748,stroke:#90cdf4,stroke-width:3px,color:#bee3f8
   style Transform fill:#2d3748,stroke:#90cdf4,stroke-width:3px,color:#bee3f8
   style Positioning fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
-  style ReID fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
   style Persistence fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
   style Analytics fill:#4a5568,stroke:#cbd5e0,stroke-width:2px,color:#e2e8f0
 ```
