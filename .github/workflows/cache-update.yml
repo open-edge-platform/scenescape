@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   build-and-update:
-    name: "Build SceneScape images and update caches"
+    name: "Build Scenescape images and update caches"
     runs-on: [self-hosted]
     permissions:
       packages: write # For using GHCR as cache registry

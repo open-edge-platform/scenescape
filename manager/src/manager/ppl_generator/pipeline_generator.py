@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
@@ -145,7 +145,7 @@ class PipelineGenerator:
     # TODO: optimize queue latency with leaky and max-size-buffers parameters
     pipeline_components.extend(["queue"])
     pipeline_components.extend(self.metadata_conversion)
-    # SceneScape metadata adapter and publisher
+    # Scenescape metadata adapter and publisher
     pipeline_components.extend(self.adapter)
     pipeline_components.extend(self.sink)
     return ' ! '.join(pipeline_components)

@@ -6,7 +6,7 @@
 
 ## Context
 
-SceneScape relies on multi-camera 3D multi-object tracking (MOT) for key product capabilities (e.g., occupancy, safety, operational analytics). Tracking quality must remain stable across a wide range of motion patterns, densities, occlusions, and camera configurations.
+Scenescape relies on multi-camera 3D multi-object tracking (MOT) for key product capabilities (e.g., occupancy, safety, operational analytics). Tracking quality must remain stable across a wide range of motion patterns, densities, occlusions, and camera configurations.
 
 The current automated test coverage primarily validates functional behavior and selected statistical properties, but it does not directly measure core tracking accuracy properties such as spatial position error and trajectory precision. This creates risk during tracker porting, refactoring, or performance work, where regressions may not be detected early.
 
@@ -58,13 +58,13 @@ This evaluation setup targets multi-camera **3D multi-object tracking (MOT)** sy
 
 ## Decision
 
-We will adopt industry-standard datasets, tools, and metrics for SceneScape tracking evaluation and implement a phased strategy to reach state-of-the-art tracking quality assurance.
+We will adopt industry-standard datasets, tools, and metrics for Scenescape tracking evaluation and implement a phased strategy to reach state-of-the-art tracking quality assurance.
 
 At a high level, the strategy is:
 
 - **Phase 1: Close critical gaps with minimal effort**
   - Use an offline black-box evaluation harness for the scene controller.
-  - Integrate an established evaluation toolkit (e.g., TrackEval) and implement adapters for SceneScape I/O formats.
+  - Integrate an established evaluation toolkit (e.g., TrackEval) and implement adapters for Scenescape I/O formats.
   - Add localization (position) metrics evaluation (e.g., MOTP, LocA) with TrackEval to complement existing system tests.
   - Add basic trajectory smoothness metrics to detect jitter regressions (e.g., RMS jerk, acceleration variance).
   - Extend Basic Acceptance Tests with threshold-based evaluation of the new metrics.
@@ -279,7 +279,7 @@ See the full list here: https://github.com/JonathonLuiten/TrackEval?tab=readme-o
 
 1. **Extend the current tests with a custom evaluation framework (custom metrics, bespoke GT formats, and custom harness).**
    - Pros:
-     - Tailored tightly to current SceneScape internals.
+     - Tailored tightly to current Scenescape internals.
    - Cons:
      - Time-consuming to design, implement, validate, and maintain.
      - Reinvents well-established tooling.
@@ -297,7 +297,7 @@ See the full list here: https://github.com/JonathonLuiten/TrackEval?tab=readme-o
      - Widely used benchmarks with mature tooling and community references.
    - Cons:
      - **MOTChallenge:** 3D ground truth is not available.
-     - **nuScenes, KITTI, Argoverse:** camera extrinsics are defined relative to the vehicle, but the vehicle platform is moving (not aligned with SceneScape’s static-camera assumptions).
+     - **nuScenes, KITTI, Argoverse:** camera extrinsics are defined relative to the vehicle, but the vehicle platform is moving (not aligned with Scenescape’s static-camera assumptions).
      - **JRDB:** egocentric robot dataset (camera motion limits a consistent static reference frame).
 
 ## Consequences

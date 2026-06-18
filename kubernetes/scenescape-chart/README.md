@@ -1,4 +1,4 @@
-# Intel® SceneScape
+# Scenescape
 
 Scene-based AI software framework.
 

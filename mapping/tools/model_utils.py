@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Common utilities for model loading in SceneScape 3D mapping service.
+Common utilities for model loading in Scenescape 3D mapping service.
 """
 
 import os
