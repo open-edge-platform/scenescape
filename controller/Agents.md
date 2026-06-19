@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Service Overview
 
-The **Scene Controller** is the central runtime state management service for Intel® SceneScape. It maintains real-time tracking of objects, cameras, and scenes through MQTT-based sensor fusion, coordinate transformations, and multi-object tracking algorithms. This is the core orchestrator that integrates all other services.
+The **Scene Controller** is the central runtime state management service for Scenescape. It maintains real-time tracking of objects, cameras, and scenes through MQTT-based sensor fusion, coordinate transformations, and multi-object tracking algorithms. This is the core orchestrator that integrates all other services.
 
 **Primary Purpose**: Maintain real-time scene state by fusing multimodal sensor data, tracking objects across cameras, managing coordinate transformations, and providing unified scene understanding to other services.
 

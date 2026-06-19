@@ -1,16 +1,16 @@
-## RESTler for fuzzing Intel® SceneScape REST API
+## RESTler for fuzzing Scenescape REST API
 
 ### Overview
 
 RESTler is an [open-source](https://github.com/microsoft/restler-fuzzer) REST fuzzer from Microsoft. It compiles an OpenAPI spec into a fuzzing grammar, then runs automated testing against the API.
 
-On SceneScape, RESTler is used satisfy the CT631 SDL task, which specifies fuzz testing requirements for products with REST APIs. It's also a good way to discover edge cases that are unlikely to surface through manual testing.
+On Scenescape, RESTler is used satisfy the CT631 SDL task, which specifies fuzz testing requirements for products with REST APIs. It's also a good way to discover edge cases that are unlikely to surface through manual testing.
 
 ### Fuzz testing repo contents
 
 This directory contains the following:
 
-- `fuzzing_openapi.yaml`: a customized version of Intel® SceneScape OpenAPI spec, designed to reflect the reality of the API as closely as possible, whereas `docs/api/api.yaml` represents how the API should look in theory. The more accurate the spec, the better the fuzzing results will be.
+- `fuzzing_openapi.yaml`: a customized version of Scenescape OpenAPI spec, designed to reflect the reality of the API as closely as possible, whereas `docs/api/api.yaml` represents how the API should look in theory. The more accurate the spec, the better the fuzzing results will be.
 - `run_fuzzing.sh`: script that will run inside the RESTler container. Sets up the environment, then compiles the grammar and executes the fuzzing run.
 - `.env`: list of variables for the fuzzing run. These need to be set before executing a run. See the step-by-step instructions [below](#performing-a-fuzz-test) for information about the specific variables.
 - `settings.json`: RESTler configuration file.
@@ -18,7 +18,7 @@ This directory contains the following:
 
 ### Performing a fuzz test
 
-0. Build and deploy SceneScape.
+0. Build and deploy Scenescape.
 1. Build the RESTler Docker image from source:
    - `git clone https://github.com/microsoft/restler-fuzzer.git`
    - `cd restler-fuzzer`

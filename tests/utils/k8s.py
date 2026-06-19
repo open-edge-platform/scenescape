@@ -7,7 +7,7 @@
 Kubernetes backend for end-to-end tests.
 
 Provides K8sManager (parallel to _ComposeManager) that creates a KinD cluster,
-deploys SceneScape via Helm, sets up port-forwarding, and extracts secrets so
+deploys Scenescape via Helm, sets up port-forwarding, and extracts secrets so
 tests can connect to the cluster using the same params dict as Docker tests.
 """
 
@@ -157,7 +157,7 @@ def _image_exists(ref: str) -> bool:
 class K8sManager:
   """Manages a KinD Kubernetes cluster lifecycle for test sessions.
 
-  Parallel to _ComposeManager: creates a KinD cluster, deploys SceneScape
+  Parallel to _ComposeManager: creates a KinD cluster, deploys Scenescape
   via Helm, sets up port-forwarding, and extracts secrets. Session-scoped:
   the cluster is created once and reused for all tests.
   """
@@ -228,8 +228,8 @@ class K8sManager:
     self._cluster.apply(_CERTMANAGER_URL)
     self._wait_for_cert_manager()
 
-    # Load SceneScape images into KinD
-    logger.info("Loading SceneScape images into KinD...")
+    # Load Scenescape images into KinD
+    logger.info("Loading Scenescape images into KinD...")
     self._load_images()
 
     # Populate kubernetes/scenescape-chart/files/ from source tree.
@@ -328,7 +328,7 @@ class K8sManager:
     time.sleep(5)
 
   def _load_images(self):
-    """Tag and load SceneScape + external images into the KinD cluster."""
+    """Tag and load Scenescape + external images into the KinD cluster."""
     version_file = Path(self._repo_root) / "version.txt"
     version = version_file.read_text().strip()
 
@@ -415,7 +415,7 @@ class K8sManager:
     logger.info("Helm chart deployed successfully.")
 
   def _wait_for_core_services(self):
-    """Wait for core SceneScape services to be ready.
+    """Wait for core Scenescape services to be ready.
 
     NTP (chrony) is excluded because it needs the SYS_TIME capability
     which is not available in KinD. All other services including

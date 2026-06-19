@@ -1,6 +1,6 @@
 # Cluster Analytics WebUI - Demo Setup
 
-This README explains how to enable the WebUI for Cluster Analytics in the SceneScape demo setup.
+This README explains how to enable the WebUI for Cluster Analytics in the Scenescape demo setup.
 
 ## Cluster Analytics WebUI Features
 
