@@ -89,13 +89,11 @@ def parse_named_keypoints(raw_keypoints) -> Dict[str, NamedKeypoint]:
     except (TypeError, ValueError):
       confidence = None
 
-    if confidence is not None and confidence < MIN_KEYPOINT_CONFIDENCE:
+    if confidence is None or confidence < MIN_KEYPOINT_CONFIDENCE:
       continue
 
     current = parsed.get(joint_name)
-    if current is None or (
-      confidence is not None and (current.confidence is None or confidence > current.confidence)
-    ):
+    if current is None or current.confidence < confidence:
       parsed[joint_name] = NamedKeypoint(x_coord, y_coord, confidence)
 
   return parsed
