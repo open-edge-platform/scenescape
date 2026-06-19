@@ -439,9 +439,8 @@ class WebUI:
       result = originalPublishClusters(sceneId, detectionData, allClusters)
 
       # Get the actual tracked clusters that were published
-      tracked_clusters = self.clusterContext.cluster_tracker.get_active_clusters(
-          scene_id=sceneId,
-          publishable_only=True
+      tracked_clusters = self.clusterContext.cluster_tracker.get_clusters(
+          scene_id=sceneId
       )
 
       # Convert to dictionaries (same format as MQTT publication)

@@ -573,6 +573,10 @@ services:
     restart: always
 
   cluster-analytics:
+    environment:
+      OPENBLAS_NUM_THREADS: "2"
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
     profiles:
       - experimental
       - cluster-analytics
