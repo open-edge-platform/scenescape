@@ -60,7 +60,7 @@ docker run --rm \
 
 ## Suporting Resources
 
-- Learn how to [Configure Spatial Analytics in Intel® SceneScape](../../how-to-guides/build-a-scene/configure-spatial-analytics.md).
+- Learn how to [Configure Spatial Analytics in Scenescape](../../how-to-guides/build-a-scene/configure-spatial-analytics.md).
 - Learn how to [Work with Spatial Analytics Data](../../how-to-guides/work-with-spatial-analytics-data.md).
 
 <!--hide_directive

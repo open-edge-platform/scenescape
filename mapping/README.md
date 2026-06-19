@@ -1,4 +1,4 @@
-# Intel® SceneScape's Mapping Service
+# Scenescape's Mapping Service
 
 ## Documentation
 

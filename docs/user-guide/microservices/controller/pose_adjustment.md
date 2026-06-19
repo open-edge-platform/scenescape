@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Overview
 
-The `pose_adjustment` package in the SceneScape Controller microservice provides utilities for refining detections using pose keypoints and learned spatial proportions. It is organized around a strategy-based coordinator so additional detection types can plug in their own pose-adjustment behavior.
+The `pose_adjustment` package in the Scenescape Controller microservice provides utilities for refining detections using pose keypoints and learned spatial proportions. It is organized around a strategy-based coordinator so additional detection types can plug in their own pose-adjustment behavior.
 
 ## Flowchart: Pose Adjustment Pipeline
 
