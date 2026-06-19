@@ -23,10 +23,6 @@ Expected API after refactor:
 
 import pytest
 
-pytestmark = pytest.mark.skip(
-  reason="Pending Phase 1 tracker refactoring — ClusterTracker.update() API not yet implemented"
-)
-
 SCENE = "tracker-test-scene"
 
 
@@ -79,9 +75,13 @@ class TestClusterTrackerUUIDStability:
     uuid_first = tracker.get_clusters(SCENE)[0].uuid
 
     tracker.update(SCENE, [_detection(10.0, 10.0)], timestamp=100.1)
-    uuid_second = tracker.get_clusters(SCENE)[0].uuid
+    clusters = tracker.get_clusters(SCENE)
 
-    assert uuid_first != uuid_second
+    # Both clusters coexist (old one not yet expired); the new one must have a distinct UUID
+    assert len(clusters) == 2
+    uuids = {c.uuid for c in clusters}
+    assert uuid_first in uuids
+    assert len(uuids) == 2, "Detection far beyond max_dist must create a new UUID"
 
   def test_cluster_restored_within_expiry_window(self):
     tracker = self._make_tracker(expiry=10.0)

@@ -11,7 +11,7 @@ from sklearn.cluster import DBSCAN
 
 from scene_common import log
 from scene_common.mqtt import PubSub
-from cluster_analytics_tracker import ClusterTracker, HungarianMatcher
+from cluster_analytics_tracker import ClusterTracker
 
 class ClusterAnalyticsConfig:
   """Configuration settings for cluster analytics loaded from config.json"""
@@ -59,20 +59,6 @@ class ClusterAnalyticsConfig:
     self.STATIONARY_THRESHOLD = 0.1
     self.VELOCITY_COHERENCE_THRESHOLD = 0.3
 
-    self.FRAMES_TO_ACTIVATE = 3
-    self.FRAMES_TO_STABLE = 20
-    self.FRAMES_TO_FADE = 15
-    self.FRAMES_TO_LOST = 10
-
-    self.INITIAL_CONFIDENCE = 0.5
-    self.ACTIVATION_THRESHOLD = 0.6
-    self.STABILITY_THRESHOLD = 0.7
-    self.CONFIDENCE_MISS_PENALTY = 0.1
-    self.CONFIDENCE_MAX_MISS_PENALTY = 0.5
-    self.CONFIDENCE_LONGEVITY_BONUS_MAX = 0.2
-    self.CONFIDENCE_LONGEVITY_FRAMES = 100
-
-    self.ARCHIVE_TIME_THRESHOLD = 5.0
 
 class ClusterAnalyticsContext:
   def __init__(self, broker, broker_auth, cert, root_cert, enable_webui=True, webui_port=9443, webui_certfile=None, webui_keyfile=None):
@@ -82,9 +68,7 @@ class ClusterAnalyticsContext:
     self.webui_keyfile = webui_keyfile
 
     # Initialize cluster tracker for tracking clusters across frames
-    self.cluster_tracker = ClusterTracker(matcher=HungarianMatcher(), config=self.config)
-
-    self.user_dbscan_params_by_scene = {}
+    self.cluster_tracker = ClusterTracker()
 
     # Initialize WebUI if enabled
     self.webUi = None
@@ -132,118 +116,22 @@ class ClusterAnalyticsContext:
     return
 
   def get_dbscan_params_for_category(self, category, scene_id=None):
-    """! Get DBSCAN parameters optimized for a specific object category in a specific scene
+    """! Get DBSCAN parameters for a specific object category.
     @param   category  Object category (person, vehicle, bicycle, etc.)
-    @param   scene_id  Scene identifier (optional, for scene-specific parameters)
+    @param   scene_id  Unused — kept for call-site compatibility during cleanup.
     @return  Dictionary with 'eps' and 'min_samples' parameters
     """
-    # Normalize category to lowercase for consistent lookup
     category_lower = category.lower()
-
-    # Check scene-specific user-configured parameters first
-    if scene_id:
-      scene_params = self.user_dbscan_params_by_scene.get(scene_id)
-      if scene_params:
-        params = scene_params.get(category_lower)
-        if params:
-          log.debug(f"Using scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={params['eps']}, min_samples={params['min_samples']}")
-          return params
-
-    # Return category-specific default parameters if available
     params = self.config.CATEGORY_DBSCAN_PARAMS.get(category_lower)
     if params:
-      log.debug(f"Using default DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
+      log.debug(f"Using DBSCAN parameters for '{category}': eps={params['eps']}, min_samples={params['min_samples']}")
       return params
-
     default_params = {
-        'eps': self.config.DEFAULT_DBSCAN_EPS,
-        'min_samples': self.config.DEFAULT_DBSCAN_MIN_SAMPLES
+      'eps': self.config.DEFAULT_DBSCAN_EPS,
+      'min_samples': self.config.DEFAULT_DBSCAN_MIN_SAMPLES,
     }
-    log.debug(f"Using global default DBSCAN parameters for unknown category '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
+    log.debug(f"Using default DBSCAN parameters for '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
     return default_params
-
-  def set_user_dbscan_params_for_category(self, category, eps, min_samples, scene_id=None):
-    """! Set user-configured DBSCAN parameters for a specific object category in a specific scene
-    @param   category     Object category (person, vehicle, bicycle, etc.)
-    @param   eps          DBSCAN eps parameter
-    @param   min_samples  DBSCAN min_samples parameter
-    @param   scene_id     Scene identifier (optional, for scene-specific parameters)
-    @return  None
-    """
-    # Normalize category to lowercase for consistent lookup
-    category_lower = category.lower()
-
-    # Store scene-specific user configuration
-    if scene_id:
-      # Get current parameters to check for significant changes
-      current_params = self.get_dbscan_params_for_category(category_lower, scene_id)
-      new_params = {'eps': float(eps), 'min_samples': int(min_samples)}
-
-      # Check if this is a significant parameter change that would affect existing clusters
-      eps_change_ratio = abs(new_params['eps'] - current_params['eps']) / max(current_params['eps'], 0.1)
-      min_samples_changed = new_params['min_samples'] != current_params['min_samples']
-
-      # If parameters changed significantly, force-clear existing clusters
-      if eps_change_ratio > 0.5 or min_samples_changed:
-        cleared_count = self.cluster_tracker.force_clear_clusters_by_category(scene_id, category_lower)
-        if cleared_count > 0:
-          log.debug(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to significant parameter change")
-
-      # Initialize scene parameters if not exists
-      if scene_id not in self.user_dbscan_params_by_scene:
-        self.user_dbscan_params_by_scene[scene_id] = {}
-
-      # Store parameters for this scene and category
-      self.user_dbscan_params_by_scene[scene_id][category_lower] = new_params
-
-      log.debug(f"Set scene-specific user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={eps}, min_samples={min_samples}")
-    else:
-      log.warning(f"Cannot set DBSCAN parameters for '{category}': no scene_id provided")
-
-  def get_default_dbscan_params_for_category(self, category):
-    """! Get the default (hardcoded) DBSCAN parameters for a category
-    @param   category  Object category (person, vehicle, bicycle, etc.)
-    @return  Dictionary with 'eps' and 'min_samples' default parameters
-    """
-    # Normalize category to lowercase for consistent lookup
-    category_lower = category.lower()
-
-    if category_lower in self.config.CATEGORY_DBSCAN_PARAMS:
-      return self.config.CATEGORY_DBSCAN_PARAMS[category_lower].copy()
-    else:
-      return {
-          'eps': self.config.DEFAULT_DBSCAN_EPS,
-          'min_samples': self.config.DEFAULT_DBSCAN_MIN_SAMPLES
-      }
-
-  def reset_user_dbscan_params_for_category(self, category, scene_id=None):
-    """! Reset user-configured parameters for a category in a specific scene back to defaults
-    @param   category  Object category (person, vehicle, bicycle, etc.)
-    @param   scene_id  Scene identifier (optional, for scene-specific parameters)
-    @return  None
-    """
-    # Normalize category to lowercase for consistent lookup
-    category_lower = category.lower()
-
-    # Remove scene-specific user configuration for this category
-    if scene_id and scene_id in self.user_dbscan_params_by_scene:
-      scene_params = self.user_dbscan_params_by_scene[scene_id]
-      if category_lower in scene_params:
-        # Force-clear existing clusters since parameters are changing back to defaults
-        cleared_count = self.cluster_tracker.force_clear_clusters_by_category(scene_id, category_lower)
-        if cleared_count > 0:
-          log.debug(f"Cleared {cleared_count} existing clusters for '{category}' in scene '{scene_id}' due to parameter reset")
-
-        del scene_params[category_lower]
-        log.debug(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' back to defaults")
-
-        # Clean up empty scene entries
-        if not scene_params:
-          del self.user_dbscan_params_by_scene[scene_id]
-      else:
-        log.debug(f"No custom DBSCAN parameters found for '{category}' in scene '{scene_id}' to reset")
-    else:
-      log.warning(f"Cannot reset DBSCAN parameters for '{category}': scene '{scene_id}' not found or no scene_id provided")
 
   def mqtt_on_connect(self, client, userdata, flags, rc):
     """! Subscribes to MQTT topics on connection.
@@ -358,7 +246,7 @@ class ClusterAnalyticsContext:
     if len(objects) < min_required_objects:
       log.debug(f"Scene {scene_id}: Insufficient objects ({len(objects)}) for clustering")
       # Still process through tracker to mark existing clusters as missed
-      self.cluster_tracker.process_new_detections(scene_id, [], timestamp)
+      self.cluster_tracker.update(scene_id, [], timestamp)
       return []
 
     # Analyze clusters for each category with multiple objects
@@ -424,14 +312,11 @@ class ClusterAnalyticsContext:
 
           raw_cluster_detections.append(cluster_detection)
 
-    self.cluster_tracker.process_new_detections(scene_id, raw_cluster_detections, timestamp)
+    self.cluster_tracker.update(scene_id, raw_cluster_detections, timestamp)
 
     # Log when no clusters are detected by DBSCAN
     if len(raw_cluster_detections) == 0:
       log.debug(f"Scene {scene_id}: No clusters detected by DBSCAN")
-
-    # Clean up old/lost clusters to prevent stale data
-    self.cluster_tracker.memory.cleanup_old_clusters(timestamp)
 
     # Don't publish here - let publish_all_clusters handle it to avoid duplicates
     return raw_cluster_detections
@@ -448,10 +333,7 @@ class ClusterAnalyticsContext:
       return
 
     # Get active/stable clusters for this scene
-    tracked_clusters = self.cluster_tracker.get_active_clusters(
-            scene_id=scene_id,
-            publishable_only=True
-    )
+    tracked_clusters = self.cluster_tracker.get_clusters(scene_id)
 
     # Convert to dictionaries
     cluster_dicts = [c.to_dict() for c in tracked_clusters]
