@@ -144,15 +144,21 @@ class WebUI:
         # Get current DBSCAN parameters for each category in this scene
         config = {}
         for category in categories:
-          # Parameters come from config only (no per-scene runtime overrides)
-          params = self.clusterContext.get_dbscan_params_for_category(category)
+          # Get current active parameters (user-configured or defaults) for this scene
+          params = self.clusterContext.get_dbscan_params_for_category(category, sceneId)
+          # Get default parameters to show what the recommended values are
+          defaults = self.clusterContext.get_default_dbscan_params_for_category(category)
+
+          # Check if this category has scene-specific customization
+          hasCustomParams = (sceneId in self.clusterContext.user_dbscan_params_by_scene and
+                                        category.lower() in self.clusterContext.user_dbscan_params_by_scene[sceneId])
 
           config[category] = {
             'eps': params['eps'],
             'min_samples': params['min_samples'],
-            'default_eps': params['eps'],
-            'default_min_samples': params['min_samples'],
-            'is_default': True
+            'default_eps': defaults['eps'],
+            'default_min_samples': defaults['min_samples'],
+            'is_default': not hasCustomParams
           }
 
         emit('clustering_config', {
@@ -190,15 +196,21 @@ class WebUI:
         # Get current DBSCAN parameters for each category in current scene
         config = {}
         for category in categories:
-          # Parameters come from config only (no per-scene runtime overrides)
-          params = self.clusterContext.get_dbscan_params_for_category(category)
+          # Get current active parameters (user-configured or defaults) for this scene
+          params = self.clusterContext.get_dbscan_params_for_category(category, self.currentSelectedScene)
+          # Get default parameters to show what the recommended values are
+          defaults = self.clusterContext.get_default_dbscan_params_for_category(category)
+
+          # Check if this category has scene-specific customization
+          hasCustomParams = (self.currentSelectedScene in self.clusterContext.user_dbscan_params_by_scene and
+                                        category.lower() in self.clusterContext.user_dbscan_params_by_scene[self.currentSelectedScene])
 
           config[category] = {
             'eps': params['eps'],
             'min_samples': params['min_samples'],
-            'default_eps': params['eps'],
-            'default_min_samples': params['min_samples'],
-            'is_default': True
+            'default_eps': defaults['eps'],
+            'default_min_samples': defaults['min_samples'],
+            'is_default': not hasCustomParams
           }
 
         emit('clustering_config', {
@@ -221,10 +233,11 @@ class WebUI:
       minSamples = data.get('min_samples')
 
       if category and eps is not None and minSamples is not None:
-        # Runtime per-scene parameter overrides are not supported; parameters are
-        # loaded from config.json only. Log and continue to re-cluster with config params.
+        # Update the parameters using the proper method for the current scene
         if self.currentSelectedScene:
-          log.warning(f"Runtime DBSCAN parameter override for '{category}' is not supported; using config values")
+          self.clusterContext.set_user_dbscan_params_for_category(category, eps, minSamples, self.currentSelectedScene)
+
+          log.info(f"Updated DBSCAN parameters for '{category}' in scene '{self.currentSelectedScene}': eps={eps}, min_samples={minSamples}")
         else:
           log.warning(f"Cannot update DBSCAN parameters for '{category}': no scene selected")
 
@@ -271,21 +284,24 @@ class WebUI:
       targetScene = sceneId if sceneId else self.currentSelectedScene
 
       if category and targetScene:
-        # Parameters always come from config (no per-scene overrides to reset)
-        log.info(f"Reset DBSCAN parameters for '{category}' in scene '{targetScene}' (already at config defaults)")
+        # Reset the parameters back to defaults for the target scene
+        self.clusterContext.reset_user_dbscan_params_for_category(category, targetScene)
 
-        # Send current configuration to client
+        log.info(f"Reset DBSCAN parameters for '{category}' in scene '{targetScene}' back to defaults")
+
+        # Send updated configuration to client
         if targetScene in self.sceneData:
 
-          # Parameters are always from config
-          params = self.clusterContext.get_dbscan_params_for_category(category)
+          # Get the default parameters that are now active for this scene
+          params = self.clusterContext.get_dbscan_params_for_category(category, targetScene)
+          defaults = self.clusterContext.get_default_dbscan_params_for_category(category)
 
           emit('clustering_config_updated', {
             'category': category,
             'eps': params['eps'],
             'min_samples': params['min_samples'],
-            'default_eps': params['eps'],
-            'default_min_samples': params['min_samples'],
+            'default_eps': defaults['eps'],
+            'default_min_samples': defaults['min_samples'],
             'is_default': True
           })
 

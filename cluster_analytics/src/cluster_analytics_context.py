@@ -70,6 +70,9 @@ class ClusterAnalyticsContext:
     # Initialize cluster tracker for tracking clusters across frames
     self.cluster_tracker = ClusterTracker()
 
+    # Per-scene user-configured DBSCAN parameter overrides: {scene_id: {category: {eps, min_samples}}}
+    self.user_dbscan_params_by_scene = {}
+
     # Initialize WebUI if enabled
     self.webUi = None
     if enable_webui:
@@ -118,7 +121,25 @@ class ClusterAnalyticsContext:
   def get_dbscan_params_for_category(self, category, scene_id=None):
     """! Get DBSCAN parameters for a specific object category.
     @param   category  Object category (person, vehicle, bicycle, etc.)
-    @param   scene_id  Unused — kept for call-site compatibility during cleanup.
+    @param   scene_id  Optional scene ID to check for user-configured overrides.
+    @return  Dictionary with 'eps' and 'min_samples' parameters
+    """
+    category_lower = category.lower()
+
+    # Check for user-configured per-scene override first
+    if scene_id and scene_id in self.user_dbscan_params_by_scene:
+      scene_params = self.user_dbscan_params_by_scene[scene_id]
+      if category_lower in scene_params:
+        params = scene_params[category_lower]
+        log.debug(f"Using user-configured DBSCAN parameters for '{category}' in scene '{scene_id}': eps={params['eps']}, min_samples={params['min_samples']}")
+        return params
+
+    # Fall back to category-specific config, then global default
+    return self.get_default_dbscan_params_for_category(category)
+
+  def get_default_dbscan_params_for_category(self, category):
+    """! Get default (config-based) DBSCAN parameters for a specific object category.
+    @param   category  Object category (person, vehicle, bicycle, etc.)
     @return  Dictionary with 'eps' and 'min_samples' parameters
     """
     category_lower = category.lower()
@@ -132,6 +153,32 @@ class ClusterAnalyticsContext:
     }
     log.debug(f"Using default DBSCAN parameters for '{category}': eps={default_params['eps']}, min_samples={default_params['min_samples']}")
     return default_params
+
+  def set_user_dbscan_params_for_category(self, category, eps, min_samples, scene_id):
+    """! Set user-configured DBSCAN parameters for a category in a specific scene.
+    @param   category    Object category (person, vehicle, bicycle, etc.)
+    @param   eps         Maximum distance between objects in the same cluster
+    @param   min_samples Minimum number of objects to form a cluster
+    @param   scene_id    Scene ID to configure
+    """
+    category_lower = category.lower()
+    if scene_id not in self.user_dbscan_params_by_scene:
+      self.user_dbscan_params_by_scene[scene_id] = {}
+    self.user_dbscan_params_by_scene[scene_id][category_lower] = {
+      'eps': eps,
+      'min_samples': min_samples,
+    }
+    log.info(f"Set user DBSCAN parameters for '{category}' in scene '{scene_id}': eps={eps}, min_samples={min_samples}")
+
+  def reset_user_dbscan_params_for_category(self, category, scene_id):
+    """! Reset user-configured DBSCAN parameters for a category back to config defaults.
+    @param   category  Object category (person, vehicle, bicycle, etc.)
+    @param   scene_id  Scene ID to reset
+    """
+    category_lower = category.lower()
+    if scene_id in self.user_dbscan_params_by_scene:
+      self.user_dbscan_params_by_scene[scene_id].pop(category_lower, None)
+      log.info(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' to config defaults")
 
   def mqtt_on_connect(self, client, userdata, flags, rc):
     """! Subscribes to MQTT topics on connection.
