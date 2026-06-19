@@ -14,13 +14,13 @@ Located in `tests/sscape_tests/cluster_analytics/` (repo-level test tree).
 
 Test what each function/class does in isolation:
 
-| File | What it covers |
-|---|---|
-| `test_config.py` | Config loading, defaults, per-category DBSCAN overrides |
-| `test_clustering.py` | DBSCAN grouping, centroids, noise exclusion, empty inputs |
-| `test_shape.py` | Shape detection: circle, line, irregular, insufficient points |
-| `test_velocity.py` | Velocity classification: stationary, parallel, converging, diverging |
-| `test_tracker.py` | Post-refactor tracker API spec (currently skipped — Phase 1) |
+| File                 | What it covers                                                       |
+| -------------------- | -------------------------------------------------------------------- |
+| `test_config.py`     | Config loading, defaults, per-category DBSCAN overrides              |
+| `test_clustering.py` | DBSCAN grouping, centroids, noise exclusion, empty inputs            |
+| `test_shape.py`      | Shape detection: circle, line, irregular, insufficient points        |
+| `test_velocity.py`   | Velocity classification: stationary, parallel, converging, diverging |
+| `test_tracker.py`    | Post-refactor tracker API spec (currently skipped — Phase 1)         |
 
 **Run from repo root:**
 
