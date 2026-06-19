@@ -4,6 +4,8 @@
 
 # Keep package list in alphabetical order
 aiofiles==25.1.0
+setuptools==81.0.0
+wheel==0.47.0
 Django==5.2.14
 django-axes==8.0.0
 django-debug-toolbar==6.0.0
