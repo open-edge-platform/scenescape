@@ -433,10 +433,10 @@ class WebUI:
 
       return result
 
-    def enhanced_publish_clusters(sceneId, detectionData, allClusters):
+    def enhanced_publish_clusters(sceneId, detectionData):
       """Enhanced version that also updates WebUI data."""
       # Call original method
-      result = originalPublishClusters(sceneId, detectionData, allClusters)
+      result = originalPublishClusters(sceneId, detectionData)
 
       # Get the actual tracked clusters that were published
       tracked_clusters = self.clusterContext.cluster_tracker.get_clusters(

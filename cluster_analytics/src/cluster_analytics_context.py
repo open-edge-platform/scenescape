@@ -3,7 +3,6 @@
 
 import json
 import os
-import threading
 import time
 import numpy as np
 from collections import Counter, defaultdict
@@ -49,7 +48,6 @@ class ClusterAnalyticsConfig:
     self.CATEGORY_DBSCAN_PARAMS = dbscan_config.get('category_specific', {})
 
     self.SHAPE_VARIANCE_THRESHOLD = 0.5
-    self.QUADRANT_ANGLE = np.pi / 2  # 90 degrees, quadrant angle
     self.ANGLE_DISTRIBUTION_THRESHOLD = 0.5
     self.LINEAR_FORMATION_AREA_THRESHOLD = 0.5
 
@@ -212,8 +210,8 @@ class ClusterAnalyticsContext:
       # Reduced logging - only log at debug level
       log.debug(f"Received detection data for scene {scene_id}: {len(detection_data.get('objects', []))} objects")
 
-      all_clusters = self.analyze_object_clusters(scene_id, detection_data)
-      self.publish_all_clusters(scene_id, detection_data, all_clusters)
+      self.analyze_object_clusters(scene_id, detection_data)
+      self.publish_all_clusters(scene_id, detection_data)
 
     except json.JSONDecodeError as e:
       log.error(f"Failed to parse detection data from scene (invalid JSON)")
@@ -415,11 +413,10 @@ class ClusterAnalyticsContext:
       log.debug(f"Scene ID: {scene_id}, error: {e}")
     return
 
-  def publish_all_clusters(self, scene_id, detection_data, all_clusters):
+  def publish_all_clusters(self, scene_id, detection_data):
     """! Publish all clusters for a scene at once to ANALYTICS_CLUSTERS MQTT topic
     @param   scene_id        Scene identifier
     @param   detection_data  Original detection data containing scene metadata
-    @param   all_clusters    List of all cluster metadata dictionaries for the scene
 
     @return  None
     """
@@ -446,26 +443,6 @@ class ClusterAnalyticsContext:
 
     return np.array(features), centroid
 
-  def detect_shape_ml(self, points):
-    """! Detect the geometric shape formed by a cluster of points using ML techniques
-    @param   points  Array of coordinate points in the cluster
-
-    @return  Tuple of (features array, centroid array)
-    """
-    features = []
-    centroid = np.mean(points, axis=0)
-
-    for point in points:
-      # Distance to centroid
-      dist_to_center = np.linalg.norm(point - centroid)
-
-      # Angle from centroid
-      angle = np.arctan2(point[1] - centroid[1], point[0] - centroid[0])
-
-      features.append([dist_to_center, angle])
-
-    return np.array(features), centroid
-
   def _getCircleShape(self, radius):
     """! Create circle shape metadata
     @param   radius  Circle radius
@@ -480,37 +457,6 @@ class ClusterAnalyticsContext:
             "diameter": float(diameter),
             "area": float(area),
             "circumference": float(2 * np.pi * radius)
-        }
-    }
-
-  def _getRectangleShape(self, points_array):
-    """! Create rectangle shape metadata
-    @param   points_array  Array of coordinate points
-    @return  Dictionary with rectangle shape and size data
-    """
-    x_coords = points_array[:, 0]
-    y_coords = points_array[:, 1]
-
-    width = np.max(x_coords) - np.min(x_coords)
-    height = np.max(y_coords) - np.min(y_coords)
-    area = width * height
-    perimeter = 2 * (width + height)
-
-    corners = [
-        [np.min(x_coords), np.min(y_coords)],
-        [np.max(x_coords), np.min(y_coords)],
-        [np.max(x_coords), np.max(y_coords)],
-        [np.min(x_coords), np.max(y_coords)]
-    ]
-
-    return {
-        "shape": "rectangle",
-        "size": {
-            "width": float(width),
-            "height": float(height),
-            "area": float(area),
-            "perimeter": float(perimeter),
-            "corner_points": [[float(x), float(y)] for x, y in corners]
         }
     }
 
@@ -587,11 +533,6 @@ class ClusterAnalyticsContext:
 
     if dist_variance < self.config.SHAPE_VARIANCE_THRESHOLD:
       return self._getCircleShape(np.mean(distances))
-
-    elif len(points_array) == 4:
-      angle_groups = len(np.unique(np.round(features[:, 1] / self.config.QUADRANT_ANGLE)))
-      if angle_groups >= 3:
-        return self._getRectangleShape(points_array)
 
     elif len(points_array) >= 5:
       angle_diffs = np.diff(np.sort(angles))

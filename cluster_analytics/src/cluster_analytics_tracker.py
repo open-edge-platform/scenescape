@@ -144,12 +144,6 @@ class ClusterTracker:
       if now - c.last_seen <= self._expiry
     ]
 
-  def force_clear_clusters_by_category(self, scene_id: str,
-                                       category: str) -> int:
-    """No-op stub retained for WebUI compatibility — removed in Phase 3."""
-    log.debug(f"force_clear_clusters_by_category (stub): {scene_id}/{category}")
-    return 0
-
   # ------------------------------------------------------------------
   # Helpers
   # ------------------------------------------------------------------
