@@ -6,6 +6,7 @@ from typing import Dict, Optional
 
 from scene_common import log
 
+MIN_KEYPOINT_CONFIDENCE = 0.5
 
 JOINT_ALIASES = {
   'nose': 'nose',
@@ -87,6 +88,9 @@ def parse_named_keypoints(raw_keypoints) -> Dict[str, NamedKeypoint]:
       confidence = float(confidence) if confidence is not None else None
     except (TypeError, ValueError):
       confidence = None
+
+    if confidence is not None and confidence < MIN_KEYPOINT_CONFIDENCE:
+      continue
 
     current = parsed.get(joint_name)
     if current is None or (
