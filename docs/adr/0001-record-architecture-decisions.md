@@ -6,13 +6,13 @@
 
 ## Context
 
-As our project grows in complexity and impact, making and communicating architectural decisions becomes increasingly critical. Currently, Intel® SceneScape lacks a consistent, transparent process for capturing, reviewing and sharing these decisions. This can lead to misunderstandings, duplicated efforts, and difficulty onboarding new contributors.
+As our project grows in complexity and impact, making and communicating architectural decisions becomes increasingly critical. Currently, Scenescape lacks a consistent, transparent process for capturing, reviewing and sharing these decisions. This can lead to misunderstandings, duplicated efforts, and difficulty onboarding new contributors.
 
 Many successful open-source and enterprise projects — including the [Edge Manageability Framework](https://github.com/open-edge-platform/edge-manageability-framework/tree/main/design-proposals) — have adopted Architecture Decision Records (ADRs) to address these challenges. ADRs are recognized as an industry best practice for documenting the "why" behind technical choices, ensuring that knowledge is preserved and accessible.
 
 ## Decision
 
-We will formally adopt Architecture Decision Records (ADR) as our standard for documenting architectural choices in SceneScape.
+We will formally adopt Architecture Decision Records (ADR) as our standard for documenting architectural choices in Scenescape.
 
 ADRs offer a simple, lightweight, and proven format that:
 

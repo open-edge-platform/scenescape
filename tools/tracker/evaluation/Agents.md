@@ -56,11 +56,11 @@ Check `datasets/README.md` for more details
 
 - **SceneControllerHarness**: `harnesses/scene_controller_harness/scene_controller_harness.py`
   - The wrapper for scene controller that runs Python script `run_tracker.py` in the scene-controller container.
-  - Dependent on internal implementation: loads configuration file and calls API of SceneScape classes from scene_common and controller modules.
+  - Dependent on internal implementation: loads configuration file and calls API of Scenescape classes from scene_common and controller modules.
   - Uses separate frame ingestion logic depending on enabling time-chunking in the configuration.
 
 - **BlackBoxHarness**: `harnesses/black_box_harness/black_box_harness.py`
-  - Black-box harness that exercises the tracker end-to-end via live MQTT messages, with no dependency on internal SceneScape Python APIs.
+  - Black-box harness that exercises the tracker end-to-end via live MQTT messages, with no dependency on internal Scenescape Python APIs.
   - Starts an `eclipse-mosquitto` broker container and the tracker container on an isolated Docker network (`black_box_harness_{run_id}`); both are removed after the run.
   - Publishes each input frame to `scenescape/data/camera/{camera_id}` and collects tracker outputs from `scenescape/data/scene/{scene_id}/+`.
   - Frames are published as fast as possible. **Frames always carry original dataset timestamps**; no rewriting occurs. Both the Controller (`--maxlag 1e15`) and Tracker Service (`max_lag_s: 1e15` in config) are configured to accept historical timestamps.

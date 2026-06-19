@@ -1,9 +1,9 @@
 ---
 name: python
-description: Python coding standards for SceneScape — imports, indentation, patterns, and conventions.
+description: Python coding standards for Scenescape — imports, indentation, patterns, and conventions.
 ---
 
-# Python Coding Standards for SceneScape
+# Python Coding Standards for Scenescape
 
 ## Import Organization
 
