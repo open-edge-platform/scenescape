@@ -10,6 +10,13 @@ This module provides a Flask-based web interface for real-time visualization
 of cluster analytics data including object detection and clustering results.
 """
 
+# Must be called before Flask/werkzeug are imported for proper async patching
+try:
+  import eventlet
+  eventlet.monkey_patch()
+except ImportError:
+  pass  # eventlet not available, will use threading mode
+
 import json
 import os
 import threading
@@ -33,13 +40,6 @@ class WebUI:
 
     @param clusterAnalyticsContext: Reference to the ClusterAnalyticsContext instance
     """
-    # Monkey patch eventlet early for proper async support
-    try:
-      import eventlet
-      eventlet.monkey_patch()
-    except ImportError:
-      pass  # eventlet not available, will use threading mode
-
     self.clusterContext = clusterAnalyticsContext
 
     # Get the directory where this file is located
@@ -144,21 +144,15 @@ class WebUI:
         # Get current DBSCAN parameters for each category in this scene
         config = {}
         for category in categories:
-          # Get current active parameters (user-configured or defaults) for this scene
-          params = self.clusterContext.get_dbscan_params_for_category(category, sceneId)
-          # Get default parameters to show what the recommended values are
-          defaults = self.clusterContext.get_default_dbscan_params_for_category(category)
-
-          # Check if this category has scene-specific customization
-          hasCustomParams = (sceneId in self.clusterContext.user_dbscan_params_by_scene and
-                                        category.lower() in self.clusterContext.user_dbscan_params_by_scene[sceneId])
+          # Parameters come from config only (no per-scene runtime overrides)
+          params = self.clusterContext.get_dbscan_params_for_category(category)
 
           config[category] = {
             'eps': params['eps'],
             'min_samples': params['min_samples'],
-            'default_eps': defaults['eps'],
-            'default_min_samples': defaults['min_samples'],
-            'is_default': not hasCustomParams
+            'default_eps': params['eps'],
+            'default_min_samples': params['min_samples'],
+            'is_default': True
           }
 
         emit('clustering_config', {
@@ -196,21 +190,15 @@ class WebUI:
         # Get current DBSCAN parameters for each category in current scene
         config = {}
         for category in categories:
-          # Get current active parameters (user-configured or defaults) for this scene
-          params = self.clusterContext.get_dbscan_params_for_category(category, self.currentSelectedScene)
-          # Get default parameters to show what the recommended values are
-          defaults = self.clusterContext.get_default_dbscan_params_for_category(category)
-
-          # Check if this category has scene-specific customization
-          hasCustomParams = (self.currentSelectedScene in self.clusterContext.user_dbscan_params_by_scene and
-                                        category.lower() in self.clusterContext.user_dbscan_params_by_scene[self.currentSelectedScene])
+          # Parameters come from config only (no per-scene runtime overrides)
+          params = self.clusterContext.get_dbscan_params_for_category(category)
 
           config[category] = {
             'eps': params['eps'],
             'min_samples': params['min_samples'],
-            'default_eps': defaults['eps'],
-            'default_min_samples': defaults['min_samples'],
-            'is_default': not hasCustomParams
+            'default_eps': params['eps'],
+            'default_min_samples': params['min_samples'],
+            'is_default': True
           }
 
         emit('clustering_config', {
@@ -233,11 +221,10 @@ class WebUI:
       minSamples = data.get('min_samples')
 
       if category and eps is not None and minSamples is not None:
-        # Update the parameters using the proper method for the current scene
+        # Runtime per-scene parameter overrides are not supported; parameters are
+        # loaded from config.json only. Log and continue to re-cluster with config params.
         if self.currentSelectedScene:
-          self.clusterContext.set_user_dbscan_params_for_category(category, eps, minSamples, self.currentSelectedScene)
-
-          log.info(f"Updated DBSCAN parameters for '{category}' in scene '{self.currentSelectedScene}': eps={eps}, min_samples={minSamples}")
+          log.warning(f"Runtime DBSCAN parameter override for '{category}' is not supported; using config values")
         else:
           log.warning(f"Cannot update DBSCAN parameters for '{category}': no scene selected")
 
@@ -284,24 +271,21 @@ class WebUI:
       targetScene = sceneId if sceneId else self.currentSelectedScene
 
       if category and targetScene:
-        # Reset the parameters back to defaults for the target scene
-        self.clusterContext.reset_user_dbscan_params_for_category(category, targetScene)
+        # Parameters always come from config (no per-scene overrides to reset)
+        log.info(f"Reset DBSCAN parameters for '{category}' in scene '{targetScene}' (already at config defaults)")
 
-        log.info(f"Reset DBSCAN parameters for '{category}' in scene '{targetScene}' back to defaults")
-
-        # Send updated configuration to client
+        # Send current configuration to client
         if targetScene in self.sceneData:
 
-          # Get the default parameters that are now active for this scene
-          params = self.clusterContext.get_dbscan_params_for_category(category, targetScene)
-          defaults = self.clusterContext.get_default_dbscan_params_for_category(category)
+          # Parameters are always from config
+          params = self.clusterContext.get_dbscan_params_for_category(category)
 
           emit('clustering_config_updated', {
             'category': category,
             'eps': params['eps'],
             'min_samples': params['min_samples'],
-            'default_eps': defaults['eps'],
-            'default_min_samples': defaults['min_samples'],
+            'default_eps': params['eps'],
+            'default_min_samples': params['min_samples'],
             'is_default': True
           })
 
