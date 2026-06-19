@@ -88,12 +88,12 @@ spec:
             name: controller-auth
             readOnly: true
             subPath: controller.auth
-          - mountPath: /home/scenescape/SceneScape/media
+          - mountPath: /home/scenescape/Scenescape/media
             name: media-storage
-          - mountPath: /home/scenescape/SceneScape/tracker-config.json
+          - mountPath: /home/scenescape/Scenescape/tracker-config.json
             name: tracker-config
             subPath: tracker-config.json
-          - mountPath: /home/scenescape/SceneScape/reid-config.json
+          - mountPath: /home/scenescape/Scenescape/reid-config.json
             name: reid-config
             subPath: reid-config.json
       restartPolicy: Always

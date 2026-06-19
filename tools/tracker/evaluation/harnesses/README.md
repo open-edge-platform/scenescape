@@ -19,7 +19,7 @@ Harnesses handle tracker-specific deployment details (containers, processes, API
 
 ### SceneControllerHarness
 
-**Purpose**: Execute tracker inside SceneScape scene controller Docker container.
+**Purpose**: Execute tracker inside Scenescape scene controller Docker container.
 
 **Mode**: **Synchronous batch processing** - processes all inputs and returns outputs.
 
@@ -84,9 +84,9 @@ for output in outputs:
 - **run_tracker.py**: Script executed inside the container to run the tracker
 - \***\*init**.py\*\*: Module initialization
 
-**SceneScape API Usage**:
+**Scenescape API Usage**:
 
-The `run_tracker.py` script executes inside the container and calls the following SceneScape modules:
+The `run_tracker.py` script executes inside the container and calls the following Scenescape modules:
 
 _From `scene_common`:_
 
@@ -128,7 +128,7 @@ The tracker runs with configurable timing modes:
 **Prerequisites**:
 
 - Docker installed and running
-- SceneScape controller image available (e.g., `scenescape-controller:2026.1.0-dev`)
+- Scenescape controller image available (e.g., `scenescape-controller:2026.1.0-dev`)
 
 **Configuration**:
 
@@ -183,7 +183,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 
 ### BlackBoxHarness
 
-**Purpose**: Black-box end-to-end tracker evaluation over live MQTT messages without any dependency on internal SceneScape Python APIs.
+**Purpose**: Black-box end-to-end tracker evaluation over live MQTT messages without any dependency on internal Scenescape Python APIs.
 
 **Mode**: **Synchronous batch processing** — processes all inputs and returns outputs.
 

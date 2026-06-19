@@ -1,7 +1,7 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pipeline generation module for SceneScape."""
+"""Pipeline generation module for Scenescape."""
 
 from .common_types import PipelineGenerationNotImplementedError, PipelineGenerationValueError
 
