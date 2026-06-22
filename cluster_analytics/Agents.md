@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Service Overview
 
-The **Cluster Analytics** service provides advanced object clustering, tracking, and behavioral analysis capabilities for Intel® SceneScape. It identifies spatial clusters of objects, tracks their evolution over time, analyzes geometric patterns, and classifies movement behaviors.
+The **Cluster Analytics** service provides advanced object clustering, tracking, and behavioral analysis capabilities for Scenescape. It identifies spatial clusters of objects, tracks their evolution over time, analyzes geometric patterns, and classifies movement behaviors.
 
 **Primary Purpose**: Transform individual object detections into meaningful group behaviors by identifying clusters, tracking their lifecycle, detecting geometric patterns, and analyzing movement dynamics.
 

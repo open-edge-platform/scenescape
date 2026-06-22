@@ -1,6 +1,6 @@
-# SceneScape Microservices
+# Scenescape Microservices
 
-Here you can find a reference for the available Intel® SceneScape microservices, covering the
+Here you can find a reference for the available Scenescape microservices, covering the
 various aspects of the tool's capabilites.
 
 - [Auto Camera Calibration Service](./auto-calibration/auto-calibration.md) - automatic camera

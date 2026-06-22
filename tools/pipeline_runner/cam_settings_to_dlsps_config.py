@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
@@ -45,7 +45,7 @@ def generate_dlsps_config(camera_settings_path: str, model_configs_folder: str, 
     config_generator.set_metadata_destination(output_type="file", output_path=metadata_output_file)
   print("Model chain: ", config_generator.pipeline_generator.get_model_chain())
   print("Pipeline: ", config_generator.pipeline_generator.generate())
-  print("Metadata format:", "DLStreamer" if dump_dls_metadata else "SceneScape")
+  print("Metadata format:", "DLStreamer" if dump_dls_metadata else "Scenescape")
 
   config_str = config_generator.get_config_as_json()
   with open(output_path, 'w') as f:

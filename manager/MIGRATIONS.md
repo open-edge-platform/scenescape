@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 
 # SPDX-License-Identifier: Apache-2.0
 
@@ -6,7 +6,7 @@
 
 ## Overview
 
-SceneScape uses Django's migration system to manage database schema changes. Migration files are version-controlled and applied at runtime to ensure consistent database upgrades across releases.
+Scenescape uses Django's migration system to manage database schema changes. Migration files are version-controlled and applied at runtime to ensure consistent database upgrades across releases.
 
 ## Important: Proper Migration Usage
 
@@ -110,7 +110,7 @@ Migrations are applied automatically at container startup via the `migrate` comm
 To manually apply migrations:
 
 ```bash
-docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 bash \
+docker exec -it -w /home/scenescape/Scenescape scenescape-web-1 bash \
 python manage.py migrate
 ```
 
@@ -119,7 +119,7 @@ python manage.py migrate
 View all migrations and their application status:
 
 ```bash
-docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 bash \
+docker exec -it -w /home/scenescape/Scenescape scenescape-web-1 bash \
 python manage.py showmigrations
 ```
 
@@ -147,11 +147,11 @@ If multiple developers create migrations in parallel:
 
 ```bash
 # Revert to a specific migration
-docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 bash \
+docker exec -it -w /home/scenescape/Scenescape scenescape-web-1 bash \
 python manage.py migrate manager 0001_initial
 
 # Revert all migrations for an app
-docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 bash \
+docker exec -it -w /home/scenescape/Scenescape scenescape-web-1 bash \
 python manage.py migrate manager zero
 ```
 
@@ -160,7 +160,7 @@ python manage.py migrate manager zero
 In rare cases (like database schema already matches):
 
 ```bash
-docker exec -it -w /home/scenescape/SceneScape scenescape-web-1 bash \
+docker exec -it -w /home/scenescape/Scenescape scenescape-web-1 bash \
 python manage.py migrate manager --fake
 ```
 
