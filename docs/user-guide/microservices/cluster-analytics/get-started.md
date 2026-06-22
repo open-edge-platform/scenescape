@@ -31,9 +31,6 @@ Start the service using docker run:
 ```bash
 docker run --rm \
   --init \
-  --cap-add=SYS_ADMIN \
-  --device=/dev/fuse \
-  --security-opt apparmor:unconfined \
   --network scenescape_scenescape \
   -e EGL_PLATFORM=surfaceless \
   -e DBROOT \
@@ -63,8 +60,8 @@ docker run --rm \
 
 ## Suporting Resources
 
-- Learn how to [Configure Spatial Analytics in Intel® SceneScape](../../building-a-scene/how-to-configure-spatial-analytics.md).
-- Learn how to [Work with Spatial Analytics Data](../../using-intel-scenescape/working-with-spatial-analytics-data.md).
+- Learn how to [Configure Spatial Analytics in Scenescape](../../how-to-guides/build-a-scene/configure-spatial-analytics.md).
+- Learn how to [Work with Spatial Analytics Data](../../how-to-guides/work-with-spatial-analytics-data.md).
 
 <!--hide_directive
 :::{toctree}

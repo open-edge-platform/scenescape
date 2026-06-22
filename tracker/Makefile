@@ -9,7 +9,7 @@ HAS_PIP := no
 HAS_DPKG := no
 BUILDER_BASE_IMAGE := debian:13-slim
 BUILDER_IMAGE := $(IMAGE)-builder
-EXTRA_BUILD_ARGS := --build-arg GIT_COMMIT=$(shell git rev-parse --short HEAD) --build-arg BUILD_TYPE=$(BUILD_TYPE)
+EXTRA_BUILD_ARGS += --build-arg GIT_COMMIT=$(shell git rev-parse --short HEAD) --build-arg BUILD_TYPE=$(BUILD_TYPE)
 # Override BUILD_DIR based on BUILD_TYPE (Release->build, others->build-<type>)
 ifeq ($(BUILD_TYPE),Release)
   override BUILD_DIR := $(PWD)/build
@@ -178,7 +178,7 @@ build-relwithdebinfo: dependencies-relwithdebinfo
 TRACKER_SCHEMA_PATH ?= $(CURDIR)/schema/config.schema.json
 TRACKER_CONFIG_PATH ?= $(CURDIR)/config/tracker.json
 
-# MQTT broker connection - preconfigured for SceneScape demo (docker compose up)
+# MQTT broker connection - preconfigured for Scenescape demo (docker compose up)
 # These variables are exported only in run/run-debug targets to avoid polluting test environment
 TRACKER_MQTT_HOST ?= localhost
 TRACKER_MQTT_PORT ?= $(shell cd test/service && docker compose port broker 1883 2>/dev/null | cut -d: -f2 || echo 1883)
@@ -221,7 +221,7 @@ profile: build-relwithdebinfo
 	@echo "Profile data saved to build-relwithdebinfo/perf.data"
 	@echo "Run 'make flamegraph' to generate flamegraph.svg"
 
-flamegraph: 
+flamegraph:
 	@test -f build-relwithdebinfo/perf.data || (echo "No perf.data found. Run 'make profile' first." && exit 1)
 	@test -d build-relwithdebinfo/FlameGraph || git clone --depth 1 https://github.com/brendangregg/FlameGraph.git build-relwithdebinfo/FlameGraph
 	perf script -i build-relwithdebinfo/perf.data | build-relwithdebinfo/FlameGraph/stackcollapse-perf.pl | build-relwithdebinfo/FlameGraph/flamegraph.pl > build-relwithdebinfo/flamegraph.svg

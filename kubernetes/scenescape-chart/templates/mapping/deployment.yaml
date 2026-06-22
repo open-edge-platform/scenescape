@@ -25,7 +25,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: mapping
-          image: {{ .Values.repository }}/{{ .Values.mapping.image }}:{{ .Chart.AppVersion }}
+          image: {{ .Values.repository }}/{{ .Values.mapping.image }}-{{ .Values.mapping.model }}:{{ .Chart.AppVersion }}
           imagePullPolicy: {{ .Values.mapping.pullPolicy }}
           env:
           - name: PYTHONDONTWRITEBYTECODE
@@ -42,7 +42,7 @@ spec:
               command:
               - sh
               - -c
-              - curl -k -s https://localhost:8444/health
+              - curl -k -s https://localhost:8444/v1/health
             periodSeconds: 10
             timeoutSeconds: 60
             failureThreshold: 5

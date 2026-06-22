@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
@@ -44,11 +44,11 @@ class CameraCalibrationMonocularPoseEstimate:
     self.name = sceneobj.name
     self.dataset_dir = dataset_dir
     self.output_dir = output_dir
-    self.config = Dict(self.generateMarkerlessConfig(sceneobj))
+    self.config = Dict(self.generate_markerless_config(sceneobj))
     self.scene_pose_mat = scene_pose_mat
     self.hloc_config = self.config['hloc']
 
-  def decodeImage(self, img_data):
+  def decode_image(self, img_data):
     """! Converts image from string format to numpy format.
     @param   img_data     Encoded image from MQTT.
 
@@ -58,7 +58,7 @@ class CameraCalibrationMonocularPoseEstimate:
 
     return cv2.imdecode(image_array, flags=1)
 
-  def generateMarkerlessConfig(self, sceneobj):
+  def generate_markerless_config(self, sceneobj):
     """! Gernerate reloc config data based on Scene object data
          stored in database.
     @param sceneobj     Object of Scene Model.
@@ -83,7 +83,7 @@ class CameraCalibrationMonocularPoseEstimate:
 
     return config
 
-  def featureExtract(self, dataset_dir, output_dir, image_list):
+  def feature_extract(self, dataset_dir, output_dir, image_list):
     """! Create a list of file Paths of all the extracted features
          performed by the models and stored in different files.
     @param dataset_dir     Path of the dataset with rbg and depth images.
@@ -111,7 +111,7 @@ class CameraCalibrationMonocularPoseEstimate:
 
     return feature_paths
 
-  def featureExtractLocalize(self, workdir, query_dir, output_dir, loc_pairs, query):
+  def feature_extract_localize(self, workdir, query_dir, output_dir, loc_pairs, query):
     """! Creates a list of file Paths for the features that have been matched by
          the query image to be localized.
 
@@ -150,7 +150,7 @@ class CameraCalibrationMonocularPoseEstimate:
 
     return feature_paths, match_paths
 
-  def registerDataset(self, sceneobj=None):
+  def register_dataset(self, sceneobj=None):
     """!Extract features from the dataset and store them in scene
         object in database.
     @param  sceneobj    Object of Scene Model
@@ -166,7 +166,7 @@ class CameraCalibrationMonocularPoseEstimate:
     dataset_dir = Path(self.dataset_dir)
     output_dir = Path(self.output_dir)
     self.hloc_config.output = str(output_dir / ("-".join(
-      ("SceneScape", self.hloc_config.global_feature, str(self.hloc_config.num_loc),
+      ("Scenescape", self.hloc_config.global_feature, str(self.hloc_config.num_loc),
        *self.hloc_config.local_feature, *self.hloc_config.matcher)) + ".txt"))
     self.hloc_config.retrieval_conf = extract_features.confs[
       self.hloc_config.global_feature]
@@ -174,7 +174,7 @@ class CameraCalibrationMonocularPoseEstimate:
       p.relative_to(dataset_dir)
       for p in (dataset_dir).glob(f"**/*{self.config.data.rgb_ext}")
     ]
-    feature_paths = self.featureExtract(dataset_dir, output_dir, image_list)
+    feature_paths = self.feature_extract(dataset_dir, output_dir, image_list)
     self.hloc_config.feature_paths = feature_paths
     if sceneobj:
       sceneobj.output = self.config['hloc']['output']
@@ -183,7 +183,7 @@ class CameraCalibrationMonocularPoseEstimate:
 
     return sceneobj
 
-  def generateQueryForLocalization(self, cam_frame_data, camera_intrinsics):
+  def generate_query_for_localization(self, cam_frame_data, camera_intrinsics):
     """!Generate the query format necessary for localization.
 
     @param   cam_frame_data     Mqtt Message with camera frame data
@@ -197,7 +197,7 @@ class CameraCalibrationMonocularPoseEstimate:
       "camera_id": cam_frame_data['id'],
       'image_data': cam_frame_data['image']
     }
-    image_data = self.decodeImage(query['image_data'])
+    image_data = self.decode_image(query['image_data'])
     camera_intrinsics = Dict({
       'id': cam_frame_data['id'], 'model': CAMERA_MODEL,
       'width': image_data.shape[1], 'height': image_data.shape[0],
@@ -225,7 +225,7 @@ class CameraCalibrationMonocularPoseEstimate:
     @return sceneobj    Updated Scene Object
     """
     self.scene_pose_mat = getPoseMatrix(sceneobj)
-    query, camera_intrinsics = self.generateQueryForLocalization(cam_frame_data, camera_intrinsics)
+    query, camera_intrinsics = self.generate_query_for_localization(cam_frame_data, camera_intrinsics)
     extract_features.main(
       self.hloc_config.retrieval_conf, self.query_dir, self.output_dir, image_list=query,
       feature_path=self.global_feature_path
@@ -235,7 +235,7 @@ class CameraCalibrationMonocularPoseEstimate:
       query_list=(query.name,),
       db_descriptors=self.hloc_config.global_descriptor_file
     )
-    feature_paths, match_paths = self.featureExtractLocalize(
+    feature_paths, match_paths = self.feature_extract_localize(
       self.workdir, self.query_dir, self.output_dir, self.loc_pairs, query
     )
     results_path = f"{self.workdir}/results.txt"
@@ -248,7 +248,7 @@ class CameraCalibrationMonocularPoseEstimate:
     shutil.rmtree(self.workdir)
     self.workdir = None
 
-    if not self.evaluateMatchQuality(results):
+    if not self.evaluate_match_quality(results):
       return {
         "timestamp": query.timestamp,
         "name": cam_frame_data['id'],
@@ -276,7 +276,7 @@ class CameraCalibrationMonocularPoseEstimate:
       "translation": trans.tolist()
     }
 
-  def evaluateMatchQuality(self, results):
+  def evaluate_match_quality(self, results):
     """! Check the quality of matches.
     @param results   Localization results containing matches.
 
@@ -293,8 +293,8 @@ class CameraCalibrationMonocularPoseEstimate:
     inlier_threshold = self.hloc_config.inlier_threshold
     return inlier_ratio >= inlier_threshold
 
-  def convertYUpToYDown(self, rotation, translation):
-    """!Convert pose from Y-up to Y-down to align with SceneScape coordinate system.
+  def convert_y_up_to_y_down(self, rotation, translation):
+    """!Convert pose from Y-up to Y-down to align with Scenescape coordinate system.
 
     @param  rotation      Rotation values of an object.
     @param  translation   Translation values of an object.

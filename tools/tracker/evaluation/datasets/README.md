@@ -9,11 +9,11 @@ This directory contains dataset adapter implementations for the tracker evaluati
 
 Each dataset adapter implements the `TrackingDataset` abstract base class (see [../base/tracking_dataset.py](../base/tracking_dataset.py)) to provide:
 
-- Scene and camera configuration in SceneScape canonical format
+- Scene and camera configuration in Scenescape canonical format
 - Input data (object detections) from configured cameras, sorted by timestamp
 - Ground-truth object locations for evaluation
 
-Dataset adapters convert dataset-specific formats to SceneScape canonical formats as defined in the tracker schemas.
+Dataset adapters convert dataset-specific formats to Scenescape canonical formats as defined in the tracker schemas.
 
 **Important**: When `get_inputs()` returns data from multiple cameras, frames must be sorted by timestamp in chronological order to properly simulate real-time tracking scenarios.
 
@@ -25,7 +25,7 @@ Dataset adapters convert dataset-specific formats to SceneScape canonical format
 
 **Key Features**:
 - Single scene: `Retail_Demo`
-- Two cameras: `x1`, `x2` (Cam_x1_0, Cam_x2_0)
+- Two cameras: `Cam_x1_0`, `Cam_x2_0`
 - Multiple FPS options: 1, 10, 30 (separate JSON files per FPS)
 - Ground truth in MOTChallenge 3D CSV format (see [Canonical Data Formats](../README.md#canonical-data-formats))
 
@@ -42,13 +42,13 @@ from datasets.metric_test_dataset import MetricTestDataset
 dataset = MetricTestDataset("../../../tests/system/metric/dataset")
 
 # Configure dataset
-dataset.set_cameras(["x1", "x2"]).set_camera_fps(30)
+dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
 # Get scene configuration
 scene_config = dataset.get_scene_config()
 
 # Get camera inputs
-for camera_input in dataset.get_inputs("x1"):
+for camera_input in dataset.get_inputs("Cam_x1_0"):
     # Process detection data
     pass
 
@@ -65,7 +65,7 @@ gt_path = dataset.get_ground_truth()
 To add support for a new dataset:
 
 1. **Create adapter class**: Implement all abstract methods from `TrackingDataset` base class (see [../base/tracking_dataset.py](../base/tracking_dataset.py))
-2. **Format conversion**: Convert dataset-specific formats to SceneScape canonical formats (see [Canonical Data Formats](../README.md#canonical-data-formats))
+2. **Format conversion**: Convert dataset-specific formats to Scenescape canonical formats (see [Canonical Data Formats](../README.md#canonical-data-formats))
 3. **Create tests**: Add comprehensive tests validating format conversion and schema compliance
 4. **Update documentation**: Add entry to this README with usage example and key features
 

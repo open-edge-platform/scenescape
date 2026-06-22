@@ -53,6 +53,17 @@
         "bounding_box_px": {
           "$ref": "#/$defs/bounding_box",
           "description": "Bounding box in pixel coordinates"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Optional per-detection metadata (e.g., reid, gender, age). Keys and values are detector-defined.",
+          "additionalProperties": true
+        },
+        "confidence": {
+          "type": "number",
+          "description": "Optional detection confidence score in [0, 1]",
+          "minimum": 0,
+          "maximum": 1
         }
       },
       "additionalProperties": true

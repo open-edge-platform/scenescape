@@ -21,7 +21,7 @@ class MetricTestDataset(TrackingDataset):
 
   This dataset contains:
   - Scene: Retail_Demo (single built-in scene)
-  - Cameras: x1, x2 (Cam_x1_0, Cam_x2_0)
+  - Cameras: Cam_x1_0, Cam_x2_0
   - FPS options: 1, 10, 30 (separate JSON files per FPS)
   - Ground truth: gtLoc.json with object locations
   - Scene config: config.json with camera calibration
@@ -29,7 +29,7 @@ class MetricTestDataset(TrackingDataset):
 
   # Constants
   SCENE_NAME = "Retail_Demo"
-  SUPPORTED_CAMERAS = ["x1", "x2"]
+  SUPPORTED_CAMERAS = ["Cam_x1_0", "Cam_x2_0"]
   SUPPORTED_FPS = [1, 10, 30]
   DEFAULT_FPS = 30
 
@@ -49,6 +49,7 @@ class MetricTestDataset(TrackingDataset):
     self._scene_config: Optional[Dict[str, Any]] = None
     self._time_start: Optional[str] = None
     self._time_end: Optional[str] = None
+    self._object_categories: Optional[List[str]] = None
     self._output_folder: Optional[Path] = None
 
   def set_scene(self, scene: Optional[str] = None) -> 'MetricTestDataset':
@@ -74,7 +75,7 @@ class MetricTestDataset(TrackingDataset):
     """Set cameras to use.
 
     Args:
-      cameras: List of camera IDs (subset of ["x1", "x2"])
+      cameras: List of camera IDs (subset of ["Cam_x1_0", "Cam_x2_0"])
 
     Returns:
       Self for method chaining
@@ -138,6 +139,27 @@ class MetricTestDataset(TrackingDataset):
         f"Supported: {self.SUPPORTED_FPS}"
       )
     self._camera_fps = camera_fps
+    return self
+
+  def set_object_categories(
+    self,
+    categories: Optional[List[str]] = None
+  ) -> 'MetricTestDataset':
+    """Set the object categories to include in inputs and ground truth.
+
+    Args:
+      categories: List of category names to include (case-sensitive).
+                  If None, includes all categories.
+
+    Returns:
+      Self for method chaining
+
+    Raises:
+      ValueError: If categories list is empty.
+    """
+    if categories is not None and len(categories) == 0:
+      raise ValueError("Categories list must not be empty")
+    self._object_categories = categories
     return self
 
   def set_custom_config(self, config: Dict[str, Any]) -> 'MetricTestDataset':
@@ -213,7 +235,7 @@ class MetricTestDataset(TrackingDataset):
           break
         if self._time_start is not None and timestamp < self._time_start:
           continue
-        yield data
+        yield self._filter_categories(data)
       return
 
     # Multi-camera: sort frames by timestamp
@@ -238,7 +260,7 @@ class MetricTestDataset(TrackingDataset):
         min_idx = min(range(len(timestamps)), key=lambda i: timestamps[i])
 
         # Yield the frame with earliest timestamp
-        yield frame_buffer[min_idx]
+        yield self._filter_categories(frame_buffer[min_idx])
 
         # Read next frame from that camera respecting range
         frame_buffer[min_idx] = self._read_next_frame_within_range(
@@ -293,6 +315,7 @@ class MetricTestDataset(TrackingDataset):
           "category": obj.get("category", category)
         }
         for category, category_objects in objects.items()
+        if self._object_categories is None or category in self._object_categories
         for obj in category_objects
       ])
     # Convert to Ground Truth Format (MOTChallenge 3D CSV)
@@ -330,6 +353,7 @@ class MetricTestDataset(TrackingDataset):
     self._scene_config = None
     self._time_start = None
     self._time_end = None
+    self._object_categories = None
     self._output_folder = None
     return self
 
@@ -382,9 +406,23 @@ class MetricTestDataset(TrackingDataset):
       raise ValueError(f"Camera {cam_id} not in configured cameras")
 
     fps_suffix = f"_{int(self._camera_fps)}fps" if self._camera_fps != 30 else ""
-    input_file = self._dataset_path / f"Cam_{cam_id}_0{fps_suffix}.json"
+    input_file = self._dataset_path / f"{cam_id}{fps_suffix}.json"
 
     if not input_file.exists():
       raise FileNotFoundError(f"Input file not found: {input_file}")
 
     return input_file
+
+  def _filter_categories(self, frame: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a copy of *frame* with only the configured object categories.
+
+    If no category filter is set, returns the frame unchanged.
+    """
+    if self._object_categories is None:
+      return frame
+    filtered = {**frame}
+    filtered["objects"] = {
+      cat: objs for cat, objs in frame.get("objects", {}).items()
+      if cat in self._object_categories
+    }
+    return filtered

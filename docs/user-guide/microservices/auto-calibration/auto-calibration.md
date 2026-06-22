@@ -1,7 +1,7 @@
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/autocalibration">
-     GitHub project
+     GitHub
   </a>
   <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/autocalibration/README.md">
      Readme
@@ -25,9 +25,11 @@ The auto calibration services supports two types of camera calibration methods:
 - **AprilTag Calibration**: This method uses fiducial markers called AprilTags placed within
   the scene. By detecting these markers in the camera's view, the service calculates the
   camera's position, enhancing calibration accuracy and efficiency. Check out the detailed guide
-  on how to [Use AprilTag Camera Calibration](../../calibrating-cameras/how-to-autocalibrate-cameras-using-apriltags.md).
+  on how to [Use AprilTag Camera Calibration](../../how-to-guides/calibrate-cameras/autocalibrate-cameras-using-apriltags.md).
 
-- **Markerless Calibration**: This approach leverages raw RGBD data from a [Polycam](https://poly.cam/) scan to estimate the camera's position in the scene, eliminating the need for physical markers. Check out the detailed guide on how to [Autocalibrate Cameras Using Visual Features](../../calibrating-cameras/how-to-autocalibrate-cameras-using-visual-features.md).
+- **Markerless Calibration**: This approach leverages raw RGBD data from a [Polycam](https://poly.cam/) scan to estimate the camera's position in the scene, eliminating the need for physical markers. Check out the detailed guide on how to [Autocalibrate Cameras Using Visual Features](../../how-to-guides/calibrate-cameras/autocalibrate-cameras-using-visual-features.md).
+
+For implementation-level details of markerless calibration using NetVLAD, quadtree attention, and HLoc, see [Markerless Camera Calibration Internals](./markerless-camera-calibration.md).
 
 To deploy the auto calibration service, refer to the [Get Started](./get-started.md) guide. The service supports configuration through specific arguments and flags ([listed below](#configurable-arguments-and-flags)), which default to predefined values unless explicitly modified.
 
@@ -49,7 +51,7 @@ To deploy the auto calibration service, refer to the [Get Started](./get-started
 
 ## Architecture
 
-![Intel® SceneScape architecture diagram](./_assets/architecture.png)
+![Scenescape architecture diagram](./_assets/architecture.png)
 
 _Figure 1: Architecture Diagram_
 
@@ -69,7 +71,7 @@ The workflow below illustrates the Auto Camera Calibration process. Camera pose 
    - The Client subscribes to real-time calibration results via WebSocket notifications (recommended approach).
    - Alternatively, the Client can poll the calibration status and results using GET on `/v1/cameras/{cameraId}/calibration` endpoint.
 
-![Intel® SceneScape auto calibration sequence diagram](./_assets/autocalibration-sequence-diagram.png)
+![Scenescape auto calibration sequence diagram](./_assets/autocalibration-sequence-diagram.png)
 
 _Figure 2: Auto Calibration Sequence diagram_
 
@@ -77,6 +79,7 @@ _Figure 2: Auto Calibration Sequence diagram_
 
 - [Get Started Guide](./get-started.md)
 - [API Reference](./api-reference.md)
+- [Markerless Camera Calibration Internals](./markerless-camera-calibration.md)
 
 <!--hide_directive
 :::{toctree}
@@ -84,6 +87,7 @@ _Figure 2: Auto Calibration Sequence diagram_
 
 get-started
 api-reference
+markerless-camera-calibration
 
 :::
 hide_directive-->

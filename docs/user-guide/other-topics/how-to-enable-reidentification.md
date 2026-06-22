@@ -1,6 +1,6 @@
 # How to Enable Re-identification Using Visual Similarity Search
 
-This guide provides step-by-step instructions to enable or disable re-identification (ReID) using visual similarity search in a Intel® SceneScape deployment. By completing this guide, you will:
+This guide provides step-by-step instructions to enable or disable re-identification (ReID) using visual similarity search in a Scenescape deployment. By completing this guide, you will:
 
 - Enable re-identification using a visual database and feature-matching model.
 - Understand how to track and evaluate unique object identities across frames.
@@ -16,7 +16,7 @@ Before you begin, ensure the following:
 
 - **Docker** is installed and configured.
 - You have access to modify the `docker-compose.yml` file in your deployment.
-- You are familiar with scene and camera configuration in Intel® SceneScape.
+- You are familiar with scene and camera configuration in Scenescape.
 
 ---
 
@@ -39,7 +39,7 @@ vdms:
 
 For information on VDMS, visit the official documentation: https://intellabs.github.io/vdms/.
 
-Intel® SceneScape leverages VDMS to store object vector embeddings for the purpose of reidentifying an object using visual features.
+Scenescape leverages VDMS to store object vector embeddings for the purpose of reidentifying an object using visual features.
 
 2. **Uncomment VDMS dependency in scene config**
    Uncomment the `vdms` dependency:
@@ -77,7 +77,7 @@ This reidentification-specific configuration uses a vision pipeline that include
    docker compose --profile controller --profile vdms up
    ```
 
-**Expected Result**: Intel® SceneScape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
+**Expected Result**: Scenescape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
 
 ---
 
@@ -118,14 +118,14 @@ retail-config:
    docker compose --profile controller up --build
    ```
 
-**Expected Result**: Intel® SceneScape runs without ReID and no visual feature matching is performed.
+**Expected Result**: Scenescape runs without ReID and no visual feature matching is performed.
 
 ---
 
 ## Evaluating Re-identification Performance
 
 - **Track Unique IDs**:\
-  Intel® SceneScape publishes `unique_detection_count` via MQTT under the scene category topic. Each object includes an `id` field (UUID) for tracking.
+  Scenescape publishes `unique_detection_count` via MQTT under the scene category topic. Each object includes an `id` field (UUID) for tracking.
 
 - **UI Support**:\
   UUID display in the 3D UI is planned for future releases.
@@ -141,18 +141,20 @@ When an object is first detected, it is assigned a UUID and no similarity score.
 - **Match Found**: The object is reassigned a matching UUID and given a similarity score.
 - **No Match**: The object retains its original UUID.
 
+The scene output includes `reid_state` for each tracked object. For canonical state definitions and lifecycle transitions, see [2-Tier Hybrid Search Implementation](../microservices/controller/Extended-ReID.md#reid-object-states). For output field contract details, see [Scene Controller Data Formats](../microservices/controller/data_formats.md#common-output-track-fields).
+
 > **Known Issue**: Current VDMS implementation does not support feature expiration, leading to degraded performance over time. This will be addressed in a future release.
 
 ---
 
 ## Configuration Options
 
-| Parameter                        | Purpose                                                                           | Expected Value/Range        |
-| -------------------------------- | --------------------------------------------------------------------------------- | --------------------------- |
-| `DEFAULT_SIMILARITY_THRESHOLD`   | Controls match sensitivity. Higher values increase matches (and false positives). | Float (e.g., 0.7–0.95)      |
-| `DEFAULT_MINIMUM_BBOX_AREA`      | Minimum bounding box size to consider a valid feature.                            | Pixel area (e.g., 400–1600) |
-| `DEFAULT_MINIMUM_FEATURE_COUNT`  | Minimum features needed before querying DB.                                       | Integer (e.g., 5–20)        |
-| `DEFAULT_MAX_FEATURE_SLICE_SIZE` | Proportion of features stored to improve DB performance.                          | Float (e.g., 0.1–1.0)       |
+| Parameter                                                                 | Purpose                                                                                                                                                                                          | Expected Value/Range                                                                                                                                    |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEFAULT_SIMILARITY_THRESHOLD_L2` / `DEFAULT_SIMILARITY_THRESHOLD_COSINE` | Match-acceptance threshold defaults selected by `similarity_metric`: `L2` uses `DEFAULT_SIMILARITY_THRESHOLD_L2`, and `COSINE` (mapped to VDMS `IP`) uses `DEFAULT_SIMILARITY_THRESHOLD_COSINE`. | Float; tune per metric. For `COSINE`/`IP`, values such as `0.2–0.8` may be used. For `L2`, use a distance threshold appropriate to the embedding/model. |
+| `DEFAULT_MINIMUM_BBOX_AREA`                                               | Minimum bounding box size to consider a valid feature.                                                                                                                                           | Pixel area (e.g., 400–1600)                                                                                                                             |
+| `DEFAULT_MINIMUM_FEATURE_COUNT`                                           | Minimum features needed before querying DB.                                                                                                                                                      | Integer (e.g., 5–20)                                                                                                                                    |
+| `DEFAULT_MAX_FEATURE_SLICE_SIZE`                                          | Proportion of features stored to improve DB performance.                                                                                                                                         | Float (e.g., 0.1–1.0)                                                                                                                                   |
 
 To apply changes (include `--profile vdms` if ReID is enabled; see [Docker Compose Profiles](../get-started.md#docker-compose-profiles)):
 

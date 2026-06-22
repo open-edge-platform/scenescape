@@ -13,7 +13,7 @@ Source video: qcam1.ts
 
 Each scenario spins up a full Docker Compose stack via ``PipelineRunner``,
 subscribes to the MQTT detection topic, collects at least
-``MIN_DETECTIONS`` messages, validates every message against the SceneScape
+``MIN_DETECTIONS`` messages, validates every message against the Scenescape
 detector JSON schema, and tears the stack down - even on failure.
 
 Hardware-specific scenarios are skipped automatically when the corresponding
@@ -42,7 +42,6 @@ def _apply_marks(scenario: PipelineScenario):
   marks = [getattr(pytest.mark, m) for m in scenario.marks]
   return pytest.param(scenario, marks=marks, id=scenario.id)
 
-
 class TestPeoplePipelines:
   """Integration tests for people-detection model chains on qcam1.ts."""
 
@@ -51,8 +50,8 @@ class TestPeoplePipelines:
     [_apply_marks(s) for s in PEOPLE_SCENARIOS],
     indirect=True,
   )
-  def test_detections_received_and_valid(self, camera_settings_path, schema_validator):
-    """Pipeline produces detections that pass the SceneScape detector schema.
+  def test_detections_received_and_valid(self, camera_settings_path, schema_validator, sample_data):
+    """Pipeline produces detections that pass the Scenescape detector schema.
 
     Positive test: for each scenario launch the pipeline, collect
     MIN_DETECTIONS messages within COLLECT_TIMEOUT seconds, and assert every
@@ -84,7 +83,7 @@ class TestPeoplePipelines:
         f"got {category_counts.get('person', 0)}"
       )
 
-  def test_collect_raises_without_stopping_condition(self, tmp_path):
+  def test_collect_raises_without_stopping_condition(self, tmp_path, sample_data):
     """collect() must raise ValueError when called with no timeout or min_detections.
 
     Negative test: calling collect() without any stopping condition is a

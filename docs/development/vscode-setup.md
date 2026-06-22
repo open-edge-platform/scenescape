@@ -1,6 +1,6 @@
-# VS Code Setup for Intel® SceneScape
+# VS Code Setup for Scenescape
 
-This guide configures Visual Studio Code for optimal Intel® SceneScape development with cross-module navigation and IntelliSense.
+This guide configures Visual Studio Code for optimal Scenescape development with cross-module navigation and IntelliSense.
 
 ## Prerequisites
 
@@ -47,7 +47,7 @@ Before configuring VS Code, set up the project environment:
 
 ## Quick Setup
 
-Assuming you have the Intel® SceneScape project cloned and Python environment ready:
+Assuming you have the Scenescape project cloned and Python environment ready:
 
 1. Open VS Code
 2. Use **File → Open Folder** and select the `scenescape` directory
@@ -91,7 +91,7 @@ Create `.vscode/settings.json` in the project root, or press `Ctrl+Shift+P` → 
   "python.terminal.activateEnvironment": true,
   "python.analysis.extraPaths": [
     "${workspaceFolder}",
-    "${workspaceFolder}/manager/src/django",
+    "${workspaceFolder}/manager/src/manager",
     "${workspaceFolder}/tests",
     "${workspaceFolder}/scene_common/src",
     "${workspaceFolder}/controller/src",

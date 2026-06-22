@@ -12,10 +12,11 @@ tracker evaluation workflow:
 5. Save results to unique run-specific output directory
 """
 
+import shutil
 import sys
 import yaml
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 import importlib
 from datetime import datetime
 
@@ -52,12 +53,10 @@ class PipelineEngine:
         config:
           metrics: [HOTA, MOTA, IDF1]
 
-  The pipeline creates a unique output directory for each run:
-    <pipeline.output.path>/<run-ID>/
-  where <run-ID> is a timestamp in format YYYYMMDD_HHMMSS.
-
-  Evaluator results are saved to:
-    <pipeline.output.path>/<run-ID>/<evaluator-class-name>/results/
+  When multiple evaluators are configured, each runs independently against
+  the same tracker outputs. Results are returned as a dict keyed by
+  evaluator key. The evaluator key may be disambiguated with an index
+  suffix when needed, for example `TrackEvalEvaluator_0`.
   """
 
   def __init__(self):
@@ -65,10 +64,12 @@ class PipelineEngine:
     self._config: Optional[Dict[str, Any]] = None
     self._dataset = None
     self._harness = None
-    self._evaluator = None
+    self._evaluators: List[Any] = []
     self._tracker_outputs = None
     self._run_id: Optional[str] = None
     self._output_path: Optional[Path] = None
+    self._config_path: Optional[Path] = None
+    self._summary: Optional[str] = None
 
   def load_configuration(self, config_path: str) -> 'PipelineEngine':
     """Load and parse YAML configuration file.
@@ -94,6 +95,7 @@ class PipelineEngine:
     config_path = Path(config_path)
     if not config_path.exists():
       raise FileNotFoundError(f"Configuration file not found: {config_path}")
+    self._config_path = config_path.resolve()
 
     # Load YAML configuration
     try:
@@ -108,12 +110,19 @@ class PipelineEngine:
     # Create unique run ID and output directory
     self._create_run_output_directory()
 
+    # Persist a copy of the pipeline configuration
+    config_dir = self._output_path / 'config'
+    config_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(self._config_path, config_dir / self._config_path.name)
+
     # Import and instantiate components
     try:
       self._dataset = self._create_component('dataset')
       self._harness = self._create_component('harness')
-      # Phase 1: Use first (and only) evaluator from list
-      self._evaluator = self._create_component('evaluators', index=0)
+      self._evaluators = [
+        self._create_component('evaluators', index=i)
+        for i in range(len(self._config['evaluators']))
+      ]
     except Exception as e:
       raise RuntimeError(f"Failed to create components: {e}") from e
 
@@ -121,7 +130,7 @@ class PipelineEngine:
     try:
       self._configure_dataset()
       self._configure_harness()
-      self._configure_evaluator()
+      self._configure_evaluators()
     except Exception as e:
       raise RuntimeError(f"Failed to configure components: {e}") from e
 
@@ -145,29 +154,39 @@ class PipelineEngine:
       )
 
     try:
-      # Get inputs from dataset
-      inputs = self._dataset.get_inputs()
-
       # Configure harness with scene config
       scene_config = self._dataset.get_scene_config()
       self._harness.set_scene_config(scene_config)
 
-      # Run tracker
-      self._tracker_outputs = self._harness.process_inputs(inputs)
+      # Stream inputs through a counting wrapper so we can log the
+      # frame count without materializing the full dataset into memory.
+      input_count = 0
+      def _counted_inputs():
+        nonlocal input_count
+        for frame in self._dataset.get_inputs():
+          input_count += 1
+          yield frame
+
+      # Run tracker — materialise outputs into a list so evaluate() can
+      # pass the same list to multiple evaluators without re-consuming an iterator.
+      self._tracker_outputs = list(self._harness.process_inputs(_counted_inputs()))
+      print(f"Tracker input frames: {input_count}")
+      print(f"Tracker output frames: {len(self._tracker_outputs)}")
 
       return self
 
     except Exception as e:
       raise RuntimeError(f"Tracker execution failed: {e}") from e
 
-  def evaluate(self) -> Dict[str, float]:
+  def evaluate(self) -> Dict[str, Dict[str, float]]:
     """Evaluate metrics based on dataset ground-truth.
 
-    Computes tracking quality metrics by comparing tracker outputs
-    against ground-truth data from the dataset.
+    Runs all configured evaluators against the same tracker outputs.
 
     Returns:
-      Dictionary mapping metric names to computed values.
+      Dictionary mapping evaluator class name to its metrics dict.
+      Example: {'TrackEvalEvaluator': {'HOTA': 0.8, ...},
+                'JitterEvaluator': {'rms_jerk': 0.02, ...}}
 
     Raises:
       RuntimeError: If tracker hasn't been run or evaluation fails.
@@ -177,28 +196,66 @@ class PipelineEngine:
         "Tracker outputs not available. Call run() first."
       )
 
-    if self._evaluator is None:
+    if not self._evaluators:
       raise RuntimeError(
-        "Evaluator not configured. Call load_configuration() first."
+        "No evaluators configured. Call load_configuration() first."
       )
 
     try:
-      # Get ground truth from dataset
       ground_truth = self._dataset.get_ground_truth()
+      if Path(ground_truth).is_file():
+        with open(ground_truth) as f:
+          gt_line_count = sum(1 for _ in f)
+      else:
+        gt_line_count = 0
+      print(f"Ground-truth frames: {gt_line_count}")
+      all_metrics: Dict[str, Dict[str, float]] = {}
 
-      # Process tracker outputs and ground truth
-      self._evaluator.process_tracker_outputs(
-        tracker_outputs=self._tracker_outputs,
-        ground_truth=ground_truth
-      )
+      evaluator_by_key: Dict[str, Any] = {}
+      for i, evaluator in enumerate(self._evaluators):
+        evaluator_key = self._get_evaluator_key(i)
+        evaluator.process_tracker_outputs(
+          tracker_outputs=self._tracker_outputs,
+          ground_truth=ground_truth
+        )
+        all_metrics[evaluator_key] = evaluator.evaluate_metrics()
+        evaluator_by_key[evaluator_key] = evaluator
 
-      # Evaluate metrics
-      metrics = self._evaluator.evaluate_metrics()
+      # Build and persist evaluation summary
+      lines = ["=== Evaluation Results ==="]
+      for evaluator_name, evaluator_metrics in all_metrics.items():
+        lines.append(f"\n[{evaluator_name}]")
+        evaluator = evaluator_by_key.get(evaluator_name)
+        if evaluator is not None and hasattr(evaluator, 'format_summary'):
+          lines.append(evaluator.format_summary())
+        else:
+          for metric_name, metric_value in evaluator_metrics.items():
+            if isinstance(metric_value, int):
+              lines.append(f"  {metric_name}: {metric_value}")
+            else:
+              lines.append(f"  {metric_name}: {metric_value:.4f}")
+      self._summary = "\n".join(lines)
+      (self._output_path / "summary.txt").write_text(self._summary + "\n")
 
-      return metrics
+      return all_metrics
 
     except Exception as e:
       raise RuntimeError(f"Metric evaluation failed: {e}") from e
+
+  def get_summary(self) -> str:
+    """Return the evaluation summary text.
+
+    Returns:
+      Summary string built by evaluate().
+
+    Raises:
+      RuntimeError: If evaluate() has not been called yet.
+    """
+    if self._summary is None:
+      raise RuntimeError(
+        "Summary not available. Call evaluate() first."
+      )
+    return self._summary
 
   def _validate_configuration(self):
     """Validate configuration structure.
@@ -228,11 +285,6 @@ class PipelineEngine:
           raise ValueError(f"Section 'evaluators' must be a list")
         if len(self._config[section]) == 0:
           raise ValueError(f"Section 'evaluators' must contain at least one evaluator")
-        if len(self._config[section]) > 1:
-          raise ValueError(
-            f"Currently only a single evaluator is supported, but {len(self._config[section])} "
-            f"evaluators are configured. Multiple evaluators will be supported in future phases."
-          )
         # Validate each evaluator entry
         for evaluator_config in self._config[section]:
           if 'class' not in evaluator_config:
@@ -326,14 +378,24 @@ class PipelineEngine:
       self._dataset.set_scene(config['scene'])
 
     # Configure time range if specified
-    if 'start_time' in config or 'end_time' in config:
-      start = config.get('start_time')
-      end = config.get('end_time')
+    if 'time_start' in config or 'time_end' in config:
+      start = config.get('time_start')
+      end = config.get('time_end')
+      # PyYAML parses ISO 8601 timestamps as datetime objects;
+      # the dataset expects ISO 8601 strings for comparison.
+      if isinstance(start, datetime):
+        start = start.strftime("%Y-%m-%dT%H:%M:%S.") + f"{start.microsecond // 1000:03d}Z"
+      if isinstance(end, datetime):
+        end = end.strftime("%Y-%m-%dT%H:%M:%S.") + f"{end.microsecond // 1000:03d}Z"
       self._dataset.set_time_range(start, end)
 
     # Configure custom config if specified
     if 'custom_config' in config:
       self._dataset.set_custom_config(config['custom_config'])
+
+    # Configure object categories if specified
+    if 'categories' in config:
+      self._dataset.set_object_categories(config['categories'])
 
   def _configure_harness(self):
     """Configure harness component."""
@@ -346,12 +408,18 @@ class PipelineEngine:
     # Set tracker config path (required for SceneControllerHarness)
     custom_config = {}
 
-    if 'tracker_config_path' in config:
-      custom_config['tracker_config_path'] = config['tracker_config_path']
+    _constructor_keys = {'container_image'}
+    custom_config = {k: v for k, v in config.items() if k not in _constructor_keys}
 
-    # Add any additional custom configuration
-    if 'custom_config' in config:
-      custom_config.update(config['custom_config'])
+    if 'custom_config' in custom_config:
+      custom_config.update(custom_config.pop('custom_config'))
+
+    # Inject camera_order from dataset config so the harness publishes
+    # same-timestamp frames in a fixed, deterministic order.
+    dataset_config = self._config.get('dataset', {}).get('config', {})
+    camera_order = dataset_config.get('cameras')
+    if camera_order and 'camera_order' not in custom_config:
+      custom_config['camera_order'] = camera_order
 
     if custom_config:
       self._harness.set_custom_config(custom_config)
@@ -362,11 +430,14 @@ class PipelineEngine:
     Creates directory structure:
       <pipeline.output.path>/<run-ID>/
 
-    where <run-ID> is a timestamp in format YYYYMMDD_HHMMSS.
+    where <run-ID> is a timestamp in format YYYYMMDD_HHMMSS, optionally
+    suffixed with the run_name if provided (e.g. YYYYMMDD_HHMMSS_MyRun).
     This format ensures alphabetical order matches chronological order.
     """
     # Generate unique run ID from current local time
-    self._run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_name = self._config['pipeline'].get('run_name')
+    self._run_id = f"{timestamp}_{run_name}" if run_name else timestamp
 
     # Get base output path from config
     base_output_path = Path(self._config['pipeline']['output']['path'])
@@ -375,23 +446,50 @@ class PipelineEngine:
     self._output_path = base_output_path / self._run_id
     self._output_path.mkdir(parents=True, exist_ok=True)
 
-  def _configure_evaluator(self):
-    """Configure evaluator component.
+  def _get_evaluator_key(self, index: int) -> str:
+    """Return a unique string key for the evaluator at the given index.
 
-    Sets evaluator result folder to:
-      <pipeline.output.path>/<run-ID>/<evaluator-class-name>/results/
+    Returns the bare class name when that name is used only once, or
+    '<ClassName>_<index>' when the same class name appears more than once.
     """
-    # Phase 1: Use first (and only) evaluator from list
-    config = self._config['evaluators'][0]['config']
-    evaluator_class_name = self._config['evaluators'][0]['class'].split('.')[-1]
+    class_name = self._config['evaluators'][index]['class'].split('.')[-1]
+    count = sum(
+      1 for cfg in self._config['evaluators']
+      if cfg['class'].split('.')[-1] == class_name
+    )
+    return f"{class_name}_{index}" if count > 1 else class_name
 
-    # Configure metrics if specified
-    if 'metrics' in config:
-      self._evaluator.configure_metrics(config['metrics'])
+  def _configure_evaluators(self):
+    """Configure all evaluator components.
 
-    # Set result folder to run-specific path
-    evaluator_output_path = self._output_path / 'evaluators' / evaluator_class_name
-    self._evaluator.set_output_folder(evaluator_output_path)
+    Sets each evaluator's result folder to:
+      <pipeline.output.path>/<run-ID>/evaluators/<evaluator-key>/
+    where <evaluator-key> is the class name, disambiguated with an index
+    suffix when multiple evaluators share the same class name.
+    """
+    scene_config = self._dataset.get_scene_config() if self._dataset else None
+
+    # Pass dataset camera_fps to evaluators so that timestamp-to-frame
+    # conversion uses the same rate as ground-truth frame numbering.
+    dataset_config = self._config.get('dataset', {}).get('config', {})
+    camera_fps = dataset_config.get('camera_fps')
+
+    for i, evaluator in enumerate(self._evaluators):
+      config = self._config['evaluators'][i]['config']
+      evaluator_key = self._get_evaluator_key(i)
+
+      if 'metrics' in config:
+        evaluator.configure_metrics(config['metrics'])
+
+      if camera_fps is not None:
+        evaluator.set_base_fps(camera_fps)
+
+      # Pass scene config so evaluators that need camera geometry can use it
+      if scene_config is not None and hasattr(evaluator, 'set_scene_config'):
+        evaluator.set_scene_config(scene_config)
+
+      evaluator_output_path = self._output_path / 'evaluators' / evaluator_key
+      evaluator.set_output_folder(evaluator_output_path)
 
 def main():
   """Main entry point for running pipeline from command line.
@@ -419,14 +517,9 @@ def main():
 
     # Evaluate metrics
     print("Evaluating metrics...")
-    metrics = engine.evaluate()
+    engine.evaluate()
 
-    # Print results
-    print("\n=== Evaluation Results ===")
-    for metric_name, metric_value in metrics.items():
-      print(f"{metric_name}: {metric_value:.4f}")
-
-    # Print output location
+    print(f"\n{engine.get_summary()}")
     print(f"\nResults saved to: {engine._output_path}")
 
   except Exception as e:

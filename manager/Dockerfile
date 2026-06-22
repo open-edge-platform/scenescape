@@ -31,18 +31,18 @@ RUN : \
     && rm -rf /var/lib/apt/lists/*
 
 # mod_qos library is broken on debian 12, so we build it from source
-RUN wget https://sourceforge.net/projects/mod-qos/files/mod_qos-11.76.tar.gz/download -O /tmp/mod_qos-11.76.tar.gz && \
-    tar -xzf /tmp/mod_qos-11.76.tar.gz -C /tmp && \
-    rm /tmp/mod_qos-11.76.tar.gz && \
-    cd /tmp/mod_qos-11.76/apache2 && \
+RUN wget https://sourceforge.net/projects/mod-qos/files/mod_qos-11.79.tar.gz/download -O /tmp/mod_qos-11.79.tar.gz && \
+    tar -xzf /tmp/mod_qos-11.79.tar.gz -C /tmp && \
+    rm /tmp/mod_qos-11.79.tar.gz && \
+    cd /tmp/mod_qos-11.79/apache2 && \
     apxs2 -i -a -c -lssl -l crypto mod_qos.c && \
-    rm -rf /tmp/mod_qos-11.76
+    rm -rf /tmp/mod_qos-11.79
 
 # ---------- Manager Runtime Stage ------------------
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-manager-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape Manager Service"
+LABEL org.opencontainers.image.description="Scenescape Manager Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -56,7 +56,7 @@ ARG CERTDOMAIN=scenescape.intel.com
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
-ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
+ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 ARG FORCE_VAAPI
 
 # Update and upgrade base OS packages
@@ -146,24 +146,18 @@ RUN : \
 
 # Copy application code
 RUN mkdir -p $SCENESCAPE_HOME/manager
-COPY ./manager/src/django/*.py \
-    ./manager/src/setup.py \
-    ./version.txt $SCENESCAPE_HOME/manager/
-COPY ./manager/src/django/ppl_generator/* $SCENESCAPE_HOME/manager/ppl_generator/
-COPY ./manager/src/management/ $SCENESCAPE_HOME/manager/management
-COPY ./manager/src/templates/ $SCENESCAPE_HOME/manager/templates
-COPY ./manager/src/static/ $SCENESCAPE_HOME/manager/static
-COPY ./manager/src/templatetags/ $SCENESCAPE_HOME/manager/templatetags
-COPY ./manager/src/django/manage.py $SCENESCAPE_HOME
+COPY ./manager/src/manager $SCENESCAPE_HOME/manager
+COPY ./manager/src/manage.py $SCENESCAPE_HOME/manage.py
+COPY ./version.txt $SCENESCAPE_HOME/manager/
 COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/fast_geometry /usr/local/lib/python3.11/site-packages/fast_geometry
 COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/scene_common /usr/local/lib/python3.11/site-packages/scene_common
 
-# Install SceneScape
+# Install Scenescape
 RUN : \
     ; eval WSHOME=~$WSUSER \
-    ; chown -R "$WSUSER":"$WSUSER" "$WSHOME/SceneScape" \
-    ; touch "$WSHOME/SceneScape/manager/settings_local.py" \
-    ; chown "$WSUSER:$WSUSER" "$WSHOME/SceneScape/manager/settings_local.py" \
+    ; chown -R "$WSUSER":"$WSUSER" "$WSHOME/Scenescape" \
+    ; touch "$WSHOME/Scenescape/manager/settings_local.py" \
+    ; chown "$WSUSER:$WSUSER" "$WSHOME/Scenescape/manager/settings_local.py" \
     ; pip3 install --no-cache-dir "$SCENESCAPE_HOME/manager/" \
     ;
 RUN cp -R /usr/local/lib/python3.*/site-packages/django/contrib/admin/static/ $SCENESCAPE_HOME/
@@ -225,7 +219,7 @@ Package: * \n\
 Pin: origin packages.mozilla.org \n\
 Pin-Priority: 1000 \n\
 ' | tee /etc/apt/preferences.d/mozilla \
-    ; apt-get update && apt-get install -y --no-install-recommends firefox \
+    ; apt-get update && apt-get install -y --no-install-recommends firefox-esr \
     ; rm -rf /var/lib/apt/lists/*
 # Install Python test dependencies
 COPY ./manager/test/requirements-test.txt /tmp
@@ -238,5 +232,5 @@ COPY ./manager/test/firefox-profile.tar /home/scenescape/.mozilla/
 RUN chmod -R a+rwx /home/scenescape/.mozilla
 
 USER $TEST_USER
-ENV PYTHONPATH=/home/scenescape/SceneScape/
+ENV PYTHONPATH=/home/scenescape/Scenescape/
 ENTRYPOINT [""]

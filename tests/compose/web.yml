@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 networks:
@@ -34,9 +34,6 @@ services:
       - "443:443"
     command: >
       webserver
-      --dbhost pgserver
-      --dbtype postgres
-      --dbport 5432
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/browser.auth
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
@@ -45,22 +42,18 @@ services:
       interval: 5s
       timeout: 60s
       retries: 10
-      start_period: 10s
+      start_period: 120s
     environment:
-      - "EXAMPLEDB=/home/scenescape/SceneScape/tests/testdb.tar.bz2"
-      # - "DBROOT"
+      - "EXAMPLEDB=/home/scenescape/Scenescape/tests/testdb.tar.bz2"
+      - "DBHOST=pgserver"
+      - "DBPORT=5432"
+      - "DBTYPE=postgres"
       - "SUPASS"
-    cap_add:
-      - SYS_ADMIN
-    devices:
-      - /dev/fuse
-    security_opt:
-      - apparmor:unconfined
     # web interface needs access to the media files
     volumes:
-      - ./tests/testdb.tar.bz2:/home/scenescape/SceneScape/tests/testdb.tar.bz2
+      - ./tests/testdb.tar.bz2:/home/scenescape/Scenescape/tests/testdb.tar.bz2
       - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-sample-data:/home/scenescape/Scenescape/sample_data
       - vol-migrations:/workspace/migrations
     secrets:
       - source: root-cert

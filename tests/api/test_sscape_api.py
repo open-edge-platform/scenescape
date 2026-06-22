@@ -3,7 +3,6 @@
 
 import logging
 import os
-import sys
 import json
 import glob
 import time
@@ -11,11 +10,8 @@ import inspect
 import pytest
 
 TESTS_API_DIR = os.path.dirname(__file__)
-if TESTS_API_DIR not in sys.path:
-  sys.path.insert(0, TESTS_API_DIR)
 
 from scene_common.rest_client import RESTClient
-from mapping_client import MappingClient
 
 # Logging Configuration
 LOG_FILE = os.path.join(os.path.dirname(__file__), "api_test.log")
@@ -33,36 +29,38 @@ logger.addHandler(console_handler)
 file_handler = logging.FileHandler(LOG_FILE, mode="w")
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(formatter)
+
+# Per-scenario-file log handlers: each JSON source file gets its own .log file.
+_current_source = None   # set before each test case
+_log_handlers = {}       # source_name -> FileHandler
+
+class SourceFilter(logging.Filter):
+  """Only pass log records when _current_source matches this handler's source."""
+  def __init__(self, source):
+    super().__init__()
+    self._source = source
+
+  def filter(self, record):
+    return _current_source == self._source
+
+def get_or_create_file_handler(source_name):
+  """Return the FileHandler for source_name, creating it on first use."""
+  if source_name not in _log_handlers:
+    log_file = os.path.join(TESTS_API_DIR, f"{source_name}.log")
+    fh = logging.FileHandler(log_file, mode="w")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    fh.addFilter(SourceFilter(source_name))
+    logger.addHandler(fh)
+    _log_handlers[source_name] = fh
+  return _log_handlers[source_name]
 logger.addHandler(file_handler)
 
 logger.info(
   "Logger initialized. Logs will be written to console and %s",
   LOG_FILE)
 
-# Setup Base HTTP Client
-API_TOKEN = os.environ.get("API_TOKEN")
-
-BASE_URL = os.environ.get("API_BASE_URL", "https://localhost")
-
-http_client = RESTClient(url=f"{BASE_URL}/api/v1", token=API_TOKEN, verify_ssl=False)
-autocalib_client = RESTClient(url=f"{BASE_URL}/v1", token=API_TOKEN, verify_ssl=False)
-mapping_client = MappingClient(url=f"{BASE_URL}:8444", token=API_TOKEN, verify_ssl=False)
-
 saved_vars = {}
-
-API_MAP = {
-  "scene": http_client,
-  "camera": http_client,
-  "sensor": http_client,
-  "region": http_client,
-  "tripwire": http_client,
-  "user": http_client,
-  "asset": http_client,
-  "child": http_client,
-  "autocalibration": autocalib_client,
-  "mapping": mapping_client,
-}
-
 
 def load_scenarios(path=None):
   """
@@ -75,22 +73,28 @@ def load_scenarios(path=None):
       - None to load from default "scenarios" folder
   """
   if path is None:
-    path = "scenarios"
+    path = os.path.join(TESTS_API_DIR, "scenarios")
 
   scenarios = []
 
   if os.path.isfile(path):
     logger.info(f"Loading scenario file: {path}")
+    stem = os.path.splitext(os.path.basename(path))[0]
     with open(path, "r") as sf:
       data = json.load(sf)
+      for scenario in data:
+        scenario.setdefault("_source_file", stem)
       scenarios.extend(data)
   elif os.path.isdir(path):
-    scenario_files = glob.glob(f"{path}/*.json")
+    scenario_files = sorted(glob.glob(f"{path}/*.json"))
     logger.info(
       f"Loading {len(scenario_files)} scenario files from folder: {path}")
     for f in scenario_files:
+      stem = os.path.splitext(os.path.basename(f))[0]
       with open(f, "r") as sf:
         data = json.load(sf)
+        for scenario in data:
+          scenario.setdefault("_source_file", stem)
         scenarios.extend(data)
   else:
     raise FileNotFoundError(f"Scenario path not found: {path}")
@@ -110,17 +114,37 @@ def substitute_variables(obj):
   return obj
 
 def resolve_file_paths(data):
-  """Resolve file paths in request data relative to the tests/api directory."""
+  """Resolve file paths in request data relative to the tests/api directory.
+
+  Any string value containing 'test_media/' is resolved and opened as a
+  binary file handle for multipart upload. Only called for RESTClient APIs;
+  MappingClient opens its own file paths internally.
+  """
   if isinstance(data, dict):
     return {k: resolve_file_paths(v) for k, v in data.items()}
   elif isinstance(data, list):
     return [resolve_file_paths(item) for item in data]
-  elif isinstance(data, str) and ("test_media/" in data):
-    resolved = os.path.join(TESTS_API_DIR, data)
+  elif isinstance(data, str) and "test_media/" in data:
+    resolved = os.path.normpath(os.path.join(TESTS_API_DIR, data))
+    if os.path.isfile(resolved):
+      return open(resolved, "rb")
     return resolved
   return data
 
-def build_call_kwargs(request_data):
+def normalize_file_paths(data):
+  """Normalize file path strings in request data to absolute paths relative to
+  tests/api, without opening them. Used for MappingClient which opens its own
+  file handles internally, but still needs absolute paths to be CWD-independent.
+  """
+  if isinstance(data, dict):
+    return {k: normalize_file_paths(v) for k, v in data.items()}
+  elif isinstance(data, list):
+    return [normalize_file_paths(item) for item in data]
+  elif isinstance(data, str) and "test_media/" in data:
+    return os.path.normpath(os.path.join(TESTS_API_DIR, data))
+  return data
+
+def build_call_kwargs(request_data, api_name=None):
   """
   Normalise the structured request dict from the JSON scenario into a flat
   kwargs dict ready to be splatted into the API method call.
@@ -129,6 +153,9 @@ def build_call_kwargs(request_data):
     path_params  dict of URL path variables (e.g. scene_id, camera_id, uid)
                  Each key is unpacked directly as a kwarg.
     body         request payload; forwarded as kwarg "data".
+
+  api_name is used to skip file resolution for mapping API, which opens
+  its own file paths internally.
   """
   kwargs = {}
 
@@ -140,8 +167,11 @@ def build_call_kwargs(request_data):
       else:
         logger.warning(f"    'path_params' should be a dict, got {type(value).__name__}; skipping")
     elif key == "body":
-      # Request body → "data" (RESTClient convention)
-      kwargs["data"] = resolve_file_paths(value)
+      # Mapping API opens its own files from path strings; skip resolution
+      if api_name == "mapping":
+        kwargs["data"] = normalize_file_paths(value)
+      else:
+        kwargs["data"] = resolve_file_paths(value)
     else:
       # filter, uid, data, or any legacy flat key – pass through as-is
       kwargs[key] = value
@@ -170,7 +200,7 @@ def compare_expected_json_body(actual, expected, path="root"):
         errors.append(f"{path}.{key}: unexpected key in actual response")
     for key in expected:
       if key in actual:
-        _, sub_errors = compare_expected_json_body(
+        sub_errors = compare_expected_json_body(
           actual[key], expected[key], f"{path}.{key}")
         errors.extend(sub_errors)
 
@@ -180,7 +210,7 @@ def compare_expected_json_body(actual, expected, path="root"):
         f"{path}: list length mismatch - expected {len(expected)}, got {len(actual)}")
     else:
       for i, (actual_item, expected_item) in enumerate(zip(actual, expected)):
-        _, sub_errors = compare_expected_json_body(
+        sub_errors = compare_expected_json_body(
           actual_item, expected_item, f"{path}[{i}]")
         errors.extend(sub_errors)
 
@@ -188,7 +218,7 @@ def compare_expected_json_body(actual, expected, path="root"):
     if actual != expected:
       errors.append(f"{path}: expected '{expected}', got '{actual}'")
 
-  return len(errors) == 0, errors
+  return errors
 
 
 def validate_response(response_body, validation_rules):
@@ -210,10 +240,10 @@ def validate_response(response_body, validation_rules):
         f"Field '{field}': expected '{expected_value}', got '{actual_value}'"
       )
 
-  return len(errors) == 0, errors
+  return errors
 
 
-def execute_step(step, step_number, total_steps):
+def execute_step(api_map, step, step_number, total_steps):
   step_name = step.get("step_name", f"Step {step_number}")
   api_name = step["api"]
   method_name = step["method"]
@@ -228,7 +258,7 @@ def execute_step(step, step_number, total_steps):
   logger.debug(f"    Raw request: {raw_request}")
 
   # Get API client
-  api = API_MAP.get(api_name)
+  api = api_map.get(api_name)
   if not api:
     return False, None, f"Unknown API client: {api_name}"
 
@@ -238,7 +268,9 @@ def execute_step(step, step_number, total_steps):
   # Normalize request keys to match RESTClient parameter names:
   #   "body" -> "data"  (request body)
   #   "path_params" -> extract and merge its contents into request_data
-  call_kwargs = build_call_kwargs(raw_request)
+  call_kwargs = build_call_kwargs(raw_request, api_name=api_name)
+  open_files = [v for v in (call_kwargs.get("data") or {}).values()
+                if hasattr(v, "read")]
 
   # If the method expects "filter" and it wasn't provided, default to None
   api_method = getattr(api, method_name)
@@ -291,13 +323,13 @@ def execute_step(step, step_number, total_steps):
 
         # Check fail_if conditions first
         if fail_rules:
-          _, fail_errors = validate_response(body, fail_rules)
+          fail_errors = validate_response(body, fail_rules)
           if not fail_errors:   # all fail_if conditions matched → abort
             return False, response, f"Poll aborted: fail_if condition matched {fail_rules}"
 
         # Check until conditions
         if until_rules:
-          _, until_errors = validate_response(body, until_rules)
+          until_errors = validate_response(body, until_rules)
           if not until_errors:  # all until conditions matched → done
             break
 
@@ -311,6 +343,9 @@ def execute_step(step, step_number, total_steps):
       response = api_method(**call_kwargs)
   except Exception as e:
     return False, None, f"API call failed: {str(e)}"
+  finally:
+    for fh in open_files:
+      fh.close()
 
   # Parse response
   try:
@@ -334,7 +369,7 @@ def execute_step(step, step_number, total_steps):
   if expected_body is not None:
     logger.debug("    Validating entire response body against expected structure")
     expected_body = substitute_variables(expected_body)
-    _, errors = compare_expected_json_body(response_body, expected_body)
+    errors = compare_expected_json_body(response_body, expected_body)
     if errors:
       error_msg = "Response body validation failed:\n" + \
         "\n".join(f"  - {e}" for e in errors)
@@ -361,7 +396,7 @@ def execute_step(step, step_number, total_steps):
   # Validate specific fields if rules provided
   if validate_rules:
     logger.debug(f"    Validating response against rules: {validate_rules}")
-    _, errors = validate_response(response_body, validate_rules)
+    errors = validate_response(response_body, validate_rules)
     if errors:
       error_msg = "Response validation failed:\n" + \
         "\n".join(f"  - {e}" for e in errors)
@@ -406,13 +441,17 @@ def pytest_generate_tests(metafunc):
     )
 
 
-def test_api_scenario_multistep(test_case):
+def test_api_scenario_multistep(test_case, api_map):
   """
   Execute a multi-step API test scenario.
 
   Each test case can have multiple steps that execute sequentially.
   If any step fails, the entire test case is marked as failed.
   """
+  global _current_source
+  _current_source = test_case.get("_source_file", "api_test")
+  get_or_create_file_handler(_current_source)
+
   test_name = test_case.get("test_name", "unnamed_test")
   test_steps = test_case.get("test_steps", [])
 
@@ -425,7 +464,7 @@ def test_api_scenario_multistep(test_case):
   logger.debug(f"{'=' * 70}")
 
   for step_num, step in enumerate(test_steps, start=1):
-    success, _, error_msg = execute_step(step, step_num, len(test_steps))
+    success, _, error_msg = execute_step(api_map, step, step_num, len(test_steps))
     if not success:
       step_name = step.get("step_name", f"Step {step_num}")
       pytest.fail(f"Step {step_num} '{step_name}' failed: {error_msg}")

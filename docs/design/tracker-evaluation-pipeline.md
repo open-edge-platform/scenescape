@@ -169,6 +169,12 @@ Implementation of the component class must implement the following abstract meth
   - Returns: self for method chaining
   - Raises: ValueError if invalid, RuntimeError on other errors
 
+- **set_object_categories**(categories: Optional[List[str]]) -> TrackingDataset
+  - Restrict inputs and ground truth to the given object categories
+  - Args: list of category name strings to keep, or None to reset (keep all)
+  - Returns: self for method chaining
+  - Raises: ValueError if an empty list is provided
+
 - **set_output_folder**(path: Path) -> TrackingDataset
   - Set folder where dataset-specific outputs or cached artifacts should be stored
   - Args: path to output folder (created if it does not exist)
@@ -254,6 +260,13 @@ Implementation of the component class must implement the following abstract meth
   - Returns: self for method chaining
   - Raises: ValueError if path invalid, RuntimeError on other errors
 
+- **set_base_fps**(fps: Optional[float]) -> TrackerEvaluator
+  - Set base frame rate for timestamp-to-frame-number conversion
+  - When set, evaluators use this FPS instead of computing it from tracker output timestamps; passing None reverts to automatic computation
+  - Args: frames per second (must be > 0), or None to reset
+  - Returns: self for method chaining
+  - Raises: ValueError if fps is not None and <= 0
+
 - **process_tracker_outputs**(tracker_outputs: Iterator[Dict[str, Any]], ground_truth: Iterator[Dict[str, Any]]) -> TrackerEvaluator
   - Process tracker outputs and ground-truth for evaluation
   - Args:
@@ -313,7 +326,7 @@ The pipeline adopts [TrackEval](https://github.com/JonathonLuiten/TrackEval) as 
 
 TrackEval does not provide native support for 3D ground-truth evaluation. To address this limitation, the implementation includes a custom dataset adapter (`MotChallenge3DPoint`) that extends TrackEval's base dataset class to handle 3D point tracking. This adapter uses Euclidean distance for similarity computation in world coordinates and formats ground-truth and tracker outputs to conform to TrackEval's expected data structures.
 
-The integration maps canonical pipeline formats (JSON-based detection and track outputs) to TrackEval's MOTChallenge-style CSV format through format conversion utilities, enabling seamless evaluation of SceneScape's 3D tracking outputs against industry-standard metrics.
+The integration maps canonical pipeline formats (JSON-based detection and track outputs) to TrackEval's MOTChallenge-style CSV format through format conversion utilities, enabling seamless evaluation of Scenescape's 3D tracking outputs against industry-standard metrics.
 
 ## Open Questions
 

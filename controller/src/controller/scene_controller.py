@@ -31,7 +31,8 @@ class SceneController:
 
   def __init__(self, rewrite_bad_time, rewrite_all_time, max_lag, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert, ntp_server,
-               tracker_config_file, schema_file, visibility_topic, data_source, reid_config_file=None):
+               tracker_config_file, schema_file, visibility_topic, data_source,
+               reid_config_file=None, pose_adjustment_config_file=None):
     self.cert = client_cert
     self.root_cert = root_cert
     self.rewrite_bad_time = rewrite_bad_time
@@ -44,6 +45,8 @@ class SceneController:
     self.tracker_config_file = tracker_config_file
     self.reid_config_data = {}
     self.reid_config_file = reid_config_file
+    self.pose_adjustment_config_data = {}
+    self.pose_adjustment_config_file = pose_adjustment_config_file
 
     if tracker_config_file is not None and not ControllerMode.isAnalyticsOnly():
       self.extractTrackerConfigData(tracker_config_file)
@@ -54,6 +57,11 @@ class SceneController:
       self.extractReidConfigData(reid_config_file)
     elif ControllerMode.isAnalyticsOnly():
       log.info("Analytics-only mode: Skipping reid configuration file loading")
+
+    if pose_adjustment_config_file is not None and not ControllerMode.isAnalyticsOnly():
+      self.extractPoseAdjustmentConfigData(pose_adjustment_config_file)
+    elif ControllerMode.isAnalyticsOnly():
+      log.info("Analytics-only mode: Skipping pose adjustment configuration file loading")
 
     self.last_time_sync = None
     self.ntp_server = ntp_server
@@ -82,7 +90,15 @@ class SceneController:
     self.pubsub.onConnect = self.onConnect
     self.pubsub.connect()
 
-    self.cache_manager = CacheManager(data_source, rest_url, rest_auth, root_cert, self.tracker_config_data, self.reid_config_data)
+    self.cache_manager = CacheManager(
+      data_source,
+      rest_url,
+      rest_auth,
+      root_cert,
+      self.tracker_config_data,
+      self.reid_config_data,
+      self.pose_adjustment_config_data,
+    )
 
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
@@ -121,6 +137,20 @@ class SceneController:
       log.info(f"Loaded REID configuration from {reid_config_file}: {self.reid_config_data}")
     return
 
+  def extractPoseAdjustmentConfigData(self, pose_adjustment_config_file):
+    """Extract pose adjustment routing configuration from pose-adjustment-route.json file"""
+    if not os.path.exists(pose_adjustment_config_file) and not os.path.isabs(pose_adjustment_config_file):
+      script = os.path.realpath(__file__)
+      pose_adjustment_config_file = os.path.join(os.path.dirname(script), pose_adjustment_config_file)
+    with open(pose_adjustment_config_file) as json_file:
+      pose_adjustment_config = orjson.loads(json_file.read())
+      self.pose_adjustment_config_data = pose_adjustment_config
+      log.info(
+        f"Loaded pose adjustment configuration from {pose_adjustment_config_file}: "
+        f"{self.pose_adjustment_config_data}"
+      )
+    return
+
   def _extractTrackerRate(self, tracker_config, parameter_name, default_rate, min_rate=None, max_rate=None):
     """Extract and validate rate parameter from tracker config."""
 
@@ -144,8 +174,8 @@ class SceneController:
   def _extractTimeChunkingEnabled(self, tracker_config):
     """Extract and validate time_chunking_enabled flag"""
     if "time_chunking_enabled" not in tracker_config:
-      log.warning("Time chunking enabled flag missing in tracker config file, disabling time chunking.")
-      self.tracker_config_data["time_chunking_enabled"] = False
+      log.warning("Time chunking enabled flag missing in tracker config file, enabling time chunking.")
+      self.tracker_config_data["time_chunking_enabled"] = True
       return
 
     try:
@@ -181,7 +211,8 @@ class SceneController:
     return last is None or now - last >= max_delay
 
   def publishSceneDetections(self, scene, objects, otype, jdata):
-    jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated')
+    # Full rate output (30fps): exclude sensor data for performance
+    jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=False)
     olen = len(jdata['objects'])
     cid = scene.name + "/" + otype
     if olen > 0 or cid not in scene.lastPubCount or scene.lastPubCount[cid] > 0:
@@ -192,14 +223,22 @@ class SceneController:
       new_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid,
                                      thing_type=otype)
       self.pubsub.publish(new_topic, jstr)
-      self.publishExternalDetections(scene, otype, jstr)
+      # External detections need sensor data, so pass objects to rebuild
+      self.publishExternalDetections(scene, otype, objects, jdata)
       scene.lastPubCount[cid] = olen
     return
 
-  def publishExternalDetections(self, scene, otype, jstr):
+  def publishExternalDetections(self, scene, otype, objects, jdata_base):
+    # External rate output (0.5fps): include sensor data
     now = get_epoch_time()
     if self.shouldPublish(scene.last_published_detection[otype], now, 1/scene.external_update_rate):
       scene.last_published_detection[otype] = get_epoch_time()
+
+      # Rebuild detections list with sensor data included
+      jdata = jdata_base.copy()
+      jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=True)
+      jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
+
       scene_hierarchy_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL, scene_id=scene.uid,
                                                  thing_type=otype)
       self.pubsub.publish(scene_hierarchy_topic, jstr)
@@ -216,9 +255,8 @@ class SceneController:
         'last': None
       }
     scene = self.regulate_cache[scene_uid]
-
-    scene['objects'][otype] = buildDetectionsList(msg_objects, scene_obj, self.visibility_topic == 'unregulated')
-
+    # Regulated rate output (5fps): include sensor data
+    scene['objects'][otype] = buildDetectionsList(msg_objects, scene_obj, self.visibility_topic == 'unregulated', include_sensors=True)
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
     elif ControllerMode.isAnalyticsOnly() and 'rate' in jdata:
@@ -240,13 +278,13 @@ class SceneController:
       is_regulated = self.visibility_topic == 'regulated'
 
       msg_objects_lookup = {}
-      if is_regulated and not ControllerMode.isAnalyticsOnly():
+      if is_regulated:
         for obj in msg_objects:
           msg_objects_lookup[obj.gid] = obj
 
       for key in scene['objects']:
         for obj in scene['objects'][key]:
-          if is_regulated and not ControllerMode.isAnalyticsOnly():
+          if is_regulated:
             aobj = msg_objects_lookup.get(obj['id'], None)
             if aobj is not None:
               computeCameraBounds(scene_obj, aobj, obj)
@@ -268,12 +306,16 @@ class SceneController:
     return
 
   def publishRegionDetections(self, scene, objects, otype, jdata):
+    current_time = get_epoch_time(jdata['timestamp'])
     for rname in scene.regions:
       robjects = []
       for obj in objects:
         if rname in obj.chain_data.regions:
           robjects.append(obj)
-      jdata['objects'] = buildDetectionsList(robjects, scene)
+      # Region-specific detections: include sensor data
+      jdata['objects'] = buildDetectionsList(
+        robjects, scene, False, include_sensors=True,
+        include_region_dwell=True, current_time=current_time)
       olen = len(jdata['objects'])
       rid = scene.name + "/" + rname + "/" + otype
       if olen > 0 or rid not in scene.lastPubCount or scene.lastPubCount[rid] > 0:
@@ -307,7 +349,7 @@ class SceneController:
           etype + '_name': region.name,
         }
         detections_dict, num_objects = self._buildAllRegionObjsList(scene, region, event_data)
-        self._buildEnteredObjsList(region, event_data, detections_dict)
+        self._buildEnteredObjsList(scene, region, event_data, detections_dict)
         self._buildExitedObjsList(scene, region, event_data)
 
         log.debug("EVENT DATA", event_data)
@@ -319,6 +361,10 @@ class SceneController:
                                            region_type=etype, event_type=event_type,
                                            scene_id=scene.uid, region_id=region.uuid)
           self.pubsub.publish(event_topic, orjson.dumps(event_data, option=orjson.OPT_SERIALIZE_NUMPY))
+
+    # Clear objects and count events after publishing (but preserve 'value' events for sensors)
+    scene.events.pop('objects', None)
+    scene.events.pop('count', None)
 
     self._clearSensorValuesOnExit(scene)
 
@@ -333,17 +379,30 @@ class SceneController:
       num_objects += counts[otype]
       all_objects += objects
     event_data['counts'] = counts
-    detections_dict = buildDetectionsDict(all_objects, scene)
+    detections_dict = buildDetectionsDict(
+      all_objects, scene, include_sensors=True,
+      include_region_dwell=True, current_time=get_epoch_time(event_data['timestamp']))
     event_data['objects'] = list(detections_dict.values())
     return detections_dict, num_objects
 
-  def _buildEnteredObjsList(self, region, event_data, detections_dict):
+  def _buildEnteredObjsList(self, scene, region, event_data, detections_dict):
     entered = getattr(region, 'entered', {})
     event_data['entered'] = []
+    missing_objs = []
     for entered_list in entered.values():
       for item in entered_list:
-        entered_obj = detections_dict[item.gid]
-        event_data['entered'].extend([entered_obj])
+        # For sensor value events, objects may not be in detections_dict
+        if item.gid in detections_dict:
+          event_data['entered'].append(detections_dict[item.gid])
+        else:
+          missing_objs.append(item)
+
+    # Build any objects not in detections_dict (e.g., from sensor events)
+    if missing_objs:
+      entered_objs = buildDetectionsList(
+        missing_objs, scene, False, include_sensors=True,
+        include_region_dwell=True, current_time=get_epoch_time(event_data['timestamp']))
+      event_data['entered'].extend(entered_objs)
 
   def _buildExitedObjsList(self, scene, region, event_data):
     exited = getattr(region, 'exited', {})
@@ -354,21 +413,23 @@ class SceneController:
       for exited_obj, dwell in exited_list:
         exited_dict[exited_obj.gid] = dwell
         exited_objs.extend([exited_obj])
-      exited_objs = buildDetectionsList(exited_objs, scene)
+      # Exit events: include sensor data (timestamped readings and attribute events)
+      exited_objs = buildDetectionsList(
+        exited_objs, scene, False, include_sensors=True,
+        include_region_dwell=True, current_time=get_epoch_time(event_data['timestamp']))
       exited_data = [{'object': exited_obj, 'dwell': exited_dict[exited_obj['id']]} for exited_obj in exited_objs]
       event_data['exited'].extend(exited_data)
     return
 
   def _clearSensorValuesOnExit(self, scene):
-    """Clears the environmental sensor values accumulated by the exiting object"""
+    """
+    Clears region entered/exited arrays after events have been published.
+    Note: Sensor state cleanup (readings arrays, etc.) is handled
+    in _updateRegionEvents before this method is called. This method only clears
+    the event arrays to prevent stale data from being published in subsequent frames.
+    """
     for event_type in scene.events:
       for region_name, region in scene.events[event_type]:
-        if hasattr(region, 'exited'):
-          for detectionType in region.exited:
-            for exit_data in region.exited[detectionType]:
-              obj = exit_data[0]
-              if region.singleton_type == "environmental":
-                obj.chain_data.sensors.pop(region_name, None)
         region.exited = {}
         region.entered = {}
     return
@@ -520,6 +581,8 @@ class SceneController:
     if ControllerMode.isAnalyticsOnly():
       analytics_objects = scene.getTrackedObjects(detection_type)
       log.debug(f"Analytics-only mode - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
+
+      scene._updateVisible(analytics_objects)
 
       msg_when = get_epoch_time(jdata.get('timestamp'))
 

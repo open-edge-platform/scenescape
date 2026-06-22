@@ -18,7 +18,7 @@ Y_UP_TO_Y_DOWN = np.array([[1, 0, 0, 0],
 IMAGES_TXT_COL_HEADER = "#image_name camera_id qx qy qz qw tx ty tz" + '\n'
 CAMERA_TXT_COL_HEADER = "#camera_id model width height params \n"
 
-def prepareCamerasInput(camera_intrinsics, dataset_dir, output_dir):
+def prepare_cameras_input(camera_intrinsics, dataset_dir, output_dir):
   """! Creates a cameras.txt file in the dataset storing necessary camera
        intrinsic data.
   @param   camera_intrinsics  Camera Intrinsic values obtained from
@@ -36,7 +36,7 @@ def prepareCamerasInput(camera_intrinsics, dataset_dir, output_dir):
 
   return
 
-def prepareImagesInput(images_dict, output_dir, dataset_dir):
+def prepare_images_input(images_dict, output_dir, dataset_dir):
   """! Creates a images.txt file in the dataset based on the cameras.json files.
 
   @param   images_dict        Dictionary containing the rotation and translation
@@ -59,7 +59,7 @@ def prepareImagesInput(images_dict, output_dir, dataset_dir):
 
   return
 
-def getGlbToCameraTransform(rw_to_glbw, cam_to_rw):
+def get_glb_to_camera_transform(rw_to_glbw, cam_to_rw):
   """! Get Glb pose in camera coordinate system.
 
   @param rw_to_glbw   Glb extrinsics in real world.
@@ -74,7 +74,7 @@ def getGlbToCameraTransform(rw_to_glbw, cam_to_rw):
 
   return quaternion, translation
 
-def obtainImagesDataFromJson(mesh_data, camera_json_files):
+def obtain_images_data_from_json(mesh_data, camera_json_files):
   """! Prepare image poses and camera intrinsics to be written to
        cameras.txt and images.txt in output_dir.
   @param  mesh_data           Data from mesh_info.json file in polycam dataset.
@@ -109,14 +109,14 @@ def obtainImagesDataFromJson(mesh_data, camera_json_files):
                             data['t_22'], data['t_23']],
                            [0, 0, 0, 1]
                            ])
-      quaternion, translation = getGlbToCameraTransform(rw_to_glbw,
+      quaternion, translation = get_glb_to_camera_transform(rw_to_glbw,
                                                               cam_to_rw)
       images_rw_data[file.stem]['quaternion'] = list(map(str, quaternion))
       images_rw_data[file.stem]['translation'] = list(map(str, translation))
 
   return camera_intrinsics, images_rw_data
 
-def transformDataset(polycam_dir, output_dir=None):
+def transform_dataset(polycam_dir, output_dir=None):
   """! Transforms the polycam raw output into required input format for reloc
   @param   polycam_dir  polycam raw output directory
   @param   output_dir   reloc input directory
@@ -158,10 +158,10 @@ def transformDataset(polycam_dir, output_dir=None):
       else:
         shutil.rmtree(full_path)
 
-  camera_intrinsics, images_dict = obtainImagesDataFromJson(mesh_data,
+  camera_intrinsics, images_dict = obtain_images_data_from_json(mesh_data,
                                                             camera_json_files)
-  prepareCamerasInput(camera_intrinsics, polycam_dir, output_dir)
-  prepareImagesInput(images_dict, output_dir, polycam_dir)
+  prepare_cameras_input(camera_intrinsics, polycam_dir, output_dir)
+  prepare_images_input(images_dict, output_dir, polycam_dir)
   shutil.rmtree(key_frames_folder)
 
   return
@@ -179,7 +179,7 @@ def main():
     help="output directory for cameras.txt and images.txt")
 
   args = parser.parse_args()
-  transformDataset(args.polycam_dir, args.output_dir)
+  transform_dataset(args.polycam_dir, args.output_dir)
 
   return
 

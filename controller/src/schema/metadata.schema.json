@@ -90,32 +90,6 @@
       },
       "required": ["x", "y", "width", "height"]
     },
-    "center_of_mass": {
-      "title": "Center of Mass",
-      "type": "object",
-      "description": "Center of mass region of a detected object in pixel coordinates of a detected object in an image frame. It is a smaller bounding box that is used for determining average distance from the camera when using RealSense, for example.",
-      "properties": {
-        "x": {
-          "type": "number",
-          "description": "Number of horizontal pixels from the left side of the image to the center of mass bounding box."
-        },
-        "y": {
-          "type": "number",
-          "description": "Number of vertical pixels from the top of the image to the center of mass bounding box."
-        },
-        "width": {
-          "type": "number",
-          "description": "Horizontal width of the center of mass bounding box in pixels.",
-          "minimum": 0
-        },
-        "height": {
-          "type": "number",
-          "description": "Vertical height of the center of mass bounding box in pixels.",
-          "minimum": 0
-        }
-      },
-      "required": ["x", "y", "width", "height"]
-    },
     "semantic_metadata_attribute": {
       "type": "object",
       "title": "Semantic Metadata Attribute",
@@ -156,6 +130,10 @@
               "embedding_vector": {
                 "type": "string"
               },
+              "embedding_dimensions": {
+                "type": "integer",
+                "minimum": 32
+              },
               "model_name": {
                 "type": "string"
               }
@@ -166,6 +144,42 @@
         ]
       },
       "meta:extensible": true
+    },
+    "keypoint": {
+      "type": "object",
+      "title": "Pose Keypoint",
+      "description": "Single pose keypoint with normalized coordinates.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Keypoint name (for example: nose, eye_l, shoulder_r)."
+        },
+        "x": {
+          "type": "number",
+          "description": "Normalized x coordinate in image space (0 to 1)."
+        },
+        "y": {
+          "type": "number",
+          "description": "Normalized y coordinate in image space (0 to 1)."
+        }
+      },
+      "required": ["name", "x", "y"]
+    },
+    "keypoints": {
+      "type": "array",
+      "title": "Pose Keypoints",
+      "description": "Pose keypoints when a pose estimation model is used. Coordinates are normalized to frame dimensions.",
+      "items": {
+        "$ref": "#/definitions/keypoint"
+      }
+    },
+    "keypoint_connections": {
+      "type": "array",
+      "title": "Keypoint Connections",
+      "description": "Flat list of keypoint-name pairs defining connections (for example: [\"nose\", \"eye_l\", \"nose\", \"eye_r\"]). Length should be 2 x number_of_connections.",
+      "items": {
+        "type": "string"
+      }
     },
     "detection": {
       "type": "object",
@@ -233,14 +247,17 @@
           "$ref": "#/definitions/semantic_metadata",
           "description": "Semantic metadata describing what an object is (age, gender, clothing, embedding vectors, etc)."
         },
-        "center_of_mass": {
-          "$ref": "#/definitions/center_of_mass"
-        },
         "distance": {
           "title": "Distance to Object",
           "type": "number",
           "description": "Distance from the camera/sensor to the detection in meters, for example when using RealSense or Lidar.",
           "examples": [1.2, 3.56]
+        },
+        "keypoints": {
+          "$ref": "#/definitions/keypoints"
+        },
+        "keypoint_connections": {
+          "$ref": "#/definitions/keypoint_connections"
         }
       },
       "required": ["category"],
@@ -263,7 +280,7 @@
     },
     "singleton": {
       "title": "Sensor Metadata",
-      "description": "Many types of sensors exist for generating data from the physical world. This schema defines the composition of metadata for publishing sensor data into SceneScape.",
+      "description": "Many types of sensors exist for generating data from the physical world. This schema defines the composition of metadata for publishing sensor data into Scenescape.",
       "type": "object",
       "properties": {
         "timestamp": {
@@ -289,7 +306,7 @@
     },
     "detector": {
       "title": "Detector Metadata",
-      "description": "Many types of detectors exist for generating bounding boxes around objects from image-like sources. This schema defines the composition of metadata for publishing object detection results into SceneScape.",
+      "description": "Many types of detectors exist for generating bounding boxes around objects from image-like sources. This schema defines the composition of metadata for publishing object detection results into Scenescape.",
       "type": "object",
       "properties": {
         "timestamp": {

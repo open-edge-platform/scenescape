@@ -8,6 +8,7 @@ import sys
 import json
 from pathlib import Path
 from typing import Optional
+from itertools import groupby
 import jsonschema
 
 # Add parent directories to path
@@ -100,7 +101,7 @@ class TestInitialization:
     """Test initialization with valid dataset path."""
     ds = MetricTestDataset(str(DATASET_PATH))
     assert ds._dataset_path == DATASET_PATH
-    assert ds._cameras == ["x1", "x2"]
+    assert ds._cameras == ["Cam_x1_0", "Cam_x2_0"]
     assert ds._camera_fps == 30
 
   def test_init_invalid_path(self):
@@ -129,29 +130,29 @@ class TestConfiguration:
 
   def test_set_cameras_default(self, dataset):
     """Test set_cameras with default (None)."""
-    dataset.set_cameras(["x1"])
+    dataset.set_cameras(["Cam_x1_0"])
     result = dataset.set_cameras(None)
     assert result is dataset
-    assert dataset._cameras == ["x1", "x2"]
+    assert dataset._cameras == ["Cam_x1_0", "Cam_x2_0"]
 
   def test_set_cameras_subset(self, dataset):
     """Test set_cameras with valid subset."""
-    result = dataset.set_cameras(["x1"])
+    result = dataset.set_cameras(["Cam_x1_0"])
     assert result is dataset
-    assert dataset._cameras == ["x1"]
+    assert dataset._cameras == ["Cam_x1_0"]
 
   def test_set_cameras_unsupported(self, dataset):
     """Test set_cameras with unsupported camera."""
     with pytest.raises(ValueError, match="Unsupported camera"):
-      dataset.set_cameras(["x3"])
+      dataset.set_cameras(["Cam_x3_0"])
 
   def test_set_time_range_filters_single_camera(self, dataset):
     """Test set_time_range filters frames inclusively for a camera."""
     start = "2014-09-08T04:00:00.264Z"
     end = "2014-09-08T04:00:00.561Z"
 
-    dataset.set_cameras(["x1"]).set_time_range(start, end)
-    inputs = list(dataset.get_inputs("x1"))
+    dataset.set_cameras(["Cam_x1_0"]).set_time_range(start, end)
+    inputs = list(dataset.get_inputs("Cam_x1_0"))
 
     assert inputs
     timestamps = [frame["timestamp"] for frame in inputs]
@@ -162,18 +163,18 @@ class TestConfiguration:
   def test_set_time_range_open_start(self, dataset):
     """Test set_time_range handles None start (earliest timestamp)."""
     end = "2014-09-08T04:00:00.198Z"
-    dataset.set_cameras(["x1"]).set_time_range(None, end)
+    dataset.set_cameras(["Cam_x1_0"]).set_time_range(None, end)
 
-    inputs = list(dataset.get_inputs("x1"))
+    inputs = list(dataset.get_inputs("Cam_x1_0"))
     assert inputs
     assert inputs[-1]["timestamp"] == end
 
   def test_set_time_range_open_end(self, dataset):
     """Test set_time_range handles None end (latest timestamp)."""
     start = "2014-09-08T04:00:00.990Z"
-    dataset.set_cameras(["x1"]).set_time_range(start, None)
+    dataset.set_cameras(["Cam_x1_0"]).set_time_range(start, None)
 
-    inputs = list(dataset.get_inputs("x1"))
+    inputs = list(dataset.get_inputs("Cam_x1_0"))
     assert inputs
     assert inputs[0]["timestamp"] == start
 
@@ -187,18 +188,18 @@ class TestConfiguration:
 
   def test_set_time_range_reset_restores_full_sequence(self, dataset):
     """Test reset clears time range filters for subsequent reads."""
-    dataset.set_cameras(["x1"])
-    full_inputs = list(dataset.get_inputs("x1"))
+    dataset.set_cameras(["Cam_x1_0"])
+    full_inputs = list(dataset.get_inputs("Cam_x1_0"))
 
     dataset.set_time_range(
       "2014-09-08T04:00:00.264Z",
       "2014-09-08T04:00:00.561Z"
     )
-    filtered_inputs = list(dataset.get_inputs("x1"))
+    filtered_inputs = list(dataset.get_inputs("Cam_x1_0"))
     assert len(filtered_inputs) < len(full_inputs)
 
-    dataset.reset().set_cameras(["x1"])
-    reset_inputs = list(dataset.get_inputs("x1"))
+    dataset.reset().set_cameras(["Cam_x1_0"])
+    reset_inputs = list(dataset.get_inputs("Cam_x1_0"))
     assert len(reset_inputs) == len(full_inputs)
 
   def test_set_camera_fps_valid(self, dataset):
@@ -220,13 +221,13 @@ class TestConfiguration:
 
   def test_reset(self, dataset):
     """Test reset method."""
-    dataset.set_cameras(["x1"]).set_camera_fps(10).set_time_range(
+    dataset.set_cameras(["Cam_x1_0"]).set_camera_fps(10).set_time_range(
       "2014-09-08T04:00:00.033Z",
       "2014-09-08T04:00:00.165Z"
     )
     result = dataset.reset()
     assert result is dataset
-    assert dataset._cameras == ["x1", "x2"]
+    assert dataset._cameras == ["Cam_x1_0", "Cam_x2_0"]
     assert dataset._camera_fps == 30
     assert dataset._scene_config is None
     assert dataset._time_start is None
@@ -283,8 +284,8 @@ class TestGetInputs:
 
   def test_get_inputs_30fps(self, dataset):
     """Test get_inputs with default 30 FPS."""
-    dataset.set_camera_fps(30).set_cameras(["x1"])
-    inputs = list(dataset.get_inputs("x1"))
+    dataset.set_camera_fps(30).set_cameras(["Cam_x1_0"])
+    inputs = list(dataset.get_inputs("Cam_x1_0"))
 
     assert len(inputs) > 0
     assert all("timestamp" in inp for inp in inputs)
@@ -293,8 +294,8 @@ class TestGetInputs:
 
   def test_get_inputs_1fps(self, dataset):
     """Test get_inputs with 1 FPS."""
-    dataset.set_camera_fps(1).set_cameras(["x1"])
-    inputs = list(dataset.get_inputs("x1"))
+    dataset.set_camera_fps(1).set_cameras(["Cam_x1_0"])
+    inputs = list(dataset.get_inputs("Cam_x1_0"))
 
     assert len(inputs) > 0
     # 1 FPS should have fewer frames
@@ -302,15 +303,15 @@ class TestGetInputs:
 
   def test_get_inputs_10fps(self, dataset):
     """Test get_inputs with 10 FPS."""
-    dataset.set_camera_fps(10).set_cameras(["x1"])
-    inputs = list(dataset.get_inputs("x1"))
+    dataset.set_camera_fps(10).set_cameras(["Cam_x1_0"])
+    inputs = list(dataset.get_inputs("Cam_x1_0"))
 
     assert len(inputs) > 0
 
   def test_get_inputs_matches_schema(self, dataset, camera_data_schema):
     """Test inputs match camera-data schema."""
-    dataset.set_cameras(["x1"])
-    inputs = list(dataset.get_inputs("x1"))
+    dataset.set_cameras(["Cam_x1_0"])
+    inputs = list(dataset.get_inputs("Cam_x1_0"))
 
     # Validate first few inputs
     for inp in inputs[:5]:
@@ -318,7 +319,7 @@ class TestGetInputs:
 
   def test_get_inputs_all_cameras(self, dataset):
     """Test get_inputs without camera arg returns all."""
-    dataset.set_cameras(["x1", "x2"])
+    dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"])
     inputs = list(dataset.get_inputs())
 
     # Should get inputs from both cameras
@@ -328,13 +329,13 @@ class TestGetInputs:
 
   def test_get_inputs_unconfigured_camera(self, dataset):
     """Test get_inputs with unconfigured camera."""
-    dataset.set_cameras(["x1"])
+    dataset.set_cameras(["Cam_x1_0"])
     with pytest.raises(ValueError, match="not in configured cameras"):
-      list(dataset.get_inputs("x2"))
+      list(dataset.get_inputs("Cam_x2_0"))
 
   def test_get_inputs_sorted_by_timestamp(self, dataset):
     """Test get_inputs returns frames sorted by timestamp across all cameras."""
-    dataset.set_cameras(["x1", "x2"]).set_camera_fps(30)
+    dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
     inputs = list(dataset.get_inputs())
 
     # Convert ISO timestamps to epoch floats for accurate comparison
@@ -350,6 +351,41 @@ class TestGetInputs:
 
     assert all(a <= b for a, b in zip(timestamps, timestamps[1:])), \
       "Frames are not sorted by timestamp"
+
+  def _collect_tie_groups(self, inputs):
+    """Return timestamp groups where more than one camera appears."""
+    tie_groups = []
+    for ts, group in groupby(inputs, key=lambda f: f["timestamp"]):
+      cam_ids = [f["id"] for f in group]
+      if len(cam_ids) > 1:
+        tie_groups.append((ts, cam_ids))
+    return tie_groups
+
+  def _assert_camera_order_in_tie_groups(self, tie_groups, cameras):
+    """Assert every tie group follows the given camera order."""
+    assert tie_groups, "No shared timestamps found between cameras — test data changed"
+    for ts, cam_ids in tie_groups:
+      configured_order = [c for c in cameras if c in cam_ids]
+      assert cam_ids == configured_order, (
+        f"At timestamp {ts}: camera order {cam_ids} "
+        f"does not match configured order {configured_order}"
+      )
+
+  def test_get_inputs_preserves_camera_order_for_same_timestamp(self, dataset):
+    """Test that get_inputs preserves configured camera order for equal timestamps."""
+    cameras = ["Cam_x1_0", "Cam_x2_0"]
+    dataset.set_cameras(cameras).set_camera_fps(30)
+    inputs = list(dataset.get_inputs())
+    tie_groups = self._collect_tie_groups(inputs)
+    self._assert_camera_order_in_tie_groups(tie_groups, cameras)
+
+  def test_get_inputs_reversed_camera_order_for_same_timestamp(self, dataset):
+    """Test that reversing configured camera order changes output order for equal timestamps."""
+    cameras_reversed = ["Cam_x2_0", "Cam_x1_0"]
+    dataset.set_cameras(cameras_reversed).set_camera_fps(30)
+    inputs = list(dataset.get_inputs())
+    tie_groups = self._collect_tie_groups(inputs)
+    self._assert_camera_order_in_tie_groups(tie_groups, cameras_reversed)
 
 
 class TestGetGroundTruth:
@@ -468,7 +504,7 @@ class TestIntegration:
   def test_full_workflow(self, dataset):
     """Test complete dataset workflow."""
     # Configure
-    dataset.set_cameras(["x1"]).set_camera_fps(10)
+    dataset.set_cameras(["Cam_x1_0"]).set_camera_fps(10)
 
     # Get scene config (raw format)
     scene_config = dataset.get_scene_config()
@@ -488,14 +524,14 @@ class TestIntegration:
 
     # Reset and verify
     dataset.reset()
-    assert dataset._cameras == ["x1", "x2"]
+    assert dataset._cameras == ["Cam_x1_0", "Cam_x2_0"]
     assert dataset._camera_fps == 30
 
   def test_method_chaining(self, dataset):
     """Test method chaining works correctly."""
     result = (dataset
               .set_scene("Retail_Demo")
-              .set_cameras(["x1", "x2"])
+              .set_cameras(["Cam_x1_0", "Cam_x2_0"])
               .set_camera_fps(10)
               .reset())
 
@@ -541,25 +577,135 @@ class TestTimestampIntervals:
 
   def test_camera_x1_fps_1(self, dataset):
     """Test camera x1 at 1 FPS has correct timestamp intervals."""
-    self._verify_fps_intervals(dataset, "x1", 1)
+    self._verify_fps_intervals(dataset, "Cam_x1_0", 1)
 
   def test_camera_x1_fps_10(self, dataset):
     """Test camera x1 at 10 FPS has correct timestamp intervals."""
-    self._verify_fps_intervals(dataset, "x1", 10)
+    self._verify_fps_intervals(dataset, "Cam_x1_0", 10)
 
   def test_camera_x1_fps_30(self, dataset):
     """Test camera x1 at 30 FPS has correct timestamp intervals."""
-    self._verify_fps_intervals(dataset, "x1", 30)
+    self._verify_fps_intervals(dataset, "Cam_x1_0", 30)
 
   def test_camera_x2_fps_1(self, dataset):
     """Test camera x2 at 1 FPS has correct timestamp intervals."""
-    self._verify_fps_intervals(dataset, "x2", 1)
+    self._verify_fps_intervals(dataset, "Cam_x2_0", 1)
 
   def test_camera_x2_fps_10(self, dataset):
     """Test camera x2 at 10 FPS has correct timestamp intervals."""
-    self._verify_fps_intervals(dataset, "x2", 10)
+    self._verify_fps_intervals(dataset, "Cam_x2_0", 10)
 
   def test_camera_x2_fps_30(self, dataset):
     """Test camera x2 at 30 FPS has correct timestamp intervals."""
-    self._verify_fps_intervals(dataset, "x2", 30)
+    self._verify_fps_intervals(dataset, "Cam_x2_0", 30)
+
+
+class TestObjectCategories:
+  """Test set_object_categories filtering."""
+
+  def test_set_object_categories_returns_self(self, dataset):
+    """Method returns self for chaining."""
+    result = dataset.set_object_categories(["person"])
+    assert result is dataset
+
+  def test_set_object_categories_none_resets(self, dataset):
+    """Passing None removes the category filter."""
+    dataset.set_object_categories(["person"])
+    dataset.set_object_categories(None)
+    assert dataset._object_categories is None
+
+  def test_set_object_categories_empty_raises(self, dataset):
+    """Empty list raises ValueError."""
+    with pytest.raises(ValueError, match="must not be empty"):
+      dataset.set_object_categories([])
+
+  def test_inputs_filtered_by_category(self, dataset):
+    """Inputs contain only the requested categories."""
+    dataset.set_cameras(["Cam_x1_0"]).set_object_categories(["person"])
+    inputs = list(dataset.get_inputs("Cam_x1_0"))
+
+    assert len(inputs) > 0
+    for frame in inputs:
+      assert set(frame["objects"].keys()) <= {"person"}
+    # At least some frames should contain person objects
+    frames_with_person = [f for f in inputs if "person" in f["objects"]]
+    assert len(frames_with_person) > 0
+
+  def test_inputs_multiple_categories(self, dataset):
+    """Multiple categories are all included."""
+    dataset.set_cameras(["Cam_x1_0"]).set_object_categories(["person", "FW190D"])
+    inputs = list(dataset.get_inputs("Cam_x1_0"))
+
+    assert len(inputs) > 0
+    categories_seen = set()
+    for frame in inputs:
+      categories_seen.update(frame["objects"].keys())
+    assert categories_seen == {"person", "FW190D"}
+
+  def test_inputs_no_filter_returns_all(self, dataset):
+    """Without category filter, all categories are returned."""
+    dataset.set_cameras(["Cam_x1_0"])
+    inputs = list(dataset.get_inputs("Cam_x1_0"))
+
+    categories_seen = set()
+    for frame in inputs:
+      categories_seen.update(frame["objects"].keys())
+    assert len(categories_seen) >= 2
+
+  def test_inputs_frame_count_unchanged(self, dataset):
+    """Category filtering does not change the number of frames."""
+    dataset.set_cameras(["Cam_x1_0"])
+    all_inputs = list(dataset.get_inputs("Cam_x1_0"))
+
+    dataset.set_object_categories(["person"])
+    filtered_inputs = list(dataset.get_inputs("Cam_x1_0"))
+
+    assert len(filtered_inputs) == len(all_inputs)
+
+  def test_ground_truth_filtered_by_category(self, dataset):
+    """Ground truth contains fewer objects when filtered by category."""
+    gt_all = dataset.get_ground_truth()
+    df_all = read_csv_to_dataframe(
+      gt_all, has_header=False,
+      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
+    )
+
+    dataset.set_object_categories(["person"])
+    gt_filtered = dataset.get_ground_truth()
+    df_filtered = read_csv_to_dataframe(
+      gt_filtered, has_header=False,
+      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
+    )
+
+    assert len(df_filtered) < len(df_all)
+    assert len(df_filtered) > 0
+
+  def test_ground_truth_category_ids_match(self, dataset):
+    """Filtered GT only contains object IDs from the requested categories."""
+    # In the dataset, "person" category has IDs 0 and 1,
+    # "Person" has ID 0, "FW190D" has ID 2
+    dataset.set_object_categories(["FW190D"])
+    gt_path = dataset.get_ground_truth()
+    df = read_csv_to_dataframe(
+      gt_path, has_header=False,
+      column_names=["frame", "id", "x", "y", "z", "conf", "class", "vis"]
+    )
+
+    assert set(df["id"].unique()) == {2}
+
+  def test_reset_clears_categories(self, dataset):
+    """Reset removes the category filter."""
+    dataset.set_object_categories(["person"])
+    dataset.reset()
+    assert dataset._object_categories is None
+
+  def test_multi_camera_inputs_filtered(self, dataset):
+    """Category filtering works for multi-camera merge path."""
+    dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"])
+    dataset.set_object_categories(["person"])
+    inputs = list(dataset.get_inputs())
+
+    assert len(inputs) > 0
+    for frame in inputs:
+      assert set(frame["objects"].keys()) <= {"person"}
 

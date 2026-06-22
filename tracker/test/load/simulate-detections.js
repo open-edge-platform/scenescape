@@ -3,7 +3,7 @@
 
 /*
 
-This is a k6 test script that simulates SceneScape detection messages over MQTT.
+This is a k6 test script that simulates Scenescape detection messages over MQTT.
 
 Grid-based placement across a 1280x720 pixel frame.  Objects are arranged on a
 grid sized to NUM_OBJECTS so that every pair is well-separated in world space
@@ -205,12 +205,6 @@ function createBaseMessage(objectCount) {
     objectArray.push({
       category: "person",
       confidence: movementState.confidence,
-      center_of_mass: {
-        x: 0,
-        y: 0,
-        width: 65,
-        height: 90,
-      },
       bounding_box_px: {
         x: 0,
         y: 0,
@@ -250,12 +244,6 @@ function updatePositions(baseMessage) {
 
     // Update person's position based on movement pattern
     updatePersonPosition(movementState, currentTime);
-
-    // Update center of mass
-    person.center_of_mass.x = movementState.currentX;
-    person.center_of_mass.y = movementState.currentY;
-    person.center_of_mass.width = movementState.width;
-    person.center_of_mass.height = movementState.height;
 
     // Update bounding box (fixed size)
     const bboxWidth = 195; // Fixed bounding box width

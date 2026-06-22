@@ -6,7 +6,7 @@
 
 ## Context
 
-SceneScape's Re-ID system currently stores only 256-dimensional float32 vectors in VDMS for object embeddings. However, real-world tracking scenarios require associating rich metadata with these embeddings:
+Scenescape's Re-ID system currently stores only 256-dimensional float32 vectors in VDMS for object embeddings. However, real-world tracking scenarios require associating rich metadata with these embeddings:
 
 - **Vehicle Re-ID**: color, make, model, license plate, body type
 - **Person Re-ID**: clothing color, gender, age, height estimate, badge ID
@@ -28,13 +28,13 @@ We will implement a **2-tier hybrid search architecture** using VDMS schema-less
 
 ### Architecture Overview
 
-```
+```text
 Detection → Metadata Extraction → Vector Generation → Storage
                                        ↓
                               VDMS Descriptor Entry
                          ┌─────────────────────────┐
                          │ Properties (Metadata)   │
-                         │ • uuid, type      │
+                         │ • uuid, type            │
                          │ • make, model           │
                          │ • color (optional)      │
                          │ • license_plate         │
@@ -44,7 +44,6 @@ Detection → Metadata Extraction → Vector Generation → Storage
                          ┌─────────────────────────┐
                          │ Binary Blob (Vector)    │
                          │ • 256-dim float32 vec   │
-                         │ • L2 similarity metric  │
                          └─────────────────────────┘
 
 Query → Extract Vector → Build Constraints → VDMS Search
@@ -54,7 +53,7 @@ Query → Extract Vector → Build Constraints → VDMS Search
                         TIER 1: Database-level
                         metadata filtering
                                 ↓
-                        TIER 2: L2 distance
+                        TIER 2: Vector similarity
                         on filtered candidates
 ```
 
@@ -72,7 +71,7 @@ Query → Extract Vector → Build Constraints → VDMS Search
      - Executed inside VDMS before vector search
      - Reduces candidate set significantly
    - **TIER 2**: Vector similarity search on filtered candidates
-     - L2 distance on 256-dim embeddings
+     - Similarity search on 256-dim embeddings
      - Only processes constrained candidates
      - Returns top-k results with metadata
 

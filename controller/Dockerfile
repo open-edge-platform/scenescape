@@ -40,7 +40,7 @@ RUN cd /tmp/controller \
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-controller-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Controller Service"
+LABEL org.opencontainers.image.description="Scenescape's Scene Controller Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -53,7 +53,7 @@ ARG PYTHON_VERSION=3.11
 
 ENV PYTHON_VERSION=${PYTHON_VERSION}
 ENV WSUSER=scenescape
-ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
+ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -111,12 +111,13 @@ COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENE
 COPY --chown=$WSUSER:$WSUSER ./tracker/schema/scene-data.schema.json $SCENESCAPE_HOME/tracker/schema/scene-data.schema.json
 COPY --chown=$WSUSER:$WSUSER ./controller/config/tracker-config.json $SCENESCAPE_HOME/tracker-config.json
 COPY --chown=$WSUSER:$WSUSER ./controller/config/reid-config.json $SCENESCAPE_HOME/reid-config.json
+COPY --chown=$WSUSER:$WSUSER ./controller/config/pose-adjustment-route.json $SCENESCAPE_HOME/pose-adjustment-route.json
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
 COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-cmd $SCENESCAPE_HOME/controller-cmd
 
 USER $USER_ID:$GROUP_ID
 HEALTHCHECK CMD true
-ENTRYPOINT ["/home/scenescape/SceneScape/controller-cmd"]
+ENTRYPOINT ["/home/scenescape/Scenescape/controller-cmd"]
 
 # ---------- Controller Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)

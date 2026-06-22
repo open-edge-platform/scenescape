@@ -1,7 +1,7 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# ================ Makefile for Intel® SceneScape ====================
+# ================ Makefile for Scenescape ====================
 
 # =========================== Variables ==============================
 SHELL := /bin/bash
@@ -76,7 +76,7 @@ build-experimental: build-experimental-images
 .PHONY: help
 help:
 	@echo ""
-	@echo "Intel® SceneScape version $(VERSION)"
+	@echo "Scenescape version $(VERSION)"
 	@echo ""
 	@echo "Available targets:"
 	@echo "  build-core        (default) Build secrets, core images (excluding mapping, cluster_analytics, and tracker), and install models"
@@ -88,12 +88,13 @@ help:
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
-	@echo "  demo                        (default) Start the SceneScape demo with core services using Docker Compose"
-	@echo "  demo-all                    Start the SceneScape demo with all services using Docker Compose"
+	@echo "  demo                        (default) Start the Scenescape demo with core services using Docker Compose"
+	@echo "  demo-all                    Start the Scenescape demo with all services using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
-	@echo "                              as the super user password for logging into Intel® SceneScape)"
-	@echo "  demo-tracker                Start the SceneScape demo with Tracker service + Controller in analytics only mode using Docker Compose"
-	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
+	@echo "                              as the super user password for logging into Scenescape)"
+	@echo "  demo-tracker                Start the Scenescape demo with Tracker service + Controller in analytics only mode using Docker Compose"
+	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
+	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -118,7 +119,13 @@ help:
 	@echo ""
 	@echo "  run_tests                   Run all tests"
 	@echo "  run_basic_acceptance_tests  Run basic acceptance tests"
+	@echo "  run_functional_tests        Run functional tests"
+	@echo "  run_ui_tests                Run UI tests"
+	@echo "  run_unit_tests              Run unit tests"
+	@echo "  run_stability_tests         Run stability tests"
 	@echo "  run_performance_tests       Run performance tests"
+	@echo "  run_metric_tests            Run metric tests"
+	@echo "  setup-pytest                Create tests/.venv and install dependencies"
 	@echo ""
 	@echo "  lint-all                    Lint entire code base"
 	@echo "  lint-python                 Lint python files"
@@ -137,12 +144,12 @@ help:
 	@echo "  add-licensing FILE=<file>   Add licensing headers to a file"
 	@echo ""
 	@echo "Usage:"
-	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo using Docker Compose."
-	@echo "  - Use 'make build-all demo-k8s DEMO_K8S_MODE=all' to build Intel® SceneScape and run demo using Kubernetes with all services."
+	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Scenescape and run demo using Docker Compose."
+	@echo "  - Use 'make build-all demo-k8s DEMO_K8S_MODE=all' to build Scenescape and run demo using Kubernetes with all services."
 	@echo ""
 	@echo "Tips:"
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
-	@echo "  - Use 'make JOBS=N' to build Intel® SceneScape images using N parallel processes."
+	@echo "  - Use 'make JOBS=N' to build Scenescape images using N parallel processes."
 	@echo "  - Use 'make FOLDERS=\"<list of image folders>\"' to build specific image folders."
 	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
 	@echo ""
@@ -281,6 +288,10 @@ clean-secrets:
 clean-tests:
 	@echo "==> Cleaning test artifacts..."
 	@-rm -rf test_data/
+	@-rm -rf tests/test_logs tests/.venv
+	@echo "Cleaning fast_geometry build artifacts..."
+	@-rm -f scene_common/src/fast_geometry/*.oxx scene_common/src/fast_geometry/*.so
+	@-rm -rf scene_common/src/scene_common.egg-info
 	@echo "Cleaning test images..."
 	@for image in $(TEST_IMAGES); do \
 		docker rmi $(IMAGE_PREFIX)-$$image:$(VERSION) $(IMAGE_PREFIX)-$$image:latest 2>/dev/null || true; \
@@ -338,8 +349,13 @@ install-models:
 
 # =========================== Run Tests ==============================
 
-.PHONY: setup_tests
-setup_tests: build-all-images init-secrets .env
+NPROCS ?= $(shell echo $$(nproc) / 3 | bc)
+PYTEST := $(CURDIR)/tests/.venv/bin/pytest
+PYTEST_FLAGS := --rootdir=$(CURDIR)/tests -v --tb=short
+TESTS_DIR := $(CURDIR)/tests
+
+.PHONY: setup-tests
+setup-tests: init-secrets .env setup-pytest
 	@echo "Setting up test environment..."
 	for dir in $(TEST_IMAGE_FOLDERS); do \
 		$(MAKE) -C $$dir test-build; \
@@ -347,83 +363,185 @@ setup_tests: build-all-images init-secrets .env
 	mkdir -p $(TEST_DATA_FOLDER)/netvlad_models
 	@echo "DONE ==> Setting up test environment"
 
+.PHONY: setup-pytest
+setup-pytest:
+	@if [ ! -d "$(CURDIR)/tests/.venv" ]; then \
+		python3 -m venv $(CURDIR)/tests/.venv; \
+	fi
+	@echo "Installing venv dependencies..."; \
+	$(CURDIR)/tests/.venv/bin/pip install --progress-bar on --upgrade pip; \
+	cd $(CURDIR)/tests && $(CURDIR)/tests/.venv/bin/pip install --progress-bar on -r requirements.txt; \
+	cd $(CURDIR)/tests && $(CURDIR)/tests/.venv/bin/pip install --no-deps -r requirements-no-deps.txt;
+	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "from fast_geometry import Point" 2>/dev/null; then \
+		echo "Building fast_geometry C++ extension..."; \
+		PATH="$(CURDIR)/tests/.venv/bin:$$PATH" \
+			$(MAKE) -C $(CURDIR)/scene_common/src/fast_geometry all install; \
+	fi
+	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision, 'tracking')" 2>/dev/null; then \
+		echo "Building robot_vision C++ extension..."; \
+		$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir scikit-build-core cmake; \
+		if ! dpkg -s libopencv-dev > /dev/null 2>&1; then \
+			echo "ERROR: libopencv-dev is required to build robot_vision. See tests/README.md for installation instructions."; \
+			exit 1; \
+		fi; \
+		if ! dpkg -s libeigen3-dev > /dev/null 2>&1; then \
+			echo "ERROR: libeigen3-dev is required to build robot_vision. See tests/README.md for installation instructions."; \
+			exit 1; \
+		fi; \
+		OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
+			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(CURDIR)/controller/src/robot_vision; \
+	fi
+	@if ! command -v firefox > /dev/null 2>&1; then \
+		echo "WARNING: Firefox is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
+	fi
+	@if ! command -v Xvfb > /dev/null 2>&1; then \
+		echo "WARNING: Xvfb is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
+	fi
+
 .PHONY: run_tests
-run_tests: setup_tests
+run_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running tests..."
-	$(MAKE) --trace -C tests -j 1 SECRETSDIR=$(CURDIR)/manager/secrets || (echo "Tests failed" && exit 1)
+	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
+		$(PYTEST) $(TESTS_DIR)/functional/ $(TESTS_DIR)/ui/ \
+		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ \
+		$(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Tests failed" && exit 1)
 	@echo "DONE ==> Running tests"
 
-.PHONY: run_performance_tests
-run_performance_tests: setup_tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
-	@echo "Running performance tests..."
-	$(MAKE) -C tests performance_tests -j 1 SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
-	@echo "DONE ==> Running performance tests"
-
 .PHONY: run_standard_tests
-run_standard_tests: setup_tests
+run_standard_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running standard tests..."
-	$(MAKE) -C tests standard-tests -j 1 SUPASS=$(SUPASS) || (echo "Standard tests failed" && exit 1)
+	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
+		$(PYTEST) $(TESTS_DIR)/functional/ $(TESTS_DIR)/ui/ \
+		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ $(PYTEST_FLAGS) || (echo "Standard tests failed" && exit 1)
 	@echo "DONE ==> Running standard tests"
 
 .PHONY: run_functional_tests
-run_functional_tests: setup_tests
+run_functional_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running functional tests..."
-	$(MAKE) -C tests functional-tests SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) -k || (echo "Functional tests failed" && exit 1)
+	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
+		$(PYTEST) $(TESTS_DIR)/functional/ $(PYTEST_FLAGS) || (echo "Functional tests failed" && exit 1)
 	@echo "DONE ==> Running functional tests"
 
 .PHONY: run_non_functional_tests
 run_non_functional_tests: init-secrets .env
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running non-functional tests..."
-	$(MAKE) -C tests non-functional-tests SUPASS=$(SUPASS) -k || (echo "Non-functional tests failed" && exit 1)
+	cd docs/user-guide/api-docs && npm install --save-dev swagger-cli@2.0.0 && npx swagger-cli validate api.yaml
 	@echo "DONE ==> Running non-functional tests"
 
-.PHONY: run_metric_tests
-run_metric_tests: setup_tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
-	@echo "Running metric tests..."
-	$(MAKE) -C tests metric-tests -j $(NPROCS) SUPASS=$(SUPASS) -k || (echo "Metric tests failed" && exit 1)
-	@echo "DONE ==> Running metric tests"
-
 .PHONY: run_ui_tests
-run_ui_tests: setup_tests
+run_ui_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running UI tests..."
-	$(MAKE) -C tests ui-tests SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) -k || (echo "UI tests failed" && exit 1)
+	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
+		$(PYTEST) $(TESTS_DIR)/ui/ $(PYTEST_FLAGS) || (echo "UI tests failed" && exit 1)
 	@echo "DONE ==> Running UI tests"
 
 .PHONY: run_unit_tests
-run_unit_tests: setup_tests
+run_unit_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests..."
-	$(MAKE) -C tests unit-tests -j $(NPROCS) SUPASS=$(SUPASS) -k || (echo "Unit tests failed" && exit 1)
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
 	@echo "DONE ==> Running unit tests"
 
 .PHONY: run_basic_acceptance_tests
-run_basic_acceptance_tests: setup_tests
+run_basic_acceptance_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running basic acceptance tests..."
-	$(MAKE) --trace -C tests basic-acceptance-tests -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
+	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
+		$(PYTEST) $(TESTS_DIR)/functional/ $(TESTS_DIR)/ui/ \
+		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ \
+		$(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
 .PHONY: run_stability_tests
-run_stability_tests: setup_tests
+run_stability_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
-	@echo "Running stability tests..."
 	$(eval HOURS ?= 24)
-	$(MAKE) --trace -C tests system-stability -j 1 SUPASS=$(SUPASS) HOURS=$(HOURS) SECRETSDIR=$(CURDIR)/manager/secrets || (echo "Stability tests failed" && exit 1)
+	@echo "Running stability tests..."
+	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
+		STABILITY_HOURS=$(HOURS) \
+		$(PYTEST) $(TESTS_DIR)/system/stability/ $(PYTEST_FLAGS) || (echo "Stability tests failed" && exit 1)
 	@echo "DONE ==> Running stability tests"
 
-# Temp K8s BAT target
-.PHONY: run_basic_acceptance_tests_k8s
-run_basic_acceptance_tests_k8s: setup_tests
-	@echo "Running basic acceptance tests..."
-	$(MAKE) --trace -C tests basic-acceptance-tests-k8s -j 1 SUPASS=$(SUPASS) || (echo "Basic acceptance tests failed" && exit 1)
-	@echo "DONE ==> Running basic acceptance tests"
+# --- Performance and metric tests ---
+
+TEST_DATA ?= test_data
+.PHONY: run_performance_tests
+run_performance_tests: setup-tests setup-pytest
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running performance tests..."
+	$(MAKE) _run_performance_tests SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
+	@echo "DONE ==> Running performance tests"
+
+.PHONY: _run_performance_tests
+_run_performance_tests: inference-performance geometry-conformance
+
+.PHONY: inference-performance
+inference-performance: # NEX-T10412
+	@echo "Running inference performance test..."
+	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
+		$(PYTEST) $(TESTS_DIR)/perf_tests/test_inference_performance.py $(PYTEST_FLAGS) \
+		|| (echo "Inference performance test failed" && exit 1)
+
+.PHONY: geometry-conformance
+geometry-conformance:
+	@echo "Running geometry conformance tests..."
+	$(PYTEST) $(TESTS_DIR)/perf_tests/test_geometry_point.py \
+		$(TESTS_DIR)/perf_tests/test_geometry_line.py $(PYTEST_FLAGS) \
+		|| (echo "Geometry conformance tests failed" && exit 1)
+
+GENERATE_JUNITXML = -o junit_logging=all --junitxml tests/reports/test_reports/$@.xml
+
+.PHONY: run_metric_tests
+run_metric_tests: setup-tests setup-pytest
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running metric tests..."
+	$(MAKE) -j $(NPROCS) _run_metric_tests SUPASS=$(SUPASS) || (echo "Metric tests failed" && exit 1)
+	@echo "DONE ==> Running metric tests"
+
+.PHONY: _run_metric_tests
+_run_metric_tests: idc-error-metric msoce-metric velocity-metric
+
+define metric-recipe =
+	$(eval TEST_SCRIPT=$1)
+	$(eval TEST_SUITE=$2)
+	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
+	@set -ex \
+	  ; echo RUNNING METRIC TEST $@ \
+	  ; if [ -n "$3" ] && [ -n "$4" ] && [ -n "$5" ]; then \
+		METRIC="--metric $3" ; \
+		THRESHOLD="--threshold $4" ; \
+		FRAME_RATE="--camera_frame_rate $5" \
+	  ; fi \
+	  ; mkdir -p $(shell dirname $(LOGFILE)) \
+	  ; $(PYTEST) -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
+			$${METRIC} $${THRESHOLD} $${FRAME_RATE} \
+			-o junit_suite_name=$(TEST_SUITE) | tee -i $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+	  ; echo END TEST $@
+endef
+
+.PHONY: distance-msoce
+distance-msoce: # NEX-T10524
+	$(call metric-recipe, tests/system/metric/test_distance_thresh.py, distance-threshold)
+
+.PHONY: idc-error-metric
+idc-error-metric: # NEX-T10463
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, idc-metric, idc-error, 0.05, 30)
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, idc-metric, idc-error, 0.05, 10)
+
+.PHONY: msoce-metric
+msoce-metric: # NEX-T10463
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, msoce-metric, msoce, 0.05, 30)
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, msoce-metric, msoce, 0.05, 10)
+
+.PHONY: velocity-metric
+velocity-metric: # NEX-T10463
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, velocity-metric, velocity, 0.15, 30)
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, velocity-metric, velocity, 0.15, 10)
 
 # ============================= Lint ==================================
 
@@ -482,7 +600,7 @@ prettier-check:
 .PHONY: indent-check
 indent-check:
 	@echo "==> Checking Python indentation..."
-	@$(MAKE) --trace -C tests python-indent-check -j 1 || (echo "Python indentation check failed" && exit 1)
+	@tests/scripts/checkIndent
 	@echo "DONE ==> Checking Python indentation"
 
 # ===================== Format Code ================================
@@ -543,7 +661,7 @@ define start_demo
 	@$(MAKE) .env
 	@if [ -z "$$SUPASS" ]; then \
 		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
-		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
+		echo "The SUPASS environment variable is the super user password for logging into Scenescape."; \
 		exit 1; \
 	fi
 	@if [ "$$BROKER_PORT" != "" ] && [ "$$BROKER_PORT" != "1883" ]; then \
@@ -555,9 +673,11 @@ define start_demo
 		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
 	fi
 	docker compose $(1) up -d
+	@echo "$(1)" > .scenescape-profile
 	@echo ""
-	@echo "To stop SceneScape, type:"
+	@echo "To stop Scenescape, type:"
 	@echo "    docker compose $(1) down"
+	@echo "Or use: make demo-close"
 endef
 
 .PHONY: demo
@@ -571,6 +691,15 @@ demo-all: build-all init-sample-data
 .PHONY: demo-tracker
 demo-tracker: build-all init-sample-data
 	$(call start_demo,--profile analytics --profile tracker)
+
+.PHONY: demo-close
+demo-close:
+	@if [ ! -f .scenescape-profile ]; then \
+		echo "Error: .scenescape-profile not found. Was the demo started with 'make demo'?"; \
+		exit 1; \
+	fi
+	docker compose $(shell cat .scenescape-profile 2>/dev/null) down -v
+	@rm -f .scenescape-profile
 
 .PHONY: demo-k8s
 demo-k8s:
@@ -608,7 +737,13 @@ init-secrets: $(SECRETSDIR) certificates auth-secrets
 
 $(SECRETSDIR):
 	mkdir -p $@
-	chmod go-rwx $(SECRETSDIR)
+	@if ! chmod go-rwx $(SECRETSDIR); then \
+		if [ "$${CI}" = "true" ] || [ "$${CI}" = "1" ]; then \
+			echo "Warning: could not set restrictive permissions on $(SECRETSDIR) in CI; secrets may be more exposed on this filesystem. Ensure runner isolation controls are in place."; \
+		else \
+			exit 1; \
+		fi; \
+	fi
 
 .PHONY: $(SECRETSDIR) certificates
 certificates:

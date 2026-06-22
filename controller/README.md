@@ -1,4 +1,4 @@
-# Using Intel® SceneScape's Scene Controller Service
+# Scenescape's Scene Controller Service
 
 ## Documentation
 

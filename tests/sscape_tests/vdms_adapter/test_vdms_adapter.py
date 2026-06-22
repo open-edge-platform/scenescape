@@ -47,13 +47,14 @@ class TestVDMSDatabaseInitialization:
     db = VDMSDatabase()
 
     assert db.db is not None
+    assert db.similarity_metric == "L2"
     mock_vdms.assert_called()
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_initialization_with_custom_parameters(self, mock_vdms):
     """Verify VDMS can be initialized with custom schema parameters."""
     custom_set_name = "custom_reid"
-    custom_metric = "L2"
+    custom_metric = "IP"
     custom_dims = 512
 
     db = VDMSDatabase(
@@ -73,8 +74,253 @@ class TestVDMSDatabaseInitialization:
     assert hasattr(db, 'lock'), "VDMSDatabase must have a lock for thread safety"
 
 
+class TestSchemaValidation:
+  """Test descriptor set schema validation and mismatch handling."""
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_schema_details_extracts_top_level_dimensions(self, mock_vdms_class):
+    """Verify FindDescriptorSet top-level dimensions are parsed."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'dimensions': 256
+    }], []))
+
+    exists, dimensions = db.findSchemaDetails(SCHEMA_NAME)
+
+    assert exists is True
+    assert dimensions == 256
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_schema_details_extracts_nested_dimensions(self, mock_vdms_class):
+    """Verify dimensions nested under entities are parsed."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'entities': [{
+        'name': SCHEMA_NAME,
+        'dimensions': 512
+      }]
+    }], []))
+
+    exists, dimensions = db.findSchemaDetails(SCHEMA_NAME)
+
+    assert exists is True
+    assert dimensions == 512
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_schema_metadata_extracts_metric(self, mock_vdms_class):
+    """Verify FindDescriptorSet metric is extracted for schema compatibility checks."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'dimensions': 256,
+      'metric': 'L2'
+    }], []))
+
+    exists, dimensions, metric = db.findSchemaMetadata(SCHEMA_NAME)
+
+    assert exists is True
+    assert dimensions == 256
+    assert metric == 'L2'
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_ensure_schema_add_descriptor_set_success_path(self, mock_vdms_class):
+    """Verify ensureSchema succeeds directly when AddDescriptorSet returns success."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=None)
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    db.ensureSchema(256)
+
+    assert db._schema_ready is True
+    assert db.dimensions == 256
+    assert db.sendQuery.call_count == 1
+    query = db.sendQuery.call_args_list[0][0][0]
+    assert 'AddDescriptorSet' in query[0]
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_ensure_schema_raises_on_existing_dimension_mismatch(self, mock_vdms_class):
+    """Verify fallback metadata check fails when existing descriptor dimensions differ."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=None)
+    db.sendQuery = Mock(side_effect=[
+      ([{'status': 1}], []),
+      ([{
+        'status': 0,
+        'returned': 1,
+        'dimensions': 128,
+        'metric': 'L2'
+      }], []),
+    ])
+
+    with pytest.raises(RuntimeError, match="has 128 dimensions"):
+      db.ensureSchema(256)
+
+    assert db._schema_ready is False
+    assert db.dimensions is None
+    assert db.sendQuery.call_count == 2
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_ensure_schema_raises_when_dimensions_not_reported(self, mock_vdms_class):
+    """Verify ensureSchema refuses existing descriptor sets without dimension info."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=None)
+    db.sendQuery = Mock(side_effect=[
+      ([{'status': 1}], []),
+      ([{
+        'status': 0,
+        'returned': 1,
+        'name': SCHEMA_NAME
+      }], []),
+    ])
+
+    with pytest.raises(RuntimeError, match="returned no dimensions"):
+      db.ensureSchema(256)
+
+    assert db._schema_ready is False
+    assert db.dimensions is None
+    assert db.sendQuery.call_count == 2
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_ensure_schema_raises_on_existing_metric_mismatch(self, mock_vdms_class):
+    """Verify fallback metadata check fails when existing descriptor metric differs."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(similarity_metric="IP", dimensions=None)
+    db.sendQuery = Mock(side_effect=[
+      ([{'status': 1}], []),
+      ([{
+        'status': 0,
+        'returned': 1,
+        'dimensions': 256,
+        'metric': 'L2'
+      }], []),
+    ])
+
+    with pytest.raises(RuntimeError, match="uses metric L2"):
+      db.ensureSchema(256)
+
+    assert db._schema_ready is False
+    assert db.dimensions is None
+    assert db.sendQuery.call_count == 2
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_ensure_schema_accepts_matching_existing_dimensions(self, mock_vdms_class):
+    """Verify fallback metadata check succeeds when schema already exists and matches."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(side_effect=[
+      ([{'status': 1}], []),
+      ([{
+        'status': 0,
+        'returned': 1,
+        'dimensions': 256,
+        'metric': 'L2'
+      }], []),
+    ])
+
+    db.ensureSchema(256)
+
+    assert db._schema_ready is True
+    assert db.dimensions == 256
+    assert db.sendQuery.call_count == 2
+    first_query = db.sendQuery.call_args_list[0][0][0]
+    second_query = db.sendQuery.call_args_list[1][0][0]
+    assert 'AddDescriptorSet' in first_query[0]
+    assert 'FindDescriptorSet' in second_query[0]
+
+
 class TestAddEntry:
   """Test adding entries to VDMS."""
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_prepare_reid_dict_infers_dimensions_from_row_vector(self, mock_vdms_class):
+    """Verify prepareReidDict infers dimensions and flattens (1, N) input."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    row_vector = np.arange(12, dtype=np.float32).reshape(1, 12)
+
+    prepared = db.prepareReidDict(row_vector, dimensions=None)
+
+    assert prepared is not None
+    assert prepared['dimensions'] == 12
+    assert prepared['embedded_vector'].shape == (12,)
+    assert np.array_equal(prepared['embedded_vector'], row_vector.reshape(-1))
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_prepare_reid_dict_rejects_dimension_mismatch(self, mock_vdms_class):
+    """Verify prepareReidDict returns None when expected dimensions do not match."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    row_vector = np.arange(16, dtype=np.float32).reshape(1, 16)
+
+    prepared = db.prepareReidDict(row_vector, dimensions=32)
+
+    assert prepared is None
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_prepare_reid_dict_normalizes_for_ip_metric(self, mock_vdms_class):
+    """Verify prepareReidDict normalizes vectors when normalize_embeddings=True (IP metric)."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(similarity_metric="IP")
+    vec = np.zeros(256, dtype=np.float32)
+    vec[0] = 3.0
+    vec[1] = 4.0
+
+    prepared = db.prepareReidDict(vec, dimensions=256, normalize_embeddings=True)
+
+    assert prepared is not None
+    normalized = prepared['embedded_vector']
+    assert np.isclose(np.linalg.norm(normalized), 1.0), "Vector should be normalized to unit norm"
+    assert np.isclose(normalized[0], 0.6), "Normalized [0] should be 3/5 = 0.6"
+    assert np.isclose(normalized[1], 0.8), "Normalized [1] should be 4/5 = 0.8"
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_prepare_reid_dict_preserves_for_l2_metric(self, mock_vdms_class):
+    """Verify prepareReidDict preserves raw vectors when normalize_embeddings=False (L2 metric)."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(similarity_metric="L2")
+    vec = np.zeros(256, dtype=np.float32)
+    vec[0] = 3.0
+    vec[1] = 4.0
+
+    prepared = db.prepareReidDict(vec, dimensions=256, normalize_embeddings=False)
+
+    assert prepared is not None
+    raw = prepared['embedded_vector']
+    assert np.isclose(raw[0], 3.0), "Raw [0] should remain 3.0"
+    assert np.isclose(raw[1], 4.0), "Raw [1] should remain 4.0"
+    assert np.isclose(np.linalg.norm(raw), 5.0), "Raw norm should be 5.0 (3-4-5 triangle)"
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_add_entry_requires_standard_fields(self, mock_vdms_class):
@@ -83,6 +329,7 @@ class TestAddEntry:
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
+    db.dimensions = 256
     db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
     test_uuid = "test-uuid-123"
@@ -103,12 +350,33 @@ class TestAddEntry:
     assert properties['type'] == test_type
 
   @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_accepts_row_vector_shape(self, mock_vdms_class):
+    """Verify addEntry accepts (1, N) vectors through prepareReidDict."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    row_vector = np.random.randn(1, 256).astype(np.float32)
+
+    db.addEntry("test-uuid", "rvid", "Person", [row_vector])
+
+    db.sendQuery.assert_called_once()
+    blob = db.sendQuery.call_args[0][1]
+    assert len(blob) == 1
+    stored = np.frombuffer(blob[0], dtype=np.float32)
+    assert stored.shape == (256,)
+
+  @patch('controller.vdms_adapter.vdms.vdms')
   def test_add_entry_handles_new_metadata_format(self, mock_vdms_class):
     """Verify addEntry extracts label from metadata dict for VDMS constraint matching."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
+    db.dimensions = 256
     db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
     test_uuid = "test-uuid"
@@ -137,33 +405,50 @@ class TestAddEntry:
     assert properties['age'] == "28"
 
   @patch('controller.vdms_adapter.vdms.vdms')
-  def test_add_entry_converts_vectors_to_bytes(self, mock_vdms_class):
-    """Verify addEntry converts numpy vectors to bytes for blob transmission."""
+  def test_add_entry_normalizes_vectors_before_blob(self, mock_vdms_class):
+    """Verify addEntry normalizes vectors before sending them to VDMS when metric is IP."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
-    db = VDMSDatabase()
-    db.sendQuery = Mock(return_value=([{'status': 0}, {'status': 0}], []))
+    db = VDMSDatabase(similarity_metric="IP")
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
-    test_uuid = "test-uuid"
-    test_rvid = "rvid"
-    test_type = "Person"
+    vec = np.zeros(256, dtype=np.float32)
+    vec[0] = 3.0
+    vec[1] = 4.0
 
-    test_vectors = [
-      np.random.randn(256).astype(np.float32),
-      np.random.randn(256).astype(np.float32)
-    ]
-
-    db.addEntry(test_uuid, test_rvid, test_type, test_vectors)
+    db.addEntry("test-uuid", "rvid", "Person", [vec])
 
     call_args = db.sendQuery.call_args
     blob = call_args[0][1]
+    normalized = np.frombuffer(blob[0], dtype=np.float32)
 
-    assert blob is not None
-    assert len(blob) == len(test_vectors), "Blob should have one entry per vector"
+    assert np.isclose(np.linalg.norm(normalized), 1.0)
+    assert np.isclose(normalized[0], 0.6)
+    assert np.isclose(normalized[1], 0.8)
 
-    for blob_item in blob:
-      assert isinstance(blob_item, bytes), "Blob item should be bytes"
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_preserves_raw_vectors_for_l2_metric(self, mock_vdms_class):
+    """Verify non-IP metrics do not force vector normalization before sending to VDMS."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(similarity_metric="L2")
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    vec = np.zeros(256, dtype=np.float32)
+    vec[0] = 3.0
+    vec[1] = 4.0
+
+    db.addEntry("test-uuid", "rvid", "Person", [vec])
+
+    call_args = db.sendQuery.call_args
+    blob = call_args[0][1]
+    stored = np.frombuffer(blob[0], dtype=np.float32)
+
+    assert np.isclose(stored[0], 3.0)
+    assert np.isclose(stored[1], 4.0)
+    assert np.isclose(np.linalg.norm(stored), 5.0)
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_add_entry_handles_multiple_vectors(self, mock_vdms_class):
@@ -172,6 +457,7 @@ class TestAddEntry:
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
+    db.dimensions = 256
     db.sendQuery = Mock(return_value=([{'status': 0}, {'status': 0}, {'status': 0}], []))
 
     test_uuid = "test-uuid"
@@ -286,6 +572,76 @@ class TestFindMatches:
       assert isinstance(blob_item, bytes), "TIER 2 requires vectors as bytes"
 
   @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_matches_normalizes_query_vectors(self, mock_vdms_class):
+    """Verify findMatches normalizes query vectors before similarity search when metric is IP."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(similarity_metric="IP")
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 0
+    }], []))
+
+    vec = np.zeros(256, dtype=np.float32)
+    vec[0] = 3.0
+    vec[1] = 4.0
+
+    db.findMatches("Person", [vec])
+
+    call_args = db.sendQuery.call_args
+    blob = call_args[0][1]
+    normalized = np.frombuffer(blob[0], dtype=np.float32)
+
+    assert np.isclose(np.linalg.norm(normalized), 1.0)
+    assert np.isclose(normalized[0], 0.6)
+    assert np.isclose(normalized[1], 0.8)
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_matches_preserves_query_vectors_for_l2_metric(self, mock_vdms_class):
+    """Verify findMatches preserves raw vectors for the L2 metric path."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(similarity_metric="L2")
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 0
+    }], []))
+
+    vec = np.zeros(256, dtype=np.float32)
+    vec[0] = 3.0
+    vec[1] = 4.0
+
+    db.findMatches("Person", [vec])
+
+    call_args = db.sendQuery.call_args
+    blob = call_args[0][1]
+    stored = np.frombuffer(blob[0], dtype=np.float32)
+
+    assert np.isclose(stored[0], 3.0)
+    assert np.isclose(stored[1], 4.0)
+    assert np.isclose(np.linalg.norm(stored), 5.0)
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_matches_skips_zero_norm_vectors(self, mock_vdms_class):
+    """Verify findMatches ignores zero-norm vectors for IP metric and avoids empty VDMS queries."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(similarity_metric="IP")
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 0
+    }], []))
+
+    zero_vec = np.zeros(256, dtype=np.float32)
+    result = db.findMatches("Person", [zero_vec])
+
+    assert result is None
+    db.sendQuery.assert_not_called()
+
+  @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_returns_matched_entities(self, mock_vdms_class):
     """Verify findMatches returns matched entities from VDMS."""
     mock_vdms_instance = MagicMock()
@@ -309,6 +665,114 @@ class TestFindMatches:
     assert result is not None, "findMatches should return results when matches found"
     assert len(result) == 1
     assert result[0] == expected_entities
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_matches_filters_invalid_ip_similarity_scores(self, mock_vdms_class):
+    """Verify findMatches filters entities with IP scores outside [-1, 1]."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(similarity_metric="IP")
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 3,
+      'entities': [
+        {'uuid': 'valid', 'rvid': 'rvid-1', '_distance': 0.9},
+        {'uuid': 'too-high', 'rvid': 'rvid-2', '_distance': 1.2},
+        {'uuid': 'too-low', 'rvid': 'rvid-3', '_distance': -1.1},
+      ]
+    }], []))
+
+    test_vectors = [np.random.randn(256).astype(np.float32)]
+    result = db.findMatches("Person", test_vectors)
+
+    assert result is not None
+    assert len(result) == 1
+    assert len(result[0]) == 1
+    assert result[0][0]['uuid'] == 'valid'
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_matches_preserves_per_vector_slot_when_all_entities_invalid(self, mock_vdms_class):
+    """Verify successful per-vector responses with only invalid IP scores return an empty slot."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(similarity_metric="IP")
+    db.sendQuery = Mock(return_value=([
+      {
+        'status': 0,
+        'returned': 2,
+        'entities': [
+          {'uuid': 'too-high', 'rvid': 'rvid-2', '_distance': 1.4},
+          {'uuid': 'too-low', 'rvid': 'rvid-3', '_distance': -1.2},
+        ]
+      },
+      {
+        'status': 0,
+        'returned': 1,
+        'entities': [
+          {'uuid': 'valid', 'rvid': 'rvid-1', '_distance': 0.9},
+        ]
+      }
+    ], []))
+
+    test_vectors = [
+      np.random.randn(256).astype(np.float32),
+      np.random.randn(256).astype(np.float32),
+    ]
+    result = db.findMatches("Person", test_vectors)
+
+    assert result is not None
+    assert len(result) == 2
+    assert result[0] == []
+    assert len(result[1]) == 1
+    assert result[1][0]['uuid'] == 'valid'
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_matches_returns_none_when_all_ip_scores_invalid(self, mock_vdms_class):
+    """Verify findMatches returns no matches if all IP scores are out of range."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(similarity_metric="IP")
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 2,
+      'entities': [
+        {'uuid': 'too-high', 'rvid': 'rvid-2', '_distance': 1.4},
+        {'uuid': 'too-low', 'rvid': 'rvid-3', '_distance': -1.2},
+      ]
+    }], []))
+
+    test_vectors = [np.random.randn(256).astype(np.float32)]
+    result = db.findMatches("Person", test_vectors)
+
+    assert result == [[]]
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_matches_keeps_out_of_range_scores_for_l2_metric(self, mock_vdms_class):
+    """Verify L2 path does not filter scores by the IP-only [-1, 1] rule."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(similarity_metric="L2")
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 2,
+      'entities': [
+        {'uuid': 'dist-high', 'rvid': 'rvid-1', '_distance': 1.4},
+        {'uuid': 'dist-negative', 'rvid': 'rvid-2', '_distance': -1.2},
+      ]
+    }], []))
+
+    test_vectors = [np.random.randn(256).astype(np.float32)]
+    result = db.findMatches("Person", test_vectors)
+
+    assert result is not None
+    assert len(result) == 1
+    assert len(result[0]) == 2
+    assert result[0][0]['uuid'] == 'dist-high'
+    assert result[0][1]['uuid'] == 'dist-negative'
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_handles_no_results(self, mock_vdms_class):
@@ -370,7 +834,7 @@ class TestConstraintBuilding:
       }
     }
 
-    result = db._build_query_constraints("Person", **constraints)
+    result = db._buildQueryConstraints("Person", **constraints)
 
     assert "gender" in result
     assert result["gender"] == ["==", "Female"]
@@ -391,7 +855,7 @@ class TestConstraintBuilding:
       }
     }
 
-    result = db._build_query_constraints("Person", **constraints)
+    result = db._buildQueryConstraints("Person", **constraints)
 
     assert result == {"type": ["==", "Person"]}, "Low-confidence constraints should be ignored"
 
@@ -412,7 +876,7 @@ class TestConstraintBuilding:
       "color": "blue"
     }
 
-    result = db._build_query_constraints("Person", **constraints)
+    result = db._buildQueryConstraints("Person", **constraints)
 
     assert "gender" in result
     assert result["gender"] == ["==", "Male"]
@@ -433,7 +897,7 @@ class TestConstraintBuilding:
       }
     }
 
-    result = db._build_query_constraints("Person", **constraints)
+    result = db._buildQueryConstraints("Person", **constraints)
 
     assert result == {"type": ["==", "Person"]}, "Dict without confidence should be ignored"
 
@@ -451,7 +915,7 @@ class TestConstraintBuilding:
       "name": {"label": "John", "model_name": "name", "confidence": 0.99}
     }
 
-    result = db._build_query_constraints("Person", **constraints)
+    result = db._buildQueryConstraints("Person", **constraints)
 
     assert result["age"] == ["==", "28"], "High confidence (0.88 >= 0.8) should be AND"
     assert result["name"] == ["==", "John"], "High confidence (0.99 >= 0.8) should be AND"
@@ -467,7 +931,7 @@ class TestConstraintBuilding:
     db = VDMSDatabase()
 
     test_type = "Person"
-    constraints = db._build_query_constraints(test_type)
+    constraints = db._buildQueryConstraints(test_type)
 
     assert "type" in constraints, "Object type must always be present"
     assert constraints["type"] == ["==", test_type], "Object type must be AND constraint format"
@@ -486,7 +950,7 @@ class TestConstraintBuilding:
       "color": {"label": "blue", "model_name": "color_v1", "confidence": 0.8}
     }
 
-    constraints = db._build_query_constraints("Person", **high_confidence_constraints)
+    constraints = db._buildQueryConstraints("Person", **high_confidence_constraints)
 
     assert "gender" in constraints
     assert "age_range" in constraints
@@ -510,7 +974,7 @@ class TestConstraintBuilding:
       "color": {"label": "blue", "model_name": "color", "confidence": 0.01}
     }
 
-    constraints = db._build_query_constraints("Person", **low_confidence_constraints)
+    constraints = db._buildQueryConstraints("Person", **low_confidence_constraints)
 
     assert constraints == {"type": ["==", "Person"]}, "Low-confidence constraints should all be ignored"
 
@@ -522,7 +986,7 @@ class TestConstraintBuilding:
 
     db = VDMSDatabase()
 
-    constraints = db._build_query_constraints("Vehicle")
+    constraints = db._buildQueryConstraints("Vehicle")
 
     assert constraints == {"type": ["==", "Vehicle"]}, \
       "Empty constraints should only have type constraint"
@@ -541,7 +1005,7 @@ class TestConstraintBuilding:
       "color": "blue"
     }
 
-    constraints = db._build_query_constraints("Person", **constraints_with_none)
+    constraints = db._buildQueryConstraints("Person", **constraints_with_none)
 
     assert "age" not in constraints, "None values should be ignored"
     assert "gender" in constraints
@@ -560,7 +1024,7 @@ class TestConstraintBuilding:
       "attribute_exact": {"label": "test_value", "model_name": "model", "confidence": 0.8}
     }
 
-    constraints = db._build_query_constraints("Person", **boundary_constraints)
+    constraints = db._buildQueryConstraints("Person", **boundary_constraints)
 
     assert "attribute_exact" in constraints
     assert constraints["attribute_exact"] == ["==", "test_value"]
@@ -571,7 +1035,7 @@ class TestFindMatchesIntegration:
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_uses_constraint_builder(self, mock_vdms_class):
-    """Verify findMatches delegates to _build_query_constraints."""
+    """Verify findMatches delegates to _buildQueryConstraints."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
@@ -594,6 +1058,79 @@ class TestFindMatchesIntegration:
     assert query_constraints["gender"] == ["==", "Female"]
 
 
+class TestConfigurationParameters:
+  """Test that VDMSDatabase respects configuration parameters."""
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_default_parameters_initialization(self, mock_vdms_class):
+    """Verify VDMSDatabase initializes with expected defaults."""
+    from controller.vdms_adapter import SCHEMA_NAME, DIMENSIONS, K_NEIGHBORS, SIMILARITY_METRIC, DEFAULT_CONFIDENCE_THRESHOLD
+
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+
+    assert db.set_name == SCHEMA_NAME, f"Expected set_name={SCHEMA_NAME}, got {db.set_name}"
+    assert db.dimensions == DIMENSIONS, f"Expected dimensions={DIMENSIONS}, got {db.dimensions}"
+    assert db.similarity_metric == SIMILARITY_METRIC, f"Expected metric={SIMILARITY_METRIC}, got {db.similarity_metric}"
+    assert db.confidence_threshold == DEFAULT_CONFIDENCE_THRESHOLD, f"Expected threshold={DEFAULT_CONFIDENCE_THRESHOLD}, got {db.confidence_threshold}"
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_custom_confidence_threshold_in_constraints(self, mock_vdms_class):
+    """Verify custom confidence_threshold parameter is used in constraint building."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    custom_threshold = 0.95
+    db = VDMSDatabase(confidence_threshold=custom_threshold)
+    db.sendQuery = Mock(return_value=([{'status': 0, 'returned': 0}], []))
+
+    # High-confidence constraint that meets custom threshold
+    constraints_high = {
+      "gender": {"label": "Female", "model_name": "gender_v2", "confidence": 0.96}
+    }
+
+    result = db._buildQueryConstraints("Person", **constraints_high)
+    assert "gender" in result, "Confidence 0.96 should exceed custom threshold 0.95"
+
+    # Medium-confidence constraint that fails custom threshold
+    constraints_medium = {
+      "age": {"label": 25, "model_name": "age_v2", "confidence": 0.90}
+    }
+
+    result = db._buildQueryConstraints("Person", **constraints_medium)
+    assert "age" not in result, "Confidence 0.90 should fail custom threshold 0.95"
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_similarity_metric_affects_normalization(self, mock_vdms_class):
+    """Verify similarity_metric parameter properly controls normalization in addEntry."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    vec = np.zeros(256, dtype=np.float32)
+    vec[0] = 3.0
+    vec[1] = 4.0
+
+    # Test IP metric (should normalize)
+    db_ip = VDMSDatabase(similarity_metric="IP")
+    db_ip.sendQuery = Mock(return_value=([{'status': 0}], []))
+    db_ip.addEntry("uuid-ip", "rvid", "Person", [vec])
+
+    blob_ip = db_ip.sendQuery.call_args[0][1]
+    normalized_ip = np.frombuffer(blob_ip[0], dtype=np.float32)
+    assert np.isclose(np.linalg.norm(normalized_ip), 1.0), "IP metric should normalize"
+
+    # Test L2 metric (should NOT normalize)
+    db_l2 = VDMSDatabase(similarity_metric="L2")
+    db_l2.sendQuery = Mock(return_value=([{'status': 0}], []))
+    db_l2.addEntry("uuid-l2", "rvid", "Person", [vec])
+
+    blob_l2 = db_l2.sendQuery.call_args[0][1]
+    stored_l2 = np.frombuffer(blob_l2[0], dtype=np.float32)
+    assert np.isclose(np.linalg.norm(stored_l2), 5.0), "L2 metric should preserve raw vectors"
+
+
 class TestMetadataStorageQueryConsistency:
   """Test that stored metadata matches what is queried (no storage/query mismatch)."""
 
@@ -613,6 +1150,7 @@ class TestMetadataStorageQueryConsistency:
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
+    db.dimensions = 256
     db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
     test_uuid = "test-uuid"
@@ -668,6 +1206,7 @@ class TestMetadataStorageQueryConsistency:
     mock_vdms_class.return_value = mock_vdms_instance
 
     db = VDMSDatabase()
+    db.dimensions = 256
     db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
     # Test various data types in metadata labels
@@ -712,3 +1251,298 @@ class TestMetadataStorageQueryConsistency:
         f"{attr_name}: Expected constraint '{expected_stored}' but got '{queried_value}'"
       assert stored_value == queried_value, \
         f"{attr_name}: Storage/Query mismatch - stored='{stored_value}' vs queried='{queried_value}'"
+
+
+class TestDimensionInferenceAndArbitraryDimensions:
+  """Test that ReID works with arbitrary dimensions, not just 256."""
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_with_128_dimensions(self, mock_vdms_class):
+    """Verify addEntry works with 128-dimension vectors."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=128)
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    test_vectors = [np.random.randn(128).astype(np.float32)]
+    db.addEntry("uuid", "rvid", "Person", test_vectors)
+
+    call_args = db.sendQuery.call_args
+    blob = call_args[0][1]
+    assert len(blob) == 1
+    stored = np.frombuffer(blob[0], dtype=np.float32)
+    assert stored.shape == (128,), f"Expected (128,) but got {stored.shape}"
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_with_512_dimensions(self, mock_vdms_class):
+    """Verify addEntry works with 512-dimension vectors."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=512)
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    test_vectors = [np.random.randn(512).astype(np.float32)]
+    db.addEntry("uuid", "rvid", "Person", test_vectors)
+
+    call_args = db.sendQuery.call_args
+    blob = call_args[0][1]
+    stored = np.frombuffer(blob[0], dtype=np.float32)
+    assert stored.shape == (512,), f"Expected (512,) but got {stored.shape}"
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_with_1024_dimensions(self, mock_vdms_class):
+    """Verify addEntry works with 1024-dimension vectors."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=1024)
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    test_vectors = [np.random.randn(1024).astype(np.float32)]
+    db.addEntry("uuid", "rvid", "Person", test_vectors)
+
+    call_args = db.sendQuery.call_args
+    blob = call_args[0][1]
+    stored = np.frombuffer(blob[0], dtype=np.float32)
+    assert stored.shape == (1024,), f"Expected (1024,) but got {stored.shape}"
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_dimension_inference_none_with_128_vectors(self, mock_vdms_class):
+    """Verify dimension inference works when dimensions=None and vectors are 128D."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=None)
+    vec = np.random.randn(128).astype(np.float32)
+
+    prepared = db.prepareReidDict(vec, dimensions=None)
+
+    assert prepared is not None
+    assert prepared['dimensions'] == 128
+    assert prepared['embedded_vector'].shape == (128,)
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_dimension_inference_none_with_512_vectors(self, mock_vdms_class):
+    """Verify dimension inference works when dimensions=None and vectors are 512D."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=None)
+    vec = np.random.randn(512).astype(np.float32)
+
+    prepared = db.prepareReidDict(vec, dimensions=None)
+
+    assert prepared is not None
+    assert prepared['dimensions'] == 512
+    assert prepared['embedded_vector'].shape == (512,)
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_matches_with_128_dimensions(self, mock_vdms_class):
+    """Verify findMatches works correctly with 128-dimension vectors."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=128)
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'entities': [{'uuid': 'match-1', '_distance': 0.95}]
+    }], []))
+
+    test_vectors = [np.random.randn(128).astype(np.float32)]
+    result = db.findMatches("Person", test_vectors)
+
+    call_args = db.sendQuery.call_args
+    blob = call_args[0][1]
+    query_vec = np.frombuffer(blob[0], dtype=np.float32)
+    assert query_vec.shape == (128,), f"Expected query vector (128,) but got {query_vec.shape}"
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_find_matches_with_512_dimensions(self, mock_vdms_class):
+    """Verify findMatches works correctly with 512-dimension vectors."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=512)
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'entities': [{'uuid': 'match-1', '_distance': 0.95}]
+    }], []))
+
+    test_vectors = [np.random.randn(512).astype(np.float32)]
+    result = db.findMatches("Person", test_vectors)
+
+    call_args = db.sendQuery.call_args
+    blob = call_args[0][1]
+    query_vec = np.frombuffer(blob[0], dtype=np.float32)
+    assert query_vec.shape == (512,), f"Expected query vector (512,) but got {query_vec.shape}"
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_dimension_mismatch_rejected_for_128(self, mock_vdms_class):
+    """Verify dimension mismatch is rejected for 128-dimension adapter."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=128)
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    # Try to add 256-dimension vector to 128-dimension adapter
+    wrong_vec = np.random.randn(256).astype(np.float32)
+    db.addEntry("uuid", "rvid", "Person", [wrong_vec])
+
+    # Should not have sent query (vector was rejected)
+    db.sendQuery.assert_not_called()
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_dimension_mismatch_rejected_for_512(self, mock_vdms_class):
+    """Verify dimension mismatch is rejected for 512-dimension adapter."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=512)
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    # Try to add 256-dimension vector to 512-dimension adapter
+    wrong_vec = np.random.randn(256).astype(np.float32)
+    db.addEntry("uuid", "rvid", "Person", [wrong_vec])
+
+    # Should not have sent query (vector was rejected)
+    db.sendQuery.assert_not_called()
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_normalization_works_for_non_256_dimensions(self, mock_vdms_class):
+    """Verify IP normalization works correctly for non-256 dimensions."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=128, similarity_metric="IP")
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    vec = np.zeros(128, dtype=np.float32)
+    vec[0] = 3.0
+    vec[1] = 4.0
+
+    db.addEntry("uuid", "rvid", "Person", [vec])
+
+    call_args = db.sendQuery.call_args
+    blob = call_args[0][1]
+    normalized = np.frombuffer(blob[0], dtype=np.float32)
+
+    assert np.isclose(np.linalg.norm(normalized), 1.0), "Should normalize to unit norm"
+    assert np.isclose(normalized[0], 0.6)
+    assert np.isclose(normalized[1], 0.8)
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_l2_preservation_for_non_256_dimensions(self, mock_vdms_class):
+    """Verify L2 metric preserves raw vectors for non-256 dimensions."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=512, similarity_metric="L2")
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    vec = np.zeros(512, dtype=np.float32)
+    vec[0] = 3.0
+    vec[1] = 4.0
+
+    db.addEntry("uuid", "rvid", "Person", [vec])
+
+    call_args = db.sendQuery.call_args
+    blob = call_args[0][1]
+    stored = np.frombuffer(blob[0], dtype=np.float32)
+
+    assert np.isclose(stored[0], 3.0)
+    assert np.isclose(stored[1], 4.0)
+    assert np.isclose(np.linalg.norm(stored), 5.0)
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_row_vector_shape_inference_128(self, mock_vdms_class):
+    """Verify (1, 128) row vector is properly flattened and inferred."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=128)
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    row_vector = np.random.randn(1, 128).astype(np.float32)
+    db.addEntry("uuid", "rvid", "Person", [row_vector])
+
+    call_args = db.sendQuery.call_args
+    blob = call_args[0][1]
+    stored = np.frombuffer(blob[0], dtype=np.float32)
+    assert stored.shape == (128,)
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_row_vector_shape_inference_512(self, mock_vdms_class):
+    """Verify (1, 512) row vector is properly flattened and inferred."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=512)
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    row_vector = np.random.randn(1, 512).astype(np.float32)
+    db.addEntry("uuid", "rvid", "Person", [row_vector])
+
+    call_args = db.sendQuery.call_args
+    blob = call_args[0][1]
+    stored = np.frombuffer(blob[0], dtype=np.float32)
+    assert stored.shape == (512,)
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_mixed_dimension_vectors_rejected(self, mock_vdms_class):
+    """Verify mixed-dimension vectors are rejected in same addEntry call."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=256)
+    db.sendQuery = Mock(return_value=([{'status': 0}, {'status': 0}], []))
+
+    vectors = [
+      np.random.randn(256).astype(np.float32),  # Correct dimension
+      np.random.randn(512).astype(np.float32)   # Wrong dimension (should be skipped)
+    ]
+
+    db.addEntry("uuid", "rvid", "Person", vectors)
+
+    call_args = db.sendQuery.call_args
+    query_list = call_args[0][0]
+    # Should only have one AddDescriptor query (the 512D vector was skipped)
+    assert len(query_list) == 1, "Expected 1 query for valid vector, got {}".format(len(query_list))
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_arbitrary_dimension_64(self, mock_vdms_class):
+    """Verify adapter works with small (64-dimension) vectors."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=64)
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    vec = np.random.randn(64).astype(np.float32)
+    db.addEntry("uuid", "rvid", "Person", [vec])
+
+    call_args = db.sendQuery.call_args
+    blob = call_args[0][1]
+    stored = np.frombuffer(blob[0], dtype=np.float32)
+    assert stored.shape == (64,)
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_arbitrary_dimension_2048(self, mock_vdms_class):
+    """Verify adapter works with large (2048-dimension) vectors."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase(dimensions=2048)
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    vec = np.random.randn(2048).astype(np.float32)
+    db.addEntry("uuid", "rvid", "Person", [vec])
+
+    call_args = db.sendQuery.call_args
+    blob = call_args[0][1]
+    stored = np.frombuffer(blob[0], dtype=np.float32)
+    assert stored.shape == (2048,)

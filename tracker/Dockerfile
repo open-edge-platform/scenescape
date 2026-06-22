@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=gcr.io/distroless/cc-debian13@sha256:d7ac2f9af248f31fe6270002755722afdf6875e0e49cd52b9150208e6a23875c
+ARG RUNTIME_OS_IMAGE=gcr.io/distroless/cc-debian13@sha256:a017e74bd2a12d98342dbecd33d121d2b160415ed777573dc1808969e989d94d
 
 # --- Build stage ---
-FROM debian:13-slim@sha256:26f98ccd92fd0a44d6928ce8ff8f4921b4d2f535bfa07555ee5d18f61429cf0c AS builder
+FROM debian:13-slim@sha256:4e401d95de7083948053197a9c3913343cd06b706bf15eb6a0c3ccd26f436a0e AS builder
 
 WORKDIR /scenescape
 
@@ -74,7 +74,7 @@ WORKDIR /scenescape
 FROM ${RUNTIME_OS_IMAGE} AS runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape Tracker Service"
+LABEL org.opencontainers.image.description="Scenescape Tracker Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -96,7 +96,7 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
 CMD ["/scenescape/tracker", "--config", "/scenescape/config/tracker.json", "--schema", "/scenescape/schema/config.schema.json"]
 
 # --- Debug stage (for development with gdbserver) ---
-FROM debian:13-slim@sha256:26f98ccd92fd0a44d6928ce8ff8f4921b4d2f535bfa07555ee5d18f61429cf0c AS debug
+FROM debian:13-slim@sha256:4e401d95de7083948053197a9c3913343cd06b706bf15eb6a0c3ccd26f436a0e AS debug
 
 # hadolint ignore=DL3008
 RUN apt-get update -qq \

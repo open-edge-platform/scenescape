@@ -17,7 +17,7 @@ docs/doxygen/html
 exclude_for_release.txt
 model_installer/models
 venv
-manager/src/django/settings_local.py
+manager/src/manager/settings_local.py
 secrets
 SECURITY.md
 *.bundle

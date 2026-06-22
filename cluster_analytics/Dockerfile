@@ -9,7 +9,7 @@ FROM scenescape-common-base AS scenescape-cluster-analytics-builder
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-cluster-analytics-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Cluster Analytics Service"
+LABEL org.opencontainers.image.description="Scenescape's Scene Cluster Analytics Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -19,7 +19,7 @@ ARG USER_ID=1001
 ARG GROUP_ID=1001
 ARG CERTDOMAIN=scenescape.intel.com
 ENV WSUSER=scenescape
-ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
+ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]

@@ -269,7 +269,7 @@ class RESTClient:
     """Separates file fields from data dictionary for requests library"""
     files = None
     for fileField in fields:
-      if fileField in data and not isinstance(data[fileField], str):
+      if fileField in data and data[fileField] is not None and not isinstance(data[fileField], str):
         data = data.copy()
         files = {fileField: data[fileField]}
         data.pop(fileField)
@@ -349,6 +349,24 @@ class RESTClient:
     """
     data, files = self._separateFiles(data, ['map', 'thumbnail'])
     return self._update(f"child/{uid}", data, files)
+
+  def getChildScene(self, filter):
+    """Gets all child scenes matching filter. If filter is None returns all child scenes.
+
+    @param      filter          dict with key/value pairs to filter matching objects
+    @return                     RESTResult with decoded objects on success,
+                                empty with `errors` set on failure
+    """
+    return self._get("scenes/child", filter)
+
+  def deleteChildSceneLink(self, uid):
+    """Deletes child scene link with `uid`
+
+    @param      uid             uid of child scene link to delete
+    @return                     RESTResult with deleted object's uid on success,
+                                empty with `errors` set on failure
+    """
+    return self._delete(f"child/{uid}")
 
   # Camera
   def getCameras(self, filter):
@@ -596,19 +614,6 @@ class RESTClient:
     """
     return self._delete(f"asset/{uid}")
 
-  # child
-  def getChildScene(self, filter):
-    """Gets all child scenes matching filter. If filter is None returns all child scenes.
-
-    @param      filter          dict with key/value pairs to filter matching objects
-    @return                     RESTResult with decoded objects on success,
-                                empty with `errors` set on failure
-    """
-    return self._get("scenes/child", filter)
-
-  def updateChildScene(self, uid, data):
-    return self._update(f"child/{uid}", data)
-
   # Users
   def getUsers(self, filter):
     """Gets all users matching filter. If filter is None returns all users.
@@ -710,59 +715,3 @@ class RESTClient:
       files = {"zipFile": (os.path.basename(zip_file_path), f)}
       return self._create(endpoint, data={}, files=files)
 
-  # Auto-calibration
-  def getStatus(self):
-    """Gets system status
-
-    @return                     RESTResult with system status on success,
-                                empty with `errors` set on failure
-    """
-    return self._get("status", None)
-
-  def registerScene(self, sceneId, data):
-    """Register a scene for auto-calibration
-
-    @param      sceneId        ID of the scene to register
-    @param      data            dict with registration parameters
-    @return                     RESTResult with registration info on success,
-                                empty with `errors` set on failure
-    """
-    return self._create(f"scenes/{sceneId}/registration", data)
-
-  def getSceneRegistrationStatus(self, sceneId):
-    """Gets scene registration status
-
-    @param      sceneId        ID of the scene
-    @return                     RESTResult with registration status on success,
-                                empty with `errors` set on failure
-    """
-    return self._get(f"scenes/{sceneId}/registration", None)
-
-  def updateSceneRegistration(self, sceneId, data):
-    """Updates scene registration
-
-    @param      sceneId        ID of the scene
-    @param      data            dict with registration update parameters
-    @return                     RESTResult with updated registration on success,
-                                empty with `errors` set on failure
-    """
-    return self._update(f"scenes/{sceneId}/registration", data)
-
-  def calibrateCamera(self, cameraId, data):
-    """Calibrate a camera
-
-    @param      cameraId       ID of the camera to calibrate
-    @param      data            dict with calibration parameters
-    @return                     RESTResult with calibration info on success,
-                                empty with `errors` set on failure
-    """
-    return self._create(f"cameras/{cameraId}/calibration", data)
-
-  def getCameraCalibrationStatus(self, cameraId):
-    """Gets camera calibration status
-
-    @param      cameraId       ID of the camera
-    @return                     RESTResult with calibration status on success,
-                                empty with `errors` set on failure
-    """
-    return self._get(f"cameras/{cameraId}/calibration", None)

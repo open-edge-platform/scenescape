@@ -111,10 +111,12 @@ const CameraTestConfig kCameraAtaqQcam1 = {
     {1.0, 1.0, 1.0}};
 
 // Bbox foot-to-world reference data for atag-qcam1
+// NOTE: world positions include footprint offset (foot shifted away from camera
+// by width_m/2 along the camera→foot bearing) to approximate object center.
 const std::vector<BboxFootTestCase> kAtaqQcam1BboxTests = {
-    {"center_person", 590.0, 260.0, 100.0, 200.0, 3.6344901016966507, 2.392939581932098},
-    {"top_left_person", 10.0, 10.0, 80.0, 160.0, 1.2282759561369583, 6.183174458656931},
-    {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 4.829388967448987, 0.741790968197878},
+    {"center_person", 590.0, 260.0, 100.0, 200.0, 3.6902042231496193, 2.5808369089270590},
+    {"top_left_person", 10.0, 10.0, 80.0, 160.0, 1.1492465718921960, 6.4519638750283645},
+    {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 4.9361860976576870, 0.7728640267176475},
 };
 
 // Bbox size-to-world reference data for atag-qcam1
@@ -505,6 +507,71 @@ TEST(CoordinateTransformerTest, UpwardRayReturnsValidResult) {
 
     // Should return a valid result (horizon culling, not failure)
     EXPECT_EQ(result.size(), 1u);
+}
+
+//
+// metadata_json passthrough tests
+//
+
+TEST(TransformDetectionsTest, MetadataJson_PreservedThroughTransform) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+
+    Detection det = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+    det.metadata_json = R"({"reid":{"model_name":"test"},"age":{"label":"adult"}})";
+
+    auto result = transformer.transformDetections(std::vector<Detection>{det});
+
+    ASSERT_EQ(result.size(), 1u);
+    ASSERT_TRUE(result[0].attributes.count("metadata_json"));
+    EXPECT_EQ(result[0].attributes.at("metadata_json"),
+              R"({"reid":{"model_name":"test"},"age":{"label":"adult"}})");
+}
+
+//
+// confidence passthrough tests
+//
+
+TEST(TransformDetectionsTest, Confidence_PreservedThroughTransform) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+
+    Detection det = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+    det.confidence = 0.95;
+
+    auto result = transformer.transformDetections(std::vector<Detection>{det});
+
+    ASSERT_EQ(result.size(), 1u);
+    ASSERT_TRUE(result[0].attributes.count("confidence"));
+    EXPECT_NEAR(std::stod(result[0].attributes.at("confidence")), 0.95, 1e-9);
+}
+
+TEST(TransformDetectionsTest, Confidence_AbsentWhenNotProvided) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+
+    auto result = transformer.transformDetections(
+        std::vector<Detection>{make_detection(590.0f, 260.0f, 100.0f, 200.0f)});
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_FALSE(result[0].attributes.count("confidence"));
+}
+
+TEST(TransformDetectionsTest, Confidence_MultipleDetectionsPreservedInOrder) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+
+    Detection det0 = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 0);
+    det0.confidence = 0.8;
+
+    Detection det1 = make_detection(10.0f, 10.0f, 80.0f, 160.0f, 1);
+    // No confidence on det1
+
+    Detection det2 = make_detection(1190.0f, 550.0f, 80.0f, 160.0f, 2);
+    det2.confidence = 0.6;
+
+    auto result = transformer.transformDetections(std::vector<Detection>{det0, det1, det2});
+
+    ASSERT_EQ(result.size(), 3u);
+    EXPECT_NEAR(std::stod(result[0].attributes.at("confidence")), 0.8, 1e-9);
+    EXPECT_FALSE(result[1].attributes.count("confidence"));
+    EXPECT_NEAR(std::stod(result[2].attributes.at("confidence")), 0.6, 1e-9);
 }
 
 } // namespace

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Common utilities for model loading in SceneScape 3D mapping service.
+Common utilities for model loading in Scenescape 3D mapping service.
 """
 
 import os
@@ -14,7 +14,7 @@ from scene_common import log
 
 MODEL_DIR = os.getenv("MODEL_DIR", "/workspace/model_weights")
 
-def getModelWeightsDir() -> Path:
+def get_model_weights_dir() -> Path:
   """Get the model weights directory."""
   model_dir = Path(MODEL_DIR)
   if not model_dir.exists():
@@ -22,12 +22,12 @@ def getModelWeightsDir() -> Path:
     exit(1)
   return model_dir
 
-def ensureCacheDirectories():
+def ensure_cache_directories():
   """Check that all required cache directories exist."""
   cache_dirs = [
     Path("/workspace/.cache/torch"),
     Path("/workspace/.cache/huggingface"),
-    getModelWeightsDir()
+    get_model_weights_dir()
   ]
 
   missing_dirs = []
@@ -39,7 +39,7 @@ def ensureCacheDirectories():
     log.error(f"Required cache directories do not exist: {', '.join(missing_dirs)}")
     exit(1)
 
-def checkModelExists(model_name: str) -> bool:
+def check_model_exists(model_name: str) -> bool:
   """
   Check if a model has been successfully downloaded.
 
@@ -49,10 +49,10 @@ def checkModelExists(model_name: str) -> bool:
   Returns:
     True if model exists and is ready
   """
-  marker_file = getModelWeightsDir() / f"{model_name}_downloaded.txt"
+  marker_file = get_model_weights_dir() / f"{model_name}_downloaded.txt"
   return marker_file.exists()
 
-def createSuccessMarker(model_name: str, message: str) -> bool:
+def create_success_marker(model_name: str, message: str) -> bool:
   """
   Create a success marker file for a model.
 
@@ -64,7 +64,7 @@ def createSuccessMarker(model_name: str, message: str) -> bool:
     True if marker was created successfully
   """
   try:
-    marker_file = getModelWeightsDir() / f"{model_name}_downloaded.txt"
+    marker_file = get_model_weights_dir() / f"{model_name}_downloaded.txt"
     with open(marker_file, 'w') as f:
       f.write(message)
     return True

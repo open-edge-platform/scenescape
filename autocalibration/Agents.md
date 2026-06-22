@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Service Overview
 
-The **Auto Camera Calibration** service (formerly `camcalibration`) computes camera intrinsics and extrinsics from sensor feeds using AprilTag markers or markerless calibration techniques. This microservice is critical for establishing accurate spatial awareness in SceneScape's multimodal sensor fusion framework.
+The **Auto Camera Calibration** service (formerly `camcalibration`) computes camera intrinsics and extrinsics from sensor feeds using AprilTag markers or markerless calibration techniques. This microservice is critical for establishing accurate spatial awareness in Scenescape's multimodal sensor fusion framework.
 
 **Primary Purpose**: Automatically calibrate cameras to provide accurate world-coordinate transformations for object tracking and scene understanding.
 
@@ -80,17 +80,6 @@ make rebuild-autocalibration            # Clean + rebuild
 
 # Build with dependencies
 make build-core                         # Includes autocalibration
-```
-
-### Testing
-
-```bash
-# Unit tests
-make -C tests autocalibration-unit
-
-# Functional tests (requires running containers)
-SUPASS=<password> make setup_tests
-make -C tests autocalibration-functional
 ```
 
 ### Running Locally
@@ -250,8 +239,7 @@ docker compose ps autocalibration
 
 When modifying the service, verify:
 
-- [ ] Unit tests pass: `make -C tests autocalibration-unit`
-- [ ] Functional tests pass (with containers running)
+- [ ] Functional tests pass: `make run_functional_tests`
 - [ ] AprilTag detection works with sample data
 - [ ] MQTT messages validated against schema
 - [ ] API endpoints return correct status codes
@@ -263,4 +251,4 @@ When modifying the service, verify:
 - [User Guide](../docs/user-guide/microservices/auto-calibration/auto-calibration.md): High-level overview
 - [API Reference](../docs/user-guide/microservices/auto-calibration/api-reference.md): REST API spec
 - [Scene Common](../scene_common/): Shared library documentation
-- [Testing Guide](../.github/instructions/testing.md): Test creation patterns
+- [Testing Guide](../.github/skills/testing/SKILL.md): Test creation patterns

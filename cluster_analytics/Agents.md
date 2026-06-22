@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Service Overview
 
-The **Cluster Analytics** service provides advanced object clustering, tracking, and behavioral analysis capabilities for Intel® SceneScape. It identifies spatial clusters of objects, tracks their evolution over time, analyzes geometric patterns, and classifies movement behaviors.
+The **Cluster Analytics** service provides advanced object clustering, tracking, and behavioral analysis capabilities for Scenescape. It identifies spatial clusters of objects, tracks their evolution over time, analyzes geometric patterns, and classifies movement behaviors.
 
 **Primary Purpose**: Transform individual object detections into meaningful group behaviors by identifying clusters, tracking their lifecycle, detecting geometric patterns, and analyzing movement dynamics.
 
@@ -137,20 +137,6 @@ make cluster_analytics                  # Build image
 make rebuild-cluster_analytics          # Clean + rebuild
 make build-experimental                 # Build experimental services
 make build-all                          # All services including experimental
-```
-
-### Testing
-
-```bash
-# Unit tests
-make -C tests cluster-analytics-unit
-
-# Functional tests (requires running containers)
-SUPASS=<password> make setup_tests
-make -C tests cluster-analytics-functional
-
-# Specific test module
-pytest tests/sscape_tests/cluster_analytics/test_tracker.py -v
 ```
 
 ### Running Locally
@@ -446,7 +432,7 @@ docker compose exec cluster-analytics python -m pdb src/cluster_analytics.py
 
 When modifying the service, verify:
 
-- [ ] Unit tests pass: `make -C tests cluster-analytics-unit`
+- [ ] Unit tests pass: `make run_unit_tests`
 - [ ] DBSCAN produces expected clusters with test data
 - [ ] Cluster tracking maintains IDs across frames
 - [ ] State transitions (new → active → inactive) work correctly
@@ -472,5 +458,5 @@ As an experimental service, cluster analytics includes:
 - [Get Started](../docs/user-guide/microservices/cluster-analytics/get-started.md): Step-by-step usage guide
 - [Build Instructions](../docs/user-guide/microservices/cluster-analytics/get-started/build-from-source.md): Deployment guide
 - [Scene Common](../scene_common/): Shared geometry and tracking utilities
-- [Testing Guide](../.github/instructions/testing.md): Test creation patterns
-- [Python Conventions](../.github/instructions/python.md): Python coding standards
+- [Testing Guide](../.github/skills/testing/SKILL.md): Test creation patterns
+- [Python Conventions](../.github/skills/python/SKILL.md): Python coding standards

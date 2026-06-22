@@ -7,7 +7,7 @@
 
 The Tracker Service is a high-performance C++ microservice that aggregates detection messages from cameras using time-chunked processing and publishes tracked object data to scene topics. It uses Kalman filtering via RobotVision library for temporal consistency.
 
-**Key Difference**: Unlike other SceneScape services (Python), the Tracker Service is implemented in C++ with Conan 2.x dependency management, CMake + Ninja builds, and distroless production images.
+**Key Difference**: Unlike other Scenescape services (Python), the Tracker Service is implemented in C++ with Conan 2.x dependency management, CMake + Ninja builds, and distroless production images.
 
 ## Architecture Overview
 
@@ -56,6 +56,13 @@ All `TRACKER_*` environment variables are defined in `inc/env_vars.hpp` — insp
 3. Add env var constant in `inc/env_vars.hpp`
 4. Add env var parsing in `src/config_loader.cpp`
 5. Update design docs
+
+## NTP Time Synchronization
+
+**Two clocks, two purposes — do not mix them:**
+
+- **`ClockFn` / `system_clock`** — absolute UTC time. Use `ClockFn clock_fn_` (injected via constructor, default `makeSystemClock()`) wherever code produces or compares wall-clock timestamps: message lag checks, Kalman filter time advancement, published ISO timestamps. Never call `system_clock::now()` directly in these paths — call `clock_fn_()` so NTP adjustment flows through.
+- **`steady_clock`** — monotonic relative time. Use `steady_clock::now()` for all latency/observability measurements (`receive_time`, `parse_time`, `buffer_time`, `dispatch_time`, `transform_time`, `track_time`, `publish_time`, `chunk_time`). Never replace these with `ClockFn` — `steady_clock` is immune to NTP jumps and is the correct choice for measuring durations.
 
 ## Coverage Requirements (Enforced)
 

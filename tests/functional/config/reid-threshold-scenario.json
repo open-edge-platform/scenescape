@@ -1,0 +1,58 @@
+[
+  {
+    "scenario_name": "reid-l2-tight-default",
+    "metric": "L2",
+    "variant": "default",
+    "threshold": 1,
+    "expect_exceed_max": true
+  },
+  {
+    "scenario_name": "reid-l2-tight-immediate",
+    "metric": "L2",
+    "variant": "immediate",
+    "threshold": 1,
+    "expect_exceed_max": true
+  },
+  {
+    "scenario_name": "reid-cosine-tight-default",
+    "metric": "cosine",
+    "variant": "default",
+    "threshold": 0.99,
+    "expect_exceed_max": true
+  },
+  {
+    "scenario_name": "reid-cosine-tight-immediate",
+    "metric": "cosine",
+    "variant": "immediate",
+    "threshold": 0.99,
+    "expect_exceed_max": true
+  },
+  {
+    "scenario_name": "reid-l2-loose-default",
+    "metric": "L2",
+    "variant": "default",
+    "threshold": 30,
+    "expect_exceed_max": false
+  },
+  {
+    "scenario_name": "reid-l2-loose-immediate",
+    "metric": "L2",
+    "variant": "immediate",
+    "threshold": 30,
+    "expect_exceed_max": false
+  },
+  {
+    "scenario_name": "reid-cosine-loose-default",
+    "metric": "cosine",
+    "variant": "default",
+    "threshold": 0.01,
+    "expect_exceed_max": false
+  },
+  {
+    "scenario_name": "reid-cosine-loose-immediate",
+    "metric": "cosine",
+    "variant": "immediate",
+    "threshold": 0.01,
+    "expect_exceed_max": false
+  }
+]
