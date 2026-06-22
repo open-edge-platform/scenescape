@@ -73,7 +73,7 @@ services:
       start_period: 2s
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.151.0
+    image: otel/opentelemetry-collector-contrib:0.153.0
     configs:
       - source: otel-config
         target: /etc/otelcol-contrib/config.yaml

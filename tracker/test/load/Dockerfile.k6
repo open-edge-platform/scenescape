@@ -2,9 +2,9 @@
 # Copyright (C) 2026 Intel Corporation
 
 # Build k6 with the xk6-mqtt extension for MQTT load testing.
-# xk6 Docker tag 1.4.0 bundles xk6 Go module v1.4.0.
-# See: https://github.com/grafana/xk6/releases/tag/v1.4.0
-FROM grafana/xk6:1.4.0@sha256:3a3d4b02be2ebffa693f98c6699071a082a6b47ab106c6ba1ac72e15f7550b88 AS builder
+# xk6 Docker tag 1.4.3 bundles xk6 Go module v1.4.3.
+# See: https://github.com/grafana/xk6/releases/tag/v1.4.3
+FROM grafana/xk6:1.4.3@sha256:4ef0baa8c724cd1c227d1f7d0e6a9eb8bf6c91e0c31b442903294d01499c2f01 AS builder
 ARG http_proxy
 ARG https_proxy
 ARG no_proxy
