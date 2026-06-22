@@ -19,17 +19,22 @@ class MultipleObjectTracker
 {
 public:
   MultipleObjectTracker()
-  : mDistanceType(DistanceType::MultiClassEuclidean), mDistanceThreshold(5.0)
+    : mDistanceType(DistanceType::MultiClassEuclidean)
+    , mDistanceThreshold(5.0)
   {
   }
 
   MultipleObjectTracker(TrackManagerConfig const &config)
-    : mTrackManager(config), mDistanceType(DistanceType::MultiClassEuclidean), mDistanceThreshold(5.0)
+    : mTrackManager(config)
+    , mDistanceType(DistanceType::MultiClassEuclidean)
+    , mDistanceThreshold(5.0)
   {
   }
 
-  MultipleObjectTracker(TrackManagerConfig const &config, const DistanceType & distanceType, double distanceThreshold)
-  : mTrackManager(config), mDistanceType(distanceType),  mDistanceThreshold(distanceThreshold)
+  MultipleObjectTracker(TrackManagerConfig const &config, const DistanceType &distanceType, double distanceThreshold)
+    : mTrackManager(config)
+    , mDistanceType(distanceType)
+    , mDistanceThreshold(distanceThreshold)
   {
   }
 
@@ -49,7 +54,8 @@ public:
    */
   void track(std::vector<tracking::TrackedObject> objects,
              const std::chrono::system_clock::time_point &timestamp,
-             const DistanceType & distanceType, double distanceThreshold,
+             const DistanceType &distanceType,
+             double distanceThreshold,
              double scoreThreshold = 0.50);
 
   /**
@@ -72,7 +78,8 @@ public:
    */
   void track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
              const std::chrono::system_clock::time_point &timestamp,
-             const DistanceType & distanceType, double distanceThreshold,
+             const DistanceType &distanceType,
+             double distanceThreshold,
              double scoreThreshold = 0.50);
 
   /**
@@ -93,7 +100,7 @@ public:
   {
     return mTrackManager.getUnreliableTracks();
   }
- 
+
   /**
    * @brief Returns a the list of all active tracked objects
    *
@@ -138,12 +145,11 @@ private:
    * @param[out] unassignedObjects Indices of objects that were not assigned to any track
    * @return Updated vector of unassigned tracks
    */
-  std::vector<tracking::TrackedObject> matchAndAssignMeasurements(
-    const std::vector<tracking::TrackedObject> &tracks,
-    const std::vector<tracking::TrackedObject> &objects,
-    const DistanceType &distanceType,
-    double distanceThreshold,
-    std::vector<size_t> &unassignedObjects);
+  std::vector<tracking::TrackedObject> matchAndAssignMeasurements(const std::vector<tracking::TrackedObject> &tracks,
+                                                                  const std::vector<tracking::TrackedObject> &objects,
+                                                                  const DistanceType &distanceType,
+                                                                  double distanceThreshold,
+                                                                  std::vector<size_t> &unassignedObjects);
 
   /**
    * @brief Helper function to match tracks with objects batched from multiple cameras
@@ -156,12 +162,11 @@ private:
    * @param distanceThreshold Maximum distance for matching
    * @return Updated vector of unassigned tracks
    */
-  std::vector<tracking::TrackedObject> matchAndAssignMeasurements(
-    const std::vector<tracking::TrackedObject> &tracks,
-    std::vector<std::vector<tracking::TrackedObject>> &objectsPerCamera,
-    const DistanceType &distanceType,
-    double distanceThreshold);
-
+  std::vector<tracking::TrackedObject>
+  matchAndAssignMeasurements(const std::vector<tracking::TrackedObject> &tracks,
+                             std::vector<std::vector<tracking::TrackedObject>> &objectsPerCamera,
+                             const DistanceType &distanceType,
+                             double distanceThreshold);
 };
 } // namespace tracking
 } // namespace rv
