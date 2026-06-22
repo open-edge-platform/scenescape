@@ -283,7 +283,8 @@ class CamSerializer(NonNullSerializer):
   transform_type = serializers.SerializerMethodField('get_transform_type')
 
   def validate(self, attrs):
-    if 'name' not in attrs:
+    # DRF enforces required fields on create; allow PATCH/partial updates to omit them.
+    if self.instance is None and 'name' not in attrs:
       raise serializers.ValidationError({'name': ['This field is required.']})
     return attrs
 
