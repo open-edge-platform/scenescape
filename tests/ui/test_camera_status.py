@@ -6,10 +6,10 @@ from tests.ui.browser import Browser, By
 from tests.mqtt_helper import mqtt_wait_for_detections
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import FULL_STACK_WITH_RETAIL_VIDEO
+from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=FULL_STACK_WITH_RETAIL_VIDEO,
+  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
   require_password=True, auth="",
 )
 

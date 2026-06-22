@@ -55,9 +55,9 @@ def wait_for_image(browser, wait_time, image_id):
   return False
 
 # Timeouts for autocalibration-specific waits.
-AUTOCAL_RESULT_TIMEOUT = 120
-SAVE_TIMEOUT = 30
-RELOAD_TIMEOUT = 30
+AUTOCAL_RESULT_TIMEOUT_S = 120
+SAVE_TIMEOUT_S = 30
+RELOAD_TIMEOUT_S = 30
 
 def wait_for_calibration_points(browser, wait_time, min_points=4):
   """! Polls camCanvas until at least min_points calibration points appear.
@@ -184,19 +184,19 @@ class AprilTagCalibrationTest(UserInterfaceTest):
     save_page_url = self.browser.current_url
     autocal_button.click()
     # Wait for the autocalibration result to populate camCanvas.
-    assert wait_for_calibration_points(self.browser, AUTOCAL_RESULT_TIMEOUT, min_points=4), (
-      f"Auto-calibration produced no points within {AUTOCAL_RESULT_TIMEOUT}s"
+    assert wait_for_calibration_points(self.browser, AUTOCAL_RESULT_TIMEOUT_S, min_points=4), (
+      f"Auto-calibration produced no points within {AUTOCAL_RESULT_TIMEOUT_S}s"
     )
     self.click_button_by_id("top_save")
     # Save dispatches form submit only after an alert("Camera updated") and an
     # async MQTT round trip. Accept the alert and wait for the navigation.
-    assert common.wait_for_save_complete(self.browser, SAVE_TIMEOUT, save_page_url), (
+    assert common.wait_for_save_complete(self.browser, SAVE_TIMEOUT_S, save_page_url), (
       "Save did not complete within timeout (alert or navigation missing)"
     )
     self.navigateDirectlyToPage(cam_url)
     # On reload, wait for the persisted points to be re-rendered to camCanvas.
-    assert wait_for_calibration_points(self.browser, RELOAD_TIMEOUT, min_points=4), (
-      f"Persisted calibration points did not appear on reload within {RELOAD_TIMEOUT}s"
+    assert wait_for_calibration_points(self.browser, RELOAD_TIMEOUT_S, min_points=4), (
+      f"Persisted calibration points did not appear on reload within {RELOAD_TIMEOUT_S}s"
     )
     # Sanity check: the persisted transforms differ from the seed value.
     post_save_transforms = self.browser.execute_script(

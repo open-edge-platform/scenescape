@@ -20,8 +20,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 POLL_INTERVAL_S = 5
 POLL_TIMEOUT_S = 300
 REST_RETRY_COUNT = 3
-REST_RETRY_INTERVAL = 2
-REGISTRATION_RETRY_INTERVAL = 90
+REST_RETRY_INTERVAL_S = 2
+REGISTRATION_RETRY_INTERVAL_S = 90
 BASE_URL = "https://autocalibration.scenescape.intel.com:8443"
 
 MAP_APRILTAG_COUNT = 7  # number of apriltags present in Queuing scene
@@ -65,7 +65,7 @@ class ApriltagRegistration(FunctionalTest):
       except Exception as err:
         last_error = err
         if attempt < REST_RETRY_COUNT - 1:
-          time.sleep(REST_RETRY_INTERVAL)
+          time.sleep(REST_RETRY_INTERVAL_S)
     raise AssertionError(f"Failed to update scene after retries: {last_error}")
 
   def _force_scene_unregistered(self):
@@ -84,7 +84,7 @@ class ApriltagRegistration(FunctionalTest):
     while time.time() < deadline:
       if self._get_scene().get('map_processed') is None:
         return
-      time.sleep(POLL_INTERVAL)
+      time.sleep(POLL_INTERVAL_S)
     raise AssertionError("map_processed was not cleared after apriltag_size update")
 
   def _trigger_registration(self):
@@ -101,7 +101,7 @@ class ApriltagRegistration(FunctionalTest):
       except Exception as err:
         last_error = err
         if attempt < REST_RETRY_COUNT - 1:
-          time.sleep(REST_RETRY_INTERVAL)
+          time.sleep(REST_RETRY_INTERVAL_S)
     raise AssertionError(f"Failed to trigger registration: {last_error}")
 
   def _poll_for_registration(self):
@@ -116,7 +116,7 @@ class ApriltagRegistration(FunctionalTest):
       except Exception:
         pass
 
-      if time.time() - last_retrigger >= REGISTRATION_RETRY_INTERVAL:
+      if time.time() - last_retrigger >= REGISTRATION_RETRY_INTERVAL_S:
         self._trigger_registration()
         last_retrigger = time.time()
 
