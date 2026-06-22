@@ -3,7 +3,6 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 import uuid
 import numpy as np
 from tests.functional.backend_functional import BackendFunctionalTest
