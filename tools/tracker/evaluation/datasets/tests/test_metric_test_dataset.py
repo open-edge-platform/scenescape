@@ -8,6 +8,7 @@ import sys
 import json
 from pathlib import Path
 from typing import Optional
+from itertools import groupby
 import jsonschema
 
 # Add parent directories to path
@@ -350,6 +351,41 @@ class TestGetInputs:
 
     assert all(a <= b for a, b in zip(timestamps, timestamps[1:])), \
       "Frames are not sorted by timestamp"
+
+  def _collect_tie_groups(self, inputs):
+    """Return timestamp groups where more than one camera appears."""
+    tie_groups = []
+    for ts, group in groupby(inputs, key=lambda f: f["timestamp"]):
+      cam_ids = [f["id"] for f in group]
+      if len(cam_ids) > 1:
+        tie_groups.append((ts, cam_ids))
+    return tie_groups
+
+  def _assert_camera_order_in_tie_groups(self, tie_groups, cameras):
+    """Assert every tie group follows the given camera order."""
+    assert tie_groups, "No shared timestamps found between cameras — test data changed"
+    for ts, cam_ids in tie_groups:
+      configured_order = [c for c in cameras if c in cam_ids]
+      assert cam_ids == configured_order, (
+        f"At timestamp {ts}: camera order {cam_ids} "
+        f"does not match configured order {configured_order}"
+      )
+
+  def test_get_inputs_preserves_camera_order_for_same_timestamp(self, dataset):
+    """Test that get_inputs preserves configured camera order for equal timestamps."""
+    cameras = ["Cam_x1_0", "Cam_x2_0"]
+    dataset.set_cameras(cameras).set_camera_fps(30)
+    inputs = list(dataset.get_inputs())
+    tie_groups = self._collect_tie_groups(inputs)
+    self._assert_camera_order_in_tie_groups(tie_groups, cameras)
+
+  def test_get_inputs_reversed_camera_order_for_same_timestamp(self, dataset):
+    """Test that reversing configured camera order changes output order for equal timestamps."""
+    cameras_reversed = ["Cam_x2_0", "Cam_x1_0"]
+    dataset.set_cameras(cameras_reversed).set_camera_fps(30)
+    inputs = list(dataset.get_inputs())
+    tie_groups = self._collect_tie_groups(inputs)
+    self._assert_camera_order_in_tie_groups(tie_groups, cameras_reversed)
 
 
 class TestGetGroundTruth:

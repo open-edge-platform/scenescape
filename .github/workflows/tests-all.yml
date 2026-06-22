@@ -16,7 +16,7 @@ on:
   workflow_call:
     inputs:
       ref:
-        description: "SceneScape ref to test against"
+        description: "Scenescape ref to test against"
         required: false
         default: ""
         type: string

@@ -5,7 +5,7 @@
 
 ## Purpose
 
-This skill provides guidance for secure Python coding across SceneScape's microservices, grounded in Intel Secure Coding Standards - Python Specifics.
+This skill provides guidance for secure Python coding across Scenescape's microservices, grounded in Intel Secure Coding Standards - Python Specifics.
 
 **Applies to:**
 

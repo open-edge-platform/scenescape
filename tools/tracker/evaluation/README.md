@@ -28,7 +28,7 @@ These components communicate using canonical data formats defined by JSON schema
 **System requirements**:
 
 - Docker installed and running on the host machine
-- SceneScape scene controller container image available locally (e.g., `scenescape-controller:2026.0.0-dev`)
+- Scenescape scene controller container image available locally (e.g., `scenescape-controller:2026.0.0-dev`)
 
 To verify Docker is available:
 
@@ -418,7 +418,7 @@ pytest harnesses/tests/test_scene_controller_harness.py::TestSceneControllerHarn
 Integration tests require:
 
 - Docker installed and running
-- SceneScape controller container image available (e.g., `scenescape-controller:latest`)
+- Scenescape controller container image available (e.g., `scenescape-controller:latest`)
 
 Verify Docker setup:
 

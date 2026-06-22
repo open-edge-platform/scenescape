@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Intel® SceneScape mapping service supports build-time selection of the underlying 3D reconstruction model: **MapAnything** or **VGGT**. This approach ensures only the chosen model and its dependencies are included, minimizing image size and avoiding dependency conflicts.
+The Scenescape mapping service supports build-time selection of the underlying 3D reconstruction model: **MapAnything** or **VGGT**. This approach ensures only the chosen model and its dependencies are included, minimizing image size and avoiding dependency conflicts.
 
 Each build produces a container image with a single model. The API and runtime are identical, but the model is fixed at build time.
 
@@ -40,17 +40,14 @@ Each build produces a container image with a single model. The API and runtime a
   cd scenescape
   ```
 
-- **Build mapping (default: mapanything)**:
+- **Build mapping**:
+
+  ```bash
+  export MODEL_TYPE=mapanything # or MODEL_TYPE=vggt
+  ```
 
   ```bash
   make mapping
-  #or
-  MODEL_TYPE=mapanything make mapping
-  ```
-
-- **Build mapping (vggt)**:
-  ```bash
-  MODEL_TYPE=vggt make mapping
   ```
 
 ### How It Works
@@ -78,7 +75,7 @@ docker run -d \
     -v vol-mapping-model-weights:/workspace/model_weights \
     -v vol-mapping-torch-cache:/workspace/.cache/torch \
     -v vol-mapping-hf-cache:/workspace/.cache/huggingface \
-    scenescape-mapping
+    scenescape-mapping-${MODEL_TYPE:-mapanything}
 ```
 
 This command sets up the container with the correct user, network, hostname, ports, and persistent volumes for model weights and caches.

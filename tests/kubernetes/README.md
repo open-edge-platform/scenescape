@@ -1,7 +1,7 @@
-# Running tests for Intel® SceneScape on Kubernetes
+# Running tests for Scenescape on Kubernetes
 
 All Kubernetes tests are driven by pytest with the `--backend=kubernetes` flag.
-This creates a KinD cluster, deploys SceneScape via Helm, runs the tests, and
+This creates a KinD cluster, deploys Scenescape via Helm, runs the tests, and
 destroys the cluster automatically at the end of the session. No
 separately-running cluster is required.
 
@@ -64,7 +64,7 @@ When `--backend=kubernetes` is passed to pytest the `K8sManager` in
 1. Creates a KinD cluster named `pytest-test-cluster` using the config in
    `tests/kubernetes/config/kind_config.yaml`.
 2. Installs the Nginx Ingress Controller and cert-manager.
-3. Tags and loads all SceneScape Docker images (plus external dependencies
+3. Tags and loads all Scenescape Docker images (plus external dependencies
    parsed from `helm template` output) into the KinD node.
 4. Runs `make copy-files` in `kubernetes/` to populate the Helm chart files.
 5. Installs the Helm chart with generated values (passwords, proxy settings).

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 networks:
@@ -28,9 +28,9 @@ services:
       --brokerauth /run/secrets/controller.auth
       --broker broker.scenescape.intel.com
     volumes:
-      - ./${DBROOT}/media:/home/scenescape/SceneScape/media
-      - ./controller/config/tracker-config.json:/home/scenescape/SceneScape/tracker-config.json
-      - ./controller/config/reid-config.json:/home/scenescape/SceneScape/reid-config.json
+      - ./${DBROOT}/media:/home/scenescape/Scenescape/media
+      - ./controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json
+      - ./controller/config/reid-config.json:/home/scenescape/Scenescape/reid-config.json
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

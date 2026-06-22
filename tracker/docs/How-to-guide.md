@@ -1,4 +1,4 @@
-# How to Deploy Intel® SceneScape with Tracker Service alongside Controller in Analytics-Only Mode
+# How to Deploy Scenescape with Tracker Service alongside Controller in Analytics-Only Mode
 
 This guide explains the updated Docker Compose workflow to deploy the Tracker service while running the Scene Controller in analytics-only mode.
 

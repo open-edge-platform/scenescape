@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -7,7 +7,7 @@ from manager.secrets import *
 
 # Application Naming
 APP_NAME = 'manager'
-APP_PROPER_NAME = 'Intel® SceneScape'
+APP_PROPER_NAME = 'Scenescape'
 APP_BASE_NAME = 'scenescape'
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)

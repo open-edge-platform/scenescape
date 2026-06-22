@@ -19,10 +19,10 @@ All 7 patches regenerated to apply cleanly on latest main with pycolmap 0.6.0 co
 
 ### Breaking Changes
 
-**None** - All SceneScape-specific modifications preserved:
+**None** - All Scenescape-specific modifications preserved:
 
 - Custom matchers (LoFTR, QTA-LoFTR)
-- SceneScape pipeline integrations
+- Scenescape pipeline integrations
 - Utility functions (dataset.py, evaluate.py)
 - Configuration files (setup.cfg)
 
