@@ -22,7 +22,23 @@ Test what each function/class does in isolation:
 | `test_velocity.py`   | Velocity classification: stationary, parallel, converging, diverging |
 | `test_tracker.py`    | Post-refactor tracker API spec (currently skipped — Phase 1)         |
 
-**Run from repo root:**
+### Setup
+
+1. **Create and activate a Python virtual environment** (from repo root):
+
+   ```bash
+   python3.12 -m venv .venv
+   source .venv/bin/activate
+   ```
+
+2. **Install the required packages** (from `tests/` folder):
+
+   ```bash
+   cd tests/
+   pip install -r requirements.txt
+   ```
+
+### Run from repo root:
 
 ```bash
 python -m pytest tests/sscape_tests/cluster_analytics/ -v -p no:django
@@ -44,8 +60,16 @@ messages over MQTT, and assert on the ANALYTICS_CLUSTERS output.
 
 ### Prerequisites
 
-1. **Docker** available on the host.
-2. **Test image built:**
+1. **Python virtual environment activated** (from repo root):
+
+   ```bash
+   python3.12 -m venv .venv
+   source .venv/bin/activate
+   ```
+
+2. **Docker** available on the host.
+
+3. **Test image built:**
 
    ```bash
    # From cluster_analytics/
@@ -60,10 +84,11 @@ messages over MQTT, and assert on the ANALYTICS_CLUSTERS output.
    make -C cluster_analytics test-build
    ```
 
-3. **Test dependencies installed** (paho-mqtt, python-on-whales, etc.):
+4. **Test dependencies installed** (paho-mqtt, python-on-whales, etc.):
 
    ```bash
-   pip install -r cluster_analytics/tests/service/requirements.txt
+   cd tests/
+   pip install -r requirements.txt
    ```
 
 ### Run
@@ -87,7 +112,7 @@ frames before the assertion frame.
 Tests that expect empty results (0 objects, 1 object below `min_samples`) do not
 need warmup because they never produce clusters.
 
-Expected result: **6 passed**.
+Expected result: **7 passed**.
 
 ---
 
@@ -95,6 +120,6 @@ Expected result: **6 passed**.
 
 ```
 Unit tests        — tests/sscape_tests/cluster_analytics/   (no Docker, 33+8)
-Component tests   — cluster_analytics/tests/service/         (Docker, 6)
+Component tests   — cluster_analytics/tests/service/         (Docker, 7)
 E2E functional    — tests/functional/                        (full stack, not yet implemented)
 ```

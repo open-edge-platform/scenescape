@@ -21,6 +21,13 @@ _CLUSTER_SRC = _REPO_ROOT / "cluster_analytics" / "src"
 if str(_CLUSTER_SRC) not in sys.path:
   sys.path.insert(0, str(_CLUSTER_SRC))
 
+_SCENE_COMMON_SRC = _REPO_ROOT / "scene_common" / "src"
+
+if str(_SCENE_COMMON_SRC) not in sys.path:
+  sys.path.insert(0, str(_SCENE_COMMON_SRC))
+  # Evict any namespace-package stub so the real package is re-resolved
+  sys.modules.pop("scene_common", None)
+
 CONFIG_PATH = str(_REPO_ROOT / "cluster_analytics" / "config" / "config.json")
 
 

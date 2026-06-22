@@ -13,7 +13,6 @@ import time
 import pytest
 from pathlib import Path
 
-# Allow `from utils.mqtt import ...` regardless of where pytest is invoked from
 sys.path.insert(0, str(Path(__file__).parent))
 from python_on_whales import DockerClient
 from waiting import wait

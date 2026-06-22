@@ -21,7 +21,7 @@ import time
 import pytest
 import paho.mqtt.client as mqtt
 
-from utils.mqtt import wait_for_message
+from test_utils.mqtt import wait_for_message
 
 
 SCENE_ID = "component-test-scene-001"
@@ -157,6 +157,21 @@ class TestClusteringPipeline:
 
   def test_empty_objects_produces_empty_clusters(self, mqtt_client, cluster_analytics_service):
     _publish_detection(mqtt_client, cluster_analytics_service["broker_port"], [])
+
+    msg = wait_for_message(mqtt_client, ANALYTICS_CLUSTERS_PREFIX, timeout=MESSAGE_TIMEOUT)
+
+    assert "clusters" in msg
+    assert msg["clusters"] == []
+
+  def test_objects_too_far_apart_produce_no_clusters(self, mqtt_client, cluster_analytics_service):
+    # Person DBSCAN eps=2 m; place 3 persons each 10 m apart so every point is
+    # noise (no neighbour within eps) → DBSCAN finds zero clusters.
+    objects = [
+      _person_at(0.0, 0.0, "p0"),
+      _person_at(10.0, 0.0, "p1"),
+      _person_at(20.0, 0.0, "p2"),
+    ]
+    _publish_detection(mqtt_client, cluster_analytics_service["broker_port"], objects)
 
     msg = wait_for_message(mqtt_client, ANALYTICS_CLUSTERS_PREFIX, timeout=MESSAGE_TIMEOUT)
 
