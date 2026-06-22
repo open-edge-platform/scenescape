@@ -8,17 +8,17 @@ This page provides troubleshooting steps, FAQs, and resources to help you resolv
 
 Leaves the system vulnerable to a DDoS attack where the malicious agent repeatedly attempts logging in.
 
-**Workaround**: Do not share the Intel® SceneScape URL with untrusted parties.
+**Workaround**: Do not share the Scenescape URL with untrusted parties.
 
 ### 2. Postgres database will sometimes fail to start, resulting in an Internal Server Error (500) on login
 
-**Workaround**: Restart Intel® SceneScape using `docker-compose down` followed by `docker-compose up -d` from the project directory.
+**Workaround**: Restart Scenescape using `docker-compose down` followed by `docker-compose up -d` from the project directory.
 
 ### 4. "WARNING: Service <service name> uses an undefined secret file" console messages on startup
 
 Several "undefined secret file" messages may be shown on startup, but the system should start normally.
 
-### 5. When deploying Intel® SceneScape on a system with a zfs filesystem, container startup is slow
+### 5. When deploying Scenescape on a system with a zfs filesystem, container startup is slow
 
 **Workaround**: Change the docker storage driver from the default 'overlay2' to 'zfs'.
 
@@ -30,13 +30,13 @@ Several "undefined secret file" messages may be shown on startup, but the system
 
 Internally the system uses the scene name for subscribing to data, and there is a known issue where those internal subscriptions are not updated when the scene name is changed.
 
-**Workaround**: Avoid renaming scenes in general. If a scene must be renamed, restart Intel® SceneScape using `docker-compose down` followed by `docker-compose up -d` from the project directory.
+**Workaround**: Avoid renaming scenes in general. If a scene must be renamed, restart Scenescape using `docker-compose down` followed by `docker-compose up -d` from the project directory.
 
 ### 8. Issues are encountered when running in a virtual machine (VM)
 
-Various issues may be encountered when running within virtual machines, including performance, access to hardware, networking, and more. Intel® SceneScape is currently not validated for operating within a virtual machine (VM).
+Various issues may be encountered when running within virtual machines, including performance, access to hardware, networking, and more. Scenescape is currently not validated for operating within a virtual machine (VM).
 
-**Mitigation**: Running Intel® SceneScape in a VM is not recommended, but there are some best practices for mitigating related issues. Contact Intel® technical support if running in a VM is absolutely required.
+**Mitigation**: Running Scenescape in a VM is not recommended, but there are some best practices for mitigating related issues. Contact Intel® technical support if running in a VM is absolutely required.
 
 ### 9. Images with either dimension larger than 2048 cause 2D calibration page map view to be empty in web UI
 
@@ -56,7 +56,7 @@ During testing, a scenario was discovered where a user with admin access to the 
 
 ### 12. Enabling "Live View" results in memory utilization monotonically increases over time
 
-**Mitigation**: "Live View" is meant for explainability and debugging. Disable "Live View" when Intel® SceneScape is deployed in production environments.
+**Mitigation**: "Live View" is meant for explainability and debugging. Disable "Live View" when Scenescape is deployed in production environments.
 
 ### 13. Upgrading database from previous release versions fails
 

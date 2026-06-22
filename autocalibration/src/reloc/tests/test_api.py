@@ -40,7 +40,7 @@ def test_core_imports():
 
 
 def test_custom_modules():
-  """Test SceneScape custom module imports."""
+  """Test Scenescape custom module imports."""
   print_test_header("Custom Module Imports")
 
   modules = {
@@ -103,7 +103,7 @@ def test_matcher_classes():
 
   classes = [
     ('hloc.matchers.loftr', 'LoFTR'),
-    # QTA-LoFTR not used in SceneScape
+    # QTA-LoFTR not used in Scenescape
   ]
 
   all_passed = True

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
-On-demand NetVLAD model loader for SceneScape autocalibration.
+On-demand NetVLAD model loader for Scenescape autocalibration.
 This script downloads the NetVLAD model only when needed, reducing Docker image size.
 """
 

@@ -51,7 +51,7 @@ To deploy the auto calibration service, refer to the [Get Started](./get-started
 
 ## Architecture
 
-![Intel® SceneScape architecture diagram](./_assets/architecture.png)
+![Scenescape architecture diagram](./_assets/architecture.png)
 
 _Figure 1: Architecture Diagram_
 
@@ -71,7 +71,7 @@ The workflow below illustrates the Auto Camera Calibration process. Camera pose 
    - The Client subscribes to real-time calibration results via WebSocket notifications (recommended approach).
    - Alternatively, the Client can poll the calibration status and results using GET on `/v1/cameras/{cameraId}/calibration` endpoint.
 
-![Intel® SceneScape auto calibration sequence diagram](./_assets/autocalibration-sequence-diagram.png)
+![Scenescape auto calibration sequence diagram](./_assets/autocalibration-sequence-diagram.png)
 
 _Figure 2: Auto Calibration Sequence diagram_
 

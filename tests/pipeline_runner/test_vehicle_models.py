@@ -11,7 +11,7 @@ Source video: car-detection.ts
 
 Each scenario spins up a full Docker Compose stack via ``PipelineRunner``,
 subscribes to the MQTT detection topic, collects at least
-``MIN_DETECTIONS`` messages, validates every message against the SceneScape
+``MIN_DETECTIONS`` messages, validates every message against the Scenescape
 detector JSON schema, and tears the stack down - even on failure.
 
 Hardware-specific scenarios are skipped automatically when the corresponding
@@ -50,7 +50,7 @@ class TestVehiclePipelines:
     indirect=True,
   )
   def test_detections_received_and_valid(self, camera_settings_path, schema_validator, sample_data):
-    """Pipeline produces detections that pass the SceneScape detector schema.
+    """Pipeline produces detections that pass the Scenescape detector schema.
 
     Positive test: for each scenario launch the pipeline, collect
     MIN_DETECTIONS messages within COLLECT_TIMEOUT seconds, and assert every

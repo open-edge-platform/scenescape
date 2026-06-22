@@ -8,13 +8,13 @@ The module can be used both as a **CLI tool** and as a **Python library**, repla
 
 The minimum required steps are:
 
-- Manager service Docker image is built. This can be done by running the command: `make manager` in the Intel® SceneScape repository root folder.
-- Secrets are generated. This can be done by running the command: `make init-secrets` in the Intel® SceneScape repository root folder.
-- Models are installed into a docker volume. This can be done by running the command: `make install-models` in the Intel® SceneScape repository root folder. Refer to the [model installer documentation](../../model_installer/src/README.md) for more details on model configuration.
+- Manager service Docker image is built. This can be done by running the command: `make manager` in the Scenescape repository root folder.
+- Secrets are generated. This can be done by running the command: `make init-secrets` in the Scenescape repository root folder.
+- Models are installed into a docker volume. This can be done by running the command: `make install-models` in the Scenescape repository root folder. Refer to the [model installer documentation](../../model_installer/src/README.md) for more details on model configuration.
 - Volume with sample video files is created with `make init-sample-data`.
 - Python dependencies are installed: `pip install -r tools/pipeline_runner/requirements.txt`.
 
-Building Intel® SceneScape will perform all the above steps and additionally build all images.
+Building Scenescape will perform all the above steps and additionally build all images.
 
 The commands below will perform all the above steps and additionally build all images (adjust environment variables if needed):
 
@@ -27,7 +27,7 @@ make init-sample-data
 
 ### CLI
 
-To start the pipeline with **detection metadata in SceneScape format** use:
+To start the pipeline with **detection metadata in Scenescape format** use:
 
 ```
 python pipeline_runner.py --camera-settings-file <CAMERA_SETTINGS_FILE>
@@ -88,9 +88,9 @@ The DLSPS configuration file generated along with the pipeline string in the `gs
 
 ## Inspecting the detection metadata
 
-### Pipeline using SceneScape metadata format
+### Pipeline using Scenescape metadata format
 
-The detection metadata published by the pipeline can be monitored with an MQTT client, e.g., MQTT Explorer. Run the MQTT client on port 1884 (this port was chosen to avoid conflicts with Intel® SceneScape deployment that can be run at the same time) and watch for messages under the `scenescape/data/camera/<camera-id>` topic.
+The detection metadata published by the pipeline can be monitored with an MQTT client, e.g., MQTT Explorer. Run the MQTT client on port 1884 (this port was chosen to avoid conflicts with Scenescape deployment that can be run at the same time) and watch for messages under the `scenescape/data/camera/<camera-id>` topic.
 
 Additionally, an `mqtt-recorder` service is run by docker compose which dumps the detections within an arbitrary time interval to a file with default location `tools/pipeline_runner/output/scenescape_metadata.jsonl`. Detections from a single frame are described by a single line in this file.
 
@@ -134,7 +134,7 @@ Once the measurement data is available, the average and standard deviation of pi
 grep latency_tracer_pipeline /tmp/latency_tracer/trace.log | grep -oP 'frame_latency=\(double\)\K[0-9]+\.[0-9]+' | tail -n 1000 | awk '{sum+=$1; sumsq+=$1*$1; count++} END {avg=sum/count; std=sqrt(sumsq/count - avg*avg); printf "Count: %d\nAverage: %.6f\nStd Dev: %.6f\n", count, avg, std}'
 ```
 
-Please refer to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer/dev_guide/latency_tracer.html) and [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2026.0/edge-ai-libraries/dlstreamer-pipeline-server/advanced-guide/detailed_usage/how-to-advanced/performance/processing-latency.html) for more details on interpreting the latency tracer output.
+Please refer to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dlstreamer/dev_guide/latency_tracer.html) and [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dlstreamer-pipeline-server/advanced-guide/detailed_usage/how-to-advanced/performance/processing-latency.html) for more details on interpreting the latency tracer output.
 
 ### Disabling latency tracer
 

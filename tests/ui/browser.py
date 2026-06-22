@@ -73,7 +73,7 @@ class Browser(Firefox):
     options.binary_location = binary
 
     options.add_argument("--window-size=1080,1920")
-    # Resolve SceneScape service hostnames to loopback inside the Firefox process.
+    # Resolve Scenescape service hostnames to loopback inside the Firefox process.
     # This applies to geckodriver subprocess, which is unaffected by the Python-level
     # socket.getaddrinfo patch in conftest.py.
     _host_aliases = [
