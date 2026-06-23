@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -18,6 +16,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 TEST_NAME = "NEX-T10516"
+TEST_SET_NAME = "test_similarity_search"
 
 class VDMSSimilaritySearch(BackendFunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
@@ -30,7 +29,7 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
     log.info("Add the descriptor set for RE-ID data")
     descriptor_set = {
       "AddDescriptorSet": {
-        "name": "reid_vectors",
+        "name": TEST_SET_NAME,
         "metric": "L2",
         "dimensions": 256
       }
@@ -54,14 +53,14 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
 
     descriptor_1 = {
       "AddDescriptor": {
-        "set": "reid_vector",
+        "set": TEST_SET_NAME,
         "label": "Person 1"
       }
     }
 
     descriptor_2 = {
       "AddDescriptor": {
-        "set": "reid_vector",
+        "set": TEST_SET_NAME,
         "label": "Person 2"
       }
     }
@@ -79,7 +78,7 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
 
   def get_similarity(self):
     log.info("Pass a third RE-ID vector from one of the two initial objects and get a similarity search comparison. It should have low distance from one of the entries.")
-    response, res_arr = self.get_similarity_comparison([self.thing_2_match])
+    response, res_arr = self.get_similarity_comparison([self.thing_2_match], set_name=TEST_SET_NAME)
     log.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
     assert response[0]['returned'] == 2, \
       "There should be only 2 entities returned!"
