@@ -124,3 +124,33 @@ Create `.vscode/settings.json` in the project root, or press `Ctrl+Shift+P` → 
 
 - If Python interpreter is not detected, press `Ctrl+Shift+P` → "Python: Select Interpreter" → Choose `.venv/bin/python`
 - If imports are not resolved, restart VS Code or reload the window (`Ctrl+Shift+P` → "Developer: Reload Window")
+
+## Testing Configuration
+
+VS Code's Python test extension discovers tests via pytest. The configuration in `.vscode/settings.json` controls which test directories are scanned:
+
+```json
+{
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": [
+    "tests",
+    "cluster_analytics/tests/service",
+    "--import-mode=importlib"
+  ]
+}
+```
+
+**Configuration details:**
+
+- `"tests"` — Discovers all tests in the main test directory, including cluster analytics unit tests
+- `"cluster_analytics/tests/service"` — Discovers component tests for the cluster analytics service
+- `"--import-mode=importlib"` — Uses importlib import mode to avoid namespace collisions between isolated test packages
+
+**Note:** Cluster analytics unit tests have their own `pytest.ini` configuration (`tests/sscape_tests/cluster_analytics/pytest.ini`) that disables the Django plugin. This is necessary because these tests don't require Django and would fail trying to import `manager.secrets` if Django initialization were attempted.
+
+**To view tests in VS Code:**
+
+1. Open the **Test Explorer** panel (left sidebar, flask icon)
+2. Click the refresh button to rescan for tests
+3. Expand the test tree to see all tests, including cluster analytics tests
