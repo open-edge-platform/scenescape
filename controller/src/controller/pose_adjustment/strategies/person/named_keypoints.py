@@ -6,6 +6,10 @@ from typing import Dict, Optional
 
 from scene_common import log
 
+# YOLO pose outputs per-keypoint confidence; below 0.5 the keypoint is unreliable.
+# Other models may need a different threshold.
+# TODO: make configurable via pose-adjustment-route.json.
+MIN_KEYPOINT_CONFIDENCE = 0.5
 
 JOINT_ALIASES = {
   'nose': 'nose',
@@ -88,10 +92,11 @@ def parse_named_keypoints(raw_keypoints) -> Dict[str, NamedKeypoint]:
     except (TypeError, ValueError):
       confidence = None
 
+    if confidence is None or confidence < MIN_KEYPOINT_CONFIDENCE:
+      continue
+
     current = parsed.get(joint_name)
-    if current is None or (
-      confidence is not None and (current.confidence is None or confidence > current.confidence)
-    ):
+    if current is None or current.confidence < confidence:
       parsed[joint_name] = NamedKeypoint(x_coord, y_coord, confidence)
 
   return parsed
