@@ -50,11 +50,11 @@ _MAPPING = WaitConfig(timeout=600)
 FULL_STACK = ServiceProfile(
   name="full_stack",
   compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{COMPOSE}/scene.yml",
-    f"{COMPOSE}/web.yml",
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-scene.yml",
+    f"{COMPOSE}/compose-web.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -67,12 +67,12 @@ FULL_STACK = ServiceProfile(
 FULL_STACK_WITH_MAPPING = ServiceProfile(
   name="full_stack_with_mapping",
   compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{COMPOSE}/scene.yml",
-    f"{COMPOSE}/web.yml",
-    f"{COMPOSE}/mapping.yml",
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-scene.yml",
+    f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-mapping.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -86,14 +86,14 @@ FULL_STACK_WITH_MAPPING = ServiceProfile(
 FULL_STACK_WITH_MAPPING_AND_VIDEO = ServiceProfile(
   name="full_stack_with_mapping_and_video",
   compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{DLS}/retail_video.yml",
-    f"{COMPOSE}/scene.yml",
-    f"{COMPOSE}/web.yml",
-    f"{COMPOSE}/cams.yml",
-    f"{COMPOSE}/mapping.yml",
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{DLS}/compose-retail_video.yml",
+    f"{COMPOSE}/compose-scene.yml",
+    f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-cams.yml",
+    f"{COMPOSE}/compose-mapping.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -108,14 +108,14 @@ FULL_STACK_WITH_MAPPING_AND_VIDEO = ServiceProfile(
 FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
   name="full_stack_with_video_and_retail",
   compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{DLS}/retail_video.yml",
-    f"{DLS}/queuing_video.yml",
-    f"{COMPOSE}/scene.yml",
-    f"{COMPOSE}/web_default.yml",
-    f"{COMPOSE}/cams.yml",
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{DLS}/compose-retail_video.yml",
+    f"{DLS}/compose-queuing_video.yml",
+    f"{COMPOSE}/compose-scene.yml",
+    f"{COMPOSE}/compose-web_default.yml",
+    f"{COMPOSE}/compose-cams.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -129,15 +129,15 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
 REID = ServiceProfile(
   name="reid",
   compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{COMPOSE}/vdms.yml",
-    f"{DLS}/retail_video_reid.yml",
-    f"{DLS}/queuing_video_reid.yml",
-    f"{COMPOSE}/scene_reid.yml",
-    f"{COMPOSE}/web_default.yml",
-    f"{COMPOSE}/cams.yml",
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-vdms.yml",
+    f"{DLS}/compose-retail_video_reid.yml",
+    f"{DLS}/compose-queuing_video_reid.yml",
+    f"{COMPOSE}/compose-scene_reid.yml",
+    f"{COMPOSE}/compose-web_default.yml",
+    f"{COMPOSE}/compose-cams.yml",
   ),
   wait_for={
     "broker": _BROKER,
@@ -154,14 +154,14 @@ REID = ServiceProfile(
 REID_SEMANTIC = ServiceProfile(
   name="reid_semantic",
   compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{COMPOSE}/vdms.yml",
-    f"{DLS}/queuing_video_reid_semantic.yml",
-    f"{COMPOSE}/scene_reid.yml",
-    f"{COMPOSE}/web_default.yml",
-    f"{COMPOSE}/cams.yml",
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-vdms.yml",
+    f"{DLS}/compose-queuing_video_reid_semantic.yml",
+    f"{COMPOSE}/compose-scene_reid.yml",
+    f"{COMPOSE}/compose-web_default.yml",
+    f"{COMPOSE}/compose-cams.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -174,15 +174,15 @@ REID_SEMANTIC = ServiceProfile(
 FULL_STACK_AUTOCALIBRATION = ServiceProfile(
   name="full_stack_autocalibration",
   compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{COMPOSE}/scene.yml",
-    f"{COMPOSE}/web_calibration.yml",
-    f"{DLS}/queuing_video.yml",
-    f"{DLS}/retail_video.yml",
-    f"{COMPOSE}/autocalibration.yml",
-    f"{COMPOSE}/cams.yml",
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-scene.yml",
+    f"{COMPOSE}/compose-web_calibration.yml",
+    f"{DLS}/compose-queuing_video.yml",
+    f"{DLS}/compose-retail_video.yml",
+    f"{COMPOSE}/compose-autocalibration.yml",
+    f"{COMPOSE}/compose-cams.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -198,9 +198,9 @@ FULL_STACK_AUTOCALIBRATION = ServiceProfile(
 SCENE_NO_DB = ServiceProfile(
   name="scene_no_db",
   compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/scene_no_db.yml",
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-scene_no_db.yml",
   ),
   wait_for={
     "scene": _SCENE,
@@ -210,11 +210,11 @@ SCENE_NO_DB = ServiceProfile(
 MARKERLESS = ServiceProfile(
   name="markerless",
   compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/web.yml",
-    f"{COMPOSE}/autocalibration.yml",
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-web.yml",
+    f"{COMPOSE}/compose-autocalibration.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -226,10 +226,10 @@ MARKERLESS = ServiceProfile(
 INFERENCE_PERF = ServiceProfile(
   name="inference_perf",
   compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/cams.yml",
-    f"{DLS}/retail_video.yml",
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-cams.yml",
+    f"{DLS}/compose-retail_video.yml",
   ),
   wait_for={
     "broker": _BROKER,
@@ -240,12 +240,12 @@ INFERENCE_PERF = ServiceProfile(
 FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS = ServiceProfile(
   name="full_stack_autocalibration_no_apriltags",
   compose_files=(
-    f"{DLS}/broker.yml",
-    f"{COMPOSE}/ntp.yml",
-    f"{COMPOSE}/pgserver.yml",
-    f"{COMPOSE}/scene.yml",
-    f"{COMPOSE}/web_default.yml",
-    f"{COMPOSE}/autocalibration.yml",
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{COMPOSE}/compose-scene.yml",
+    f"{COMPOSE}/compose-web_default.yml",
+    f"{COMPOSE}/compose-autocalibration.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
