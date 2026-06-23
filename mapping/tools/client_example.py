@@ -29,13 +29,6 @@ if str(MAPPING_SRC_DIR) not in sys.path:
 
 from mapping_client import MappingClient
 
-def encode_image_to_base64(image_path: str) -> str:
-  """Encode image file to base64 string"""
-  with open(image_path, "rb") as f:
-    image_data = f.read()
-    encoded = base64.b64encode(image_data).decode('utf-8')
-    return encoded
-
 def send_reconstruction_request(
   client: MappingClient,
   image_paths: List[str],
