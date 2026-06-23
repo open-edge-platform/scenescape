@@ -379,6 +379,11 @@ class TestParseNamedKeypoints:
     raw = [{'name': 'nose', 'x': 0.5, 'y': 0.1, 'confidence': 0.01}]
     assert parse_named_keypoints(raw) == {}
 
+  def test_at_threshold_confidence_included(self):
+    raw = [{'name': 'nose', 'x': 0.5, 'y': 0.1, 'confidence': 0.5}]
+    result = parse_named_keypoints(raw)
+    assert 'nose' in result
+
 
 # ---------------------------------------------------------------------------
 # TestKeypointsAreNormalized

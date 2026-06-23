@@ -6,6 +6,9 @@ from typing import Dict, Optional
 
 from scene_common import log
 
+# YOLO pose outputs per-keypoint confidence; below 0.5 the keypoint is unreliable.
+# Other models may need a different threshold.
+# TODO: make configurable via pose-adjustment-route.json.
 MIN_KEYPOINT_CONFIDENCE = 0.5
 
 JOINT_ALIASES = {
