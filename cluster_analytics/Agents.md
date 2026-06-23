@@ -172,16 +172,16 @@ docker compose up cluster-analytics -e LOG_LEVEL=DEBUG
 
 ### CLI Arguments
 
-| Argument         | Description                                      |
-| ---------------- | ------------------------------------------------ |
-| `--broker`       | MQTT broker hostname                             |
-| `--brokerauth`   | Path to broker auth file                         |
-| `--cert`         | Path to client certificate                       |
-| `--rootcert`     | Path to CA certificate                           |
-| `--webui`        | Enable WebUI server (disabled by default)        |
-| `--webui-port`   | WebUI HTTPS port (default: 9443)                 |
-| `--webui-certfile` | TLS certificate for WebUI                     |
-| `--webui-keyfile` | TLS private key for WebUI                       |
+| Argument           | Description                               |
+| ------------------ | ----------------------------------------- |
+| `--broker`         | MQTT broker hostname                      |
+| `--brokerauth`     | Path to broker auth file                  |
+| `--cert`           | Path to client certificate                |
+| `--rootcert`       | Path to CA certificate                    |
+| `--webui`          | Enable WebUI server (disabled by default) |
+| `--webui-port`     | WebUI HTTPS port (default: 9443)          |
+| `--webui-certfile` | TLS certificate for WebUI                 |
+| `--webui-keyfile`  | TLS private key for WebUI                 |
 
 ### Configuration File Format
 
@@ -307,9 +307,9 @@ self.cluster_tracker = ClusterTracker(
 3. Check `max_matching_distance` (too small = new UUID every frame)
 4. Check `expiry_seconds` (too small = clusters disappear between bursts)
 
-1. Enable debug logging: `LOG_LEVEL=DEBUG`
-2. Log cluster states and transitions
-3. Visualize cluster centroids over time
+5. Enable debug logging: `LOG_LEVEL=DEBUG`
+6. Log cluster states and transitions
+7. Visualize cluster centroids over time
 
 ## Integration Points
 

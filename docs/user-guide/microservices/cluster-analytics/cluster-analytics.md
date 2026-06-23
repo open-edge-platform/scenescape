@@ -321,19 +321,19 @@ The Cluster Analytics service publishes optimized cluster metadata in batch form
 
 ### Batch-Level Fields
 
-| Field                               | Type    | Description                                    |
-| ----------------------------------- | ------- | ---------------------------------------------- |
-| `scene_id`           | String  | Unique scene identifier (UUID)                 |
-| `scene_name`         | String  | Human-readable scene name                      |
-| `timestamp`          | String  | ISO 8601 timestamp when clusters were detected |
-| `clusters`           | Array   | Array of individual cluster objects            |
-| `summary.categories` | Array   | List of object categories that formed clusters |
-| `summary.total_objects` | Integer | Total objects across all clusters           |
+| Field                   | Type    | Description                                    |
+| ----------------------- | ------- | ---------------------------------------------- |
+| `scene_id`              | String  | Unique scene identifier (UUID)                 |
+| `scene_name`            | String  | Human-readable scene name                      |
+| `timestamp`             | String  | ISO 8601 timestamp when clusters were detected |
+| `clusters`              | Array   | Array of individual cluster objects            |
+| `summary.categories`    | Array   | List of object categories that formed clusters |
+| `summary.total_objects` | Integer | Total objects across all clusters              |
 
 ### Individual Cluster Fields
 
-| Field                | Type    | Description                                       |
-| -------------------- | ------- | ------------------------------------------------- |
+| Field           | Type    | Description                                       |
+| --------------- | ------- | ------------------------------------------------- |
 | `id`            | String  | Unique persistent cluster UUID                    |
 | `category`      | String  | Object detection category (person, vehicle, etc.) |
 | `objects_count` | Integer | Number of objects forming the cluster             |
