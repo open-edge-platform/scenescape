@@ -31,12 +31,13 @@ class BackendFunctionalTest(FunctionalTest):
   def generate_random_vector(self, floor=-1, ceiling=1, vsize=256):
     return [random.uniform(floor, ceiling) for _ in range(vsize)]
 
-  def get_similarity_comparison(self, reid_vectors=1):
+  def get_similarity_comparison(self, reid_vectors=1, set_name="reid_vector"):
     """! Get the similarity comparison based on the reid_vectors sent
     @param    reid_vectors            If is of type list, it will use those vectors to
                                       generate blobs.
                                       If is of type int, it will randomly generate that
                                       amount of vectors to be searched.
+    @param    set_name                Name of the VDMS descriptor set to search.
     @return   (response, res_arr)     The query response and the response array.
     """
 
@@ -54,7 +55,7 @@ class BackendFunctionalTest(FunctionalTest):
 
     find = [{
       "FindDescriptor": {
-        "set": "reid_vector",
+        "set": set_name,
         "k_neighbors": 20,
         "results": {
           "list": ["_distance"],
