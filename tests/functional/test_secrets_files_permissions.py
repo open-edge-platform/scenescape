@@ -25,20 +25,54 @@ def is_relevant_file(path):
   )
 
 
-def parse_ls_output(line):
-  """Parse a single line from 'ls -la' output.
+def octal_mode_to_permission_string(mode_octal: str) -> str:
+  """Convert octal file mode to permission string (e.g., 644 → -rw-r--r--).
 
-  Returns (permissions, path) tuple.
+  Args:
+    mode_octal: Octal mode string (e.g., '644', '755')
+
+  Returns:
+    Permission string like '-rw-r--r--'
   """
-  parts = line.split()
-  if len(parts) < 9:
+  mode = int(mode_octal, 8)
+  perms = '-'
+  # Owner: rwx
+  perms += 'r' if mode & 0o400 else '-'
+  perms += 'w' if mode & 0o200 else '-'
+  perms += 'x' if mode & 0o100 else '-'
+  # Group: rwx
+  perms += 'r' if mode & 0o040 else '-'
+  perms += 'w' if mode & 0o020 else '-'
+  perms += 'x' if mode & 0o010 else '-'
+  # Other: rwx
+  perms += 'r' if mode & 0o004 else '-'
+  perms += 'w' if mode & 0o002 else '-'
+  perms += 'x' if mode & 0o001 else '-'
+  return perms
+
+
+def parse_find_output(line):
+  """Parse find -printf output: 'octal_mode|path'.
+
+  Returns:
+    (permissions_string, path) tuple or None if malformed.
+  """
+  parts = line.split('|', 1)  # Split only on first |
+  if len(parts) != 2:
     return None
-  permissions = parts[0]
-  path = parts[-1]
+
+  mode_octal = parts[0].strip()
+  path = parts[1]
+
+  try:
+    permissions = octal_mode_to_permission_string(mode_octal)
+  except (ValueError, TypeError):
+    return None
+
   return (permissions, path)
 
 
-def has_strict_read_only_permissions(permissions: str) -> bool:
+def is_read_only_for_group_and_others(permissions: str) -> bool:
   """Check permissions for strict read-only access.
 
   Args:
@@ -63,8 +97,8 @@ def test_secrets_file_permissions(scenescape_env, result_recorder):
     * Verify each has strict read-only permissions (r--r--r--)
   """
 
-  # Execute find and ls command in web container to list all secrets files
-  cmd = "find /run/secrets -type f -exec ls -la {} \\;"
+  # Execute find with machine-parsable format: octal_mode|path
+  cmd = "find /run/secrets -type f -printf '%m|%p\\n'"
   output = scenescape_env.docker.compose.execute(
     "web",
     ["sh", "-c", cmd],
@@ -77,7 +111,7 @@ def test_secrets_file_permissions(scenescape_env, result_recorder):
     line = line.strip()
     if not line:
       continue
-    parsed = parse_ls_output(line)
+    parsed = parse_find_output(line)
     if parsed:
       file_info.append(parsed)
 
@@ -93,7 +127,7 @@ def test_secrets_file_permissions(scenescape_env, result_recorder):
   # Validate permissions on each file
   failures = []
   for permissions, path in relevant_files:
-    if not has_strict_read_only_permissions(permissions):
+    if not is_read_only_for_group_and_others(permissions):
       msg = f"File {path} has incorrect permissions: {permissions}"
       log.error(msg)
       failures.append(msg)
