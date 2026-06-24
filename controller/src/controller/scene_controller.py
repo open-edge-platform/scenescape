@@ -1120,6 +1120,65 @@ class SceneController:
       with self._pending_work_lock:
         self._pending_work.pop(camera_id, None)
 
+  def _resolveMessageTime(self, jdata, now):
+    """Resolve the processing time for a message and keep its payload consistent.
+
+    When rewrite_all_time is set, the message is restamped to `now`; otherwise
+    the embedded timestamp is used. The returned value is the epoch time used
+    for processing, and jdata['timestamp'] is guaranteed to match it.
+    """
+    if self.rewrite_all_time:
+      jdata['timestamp'] = get_iso_time(now)
+      return now
+    return get_epoch_time(jdata['timestamp'])
+
+  def _logLagDecomposition(self, jdata, lag):
+    """Log the upstream vs MQTT split of a message's lag, when available.
+
+    debug_processing_time = T_postinference - T_capture (set in sscape_adapter.py:226)
+    """
+    upstream_proc_s = jdata.get('debug_processing_time', None)
+    if upstream_proc_s is None:
+      return
+    upstream_ms = upstream_proc_s * 1000
+    mqtt_ms = (lag - upstream_proc_s) * 1000
+    total_lag_ms = lag * 1000
+    log.debug(f"[PROFILE_LAG_SPLIT] cam={jdata['id']}, "
+              f"upstream_ms={upstream_ms:.1f}, mqtt_ms={mqtt_ms:.1f}, "
+              f"total_ms={total_lag_ms:.1f}")
+
+  def _applyLagPolicy(self, jdata, lag, now):
+    """Decide how to handle a frame whose lag exceeds max_lag.
+
+    Returns the processing time to use, or None if the frame should be dropped.
+    Accepted frames are restamped to `now` so jdata['timestamp'] stays consistent
+    with the processing time (avoids publishing stale timestamps downstream).
+
+    During the startup grace period stale frames are accepted: the overwrite
+    buffer keeps only the latest frame per camera, so stale ones are naturally
+    replaced by fresh frames within one frame interval.
+    """
+    in_grace = (time.time() - self._startup_time) < self._startup_grace_sec
+    if in_grace:
+      log.debug(f"Startup grace: accepting stale frame from {jdata.get('id', 'unknown')} (lag={lag:.2f}s)")
+    elif not self.rewrite_bad_time:
+      log.warning("FELL BEHIND by {}. SKIPPING {}".format(lag, jdata.get('id', 'unknown')))
+      return None
+    jdata['timestamp'] = get_iso_time(now)
+    return now
+
+  def _logWorkerRoute(self, sender_id, scene):
+    """Rate-limited worker-side routing diagnostic.
+
+    Logs the first 5 messages, then every 1000th, to verify the worker receives
+    the correct scenes.
+    """
+    if not hasattr(self, '_worker_route_log_count'):
+      self._worker_route_log_count = 0
+    self._worker_route_log_count += 1
+    if self._worker_route_log_count <= 5 or self._worker_route_log_count % 1000 == 0:
+      log.info(f"[ROUTE_WORKER] camera={sender_id} scene={scene.uid} worker_pid={os.getpid()} msg#{self._worker_route_log_count}")
+
   def _processMessageCore(self, topic_str, jdata, now_with_offset, t_handler_start, t_parse):
     """Core message processing: validate, route, and run detection pipeline.
 
@@ -1158,40 +1217,15 @@ class SceneController:
     jdata['_profile_parse_done'] = t_parse
     self.cache_manager.refreshScenesForCamParams(jdata)
 
-    if self.rewrite_all_time:
-      msg_when = now
-      jdata['timestamp'] = get_iso_time(now)
-    else:
-      msg_when = get_epoch_time(jdata['timestamp'])
+    msg_when = self._resolveMessageTime(jdata, now)
 
     lag = abs(now - msg_when)
-
-    # Lag decomposition: extract upstream processing time already in the message
-    # debug_processing_time = T_postinference - T_capture (set in sscape_adapter.py:226)
-    upstream_proc_s = jdata.get('debug_processing_time', None)
-    if upstream_proc_s is not None:
-      upstream_ms = upstream_proc_s * 1000
-      mqtt_ms = (lag - upstream_proc_s) * 1000
-      total_lag_ms = lag * 1000
-      log.debug(f"[PROFILE_LAG_SPLIT] cam={jdata['id']}, "
-                f"upstream_ms={upstream_ms:.1f}, mqtt_ms={mqtt_ms:.1f}, "
-                f"total_ms={total_lag_ms:.1f}")
+    self._logLagDecomposition(jdata, lag)
 
     if lag > self.max_lag:
-      # During startup grace period, let stale frames through — the overwrite
-      # buffer keeps only the latest frame per camera, so stale ones are
-      # naturally replaced by fresh frames within one frame interval.
-      in_grace = (time.time() - self._startup_time) < self._startup_grace_sec
-      if in_grace:
-        log.debug(f"Startup grace: accepting stale frame from {jdata.get('id', 'unknown')} (lag={lag:.2f}s)")
-        msg_when = now
-        jdata['timestamp'] = get_iso_time(now)
-      elif not self.rewrite_bad_time:
-        log.warning("FELL BEHIND by {}. SKIPPING {}".format(lag, jdata.get('id', 'unknown')))
+      msg_when = self._applyLagPolicy(jdata, lag, now)
+      if msg_when is None:
         return None
-      else:
-        msg_when = now
-        jdata['timestamp'] = get_iso_time(now)
 
     camera_id = None
     if topic['_topic_id'] == PubSub.DATA_EXTERNAL:
@@ -1207,13 +1241,7 @@ class SceneController:
         return None
       scene = sender
 
-      # Worker-side routing verification diagnostic log (rate-limited).
-      # Logs first 20 messages, then every 500th message to verify worker receives correct scenes.
-      if not hasattr(self, '_worker_route_log_count'):
-        self._worker_route_log_count = 0
-      self._worker_route_log_count += 1
-      if self._worker_route_log_count <= 5 or self._worker_route_log_count % 1000 == 0:
-        log.info(f"[ROUTE_WORKER] camera={sender_id} scene={scene.uid} worker_pid={os.getpid()} msg#{self._worker_route_log_count}")
+      self._logWorkerRoute(sender_id, scene)
 
       # If no detection types in the message, add empty arrays for all tracked types
       # This must be done BEFORE processCameraData so the tracker processes them
