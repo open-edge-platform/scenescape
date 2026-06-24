@@ -62,7 +62,7 @@ class TestIntelLabsTrackingFromTrackedObject(unittest.TestCase):
 
   def test_preserves_existing_gid_mapping(self):
     tracker = _make_tracker()
-    tracker.uuid_manager.active_ids = {33: ["gid-33"]}
+    tracker.uuid_manager.active_ids = {33: ["gid-33", None]}
 
     current_obj = SimpleNamespace(
         uuid="obj-3",

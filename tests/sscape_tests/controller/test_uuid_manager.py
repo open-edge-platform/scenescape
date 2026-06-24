@@ -12,7 +12,7 @@ Verifies that:
 import threading
 import unittest
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock
 
 
 def _make_uuid_manager():

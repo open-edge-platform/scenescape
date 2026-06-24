@@ -25,7 +25,6 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC,
                                  DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
-from types import SimpleNamespace
 
 DEBOUNCE_DELAY = 0.5
 

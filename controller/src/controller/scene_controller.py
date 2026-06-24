@@ -1185,11 +1185,13 @@ class SceneController:
       if in_grace:
         log.debug(f"Startup grace: accepting stale frame from {jdata.get('id', 'unknown')} (lag={lag:.2f}s)")
         msg_when = now
+        jdata['timestamp'] = get_iso_time(now)
       elif not self.rewrite_bad_time:
         log.warning("FELL BEHIND by {}. SKIPPING {}".format(lag, jdata.get('id', 'unknown')))
         return None
       else:
         msg_when = now
+        jdata['timestamp'] = get_iso_time(now)
 
     camera_id = None
     if topic['_topic_id'] == PubSub.DATA_EXTERNAL:

@@ -167,6 +167,8 @@ class CacheManager:
               height = cy * 2
               current_resolution = scene.cameras[camera].pose.resolution if hasattr(scene.cameras[camera].pose, 'resolution') else None
               if current_resolution != [width, height]:
+                if camera not in self.camera_parameters:
+                  self.camera_parameters[camera] = {}
                 self.camera_parameters[camera]['resolution'] = [width, height]
                 cameras_to_update.append(scene.cameras[camera])
 
