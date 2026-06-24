@@ -354,60 +354,6 @@ services:
     restart: always
     pids_limit: 1000
 
-  lidar-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24
-    networks:
-      scenescape:
-    tty: true
-    entrypoint: ["./run.sh"]
-    # ports:
-    #   - "8082:8080"
-    group_add:
-      - "109"
-      - "110"
-      - "992"
-    device_cgroup_rules:
-      - "c 189:* rmw"
-      - "c 209:* rmw"
-      - "a 189:* rwm"
-    depends_on:
-      broker:
-        condition: service_started
-      ntpserv:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    environment:
-      - RUN_MODE=EVA
-      - ADD_UTCTIME_TO_METADATA=true
-      - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
-      - MQTT_HOST=broker.scenescape.intel.com
-      - MQTT_PORT=1883
-      - REST_SERVER_PORT=8080
-      - HTTPS_PROXY=${HTTPS_PROXY}
-      - https_proxy=${https_proxy}
-      - HTTP_PROXY=${HTTP_PROXY}
-      - http_proxy=${http_proxy}
-      - NO_PROXY=${NO_PROXY}
-      - no_proxy=${no_proxy}
-    configs:
-      - source: lidar-config
-        target: /home/pipeline-server/config.json
-    volumes:
-      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - vol-dlstreamer-pipeline-server-pipeline-root-lidar:/var/cache/pipeline_root:uid=1999,gid=1999
-      - vol-sample-data:/home/pipeline-server/videos
-      - vol-models:/home/pipeline-server/models
-    secrets:
-      - source: root-cert
-        target: certs/scenescape-ca.pem
-    restart: always
-    pids_limit: 1000
-
   queuing-video:
     image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24
     networks:
@@ -480,6 +426,62 @@ services:
       - vol-netvlad_models:/data/netvlad_models
       - vol-media:/data/media
       - vol-datasets:/data/datasets
+
+  lidar-stream:
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24
+    networks:
+      scenescape:
+    tty: true
+    entrypoint: ["./run.sh"]
+    # ports:
+    #   - "8082:8080"
+    group_add:
+      - "109"
+      - "110"
+      - "992"
+    device_cgroup_rules:
+      - "c 189:* rmw"
+      - "c 209:* rmw"
+      - "a 189:* rwm"
+    depends_on:
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    environment:
+      - RUN_MODE=EVA
+      - ADD_UTCTIME_TO_METADATA=true
+      - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
+      - MQTT_HOST=broker.scenescape.intel.com
+      - MQTT_PORT=1883
+      - REST_SERVER_PORT=8080
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
+      - NO_PROXY=${NO_PROXY}
+      - no_proxy=${no_proxy}
+    configs:
+      - source: lidar-config
+        target: /home/pipeline-server/config.json
+      - source: lidar-mqtt-config
+        target: /home/pipeline-server/lidar-mqtt-config.json
+    volumes:
+      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - vol-dlstreamer-pipeline-server-pipeline-root-lidar:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol-sample-data:/home/pipeline-server/videos
+      - vol-models:/home/pipeline-server/models
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+    restart: always
+    pids_limit: 1000
 
   autocalibration:
     image: scenescape-autocalibration:${VERSION:-latest}
@@ -677,6 +679,8 @@ configs:
     # file: ./dlstreamer-pipeline-server/queuing-config-npu.json
   lidar-config:
     file: ./dlstreamer-pipeline-server/lidar-intersection-config.json
+  lidar-mqtt-config:
+    file: ./dlstreamer-pipeline-server/lidar-mqtt-config.json
 
 volumes:
   vol-db:

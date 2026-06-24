@@ -1,0 +1,4 @@
+{
+  "ssl_enable_server_cert_auth": false,
+  "ssl_CA_certificate": "/run/secrets/certs/scenescape-ca.pem"
+}
