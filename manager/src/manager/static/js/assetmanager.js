@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -6,15 +6,49 @@
 import * as THREE from "/static/assets/three.module.js";
 import RESTClient from "/static/js/restclient.js";
 import { REST_URL, SUCCESS } from "/static/js/constants.js";
+import {
+  createLabelRenderer,
+  createMarkObject,
+  updateLabelFields,
+} from "/static/js/draw.js";
+import { SetupMarkHover } from "/static/js/interactions.js";
 
-export default function AssetManager(scene, subscribeToTracking) {
+export default function AssetManager(
+  scene,
+  subscribeToTracking,
+  camera,
+  domElement,
+) {
   let authToken = `Token ${document.getElementById("auth-token").value}`;
   let restclient = new RESTClient(REST_URL, authToken);
-
-  // Initialize cache of tracked objects
+  let activeCamera = camera;
   let objectCache = {};
-  // Object to hold the collection of marks across scene updates
   let marks = {};
+
+  const labelRenderer = createLabelRenderer(domElement);
+  const { setLabelVisible, setLabelMode, getLabelMode } = SetupMarkHover(
+    scene,
+    domElement,
+    marks,
+    () => activeCamera,
+  );
+
+  function updateLabelData(markObject, obj) {
+    if (obj.regions && Object.keys(obj.regions).length > 0) {
+      Object.entries(obj.regions).forEach(([regionId, regionData]) => {
+        if (regionData.entered) {
+          updateLabelFields(markObject, {
+            dwell:
+              regionData.dwell != null
+                ? `${regionData.dwell.toFixed(1)}s`
+                : null,
+          });
+        }
+      });
+    } else {
+      updateLabelFields(markObject, { dwell: null });
+    }
+  }
 
   function addDefaultGeometryToCache(name, color, depth) {
     let material = new THREE.MeshLambertMaterial({
@@ -31,24 +65,9 @@ export default function AssetManager(scene, subscribeToTracking) {
 
   // Create a mark geometry
   function createGeometry(object) {
-    let mark = new THREE.Object3D();
-
-    if (typeof objectCache[object.category] != "undefined") {
-      addDefaultMark(mark, objectCache, object.category);
-    } else {
-      addDefaultMark(mark, objectCache, "unknown");
-      mark.children[0].name = object.category;
-    }
-
-    // Place the mark in the scene
+    const mark = createMarkObject(object, objectCache);
     scene.add(mark);
-
     return mark.id;
-  }
-
-  function addDefaultMark(mark, objectCache, category) {
-    mark.add(objectCache[category].clone());
-    mark.category = category;
   }
 
   function hideMarks() {
@@ -59,7 +78,7 @@ export default function AssetManager(scene, subscribeToTracking) {
 
   // Plot marks on the scene
   function plot(msg) {
-    // SceneScape sends only current marks, so we need to determine
+    // Scenescape sends only current marks, so we need to determine
     // which old marks are not in the current update and remove them
 
     // Create a set based on the current keys (object IDs) of the global
@@ -77,8 +96,18 @@ export default function AssetManager(scene, subscribeToTracking) {
       let val = marks[markId];
       let del = scene.getObjectById(val.id);
 
-      delete marks[markId]; // Delete from the marks object
-      scene.remove(del); // Remove from the scene
+      // Clean up CSS2D label DOM element before removing from scene
+      // Delete from the marks object
+      // Remove from the scene
+      if (del) {
+        const labelObj = del.getObjectByName("css2dLabel");
+        if (labelObj && labelObj.element && labelObj.element.parentNode) {
+          labelObj.element.parentNode.removeChild(labelObj.element);
+        }
+      }
+
+      delete marks[markId];
+      scene.remove(del);
     }
 
     // Remove oldMarks from both the scene and the marks collection
@@ -120,7 +149,51 @@ export default function AssetManager(scene, subscribeToTracking) {
       }
       thisMark.translateZ(translate);
       thisMark.scale.copy(scale);
+      const model = thisMark.getObjectByName("model");
+      const indicator = thisMark.getObjectByName("indicator");
+      const labelObj = thisMark.getObjectByName("css2dLabel");
+
+      if (model && indicator) {
+        model.updateWorldMatrix(true, true);
+        const box = new THREE.Box3().setFromObject(model);
+        const localBox = box
+          .clone()
+          .applyMatrix4(thisMark.matrixWorld.clone().invert());
+        const top = localBox.max.z;
+        indicator.position.z = top + 0.5;
+
+        // Position label just above the indicator
+        if (labelObj) {
+          labelObj.position.z = top + 1.2;
+        }
+      }
+
+      // Update label fields with latest data from the message
+      if (labelObj) {
+        updateLabelData(thisMark, obj);
+        if (getLabelMode() === "all") setLabelVisible(thisMark, true);
+      }
     });
+  }
+
+  function renderLabels() {
+    for (const mark of Object.values(marks)) {
+      const obj = scene.getObjectById(mark.id);
+      if (obj) {
+        const labelObj = obj.getObjectByName("css2dLabel");
+        if (labelObj && labelObj.element) {
+          if (!obj.visible && labelObj.element.style.display !== "none") {
+            labelObj.element.style.display = "none";
+          }
+        }
+      }
+    }
+    labelRenderer.render(scene, activeCamera);
+  }
+
+  function setCamera(newCamera) {
+    activeCamera = newCamera;
+    labelRenderer.setSize(domElement.clientWidth, domElement.clientHeight);
   }
 
   function loadAssets(gltfLoader, reload = false) {
@@ -209,5 +282,5 @@ export default function AssetManager(scene, subscribeToTracking) {
       });
   }
 
-  return { loadAssets, plot, hideMarks };
+  return { loadAssets, plot, hideMarks, renderLabels, setLabelMode, setCamera };
 }

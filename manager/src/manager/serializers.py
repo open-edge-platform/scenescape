@@ -563,15 +563,15 @@ class SceneSerializer(NonNullSerializer):
   uid = serializers.SerializerMethodField('get_uid')
   cameras = serializers.SerializerMethodField('get_cameras')
   sensors = serializers.SerializerMethodField('get_sensors')
-  regions = RegionSerializer(many=True)
-  tripwires = TripwireSerializer(many=True)
-  parent = serializers.CharField(source='parent.parent.pk')
-  transform = TransformSerializerField(source='parent.cameraPose')
+  regions = RegionSerializer(many=True, required=False)
+  tripwires = TripwireSerializer(many=True, required=False)
+  parent = serializers.CharField(source='parent.parent.pk', required=False, allow_null=True)
+  transform = TransformSerializerField(source='parent.cameraPose', required=False, allow_null=True)
   mesh_translation = serializers.SerializerMethodField('get_translation')
   mesh_rotation = serializers.SerializerMethodField('get_rotation')
   mesh_scale = serializers.SerializerMethodField('get_scale')
   children = serializers.SerializerMethodField('get_children')
-  map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z")
+  map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z", required=False, allow_null=True)
   trs_matrix = serializers.SerializerMethodField('get_trs_matrix')
 
   def validate(self, attrs):
@@ -912,7 +912,7 @@ class UserSerializer(NonNullSerializer):
     }
 
 class Asset3DSerializer(NonNullSerializer):
-  uid = serializers.CharField(source='pk')
+  uid = serializers.CharField(source='pk', read_only=True)
   name = serializers.CharField(max_length=150)
 
   def validate_name(self, value):
@@ -947,7 +947,7 @@ class Asset3DSerializer(NonNullSerializer):
 class ChildSceneSerializer(NonNullSerializer):
   name = serializers.SerializerMethodField('getChildName')
   uid = serializers.CharField(source='pk', read_only=True)
-  transform = TransformSerializerField(source="cameraPose")
+  transform = TransformSerializerField(source="cameraPose", required=False, allow_null=True)
 
   def getChildName(self, obj):
     return obj.child.name if obj.child else obj.child_name

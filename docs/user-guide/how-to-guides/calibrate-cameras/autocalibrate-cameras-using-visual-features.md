@@ -1,9 +1,9 @@
-# Autocalibrate Cameras using Visual Features in Intel® SceneScape
+# Autocalibrate Cameras using Visual Features in Scenescape
 
-This guide provides step-by-step instructions to calibrate cameras in Intel® SceneScape using markerless methods with raw RGBD data from Polycam. By completing this guide, you will:
+This guide provides step-by-step instructions to calibrate cameras in Scenescape using markerless methods with raw RGBD data from Polycam. By completing this guide, you will:
 
 - Capture and export valid Polycam datasets.
-- Set up markerless camera calibration in Intel® SceneScape.
+- Set up markerless camera calibration in Scenescape.
 - Validate and adjust camera pose via 3D UI.
 
 This task is essential for developers who want to simplify calibration by using RGBD scans rather than physical markers.
@@ -15,13 +15,13 @@ Before You Begin, ensure the following:
 - **Device Requirements**: Use an iOS device with LiDAR (iPad Pro 2020+, iPhone 12 Pro+).
 - **Polycam Requirements**: Use LiDAR or ROOM mode in [Polycam](https://apps.apple.com/us/app/polycam-3d-scanner-lidar-360/id1532482376).
 - **Developer Mode**: Enable Developer Mode in the app settings to expose raw data export.
-- **SceneScape Installation**: Installed and running on the host machine.
+- **Scenescape Installation**: Installed and running on the host machine.
 
 ## Steps to Calibrate Using Markerless Camera Calibration
 
 ### 1. Generate Polycam Dataset
 
-1. Open Polycam and switch to [LiDAR mode](https://learn.poly.cam/lidar-mode) or [ROOM mode](https://learn.poly.cam/room-mode).
+1. Open Polycam and switch to [LiDAR mode](https://poly.cam/tools/3d-lidar-scanner) or [ROOM mode](https://poly.cam/tools/3d-room-scanner).
 2. Enable **Developer Mode** in settings to allow raw data export.
 3. Capture a scan of the scene. After completion, export the dataset in **Raw** format.
 
@@ -33,10 +33,10 @@ The exported ZIP will contain:
 - `mesh_info.json`
 - `keyframes/` (with images, cameras, depth, and confidence maps)
 
-### 2. Configure Scene in Intel® SceneScape
+### 2. Configure Scene in Scenescape
 
-1. Copy the Polycam ZIP dataset to the Intel® SceneScape host machine.
-2. Open Intel® SceneScape and either:
+1. Copy the Polycam ZIP dataset to the Scenescape host machine.
+2. Open Scenescape and either:
    - Update an existing scene, or
    - Create a new scene using the `raw.glb` file in the _Map_ field.
 
@@ -87,7 +87,7 @@ _Figure 4: Visualize and save calibrated camera pose._
 
 ## Future Enhancements
 
-- Intel® SceneScape will support more dataset formats beyond Polycam.
+- Scenescape will support more dataset formats beyond Polycam.
 - Dataset registration and calibration will be optimized for speed.
 
 ## Supporting Resources

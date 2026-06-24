@@ -1,9 +1,9 @@
 ---
 name: makefile
-description: Makefile standards for SceneScape — build targets, conventions, and patterns.
+description: Makefile standards for Scenescape — build targets, conventions, and patterns.
 ---
 
-# Makefile Standards for SceneScape
+# Makefile Standards for Scenescape
 
 ## Organization
 
@@ -21,7 +21,7 @@ scenescape/
 │   └── Makefile          # Manager-specific targets
 └── tests/
     ├── Makefile          # Test orchestrator
-    └── Makefile.sscape   # SceneScape-specific test targets
+    └── Makefile.sscape   # Scenescape-specific test targets
 ```
 
 ### Common.mk Inclusion
@@ -143,7 +143,7 @@ help:
 
 ### Standard Targets
 
-Common phony targets in SceneScape:
+Common phony targets in Scenescape:
 
 ```makefile
 .PHONY: build build-core build-all build-experimental
@@ -514,7 +514,7 @@ clean: ## Remove build artifacts
 
 ```makefile
 help:
-	@echo "$(BLUE)SceneScape Makefile$(RESET)"
+	@echo "$(BLUE)Scenescape Makefile$(RESET)"
 	@echo ""
 	@echo "$(YELLOW)Build targets:$(RESET)"
 	@echo "  build              - Build core services"

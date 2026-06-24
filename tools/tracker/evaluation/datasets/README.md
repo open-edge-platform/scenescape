@@ -9,11 +9,11 @@ This directory contains dataset adapter implementations for the tracker evaluati
 
 Each dataset adapter implements the `TrackingDataset` abstract base class (see [../base/tracking_dataset.py](../base/tracking_dataset.py)) to provide:
 
-- Scene and camera configuration in SceneScape canonical format
+- Scene and camera configuration in Scenescape canonical format
 - Input data (object detections) from configured cameras, sorted by timestamp
 - Ground-truth object locations for evaluation
 
-Dataset adapters convert dataset-specific formats to SceneScape canonical formats as defined in the tracker schemas.
+Dataset adapters convert dataset-specific formats to Scenescape canonical formats as defined in the tracker schemas.
 
 **Important**: When `get_inputs()` returns data from multiple cameras, frames must be sorted by timestamp in chronological order to properly simulate real-time tracking scenarios.
 
@@ -65,7 +65,7 @@ gt_path = dataset.get_ground_truth()
 To add support for a new dataset:
 
 1. **Create adapter class**: Implement all abstract methods from `TrackingDataset` base class (see [../base/tracking_dataset.py](../base/tracking_dataset.py))
-2. **Format conversion**: Convert dataset-specific formats to SceneScape canonical formats (see [Canonical Data Formats](../README.md#canonical-data-formats))
+2. **Format conversion**: Convert dataset-specific formats to Scenescape canonical formats (see [Canonical Data Formats](../README.md#canonical-data-formats))
 3. **Create tests**: Add comprehensive tests validating format conversion and schema compliance
 4. **Update documentation**: Add entry to this README with usage example and key features
 

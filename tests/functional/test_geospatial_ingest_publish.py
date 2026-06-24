@@ -132,15 +132,87 @@ class GeospatialIngestPublish(FunctionalTest):
     res = self.rest.createSensor(sensor)
     assert res, (res.statusCode, res.errors)
 
+  def waitForSceneCondition(self, predicate, description,
+                            timeout=MAX_WAIT_TIMEOUT, interval=1.0):
+    """! Poll the scene via REST until `predicate(scene)` is true or `timeout`.
+
+    The scene controller computes and persists derived fields (such as
+    `trs_matrix`) asynchronously: it must receive the scene-update command over
+    MQTT, refresh its cache, and push the result back to the manager. A single
+    fixed sleep is therefore unreliable across local and CI environments, so we
+    poll and surface the final scene state if the condition is never met.
+
+    @param    predicate     Callable taking the scene dict, returning bool.
+    @param    description   Human-readable description of the awaited condition.
+    @param    timeout       Maximum seconds to wait.
+    @param    interval      Seconds between polls.
+    @return   scene         The most recently fetched scene dict.
+    """
+    start = time.time()
+    scene = self.rest.getScene(self.sceneUID)
+    while True:
+      scene = self.rest.getScene(self.sceneUID)
+      try:
+        if predicate(scene):
+          log.info("Condition met (%s) after %.1fs", description,
+                   time.time() - start)
+          return scene
+      except Exception as e:
+        log.debug("Predicate raised while waiting for %s: %s", description, e)
+      if time.time() - start >= timeout:
+        break
+      time.sleep(interval)
+
+    log.error(
+      "Timed out after %ss waiting for %s. "
+      "Scene state: output_lla=%s, has_trs_matrix=%s, "
+      "map_corners_lla_set=%s, map=%s",
+      timeout, description, scene.get('output_lla'),
+      'trs_matrix' in scene, bool(scene.get('map_corners_lla')),
+      scene.get('map'),
+    )
+    return scene
+
   def verifyTRSMatrix(self):
-    res = self.rest.updateScene(self.sceneUID, {'output_lla': True})
+    map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
+    with open(map_image, "rb") as f:
+      map_data = f.read()
+
+    # Provide everything the controller needs to compute the TRS matrix in a
+    # single update (map image + map_corners_lla + output_lla) so the test does
+    # not depend on pre-existing scene state in the baseline database.
+    log.info("Enabling output_lla with map and map corners to trigger TRS computation")
+    res = self.rest.updateScene(self.sceneUID, {
+      'output_lla': True,
+      'map_corners_lla': json.dumps(MAP_CORNERS_LLA),
+      'map': (map_image, map_data),
+    })
     assert res, (res.statusCode, res.errors)
-    time.sleep(MAX_WAIT_TIMEOUT)
-    res = self.rest.getScene(self.sceneUID)
-    assert 'trs_matrix' in res and res['trs_matrix']
+
+    scene = self.waitForSceneCondition(
+      lambda s: bool(s.get('trs_matrix')),
+      "trs_matrix to be computed and published by the controller",
+    )
+    assert scene.get('trs_matrix'), (
+      f"trs_matrix not populated within {MAX_WAIT_TIMEOUT}s; "
+      f"output_lla={scene.get('output_lla')}, "
+      f"map_corners_lla_set={bool(scene.get('map_corners_lla'))}, "
+      f"map={scene.get('map')}"
+    )
+
+    log.info("Disabling output_lla and verifying trs_matrix is no longer exposed")
     res = self.rest.updateScene(self.sceneUID, {'output_lla': False})
-    assert 'trs_matrix' not in res
+    assert res, (res.statusCode, res.errors)
+    scene = self.waitForSceneCondition(
+      lambda s: 'trs_matrix' not in s,
+      "trs_matrix to be hidden once output_lla is disabled",
+    )
+    assert 'trs_matrix' not in scene, (
+      f"trs_matrix still exposed after disabling output_lla: "
+      f"output_lla={scene.get('output_lla')}"
+    )
     return
+
 
   def verifyIngest(self):
     detection = self.formatDetection(get_iso_time(), translation=TRANSLATION_VALUE)

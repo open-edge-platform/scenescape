@@ -1,9 +1,9 @@
 ---
 name: javascript
-description: JavaScript coding standards for SceneScape — code style, conventions, and frontend patterns.
+description: JavaScript coding standards for Scenescape — code style, conventions, and frontend patterns.
 ---
 
-# JavaScript Coding Standards for SceneScape
+# JavaScript Coding Standards for Scenescape
 
 ## Code Style
 
@@ -48,7 +48,7 @@ description: JavaScript coding standards for SceneScape — code style, conventi
 
 ### Class-Based Components
 
-SceneScape uses ES6 classes for map plugins and UI components:
+Scenescape uses ES6 classes for map plugins and UI components:
 
 ```javascript
 class MapboxPlugin extends MapInterface {
@@ -113,7 +113,7 @@ function fetchSceneData(sceneId) {
 
 ### jQuery Usage
 
-SceneScape uses jQuery for DOM manipulation:
+Scenescape uses jQuery for DOM manipulation:
 
 ```javascript
 $(document).ready(function () {
