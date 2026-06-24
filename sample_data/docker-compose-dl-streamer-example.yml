@@ -127,8 +127,8 @@ services:
 
   broker:
     image: eclipse-mosquitto:2.0.22
-    # ports:
-    #  - "1883:1883"
+    ports:
+     - "1883:1883"
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
@@ -400,8 +400,8 @@ services:
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - vol-dlstreamer-pipeline-server-pipeline-root-lidar:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
-      - /home/labrat/V2X-Seq-SPD-Example/infrastructure-side:/lidar-data:ro
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

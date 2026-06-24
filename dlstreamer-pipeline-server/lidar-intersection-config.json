@@ -8,7 +8,7 @@
       {
         "name": "lidar-intersection-1",
         "source": "gstreamer",
-        "pipeline": "multifilesrc location=/lidar-data/velodyne_bin/%06d.bin start-index=10699 loop=true caps=application/octet-stream ! g3dlidarparse stride=1 frame-rate=10 ! g3dinference config=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json device=CPU score-threshold=0.3 ! gvametaconvert add-tensor-data=true format=json ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! fakesink",
+        "pipeline": "multifilesrc location=/home/pipeline-server/videos/velodyne_bin/%06d.bin start-index=10699 loop=true caps=application/octet-stream ! g3dlidarparse stride=1 frame-rate=10 ! g3dinference config=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json device=CPU score-threshold=0.3 ! gvametaconvert add-tensor-data=true format=json ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! fakesink",
         "auto_start": true,
         "parameters": {
           "type": "object",
