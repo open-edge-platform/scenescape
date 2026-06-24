@@ -26,7 +26,7 @@ class TestVDMSDatabaseInterface:
 
   def test_required_methods_exist(self):
     """Verify all required ReIDDatabase methods are implemented."""
-    required_methods = ['addSchema', 'addEntry', 'findSchema', 'findMatches']
+    required_methods = ['addSchema', 'addEntry', 'findSchema', 'findMatches', 'getPersistedAttributes']
 
     with patch('controller.vdms_adapter.vdms.vdms'):
       db = VDMSDatabase()
