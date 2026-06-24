@@ -37,7 +37,9 @@ class BackendFunctionalTest(FunctionalTest):
                                       generate blobs.
                                       If is of type int, it will randomly generate that
                                       amount of vectors to be searched.
+
     @param    set_name                Name of the descriptor set to search against.
+
     @return   (response, res_arr)     The query response and the response array.
     """
 

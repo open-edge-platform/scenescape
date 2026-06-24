@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -21,6 +19,8 @@ TEST_NAME = "NEX-T10562"
 WAIT_SEC = 100
 
 class Scene3dUserInterfaceTest(UserInterfaceTest):
+  BROWSER_WEBGL = True
+
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
 
@@ -69,7 +69,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       self.clickOnElement("atag-qcam1-control-panel", delay=WAIT_SEC)
 
       log.info("Press auto calibrate button of atag-qcam1.")
-      self.clickOnElement("lil-gui-name-29", delay=WAIT_SEC)
+      self.clickOnElement("atag-qcam1-auto-calibrate", delay=WAIT_SEC)
 
       log.info("Press save button of atag-qcam1.")
       self.clickOnElement("atag-qcam1-save-camera", delay=WAIT_SEC)
@@ -79,7 +79,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       self.clickOnElement("atag-qcam2-control-panel", delay=WAIT_SEC)
 
       log.info("Press auto calibrate button of atag-qcam2.")
-      self.clickOnElement("lil-gui-name-54", delay=WAIT_SEC)
+      self.clickOnElement("atag-qcam2-auto-calibrate", delay=WAIT_SEC)
 
       log.info("Press save button of atag-qcam2.")
       self.clickOnElement("atag-qcam2-save-camera", delay=WAIT_SEC)

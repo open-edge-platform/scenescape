@@ -18,6 +18,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 TEST_NAME = "NEX-T10516"
+TEST_SET_NAME = "test_similarity_search"
 
 class VDMSSimilaritySearch(BackendFunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
