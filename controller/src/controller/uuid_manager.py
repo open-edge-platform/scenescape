@@ -717,7 +717,7 @@ class UUIDManager:
       if historical_persist and sscape_object.chain_data:
         for attr, value in historical_persist.items():
           if sscape_object.chain_data.persist.get(attr) is None:
-              sscape_object.chain_data.persist[attr] = value
+            sscape_object.chain_data.persist[attr] = value
         log.debug(f"updateActiveDict: merged persist={sscape_object.chain_data.persist}")
 
       log.debug(
