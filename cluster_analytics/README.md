@@ -30,6 +30,28 @@ make cluster_analytics
 docker compose up -d cluster-analytics
 ```
 
+## Testing
+
+### Unit tests (no Docker required)
+
+```bash
+# From repo root
+python -m pytest tests/sscape_tests/cluster_analytics/ -v -p no:django
+```
+
+### Component tests (requires Docker image)
+
+```bash
+# Build the test image first (only needed once per code change)
+make test-build             # run from cluster_analytics/
+
+# Run component tests from repo root
+pip install -r cluster_analytics/tests/service/requirements.txt
+pytest cluster_analytics/tests/service/ -v
+```
+
+See [cluster_analytics/tests/README.md](tests/README.md) for details.
+
 ## License
 
 Apache 2.0 License - See LICENSE file for details
