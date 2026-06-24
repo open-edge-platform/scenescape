@@ -1546,3 +1546,213 @@ class TestDimensionInferenceAndArbitraryDimensions:
     blob = call_args[0][1]
     stored = np.frombuffer(blob[0], dtype=np.float32)
     assert stored.shape == (2048,)
+
+class TestAddEntryWithPersist:
+  """Test addEntry stores persist attributes alongside reid vectors."""
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_stores_persist_as_json(self, mock_vdms_class):
+    """Verify addEntry serializes persist dict as JSON in properties."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    persist = {'gender': 'Female', 'age_group': 'adult'}
+    test_vectors = [np.random.randn(256).astype(np.float32)]
+
+    db.addEntry("uuid", "rvid", "Person", test_vectors, persist=persist)
+
+    call_args = db.sendQuery.call_args
+    properties = call_args[0][0][0]['AddDescriptor']['properties']
+
+    assert 'persist' in properties
+    assert json.loads(properties['persist']) == persist
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_stores_persist_timestamp(self, mock_vdms_class):
+    """Verify addEntry stores persist_timestamp when persist is provided."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    persist = {'confidence': 0.99}
+    test_vectors = [np.random.randn(256).astype(np.float32)]
+
+    db.addEntry("uuid", "rvid", "Person", test_vectors, persist=persist)
+
+    call_args = db.sendQuery.call_args
+    properties = call_args[0][0][0]['AddDescriptor']['properties']
+
+    assert 'persist_timestamp' in properties
+    assert isinstance(properties['persist_timestamp'], float)
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_no_persist_omits_persist_fields(self, mock_vdms_class):
+    """Verify addEntry does not add persist fields when persist is None."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    test_vectors = [np.random.randn(256).astype(np.float32)]
+    db.addEntry("uuid", "rvid", "Person", test_vectors, persist=None)
+
+    call_args = db.sendQuery.call_args
+    properties = call_args[0][0][0]['AddDescriptor']['properties']
+
+    assert 'persist' not in properties
+    assert 'persist_timestamp' not in properties
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_empty_persist_omits_persist_fields(self, mock_vdms_class):
+    """Verify addEntry does not add persist fields when persist is empty dict."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    test_vectors = [np.random.randn(256).astype(np.float32)]
+    db.addEntry("uuid", "rvid", "Person", test_vectors, persist={})
+
+    call_args = db.sendQuery.call_args
+    properties = call_args[0][0][0]['AddDescriptor']['properties']
+
+    assert 'persist' not in properties
+    assert 'persist_timestamp' not in properties
+
+class TestGetPersistedAttributes:
+  """Test retrieving persist attributes from VDMS by UUID."""
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_get_persisted_attributes_returns_latest_by_timestamp(self, mock_vdms_class):
+    """Verify getPersistedAttributes returns the entry with the highest persist_timestamp."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 2,
+      'entities': [
+        {'uuid': 'test-uuid', 'persist': json.dumps({'confidence': 0.8}), 'persist_timestamp': 1000.0},
+        {'uuid': 'test-uuid', 'persist': json.dumps({'confidence': 0.99}), 'persist_timestamp': 2000.0},
+      ]
+    }], []))
+
+    result = db.getPersistedAttributes('test-uuid')
+
+    assert result == {'confidence': 0.99}
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_get_persisted_attributes_returns_empty_when_not_found(self, mock_vdms_class):
+    """Verify getPersistedAttributes returns empty dict when no entry exists."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 0,
+      'entities': []
+    }], []))
+
+    result = db.getPersistedAttributes('unknown-uuid')
+
+    assert result == {}
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_get_persisted_attributes_returns_empty_on_no_response(self, mock_vdms_class):
+    """Verify getPersistedAttributes returns empty dict when VDMS returns no response."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([], []))
+
+    result = db.getPersistedAttributes('test-uuid')
+
+    assert result == {}
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_get_persisted_attributes_skips_entities_without_persist(self, mock_vdms_class):
+    """Verify getPersistedAttributes ignores entities missing the persist field."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 2,
+      'entities': [
+        {'uuid': 'test-uuid', 'persist_timestamp': 1000.0},
+        {'uuid': 'test-uuid', 'persist': json.dumps({'gender': 'Male'}), 'persist_timestamp': 500.0},
+      ]
+    }], []))
+
+    result = db.getPersistedAttributes('test-uuid')
+
+    assert result == {'gender': 'Male'}
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_get_persisted_attributes_handles_corrupt_json(self, mock_vdms_class):
+    """Verify getPersistedAttributes returns empty dict on JSON decode error."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'entities': [
+        {'uuid': 'test-uuid', 'persist': 'not valid json', 'persist_timestamp': 1000.0},
+      ]
+    }], []))
+
+    result = db.getPersistedAttributes('test-uuid')
+
+    assert result == {}
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_get_persisted_attributes_queries_by_uuid(self, mock_vdms_class):
+    """Verify getPersistedAttributes sends correct UUID constraint to VDMS."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{'status': 0, 'returned': 0, 'entities': []}], []))
+
+    db.getPersistedAttributes('my-test-uuid')
+
+    call_args = db.sendQuery.call_args
+    query = call_args[0][0][0]
+    assert 'FindDescriptor' in query
+    constraints = query['FindDescriptor']['constraints']
+    assert constraints == {'uuid': ['==', 'my-test-uuid']}
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_get_persisted_attributes_requests_persist_fields(self, mock_vdms_class):
+    """Verify getPersistedAttributes requests uuid, persist and persist_timestamp in results."""
+    mock_vdms_instance = MagicMock()
+    mock_vdms_class.return_value = mock_vdms_instance
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{'status': 0, 'returned': 0, 'entities': []}], []))
+
+    db.getPersistedAttributes('test-uuid')
+
+    call_args = db.sendQuery.call_args
+    query = call_args[0][0][0]
+    results_list = query['FindDescriptor']['results']['list']
+    assert 'uuid' in results_list
+    assert 'persist' in results_list
+    assert 'persist_timestamp' in results_list

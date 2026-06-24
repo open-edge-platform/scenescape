@@ -94,6 +94,17 @@ class ReIDDatabase(ABC):
     return
 
   @abstractmethod
+  def getPersistedAttributes(self, uuid, set_name):
+    """
+    Retrieve the most recently stored persist attributes for a given UUID.
+
+    @param   uuid      The object UUID to look up
+    @param   set_name  Name of the descriptor set to query
+    @return  dict      Deserialized persist attributes, or empty dict if not found
+    """
+    return
+
+  @abstractmethod
   def findSchema(self, set_name):
     """
     Check whether a schema with a given name already exists in the database

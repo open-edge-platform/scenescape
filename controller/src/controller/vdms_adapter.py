@@ -11,6 +11,7 @@ import vdms
 
 from controller.reid import ReIDDatabase
 from scene_common import log
+from scene_common.timestamp import get_epoch_time
 
 DEFAULT_HOSTNAME = os.getenv("VDMS_HOSTNAME", "vdms.scenescape.intel.com")
 DEFAULT_CONFIDENCE_THRESHOLD = float(os.getenv("VDMS_CONFIDENCE_THRESHOLD", "0.8"))
@@ -219,7 +220,7 @@ class VDMSDatabase(ReIDDatabase):
           "ensureSchema")
       self._schema_ready = True
 
-  def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name=SCHEMA_NAME, **metadata):
+  def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name=SCHEMA_NAME, persist=None, **metadata):
     """
     Add entries to database with visual embeddings and optional semantic metadata.
     Implements schema-less metadata storage for flexible attribute evolution.
@@ -238,6 +239,12 @@ class VDMSDatabase(ReIDDatabase):
       "rvid": f"{rvid}",
       "type": f"{object_type}"
     }
+
+    # Store persist attributes as serialized JSON with timestamp
+    if persist:
+      properties["persist"] = json.dumps(persist)
+      properties["persist_timestamp"] = get_epoch_time()
+      log.debug(f"[VDMS] addEntry: Storing persist keys={list(persist.keys())} for uuid={uuid}")
 
     # Add semantic metadata attributes (schema-less)
     # Metadata can include: age, gender, color, make, model, confidence_scores, etc.
@@ -298,6 +305,54 @@ class VDMSDatabase(ReIDDatabase):
     else:
       log.error(f"addEntry: No response from VDMS when adding {len(add_query)} vectors")
     return
+
+  def getPersistedAttributes(self, uuid, set_name=SCHEMA_NAME):
+    """
+    Retrieve the most recent persist attributes stored for a given object UUID.
+
+    Queries VDMS for all descriptor entries matching the UUID, filters to those
+    with persist data, and returns the attributes from the entry with the latest
+    persist_timestamp. This ensures that when an object is re-identified via ReID,
+    its most up-to-date attributes from its previous appearance are restored.
+
+    @param   uuid      The object UUID to look up
+    @param   set_name  Name of the VDMS descriptor set to query
+    @return  dict      Deserialized persist attributes from the most recent entry,
+                       or empty dict if no entry or persist data is found
+    """
+    query = [{
+      "FindDescriptor": {
+        "set": f"{set_name}",
+        "constraints": {
+          "uuid": ["==", f"{uuid}"]
+        },
+        "results": {
+          "list": ["uuid", "persist", "persist_timestamp"],
+          "blob": False
+        }
+      }
+    }]
+    response, _ = self.sendQuery(query)
+    if not response or response[0].get('status') != 0:
+      log.debug(f"[VDMS] getPersistedAttributes: No entry found for uuid={uuid}")
+      return {}
+
+    entities = response[0].get('entities', [])
+    if not entities:
+      return {}
+
+    # Sort by timestamp descending to get the most recent entry
+    entities_with_persist = [e for e in entities if e.get('persist')]
+    if not entities_with_persist:
+      log.debug(f"[VDMS] getPersistedAttributes: No persist data found for uuid={uuid}")
+      return {}
+
+    latest = max(entities_with_persist, key=lambda e: e.get('persist_timestamp', 0))
+    try:
+      return json.loads(latest['persist'])
+    except (json.JSONDecodeError, TypeError) as e:
+      log.warning(f"[VDMS] getPersistedAttributes: Failed to deserialize persist for uuid={uuid}: {e}")
+      return {}
 
   def findSchema(self, set_name):
     schema_exists, _ = self.findSchemaDetails(set_name)

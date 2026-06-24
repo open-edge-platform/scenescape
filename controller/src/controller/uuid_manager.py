@@ -338,14 +338,19 @@ class UUIDManager:
     features = self.features_for_database.pop(track_id, None)
     if features:
       features['reid_vectors'] = features['reid_vectors'][::slice_size]
+      persist = features.get('persist', {})
       log.debug(
         f"_addNewFeaturesToDatabase: Adding {len(features['reid_vectors'])} features for track {track_id} to database (gid={features['gid']}, category={features['category']})")
+      log.debug(f"_addNewFeaturesToDatabase: gid={features['gid']} "
+          f"track_id={track_id} "
+          f"persist_keys={list(persist.keys())} "
+          f"persist={persist}")
 
       # Extract semantic metadata from stored feature data
       metadata = features.get('metadata', {})
 
       self.pool.submit(self.reid_database.addEntry, features['gid'], track_id,
-                       features['category'], features['reid_vectors'], **metadata)
+                       features['category'], features['reid_vectors'], persist=persist, **metadata)
 
   def isNewTrackerID(self, sscape_object):
     """
@@ -696,6 +701,9 @@ class UUIDManager:
     # MATCH FOUND - YES + DB ID ALREADY IN DICT - NO
     if matched_new_id:
       # Query succeeded and found a match -> update state to MATCHED
+      log.debug(f"updateActiveDict: REID MATCH rv_id={sscape_object.rv_id} "
+              f"matched_gid={database_id} similarity={similarity} "
+              f"current_persist={sscape_object.chain_data.persist if sscape_object.chain_data else 'NO CHAIN DATA'}")
       sscape_object.reid_state = ReidState.MATCHED
       sscape_object.gid = database_id
       sscape_object.similarity = similarity
@@ -703,6 +711,14 @@ class UUIDManager:
       if previous_gid is not None and previous_gid != database_id:
         sscape_object.save_previous_object_id(previous_gid, similarity_score=similarity,
                                        timestamp=query_timestamp)
+
+      historical_persist = self.reid_database.getPersistedAttributes(database_id)
+      log.debug(f"updateActiveDict: historical_persist for gid={database_id}: {historical_persist}")
+      if historical_persist and sscape_object.chain_data:
+        for attr, value in historical_persist.items():
+          if sscape_object.chain_data.persist.get(attr) is None:
+              sscape_object.chain_data.persist[attr] = value
+        log.debug(f"updateActiveDict: merged persist={sscape_object.chain_data.persist}")
 
       log.debug(
         f"updateActiveDict: Match found for {sscape_object.rv_id}: {database_id}, similarity={similarity}, state={ReidState.MATCHED.value}")
@@ -758,8 +774,13 @@ class UUIDManager:
       'gid': sscape_object.gid,
       'category': sscape_object.category,
       'reid_vectors': self.quality_features[sscape_object.rv_id],
-      'metadata': self._extractSemanticMetadata(sscape_object)
+      'metadata': self._extractSemanticMetadata(sscape_object),
+      'persist': sscape_object.chain_data.persist.copy() if sscape_object.chain_data else {}
     }
+    log.debug(f"updateActiveDict: Storing features for rv_id={sscape_object.rv_id} "
+         f"gid={sscape_object.gid} "
+         f"persist_in_features_for_database={'persist' in self.features_for_database[sscape_object.rv_id]}")
+
     self.features_for_database_timestamps[sscape_object.rv_id] = get_epoch_time()  # Record when added
     return
 
