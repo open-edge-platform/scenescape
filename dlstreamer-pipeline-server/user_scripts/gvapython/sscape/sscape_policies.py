@@ -1,8 +1,12 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import math
 import struct
 import base64
+
+# PointPillars KITTI label mapping: index -> class name
+_KITTI_LABELS = {0: 'Pedestrian', 1: 'Cyclist', 2: 'Car'}
 
 ## Policies to post process data
 
@@ -156,6 +160,36 @@ def ocrPolicy(pobj, item, fw, fh):
     if key.startswith('classification_layer') and isinstance(value, dict) and 'label' in value:
       pobj['text'] = value['label']
       break
+  return
+
+def lidarDetectionPolicy(pobj, item, fw, fh):
+  """Handle LiDAR 3D detections from g3dinference/PointPillars.
+
+  gvametaconvert converts pointpillars_3d tensors to JSON items with:
+    bbox_3d: {x, y, z, w, l, h, theta}  (center + dimensions + yaw)
+    confidence: float
+    label_id: int  (KITTI: 0=Pedestrian, 1=Cyclist, 2=Car)
+    label: str     (may be empty if no model-proc label map is loaded)
+  """
+  bbox_3d = item.get('bbox_3d')
+  if bbox_3d is None:
+    return
+
+  label_id = item.get('label_id', -1)
+  label = item.get('label') or _KITTI_LABELS.get(label_id, str(label_id))
+  confidence = item.get('confidence', 0.0)
+
+  theta = bbox_3d.get('theta', 0.0)
+  half = theta / 2.0
+  rotation_quat = [0.0, 0.0, math.sin(half), math.cos(half)]
+
+  pobj.update({
+    'category': label,
+    'confidence': confidence,
+    'translation': [bbox_3d['x'], bbox_3d['y'], bbox_3d['z']],
+    'size': [bbox_3d['l'], bbox_3d['w'], bbox_3d['h']],
+    'rotation': rotation_quat,
+  })
   return
 
 ## Utility functions

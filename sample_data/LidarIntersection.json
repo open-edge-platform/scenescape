@@ -1,0 +1,65 @@
+{
+  "uid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "Lidar Intersection",
+  "map_type": "map_upload",
+  "use_tracker": true,
+  "output_lla": false,
+  "map": "/media/LidarIntersection.png",
+  "scale": 5.0,
+  "cameras": [
+    {
+      "uid": "lidar1",
+      "name": "inf-lidar1",
+      "intrinsics": {
+        "fx": 100.0,
+        "fy": 100.0,
+        "cx": 0.0,
+        "cy": 0.0
+      },
+      "transform_type": "euler",
+      "translation": [0.0, 0.0, 0.0],
+      "rotation": [0.0, 0.0, 0.0],
+      "scale": [1.0, 1.0, 1.0],
+      "resolution": [1000, 1000],
+      "scene": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    },
+    {
+      "uid": "camera1",
+      "name": "inf-camera1",
+      "intrinsics": {
+        "fx": 2175.5539,
+        "fy": 2320.1257,
+        "cx": 969.8229,
+        "cy": 572.754
+      },
+      "distortion": {
+        "k1": -0.426717,
+        "k2": 0.180019,
+        "p1": 0.001187,
+        "p2": -0.00015,
+        "k3": 0.0
+      },
+      "transform_type": "euler",
+      "translation": [
+        0.01462861,
+        -3.60523700,
+        4.61809782
+      ],
+      "rotation": [
+        -106.51336008,
+        4.15277137,
+        -85.16930315
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "resolution": [
+        1920,
+        1080
+      ],
+      "scene": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    }
+  ]
+}

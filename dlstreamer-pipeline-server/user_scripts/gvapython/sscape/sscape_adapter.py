@@ -23,6 +23,7 @@ from utils import publisher_utils as utils
 from sscape_policies import (
   detectionPolicy,
   detection3DPolicy,
+  lidarDetectionPolicy,
   reidPolicy,
   classificationPolicy,
   ocrPolicy,
@@ -36,6 +37,7 @@ TIMEZONE = "UTC"
 metadatapolicies = {
   "detectionPolicy": detectionPolicy,
   "detection3DPolicy": detection3DPolicy,
+  "lidarDetectionPolicy": lidarDetectionPolicy,
   "reidPolicy": reidPolicy,
   "classificationPolicy": classificationPolicy,
   "ocrPolicy": ocrPolicy,
