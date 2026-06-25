@@ -901,12 +901,7 @@ class SceneController:
       if 'camera_id' in topic:
         scene = self.cache_manager.sceneWithCameraID(topic['camera_id'])
       elif 'scene_id' in topic:
-        # Child scene message — route by parent scene
-        sender = self.cache_manager.sceneWithID(topic['scene_id'])
-        if sender and hasattr(sender, 'parent') and sender.parent:
-          scene = self.cache_manager.sceneWithID(sender.parent)
-        else:
-          scene = sender
+        _, scene = self._resolveChildSenderAndParentScene(topic['scene_id'])
       if scene is not None:
         return scene.uid
     except Exception:
