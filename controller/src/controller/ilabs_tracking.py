@@ -25,7 +25,7 @@ from scene_common.timestamp import get_epoch_time
 class IntelLabsTracking(Tracking):
 
   def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static,
-               baseline_frame_rate=10, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
+               baseline_frame_rate=30, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
                name=None):
     """Initialize the tracker with tracker configuration parameters"""
     super().__init__()
@@ -33,10 +33,7 @@ class IntelLabsTracking(Tracking):
     self.ref_camera_frame_rate = baseline_frame_rate
     tracker_config = rv.tracking.TrackManagerConfig()
 
-    # Process noise σ²_a: effective noise scales as σ²_a × dt². At 10 FPS (dt=0.1s),
-    # 5e-4 gives effective noise 5e-6, balancing smooth tracks with responsive adaptation.
-    # Intel upstream used 1e-4 at 30 FPS (effective 1.1e-7). Range: 1e-4 (smooth) to 1e-3 (responsive).
-    tracker_config.default_process_noise = 5e-4
+    tracker_config.default_process_noise = 1e-4
     tracker_config.default_measurement_noise = 2e-1
     tracker_config.init_state_covariance = 1
 

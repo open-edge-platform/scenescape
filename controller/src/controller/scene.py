@@ -47,7 +47,7 @@ class Scene(SceneModel):
                non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC,
                time_chunking_enabled = False,
                time_chunking_interval_milliseconds = DEFAULT_CHUNKING_INTERVAL_MS,
-               baseline_frame_rate = 10,
+               baseline_frame_rate = 30,
                suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static)

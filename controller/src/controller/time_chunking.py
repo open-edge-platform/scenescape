@@ -473,7 +473,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   """
 
   def __init__(self, max_unreliable_time, non_measurement_time_dynamic,
-               non_measurement_time_static, baseline_frame_rate=10,
+               non_measurement_time_static, baseline_frame_rate=30,
                suspended_track_timeout_secs=60.0,
                time_chunking_interval_milliseconds=DEFAULT_CHUNKING_INTERVAL_MS):
     super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static,
