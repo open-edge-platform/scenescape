@@ -114,6 +114,19 @@ def substitute_variables(obj):
     return saved_vars.get(var_name, obj)
   return obj
 
+def resolve_within_tests_api(rel_path):
+  """Resolve rel_path against tests/api, following symlinks, and ensure the
+  result stays inside the tests/ tree. Paths are written relative to tests/api
+  but may reference sibling test dirs (e.g. '../ui/test_media/box.glb'), so the
+  containment boundary is the parent tests/ directory. Raises ValueError on
+  path traversal outside tests/.
+  """
+  tests_dir = os.path.realpath(os.path.join(TESTS_API_DIR, os.pardir))
+  resolved = os.path.realpath(os.path.join(TESTS_API_DIR, rel_path))
+  if not resolved.startswith(tests_dir + os.sep):
+    raise ValueError(f"file path escapes tests/: {resolved}")
+  return resolved
+
 def resolve_file_paths(data):
   """Resolve file paths in request data relative to the tests/api directory.
 
@@ -132,13 +145,13 @@ def resolve_file_paths(data):
     return [resolve_file_paths(item) for item in data]
   elif isinstance(data, str) and data.startswith("base64:"):
     rel_path = data[len("base64:"):]
-    resolved = os.path.normpath(os.path.join(TESTS_API_DIR, rel_path))
+    resolved = resolve_within_tests_api(rel_path)
     if not os.path.isfile(resolved):
       raise FileNotFoundError(f"base64 file not found: {resolved}")
     with open(resolved, "rb") as fh:
       return base64.b64encode(fh.read()).decode("ascii")
   elif isinstance(data, str) and "test_media/" in data:
-    resolved = os.path.normpath(os.path.join(TESTS_API_DIR, data))
+    resolved = resolve_within_tests_api(data)
     if os.path.isfile(resolved):
       return open(resolved, "rb")
     return resolved
@@ -154,7 +167,7 @@ def normalize_file_paths(data):
   elif isinstance(data, list):
     return [normalize_file_paths(item) for item in data]
   elif isinstance(data, str) and "test_media/" in data:
-    return os.path.normpath(os.path.join(TESTS_API_DIR, data))
+    return resolve_within_tests_api(data)
   return data
 
 def build_call_kwargs(request_data, api_name=None):
