@@ -145,9 +145,18 @@ class TimeChunkProcessor(threading.Thread):
 class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   """Time-chunked version of IntelLabsTracking."""
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_interval_milliseconds, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic,
+               non_measurement_time_static, baseline_frame_rate=30,
+               suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
+               time_chunking_interval_milliseconds=DEFAULT_CHUNKING_INTERVAL_MS):
     # Call parent constructor to initialize IntelLabsTracking
-    super().__init__(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, suspended_track_timeout_secs)
+    super().__init__(
+        max_unreliable_time,
+        non_measurement_time_dynamic,
+        non_measurement_time_static,
+        baseline_frame_rate=baseline_frame_rate,
+        suspended_track_timeout_secs=suspended_track_timeout_secs,
+    )
     self.time_chunking_interval_milliseconds = time_chunking_interval_milliseconds
     self.suspended_track_timeout_secs = suspended_track_timeout_secs
     log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking interval: {self.time_chunking_interval_milliseconds} ms")
@@ -155,7 +164,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   def trackObjects(self, objects, already_tracked_objects, when, categories,
                    ref_camera_frame_rate, max_unreliable_time,
                    non_measurement_time_dynamic, non_measurement_time_static,
-                   use_tracker=True):
+                   use_tracker=True, scene_id=None, camera_id=None):
     """Override trackObjects to use time chunking"""
 
     if not use_tracker:
@@ -168,12 +177,13 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     if not categories:
       categories = self.trackers.keys()
 
-    # Extract camera_id from objects - required for time chunking
-    try:
-      camera_id = objects[0].camera.cameraID
-    except (AttributeError, IndexError):
-      log.warning("No camera ID found in objects, skipping time chunking processing")
-      return
+    # Prefer explicit camera_id from caller, fallback to objects payload.
+    if camera_id is None:
+      try:
+        camera_id = objects[0].camera.cameraID
+      except (AttributeError, IndexError):
+        log.warning("No camera ID found in objects, skipping time chunking processing")
+        return
 
     for category in categories:
       self._updateRefCameraFrameRate(ref_camera_frame_rate, category)

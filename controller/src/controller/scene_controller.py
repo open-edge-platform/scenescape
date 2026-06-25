@@ -32,7 +32,7 @@ from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
 from controller.observability import metrics
-from controller.time_chunking import DEFAULT_CHUNKING_INTERVAL_MS, set_cache_manager
+from controller.time_chunking import DEFAULT_CHUNKING_INTERVAL_MS
 AVG_FRAMES = 100
 
 # Dynamic worker allocation: one ProcessPoolExecutor per scene, created on-demand.
@@ -130,8 +130,6 @@ class SceneController:
       self.pubsub.loopStart()
 
     self.cache_manager = CacheManager(data_source, rest_url, rest_auth, root_cert, self.tracker_config_data)
-    # Inject cache_manager into time_chunking module for scene_id derivation
-    set_cache_manager(self.cache_manager)
 
     # Start background cache refresh for both main process and workers,
     # instead of blocking on-demand refreshes.
