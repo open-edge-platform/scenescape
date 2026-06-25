@@ -133,29 +133,15 @@ class SceneController:
     # Inject cache_manager into time_chunking module for scene_id derivation
     set_cache_manager(self.cache_manager)
 
-    # Start background cache refresh for both main process and workers.
-    # This replaces on-demand checkRefresh() which was called on the MQTT
-    # callback thread, blocking it with HTTP calls and causing paho deadlocks.
-    # Workers also need this: they use dict lookups but the dict must be
-    # populated via periodic HTTP refresh. Workers don't have MQTT callback
-    # threads, so the background HTTP thread is safe.
+    # Start background cache refresh for both main process and workers,
+    # instead of blocking on-demand refreshes.
     self.cache_manager.startPeriodicRefresh()
     # Do an immediate synchronous refresh so the cache is populated before
     # any messages arrive (avoids UNKNOWN SENDER on first messages).
     self.cache_manager.checkRefresh()
 
     if _is_worker:
-      # Workers run in separate processes (multiprocessing.spawn) and have their own
-      # copy of the module-level object_classes dict. Without this initialization,
-      # Object Library settings (shift_type, tracking_radius, size, etc.) are never
-      # applied — object_classes stays at the default {'apriltag': ...}.
-      self.scenes = self.cache_manager.allScenes()
-      self.updateObjectClasses()
-      # Subscribe to database updates so Object Library changes at runtime
-      # are propagated to this worker process.
-      topic = PubSub.formatTopic(PubSub.CMD_DATABASE)
-      self.pubsub.addCallback(topic, self._workerHandleDatabaseMessage)
-      log.info(f"[WORKER_INIT] pid={os.getpid()} object_classes loaded, subscribed to {topic}")
+      self._initWorkerState()
 
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
@@ -198,7 +184,7 @@ class SceneController:
       self._publish_queue = None
       log.info("Async MQTT publish disabled (sync mode)")
 
-    # Approach #2: Semaphore-based admission control
+    # Semaphore-based admission control
     # Bounds total in-flight work to prevent queue buildup and high queue_ms latency
     # Set to expected max cameras - prevents unbounded queue growth
     MAX_INFLIGHT_MESSAGES = _validated_env_int('CONTROLLER_MAX_INFLIGHT', 20, minimum=1)
@@ -206,55 +192,68 @@ class SceneController:
 
     # Overwrite-based freshness buffer to prevent backlog accumulation.
     # Architectural invariant: At most 1 pending frame per camera (latest wins).
-    # Under sustained load, new frames overwrite old frames in the buffer, ensuring
-    # workers always process the freshest data without unbounded queue growth.
     self._latest_frame = {}           # {camera_id: (topic_str, payload, t_callback_enter)}
     self._latest_frame_lock = threading.Lock()
     self._pending_work = {}           # {camera_id: Future} - track in-flight work
     self._pending_work_lock = threading.Lock()
 
     if not _is_worker:
-      # Workers are created on-demand by _sync_workers_to_scenes() and
-      # _get_or_create_executor(). No fixed pool at startup.
-      log.info(f"Dynamic worker allocation enabled (max_workers={self._max_workers or 'unlimited'})")
-
-      # Monitoring threads for dead-but-alive detection.
-      # Prevents stalls where threads stop processing but process continues running.
-      self._monitoring_shutdown = threading.Event()
-
-      # Worker publish health monitoring.
-      # Architectural limitation: Workers are separate processes and cannot directly share
-      # state with main process. Potential solutions for cross-process health monitoring:
-      # 1. Workers publish to a "health" MQTT topic that main process subscribes to
-      # 2. Use multiprocessing.Value/Array for shared counters
-      # 3. Implement heartbeat protocol via publish topic timestamps
-      # Current approach: Workers log publish health (see _publish_thread_loop in workers),
-      # and operators detect issues via log analysis.
-
-      # Async publish thread watchdog (main process only).
-      # Detects and restarts stuck publish threads to prevent silent data loss.
-      if ASYNC_PUBLISH_ENABLED:
-        self._publish_watchdog_thread = threading.Thread(
-            target=self._publish_watchdog_loop,
-            name="PublishWatchdog",
-            daemon=True
-        )
-        self._publish_watchdog_thread.start()
-        log.info("Async publish watchdog started")
-
-      # Pending work staleness cleanup.
-      # Periodically removes orphaned entries from _pending_work to prevent memory leak.
-      self._staleness_cleanup_thread = threading.Thread(
-          target=self._staleness_cleanup_loop,
-          name="StalenessCleanup",
-          daemon=True
-      )
-      self._staleness_cleanup_thread.start()
-      log.info("Pending work staleness cleanup started")
-
+      self._initMainProcessState()
     else:
       log.info(f"Worker process {os.getpid()} SceneController initialized (publish-only mode)")
     return
+
+  def _initMainProcessState(self):
+    """Initialize monitoring threads and watchdogs for the main (non-worker) process.
+
+    Starts the publish watchdog and staleness cleanup background threads.
+    Must only be called in the main process, not in worker processes.
+    """
+    # Workers are created on-demand; no fixed pool at startup.
+    log.info(f"Dynamic worker allocation enabled (max_workers={self._max_workers or 'unlimited'})")
+
+    # Monitoring threads detect dead-but-alive stalls where threads stop
+    # processing but the process continues running.
+    self._monitoring_shutdown = threading.Event()
+
+    # Async publish thread watchdog: detects and restarts stuck publish threads
+    # to prevent silent data loss. Main process only — workers cannot directly
+    # share publish thread state across process boundaries.
+    if ASYNC_PUBLISH_ENABLED:
+      self._publish_watchdog_thread = threading.Thread(
+          target=self._publish_watchdog_loop,
+          name="PublishWatchdog",
+          daemon=True
+      )
+      self._publish_watchdog_thread.start()
+      log.info("Async publish watchdog started")
+
+    # Staleness cleanup: periodically removes orphaned _pending_work entries
+    # to prevent memory leaks from futures that completed without cleanup.
+    self._staleness_cleanup_thread = threading.Thread(
+        target=self._staleness_cleanup_loop,
+        name="StalenessCleanup",
+        daemon=True
+    )
+    self._staleness_cleanup_thread.start()
+    log.info("Pending work staleness cleanup started")
+
+  def _initWorkerState(self):
+    """Initialize state needed only in worker processes.
+
+    Loads scenes and Object Library class settings from cache, then subscribes
+    to database update notifications so runtime Object Library changes are
+    propagated to this worker process.
+    """
+    # Workers run in separate processes (multiprocessing.spawn) and need their own
+    # copy of the module-level object_classes dict.
+    self.scenes = self.cache_manager.allScenes()
+    self.updateObjectClasses()
+    # Subscribe to database updates so Object Library changes at runtime
+    # are propagated to this worker process.
+    topic = PubSub.formatTopic(PubSub.CMD_DATABASE)
+    self.pubsub.addCallback(topic, self._workerHandleDatabaseMessage)
+    log.info(f"[WORKER_INIT] pid={os.getpid()} object_classes loaded, subscribed to {topic}")
 
   def _build_worker_config(self):
     """Return a picklable dict of constructor args for worker process initialization."""
@@ -1422,7 +1421,11 @@ class SceneController:
     return
 
   def _workerDatabaseUpdateAsync(self):
-    """Refresh object_classes in worker process when Object Library changes."""
+    """Handle worker-side database update notifications.
+
+    Runs in worker processes only, under `_db_update_lock`, to refresh scene
+    cache and Object Library class settings used by tracker pipelines.
+    """
     with self._db_update_lock:
       try:
         self.scenes = self.cache_manager.allScenes()
