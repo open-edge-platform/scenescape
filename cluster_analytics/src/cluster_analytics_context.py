@@ -167,6 +167,7 @@ class ClusterAnalyticsContext:
       'min_samples': min_samples,
     }
     log.info(f"Set user DBSCAN parameters for '{category}' in scene '{scene_id}': eps={eps}, min_samples={min_samples}")
+    self.cluster_tracker.clear_scene(scene_id)
 
   def reset_user_dbscan_params_for_category(self, category, scene_id):
     """! Reset user-configured DBSCAN parameters for a category back to config defaults.
@@ -177,6 +178,7 @@ class ClusterAnalyticsContext:
     if scene_id in self.user_dbscan_params_by_scene:
       self.user_dbscan_params_by_scene[scene_id].pop(category_lower, None)
       log.info(f"Reset DBSCAN parameters for '{category}' in scene '{scene_id}' to config defaults")
+    self.cluster_tracker.clear_scene(scene_id)
 
   def mqtt_on_connect(self, client, userdata, flags, rc):
     """! Subscribes to MQTT topics on connection.

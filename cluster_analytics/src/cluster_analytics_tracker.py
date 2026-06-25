@@ -144,6 +144,16 @@ class ClusterTracker:
       if now - c.last_seen <= self._expiry
     ]
 
+  def clear_scene(self, scene_id: str) -> None:
+    """Remove all tracked clusters for *scene_id* immediately.
+
+    Call this when clustering settings change so that stale clusters
+    do not linger until the normal expiry window elapses.
+    """
+    self._clusters.pop(scene_id, None)
+    self._current_time.pop(scene_id, None)
+    log.debug(f"Cleared cluster state for scene {scene_id}")
+
   # ------------------------------------------------------------------
   # Helpers
   # ------------------------------------------------------------------
