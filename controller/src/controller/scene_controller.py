@@ -997,37 +997,17 @@ class SceneController:
       metrics.inc_dropped(metric_attributes)
       return
 
-    # Submit work, store Future, THEN add callback.
-    # Store-before-callback prevents the race where a fast-completing worker
-    # fires the callback before the future is in _pending_work, leaving a
-    # done future permanently stuck in the dict.
-    try:
-      future = executor.submit(
-          _worker_handle_message,
-          frame[0], frame[1], frame[2]
-      )
-      # Consume buffered frame only when submit succeeds.
-      # If a newer frame overwrote it, keep the newer one in the buffer.
-      self._remove_frame_if_unchanged(camera_id, frame)
-      with self._pending_work_lock:
-        self._pending_work[camera_id] = future
-      future.add_done_callback(
-          lambda f, cam=camera_id, suid=scene_uid: self._handle_work_complete(cam, suid)
-      )
-    except BrokenProcessPool as e:
+    failure = self._submit_frame_to_worker(
+        executor,
+        frame,
+        camera_id,
+        scene_uid,
+        worker_crash_log_tag="WORKER_CRASH",
+        submit_error_log_tag="SUBMIT_ERROR"
+    )
+    if failure is not None:
       self._inflight_semaphore.release()
-      with self._worker_crashes_lock:
-        self._worker_crashes += 1
-        crashes = self._worker_crashes
-      log.error(f"[WORKER_CRASH] scene={scene_uid}, camera={camera_id}, total_crashes={crashes}, error={e}")
-      self._recreate_scene_executor(scene_uid)
-      metric_attributes = {"camera": camera_id, "reason": "worker_crash"}
-      metrics.inc_dropped(metric_attributes)
-      return
-    except Exception as e:
-      self._inflight_semaphore.release()
-      log.error(f"[SUBMIT_ERROR] scene={scene_uid}, camera={camera_id}, error={type(e).__name__}: {e}")
-      metric_attributes = {"camera": camera_id, "reason": "submit_error"}
+      metric_attributes = {"camera": camera_id, "reason": failure}
       metrics.inc_dropped(metric_attributes)
       return
 
@@ -1056,6 +1036,44 @@ class SceneController:
       if self._latest_frame.get(camera_id) is frame:
         del self._latest_frame[camera_id]
 
+  def _clear_pending_work(self, camera_id):
+    """Remove pending work entry for a camera if present."""
+    with self._pending_work_lock:
+      self._pending_work.pop(camera_id, None)
+
+  def _submit_frame_to_worker(self, executor, frame, camera_id, scene_uid,
+                              worker_crash_log_tag, submit_error_log_tag):
+    """Submit a frame to a worker and register completion callback.
+
+    Returns:
+      None on success, or one of "worker_crash" / "submit_error" on failure.
+    """
+    try:
+      future = executor.submit(
+          _worker_handle_message,
+          frame[0], frame[1], frame[2]
+      )
+      # Consume buffered frame only when submit succeeds.
+      # If a newer frame overwrote it, keep the newer one in the buffer.
+      self._remove_frame_if_unchanged(camera_id, frame)
+      with self._pending_work_lock:
+        self._pending_work[camera_id] = future
+      # Store-before-callback prevents races on very fast worker completion.
+      future.add_done_callback(
+          lambda f, cam=camera_id, suid=scene_uid: self._handle_work_complete(cam, suid)
+      )
+      return None
+    except BrokenProcessPool as e:
+      with self._worker_crashes_lock:
+        self._worker_crashes += 1
+        crashes = self._worker_crashes
+      log.error(f"[{worker_crash_log_tag}] scene={scene_uid}, camera={camera_id}, total_crashes={crashes}, error={e}")
+      self._recreate_scene_executor(scene_uid)
+      return "worker_crash"
+    except Exception as e:
+      log.error(f"[{submit_error_log_tag}] scene={scene_uid}, camera={camera_id}, error={type(e).__name__}: {e}")
+      return "submit_error"
+
   def _handle_work_complete(self, camera_id, scene_uid):
     """Called when worker completes — sole owner of re-submission for this camera.
 
@@ -1078,47 +1096,29 @@ class SceneController:
     if frame is not None:
       # Newer data arrived during processing — re-submit
       if not self._inflight_semaphore.acquire(blocking=False):
-        with self._pending_work_lock:
-          self._pending_work.pop(camera_id, None)
+        self._clear_pending_work(camera_id)
         return
 
       executor = self._get_executor_for_scene(scene_uid)
       if executor is None:
         self._inflight_semaphore.release()
-        with self._pending_work_lock:
-          self._pending_work.pop(camera_id, None)
+        self._clear_pending_work(camera_id)
         return
 
-      # Submit OUTSIDE lock, store BEFORE adding callback (same store-before-callback pattern)
-      try:
-        future = executor.submit(
-            _worker_handle_message,
-            frame[0], frame[1], frame[2]
-        )
-        self._remove_frame_if_unchanged(camera_id, frame)
-        with self._pending_work_lock:
-          self._pending_work[camera_id] = future
-        future.add_done_callback(
-            lambda f, cam=camera_id, suid=scene_uid: self._handle_work_complete(cam, suid)
-        )
-      except BrokenProcessPool as e:
+      failure = self._submit_frame_to_worker(
+          executor,
+          frame,
+          camera_id,
+          scene_uid,
+          worker_crash_log_tag="WORKER_CRASH_RESUBMIT",
+          submit_error_log_tag="RESUBMIT_ERROR"
+      )
+      if failure is not None:
         self._inflight_semaphore.release()
-        with self._worker_crashes_lock:
-          self._worker_crashes += 1
-          crashes = self._worker_crashes
-        log.error(f"[WORKER_CRASH_RESUBMIT] scene={scene_uid}, camera={camera_id}, total_crashes={crashes}, error={e}")
-        self._recreate_scene_executor(scene_uid)
-        with self._pending_work_lock:
-          self._pending_work.pop(camera_id, None)
-      except Exception as e:
-        self._inflight_semaphore.release()
-        log.error(f"[RESUBMIT_ERROR] scene={scene_uid}, camera={camera_id}, error={type(e).__name__}: {e}")
-        with self._pending_work_lock:
-          self._pending_work.pop(camera_id, None)
+        self._clear_pending_work(camera_id)
     else:
       # No newer frame — remove entry so _processIncomingDetection can submit next time
-      with self._pending_work_lock:
-        self._pending_work.pop(camera_id, None)
+      self._clear_pending_work(camera_id)
 
   def _resolveMessageTime(self, jdata, now):
     """Resolve the processing time for a message and keep its payload consistent.
@@ -1351,24 +1351,38 @@ class SceneController:
                 f"total_ms={total_ms:.3f}")
       return
 
-  def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
+  def _resolveChildSenderAndParentScene(self, sender_id):
+    """Resolve a child sender id to (sender_scene, parent_scene).
+
+    Returns:
+      (sender, parent_scene) where either entry may be None if resolution fails.
+      Logs resolution failures consistently for all callers.
+    """
     sender = self.cache_manager.sceneWithID(sender_id)
     if sender is None:
-      remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
-      if remote_sender is None:
+      sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
+      if sender is None:
         log.error("UNKNOWN SENDER")
-        return False, None
-      else:
-        sender = remote_sender
+        return None, None
 
     if not hasattr(sender, 'parent') or sender.parent is None:
       log.error("UNKNOWN PARENT", sender_id)
-      return False, sender
+      return sender, None
 
     scene = self.cache_manager.sceneWithID(sender.parent)
     if scene is None:
       log.error(f"Parent scene not found in cache for sender {sender_id}")
+      return sender, None
+
+    return sender, scene
+
+  def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
+    sender, scene = self._resolveChildSenderAndParentScene(sender_id)
+    if sender is None:
       return False, None
+    if scene is None:
+      return False, sender
+
     success = scene.processSceneData(jdata, sender, sender.cameraPose,
                                      detection_type, when=msg_when)
     return success, scene
@@ -1430,12 +1444,7 @@ class SceneController:
     """Run database update work in background to avoid blocking MQTT thread."""
     with self._db_update_lock:
       try:
-        self.updateSubscriptions()
-        self._sync_workers_to_scenes()
-        self.updateObjectClasses()
-        self.updateCameras()
-        self.updateRegulateCache()
-        self.updateTRSMatrix()
+        self._runSceneRefreshPipeline(include_camera_updates=True)
         log.info("[DB_UPDATE] Database update completed successfully")
       except Exception as e:
         log.warning("Failed to update database: %s", e)
@@ -1475,13 +1484,20 @@ class SceneController:
     """Run onConnect setup in background to avoid blocking MQTT thread."""
     with self._db_update_lock:
       try:
-        self.updateSubscriptions()
-        self._sync_workers_to_scenes()
-        self.updateObjectClasses()
-        self.updateTRSMatrix()
+        self._runSceneRefreshPipeline(include_camera_updates=False)
         log.info("[ON_CONNECT] Initial setup completed successfully")
       except Exception as e:
         log.warning("Failed to complete onConnect setup: %s", e)
+
+  def _runSceneRefreshPipeline(self, include_camera_updates):
+    """Run shared scene refresh steps used by DB update and on-connect setup."""
+    self.updateSubscriptions()
+    self._sync_workers_to_scenes()
+    self.updateObjectClasses()
+    if include_camera_updates:
+      self.updateCameras()
+      self.updateRegulateCache()
+    self.updateTRSMatrix()
 
   def updateObjectClasses(self):
     results = self.cache_manager.data_source.getAssets()
@@ -1511,23 +1527,10 @@ class SceneController:
     msg = orjson.loads(message.payload.decode('utf-8'))
 
     sender_id = topic['scene_id']
-    sender = self.cache_manager.sceneWithID(sender_id)
-    if sender is None:
-      remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
-      if remote_sender is None:
-        log.error("UNKNOWN SENDER")
-        return
-      else:
-        sender = remote_sender
-
-    if not hasattr(sender, 'parent') or sender.parent is None:
-      log.error("UNKNOWN PARENT", sender_id)
+    sender, scene = self._resolveChildSenderAndParentScene(sender_id)
+    if sender is None or scene is None:
       return
 
-    scene = self.cache_manager.sceneWithID(sender.parent)
-    if scene is None:
-      log.error(f"Parent scene not found in cache for sender {sender_id}")
-      return
     event_topic = PubSub.formatTopic(PubSub.EVENT,
                                       region_type=topic['region_type'], event_type=topic['event_type'],
                                       scene_id=scene.uid, region_id=topic['region_id'])
