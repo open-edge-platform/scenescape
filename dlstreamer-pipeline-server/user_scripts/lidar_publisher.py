@@ -3,25 +3,33 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Runs the LiDAR GStreamer pipeline and republishes each JSON frame to MQTT.
-gvametapublish method=file writes one JSON object per line to stdout.
-This script reads those lines and publishes them to the broker with TLS.
+Runs the LiDAR GStreamer inference pipeline and republishes each frame to MQTT
+in the SceneScape camera detection format so the controller can track objects.
+
+gvametapublish method=file writes one JSON object per line to the FIFO.
+This script reads those lines, converts bbox_3d to translation/size/rotation,
+and publishes to scenescape/data/camera/lidar1.
 """
 
 import json
+import math
 import os
 import subprocess
 import sys
-import threading
 import time
+from datetime import datetime, timezone
 
 import paho.mqtt.client as mqtt
 
-BROKER  = os.environ.get("MQTT_HOST", "broker.scenescape.intel.com")
-PORT    = int(os.environ.get("MQTT_PORT", "1883"))
-TOPIC   = "scenescape/data/lidar/lidar1"
-ROOT_CA = "/run/secrets/certs/scenescape-ca.pem"
-FIFO    = "/tmp/lidar_detections.fifo"
+BROKER   = os.environ.get("MQTT_HOST", "broker.scenescape.intel.com")
+PORT     = int(os.environ.get("MQTT_PORT", "1883"))
+SENSOR_ID = "lidar1"
+CAMERA_TOPIC = f"scenescape/data/camera/{SENSOR_ID}"
+ROOT_CA  = "/run/secrets/certs/scenescape-ca.pem"
+FIFO     = "/tmp/lidar_detections.fifo"
+
+# PointPillars KITTI label mapping
+KITTI_LABELS = {0: "Pedestrian", 1: "Cyclist", 2: "Car"}
 
 PIPELINE = (
   "gst-launch-1.0 "
@@ -36,6 +44,45 @@ PIPELINE = (
   f"! gvametapublish method=file file-format=json-lines file-path={FIFO} "
   "! fakesink"
 )
+
+
+def yaw_to_quaternion(theta):
+  """Convert yaw angle (Z-axis rotation) to quaternion [qx, qy, qz, qw]."""
+  half = theta / 2.0
+  return [0.0, 0.0, math.sin(half), math.cos(half)]
+
+
+def convert_frame(raw):
+  """
+  Convert gvametaconvert JSON-lines frame to SceneScape camera detection format.
+
+  Input (per object):
+    {"label_id": 2, "confidence": 0.94,
+     "bbox_3d": {"x":17.7, "y":-2.6, "z":-1.5, "w":1.62, "l":3.82, "h":1.51, "theta":-1.57}}
+
+  Output (scenescape/data/camera format):
+    {"id": "lidar1", "timestamp": "...", "rate": 7.3,
+     "objects": {"Car": [{"id":1, "confidence":0.94,
+                          "translation":[17.7,-2.6,-1.5],
+                          "size":[3.82,1.62,1.51],
+                          "rotation":[0,0,-0.71,0.71]}]}}
+  """
+  objects = {}
+  for i, obj in enumerate(raw.get("objects", [])):
+    bbox = obj.get("bbox_3d")
+    if bbox is None:
+      continue
+    label = obj.get("label") or KITTI_LABELS.get(obj.get("label_id", -1), "object")
+    det = {
+      "id": i + 1,
+      "category": label,
+      "confidence": obj.get("confidence", 0.0),
+      "translation": [bbox["x"], bbox["y"], bbox["z"]],
+      "size": [bbox["l"], bbox["w"], bbox["h"]],
+      "rotation": yaw_to_quaternion(bbox.get("theta", 0.0)),
+    }
+    objects.setdefault(label, []).append(det)
+  return objects
 
 
 def connect_mqtt():
@@ -55,34 +102,48 @@ def connect_mqtt():
 
 
 def main():
-  # Create FIFO for unbuffered communication with gst-launch-1.0
   if os.path.exists(FIFO):
     os.remove(FIFO)
   os.mkfifo(FIFO)
 
   client = connect_mqtt()
 
-  proc = subprocess.Popen(
-    PIPELINE,
-    shell=True,
-    stderr=sys.stderr,
-  )
-  print(f"[lidar-publisher] Pipeline started (pid={proc.pid}), reading from {FIFO}", flush=True)
+  proc = subprocess.Popen(PIPELINE, shell=True, stderr=sys.stderr)
+  print(f"[lidar-publisher] Pipeline started (pid={proc.pid})", flush=True)
 
   published = 0
+  fps_alpha = 0.75
+  fps = 0.0
+  last_ts = None
+
   with open(FIFO, "r") as fifo:
     for line in fifo:
       line = line.strip()
       if not line:
         continue
       try:
-        json.loads(line)  # validate
-        client.publish(TOPIC, line, qos=0)
-        published += 1
-        if published % 100 == 0:
-          print(f"[lidar-publisher] Published {published} frames", flush=True)
+        raw = json.loads(line)
       except json.JSONDecodeError:
-        pass
+        continue
+
+      now = time.time()
+      if last_ts:
+        fps = fps * fps_alpha + (1 - fps_alpha) * (1.0 / max(now - last_ts, 0.001))
+      last_ts = now
+
+      objects = convert_frame(raw)
+      msg = {
+        "id": SENSOR_ID,
+        "timestamp": datetime.fromtimestamp(now, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+        "rate": round(fps, 2),
+        "objects": objects,
+      }
+
+      client.publish(CAMERA_TOPIC, json.dumps(msg), qos=0)
+      published += 1
+      if published % 100 == 0:
+        obj_count = sum(len(v) for v in objects.values())
+        print(f"[lidar-publisher] Published {published} frames, last had {obj_count} objects, {fps:.1f} Hz", flush=True)
 
   proc.wait()
   client.loop_stop()
@@ -91,3 +152,4 @@ def main():
 
 if __name__ == "__main__":
   main()
+
