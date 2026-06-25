@@ -119,38 +119,42 @@ class IntelLabsTracking(Tracking):
 
   def _build_tracking_lookups(self, objects):
     """Build O(1) lookup maps for current-frame and previously tracked objects."""
-    objects_by_uuid = {obj.uuid: obj for obj in objects if hasattr(obj, 'uuid')}
-    tracker_by_uuid = {obj.uuid: obj for obj in self.all_tracker_objects if hasattr(obj, 'uuid')}
-    tracker_by_rv_id = {obj.rv_id: obj for obj in self.all_tracker_objects if hasattr(obj, 'rv_id')}
-    return objects_by_uuid, tracker_by_uuid, tracker_by_rv_id
+    current_objects_by_uuid = {obj.uuid: obj for obj in objects if hasattr(obj, 'uuid')}
+    tracked_objects_by_uuid = {obj.uuid: obj for obj in self.all_tracker_objects if hasattr(obj, 'uuid')}
+    tracked_objects_by_rv_id = {obj.rv_id: obj for obj in self.all_tracker_objects if hasattr(obj, 'rv_id')}
+    return current_objects_by_uuid, tracked_objects_by_uuid, tracked_objects_by_rv_id
 
   def _from_tracked_objects(self, tracked_objects, objects):
     """Convert reliable tracker output using shared prebuilt lookup maps."""
-    objects_by_uuid, tracker_by_uuid, tracker_by_rv_id = self._build_tracking_lookups(objects)
+    current_objects_by_uuid, tracked_objects_by_uuid, tracked_objects_by_rv_id = self._build_tracking_lookups(objects)
     return [t for t in (
-        self._from_tracked_object_indexed(tracked_object, objects_by_uuid, tracker_by_uuid, tracker_by_rv_id)
+        self._from_tracked_object_indexed(
+            tracked_object,
+            current_objects_by_uuid,
+            tracked_objects_by_uuid,
+            tracked_objects_by_rv_id
+        )
         for tracked_object in tracked_objects
     ) if t is not None]
 
-  def _from_tracked_object_indexed(self, tracked_object, objects_by_uuid, tracker_by_uuid, tracker_by_rv_id):
+  def _from_tracked_object_indexed(self, tracked_object, current_objects_by_uuid, tracked_objects_by_uuid,
+                                   tracked_objects_by_rv_id):
     """Get associated sscape object using pre-built O(1) lookup maps.
 
     Args:
         tracked_object: The tracked object from robot_vision tracker
-        objects_by_uuid: Dict mapping uuid -> sscape_object for current frame objects
-        tracker_by_uuid: Dict mapping uuid -> sscape_object for all_tracker_objects
-        tracker_by_rv_id: Dict mapping rv_id -> sscape_object for all_tracker_objects
+        current_objects_by_uuid: Dict mapping uuid -> sscape_object for current frame objects
+        tracked_objects_by_uuid: Dict mapping uuid -> sscape_object for tracked objects
+        tracked_objects_by_rv_id: Dict mapping rv_id -> sscape_object for tracked objects
 
     Returns:
         The associated sscape object with updated tracking info
     """
     uuid = tracked_object.attributes['info']
 
-    # O(1) lookup instead of O(n) loop through objects
-    sscape_object = objects_by_uuid.get(uuid)
+    sscape_object = current_objects_by_uuid.get(uuid)
     if sscape_object is None:
-      # O(1) lookup instead of O(n) loop through all_tracker_objects
-      sscape_object = tracker_by_uuid.get(uuid)
+      sscape_object = tracked_objects_by_uuid.get(uuid)
       if sscape_object is not None:
         return sscape_object
       # Neither current objects nor tracker objects matched this UUID
@@ -163,8 +167,7 @@ class IntelLabsTracking(Tracking):
     sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, 0.0))
     sscape_object.rv_id = tracked_object.id
 
-    # O(1) lookup instead of O(m) loop through all_tracker_objects
-    prev_obj = tracker_by_rv_id.get(tracked_object.id)
+    prev_obj = tracked_objects_by_rv_id.get(tracked_object.id)
     if prev_obj is not None:
       sscape_object.setPrevious(prev_obj)
       sscape_object.inferRotationFromVelocity()

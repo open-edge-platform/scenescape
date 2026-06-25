@@ -70,9 +70,6 @@ class Tracking(Thread):
     for category in categories:
       self._updateRefCameraFrameRate(ref_camera_frame_rate, category)
       new_objects = [obj for obj in objects if obj.category == category]
-      # Assert: objects being enqueued belong to exactly one category
-      assert all(obj.category == category for obj in new_objects), \
-        f"Cross-category objects in trackObjects for {category}"
       if not use_tracker:
         for obj in new_objects:
           obj.oid = str(uuid.uuid4())

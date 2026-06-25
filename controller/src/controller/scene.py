@@ -66,9 +66,6 @@ class Scene(SceneModel):
     self._trs_xyz_to_lla = None
     self.use_tracker = True
 
-    # Legacy field retained for backwards compatibility with older scene definitions.
-    self.scale = scale
-
     return
 
   def _setTracker(self, trackerType):
