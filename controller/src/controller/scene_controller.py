@@ -1266,8 +1266,8 @@ class SceneController:
     3. Delegates to _processMessageCore for computation
     4. Publishes results via MQTT (with _publish_lock)
 
-    In multiprocessing, this wrapper stays in the main/routing process while
-    _processMessageCore moves to the worker process.
+    In multiprocessing, this method runs inside the worker process; the main process
+    only buffers/routes messages and submits work to the per-scene worker pool.
     """
     t_handler_start = time.time_ns()
 
@@ -1275,7 +1275,16 @@ class SceneController:
     queue_wait_ms = (t_handler_start - t_callback_enter) / 1e6
 
     # Parse payload once — used for metrics and passed to core
-    jdata = orjson.loads(payload.decode('utf-8'))
+    if isinstance(payload, memoryview):
+      payload = payload.tobytes()
+    if isinstance(payload, (bytes, bytearray)):
+      jdata = orjson.loads(payload)
+    elif isinstance(payload, str):
+      jdata = orjson.loads(payload)
+    elif isinstance(payload, dict):
+      jdata = payload
+    else:
+      raise TypeError(f"Unsupported payload type: {type(payload).__name__}")
     camera_id_tmp = jdata.get('id', 'unknown')
 
     metric_attributes = {

@@ -157,8 +157,11 @@ class Tracking(Thread):
     tid = current_thread().ident
     if self._owner_thread_id is None:
       self._owner_thread_id = tid
-    assert tid == self._owner_thread_id, \
-      f"Tracker state accessed by thread {tid}, but owned by {self._owner_thread_id}"
+      return
+    if tid != self._owner_thread_id:
+      raise RuntimeError(
+        f"Tracker state accessed by thread {tid}, but owned by {self._owner_thread_id}"
+      )
 
   def run(self):
     self._owner_thread_id = current_thread().ident
