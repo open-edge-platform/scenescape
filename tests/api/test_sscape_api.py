@@ -123,7 +123,7 @@ def resolve_within_tests_api(rel_path):
   """
   tests_dir = os.path.realpath(os.path.join(TESTS_API_DIR, os.pardir))
   resolved = os.path.realpath(os.path.join(TESTS_API_DIR, rel_path))
-  if not resolved.startswith(tests_dir + os.sep):
+  if os.path.commonpath([tests_dir, resolved]) != tests_dir:
     raise ValueError(f"file path escapes tests/: {resolved}")
   return resolved
 
