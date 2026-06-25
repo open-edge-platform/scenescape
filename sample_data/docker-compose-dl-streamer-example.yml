@@ -648,8 +648,6 @@ configs:
     # file: ./dlstreamer-pipeline-server/queuing-config-npu.json
   lidar-config:
     file: ./dlstreamer-pipeline-server/lidar-intersection-config.json
-  lidar-mqtt-config:
-    file: ./dlstreamer-pipeline-server/lidar-mqtt-config.json
 
 volumes:
   vol-db:
