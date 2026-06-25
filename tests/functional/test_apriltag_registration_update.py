@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
+import pytest
 import requests
 
 from tests.functional import FunctionalTest
@@ -16,6 +17,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_AUTOCALIBRATION,
   auth=AUTH_CONTROLLER,
 )
+
+pytestmark = pytest.mark.preserve_db
 
 POLL_INTERVAL_S = 5
 POLL_TIMEOUT_S = 300
