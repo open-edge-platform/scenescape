@@ -59,11 +59,13 @@ class TestAPIService:
           original_open = client.open
 
           def open_with_prefix(*args, **kwargs):
-            if args:
-              path = args[0]
-              if isinstance(path, str) and path.startswith("/") \
-                  and not path.startswith(API_PREFIX):
-                args = (f"{API_PREFIX}{path}",) + args[1:]
+            path = args[0] if args else kwargs.get('path')
+            if isinstance(path, str) and path.startswith("/") and not path.startswith(API_PREFIX):
+              prefixed_path = f"{API_PREFIX}{path}"
+              if args:
+                args = (prefixed_path,) + args[1:]
+              else:
+                kwargs['path'] = prefixed_path
             return original_open(*args, **kwargs)
 
           client.open = open_with_prefix
