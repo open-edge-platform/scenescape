@@ -117,17 +117,20 @@ class IntelLabsTracking(Tracking):
     log.debug(f"[PROFILE_UPDATE] objs={len(objects)}, conv_ms={t_conv:.3f}, track_ms={t_track:.3f}")
     return
 
-  def from_tracked_object(self, tracked_object, objects):
-    """Get associated sscape object from reliable tracked object."""
+  def _build_tracking_lookups(self, objects):
+    """Build O(1) lookup maps for current-frame and previously tracked objects."""
     objects_by_uuid = {obj.uuid: obj for obj in objects if hasattr(obj, 'uuid')}
     tracker_by_uuid = {obj.uuid: obj for obj in self.all_tracker_objects if hasattr(obj, 'uuid')}
     tracker_by_rv_id = {obj.rv_id: obj for obj in self.all_tracker_objects if hasattr(obj, 'rv_id')}
-    return self._from_tracked_object_indexed(
-        tracked_object,
-        objects_by_uuid,
-        tracker_by_uuid,
-        tracker_by_rv_id
-    )
+    return objects_by_uuid, tracker_by_uuid, tracker_by_rv_id
+
+  def _from_tracked_objects(self, tracked_objects, objects):
+    """Convert reliable tracker output using shared prebuilt lookup maps."""
+    objects_by_uuid, tracker_by_uuid, tracker_by_rv_id = self._build_tracking_lookups(objects)
+    return [t for t in (
+        self._from_tracked_object_indexed(tracked_object, objects_by_uuid, tracker_by_uuid, tracker_by_rv_id)
+        for tracked_object in tracked_objects
+    ) if t is not None]
 
   def _from_tracked_object_indexed(self, tracked_object, objects_by_uuid, tracker_by_uuid, tracker_by_rv_id):
     """Get associated sscape object using pre-built O(1) lookup maps.
@@ -243,8 +246,7 @@ class IntelLabsTracking(Tracking):
     t_prune = (time.time_ns() - t_prune_start) / 1e6
 
     t_from_start = time.time_ns()
-    tracks_from_detections = [t for t in (self.from_tracked_object(tracked_object, objects)
-                     for tracked_object in tracked_objects) if t is not None]
+    tracks_from_detections = self._from_tracked_objects(tracked_objects, objects)
     t_from = (time.time_ns() - t_from_start) / 1e6
 
     t_merge_start = time.time_ns()
@@ -291,20 +293,11 @@ class IntelLabsTracking(Tracking):
     self.uuid_manager.pruneInactiveTracks(all_active_tracks)
     t_prune = (time.time_ns() - t_prune_start) / 1e6
 
-    # Flatten all objects for from_tracked_object lookup
+    # Flatten all objects for shared tracked-object lookup
     all_objects = [obj for camera_objects in objects_per_camera for obj in camera_objects]
 
     t_from_start = time.time_ns()
-    # OPTIMIZATION: Build hash maps for O(1) lookup instead of O(n²) nested loops
-    # This reduces from_tracked_object complexity from O(n*m) to O(n+m)
-    objects_by_uuid = {obj.uuid: obj for obj in all_objects if hasattr(obj, 'uuid')}
-    tracker_by_uuid = {obj.uuid: obj for obj in self.all_tracker_objects if hasattr(obj, 'uuid')}
-    tracker_by_rv_id = {obj.rv_id: obj for obj in self.all_tracker_objects if hasattr(obj, 'rv_id')}
-
-    tracks_from_detections = [t for t in (
-        self._from_tracked_object_indexed(tracked_object, objects_by_uuid, tracker_by_uuid, tracker_by_rv_id)
-        for tracked_object in tracked_objects
-    ) if t is not None]
+    tracks_from_detections = self._from_tracked_objects(tracked_objects, all_objects)
     t_from = (time.time_ns() - t_from_start) / 1e6
 
     t_merge_start = time.time_ns()

@@ -292,9 +292,7 @@ class CacheManager:
 
   def _periodicRefreshLoop(self):
     """Background thread: periodically refreshes scene cache via HTTP."""
-    while not self._refresh_stop.is_set():
-      if self._refresh_stop.wait(timeout=self._refresh_interval):
-        break
+    while not self._refresh_stop.wait(timeout=self._refresh_interval):
       try:
         self.refreshScenes()
         log.debug("[CACHE_PERIODIC_REFRESH] Refresh completed successfully")
