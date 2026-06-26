@@ -153,26 +153,43 @@ This section is the source of truth for _who does what_ in the integrated system
 
 **Per-component responsibility matrix:**
 
-| Concern                                           | Owner                                                | Notes                                                                                                                                           |
-| ------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Scene model and persistence                       | Manager (Backend)                                    | Scene map, cameras, ROIs, pipeline-to-source mapping.                                                                                           |
-| Pipeline-to-source mapping (scene-level)          | Manager (Backend)                                    | Persisted SceneScape-side only; ViPPET's internal mapping is not synchronized.                                                                  |
-| Pipeline authoring                                | ViPPET                                               | SceneScape never authors pipelines.                                                                                                             |
-| Pipeline definition consumption                   | Manager (Backend)                                    | REST pull from ViPPET; embedded by value into scene exports.                                                                                    |
-| Pipeline lifecycle (start/stop, dynamic reconfig) | Pipeline Orchestrator → DLSPS REST API               | Replaces both the static-JSON Docker Compose flow and the pod-recreation Kubernetes flow at parity (see the DLSPS runtime API delta).           |
-| Pipeline execution                                | DLSPS                                                | Reads models from shared model volume; publishes inference output to MQTT.                                                                      |
-| Inference output consumption                      | Scene Controller                                     | Existing MQTT contract; **no MLOps-integration changes**.                                                                                       |
-| Multimodal fusion, tracking, scene state          | Scene Controller                                     | Unchanged.                                                                                                                                      |
-| Model lifecycle (install, list)                   | Model Downloader                                     | SceneScape uses listing endpoint only at runtime.                                                                                               |
-| Model listing for UI selection                    | Manager (UI) → Model Downloader                      | New runtime call; replaces filesystem-scan behavior of today's `model_directory_view.py`.                                                       |
-| Model download (production)                       | External job / ViPPET UI                             | SceneScape does not call Model Downloader's download endpoint at runtime ([ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision)). |
-| Model storage at runtime                          | Model Downloader (writes) + DLSPS (reads)            | Shared model volume; no direct runtime call from DLSPS to Model Downloader.                                                                     |
-| Camera discovery and device configuration         | Stream Manager                                       | SceneScape consumes the resulting stream list only; ownership of camera discovery is **not** with SceneScape.                                   |
-| Video acquisition (livestream / replay)           | Stream Manager                                       | Optional dependency; direct RTSP/file sources remain supported when Stream Manager is not deployed.                                             |
-| Calibration-time image acquisition                | Auto Camera Calibration; _(deferred)_ Stream Manager | Decision deferred per phase (see the Stream Manager consumption delta).                                                                         |
-| Mapping-time image / stream acquisition           | Mapping; _(deferred)_ Stream Manager                 | Decision deferred per phase (see the Stream Manager consumption delta).                                                                         |
-| Scene export / import                             | Manager (Backend)                                    | Extends today's `manager/src/manager/scene_import.py`; new format defined later in this section.                                                |
-| Model training, dataset management                | Geti                                                 | No SceneScape involvement.                                                                                                                      |
+_Scene_
+
+| Concern                                  | Owner             | Notes                                                                                             |
+| ---------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------- |
+| Scene model and persistence              | Manager (Backend) | Scene map, cameras, ROIs, pipeline-to-source mapping.                                             |
+| Pipeline-to-source mapping (scene-level) | Manager (Backend) | Persisted SceneScape-side only; ViPPET's internal mapping is not synchronized.                    |
+| Multimodal fusion, tracking, scene state | Scene Controller  | Unchanged.                                                                                        |
+| Scene export / import                    | Manager (Backend) | Extends today's `manager/src/manager/scene_import.py`; new format defined later in this section. |
+
+_Pipeline_
+
+| Concern                                           | Owner                                  | Notes                                                                                                                                 |
+| ------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Pipeline authoring                                | ViPPET                                 | SceneScape never authors pipelines.                                                                                                   |
+| Pipeline definition consumption                   | Manager (Backend)                      | REST pull from ViPPET; embedded by value into scene exports.                                                                          |
+| Pipeline lifecycle (start/stop, dynamic reconfig) | Pipeline Orchestrator → DLSPS REST API | Replaces both the static-JSON Docker Compose flow and the pod-recreation Kubernetes flow at parity (see the DLSPS runtime API delta). |
+| Pipeline execution                                | DLSPS                                  | Reads models from shared model volume; publishes inference output to MQTT.                                                            |
+| Inference output consumption                      | Scene Controller                       | Existing MQTT contract; **no MLOps-integration changes**.                                                                             |
+
+_Model_
+
+| Concern                          | Owner                                     | Notes                                                                                                                                           |
+| -------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Model lifecycle (install, list)  | Model Downloader                          | SceneScape uses listing endpoint only at runtime.                                                                                               |
+| Model listing for UI selection   | Manager (UI) → Model Downloader           | New runtime call; replaces filesystem-scan behavior of today's `model_directory_view.py`.                                                       |
+| Model download (production)      | External job / ViPPET UI                  | SceneScape does not call Model Downloader's download endpoint at runtime ([ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision)). |
+| Model storage at runtime         | Model Downloader (writes) + DLSPS (reads) | Shared model volume; no direct runtime call from DLSPS to Model Downloader.                                                                     |
+| Model training, dataset management | Geti                                    | No SceneScape involvement.                                                                                                                      |
+
+_Source_
+
+| Concern                                   | Owner                                                | Notes                                                                                               |
+| ----------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Camera discovery and device configuration | Stream Manager                                       | SceneScape consumes the resulting stream list only; ownership of camera discovery is **not** with SceneScape. |
+| Video acquisition (livestream / replay)   | Stream Manager                                       | Optional dependency; direct RTSP/file sources remain supported when Stream Manager is not deployed. |
+| Calibration-time image acquisition        | Auto Camera Calibration; _(deferred)_ Stream Manager | Decision deferred per phase (see the Stream Manager consumption delta).                             |
+| Mapping-time image / stream acquisition   | Mapping; _(deferred)_ Stream Manager                 | Decision deferred per phase (see the Stream Manager consumption delta).                             |
 
 **Cross-cutting concerns** (applied uniformly across all OEP integrations; mechanisms implemented inside the client libraries described later in this section):
 
