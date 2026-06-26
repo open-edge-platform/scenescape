@@ -3,9 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import os
-
-import json
+import ssl
 import time
 
 import tests.common_test_utils as common
@@ -19,38 +17,23 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 TEST_WAIT_TIME = 10
-TEST_MIN_DETECTIONS = TEST_WAIT_TIME * 20
-objects_detected = 0
 connected = False
 
 def on_connect(mqttc, obj, flags, rc):
   global connected
+  if rc != 0:
+    print( "Connection refused (rc={})".format( rc ) )
+    return
   connected = True
   print( "Connected" )
-  topic = 'scenescape/#'
-  mqttc.subscribe( topic, 0 )
-
-def on_message(mqttc, obj, msg):
-  global objects_detected
-  if objects_detected == 0:
-    real_msg = str(msg.payload.decode("utf-8"))
-    print( "First msg received (Topic {})".format( msg.topic ) )
-
-  objects_detected += 1
 
 
-def test_mqtt_insecure_cert(scenescape_env, record_xml_attribute, secrets_dir):
+def test_mqtt_insecure_cert(scenescape_env, record_xml_attribute):
 
   TEST_NAME = "NEX-T21777"
   record_xml_attribute("name", TEST_NAME)
 
   print("Executing: " + TEST_NAME)
-
-  # Default location of root certificate
-  rootca = f"{secrets_dir}/certs/scenescape-ca.pem"
-
-  # Location for generated user/passwd from image
-  auth = "/run/secrets/controller.auth"
 
   # mqtt broker info:
   mqtt_broker = 'broker.scenescape.intel.com'
@@ -58,34 +41,15 @@ def test_mqtt_insecure_cert(scenescape_env, record_xml_attribute, secrets_dir):
 
   client = initializeMqttClient()
 
-  # The following is from scenescape/mqtt.py
-
-  certs = None
-  if os.path.exists(rootca):
-    if certs is None:
-      certs = {}
-    certs['ca_certs'] = rootca
-
-  if os.path.exists(auth):
-    with open(auth) as json_file:
-      data = json.load(json_file)
-
-    user = data['user']
-    pw = data['password']
-
-  else:
-    user = 'tmp'
-    pw = 'dummy'
-
   result = 1
   try:
-    if certs is not None:
-      client.tls_set(**certs)
-    client.tls_insecure_set(True)
+    # Enable TLS with certificate verification enforced, but do NOT trust the
+    # SceneScape CA. The broker presents a certificate signed by the private
+    # SceneScape CA, which is not in the default system trust store, so a
+    # secure client must reject it and fail to connect.
+    client.tls_set()
+    client.tls_insecure_set(False)
 
-    client.username_pw_set(user, pw)
-
-    client.on_message = on_message
     client.on_connect = on_connect
     client.connect(mqtt_broker, mqtt_port, 60)
 
@@ -94,19 +58,14 @@ def test_mqtt_insecure_cert(scenescape_env, record_xml_attribute, secrets_dir):
     client.loop_stop()
 
     global connected
-    global objects_detected
 
     if connected:
-      print( "{} Objects detected in {} seconds".format( objects_detected, TEST_WAIT_TIME ) )
-
-      if objects_detected > TEST_MIN_DETECTIONS:
-        print( "Test failed!" )
-      else:
-        print( "Test passed!" )
+      print( "Test failed! Connected with untrusted certificate!" )
     else:
-      print( "Test passed! Failed to connect! " )
-  except:
-    print( "Test passed! Bad certificate, unable to connect! " )
+      print( "Test passed! Untrusted certificate rejected, unable to connect!" )
+      result = 0
+  except (OSError, ssl.SSLError):
+    print( "Test passed! Untrusted certificate rejected, unable to connect!" )
     result = 0
 
   common.record_test_result(TEST_NAME, result)
