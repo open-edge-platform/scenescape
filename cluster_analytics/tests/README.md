@@ -20,7 +20,7 @@ Test what each function/class does in isolation:
 | `test_clustering.py` | DBSCAN grouping, centroids, noise exclusion, empty inputs            |
 | `test_shape.py`      | Shape detection: circle, line, irregular, insufficient points        |
 | `test_velocity.py`   | Velocity classification: stationary, parallel, converging, diverging |
-| `test_tracker.py`    | Post-refactor tracker API spec (currently skipped — Phase 1)         |
+| `test_tracker.py`    | Tracker UUID persistence, nearest-centroid matching, expiry          |
 
 ### Setup
 
@@ -47,7 +47,7 @@ python -m pytest tests/sscape_tests/cluster_analytics/ -v -p no:django
 `-p no:django` is required because the repo-level `pytest.ini` loads Django; the
 cluster analytics tests do not need it and `manager/secrets/` may not be present.
 
-Expected result: **33 passed, 8 skipped** (the 8 skips are the Phase 1 tracker spec).
+Expected result: **41 passed**.
 
 ---
 
@@ -104,10 +104,10 @@ logs before proceeding.
 
 ### Tracker warmup
 
-The cluster tracker FSM requires **3 consecutive frames** (`FRAMES_TO_ACTIVATE`)
-before a cluster transitions `NEW → ACTIVE` and becomes publishable. Tests that
-assert on cluster output use `_warmup_and_publish()` which sends 3 silent warmup
-frames before the assertion frame.
+The centroid tracker publishes clusters from the **first frame** — there is no
+state-machine warmup. `_warmup_and_publish()` sends **one** silent priming frame
+to establish the cluster UUID in tracker state, then publishes the assertion frame
+whose response is returned.
 
 Tests that expect empty results (0 objects, 1 object below `min_samples`) do not
 need warmup because they never produce clusters.
@@ -119,7 +119,7 @@ Expected result: **7 passed**.
 ## Test Hierarchy Summary
 
 ```
-Unit tests        — tests/sscape_tests/cluster_analytics/   (no Docker, 33+8)
+Unit tests        — tests/sscape_tests/cluster_analytics/   (no Docker, 41)
 Component tests   — cluster_analytics/tests/service/         (Docker, 7)
 E2E functional    — tests/functional/                        (full stack, not yet implemented)
 ```

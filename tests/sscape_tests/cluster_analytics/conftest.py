@@ -45,8 +45,7 @@ def config():
 @pytest.fixture
 def context():
   with patch("cluster_analytics_context.PubSub") as mock_pubsub, \
-       patch("cluster_analytics_context.ClusterTracker") as mock_tracker, \
-       patch("cluster_analytics_context.HungarianMatcher"):
+       patch("cluster_analytics_context.ClusterTracker") as mock_tracker:
     mock_pubsub.return_value.connect.return_value = None
     from cluster_analytics_context import ClusterAnalyticsContext
     ctx = ClusterAnalyticsContext(
