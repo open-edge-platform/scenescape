@@ -478,7 +478,7 @@ Stream Manager is added to the topology only when source acquisition through Str
 
 **Network and authentication.**
 
-Credentials for new components (ViPPET pipeline-definition endpoint when used during development, Stream Manager livestream / replay) are configured at deployment time (for example, via environment variables) or at runtime via the Manager UI, and passed to the corresponding client libraries. The detailed list of credentials per component follows from the corresponding teams' API specifications.
+Service URLs and credentials for new components (ViPPET pipeline-definition endpoint when used during development, Stream Manager livestream / replay) are configured at deployment time (for example, via environment variables) or at runtime via the Manager UI, and passed to the corresponding client libraries. The detailed list of credentials per component follows from the corresponding teams' API specifications.
 
 ---
 
