@@ -238,13 +238,12 @@ There is **no Geti client library** — SceneScape has no direct integration wit
 **Open questions for this layer:**
 
 - **Repository location.** Three candidate placements are possible: (A) extend [`scene_common/`](../../scene_common/) with an `integration/` subpackage (one module per OEP component); (B) introduce a new top-level shared library (e.g., `integration_clients/`); (C) decide per component. This decision is **deferred** and tracked in the _Open Questions_ section.
-- **Distribution and versioning model** (single shared library vs. independently versioned per-component packages) follows from the repository-location choice and is deferred with it.
 
 ### 5.5 Per-contract specifications
 
-This section specifies the integration contracts between SceneScape and each OEP component: the endpoints SceneScape consumes, the data SceneScape exchanges, and the SceneScape service that owns the call. Each contract is implemented inside the corresponding client library described above; the table rows therefore double as the public Python-API surface of each library.
+This section specifies the integration contracts between SceneScape and each OEP component.
 
-Contracts are presented at the level of detail required for SceneScape-side design (endpoint identity, payload shape, ownership, frequency, failure mode). Wire-level specifications (exact URL paths, request/response JSON schemas, authentication mechanisms) are owned by the corresponding OEP-component teams and referenced from the _References_ section once published; where a SceneScape-side decision depends on a not-yet-finalized OEP-component design, this is called out explicitly.
+Contracts are presented at the level of detail required for SceneScape-side design. Wire-level specifications (exact URL paths, request/response JSON schemas, authentication mechanisms) are owned by the corresponding OEP-component teams and referenced from the _References_ section once published; where a SceneScape-side decision depends on a not-yet-finalized OEP-component design, this is called out explicitly.
 
 > **Manager service split.** As noted in the _Responsibility matrix_, "Manager back-end" and "Manager UI" labels are recommendations; the decision to split today's monolithic Manager is deferred. Until the split is decided, all contracts assigned to Manager back-end or Manager UI are implemented inside the current Manager service.
 
@@ -253,6 +252,8 @@ Contracts are presented at the level of detail required for SceneScape-side desi
 **No runtime contract.** SceneScape does not call Model Downloader at runtime. The integration point is the shared model volume: Model Downloader writes model files to the volume at deployment time; DLSPS reads from it during pipeline execution. Model identity (name, hub, precision) is embedded in pipeline definitions sourced from ViPPET and recorded in scene exports — no runtime enumeration call from any SceneScape service is required.
 
 **SceneScape does not call Model Downloader's download or listing endpoints at runtime.** Both are performed out-of-band: download by an external job or via the ViPPET UI; listing (if needed) by deployment tooling only.
+
+**Backward compatibility (dynamic pipeline configuration).** The dynamic pipeline configuration feature remains supported until feature parity with ViPPET-based pipeline authoring is achieved. During this transition, the job or script that downloads models via Model Downloader is also responsible for generating the [model configuration file](../user-guide/other-topics/model-configuration-file-format.md) containing the parameters and paths of the downloaded models.
 
 #### 5.5.2 SceneScape ↔ ViPPET
 
