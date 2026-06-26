@@ -106,7 +106,7 @@ The component view below shows the runtime relationships between SceneScape and 
 
 | Component            | Status                                    | Owned data                              | SceneScape's relationship                                                                                       |
 | -------------------- | ----------------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| **Model Downloader** | Existing OEP component (new requirements) | Installed models                        | Runtime listing endpoint (Manager UI); no runtime download calls                                                |
+| **Model Downloader** | Existing OEP component (new requirements) | Installed models                        | No runtime download calls                                                |
 | **ViPPET**           | Existing OEP component (new requirements) | Pipeline templates and definitions      | REST pull of pipeline definitions (Manager back-end); embedded by value into scene exports                      |
 | **DLSPS**            | Already integrated; integration evolving  | Running pipelines; inference output     | Runtime pipeline lifecycle via DLSPS REST API (Pipeline Orchestrator); MQTT inference output (Scene Controller) |
 | **Stream Manager**   | New OEP component (optional)              | Camera devices, live and captured video | Livestream/replay APIs (Manager Backend and, deferred, Auto Camera Calibration / Mapping)                       |
