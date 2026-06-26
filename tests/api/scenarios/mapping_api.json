@@ -343,7 +343,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "video": ["test_media/ParkingVideoTrimmed2.mp4"],
+            "video": ["test_media/LargeVideoForTest.mp4"],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
