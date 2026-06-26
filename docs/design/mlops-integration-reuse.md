@@ -135,7 +135,7 @@ The process model shows the user-facing workflow for building, packaging, and de
 2. **Data Acquisition** — Stream Manager captures videos and uploads them to a Geti instance for annotation.
 3. **Geti Training** — Geti annotates, trains, and validates the model.
 4. **DLS Pipeline Development** — ViPPET downloads the Geti-trained model (via Model Downloader), authors and verifies the DLSPS pipeline.
-5. **Scene Development** — SceneScape sets up scenes and cameras, consumes the ViPPET pipeline definition, maps pipelines to sources, starts pipelines, and evaluates AI-task performance.
+5. **Scene Development** — SceneScape sets up scenes and cameras, consumes the ViPPET pipeline definition, maps pipelines to sources, starts pipelines. AI-task performance is evaluated.
 6. **Package Preparation** — SceneScape exports the scene (self-contained per [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision)).
 7. **Deployment** — at the production site, Model Downloader materializes the referenced models, SceneScape imports the scene and starts pipelines, Stream Manager runs alongside (when deployed) for video acquisition.
 
