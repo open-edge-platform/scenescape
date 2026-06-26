@@ -1,5 +1,5 @@
 {
-  "uid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "uid": "a1b2c3d4-e5f6-4890-abcd-ef1234567890",
   "name": "Lidar Intersection",
   "map_type": "map_upload",
   "use_tracker": true,
@@ -17,11 +17,11 @@
         "cy": 0.0
       },
       "transform_type": "euler",
-      "translation": [0.0, 0.0, 0.0],
+      "translation": [100.0, 100.0, 1.5],
       "rotation": [0.0, 0.0, 0.0],
       "scale": [1.0, 1.0, 1.0],
       "resolution": [1000, 1000],
-      "scene": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      "scene": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
     },
     {
       "uid": "camera1",
@@ -59,7 +59,7 @@
         1920,
         1080
       ],
-      "scene": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      "scene": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
     }
   ]
 }
