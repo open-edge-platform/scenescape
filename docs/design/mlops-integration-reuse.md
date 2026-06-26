@@ -270,7 +270,11 @@ Contracts are presented at the level of detail required for SceneScape-side desi
 | Persistence in SceneScape | The fetched pipeline definition is **persisted by value** in SceneScape's scene configuration so the scene is self-contained (deployable without ViPPET).                           |
 | Failure mode              | Fetch failures surface as a UI error at the time of selection; once a pipeline definition is persisted in a scene, no further ViPPET call is required.                              |
 
-**Open dependency.** The exact pipeline-definition format (parametrization syntax, version envelope) depends on ViPPET's design and is tracked in _Open Questions_.
+**Pipeline definition requirements.** For successful integration, ViPPET pipeline definitions must meet the following requirements:
+- Support embedding custom SceneScape pipeline elements (the DLSPS adapter functionality, once broken down and migrated from `gvapython` to the Gst Analytics Python API).
+- Be parametrizable per camera instance, exposing at minimum the following per-instance parameters: video source address, source ID used in MQTT output, model confidence threshold, and NTP usage.
+
+The exact pipeline-definition format (parametrization syntax, version envelope) depends on ViPPET's design and is tracked in _Open Questions_.
 
 #### 5.5.3 SceneScape ↔ DLSPS
 
