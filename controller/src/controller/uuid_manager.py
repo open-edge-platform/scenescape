@@ -340,11 +340,9 @@ class UUIDManager:
       features['reid_vectors'] = features['reid_vectors'][::slice_size]
       persist = features.get('persist', {})
       log.debug(
-        f"_addNewFeaturesToDatabase: Adding {len(features['reid_vectors'])} features for track {track_id} to database (gid={features['gid']}, category={features['category']})")
-      log.debug(f"_addNewFeaturesToDatabase: gid={features['gid']} "
-          f"track_id={track_id} "
-          f"persist_keys={list(persist.keys())} "
-          f"persist={persist}")
+        f"_addNewFeaturesToDatabase: Adding {len(features['reid_vectors'])} features for track {track_id} to database "
+        f"(gid={features['gid']}, category={features['category']}, "
+        f"persist_keys={list(persist.keys())})")
 
       # Extract semantic metadata from stored feature data
       metadata = features.get('metadata', {})
@@ -775,7 +773,12 @@ class UUIDManager:
       'category': sscape_object.category,
       'reid_vectors': self.quality_features[sscape_object.rv_id],
       'metadata': self._extractSemanticMetadata(sscape_object),
-      'persist': sscape_object.chain_data.persist.copy() if sscape_object.chain_data else {}
+      'persist': {
+        **(sscape_object.chain_data.persist.copy()
+           if sscape_object.chain_data and isinstance(sscape_object.chain_data.persist, dict)
+           else {}),
+        'timestamp': sscape_object.when
+      }
     }
     log.debug(f"updateActiveDict: Storing features for rv_id={sscape_object.rv_id} "
          f"gid={sscape_object.gid} "

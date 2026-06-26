@@ -1560,7 +1560,7 @@ class TestAddEntryWithPersist:
     db.dimensions = 256
     db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
-    persist = {'gender': 'Female', 'age_group': 'adult'}
+    persist = {'gender': 'Female', 'age_group': 'adult', 'timestamp': 1234.5}
     test_vectors = [np.random.randn(256).astype(np.float32)]
 
     db.addEntry("uuid", "rvid", "Person", test_vectors, persist=persist)
@@ -1569,7 +1569,7 @@ class TestAddEntryWithPersist:
     properties = call_args[0][0][0]['AddDescriptor']['properties']
 
     assert 'persist' in properties
-    assert json.loads(properties['persist']) == persist
+    assert json.loads(properties['persist']) == {'gender': 'Female', 'age_group': 'adult'}
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_add_entry_stores_persist_timestamp(self, mock_vdms_class):
@@ -1581,7 +1581,7 @@ class TestAddEntryWithPersist:
     db.dimensions = 256
     db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
-    persist = {'confidence': 0.99}
+    persist = {'confidence': 0.99, 'timestamp': 1234.5}
     test_vectors = [np.random.randn(256).astype(np.float32)]
 
     db.addEntry("uuid", "rvid", "Person", test_vectors, persist=persist)
@@ -1590,7 +1590,7 @@ class TestAddEntryWithPersist:
     properties = call_args[0][0][0]['AddDescriptor']['properties']
 
     assert 'persist_timestamp' in properties
-    assert isinstance(properties['persist_timestamp'], float)
+    assert properties['persist_timestamp'] == 1234.5
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_add_entry_no_persist_omits_persist_fields(self, mock_vdms_class):
@@ -1756,3 +1756,147 @@ class TestGetPersistedAttributes:
     assert 'uuid' in results_list
     assert 'persist' in results_list
     assert 'persist_timestamp' in results_list
+
+class TestUpdateActiveDictPersistMerge:
+  """Test persist attribute merging in updateActiveDict on REID match."""
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_historical_attributes_restored_on_reid_match(self, mock_vdms_class):
+    """Verify historical persist attributes are merged into current track on REID match."""
+    mock_vdms_class.return_value = MagicMock()
+
+    from controller.uuid_manager import UUIDManager
+    manager = UUIDManager()
+    manager.reid_database = MagicMock()
+    manager.reid_database.getPersistedAttributes.return_value = {'gender': 'Female'}
+
+    obj = MagicMock()
+    obj.rv_id = 1
+    obj.gid = 2
+    obj.when = 1000.0
+    obj.category = "person"
+    obj.reid_state = MagicMock()
+    obj.similarity = None
+    obj.metadata = {}
+    obj.chain_data = MagicMock()
+    obj.chain_data.persist = {}
+
+    database_id = 3
+    similarity = 12.5
+
+    with patch.object(manager, 'isNewID', return_value=True), \
+         patch.object(manager, '_activeGidIndex', return_value={}), \
+         patch.object(manager, '_logLiveGidIntegrity'), \
+         patch.object(manager, '_extractReidEmbedding', return_value=None), \
+         patch.object(manager, '_extractSemanticMetadata', return_value={}), \
+         patch.object(manager, 'quality_features', {1: []}):
+      manager.active_ids = {1: [None, None]}
+      manager.updateActiveDict(obj, database_id, similarity)
+
+    assert obj.chain_data.persist.get('gender') == 'Female'
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_existing_attribute_not_overwritten_on_reid_match(self, mock_vdms_class):
+    """Verify current session attributes take precedence over historical on REID match."""
+    mock_vdms_class.return_value = MagicMock()
+
+    from controller.uuid_manager import UUIDManager
+    manager = UUIDManager()
+    manager.reid_database = MagicMock()
+    manager.reid_database.getPersistedAttributes.return_value = {'gender': 'Male'}
+
+    obj = MagicMock()
+    obj.rv_id = 1
+    obj.gid = 2
+    obj.when = 1000.0
+    obj.category = "person"
+    obj.reid_state = MagicMock()
+    obj.similarity = None
+    obj.metadata = {}
+    obj.chain_data = MagicMock()
+    obj.chain_data.persist = {'gender': 'Female'}
+
+    database_id = 3
+    similarity = 12.5
+
+    with patch.object(manager, 'isNewID', return_value=True), \
+         patch.object(manager, '_activeGidIndex', return_value={}), \
+         patch.object(manager, '_logLiveGidIntegrity'), \
+         patch.object(manager, '_extractReidEmbedding', return_value=None), \
+         patch.object(manager, '_extractSemanticMetadata', return_value={}), \
+         patch.object(manager, 'quality_features', {1: []}):
+      manager.active_ids = {1: [None, None]}
+      manager.updateActiveDict(obj, database_id, similarity)
+
+    assert obj.chain_data.persist.get('gender') == 'Female'
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_no_op_when_chain_data_is_none(self, mock_vdms_class):
+    """Verify no crash or mutation when chain_data is None on REID match."""
+    mock_vdms_class.return_value = MagicMock()
+
+    from controller.uuid_manager import UUIDManager
+    manager = UUIDManager()
+    manager.reid_database = MagicMock()
+    manager.reid_database.getPersistedAttributes.return_value = {'gender': 'Female'}
+
+    obj = MagicMock()
+    obj.rv_id = 1
+    obj.gid = 2
+    obj.when = 1000.0
+    obj.category = "person"
+    obj.reid_state = MagicMock()
+    obj.similarity = None
+    obj.metadata = {}
+    obj.chain_data = None
+
+    database_id = 3
+    similarity = 12.5
+
+    with patch.object(manager, 'isNewID', return_value=True), \
+         patch.object(manager, '_activeGidIndex', return_value={}), \
+         patch.object(manager, '_logLiveGidIntegrity'), \
+         patch.object(manager, '_extractReidEmbedding', return_value=None), \
+         patch.object(manager, '_extractSemanticMetadata', return_value={}), \
+         patch.object(manager, 'quality_features', {1: []}):
+      manager.active_ids = {1: [None, None]}
+      manager.updateActiveDict(obj, database_id, similarity)
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_features_for_database_stores_persist(self, mock_vdms_class):
+    """Verify features_for_database includes persist with timestamp after updateActiveDict."""
+    mock_vdms_class.return_value = MagicMock()
+
+    from controller.uuid_manager import UUIDManager
+    manager = UUIDManager()
+    manager.reid_database = MagicMock()
+    manager.reid_database.getPersistedAttributes.return_value = {}
+
+    obj = MagicMock()
+    obj.rv_id = 1
+    obj.gid = 2
+    obj.when = 1234.5
+    obj.category = "person"
+    obj.reid_state = MagicMock()
+    obj.similarity = None
+    obj.metadata = {}
+    obj.chain_data = MagicMock()
+    obj.chain_data.persist = {'confidence': 0.99}
+
+    database_id = 3
+    similarity = 12.5
+
+    with patch.object(manager, 'isNewID', return_value=True), \
+         patch.object(manager, '_activeGidIndex', return_value={}), \
+         patch.object(manager, '_logLiveGidIntegrity'), \
+         patch.object(manager, '_extractReidEmbedding', return_value=None), \
+         patch.object(manager, '_extractSemanticMetadata', return_value={}), \
+         patch.object(manager, 'quality_features', {1: []}):
+      manager.active_ids = {1: [None, None]}
+      manager.updateActiveDict(obj, database_id, similarity)
+
+    stored = manager.features_for_database.get(1)
+    assert stored is not None
+    assert 'persist' in stored
+    assert stored['persist'].get('confidence') == 0.99
+    assert stored['persist'].get('timestamp') == 1234.5

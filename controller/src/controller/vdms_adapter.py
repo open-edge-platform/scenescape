@@ -11,7 +11,6 @@ import vdms
 
 from controller.reid import ReIDDatabase
 from scene_common import log
-from scene_common.timestamp import get_epoch_time
 
 DEFAULT_HOSTNAME = os.getenv("VDMS_HOSTNAME", "vdms.scenescape.intel.com")
 DEFAULT_CONFIDENCE_THRESHOLD = float(os.getenv("VDMS_CONFIDENCE_THRESHOLD", "0.8"))
@@ -242,8 +241,10 @@ class VDMSDatabase(ReIDDatabase):
 
     # Store persist attributes as serialized JSON with timestamp
     if persist:
+      persist = persist.copy()  # avoid mutating the caller's dict
+      persist_timestamp = persist.pop('timestamp')
       properties["persist"] = json.dumps(persist)
-      properties["persist_timestamp"] = get_epoch_time()
+      properties["persist_timestamp"] = persist_timestamp
       log.debug(f"[VDMS] addEntry: Storing persist keys={list(persist.keys())} for uuid={uuid}")
 
     # Add semantic metadata attributes (schema-less)
