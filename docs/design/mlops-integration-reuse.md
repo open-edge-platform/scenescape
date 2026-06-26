@@ -200,7 +200,6 @@ _Source_
 | **Versioning**                      | Each client library encodes the supported OEP-component API version range; mismatches surface as a single configuration error rather than scattered runtime failures.                                                                |
 | **Telemetry and tracing**           | OpenTelemetry spans named per OEP component (e.g., `vippet.get_pipeline_definition`); per-component metrics for latency, error rate, retry count. Aligns with the existing observability conventions in `controller/observability/`. |
 | **Test doubles**                    | Each client library ships fakes / mocks usable by all SceneScape-side unit tests; integration tests run against component fakes (see the _Testing & Monitoring_ section).                                                            |
-| **Backwards compatibility**         | Two distinct legacy mechanisms (static JSON pipeline configs; custom dynamic K8s pipeline configuration) retain separate parity gates per the _Constraints_ and _Rollout / Migration Plan_ sections.                                 |
 
 ### 5.4 Client-library integration layer
 
