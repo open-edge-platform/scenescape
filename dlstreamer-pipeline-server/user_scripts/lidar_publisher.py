@@ -8,7 +8,19 @@ in the SceneScape camera detection format so the controller can track objects.
 
 gvametapublish method=file writes one JSON object per line to the FIFO.
 This script reads those lines, converts bbox_3d to translation/size/rotation,
-and publishes to scenescape/data/camera/lidar1.
+and publishes to scenescape/data/camera/{LIDAR_SENSOR_ID}.
+
+Environment variables (all optional — defaults shown):
+  MQTT_HOST             broker.scenescape.intel.com
+  MQTT_PORT             1883
+  LIDAR_SENSOR_ID       lidar1          Camera ID registered in SceneScape
+  LIDAR_DATA_PATH       /home/pipeline-server/videos/velodyne_bin/%06d.bin
+  LIDAR_START_INDEX     10699           First file index for multifilesrc
+  LIDAR_LOOP            true            Loop dataset files indefinitely
+  LIDAR_FRAME_RATE      10              LiDAR capture rate in Hz
+  LIDAR_DEVICE          CPU             OpenVINO device (CPU / GPU)
+  LIDAR_SCORE_THRESHOLD 0.3             PointPillars confidence threshold
+  LIDAR_MODEL_CONFIG    /home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
 """
 
 import json
@@ -21,29 +33,44 @@ from datetime import datetime, timezone
 
 import paho.mqtt.client as mqtt
 
-BROKER   = os.environ.get("MQTT_HOST", "broker.scenescape.intel.com")
-PORT     = int(os.environ.get("MQTT_PORT", "1883"))
-SENSOR_ID = "lidar1"
+# ── MQTT ──────────────────────────────────────────────────────────────────────
+BROKER  = os.environ.get("MQTT_HOST", "broker.scenescape.intel.com")
+PORT    = int(os.environ.get("MQTT_PORT", "1883"))
+ROOT_CA = "/run/secrets/certs/scenescape-ca.pem"
+
+# ── LiDAR pipeline ────────────────────────────────────────────────────────────
+SENSOR_ID       = os.environ.get("LIDAR_SENSOR_ID", "lidar1")
+DATA_PATH       = os.environ.get("LIDAR_DATA_PATH",
+                    "/home/pipeline-server/videos/velodyne_bin/%06d.bin")
+START_INDEX     = int(os.environ.get("LIDAR_START_INDEX", "10699"))
+LOOP            = os.environ.get("LIDAR_LOOP", "true").lower() not in ("0", "false", "no")
+FRAME_RATE      = int(os.environ.get("LIDAR_FRAME_RATE", "10"))
+DEVICE          = os.environ.get("LIDAR_DEVICE", "CPU")
+SCORE_THRESHOLD = float(os.environ.get("LIDAR_SCORE_THRESHOLD", "0.3"))
+MODEL_CONFIG    = os.environ.get("LIDAR_MODEL_CONFIG",
+                    "/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json")
+
 CAMERA_TOPIC = f"scenescape/data/camera/{SENSOR_ID}"
-ROOT_CA  = "/run/secrets/certs/scenescape-ca.pem"
-FIFO     = "/tmp/lidar_detections.fifo"
+FIFO         = "/tmp/lidar_detections.fifo"
 
 # PointPillars KITTI label mapping
 KITTI_LABELS = {0: "Pedestrian", 1: "Cyclist", 2: "Car"}
 
-PIPELINE = (
-  "gst-launch-1.0 "
-  "multifilesrc "
-    "location=/home/pipeline-server/videos/velodyne_bin/%06d.bin "
-    "start-index=10699 loop=true caps=application/octet-stream "
-  "! g3dlidarparse stride=1 frame-rate=10 "
-  "! g3dinference "
-    "config=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json "
-    "device=CPU score-threshold=0.3 "
-  "! gvametaconvert add-tensor-data=true format=json "
-  f"! gvametapublish method=file file-format=json-lines file-path={FIFO} "
-  "! fakesink"
-)
+
+def _build_pipeline():
+  loop_flag = "loop=true" if LOOP else ""
+  return (
+    "gst-launch-1.0 "
+    f"multifilesrc location=\"{DATA_PATH}\" start-index={START_INDEX} {loop_flag} "
+    "caps=application/octet-stream "
+    f"! g3dlidarparse stride=1 frame-rate={FRAME_RATE} "
+    "! g3dinference "
+    f"config=\"{MODEL_CONFIG}\" "
+    f"device={DEVICE} score-threshold={SCORE_THRESHOLD} "
+    "! gvametaconvert add-tensor-data=true format=json "
+    f"! gvametapublish method=file file-format=json-lines file-path={FIFO} "
+    "! fakesink"
+  )
 
 
 def yaw_to_quaternion(theta):
@@ -108,7 +135,7 @@ def main():
 
   client = connect_mqtt()
 
-  proc = subprocess.Popen(PIPELINE, shell=True, stderr=sys.stderr)
+  proc = subprocess.Popen(_build_pipeline(), shell=True, stderr=sys.stderr)
   print(f"[lidar-publisher] Pipeline started (pid={proc.pid})", flush=True)
 
   published = 0

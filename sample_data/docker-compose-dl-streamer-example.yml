@@ -442,6 +442,15 @@ services:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       - GST_DEBUG=1
+      # LiDAR pipeline configuration — override as needed:
+      # - LIDAR_SENSOR_ID=lidar1
+      # - LIDAR_DATA_PATH=/home/pipeline-server/videos/velodyne_bin/%06d.bin
+      # - LIDAR_START_INDEX=10699
+      # - LIDAR_LOOP=true
+      # - LIDAR_FRAME_RATE=10
+      # - LIDAR_DEVICE=CPU
+      # - LIDAR_SCORE_THRESHOLD=0.3
+      # - LIDAR_MODEL_CONFIG=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - vol-sample-data:/home/pipeline-server/videos
@@ -646,8 +655,6 @@ configs:
     file: ./dlstreamer-pipeline-server/queuing-config.json
     # Use this configuration file to run inference on NPU
     # file: ./dlstreamer-pipeline-server/queuing-config-npu.json
-  lidar-config:
-    file: ./dlstreamer-pipeline-server/lidar-intersection-config.json
 
 volumes:
   vol-db:
