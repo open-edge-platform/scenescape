@@ -97,9 +97,11 @@ class CacheManager:
 
         uid = scene_data['uid']
         if uid not in self.cached_scenes_by_uid:
+          log.debug(f"[SCENE_CACHE] Creating new Scene object for uid={uid} name={scene_data.get('name', 'unknown')} (tracker state reset)")
           scene = Scene.deserialize(scene_data)
         else:
           scene = self.cached_scenes_by_uid[uid]
+          log.debug(f"[SCENE_CACHE] Updating existing Scene object for uid={uid} name={scene_data.get('name', 'unknown')} (tracker state preserved)")
           scene.updateScene(scene_data)
 
         for cameraID in scene.cameras.keys():

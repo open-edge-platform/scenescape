@@ -16,8 +16,8 @@ IMPLEMENTATION:
 - TimeChunkBuffer: Thread-safe storage that keeps only latest frame per camera+category
 
 FEATURES:
-- Object Batching: Currently disabled (ENABLE_OBJECT_BATCHING=False). When enabled,
-  batches objects from all cameras per category into a single tracker call for improved performance
+- Object Batching: When enabled (ENABLE_OBJECT_BATCHING=True), batches objects from all cameras
+  per category into a single tracker call for improved performance
 
 USAGE:
 TimeChunkedIntelLabsTracking is configurable via tracker-config.json:
@@ -47,8 +47,7 @@ from controller.observability import metrics
 
 DEFAULT_CHUNKING_INTERVAL_MS = 50  # Default interval in milliseconds
 
-# TODO: object batching is not working yet, needs fixing tracker matching logic first
-ENABLE_OBJECT_BATCHING = False  # Disabled - object batching needs fixing tracker matching logic first
+ENABLE_OBJECT_BATCHING = True
 
 class TimeChunkBuffer:
   """Buffer organized by category, then by camera for efficient grouping"""
@@ -197,12 +196,15 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
 
     # create time chunk processor for frames buffering
     if not hasattr(self, 'time_chunk_processor'):
+      log.debug(f"[TIMECHUNK_INIT] Creating new TimeChunkProcessor for {self.__str__()} "
+                f"(interval={self.time_chunking_interval_milliseconds}ms)")
       self.time_chunk_processor = TimeChunkProcessor(self, self.time_chunking_interval_milliseconds)
       self.time_chunk_processor.start()
 
     # delegate tracking to IntelLabsTracking
     for category in categories:
       if category not in self.trackers:
+        log.debug(f"[TIMECHUNK_INIT] Creating new IntelLabsTracking thread for category={category}")
         tracker = IntelLabsTracking(
             max_unreliable_time,
             non_measurement_time_dynamic,

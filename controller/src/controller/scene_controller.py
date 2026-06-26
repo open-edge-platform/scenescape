@@ -1430,9 +1430,12 @@ class SceneController:
     """
     with self._db_update_lock:
       try:
+        scene_count_before = len(self.scenes) if hasattr(self, 'scenes') and self.scenes else 0
         self.scenes = self.cache_manager.allScenes()
+        scene_count_after = len(self.scenes)
         self.updateObjectClasses()
-        log.info(f"[WORKER_DB_UPDATE] pid={os.getpid()} object_classes refreshed")
+        log.info(f"[WORKER_DB_UPDATE] pid={os.getpid()} object_classes refreshed, "
+                 f"scenes_before={scene_count_before}, scenes_after={scene_count_after}")
       except Exception as e:
         log.warning("Worker failed to update object classes: %s", e)
 

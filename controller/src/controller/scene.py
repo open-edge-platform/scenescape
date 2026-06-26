@@ -82,6 +82,9 @@ class Scene(SceneModel):
             self.suspended_track_timeout_secs)
     if trackerType == "time_chunked_intel_labs":
       args += (self.time_chunking_interval_milliseconds,)
+    if self.tracker is not None:
+      log.warning(f"[TRACKER_REPLACE] Replacing existing tracker for scene '{self.name}' "
+                  f"type={trackerType}. All tracker state (tracked objects, UUIDs) will be lost.")
     self.tracker = self.available_trackers[self.trackerType](*args)
     return
 
@@ -119,6 +122,11 @@ class Scene(SceneModel):
     if max_unreliable_time != self.max_unreliable_time or \
        non_measurement_time_dynamic != self.non_measurement_time_dynamic or \
        non_measurement_time_static != self.non_measurement_time_static:
+      log.warning(f"[TRACKER_PARAM_CHANGE] Scene '{self.name}' tracker parameters changed "
+                  f"(max_unreliable_time: {self.max_unreliable_time} -> {max_unreliable_time}, "
+                  f"non_measurement_time_dynamic: {self.non_measurement_time_dynamic} -> {non_measurement_time_dynamic}, "
+                  f"non_measurement_time_static: {self.non_measurement_time_static} -> {non_measurement_time_static}). "
+                  f"Recreating tracker — tracked objects will be lost.")
       self.max_unreliable_time = max_unreliable_time
       self.non_measurement_time_dynamic = non_measurement_time_dynamic
       self.non_measurement_time_static = non_measurement_time_static
