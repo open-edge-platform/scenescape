@@ -187,6 +187,7 @@ _Source_
 | ----------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | Camera discovery and device configuration | Stream Manager                                       | SceneScape consumes the resulting stream list only; ownership of camera discovery is **not** with SceneScape. |
 | Video acquisition (livestream / replay)   | Stream Manager                                       | Optional dependency; direct RTSP/file sources remain supported when Stream Manager is not deployed.           |
+| Video capture and retrieval by timestamp  | Stream Manager                                       | Optional dependency; out of scope for this document.                                                          |
 | Calibration-time image acquisition        | Auto Camera Calibration; _(deferred)_ Stream Manager | Decision deferred per phase (see the Stream Manager consumption delta).                                       |
 | Mapping-time image / stream acquisition   | Mapping; _(deferred)_ Stream Manager                 | Decision deferred per phase (see the Stream Manager consumption delta).                                       |
 
@@ -201,7 +202,14 @@ _Source_
 | **Telemetry and tracing**           | OpenTelemetry spans named per OEP component (e.g., `vippet.get_pipeline_definition`); per-component metrics for latency, error rate, retry count. Aligns with the existing observability conventions in `controller/observability/`. |
 | **Test doubles**                    | Each client library ships fakes / mocks usable by all SceneScape-side unit tests; integration tests run against component fakes (see the _Testing & Monitoring_ section).                                                            |
 
-### 5.4 Client-library integration layer
+### 5.4 Integration layer
+
+This section describes how SceneScape integrates with OEP components. Two distinct integration patterns are used:
+
+- **Client libraries** — Python packages consumed by SceneScape services; one per OEP component.
+- **Out-of-service integration components** — components that run outside the SceneScape service boundary: an external model download job and a Custom DLSPS Pipeline Element exposing a timestamped video stream.
+
+#### 5.4.1 Client-library integration layer
 
 To avoid each SceneScape service implementing its own HTTP/MQTT plumbing, schema validation, retries, and telemetry against every OEP component, all OEP-component integrations are encapsulated in **client libraries**: small Python packages on the SceneScape side, one per OEP component, consumed by the SceneScape services that interact with that component.
 
@@ -219,7 +227,7 @@ To avoid each SceneScape service implementing its own HTTP/MQTT plumbing, schema
 | Client library                | OEP component  | SceneScape consumers                                                                               | Status |
 | ----------------------------- | -------------- | -------------------------------------------------------------------------------------------------- | ------ |
 | ViPPET client library         | ViPPET         | Manager (Backend) (REST pull of pipeline definitions)                                              | New    |
-| DLSPS client library          | DLSPS          | Pipeline Orchestrator (runtime pipeline lifecycle); )                                              | New    |
+| DLSPS client library          | DLSPS          | Pipeline Orchestrator (runtime pipeline lifecycle)                                                 | New    |
 | Stream Manager client library | Stream Manager | Manager (Backend) (livestream / replay consumption); _(deferred)_ Auto Camera Calibration, Mapping | New    |
 
 There is **no Model Downloader client library** — SceneScape has no runtime integration with Model Downloader; the shared model volume is the only coupling.
@@ -238,6 +246,17 @@ There is **no Geti client library** — SceneScape has no direct integration wit
 **Open questions for this layer:**
 
 - **Repository location.** Three candidate placements are possible: (A) extend [`scene_common/`](../../scene_common/) with an `integration/` subpackage (one module per OEP component); (B) introduce a new top-level shared library (e.g., `integration_clients/`); (C) decide per component. This decision is **deferred** and tracked in the _Open Questions_ section.
+
+#### 5.4.2 Out-of-service integration components
+
+Two integration components participate in the overall architecture but run outside the SceneScape service boundary.
+
+**Model download job.** Model download is performed out-of-band by an external job or deployment script that calls Model Downloader's download endpoint. This job is not a SceneScape service; it is provided by the deployment operator or as an internal reference implementation. At deployment time the job is responsible for:
+
+- Downloading the model set referenced in the exported scene or static deployment configuration.
+- During the backwards-compatibility window (while dynamic pipeline configuration is still supported): also generating the [model configuration file](../user-guide/other-topics/model-configuration-file-format.md) containing the parameters and paths of the downloaded models, to be consumed by the pipeline generator in dynamic pipeline configuration.
+
+**Custom DLSPS Pipeline Element exposing timestamped video stream.** A custom DLSPS pipeline element that runs inside the DLSPS pipeline process — not inside a SceneScape service. It streams camera video and absolute timestamps to Stream Manager to enable event-driven or on-demand frame retrieval by timestamp. The absolute timestamps are aligned with objects and events in SceneScape output. This element is the post-`gvapython` successor to the adapter code currently under [`dlstreamer-pipeline-server/user_scripts/gvapython/sscape/`](../../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/). The full specification of its Stream Manager integration is out of scope for this document.
 
 ### 5.5 Per-contract specifications
 
@@ -284,8 +303,8 @@ The exact pipeline-definition format (parametrization syntax, version envelope) 
 | Aspect                                           | Specification                                                                                                                                                                                              |
 | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | SceneScape consumer (runtime pipeline lifecycle) | Pipeline Orchestrator                                                                                                                                                                                      |
-| Client library                                   | DLSPS client library (for the runtime pipeline API);                                                                                                                                                       |
-| Pipeline-lifecycle endpoint                      | DLSPS runtime REST API for start / stop / reconfigure (exact shape owned by the DLSPS team).                                                                                                               |
+| Client library                                   | DLSPS client library (for the runtime pipeline API)                                                                                                                                                        |
+| Pipeline-lifecycle endpoint                      | DLSPS runtime REST API for start / stop / reconfigure (exact shape owned by the DLSPS team)                                                                                                                |
 | Direction                                        | SceneScape → DLSPS (REST control)                                                                                                                                                                          |
 | Payload                                          | A pipeline-instance descriptor including: the (already-resolved) pipeline definition from ViPPET, the source binding (Stream Manager URL, direct RTSP/file, etc.), and any per-instance parameters.        |
 | Frequency                                        | At scene start/stop and on any pipeline-to-source mapping change.                                                                                                                                          |
@@ -309,7 +328,13 @@ The exact pipeline-definition format (parametrization syntax, version envelope) 
 
 **Deferred SceneScape consumers.** Whether Auto Camera Calibration and Mapping consume from Stream Manager (in addition to or instead of their current direct-source paths) is a per-phase decision tracked under the Stream Manager consumption delta in the _Rollout / Migration Plan_ section.
 
-#### 5.5.5 SceneScape ↔ Geti
+#### 5.5.5 Custom DLSPS Pipeline Element exposing timestamped video stream ↔ Stream Manager
+
+**Purpose.** Stream camera video and timestamps to Stream Manager for event-driven or on-demand frame retrieval by timestamp. Stream Manager is an **optional** dependency; SceneScape continues to operate when Stream Manager is not deployed.
+
+**Out of scope for this document.** This integration will be specified in a separate ADR and/or design document.
+
+#### 5.5.6 SceneScape ↔ Geti
 
 **No direct contract.** Per [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision), SceneScape does not integrate with Geti directly. Geti is reached only indirectly:
 
