@@ -87,7 +87,7 @@ This subsection defines the SceneScape-internal vocabulary used in the rest of t
 - **Backwards compatibility window.** Existing deployments using static JSON pipeline configurations (Docker Compose bind-mount) and the custom dynamic pipeline configuration on Kubernetes must remain supported until feature parity with the ViPPET-based flow is achieved.
 - **Self-contained exported scenes.** Per [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision), exported scenes embed pipeline definitions by value (so deployment does not require ViPPET) and reference models by identifier (so Model Downloader is required at deployment time to materialize the models).
 - **Optional Stream Manager.** SceneScape must continue to operate without Stream Manager; direct camera/file sources remain supported.
-- **No direct Model Downloader download calls from SceneScape at runtime.** Model download is performed out-of-band (e.g., by a deployment-time job or the ViPPET UI). SceneScape's only runtime interaction is with the listing endpoint, which is a transitional requirement to support model selection in the UI until pipeline authoring shifts entirely to ViPPET.
+- **No direct Model Downloader download calls from SceneScape at runtime.** Model download is performed out-of-band (e.g., by a deployment-time job or the ViPPET UI).
 - **Cross-component design dependencies.** Several design choices (ViPPET pipeline-definition format details, DLSPS runtime API shape, Stream Manager API shape) depend on the corresponding teams' designs and are deferred to the relevant phase.
 
 ---
