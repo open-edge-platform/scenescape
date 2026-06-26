@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Pytest configuration for SceneScape tests.
+Pytest configuration for Scenescape tests.
 
 Tests are collected directly from their source directories.
 Each test file declares a module-level SCENESCAPE_SPEC (FuncTestSpec)
@@ -365,7 +365,7 @@ _HOST_ALIASES = [
 
 @pytest.fixture(scope="session")
 def loopback_hosts():
-  """Resolve SceneScape service hostnames to loopback in this test process.
+  """Resolve Scenescape service hostnames to loopback in this test process.
 
   Patches both socket.getaddrinfo (for high-level callers) and
   socket.socket.connect (for low-level callers like ssl.SSLSocket that call

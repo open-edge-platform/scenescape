@@ -20,6 +20,10 @@ import {
   TEXT_FONT,
   TEXT_SIZE,
 } from "/static/js/constants.js";
+import {
+  CSS2DRenderer,
+  CSS2DObject,
+} from "/static/examples/jsm/renderers/CSS2DRenderer.js";
 
 const TEXT_MATERIAL = new THREE.MeshStandardMaterial({
   color: new THREE.Color("black"),
@@ -46,6 +50,125 @@ function extractGeometry(gltf) {
   });
 
   return mergeGeometries(geometries);
+}
+
+function createLabelRenderer(domElement) {
+  const labelRenderer = new CSS2DRenderer();
+  labelRenderer.setSize(domElement.clientWidth, domElement.clientHeight);
+  labelRenderer.domElement.style.position = "absolute";
+  labelRenderer.domElement.style.top = "0";
+  labelRenderer.domElement.style.pointerEvents = "none";
+  domElement.parentElement.appendChild(labelRenderer.domElement);
+
+  const resizeObserver = new ResizeObserver(() => {
+    labelRenderer.setSize(domElement.clientWidth, domElement.clientHeight);
+  });
+  resizeObserver.observe(domElement);
+  return labelRenderer;
+}
+
+function createLabelElement(objectId, category) {
+  const div = document.createElement("div");
+  div.className = "asset-label";
+
+  const header = document.createElement("div");
+  header.className = "asset-label-id";
+  header.textContent = `${category} #${objectId}`;
+
+  const row = document.createElement("div");
+  row.className = "asset-label-row";
+  row.append("Dwell: ");
+
+  const span = document.createElement("span");
+  span.dataset.field = "dwell";
+  span.textContent = "—";
+  row.appendChild(span);
+
+  div.appendChild(header);
+  div.appendChild(row);
+  return div;
+}
+
+function colorFromId(id) {
+  const hex = String(id)
+    .replace(/[^0-9a-f]/gi, "")
+    .padEnd(6, "0")
+    .substring(0, 6);
+
+  return new THREE.Color("#" + hex);
+}
+
+function createIndicator(objectId) {
+  const color = colorFromId(objectId);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+
+  const ctx = canvas.getContext("2d");
+
+  // Draw downward triangle
+  ctx.fillStyle = "#" + color.getHexString();
+  ctx.beginPath();
+  ctx.moveTo(32, 56); // bottom point
+  ctx.lineTo(8, 8); // top left
+  ctx.lineTo(56, 8); // top right
+  ctx.closePath();
+  ctx.fill();
+
+  const texture = new THREE.CanvasTexture(canvas);
+
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+    }),
+  );
+  sprite.name = "indicator";
+  sprite.scale.set(1, 1, 1);
+  return sprite;
+}
+
+function createMarkObject(object, objectCache) {
+  const mark = new THREE.Object3D();
+
+  const model = new THREE.Object3D();
+  model.name = "model";
+  model.add((objectCache[object.category] ?? objectCache["unknown"]).clone());
+
+  const indicator = createIndicator(object.id);
+  indicator.name = "indicator";
+  const indicatorHolder = new THREE.Object3D();
+  indicatorHolder.add(indicator);
+
+  const labelEl = createLabelElement(object.id, object.category);
+  const labelObj = new CSS2DObject(labelEl);
+  labelObj.name = "css2dLabel";
+  labelObj.position.set(0, 0, 0);
+
+  mark.add(model);
+  mark.add(indicatorHolder);
+  mark.add(labelObj);
+  return mark;
+}
+
+function updateLabelFields(markObject, fields) {
+  const labelObj = markObject.getObjectByName("css2dLabel");
+  if (!labelObj) return;
+  const el = labelObj.element;
+
+  for (const [field, value] of Object.entries(fields)) {
+    let span = el.querySelector(`[data-field="${field}"]`);
+    if (!span) {
+      const row = document.createElement("div");
+      row.className = "asset-label-row";
+      row.innerHTML = `${field}: <span data-field="${field}"></span>`;
+      el.appendChild(row);
+      span = row.querySelector(`[data-field="${field}"]`);
+    }
+    span.textContent = value ?? "—";
+  }
 }
 
 class Draw {
@@ -149,4 +272,10 @@ class Draw {
   }
 }
 
-export { Draw };
+export {
+  Draw,
+  createLabelRenderer,
+  createMarkObject,
+  createLabelElement,
+  updateLabelFields,
+};

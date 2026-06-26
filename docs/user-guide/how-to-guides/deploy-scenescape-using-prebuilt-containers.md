@@ -1,6 +1,6 @@
-# Deploy Intel® SceneScape (Prebuilt Containers)
+# Deploy Scenescape (Prebuilt Containers)
 
-This guide explains how to deploy Intel® SceneScape using prebuilt Docker images, primarily from Docker Hub.
+This guide explains how to deploy Scenescape using prebuilt Docker images, primarily from Docker Hub.
 
 ## 1. Set Up Docker Environment
 
@@ -12,14 +12,14 @@ Ensure Docker is installed and running on your system. For help, refer to [Insta
 make init-secrets install-models
 ```
 
-## 3. Use Prebuilt Images for Intel® SceneScape Deployment
+## 3. Use Prebuilt Images for Scenescape Deployment
 
 Prebuilt containers can be found here:
 
-- [SceneScape Manager](https://hub.docker.com/r/intel/scenescape-manager)
-- [SceneScape Controller](https://hub.docker.com/r/intel/scenescape-controller)
-- [SceneScape Autocalibration](https://hub.docker.com/r/intel/scenescape-autocalibration)
-- [SceneScape Tracker](https://hub.docker.com/r/intel/scenescape-tracker)
+- [Scenescape Manager](https://hub.docker.com/r/intel/scenescape-manager)
+- [Scenescape Controller](https://hub.docker.com/r/intel/scenescape-controller)
+- [Scenescape Autocalibration](https://hub.docker.com/r/intel/scenescape-autocalibration)
+- [Scenescape Tracker](https://hub.docker.com/r/intel/scenescape-tracker)
 
 ### 3.1 Configure Docker Compose to use prebuilt images
 
@@ -49,10 +49,10 @@ tracker:
   web:
     image: docker.io/intel/scenescape-manager:latest
     environment:
-      - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
+      - EXAMPLEDB=/home/scenescape/Scenescape/sample_data/exampledb.tar.bz2
       - SUPASS=<password>
     volumes:
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-sample-data:/home/scenescape/Scenescape/sample_data
   ```
 
 ## 4. Start Services

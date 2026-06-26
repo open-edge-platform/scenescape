@@ -44,7 +44,7 @@ To deploy the scene controller service, refer to the [Get Started](./get-started
 
 `--reid_config_file`: Path to the JSON file containing Re-ID (Re-Identification) configuration. This file controls Re-ID specific settings such as stale feature timeout, feature accumulation thresholds, similarity metric selection, and similarity scoring. See [Extended Re-ID](./Extended-ReID.md) for details.
 
-When `similarity_metric` is `L2` (default), Re-ID vectors follow distance-style matching semantics (lower values are better). When `similarity_metric` is `COSINE`, Re-ID vectors are normalized before write/query and SceneScape uses VDMS `IP` internally; similarity scores are expected in `[-1, 1]`.
+When `similarity_metric` is `L2` (default), Re-ID vectors follow distance-style matching semantics (lower values are better). When `similarity_metric` is `COSINE`, Re-ID vectors are normalized before write/query and Scenescape uses VDMS `IP` internally; similarity scores are expected in `[-1, 1]`.
 
 `--schema_file`: Specifies the path to the JSON file that contains the metadata schema. By default, it uses [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json). This schema outlines the structure and format of the messages processed by the service.
 
@@ -76,11 +76,11 @@ For detailed configuration guidance:
 
 ## Input/Output Message Formats
 
-For details on the MQTT message formats accepted and produced by the Scene Controller, see [SceneScape Controller Data Formats](./data_formats.md).
+For details on the MQTT message formats accepted and produced by the Scene Controller, see [Scenescape Controller Data Formats](./data_formats.md).
 
 ## Architecture
 
-![SceneScape architecture diagram](./_assets/architecture.png)
+![Scenescape architecture diagram](./_assets/architecture.png)
 
 Figure 1: Architecture Diagram
 

@@ -31,12 +31,15 @@ class BackendFunctionalTest(FunctionalTest):
   def generate_random_vector(self, floor=-1, ceiling=1, vsize=256):
     return [random.uniform(floor, ceiling) for _ in range(vsize)]
 
-  def get_similarity_comparison(self, reid_vectors=1):
+  def get_similarity_comparison(self, reid_vectors=1, set_name="reid_vector"):
     """! Get the similarity comparison based on the reid_vectors sent
     @param    reid_vectors            If is of type list, it will use those vectors to
                                       generate blobs.
                                       If is of type int, it will randomly generate that
                                       amount of vectors to be searched.
+
+    @param    set_name                Name of the descriptor set to search against.
+
     @return   (response, res_arr)     The query response and the response array.
     """
 
@@ -54,7 +57,7 @@ class BackendFunctionalTest(FunctionalTest):
 
     find = [{
       "FindDescriptor": {
-        "set": "reid_vector",
+        "set": set_name,
         "k_neighbors": 20,
         "results": {
           "list": ["_distance"],
@@ -65,3 +68,24 @@ class BackendFunctionalTest(FunctionalTest):
 
     query = find * len(reid_vectors)
     return self.vdb.sendQuery(query, blob)
+
+  def delete_descriptors(self, set_name, run_id):
+    """! Best-effort removal of descriptors created by a single test run.
+    @param    set_name                Name of the descriptor set to clean.
+    @param    run_id                  Per-run identifier stored on each descriptor.
+    @return   None
+    """
+    query = [{
+      "DeleteDescriptor": {
+        "set": set_name,
+        "constraints": {
+          "run_id": ["==", run_id]
+        }
+      }
+    }]
+    try:
+      response, _ = self.vdb.sendQuery(query)
+      log.debug(f"delete_descriptors RESPONSE: {response}")
+    except Exception as exc:
+      log.warning(f"Failed to delete descriptors for run {run_id}: {exc}")
+    return

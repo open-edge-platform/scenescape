@@ -256,7 +256,7 @@ class SceneController:
       }
     scene = self.regulate_cache[scene_uid]
     # Regulated rate output (5fps): include sensor data
-    scene['objects'][otype] = buildDetectionsList(msg_objects, scene_obj, self.visibility_topic == 'unregulated', include_sensors=True)
+    scene['objects'][otype] = buildDetectionsList(msg_objects, scene_obj, self.visibility_topic == 'unregulated', include_sensors=True, include_region_dwell=True)
     if camera_id is not None:
       scene['rate'][camera_id] = jdata.get('rate', None)
     elif ControllerMode.isAnalyticsOnly() and 'rate' in jdata:
