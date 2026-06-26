@@ -425,7 +425,7 @@ The deltas are organized by area of work, and the rollout plan in the _Rollout /
 
 ### 5.7 Scene export / import format — delta vs. today
 
-This section captures **only the delta** between today's scene export/import (extended from [`manager/src/manager/scene_import.py`](../../manager/src/manager/scene_import.py)) and the new format required by this design. It does not re-specify the existing format. The concrete container shape (single JSON document, multi-file bundle, or archive) is deferred to implementation (tracked in _Open Questions_).
+This section captures **only the delta** between today's scene export/import (extended from [`manager/src/manager/scene_import.py`](../../manager/src/manager/scene_import.py)) and the new format required by this design. It does not re-specify the existing format.
 
 **Delta** (driven by [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision) and the scene-export/import delta):
 
@@ -523,10 +523,9 @@ This section consolidates all deferred decisions and open questions called out i
 - **Client-library repository location.** Three candidate placements are possible: (A) extend [`scene_common/`](../../scene_common/) with an `integration/` subpackage; (B) introduce a new top-level shared library (e.g., `integration_clients/`); (C) decide per component. The distribution and versioning model follows from this choice.
 - **ViPPET pipeline-definition format.** The exact format for pipeline definitions consumed from ViPPET, especially the model-parametrization syntax and the version envelope, depends on the ViPPET team's design.
 - **Multi–Model-Downloader topology.** The choice between a single shared Model Downloader instance (O1) and separate instances with separate volumes (O2) for development vs. production deployments.
-- **`gvapython` to Gst Analytics Python migration.** The detailed plan for migrating the SceneScape-authored DLSPS extensions from the deprecated `gvapython` element to the Gst Analytics Python API, and for refactoring the monolithic adapter into smaller, reusable units. This proceeds in parallel with the DLSPS runtime API delta.
+- **`gvapython` to Gst Analytics Python migration and adapter breakdown.** The detailed plan for refactoring the monolithic adapter into smaller, reusable units. This proceeds in parallel with the DLSPS runtime API delta.
 - **Stream Manager consumption by deferred consumers.** The decision on whether (and when) Auto Camera Calibration and Mapping will consume from Stream Manager.
 - **Manager service split.** The decision on whether (and when) to split today's monolithic Manager service into separate back-end and UI services.
-- **Scene-artifact container shape.** The concrete on-disk format for exported scenes (single JSON document, multi-file bundle, or archive).
 
 ## 10. References
 
