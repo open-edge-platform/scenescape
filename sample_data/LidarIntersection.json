@@ -18,7 +18,7 @@
       },
       "transform_type": "euler",
       "translation": [100.0, 100.0, 1.5],
-      "rotation": [0.0, 0.0, 0.0],
+      "rotation": [0.0, 0.0, -90.0],
       "scale": [1.0, 1.0, 1.0],
       "resolution": [1000, 1000],
       "scene": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
