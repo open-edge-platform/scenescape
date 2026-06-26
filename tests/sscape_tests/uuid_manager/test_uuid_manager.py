@@ -19,6 +19,9 @@ from controller.uuid_manager import (
   DEFAULT_SIMILARITY_THRESHOLD_COSINE,
 )
 
+from controller.moving_object import MovingObject, ReidState, Chronoloc
+from scene_common.geometry import Point, Rectangle
+import time
 
 def call_update_active_dict_locked(manager, sscape_object, database_id, similarity, query_timestamp=None):
   """Call updateActiveDict while holding active_ids_lock, matching production call pattern."""
@@ -729,10 +732,16 @@ class TestUUIDManagerMetricAwareUpdateFlow:
     manager.reid_database.similarity_metric = "IP"
 
     info = {'id': '1', 'confidence': 0.95}
+    now = time.time()
     obj = MovingObject(info, time.time(), None)
     obj.rv_id = 1
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
+    obj.chain_data = MagicMock()
+    obj.chain_data.persist = {}
+
+    mock_bounds = MagicMock()
+    obj.location = [Chronoloc(Point(0, 0, 0), now, mock_bounds)]
 
     with manager.active_ids_lock:
       manager.active_ids[obj.rv_id] = [None, None]
@@ -757,10 +766,16 @@ class TestUUIDManagerMetricAwareUpdateFlow:
     manager.reid_database.similarity_metric = "L2"
 
     info = {'id': '1', 'confidence': 0.95}
+    now = time.time()
     obj = MovingObject(info, time.time(), None)
     obj.rv_id = 2
     obj.reid = [0.1, 0.2, 0.3]
     obj.category = 'person'
+    obj.chain_data = MagicMock()
+    obj.chain_data.persist = {}
+
+    mock_bounds = MagicMock()
+    obj.location = [Chronoloc(Point(0, 0, 0), now, mock_bounds)]
 
     with manager.active_ids_lock:
       manager.active_ids[obj.rv_id] = [None, None]
