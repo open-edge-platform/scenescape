@@ -10,6 +10,7 @@ from http import HTTPStatus
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time, get_epoch_time
+from scene_common import log
 
 from tests.common_test_utils import check_event_contains_data
 from tests.functional import FunctionalTest
@@ -19,6 +20,7 @@ FRAMES_PER_SECOND = 10
 PERSON = "person"
 REGION = "region"
 MAX_CONTROLLER_WAIT = 30 # seconds
+MAX_SCENE_DATA_WAIT = 5 # seconds
 MAX_ATTEMPTS = 3
 
 class SceneObjectMqtt(FunctionalTest):
@@ -46,7 +48,7 @@ class SceneObjectMqtt(FunctionalTest):
     check_event_contains_data(regionData, "region")
 
     if self.sceneData is None:
-      print("Region event received before scene data; skipping")
+      log.warning("ROI event received before scene data; skipping")
       return
 
     if getattr(self, "roi_deleted", False):
@@ -174,7 +176,8 @@ class SceneObjectMqtt(FunctionalTest):
 
     topic_regulated = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=self.sceneUID)
     self.pubsub.addCallback(topic_regulated, self.regulatedReceived)
-    assert self.waitForSceneData(objLocation[0]), "No regulated scene data received"
+    assert self.waitForSceneData(objLocation[0], timeout=MAX_SCENE_DATA_WAIT), \
+      f"No regulated scene data received within {MAX_SCENE_DATA_WAIT}s"
     points = self.setupROI(roi)
 
     print("BottomLeft: ", points[1])
