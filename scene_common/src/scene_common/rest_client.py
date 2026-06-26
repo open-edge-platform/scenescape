@@ -47,6 +47,8 @@ class RESTClient:
     self.token = token
     # Use rootcert as CA bundle path when provided; otherwise fall back to verify_ssl bool.
     self.verify = rootcert if rootcert is not None else verify_ssl
+    if not self.url:
+      raise ValueError("RESTClient requires a non-empty url")
     if not self.url.endswith("/"):
       self.url = self.url + "/"
     self.session = requests.session()
