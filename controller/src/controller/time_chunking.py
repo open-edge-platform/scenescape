@@ -203,7 +203,13 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     # delegate tracking to IntelLabsTracking
     for category in categories:
       if category not in self.trackers:
-        tracker = IntelLabsTracking(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, self.suspended_track_timeout_secs)
+        tracker = IntelLabsTracking(
+            max_unreliable_time,
+            non_measurement_time_dynamic,
+            non_measurement_time_static,
+            baseline_frame_rate=int(self.ref_camera_frame_rate),
+            suspended_track_timeout_secs=self.suspended_track_timeout_secs,
+        )
         self.trackers[category] = tracker
         tracker.start()
         log.info(f"Started IntelLabs tracker {tracker.__str__()} thread for category {category}")
