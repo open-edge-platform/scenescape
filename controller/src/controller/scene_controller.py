@@ -1471,6 +1471,9 @@ class SceneController:
     log.info("Connected with result code", rc)
     if rc != 0:
       log.error(f"MQTT connection failed with rc={rc}, terminating")
+      # os._exit is intentional: this callback runs on paho's network thread,
+      # so sys.exit() would only raise SystemExit in that thread and not terminate
+      # the process. os._exit() ensures immediate process-wide termination.
       os._exit(1)
     self.subscribed = set()
     # Subscribe to database commands immediately (lightweight, no HTTP)

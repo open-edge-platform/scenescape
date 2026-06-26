@@ -38,7 +38,7 @@ class RESTResult(dict):
     return
 
 class RESTClient:
-  def __init__(self, url=None, rootcert=None, auth=None,
+  def __init__(self, url, rootcert=None, auth=None,
                token=None, verify_ssl=True, timeout=REST_HTTP_TIMEOUT):
     self.url = url
     self.rootcert = rootcert
@@ -47,8 +47,6 @@ class RESTClient:
     self.token = token
     # Use rootcert as CA bundle path when provided; otherwise fall back to verify_ssl bool.
     self.verify = rootcert if rootcert is not None else verify_ssl
-    if self.url is None:
-      raise ValueError("RESTClient requires a non-None url")
     if not self.url.endswith("/"):
       self.url = self.url + "/"
     self.session = requests.session()

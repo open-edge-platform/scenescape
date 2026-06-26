@@ -51,10 +51,10 @@ class IntelLabsTracking(Tracking):
       tracker_config.non_measurement_time_dynamic = NON_MEASUREMENT_TIME_DYNAMIC
       tracker_config.non_measurement_time_static = NON_MEASUREMENT_TIME_STATIC
 
-    if suspended_track_timeout_secs is not None and 0 < suspended_track_timeout_secs < 3600:
+    if suspended_track_timeout_secs is not None and 0 < suspended_track_timeout_secs <= 3600:
       tracker_config.suspended_track_timeout_secs = suspended_track_timeout_secs
     else:
-      log.error("The suspended_track_timeout_secs parameter needs to be positive and less than 3600 seconds. "
+      log.error("The suspended_track_timeout_secs parameter needs to be positive and at most 3600 seconds. "
                 "Initiating the tracker with the default value.")
       tracker_config.suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 
