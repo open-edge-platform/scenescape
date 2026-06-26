@@ -13,7 +13,7 @@ The Cluster Analytics service provides advanced object clustering and movement a
 This service processes real-time object detection data from Scenescape scenes, applies machine learning-based clustering algorithms, and provides comprehensive analytics including:
 
 - **Spatial Clustering**: Groups objects by proximity using DBSCAN algorithm with user-configurable parameters
-- **Cluster Tracking**: Tracks clusters across frames with state-based lifecycle management (NEW → ACTIVE → STABLE → FADING → LOST)
+- **Cluster Tracking**: Tracks clusters across frames with persistent UUIDs via greedy nearest-centroid matching
 - **Shape Analysis**: Detects geometric patterns (circle, rectangle, line, irregular) with size measurements
 - **Velocity Analysis**: Classifies movement patterns and tracks cluster dynamics
 
@@ -169,63 +169,23 @@ for category, objects in objects_by_category.items():
 
 ### **Cluster Tracking System**
 
-The service includes advanced temporal tracking with state transitions and confidence scoring. These parameters are currently **hardcoded constants** in the implementation and are not user-configurable through `config.json`.
+The service uses a lightweight greedy nearest-centroid matcher that assigns persistent UUIDs to clusters across frames. There is no state machine or confidence scoring — clusters are matched and published from the first frame.
 
-#### State Transition Parameters (Hardcoded)
+#### Tracker Configuration Parameters
 
-| Parameter            | Value | Description                              |
-| -------------------- | ----- | ---------------------------------------- |
-| `FRAMES_TO_ACTIVATE` | 3     | Frames needed to transition NEW → ACTIVE |
-| `FRAMES_TO_STABLE`   | 20    | Frames needed for ACTIVE → STABLE        |
-| `FRAMES_TO_FADE`     | 15    | Missed frames before FADING state        |
-| `FRAMES_TO_LOST`     | 10    | Missed frames before LOST state          |
+| Parameter               | Default | Description                                                               |
+| ----------------------- | ------- | ------------------------------------------------------------------------- |
+| `max_matching_distance` | 2.0 m   | Maximum centroid distance to match a new detection to an existing cluster |
+| `expiry_seconds`        | 10.0 s  | Seconds after `last_seen` before a cluster UUID is dropped                |
 
-#### Confidence Parameters (Hardcoded)
+#### Matching Algorithm
 
-| Parameter                        | Value | Description                          |
-| -------------------------------- | ----- | ------------------------------------ |
-| `INITIAL_CONFIDENCE`             | 0.5   | Starting confidence for new clusters |
-| `ACTIVATION_THRESHOLD`           | 0.6   | Confidence needed for activation     |
-| `STABILITY_THRESHOLD`            | 0.7   | Confidence needed for stable state   |
-| `CONFIDENCE_MISS_PENALTY`        | 0.1   | Confidence penalty per missed frame  |
-| `CONFIDENCE_MAX_MISS_PENALTY`    | 0.5   | Maximum cumulative miss penalty      |
-| `CONFIDENCE_LONGEVITY_BONUS_MAX` | 0.2   | Maximum bonus for long-term tracking |
-| `CONFIDENCE_LONGEVITY_FRAMES`    | 100   | Frames to reach max longevity bonus  |
+For each frame, per category:
 
-#### Archival Parameters (Hardcoded)
-
-| Parameter                | Value | Description                            |
-| ------------------------ | ----- | -------------------------------------- |
-| `ARCHIVE_TIME_THRESHOLD` | 5.0   | Seconds before archiving lost clusters |
-| `MAX_ARCHIVED_CLUSTERS`  | 50    | Maximum number of archived clusters    |
-
-#### Cluster Lifecycle States
-
-| State    | Description                          | Transition Trigger                         |
-| -------- | ------------------------------------ | ------------------------------------------ |
-| `NEW`    | Just detected, awaiting confirmation | Initial detection                          |
-| `ACTIVE` | Confirmed and consistently detected  | 3+ consecutive detections, confidence >0.6 |
-| `STABLE` | Long-term stable presence            | 20+ frames detected, stability >0.7        |
-| `FADING` | Recently missed detections           | 15+ consecutive missed frames              |
-| `LOST`   | Not detected for extended period     | 10+ consecutive missed frames              |
-
-#### Confidence Calculation
-
-Cluster tracking confidence is calculated using:
-
-```python
-# Base confidence from detection ratio
-base_confidence = frames_detected / total_frames
-
-# Penalty for recent misses
-miss_penalty = min(frames_missed * 0.1, 0.5)
-
-# Bonus for long-term tracking
-longevity_bonus = min(frames_detected / 100, 0.2)
-
-# Final confidence (clamped 0-1)
-confidence = clamp(base_confidence - miss_penalty + longevity_bonus, 0.0, 1.0)
-```
+1. Compare each new detection centroid against all live clusters of the same category
+2. Greedily assign the nearest cluster within `max_matching_distance` and reuse its UUID
+3. Unmatched detections receive a new UUID
+4. Clusters not updated within `expiry_seconds` are discarded
 
 ## **WebUI Features and Real-time Visualization**
 
@@ -303,13 +263,12 @@ The Cluster Analytics service publishes optimized cluster metadata in batch form
   "scene_id": "3bc091c7-e449-46a0-9540-29c499bca18c",
   "scene_name": "Retail",
   "timestamp": "2025-10-21T09:16:41.377Z",
-  "total_clusters": 2,
   "clusters": [
     {
-      "cluster_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       "category": "person",
-      "objects_in_cluster": 8,
-      "cluster_center": {
+      "objects_count": 8,
+      "center_of_mass": {
         "x": 4.291512867202579,
         "y": 4.934464049998539
       },
@@ -346,38 +305,14 @@ The Cluster Analytics service publishes optimized cluster metadata in batch form
       },
       "tracking": {
         "tracking_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-        "state": "active",
-        "confidence": 0.875,
-        "stability_score": 0.623,
-        "frames_detected": 15,
-        "frames_missed": 0,
-        "age_seconds": 2.5,
-        "time_since_last_seen": 0.03,
         "first_seen": 1729501599.234,
-        "last_seen": 1729501601.734,
-        "predicted_position": {
-          "x": 4.32,
-          "y": 4.91
-        }
+        "last_seen": 1729501601.734
       }
     }
   ],
   "summary": {
     "categories": ["person"],
-    "total_objects_in_clusters": 8
-  },
-  "tracking_statistics": {
-    "active_clusters": 2,
-    "archived_clusters": 5,
-    "clusters_by_state": {
-      "new": 0,
-      "active": 1,
-      "stable": 1,
-      "fading": 0,
-      "lost": 0
-    },
-    "tracked_scenes": 2,
-    "tracked_categories": 1
+    "total_objects": 8
   }
 }
 ```
@@ -386,27 +321,25 @@ The Cluster Analytics service publishes optimized cluster metadata in batch form
 
 ### Batch-Level Fields
 
-| Field                               | Type    | Description                                    |
-| ----------------------------------- | ------- | ---------------------------------------------- |
-| `scene_id`                          | String  | Unique scene identifier (UUID)                 |
-| `scene_name`                        | String  | Human-readable scene name                      |
-| `timestamp`                         | String  | ISO 8601 timestamp when clusters were detected |
-| `total_clusters`                    | Integer | Total number of clusters in this batch         |
-| `clusters`                          | Array   | Array of individual cluster objects            |
-| `summary.categories`                | Array   | List of object categories that formed clusters |
-| `summary.total_objects_in_clusters` | Integer | Total objects across all clusters              |
-| `tracking_statistics`               | Object  | Global tracking system statistics              |
+| Field                   | Type    | Description                                    |
+| ----------------------- | ------- | ---------------------------------------------- |
+| `scene_id`              | String  | Unique scene identifier (UUID)                 |
+| `scene_name`            | String  | Human-readable scene name                      |
+| `timestamp`             | String  | ISO 8601 timestamp when clusters were detected |
+| `clusters`              | Array   | Array of individual cluster objects            |
+| `summary.categories`    | Array   | List of object categories that formed clusters |
+| `summary.total_objects` | Integer | Total objects across all clusters              |
 
 ### Individual Cluster Fields
 
-| Field                | Type    | Description                                       |
-| -------------------- | ------- | ------------------------------------------------- |
-| `cluster_id`         | String  | Unique persistent cluster UUID                    |
-| `category`           | String  | Object detection category (person, vehicle, etc.) |
-| `objects_in_cluster` | Integer | Number of objects forming the cluster             |
-| `object_ids`         | Array   | List of object UUIDs that form this cluster       |
-| `dbscan_params`      | Object  | User-configured DBSCAN parameters used            |
-| `tracking`           | Object  | Temporal tracking metadata (see below)            |
+| Field           | Type    | Description                                       |
+| --------------- | ------- | ------------------------------------------------- |
+| `id`            | String  | Unique persistent cluster UUID                    |
+| `category`      | String  | Object detection category (person, vehicle, etc.) |
+| `objects_count` | Integer | Number of objects forming the cluster             |
+| `object_ids`    | Array   | List of object UUIDs that form this cluster       |
+| `dbscan_params` | Object  | DBSCAN parameters used for this cluster           |
+| `tracking`      | Object  | Temporal tracking metadata (see below)            |
 
 ### Spatial Information
 
@@ -464,30 +397,11 @@ The Cluster Analytics service publishes optimized cluster metadata in batch form
 
 ### Tracking Metadata
 
-| Field                           | Type    | Description                                             |
-| ------------------------------- | ------- | ------------------------------------------------------- |
-| `tracking.tracking_id`          | String  | Persistent cluster UUID (same as cluster_id)            |
-| `tracking.state`                | String  | Current lifecycle state (new/active/stable/fading/lost) |
-| `tracking.confidence`           | Float   | Tracking confidence score (0-1)                         |
-| `tracking.stability_score`      | Float   | Cluster stability metric (0-1)                          |
-| `tracking.frames_detected`      | Integer | Total frames where cluster was detected                 |
-| `tracking.frames_missed`        | Integer | Consecutive frames where cluster was not detected       |
-| `tracking.age_seconds`          | Float   | Time since first detection (seconds)                    |
-| `tracking.time_since_last_seen` | Float   | Time since last detection (seconds)                     |
-| `tracking.first_seen`           | Float   | Unix timestamp of first detection                       |
-| `tracking.last_seen`            | Float   | Unix timestamp of last detection                        |
-| `tracking.predicted_position.x` | Float   | Predicted X coordinate for next frame                   |
-| `tracking.predicted_position.y` | Float   | Predicted Y coordinate for next frame                   |
-
-### Tracking Statistics
-
-| Field                                    | Type    | Description                               |
-| ---------------------------------------- | ------- | ----------------------------------------- |
-| `tracking_statistics.active_clusters`    | Integer | Total active clusters across all scenes   |
-| `tracking_statistics.archived_clusters`  | Integer | Total archived (lost) clusters            |
-| `tracking_statistics.clusters_by_state`  | Object  | Count of clusters in each lifecycle state |
-| `tracking_statistics.tracked_scenes`     | Integer | Number of scenes with active clusters     |
-| `tracking_statistics.tracked_categories` | Integer | Number of object categories being tracked |
+| Field                  | Type   | Description                            |
+| ---------------------- | ------ | -------------------------------------- |
+| `tracking.tracking_id` | String | Persistent cluster UUID (same as `id`) |
+| `tracking.first_seen`  | Float  | Unix timestamp of first detection      |
+| `tracking.last_seen`   | Float  | Unix timestamp of last detection       |
 
 ### Movement Pattern Classifications
 
@@ -553,42 +467,27 @@ def on_message(client, userdata, message):
 
         scene_name = cluster_batch['scene_name']
         scene_id = cluster_batch['scene_id']
-        total_clusters = cluster_batch['total_clusters']
+        total_clusters = len(cluster_batch['clusters'])
 
         print(f"\n=== Scene: {scene_name} ({scene_id}) ===")
         print(f"Total Clusters: {total_clusters}")
 
-        # Process tracking statistics
-        stats = cluster_batch.get('tracking_statistics', {})
-        print(f"\nTracking Statistics:")
-        print(f"  Active Clusters: {stats.get('active_clusters', 0)}")
-        print(f"  Archived Clusters: {stats.get('archived_clusters', 0)}")
-
-        state_counts = stats.get('clusters_by_state', {})
-        print(f"  States: {state_counts}")
-
         # Process individual clusters
         for cluster in cluster_batch['clusters']:
-            cluster_id = cluster['cluster_id']
+            cluster_id = cluster['id']
             category = cluster['category']
-            object_count = cluster['objects_in_cluster']
+            object_count = cluster['objects_count']
 
             # Tracking information
             tracking = cluster['tracking']
-            state = tracking['state']
-            confidence = tracking['confidence']
-            stability = tracking['stability_score']
-            age_seconds = tracking['age_seconds']
+            first_seen = tracking['first_seen']
+            last_seen = tracking['last_seen']
 
             print(f"\n--- Cluster {cluster_id[:8]}... ---")
             print(f"  Category: {category}")
             print(f"  Objects: {object_count}")
-            print(f"  State: {state}")
-            print(f"  Confidence: {confidence:.3f}")
-            print(f"  Stability: {stability:.3f}")
-            print(f"  Age: {age_seconds:.1f}s")
-            print(f"  Frames Detected: {tracking['frames_detected']}")
-            print(f"  Frames Missed: {tracking['frames_missed']}")
+            print(f"  First seen: {first_seen}")
+            print(f"  Last seen: {last_seen}")
 
             # Movement and shape analysis
             movement_type = cluster['velocity_analysis']['movement_type']
@@ -606,11 +505,6 @@ def on_message(client, userdata, message):
                 height = cluster['shape_analysis']['size']['height']
                 print(f"  Rectangle: {width:.2f}m x {height:.2f}m")
 
-            # Predicted position for next frame
-            pred_pos = tracking['predicted_position']
-            if pred_pos['x'] is not None:
-                print(f"  Predicted Position: ({pred_pos['x']:.2f}, {pred_pos['y']:.2f})")
-
     except Exception as e:
         print(f"Error processing cluster data: {e}")
         import traceback
@@ -627,150 +521,35 @@ client.loop_forever()
 
 ### Overview
 
-The Cluster Analytics service implements cluster tracking system to maintain cluster identities across video frames. This enables long-term analysis of cluster behavior, movement patterns, and lifecycle dynamics.
+The Cluster Analytics service uses a greedy nearest-centroid matcher to maintain persistent cluster identities across video frames. Clusters are matched and published from the first frame — no warmup or state-machine confidence build-up is required.
 
-### Tracking Pipeline
+### Matching Algorithm
 
-![Tracking Pipeline](../../_assets/microservices/microsvc-cluster-analytics-tracking-pipeline.svg "tracking pipeline")
+For each incoming frame, per object category:
 
-### Hungarian Matching Algorithm
-
-The system uses the Hungarian algorithm with a multi-feature cost matrix to optimally match new detections to existing tracked clusters:
-
-**Cost Calculation:**
-
-```python
-# Hard constraint: must be same category
-if tracked.category != detection.category:
-    return INFINITE_COST
-
-# Multi-feature cost matrix (weighted)
-position_cost = distance(predicted_position, detection_position) * 0.4
-velocity_cost = distance(tracked_velocity, detection_velocity) * 0.3
-size_cost = abs(tracked_size - detection_size) * 0.2
-shape_cost = (1.0 if shapes_match else 2.0) * 0.1
-
-total_cost = position_cost + velocity_cost + size_cost + shape_cost
-```
-
-**Matching Process:**
-
-1. Build cost matrix for all (cluster, detection) pairs
-2. Apply Hungarian algorithm for optimal assignment
-3. Filter matches by maximum distance threshold (default: 5.0 meters)
-4. Return valid matches with similarity scores
-
-### State Machine Transitions
-
-![State Machine Transitions](../../_assets/microservices/microsvc-cluster-analytics-state-transitions.svg "state machine transitions")
-
-### Confidence Metrics
-
-**Detection Consistency:**
-
-- Base confidence = frames_detected / total_frames
-- Represents overall detection reliability
-
-**Miss Penalty:**
-
-- Penalty = min(frames_missed \* 0.1, 0.5)
-- Reduces confidence for recent detection failures
-
-**Longevity Bonus:**
-
-- Bonus = min(frames_detected / 100, 0.2)
-- Rewards long-term stable tracking
-
-**Final Confidence:**
+1. Retrieve all live clusters for the scene and category
+2. For each new DBSCAN detection, find the nearest live cluster centroid
+3. If the distance is within `max_matching_distance` (default 2.0 m), reuse that cluster's UUID
+4. If no live cluster is within range, assign a new UUID
+5. Live clusters not matched within `expiry_seconds` (default 10.0 s) are discarded
 
 ```python
-confidence = clamp(base_confidence - miss_penalty + longevity_bonus, 0.0, 1.0)
+# Simplified greedy matching per category
+for detection in new_detections:
+    nearest = min(live_clusters, key=lambda c: distance(c.centroid, detection.centroid))
+    if distance(nearest.centroid, detection.centroid) <= max_matching_distance:
+        nearest.uuid  # reuse existing UUID
+    else:
+        str(uuid4())  # new UUID
 ```
 
-### Stability Score
+### UUID Persistence
 
-Measures cluster consistency based on recent history (last 10 observations):
+Each cluster carries a UUID (`tracking_id`) that persists as long as the cluster keeps being matched within `max_matching_distance`. The UUID survives temporary noise or brief frame gaps up to `expiry_seconds`.
 
-**Position Stability:**
+### Cluster Expiry
 
-- Low position variance indicates stable location
-- `position_stability = 1.0 / (1.0 + position_variance)`
-
-**Size Stability:**
-
-- Consistent cluster size over time
-- `size_stability = 1.0 / (1.0 + size_variance)`
-
-**Shape Consistency:**
-
-- Frequency of most common shape
-- `shape_consistency = most_common_count / total_observations`
-
-**Combined Score:**
-
-```python
-stability_score = (
-    0.4 * position_stability +
-    0.3 * size_stability +
-    0.3 * shape_consistency
-)
-```
-
-### History Management
-
-Each tracked cluster maintains historical observations:
-
-**Stored Data:**
-
-- Position history: (x, y, timestamp)
-- Velocity history: (vx, vy, timestamp)
-- Size history: object counts
-- Shape history: detected shapes
-- Timestamps: frame timestamps
-
-**Limits:**
-
-- Maximum history size: 100 observations
-- Automatic truncation when limit exceeded
-- Maintains most recent observations
-
-### Prediction System
-
-Clusters use linear extrapolation for position prediction:
-
-```python
-# Calculate average velocity from recent history (last 5 observations)
-avg_velocity = mean(recent_velocities)
-
-# Predict next position (assuming ~1 frame time delta)
-predicted_position = current_position + avg_velocity
-```
-
-**Benefits:**
-
-- Improves matching accuracy for moving clusters
-- Handles temporary occlusions
-- Reduces false negatives in tracking
-
-### Archival System
-
-**Archival Criteria:**
-
-- Cluster state = LOST
-- Time since last seen > 5.0 seconds (configurable)
-
-**Archive Management:**
-
-- Maximum 50 archived clusters (global limit)
-- Oldest archived clusters removed when limit exceeded
-- Preserves full history for analysis
-
-**Statistics Tracking:**
-
-- Active clusters count
-- Archived clusters count
-- Clusters by state distribution
-- Tracked scenes and categories
+A cluster is removed when `current_time - last_seen > expiry_seconds`. There is no archival or staged removal — clusters are either live or gone.
 
 ## DBSCAN Noise Point Explanation
 
