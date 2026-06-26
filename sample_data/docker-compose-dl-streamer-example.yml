@@ -441,12 +441,11 @@ services:
     environment:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
-      - GST_DEBUG=1
       # LiDAR pipeline configuration — override as needed:
       # - LIDAR_SENSOR_ID=lidar1
       # - LIDAR_DATA_PATH=/home/pipeline-server/videos/velodyne_bin/%06d.bin
       # - LIDAR_START_INDEX=10699
-      # - LIDAR_STOP_INDEX=010949
+      # - LIDAR_STOP_INDEX=10949
       # - LIDAR_LOOP=true
       # - LIDAR_FRAME_RATE=10
       # - LIDAR_DEVICE=CPU
@@ -672,11 +671,6 @@ volumes:
       type: tmpfs
       device: tmpfs
   vol-dlstreamer-pipeline-server-pipeline-root-retail:
-    driver: local
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-  vol-dlstreamer-pipeline-server-pipeline-root-lidar:
     driver: local
     driver_opts:
       type: tmpfs
