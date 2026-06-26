@@ -70,6 +70,8 @@ This subsection defines the SceneScape-internal vocabulary used in the rest of t
   - **Manager (Backend)** — Manages the **scene configuration**, including cameras, scene maps, and persistence. It handles scene import/export, provides the primary REST API for the UI, and is responsible for fetching pipeline definitions from ViPPET to store within the scene configuration.
   - **Pipeline Orchestrator** — A dedicated service responsible for the pipeline lifecycle and interaction with DLSPS. It monitors the database for changes to scene and pipeline configurations and orchestrates the runtime state accordingly (e.g., starting, stopping, or updating pipelines in DLSPS).
 
+  Wherever any of these three entities is referenced in this document, the reference denotes the corresponding part of today's Manager service.
+
 - **Auto Camera Calibration** ([`autocalibration/`](../../autocalibration/)) — computes camera intrinsics and extrinsics from sensor feeds. May consume images from Stream Manager in future phases (decision deferred).
 
 - **Mapping** ([`mapping/`](../../mapping/)) — generates scene 3D models and camera intrinsics and extrinsics based on camera feeds. May consume streams or images from Stream Manager in future phases (decision deferred).
