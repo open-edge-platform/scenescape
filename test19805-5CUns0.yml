@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test_test19805:
+
+services:
+  ntpserv:
+    image: dockurr/chrony
+    networks:
+      scenescape-test_test19805:
+    # ports:
+    #   - 123:123/udp
+    restart: on-failure
