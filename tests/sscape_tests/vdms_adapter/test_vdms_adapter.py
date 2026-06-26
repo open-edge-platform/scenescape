@@ -1581,7 +1581,7 @@ class TestAddEntryWithPersist:
     db.dimensions = 256
     db.sendQuery = Mock(return_value=([{'status': 0}], []))
 
-    persist = {'confidence': 0.99, 'timestamp': 1234.5}
+    persist = {'gender': 'Female', 'timestamp': 1234.5}
     test_vectors = [np.random.randn(256).astype(np.float32)]
 
     db.addEntry("uuid", "rvid", "Person", test_vectors, persist=persist)
@@ -1644,14 +1644,14 @@ class TestGetPersistedAttributes:
       'status': 0,
       'returned': 2,
       'entities': [
-        {'uuid': 'test-uuid', 'persist': json.dumps({'confidence': 0.8}), 'persist_timestamp': 1000.0},
-        {'uuid': 'test-uuid', 'persist': json.dumps({'confidence': 0.99}), 'persist_timestamp': 2000.0},
+          {'uuid': 'test-uuid', 'persist': json.dumps({'gender': 'Female'}), 'persist_timestamp': 1000.0},
+          {'uuid': 'test-uuid', 'persist': json.dumps({'gender': 'Male'}), 'persist_timestamp': 2000.0},
       ]
     }], []))
 
     result = db.getPersistedAttributes('test-uuid')
 
-    assert result == {'confidence': 0.99}
+    assert result == {'gender': 'Male'}
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_get_persisted_attributes_returns_empty_when_not_found(self, mock_vdms_class):
@@ -1881,7 +1881,7 @@ class TestUpdateActiveDictPersistMerge:
     obj.similarity = None
     obj.metadata = {}
     obj.chain_data = MagicMock()
-    obj.chain_data.persist = {'confidence': 0.99}
+    obj.chain_data.persist = {'gender': 'Female'}
 
     database_id = 3
     similarity = 12.5
@@ -1898,5 +1898,80 @@ class TestUpdateActiveDictPersistMerge:
     stored = manager.features_for_database.get(1)
     assert stored is not None
     assert 'persist' in stored
-    assert stored['persist'].get('confidence') == 0.99
+    assert stored['persist'].get('gender') == 'Female'
     assert stored['persist'].get('timestamp') == 1234.5
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_historical_attributes_restored_on_reid_match(self, mock_vdms_class):
+    """Verify historical persist attributes are merged into current track on REID match
+    when the attribute is absent from the current session."""
+    mock_vdms_class.return_value = MagicMock()
+
+    from controller.uuid_manager import UUIDManager
+    manager = UUIDManager()
+    manager.reid_database = MagicMock()
+    manager.reid_database.getPersistedAttributes.return_value = {'gender': 'Female'}
+
+    obj = MagicMock()
+    obj.rv_id = 1
+    obj.gid = 2
+    obj.when = 1000.0
+    obj.category = "person"
+    obj.reid_state = MagicMock()
+    obj.similarity = None
+    obj.metadata = {}
+    obj.chain_data = MagicMock()
+    # Current session has no gender — detector hasn't classified yet this appearance
+    obj.chain_data.persist = {'gender': None}
+
+    database_id = 3
+    similarity = 12.5
+
+    with patch.object(manager, 'isNewID', return_value=True), \
+         patch.object(manager, '_activeGidIndex', return_value={}), \
+         patch.object(manager, '_logLiveGidIntegrity'), \
+         patch.object(manager, '_extractReidEmbedding', return_value=None), \
+         patch.object(manager, '_extractSemanticMetadata', return_value={}), \
+         patch.object(manager, 'quality_features', {1: []}):
+      manager.active_ids = {1: [None, None]}
+      manager.updateActiveDict(obj, database_id, similarity)
+
+    # Historical 'Female' should fill in since current was None
+    assert obj.chain_data.persist.get('gender') == 'Female'
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_historical_attribute_not_restored_when_current_has_value(self, mock_vdms_class):
+    """Verify historical persist is ignored when current session already has the attribute."""
+    mock_vdms_class.return_value = MagicMock()
+
+    from controller.uuid_manager import UUIDManager
+    manager = UUIDManager()
+    manager.reid_database = MagicMock()
+    manager.reid_database.getPersistedAttributes.return_value = {'gender': 'Female'}
+
+    obj = MagicMock()
+    obj.rv_id = 1
+    obj.gid = 2
+    obj.when = 1000.0
+    obj.category = "person"
+    obj.reid_state = MagicMock()
+    obj.similarity = None
+    obj.metadata = {}
+    obj.chain_data = MagicMock()
+    # Current session already classified gender this appearance
+    obj.chain_data.persist = {'gender': 'Male'}
+
+    database_id = 3
+    similarity = 12.5
+
+    with patch.object(manager, 'isNewID', return_value=True), \
+         patch.object(manager, '_activeGidIndex', return_value={}), \
+         patch.object(manager, '_logLiveGidIntegrity'), \
+         patch.object(manager, '_extractReidEmbedding', return_value=None), \
+         patch.object(manager, '_extractSemanticMetadata', return_value={}), \
+         patch.object(manager, 'quality_features', {1: []}):
+      manager.active_ids = {1: [None, None]}
+      manager.updateActiveDict(obj, database_id, similarity)
+
+    # Current 'Male' wins, historical 'Female' is ignored
+    assert obj.chain_data.persist.get('gender') == 'Male'
