@@ -64,7 +64,7 @@ This subsection defines the SceneScape-internal vocabulary used in the rest of t
 
 #### SceneScape components in scope of (or possibly in scope of) MLOps integration
 
-- **Manager** — today a single Django service ([`manager/`](../../manager/)) combining multiple responsibilities. In subsequent phases, it is recommended to split it into three distinct services (or at least containers):
+- **Manager** — today a single Django service ([`manager/`](../../manager/)) combining multiple responsibilities. In subsequent phases, it is recommended (but not required) to split it into three distinct services (or at least containers):
 
   - **Manager (UI)** — A thin front-end that consumes the backend REST APIs.
   - **Manager (Backend)** — Manages the **scene configuration**, including cameras, scene maps, and persistence. It handles scene import/export, provides the primary REST API for the UI, and is responsible for fetching pipeline definitions from ViPPET to store within the scene configuration.
@@ -78,7 +78,7 @@ This subsection defines the SceneScape-internal vocabulary used in the rest of t
 
 #### Services not in scope of MLOps integration (listed for completeness)
 
-- **Scene Controller** ([`controller/`](../../controller/)) — runtime scene state, multimodal sensor fusion, multi-object tracking. Consumes DLSPS inference output via MQTT. **No MLOps-integration changes are planned.**
+- **Scene Controller** ([`controller/`](../../controller/)) — runtime scene state updates, multimodal sensor fusion, multi-object tracking. Consumes DLSPS inference output via MQTT. **No MLOps-integration changes are planned.**
 
 - **Cluster Analytics** ([`cluster_analytics/`](../../cluster_analytics/)) — not part of the MLOps integration scope.
 
