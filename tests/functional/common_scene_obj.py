@@ -45,6 +45,10 @@ class SceneObjectMqtt(FunctionalTest):
     regionData = json.loads(data)
     check_event_contains_data(regionData, "region")
 
+    if self.sceneData is None:
+      print("Region event received before scene data; skipping")
+      return
+
     if getattr(self, "roi_deleted", False):
       self.message_received_after_delete = True
       print("Event received after ROI deletion (unexpected)")
@@ -168,10 +172,10 @@ class SceneObjectMqtt(FunctionalTest):
          'name': self.roiName,
          'points': self.roiPoints}
 
-    points = self.setupROI(roi)
-
     topic_regulated = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=self.sceneUID)
     self.pubsub.addCallback(topic_regulated, self.regulatedReceived)
+    assert self.waitForSceneData(objLocation[0]), "No regulated scene data received"
+    points = self.setupROI(roi)
 
     print("BottomLeft: ", points[1])
     print("TopRight: ", points[3])
@@ -179,6 +183,12 @@ class SceneObjectMqtt(FunctionalTest):
 
   def runSceneObjMqttPrepareExtra(self):
     return
+
+  def waitForSceneData(self, objLocation, timeout=5):
+    deadline = time.time() + timeout
+    while self.sceneData is None and time.time() < deadline:
+      self.sendDetections([objLocation], self.frameRate)
+    return self.sceneData is not None
 
   def runROIMqttExecute(self):
     objLocation = self.getLocations()
