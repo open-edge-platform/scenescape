@@ -34,7 +34,7 @@ The following are explicitly out of scope of this design document:
 - DLSPS's internal architecture and the design of its runtime pipeline API.
 - Concrete UX flows in the SceneScape Manager UI (separate UX/feature work).
 - Geti-side integration timelines with ViPPET, Model Downloader, and Stream Manager.
-- The exact set of public models that will replace OpenVINO Model Zoo (OMZ) models in default SceneScape pipelines (an open question captured later in this document).
+- The exact set of public models that will replace OpenVINO Model Zoo (OMZ) models in default SceneScape pipelines
 
 ## 4. Background / Context
 
@@ -489,7 +489,6 @@ This section consolidates all deferred decisions and open questions called out i
 - **ViPPET pipeline-definition format.** The exact format for pipeline definitions consumed from ViPPET, especially the model-parametrization syntax and the version envelope, depends on the ViPPET team's design.
 - **Multi–Model-Downloader topology.** The choice between a single shared Model Downloader instance (O1) and separate instances with separate volumes (O2) for development vs. production deployments.
 - **`gvapython` to Gst Analytics Python migration.** The detailed plan for migrating the SceneScape-authored DLSPS extensions from the deprecated `gvapython` element to the Gst Analytics Python API, and for refactoring the monolithic adapter into smaller, reusable units. This proceeds in parallel with the DLSPS runtime API delta.
-- **OMZ-to-public-models migration set.** The exact set of public models that will replace the OpenVINO Model Zoo (OMZ) models used in default SceneScape pipelines.
 - **Stream Manager consumption by deferred consumers.** The decision on whether (and when) Auto Camera Calibration and Mapping will consume from Stream Manager.
 - **Manager service split.** The decision on whether (and when) to split today's monolithic Manager service into separate back-end and UI services.
 - **Scene-artifact container shape.** The concrete on-disk format for exported scenes (single JSON document, multi-file bundle, or archive).
