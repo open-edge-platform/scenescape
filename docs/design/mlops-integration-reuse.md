@@ -127,7 +127,7 @@ The process model shows the user-facing workflow for building, packaging, and de
 
 ![Process Model](./assets/SceneScape_MLOps-Process_Model.drawio.svg)
 
-> **One representative flow.** The diagram presents one representative end-to-end flow. The order of phases is not fixed: stages may be reordered, repeated, skipped, or run in parallel depending on the user's workflow. For example, model training (Geti) can precede or follow camera setup; pipeline development in ViPPET can be revisited after scene evaluation; data acquisition can be performed independently of any specific scene. The stages below describe the canonical happy path used to derive SceneScape's design requirements; they are not a mandatory execution order.
+> **One representative flow.** The diagram presents one representative end-to-end flow. The order of phases is not fixed: stages may be reordered, repeated, skipped, or run in parallel depending on the user's workflow. The stages below describe the canonical happy path used to derive SceneScape's design requirements; they are not a mandatory execution order.
 
 **Stages** (top-to-bottom, summarized):
 
