@@ -16,6 +16,7 @@ Environment variables (all optional — defaults shown):
   LIDAR_SENSOR_ID       lidar1          Camera ID registered in SceneScape
   LIDAR_DATA_PATH       /home/pipeline-server/videos/velodyne_bin/%06d.bin
   LIDAR_START_INDEX     10699           First file index for multifilesrc
+  LIDAR_STOP_INDEX      10949           Last file index; omit to run until end of files
   LIDAR_LOOP            true            Loop dataset files indefinitely
   LIDAR_FRAME_RATE      10              LiDAR capture rate in Hz
   LIDAR_DEVICE          CPU             OpenVINO device (CPU / GPU)
@@ -43,6 +44,8 @@ SENSOR_ID       = os.environ.get("LIDAR_SENSOR_ID", "lidar1")
 DATA_PATH       = os.environ.get("LIDAR_DATA_PATH",
                     "/home/pipeline-server/videos/velodyne_bin/%06d.bin")
 START_INDEX     = int(os.environ.get("LIDAR_START_INDEX", "10699"))
+STOP_INDEX_RAW  = os.environ.get("LIDAR_STOP_INDEX", "10949")
+STOP_INDEX      = int(STOP_INDEX_RAW) if STOP_INDEX_RAW.strip() else None
 LOOP            = os.environ.get("LIDAR_LOOP", "true").lower() not in ("0", "false", "no")
 FRAME_RATE      = int(os.environ.get("LIDAR_FRAME_RATE", "10"))
 DEVICE          = os.environ.get("LIDAR_DEVICE", "CPU")
@@ -59,9 +62,10 @@ KITTI_LABELS = {0: "Pedestrian", 1: "Cyclist", 2: "Car"}
 
 def _build_pipeline():
   loop_flag = "loop=true" if LOOP else ""
+  stop_flag = f"stop-index={STOP_INDEX}" if STOP_INDEX is not None else ""
   return (
     "gst-launch-1.0 "
-    f"multifilesrc location=\"{DATA_PATH}\" start-index={START_INDEX} {loop_flag} "
+    f"multifilesrc location=\"{DATA_PATH}\" start-index={START_INDEX} {stop_flag} {loop_flag} "
     "caps=application/octet-stream "
     f"! g3dlidarparse stride=1 frame-rate={FRAME_RATE} "
     "! g3dinference "

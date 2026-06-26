@@ -446,6 +446,7 @@ services:
       # - LIDAR_SENSOR_ID=lidar1
       # - LIDAR_DATA_PATH=/home/pipeline-server/videos/velodyne_bin/%06d.bin
       # - LIDAR_START_INDEX=10699
+      # - LIDAR_STOP_INDEX=010949
       # - LIDAR_LOOP=true
       # - LIDAR_FRAME_RATE=10
       # - LIDAR_DEVICE=CPU
