@@ -155,12 +155,12 @@ This section is the source of truth for _who does what_ in the integrated system
 
 _Scene_
 
-| Concern                                                  | Owner             | Notes                                                                                            |
-| -------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------ |
-| Scene model and persistence                              | Manager (Backend) | Scene map, cameras, ROIs, pipeline-to-source mapping.                                            |
-| Pipeline-to-source mapping (scene-level)                 | Manager (Backend) | Persisted SceneScape-side only; ViPPET's internal mapping is not synchronized.                   |
-| Multimodal fusion, tracking, dynamic scene state updates | Scene Controller  | Unchanged.                                                                                       |
-| Scene export / import                                    | Manager (Backend) | Extends today's `manager/src/manager/scene_import.py`.                                           |
+| Concern                                                  | Owner             | Notes                                                                          |
+| -------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------ |
+| Scene model and persistence                              | Manager (Backend) | Scene map, cameras, ROIs, pipeline-to-source mapping.                          |
+| Pipeline-to-source mapping (scene-level)                 | Manager (Backend) | Persisted SceneScape-side only; ViPPET's internal mapping is not synchronized. |
+| Multimodal fusion, tracking, dynamic scene state updates | Scene Controller  | Unchanged.                                                                     |
+| Scene export / import                                    | Manager (Backend) | Extends today's `manager/src/manager/scene_import.py`.                         |
 
 _Pipeline_
 
