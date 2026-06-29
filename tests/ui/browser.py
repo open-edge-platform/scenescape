@@ -24,8 +24,11 @@ RETRY_DELAY = 30
 def _is_real_executable(binary):
   # geckodriver cannot launch shell-script wrappers (e.g. the snap launcher at
   # /usr/bin/firefox), so require a real ELF/Mach-O executable, not a script.
-  with open(binary, "rb") as f:
-    header = f.read(2)
+  try:
+    with open(binary, "rb") as f:
+      header = f.read(2)
+  except OSError:
+    return False
   return header != b"#!"
 
 def _validate_firefox(binary):
