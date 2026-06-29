@@ -26,6 +26,9 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
   ELEM_3D_CTL_PANEL = "panel-3d-controls"
   ELEM_SCENE_CTL_PANEL = "scene-controls-3d"
 
+  # This test renders the 3D viewport, so the browser must run with WebGL.
+  BROWSER_WEBGL = True
+
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
     self.sceneName = self.params['scene']

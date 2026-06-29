@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import shutil
+import sys
 import time
 from selenium.webdriver import Firefox
 from selenium.webdriver.firefox.service import Service
@@ -28,6 +28,7 @@ def _validate_firefox(binary):
 
 def _find_firefox_binary():
   candidates = [
+    os.environ.get("FIREFOX_BIN"),
     "/usr/bin/firefox",
     "/usr/bin/firefox-esr",
     which("firefox"),
@@ -46,8 +47,26 @@ def _find_firefox_binary():
     "and common system locations."
   )
 
+def _find_geckodriver():
+  candidates = [
+    os.environ.get("GECKODRIVER_BIN"),
+    str(Path(sys.executable).parent / "geckodriver"),
+    which("geckodriver"),
+  ]
+
+  for candidate in candidates:
+    if not candidate:
+      continue
+    p = Path(candidate)
+    if p.is_file() and p.stat().st_mode & 0o111:
+      return str(p)
+
+  raise RuntimeError(
+    "geckodriver not found. Run 'make setup-tests' to install it."
+  )
+
 class Browser(Firefox):
-  def __init__(self, headless=True):
+  def __init__(self, headless=True, webgl=False):
     # Remove proxy settings safely
     for key in list(os.environ):
       if 'proxy' in key.lower():
@@ -63,7 +82,13 @@ class Browser(Firefox):
 
     options.add_argument("--width=1080")
     options.add_argument("--height=1920")
-    options.set_preference("webgl.disabled", True)
+    # WebGL is disabled by default for CI stability. Tests that exercise the 3D
+    # viewport (e.g. the scene/camera control panels) must opt in via webgl=True,
+    # in which case it is force-enabled so headless software rendering is used
+    # even though no GPU is present.
+    options.set_preference("webgl.disabled", not webgl)
+    if webgl:
+      options.set_preference("webgl.force-enabled", True)
     options.set_preference("media.hardware-video-decoding.enabled", False)
     options.set_preference("gfx.webrender.software", True)
     options.set_preference("network.proxy.type", 0)
@@ -83,11 +108,7 @@ class Browser(Firefox):
       "vdms.scenescape.intel.com",
     ]
     options.set_preference("network.dns.localDomains", ",".join(_host_aliases))
-    geckodriver_path = shutil.which("geckodriver")
-    if not geckodriver_path:
-      raise RuntimeError(
-        "geckodriver not found. Run 'make setup-tests' to install it."
-      )
+    geckodriver_path = _find_geckodriver()
     service = Service(geckodriver_path)
 
     super().__init__(options=options, service=service)

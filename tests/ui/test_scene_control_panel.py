@@ -31,7 +31,7 @@ def test_scene_control_panel(params, record_xml_attribute):
     log.info("Executing: " + TEST_NAME)
     log.info("Test for scene control panel in 3D UI")
 
-    browser = Browser()
+    browser = Browser(webgl=True)
     assert common.check_page_login(browser, params)
     assert common.check_db_status(browser)
 

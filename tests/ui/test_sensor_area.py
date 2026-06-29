@@ -63,33 +63,27 @@ def validate_polygon_sensor_area(browser):
   browser.find_element(By.ID, "id_area_2").click()
   svg = browser.find_element(By.ID, "svgout")
   time.sleep(1)
-  action = browser.actionChains()
-  action.drag_and_drop_by_offset(svg, 50, -50)
-  action.perform()
-  action.click()
 
-  action2 = browser.actionChains()
-  action2.move_by_offset(70, 50).perform()
-  time.sleep(1)
-  action2.click()
-
-  action2.move_by_offset(0, 80).perform()
-  time.sleep(1)
-  action2.click()
-
-  action2.move_by_offset(50, -80).perform()
-  time.sleep(1)
-  action2.click()
+  # Draw a polygon with four distinct vertices. Each vertex is added with a
+  # fresh ActionChains positioned relative to the SVG so the clicks are
+  # deterministic. The previous implementation reused a single ActionChains
+  # queue with cumulative relative offsets, which intermittently registered
+  # fewer than three vertices and tripped the "at least 3 vertices" validation.
+  vertex_offsets = [(60, 60), (160, 60), (160, 160), (60, 160)]
+  for dx, dy in vertex_offsets:
+    browser.actionChains().move_to_element_with_offset(svg, dx, dy).click().perform()
+    time.sleep(1)
 
   polygon_list = browser.find_elements_with_wait(By.TAG_NAME, "polygon")
   polygon_points = polygon_list[-1].get_attribute("points")
   p_list = list(map(float, polygon_points.split(",")))
+  assert len(p_list) >= 6, f"Expected at least 3 vertices, got points: {p_list}"
   all_points = browser.find_elements_with_wait(By.CLASS_NAME, "vertex")
   save_polygon = browser.find_element(By.NAME, "save")
   for point in all_points:
     if float(point.get_attribute("cx")) == p_list[0] and float(point.get_attribute("cy")) == p_list[1]:
       point.click()
-      print(f"POLYGON with 3 points created \n{p_list}")
+      print(f"POLYGON with {len(p_list) // 2} points created \n{p_list}")
       save_polygon.click()
       time.sleep(3)
       break
