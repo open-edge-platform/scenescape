@@ -20,6 +20,8 @@ import subprocess
 
 MAX_RETRIES = 5
 RETRY_DELAY = 30
+DRIVER_START_RETRIES = 3
+DRIVER_START_DELAY = 5
 
 def _validate_firefox(binary):
   result = subprocess.run([binary, "--version"], capture_output=True, text=True)
@@ -109,9 +111,29 @@ class Browser(Firefox):
     ]
     options.set_preference("network.dns.localDomains", ",".join(_host_aliases))
     geckodriver_path = _find_geckodriver()
-    service = Service(geckodriver_path)
 
-    super().__init__(options=options, service=service)
+    last_exc = None
+    for attempt in range(1, DRIVER_START_RETRIES + 1):
+      # Use a fresh Service each attempt
+      service = Service(geckodriver_path)
+      try:
+        super().__init__(options=options, service=service)
+        last_exc = None
+        break
+      except WebDriverException as exc:
+        last_exc = exc
+        try:
+          service.stop()
+        except Exception:
+          pass
+        if attempt < DRIVER_START_RETRIES:
+          print(f"geckodriver failed to start (attempt {attempt}/"
+                f"{DRIVER_START_RETRIES}): {exc}. Retrying in "
+                f"{DRIVER_START_DELAY}s...")
+          time.sleep(DRIVER_START_DELAY)
+
+    if last_exc is not None:
+      raise last_exc
 
   def getPage(self, url, expected_title, retries=MAX_RETRIES, delay=RETRY_DELAY):
     '''

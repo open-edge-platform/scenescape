@@ -25,6 +25,7 @@ def test_sensor_area_main(params, record_xml_attribute):
   TEST_NAME = "NEX-T10401"
   record_xml_attribute("name", TEST_NAME)
   exit_code = 1
+  browser = None
   try:
     print("Executing: " + TEST_NAME)
     print("Test measurement area configuration for a sensor")
@@ -53,8 +54,9 @@ def test_sensor_area_main(params, record_xml_attribute):
     validate_polygon_sensor_area(browser)
     exit_code = 0
   finally:
-    common.delete_sensor(browser, sensor_name)
-    browser.close()
+    if browser is not None:
+      common.delete_sensor(browser, sensor_name)
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
     assert exit_code == 0
   return

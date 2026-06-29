@@ -26,6 +26,7 @@ def test_scene_control_panel(params, record_xml_attribute):
   exit_code = 1
 
   WAIT_SEC = 1
+  browser = None
 
   try:
     log.info("Executing: " + TEST_NAME)
@@ -213,7 +214,8 @@ def test_scene_control_panel(params, record_xml_attribute):
     exit_code = 0
 
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
