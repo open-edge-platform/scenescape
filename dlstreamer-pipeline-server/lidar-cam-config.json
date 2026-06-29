@@ -1,0 +1,58 @@
+{
+  "config": {
+    "logging": {
+      "C_LOG_LEVEL": "INFO",
+      "PY_LOG_LEVEL": "INFO"
+    },
+    "pipelines": [
+      {
+        "name": "lidar-cam1",
+        "source": "gstreamer",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/lidar-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-vehicle-bike-detection-crossroad-1016/FP32/person-vehicle-bike-detection-crossroad-1016.xml model-proc=/home/pipeline-server/models/object_detection/person_vehicle_bike/person-vehicle-bike-detection-crossroad-1016.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "ntp_config": {
+              "element": {
+                "name": "timesync",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "ntpServer": { "type": "string" }
+              }
+            },
+            "camera_config": {
+              "element": {
+                "name": "datapublisher",
+                "property": "kwarg",
+                "format": "json"
+              },
+              "type": "object",
+              "properties": {
+                "cameraid": { "type": "string" },
+                "metadatagenpolicy": { "type": "string" },
+                "detection_labels": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "payload": {
+          "parameters": {
+            "ntp_config": { "ntpServer": "ntpserv" },
+            "camera_config": {
+              "cameraid": "lidar-cam1",
+              "metadatagenpolicy": "detectionPolicy",
+              "detection_labels": ["person", "vehicle", "bicycle"]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -53,6 +53,15 @@ SCORE_THRESHOLD = float(os.environ.get("LIDAR_SCORE_THRESHOLD", "0.3"))
 MODEL_CONFIG    = os.environ.get("LIDAR_MODEL_CONFIG",
                     "/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json")
 
+# ── Coordinate transform: virtual-LiDAR frame → SceneScape scene frame ───────
+# Camera-centric projection (matches camera perspective directly):
+#   scene_x = -y_pp   (camera right = map right, camera left = map left)
+#   scene_y = -x_pp   (camera forward = map up)
+# The lidar1 camera in SceneScape has translation=[200,200,0] identity rotation,
+# so cameraPointToWorldPoint adds (200,200,0) → final pixel = ((-y+200)*5, (-x+200)*5)
+# This aligns with the HD map drawn using lidar_to_img: col=(-y+200)*5, row=(-x+200)*5
+_Z_OFFSET = 2.0    # lifts z so road-level objects appear at scene z≈0
+
 CAMERA_TOPIC = f"scenescape/data/camera/{SENSOR_ID}"
 FIFO         = "/tmp/lidar_detections.fifo"
 
@@ -78,9 +87,24 @@ def _build_pipeline():
 
 
 def yaw_to_quaternion(theta):
-  """Convert yaw angle (Z-axis rotation) to quaternion [qx, qy, qz, qw]."""
-  half = theta / 2.0
-  return [0.0, 0.0, math.sin(half), math.cos(half)]
+  """Convert PointPillars yaw to SceneScape quaternion [qx, qy, qz, qw].
+
+  Camera-centric scene convention: scene_x=-y_pp, scene_y=-x_pp.
+  For a direction [cos(h), sin(h)] in LiDAR frame, the scene direction is
+  [-sin(h), -cos(h)], giving scene_heading = -(h + π/2).
+
+  PointPillars theta is offset -π/2 from actual LiDAR-frame heading, so:
+    lidar_heading = theta + π/2
+    scene_heading = -(lidar_heading + π/2) = -(theta + π)
+
+  EPS guard: schema requires quaternion components strictly in (-1, 1).
+  """
+  scene_heading = -(theta + math.pi)
+  half = scene_heading / 2.0
+  EPS = 1e-6
+  qz = max(-1.0 + EPS, min(1.0 - EPS, math.sin(half)))
+  qw = max(-1.0 + EPS, min(1.0 - EPS, math.cos(half)))
+  return [0.0, 0.0, qz, qw]
 
 
 def convert_frame(raw):
@@ -108,7 +132,11 @@ def convert_frame(raw):
       "id": i + 1,
       "category": label,
       "confidence": obj.get("confidence", 0.0),
-      "translation": [bbox["x"], bbox["y"], bbox["z"]],
+      "translation": [
+        -bbox["y"],
+        -bbox["x"],
+        bbox["z"] + bbox["h"] / 2.0 + _Z_OFFSET,
+      ],
       "size": [bbox["l"], bbox["w"], bbox["h"]],
       "rotation": yaw_to_quaternion(bbox.get("theta", 0.0)),
     }
@@ -163,6 +191,28 @@ def main():
       last_ts = now
 
       objects = convert_frame(raw)
+
+      # Debug: log first object of each frame (every 50 frames) to verify transforms
+      if published % 50 == 0:
+        for cat, objs in objects.items():
+          for o in objs[:1]:
+            raw_obj = next((x for x in raw.get("objects", []) if x.get("bbox_3d")), None)
+            if raw_obj:
+              b = raw_obj["bbox_3d"]
+              t = o["translation"]
+              print(
+                f"[RAW]   {cat} pp=({b['x']:.1f},{b['y']:.1f},{b['z']:.2f}) "
+                f"theta={b['theta']:.3f} h={b['h']:.2f}",
+                flush=True,
+              )
+              print(
+                f"[SCENE] {cat} scene=({t[0]:.1f},{t[1]:.1f},{t[2]:.2f}) "
+                f"rot={[round(x,3) for x in o['rotation']]}",
+                flush=True,
+              )
+            break
+          break
+
       msg = {
         "id": SENSOR_ID,
         "timestamp": datetime.fromtimestamp(now, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
