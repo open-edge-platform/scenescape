@@ -118,7 +118,7 @@ The component view below shows the runtime relationships between SceneScape and 
 
 - Models are downloaded by an out-of-band job into a **shared model volume** populated by Model Downloader and read by DLSPS. SceneScape never reads model files directly.
 - Pipeline definitions are pulled from ViPPET by Manager back-end, persisted in SceneScape's scene configuration (embedded by value), and pushed to DLSPS via its runtime API.
-- Video sources are either consumed from Stream Manager (when deployed) or accessed directly (RTSP/file) when Stream Manager is not deployed.
+- Video sources are either consumed from Stream Manager (restreaming or video playback) or accessed directly (RTSP/file).
 - DLSPS publishes inference results to MQTT, consumed unchanged by Scene Controller (no MLOps-integration changes to Scene Controller).
 
 ### 5.2 End-to-end process model
@@ -160,7 +160,7 @@ _Scene_
 | Scene model and persistence                              | Manager (Backend) | Scene map, cameras, ROIs, pipeline-to-source mapping.                                            |
 | Pipeline-to-source mapping (scene-level)                 | Manager (Backend) | Persisted SceneScape-side only; ViPPET's internal mapping is not synchronized.                   |
 | Multimodal fusion, tracking, dynamic scene state updates | Scene Controller  | Unchanged.                                                                                       |
-| Scene export / import                                    | Manager (Backend) | Extends today's `manager/src/manager/scene_import.py`; new format defined later in this section. |
+| Scene export / import                                    | Manager (Backend) | Extends today's `manager/src/manager/scene_import.py`.                                           |
 
 _Pipeline_
 
@@ -394,7 +394,7 @@ The deltas are organized by area of work, and the rollout plan in the _Rollout /
 | Purpose                     | Persist and manage the binding between pipeline definitions and the camera sources they run against, scene-side. Different cameras in the same scene serve different spatial-awareness tasks; a pipeline definition can be mapped to one or more sources (one-to-many). |
 | SceneScape consumers        | Manager back-end (scene configuration owner).                                                                                                                                                                                                                           |
 | Client library              | None — internal to SceneScape. The mapping is consumed by the caller of DLSPS client library (when starting pipeline instances) and embedded in scene exports by the export/import code; it is not itself an OEP integration.                                           |
-| Affected SceneScape modules | Scene model in Manager back-end (new persistent field set for the pipeline-definition-to-source mapping). Scene Controller is **not** affected: it continues to consume the existing per-camera MQTT inference output.                                                  |
+| Affected SceneScape modules | Scene model in Manager back-end (new persistent field set for the pipeline-definition-to-source mapping).                                                                                                                                                               |
 | Parity criterion            | Every pipeline-to-source binding expressible via today's mechanisms (static JSON pipeline configurations for Docker Compose; custom pipeline generation for Kubernetes) is expressible via the scene-side mapping.                                                      |
 | Decision timing             | **Decided now** — Manager back-end owns the scene model.                                                                                                                                                                                                                |
 | Cross-component dependency  | None directly; depends on the ViPPET-pipeline-definition delta for the identity of pipeline definitions that the mapping references.                                                                                                                                    |
