@@ -21,6 +21,13 @@ import subprocess
 MAX_RETRIES = 5
 RETRY_DELAY = 30
 
+def _is_real_executable(binary):
+  # geckodriver cannot launch shell-script wrappers (e.g. the snap launcher at
+  # /usr/bin/firefox), so require a real ELF/Mach-O executable, not a script.
+  with open(binary, "rb") as f:
+    header = f.read(2)
+  return header != b"#!"
+
 def _validate_firefox(binary):
   result = subprocess.run([binary, "--version"], capture_output=True, text=True)
   if result.returncode != 0 or "Firefox" not in result.stdout + result.stderr:
@@ -28,6 +35,7 @@ def _validate_firefox(binary):
 
 def _find_firefox_binary():
   candidates = [
+    "/snap/firefox/current/usr/lib/firefox/firefox",
     "/usr/bin/firefox",
     "/usr/bin/firefox-esr",
     which("firefox"),
@@ -38,7 +46,7 @@ def _find_firefox_binary():
     if not candidate:
       continue
     p = Path(candidate)
-    if p.is_file() and p.stat().st_mode & 0o111:
+    if p.is_file() and p.stat().st_mode & 0o111 and _is_real_executable(p):
       return str(p)
 
   raise RuntimeError(
