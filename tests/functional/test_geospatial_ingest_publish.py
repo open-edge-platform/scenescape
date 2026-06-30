@@ -179,11 +179,15 @@ class GeospatialIngestPublish(FunctionalTest):
       map_data = f.read()
 
     # Provide everything the controller needs to compute the TRS matrix in a
-    # single update (map image + map_corners_lla + output_lla) so the test does
-    # not depend on pre-existing scene state in the baseline database.
+    # single update (map image + scale + map_corners_lla + output_lla) so the
+    # test does not depend on pre-existing scene state in the baseline database.
+    # The scale (pixels per meter) is required for the controller to build the
+    # map mesh from a PNG, without it the mesh is never generated and the TRS
+    # matrix cannot be computed.
     log.info("Enabling output_lla with map and map corners to trigger TRS computation")
     res = self.rest.updateScene(self.sceneUID, {
       'output_lla': True,
+      'scale': MAP_SCALE,
       'map_corners_lla': json.dumps(MAP_CORNERS_LLA),
       'map': (map_image, map_data),
     })
@@ -289,7 +293,7 @@ class GeospatialIngestPublish(FunctionalTest):
     log.info("Verifying base output has no lat_long_alt")
     self.waitForUpdate(False)
     log.info("Enabling lat_long_alt output")
-    res = self.rest.updateScene(self.sceneUID, {'output_lla': True, 'map_corners_lla': json.dumps(MAP_CORNERS_LLA), 'map': (map_image, map_data)})
+    res = self.rest.updateScene(self.sceneUID, {'output_lla': True, 'scale': MAP_SCALE, 'map_corners_lla': json.dumps(MAP_CORNERS_LLA), 'map': (map_image, map_data)})
     assert res.status_code == HTTPStatus.OK
     self.detectionValidator = _verifyLLA
     self.waitForUpdate(True)
