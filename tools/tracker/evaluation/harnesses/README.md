@@ -221,6 +221,9 @@ harness.set_custom_config({
     # Optional overrides:
     # "drain_timeout": 5.0,            # Seconds to wait after last frame
     # "scene_id": "my-scene-uid",      # Override UID from scene config
+    # Optional observability (capture OTLP metrics via an OTEL Collector sidecar):
+    # "enable_metrics": True,
+    # "metrics_collector_image": "otel/opentelemetry-collector-contrib:0.155.0",
 })
 
 outputs = list(harness.process_inputs(dataset.get_inputs()))
@@ -237,6 +240,32 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 | `drain_timeout` | No | `5.0` | Seconds to wait for remaining tracker outputs after the last frame |
 | `scene_id` | No | derived from scene config `uid` | Override the MQTT topic scene ID |
 | `startup_wait_s` | No | `2.0` | Seconds to wait after container starts before publishing frames |
+| `enable_metrics` | No | `false` | Run an OTEL Collector sidecar to capture tracker/controller OTLP metrics |
+| `metrics_collector_image` | When `enable_metrics` | — | OTEL Collector image (e.g. `"otel/opentelemetry-collector-contrib:0.155.0"`) |
+| `metrics_export_interval_s` | No | `2` | Metrics export interval in seconds |
+| `metrics_otlp_port` | No | `4317` | OTLP/gRPC port the collector listens on |
+
+**Observability (optional)**:
+
+When `enable_metrics` is set, the harness starts an OpenTelemetry Collector container on the
+run's Docker network. The tracker/controller container is configured to push its OTLP/gRPC
+metrics to the collector, which writes them to a file via the `file` exporter. After the run
+the harness aggregates the captured metrics and writes `metrics_summary.txt` to the output
+folder with, per metric:
+
+- **Latency histograms** (e.g. `tracker.mqtt.latency`, `scenescape_controller_mqtt_handler_duration`): `count`, `avg`, `min`, `max`. Median is omitted because only bucketed counts are exported.
+- **Counters** (e.g. `tracker.mqtt.messages`): cumulative `total` plus the per-export delta `avg` / `min` / `max` / `median`.
+- **Gauges** (e.g. `tracker.tracks.active`): `avg` / `min` / `max` / `median` over all observed values.
+
+After writing the summary, the harness verifies how many frames were dropped (summing the
+`scenescape_controller_mqtt_messages_dropped` and `tracker.mqtt.dropped` counters), prints the
+count and ratio, and emits a `WARNING` when the dropped-to-output-frame ratio exceeds 1%.
+The aggregated values are also available programmatically via
+`metrics_recorder.collect_metric_values()` and `metrics_recorder.check_dropped_frames()`.
+
+Enabling metrics adds a few seconds to each run so the controller's periodic export and the
+tracker's shutdown flush are captured before teardown. The collector image is pulled on first
+use.
 
 **MQTT Topics**:
 
@@ -277,6 +306,7 @@ in its config). The file must contain `"user"` and `"password"` fields
 
 - **black_box_harness.py**: Main harness implementation — Docker orchestration, MQTT publishing/collecting, timestamp pacing
 - **mock_manager.py**: Minimal Manager REST API server — extrinsics computation, scene/camera endpoints
+- **metrics_recorder.py**: Parses OTEL Collector output, writes `metrics_summary.txt`, and exposes `collect_metric_values()` / `check_dropped_frames()`
 - `__init__.py`: Module initialisation
 
 **Tests**:
