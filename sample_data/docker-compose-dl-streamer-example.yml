@@ -458,6 +458,7 @@ services:
       - LIDAR_DEVICE=GPU
       - LIDAR_SCORE_THRESHOLD=0.3
       - LIDAR_MODEL_CONFIG=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
+      - LIDAR_PUBLISH_RAW=true
       - LOG_LEVEL=SUMMARY
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
