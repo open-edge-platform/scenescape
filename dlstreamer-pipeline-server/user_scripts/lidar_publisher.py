@@ -159,6 +159,14 @@ if LOG_LEVEL not in _LOG_LEVELS:
 CAMERA_TOPIC = f"scenescape/data/camera/{SENSOR_ID}"
 FIFO         = "/tmp/lidar_detections.fifo"
 
+# ── Raw detections passthrough ────────────────────────────────────────────────
+# Set LIDAR_PUBLISH_RAW=true to mirror every raw gvametaconvert JSON line to a
+# separate MQTT topic.  Useful for comparing raw PointPillars output against
+# the processed SceneScape detections (object counts, coordinates, confidence).
+# Default off — raw payloads can be large when tensor data is included.
+PUBLISH_RAW = os.environ.get("LIDAR_PUBLISH_RAW", "false").lower() not in ("0", "false", "no")
+RAW_TOPIC   = os.environ.get("LIDAR_RAW_TOPIC", f"scenescape/data/camera/{SENSOR_ID}-raw")
+
 # ── KITTI label map ───────────────────────────────────────────────────────────
 KITTI_LABELS: dict[int, str] = {
     0: "Pedestrian",
@@ -618,25 +626,35 @@ def _build_pipeline() -> str:
 
 def bbox3d_to_quaternion(theta: float) -> list[float]:
     """
-    Convert PointPillars yaw to unit quaternion [qx, qy, qz, qw].
+    Convert PointPillars yaw to unit quaternion [qx, qy, qz, qw] in the
+    SceneScape camera frame.
 
     theta is a rotation around the LiDAR Z-up axis (yaw in the KITTI LiDAR
-    frame).  Encoded as a Z-axis quaternion here.  After
-    cameraPointToWorldPoint() applies the camera pose rotation
-    [0.5, -0.5, 0.5, 0.5], this quaternion will be correctly transformed
-    into the world frame.
+    frame, right-handed, positive = counter-clockwise from above).
+
+    The camera pose quaternion [0.5, -0.5, 0.5, 0.5] maps camera axes to
+    LiDAR axes as follows:
+        camera X (right)   → LiDAR −Y
+        camera Y (down)    → LiDAR −Z
+        camera Z (forward) → LiDAR  X
+
+    To express LiDAR Z in camera frame:
+        R^T · [0,0,1] = [0, −1, 0]  →  camera −Y
+
+    Therefore a yaw around LiDAR Z is a rotation around camera −Y:
+        q = [0, −sin(θ/2), 0, cos(θ/2)]
 
     Canonical form: qw >= 0 (avoids the quaternion double-cover ambiguity).
     """
     half = theta / 2.0
-    qz   = math.sin(half)
-    qw   = math.cos(half)
+    qy   = -math.sin(half)   # camera −Y  ←→  LiDAR Z (yaw axis)
+    qw   =  math.cos(half)
     if qw < 0.0:
-        qz, qw = -qz, -qw
+        qy, qw = -qy, -qw
     EPS = 1e-6
-    qz  = max(-1.0 + EPS, min(1.0 - EPS, qz))
+    qy  = max(-1.0 + EPS, min(1.0 - EPS, qy))
     qw  = max(-1.0 + EPS, min(1.0 - EPS, qw))
-    return [0.0, 0.0, qz, qw]
+    return [0.0, qy, 0.0, qw]
 
 
 def _make_timestamp(now: float) -> str:
@@ -684,10 +702,11 @@ def build_camera_message(
 
             x     = bbox.get("x", 0.0)
             y     = bbox.get("y", 0.0)
-            z     = bbox.get("z", 0.0)
+            z_bot = bbox.get("z", 0.0)   # PointPillars z = BOTTOM of bbox
             w     = bbox.get("w", 0.0)
             l     = bbox.get("l", 0.0)
             h     = bbox.get("h", 0.0)
+            z     = z_bot + h / 2.0      # convert to geometric centre
             theta = bbox.get("theta", 0.0)
             conf  = obj.get("confidence", 0.0)
             rot   = bbox3d_to_quaternion(theta)
@@ -992,6 +1011,8 @@ def _print_banner() -> None:
         f"  add_tensor_data: {ADD_TENSOR_DATA}"
         f"{'  ← set LIDAR_ADD_TENSOR_DATA=false for production' if ADD_TENSOR_DATA == 'true' else ''}\n"
         f"  log_level      : {LOG_LEVEL}\n"
+        f"  publish_raw    : {PUBLISH_RAW}"
+        f"{'  topic: ' + RAW_TOPIC if PUBLISH_RAW else '  (set LIDAR_PUBLISH_RAW=true to enable)'}\n"
         f"  coordinate     : RAW LiDAR frame — controller projects to world\n"
         f"  lidar1_rotation: {_LIDAR1_ROTATION_QUAT}  "
         f"(must be set in SceneScape DB)\n"
@@ -1113,6 +1134,10 @@ def main() -> None:
             payload     = json.dumps(msg)
             payload_len = len(payload.encode())
             client      = safe_publish(client, CAMERA_TOPIC, payload, stats)
+
+            if PUBLISH_RAW:
+                client = safe_publish(client, RAW_TOPIC, line, stats)
+
             t3          = time.perf_counter()
 
             stats.record_frame(
