@@ -237,7 +237,8 @@ architecture diagram.
   heuristics). On the critical real-time path; supports a lighter baseline mode
   for flat ground-plane deployments where complex geometry is not required.
 - **Inputs**: pose plus observations and measurements from the Positioning
-  Service, as well as scene mesh/scene field from scene state persistence layer for conditioning i.e projecting on surface.
+  Service, as well as scene mesh/scene field from scene state persistence layer
+  for conditioning i.e projecting on surface.
 - **Outputs**: world-space observations for the Multi-Object Tracker Service.
 - **Communication**: low-latency synchronous path to the Tracker (co-locatable
   to minimize boundary overhead); asynchronous fan-out only where latency
@@ -268,9 +269,9 @@ architecture diagram.
   `💾 Scene State Persistence / 🆔 Re-ID` block in the target architecture
   diagram. Scene DVR and full replay capabilities are future extensions not in
   near-term scope.
-- **Inputs**: streaming track updates from the Tracker; identity features and
-  track context for Re-ID match/store; state-query requests from downstream
-  consumers.
+- **Inputs**: streaming track updates from the Tracker; pose from Positioning;
+  identity features and track context for Re-ID match/store; state-query requests
+  from downstream consumers.
 - **Outputs**: SceneField updates to the Spatial Transform & Projection Service;
   scene state updates to the Subscene layer; identity-enriched state to the
   Analytics Service (see
