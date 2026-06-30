@@ -7,11 +7,11 @@ pipeline:
     path: ./output/black-box-evaluation
 
 dataset:
-  class: datasets.metric_test_dataset.MetricTestDataset
+  class: datasets.wildtrack_dataset.WildtrackDataset
   config:
-    data_path: ../../../tests/system/metric/dataset
-    cameras: [Cam_x1_0, Cam_x2_0]
-    camera_fps: 30
+    data_path: ../../../tests/system/metric/wildtrack
+    cameras: [0, 1, 2, 3, 4, 5, 6]
+    camera_fps: 2
 
 harness:
   class: harnesses.black_box_harness.BlackBoxHarness
