@@ -39,18 +39,22 @@ Derivation of rotation quaternion [0.5, -0.5, 0.5, 0.5]:
   camera Z (forward) → LiDAR  X  →  R col2 = [ 1,  0,  0]
   scipy: Rotation.from_matrix(R).as_quat() → [0.5, -0.5, 0.5, 0.5]
 
-Spatial coverage (360° by default, env-configurable):
-  point_cloud_range: [x_min, y_min, z_min, x_max, y_max, z_max]
-  Default: [-69.12, -39.68, -3.5, 69.12, 39.68, 1.5]
-  — Full 360° horizontal coverage (x_min < 0 recovers rear hemisphere)
-  — z_min=-3.5 provides margin below deepest observed detection (-2.73m)
-  — z_max=1.5  provides margin above sensor for tall objects
-  — voxel_size Z component must equal z_max - z_min (default 5.0)
+Point cloud range / spatial coverage:
+  Controlled exclusively via the model config JSON
+  (LIDAR_MODEL_CONFIG, default pointpillars_ov_config.json).
+  g3dlidarparse does NOT accept range properties — it reads the range
+  from the model config JSON that g3dinference also uses, so the clip
+  boundary and voxelisation boundary are always consistent by design.
 
-  These values must match voxel_params in the model config JSON exactly.
-  g3dlidarparse clips the raw point cloud to this range before voxelisation.
-  The model config JSON is regenerated at startup from these env vars so
-  the two sources are always consistent.
+  Current config (verified at startup):
+    point_cloud_range: [-69.12, -39.68, -3.5, 69.12, 39.68, 1.5]
+    voxel_size:        [0.16, 0.16, 5.0]
+    max_num_points:    32
+    max_voxels:        40000
+
+  To change the range: edit the model config JSON only.
+  The LIDAR_PC_* env vars are kept for banner display and validation
+  cross-checking but are NOT passed to the pipeline.
 
 Score threshold:
   Default 0.20 (reduced from 0.30) to recover partially occluded and
@@ -130,22 +134,11 @@ ADD_TENSOR_DATA = os.environ.get("LIDAR_ADD_TENSOR_DATA", "false").lower()
 if ADD_TENSOR_DATA not in ("true", "false"):
     ADD_TENSOR_DATA = "false"
 
-# ── PointPillars spatial config ───────────────────────────────────────────────
-# These define the point cloud range passed to both g3dlidarparse (which clips
-# the raw point cloud) and written into the model config JSON (which controls
-# voxelisation).  Both must be identical — they are derived from the same
-# env vars here so they cannot diverge.
-#
-# Defaults provide full 360° horizontal coverage with vertical margins derived
-# from observed detection depths in production logs (deepest: -2.73m below
-# sensor, shallowest above: near 0).
-#
-# x_min < 0 enables the rear hemisphere for spinning LiDARs.
-# z_min=-3.5 gives 0.77m margin below the deepest logged detection.
-# z_max=1.5  gives headroom for tall objects partially above sensor height.
-#
-# voxel_size Z is derived automatically as (z_max - z_min) so the single
-# Z layer always spans the full vertical range.
+# ── PointPillars spatial config (display / validation only) ───────────────────
+# These values are used for banner display and cross-checking against the
+# model config JSON.  They are NOT passed to the pipeline — g3dlidarparse
+# reads the range from the model config JSON directly.
+# Defaults match the manually updated config JSON.
 PC_X_MIN = float(os.environ.get("LIDAR_PC_X_MIN", "-69.12"))
 PC_X_MAX = float(os.environ.get("LIDAR_PC_X_MAX",  "69.12"))
 PC_Y_MIN = float(os.environ.get("LIDAR_PC_Y_MIN", "-39.68"))
@@ -153,16 +146,8 @@ PC_Y_MAX = float(os.environ.get("LIDAR_PC_Y_MAX",  "39.68"))
 PC_Z_MIN = float(os.environ.get("LIDAR_PC_Z_MIN",  "-3.5"))
 PC_Z_MAX = float(os.environ.get("LIDAR_PC_Z_MAX",   "1.5"))
 
-# Derived — do not set independently.
+# Derived — must equal z_max - z_min for single-layer PointPillars.
 _VOXEL_Z_SIZE = round(PC_Z_MAX - PC_Z_MIN, 6)
-
-# Voxel grid capacity.  max_num_points is fixed by the pretrained model's
-# input tensor shape and must not be changed.  max_voxels is safe to increase
-# if the OpenVINO IR was compiled with a dynamic pillar-batch dimension;
-# 40000 covers the doubled spatial range (360°) with headroom for dense frames.
-VOXEL_SIZE_XY   = float(os.environ.get("LIDAR_VOXEL_SIZE_XY", "0.16"))
-MAX_NUM_POINTS  = int(os.environ.get("LIDAR_MAX_NUM_POINTS", "32"))
-MAX_VOXELS      = int(os.environ.get("LIDAR_MAX_VOXELS", "40000"))
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 _LOG_LEVELS = ("DEBUG", "INFO", "SUMMARY", "SILENT")
@@ -192,63 +177,83 @@ _FPS_EMA_SMOOTHING = 0.1
 _FPS_WARN_RATIO     = 0.75
 _FPS_CRITICAL_RATIO = 0.50
 
-# ── SceneScape camera pose for lidar1 ─────────────────────────────────────────
-# Printed in the startup banner as a configuration reminder.
-# The rotation [0.5, -0.5, 0.5, 0.5] maps the OpenCV camera frame onto the
-# KITTI LiDAR frame (right-handed Z-up).  See module docstring for derivation.
+# ── SceneScape camera pose reminder ───────────────────────────────────────────
+# Printed in the startup banner. Must be set in the SceneScape database.
 _LIDAR1_ROTATION_QUAT = [0.5, -0.5, 0.5, 0.5]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Model config generation
+# Model config validation
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _build_model_config() -> dict:
+def _validate_model_config() -> None:
     """
-    Build the pointpillars_ov_config dict from current spatial parameters.
+    Read the installed model config JSON and warn if its spatial parameters
+    do not match the LIDAR_PC_* env vars.
 
-    Writing this at startup ensures the model config JSON on disk always
-    matches the g3dlidarparse range arguments passed in the pipeline string.
-    The two sources are derived from the same module-level constants so they
-    cannot diverge.
+    This is a read-only check — the file is never modified.
+    Mismatches are warnings, not errors.  The model config JSON is the
+    authoritative source for both g3dlidarparse and g3dinference; the
+    env vars are used only for display and this cross-check.
     """
-    model_dir = os.path.dirname(MODEL_CONFIG)
-    return {
-        "voxel_params": {
-            "voxel_size":        [VOXEL_SIZE_XY, VOXEL_SIZE_XY, _VOXEL_Z_SIZE],
-            "point_cloud_range": [PC_X_MIN, PC_Y_MIN, PC_Z_MIN,
-                                  PC_X_MAX, PC_Y_MAX, PC_Z_MAX],
-            "max_num_points":    MAX_NUM_POINTS,
-            "max_voxels":        MAX_VOXELS,
-        },
-        "extension_lib": os.path.join(
-            model_dir, "libov_pointpillars_extensions.so"
-        ),
-        "voxel_model": os.path.join(
-            model_dir, "pointpillars_ov_pillar_layer.xml"
-        ),
-        "nn_model": os.path.join(
-            model_dir, "pointpillars_ov_nn.xml"
-        ),
-        "postproc_model": os.path.join(
-            model_dir, "pointpillars_ov_postproc.xml"
-        ),
-    }
+    try:
+        with open(MODEL_CONFIG) as fh:
+            cfg = json.load(fh)
+    except FileNotFoundError:
+        print(
+            f"[lidar-publisher] ⚠️  Model config not found at {MODEL_CONFIG} — "
+            f"g3dinference will fail to start.",
+            flush=True,
+        )
+        return
+    except json.JSONDecodeError as exc:
+        print(
+            f"[lidar-publisher] ⚠️  Model config JSON parse error: {exc}",
+            flush=True,
+        )
+        return
 
+    vp = cfg.get("voxel_params", {})
 
-def _write_model_config() -> None:
-    """
-    Serialise the model config to MODEL_CONFIG path.
+    # Check point_cloud_range
+    cfg_range = vp.get("point_cloud_range", [])
+    env_range = [PC_X_MIN, PC_Y_MIN, PC_Z_MIN, PC_X_MAX, PC_Y_MAX, PC_Z_MAX]
+    if cfg_range != env_range:
+        print(
+            f"[lidar-publisher] ⚠️  point_cloud_range MISMATCH\n"
+            f"  config JSON : {cfg_range}\n"
+            f"  env vars    : {env_range}\n"
+            f"  The model config JSON is authoritative. Update the\n"
+            f"  LIDAR_PC_* env vars to match if this is intentional.",
+            flush=True,
+        )
+    else:
+        print(
+            f"[lidar-publisher] ✅ point_cloud_range consistent: {cfg_range}",
+            flush=True,
+        )
 
-    Called once at startup before the pipeline is launched so that
-    g3dinference reads the updated spatial parameters.
-    """
-    cfg = _build_model_config()
-    with open(MODEL_CONFIG, "w") as fh:
-        json.dump(cfg, fh, indent=2)
+    # Check voxel_size Z component
+    cfg_voxel = vp.get("voxel_size", [])
+    if len(cfg_voxel) == 3:
+        cfg_z = round(cfg_voxel[2], 6)
+        if abs(cfg_z - _VOXEL_Z_SIZE) > 1e-4:
+            print(
+                f"[lidar-publisher] ⚠️  voxel_size Z MISMATCH\n"
+                f"  config JSON : {cfg_z}\n"
+                f"  derived     : {_VOXEL_Z_SIZE} (z_max - z_min)\n"
+                f"  These must be equal for single-layer PointPillars.",
+                flush=True,
+            )
+        else:
+            print(
+                f"[lidar-publisher] ✅ voxel_size Z consistent: {cfg_z}",
+                flush=True,
+            )
+
     print(
-        f"[lidar-publisher] Model config written to {MODEL_CONFIG}:\n"
-        f"{json.dumps(cfg, indent=4)}",
+        f"[lidar-publisher]    max_voxels={vp.get('max_voxels')}  "
+        f"max_num_points={vp.get('max_num_points')}",
         flush=True,
     )
 
@@ -543,8 +548,6 @@ class FrameStats:
                 )
 
         # ── label resolution health ───────────────────────────────────────────
-        # label_sources was reset at end of summary() so these counts reflect
-        # the window that just completed.
         fallback_count = self.label_sources.get("fallback", 0)
         if fallback_count > 0:
             alerts.append(
@@ -569,14 +572,14 @@ def _build_pipeline() -> str:
     """
     Build the gst-launch-1.0 command string.
 
-    All environment-derived string values interpolated into the shell command
-    are passed through shlex.quote().  DEVICE is validated against an allowlist
-    at module load time.  Numeric parameters (FRAME_RATE, SCORE_THRESHOLD,
-    PC_* range values) cannot carry shell metacharacters.
+    g3dlidarparse does not accept range properties — it reads the
+    point_cloud_range from the model config JSON that g3dinference also
+    uses.  No range arguments are passed here; the model config JSON is
+    the single authoritative source for spatial parameters.
 
-    g3dlidarparse receives the same point_cloud_range values that were written
-    into the model config JSON by _write_model_config(), ensuring the clip
-    boundary and the voxelisation boundary are always identical.
+    All environment-derived string values are passed through shlex.quote().
+    DEVICE is validated against an allowlist at module load time.
+    Numeric parameters cannot carry shell metacharacters.
     """
     location  = shlex.quote(DATA_PATH)
     config    = shlex.quote(MODEL_CONFIG)
@@ -594,13 +597,9 @@ def _build_pipeline() -> str:
         parts.append("loop=true")
     parts += [
         "caps=application/octet-stream",
-        # Pass the same range to g3dlidarparse that was written into the
-        # model config JSON so the clip boundary and voxelisation boundary
-        # are always identical.
-        f"! g3dlidarparse stride=1 frame-rate={FRAME_RATE}"
-        f" x-min={PC_X_MIN} x-max={PC_X_MAX}"
-        f" y-min={PC_Y_MIN} y-max={PC_Y_MAX}"
-        f" z-min={PC_Z_MIN} z-max={PC_Z_MAX}",
+        # g3dlidarparse reads point_cloud_range from the model config JSON.
+        # Do not pass range properties here — the element does not support them.
+        f"! g3dlidarparse stride=1 frame-rate={FRAME_RATE}",
         "! g3dinference",
         f"config={config}",
         f"device={device_q}",
@@ -622,10 +621,10 @@ def bbox3d_to_quaternion(theta: float) -> list[float]:
     Convert PointPillars yaw to unit quaternion [qx, qy, qz, qw].
 
     theta is a rotation around the LiDAR Z-up axis (yaw in the KITTI LiDAR
-    frame).  We encode it as a Z-axis quaternion here.  After
+    frame).  Encoded as a Z-axis quaternion here.  After
     cameraPointToWorldPoint() applies the camera pose rotation
     [0.5, -0.5, 0.5, 0.5], this quaternion will be correctly transformed
-    into the world frame.  No remapping is needed here.
+    into the world frame.
 
     Canonical form: qw >= 0 (avoids the quaternion double-cover ambiguity).
     """
@@ -644,9 +643,8 @@ def _make_timestamp(now: float) -> str:
     """
     Format a UTC timestamp as ISO-8601 with millisecond precision.
 
-    Uses explicit integer arithmetic to truncate microseconds to milliseconds
-    rather than string slicing, which is fragile if strftime ever produces a
-    shorter %f field on some platforms.
+    Uses explicit integer arithmetic rather than string slicing so the
+    result is correct on all platforms regardless of strftime %f width.
     """
     dt = datetime.fromtimestamp(now, tz=timezone.utc)
     ms = dt.microsecond // 1000
@@ -667,7 +665,7 @@ def build_camera_message(
 
     Coordinates are passed through unchanged (raw LiDAR frame).
     The SceneScape controller applies cameraPointToWorldPoint() using the
-    lidar1 camera pose.  The required rotation is [0.5, -0.5, 0.5, 0.5].
+    lidar1 camera pose rotation [0.5, -0.5, 0.5, 0.5].
     """
     objects:       dict[str, list] = {}
     debug_lines:   list[str]       = []
@@ -990,7 +988,7 @@ def _print_banner() -> None:
         f"  frame_rate     : {FRAME_RATE} Hz\n"
         f"  device         : {DEVICE}\n"
         f"  score_thresh   : {SCORE_THRESHOLD}\n"
-        f"  model_config   : {MODEL_CONFIG}\n"
+        f"  model_config   : {MODEL_CONFIG}  (read-only — managed externally)\n"
         f"  add_tensor_data: {ADD_TENSOR_DATA}"
         f"{'  ← set LIDAR_ADD_TENSOR_DATA=false for production' if ADD_TENSOR_DATA == 'true' else ''}\n"
         f"  log_level      : {LOG_LEVEL}\n"
@@ -998,9 +996,8 @@ def _print_banner() -> None:
         f"  lidar1_rotation: {_LIDAR1_ROTATION_QUAT}  "
         f"(must be set in SceneScape DB)\n"
         f"  point_cloud    : {range_str}  ({coverage})\n"
-        f"  voxel_size     : [{VOXEL_SIZE_XY}, {VOXEL_SIZE_XY}, {_VOXEL_Z_SIZE}]\n"
-        f"  max_num_points : {MAX_NUM_POINTS}  (fixed by pretrained model)\n"
-        f"  max_voxels     : {MAX_VOXELS}\n"
+        f"  voxel_z_size   : {_VOXEL_Z_SIZE}  (derived: z_max - z_min)\n"
+        f"  range_source   : model config JSON (g3dlidarparse has no range props)\n"
         f"  tls            : "
         f"{'yes' if os.path.exists(ROOT_CA) else 'no (no CA cert found)'}\n"
         f"  kitti_labels   : {KITTI_LABELS}\n"
@@ -1019,10 +1016,8 @@ def _print_banner() -> None:
 def main() -> None:
     _print_banner()
 
-    # Write the model config JSON before launching the pipeline so that
-    # g3dinference reads the updated spatial parameters (360° range,
-    # adjusted Z bounds, increased max_voxels).
-    _write_model_config()
+    # Read-only validation: warn if env vars and model config JSON disagree.
+    _validate_model_config()
 
     _make_fifo()
 
