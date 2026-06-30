@@ -14,8 +14,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from pathlib import Path
 from shutil import which
-from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
 import subprocess
 
 MAX_RETRIES = 5

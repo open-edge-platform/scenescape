@@ -1229,9 +1229,9 @@ def wait_for_3d_scene_rendered(browser, canvas_id: str = "scene", timeout: float
   """! Poll the WebGL canvas until the 3D scene has actually painted content.
 
   Under software (llvmpipe) rendering the three.js scene and its async-loaded GLB
-  assets can take several seconds to paint.This reads the canvas drawing buffer
-  directly via gl.readPixels and waits until a meaningful
-  fraction of canvas pixels differ from the background (clear) color.
+  assets can take several seconds to paint. This reads the canvas drawing buffer
+  directly via gl.readPixels and waits until a meaningful fraction of canvas
+  pixels differ from the background color.
 
   Requires the renderer to be created with preserveDrawingBuffer: true so the
   drawing buffer reflects the last rendered frame.
@@ -1278,8 +1278,8 @@ def wait_for_3d_scene_rendered(browser, canvas_id: str = "scene", timeout: float
 def capture_3d_canvas(browser, canvas_id: str = "scene") -> np.ndarray:
   """! Capture the WebGL 3D canvas pixels directly via canvas.toDataURL().
 
-  Read the canvas with toDataURL() instead returns the contents of the WebGL drawing buffer directly,
-  which is deterministic and free of compositor timing artifacts.
+  Reading the canvas with toDataURL() returns the contents of the WebGL drawing
+  buffer directly.
 
   Requires the three.js renderer to be created with preserveDrawingBuffer: true so
   the drawing buffer reflects the last rendered frame.
