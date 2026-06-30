@@ -11,7 +11,7 @@ dataset:
   config:
     data_path: ../../../tests/system/metric/dataset
     cameras: [Cam_x1_0, Cam_x2_0]
-    camera_fps: 30
+    camera_fps: 10
 
 harness:
   class: harnesses.black_box_harness.BlackBoxHarness
@@ -22,6 +22,10 @@ harness:
     tracker_config_path: pipeline_configs/black_box/config/controller_immediate.json
     # startup_wait_s: 2.0
     # drain_timeout: 5.0
+    # Optional observability: capture OTLP metrics via an OTEL Collector sidecar
+    enable_metrics: true
+    metrics_collector_image: otel/opentelemetry-collector-contrib:0.155.0
+    metrics_export_interval_s: 2
 
 evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
