@@ -81,8 +81,8 @@ profiles, languages of choice, scaling needs, and rates of change:
   ground). This logic should evolve on its own cadence, not gated by the
   Controller release.
 - **New input modalities.** LiDAR and other 3D sensors, plus pose feeds from
-  IMU/SLAM, require a clean separation between *positioning* (calibration →
-  pose) and *transform/projection* (pose + observation → world coordinates).
+  IMU/SLAM, require a clean separation between _positioning_ (calibration →
+  pose) and _transform/projection_ (pose + observation → world coordinates).
   While calibration/mapping separation already exists today, ADR 13 formalizes
   it as a deployable service boundary with explicit pose/observation contracts,
   independent scaling and release cadence, and consistent integration into the
@@ -186,9 +186,9 @@ flowchart TD
   Analytics["📊 Analytics Service"]
   Clustering["📦 Clustering Service"]
 
-  Subscene -->|"Pose, Observations"| Positioning 
-  Sensor -->|"Measurements"| Positioning 
-  PerceptionSensor -->|"Detections, Observations"| Positioning 
+  Subscene -->|"Pose, Observations"| Positioning
+  Sensor -->|"Measurements"| Positioning
+  PerceptionSensor -->|"Detections, Observations"| Positioning
 
   Positioning -->|"Pose + Observations"| Transform
   Positioning -->|"Measurements & Detections"| Transform
@@ -237,7 +237,7 @@ architecture diagram.
   heuristics). On the critical real-time path; supports a lighter baseline mode
   for flat ground-plane deployments where complex geometry is not required.
 - **Inputs**: pose plus observations and measurements from the Positioning
-  Service.
+  Service, as well as scene mesh/scene field from scene state persistence layer for conditioning i.e projecting on surface.
 - **Outputs**: world-space observations for the Multi-Object Tracker Service.
 - **Communication**: low-latency synchronous path to the Tracker (co-locatable
   to minimize boundary overhead); asynchronous fan-out only where latency
@@ -312,7 +312,7 @@ scenes with fused tracks and analytics, cameras observing within that scene's
 frame, moving robots with SLAM-localized pose, drones, sensors, and perception
 devices. All subscene types present their outputs through the same interface a
 scene exposes to its external sources: **pose + observations**. This recursive
-interface contract means hierarchy is *recursive by construction* rather than a
+interface contract means hierarchy is _recursive by construction_ rather than a
 special-cased path; parents and children speak the same language, and any node
 can be both a parent (aggregating children) and a child (feeding a parent).
 
@@ -359,7 +359,7 @@ hierarchy, ensuring ID consistency without reassignment across nested scenes.
 ### 3. Library-first split within a single process (defer microservices)
 
 Keep the functionalities as separate libraries linked into one (or few)
-processes, with the *option* to extract them into gRPC microservices later.
+processes, with the _option_ to extract them into gRPC microservices later.
 
 - **Pros**: avoids serialization/deserialization and network overhead initially
   (relevant for the latency-critical projection → tracking path); easier initial
@@ -370,7 +370,7 @@ processes, with the *option* to extract them into gRPC microservices later.
 - **Why rejected**: this ADR targets **full microservice separation** for the
   long-term architecture. The latency concern is real but bounded — prior
   benchmarking showed Protobuf over the wire improving latency by ~43% to below
-  1 ms for the Tracker PoC ([PR #636][pr636]) — and is handled by *co-locating*
+  1 ms for the Tracker PoC ([PR #636][pr636]) — and is handled by _co-locating_
   latency-critical services and choosing gRPC vs. MQTT per path, plus measuring
   before committing (tracked in [Open Questions](#open-questions)), rather than
   by collapsing them into one process.
@@ -434,10 +434,6 @@ do not block adopting the target architecture.
   this needs to be re-validated end-to-end for projection. Mitigation if needed:
   co-locate projection with the Tracker, or fall back to a shared-process
   library boundary for this hop only.
-- **Hierarchy ↔ projection integration**: hierarchy and projection both perform
-  coordinate transforms; whether (and how) to unify transform ownership across
-  hierarchy and projection services, and how to partition responsibilities at
-  that boundary, is open.
 - **Feedback Loop semantics**: the Tracker → projection feedback edge is
   proposed, not committed. Its purpose (e.g., refining placement priors for
   autonomous systems), contract (payload and timing), and activation criteria
@@ -471,16 +467,16 @@ responsibilities are fully migrated. To avoid disconnected delivery, each
 phase defines an explicit controller-parity target and a bounded legacy
 Controller role.
 
-| Phase | Deliverable | Functionalities Supported (controller parity target) | Role of legacy Controller (if any) |
-| --- | --- | --- | --- |
-| 0 (done) | Tracker Service extraction ([ADR 7](./0007-tracker-service.md), [ADR 8](./0008-tracker-service-horizontal-scaling.md)) | Real-time MOT parity for prediction, interpolation, association, and fusion on extracted tracker path | Continues running analytics, hierarchy, Re-ID, and persistence paths |
-| 1 | Scene State Persistence + shared Re-ID integration ([ADR 10](./0010-reid-metadata-storage-architecture.md), [ADR 11](./0011-inner-product-reid-state-and-id-lineage.md)) | Authoritative state, identity lineage, and cross-restart parity for scene state and ID lifecycle | Continues serving analytics APIs that still depend on legacy state views |
-| 2 | Shared Scene Graph foundation | Canonical scene-node model, parent/child topology, transform ownership boundaries, and graph query contract | Remains source for runtime hierarchy behavior while publishing/consuming graph metadata through compatibility adapters |
-| 3 | Spatial Transform & Projection Service | Projection/pose-adjustment parity for world-space observation output to tracker; transport and latency gate validated | Keeps fallback projection path behind feature flags for controlled cutover |
-| 4 | Analytics Service extraction | Analytics/events parity on persistence-backed, identity-enriched state | Runs only non-migrated edge cases behind feature flags |
-| 5 | Positioning Service rollout | Calibration-to-pose parity for cameras, sensors, and mobile platforms, with pose contract consumed by projection path | Retains temporary pose adapter and non-migrated sensor handling |
-| 6 | Dedicated hierarchy migration phase | Recursive sub-scene hierarchy parity using shared scene interfaces and first-assigned global UUID persistence rules | Legacy hierarchy path remains read-only fallback until validation gates pass |
-| 7 | Feedback Loop decision (if adopted) and monolith retirement | Final parity closure, optional feedback contract integration, and complete service-path operation | Retired after parity, performance, and reliability gates are satisfied |
+| Phase    | Deliverable                                                                                                                                                              | Functionalities Supported (controller parity target)                                                                  | Role of legacy Controller (if any)                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 0 (done) | Tracker Service extraction ([ADR 7](./0007-tracker-service.md), [ADR 8](./0008-tracker-service-horizontal-scaling.md))                                                   | Real-time MOT parity for prediction, interpolation, association, and fusion on extracted tracker path                 | Continues running analytics, hierarchy, Re-ID, and persistence paths                                                   |
+| 1        | Scene State Persistence + shared Re-ID integration ([ADR 10](./0010-reid-metadata-storage-architecture.md), [ADR 11](./0011-inner-product-reid-state-and-id-lineage.md)) | Authoritative state, identity lineage, and cross-restart parity for scene state and ID lifecycle                      | Continues serving analytics APIs that still depend on legacy state views                                               |
+| 2        | Shared Scene Graph foundation                                                                                                                                            | Canonical scene-node model, parent/child topology, transform ownership boundaries, and graph query contract           | Remains source for runtime hierarchy behavior while publishing/consuming graph metadata through compatibility adapters |
+| 3        | Spatial Transform & Projection Service                                                                                                                                   | Projection/pose-adjustment parity for world-space observation output to tracker; transport and latency gate validated | Keeps fallback projection path behind feature flags for controlled cutover                                             |
+| 4        | Analytics Service extraction                                                                                                                                             | Analytics/events parity on persistence-backed, identity-enriched state                                                | Runs only non-migrated edge cases behind feature flags                                                                 |
+| 5        | Positioning Service rollout                                                                                                                                              | Calibration-to-pose parity for cameras, sensors, and mobile platforms, with pose contract consumed by projection path | Retains temporary pose adapter and non-migrated sensor handling                                                        |
+| 6        | Dedicated hierarchy migration phase                                                                                                                                      | Recursive sub-scene hierarchy parity using shared scene interfaces and first-assigned global UUID persistence rules   | Legacy hierarchy path remains read-only fallback until validation gates pass                                           |
+| 7        | Feedback Loop decision (if adopted) and monolith retirement                                                                                                              | Final parity closure, optional feedback contract integration, and complete service-path operation                     | Retired after parity, performance, and reliability gates are satisfied                                                 |
 
 Shared Scene Graph evolution is staged across phases:
 
