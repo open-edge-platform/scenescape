@@ -388,7 +388,9 @@ class BlackBoxHarness(TrackerHarness):
     tp = config["tracker_config_path"]
     if not Path(tp).exists():
       raise ValueError(f"Tracker config file not found: {tp}")
-    self._tracker_config_path = tp
+    # Resolve to an absolute path: Docker requires absolute host paths for
+    # bind mounts, otherwise it treats the value as a named volume.
+    self._tracker_config_path = str(Path(tp).resolve())
 
     if "scene_id" in config:
       self._scene_id = config["scene_id"]
