@@ -11,7 +11,7 @@ dataset:
   config:
     data_path: ../../../tests/system/metric/dataset
     cameras: [Cam_x1_0, Cam_x2_0]
-    camera_fps: 30
+    camera_fps: 10
 
 harness:
   class: harnesses.black_box_harness.BlackBoxHarness
