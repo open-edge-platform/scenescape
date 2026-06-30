@@ -94,12 +94,17 @@ def load_camera_poses(config: dict) -> dict:
   poses = {}
   for cam_id, sensor_info in config.get("sensors", {}).items():
     try:
-      intrinsics = CameraIntrinsics(sensor_info["intrinsics"])
-      pose_info = {
-        "camera points": sensor_info["camera points"],
-        "map points": sensor_info["map points"],
-      }
-      poses[cam_id] = CameraPose(pose_info, intrinsics)
+      intrinsics = CameraIntrinsics(sensor_info["intrinsics"], sensor_info.get("distortion"))
+      # Prefer explicit extrinsics (canonical camera->world pose) when present;
+      # otherwise fall back to point correspondences.
+      if sensor_info.get("extrinsics"):
+        poses[cam_id] = CameraPose(sensor_info["extrinsics"], intrinsics)
+      else:
+        pose_info = {
+          "camera points": sensor_info["camera points"],
+          "map points": sensor_info["map points"],
+        }
+        poses[cam_id] = CameraPose(pose_info, intrinsics)
       print(f"[run_projection] Built pose for camera '{cam_id}'")
     except Exception as exc:
       print(
