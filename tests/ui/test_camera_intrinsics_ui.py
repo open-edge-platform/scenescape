@@ -5,6 +5,9 @@
 
 from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
+from selenium.common.exceptions import ElementClickInterceptedException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
 
@@ -12,6 +15,23 @@ SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
   require_password=True, auth="",
 )
+
+def click_when_clickable(browser, button_id, timeout=10):
+  """Click a button after ensuring it is interactable and not obscured."""
+  button = WebDriverWait(browser, timeout).until(
+    EC.element_to_be_clickable((By.ID, button_id))
+  )
+
+  # Keep fixed-top navigation from intercepting clicks near the viewport top.
+  browser.execute_script(
+    "arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});",
+    button,
+  )
+
+  try:
+    button.click()
+  except ElementClickInterceptedException:
+    browser.execute_script("arguments[0].click();", button)
 
 def enter_and_validate_parameters(browser, button_id, initial_value, step):
   """! Enters camera intrinsic and distortion parameters into the web UI.
@@ -38,7 +58,7 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
     value += step
 
   print('Saving changes...')
-  browser.find_element(By.ID, button_id).click()
+  click_when_clickable(browser, button_id)
 
   assert common.wait_for_elements(browser, camera1_element_id)
   browser.find_element(By.XPATH, camera1_element_id ).click()
