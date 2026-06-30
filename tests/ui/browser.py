@@ -74,9 +74,15 @@ class Browser(Firefox):
       if 'proxy' in key.lower():
         os.environ.pop(key, None)
 
-    # Make headless explicit for Firefox in CI
+    # Headless Firefox cannot create a WebGL context.
+    if webgl:
+      headless = False
+
+    # Make headless explicit for Firefox in CI.
     if headless:
       os.environ["MOZ_HEADLESS"] = "1"
+    else:
+      os.environ.pop("MOZ_HEADLESS", None)
 
     options = Options()
     if headless:
@@ -86,8 +92,8 @@ class Browser(Firefox):
     options.add_argument("--height=1920")
     # WebGL is disabled by default for CI stability. Tests that exercise the 3D
     # viewport (e.g. the scene/camera control panels) must opt in via webgl=True,
-    # in which case it is force-enabled so headless software rendering is used
-    # even though no GPU is present.
+    # in which case it is force-enabled so headed software rendering (Mesa) is
+    # used even though no GPU is present.
     options.set_preference("webgl.disabled", not webgl)
     if webgl:
       options.set_preference("webgl.force-enabled", True)

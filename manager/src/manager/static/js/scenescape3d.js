@@ -47,6 +47,9 @@ function main() {
     canvas: canvas,
     alpha: true,
     antialias: true,
+    // Retain the rendered frame in the drawing buffer so the canvas can be
+    // captured reliably
+    preserveDrawingBuffer: true,
   });
   renderer.toneMapping = THREE.ACESFilmicToneMapping; // Enable tone mapping
   renderer.toneMappingExposure = 1.0; // Default exposure for renderer

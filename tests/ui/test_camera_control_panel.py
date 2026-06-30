@@ -61,12 +61,19 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
 
     return status
 
-  def captureScreenshot(self):
+  def captureScreenshot(self, wait_render: bool = False):
     # Hide control panels and stats box
     assert self.togglePanel(self.ELEM_STATS_PANEL, True)
     assert self.togglePanel(self.ELEM_3D_CTL_PANEL, True)
     time.sleep(WAIT_SEC)
-    cap = self.getPageScreenshot()
+    if wait_render:
+      # The three.js scene and its async-loaded GLB assets can take several seconds
+      # to paint under software (llvmpipe) rendering; wait until the canvas has
+      # actually rendered content so the baseline screenshot is not a blank canvas.
+      common.wait_for_3d_scene_rendered(self.browser)
+    # Capture the WebGL canvas directly (toDataURL) rather than via the page
+    # screenshot, which can return a blank canvas under headed Firefox on Xvfb.
+    cap = common.capture_3d_canvas(self.browser)
 
     # Show 3D control panel again for interaction
     assert self.togglePanel(self.ELEM_3D_CTL_PANEL, False)
@@ -86,7 +93,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
 
       log.info("Take initial 3D screenshot")
       # Screenshot is taken after camera panel is expanded due to camera control on 3D plane will be highlighted after expanding the specific camera panel
-      screen_3d = self.captureScreenshot()
+      screen_3d = self.captureScreenshot(wait_render=True)
 
       log.info("Toggle camera1 scene camera")
       self.clickOnElement("camera1-scene-camera", delay=10)
