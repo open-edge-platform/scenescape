@@ -42,7 +42,7 @@
   },
   "tracking": {
     "max_lag_s": 1.0,
-    "time_chunking_rate_fps": 30,
+    "time_chunking_rate_fps": 2,
     "max_workers": 50,
     "max_unreliable_time_s": 1.0,
     "non_measurement_time_dynamic_s": 0.8,
