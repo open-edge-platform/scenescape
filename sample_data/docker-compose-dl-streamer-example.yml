@@ -433,6 +433,13 @@ services:
       scenescape:
     tty: true
     entrypoint: ["python3", "/home/pipeline-server/user_scripts/lidar_publisher.py"]
+    # GPU acceleration — requires /dev/dri on the host
+    devices:
+      - "/dev/dri:/dev/dri"
+    group_add:
+      - "992"
+    device_cgroup_rules:
+      - "c 226:* rmw"
     depends_on:
       broker:
         condition: service_started
@@ -448,7 +455,7 @@ services:
       # - LIDAR_STOP_INDEX=10949
       # - LIDAR_LOOP=true
       # - LIDAR_FRAME_RATE=10
-      # - LIDAR_DEVICE=GPU
+      - LIDAR_DEVICE=GPU
       # - LIDAR_SCORE_THRESHOLD=0.3
       # - LIDAR_MODEL_CONFIG=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
     volumes:
