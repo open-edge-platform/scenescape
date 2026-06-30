@@ -13,7 +13,9 @@ SPDX-License-Identifier: Apache-2.0
 
 The Scene Controller still bundles several distinct responsibilities — spatial
 transform/projection, multi-object tracking, scene analytics, re-identification,
-hierarchy aggregation, and scene state persistence — into one deployable unit.
+and hierarchy aggregation — into one deployable unit. (Note: the Controller
+maintains runtime state in memory but does not persist state; persistence is
+handled by the Manager layer.)
 The first step of decomposition, extracting the **Tracker Service** (ADR 7),
 proved the model works. This ADR proposes completing the breakdown by carving
 the remaining functionalities into independent, self-contained microservices
@@ -50,8 +52,7 @@ profiles, languages of choice, scaling needs, and rates of change:
 
 - **Spatial transform & projection** — 2D camera detections into the shared 3D
   coordinate system, surface placement, raycasting, depth-inaccuracy
-  correction, and object-type-specific heuristics (see
-  [`pose_adjustment/`](../../controller/src/controller/pose_adjustment)).
+  correction, and object-type-specific heuristics.
 - **Multi-object tracking (MOT)** — already extracted to the Tracker Service
   (see [`tracking.py`](../../controller/src/controller/tracking.py),
   [`ilabs_tracking.py`](../../controller/src/controller/ilabs_tracking.py) for
@@ -66,7 +67,8 @@ profiles, languages of choice, scaling needs, and rates of change:
 - **Scene hierarchy** — aggregating child ("sub-scene") results into parent
   scenes (see
   [`child_scene_controller.py`](../../controller/src/controller/child_scene_controller.py)).
-- **Scene state persistence** — maintaining and exposing current scene state.
+- **Runtime state maintenance** — the Controller maintains current scene state
+  (object positions, tracking data) in memory.
 
 ### Why break it down further
 
@@ -92,7 +94,11 @@ profiles, languages of choice, scaling needs, and rates of change:
   interfaces a scene exposes to its sources, so hierarchy is naturally
   recursive rather than special-cased.
 - **Shared services.** Re-ID is consumed across scenes and should be a shared
-  service rather than embedded per Controller instance.
+  service rather than embedded per Controller instance. Separating Re-ID into
+  its own service with a public API enables external clients to curate and
+  inject entries (e.g., persons of interest) into the vector database,
+  unifying vector data handling rather than keeping it opaque within the
+  Controller.
 - **Independent testability and fault isolation.** Each functionality can be
   validated, deployed, and fail independently.
 - **Reduce coupling and maintenance burden.** While logically separate
@@ -169,7 +175,6 @@ flowchart TD
   subgraph InputLayer["Input Layer"]
     PerceptionSensor["🤖 Perception Sensor"]
     Subscene["🗂️ Subscene<br/>(Fused Tracks, Analytics)"]
-    Camera["📷 Camera"]
     Sensor["🛰️ Sensor"]
   end
 
@@ -181,10 +186,9 @@ flowchart TD
   Analytics["📊 Analytics Service"]
   Clustering["📦 Clustering Service"]
 
-  Subscene -->|"Pose + Observations"| Positioning 
+  Subscene -->|"Pose, Observations"| Positioning 
   Sensor -->|"Measurements"| Positioning 
-  PerceptionSensor -->|"Detections"| Positioning 
-  Camera -->|"Observations"| Positioning 
+  PerceptionSensor -->|"Detections, Observations"| Positioning 
 
   Positioning -->|"Pose + Observations"| Transform
   Positioning -->|"Measurements & Detections"| Transform
@@ -214,7 +218,7 @@ architecture diagram.
 
 - **Role**: normalize and supply pose context for all incoming observations and
   measurements so that downstream services operate in a shared spatial frame.
-- **Inputs**: camera observations, perception detections, sensor measurements,
+- **Inputs**: perceptual sensor observations, sensor measurements,
   subscene-provided pose/observation updates, and state-driven updates from
   Scene State Persistence.
 - **Outputs**: pose-enriched context (pose + observations/measurements) for the
@@ -444,15 +448,13 @@ do not block adopting the target architecture.
   retracking causes unnecessary ID reassignment and mishandles active trackers
   (e.g., UWB); a decision may need to be object-type-based rather than
   scene-based.
-- **Scene Graph ownership and consistency**: who owns the authoritative Scene
-  Graph, its consistency model across distributed services, and how pose updates
-  from Persistence reconcile with Positioning.
+- **Scene Graph ownership and consistency**: the Scene Graph is derived from
+  scene state and delivered by the Persistence layer. Questions remain about
+  consistency model across distributed services, ownership of the authoritative
+  graph representation, and how pose updates from Persistence reconcile with
+  Positioning.
 - **Temporal fidelity control**: how a parent scene controls the data/update
   rate it receives from children.
-- **Time synchronization**: whether services synchronize timestamps internally
-  against NTP, or rely on system-level clock synchronization (shifting
-  responsibility to the deployment). System-clock NTP simplifies the pipeline
-  and may reduce latency.
 - **Semantic clustering**: how to meaningfully group different object types,
   and the interface between analytics and the clustering service for it.
 - **Transport selection per hop**: final gRPC-vs-MQTT choice for each interface,
@@ -472,11 +474,11 @@ Controller role.
 | Phase | Deliverable | Functionalities Supported (controller parity target) | Role of legacy Controller (if any) |
 | --- | --- | --- | --- |
 | 0 (done) | Tracker Service extraction ([ADR 7](./0007-tracker-service.md), [ADR 8](./0008-tracker-service-horizontal-scaling.md)) | Real-time MOT parity for prediction, interpolation, association, and fusion on extracted tracker path | Continues running analytics, hierarchy, Re-ID, and persistence paths |
-| 1 | Shared Scene Graph foundation | Canonical scene-node model, parent/child topology, transform ownership boundaries, and graph query contract | Remains source for runtime hierarchy behavior while publishing/consuming graph metadata through compatibility adapters |
-| 2 | Spatial Transform & Projection Service | Projection/pose-adjustment parity for world-space observation output to tracker; transport and latency gate validated | Keeps fallback projection path behind feature flags for controlled cutover |
-| 3 | Scene State Persistence + shared Re-ID integration ([ADR 10](./0010-reid-metadata-storage-architecture.md), [ADR 11](./0011-inner-product-reid-state-and-id-lineage.md)) | Authoritative state, identity lineage, and cross-restart parity for scene state and ID lifecycle | Continues serving analytics APIs that still depend on legacy state views |
-| 4 | Positioning Service rollout | Calibration-to-pose parity for cameras, sensors, and mobile platforms, with pose contract consumed by projection path | Retains temporary pose adapter and non-migrated sensor handling |
-| 5 | Analytics Service extraction | Analytics/events parity on persistence-backed, identity-enriched state | Runs only non-migrated edge cases behind feature flags |
+| 1 | Scene State Persistence + shared Re-ID integration ([ADR 10](./0010-reid-metadata-storage-architecture.md), [ADR 11](./0011-inner-product-reid-state-and-id-lineage.md)) | Authoritative state, identity lineage, and cross-restart parity for scene state and ID lifecycle | Continues serving analytics APIs that still depend on legacy state views |
+| 2 | Shared Scene Graph foundation | Canonical scene-node model, parent/child topology, transform ownership boundaries, and graph query contract | Remains source for runtime hierarchy behavior while publishing/consuming graph metadata through compatibility adapters |
+| 3 | Spatial Transform & Projection Service | Projection/pose-adjustment parity for world-space observation output to tracker; transport and latency gate validated | Keeps fallback projection path behind feature flags for controlled cutover |
+| 4 | Analytics Service extraction | Analytics/events parity on persistence-backed, identity-enriched state | Runs only non-migrated edge cases behind feature flags |
+| 5 | Positioning Service rollout | Calibration-to-pose parity for cameras, sensors, and mobile platforms, with pose contract consumed by projection path | Retains temporary pose adapter and non-migrated sensor handling |
 | 6 | Dedicated hierarchy migration phase | Recursive sub-scene hierarchy parity using shared scene interfaces and first-assigned global UUID persistence rules | Legacy hierarchy path remains read-only fallback until validation gates pass |
 | 7 | Feedback Loop decision (if adopted) and monolith retirement | Final parity closure, optional feedback contract integration, and complete service-path operation | Retired after parity, performance, and reliability gates are satisfied |
 
