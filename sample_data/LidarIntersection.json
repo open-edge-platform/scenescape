@@ -11,13 +11,13 @@
       "uid": "lidar1",
       "name": "inf-lidar1",
       "intrinsics": {
-        "fx": 100.0,
-        "fy": 100.0,
+        "fx": 1.0,
+        "fy": 1.0,
         "cx": 0.0,
         "cy": 0.0
       },
       "transform_type": "euler",
-      "translation": [200.0, 200.0, 0.0],
+      "translation": [200.0, 200.0, 2.52],
       "rotation": [0.0, 0.0, 0.0],
       "scale": [1.0, 1.0, 1.0],
       "resolution": [1000, 1000],
@@ -42,15 +42,8 @@
       "transform_type": "euler",
       "translation": [203.605, 199.985, 4.618],
       "rotation": [77.3, 0.25, -0.03],
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "resolution": [
-        1920,
-        1080
-      ],
+      "scale": [1.0, 1.0, 1.0],
+      "resolution": [1920, 1080],
       "scene": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
     }
   ]
