@@ -395,11 +395,10 @@ def modify_tripwire(browser):
     return int(round(safe_dx))
 
   try:
-    browser.find_element(By.ID, "tripwires-tab").click()
-
     wait = WebDriverWait(browser, BROWSER_WAIT)
-    wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "point_0")))
-    wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "point_1")))
+    wait.until(EC.element_to_be_clickable((By.ID, "tripwires-tab"))).click()
+    wait.until(EC.visibility_of_all_elements_located((By.CLASS_NAME, "point_0")))
+    wait.until(EC.visibility_of_all_elements_located((By.CLASS_NAME, "point_1")))
 
     # creating a long horizontal tripwire
     points_0 = browser.find_elements(By.CLASS_NAME, "point_0")
