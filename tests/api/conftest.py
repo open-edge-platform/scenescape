@@ -18,6 +18,39 @@ def pytest_addoption(parser):
   parser.addoption("--test_case", default=None,
                    help="Specific test case name to run")
 
+@pytest.fixture(autouse=True)
+def oversized_upload_file(request):
+  """Generate a >100MB dummy .mp4 for the mapping payload-too-large (413) test.
+
+  Scoped to mapping_api scenarios only (via the scenario's _source_file). The
+  mapping service caps requests at 100MB (MAX_CONTENT_LENGTH) and rejects
+  oversized uploads before decoding, so the file only needs to exceed that
+  size; its contents are never parsed. It is created at runtime as a sparse
+  file to avoid committing a large binary, and removed afterwards.
+  """
+  callspec = getattr(request.node, "callspec", None)
+  scenario = callspec.params.get("test_case") if callspec else None
+  is_mapping = isinstance(scenario, dict) and scenario.get("_source_file") == "mapping_api"
+
+  target = ROOT_DIR / "tests" / "api" / "test_media" / "LargeVideoForTest.mp4"
+  created = False
+  if is_mapping and not target.exists():
+    target.parent.mkdir(parents=True, exist_ok=True)
+    # Minimal ftyp box so the file is recognizably an MP4 container.
+    ftyp = (
+      b"\x00\x00\x00\x20ftyp"
+      b"isom\x00\x00\x02\x00"
+      b"isomiso2avc1mp41"
+    )
+    size = 101 * 1024 * 1024  # 101MB, just over the 100MB server limit
+    with open(target, "wb") as f:
+      f.write(ftyp)
+      f.truncate(size)
+    created = True
+  yield target
+  if created:
+    target.unlink(missing_ok=True)
+
 @pytest.fixture(scope='session')
 def base_url():
   return os.environ.get("API_BASE_URL", "https://localhost")
