@@ -180,3 +180,80 @@ class TestMetricsCustomConfig:
     assert harness._metrics_collector_image.endswith("0.155.0")
     assert harness._metrics_export_interval_s == 3
     assert harness._metrics_otlp_port == 5317
+
+
+class TestCollectMetricValues:
+  def test_returns_structured_values_per_metric(self, metrics_file):
+    values = metrics_recorder.collect_metric_values(metrics_file)
+    assert set(values) == {
+        "tracker.mqtt.latency",
+        "tracker.mqtt.messages",
+        "tracker.tracks.active",
+    }
+    hist = values["tracker.mqtt.latency"]
+    assert hist["kind"] == "histogram"
+    assert hist["stats"]["count"] == 4
+    assert hist["stats"]["avg"] == 4.0
+    counter = values["tracker.mqtt.messages"]
+    assert counter["kind"] == "sum"
+    assert counter["stats"]["total"] == 5
+    gauge = values["tracker.tracks.active"]
+    assert gauge["kind"] == "gauge"
+    assert gauge["stats"]["max"] == 3
+
+  def test_missing_file_returns_empty(self, tmp_path):
+    assert metrics_recorder.collect_metric_values(tmp_path / "absent.json") == {}
+
+
+class TestCheckDroppedFrames:
+  def _values_with_dropped(self, total):
+    return {
+        "scenescape_controller_mqtt_messages_dropped": {
+            "kind": "sum",
+            "unit": "1",
+            "stats": {"total": total, "delta": {}},
+        }
+    }
+
+  def test_counts_dropped_and_ratio(self):
+    result = metrics_recorder.check_dropped_frames(
+        self._values_with_dropped(5), output_frame_count=1000
+    )
+    assert result["dropped"] == 5
+    assert result["output_frames"] == 1000
+    assert result["ratio"] == pytest.approx(0.005)
+    assert result["exceeded"] is False
+
+  def test_exceeds_threshold(self):
+    result = metrics_recorder.check_dropped_frames(
+        self._values_with_dropped(50), output_frame_count=1000
+    )
+    assert result["ratio"] == pytest.approx(0.05)
+    assert result["exceeded"] is True
+
+  def test_sums_controller_and_tracker_metrics(self):
+    values = self._values_with_dropped(3)
+    values["tracker.mqtt.dropped"] = {
+        "kind": "sum", "unit": "1", "stats": {"total": 7, "delta": {}},
+    }
+    result = metrics_recorder.check_dropped_frames(values, output_frame_count=1000)
+    assert result["dropped"] == 10
+
+  def test_zero_output_frames_yields_zero_ratio(self):
+    result = metrics_recorder.check_dropped_frames(
+        self._values_with_dropped(5), output_frame_count=0
+    )
+    assert result["ratio"] == 0.0
+    assert result["exceeded"] is False
+
+  def test_no_dropped_metric_reports_zero(self):
+    result = metrics_recorder.check_dropped_frames({}, output_frame_count=1000)
+    assert result["dropped"] == 0
+    assert result["exceeded"] is False
+
+  def test_custom_threshold(self):
+    result = metrics_recorder.check_dropped_frames(
+        self._values_with_dropped(5), output_frame_count=1000, threshold=0.001
+    )
+    assert result["exceeded"] is True
+

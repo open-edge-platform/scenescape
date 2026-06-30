@@ -36,6 +36,17 @@ _KIND_HISTOGRAM = "histogram"
 _KIND_SUM = "sum"
 _KIND_GAUGE = "gauge"
 
+# Counter metrics whose cumulative total reports messages/frames the service
+# dropped (e.g. due to lag, queue overflow, or worker saturation).  Both the
+# legacy controller and the tracker service expose an equivalent counter.
+DROPPED_FRAME_METRICS = (
+    "scenescape_controller_mqtt_messages_dropped",
+    "tracker.mqtt.dropped",
+)
+
+# Default warning threshold for the dropped-frame ratio (1%).
+DEFAULT_DROPPED_FRAME_THRESHOLD = 0.01
+
 
 def _to_float(value: Any) -> Optional[float]:
   """Convert an OTLP-JSON scalar (string or number) to float, or None."""
@@ -202,6 +213,81 @@ def _summarise_gauge(points: List[Dict[str, Any]]) -> Optional[Dict[str, float]]
   return _stats(values)
 
 
+def collect_metric_values(metrics_file: Path) -> Dict[str, Dict[str, Any]]:
+  """Return aggregated metric and latency values keyed by metric name.
+
+  Each entry has the shape::
+
+      {
+          "kind": "histogram" | "sum" | "gauge",
+          "unit": <str>,
+          "stats": <dict | None>,
+      }
+
+  where ``stats`` is the per-kind aggregation (histogram: ``count``/``avg``/
+  ``min``/``max``; sum: ``total`` plus a ``delta`` distribution; gauge:
+  ``avg``/``min``/``max``/``median``) or ``None`` when the series had no data.
+
+  Args:
+      metrics_file: Path to the OTEL Collector ``file`` exporter output.
+
+  Returns:
+      Mapping of metric name to its aggregated values (empty when the file is
+      missing or contained no metrics).
+  """
+  if not metrics_file.exists():
+    return {}
+
+  metrics = _collect_metrics(_load_records(metrics_file))
+  values: Dict[str, Dict[str, Any]] = {}
+  for name, entry in metrics.items():
+    kind = entry["kind"]
+    if kind == _KIND_HISTOGRAM:
+      stats = _summarise_histogram(entry["points"])
+    elif kind == _KIND_SUM:
+      stats = _summarise_counter(entry["points"])
+    else:
+      stats = _summarise_gauge(entry["points"])
+    values[name] = {"kind": kind, "unit": entry["unit"], "stats": stats}
+  return values
+
+
+def check_dropped_frames(
+    metric_values: Dict[str, Dict[str, Any]],
+    output_frame_count: int,
+    threshold: float = DEFAULT_DROPPED_FRAME_THRESHOLD,
+) -> Dict[str, Any]:
+  """Verify how many frames the tracker/controller dropped during the run.
+
+  Sums the cumulative totals of the known dropped-frame counters and compares
+  the dropped count against the number of tracker output frames.
+
+  Args:
+      metric_values:      Output of :func:`collect_metric_values`.
+      output_frame_count: Number of tracker output frames collected.
+      threshold:          Ratio above which the run is flagged (default 1%).
+
+  Returns:
+      Mapping with ``dropped`` (int), ``output_frames`` (int), ``ratio``
+      (float; 0.0 when no output frames), ``threshold`` (float) and
+      ``exceeded`` (bool).
+  """
+  dropped = 0
+  for name in DROPPED_FRAME_METRICS:
+    entry = metric_values.get(name)
+    if entry and entry.get("stats"):
+      dropped += int(entry["stats"].get("total", 0) or 0)
+
+  ratio = dropped / output_frame_count if output_frame_count > 0 else 0.0
+  return {
+      "dropped": dropped,
+      "output_frames": int(output_frame_count),
+      "ratio": ratio,
+      "threshold": threshold,
+      "exceeded": ratio > threshold,
+  }
+
+
 def build_summary(metrics_file: Path, metadata: Dict[str, Any]) -> str:
   """Build the metrics summary text from a collector output file.
 
@@ -223,48 +309,39 @@ def build_summary(metrics_file: Path, metadata: Dict[str, Any]) -> str:
     lines.append("No metrics file produced by the collector.")
     return "\n".join(lines)
 
-  metrics = _collect_metrics(_load_records(metrics_file))
-  if not metrics:
+  values = collect_metric_values(metrics_file)
+  if not values:
     lines.append("No metrics recorded.")
     return "\n".join(lines)
 
-  for name in sorted(metrics):
-    entry = metrics[name]
+  for name in sorted(values):
+    entry = values[name]
     kind = entry["kind"]
     unit = entry["unit"]
+    summary = entry["stats"]
     unit_suffix = f", unit={unit}" if unit else ""
     lines.append(f"[{name}] ({kind}{unit_suffix})")
 
-    if kind == _KIND_HISTOGRAM:
-      summary = _summarise_histogram(entry["points"])
-      if summary is None:
-        lines.append("  no data points")
-      else:
-        lines.append(f"  count:  {int(summary['count'])}")
-        lines.append(f"  avg:    {summary['avg']:.4f}")
-        lines.append(f"  min:    {summary['min']:.4f}")
-        lines.append(f"  max:    {summary['max']:.4f}")
+    if summary is None:
+      lines.append("  no data points")
+    elif kind == _KIND_HISTOGRAM:
+      lines.append(f"  count:  {int(summary['count'])}")
+      lines.append(f"  avg:    {summary['avg']:.4f}")
+      lines.append(f"  min:    {summary['min']:.4f}")
+      lines.append(f"  max:    {summary['max']:.4f}")
     elif kind == _KIND_SUM:
-      summary = _summarise_counter(entry["points"])
-      if summary is None:
-        lines.append("  no data points")
-      else:
-        delta = summary["delta"]
-        lines.append(f"  total:  {summary['total']:.0f}")
-        lines.append(
-            "  per-interval delta  "
-            f"avg: {delta['avg']:.2f}  min: {delta['min']:.0f}  "
-            f"max: {delta['max']:.0f}  median: {delta['median']:.2f}"
-        )
+      delta = summary["delta"]
+      lines.append(f"  total:  {summary['total']:.0f}")
+      lines.append(
+          "  per-interval delta  "
+          f"avg: {delta['avg']:.2f}  min: {delta['min']:.0f}  "
+          f"max: {delta['max']:.0f}  median: {delta['median']:.2f}"
+      )
     else:  # gauge
-      summary = _summarise_gauge(entry["points"])
-      if summary is None:
-        lines.append("  no data points")
-      else:
-        lines.append(
-            f"  avg: {summary['avg']:.4f}  min: {summary['min']:.4f}  "
-            f"max: {summary['max']:.4f}  median: {summary['median']:.4f}"
-        )
+      lines.append(
+          f"  avg: {summary['avg']:.4f}  min: {summary['min']:.4f}  "
+          f"max: {summary['max']:.4f}  median: {summary['median']:.4f}"
+      )
     lines.append("")
 
   return "\n".join(lines).rstrip() + "\n"
