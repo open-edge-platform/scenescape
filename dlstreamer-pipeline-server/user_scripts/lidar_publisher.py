@@ -3,41 +3,34 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Publishes raw PointPillars detections in SceneScape camera detection format
-WITHOUT any coordinate conversion.
+Publishes PointPillars detections in SceneScape camera detection format
+with an in-publisher LiDAR→scene coordinate pre-transform.
 
-The SceneScape controller applies cameraPointToWorldPoint() using the
-lidar1 camera pose configured in the database. We must NOT pre-project
-the coordinates — doing so causes double projection.
+Coordinate transform (pre-applied before publishing):
+  scene_x = -y_lidar   (LiDAR Y=left  → scene X=right with negation)
+  scene_y = -x_lidar   (LiDAR X=fwd   → scene Y=down  with negation)
+  scene_z =  z_lidar   (LiDAR Z=up    → scene Z=up, unchanged)
+
+This matches the map drawn by gen_intersection_map.py:
+  col = (-y_lidar + 200) × 5   →  world_x = -y_lidar + sensor_tx
+  row = (-x_lidar + 200) × 5   →  world_y = -x_lidar + sensor_ty
+
+Required lidar1 camera pose in SceneScape database:
+  transform_type: euler
+  rotation:       [0, 0, 0]          (identity — transform done in publisher)
+  translation:    [200, 200, 2.52]   (sensor position in world metres)
+  scale:          [1, 1, 1]          (metres; scene scale=5 px/m handles pixels)
 
 bbox_3d.z from PointPillars is the bbox CENTRE (verified from log analysis).
 Therefore translation z = bbox_3d.z directly, no h/2 adjustment needed.
 
-PointPillars coordinate frame (KITTI LiDAR, right-handed Z-up):
-  X — forward  (into scene)
-  Y — left
-  Z — up
-
-SceneScape camera model (OpenCV, right-handed Z-forward Y-down):
-  X — right
-  Y — down
-  Z — forward (optical axis)
-
-These frames are NOT aligned. The lidar1 camera pose in SceneScape must
-carry the rotation that maps the camera frame onto the LiDAR frame.
-The camera "points down" — its optical axis (Z) aligns with LiDAR X
-(forward), and its Y axis aligns with LiDAR -Z (down).
-
-Required lidar1 camera pose in SceneScape database:
-  translation: [sensor_map_x, sensor_map_y, sensor_mount_height_metres]
-  rotation:    [0.5, -0.5, 0.5, 0.5]   (qx, qy, qz, qw)
-  scale:       metres_to_pixels
-
-Derivation of rotation quaternion [0.5, -0.5, 0.5, 0.5]:
-  camera X (right)   → LiDAR -Y  →  R col0 = [ 0, -1,  0]
-  camera Y (down)    → LiDAR -Z  →  R col1 = [ 0,  0, -1]
-  camera Z (forward) → LiDAR  X  →  R col2 = [ 1,  0,  0]
-  scipy: Rotation.from_matrix(R).as_quat() → [0.5, -0.5, 0.5, 0.5]
+Object heading:
+  PointPillars theta = yaw in LiDAR frame (radians, CCW from +X, Z-up).
+  After the (-y,-x) remap, the scene heading is:
+    scene_heading = -(theta + π/2)
+  Published as a rotation around scene Z: [qx=0, qy=0, qz=sin(h/2), qw=cos(h/2)].
+  The controller multiplies camera_R × object_R; with identity camera_R the
+  object rotation is used unchanged in world frame.
 
 Point cloud range / spatial coverage:
   Controlled exclusively via the model config JSON
@@ -186,8 +179,9 @@ _FPS_WARN_RATIO     = 0.75
 _FPS_CRITICAL_RATIO = 0.50
 
 # ── SceneScape camera pose reminder ───────────────────────────────────────────
-# Printed in the startup banner. Must be set in the SceneScape database.
-_LIDAR1_ROTATION_QUAT = [0.5, -0.5, 0.5, 0.5]
+# Printed in the startup banner.  DB must have identity rotation (euler [0,0,0])
+# and translation [200, 200, 2.52].  Coordinate transform is done here.
+_LIDAR1_DB_ROTATION = [0.0, 0.0, 0.0]   # euler XYZ degrees — identity
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -627,34 +621,31 @@ def _build_pipeline() -> str:
 def bbox3d_to_quaternion(theta: float) -> list[float]:
     """
     Convert PointPillars yaw to unit quaternion [qx, qy, qz, qw] in the
-    SceneScape camera frame.
+    SceneScape scene (world) frame.
 
-    theta is a rotation around the LiDAR Z-up axis (yaw in the KITTI LiDAR
-    frame, right-handed, positive = counter-clockwise from above).
+    theta — yaw in LiDAR frame (radians, CCW from +X when viewed from above).
 
-    The camera pose quaternion [0.5, -0.5, 0.5, 0.5] maps camera axes to
-    LiDAR axes as follows:
-        camera X (right)   → LiDAR −Y
-        camera Y (down)    → LiDAR −Z
-        camera Z (forward) → LiDAR  X
+    After the coordinate pre-transform (scene_x=-y, scene_y=-x) the scene
+    heading of a direction (cos θ, sin θ) in LiDAR becomes (-sin θ, -cos θ)
+    in scene, giving:
+        scene_heading = arctan2(-cos θ, -sin θ) = -(θ + π/2)
 
-    To express LiDAR Z in camera frame:
-        R^T · [0,0,1] = [0, −1, 0]  →  camera −Y
+    With identity camera rotation, the controller uses object_R as-is in
+    world frame, so the quaternion is a pure Z-axis rotation:
+        q = [0, 0, sin(scene_heading/2), cos(scene_heading/2)]
 
-    Therefore a yaw around LiDAR Z is a rotation around camera −Y:
-        q = [0, −sin(θ/2), 0, cos(θ/2)]
-
-    Canonical form: qw >= 0 (avoids the quaternion double-cover ambiguity).
+    Canonical form: qw >= 0.
     """
-    half = theta / 2.0
-    qy   = -math.sin(half)   # camera −Y  ←→  LiDAR Z (yaw axis)
+    scene_heading = -(theta + math.pi / 2.0)
+    half = scene_heading / 2.0
+    qz   =  math.sin(half)
     qw   =  math.cos(half)
     if qw < 0.0:
-        qy, qw = -qy, -qw
+        qz, qw = -qz, -qw
     EPS = 1e-6
-    qy  = max(-1.0 + EPS, min(1.0 - EPS, qy))
+    qz  = max(-1.0 + EPS, min(1.0 - EPS, qz))
     qw  = max(-1.0 + EPS, min(1.0 - EPS, qw))
-    return [0.0, qy, 0.0, qw]
+    return [0.0, 0.0, qz, qw]
 
 
 def _make_timestamp(now: float) -> str:
@@ -676,14 +667,14 @@ def build_camera_message(
     now: float,
 ) -> tuple[dict, list[str], dict[str, int]]:
     """
-    Wrap raw gvametaconvert detections in SceneScape camera message format.
+    Wrap gvametaconvert detections in SceneScape camera message format.
 
     Returns:
       (message_dict, debug_lines, label_source_counts)
 
-    Coordinates are passed through unchanged (raw LiDAR frame).
-    The SceneScape controller applies cameraPointToWorldPoint() using the
-    lidar1 camera pose rotation [0.5, -0.5, 0.5, 0.5].
+    Coordinate pre-transform applied here (see module docstring):
+      scene_x = -y_lidar,  scene_y = -x_lidar,  scene_z = z_lidar
+    Rotation: scene_heading = -(theta + π/2), encoded as Z-axis quaternion.
     """
     objects:       dict[str, list] = {}
     debug_lines:   list[str]       = []
@@ -700,22 +691,27 @@ def build_camera_message(
             label, source = resolve_label(obj)
             label_sources[source] += 1
 
-            x     = bbox.get("x", 0.0)
-            y     = bbox.get("y", 0.0)
-            z_bot = bbox.get("z", 0.0)   # PointPillars z = BOTTOM of bbox
+            x_l   = bbox.get("x", 0.0)   # LiDAR X = forward
+            y_l   = bbox.get("y", 0.0)   # LiDAR Y = left
+            z     = bbox.get("z", 0.0)   # bbox centre (verified empirically)
             w     = bbox.get("w", 0.0)
             l     = bbox.get("l", 0.0)
             h     = bbox.get("h", 0.0)
-            z     = z_bot + h / 2.0      # convert to geometric centre
             theta = bbox.get("theta", 0.0)
             conf  = obj.get("confidence", 0.0)
             rot   = bbox3d_to_quaternion(theta)
+
+            # Pre-transform: LiDAR → scene frame
+            #   scene_x = -y_lidar  (maps left/right)
+            #   scene_y = -x_lidar  (maps forward/backward)
+            sx = -y_l
+            sy = -x_l
 
             det = {
                 "id":          i + 1,
                 "category":    label,
                 "confidence":  conf,
-                "translation": [x, y, z],
+                "translation": [sx, sy, z],
                 "size":        [l, w, h],
                 "rotation":    rot,
             }
@@ -724,7 +720,8 @@ def build_camera_message(
             if LOG_LEVEL == "DEBUG":
                 debug_lines.append(
                     f"  [obj {i:02d}] {label:<14} src={source:<16} "
-                    f"xyz=({x:7.2f},{y:7.2f},{z:7.2f}) "
+                    f"lidar=({x_l:7.2f},{y_l:7.2f},{z:7.2f}) "
+                    f"scene=({sx:7.2f},{sy:7.2f},{z:7.2f}) "
                     f"lwh=({l:.2f},{w:.2f},{h:.2f}) "
                     f"theta={theta:+.3f} "
                     f"rot=[{rot[2]:+.3f},{rot[3]:+.3f}] "
@@ -781,15 +778,17 @@ def _log_frame_debug(
         if raw_obj:
             b  = raw_obj["bbox_3d"]
             t  = o["translation"]
+            exp_sx = -b.get("y", 0)
+            exp_sy = -b.get("x", 0)
             ok = (
-                abs(t[0] - b.get("x", 0)) < 1e-4
-                and abs(t[1] - b.get("y", 0)) < 1e-4
-                and abs(t[2] - b.get("z", 0)) < 1e-4
+                abs(t[0] - exp_sx) < 1e-4
+                and abs(t[1] - exp_sy) < 1e-4
             )
             print(
-                f"  passthrough={'✅ OK' if ok else '⚠️  MISMATCH'} "
-                f"raw=({b.get('x',0):.4f},{b.get('y',0):.4f},{b.get('z',0):.4f}) "
-                f"pub=({t[0]:.4f},{t[1]:.4f},{t[2]:.4f})",
+                f"  transform={'✅ OK' if ok else '⚠️  MISMATCH'} "
+                f"lidar=({b.get('x',0):.3f},{b.get('y',0):.3f},{b.get('z',0):.3f}) "
+                f"→ scene=({exp_sx:.3f},{exp_sy:.3f})  "
+                f"pub=({t[0]:.3f},{t[1]:.3f},{t[2]:.3f})",
                 flush=True,
             )
         break
@@ -817,19 +816,18 @@ def _log_frame_info(
             continue
         b  = raw_obj["bbox_3d"]
         t  = o["translation"]
-        ok = (
-            abs(t[0] - b.get("x", 0)) < 1e-4
-            and abs(t[1] - b.get("y", 0)) < 1e-4
-            and abs(t[2] - b.get("z", 0)) < 1e-4
-        )
+        exp_sx = -b.get("y", 0)
+        exp_sy = -b.get("x", 0)
+        ok = abs(t[0] - exp_sx) < 1e-4 and abs(t[1] - exp_sy) < 1e-4
         _, src = resolve_label(raw_obj)
         print(
             f"[frame={published:,} fps={fps:.1f}] {cat} "
             f"{'✅' if ok else '⚠️ MISMATCH'} "
             f"src={src} "
-            f"bbox=({b.get('x',0):.2f},{b.get('y',0):.2f},{b.get('z',0):.2f}) "
+            f"lidar=({b.get('x',0):.2f},{b.get('y',0):.2f},{b.get('z',0):.2f}) "
+            f"→ scene=({exp_sx:.2f},{exp_sy:.2f}) "
             f"h={b.get('h',0):.2f} theta={b.get('theta',0):.3f} "
-            f"→ t=({t[0]:.2f},{t[1]:.2f},{t[2]:.2f}) "
+            f"pub_t=({t[0]:.2f},{t[1]:.2f},{t[2]:.2f}) "
             f"rot={[round(v,3) for v in o['rotation']]} "
             f"conf={o['confidence']:.2f}",
             flush=True,
@@ -1013,9 +1011,9 @@ def _print_banner() -> None:
         f"  log_level      : {LOG_LEVEL}\n"
         f"  publish_raw    : {PUBLISH_RAW}"
         f"{'  topic: ' + RAW_TOPIC if PUBLISH_RAW else '  (set LIDAR_PUBLISH_RAW=true to enable)'}\n"
-        f"  coordinate     : RAW LiDAR frame — controller projects to world\n"
-        f"  lidar1_rotation: {_LIDAR1_ROTATION_QUAT}  "
-        f"(must be set in SceneScape DB)\n"
+        f"  coordinate     : pre-transformed (scene_x=-y_lidar, scene_y=-x_lidar)\n"
+        f"  lidar1_DB_rot  : {_LIDAR1_DB_ROTATION} euler  "
+        f"(identity — transform done in publisher)\n"
         f"  point_cloud    : {range_str}  ({coverage})\n"
         f"  voxel_z_size   : {_VOXEL_Z_SIZE}  (derived: z_max - z_min)\n"
         f"  range_source   : model config JSON (g3dlidarparse has no range props)\n"
