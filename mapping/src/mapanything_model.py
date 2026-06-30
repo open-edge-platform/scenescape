@@ -60,7 +60,7 @@ class MapAnythingModel(ReconstructionModel):
       log.info("MapAnything model loaded successfully")
 
     except Exception as e:
-      log.error(f"Failed to load MapAnything model: {e}")
+      log.error(f"Failed to load MapAnything model: {e}", exc_info=True)
       raise RuntimeError(f"MapAnything model loading failed: {e}")
 
   def run_inference(self, frames: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -113,7 +113,7 @@ class MapAnythingModel(ReconstructionModel):
       )
 
     except Exception as e:
-      log.error(f"MapAnything inference (frames) failed: {e}")
+      log.error(f"MapAnything inference (frames) failed: {e}", exc_info=True)
       raise RuntimeError(f"MapAnything inference (frames) failed: {e}")
 
   def get_supported_outputs(self) -> List[str]:

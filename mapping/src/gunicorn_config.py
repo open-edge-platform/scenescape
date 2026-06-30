@@ -46,7 +46,7 @@ def post_fork(server, worker):
       log.info(f"Worker {worker.pid} model already initialized")
 
   except Exception as e:
-    log.error(f"Worker {worker.pid} failed to initialize model: {e}")
+    log.error(f"Worker {worker.pid} failed to initialize model: {e}", exc_info=True)
     # Don't exit here - let Gunicorn handle worker failures
     raise
 

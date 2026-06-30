@@ -80,7 +80,7 @@ class VGGTModel(ReconstructionModel):
       log.info("VGGT model loaded successfully")
 
     except Exception as e:
-      log.error(f"Failed to load VGGT model: {e}")
+      log.error(f"Failed to load VGGT model: {e}", exc_info=True)
       raise RuntimeError(f"VGGT model loading failed: {e}")
 
   def run_inference(self, images: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -131,7 +131,7 @@ class VGGTModel(ReconstructionModel):
       return result
 
     except Exception as e:
-      log.error(f"VGGT inference failed: {e}")
+      log.error(f"VGGT inference failed: {e}", exc_info=True)
       raise RuntimeError(f"VGGT inference failed: {e}")
 
   def get_supported_outputs(self) -> List[str]:
