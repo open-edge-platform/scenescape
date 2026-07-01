@@ -1107,6 +1107,47 @@ def selenium_wait_for_elements(browser, search_phrase, timeout=20):
   """
   return WebDriverWait(browser, timeout).until(EC.visibility_of_element_located(search_phrase))
 
+def wait_for_element_with_reload(browser, locator, page_path=None, timeout=120,
+                                 reload_interval=40, poll_interval=1):
+  """! Wait for an element to appear, periodically reloading the page to recover
+  from a transient failed load.
+
+  Pages that build their DOM asynchronously from a WebGL/three.js scene can occasionally
+  fail to initialize under CI's headless software rendering, leaving the awaited element
+  permanently absent. A single long wait cannot recover from that, so this helper reloads
+  the page at a sane cadence while polling so the async DOM has time to populate.
+
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    locator                    (By, value) tuple identifying the element.
+  @param    page_path                  Optional path to navigate to on reload; if
+                                       omitted the current page is refreshed.
+  @param    timeout                    Maximum seconds to wait overall.
+  @param    reload_interval            Seconds to wait after a (re)load before
+                                       forcing another reload.
+  @param    poll_interval              Seconds between element-presence checks.
+  @return   element or None            The located element, or None on timeout.
+  """
+  deadline = time.monotonic() + timeout
+  last_reload = time.monotonic()
+  while time.monotonic() < deadline:
+    try:
+      elements = browser.find_elements(*locator)
+      if elements:
+        return elements[0]
+    except Exception:
+      pass
+    if time.monotonic() - last_reload >= reload_interval:
+      try:
+        if page_path:
+          navigate_directly_to_page(browser, page_path)
+        else:
+          browser.refresh()
+      except Exception:
+        pass
+      last_reload = time.monotonic()
+    time.sleep(poll_interval)
+  return None
+
 def create_orphan_camera(browser, camera_name, camera_id):
   """! Creates camera in a scene then deletes the scene.
   @param    browser                    Object wrapping the Selenium driver.

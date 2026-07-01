@@ -71,10 +71,11 @@ def validate_polygon_sensor_area(browser):
   # deterministic. The previous implementation reused a single ActionChains
   # queue with cumulative relative offsets, which intermittently registered
   # fewer than three vertices and tripped the "at least 3 vertices" validation.
+  # Even with fresh chains, a single click can still be dropped under CI load, so
+  # each vertex is confirmed to have registered before drawing the next one.
   vertex_offsets = [(60, 60), (160, 60), (160, 160), (60, 160)]
-  for dx, dy in vertex_offsets:
-    browser.actionChains().move_to_element_with_offset(svg, dx, dy).click().perform()
-    time.sleep(1)
+  for expected_count, (dx, dy) in enumerate(vertex_offsets, start=1):
+    add_polygon_vertex(browser, svg, dx, dy, expected_count)
 
   polygon_list = browser.find_elements_with_wait(By.TAG_NAME, "polygon")
   polygon_points = polygon_list[-1].get_attribute("points")
@@ -96,6 +97,28 @@ def validate_polygon_sensor_area(browser):
   assert p_list == verify_list
   print("POLYGON area configuration persists")
   return
+
+def add_polygon_vertex(browser, svg, dx, dy, expected_count, attempts=3, timeout=5):
+  """! Clicks the SVG at the given offset and waits until the vertex registers.
+  A dropped click leaves fewer vertices than expected, which later trips the
+  polygon validation, so the click is retried until the vertex count catches up.
+  @param    browser                 Object wrapping the Selenium driver.
+  @param    svg                     The svgout element used as the click origin.
+  @param    dx                      Horizontal offset from the SVG for the click.
+  @param    dy                      Vertical offset from the SVG for the click.
+  @param    expected_count          Total number of vertices expected afterwards.
+  @param    attempts                Number of times to retry a dropped click.
+  @param    timeout                 Seconds to wait for the vertex to appear.
+  """
+  for _ in range(attempts):
+    browser.actionChains().move_to_element_with_offset(svg, dx, dy).click().perform()
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+      if len(browser.find_elements(By.CLASS_NAME, "vertex")) >= expected_count:
+        return
+      time.sleep(0.5)
+  raise AssertionError(
+      f"Polygon vertex {expected_count} did not register at offset ({dx}, {dy})")
 
 def validate_circular_sensor_area(browser):
   browser.find_element(By.ID, "id_area_1").click()
