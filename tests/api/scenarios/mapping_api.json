@@ -369,17 +369,5 @@
         }
       }
     ]
-  },
-  {
-    "test_name": "Vision_AI/SSCAPE/API/MAPPING/11: List available models and their status",
-    "test_steps": [
-      {
-        "step_name": "GET /models — model info is available",
-        "api": "mapping",
-        "method": "listModels",
-        "request": {},
-        "expected_status": { "status_code": 200 }
-      }
-    ]
   }
 ]

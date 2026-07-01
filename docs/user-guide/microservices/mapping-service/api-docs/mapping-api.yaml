@@ -99,7 +99,7 @@ paths:
                   type: array
                   items:
                     type: string
-                    pattern: '^[a-zA-Z0-9_-]{1,64}$'
+                    pattern: "^[a-zA-Z0-9_-]{1,64}$"
                   description: Optional camera identifiers, one per image (pattern ^[a-zA-Z0-9_-]{1,64}$)
                 camera_locations:
                   type: array
@@ -192,7 +192,7 @@ paths:
           required: true
           schema:
             type: string
-            pattern: '^[0-9a-f]{32}$'
+            pattern: "^[0-9a-f]{32}$"
           description: The reconstruction job ID returned by POST /reconstruction
           example: "a3f1c2d4e5b6a7f8c9d0e1f2a3b4c5d6"
       responses:
@@ -227,7 +227,11 @@ paths:
                         - rotation: [0.98, 0.0, 0.15, 0.0]
                           translation: [0.0, 0.0, 0.0]
                       intrinsics:
-                        - [[525.0, 0.0, 320.0], [0.0, 525.0, 240.0], [0.0, 0.0, 1.0]]
+                        - [
+                            [525.0, 0.0, 320.0],
+                            [0.0, 525.0, 240.0],
+                            [0.0, 0.0, 1.0],
+                          ]
                       processing_time: 12.34
                       message: "complete"
                 failed:
@@ -292,29 +296,6 @@ paths:
                 status: "unhealthy"
                 model_loaded: false
 
-  /models:
-    get:
-      tags:
-        - models
-      summary: List available models and their status
-      description: |
-        Returns the supported camera pose format for this container's model.
-        The model type is fixed at build time and not disclosed.
-      operationId: listModels
-      responses:
-        "200":
-          description: Models information retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ModelsResponse"
-              example:
-                success: true
-                camera_pose_format:
-                  rotation: "quaternion [x, y, z, w]"
-                  translation: "vector [x, y, z]"
-                  coordinate_system: "OpenCV (camera-to-world transformation, standard CV coordinates)"
-
 components:
   schemas:
     ReconstructionRequest:
@@ -359,7 +340,7 @@ components:
           type: array
           items:
             type: string
-            pattern: '^[a-zA-Z0-9_-]{1,64}$'
+            pattern: "^[a-zA-Z0-9_-]{1,64}$"
           description: Optional camera identifiers, one per image (pattern ^[a-zA-Z0-9_-]{1,64}$)
         camera_locations:
           type: array
@@ -520,33 +501,6 @@ components:
           type: boolean
           description: Whether the model is loaded and ready to accept requests
           example: true
-
-    ModelsResponse:
-      type: object
-      required:
-        - success
-        - camera_pose_format
-      properties:
-        success:
-          type: boolean
-          example: true
-        camera_pose_format:
-          type: object
-          description: Format description for camera poses returned by this service
-          required:
-            - rotation
-            - translation
-            - coordinate_system
-          properties:
-            rotation:
-              type: string
-              example: "quaternion [x, y, z, w]"
-            translation:
-              type: string
-              example: "vector [x, y, z]"
-            coordinate_system:
-              type: string
-              example: "OpenCV (camera-to-world transformation, standard CV coordinates)"
 
     ErrorResponse:
       type: object
