@@ -82,6 +82,14 @@ class Browser(Firefox):
     else:
       os.environ.pop("MOZ_HEADLESS", None)
 
+    # Force Mesa software rendering (llvmpipe/swrast) so a WebGL context can be
+    # created even when the runner has no GPU. Without this Firefox may fail to
+    # create the context, which aborts the entire three.js scene initialization
+    # and the 3D control panels never appear.
+    if webgl:
+      os.environ["LIBGL_ALWAYS_SOFTWARE"] = "1"
+      os.environ.setdefault("GALLIUM_DRIVER", "llvmpipe")
+
     options = Options()
     if headless:
       options.add_argument("--headless")
@@ -95,6 +103,13 @@ class Browser(Firefox):
     options.set_preference("webgl.disabled", not webgl)
     if webgl:
       options.set_preference("webgl.force-enabled", True)
+      # Allow a software (llvmpipe) WebGL context. Firefox otherwise refuses to
+      # create one on GPU-less runners, and three.js's WebGLRenderer constructor
+      # throws, aborting the whole 3D UI so the control panels never render.
+      options.set_preference("webgl.forbid-software", False)
+      options.set_preference("webgl.disable-fail-if-major-performance-caveat", True)
+      options.set_preference("gfx.canvas.accelerated", False)
+      options.set_preference("layers.acceleration.disabled", True)
     options.set_preference("media.hardware-video-decoding.enabled", False)
     options.set_preference("gfx.webrender.software", True)
     options.set_preference("network.proxy.type", 0)

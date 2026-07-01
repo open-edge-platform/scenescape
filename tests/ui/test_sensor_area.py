@@ -63,33 +63,27 @@ def test_sensor_area_main(params, record_xml_attribute):
 
 def validate_polygon_sensor_area(browser):
   browser.find_element(By.ID, "id_area_2").click()
-  svg = browser.find_element(By.ID, "svgout")
+  WebDriverWait(browser, 10).until(
+      EC.presence_of_element_located((By.ID, "svgout")))
   time.sleep(1)
 
-  # Draw a polygon with four distinct vertices. Each vertex is added with a
-  # fresh ActionChains positioned relative to the SVG so the clicks are
-  # deterministic. The previous implementation reused a single ActionChains
-  # queue with cumulative relative offsets, which intermittently registered
-  # fewer than three vertices and tripped the "at least 3 vertices" validation.
-  # Even with fresh chains, a single click can still be dropped under CI load, so
-  # each vertex is confirmed to have registered before drawing the next one.
+  # Draw a polygon by dispatching mouseup events directly to the SVG at exact
+  # coordinates. The previous ActionChains offset-clicking approach relied on the
+  # mouse physically landing inside the SVG, which intermittently registered
+  # fewer than three vertices under CI load and tripped the "at least 3 vertices"
+  # validation. Driving the Snap.svg mouseup handler with synthetic events at
+  # known coordinates removes that timing dependency entirely.
   vertex_offsets = [(60, 60), (160, 60), (160, 160), (60, 160)]
-  for expected_count, (dx, dy) in enumerate(vertex_offsets, start=1):
-    add_polygon_vertex(browser, svg, dx, dy, expected_count)
+  expected_points = draw_polygon_via_events(browser, vertex_offsets)
 
   polygon_list = browser.find_elements_with_wait(By.TAG_NAME, "polygon")
   polygon_points = polygon_list[-1].get_attribute("points")
   p_list = list(map(float, polygon_points.split(",")))
   assert len(p_list) >= 6, f"Expected at least 3 vertices, got points: {p_list}"
-  all_points = browser.find_elements_with_wait(By.CLASS_NAME, "vertex")
-  save_polygon = browser.find_element(By.NAME, "save")
-  for point in all_points:
-    if float(point.get_attribute("cx")) == p_list[0] and float(point.get_attribute("cy")) == p_list[1]:
-      point.click()
-      print(f"POLYGON with {len(p_list) // 2} points created \n{p_list}")
-      save_polygon.click()
-      time.sleep(3)
-      break
+  print(f"POLYGON with {len(p_list) // 2} points created \n{p_list}")
+
+  browser.find_element(By.NAME, "save").click()
+  time.sleep(3)
 
   verify_polygon = browser.find_elements_with_wait(By.TAG_NAME, "polygon")
   verify_points = verify_polygon[-1].get_attribute("points")
@@ -98,27 +92,39 @@ def validate_polygon_sensor_area(browser):
   print("POLYGON area configuration persists")
   return
 
-def add_polygon_vertex(browser, svg, dx, dy, expected_count, attempts=3, timeout=5):
-  """! Clicks the SVG at the given offset and waits until the vertex registers.
-  A dropped click leaves fewer vertices than expected, which later trips the
-  polygon validation, so the click is retried until the vertex count catches up.
+def draw_polygon_via_events(browser, vertex_offsets):
+  """! Draws and closes a polygon on the sensor SVG using synthetic mouseup events.
+
+  Each offset is relative to the top-left of the #svgout element and matches the
+  coordinate the Snap.svg handler records (pageX/pageY minus the SVG offset). The
+  polygon is closed by dispatching a final mouseup on the start-point vertex,
+  which triggers closePolygon() and serializes the ROI into the form for saving.
+
   @param    browser                 Object wrapping the Selenium driver.
-  @param    svg                     The svgout element used as the click origin.
-  @param    dx                      Horizontal offset from the SVG for the click.
-  @param    dy                      Vertical offset from the SVG for the click.
-  @param    expected_count          Total number of vertices expected afterwards.
-  @param    attempts                Number of times to retry a dropped click.
-  @param    timeout                 Seconds to wait for the vertex to appear.
+  @param    vertex_offsets          List of (dx, dy) offsets for each vertex.
+  @return   list                    The (dx, dy) offsets that were drawn.
   """
-  for _ in range(attempts):
-    browser.actionChains().move_to_element_with_offset(svg, dx, dy).click().perform()
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-      if len(browser.find_elements(By.CLASS_NAME, "vertex")) >= expected_count:
-        return
-      time.sleep(0.5)
-  raise AssertionError(
-      f"Polygon vertex {expected_count} did not register at offset ({dx}, {dy})")
+  script = """
+    const svg = document.getElementById('svgout');
+    const offsets = arguments[0];
+    const rect = svg.getBoundingClientRect();
+    const fire = (el, x, y) => el.dispatchEvent(new MouseEvent('mouseup', {
+      bubbles: true, cancelable: true, view: window, clientX: x, clientY: y,
+    }));
+    for (const [dx, dy] of offsets) {
+      fire(svg, rect.left + dx, rect.top + dy);
+    }
+    const start = svg.querySelector('.start-point');
+    if (start) {
+      const r = start.getBoundingClientRect();
+      fire(start, r.left + r.width / 2, r.top + r.height / 2);
+    }
+    return svg.querySelectorAll('.vertex').length;
+  """
+  browser.execute_script(script, [list(v) for v in vertex_offsets])
+  WebDriverWait(browser, 10).until(
+      lambda b: len(b.find_elements(By.CLASS_NAME, "vertex")) >= len(vertex_offsets))
+  return vertex_offsets
 
 def validate_circular_sensor_area(browser):
   browser.find_element(By.ID, "id_area_1").click()
