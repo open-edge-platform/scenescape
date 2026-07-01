@@ -39,13 +39,26 @@ bbox_3d.z from PointPillars is the bbox CENTRE (verified from log analysis).
 Therefore translation z = bbox_3d.z directly, no h/2 adjustment needed.
 
 Heading transform:
-  PointPillars theta = yaw in LiDAR frame (radians, CCW from +X, Z-up).
-  After applying the calibration rotation and the scene Y-flip, the scene
+  PointPillars theta = yaw in LiDAR frame, but the box layout convention
+  (verified from bbox3d2corners in pointpillars/utils/process.py) places the
+  LENGTH dimension along the LOCAL Y axis.  At theta=0 the object heading is
+  along LiDAR +Y (not +X).  The actual heading unit vector is:
+    h_lidar = [-sin(theta), cos(theta), 0]
+  After applying the calibration rotation and the scene Y-flip the scene
   heading is:
-    scene_heading = phi_calib - theta
+    scene_heading = phi_calib - theta - pi/2
   where phi_calib = atan2(R[0][1], R[0][0]) (≈ +59° for the V2X intersection
-  sensor, i.e. LiDAR +X points south-east in the scene).
+  sensor).  The -pi/2 offset corrects for PointPillars' Y-forward (not X-forward)
+  box convention.
   Published as Z-axis quaternion [0, 0, sin(h/2), cos(h/2)].
+
+Z translation convention (SceneScape 3D renderer):
+  assetmanager.js::plot() calls translateZ(size.z / 2) after position.set(),
+  so it treats translation.z as the BOTTOM of the bounding box, not the
+  centre.  PointPillars bbox_3d.z is the bbox CENTRE.  Therefore:
+    sz_publish = z_lidar_centre - h/2
+  After the SceneScape controller adds the camera pose translation Z=2.52 m,
+  the regulated translation.z equals the box BOTTOM in scene metres.
 
 Point cloud range / spatial coverage:
   Controlled exclusively via the model config JSON
@@ -737,22 +750,27 @@ def bbox3d_to_quaternion(theta: float) -> list[float]:
     Convert PointPillars yaw to unit quaternion [qx, qy, qz, qw] in the
     SceneScape scene frame.
 
-    theta -- yaw in LiDAR frame (radians, CCW from +X when viewed from above).
+    theta -- yaw in LiDAR frame (radians).
 
-    The scene heading after applying the calibration rotation and scene Y-flip:
-      scene_heading = phi_calib - theta
-    where phi_calib = atan2(R[0][1], R[0][0]) (module constant _CALIB_YAW).
+    PointPillars box layout (from bbox3d2corners in pointpillars/utils/process.py):
+      - dim[0] = w  → X extent of the unrotated box  (side-to-side)
+      - dim[1] = l  → Y extent of the unrotated box  (front-to-back)
+      - rotation rotates the box around Z
+      → at theta=0, the FRONT of the box points toward LiDAR +Y (left/north)
+      → the heading unit vector is h_lidar = [-sin(theta), cos(theta), 0]
 
-    Derivation: the heading unit vector [cos θ, sin θ, 0] rotated by R_calib
-    gives world components [R[0,:]·h, R[1,:]·h, ...]. Negating the Y component
-    for the scene Y-flip and taking atan2 yields atan2(−R[1,:]·h, R[0,:]·h)
-    = phi_calib − theta (exact when R is a pure yaw rotation, accurate to
-    < 0.6° for the V2X tilt of ~0.5°).
+    After calibration rotation (R_calib) and scene Y-flip:
+      h_world_x =  R[0,0]*(-sin θ) + R[0,1]*cos θ  = sin(φ - θ)  where φ = phi_calib
+      h_world_y =  R[1,0]*(-sin θ) + R[1,1]*cos θ  = cos(φ - θ)
+      scene_heading = atan2(-h_world_y, h_world_x)
+                    = atan2(-cos(φ-θ), sin(φ-θ))
+                    = (φ - θ) - π/2
+                    = _CALIB_YAW - theta - pi/2
 
     Published as Z-axis rotation quaternion [0, 0, sin(h/2), cos(h/2)].
     Canonical form: qw >= 0.
     """
-    scene_heading = _CALIB_YAW - theta
+    scene_heading = _CALIB_YAW - theta - math.pi / 2
     half = scene_heading / 2.0
     qz   = math.sin(half)
     qw   = math.cos(half)
@@ -823,11 +841,16 @@ def build_camera_message(
             # amounts to ~0.4 m at 50 m range for the V2X sensor.
             sx, sy, sz = _lidar_to_scene_offset(x_l, y_l, z_l)
 
+            # assetmanager.js::plot() calls translateZ(size.z/2) after
+            # position.set(translation), so translation.z must be the BOTTOM
+            # of the box.  PointPillars z_l is the bbox CENTRE, so subtract h/2.
+            sz_bottom = sz - h / 2
+
             det = {
                 "id":          i + 1,
                 "category":    label,
                 "confidence":  conf,
-                "translation": [sx, sy, sz],
+                "translation": [sx, sy, sz_bottom],
                 "size":        [l, w, h],
                 "rotation":    rot,
             }
@@ -837,7 +860,7 @@ def build_camera_message(
                 debug_lines.append(
                     f"  [obj {i:02d}] {label:<14} src={source:<16} "
                     f"lidar=({x_l:7.2f},{y_l:7.2f},{z_l:7.2f}) "
-                    f"scene=({sx:7.2f},{sy:7.2f},{sz:7.2f}) "
+                    f"scene=({sx:7.2f},{sy:7.2f},{sz_bottom:7.2f}) "
                     f"lwh=({l:.2f},{w:.2f},{h:.2f}) "
                     f"theta={theta:+.3f} "
                     f"rot=[{rot[2]:+.3f},{rot[3]:+.3f}] "
@@ -897,16 +920,17 @@ def _log_frame_debug(
             exp_sx, exp_sy, exp_sz = _lidar_to_scene_offset(
                 b.get("x", 0), b.get("y", 0), b.get("z", 0)
             )
+            exp_sz_bottom = exp_sz - b.get("h", 0) / 2
             ok = (
                 abs(t[0] - exp_sx) < 1e-4
                 and abs(t[1] - exp_sy) < 1e-4
-                and abs(t[2] - exp_sz) < 1e-4
+                and abs(t[2] - exp_sz_bottom) < 1e-4
             )
             print(
                 f"  transform={'✅ OK' if ok else '⚠️  MISMATCH'} "
                 f"lidar=({b.get('x',0):.3f},{b.get('y',0):.3f},{b.get('z',0):.3f}) "
-                f"→ scene=({exp_sx:.3f},{exp_sy:.3f},{exp_sz:.3f})  "
-                f"pub=({t[0]:.3f},{t[1]:.3f},{t[2]:.3f})",
+                f"→ scene=({exp_sx:.3f},{exp_sy:.3f},{exp_sz_bottom:.3f}) [bottom]"
+                f"  pub=({t[0]:.3f},{t[1]:.3f},{t[2]:.3f})",
                 flush=True,
             )
         break
@@ -937,10 +961,11 @@ def _log_frame_info(
         exp_sx, exp_sy, exp_sz = _lidar_to_scene_offset(
             b.get("x", 0), b.get("y", 0), b.get("z", 0)
         )
+        exp_sz_bottom = exp_sz - b.get("h", 0) / 2
         ok = (
             abs(t[0] - exp_sx) < 1e-4
             and abs(t[1] - exp_sy) < 1e-4
-            and abs(t[2] - exp_sz) < 1e-4
+            and abs(t[2] - exp_sz_bottom) < 1e-4
         )
         _, src = resolve_label(raw_obj)
         print(
@@ -948,7 +973,7 @@ def _log_frame_info(
             f"{'✅' if ok else '⚠️ MISMATCH'} "
             f"src={src} "
             f"lidar=({b.get('x',0):.2f},{b.get('y',0):.2f},{b.get('z',0):.2f}) "
-            f"→ scene=({exp_sx:.2f},{exp_sy:.2f},{exp_sz:.2f}) "
+            f"→ scene=({exp_sx:.2f},{exp_sy:.2f},{exp_sz_bottom:.2f}) [bottom] "
             f"h={b.get('h',0):.2f} theta={b.get('theta',0):.3f} "
             f"pub_t=({t[0]:.2f},{t[1]:.2f},{t[2]:.2f}) "
             f"rot={[round(v,3) for v in o['rotation']]} "
@@ -1138,6 +1163,10 @@ def _print_banner() -> None:
         f"  calib_file     : {LIDAR_CALIB_FILE}\n"
         f"  calib_yaw      : {math.degrees(_CALIB_YAW):.2f}° "
         f"({'loaded from file' if _R_CALIB is not None else 'LEGACY FALLBACK -90°'})\n"
+        f"  heading_formula: scene_heading = calib_yaw - theta - 90°  "
+        f"(PointPillars Y-forward: theta=0 → heading along LiDAR +Y)\n"
+        f"  z_convention   : publisher sends z_lidar_centre - h/2  "
+        f"(JS assetmanager expects box bottom, not centre)\n"
         f"  lidar1_DB_rot  : {_LIDAR1_DB_ROTATION} euler  "
         f"(identity -- rotation done in publisher)\n"
         f"  point_cloud    : {range_str}  ({coverage})\n"
