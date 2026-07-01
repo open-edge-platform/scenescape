@@ -69,6 +69,7 @@ Optional:
 """
 
 import json
+import os
 import shutil
 import socket
 import tempfile
@@ -171,6 +172,21 @@ def _build_tracker_service_config(
       },
   }
 
+
+
+def _harness_tmp_base() -> Path:
+  """Return a base directory for harness temp workspaces that Docker can mount.
+
+  Snap-packaged Docker daemons are confined and cannot bind-mount paths under
+  ``/tmp`` (the default :func:`tempfile.mkdtemp` location), which makes the
+  harness fail out of the box.  Temp workspaces are therefore created under the
+  user's home cache directory, which Docker can always access on both native
+  and snap installations.  Set ``SCENESCAPE_HARNESS_TMPDIR`` to override.
+  """
+  override = os.environ.get("SCENESCAPE_HARNESS_TMPDIR")
+  base = Path(override) if override else Path.home() / ".cache" / "scenescape" / "black_box_harness"
+  base.mkdir(parents=True, exist_ok=True)
+  return base
 
 
 def _free_port() -> int:
@@ -412,7 +428,7 @@ class BlackBoxHarness(TrackerHarness):
 
     run_id  = uuid.uuid4().hex[:8]
     net_name = f"black_box_harness_{run_id}"
-    tmp_dir  = Path(tempfile.mkdtemp(prefix="black_box_harness_"))
+    tmp_dir  = Path(tempfile.mkdtemp(prefix="black_box_harness_", dir=_harness_tmp_base()))
     print(f"[BlackBoxHarness] Temporary workspace: {tmp_dir}")
 
     try:
