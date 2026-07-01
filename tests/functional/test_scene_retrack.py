@@ -18,6 +18,7 @@ import queue
 import threading
 import time
 
+import pytest
 from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
 from scene_common import log
@@ -32,6 +33,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
+pytestmark = pytest.mark.preserve_db
 
 def test_scene_retrack_disabled_objects_propagate_to_parent(
     objData, record_xml_attribute, params):
