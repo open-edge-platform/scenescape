@@ -7,16 +7,31 @@ Publishes PointPillars detections in SceneScape camera detection format
 with an in-publisher LiDAR -> scene coordinate pre-transform.
 
 Coordinate transform (pre-applied before publishing):
-  scene_x = -y_lidar   (LiDAR Y=left  -> scene X=right)
-  scene_y = -x_lidar   (LiDAR X=fwd   -> scene Y=down)
-  scene_z =  z_lidar
+  Uses the V2X virtuallidar_to_world calibration rotation matrix R_calib
+  to properly project LiDAR detections into scene (map) coordinates.
 
-This aligns with the map drawn by gen_intersection_map.py when the sensor
-forward direction is treated as map "up" (row decreasing).
+  The scene image (LidarIntersection.png) is 2000x2000 px at 5 px/m covering
+  400x400 m. The LiDAR sensor sits at the image centre (200, 200) in metres.
+  Scene X increases to the right (world east); scene Y increases downward
+  (world south, i.e. world Y is flipped).  Therefore:
+
+    [sx, sy, sz] = R_calib @ [x_l, y_l, z_l],  then  sy = -sy  (Y-flip)
+    i.e.:
+      scene_x =  R[0,0]*x_l + R[0,1]*y_l + R[0,2]*z_l
+      scene_y = -(R[1,0]*x_l + R[1,1]*y_l + R[1,2]*z_l)
+      scene_z =  R[2,0]*x_l + R[2,1]*y_l + R[2,2]*z_l
+
+  These are offset coordinates relative to the LiDAR sensor origin. The
+  SceneScape controller adds the DB camera pose translation [200, 200, 2.52]
+  to produce the final scene position in metres.
+
+  Calibration is loaded from the file pointed to by LIDAR_CALIB_FILE (a
+  virtuallidar_to_world JSON from the V2X dataset). If the file is absent the
+  publisher falls back to the legacy (-y, -x) axis swap with a warning.
 
 Required lidar1 camera pose in SceneScape database:
   transform_type: euler
-  rotation:       [0, 0, 0]          (identity -- transform done in publisher)
+  rotation:       [0, 0, 0]          (identity -- rotation is done in publisher)
   translation:    [200, 200, 2.52]   (sensor at map centre, 2.52 m mount height)
   scale:          [1, 1, 1]          (metres; scene scale=5 px/m handles pixels)
 
@@ -25,8 +40,11 @@ Therefore translation z = bbox_3d.z directly, no h/2 adjustment needed.
 
 Heading transform:
   PointPillars theta = yaw in LiDAR frame (radians, CCW from +X, Z-up).
-  After the (-y,-x) remap, the scene heading is:
-    scene_heading = -(theta + pi/2)
+  After applying the calibration rotation and the scene Y-flip, the scene
+  heading is:
+    scene_heading = phi_calib - theta
+  where phi_calib = atan2(R[0][1], R[0][0]) (≈ +59° for the V2X intersection
+  sensor, i.e. LiDAR +X points south-east in the scene).
   Published as Z-axis quaternion [0, 0, sin(h/2), cos(h/2)].
 
 Point cloud range / spatial coverage:
@@ -157,7 +175,81 @@ FIFO         = "/tmp/lidar_detections.fifo"
 PUBLISH_RAW = os.environ.get("LIDAR_PUBLISH_RAW", "false").lower() not in ("0", "false", "no")
 RAW_TOPIC   = os.environ.get("LIDAR_RAW_TOPIC", f"scenescape/data/camera/{SENSOR_ID}-raw")
 
+# ── Calibration (virtuallidar_to_world) ──────────────────────────────────────
+# Path to the virtuallidar_to_world JSON file from the V2X dataset.  The file
+# contains the 3x3 rotation matrix and translation that maps LiDAR sensor
+# coordinates to the world (UTM-like) coordinate frame.  All frames in the
+# V2X dataset share the same static calibration (verified across 010699-010703).
+LIDAR_CALIB_FILE = os.environ.get(
+    "LIDAR_CALIB_FILE",
+    "/home/pipeline-server/data/calib/virtuallidar_to_world/010699.json",
+)
+
+
+def _load_calib_rotation() -> list[list[float]] | None:
+    """
+    Load R_calib (3x3, row-major) from LIDAR_CALIB_FILE.
+
+    Returns the rotation matrix on success, None on failure (caller falls back
+    to legacy transform with a warning).
+    """
+    try:
+        with open(LIDAR_CALIB_FILE) as fh:
+            calib = json.load(fh)
+        R = calib["rotation"]  # 3x3 row-major
+        if len(R) != 3 or any(len(row) != 3 for row in R):
+            raise ValueError(f"Unexpected rotation shape in {LIDAR_CALIB_FILE}")
+        det = (
+            R[0][0] * (R[1][1] * R[2][2] - R[1][2] * R[2][1])
+            - R[0][1] * (R[1][0] * R[2][2] - R[1][2] * R[2][0])
+            + R[0][2] * (R[1][0] * R[2][1] - R[1][1] * R[2][0])
+        )
+        if abs(det - 1.0) > 0.01:
+            raise ValueError(
+                f"det(R_calib)={det:.4f}, expected 1.0 — not a proper rotation"
+            )
+        print(
+            f"[lidar-publisher] ✅ Calibration loaded: {LIDAR_CALIB_FILE}  "
+            f"det(R)={det:.6f}  "
+            f"sensor_yaw={math.degrees(math.atan2(-R[1][0], R[0][0])):.1f}° "
+            f"(world frame, Y-up convention)",
+            flush=True,
+        )
+        return R
+    except FileNotFoundError:
+        print(
+            f"[lidar-publisher] ⚠️  Calibration file not found: {LIDAR_CALIB_FILE}\n"
+            f"  Falling back to LEGACY (-y, -x) transform — positions will be\n"
+            f"  incorrect unless the LiDAR forward axis aligns with scene -Y.\n"
+            f"  Set LIDAR_CALIB_FILE to the virtuallidar_to_world JSON.",
+            flush=True,
+        )
+        return None
+    except (json.JSONDecodeError, ValueError, KeyError) as exc:
+        print(
+            f"[lidar-publisher] ⚠️  Calibration load error: {exc}\n"
+            f"  Falling back to LEGACY (-y, -x) transform.",
+            flush=True,
+        )
+        return None
+
+
+_R_CALIB = _load_calib_rotation()
+
+# Precomputed sensor yaw in the scene frame:
+#   phi_calib = atan2(R[0][1], R[0][0])
+# For V2X yizhuang09 intersection sensor: phi_calib ≈ +59° (south-east).
+# scene_heading = phi_calib - theta
+# Legacy fallback phi_calib = -pi/2 reproduces the old -(theta+pi/2) formula.
+_CALIB_YAW: float = (
+    math.atan2(_R_CALIB[0][1], _R_CALIB[0][0])
+    if _R_CALIB is not None
+    else -math.pi / 2.0
+)
+
 # ── KITTI label map ───────────────────────────────────────────────────────────
+# Matches the class order used in the OpenVINO PointPillars model training
+# (see openvino_contrib/modules/3d/pointPillars/pointpillars/dataset/kitti.py).
 KITTI_LABELS: dict[int, str] = {
     0: "Pedestrian",
     1: "Cyclist",
@@ -615,22 +707,55 @@ def _build_pipeline() -> str:
 # Raw frame → SceneScape message
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def _lidar_to_scene_offset(
+    x_l: float, y_l: float, z_l: float
+) -> tuple[float, float, float]:
+    """
+    Apply the calibration rotation and the scene Y-flip to a LiDAR point,
+    returning the scene-frame offset relative to the sensor origin.
+
+    The SceneScape controller will add the DB camera pose translation
+    [200, 200, 2.52] to produce the final scene position in metres.
+
+    If _R_CALIB is None (calibration file missing) the legacy (-y, -x) axis
+    swap is used as a fallback.
+    """
+    if _R_CALIB is not None:
+        R = _R_CALIB
+        sx =   R[0][0] * x_l + R[0][1] * y_l + R[0][2] * z_l
+        sy = -(R[1][0] * x_l + R[1][1] * y_l + R[1][2] * z_l)
+        sz =   R[2][0] * x_l + R[2][1] * y_l + R[2][2] * z_l
+    else:
+        sx = -y_l
+        sy = -x_l
+        sz =  z_l
+    return sx, sy, sz
+
+
 def bbox3d_to_quaternion(theta: float) -> list[float]:
     """
     Convert PointPillars yaw to unit quaternion [qx, qy, qz, qw] in the
-    SceneScape scene (world) frame.
+    SceneScape scene frame.
 
     theta -- yaw in LiDAR frame (radians, CCW from +X when viewed from above).
 
-    After the coordinate pre-transform (scene_x=-y, scene_y=-x), a direction
-    (cos theta, sin theta) in LiDAR becomes (-sin theta, -cos theta) in scene,
-    giving scene_heading = -(theta + pi/2).  Published as Z-axis rotation.
+    The scene heading after applying the calibration rotation and scene Y-flip:
+      scene_heading = phi_calib - theta
+    where phi_calib = atan2(R[0][1], R[0][0]) (module constant _CALIB_YAW).
+
+    Derivation: the heading unit vector [cos θ, sin θ, 0] rotated by R_calib
+    gives world components [R[0,:]·h, R[1,:]·h, ...]. Negating the Y component
+    for the scene Y-flip and taking atan2 yields atan2(−R[1,:]·h, R[0,:]·h)
+    = phi_calib − theta (exact when R is a pure yaw rotation, accurate to
+    < 0.6° for the V2X tilt of ~0.5°).
+
+    Published as Z-axis rotation quaternion [0, 0, sin(h/2), cos(h/2)].
     Canonical form: qw >= 0.
     """
-    scene_heading = -(theta + math.pi / 2.0)
+    scene_heading = _CALIB_YAW - theta
     half = scene_heading / 2.0
-    qz   =  math.sin(half)
-    qw   =  math.cos(half)
+    qz   = math.sin(half)
+    qw   = math.cos(half)
     if qw < 0.0:
         qz, qw = -qz, -qw
     EPS = 1e-6
@@ -663,9 +788,10 @@ def build_camera_message(
     Returns:
       (message_dict, debug_lines, label_source_counts)
 
-    Coordinate pre-transform applied here:
-      scene_x = -y_lidar,  scene_y = -x_lidar,  scene_z = z_lidar
-    Heading: scene_heading = -(theta + pi/2), encoded as Z-axis quaternion.
+    Coordinate pre-transform applied here via _lidar_to_scene_offset():
+      [sx, sy, sz] = R_calib @ [x_l, y_l, z_l]  with  sy = -sy  (Y-flip)
+    Heading: scene_heading = phi_calib - theta, encoded as Z-axis quaternion.
+    The SceneScape controller adds the DB camera pose translation [200, 200, 2.52].
     """
     objects:       dict[str, list] = {}
     debug_lines:   list[str]       = []
@@ -684,7 +810,7 @@ def build_camera_message(
 
             x_l   = bbox.get("x", 0.0)   # LiDAR X = forward
             y_l   = bbox.get("y", 0.0)   # LiDAR Y = left
-            z     = bbox.get("z", 0.0)   # bbox centre (verified empirically)
+            z_l   = bbox.get("z", 0.0)   # bbox centre in LiDAR frame
             w     = bbox.get("w", 0.0)
             l     = bbox.get("l", 0.0)
             h     = bbox.get("h", 0.0)
@@ -692,15 +818,16 @@ def build_camera_message(
             conf  = obj.get("confidence", 0.0)
             rot   = bbox3d_to_quaternion(theta)
 
-            # Pre-transform: LiDAR -> scene frame
-            sx = -y_l
-            sy = -x_l
+            # Apply calibration rotation + scene Y-flip.
+            # sz includes the tilt correction (R[2,0]*x + R[2,1]*y) which
+            # amounts to ~0.4 m at 50 m range for the V2X sensor.
+            sx, sy, sz = _lidar_to_scene_offset(x_l, y_l, z_l)
 
             det = {
                 "id":          i + 1,
                 "category":    label,
                 "confidence":  conf,
-                "translation": [sx, sy, z],
+                "translation": [sx, sy, sz],
                 "size":        [l, w, h],
                 "rotation":    rot,
             }
@@ -709,8 +836,8 @@ def build_camera_message(
             if LOG_LEVEL == "DEBUG":
                 debug_lines.append(
                     f"  [obj {i:02d}] {label:<14} src={source:<16} "
-                    f"lidar=({x_l:7.2f},{y_l:7.2f},{z:7.2f}) "
-                    f"scene=({sx:7.2f},{sy:7.2f},{z:7.2f}) "
+                    f"lidar=({x_l:7.2f},{y_l:7.2f},{z_l:7.2f}) "
+                    f"scene=({sx:7.2f},{sy:7.2f},{sz:7.2f}) "
                     f"lwh=({l:.2f},{w:.2f},{h:.2f}) "
                     f"theta={theta:+.3f} "
                     f"rot=[{rot[2]:+.3f},{rot[3]:+.3f}] "
@@ -767,16 +894,18 @@ def _log_frame_debug(
         if raw_obj:
             b  = raw_obj["bbox_3d"]
             t  = o["translation"]
-            exp_sx = -b.get("y", 0)
-            exp_sy = -b.get("x", 0)
+            exp_sx, exp_sy, exp_sz = _lidar_to_scene_offset(
+                b.get("x", 0), b.get("y", 0), b.get("z", 0)
+            )
             ok = (
                 abs(t[0] - exp_sx) < 1e-4
                 and abs(t[1] - exp_sy) < 1e-4
+                and abs(t[2] - exp_sz) < 1e-4
             )
             print(
                 f"  transform={'✅ OK' if ok else '⚠️  MISMATCH'} "
                 f"lidar=({b.get('x',0):.3f},{b.get('y',0):.3f},{b.get('z',0):.3f}) "
-                f"→ scene=({exp_sx:.3f},{exp_sy:.3f})  "
+                f"→ scene=({exp_sx:.3f},{exp_sy:.3f},{exp_sz:.3f})  "
                 f"pub=({t[0]:.3f},{t[1]:.3f},{t[2]:.3f})",
                 flush=True,
             )
@@ -805,16 +934,21 @@ def _log_frame_info(
             continue
         b  = raw_obj["bbox_3d"]
         t  = o["translation"]
-        exp_sx = -b.get("y", 0)
-        exp_sy = -b.get("x", 0)
-        ok = abs(t[0] - exp_sx) < 1e-4 and abs(t[1] - exp_sy) < 1e-4
+        exp_sx, exp_sy, exp_sz = _lidar_to_scene_offset(
+            b.get("x", 0), b.get("y", 0), b.get("z", 0)
+        )
+        ok = (
+            abs(t[0] - exp_sx) < 1e-4
+            and abs(t[1] - exp_sy) < 1e-4
+            and abs(t[2] - exp_sz) < 1e-4
+        )
         _, src = resolve_label(raw_obj)
         print(
             f"[frame={published:,} fps={fps:.1f}] {cat} "
             f"{'✅' if ok else '⚠️ MISMATCH'} "
             f"src={src} "
             f"lidar=({b.get('x',0):.2f},{b.get('y',0):.2f},{b.get('z',0):.2f}) "
-            f"→ scene=({exp_sx:.2f},{exp_sy:.2f}) "
+            f"→ scene=({exp_sx:.2f},{exp_sy:.2f},{exp_sz:.2f}) "
             f"h={b.get('h',0):.2f} theta={b.get('theta',0):.3f} "
             f"pub_t=({t[0]:.2f},{t[1]:.2f},{t[2]:.2f}) "
             f"rot={[round(v,3) for v in o['rotation']]} "
@@ -1000,9 +1134,12 @@ def _print_banner() -> None:
         f"  log_level      : {LOG_LEVEL}\n"
         f"  publish_raw    : {PUBLISH_RAW}"
         f"{'  topic: ' + RAW_TOPIC if PUBLISH_RAW else '  (set LIDAR_PUBLISH_RAW=true to enable)'}\n"
-        f"  coordinate     : pre-transformed (scene_x=-y_lidar, scene_y=-x_lidar)\n"
+        f"  coordinate     : calibration-based R_calib @ p_lidar (Y-flipped)\n"
+        f"  calib_file     : {LIDAR_CALIB_FILE}\n"
+        f"  calib_yaw      : {math.degrees(_CALIB_YAW):.2f}° "
+        f"({'loaded from file' if _R_CALIB is not None else 'LEGACY FALLBACK -90°'})\n"
         f"  lidar1_DB_rot  : {_LIDAR1_DB_ROTATION} euler  "
-        f"(identity -- transform done in publisher)\n"
+        f"(identity -- rotation done in publisher)\n"
         f"  point_cloud    : {range_str}  ({coverage})\n"
         f"  voxel_z_size   : {_VOXEL_Z_SIZE}  (derived: z_max - z_min)\n"
         f"  range_source   : model config JSON (g3dlidarparse has no range props)\n"
