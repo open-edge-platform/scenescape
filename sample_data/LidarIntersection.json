@@ -17,8 +17,8 @@
         "cy": 500.0
       },
       "transform_type": "euler",
-      "translation": [200.0, 200.0, 2.52],
-      "rotation": [0.0, 0.0, 0.0],
+      "translation": [195.0, 200.0, 0.0],
+      "rotation": [-180.0, 0.0, -180.0],
       "scale": [1.0, 1.0, 1.0],
       "resolution": [1000, 1000],
       "scene": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
