@@ -99,7 +99,7 @@ paths:
                   type: array
                   items:
                     type: string
-                    pattern: '^[a-zA-Z0-9_-]{1,64}$'
+                    pattern: "^[a-zA-Z0-9_-]{1,64}$"
                   description: Optional camera identifiers, one per image (pattern ^[a-zA-Z0-9_-]{1,64}$)
                 camera_locations:
                   type: array
@@ -192,7 +192,7 @@ paths:
           required: true
           schema:
             type: string
-            pattern: '^[0-9a-f]{32}$'
+            pattern: "^[0-9a-f]{32}$"
           description: The reconstruction job ID returned by POST /reconstruction
           example: "a3f1c2d4e5b6a7f8c9d0e1f2a3b4c5d6"
       responses:
@@ -227,7 +227,11 @@ paths:
                         - rotation: [0.98, 0.0, 0.15, 0.0]
                           translation: [0.0, 0.0, 0.0]
                       intrinsics:
-                        - [[525.0, 0.0, 320.0], [0.0, 525.0, 240.0], [0.0, 0.0, 1.0]]
+                        - [
+                            [525.0, 0.0, 320.0],
+                            [0.0, 525.0, 240.0],
+                            [0.0, 0.0, 1.0],
+                          ]
                       processing_time: 12.34
                       message: "complete"
                 failed:
@@ -359,7 +363,7 @@ components:
           type: array
           items:
             type: string
-            pattern: '^[a-zA-Z0-9_-]{1,64}$'
+            pattern: "^[a-zA-Z0-9_-]{1,64}$"
           description: Optional camera identifiers, one per image (pattern ^[a-zA-Z0-9_-]{1,64}$)
         camera_locations:
           type: array
