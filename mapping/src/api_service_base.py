@@ -22,6 +22,7 @@ import uuid
 import threading
 import json
 import re
+import traceback
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -182,7 +183,7 @@ def run_model_inference(input_data: Dict[str, Any]) -> Dict[str, Any]:
     return loaded_model.run_inference(all_frames)
 
   except Exception as e:
-    log.error(f"Model inference failed: {e}", exc_info=True)
+    log.error(f"Model inference failed: {e}\n{traceback.format_exc()}")
     raise RuntimeError(f"Model inference failed: {e}")
 
 def create_glb_file(result: Dict[str, Any], mesh_type: str = "mesh") -> str:
@@ -322,7 +323,7 @@ def reconstruct3D():
     validate_reconstruction_request(inference_payload)
   except ValueError as e:
     # Log detailed validation error on the server, but do not expose it to the client
-    log.error(f"Reconstruction request validation failed for {request_id}: {e}", exc_info=True)
+    log.error(f"Reconstruction request validation failed for {request_id}: {e}\n{traceback.format_exc()}")
     generic_error = "Invalid reconstruction request"
     set_status(request_id, state="failed", updated_at=time.time(), error=generic_error)
     return jsonify({"success": False, "request_id": request_id, "error": generic_error}), 400
@@ -464,7 +465,7 @@ def run_development_server():
   except KeyboardInterrupt:
     log.info("Server interrupted by user")
   except Exception as e:
-    log.error(f"Server error: {e}", exc_info=True)
+    log.error(f"Server error: {e}\n{traceback.format_exc()}")
   finally:
     log.info("Server shutdown complete")
 
@@ -521,12 +522,12 @@ def run_production_server(cert_file=None, key_file=None):
     # and each worker needs to initialize the model in its own process via post_fork hook
     subprocess.run(gunicorn_cmd, check=True)
   except subprocess.CalledProcessError as e:
-    log.error(f"Gunicorn failed to start: {e}", exc_info=True)
+    log.error(f"Gunicorn failed to start: {e}\n{traceback.format_exc()}")
     sys.exit(1)
   except KeyboardInterrupt:
     log.info("Server interrupted by user")
   except Exception as e:
-    log.error(f"Server error: {e}", exc_info=True)
+    log.error(f"Server error: {e}\n{traceback.format_exc()}")
     sys.exit(1)
 
 def start_app():
@@ -587,7 +588,7 @@ def start_app():
   except KeyboardInterrupt:
     log.info("Server interrupted by user")
   except Exception as e:
-    log.error(f"Server error: {e}", exc_info=True)
+    log.error(f"Server error: {e}\n{traceback.format_exc()}")
     raise
   finally:
     log.info("Server shutdown complete")
