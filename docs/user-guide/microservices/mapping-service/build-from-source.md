@@ -119,5 +119,3 @@ Example response:
   "model_loaded": true
 }
 ```
-
-
