@@ -90,7 +90,7 @@ x-controller-base: &controller-base
 
 # Profiles:
 # - Default (no profile): Core services including autocalibration
-# - experimental: All services including mapping and cluster-analytics
+# - experimental: All services including mapping
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
 # - vdms: Enable the VDMS service
@@ -578,7 +578,6 @@ services:
       OMP_NUM_THREADS: "2"
       MKL_NUM_THREADS: "2"
     profiles:
-      - experimental
       - cluster-analytics
     image: scenescape-cluster-analytics:${VERSION:-latest}
     init: true
