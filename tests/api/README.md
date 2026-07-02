@@ -57,7 +57,9 @@ export PYTHONPATH=$(pwd)/scene_common/src:$PYTHONPATH
 ### Mapping Service Setup
 
 The mapping/reconstruction tests require the `scenescape-mapping` service to be running.
-Upload `ParkingVideoTrimmed2.mp4` into `tests/api/test_media/` to verify excessively large input.
+The "excessively large input" (HTTP 413) test uses a dummy `LargeVideoForTest.mp4`
+(>100MB) that is generated automatically at runtime in `tests/api/test_media/` and
+removed afterwards.
 
 ---
 

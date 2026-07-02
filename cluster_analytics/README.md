@@ -5,7 +5,7 @@ The Cluster Analytics microservice provides objects clustering, cluster tracking
 ## Key Features
 
 - **DBSCAN Clustering**: Density-based spatial clustering with category-specific parameters
-- **Tracking**: Persistent cluster tracking across frames with state-based lifecycle management
+- **Tracking**: Persistent cluster tracking across frames with UUID persistence via greedy nearest-centroid matching
 - **Shape Detection**: ML-based geometric pattern recognition (circle, rectangle, line, irregular)
 - **Velocity Analysis**: Movement pattern classification (stationary, coordinated, converging, etc.)
 
