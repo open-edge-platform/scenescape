@@ -11,7 +11,7 @@ pipeline:
 dataset:
   class: datasets.metric_test_dataset.MetricTestDataset
   config:
-    data_path: ../../../tests/system/metric/dataset
+    data_path: ../../../tests/system/metric/unity_dataset
     cameras: [Cam_x1_0, Cam_x2_0]
     camera_fps: 30
 
@@ -19,7 +19,7 @@ harness:
   class: harnesses.scene_controller_harness.SceneControllerHarness
   config:
     container_image: scenescape-controller:2026.1.0-dev
-    tracker_config_path: ../../../tests/system/metric/dataset/tracker-config.json
+    tracker_config_path: ../../../tests/system/metric/unity_dataset/tracker-config.json
 
 evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
