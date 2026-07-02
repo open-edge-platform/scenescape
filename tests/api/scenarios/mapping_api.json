@@ -8,7 +8,9 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": ["test_media/atag-calib-demo-map.png"],
+            "images": [
+              "test_media/atag-calib-demo-map.png"
+            ],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -34,15 +36,24 @@
             "request_id": "${IMAGE_REQUEST_ID}"
           }
         },
-        "expected_status": { "status_code": 200 },
+        "expected_status": {
+          "status_code": 200
+        },
         "poll": {
           "interval_s": 2,
           "timeout_s": 900,
-          "until": { "state": "complete" },
-          "fail_if": { "state": "failed" }
+          "until": {
+            "state": "complete"
+          },
+          "fail_if": {
+            "state": "failed"
+          }
         },
         "validate": {
-          "state": "complete"
+          "success": true,
+          "state": "complete",
+          "result.success": true,
+          "result.model": null
         }
       }
     ]
@@ -56,7 +67,9 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "video": ["test_media/qcam1.mp4"],
+            "video": [
+              "test_media/qcam1.mp4"
+            ],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -82,15 +95,24 @@
             "request_id": "${VIDEO_REQUEST_ID}"
           }
         },
-        "expected_status": { "status_code": 200 },
+        "expected_status": {
+          "status_code": 200
+        },
         "poll": {
           "interval_s": 2,
           "timeout_s": 900,
-          "until": { "state": "complete" },
-          "fail_if": { "state": "failed" }
+          "until": {
+            "state": "complete"
+          },
+          "fail_if": {
+            "state": "failed"
+          }
         },
         "validate": {
-          "state": "complete"
+          "success": true,
+          "state": "complete",
+          "result.success": true,
+          "result.model": null
         }
       }
     ]
@@ -104,8 +126,12 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": ["test_media/atag-calib-demo-map.png"],
-            "video": ["test_media/qcam1.mp4"],
+            "images": [
+              "test_media/atag-calib-demo-map.png"
+            ],
+            "video": [
+              "test_media/qcam1.mp4"
+            ],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -131,15 +157,24 @@
             "request_id": "${IMAGE_VIDEO_REQUEST_ID}"
           }
         },
-        "expected_status": { "status_code": 200 },
+        "expected_status": {
+          "status_code": 200
+        },
         "poll": {
           "interval_s": 2,
           "timeout_s": 900,
-          "until": { "state": "complete" },
-          "fail_if": { "state": "failed" }
+          "until": {
+            "state": "complete"
+          },
+          "fail_if": {
+            "state": "failed"
+          }
         },
         "validate": {
-          "state": "complete"
+          "success": true,
+          "state": "complete",
+          "result.success": true,
+          "result.model": null
         }
       }
     ]
@@ -183,15 +218,24 @@
             "request_id": "${IMAGES_REQUEST_ID}"
           }
         },
-        "expected_status": { "status_code": 200 },
+        "expected_status": {
+          "status_code": 200
+        },
         "poll": {
           "interval_s": 2,
           "timeout_s": 900,
-          "until": { "state": "complete" },
-          "fail_if": { "state": "failed" }
+          "until": {
+            "state": "complete"
+          },
+          "fail_if": {
+            "state": "failed"
+          }
         },
         "validate": {
-          "state": "complete"
+          "success": true,
+          "state": "complete",
+          "result.success": true,
+          "result.model": null
         }
       }
     ]
@@ -205,7 +249,9 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": ["test_media/atag-calib-demo-map.png"],
+            "images": [
+              "test_media/atag-calib-demo-map.png"
+            ],
             "output_format": "glb",
             "mesh_type": "pointcloud",
             "use_keyframes": true
@@ -231,15 +277,24 @@
             "request_id": "${CLOUD_POINT_REQUEST_ID}"
           }
         },
-        "expected_status": { "status_code": 200 },
+        "expected_status": {
+          "status_code": 200
+        },
         "poll": {
           "interval_s": 2,
           "timeout_s": 900,
-          "until": { "state": "complete" },
-          "fail_if": { "state": "failed" }
+          "until": {
+            "state": "complete"
+          },
+          "fail_if": {
+            "state": "failed"
+          }
         },
         "validate": {
-          "state": "complete"
+          "success": true,
+          "state": "complete",
+          "result.success": true,
+          "result.model": null
         }
       }
     ]
@@ -253,7 +308,9 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": ["test_media/atag-calib-demo-map.png"],
+            "images": [
+              "test_media/atag-calib-demo-map.png"
+            ],
             "output_format": "json",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -279,15 +336,24 @@
             "request_id": "${JSON_REQUEST_ID}"
           }
         },
-        "expected_status": { "status_code": 200 },
+        "expected_status": {
+          "status_code": 200
+        },
         "poll": {
           "interval_s": 2,
           "timeout_s": 900,
-          "until": { "state": "complete" },
-          "fail_if": { "state": "failed" }
+          "until": {
+            "state": "complete"
+          },
+          "fail_if": {
+            "state": "failed"
+          }
         },
         "validate": {
-          "state": "complete"
+          "success": true,
+          "state": "complete",
+          "result.success": true,
+          "result.model": null
         }
       }
     ]
@@ -321,7 +387,9 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": ["test_media/atag-calib-demo-map.png"],
+            "images": [
+              "test_media/atag-calib-demo-map.png"
+            ],
             "output_format": "invalid_format",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -333,7 +401,6 @@
       }
     ]
   },
-
   {
     "test_name": "Vision_AI/SSCAPE/API/MAPPING/09: Verify excessively large input data in reconstruction request",
     "test_steps": [
@@ -343,7 +410,9 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "video": ["test_media/LargeVideoForTest.mp4"],
+            "video": [
+              "test_media/LargeVideoForTest.mp4"
+            ],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -363,9 +432,148 @@
         "api": "mapping",
         "method": "healthCheckEndpoint",
         "request": {},
-        "expected_status": { "status_code": 200 },
-        "validate": {
+        "expected_status": {
+          "status_code": 200
+        },
+        "expected_body": {
+          "success": true,
+          "status": "healthy",
           "model_loaded": true
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/MAPPING/11: Reject reconstruction request exceeding max image count",
+    "test_steps": [
+      {
+        "step_name": "POST /reconstruction — upload 51 images (limit is 50)",
+        "api": "mapping",
+        "method": "performReconstruction",
+        "request": {
+          "body": {
+            "images": [
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png",
+              "test_media/LotMap.png"
+            ],
+            "output_format": "json",
+            "mesh_type": "mesh",
+            "use_keyframes": true
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/MAPPING/12: Reject reconstruction request with invalid camera_id format",
+    "test_steps": [
+      {
+        "step_name": "POST /reconstruction — camera_id violates ^[a-zA-Z0-9_-]{1,64}$",
+        "api": "mapping",
+        "method": "performReconstruction",
+        "request": {
+          "body": {
+            "images": [
+              "test_media/LotMap.png"
+            ],
+            "camera_ids": [
+              "invalid id!"
+            ],
+            "output_format": "json",
+            "mesh_type": "mesh",
+            "use_keyframes": true
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/MAPPING/13: Reject status request with malformed request_id",
+    "test_steps": [
+      {
+        "step_name": "GET /reconstruction/status/{id} — request_id is not 32-char hex",
+        "api": "mapping",
+        "method": "getReconstructionStatus",
+        "request": {
+          "path_params": {
+            "request_id": "not-a-valid-id"
+          }
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/MAPPING/14: Return 404 for unknown request_id",
+    "test_steps": [
+      {
+        "step_name": "GET /reconstruction/status/{id} — well-formed but unknown request_id",
+        "api": "mapping",
+        "method": "getReconstructionStatus",
+        "request": {
+          "path_params": {
+            "request_id": "00000000000000000000000000000000"
+          }
+        },
+        "expected_status": {
+          "status_code": 404
         }
       }
     ]
