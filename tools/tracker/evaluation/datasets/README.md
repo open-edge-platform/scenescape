@@ -21,7 +21,7 @@ Dataset adapters convert dataset-specific formats to Scenescape canonical format
 
 ### MetricTestDataset
 
-**Purpose**: Adapter for `tests/system/metric/dataset` dataset used in acceptance tests.
+**Purpose**: Adapter for `tests/system/metric/unity_dataset` dataset used in acceptance tests.
 
 **Key Features**:
 - Single scene: `Retail_Demo`
@@ -39,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from datasets.metric_test_dataset import MetricTestDataset
 
-dataset = MetricTestDataset("../../../tests/system/metric/dataset")
+dataset = MetricTestDataset("../../../tests/system/metric/unity_dataset")
 
 # Configure dataset
 dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)

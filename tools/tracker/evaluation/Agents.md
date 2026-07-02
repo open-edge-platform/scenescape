@@ -43,7 +43,7 @@ SPDX-License-Identifier: Apache-2.0
 ## Datasets
 
 - **MetricTestDataset**: `datasets/metric_test_dataset.py`
-  - dataset location in the repository: `../../../tests/system/metric/dataset/`
+  - dataset location in the repository: `../../../tests/system/metric/unity_dataset/`
     It contains:
     - ground-truth file
     - scene configuration in non-canonical format (however accepted by SceneControllerHarness implementation)
