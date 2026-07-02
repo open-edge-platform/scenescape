@@ -31,7 +31,7 @@ services:
       - load-test
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.153.0
+    image: otel/opentelemetry-collector-contrib:0.155.0
     hostname: otel-collector
     command: ["--config=/etc/otel-config.yaml"]
     ports:
