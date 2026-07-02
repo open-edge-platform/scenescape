@@ -80,11 +80,17 @@ def _normalized_box(xmin: float, ymin: float, xmax: float, ymax: float,
   }
 
 
-def _detection(person_id: int, xmin: float, ymin: float, xmax: float, ymax: float,
+def _detection(det_id: int, xmin: float, ymin: float, xmax: float, ymax: float,
                intrinsics: List[float]) -> Dict:
-  """Build a single canonical detection object entry."""
+  """Build a single canonical detection object entry.
+
+  ``det_id`` is a per-frame, per-camera detection index (starting from 0), as
+  produced by analytics pipelines.  The original Wildtrack ``personID`` is
+  deliberately not propagated into camera inputs so the tracker must associate
+  detections to tracks via its matching algorithms rather than input ID hints.
+  """
   return {
-    "id": person_id,
+    "id": det_id,
     "category": wt.OBJECT_CATEGORY,
     "confidence": 1.0,
     "bounding_box_px": {
@@ -154,8 +160,11 @@ def preprocess(dataset_path: Path, output_dir: Path) -> Dict[str, int]:
              and view["xmax"] == -1 and view["ymax"] == -1:
             continue
           cam_id = wt.camera_id_for_view(view["viewNum"])
+          # Detection IDs are assigned incrementally per camera per frame
+          # (starting from 0), mirroring analytics-pipeline output. The original
+          # personID is intentionally dropped from camera inputs.
           frame_objects[cam_id].append(
-            _detection(person_id, view["xmin"], view["ymin"],
+            _detection(len(frame_objects[cam_id]), view["xmin"], view["ymin"],
                        view["xmax"], view["ymax"], intrinsics_by_cam[cam_id])
           )
 
