@@ -108,8 +108,3 @@ class MappingClient(RESTClient):
     """Health check endpoint."""
     reply = self.request("get", "health")
     return self.decodeReply(reply, HTTPStatus.OK)
-
-  def listModels(self, filter=None):
-    """List available models."""
-    reply = self.request("get", "models", params=filter)
-    return self.decodeReply(reply, HTTPStatus.OK)

@@ -90,16 +90,15 @@ This command sets up the container with the correct user, network, hostname, por
 }
 ```
 
-The response will include which model was used:
+Example response:
 
 ```json
 {
   "success": true,
-  "model": "mapanything",
   "glb_data": "...",
   "camera_poses": [],
   "intrinsics": [],
-  "message": "Successfully processed 2 images with mapanything"
+  "message": "complete"
 }
 ```
 
@@ -111,35 +110,12 @@ The response will include which model was used:
 curl https://localhost:8444/v1/health
 ```
 
-Response includes model information:
+Example response:
 
 ```json
 {
+  "success": true,
   "status": "healthy",
-  "model": "mapanything",
-  "model_loaded": true,
-  "device": "cpu"
-}
-```
-
-### Model Information
-
-```bash
-curl https://localhost:8444/v1/models
-```
-
-Response shows single model details:
-
-```json
-{
-  "model": "mapanything",
-  "model_info": {
-    "name": "mapanything",
-    "description": "Universal Feed-Forward Metric 3D Reconstruction",
-    "loaded": true,
-    "native_output": "pointcloud",
-    "supported_outputs": ["pointcloud", "mesh"]
-  },
-  "camera_pose_format": {}
+  "model_loaded": true
 }
 ```

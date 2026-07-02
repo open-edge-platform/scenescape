@@ -296,29 +296,6 @@ paths:
                 status: "unhealthy"
                 model_loaded: false
 
-  /models:
-    get:
-      tags:
-        - models
-      summary: List available models and their status
-      description: |
-        Returns the supported camera pose format for this container's model.
-        The model type is fixed at build time and not disclosed.
-      operationId: listModels
-      responses:
-        "200":
-          description: Models information retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ModelsResponse"
-              example:
-                success: true
-                camera_pose_format:
-                  rotation: "quaternion [x, y, z, w]"
-                  translation: "vector [x, y, z]"
-                  coordinate_system: "OpenCV (camera-to-world transformation, standard CV coordinates)"
-
 components:
   schemas:
     ReconstructionRequest:
@@ -524,33 +501,6 @@ components:
           type: boolean
           description: Whether the model is loaded and ready to accept requests
           example: true
-
-    ModelsResponse:
-      type: object
-      required:
-        - success
-        - camera_pose_format
-      properties:
-        success:
-          type: boolean
-          example: true
-        camera_pose_format:
-          type: object
-          description: Format description for camera poses returned by this service
-          required:
-            - rotation
-            - translation
-            - coordinate_system
-          properties:
-            rotation:
-              type: string
-              example: "quaternion [x, y, z, w]"
-            translation:
-              type: string
-              example: "vector [x, y, z]"
-            coordinate_system:
-              type: string
-              example: "OpenCV (camera-to-world transformation, standard CV coordinates)"
 
     ErrorResponse:
       type: object

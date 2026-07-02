@@ -392,18 +392,6 @@ def health_check():
   log.debug("Health check: healthy")
   return jsonify({"success": True, "status": "healthy", "model_loaded": True}), 200
 
-@app.route(f"{API_PREFIX}/models", methods=["GET"])
-def list_models():
-  """List the camera pose format for the current model"""
-  return jsonify({
-    "success": True,
-    "camera_pose_format": {
-      "rotation": "quaternion [x, y, z, w]",
-      "translation": "vector [x, y, z]",
-      "coordinate_system": "OpenCV (camera-to-world transformation, standard CV coordinates)"
-    }
-  }), 200
-
 @app.route(f"{API_PREFIX}/reconstruction/status/<request_id>", methods=["GET"])
 def reconstruction_status(request_id):
   if not _REQUEST_ID_RE.match(request_id):

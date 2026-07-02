@@ -89,17 +89,6 @@ class TestAPIService:
     assert 'model' not in data
     assert 'device' not in data
 
-  def test_list_models(self, client):
-    """Test /models endpoint"""
-    response = client.get('/models')
-
-    assert response.status_code == 200
-    data = json.loads(response.data)
-    assert data['success'] is True
-    assert 'camera_pose_format' in data
-    assert 'model' not in data
-    assert 'model_info' not in data
-
   def test_reconstruction_success(self, client):
     """Test successful reconstruction request"""
     import time
