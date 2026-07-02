@@ -372,39 +372,8 @@ class TestAPIService:
     data = json.loads(response.data)
     assert 'error' in data
 
-  def test_request_too_large_returns_413(self):
-    """Test that oversized requests return 413, not 502.
-
-    When a reverse proxy (e.g., Apache) forwards a large upload, Werkzeug
-    raises RequestEntityTooLarge before reading the body. The error handler
-    must drain the remaining bytes so the proxy can forward the 413 instead
-    of seeing a connection reset and returning 502.
-    """
-    from api_service_base import app
-
-    # Lower the limit so we can trigger it with a small payload in tests
-    original_limit = app.config.get('MAX_CONTENT_LENGTH')
-    app.config['MAX_CONTENT_LENGTH'] = 10  # 10 bytes
-
-    try:
-      app.config['TESTING'] = True
-      with app.test_client() as client:
-        # Send more than 10 bytes to trigger 413
-        oversized_body = b'x' * 100
-        response = client.post(
-          '/v1/reconstruction',
-          data=oversized_body,
-          content_type='multipart/form-data',
-          headers={'Content-Length': str(len(oversized_body))}
-        )
-      assert response.status_code == 413
-      data = json.loads(response.data)
-      assert 'error' in data
-    finally:
-      app.config['MAX_CONTENT_LENGTH'] = original_limit
-
-  def test_request_too_large_drains_body(self):
-    """Test that the 413 handler drains the request body.
+  def test_request_too_large_returns_413_and_drains_body(self):
+    """Test that oversized requests return 413 and drain the request body.
 
     Without draining, a reverse proxy (e.g., Apache) sees a connection reset
     when the backend closes without consuming the uploaded bytes, and returns
@@ -426,8 +395,10 @@ class TestAPIService:
         'CONTENT_LENGTH': '100',
       }
     ):
-      request_entity_too_large(RequestEntityTooLarge())
+      response = request_entity_too_large(RequestEntityTooLarge())
 
+    assert response.status_code == 413
+    assert 'error' in json.loads(response.get_data())
     mock_stream.read.assert_called()
 
 
