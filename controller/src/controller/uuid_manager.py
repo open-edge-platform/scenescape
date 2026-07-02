@@ -765,26 +765,31 @@ class UUIDManager:
 
     self._logLiveGidIntegrity("updateActiveDict", sscape_object.rv_id)
 
-    # Store features with semantic metadata for TIER 1 filtering in future queries
-    num_features = len(self.quality_features.get(sscape_object.rv_id, []))
-    log.debug(f"updateActiveDict: Storing {num_features} features for track {sscape_object.rv_id} to features_for_database")
-    self.features_for_database[sscape_object.rv_id] = {
+    persist_attrs = (
+      sscape_object.chain_data.persist.copy()
+      if sscape_object.chain_data and isinstance(sscape_object.chain_data.persist, dict)
+      else {}
+    )
+
+    entry = {
       'gid': sscape_object.gid,
       'category': sscape_object.category,
       'reid_vectors': self.quality_features[sscape_object.rv_id],
       'metadata': self._extractSemanticMetadata(sscape_object),
-      'persist': {
-        **(sscape_object.chain_data.persist.copy()
-           if sscape_object.chain_data and isinstance(sscape_object.chain_data.persist, dict)
-           else {}),
-        'timestamp': sscape_object.when
       }
-    }
-    log.debug(f"updateActiveDict: Storing features for rv_id={sscape_object.rv_id} "
-         f"gid={sscape_object.gid} "
-         f"persist_in_features_for_database={'persist' in self.features_for_database[sscape_object.rv_id]}")
 
-    self.features_for_database_timestamps[sscape_object.rv_id] = get_epoch_time()  # Record when added
+    if persist_attrs:
+      entry['persist'] = {**persist_attrs, 'timestamp': sscape_object.when}
+
+    # Store features with semantic metadata for TIER 1 filtering in future queries
+    num_features = len(self.quality_features.get(sscape_object.rv_id, []))
+    log.debug(f"updateActiveDict: Storing {num_features} features for track {sscape_object.rv_id} to features_for_database")
+    self.features_for_database[sscape_object.rv_id] = entry
+    log.debug(f"updateActiveDict: Storing features for rv_id={sscape_object.rv_id} "
+        f"gid={sscape_object.gid} "
+        f"persist_in_features_for_database={'persist' in self.features_for_database[sscape_object.rv_id]}")
+
+    self.features_for_database_timestamps[sscape_object.rv_id] = get_epoch_time()
     return
 
   def isNewID(self, database_id):
