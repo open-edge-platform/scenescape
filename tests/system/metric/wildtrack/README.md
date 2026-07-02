@@ -24,3 +24,5 @@ WILDTRACK is a third-party dataset that is adopted and used in this tracker eval
 
 > "The WILDTRACK Multi-Camera Person Dataset." T. Chavdarova et al.
 > https://arxiv.org/pdf/1707.09299.pdf
+
+Download link: http://documents.epfl.ch/groups/c/cv/cvlab-unit/www/data/Wildtrack/Wildtrack_dataset_full.zip
