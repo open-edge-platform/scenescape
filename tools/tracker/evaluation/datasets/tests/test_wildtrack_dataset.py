@@ -4,7 +4,7 @@
 """Tests for WildtrackDataset and the Wildtrack preprocessing helpers.
 
 The adapter tests run against the committed preprocessed artifacts under
-``tests/system/metric/wildtrack``.  The calibration tests exercise the pure
+``tests/system/metric/wildtrack_dataset``.  The calibration tests exercise the pure
 helper functions and do not depend on the (external) raw dataset.
 """
 
@@ -24,7 +24,7 @@ from datasets.wildtrack import calibration as wt
 from utils.format_converters import read_csv_to_dataframe, stream_jsonl
 
 REPO_ROOT = Path(__file__).parent.parent.parent.parent.parent.parent
-DATASET_PATH = REPO_ROOT / "tests" / "system" / "metric" / "wildtrack"
+DATASET_PATH = REPO_ROOT / "tests" / "system" / "metric" / "wildtrack_dataset"
 SCHEMA_PATH = REPO_ROOT / "tracker" / "schema"
 
 GT_COLUMNS = ["frame", "id", "x", "y", "z", "conf", "class", "vis"]

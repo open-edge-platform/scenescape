@@ -24,7 +24,7 @@ Usage::
 
     python -m datasets.wildtrack.verify_pom \
         --dataset-path /path/to/Wildtrack_dataset \
-        --scene-config ../../../tests/system/metric/wildtrack/scene_config.json \
+        --scene-config ../../../tests/system/metric/wildtrack_dataset/scene_config.json \
         --stride 4999 --max-per-camera 300
 """
 

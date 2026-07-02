@@ -20,7 +20,7 @@ Usage::
 
     python -m datasets.wildtrack.preprocess \
         --dataset-path /path/to/Wildtrack_dataset \
-        --output ../../../tests/system/metric/wildtrack
+        --output ../../../tests/system/metric/wildtrack_dataset
 """
 
 import argparse

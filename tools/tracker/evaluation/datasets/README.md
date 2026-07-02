@@ -62,7 +62,7 @@ gt_path = dataset.get_ground_truth()
 
 ### WildtrackDataset
 
-**Purpose**: Adapter for the [WILDTRACK](https://arxiv.org/pdf/1707.09299.pdf) multi-camera person dataset, using preprocessed artifacts stored under `tests/system/metric/wildtrack`.
+**Purpose**: Adapter for the [WILDTRACK](https://arxiv.org/pdf/1707.09299.pdf) multi-camera person dataset, using preprocessed artifacts stored under `tests/system/metric/wildtrack_dataset`.
 
 **Key Features**:
 - Single scene: `Wildtrack`
@@ -84,7 +84,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from datasets.wildtrack_dataset import WildtrackDataset
 
-dataset = WildtrackDataset("../../../tests/system/metric/wildtrack")
+dataset = WildtrackDataset("../../../tests/system/metric/wildtrack_dataset")
 
 # Configure dataset (cameras selectable by index 0-6)
 dataset.set_cameras([0, 1, 2, 3, 4, 5, 6]).set_camera_fps(2)

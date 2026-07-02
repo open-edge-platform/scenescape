@@ -9,7 +9,7 @@ pipeline:
 dataset:
   class: datasets.wildtrack_dataset.WildtrackDataset
   config:
-    data_path: ../../../tests/system/metric/wildtrack
+    data_path: ../../../tests/system/metric/wildtrack_dataset
     cameras: [0, 1, 2, 3, 4, 5, 6]
     camera_fps: 2
 
