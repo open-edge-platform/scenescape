@@ -395,9 +395,9 @@ class TestAPIService:
         'CONTENT_LENGTH': '100',
       }
     ):
-      response = request_entity_too_large(RequestEntityTooLarge())
+      response, status_code = request_entity_too_large(RequestEntityTooLarge())
 
-    assert response.status_code == 413
+    assert status_code == 413
     assert 'error' in json.loads(response.get_data())
     mock_stream.read.assert_called()
 
