@@ -242,7 +242,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260623-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260630-weekly-ubuntu24
     privileged: true
     networks:
       scenescape:
