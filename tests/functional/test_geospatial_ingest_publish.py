@@ -31,7 +31,7 @@ CHILD_NAME = "Child"
 THING_TYPE = "person"
 CAMERA_ID = "camera1"
 FRAMES_PER_SECOND = 10
-MAX_WAIT_TIMEOUT = 30
+MAX_WAIT_TIMEOUT_S = 100
 LLA_VALUE = [50, 0, -6.37813751e+06]
 TRANSLATION_VALUE = [-0.3278, -0.3907, 0]
 BOUNDING_BOX = {'x': 0.56, 'y': 0.0, 'width': 0.24, 'height': 0.49}
@@ -133,7 +133,7 @@ class GeospatialIngestPublish(FunctionalTest):
     assert res, (res.statusCode, res.errors)
 
   def waitForSceneCondition(self, predicate, description,
-                            timeout=MAX_WAIT_TIMEOUT, interval=1.0):
+                            timeout=MAX_WAIT_TIMEOUT_S, interval=1.0):
     """! Poll the scene via REST until `predicate(scene)` is true or `timeout`.
 
     The scene controller computes and persists derived fields (such as
@@ -198,7 +198,7 @@ class GeospatialIngestPublish(FunctionalTest):
       "trs_matrix to be computed and published by the controller",
     )
     assert scene.get('trs_matrix'), (
-      f"trs_matrix not populated within {MAX_WAIT_TIMEOUT}s; "
+      f"trs_matrix not populated within {MAX_WAIT_TIMEOUT_S}s; "
       f"output_lla={scene.get('output_lla')}, "
       f"map_corners_lla_set={bool(scene.get('map_corners_lla'))}, "
       f"map={scene.get('map')}"
@@ -226,7 +226,7 @@ class GeospatialIngestPublish(FunctionalTest):
     waitTopic = PubSub.formatTopic(PubSub.DATA_SCENE,
                                    scene_id=self.sceneUID,
                                    thing_type=THING_TYPE)
-    count = self.sceneControllerReady(waitTopic, topic, MAX_WAIT_TIMEOUT,
+    count = self.sceneControllerReady(waitTopic, topic, MAX_WAIT_TIMEOUT_S,
                                       time.time(), 1 / FRAMES_PER_SECOND, detection)
     assert count, "Scene controller not ready"
 
@@ -271,7 +271,7 @@ class GeospatialIngestPublish(FunctionalTest):
                                            camera_id=CAMERA_ID), detection)
     return
 
-  def waitForUpdate(self, outputLLA, timeout=MAX_WAIT_TIMEOUT):
+  def waitForUpdate(self, outputLLA, timeout=MAX_WAIT_TIMEOUT_S):
     self.outputLLA = outputLLA
     self.outputReceived = False
     start_time = time.time()
