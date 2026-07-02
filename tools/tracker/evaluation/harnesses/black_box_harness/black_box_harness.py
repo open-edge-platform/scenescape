@@ -515,6 +515,7 @@ class BlackBoxHarness(TrackerHarness):
         docker.network.remove(net_name)
 
       self._persist_outputs(outputs, tmp_dir)
+      self._persist_config()
       if self._enable_metrics:
         self._record_metrics(output_frame_count=len(outputs))
       return iter(outputs)
@@ -1059,3 +1060,19 @@ class BlackBoxHarness(TrackerHarness):
     out_file = tmp_dir / "outputs.jsonl"
     write_jsonl(iter(outputs), str(out_file))
     shutil.copy(out_file, self._output_folder / "outputs.jsonl")
+
+  def _persist_config(self) -> None:
+    """Copy the tracker configuration file into the output ``config`` folder.
+
+    Applies to both container types: ``self._tracker_config_path`` is the
+    source config supplied via ``set_custom_config()`` (mounted directly for
+    the controller, and the basis for the tracker service config).  The file
+    is copied under ``<output_folder>/config/`` preserving its basename.
+    """
+    if not self._output_folder or not self._tracker_config_path:
+      return
+    config_dir = self._output_folder / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    dest = config_dir / Path(self._tracker_config_path).name
+    shutil.copy(self._tracker_config_path, dest)
+    print(f"[BlackBoxHarness] Config → {dest}")
