@@ -8,9 +8,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": [
-              "test_media/atag-calib-demo-map.png"
-            ],
+            "images": ["test_media/atag-calib-demo-map.png"],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -67,9 +65,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "video": [
-              "test_media/qcam1.mp4"
-            ],
+            "video": ["test_media/qcam1.mp4"],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -126,12 +122,8 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": [
-              "test_media/atag-calib-demo-map.png"
-            ],
-            "video": [
-              "test_media/qcam1.mp4"
-            ],
+            "images": ["test_media/atag-calib-demo-map.png"],
+            "video": ["test_media/qcam1.mp4"],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -249,9 +241,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": [
-              "test_media/atag-calib-demo-map.png"
-            ],
+            "images": ["test_media/atag-calib-demo-map.png"],
             "output_format": "glb",
             "mesh_type": "pointcloud",
             "use_keyframes": true
@@ -308,9 +298,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": [
-              "test_media/atag-calib-demo-map.png"
-            ],
+            "images": ["test_media/atag-calib-demo-map.png"],
             "output_format": "json",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -387,9 +375,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": [
-              "test_media/atag-calib-demo-map.png"
-            ],
+            "images": ["test_media/atag-calib-demo-map.png"],
             "output_format": "invalid_format",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -410,9 +396,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "video": [
-              "test_media/LargeVideoForTest.mp4"
-            ],
+            "video": ["test_media/LargeVideoForTest.mp4"],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -525,12 +509,8 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "images": [
-              "test_media/LotMap.png"
-            ],
-            "camera_ids": [
-              "invalid id!"
-            ],
+            "images": ["test_media/LotMap.png"],
+            "camera_ids": ["invalid id!"],
             "output_format": "json",
             "mesh_type": "mesh",
             "use_keyframes": true
