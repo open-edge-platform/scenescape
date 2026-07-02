@@ -30,8 +30,9 @@ blinker==1.9.0 \
     --hash=sha256:ba0efaa9080b619ff2f3459d1d500c57bddea4a6b424b60a91141db6fd2f08bc
 bidict==0.23.1 \
     --hash=sha256:5dae8d4d79b552a71cbabc7deb25dfe8ce710b17ff41711e13010ead2abfc3e5
-python-engineio==4.12.3 \
-    --hash=sha256:7c099abb2a27ea7ab429c04da86ab2d82698cdd6c52406cb73766fe454feb7e1
+python-engineio==4.13.2 \
+    --hash=sha256:8c101cd170e400dc4e970cd523325cde22df8fc25140953f379327055d701a6b \
+    --hash=sha256:a7732e99cfb7db6ed1aee31f18d7f73bbae086a92f31dee019bc646155d9684e
 markupsafe==3.0.3 \
     --hash=sha256:0bf2a864d67e76e5c9a34dc26ec616a66b9888e25e7b9460e1c76d3293bd9dbf
 simple-websocket==1.1.0 \
