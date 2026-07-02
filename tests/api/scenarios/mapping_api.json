@@ -37,7 +37,7 @@
         "expected_status": { "status_code": 200 },
         "poll": {
           "interval_s": 2,
-          "timeout_s": 420,
+          "timeout_s": 900,
           "until": { "state": "complete" },
           "fail_if": { "state": "failed" }
         },
@@ -56,7 +56,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "video": ["test_media/lab_vid.mp4"],
+            "video": ["test_media/qcam1.mp4"],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -85,7 +85,7 @@
         "expected_status": { "status_code": 200 },
         "poll": {
           "interval_s": 2,
-          "timeout_s": 420,
+          "timeout_s": 900,
           "until": { "state": "complete" },
           "fail_if": { "state": "failed" }
         },
@@ -105,7 +105,7 @@
         "request": {
           "body": {
             "images": ["test_media/atag-calib-demo-map.png"],
-            "video": ["test_media/lab_vid.mp4"],
+            "video": ["test_media/qcam1.mp4"],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true
@@ -134,7 +134,7 @@
         "expected_status": { "status_code": 200 },
         "poll": {
           "interval_s": 2,
-          "timeout_s": 420,
+          "timeout_s": 900,
           "until": { "state": "complete" },
           "fail_if": { "state": "failed" }
         },
@@ -186,7 +186,7 @@
         "expected_status": { "status_code": 200 },
         "poll": {
           "interval_s": 2,
-          "timeout_s": 420,
+          "timeout_s": 900,
           "until": { "state": "complete" },
           "fail_if": { "state": "failed" }
         },
@@ -234,7 +234,7 @@
         "expected_status": { "status_code": 200 },
         "poll": {
           "interval_s": 2,
-          "timeout_s": 420,
+          "timeout_s": 900,
           "until": { "state": "complete" },
           "fail_if": { "state": "failed" }
         },
@@ -282,7 +282,7 @@
         "expected_status": { "status_code": 200 },
         "poll": {
           "interval_s": 2,
-          "timeout_s": 420,
+          "timeout_s": 900,
           "until": { "state": "complete" },
           "fail_if": { "state": "failed" }
         },
@@ -343,7 +343,7 @@
         "method": "performReconstruction",
         "request": {
           "body": {
-            "video": ["test_media/ParkingVideoTrimmed2.mp4"],
+            "video": ["test_media/LargeVideoForTest.mp4"],
             "output_format": "glb",
             "mesh_type": "mesh",
             "use_keyframes": true

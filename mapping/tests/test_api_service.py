@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
@@ -28,7 +26,7 @@ class TestAPIService:
   def client(self):
     """Create Flask test client with mock model"""
     # Import here to avoid issues with model initialization
-    from api_service_base import app
+    from api_service_base import app, API_PREFIX
 
     # Create mock model
     mock_model = Mock()
@@ -55,6 +53,20 @@ class TestAPIService:
       with patch('api_service_base.model_name', 'test_model'):
         app.config['TESTING'] = True
         with app.test_client() as client:
+          # Routes are registered under API_PREFIX ("/v1")
+          original_open = client.open
+
+          def open_with_prefix(*args, **kwargs):
+            path = args[0] if args else kwargs.get('path')
+            if isinstance(path, str) and path.startswith("/") and not path.startswith(API_PREFIX):
+              prefixed_path = f"{API_PREFIX}{path}"
+              if args:
+                args = (prefixed_path,) + args[1:]
+              else:
+                kwargs['path'] = prefixed_path
+            return original_open(*args, **kwargs)
+
+          client.open = open_with_prefix
           yield client
 
   def create_test_image_base64(self, size=(100, 100), color=(255, 0, 0)):

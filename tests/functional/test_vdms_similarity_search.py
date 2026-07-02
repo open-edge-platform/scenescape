@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
-
-# SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import os
+import uuid
 import numpy as np
 from tests.functional.backend_functional import BackendFunctionalTest
 from tests.utils.log import get_logger
@@ -18,6 +16,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 TEST_NAME = "NEX-T10516"
+TEST_SET_NAME = "test_similarity_search"
 
 class VDMSSimilaritySearch(BackendFunctionalTest):
   def __init__(self, testName, request, recordXMLAttribute):
@@ -25,12 +24,16 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
     self.thing_1 = self.generate_random_vector()
     self.thing_2 = self.generate_random_vector()
     self.thing_2_match = self.generate_random_vector()
+    # Per-run identifiers keep this test isolated from descriptors left behind
+    # by earlier runs sharing the same VDMS instance.
+    self.run_id = uuid.uuid4().hex
+    self.set_name = f"reid_vector_{self.run_id[:8]}"
 
   def descriptor_set_reid(self):
     log.info("Add the descriptor set for RE-ID data")
     descriptor_set = {
       "AddDescriptorSet": {
-        "name": "reid_vectors",
+        "name": self.set_name,
         "metric": "L2",
         "dimensions": 256
       }
@@ -54,15 +57,17 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
 
     descriptor_1 = {
       "AddDescriptor": {
-        "set": "reid_vector",
-        "label": "Person 1"
+        "set": self.set_name,
+        "label": "Person 1",
+        "properties": {"run_id": self.run_id}
       }
     }
 
     descriptor_2 = {
       "AddDescriptor": {
-        "set": "reid_vector",
-        "label": "Person 2"
+        "set": self.set_name,
+        "label": "Person 2",
+        "properties": {"run_id": self.run_id}
       }
     }
 
@@ -79,7 +84,7 @@ class VDMSSimilaritySearch(BackendFunctionalTest):
 
   def get_similarity(self):
     log.info("Pass a third RE-ID vector from one of the two initial objects and get a similarity search comparison. It should have low distance from one of the entries.")
-    response, res_arr = self.get_similarity_comparison([self.thing_2_match])
+    response, res_arr = self.get_similarity_comparison([self.thing_2_match], set_name=self.set_name)
     log.debug(f"RESPONSE: {response}\nRES_ARR: {res_arr}")
     assert response[0]['returned'] == 2, \
       "There should be only 2 entities returned!"
@@ -100,6 +105,7 @@ def test_vdms_similarity_search(scenescape_env, request, record_xml_attribute):
     test.get_similarity()
     test.exitCode = 0
   finally:
+    test.delete_descriptors(test.set_name, test.run_id)
     test.recordTestResult()
 
   assert test.exitCode == 0
