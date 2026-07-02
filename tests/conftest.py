@@ -844,21 +844,53 @@ def scenescape_env(request, _compose_manager, secrets_dir, supass,
     env = _compose_manager.get_env(spec.profile, _spec_visibility_topic(spec))
     _inject_options(request.config, spec, secrets_dir, supass, env=env)
 
+  # If a previous test preserved the database (skipped its post-test restore)
+  # and it lived in a different module, restore now so this test starts from the
+  # baseline snapshot. Restores are scoped to the running stack: a profile change
+  # already restarts the stack with a fresh database, and within-module
+  # persistence chains (multiple tests in one file relying on carried-over state)
+  # are intentionally left untouched.
+  if "web" in spec.profile.wait_for and hasattr(env, "restore_db"):
+    preserved = getattr(request.session, "_scenescape_db_preserved", None)
+    if preserved is not None:
+      preserved_module, preserved_profile_key = preserved
+      current_profile_key = f"{spec.profile.name}:{_spec_visibility_topic(spec)}"
+      if preserved_profile_key != current_profile_key:
+        # Stack was restarted on the profile switch; database is already fresh.
+        request.session._scenescape_db_preserved = None
+      elif preserved_module != request.module.__name__:
+        logger.info(
+          "Restoring database before %s: previous module %s preserved it",
+          request.module.__name__, preserved_module,
+        )
+        try:
+          env.restore_db()
+        except Exception as exc:
+          logger.warning("Pre-test DB restore failed: %s", exc)
+        request.session._scenescape_db_preserved = None
+
   # Track that this test used the environment for cleanup scheduling.
   request.session._scenescape_test_ran = True
 
   yield env
 
-  # Restore database after every test.
-  # Only applies to profiles that include a web/database service.
-  # Tests marked with @pytest.mark.preserve_db skip the restore so that
-  # a subsequent test can verify data survives.
+  # Restore database after every test so each test starts from an identical
+  # baseline. Only applies to profiles that include a web/database service.
+  # Tests marked with @pytest.mark.preserve_db skip this restore so a following
+  # test in the same module can verify data survives; the preserved state is
+  # recorded so the next test in a different module restores before running.
   if "web" in spec.profile.wait_for:
-    if not request.node.get_closest_marker("preserve_db"):
+    if request.node.get_closest_marker("preserve_db"):
+      request.session._scenescape_db_preserved = (
+        request.module.__name__,
+        f"{spec.profile.name}:{_spec_visibility_topic(spec)}",
+      )
+    else:
       try:
         env.restore_db()
       except Exception as exc:
         logger.warning("Post-test DB restore failed: %s", exc)
+      request.session._scenescape_db_preserved = None
 
 
 # ---------------------------------------------------------------------------
