@@ -135,7 +135,12 @@ def test_switch_3d_camera_scene_camera(scenescape_env, request, record_xml_attri
   log.info("Test to switch between 3d scene camera view")
 
   test = Scene3dUserInterfaceTest(TEST_NAME, request, record_xml_attribute)
-  test.checkSceneCameraToggle()
+  try:
+    test.checkSceneCameraToggle()
+  finally:
+    browser = getattr(test, "browser", None)
+    if browser is not None:
+      browser.quit()
 
   assert test.exitCode == 0
   return test.exitCode
