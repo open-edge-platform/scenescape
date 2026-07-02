@@ -59,18 +59,14 @@ ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 ARG FORCE_VAAPI
 
-# Update and upgrade base OS packages
-RUN apt update && apt upgrade -y
-
-RUN : \
-&& apt-get update \
-    && apt-get install -y --no-install-recommends \
-        curl \
-        ca-certificates \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends \
+# Upgrade base OS packages and install runtime dependencies in one layer
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
         apache2 \
         bzip2 \
+        curl \
+        ca-certificates \
         libegl1 \
         libgl1 \
         libapache2-mod-wsgi-py3 \
@@ -82,13 +78,13 @@ RUN : \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip and setuptools to latest versions
-RUN pip3 install --no-cache-dir --upgrade pip \
-    && pip3 install --no-cache-dir --upgrade setuptools wheel
+# Upgrade pip to latest version
+RUN pip3 install --no-cache-dir --upgrade pip
 
 # Runtime dependencies
 COPY ./manager/requirements-runtime.txt /tmp
-RUN pip3 install --upgrade --no-cache-dir \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip3 install --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r /tmp/requirements-runtime.txt
 
