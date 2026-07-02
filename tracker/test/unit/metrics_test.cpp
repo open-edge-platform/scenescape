@@ -100,6 +100,10 @@ TEST_F(MetricsNoInitTest, NoOpBeforeTelemetryInit) {
     EXPECT_NO_THROW(Metrics::record_latency(10.0));
     EXPECT_NO_THROW(Metrics::inc_messages());
     EXPECT_NO_THROW(Metrics::inc_dropped());
+    EXPECT_NO_THROW(Metrics::inc_time_chunking_duplicated_cameras());
+    EXPECT_NO_THROW(Metrics::inc_time_chunking_unique_cameras_n(3));
+    EXPECT_NO_THROW(Metrics::inc_time_chunking_non_empty_chunks());
+    EXPECT_NO_THROW(Metrics::inc_time_chunking_empty_chunks());
     EXPECT_NO_THROW(Metrics::set_active_tracks("scene1", "person", 5));
 }
 
@@ -162,6 +166,47 @@ TEST_F(MetricsTest, IncDroppedWithReason) {
         }
     }
     EXPECT_EQ(total, 2);
+}
+
+TEST_F(MetricsTest, TimeChunkingCountersRecorded) {
+    Metrics::inc_time_chunking_duplicated_cameras(
+        {{kAttrScene, "scene1"}, {kAttrCategory, "person"}});
+    Metrics::inc_time_chunking_duplicated_cameras(
+        {{kAttrScene, "scene1"}, {kAttrCategory, "person"}});
+    Metrics::inc_time_chunking_unique_cameras_n(4);
+    Metrics::inc_time_chunking_non_empty_chunks();
+    Metrics::inc_time_chunking_empty_chunks();
+    Metrics::inc_time_chunking_empty_chunks();
+
+    Telemetry::shutdown();
+
+    auto sum_total = [this](const char* metric_name) {
+        int64_t total = 0;
+        for (const auto& [attrs, point] : metric_data_->Get(kMeterName, metric_name)) {
+            auto* sum_data = std::get_if<metrics_sdk::SumPointData>(&point);
+            if (sum_data) {
+                auto value = std::get_if<int64_t>(&sum_data->value_);
+                if (value) {
+                    total += *value;
+                }
+            }
+        }
+        return total;
+    };
+
+    EXPECT_EQ(sum_total(kMetricTimeChunkingDuplicatedCameras), 2);
+    EXPECT_EQ(sum_total(kMetricTimeChunkingUniqueCameras), 4);
+    EXPECT_EQ(sum_total(kMetricTimeChunkingNonEmptyChunks), 1);
+    EXPECT_EQ(sum_total(kMetricTimeChunkingEmptyChunks), 2);
+}
+
+TEST_F(MetricsTest, TimeChunkingUniqueCamerasZeroIsNoOp) {
+    // A zero count should not create a data point (mirrors inc_dropped_n).
+    Metrics::inc_time_chunking_unique_cameras_n(0);
+
+    Telemetry::shutdown();
+
+    EXPECT_TRUE(metric_data_->Get(kMeterName, kMetricTimeChunkingUniqueCameras).empty());
 }
 
 TEST_F(MetricsTest, RecordLatency) {
