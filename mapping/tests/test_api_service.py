@@ -403,6 +403,33 @@ class TestAPIService:
     finally:
       app.config['MAX_CONTENT_LENGTH'] = original_limit
 
+  def test_request_too_large_drains_body(self):
+    """Test that the 413 handler drains the request body.
+
+    Without draining, a reverse proxy (e.g., Apache) sees a connection reset
+    when the backend closes without consuming the uploaded bytes, and returns
+    502 instead of forwarding the 413.
+    """
+    from api_service_base import app, request_entity_too_large
+    from werkzeug.exceptions import RequestEntityTooLarge
+    from unittest.mock import MagicMock
+
+    mock_stream = MagicMock()
+    mock_stream.read.return_value = b''
+
+    with app.test_request_context(
+      '/v1/reconstruction',
+      method='POST',
+      content_type='multipart/form-data',
+      environ_overrides={
+        'wsgi.input': mock_stream,
+        'CONTENT_LENGTH': '100',
+      }
+    ):
+      request_entity_too_large(RequestEntityTooLarge())
+
+    mock_stream.read.assert_called()
+
 
 class TestRequestValidation:
   """Test cases for request validation functions"""
