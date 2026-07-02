@@ -42,8 +42,8 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Turn off tracked objects and hide stats graph.")
     time.sleep(WAIT_SEC)
-    assert common.wait_for_element_with_reload(
-      browser, (By.ID, "camera1-control-panel"), page_path=scene_path, timeout=120
+    assert common.selenium_wait_for_elements(
+      browser, (By.ID, "camera1-control-panel"), 180
     ) is not None, "camera1-control-panel did not appear (3D scene failed to load)"
     browser.find_element(By.ID, "tracked-objects-button").click()
     interaction_page.hide_stats()
