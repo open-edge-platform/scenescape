@@ -997,6 +997,8 @@ class BlackBoxHarness(TrackerHarness):
     session_start_wall: Optional[float] = None
     session_start_data: Optional[float] = None
 
+    published_count = 0
+    publish_start = time.monotonic()
     for frame in frames:
       ts_str = frame.get("timestamp")
       if ts_str:
@@ -1014,6 +1016,14 @@ class BlackBoxHarness(TrackerHarness):
       cam_id = frame.get("id", "")
       topic  = _TOPIC_DATA_CAMERA.format(camera_id=cam_id)
       client.publish(topic, json.dumps(frame))
+      published_count += 1
+
+    publish_elapsed = time.monotonic() - publish_start
+    avg_publish_fps = published_count / publish_elapsed if publish_elapsed > 0 else 0.0
+    print(
+        f"[BlackBoxHarness] Published {published_count} frames in "
+        f"{publish_elapsed:.2f}s (avg {avg_publish_fps:.2f} frames/s)"
+    )
 
     print(f"[BlackBoxHarness] Published {len(frames)} frames, draining (idle timeout {self._drain_timeout}s) ...")
     poll_interval = min(0.25, self._drain_timeout) if self._drain_timeout > 0 else 0.25
