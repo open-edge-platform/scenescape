@@ -19,7 +19,7 @@ from utils.format_converters import read_csv_to_dataframe, stream_jsonl
 
 # Path to test dataset
 DATASET_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / \
-  "tests" / "system" / "metric" / "dataset"
+  "tests" / "system" / "metric" / "unity_dataset"
 
 # Path to schemas
 SCHEMA_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / \
