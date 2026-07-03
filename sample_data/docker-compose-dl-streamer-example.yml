@@ -451,12 +451,12 @@ services:
       # LiDAR pipeline configuration — override as needed:
       # - LIDAR_SENSOR_ID=lidar1
       - LIDAR_DATA_PATH=/home/pipeline-server/videos/velodyne_bin/%06d.bin
-      - LIDAR_START_INDEX=10699
-      - LIDAR_STOP_INDEX=10949
+      - LIDAR_START_INDEX=010949
+      - LIDAR_STOP_INDEX=010949
       - LIDAR_LOOP=true
       - LIDAR_FRAME_RATE=10
       - LIDAR_DEVICE=GPU
-      - LIDAR_SCORE_THRESHOLD=0.3
+      - LIDAR_SCORE_THRESHOLD=0.7
       - LIDAR_MODEL_CONFIG=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
       - LIDAR_PUBLISH_RAW=true
       - LOG_LEVEL=SUMMARY
