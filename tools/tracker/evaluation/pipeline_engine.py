@@ -508,8 +508,9 @@ def _tee_output(output_path: Path) -> None:
       self._secondary = secondary
 
     def write(self, s):
-      self._primary.write(s)
+      n = self._primary.write(s)
       self._secondary.write(s)
+      return n
 
     def flush(self):
       self._primary.flush()
