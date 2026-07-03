@@ -14,6 +14,28 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
+def load_scene_until_panel_ready(browser, scene_path, per_attempt=120, attempts=3):
+  """! Navigate to the 3D scene and wait for the camera control panel to appear.
+
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    scene_path                 Path of the 3D scene detail page.
+  @param    per_attempt                Seconds to wait for the panel per load attempt.
+  @param    attempts                   Number of full (re)load attempts before giving up.
+  @return   element or None            The panel element, or None if it never appeared.
+  """
+  locator = (By.ID, "camera1-control-panel")
+  for attempt in range(1, attempts + 1):
+    common.navigate_directly_to_page(browser, scene_path)
+    deadline = time.monotonic() + per_attempt
+    while time.monotonic() < deadline:
+      elements = browser.find_elements(*locator)
+      if elements:
+        return elements[0]
+      time.sleep(1)
+    log.info(f"Camera panel not ready after {per_attempt}s "
+             f"(attempt {attempt}/{attempts}); reloading the scene.")
+  return None
+
 @common.mock_display
 def test_scene_control_panel(params, record_xml_attribute):
   """! Test the Scene Control Panel in the 3D UI.
@@ -38,13 +60,12 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     interaction_page = common.InteractWith3DScene(browser)
     scene_path = f"/scene/detail/{common.TEST_SCENE_ID}/"
-    common.navigate_directly_to_page(browser, scene_path)
 
     log.info("Turn off tracked objects and hide stats graph.")
+    # Load the scene and wait for the camera control panel
+    assert load_scene_until_panel_ready(browser, scene_path) is not None, \
+      "camera1-control-panel did not appear (3D scene failed to load)"
     time.sleep(WAIT_SEC)
-    assert common.selenium_wait_for_elements(
-      browser, (By.ID, "camera1-control-panel"), 180
-    ) is not None, "camera1-control-panel did not appear (3D scene failed to load)"
     browser.find_element(By.ID, "tracked-objects-button").click()
     interaction_page.hide_stats()
 
