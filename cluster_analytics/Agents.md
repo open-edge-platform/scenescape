@@ -11,7 +11,7 @@ The **Cluster Analytics** service provides advanced object clustering, tracking,
 
 **Primary Purpose**: Transform individual object detections into meaningful group behaviors by identifying clusters, tracking their lifecycle, detecting geometric patterns, and analyzing movement dynamics.
 
-**Status**: Experimental—enabled via `make build-experimental` or `make build-all`
+**Status**: Production—build via `make cluster_analytics` or `make build-all`
 
 ## Architecture & Components
 
@@ -149,10 +149,11 @@ The **Cluster Analytics** service provides advanced object clustering, tracking,
 
 ```bash
 # From root directory
-make cluster_analytics                  # Build image
+make cluster_analytics                  # Build production image
 make rebuild-cluster_analytics          # Clean + rebuild
-make build-experimental                 # Build experimental services
-make build-all                          # All services including experimental
+make build-all                          # All services
+# Demo image (WebUI included, for development/demo only)
+make -C cluster_analytics build-demo
 ```
 
 ### Running Locally
@@ -329,6 +330,8 @@ Scene Controller
 - Flask+SocketIO server on HTTPS port 9443 (enabled with `--webui`)
 - Real-time visualization of objects and clusters
 - Per-scene DBSCAN parameter controls backed by `set_user_dbscan_params_for_category()`
+- **Requires the demo image**: the production image does not include WebUI dependencies.
+  Build with `make build-demo` in `cluster_analytics/`, then use `scenescape-cluster-analytics-demo` in docker-compose.
 
 ### Future REST API
 
