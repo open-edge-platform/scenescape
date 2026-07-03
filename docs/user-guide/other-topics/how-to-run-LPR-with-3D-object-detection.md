@@ -29,7 +29,7 @@ cp /path/to/your/utils ./deepscenario_utils.py
 
 ### 2. Download Required Models
 
-Download the required models for License Plate Detection and Optical Character Recognition to the following location `scenescape/model_installer/models/public/`. For more information, refer to [DL Streamer documentation](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/license_plate_recognition#models).
+Download the required models for License Plate Detection and Optical Character Recognition to the following location `scenescape/model_installer/models/public/`. For more information, refer to [DL Streamer documentation](https://github.com/open-edge-platform/dlstreamer/tree/v2026.1.0/samples/gstreamer/gst_launch/license_plate_recognition#models).
 
 ### 3. Build the extended Docker container based on the DL Streamer Pipeline Server docker image
 
@@ -158,7 +158,7 @@ Create a file named `deepscenario-lpr-config.json` in `scenescape/dlstreamer-pip
 
 #### Customizing the video analytics pipeline
 
-The `deepscenario-config.json` file can be edited based on [DL Streamer Pipeline Server documentation](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide) to customize:
+The `deepscenario-config.json` file can be edited based on [DL Streamer Pipeline Server documentation](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.1.0/microservices/dlstreamer-pipeline-server/docs/user-guide) to customize:
 
 - Input sources (video files, USB, RTSP streams)
 - Processing parameters

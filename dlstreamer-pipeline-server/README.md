@@ -127,7 +127,7 @@ To facilitate NPU acceleration, sample configuration files are provided for the 
 
 - Inference offloaded to NPU
 
-NPU performance metrics can be monitored using [NPU System Monitoring Tool](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/tools/npu-monitor-tool)
+NPU performance metrics can be monitored using [NPU System Monitoring Tool](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.1.0/tools/npu-monitor-tool)
 
 ### Configuration
 
@@ -199,8 +199,8 @@ Following are step-by-step instructions for enabling pose estimation for the out
 
 1. **Download the required models** using the DL Streamer helper script from the external DL Streamer repository:
 
-   Script: [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
-   Usage guide: [Download Public Models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/download_public_models.html)
+   Script: [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/v2026.1.0/samples/download_public_models.sh)
+   Usage guide: [Download Public Models](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dlstreamer/dev_guide/download_public_models.html)
 
    Download the YOLO pose model:
 
@@ -310,4 +310,4 @@ Your new pipeline will now be used by the DL Streamer Pipeline Server on startup
 For detailed instructions on further configuring DL Streamer pipelines, refer to:
 
 - [How to Configure DL Streamer Video Pipeline](../docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md) - Step-by-step guide for configuring DL Streamer video pipelines in SceneScape.
-- [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/how-to-guides/use-gpu-npu-for-decode-and-inference.html) - How to configure video pipeline to use GPU or NPU.
+- [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dlstreamer-pipeline-server/how-to-guides/use-gpu-npu-for-decode-and-inference.html) - How to configure video pipeline to use GPU or NPU.

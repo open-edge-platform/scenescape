@@ -289,4 +289,4 @@ If the generated mesh has issues:
 
 - [Create and Configure a New Scene](./create-new-scene.md)
 - [How to Configure DL Streamer Video Pipeline](../../other-topics/how-to-configure-dlstreamer-video-pipeline.md)
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
+- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/README.md)
