@@ -189,7 +189,7 @@ source .venv/bin/activate
 python -m run_black_box_evaluation
 ```
 
-By default results land under `/home/labrat/tracker-evaluation/black-box-evaluation/<YYYYMMDD_HHMMSS>/`.
+By default results land under ` <repo>/tools/tracker/evaluation/output/black-box-evaluation/`.
 Use `--output` to override, and `--dataset` to choose the config set (default `unity`):
 
 ```bash
