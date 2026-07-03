@@ -425,6 +425,23 @@ def method_not_allowed(error):
 
 @app.errorhandler(413)
 def request_entity_too_large(error):
+  # Drain the remaining request body before returning. When a reverse proxy
+  # (e.g., Apache) forwards an upload and the backend closes the connection
+  # without consuming the body, the proxy sees a connection reset and returns
+  # 502 instead of forwarding this 413. Reading and discarding the bytes
+  # empties the pipe so the proxy can receive and forward the response cleanly.
+  try:
+    stream = request.environ.get('wsgi.input')
+    if stream is not None:
+      cap = request.content_length or (app.config.get('MAX_CONTENT_LENGTH', 0) * 2)
+      drained = 0
+      while drained < cap:
+        chunk = stream.read(min(65536, cap - drained))
+        if not chunk:
+          break
+        drained += len(chunk)
+  except Exception:
+    pass
   return jsonify({"success": False, "error": "Request too large"}), 413
 
 @app.errorhandler(500)
