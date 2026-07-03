@@ -214,9 +214,15 @@ def _harness_tmp_base() -> Path:
   user's home cache directory, which Docker can always access on both native
   and snap installations.  Set ``SCENESCAPE_HARNESS_TMPDIR`` to override.
   """
-  override = os.environ.get("SCENESCAPE_HARNESS_TMPDIR")
+  override = os.environ.get("SCENESCAPE_HARNESS_TMPDIR") or None
   base = Path(override) if override else Path.home() / ".cache" / "scenescape" / "black_box_harness"
-  base.mkdir(parents=True, exist_ok=True)
+  try:
+    base.mkdir(parents=True, exist_ok=True)
+  except OSError as exc:
+    raise RuntimeError(
+      f"Failed to create harness temp directory {base!s}. "
+      "Set SCENESCAPE_HARNESS_TMPDIR to a writable path."
+    ) from exc
   return base
 
 
