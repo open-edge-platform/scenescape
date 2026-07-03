@@ -245,12 +245,12 @@ Detailed latency breakdown for bottleneck identification:
 
 Performance counters for the time-chunk buffer and scheduler:
 
-| Metric                                    | Type    | Attributes      | Unit  | Description                                            |
-| ----------------------------------------- | ------- | --------------- | ----- | ----------------------------------------------------- |
-| `tracker.time_chunking.duplicated_cameras`| counter | scene, category | {message} | Buffered camera frames overwritten before dispatch    |
-| `tracker.time_chunking.unique_cameras`    | counter | —               | {camera}  | Distinct cameras dispatched per non-empty chunk        |
-| `tracker.time_chunking.non_empty_chunks`  | counter | —               | {chunk}   | Dispatch intervals that had buffered data             |
-| `tracker.time_chunking.empty_chunks`      | counter | —               | {chunk}   | Dispatch intervals with no buffered data              |
+| Metric                                     | Type    | Attributes      | Unit      | Description                                        |
+| ------------------------------------------ | ------- | --------------- | --------- | -------------------------------------------------- |
+| `tracker.time_chunking.duplicated_cameras` | counter | scene, category | {message} | Buffered camera frames overwritten before dispatch |
+| `tracker.time_chunking.unique_cameras`     | counter | —               | {camera}  | Distinct cameras dispatched per non-empty chunk    |
+| `tracker.time_chunking.non_empty_chunks`   | counter | —               | {chunk}   | Dispatch intervals that had buffered data          |
+| `tracker.time_chunking.empty_chunks`       | counter | —               | {chunk}   | Dispatch intervals with no buffered data           |
 
 ##### Rejection/Drop Reasons
 
