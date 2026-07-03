@@ -7,6 +7,10 @@ USES_SCENE_COMMON := yes
 
 include ../common.mk
 
+.PHONY: build-demo
+build-demo:
+	$(MAKE) IMAGE="scenescape-cluster-analytics-demo" TARGET="scenescape-cluster-analytics-demo"
+
 .PHONY: test-build
 test-build:
 	$(MAKE) IMAGE="scenescape-cluster-analytics-test" TARGET="scenescape-cluster-analytics-test"
