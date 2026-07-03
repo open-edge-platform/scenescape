@@ -312,7 +312,7 @@ def build_summary(metrics_file: Path, metadata: Dict[str, Any]) -> str:
   Returns:
       The formatted summary text.
   """
-  lines: List[str] = ["=== Tracker Observability Metrics ==="]
+  lines: List[str] = ["=== Observability Metrics ==="]
   lines.append(f"Container type:   {metadata.get('container_type', 'unknown')}")
   lines.append(f"Metrics endpoint: {metadata.get('endpoint', 'unknown')}")
   lines.append(f"Export interval:  {metadata.get('export_interval_s', 'unknown')}s")
