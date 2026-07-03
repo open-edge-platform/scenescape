@@ -496,8 +496,11 @@ def _tee_output(output_path: Path) -> None:
 
   Installs a lightweight tee shim so every subsequent print() call and
   exception traceback is written to *output_path*/pipeline.log as well as
-  the original terminal streams.  The log file is opened in write mode and
-  kept open for the duration of the process (closed automatically on exit).
+  the current stdout/stderr streams.  Teeing the *current* streams (rather
+  than ``sys.__stdout__``/``sys.__stderr__``) preserves any prior redirection,
+  e.g. pytest capture or ``contextlib.redirect_stdout``.  The log file is
+  opened in write mode and kept open for the duration of the process (closed
+  automatically on exit).
 
   Args:
       output_path: Run-specific output directory (must already exist).
@@ -520,8 +523,8 @@ def _tee_output(output_path: Path) -> None:
       return self._primary.fileno()
 
   log_file = open(output_path / "pipeline.log", "w", buffering=1)  # line-buffered
-  sys.stdout = _Tee(sys.__stdout__, log_file)
-  sys.stderr = _Tee(sys.__stderr__, log_file)
+  sys.stdout = _Tee(sys.stdout or sys.__stdout__, log_file)
+  sys.stderr = _Tee(sys.stderr or sys.__stderr__, log_file)
 
 
 def main():
