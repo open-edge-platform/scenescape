@@ -7,6 +7,7 @@ import tests.ui.common_ui_test_utils as common
 from tests.ui.browser import By, Browser
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+from selenium.common.exceptions import TimeoutException
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
@@ -14,27 +15,34 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def load_scene_until_panel_ready(browser, scene_path, per_attempt=120, attempts=3):
-  """! Navigate to the 3D scene and wait for the camera control panel to appear.
+def wait_for_scene_loaded(browser, scene_path, per_attempt=120, attempts=3):
+  """! Navigate to the 3D scene and expand the camera control panel once it is ready.
 
   @param    browser                    Object wrapping the Selenium driver.
   @param    scene_path                 Path of the 3D scene detail page.
   @param    per_attempt                Seconds to wait for the panel per load attempt.
   @param    attempts                   Number of full (re)load attempts before giving up.
-  @return   element or None            The panel element, or None if it never appeared.
+  @return   bool                       True if the panel became ready, False otherwise.
   """
-  locator = (By.ID, "camera1-control-panel")
   for attempt in range(1, attempts + 1):
     common.navigate_directly_to_page(browser, scene_path)
-    deadline = time.monotonic() + per_attempt
-    while time.monotonic() < deadline:
-      elements = browser.find_elements(*locator)
-      if elements:
-        return elements[0]
-      time.sleep(1)
-    log.info(f"Camera panel not ready after {per_attempt}s "
-             f"(attempt {attempt}/{attempts}); reloading the scene.")
-  return None
+    try:
+      common.click_element_when_ready(browser, "camera1-control-panel",
+                                      delay=per_attempt)
+      return True
+    except TimeoutException:
+      log.info(f"Camera panel not ready after {per_attempt}s "
+               f"(attempt {attempt}/{attempts}); reloading the scene.")
+  return False
+
+def capture_when_rendered(browser):
+  """! Wait for the 3D scene to finish painting, then capture the WebGL canvas.
+
+  @param    browser                    Object wrapping the Selenium driver.
+  @return   np.ndarray                 The rendered canvas as a BGR image array.
+  """
+  common.wait_for_3d_scene_rendered(browser)
+  return common.capture_3d_canvas(browser)
 
 @common.mock_display
 def test_scene_control_panel(params, record_xml_attribute):
@@ -62,8 +70,10 @@ def test_scene_control_panel(params, record_xml_attribute):
     scene_path = f"/scene/detail/{common.TEST_SCENE_ID}/"
 
     log.info("Turn off tracked objects and hide stats graph.")
-    # Load the scene and wait for the camera control panel
-    assert load_scene_until_panel_ready(browser, scene_path) is not None, \
+    # Load the scene and wait for the camera control panel, retrying the whole
+    # load if the (slow, occasionally hard-failing) 3D init chain never produces
+    # the panel. See wait_for_scene_loaded for details.
+    assert wait_for_scene_loaded(browser, scene_path), \
       "camera1-control-panel did not appear (3D scene failed to load)"
     time.sleep(WAIT_SEC)
     browser.find_element(By.ID, "tracked-objects-button").click()
@@ -75,8 +85,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take first floor plane screenshot.")
     time.sleep(WAIT_SEC)
-    common.wait_for_3d_scene_rendered(browser)
-    plane_view_1 = common.capture_3d_canvas(browser)
+    plane_view_1 = capture_when_rendered(browser)
 
     log.info("Unhide 3D panels.")
     time.sleep(WAIT_SEC)
@@ -92,7 +101,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take second floor plane screenshot.")
     time.sleep(WAIT_SEC)
-    plane_view_2 = common.capture_3d_canvas(browser)
+    plane_view_2 = capture_when_rendered(browser)
 
     log.info("AC(1) Check if floor plane screenshots are different.")
     assert not common.are_images_similar(plane_view_1, plane_view_2, 0.7)
@@ -114,7 +123,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take first 3D screenshot.")
     time.sleep(WAIT_SEC)
-    screen_3d_1 = common.capture_3d_canvas(browser)
+    screen_3d_1 = capture_when_rendered(browser)
 
     log.info("AC(1) Check if floor plane screenshot is identical after toggling back on.")
     assert common.are_images_similar(plane_view_1, screen_3d_1)
@@ -133,7 +142,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take second 3D screenshot.")
     time.sleep(WAIT_SEC)
-    screen_3d_2 = common.capture_3d_canvas(browser)
+    screen_3d_2 = capture_when_rendered(browser)
 
     log.info("AC(4) Check if 3D screenshots are different.")
     assert not common.are_images_similar(screen_3d_1, screen_3d_2)
@@ -154,7 +163,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take third 3D screenshot.")
     time.sleep(WAIT_SEC)
-    screen_3d_3 = common.capture_3d_canvas(browser)
+    screen_3d_3 = capture_when_rendered(browser)
 
     log.info("AC(5) Check if 3D screenshots are identical.")
     assert common.are_images_similar(screen_3d_1, screen_3d_3)
@@ -171,7 +180,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take first 2D screenshot.")
     time.sleep(WAIT_SEC)
-    screen_2d_1 = common.capture_3d_canvas(browser)
+    screen_2d_1 = capture_when_rendered(browser)
 
     log.info("Change map perspective.")
     time.sleep(WAIT_SEC)
@@ -179,7 +188,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take second 2D screenshot.")
     time.sleep(WAIT_SEC)
-    screen_2d_2 = common.capture_3d_canvas(browser)
+    screen_2d_2 = capture_when_rendered(browser)
 
     log.info("AC(3) Check if 2D screenshots are identical.")
     assert common.are_images_similar(screen_2d_1, screen_2d_2)
@@ -196,7 +205,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take first 2D/3D screenshot.")
     time.sleep(WAIT_SEC)
-    screen_2d_3d_1 = common.capture_3d_canvas(browser)
+    screen_2d_3d_1 = capture_when_rendered(browser)
 
     log.info("Change map perspective.")
     time.sleep(WAIT_SEC)
@@ -220,7 +229,7 @@ def test_scene_control_panel(params, record_xml_attribute):
     log.info("Take second 2D/3D screenshot.")
     time.sleep(WAIT_SEC)
 
-    screen_2d_3d_2 = common.capture_3d_canvas(browser)
+    screen_2d_3d_2 = capture_when_rendered(browser)
 
     log.info("AC(3) Check if 2D and 3D screenshots are similar (2D perspective is slightly different).")
     assert common.are_images_similar(screen_2d_3d_1, screen_2d_3d_2, 0.8)

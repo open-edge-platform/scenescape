@@ -1107,6 +1107,30 @@ def selenium_wait_for_elements(browser, search_phrase, timeout=20):
   """
   return WebDriverWait(browser, timeout).until(EC.visibility_of_element_located(search_phrase))
 
+def click_element_when_ready(browser, element_id, wait_time=1, delay=0):
+  """! Dismiss any success toast, wait for an element to be clickable, then click it.
+
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    element_id                 DOM id of the element to click.
+  @param    wait_time                  Seconds to pause after clicking.
+  @param    delay                      Seconds to wait for the element to be clickable
+                                       (0 clicks immediately without waiting).
+  """
+  try:
+    alert = WebDriverWait(browser, 2).until(
+      EC.presence_of_element_located((By.CLASS_NAME, "alert-success")))
+    alert.find_element(By.CSS_SELECTOR, "button.close").click()
+    # Wait for alert to disappear
+    WebDriverWait(browser, 2).until(EC.invisibility_of_element(alert))
+  except Exception:
+    pass  # No alert present or already dismissed
+
+  if delay > 0:
+    WebDriverWait(browser, delay).until(
+      EC.element_to_be_clickable((By.ID, element_id)))
+  browser.find_element(By.ID, element_id).click()
+  browser.actionChains().pause(wait_time).perform()
+
 def create_orphan_camera(browser, camera_name, camera_id):
   """! Creates camera in a scene then deletes the scene.
   @param    browser                    Object wrapping the Selenium driver.
@@ -1228,11 +1252,6 @@ def wait_for_3d_scene_rendered(browser, canvas_id: str = "scene", timeout: float
                                min_content_ratio: float = 0.01) -> bool:
   """! Poll the WebGL canvas until the 3D scene has actually painted content.
 
-  Under software (llvmpipe) rendering the three.js scene and its async-loaded GLB
-  assets can take several seconds to paint. This reads the canvas drawing buffer
-  directly via gl.readPixels and waits until a meaningful fraction of canvas
-  pixels differ from the background color.
-
   Requires the renderer to be created with preserveDrawingBuffer: true so the
   drawing buffer reflects the last rendered frame.
 
@@ -1277,9 +1296,6 @@ def wait_for_3d_scene_rendered(browser, canvas_id: str = "scene", timeout: float
 
 def capture_3d_canvas(browser, canvas_id: str = "scene") -> np.ndarray:
   """! Capture the WebGL 3D canvas pixels directly via canvas.toDataURL().
-
-  Reading the canvas with toDataURL() returns the contents of the WebGL drawing
-  buffer directly.
 
   Requires the three.js renderer to be created with preserveDrawingBuffer: true so
   the drawing buffer reflects the last rendered frame.
