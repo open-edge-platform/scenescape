@@ -89,8 +89,21 @@ def _series_key(point: Dict[str, Any]) -> Tuple[Tuple[str, str], ...]:
 
 
 def _point_time(point: Dict[str, Any]) -> int:
-  """Return the data point's timeUnixNano as int (0 when absent)."""
-  return int(_to_float(point.get("timeUnixNano")) or 0)
+  """Return the data point's timeUnixNano as int (0 when absent).
+
+  ``timeUnixNano`` is a nanosecond timestamp (~1e18) that exceeds the exact
+  integer range of a float (2^53), so it is parsed directly as an integer
+  from its (usually string) OTLP-JSON encoding.  Going through ``float()``
+  would round it and could mis-order points when sorting or selecting the
+  latest per series.
+  """
+  value = point.get("timeUnixNano")
+  if value is None:
+    return 0
+  try:
+    return int(value)
+  except (TypeError, ValueError):
+    return 0
 
 
 def _load_records(path: Path) -> List[Dict[str, Any]]:
@@ -299,7 +312,7 @@ def build_summary(metrics_file: Path, metadata: Dict[str, Any]) -> str:
   Returns:
       The formatted summary text.
   """
-  lines: List[str] = ["=== Tracker Observability Metrics ==="]
+  lines: List[str] = ["=== Observability Metrics ==="]
   lines.append(f"Container type:   {metadata.get('container_type', 'unknown')}")
   lines.append(f"Metrics endpoint: {metadata.get('endpoint', 'unknown')}")
   lines.append(f"Export interval:  {metadata.get('export_interval_s', 'unknown')}s")
