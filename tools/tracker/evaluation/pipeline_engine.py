@@ -491,6 +491,38 @@ class PipelineEngine:
       evaluator_output_path = self._output_path / 'evaluators' / evaluator_key
       evaluator.set_output_folder(evaluator_output_path)
 
+def _tee_output(output_path: Path) -> None:
+  """Redirect stdout and stderr to both the terminal and a log file.
+
+  Installs a lightweight tee shim so every subsequent print() call and
+  exception traceback is written to *output_path*/pipeline.log as well as
+  the original terminal streams.  The log file is opened in write mode and
+  kept open for the duration of the process (closed automatically on exit).
+
+  Args:
+      output_path: Run-specific output directory (must already exist).
+  """
+  class _Tee:
+    def __init__(self, primary, secondary):
+      self._primary   = primary
+      self._secondary = secondary
+
+    def write(self, s):
+      self._primary.write(s)
+      self._secondary.write(s)
+
+    def flush(self):
+      self._primary.flush()
+      self._secondary.flush()
+
+    def fileno(self):
+      return self._primary.fileno()
+
+  log_file = open(output_path / "pipeline.log", "w", buffering=1)  # line-buffered
+  sys.stdout = _Tee(sys.__stdout__, log_file)
+  sys.stderr = _Tee(sys.__stderr__, log_file)
+
+
 def main():
   """Main entry point for running pipeline from command line.
 
@@ -510,6 +542,11 @@ def main():
     # Load configuration
     print(f"Loading configuration from {config_path}...")
     engine.load_configuration(config_path)
+
+    # Tee stdout + stderr into the run output folder from this point on.
+    # The "Loading configuration" line above is intentionally not captured
+    # because the output folder does not exist until load_configuration() returns.
+    _tee_output(engine._output_path)
 
     # Run tracker
     print("Running tracker...")
