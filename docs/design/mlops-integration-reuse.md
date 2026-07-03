@@ -100,7 +100,7 @@ This subsection defines the Scenescape-internal vocabulary used in the rest of t
 
 The component view below shows the runtime relationships between Scenescape and the OEP MLOps components. Only the interactions relevant to MLOps integration are shown; intra-Scenescape interactions (Manager ↔ Scene Controller MQTT, Auto Camera Calibration outputs, etc.) are omitted.
 
-![Component Interaction](./assets/SceneScape_MLOps-Component_Interaction.drawio.svg)
+![Component Interaction](./assets/Scenescape_MLOps-Component_Interaction.drawio.svg)
 
 > Each "Scenescape →" arrow in this diagram is realized inside Scenescape by the corresponding **client library** described later in this section (one per OEP component). The diagram is component-level only — protocols, transport, and auth are specified in the per-contract specifications below.
 
@@ -125,7 +125,7 @@ The component view below shows the runtime relationships between Scenescape and 
 
 The process model shows the user-facing workflow for building, packaging, and deploying a Scenescape-based solution that integrates Geti (training), ViPPET (pipeline building), DLSPS (pipeline execution), Stream Manager (video acquisition), Model Downloader (model lifecycle), and Scenescape (scene management and runtime).
 
-![Process Model](./assets/SceneScape_MLOps-Process_Model.drawio.svg)
+![Process Model](./assets/Scenescape_MLOps-Process_Model.drawio.svg)
 
 > **One representative flow.** The diagram presents one representative end-to-end flow. The order of phases is not fixed: stages may be reordered, repeated, skipped, or run in parallel depending on the user's workflow. The stages below describe the canonical happy path used to derive Scenescape's design requirements; they are not a mandatory execution order.
 
@@ -552,5 +552,5 @@ This section consolidates all deferred decisions and open questions called out i
 
 - [ADR-12 — MLOps Integration and Reuse](../adr/0012-mlops-integration-reuse.md)
 - Diagrams:
-  - [Component Interaction](./assets/SceneScape_MLOps-Component_Interaction.drawio.svg)
-  - [Process Model](./assets/SceneScape_MLOps-Process_Model.drawio.svg)
+  - [Component Interaction](./assets/Scenescape_MLOps-Component_Interaction.drawio.svg)
+  - [Process Model](./assets/Scenescape_MLOps-Process_Model.drawio.svg)
