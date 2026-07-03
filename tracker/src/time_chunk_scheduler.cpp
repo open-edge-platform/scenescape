@@ -105,9 +105,9 @@ void TimeChunkScheduler::run() {
             Metrics::inc_time_chunking_non_empty_chunks();
             // Count distinct cameras across all scopes in this dispatch.
             std::unordered_set<std::string> unique_cameras;
-            for (const auto& [scope, cameras] : snapshot) {
-                for (const auto& [camera_id, batch] : cameras) {
-                    unique_cameras.insert(camera_id);
+            for (const auto& scope_entry : snapshot) {
+                for (const auto& camera_entry : scope_entry.second) {
+                    unique_cameras.insert(camera_entry.first);
                 }
             }
             Metrics::inc_time_chunking_unique_cameras_n(unique_cameras.size());

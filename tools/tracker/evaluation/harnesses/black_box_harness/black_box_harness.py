@@ -876,8 +876,8 @@ class BlackBoxHarness(TrackerHarness):
     out_dir = tmp_dir / "collector_out"
     out_dir.mkdir(parents=True, exist_ok=True)
     # The collector image runs as a non-root UID; make the bind-mounted output
-    # directory world-writable so it can write the metrics file.
-    os.chmod(out_dir, 0o777)
+    # directory writable so it can write the metrics file.
+    os.chmod(out_dir, 0o1777)
     self._metrics_out_dir = out_dir
 
     cfg_path = self._build_collector_config(tmp_dir)

@@ -210,7 +210,11 @@ def _summarise_counter(points: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]
       value = _point_scalar(point)
       if value is None:
         continue
-      deltas.append(value - previous)
+      if value < previous:
+        # Counter reset/restart; treat this point as a new baseline.
+        deltas.append(value)
+      else:
+        deltas.append(value - previous)
       previous = value
     total += previous
   if not deltas:

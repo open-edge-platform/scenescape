@@ -90,11 +90,11 @@ void Metrics::ensure_initialized() {
             kMetricTimeChunkingUniqueCameras, "Time-chunking unique cameras dispatched per chunk",
             "{camera}");
         tc_non_empty_chunks_counter = meter->CreateUInt64Counter(
-            kMetricTimeChunkingNonEmptyChunks, "Time-chunking dispatch intervals with buffered data",
-            "{chunk}");
+            kMetricTimeChunkingNonEmptyChunks,
+            "Time-chunking dispatch intervals with buffered data", "{chunk}");
         tc_empty_chunks_counter = meter->CreateUInt64Counter(
-            kMetricTimeChunkingEmptyChunks, "Time-chunking dispatch intervals with no buffered data",
-            "{chunk}");
+            kMetricTimeChunkingEmptyChunks,
+            "Time-chunking dispatch intervals with no buffered data", "{chunk}");
 
         active_tracks_gauge = meter->CreateInt64ObservableGauge(
             kMetricTracksActive, "Currently active tracks", "{track}");

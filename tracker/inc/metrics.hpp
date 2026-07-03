@@ -53,8 +53,7 @@ inline constexpr const char* kMetricTimeChunkingUniqueCameras =
     "tracker.time_chunking.unique_cameras";
 inline constexpr const char* kMetricTimeChunkingNonEmptyChunks =
     "tracker.time_chunking.non_empty_chunks";
-inline constexpr const char* kMetricTimeChunkingEmptyChunks =
-    "tracker.time_chunking.empty_chunks";
+inline constexpr const char* kMetricTimeChunkingEmptyChunks = "tracker.time_chunking.empty_chunks";
 
 // Meter scope name
 inline constexpr const char* kMeterName = "tracker";
