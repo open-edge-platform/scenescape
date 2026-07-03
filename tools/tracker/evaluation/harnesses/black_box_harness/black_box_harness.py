@@ -215,7 +215,7 @@ def _harness_tmp_base() -> Path:
   and snap installations.  Set ``SCENESCAPE_HARNESS_TMPDIR`` to override.
   """
   override = os.environ.get("SCENESCAPE_HARNESS_TMPDIR") or None
-  base = Path(override) if override else Path.home() / ".cache" / "scenescape" / "black_box_harness"
+  base = (Path(override).expanduser() if override else Path.home() / ".cache" / "scenescape" / "black_box_harness")
   try:
     base.mkdir(parents=True, exist_ok=True)
   except OSError as exc:
