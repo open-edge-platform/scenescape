@@ -52,8 +52,14 @@ def _intrinsics_to_list(intrinsics):
   Returns a 4-element ``[fx, fy, cx, cy]`` list.
   """
   if isinstance(intrinsics, dict):
-    return [intrinsics["fx"], intrinsics["fy"], intrinsics["cx"], intrinsics["cy"]]
-  return list(intrinsics)
+    values = [intrinsics.get(k) for k in ("fx", "fy", "cx", "cy")]
+  else:
+    values = list(intrinsics)
+
+  if len(values) != 4 or any(v is None for v in values):
+    raise ValueError(f"Invalid intrinsics (expected [fx, fy, cx, cy]): {intrinsics!r}")
+
+  return [float(v) for v in values]
 
 
 def _distortion_to_array(distortion):
