@@ -76,7 +76,8 @@ FROM scenescape-cluster-analytics-runtime AS scenescape-cluster-analytics-demo
 ARG USER_ID=1001
 ARG GROUP_ID=1001
 
-COPY cluster_analytics/tools/webui/requirements-webui.txt /tmp/
+COPY --chown=$USER_ID:$GROUP_ID cluster_analytics/tools/webui/requirements-webui.txt /tmp/
+
 RUN pip install --no-cache-dir -r /tmp/requirements-webui.txt \
     && rm -rf /tmp/*.txt
 
