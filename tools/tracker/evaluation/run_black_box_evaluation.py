@@ -68,10 +68,6 @@ def configs_for(dataset: str = DEFAULT_DATASET) -> list[Path]:
     for name in _CONFIG_FILES
   ]
 
-
-# Default config set (Unity dataset).
-CONFIGS = configs_for(DEFAULT_DATASET)
-
 DEFAULT_OUTPUT_BASE = _SCRIPT_DIR / "output" / "black-box-evaluation"
 
 # ---------------------------------------------------------------------------
