@@ -24,7 +24,7 @@ SPDX-License-Identifier: Apache-2.0
 - Example configurations:
   - Full tracker evaluation: [pipeline_configs/metric_test_evaluation.yaml](pipeline_configs/metric_test_evaluation.yaml)
   - Camera projection accuracy: [pipeline_configs/camera_projection_evaluation.yaml](pipeline_configs/camera_projection_evaluation.yaml)
-  - Black-box suite configs: [pipeline_configs/black_box/](pipeline_configs/black_box/)
+  - Black-box suite configs (default Unity dataset): [pipeline_configs/black_box_unity/](pipeline_configs/black_box_unity/); Wildtrack variant: [pipeline_configs/black_box_wildtrack/](pipeline_configs/black_box_wildtrack/)
 
 ## Folders structure
 
@@ -79,7 +79,7 @@ Check `datasets/README.md` for more details
   - **Observability (optional)**: when `enable_metrics` is set, an OTEL Collector container is added to the run network. The controller (via `CONTROLLER_ENABLE_METRICS`/`CONTROLLER_METRICS_ENDPOINT` env) or tracker service (via `observability.metrics` + `infrastructure.otlp` config) push OTLP/gRPC metrics to it; the collector's `file` exporter writes them out, and `metrics_recorder.py` aggregates them into `metrics_summary.txt` (histograms: count/avg/min/max; counters: total + per-export delta stats; gauges: avg/min/max/median). It then verifies dropped frames (`scenescape_controller_mqtt_messages_dropped` + `tracker.mqtt.dropped`) and warns when the dropped/output-frame ratio exceeds 1%.
   - After the run, writes `inputs.json` and `outputs.json` to the output folder (if `set_output_folder()` was called), creating the directory automatically if it does not exist.
   - Also copies the source tracker configuration file into `<output_folder>/config/` (both container types), preserving the original filename. For the Tracker Service the effective `config.json` is derived from this file by the harness (MQTT/Manager endpoints, `max_lag_s=1e15`, optional OTLP/metrics), so the copy captures the source config, not the fully-resolved runtime config.
-  - Pair this harness with any evaluator (TrackEval, Diagnostic, Jitter) and configs under `pipeline_configs/black_box/`.
+  - Pair this harness with any evaluator (TrackEval, Diagnostic, Jitter) and configs under `pipeline_configs/black_box_unity/` (default) or `pipeline_configs/black_box_wildtrack/`.
 
 - **CameraProjectionHarness**: `harnesses/camera_projection_harness/camera_projection_harness.py`
   - Bypasses the full tracker and only applies camera-pose projection to isolate per-camera calibration error.

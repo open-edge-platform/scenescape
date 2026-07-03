@@ -159,7 +159,10 @@ against the same tracker outputs independently.
 ### Black-Box Evaluation Suite
 
 `run_black_box_evaluation.py` runs the complete black-box evaluation across all three
-production container types in a single timestamped session:
+production container types in a single timestamped session. Two config sets are
+available: the legacy Unity dataset (`pipeline_configs/black_box_unity/`, the default)
+and the WILDTRACK dataset (`pipeline_configs/black_box_wildtrack/`, selected with
+`--dataset wildtrack`). Both sets share the same three config filenames:
 
 | Config                                | Container               | Description                                                   |
 | ------------------------------------- | ----------------------- | ------------------------------------------------------------- |
@@ -187,10 +190,11 @@ python -m run_black_box_evaluation
 ```
 
 By default results land under `/home/labrat/tracker-evaluation/black-box-evaluation/<YYYYMMDD_HHMMSS>/`.
-Use `--output` to override:
+Use `--output` to override, and `--dataset` to choose the config set (default `unity`):
 
 ```bash
 python -m run_black_box_evaluation --output /custom/output/path
+python -m run_black_box_evaluation --dataset wildtrack
 ```
 
 **Output structure**:

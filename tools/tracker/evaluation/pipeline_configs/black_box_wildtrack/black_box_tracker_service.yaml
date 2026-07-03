@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 pipeline:
-  run_name: Controller-Time-Chunking
+  run_name: Tracker-Service
   output:
     path: ./output/black-box-evaluation
 
@@ -17,10 +17,10 @@ harness:
   class: harnesses.black_box_harness.BlackBoxHarness
   config:
     broker_image: eclipse-mosquitto:2.0.22
-    container_type: controller
-    container_image: scenescape-controller:latest
-    tracker_config_path: pipeline_configs/black_box/config/controller_tc.json
-    # startup_wait_s: 2.0
+    container_type: tracker
+    container_image: scenescape-tracker:latest
+    tracker_config_path: pipeline_configs/black_box_wildtrack/config/tracker_service.json
+    # startup_wait_s: 5.0
     # drain_timeout: 5.0
     # Optional observability: capture OTLP metrics via an OTEL Collector sidecar
     enable_metrics: true

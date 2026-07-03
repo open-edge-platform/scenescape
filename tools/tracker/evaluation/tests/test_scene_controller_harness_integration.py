@@ -21,7 +21,7 @@ DATASET_PATH = Path(__file__).parent.parent.parent.parent.parent / \
   "tests" / "system" / "metric" / "unity_dataset"
 SCHEMA_PATH = Path(__file__).parent.parent.parent.parent.parent / \
   "tracker" / "schema"
-TRACKER_CONFIG_PATH = Path(__file__).parent.parent / "pipeline_configs" / "black_box" / "config" / "controller_immediate.json"
+TRACKER_CONFIG_PATH = Path(__file__).parent.parent / "pipeline_configs" / "black_box_unity" / "config" / "controller_immediate.json"
 
 # Test configuration
 NUM_INPUT_FRAMES = 120  # Number of input frames to process in integration tests

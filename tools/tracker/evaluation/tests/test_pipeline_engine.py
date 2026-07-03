@@ -52,7 +52,7 @@ def temp_config_file(temp_output_dir):
       'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
       'config': {
         'container_image': 'scenescape-controller:latest',
-        'tracker_config_path': str(Path(__file__).parent.parent / 'pipeline_configs' / 'black_box' / 'config' / 'controller_immediate.json')
+        'tracker_config_path': str(Path(__file__).parent.parent / 'pipeline_configs' / 'black_box_unity' / 'config' / 'controller_immediate.json')
       }
     },
     'evaluators': [
@@ -98,7 +98,7 @@ def temp_multi_evaluator_config_file(temp_output_dir):
       'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
       'config': {
         'container_image': 'scenescape-controller:latest',
-        'tracker_config_path': str(Path(__file__).parent.parent / 'pipeline_configs' / 'black_box' / 'config' / 'controller_immediate.json')
+        'tracker_config_path': str(Path(__file__).parent.parent / 'pipeline_configs' / 'black_box_unity' / 'config' / 'controller_immediate.json')
       }
     },
     'evaluators': [
@@ -376,7 +376,7 @@ class TestLoadConfiguration:
         'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
         'config': {
           'container_image': 'scenescape-controller:latest',
-          'tracker_config_path': str(Path(__file__).parent.parent / 'pipeline_configs' / 'black_box' / 'config' / 'controller_immediate.json')
+          'tracker_config_path': str(Path(__file__).parent.parent / 'pipeline_configs' / 'black_box_unity' / 'config' / 'controller_immediate.json')
         }
       },
       'evaluators': [
