@@ -10,8 +10,9 @@ Coordinate transform (pre-applied before publishing):
   Uses the V2X virtuallidar_to_world calibration rotation matrix R_calib
   to properly project LiDAR detections into scene (map) coordinates.
 
-  The scene image (LidarIntersection.png) is 2000x2000 px at 5 px/m covering
-  400x400 m. The LiDAR sensor sits at the image centre (200, 200) in metres.
+  The scene image (LidarIntersection.png) is 1000x1000 px at 6.667 px/m covering
+  150x150 m. The image is rotated so the LiDAR forward direction (SE) points UP.
+  The LiDAR sensor sits near the bottom of the image at scene (75, 127) in metres.
   Scene X increases to the right (world east); scene Y increases downward
   (world south, i.e. world Y is flipped).  Therefore:
 
@@ -22,7 +23,7 @@ Coordinate transform (pre-applied before publishing):
       scene_z =  R[2,0]*x_l + R[2,1]*y_l + R[2,2]*z_l
 
   These are offset coordinates relative to the LiDAR sensor origin. The
-  SceneScape controller adds the DB camera pose translation [200, 200, 2.52]
+  SceneScape controller adds the DB camera pose translation [75, 127, 2.52]
   to produce the final scene position in metres.
 
   Calibration is loaded from the file pointed to by LIDAR_CALIB_FILE (a
@@ -31,12 +32,20 @@ Coordinate transform (pre-applied before publishing):
 
 Required lidar1 camera pose in SceneScape database:
   transform_type: euler
-  rotation:       [0, 0, 0]          (identity -- rotation is done in publisher)
-  translation:    [200, 200, 2.52]   (sensor at map centre, 2.52 m mount height)
-  scale:          [1, 1, 1]          (metres; scene scale=5 px/m handles pixels)
+  rotation:       [0, 0, -148.97]   (pure Z rotation = -ROT_ANGLE to undo map rotation)
+  translation:    [75, 127, 2.52]   (sensor at scene (75m, 127m), 2.52 m mount height)
+  scale:          [1, 1, 1]
 
-bbox_3d.z from PointPillars is the bbox CENTRE (verified from log analysis).
-Therefore translation z = bbox_3d.z directly, no h/2 adjustment needed.
+  Map: 1000×1000 px, 6.667 px/m, sensor-forward direction points UP.
+  Coverage: ±75 m to sides, 23 m behind, 127 m in front of LiDAR.
+  LiDAR pixel position: col=500, row=847 (85% from top).
+
+bbox_3d.z from PointPillars is the bbox BOTTOM in LiDAR Z (verified from
+bbox3d2corners: Z corners are [0, 1.0]*h, not [-0.5, 0.5]*h).
+The box spans [z_lidar, z_lidar + h] in LiDAR Z.
+So translation z sent to SceneScape = z_lidar directly (no h/2 adjustment).
+The JS assetmanager.js::plot() calls translateZ(h/2) to shift the mesh origin
+from the box BOTTOM to the box CENTRE, which is exactly what we need.
 
 Heading transform:
   PointPillars theta = yaw in LiDAR frame, but the box layout convention
@@ -54,11 +63,11 @@ Heading transform:
 
 Z translation convention (SceneScape 3D renderer):
   assetmanager.js::plot() calls translateZ(size.z / 2) after position.set(),
-  so it treats translation.z as the BOTTOM of the bounding box, not the
-  centre.  PointPillars bbox_3d.z is the bbox CENTRE.  Therefore:
-    sz_publish = z_lidar_centre - h/2
-  After the SceneScape controller adds the camera pose translation Z=2.52 m,
-  the regulated translation.z equals the box BOTTOM in scene metres.
+  so it treats translation.z as the BOTTOM of the bounding box.
+  PointPillars bbox_3d.z IS the box bottom (Z corners span [0, h] not
+  [-h/2, +h/2] — see bbox3d2corners in pointpillars/utils/process.py).
+  Therefore: publish sz = z_lidar directly.  The JS translateZ(h/2) then
+  correctly lifts the mesh origin to the box centre.
 
 Point cloud range / spatial coverage:
   Controlled exclusively via the model config JSON
@@ -260,6 +269,35 @@ _CALIB_YAW: float = (
     else -math.pi / 2.0
 )
 
+# ── GStreamer clock → wall-clock conversion ───────────────────────────────────
+# exit_source_timestamp from gvametaconvert is a GStreamer monotonic clock value
+# in nanoseconds.  On the first frame we compute the offset between the GST
+# clock and the system wall clock; subsequent frames use the GST delta so the
+# published timestamp reflects true capture time, not processing latency.
+_gst_wall_offset: float | None = None
+
+
+def _gst_to_wall(gst_ns: int) -> float:
+    """
+    Convert a GStreamer monotonic timestamp (nanoseconds) to a POSIX wall-clock
+    timestamp (seconds since Unix epoch).
+
+    On the first call the offset is computed as:  wall - gst_s.
+    Subsequent calls use the fixed offset so inter-frame deltas come from the
+    GStreamer clock (which is tied to the sensor capture rate) rather than OS
+    scheduling jitter.
+    """
+    global _gst_wall_offset
+    gst_s = gst_ns / 1e9
+    if _gst_wall_offset is None:
+        _gst_wall_offset = time.time() - gst_s
+        print(
+            f"[lidar-publisher] GST clock anchored: offset={_gst_wall_offset:.3f} s "
+            f"(gst={gst_s:.3f} s)",
+            flush=True,
+        )
+    return gst_s + _gst_wall_offset
+
 # ── KITTI label map ───────────────────────────────────────────────────────────
 # Matches the class order used in the OpenVINO PointPillars model training
 # (see openvino_contrib/modules/3d/pointPillars/pointpillars/dataset/kitti.py).
@@ -281,9 +319,10 @@ _FPS_WARN_RATIO     = 0.75
 _FPS_CRITICAL_RATIO = 0.50
 
 # -- SceneScape camera pose reminder ---------------------------------------------
-# Printed in the startup banner.  DB must have identity rotation (euler [0,0,0])
-# and translation [200, 200, 2.52].  Coordinate transform is done here.
-_LIDAR1_DB_ROTATION = [0.0, 0.0, 0.0]   # euler XYZ degrees -- identity
+# Printed in the startup banner.  DB must match the new 150m rotated map:
+#   translation [75, 127, 2.52]  (sensor at scene metres, 2.52 m mount height)
+#   rotation    [0, 0, -148.97]  (pure Z rotation = -ROT_ANGLE undoes map rotation)
+_LIDAR1_DB_ROTATION = [0.0, 0.0, -148.97]  # euler XYZ degrees — pure Z rotation
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -798,7 +837,6 @@ def build_camera_message(
     raw: dict,
     sensor_id: str,
     fps: float,
-    now: float,
 ) -> tuple[dict, list[str], dict[str, int]]:
     """
     Wrap gvametaconvert detections in SceneScape camera message format.
@@ -808,12 +846,28 @@ def build_camera_message(
 
     Coordinate pre-transform applied here via _lidar_to_scene_offset():
       [sx, sy, sz] = R_calib @ [x_l, y_l, z_l]  with  sy = -sy  (Y-flip)
-    Heading: scene_heading = phi_calib - theta, encoded as Z-axis quaternion.
+    Heading: scene_heading = phi_calib - theta - pi/2, encoded as Z-axis quaternion.
     The SceneScape controller adds the DB camera pose translation [200, 200, 2.52].
+
+    Timestamp is derived exclusively from raw["lidar_frame"]["exit_source_timestamp"]
+    via _gst_to_wall().  If the field is absent a fallback to time.time() is used
+    with a one-time warning so the message is never silently timestamped wrong.
     """
     objects:       dict[str, list] = {}
     debug_lines:   list[str]       = []
     label_sources: dict[str, int]  = defaultdict(int)
+
+    # Timestamp comes exclusively from the source frame, not the publishing clock.
+    _gst_ns = raw.get("lidar_frame", {}).get("exit_source_timestamp")
+    if _gst_ns is not None:
+        _ts = _make_timestamp(_gst_to_wall(int(_gst_ns)))
+    else:
+        _ts = _make_timestamp(time.time())
+        print(
+            "[lidar-publisher] ⚠️  exit_source_timestamp missing — "
+            "falling back to wall clock for this frame",
+            flush=True,
+        )
 
     for i, obj in enumerate(raw.get("objects", [])):
         bbox = obj.get("bbox_3d")
@@ -840,17 +894,15 @@ def build_camera_message(
             # sz includes the tilt correction (R[2,0]*x + R[2,1]*y) which
             # amounts to ~0.4 m at 50 m range for the V2X sensor.
             sx, sy, sz = _lidar_to_scene_offset(x_l, y_l, z_l)
-
-            # assetmanager.js::plot() calls translateZ(size.z/2) after
-            # position.set(translation), so translation.z must be the BOTTOM
-            # of the box.  PointPillars z_l is the bbox CENTRE, so subtract h/2.
-            sz_bottom = sz - h / 2
+            # z_l IS the box bottom (PointPillars Z corners span [0,h], not
+            # [-h/2,+h/2]). Send sz directly; assetmanager.js translateZ(h/2)
+            # then lifts the origin to the box centre.
 
             det = {
                 "id":          i + 1,
                 "category":    label,
                 "confidence":  conf,
-                "translation": [sx, sy, sz_bottom],
+                "translation": [sx, sy, sz],
                 "size":        [l, w, h],
                 "rotation":    rot,
             }
@@ -860,7 +912,7 @@ def build_camera_message(
                 debug_lines.append(
                     f"  [obj {i:02d}] {label:<14} src={source:<16} "
                     f"lidar=({x_l:7.2f},{y_l:7.2f},{z_l:7.2f}) "
-                    f"scene=({sx:7.2f},{sy:7.2f},{sz_bottom:7.2f}) "
+                    f"scene=({sx:7.2f},{sy:7.2f},{sz:7.2f}) "
                     f"lwh=({l:.2f},{w:.2f},{h:.2f}) "
                     f"theta={theta:+.3f} "
                     f"rot=[{rot[2]:+.3f},{rot[3]:+.3f}] "
@@ -875,7 +927,7 @@ def build_camera_message(
 
     msg = {
         "id":        sensor_id,
-        "timestamp": _make_timestamp(now),
+        "timestamp": _ts,
         "rate":      round(fps, 2),
         "objects":   objects,
     }
@@ -920,16 +972,15 @@ def _log_frame_debug(
             exp_sx, exp_sy, exp_sz = _lidar_to_scene_offset(
                 b.get("x", 0), b.get("y", 0), b.get("z", 0)
             )
-            exp_sz_bottom = exp_sz - b.get("h", 0) / 2
             ok = (
                 abs(t[0] - exp_sx) < 1e-4
                 and abs(t[1] - exp_sy) < 1e-4
-                and abs(t[2] - exp_sz_bottom) < 1e-4
+                and abs(t[2] - exp_sz) < 1e-4
             )
             print(
                 f"  transform={'✅ OK' if ok else '⚠️  MISMATCH'} "
                 f"lidar=({b.get('x',0):.3f},{b.get('y',0):.3f},{b.get('z',0):.3f}) "
-                f"→ scene=({exp_sx:.3f},{exp_sy:.3f},{exp_sz_bottom:.3f}) [bottom]"
+                f"→ scene=({exp_sx:.3f},{exp_sy:.3f},{exp_sz:.3f}) [bottom]"
                 f"  pub=({t[0]:.3f},{t[1]:.3f},{t[2]:.3f})",
                 flush=True,
             )
@@ -961,11 +1012,10 @@ def _log_frame_info(
         exp_sx, exp_sy, exp_sz = _lidar_to_scene_offset(
             b.get("x", 0), b.get("y", 0), b.get("z", 0)
         )
-        exp_sz_bottom = exp_sz - b.get("h", 0) / 2
         ok = (
             abs(t[0] - exp_sx) < 1e-4
             and abs(t[1] - exp_sy) < 1e-4
-            and abs(t[2] - exp_sz_bottom) < 1e-4
+            and abs(t[2] - exp_sz) < 1e-4
         )
         _, src = resolve_label(raw_obj)
         print(
@@ -973,7 +1023,7 @@ def _log_frame_info(
             f"{'✅' if ok else '⚠️ MISMATCH'} "
             f"src={src} "
             f"lidar=({b.get('x',0):.2f},{b.get('y',0):.2f},{b.get('z',0):.2f}) "
-            f"→ scene=({exp_sx:.2f},{exp_sy:.2f},{exp_sz_bottom:.2f}) [bottom] "
+            f"→ scene=({exp_sx:.2f},{exp_sy:.2f},{exp_sz:.2f}) [bottom] "
             f"h={b.get('h',0):.2f} theta={b.get('theta',0):.3f} "
             f"pub_t=({t[0]:.2f},{t[1]:.2f},{t[2]:.2f}) "
             f"rot={[round(v,3) for v in o['rotation']]} "
@@ -1165,8 +1215,8 @@ def _print_banner() -> None:
         f"({'loaded from file' if _R_CALIB is not None else 'LEGACY FALLBACK -90°'})\n"
         f"  heading_formula: scene_heading = calib_yaw - theta - 90°  "
         f"(PointPillars Y-forward: theta=0 → heading along LiDAR +Y)\n"
-        f"  z_convention   : publisher sends z_lidar_centre - h/2  "
-        f"(JS assetmanager expects box bottom, not centre)\n"
+        f"  z_convention   : publisher sends z_lidar directly  "
+        f"(PointPillars Z is box bottom; JS translateZ(h/2) lifts to centre)\n"
         f"  lidar1_DB_rot  : {_LIDAR1_DB_ROTATION} euler  "
         f"(identity -- rotation done in publisher)\n"
         f"  point_cloud    : {range_str}  ({coverage})\n"
@@ -1272,7 +1322,10 @@ def main() -> None:
                 )
                 continue
 
-            now = time.time()
+            now = time.time()  # fallback if lidar_frame is missing
+            gst_ns = raw.get("lidar_frame", {}).get("exit_source_timestamp")
+            if gst_ns is not None:
+                now = _gst_to_wall(int(gst_ns))
             if last_ts is not None:
                 instant = 1.0 / max(now - last_ts, 0.001)
                 fps = fps * _FPS_EMA_SMOOTHING + (1.0 - _FPS_EMA_SMOOTHING) * instant
@@ -1280,16 +1333,21 @@ def main() -> None:
 
             t1 = time.perf_counter()
             msg, debug_lines, frame_label_sources = build_camera_message(
-                raw, SENSOR_ID, fps, now
+                raw, SENSOR_ID, fps
             )
             t2 = time.perf_counter()
 
-            payload     = json.dumps(msg)
-            payload_len = len(payload.encode())
-            client      = safe_publish(client, CAMERA_TOPIC, payload, stats)
+            total_objs = sum(len(v) for v in msg["objects"].values())
 
-            if PUBLISH_RAW:
-                client = safe_publish(client, RAW_TOPIC, line, stats)
+            if total_objs > 0:
+                payload     = json.dumps(msg)
+                payload_len = len(payload.encode())
+                client      = safe_publish(client, CAMERA_TOPIC, payload, stats)
+
+                if PUBLISH_RAW:
+                    client = safe_publish(client, RAW_TOPIC, line, stats)
+            else:
+                payload_len = 0
 
             t3          = time.perf_counter()
 
@@ -1304,7 +1362,6 @@ def main() -> None:
             )
             published += 1
 
-            total_objs = sum(len(v) for v in msg["objects"].values())
             if total_objs == 0 and LOG_LEVEL != "SILENT":
                 _log_zero_frame(published, fps, stats.consecutive_zeros)
 
