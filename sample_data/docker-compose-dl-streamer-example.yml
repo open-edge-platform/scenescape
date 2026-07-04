@@ -418,6 +418,22 @@ services:
     restart: always
     pids_limit: 1000
 
+  lidar-model-init:
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260623-weekly-ubuntu24
+    user: root
+    entrypoint: ["/bin/bash", "/model_installer/install-pointpillars"]
+    environment:
+      - MODELS_PATH=/home/pipeline-server/models
+      - POINTPILLARS_ROOT=${POINTPILLARS_ROOT:-}
+      - OPENVINO_CONTRIB_DIR=${OPENVINO_CONTRIB_DIR:-}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+    volumes:
+      - ./model_installer/src:/model_installer
+      - vol-models:/home/pipeline-server/models
+    restart: "no"
+    pids_limit: 1000
+
   lidar-stream:
     image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260623-weekly-ubuntu24
     networks:
@@ -436,6 +452,8 @@ services:
         condition: service_started
       ntpserv:
         condition: service_started
+      lidar-model-init:
+        condition: service_completed_successfully
     environment:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
@@ -450,7 +468,6 @@ services:
       - LIDAR_SCORE_THRESHOLD=0.8
       - LIDAR_MODEL_CONFIG=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
       - LIDAR_PUBLISH_RAW=true
-      - LOG_LEVEL=SUMMARY
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - vol-sample-data:/home/pipeline-server/videos

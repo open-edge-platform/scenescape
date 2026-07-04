@@ -74,8 +74,8 @@ resolve_pointpillars_root() {
         return 0
     fi
 
-    # Sibling checkout: honour OPENVINO_CONTRIB_DIR or auto-detect.
-    local contrib_dir="${OPENVINO_CONTRIB_DIR:-${SCRIPT_DIR}/../../../openvino_contrib}"
+    # Sibling checkout: honour OPENVINO_CONTRIB_DIR or auto-detect relative to script.
+    local contrib_dir="${OPENVINO_CONTRIB_DIR:-${SCRIPT_DIR}/../../openvino_contrib}"
     local sibling="${contrib_dir}/modules/3d/pointPillars"
     if [[ -d "${sibling}" ]]; then
         POINTPILLARS_ROOT="${sibling}"
@@ -136,13 +136,20 @@ build_extension() {
         [[ -f "${ext_library}" ]] || fail "Extension build failed — library not produced: ${ext_library}"
         log "Extension built: ${ext_library}"
     fi
+
+    # Copy into MODELS_PATH so it is accessible from any container that mounts vol-models.
+    local dest="${POINTPILLARS_MODEL_DIR}/libov_pointpillars_extensions.so"
+    if [[ ! -f "${dest}" ]] || ! cmp -s "${ext_library}" "${dest}"; then
+        log "Copying extension to ${dest}"
+        cp -f "${ext_library}" "${dest}"
+    fi
 }
 
 # ── Write runtime config JSON ─────────────────────────────────────────────────
 
 write_config() {
     local config_path="${POINTPILLARS_MODEL_DIR}/pointpillars_ov_config.json"
-    local ext_library="${POINTPILLARS_ROOT}/ov_extensions/build/libov_pointpillars_extensions.so"
+    local ext_library="${POINTPILLARS_MODEL_DIR}/libov_pointpillars_extensions.so"
 
     cat > "${config_path}" <<EOF
 {
@@ -161,15 +168,28 @@ EOF
     log "Config written: ${config_path}"
 }
 
+# ── Build tool bootstrap (no root required for cmake via pip) ────────────────
+
+ensure_build_tools() {
+    local missing=()
+    command -v cmake >/dev/null 2>&1 || missing+=(cmake)
+    command -v make  >/dev/null 2>&1 || missing+=(make)
+    command -v c++   >/dev/null 2>&1 || missing+=(g++)
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        log "Installing missing build tools: ${missing[*]}"
+        apt-get update -qq
+        apt-get install -y --no-install-recommends "${missing[@]}"
+    fi
+}
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 require_command git
-require_command cmake
-require_command make
-require_command c++
 
 log "MODELS_PATH=${MODELS_PATH}"
 
+ensure_build_tools
 resolve_pointpillars_root
 copy_model_files
 build_extension
