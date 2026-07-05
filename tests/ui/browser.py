@@ -18,8 +18,26 @@ import subprocess
 
 MAX_RETRIES = 5
 RETRY_DELAY = 30
-DRIVER_START_RETRIES = 3
+DRIVER_START_RETRIES = 5
 DRIVER_START_DELAY = 5
+
+def _reap_orphan_geckodrivers():
+  """Kill leftover geckodriver processes (and any Firefox children they spawned). """
+  try:
+    import psutil
+  except Exception:
+    return
+  for proc in psutil.process_iter(["name"]):
+    try:
+      if "geckodriver" in (proc.info.get("name") or "").lower():
+        for child in proc.children(recursive=True):
+          try:
+            child.kill()
+          except psutil.Error:
+            pass
+        proc.kill()
+    except psutil.Error:
+      continue
 
 def _validate_firefox(binary):
   result = subprocess.run([binary, "--version"], capture_output=True, text=True)
@@ -91,10 +109,6 @@ class Browser(Firefox):
 
     options.add_argument("--width=1080")
     options.add_argument("--height=1920")
-    # WebGL is disabled by default for CI stability. Tests that exercise the 3D
-    # viewport (e.g. the scene/camera control panels) must opt in via webgl=True,
-    # in which case it is force-enabled so headless software rendering (Mesa) is
-    # used even though no GPU is present.
     options.set_preference("webgl.disabled", not webgl)
     if webgl:
       options.set_preference("webgl.force-enabled", True)
@@ -140,10 +154,11 @@ class Browser(Firefox):
         except Exception:
           pass
         if attempt < DRIVER_START_RETRIES:
+          _reap_orphan_geckodrivers()
+          delay = DRIVER_START_DELAY * attempt
           print(f"geckodriver failed to start (attempt {attempt}/"
-                f"{DRIVER_START_RETRIES}): {exc}. Retrying in "
-                f"{DRIVER_START_DELAY}s...")
-          time.sleep(DRIVER_START_DELAY)
+                f"{DRIVER_START_RETRIES}): {exc}. Retrying in {delay}s...")
+          time.sleep(delay)
 
     if last_exc is not None:
       raise last_exc
