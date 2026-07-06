@@ -290,6 +290,18 @@ services:
     restart: always
     pids_limit: 1000
 
+  lidar-intersection-cams:
+    image: linuxserver/ffmpeg:version-8.1-cli
+    command: -nostdin -re -stream_loop -1 -i /workspace/media/LidarIntersection-cam1.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/lidar-intersection-cam1
+    volumes:
+      - vol-sample-data:/workspace/media
+    networks:
+      scenescape:
+    depends_on:
+      - mediaserver
+    restart: always
+    pids_limit: 1000
+
   retail-video:
     image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260630-weekly-ubuntu24
     networks:
@@ -418,6 +430,70 @@ services:
     restart: always
     pids_limit: 1000
 
+  lidar-intersection-video:
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260630-weekly-ubuntu24
+    networks:
+      scenescape:
+    tty: true
+    entrypoint: ["./run.sh"]
+    # ports:
+    #   - "8082:8080"
+    # Uncomment these lines to use GPU acceleration
+    # devices:
+    #   - "/dev/dri:/dev/dri"
+    # Uncomment these lines to use NPU acceleration
+    # devices:
+    #   - "/dev/accel:/dev/accel"
+    group_add:
+      - "109"
+      - "110"
+      - "992"
+    device_cgroup_rules:
+      - "c 189:* rmw"
+      - "c 209:* rmw"
+      - "a 189:* rwm"
+    depends_on:
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+      lidar-intersection-cams:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    environment:
+      - RUN_MODE=EVA
+      - GENICAM=Balluff
+      - GST_DEBUG=1,gencamsrc:2
+      - ADD_UTCTIME_TO_METADATA=true
+      - APPEND_PIPELINE_NAME_TO_PUBLISHER_TOPIC=false
+      - MQTT_HOST=broker.scenescape.intel.com
+      - MQTT_PORT=1883
+      - REST_SERVER_PORT=8080
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
+      - NO_PROXY=mediaserver,${NO_PROXY}
+      - no_proxy=mediaserver,${no_proxy}
+    configs:
+      - source: lidar-intersection-config
+        target: /home/pipeline-server/config.json
+    volumes:
+      - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - vol-dlstreamer-pipeline-server-pipeline-root-lidar-intersection:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol-sample-data:/home/pipeline-server/videos
+      - vol-models:/home/pipeline-server/models
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+    restart: always
+    pids_limit: 1000
+
   lidar-data-init:
     image: alpine:3.23
     command: sh -c "mkdir -p /dst/velodyne_bin && tar -xzf /src/velodyne_bin_part1.tar.gz --strip-components=1 -C /dst/velodyne_bin/ && tar -xzf /src/velodyne_bin_part2.tar.gz --strip-components=1 -C /dst/velodyne_bin/ && echo 'velodyne_bin data ready'"
@@ -453,12 +529,12 @@ services:
       ["python3", "/home/pipeline-server/user_scripts/lidar_publisher.py"]
     # Uncomment these lines to use GPU acceleration
     # GPU acceleration — requires /dev/dri on the host
-    # devices:
-    #   - "/dev/dri:/dev/dri"
-    # group_add:
-    #   - "992"
-    # device_cgroup_rules:
-    #   - "c 226:* rmw"
+    devices:
+      - "/dev/dri:/dev/dri"
+    group_add:
+      - "992"
+    device_cgroup_rules:
+      - "c 226:* rmw"
     depends_on:
       broker:
         condition: service_started
@@ -478,7 +554,7 @@ services:
       # - LIDAR_STOP_INDEX=010949
       # - LIDAR_LOOP=true
       # - LIDAR_FRAME_RATE=10
-      # - LIDAR_DEVICE=GPU
+      - LIDAR_DEVICE=GPU
       # - LIDAR_SCORE_THRESHOLD=0.8
       # - LIDAR_MODEL_CONFIG=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
       # - LIDAR_PUBLISH_RAW=true
@@ -698,6 +774,8 @@ configs:
     file: ./dlstreamer-pipeline-server/queuing-config.json
     # Use this configuration file to run inference on NPU
     # file: ./dlstreamer-pipeline-server/queuing-config-npu.json
+  lidar-intersection-config:
+    file: ./dlstreamer-pipeline-server/lidar-intersection-config.json
 
 volumes:
   vol-db:
@@ -714,6 +792,11 @@ volumes:
       type: tmpfs
       device: tmpfs
   vol-dlstreamer-pipeline-server-pipeline-root-retail:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  vol-dlstreamer-pipeline-server-pipeline-root-lidar-intersection:
     driver: local
     driver_opts:
       type: tmpfs

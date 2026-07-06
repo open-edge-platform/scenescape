@@ -8,6 +8,29 @@
   "scale": 6.6667,
   "cameras": [
     {
+      "uid": "intersection-cam1",
+      "name": "intersection-cam1",
+      "intrinsics": {
+        "fx": 2175.553931,
+        "fy": 2320.125728,
+        "cx": 969.822873,
+        "cy": 572.75404
+      },
+      "distortion": {
+        "k1": -0.426717,
+        "k2": 0.180019,
+        "p1": 0.001187,
+        "p2": -0.00015,
+        "k3": 0.0
+      },
+      "transform_type": "euler",
+      "translation": [70.0, 127.0, 0],
+      "rotation": [-180, 0.0, -180],
+      "scale": [1.0, 1.0, 1.0],
+      "resolution": [1920, 1080],
+      "scene": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
+    },
+    {
       "uid": "lidar1",
       "name": "inf-lidar1",
       "intrinsics": {
