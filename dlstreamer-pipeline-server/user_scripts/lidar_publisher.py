@@ -29,19 +29,19 @@ import paho.mqtt.client as mqtt
 
 # ── MQTT ──────────────────────────────────────────────────────────────────────
 BROKER  = os.environ.get("MQTT_HOST", "broker.scenescape.intel.com")
-PORT  = int(os.environ.get("MQTT_PORT", "1883"))
+PORT    = int(os.environ.get("MQTT_PORT", "1883"))
 ROOT_CA = "/run/secrets/certs/scenescape-ca.pem"
 
 # ── LiDAR pipeline ────────────────────────────────────────────────────────────
-SENSOR_ID     = os.environ.get("LIDAR_SENSOR_ID", "lidar1")
-DATA_PATH     = os.environ.get("LIDAR_DATA_PATH", "/home/pipeline-server/videos/velodyne_bin/%06d.bin")
-START_INDEX   = int(os.environ.get("LIDAR_START_INDEX", "0"))
-_STOP_RAW     = os.environ.get("LIDAR_STOP_INDEX")
-STOP_INDEX    = int(_STOP_RAW.strip()) if _STOP_RAW and _STOP_RAW.strip() else None
-LOOP      = os.environ.get("LIDAR_LOOP", "true").lower() not in ("0", "false", "no")
-FRAME_RATE    = int(os.environ.get("LIDAR_FRAME_RATE", "10"))
+SENSOR_ID       = os.environ.get("LIDAR_SENSOR_ID", "lidar1")
+DATA_PATH       = os.environ.get("LIDAR_DATA_PATH", "/home/pipeline-server/videos/velodyne_bin/%06d.bin")
+START_INDEX     = int(os.environ.get("LIDAR_START_INDEX", "0"))
+_STOP_RAW       = os.environ.get("LIDAR_STOP_INDEX")
+STOP_INDEX      = int(_STOP_RAW.strip()) if _STOP_RAW and _STOP_RAW.strip() else None
+LOOP            = os.environ.get("LIDAR_LOOP", "true").lower() not in ("0", "false", "no")
+FRAME_RATE      = int(os.environ.get("LIDAR_FRAME_RATE", "10"))
 SCORE_THRESHOLD = float(os.environ.get("LIDAR_SCORE_THRESHOLD", "0.20"))
-MODEL_CONFIG  = os.environ.get(
+MODEL_CONFIG    = os.environ.get(
   "LIDAR_MODEL_CONFIG",
   "/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json",
 )

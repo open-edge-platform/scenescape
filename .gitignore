@@ -59,3 +59,4 @@ kubernetes/scenescape-chart/files/*
 .venv
 test_db.sqlite3
 tests/ui/test_media/Empty.zip
+sample_data/velodyne_bin/
