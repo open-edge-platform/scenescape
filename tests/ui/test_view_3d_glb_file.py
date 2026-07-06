@@ -54,6 +54,7 @@ def check_3D_scene_asset_in_3D_scene(browser, base_screenshot, file_name, file_p
   @param    file_name               Filename of the 3D file to be uploaded.
   @param    file_path               Path for the 3D file to be uploaded.
   @param    DEBUG                   Boolean representing whether this function is running in debug mode.
+  @param    timeout_s               Maximum seconds to wait for the scene detail map URL element.
   @return   BOOL                    Boolean representing whether the 3D file is visible.
   '''
 
@@ -69,9 +70,11 @@ def check_3D_scene_asset_in_3D_scene(browser, base_screenshot, file_name, file_p
     log.error(f"Timed out after {timeout_s}s waiting for #map-url on scene detail page.")
     return False
 
-  base_name = os.path.splitext(file_name)[0]
-  ext = os.path.splitext(file_name)[1].lower()
-  if not map_url or ext not in map_url.lower() or base_name not in map_url:
+  base_name, ext = os.path.splitext(file_name)
+  expected_base_name = base_name.lower()
+  expected_ext = ext.lower()
+  map_url_normalized = (map_url or "").lower()
+  if not map_url or expected_ext not in map_url_normalized or expected_base_name not in map_url_normalized:
     log.error(f"Expected a {file_name!r} map URL, got: {map_url!r}")
     return False
 
