@@ -15,11 +15,14 @@
 #   3. Sparse clone into POINTPILLARS_CACHE_DIR
 #
 # Environment variables:
-#   MODELS_PATH            Destination for IR files.  Default: /workspace/models
-#   POINTPILLARS_ROOT      Existing modules/3d/pointPillars directory.
-#   OPENVINO_CONTRIB_DIR   Existing openvino_contrib checkout root.
-#   POINTPILLARS_CACHE_DIR Cache dir for sparse clone.  Default: /tmp/pointpillars-cache
-#   PYTHON                 Python interpreter with openvino installed.
+#   MODELS_PATH              Destination for IR files.  Default: /workspace/models
+#   POINTPILLARS_ROOT        Existing modules/3d/pointPillars directory.
+#   OPENVINO_CONTRIB_DIR     Existing openvino_contrib checkout root.
+#   OPENVINO_CONTRIB_REF     Commit SHA or tag to check out after sparse clone.
+#                            Default: d131b42505ee77e064638e0b38e6a84b52b779d6
+#                            (the commit that introduced the PointPillars module)
+#   POINTPILLARS_CACHE_DIR   Cache dir for sparse clone.  Default: /tmp/pointpillars-cache
+#   PYTHON                   Python interpreter with openvino installed.
 
 set -euo pipefail
 
@@ -28,6 +31,9 @@ MODELS_PATH="${MODELS_PATH:-/workspace/models}"
 POINTPILLARS_MODEL_DIR="${MODELS_PATH}/public/pointpillars/FP16"
 POINTPILLARS_CACHE_DIR="${POINTPILLARS_CACHE_DIR:-/tmp/pointpillars-cache}"
 OPENVINO_CONTRIB_URL="https://github.com/openvinotoolkit/openvino_contrib.git"
+# Pinned to the commit that introduced modules/3d/pointPillars.
+# Override with OPENVINO_CONTRIB_REF to test a newer revision.
+OPENVINO_CONTRIB_REF="${OPENVINO_CONTRIB_REF:-d131b42505ee77e064638e0b38e6a84b52b779d6}"
 
 POINTPILLARS_MODEL_FILES=(
     "pointpillars_ov_nn.bin"
@@ -86,11 +92,19 @@ resolve_pointpillars_root() {
     # Sparse clone fallback.
     local sparse_root="${POINTPILLARS_CACHE_DIR}/openvino_contrib"
     if [[ ! -d "${sparse_root}/.git" ]]; then
-        log "Sparse-cloning openvino_contrib into ${sparse_root}..."
+        log "Sparse-cloning openvino_contrib into ${sparse_root} at ref ${OPENVINO_CONTRIB_REF}..."
         rm -rf "${sparse_root}"
-        git clone --depth 1 --filter=blob:none --sparse \
+        git clone --filter=blob:none --sparse \
             "${OPENVINO_CONTRIB_URL}" "${sparse_root}"
         git -C "${sparse_root}" sparse-checkout set modules/3d/pointPillars
+        git -C "${sparse_root}" checkout "${OPENVINO_CONTRIB_REF}"
+    else
+        local current_sha
+        current_sha="$(git -C "${sparse_root}" rev-parse HEAD)"
+        if [[ "${current_sha}" != "${OPENVINO_CONTRIB_REF}" ]]; then
+            log "Cached clone is at ${current_sha}, re-checking out ${OPENVINO_CONTRIB_REF}..."
+            git -C "${sparse_root}" checkout "${OPENVINO_CONTRIB_REF}"
+        fi
     fi
     POINTPILLARS_ROOT="${sparse_root}/modules/3d/pointPillars"
     log "Using sparse-cloned source: ${POINTPILLARS_ROOT}"
