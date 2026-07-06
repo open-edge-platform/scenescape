@@ -16,24 +16,6 @@ EGL_PLATFORM=${EGL_PLATFORM:-surfaceless}
 
 export EGL_PLATFORM
 
-map_dir()
-{
-    SRC=$1
-    DEST=$2
-    DUID=$3
-    DGID=$4
-
-    SUID=$(stat -c '%u' "${SRC}")
-    SGID=$(stat -c '%g' "${SRC}")
-
-    mkdir -p ${DEST}
-    echo "map_dir chown ${DUID}:${DGID} ${DEST}"
-    chown ${DUID}:${DGID} ${DEST}
-    echo "map_dir bindfs ${SRC} to ${DEST} with ${DUID}:${DGID}"
-    bindfs -o nonempty --map=${SUID}/${DUID}:@${SGID}/@${DGID} ${SRC} ${DEST}
-    echo "map_dir done ${SRC} to ${DEST}"
-}
-
 # Resolve WSUSER home safely without eval.
 WSHOME=$(getent passwd "${WSUSER}" | cut -d: -f6)
 if [ -z "${WSHOME}" ]; then

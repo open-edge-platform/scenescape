@@ -70,7 +70,6 @@ RUN : \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         apache2 \
-        bindfs \
         bzip2 \
         libegl1 \
         libgl1 \
