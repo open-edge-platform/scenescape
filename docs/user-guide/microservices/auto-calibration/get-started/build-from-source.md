@@ -10,7 +10,7 @@
   Clone the repository.
 
   ```bash
-  git clone https://github.com/open-edge-platform/scenescape.git
+  git clone https://github.com/open-edge-platform/scenescape.git -b main
   ```
 
 > **Note:** Adjust the repository link appropriately in case of a forked repository.
