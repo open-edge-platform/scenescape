@@ -28,14 +28,7 @@ SPDX-License-Identifier: Apache-2.0
       {% for Cam in object_list %}
         <tr>
           <td>{{ Cam }}</td>
-          <td>
-            {{ Cam.sensor_id }}
-            {% if user.is_superuser %}
-              <a href="{% url 'cam_update' Cam.id %}" title="Edit Camera ID">
-                <i class="bi bi-pencil"></i>
-              </a>
-            {% endif %}
-          </td>
+          <td>{{ Cam.sensor_id }}</td>
           {% if Cam.scene %}
             <td>
               <a href="{% url 'sceneDetail' Cam.scene.id %}" title="Scene"
