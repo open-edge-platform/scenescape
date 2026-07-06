@@ -46,6 +46,15 @@ inline constexpr const char* kMetricStageTransform = "tracker.stage.transform_du
 inline constexpr const char* kMetricStageTrack = "tracker.stage.track_duration";
 inline constexpr const char* kMetricStagePublish = "tracker.stage.publish_duration";
 
+// Time-chunking performance counters
+inline constexpr const char* kMetricTimeChunkingDuplicatedCameras =
+    "tracker.time_chunking.duplicated_cameras";
+inline constexpr const char* kMetricTimeChunkingUniqueCameras =
+    "tracker.time_chunking.unique_cameras";
+inline constexpr const char* kMetricTimeChunkingNonEmptyChunks =
+    "tracker.time_chunking.non_empty_chunks";
+inline constexpr const char* kMetricTimeChunkingEmptyChunks = "tracker.time_chunking.empty_chunks";
+
 // Meter scope name
 inline constexpr const char* kMeterName = "tracker";
 
@@ -114,6 +123,45 @@ public:
      * @param attrs Attributes (scene, category, reason, etc.)
      */
     static void inc_dropped_n(size_t count, MetricAttributes attrs = {});
+
+    /**
+     * @brief Increment the time-chunking duplicated-cameras counter by 1.
+     *
+     * Recorded when a buffered camera frame is overwritten by a newer frame
+     * for the same scope before the chunk is dispatched.
+     *
+     * @param attrs Attributes (scene, category)
+     */
+    static void inc_time_chunking_duplicated_cameras(MetricAttributes attrs = {});
+
+    /**
+     * @brief Add to the time-chunking unique-cameras counter.
+     *
+     * Recorded once per non-empty dispatch with the number of distinct
+     * cameras present across all scopes in the popped chunk.
+     *
+     * @param count Number of unique cameras dispatched
+     * @param attrs Attributes (optional)
+     */
+    static void inc_time_chunking_unique_cameras_n(size_t count, MetricAttributes attrs = {});
+
+    /**
+     * @brief Increment the time-chunking non-empty-chunks counter by 1.
+     *
+     * Recorded when a dispatch interval had buffered data to process.
+     *
+     * @param attrs Attributes (optional)
+     */
+    static void inc_time_chunking_non_empty_chunks(MetricAttributes attrs = {});
+
+    /**
+     * @brief Increment the time-chunking empty-chunks counter by 1.
+     *
+     * Recorded when a dispatch interval had no buffered data.
+     *
+     * @param attrs Attributes (optional)
+     */
+    static void inc_time_chunking_empty_chunks(MetricAttributes attrs = {});
 
     /**
      * @brief Update the active track count for a given scope.
