@@ -6,6 +6,7 @@
 import tests.ui.common_ui_test_utils as common
 import os
 import cv2
+from tests.ui.browser import By
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
 
@@ -49,7 +50,20 @@ def check_3D_scene_asset_in_3D_scene(browser, base_screenshot, file_name, file_p
   @param    DEBUG                   Boolean representing whether this function is running in debug mode.
   @return   BOOL                    Boolean representing whether the 3D file is visible.
   '''
-  scene_3D_params = common.InteractionParams("/media/" + file_name, file_path, f"/scene/detail/{common.TEST_SCENE_ID}/", "", "", element_location="#map-url", \
+
+  common.navigate_directly_to_page(browser, f"/scene/detail/{common.TEST_SCENE_ID}/")
+  try:
+    map_url = browser.find_element(By.CSS_SELECTOR, "#map-url").get_attribute("value")
+  except Exception:
+    map_url = None
+
+  base_name = os.path.splitext(file_name)[0]
+  ext = os.path.splitext(file_name)[1].lower()
+  if not map_url or ext not in map_url.lower() or base_name not in map_url:
+    print(f"Expected a {file_name!r} map URL, got: {map_url!r}")
+    return False
+
+  scene_3D_params = common.InteractionParams(map_url, file_path, f"/scene/detail/{common.TEST_SCENE_ID}/", "", "", element_location="#map-url", \
                                       element_type="attribute", screenshot_threshold=0.85, debug=DEBUG)
   scene_3D_params.add_screenshot(base_screenshot)
   scene_3D_page = common.InteractWith3DScene(browser, scene_3D_params)
