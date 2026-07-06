@@ -451,13 +451,14 @@ services:
     tty: true
     entrypoint:
       ["python3", "/home/pipeline-server/user_scripts/lidar_publisher.py"]
+    # Uncomment these lines to use GPU acceleration
     # GPU acceleration — requires /dev/dri on the host
-    devices:
-      - "/dev/dri:/dev/dri"
-    group_add:
-      - "992"
-    device_cgroup_rules:
-      - "c 226:* rmw"
+    # devices:
+    #   - "/dev/dri:/dev/dri"
+    # group_add:
+    #   - "992"
+    # device_cgroup_rules:
+    #   - "c 226:* rmw"
     depends_on:
       broker:
         condition: service_started
@@ -472,15 +473,15 @@ services:
       - MQTT_PORT=1883
       # LiDAR pipeline configuration — override as needed:
       # - LIDAR_SENSOR_ID=lidar1
-      - LIDAR_DATA_PATH=/home/pipeline-server/videos/velodyne_bin/%06d.bin
-      - LIDAR_START_INDEX=010949
-      - LIDAR_STOP_INDEX=010949
-      - LIDAR_LOOP=true
-      - LIDAR_FRAME_RATE=10
-      - LIDAR_DEVICE=GPU
-      - LIDAR_SCORE_THRESHOLD=0.8
-      - LIDAR_MODEL_CONFIG=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
-      - LIDAR_PUBLISH_RAW=true
+      # - LIDAR_DATA_PATH=/home/pipeline-server/videos/velodyne_bin/%06d.bin
+      # - LIDAR_START_INDEX=010699
+      # - LIDAR_STOP_INDEX=010949
+      # - LIDAR_LOOP=true
+      # - LIDAR_FRAME_RATE=10
+      # - LIDAR_DEVICE=GPU
+      # - LIDAR_SCORE_THRESHOLD=0.8
+      # - LIDAR_MODEL_CONFIG=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
+      # - LIDAR_PUBLISH_RAW=true
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - vol-sample-data:/home/pipeline-server/videos

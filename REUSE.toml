@@ -44,6 +44,15 @@ SPDX-FileCopyrightText = "(C) 2025 Intel Corporation"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
+path = [
+  "sample_data/velodyne_bin_part1.tar.gz",
+  "sample_data/velodyne_bin_part2.tar.gz"
+]
+precedence = "override"
+SPDX-FileCopyrightText = "(C) 2022 Tsinghua University"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
 path = "autocalibration/src/reloc/patches/01-core-modifications.patch"
 precedence = "override"
 SPDX-FileCopyrightText = [

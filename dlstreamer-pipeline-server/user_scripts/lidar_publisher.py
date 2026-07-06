@@ -35,12 +35,12 @@ ROOT_CA = "/run/secrets/certs/scenescape-ca.pem"
 # ── LiDAR pipeline ────────────────────────────────────────────────────────────
 SENSOR_ID       = os.environ.get("LIDAR_SENSOR_ID", "lidar1")
 DATA_PATH       = os.environ.get("LIDAR_DATA_PATH", "/home/pipeline-server/videos/velodyne_bin/%06d.bin")
-START_INDEX     = int(os.environ.get("LIDAR_START_INDEX", "0"))
+START_INDEX     = int(os.environ.get("LIDAR_START_INDEX", "010699"))
 _STOP_RAW       = os.environ.get("LIDAR_STOP_INDEX")
 STOP_INDEX      = int(_STOP_RAW.strip()) if _STOP_RAW and _STOP_RAW.strip() else None
 LOOP            = os.environ.get("LIDAR_LOOP", "true").lower() not in ("0", "false", "no")
 FRAME_RATE      = int(os.environ.get("LIDAR_FRAME_RATE", "10"))
-SCORE_THRESHOLD = float(os.environ.get("LIDAR_SCORE_THRESHOLD", "0.20"))
+SCORE_THRESHOLD = float(os.environ.get("LIDAR_SCORE_THRESHOLD", "0.70"))
 MODEL_CONFIG    = os.environ.get(
   "LIDAR_MODEL_CONFIG",
   "/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json",
