@@ -119,13 +119,13 @@ class TestConfiguration:
     assert result is dataset  # Method chaining
 
   def test_set_scene_retail_demo(self, dataset):
-    """Test set_scene with Retail_Demo."""
-    result = dataset.set_scene("Retail_Demo")
+    """Test set_scene with Unity."""
+    result = dataset.set_scene("Unity")
     assert result is dataset
 
   def test_set_scene_unsupported(self, dataset):
     """Test set_scene with unsupported scene."""
-    with pytest.raises(NotImplementedError, match="Only 'Retail_Demo' scene"):
+    with pytest.raises(NotImplementedError, match="Only 'Unity' scene"):
       dataset.set_scene("UnknownScene")
 
   def test_set_cameras_default(self, dataset):
@@ -247,7 +247,7 @@ class TestSceneConfig:
     assert "sensors" in config
     assert "map" in config
     assert "scale" in config
-    assert config["name"] == "Retail_Demo"
+    assert config["name"] == "Unity"
 
   @pytest.mark.xfail(reason="Scene config format not yet aligned with canonical schema")
   def test_get_scene_config_matches_schema(self, dataset, scene_schema):
@@ -510,7 +510,7 @@ class TestIntegration:
     scene_config = dataset.get_scene_config()
     assert "name" in scene_config
     assert "sensors" in scene_config
-    assert scene_config["name"] == "Retail_Demo"
+    assert scene_config["name"] == "Unity"
 
     # Get inputs
     inputs = list(dataset.get_inputs())
@@ -530,7 +530,7 @@ class TestIntegration:
   def test_method_chaining(self, dataset):
     """Test method chaining works correctly."""
     result = (dataset
-              .set_scene("Retail_Demo")
+              .set_scene("Unity")
               .set_cameras(["Cam_x1_0", "Cam_x2_0"])
               .set_camera_fps(10)
               .reset())

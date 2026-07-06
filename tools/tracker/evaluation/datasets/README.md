@@ -24,7 +24,7 @@ Dataset adapters convert dataset-specific formats to Scenescape canonical format
 **Purpose**: Adapter for `tests/system/metric/unity_dataset` dataset used in acceptance tests.
 
 **Key Features**:
-- Single scene: `Retail_Demo`
+- Single scene: `Unity`
 - Two cameras: `Cam_x1_0`, `Cam_x2_0`
 - Multiple FPS options: 1, 10, 30 (separate JSON files per FPS)
 - Ground truth in MOTChallenge 3D CSV format (see [Canonical Data Formats](../README.md#canonical-data-formats))

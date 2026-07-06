@@ -20,7 +20,7 @@ class MetricTestDataset(TrackingDataset):
   """Dataset adapter for tests/system/metric/unity_dataset.
 
   This dataset contains:
-  - Scene: Retail_Demo (single built-in scene)
+  - Scene: Unity (single built-in scene)
   - Cameras: Cam_x1_0, Cam_x2_0
   - FPS options: 1, 10, 30 (separate JSON files per FPS)
   - Ground truth: gtLoc.json with object locations
@@ -28,7 +28,7 @@ class MetricTestDataset(TrackingDataset):
   """
 
   # Constants
-  SCENE_NAME = "Retail_Demo"
+  SCENE_NAME = "Unity"
   SUPPORTED_CAMERAS = ["Cam_x1_0", "Cam_x2_0"]
   SUPPORTED_FPS = [1, 10, 30]
   DEFAULT_FPS = 30
@@ -53,10 +53,10 @@ class MetricTestDataset(TrackingDataset):
     self._output_folder: Optional[Path] = None
 
   def set_scene(self, scene: Optional[str] = None) -> 'MetricTestDataset':
-    """Set scene (not supported - only Retail_Demo available).
+    """Set scene (not supported - only Unity available).
 
     Args:
-      scene: Scene identifier (must be None or "Retail_Demo")
+      scene: Scene identifier (must be None or "Unity")
 
     Returns:
       Self for method chaining
