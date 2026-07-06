@@ -7,8 +7,14 @@ import tests.ui.common_ui_test_utils as common
 import os
 import cv2
 from tests.ui.browser import By
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+
+log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -41,7 +47,7 @@ def upload_3D_scene_asset(browser, file_name, file_path):
 
 @common.mock_display
 @common.scenescape_login_headed
-def check_3D_scene_asset_in_3D_scene(browser, base_screenshot, file_name, file_path, DEBUG):
+def check_3D_scene_asset_in_3D_scene(browser, base_screenshot, file_name, file_path, DEBUG, timeout_s=10):
   '''! This function verifies that a user can view a file in the 3D scene view.
   @param    browser                 Object wrapping the Selenium webdriver.
   @param    base_screenshot         Screenshot to validate the 3D file visibility against.
@@ -51,16 +57,22 @@ def check_3D_scene_asset_in_3D_scene(browser, base_screenshot, file_name, file_p
   @return   BOOL                    Boolean representing whether the 3D file is visible.
   '''
 
-  common.navigate_directly_to_page(browser, f"/scene/detail/{common.TEST_SCENE_ID}/")
+  if not common.navigate_directly_to_page(browser, f"/scene/detail/{common.TEST_SCENE_ID}/"):
+    log.error("Failed to navigate to scene detail page.")
+    return False
+
   try:
-    map_url = browser.find_element(By.CSS_SELECTOR, "#map-url").get_attribute("value")
-  except Exception:
-    map_url = None
+    map_url = WebDriverWait(browser, timeout_s).until(
+      EC.presence_of_element_located((By.CSS_SELECTOR, "#map-url"))
+    ).get_attribute("value")
+  except TimeoutException:
+    log.error(f"Timed out after {timeout_s}s waiting for #map-url on scene detail page.")
+    return False
 
   base_name = os.path.splitext(file_name)[0]
   ext = os.path.splitext(file_name)[1].lower()
   if not map_url or ext not in map_url.lower() or base_name not in map_url:
-    print(f"Expected a {file_name!r} map URL, got: {map_url!r}")
+    log.error(f"Expected a {file_name!r} map URL, got: {map_url!r}")
     return False
 
   scene_3D_params = common.InteractionParams(map_url, file_path, f"/scene/detail/{common.TEST_SCENE_ID}/", "", "", element_location="#map-url", \
