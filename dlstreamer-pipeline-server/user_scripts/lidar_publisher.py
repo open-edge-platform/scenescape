@@ -85,35 +85,35 @@ def _gst_to_wall(gst_ns: int) -> float:
 # ── Coordinate transform ───────────────────────────────────────────────────────
 
 def lidar_to_scene_offset(x_l: float, y_l: float, z_l: float) -> "tuple[float, float, float]":
-    """Map LiDAR coordinates to scene-frame offset via (-y, -x) axis swap.
-    Z is forced to 0 — LiDAR z encodes sensor mounting height above ground,
-    not meaningful for 2D scene placement of ground-plane objects.
-    """
-    return -y_l, -x_l, 0.0
+  """Map LiDAR coordinates to scene-frame offset via (-y, -x) axis swap.
+  Z is forced to 0 to keep objects on the ground plane, since the SceneScape
+  controller adds the camera pose translation to get the final world position.
+  """
+  return -y_l, -x_l, 0.0
 
 
 def bbox3d_to_quaternion(theta: float) -> "list[float]":
-    """
-    Convert PointPillars yaw to SceneScape quaternion [qx, qy, qz, qw].
+  """
+  Convert PointPillars yaw to SceneScape quaternion [qx, qy, qz, qw].
 
-    Two rotations combined:
-      1. Z-axis yaw from theta:  q_yaw   = [0,    0,   qz, qw]
-      2. X-axis 180 deg flip:    q_flip  = [1,    0,    0,  0]
+  Two rotations combined:
+    1. Z-axis yaw from theta:  q_yaw   = [0,    0,   qz, qw]
+    2. X-axis 180 deg flip:    q_flip  = [1,    0,    0,  0]
 
-    Hamilton product q_flip * q_yaw:
-      q_combined = [qw_yaw, -qz_yaw, 0, 0]
+  Hamilton product q_flip * q_yaw:
+    q_combined = [qw_yaw, -qz_yaw, 0, 0]
 
-    This keeps the object XY position unchanged while
-    flipping the render orientation so roof faces up.
-    """
-    half = (-theta - math.pi) / 2.0
-    qz = math.sin(half)
-    qw = math.cos(half)
-    if qw < 0.0:
-        qz, qw = -qz, -qw
+  This keeps the object XY position unchanged while
+  flipping the render orientation so roof faces up.
+  """
+  half = (-theta - math.pi) / 2.0
+  qz = math.sin(half)
+  qw = math.cos(half)
+  if qw < 0.0:
+      qz, qw = -qz, -qw
 
-    # Apply 180 deg X-axis flip: q_flip=[1,0,0,0] * q_yaw=[0,0,qz,qw]
-    return [qw, -qz, 0.0, 0.0]
+  # Apply 180 deg X-axis flip: q_flip=[1,0,0,0] * q_yaw=[0,0,qz,qw]
+  return [qw, -qz, 0.0, 0.0]
 
 
 # ── Message builder ────────────────────────────────────────────────────────────
