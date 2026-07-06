@@ -274,7 +274,7 @@ def main() -> None:
   _make_fifo()
 
   pipeline_cmd = _build_pipeline()
-  proc = subprocess.Popen(pipeline_cmd, shell=True, stderr=sys.stderr)
+  proc = subprocess.Popen(shlex.split(pipeline_cmd), stderr=sys.stderr)
   print(f"[lidar-publisher] Pipeline started (pid={proc.pid})", flush=True)
 
   fifo_result: list = [None]
