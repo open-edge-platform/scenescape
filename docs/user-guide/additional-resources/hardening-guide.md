@@ -70,13 +70,14 @@ If you need to know the `CERTPASS` in order to generate more certificates in fut
 ### Configuring the certificate generation tooling
 
 The following `make` variables can be used with the certificate tooling, via `make -C ./tools/certificates VARIABLE1=foo VARIABLE2=bar`.
-Variable|Purpose
---------|-------
-SECRETSDIR|Location to place generated TLS assets. Defaults to `../../manager/secrets`.
-HOST|Hostname for generated certificate. Used alongside `CERTDOMAIN` to set certificate CN and DNS X509v3 SAN.
-CERTDOMAIN|Domain name suffix for generated certificate. Used alongside `HOST` to set certificate CN and DNS X509v3 SAN. Defaults to `scenescape.intel.com`.
-IP_SAN|An IP address to use as the IP Address X509v3 subject alternative name. If set, the certificate or CSR will include the `IP Address` SAN configured to this value.
-CERTPASS|CA key password. Used to protect and later unlock the self-signed trust root.
+
+| Variable   | Purpose                                                                                                                                                            |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SECRETSDIR | Location to place generated TLS assets. Defaults to `../../manager/secrets`.                                                                                       |
+| HOST       | Hostname for generated certificate. Used alongside `CERTDOMAIN` to set certificate CN and DNS X509v3 SAN.                                                          |
+| CERTDOMAIN | Domain name suffix for generated certificate. Used alongside `HOST` to set certificate CN and DNS X509v3 SAN. Defaults to `scenescape.intel.com`.                  |
+| IP_SAN     | An IP address to use as the IP Address X509v3 subject alternative name. If set, the certificate or CSR will include the `IP Address` SAN configured to this value. |
+| CERTPASS   | CA key password. Used to protect and later unlock the self-signed trust root.                                                                                      |
 
 ### Generating CSRs for later signing
 
@@ -127,7 +128,7 @@ For `SECRET_KEY` the following short Python script is used:
 python3 -c 'import secrets; print("\x27"+ "".join([secrets.choice( "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)") for i in range(50)]) + "\x27")'
 ```
 
-`SECRET_KEY` is a Django-specific setting. As described in the Django documentation, this value should be unique per installation and should be kept secret. More information about the `SECRET_KEY` can be found here: https://docs.djangoproject.com/en/4.0/ref/settings/#secret-key
+`SECRET_KEY` is a Django-specific setting. As described in the Django documentation, this value should be unique per installation and should be kept secret. More information about the `SECRET_KEY` can be found here: <https://docs.djangoproject.com/en/4.0/ref/settings/#secret-key>
 
 For `DATABASE_PASSWORD`, OpenSSL is used to generate a random 12-byte value, base64 encoded:
 
@@ -151,7 +152,7 @@ The table below shows which files are created, the usernames of the service acco
 | browser.auth     | webuser     | Web UI client-side access  |
 | calibration.auth | calibration | Camera calibration service |
 
-For more information about security of the Mosquitto broker in Intel® SceneScape, including information about the ACL functionality, see the next chapter. For Mosquitto documentation, see: https://mosquitto.org/documentation/.
+For more information about security of the Mosquitto broker in Intel® SceneScape, including information about the ACL functionality, see the next chapter. For Mosquitto documentation, see: <https://mosquitto.org/documentation/>.
 
 ## 4: Mosquitto authentication, authorization, and ACLs
 
@@ -208,7 +209,7 @@ The CIS Benchmark for Docker is a set of recommendations which can be applied to
 
 Docker, Inc. publishes an automated security benchmark, called Docker Bench for Security, which is based on the CIS Benchmark for Docker.
 
-https://github.com/docker/docker-bench-security
+<https://github.com/docker/docker-bench-security>
 
 To run the tests and produce a report which can be used to assess compliance against the CIS Benchmark for Docker, use the following commands on the container host:
 
@@ -265,13 +266,13 @@ If you don’t already have a configuration management system in place, the foll
 
 OpenSCAP, a free and open-source security compliance solution, comes with configuration profiles for CIS benchmarks as part of its SCAP Security Guide profile collection.
 
-https://www.open-scap.org/getting-started/
+<https://www.open-scap.org/getting-started/>
 
 ##### Ubuntu Security Guide
 
 If your enterprise has an Ubuntu Pro subscription, the Ubuntu Security Guide utility that ships with Ubuntu 20.04 and later can be used to automatically apply CIS recommendations to an Ubuntu system.
 
-https://ubuntu.com/security/certifications/docs/usg
+<https://ubuntu.com/security/certifications/docs/usg>
 
 ## 8: Securing Third-Party API Keys in the Web Client
 
