@@ -195,6 +195,7 @@ flowchart TD
 
   Transform --> Tracker
   Tracker --> Persistence
+  Positioning -->|"Pose"| Persistence
   Persistence -->|"SceneField Update"| Transform
   Persistence -->|"Update"| Subscene
 
