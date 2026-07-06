@@ -83,20 +83,11 @@ class TestAPIService:
 
     assert response.status_code == 200
     data = json.loads(response.data)
+    assert data['success'] is True
     assert data['status'] == 'healthy'
-    assert 'model' in data
-    assert 'model_loaded' in data
-    assert 'device' in data
-
-  def test_list_models(self, client):
-    """Test /models endpoint"""
-    response = client.get('/models')
-
-    assert response.status_code == 200
-    data = json.loads(response.data)
-    assert 'model' in data
-    assert 'model_info' in data
-    assert 'camera_pose_format' in data
+    assert data['model_loaded'] is True
+    assert 'model' not in data
+    assert 'device' not in data
 
   def test_reconstruction_success(self, client):
     """Test successful reconstruction request"""
