@@ -196,9 +196,15 @@ class ScenescapeEnv:
     self.docker.compose.execute(
       "web",
       ["sh", "-c",
-       "tar xjf $EXAMPLEDB -C /tmp"
-       f" && python {manage} loaddata /tmp/data.json"
-       " && rm -f /tmp/data.json /tmp/meta.json"],
+       "rm -rf /tmp/restoredb && mkdir -p /tmp/restoredb"
+       " && tar xjf $EXAMPLEDB -C /tmp/restoredb"
+       f" && python {manage} loaddata /tmp/restoredb/data.json"
+       " && MEDIA_DIR=${MEDIA_ROOT:-/workspace/media}"
+       " && mkdir -p \"$MEDIA_DIR\""
+       " && find /tmp/restoredb -maxdepth 1 -type f"
+       "      ! -name data.json ! -name meta.json"
+       "      -exec cp -f {} \"$MEDIA_DIR\"/ \\;"
+       " && rm -rf /tmp/restoredb"],
       tty=False,
     )
     self.docker.compose.execute(
