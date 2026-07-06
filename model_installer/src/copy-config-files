@@ -11,7 +11,8 @@ import sys
 
 # map the source files inside scenescape source folder to their destination paths on models volume
 CONFIG_FILES = {
-  "dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json":"object_detection/person/person-detection-retail-0013.json"
+  "dlstreamer-pipeline-server/model-proc-files/person-detection-retail-0013.json":"object_detection/person/person-detection-retail-0013.json",
+  "dlstreamer-pipeline-server/model-proc-files/person-vehicle-bike-detection-crossroad-1016.json":"object_detection/person-vehicle/person-vehicle-bike-detection-crossroad-1016.json"
 }
 
 def main():

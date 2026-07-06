@@ -35,5 +35,13 @@
     "adapter-params": {
       "metadatagenpolicy": "reidPolicy"
     }
-  }
-}
+    },
+    "lidar-intersection": {
+        "type": "detect",
+        "params": {
+            "model": "intel/person-vehicle-bike-detection-crossroad-1016/FP32/person-vehicle-bike-detection-crossroad-1016.xml",
+            "model_proc": "object_detection/person-vehicle/person-vehicle-bike-detection-crossroad-1016.json"
+        },
+        "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+        }
