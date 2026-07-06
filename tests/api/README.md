@@ -326,7 +326,7 @@ All methods live in `RESTClient` unless noted otherwise:
 | `user`     | `getUsers`, `createUser`, `getUser`, `updateUser`, `deleteUser` | `RESTClient` |
 | `asset`    | `getAssets`, `createAsset`, `getAsset`, `updateAsset`, `deleteAsset` | `RESTClient` |
 | `child`    | `getChildScene`, `updateChildScene`                          | `RESTClient`    |
-| `mapping`  | `performReconstruction`, `getReconstructionStatus`, `healthCheckEndpoint`, `listModels` | `MappingClient` |
+| `mapping`  | `performReconstruction`, `getReconstructionStatus`, `healthCheckEndpoint` | `MappingClient` |
 
 ---
 
