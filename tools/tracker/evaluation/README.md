@@ -58,7 +58,7 @@ pipeline:
     path: /tmp/tracker-evaluation # Base output directory
 
 dataset:
-  class: datasets.metric_test_dataset.MetricTestDataset
+  class: datasets.unity_dataset.UnityDataset
   config:
     data_path: /path/to/dataset
     cameras: [Cam_x1_0, Cam_x2_0]
@@ -100,7 +100,7 @@ pipeline:
     path: /tmp/camera-projection-evaluation
 
 dataset:
-  class: datasets.metric_test_dataset.MetricTestDataset
+  class: datasets.unity_dataset.UnityDataset
   config:
     data_path: /path/to/dataset
     cameras: [Cam_x1_0, Cam_x2_0]

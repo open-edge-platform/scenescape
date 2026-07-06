@@ -39,7 +39,7 @@ def temp_config_file(temp_output_dir):
       }
     },
     'dataset': {
-      'class': 'datasets.metric_test_dataset.MetricTestDataset',
+      'class': 'datasets.unity_dataset.UnityDataset',
       'config': {
         'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'unity_dataset'),
         'cameras': ['Cam_x1_0', 'Cam_x2_0'],
@@ -85,7 +85,7 @@ def temp_multi_evaluator_config_file(temp_output_dir):
       }
     },
     'dataset': {
-      'class': 'datasets.metric_test_dataset.MetricTestDataset',
+      'class': 'datasets.unity_dataset.UnityDataset',
       'config': {
         'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'unity_dataset'),
         'cameras': ['Cam_x1_0', 'Cam_x2_0'],
@@ -184,7 +184,7 @@ class TestLoadConfiguration:
         }
       },
       'dataset': {
-        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'class': 'datasets.unity_dataset.UnityDataset',
         'config': {}
       }
       # Missing harness and evaluators sections
@@ -204,7 +204,7 @@ class TestLoadConfiguration:
     """Test configuration loading with missing pipeline section."""
     config = {
       'dataset': {
-        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'class': 'datasets.unity_dataset.UnityDataset',
         'config': {}
       },
       'harness': {
@@ -237,7 +237,7 @@ class TestLoadConfiguration:
         'output': {}  # Missing 'path'
       },
       'dataset': {
-        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'class': 'datasets.unity_dataset.UnityDataset',
         'config': {}
       },
       'harness': {
@@ -304,7 +304,7 @@ class TestLoadConfiguration:
         }
       },
       'dataset': {
-        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'class': 'datasets.unity_dataset.UnityDataset',
         'config': {}
       },
       'harness': {
@@ -336,7 +336,7 @@ class TestLoadConfiguration:
         }
       },
       'dataset': {
-        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'class': 'datasets.unity_dataset.UnityDataset',
         'config': {}
       },
       'harness': {
@@ -365,7 +365,7 @@ class TestLoadConfiguration:
         }
       },
       'dataset': {
-        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'class': 'datasets.unity_dataset.UnityDataset',
         'config': {
           'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'unity_dataset'),
           'cameras': ['Cam_x1_0', 'Cam_x2_0'],

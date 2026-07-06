@@ -28,7 +28,7 @@ Ground truth is expected as a file path (str) to a MOTChallenge 3-D CSV file
 with 8 columns:
   frame, id, x, y, z, conf, class, visibility
 
-This is the same format produced by ``MetricTestDataset.get_ground_truth()``.
+This is the same format produced by ``UnityDataset.get_ground_truth()``.
 
 Metrics returned by ``evaluate_metrics()``
 ------------------------------------------
@@ -320,7 +320,7 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
                        encoded as ``"{camera_id}:{object_id}"``.
       ground_truth: Path to a MOTChallenge 3-D CSV ground-truth file, either
                     as a plain ``str`` (as returned by
-                    ``MetricTestDataset.get_ground_truth()``) or as a
+                    ``UnityDataset.get_ground_truth()``) or as a
                     length-1 ``Iterator[str]`` (for pipeline-engine
                     compatibility with other evaluators).
 
@@ -594,7 +594,7 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
 
     Frame numbers are computed from timestamps using the same centred-rounding
     approach as DiagnosticEvaluator so that frame indices line up with the GT
-    CSV produced by MetricTestDataset.
+    CSV produced by UnityDataset.
 
     Args:
       tracker_outputs: Iterator returned by CameraProjectionHarness.

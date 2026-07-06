@@ -14,7 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - Phase 1 constraints:
   - only batch mode is supported (read/process/write all data at once), although class interfaces and I/O utilities may use streaming API underneath
-  - the only supported dataset is Metric Test Dataset
+  - the only supported dataset is Unity dataset
 
 ## Quick Links
 
@@ -42,7 +42,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Datasets
 
-- **MetricTestDataset**: `datasets/metric_test_dataset.py`
+- **UnityDataset**: `datasets/unity_dataset.py`
   - dataset location in the repository: `../../../tests/system/metric/unity_dataset/`
     It contains:
     - ground-truth file

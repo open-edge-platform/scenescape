@@ -14,7 +14,7 @@ import itertools
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from harnesses.scene_controller_harness import SceneControllerHarness
-from datasets.metric_test_dataset import MetricTestDataset
+from datasets.unity_dataset import UnityDataset
 
 # Path to test data and schemas
 DATASET_PATH = Path(__file__).parent.parent.parent.parent.parent / \
@@ -31,8 +31,8 @@ TIME_RANGE_END = "2014-09-08T04:00:04.000Z"
 
 @pytest.fixture
 def dataset(tmp_path):
-  """Create MetricTestDataset instance."""
-  ds = MetricTestDataset(str(DATASET_PATH))
+  """Create UnityDataset instance."""
+  ds = UnityDataset(str(DATASET_PATH))
   ds.set_output_folder(tmp_path / "dataset_outputs")
   ds.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30).set_time_range(
     TIME_RANGE_START,

@@ -19,7 +19,7 @@ Dataset adapters convert dataset-specific formats to Scenescape canonical format
 
 ## Available Datasets
 
-### MetricTestDataset
+### UnityDataset
 
 **Purpose**: Adapter for `tests/system/metric/unity_dataset` dataset used in acceptance tests.
 
@@ -37,9 +37,9 @@ from pathlib import Path
 # Add parent directories to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from datasets.metric_test_dataset import MetricTestDataset
+from datasets.unity_dataset import UnityDataset
 
-dataset = MetricTestDataset("../../../tests/system/metric/unity_dataset")
+dataset = UnityDataset("../../../tests/system/metric/unity_dataset")
 
 # Configure dataset
 dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
@@ -56,9 +56,9 @@ for camera_input in dataset.get_inputs("Cam_x1_0"):
 gt_path = dataset.get_ground_truth()
 ```
 
-**Documentation**: See [MetricTestDataset docstring](metric_test_dataset.py) for detailed API documentation.
+**Documentation**: See [UnityDataset docstring](unity_dataset.py) for detailed API documentation.
 
-**Tests**: See [tests/test_metric_test_dataset.py](tests/test_metric_test_dataset.py) for comprehensive test suite.
+**Tests**: See [tests/test_unity_dataset.py](tests/test_unity_dataset.py) for comprehensive test suite.
 
 ### WildtrackDataset
 

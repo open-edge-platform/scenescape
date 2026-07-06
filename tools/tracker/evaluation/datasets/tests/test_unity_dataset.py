@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for MetricTestDataset implementation."""
+"""Tests for UnityDataset implementation."""
 
 import pytest
 import sys
@@ -14,7 +14,7 @@ import jsonschema
 # Add parent directories to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from datasets.metric_test_dataset import MetricTestDataset
+from datasets.unity_dataset import UnityDataset
 from utils.format_converters import read_csv_to_dataframe, stream_jsonl
 
 # Path to test dataset
@@ -29,14 +29,14 @@ SCHEMA_PATH = Path(__file__).parent.parent.parent.parent.parent.parent / \
 def _collect_expected_gt_entries(
   start: Optional[str] = None,
   end: Optional[str] = None,
-  camera_fps: float = MetricTestDataset.DEFAULT_FPS
+  camera_fps: float = UnityDataset.DEFAULT_FPS
 ):
   """Collect raw ground-truth frames honoring time range and FPS stride."""
   gt_file = DATASET_PATH / "gtLoc.json"
   if camera_fps <= 0:
     raise ValueError("camera_fps must be positive")
 
-  stride_ratio = MetricTestDataset.DEFAULT_FPS / camera_fps
+  stride_ratio = UnityDataset.DEFAULT_FPS / camera_fps
   stride = int(round(stride_ratio))
 
   if stride <= 0 or abs(stride - stride_ratio) > 1e-6:
@@ -72,8 +72,8 @@ def _count_objects(entries):
 
 @pytest.fixture
 def dataset(tmp_path):
-  """Create MetricTestDataset instance with output folder configured."""
-  ds = MetricTestDataset(str(DATASET_PATH))
+  """Create UnityDataset instance with output folder configured."""
+  ds = UnityDataset(str(DATASET_PATH))
   ds.set_output_folder(tmp_path / "dataset_outputs")
   return ds
 
@@ -99,7 +99,7 @@ class TestInitialization:
 
   def test_init_valid_path(self):
     """Test initialization with valid dataset path."""
-    ds = MetricTestDataset(str(DATASET_PATH))
+    ds = UnityDataset(str(DATASET_PATH))
     assert ds._dataset_path == DATASET_PATH
     assert ds._cameras == ["Cam_x1_0", "Cam_x2_0"]
     assert ds._camera_fps == 30
@@ -107,7 +107,7 @@ class TestInitialization:
   def test_init_invalid_path(self):
     """Test initialization with invalid path."""
     with pytest.raises(ValueError, match="Dataset path does not exist"):
-      MetricTestDataset("/nonexistent/path")
+      UnityDataset("/nonexistent/path")
 
 
 class TestConfiguration:

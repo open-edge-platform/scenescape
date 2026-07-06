@@ -7,7 +7,7 @@ pipeline:
     path: ./output/black-box-evaluation
 
 dataset:
-  class: datasets.metric_test_dataset.MetricTestDataset
+  class: datasets.unity_dataset.UnityDataset
   config:
     data_path: ../../../tests/system/metric/unity_dataset
     cameras: [Cam_x1_0, Cam_x2_0]

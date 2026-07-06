@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""MetricTestDataset implementation for tests/system/metric/unity_dataset dataset."""
+"""UnityDataset implementation for tests/system/metric/unity_dataset dataset."""
 
 from typing import List, Dict, Any, Optional, Iterator
 from pathlib import Path
@@ -16,7 +16,7 @@ from base.tracking_dataset import TrackingDataset
 from utils.format_converters import read_json, convert_json_to_csv, stream_jsonl
 
 
-class MetricTestDataset(TrackingDataset):
+class UnityDataset(TrackingDataset):
   """Dataset adapter for tests/system/metric/unity_dataset.
 
   This dataset contains:
@@ -34,7 +34,7 @@ class MetricTestDataset(TrackingDataset):
   DEFAULT_FPS = 30
 
   def __init__(self, dataset_path: str):
-    """Initialize MetricTestDataset.
+    """Initialize UnityDataset.
 
     Args:
       dataset_path: Path to tests/system/metric/unity_dataset directory
@@ -52,7 +52,7 @@ class MetricTestDataset(TrackingDataset):
     self._object_categories: Optional[List[str]] = None
     self._output_folder: Optional[Path] = None
 
-  def set_scene(self, scene: Optional[str] = None) -> 'MetricTestDataset':
+  def set_scene(self, scene: Optional[str] = None) -> 'UnityDataset':
     """Set scene (not supported - only Unity available).
 
     Args:
@@ -71,7 +71,7 @@ class MetricTestDataset(TrackingDataset):
       )
     return self
 
-  def set_cameras(self, cameras: Optional[List[str]] = None) -> 'MetricTestDataset':
+  def set_cameras(self, cameras: Optional[List[str]] = None) -> 'UnityDataset':
     """Set cameras to use.
 
     Args:
@@ -99,7 +99,7 @@ class MetricTestDataset(TrackingDataset):
     self,
     start: Optional[str] = None,
     end: Optional[str] = None
-  ) -> 'MetricTestDataset':
+  ) -> 'UnityDataset':
     """Set inclusive time range for dataset filtering.
 
     Args:
@@ -121,7 +121,7 @@ class MetricTestDataset(TrackingDataset):
     self._time_end = end
     return self
 
-  def set_camera_fps(self, camera_fps: float) -> 'MetricTestDataset':
+  def set_camera_fps(self, camera_fps: float) -> 'UnityDataset':
     """Set camera FPS for input selection.
 
     Args:
@@ -144,7 +144,7 @@ class MetricTestDataset(TrackingDataset):
   def set_object_categories(
     self,
     categories: Optional[List[str]] = None
-  ) -> 'MetricTestDataset':
+  ) -> 'UnityDataset':
     """Set the object categories to include in inputs and ground truth.
 
     Args:
@@ -162,7 +162,7 @@ class MetricTestDataset(TrackingDataset):
     self._object_categories = categories
     return self
 
-  def set_custom_config(self, config: Dict[str, Any]) -> 'MetricTestDataset':
+  def set_custom_config(self, config: Dict[str, Any]) -> 'UnityDataset':
     """Set custom configuration (not supported).
 
     Args:
@@ -176,7 +176,7 @@ class MetricTestDataset(TrackingDataset):
     """
     raise NotImplementedError("Custom configuration not supported")
 
-  def set_output_folder(self, path: Path) -> 'MetricTestDataset':
+  def set_output_folder(self, path: Path) -> 'UnityDataset':
     """Set dataset output folder for optional exports.
 
     Args:
@@ -342,7 +342,7 @@ class MetricTestDataset(TrackingDataset):
 
     return str(output_file)
 
-  def reset(self) -> 'MetricTestDataset':
+  def reset(self) -> 'UnityDataset':
     """Reset dataset to initial state.
 
     Returns:
