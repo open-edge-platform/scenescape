@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Overview
 
-This document describes the implementation of 2-tier hybrid search for Re-ID (Re-Identification) in the Scene Controller, as specified in [ADR-0010](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0010-reid-metadata-storage-architecture.md).
+This document describes the implementation of 2-tier hybrid search for Re-ID (Re-Identification) in the Scene Controller, as specified in [ADR-0010](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/docs/adr/0010-reid-metadata-storage-architecture.md).
 
 **Architecture**: TIER 1 (metadata filtering) + TIER 2 (vector similarity)
 

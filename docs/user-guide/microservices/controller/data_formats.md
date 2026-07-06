@@ -21,7 +21,7 @@ SPDX-License-Identifier: Apache-2.0
 The Scene Controller subscribes to the MQTT topic `scenescape/data/camera/{camera_id}` and
 receives camera detection metadata from visual analytics pipelines. Messages are validated
 against the `detector` definition in
-[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
+[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/controller/src/schema/metadata.schema.json).
 
 ### Top-Level Message Fields
 
@@ -136,14 +136,14 @@ omitted; `embedding_vector` truncated for readability):
 ```
 
 For the full schema definition, see
-[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
+[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/controller/src/schema/metadata.schema.json).
 
 ## Sensor Input Message Format
 
 The Scene Controller subscribes to the MQTT topic `scenescape/data/sensor/{sensor_id}` and
 receives scalar sensor readings from physical or virtual sensors. Messages are validated against
 the `singleton` definition in
-[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
+[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/controller/src/schema/metadata.schema.json).
 
 Sensor data is used to tag tracked objects that are within the sensor's configured measurement
 area. A wide variety of sensor types are supported — environmental sensors (temperature,
