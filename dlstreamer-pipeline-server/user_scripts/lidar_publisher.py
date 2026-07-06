@@ -40,7 +40,7 @@ _STOP_RAW       = os.environ.get("LIDAR_STOP_INDEX")
 STOP_INDEX      = int(_STOP_RAW.strip()) if _STOP_RAW and _STOP_RAW.strip() else None
 LOOP            = os.environ.get("LIDAR_LOOP", "true").lower() not in ("0", "false", "no")
 FRAME_RATE      = int(os.environ.get("LIDAR_FRAME_RATE", "10"))
-SCORE_THRESHOLD = float(os.environ.get("LIDAR_SCORE_THRESHOLD", "0.3"))
+SCORE_THRESHOLD = float(os.environ.get("LIDAR_SCORE_THRESHOLD", "0.7"))
 MODEL_CONFIG    = os.environ.get(
   "LIDAR_MODEL_CONFIG",
   "/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json",
