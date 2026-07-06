@@ -923,6 +923,36 @@ class TestPersistOutputs:
     assert written[0]["objects"][0]["id"] == "abc"
 
 
+class TestPersistConfig:
+  """_persist_config copies the tracker configuration file into the output
+  config/ subfolder for both container types, preserving the basename."""
+
+  def test_copies_config_preserving_basename(self, harness, tracker_config_file, tmp_path):
+    out_dir = tmp_path / "run" / "harness"
+    harness.set_output_folder(out_dir)
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "controller",
+    })
+
+    harness._persist_config()
+
+    dest = out_dir / "config" / Path(tracker_config_file).name
+    assert dest.exists()
+    assert dest.read_text() == Path(tracker_config_file).read_text()
+
+  def test_noop_without_output_folder(self, harness, tracker_config_file):
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.0.22",
+        "container_type": "tracker",
+    })
+    # Should not raise when no output folder is configured.
+    harness._persist_config()
+    assert harness._output_folder is None
+
+
 # ---------------------------------------------------------------------------
 # Tracker service auth file content
 # ---------------------------------------------------------------------------
