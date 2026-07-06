@@ -110,7 +110,7 @@ def bbox3d_to_quaternion(theta: float) -> "list[float]":
   qz = math.sin(half)
   qw = math.cos(half)
   if qw < 0.0:
-      qz, qw = -qz, -qw
+    qz, qw = -qz, -qw
 
   # Apply 180 deg X-axis flip: q_flip=[1,0,0,0] * q_yaw=[0,0,qz,qw]
   return [qw, -qz, 0.0, 0.0]
