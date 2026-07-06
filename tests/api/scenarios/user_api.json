@@ -179,8 +179,194 @@
         "expected_status": {
           "status_code": 200
         },
-        "validate": {
-          "count": 6
+        "expected_body": {
+          "count": 6,
+          "next": null,
+          "previous": null,
+          "results": [
+            {
+              "uid": "1",
+              "username": "calibration",
+              "is_active": true,
+              "is_staff": false,
+              "is_superuser": true,
+              "first_name": "",
+              "last_name": "",
+              "email": "",
+              "acls": [
+                {
+                  "topic": "IMAGE_CALIBRATE",
+                  "access": 1
+                },
+                {
+                  "topic": "CMD_SCENE_UPDATE",
+                  "access": 1
+                },
+                {
+                  "topic": "DATA_AUTOCALIB_CAM_POSE",
+                  "access": 2
+                }
+              ]
+            },
+            {
+              "uid": "2",
+              "username": "scenectrl",
+              "is_active": true,
+              "is_staff": false,
+              "is_superuser": true,
+              "first_name": "",
+              "last_name": "",
+              "email": "",
+              "acls": [
+                {
+                  "topic": "CMD_CAMERA",
+                  "access": 3
+                },
+                {
+                  "topic": "IMAGE_CALIBRATE",
+                  "access": 1
+                },
+                {
+                  "topic": "CMD_DATABASE",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_REGULATED",
+                  "access": 2
+                },
+                {
+                  "topic": "DATA_SCENE",
+                  "access": 2
+                },
+                {
+                  "topic": "DATA_AUTOCALIB_CAM_POSE",
+                  "access": 2
+                },
+                {
+                  "topic": "CMD_KUBECLIENT",
+                  "access": 3
+                },
+                {
+                  "topic": "CMD_SCENE_UPDATE",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_EXTERNAL",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_REGION",
+                  "access": 2
+                },
+                {
+                  "topic": "DATA_SENSOR",
+                  "access": 1
+                },
+                {
+                  "topic": "EVENT",
+                  "access": 3
+                },
+                {
+                  "topic": "SYS_CHILDSCENE_STATUS",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_CAMERA",
+                  "access": 1
+                }
+              ]
+            },
+            {
+              "uid": "3",
+              "username": "webuser",
+              "is_active": true,
+              "is_staff": false,
+              "is_superuser": true,
+              "first_name": "",
+              "last_name": "",
+              "email": "",
+              "acls": [
+                {
+                  "topic": "DATA_CAMERA",
+                  "access": 1
+                },
+                {
+                  "topic": "CHANNEL",
+                  "access": 1
+                },
+                {
+                  "topic": "IMAGE_CAMERA",
+                  "access": 1
+                },
+                {
+                  "topic": "IMAGE_CALIBRATE",
+                  "access": 1
+                },
+                {
+                  "topic": "CMD_DATABASE",
+                  "access": 3
+                },
+                {
+                  "topic": "CMD_CAMERA",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_AUTOCALIB_CAM_POSE",
+                  "access": 1
+                },
+                {
+                  "topic": "CMD_KUBECLIENT",
+                  "access": 3
+                },
+                {
+                  "topic": "EVENT",
+                  "access": 1
+                },
+                {
+                  "topic": "SYS_CHILDSCENE_STATUS",
+                  "access": 3
+                },
+                {
+                  "topic": "DATA_REGULATED",
+                  "access": 1
+                },
+                {
+                  "topic": "DATA_EXTERNAL",
+                  "access": 1
+                }
+              ]
+            },
+            {
+              "uid": "4",
+              "username": "admin",
+              "is_active": true,
+              "is_staff": true,
+              "is_superuser": true,
+              "first_name": "",
+              "last_name": "",
+              "email": "admin@domain.com"
+            },
+            {
+              "uid": "${USER_ID}",
+              "username": "${USER_NAME_MINIMAL}",
+              "is_active": true,
+              "is_staff": false,
+              "is_superuser": false,
+              "first_name": "",
+              "last_name": "",
+              "email": ""
+            },
+            {
+              "uid": "${USER_ID_FULL}",
+              "username": "${USER_NAME_FULL}",
+              "is_active": true,
+              "is_staff": true,
+              "is_superuser": false,
+              "first_name": "John",
+              "last_name": "Doe",
+              "email": "user_full@example.com"
+            }
+          ]
         }
       }
     ]
