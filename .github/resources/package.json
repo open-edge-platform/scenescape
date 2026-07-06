@@ -1,0 +1,16 @@
+{
+  "name": "scenescape",
+  "version": "0.1.0",
+  "description": "Scenescape CI dependencies",
+  "private": true,
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "prettier": "3.8.5",
+    "prettier-plugin-jinja-template": "2.2.0",
+    "eslint": "10.6.0",
+    "@eslint/js": "10.0.1"
+  }
+}
