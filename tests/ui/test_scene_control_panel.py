@@ -48,9 +48,10 @@ def test_scene_control_panel(params, record_xml_attribute):
     scene_path = f"/scene/detail/{common.TEST_SCENE_ID}/"
 
     log.info("Turn off tracked objects and hide stats graph.")
-    assert common.navigate_directly_to_page(browser, scene_path), \
-      f"Failed to navigate to {scene_path}"
-    common.click_element_when_ready(browser, "camera1-control-panel", delay=180)
+    assert common.load_3d_scene_page(browser, scene_path), \
+      "camera1-control-panel did not appear (3D scene map failed to load); " \
+      "see [3d-load] state logs above for the failing stage"
+    common.click_element_when_ready(browser, "camera1-control-panel")
     time.sleep(WAIT_SEC)
     browser.find_element(By.ID, "tracked-objects-button").click()
     interaction_page.hide_stats()
