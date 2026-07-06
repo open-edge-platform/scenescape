@@ -439,7 +439,8 @@ services:
     networks:
       scenescape:
     tty: true
-    entrypoint: ["python3", "/home/pipeline-server/user_scripts/lidar_publisher.py"]
+    entrypoint:
+      ["python3", "/home/pipeline-server/user_scripts/lidar_publisher.py"]
     # GPU acceleration — requires /dev/dri on the host
     devices:
       - "/dev/dri:/dev/dri"
