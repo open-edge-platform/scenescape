@@ -1,13 +1,11 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import base64
-import binascii
 import datetime
+import binascii
 import uuid
 import warnings
 from dataclasses import dataclass, field
-from enum import Enum
 from threading import Lock
 from typing import Dict, List
 
@@ -16,11 +14,14 @@ import numpy as np
 import open3d as o3d
 from scipy.spatial.transform import Rotation
 
+from controller.reid_uuid import (ReidState, decode_reid_embedding_vector,
+                                  get_reid_embedding_dimensions,
+                                  serialize_reid_payload)
+from scene_common import log
 from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
 from scene_common.options import TYPE_1, TYPE_2
 from scene_common.timestamp import get_epoch_time
 from scene_common.transform import normalize, rotationToTarget
-from scene_common import log
 
 warnings.simplefilter('ignore', np.exceptions.RankWarning)
 
@@ -29,102 +30,22 @@ DEFAULT_EDGE_LENGTH = 1.0
 DEFAULT_TRACKING_RADIUS = 2.0
 LOCATION_LIMIT = 20
 SPEED_THRESHOLD = 0.1
-REID_FLOAT_SIZE_BYTES = np.dtype(np.float32).itemsize
-REID_EMBEDDING_DIMENSIONS_KEY = 'embedding_dimensions'
 
 
 def _getReIDEmbeddingDimensions(reid):
-  if not isinstance(reid, dict):
-    return None
-
-  for key in (REID_EMBEDDING_DIMENSIONS_KEY, 'dimensions'):
-    value = reid.get(key)
-    if value is None:
-      continue
-    try:
-      return int(value)
-    except (TypeError, ValueError) as err:
-      raise ValueError(f"Invalid ReID embedding dimensions: {value}") from err
-
-  return None
+  """Backward-compatible wrapper for legacy imports."""
+  return get_reid_embedding_dimensions(reid)
 
 
 def decodeReIDEmbeddingVector(embedding_data, dimensions=None):
-  if isinstance(embedding_data, str):
-    vector = base64.b64decode(embedding_data, validate=True)
-    if len(vector) % REID_FLOAT_SIZE_BYTES != 0:
-      raise ValueError(
-        f"Packed ReID vector size {len(vector)} is not divisible by {REID_FLOAT_SIZE_BYTES}")
-
-    inferred_dimensions = len(vector) // REID_FLOAT_SIZE_BYTES
-    if dimensions is None:
-      dimensions = inferred_dimensions
-    elif int(dimensions) != inferred_dimensions:
-      raise ValueError(
-        f"Packed ReID vector contains {inferred_dimensions} floats, expected {dimensions}")
-
-    return np.frombuffer(vector, dtype=np.float32).copy().reshape(1, dimensions)
-
-  if isinstance(embedding_data, (np.ndarray, list)):
-    arr = np.asarray(embedding_data, dtype=np.float32).reshape(-1)
-    actual_length = arr.shape[0]
-    if dimensions is not None and int(dimensions) != actual_length:
-      raise ValueError(
-        f"ReID embedding vector has {actual_length} elements, expected {int(dimensions)}")
-    return arr.reshape(1, actual_length)
-
-  return None
+  """Backward-compatible wrapper for legacy imports."""
+  return decode_reid_embedding_vector(embedding_data, dimensions)
 
 
 def serializeReIDPayload(reid):
-  if reid is None:
-    return None
+  """Backward-compatible wrapper for legacy imports."""
+  return serialize_reid_payload(reid)
 
-  if isinstance(reid, dict):
-    serialized = dict(reid)
-    embedding_data = serialized.get('embedding_vector', None)
-    if embedding_data is None:
-      return serialized
-
-    if isinstance(embedding_data, str):
-      try:
-        if REID_EMBEDDING_DIMENSIONS_KEY not in serialized and 'dimensions' not in serialized:
-          vector = base64.b64decode(embedding_data)
-          if len(vector) % REID_FLOAT_SIZE_BYTES != 0:
-            raise ValueError(
-              f"Packed ReID vector size {len(vector)} is not divisible by {REID_FLOAT_SIZE_BYTES}")
-          serialized[REID_EMBEDDING_DIMENSIONS_KEY] = len(vector) // REID_FLOAT_SIZE_BYTES
-      except (binascii.Error, TypeError, ValueError) as err:
-        log.warning(f"Failed to decode ReID embedding vector: {err}. Setting embedding_vector to None.")
-        serialized['embedding_vector'] = None
-      return serialized
-
-    flat_vector = np.asarray(embedding_data, dtype=np.float32).reshape(-1)
-    serialized['embedding_vector'] = base64.b64encode(flat_vector.tobytes()).decode('utf-8')
-    serialized[REID_EMBEDDING_DIMENSIONS_KEY] = int(flat_vector.size)
-    return serialized
-
-  if isinstance(reid, np.ndarray) or isinstance(reid, list):
-    flat_vector = np.asarray(reid, dtype=np.float32).reshape(-1)
-    return {
-      'embedding_vector': base64.b64encode(flat_vector.tobytes()).decode('utf-8'),
-      REID_EMBEDDING_DIMENSIONS_KEY: int(flat_vector.size),
-    }
-
-  return reid
-
-class ReidState(Enum):
-  """State of ReID query and matching for an object.
-
-  PENDING_COLLECTION: Collecting embeddings, query not yet made
-  QUERY_NO_MATCH: Query made but no match found (new object)
-  MATCHED: Successfully matched to previous object (reID)
-  REID_DISABLED: ReID system is disabled, no query will be made
-  """
-  PENDING_COLLECTION = "pending_collection"
-  QUERY_NO_MATCH = "query_no_match"
-  MATCHED = "matched"
-  REID_DISABLED = "reid_disabled"
 
 @dataclass
 class ChainData:
@@ -242,13 +163,13 @@ class MovingObject:
       if isinstance(reid, dict) and 'embedding_vector' in reid:
         embedding_data = reid['embedding_vector']
         self.reid.update({k: v for k, v in reid.items() if k != 'embedding_vector'})
-        embedding_dimensions = _getReIDEmbeddingDimensions(reid)
+        embedding_dimensions = get_reid_embedding_dimensions(reid)
       else:
         embedding_data = reid
         embedding_dimensions = None
 
       # Process the embedding data
-      self.reid['embedding_vector'] = decodeReIDEmbeddingVector(embedding_data, embedding_dimensions)
+      self.reid['embedding_vector'] = decode_reid_embedding_vector(embedding_data, embedding_dimensions)
 
       # Clean up info dict
       self.info.pop('reid', None)
@@ -500,7 +421,7 @@ class MovingObject:
       'bounding_box': self.boundingBox.asDict,
       'gid': self.gid,
       'frame_count': self.frameCount,
-      'reid': serializeReIDPayload(self.reid),
+      'reid': serialize_reid_payload(self.reid),
       'first_seen': self.first_seen,
       'location': [{'point': (v.point.x, v.point.y, v.point.z),
                     'timestamp': v.when,
