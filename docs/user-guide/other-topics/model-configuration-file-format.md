@@ -86,7 +86,7 @@ Contains the model-specific parameters passed to the DL Streamer element.
 - **`model`**: Path to the model file (typically `.xml` for OpenVINO models).
 - **`model_proc`**: Path to the model processing configuration file (`.json`).
 
-> **Note**: The model proc file is deprecated. Avoid using it to prevent dealing with a legacy solution. It will be maintained for some time to ensure backward compatibility, but you should not use it in modern applications. The new method of model preparation is described in the Model Info Section. See the Model proc file [documentation page](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/model_proc_file.html) for more details on the deprecated functionality.
+> **Note**: The model proc file is deprecated. Avoid using it to prevent dealing with a legacy solution. It will be maintained for some time to ensure backward compatibility, but you should not use it in modern applications. The new method of model preparation is described in the Model Info Section. See the Model proc file [documentation page](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dlstreamer/dev_guide/model_proc_file.html) for more details on the deprecated functionality.
 
 **Important**: Paths are automatically resolved relative to the `/home/pipeline-server/models` directory in the DL Streamer container. Use relative paths from this base directory.
 
@@ -128,11 +128,11 @@ When adding a new model or model config file through the Models page UI, if you 
 
 Refer to instructions in [How to manage files in volumes](./how-to-manage-files-in-volumes.md) on how to access Models Volume and copy files from local file system to the volume.
 
-Refer to the instructions in [`model_installer` documentation](https://github.com/open-edge-platform/scenescape/blob/main/model_installer/src/README.md) on the Models Volume folder structure.
+Refer to the instructions in [`model_installer` documentation](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/model_installer/src/README.md) on the Models Volume folder structure.
 
 ## Related Documentation
 
 - [How to Configure DL Streamer Video Pipeline](how-to-configure-dlstreamer-video-pipeline.md)
-- [Deep Learning Streamer Elements Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/elements.html)
+- [Deep Learning Streamer Elements Documentation](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-libraries/dlstreamer/elements/elements.html)
 - [How to manage files in volumes](./how-to-manage-files-in-volumes.md)
-- [`model_installer` documentation](https://github.com/open-edge-platform/scenescape/blob/main/model_installer/src/README.md)
+- [`model_installer` documentation](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/model_installer/src/README.md)

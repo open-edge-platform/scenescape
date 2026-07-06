@@ -5,10 +5,10 @@
 
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/release-2026.1.0">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/README.md">
      Readme
   </a>
     <a class="icon_download" href="https://github.com/open-edge-platform/scenescape/releases">
@@ -49,7 +49,7 @@ For details on the controller input and output message formats, see [Scene Contr
 
 ### **Deep Learning Streamer Pipeline Server**
 
-Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python-based, interoperable containerized microservice for easy development and deployment of video analytics pipelines. For more information, refer to [Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/dlstreamer-pipeline-server/docs/user-guide).
+Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python-based, interoperable containerized microservice for easy development and deployment of video analytics pipelines. For more information, refer to [Deep Learning Streamer Pipeline Server](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.1.0/microservices/dlstreamer-pipeline-server/docs/user-guide).
 
 ### **Auto Camera Calibration**
 
