@@ -53,15 +53,23 @@ class TimeChunkBuffer:
         self._data[category] = {}
 
       # Store latest frame for this camera in this category
+      if camera_id in self._data[category]:
+        # Overwriting an un-dispatched frame for this camera+category.
+        metrics.inc_time_chunking_duplicated_cameras({"category": category})
       self._data[category][camera_id] = (objects, when, already_tracked)
 
   def pop_all(self):
     """Get all data organized by category->camera and clear buffer"""
     with self._lock:
+      if self._data:
+        unique_cameras = len({camera_id for camera_dict in self._data.values() for camera_id in camera_dict})
+        metrics.inc_time_chunking_non_empty_chunks()
+        metrics.add_time_chunking_unique_cameras(unique_cameras)
+      else:
+        metrics.inc_time_chunking_empty_chunks()
       result = self._data.copy()  # {category: {camera_id: (objects, when, already_tracked)}}
       self._data.clear()
       return result
-
 
 class TimeChunkProcessor(threading.Thread):
   """Timer thread that processes buffered messages at configurable intervals"""
