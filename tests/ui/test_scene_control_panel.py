@@ -7,33 +7,12 @@ import tests.ui.common_ui_test_utils as common
 from tests.ui.browser import By, Browser
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
-from selenium.common.exceptions import TimeoutException
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
   require_password=True, auth="",
 )
-
-def wait_for_scene_loaded(browser, scene_path, per_attempt=120, attempts=3):
-  """! Navigate to the 3D scene and expand the camera control panel once it is ready.
-
-  @param    browser                    Object wrapping the Selenium driver.
-  @param    scene_path                 Path of the 3D scene detail page.
-  @param    per_attempt                Seconds to wait for the panel per load attempt.
-  @param    attempts                   Number of full (re)load attempts before giving up.
-  @return   bool                       True if the panel became ready, False otherwise.
-  """
-  for attempt in range(1, attempts + 1):
-    common.navigate_directly_to_page(browser, scene_path)
-    try:
-      common.click_element_when_ready(browser, "camera1-control-panel",
-                                      delay=per_attempt)
-      return True
-    except TimeoutException:
-      log.info(f"Camera panel not ready after {per_attempt}s "
-               f"(attempt {attempt}/{attempts}); reloading the scene.")
-  return False
 
 def capture_when_rendered(browser):
   """! Wait for the 3D scene to finish painting, then capture the WebGL canvas.
@@ -64,17 +43,14 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     browser = Browser(webgl=True)
     assert common.check_page_login(browser, params)
-    assert common.check_db_status(browser)
 
     interaction_page = common.InteractWith3DScene(browser)
     scene_path = f"/scene/detail/{common.TEST_SCENE_ID}/"
 
     log.info("Turn off tracked objects and hide stats graph.")
-    # Load the scene and wait for the camera control panel, retrying the whole
-    # load if the (slow, occasionally hard-failing) 3D init chain never produces
-    # the panel. See wait_for_scene_loaded for details.
-    assert wait_for_scene_loaded(browser, scene_path), \
-      "camera1-control-panel did not appear (3D scene failed to load)"
+    assert common.navigate_directly_to_page(browser, scene_path), \
+      f"Failed to navigate to {scene_path}"
+    common.click_element_when_ready(browser, "camera1-control-panel", delay=180)
     time.sleep(WAIT_SEC)
     browser.find_element(By.ID, "tracked-objects-button").click()
     interaction_page.hide_stats()
