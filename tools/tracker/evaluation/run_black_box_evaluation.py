@@ -13,6 +13,7 @@ All results land under a shared session directory:
 Usage:
   python run_black_box_evaluation.py
   python run_black_box_evaluation.py --output /custom/output/path
+  python run_black_box_evaluation.py --dataset wildtrack
 
 Programmatic use:
 
@@ -39,11 +40,33 @@ from pipeline_engine import PipelineEngine
 # ---------------------------------------------------------------------------
 _SCRIPT_DIR = Path(__file__).parent
 
-CONFIGS = [
-  _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_controller_immediate.yaml",
-  _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_controller_tc.yaml",
-  _SCRIPT_DIR / "pipeline_configs" / "black_box" / "black_box_tracker_service.yaml",
+# Available config sets, keyed by dataset name.  The legacy Unity dataset is the
+# default; Wildtrack is an additional set that can be selected manually.
+_CONFIG_DIRS = {
+  "unity": "black_box_unity",
+  "wildtrack": "black_box_wildtrack",
+}
+DEFAULT_DATASET = "unity"
+
+_CONFIG_FILES = [
+  "black_box_controller_immediate.yaml",
+  "black_box_controller_tc.yaml",
+  "black_box_tracker_service.yaml",
 ]
+
+
+def configs_for(dataset: str = DEFAULT_DATASET) -> list[Path]:
+  """Return the ordered list of config paths for *dataset*."""
+  try:
+    config_dir = _CONFIG_DIRS[dataset]
+  except KeyError:
+    raise ValueError(
+      f"Unknown dataset {dataset!r}; choose from {sorted(_CONFIG_DIRS)}"
+    ) from None
+  return [
+    _SCRIPT_DIR / "pipeline_configs" / config_dir / name
+    for name in _CONFIG_FILES
+  ]
 
 DEFAULT_OUTPUT_BASE = _SCRIPT_DIR / "output" / "black-box-evaluation"
 
@@ -138,6 +161,7 @@ def _print_summary(session_output: Path, results: list[tuple[str, dict | Excepti
 def run_all(
   image_tag: str | None = None,
   output_dir: Path | None = None,
+  dataset: str = DEFAULT_DATASET,
 ) -> list[tuple[str, dict | Exception]]:
   """Run all black-box evaluation configs and return results.
 
@@ -147,6 +171,7 @@ def run_all(
                 (intended for manual runs where the user edits the YAML).
     output_dir: Base directory for session output.  Defaults to
                 ``DEFAULT_OUTPUT_BASE``.
+    dataset:    Config set to run (``"unity"`` by default, or ``"wildtrack"``).
 
   Returns:
     List of ``(run_name, metrics_dict)`` pairs.  On failure for a run the
@@ -158,7 +183,7 @@ def run_all(
   print(f"Session output: {session_output}")
 
   results: list[tuple[str, dict | Exception]] = []
-  for config_path in CONFIGS:
+  for config_path in configs_for(dataset):
     run_name = config_path.stem
     print(f"\n{'─' * 60}")
     print(f"  Running: {config_path.name}")
@@ -184,9 +209,13 @@ def main() -> int:
       "--output", default=DEFAULT_OUTPUT_BASE,
       help=f"Base output directory (default: {DEFAULT_OUTPUT_BASE})",
   )
+  parser.add_argument(
+      "--dataset", choices=sorted(_CONFIG_DIRS), default=DEFAULT_DATASET,
+      help=f"Config set / dataset to run (default: {DEFAULT_DATASET})",
+  )
   args = parser.parse_args()
 
-  results = run_all(output_dir=args.output)
+  results = run_all(output_dir=args.output, dataset=args.dataset)
   failed = sum(1 for _, r in results if isinstance(r, Exception))
   return failed
 

@@ -1,49 +1,58 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""MetricTestDataset implementation for tests/system/metric/dataset dataset."""
+"""WildtrackDataset adapter for the tracker evaluation pipeline.
 
-from typing import List, Dict, Any, Optional, Iterator
+Reads the canonical artifacts produced by ``datasets.wildtrack.preprocess``
+(scene_config.json, per-camera detection JSONL, gtLoc.json) and exposes them
+through the :class:`TrackingDataset` interface.
+
+The scene configuration is emitted with explicit per-camera intrinsics +
+extrinsics (canonical camera->world pose), matching what the production
+Manager serializes for the controller / tracker.  Cameras may be selected by
+integer id (0-6) or by canonical name (``cam0``..``cam6``).
+"""
+
+from typing import List, Dict, Any, Optional, Iterator, Union
 from pathlib import Path
-import sys
-import orjson
 from contextlib import ExitStack
+import sys
 
-# Add parent directories to path
+import orjson
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from base.tracking_dataset import TrackingDataset
 from utils.format_converters import read_json, convert_json_to_csv, stream_jsonl
 
 
-class MetricTestDataset(TrackingDataset):
-  """Dataset adapter for tests/system/metric/dataset.
+class WildtrackDataset(TrackingDataset):
+  """Dataset adapter for the preprocessed Wildtrack dataset.
 
-  This dataset contains:
-  - Scene: Retail_Demo (single built-in scene)
-  - Cameras: Cam_x1_0, Cam_x2_0
-  - FPS options: 1, 10, 30 (separate JSON files per FPS)
-  - Ground truth: gtLoc.json with object locations
-  - Scene config: config.json with camera calibration
+  Contains:
+  - Scene: Wildtrack (single built-in scene)
+  - Cameras: cam0..cam6 (7 static cameras)
+  - FPS: 2 (native annotation cadence; no interpolation)
+  - Ground truth: gtLoc.json with object locations (decoded grid positions)
+  - Scene config: scene_config.json with explicit intrinsics + extrinsics
   """
 
-  # Constants
-  SCENE_NAME = "Retail_Demo"
-  SUPPORTED_CAMERAS = ["Cam_x1_0", "Cam_x2_0"]
-  SUPPORTED_FPS = [1, 10, 30]
-  DEFAULT_FPS = 30
+  SCENE_NAME = "Wildtrack"
+  NUM_CAMERAS = 7
+  SUPPORTED_CAMERAS = [f"cam{i}" for i in range(NUM_CAMERAS)]
+  SUPPORTED_FPS = [2]
+  DEFAULT_FPS = 2
 
   def __init__(self, dataset_path: str):
-    """Initialize MetricTestDataset.
+    """Initialize WildtrackDataset.
 
     Args:
-      dataset_path: Path to tests/system/metric/dataset directory
+      dataset_path: Path to the preprocessed Wildtrack artifacts directory.
     """
     self._dataset_path = Path(dataset_path)
     if not self._dataset_path.exists():
       raise ValueError(f"Dataset path does not exist: {dataset_path}")
 
-    # State
     self._cameras: List[str] = self.SUPPORTED_CAMERAS.copy()
     self._camera_fps: float = self.DEFAULT_FPS
     self._scene_config: Optional[Dict[str, Any]] = None
@@ -52,91 +61,71 @@ class MetricTestDataset(TrackingDataset):
     self._object_categories: Optional[List[str]] = None
     self._output_folder: Optional[Path] = None
 
-  def set_scene(self, scene: Optional[str] = None) -> 'MetricTestDataset':
-    """Set scene (not supported - only Retail_Demo available).
+  @classmethod
+  def _normalize_camera(cls, camera: Union[str, int]) -> str:
+    """Normalize a camera selector (int 0-6 or ``camN``) to a canonical id."""
+    if isinstance(camera, bool):
+      raise ValueError(f"Invalid camera selector: {camera}")
+    if isinstance(camera, int):
+      cam_id = f"cam{camera}"
+    else:
+      cam_id = str(camera)
+    if cam_id not in cls.SUPPORTED_CAMERAS:
+      raise ValueError(
+        f"Unsupported camera: {camera}. Supported ids: {cls.SUPPORTED_CAMERAS} "
+        f"(or integers 0-{cls.NUM_CAMERAS - 1})"
+      )
+    return cam_id
 
-    Args:
-      scene: Scene identifier (must be None or "Retail_Demo")
-
-    Returns:
-      Self for method chaining
-
-    Raises:
-      NotImplementedError: Scene selection not supported
-    """
+  def set_scene(self, scene: Optional[str] = None) -> 'WildtrackDataset':
+    """Set scene (only the built-in Wildtrack scene is supported)."""
     if scene is not None and scene != self.SCENE_NAME:
       raise NotImplementedError(
-        f"Only '{self.SCENE_NAME}' scene is supported. "
-        f"Requested: '{scene}'"
+        f"Only '{self.SCENE_NAME}' scene is supported. Requested: '{scene}'"
       )
     return self
 
-  def set_cameras(self, cameras: Optional[List[str]] = None) -> 'MetricTestDataset':
+  def set_cameras(
+    self,
+    cameras: Optional[List[Union[str, int]]] = None
+  ) -> 'WildtrackDataset':
     """Set cameras to use.
 
     Args:
-      cameras: List of camera IDs (subset of ["Cam_x1_0", "Cam_x2_0"])
+      cameras: List of camera selectors (integers 0-6 or ``cam0``..``cam6``).
+               If None, uses all 7 cameras.
 
     Returns:
-      Self for method chaining
+      Self for method chaining.
 
     Raises:
-      ValueError: If unsupported camera requested
+      ValueError: If an unsupported camera is requested.
     """
     if cameras is None:
       self._cameras = self.SUPPORTED_CAMERAS.copy()
     else:
-      for cam in cameras:
-        if cam not in self.SUPPORTED_CAMERAS:
-          raise ValueError(
-            f"Unsupported camera: {cam}. "
-            f"Supported: {self.SUPPORTED_CAMERAS}"
-          )
-      self._cameras = cameras
+      self._cameras = [self._normalize_camera(cam) for cam in cameras]
     return self
 
   def set_time_range(
     self,
     start: Optional[str] = None,
     end: Optional[str] = None
-  ) -> 'MetricTestDataset':
-    """Set inclusive time range for dataset filtering.
-
-    Args:
-      start: Start timestamp (inclusive). If None, uses earliest available timestamp.
-      end: End timestamp (inclusive). If None, uses latest available timestamp.
-
-    Returns:
-      Self for method chaining
-
-    Raises:
-      ValueError: If start and end are provided but start > end.
-    """
+  ) -> 'WildtrackDataset':
+    """Set inclusive time range for dataset filtering."""
     if start is not None and end is not None and start > end:
       raise ValueError(
         "Invalid time range: start timestamp is later than end timestamp"
       )
-
     self._time_start = start
     self._time_end = end
     return self
 
-  def set_camera_fps(self, camera_fps: float) -> 'MetricTestDataset':
-    """Set camera FPS for input selection.
-
-    Args:
-      camera_fps: Camera FPS (must be 1, 10, or 30)
-
-    Returns:
-      Self for method chaining
-
-    Raises:
-      ValueError: If unsupported FPS requested
-    """
+  def set_camera_fps(self, camera_fps: float) -> 'WildtrackDataset':
+    """Set camera FPS (only the native 2 FPS is supported)."""
     if camera_fps not in self.SUPPORTED_FPS:
       raise ValueError(
-        f"Unsupported FPS: {camera_fps}. "
-        f"Supported: {self.SUPPORTED_FPS}"
+        f"Unsupported FPS: {camera_fps}. Supported: {self.SUPPORTED_FPS}"
       )
     self._camera_fps = camera_fps
     return self
@@ -144,50 +133,21 @@ class MetricTestDataset(TrackingDataset):
   def set_object_categories(
     self,
     categories: Optional[List[str]] = None
-  ) -> 'MetricTestDataset':
-    """Set the object categories to include in inputs and ground truth.
-
-    Args:
-      categories: List of category names to include (case-sensitive).
-                  If None, includes all categories.
-
-    Returns:
-      Self for method chaining
-
-    Raises:
-      ValueError: If categories list is empty.
-    """
+  ) -> 'WildtrackDataset':
+    """Set the object categories to include in inputs and ground truth."""
     if categories is not None and len(categories) == 0:
       raise ValueError("Categories list must not be empty")
     self._object_categories = categories
     return self
 
-  def set_custom_config(self, config: Dict[str, Any]) -> 'MetricTestDataset':
-    """Set custom configuration (not supported).
-
-    Args:
-      config: Custom configuration dictionary
-
-    Returns:
-      Self for method chaining
-
-    Raises:
-      NotImplementedError: Custom configuration not supported
-    """
+  def set_custom_config(self, config: Dict[str, Any]) -> 'WildtrackDataset':
+    """Set custom configuration (not supported)."""
     raise NotImplementedError("Custom configuration not supported")
 
-  def set_output_folder(self, path: Path) -> 'MetricTestDataset':
-    """Set dataset output folder for optional exports.
-
-    Args:
-      path: Destination directory for dataset artifacts.
-
-    Returns:
-      Self for method chaining
-    """
+  def set_output_folder(self, path: Path) -> 'WildtrackDataset':
+    """Set dataset output folder for optional exports."""
     if not isinstance(path, Path):
       path = Path(path)
-
     path.mkdir(parents=True, exist_ok=True)
     self._output_folder = path
     return self
@@ -196,12 +156,12 @@ class MetricTestDataset(TrackingDataset):
     """Get scene configuration in dataset-specific format.
 
     Returns:
-      Dictionary with raw config.json from dataset (dataset-specific format).
+      Dictionary with scene_config.json (explicit intrinsics + extrinsics).
 
     Raises:
       RuntimeError: If configuration cannot be loaded.
     """
-    config_file = self._dataset_path / "config.json"
+    config_file = self._dataset_path / "scene_config.json"
     if not config_file.exists():
       raise RuntimeError(f"Config file not found: {config_file}")
     return read_json(str(config_file))
@@ -210,23 +170,20 @@ class MetricTestDataset(TrackingDataset):
     """Get camera detection inputs in canonical format, sorted by timestamp.
 
     Args:
-      camera: Specific camera ID, or None for all configured cameras
+      camera: Specific camera selector (int or ``camN``), or None for all
+              configured cameras.
 
     Yields:
-      Camera detection data in canonical Input Detection Format
-      (see tools/tracker/evaluation/README.md#canonical-data-formats).
-      Frames are yielded in chronological order (sorted by timestamp) across all cameras.
-
-    Raises:
-      ValueError: If camera not configured
+      Camera detection data in canonical Input Detection Format, in
+      chronological order (sorted by timestamp) across all cameras.
     """
-    cameras_to_process = [camera] if camera else self._cameras
+    if camera is not None:
+      cameras_to_process = [self._normalize_camera(camera)]
+    else:
+      cameras_to_process = self._cameras
 
-    # When processing single camera, no sorting needed - yield directly
     if len(cameras_to_process) == 1:
-      cam_id = cameras_to_process[0]
-      input_file = self._get_input_filename(cam_id)
-
+      input_file = self._get_input_filename(cameras_to_process[0])
       for data in stream_jsonl(str(input_file)):
         timestamp = data.get('timestamp')
         if timestamp is None:
@@ -238,41 +195,26 @@ class MetricTestDataset(TrackingDataset):
         yield self._filter_categories(data)
       return
 
-    # Multi-camera: sort frames by timestamp
-    # Open all camera files and initialize buffers
     with ExitStack() as stack:
       file_handles = []
       frame_buffer = []
-
       for cam_id in cameras_to_process:
         input_file = self._get_input_filename(cam_id)
-
         f = stack.enter_context(open(input_file, 'rb', buffering=1024 * 1024))
         file_handles.append(f)
-
-        # Read first frame within range
         frame_buffer.append(self._read_next_frame_within_range(f))
 
-      # Yield frames in timestamp order
       while any(frame is not None for frame in frame_buffer):
-        # Find frame with minimum timestamp (alphabetical comparison works for ISO 8601)
         timestamps = [frame['timestamp'] if frame else 'Z' * 50 for frame in frame_buffer]
         min_idx = min(range(len(timestamps)), key=lambda i: timestamps[i])
-
-        # Yield the frame with earliest timestamp
         yield self._filter_categories(frame_buffer[min_idx])
-
-        # Read next frame from that camera respecting range
-        frame_buffer[min_idx] = self._read_next_frame_within_range(
-          file_handles[min_idx]
-        )
+        frame_buffer[min_idx] = self._read_next_frame_within_range(file_handles[min_idx])
 
   def get_ground_truth(self) -> str:
-    """Get ground truth in evaluator input format.
+    """Get ground truth in evaluator input format (MOTChallenge 3D CSV).
 
     Returns:
-      Path to CSV file with ground truth data in Ground Truth Format (MOTChallenge 3D CSV)
-      (see tools/tracker/evaluation/README.md#canonical-data-formats).
+      Path to the CSV file with ground truth data.
     """
     gt_file = self._dataset_path / "gtLoc.json"
     if not gt_file.exists():
@@ -280,30 +222,23 @@ class MetricTestDataset(TrackingDataset):
 
     if self._output_folder is None:
       raise RuntimeError(
-        "Dataset output folder not configured. Call set_output_folder() before get_ground_truth()."
+        "Dataset output folder not configured. "
+        "Call set_output_folder() before get_ground_truth()."
       )
-
-    sampling_stride = self._get_sampling_stride()
 
     gt_data = []
     filtered_frame_num = 0
 
-    for base_frame_idx, entry in enumerate(stream_jsonl(str(gt_file))):
+    for entry in stream_jsonl(str(gt_file)):
       timestamp = entry.get("timestamp")
       if timestamp is None:
         continue
-
       if self._time_end is not None and timestamp > self._time_end:
         break
-
       if self._time_start is not None and timestamp < self._time_start:
         continue
 
-      if base_frame_idx % sampling_stride != 0:
-        continue
-
       filtered_frame_num += 1
-
       objects = entry.get("objects", {})
       gt_data.extend([
         {
@@ -318,8 +253,7 @@ class MetricTestDataset(TrackingDataset):
         if self._object_categories is None or category in self._object_categories
         for obj in category_objects
       ])
-    # Convert to Ground Truth Format (MOTChallenge 3D CSV)
-    # See tools/tracker/evaluation/README.md#canonical-data-formats for format specification
+
     mapping = {
       "frame": {"pointer": "/frame"},
       "id": {"pointer": "/object_id"},
@@ -332,22 +266,11 @@ class MetricTestDataset(TrackingDataset):
     }
 
     output_file = self._output_folder / "ground_truth_motchallenge.csv"
-
-    convert_json_to_csv(
-      gt_data,
-      mapping,
-      str(output_file),
-      include_header=False
-    )
-
+    convert_json_to_csv(gt_data, mapping, str(output_file), include_header=False)
     return str(output_file)
 
-  def reset(self) -> 'MetricTestDataset':
-    """Reset dataset to initial state.
-
-    Returns:
-      Self for method chaining
-    """
+  def reset(self) -> 'WildtrackDataset':
+    """Reset dataset to initial state."""
     self._cameras = self.SUPPORTED_CAMERAS.copy()
     self._camera_fps = self.DEFAULT_FPS
     self._scene_config = None
@@ -357,67 +280,36 @@ class MetricTestDataset(TrackingDataset):
     self._output_folder = None
     return self
 
-  def _get_sampling_stride(self) -> int:
-    """Return how many base (30 FPS) frames correspond to one configured frame."""
-    if self._camera_fps <= 0:
-      raise RuntimeError("Camera FPS must be positive to sample ground truth")
-
-    ratio = self.DEFAULT_FPS / self._camera_fps
-    stride = int(round(ratio))
-
-    if stride <= 0:
-      raise RuntimeError("Invalid sampling stride computed for ground truth")
-
-    if abs(stride - ratio) > 1e-6:
-      raise RuntimeError(
-        f"Ground truth base FPS ({self.DEFAULT_FPS}) is not divisible by configured FPS ({self._camera_fps})"
-      )
-
-    return stride
-
   def _read_next_frame_within_range(self, file_handle) -> Optional[Dict[str, Any]]:
     """Read next frame from file handle, applying time range constraints."""
     while True:
       line = file_handle.readline()
       if not line:
         return None
-
       chunk = line.strip()
       if not chunk:
         continue
-
       data = orjson.loads(chunk)
       timestamp = data.get('timestamp')
-
       if timestamp is None:
         continue
-
       if self._time_end is not None and timestamp > self._time_end:
         return None
-
       if self._time_start is not None and timestamp < self._time_start:
         continue
-
       return data
 
   def _get_input_filename(self, cam_id: str) -> Path:
     """Build absolute path to the camera JSONL input file."""
     if cam_id not in self._cameras:
       raise ValueError(f"Camera {cam_id} not in configured cameras")
-
-    fps_suffix = f"_{int(self._camera_fps)}fps" if self._camera_fps != 30 else ""
-    input_file = self._dataset_path / f"{cam_id}{fps_suffix}.json"
-
+    input_file = self._dataset_path / f"{cam_id}.json"
     if not input_file.exists():
       raise FileNotFoundError(f"Input file not found: {input_file}")
-
     return input_file
 
   def _filter_categories(self, frame: Dict[str, Any]) -> Dict[str, Any]:
-    """Return a copy of *frame* with only the configured object categories.
-
-    If no category filter is set, returns the frame unchanged.
-    """
+    """Return a copy of *frame* with only the configured object categories."""
     if self._object_categories is None:
       return frame
     filtered = {**frame}
