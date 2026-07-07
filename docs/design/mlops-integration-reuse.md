@@ -87,7 +87,7 @@ This subsection defines the Scenescape-internal vocabulary used in the rest of t
 ### 4.3 Constraints driving the design
 
 - **Backwards compatibility window.** Existing deployments using static JSON pipeline configurations (Docker Compose bind-mount) and the custom dynamic pipeline configuration on Kubernetes must remain supported until feature parity with the ViPPET-based flow is achieved.
-- **Self-contained exported scenes.** Per [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision), exported scenes always embed pipeline definitions by value (deployment does not require ViPPET). For models, two deployment paths are supported: (a) models referenced by identifier — a download job or script materializes them via Model Downloader at deployment time; (b) models embedded as a compressed volume in the exported package — the operator extracts the volume directly, without requiring Model Downloader (air-gap / offline deployments). Populating the shared model volume is the deployment operator's responsibility in both cases.
+- **Self-contained exported scenes.** Per [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision), exported scenes embed pipeline definitions by value (deployment does not require ViPPET) and reference models by identifier (no model files in the scene artifact). Populating the shared model volume is the deployment operator's responsibility; the two supported deployment paths are described in the _Scene export / import format_ section.
 - **Optional Stream Manager.** Scenescape must continue to operate without Stream Manager; direct camera/file sources remain supported.
 - **No direct Model Downloader download calls from Scenescape at runtime.** For standalone Scenescape deployments model download is performed out-of-band (e.g., by a deployment-time job or the ViPPET UI).
 - **Cross-component design dependencies.** Several design choices (ViPPET pipeline-definition format details, DLSPS runtime API shape, Stream Manager API shape) depend on the corresponding teams' designs and are deferred to the relevant phase.
@@ -116,7 +116,7 @@ The component view below shows the runtime relationships between Scenescape and 
 
 **Data flow at runtime:**
 
-- Models are materialized into a **shared model volume** read by DLSPS. The deployment operator populates this volume either by downloading models via a Model Downloader job or script (standard path) or by extracting a compressed model volume archive embedded in the exported package (air-gap / offline path). Scenescape never reads model files directly.
+- Models are loaded from a **shared model volume** populated by the deployment operator before pipeline start. Scenescape never reads model files directly.
 - Pipeline definitions are pulled from ViPPET by Manager back-end, persisted in Scenescape's scene configuration (embedded by value), and pushed to DLSPS via its runtime API.
 - Video sources are either consumed from Stream Manager (restreaming or video playback) or accessed directly (RTSP/file).
 - DLSPS publishes inference results to MQTT, consumed unchanged by Scene Controller (no MLOps-integration changes to Scene Controller).
@@ -137,7 +137,7 @@ The process model shows the user-facing workflow for building, packaging, and de
 4. **DLS Pipeline Development** — ViPPET downloads the Geti-trained model (via Model Downloader), authors and verifies the DLSPS pipeline.
 5. **Scene Development** — Scenescape sets up scenes and cameras, consumes the ViPPET pipeline definition, maps pipelines to sources, starts pipelines. AI-task performance is evaluated.
 6. **Package Preparation** — Scenescape exports the scene (self-contained per [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision)).
-7. **Deployment** — at the production site, the deployment operator populates the shared model volume (by running a Model Downloader job or by extracting the embedded model volume from the package), Scenescape imports the scene and starts pipelines, Stream Manager runs alongside (when deployed) for video acquisition.
+7. **Deployment** — at the production site, the deployment operator populates the shared model volume, Scenescape imports the scene and starts pipelines, Stream Manager runs alongside (when deployed) for video acquisition.
 
 **Properties of the workflow relevant to this design:**
 
@@ -177,7 +177,7 @@ _Model_
 | Concern                                            | Owner                                     | Notes                                                                                                                                           |
 | -------------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Model lifecycle (install, list)                    | Model Downloader / ViPPET UI              | No Scenescape involvement.                                                                                                                      |
-| Model volume population at deployment time         | Deployment operator                       | Two paths: (a) download via Model Downloader job or script (standard); (b) extract embedded model volume from the exported package (air-gap / offline). Scenescape has no runtime interaction with Model Downloader.                      |
+| Model volume population at deployment time         | Deployment operator                       | Via a download job or script (standard path) or a model volume extraction job or script (air-gap path). Scenescape has no runtime interaction with Model Downloader. See the _Scene export / import format_ section.                       |
 | Model storage at runtime                           | Shared volume (operator-populated); DLSPS (reads) | Scenescape services do not access the volume directly.                                                                                                                                                 |
 | Model training, dataset management                 | Geti                                      | No Scenescape involvement.                                                                                                                      |
 
@@ -251,12 +251,9 @@ There is **no Geti client library** — Scenescape has no direct integration wit
 
 Two integration components participate in the overall architecture but run outside the Scenescape service boundary.
 
-**Model volume population job or script.** Model volume population is performed out-of-band by an external job or deployment script. The job is not a Scenescape service; it is provided by the deployment operator or as a reference implementation. Two population paths are supported:
+**Model volume population job or script.** Out-of-band job or script that populates the shared model volume. Two modes: (a) standard path — calls Model Downloader's download endpoint to materialize the model set from a model list (static, predefined in the deployment configuration, or dynamic, extracted from the scene artifact at import time); (b) air-gap path — extracts the compressed model volume archive from the package. The job is not a Scenescape service; Scenescape may provide reference implementations.
 
-- **Standard path (download):** the job calls Model Downloader's download endpoint to materialize the model set referenced in the exported scene or static deployment configuration.
-- **Air-gap / offline path (extract):** when the exported package includes a compressed model volume archive, the operator extracts it directly without invoking Model Downloader.
-
-During the backwards-compatibility window (while dynamic pipeline configuration is still supported), the download-path job is also responsible for generating the [model configuration file](../user-guide/other-topics/model-configuration-file-format.md) containing the parameters and paths of the downloaded models, to be consumed by the pipeline generator in dynamic pipeline configuration.
+During the backwards-compatibility window (while dynamic pipeline configuration is still supported), the job is also responsible for generating the [model configuration file](../user-guide/other-topics/model-configuration-file-format.md) containing the parameters and paths of the downloaded models, to be consumed by the pipeline generator in dynamic pipeline configuration.
 
 **Custom DLSPS Pipeline Element exposing timestamped video stream.** A custom DLSPS pipeline element that runs inside the DLSPS pipeline process — not inside a Scenescape service. It streams camera video and absolute timestamps to Stream Manager to enable event-driven or on-demand frame retrieval by timestamp. The absolute timestamps are aligned with objects and events in Scenescape output. This element is the post-`gvapython` successor to the adapter code currently under [`dlstreamer-pipeline-server/user_scripts/gvapython/sscape/`](../../dlstreamer-pipeline-server/user_scripts/gvapython/sscape/). The full specification of its Stream Manager integration is out of scope for this document.
 
@@ -270,9 +267,7 @@ Contracts are presented at the level of detail required for Scenescape-side desi
 
 #### 5.5.1 Scenescape ↔ Model Downloader
 
-**No runtime contract.** Scenescape does not call Model Downloader at runtime. When Model Downloader is used (standard deployment path), the integration point is the shared model volume: an external job or script downloads model files to the volume via Model Downloader; DLSPS reads from it during pipeline execution. When the exported package includes a compressed model volume (air-gap / offline path), Model Downloader is not required at all — the operator extracts the volume directly. In both cases, no runtime call from any Scenescape service to Model Downloader is made. Model identity (name, hub, precision) is embedded in pipeline definitions sourced from ViPPET and recorded in scene exports.
-
-**Scenescape does not call Model Downloader's download or listing endpoints at runtime.** Model volume population is out-of-band: by an external download job or script (standard path), or by the operator extracting the embedded volume from the exported package (air-gap path).
+**No runtime contract.** Scenescape has no runtime interaction with Model Downloader. The integration point is the shared model volume: DLSPS reads model files from it at pipeline runtime; model identity is embedded in pipeline definitions and scene exports. Populating the model volume before deployment is the deployment operator's responsibility — see the _Scene export / import format_ section for the two supported paths.
 
 **Backward compatibility (dynamic pipeline configuration).** The dynamic pipeline configuration feature remains supported until feature parity with ViPPET-based pipeline authoring is achieved. During this transition, the job or script that downloads models via Model Downloader is also responsible for generating the [model configuration file](../user-guide/other-topics/model-configuration-file-format.md) containing the parameters and paths of the downloaded models.
 
@@ -421,7 +416,7 @@ The deltas are organized by area of work, and the rollout plan in the _Rollout /
 | Scenescape consumers        | Manager back-end.                                                                                                                                                                                                                                                                                                                          |
 | Client library              | None — internal to Scenescape. The exported artifact references identities consumed by the Model Downloader and ViPPET client libraries at runtime, but the export/import flow itself is internal.                                                                                                                                         |
 | Affected Scenescape modules | Extends today's [`manager/src/manager/scene_import.py`](../../manager/src/manager/scene_import.py). New fields: embedded pipeline definitions; model references by identifier with model ID and version metadata (hashes for verification); the scene-level pipeline-definition-to-source mapping from the corresponding delta.            |
-| Parity criterion            | A scene exported under the new format can be imported on a fresh deployment that has Model Downloader available, and produces the same runtime behavior as the source deployment. Existing scenes (legacy format) remain importable for the duration of the backwards-compatibility window.                                                |
+| Parity criterion            | A scene exported under the new format can be imported on a fresh deployment and produces the same runtime behavior as the source deployment, regardless of which deployment path is used to populate the model volume. Existing scenes (legacy format) remain importable for the duration of the backwards-compatibility window.                                                |
 | Decision timing             | **Decided now** — Manager back-end owns scene export/import.                                                                                                                                                                                                                                                                               |
 | Cross-component dependency  | None directly; depends on Model Downloader's identifier scheme (for the model references in the artifact) and on ViPPET's pipeline-definition format (for the embedded pipeline definitions).                                                                                                                                              |
 
@@ -441,17 +436,22 @@ The deltas are organized by area of work, and the rollout plan in the _Rollout /
 
 This section captures **only the delta** between today's scene export/import (extended from [`manager/src/manager/scene_import.py`](../../manager/src/manager/scene_import.py)) and the new format required by this design. It does not re-specify the existing format.
 
+**Package structure.** The deployment package consists of two components with separate ownership:
+
+- **Scene artifact** — assembled and consumed by Scenescape Manager back-end. A self-contained archive containing pipeline definitions (models referenced by path identifier), scene and camera configuration, and the pipeline-to-source mapping. Does not contain model files.
+- **Model artifact** — assembled and consumed by the deployment operator via a job or script. Either a model list (standard path: used by the download job to populate the model volume via Model Downloader) or a compressed model volume archive (air-gap path: extracted by the extraction job or script). The deployment operator is responsible for preparing the model artifact and populating the shared model volume before starting Scenescape.
+
 **Delta** (driven by [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision) and the scene-export/import delta):
 
 1. **Camera configuration stored separately from pipeline definitions.** Each camera entry carries its source identity (Stream Manager handle, direct RTSP URL, or file path) and calibration (intrinsics, extrinsics, pose). Cameras are no longer co-located with pipeline-specific fields.
-2. **Model metadata is part of the pipeline definition**, supplied as a template-parameter value (per the ViPPET-pipeline-definition delta: models are parameters of pipeline definitions, referenced by ID + version). Pipeline definitions are embedded by value in the artifact so deployment does not require ViPPET. Models are referenced by identifier; the deployment operator materializes them at deployment time via a download job (standard path) or, for air-gap / offline deployments, by extracting the embedded model volume from the package (see delta 4 below).
+2. **Model metadata is part of the pipeline definition**, supplied as a template-parameter value (models are parameters of pipeline definitions, referenced by ID + version). Pipeline definitions are embedded by value in the scene artifact so deployment does not require ViPPET. Model files are not part of the scene artifact; they are provided separately by the deployment operator via the model artifact.
 3. **Pipeline-to-camera mapping** is a first-class section of the artifact, serializing the scene-side mapping owned by Manager back-end (per the scene-level pipeline-to-source mapping delta). A pipeline definition can map to one or more cameras (one-to-many). Camera-specific parameter values (for example, camera ID, confidence threshold) are part of the mapping to enable per-camera parametrization of the pipeline template. Proposed structure: `{ { <Pipeline definition template>: [key-value list of common parameter values] } : [ { <Source ID>: [key-value list of camera-specific parameter values] }, ... ] }`.
 
-4. **Embedded model volume (optional; air-gap and offline deployments).** The exported package may include a compressed model volume archive. When present, the deployment operator extracts it at deployment time, populating the shared model volume without requiring Model Downloader or network access. From Scenescape's perspective the two paths (download vs. extract) are equivalent: both produce a populated shared model volume before pipelines start.
+4. **Embedded model volume (optional; air-gap and offline deployments).** When the model artifact is a compressed model volume archive, the deployment operator's extraction job or script extracts it at deployment time, populating the shared model volume without requiring Model Downloader or network access.
 
 Existing scenes exported under the legacy format remain importable for the duration of the backwards-compatibility window defined in the _Constraints_ section.
 
-> To populate the shared model volume, the deployment operator chooses one of two paths: **(a) standard path** — an external job or script reads the model identifiers in the scene configuration and downloads the models to the shared volume via Model Downloader (Scenescape may provide a reference implementation); **(b) air-gap / offline path** — the operator extracts the compressed model volume archive embedded in the exported package (no Model Downloader required). In both cases, populating the model volume before Scenescape starts is the deployment operator's responsibility.
+> The deployment operator is responsible for populating the shared model volume before Scenescape starts. Standard path: an external job reads model identifiers from the scene artifact and downloads models to the shared volume via Model Downloader. Air-gap path: an external job or script extracts the compressed model volume archive from the package. Scenescape may provide reference implementations for both paths.
 
 ### 5.8 Deployment topology
 
@@ -464,29 +464,24 @@ This section specifies the deployment-time arrangement of Scenescape and the OEP
 | Scenescape services (Manager, Scene Controller, Auto Camera Calibration; _experimental_: Mapping) | Yes                                          | The current set of microservices, less `model_installer` after the Model Downloader delta.                                                                                                                                                                                                   |
 | DL Streamer Pipeline Server (DLSPS)                                                               | Yes                                          | Runtime pipeline executor; reads models from the shared model volume; publishes MQTT inference output.                                                                                                                                                                                       |
 | Shared model volume                                                                               | Yes                                          | Populated by the deployment operator (via download job or volume extraction); read by DLSPS. Scenescape does not read model files directly.                                                                                                                                                   |
-| Model Downloader                                                                                  | Required on the standard deployment path     | Populates the shared model volume when models are referenced by identifier. Not required when the exported package includes an embedded model volume (air-gap / offline path). Scenescape has no runtime interaction with Model Downloader.                                                    |
-| Model volume population job or script                                                             | Required at deployment and scene-import time | Materializes models into the shared model volume. Three modes: (a) static — the model list is predefined in the deployment configuration; (b) dynamic — model identifiers are extracted from the scene artifact at import time; (c) extract — the embedded model volume archive is extracted from the exported package (air-gap / offline). Scenescape may provide reference implementations. |
+| Model Downloader                                                                                  | Required on the standard deployment path     | Populates the shared model volume when models are referenced by identifier. Not required on the air-gap path. Scenescape has no runtime interaction with Model Downloader.                                                                   |
+| Model volume population job or script                                                             | Required at deployment and scene-import time | Populates the shared model volume. Two modes: (a) standard — downloads models from a model list via Model Downloader (static list predefined in deployment configuration, or dynamic list extracted from the scene artifact); (b) air-gap — extracts the compressed model volume archive from the package. Scenescape may provide reference implementations.                                                                                                   |
 | Stream Manager                                                                                    | Optional                                     | When deployed, provides livestream / replay; when absent, Scenescape uses direct RTSP / file sources.                                                                                                                                                                                        |
 | ViPPET                                                                                            | Required only at development time            | Pipeline definitions are embedded by value in the scene artifact per the scene export/import format above. ViPPET is used during scene development, not in production.                                                                                                                       |
 | Geti                                                                                              | Not at the Scenescape deployment site        | Geti is reached only indirectly during the upstream training stages of the workflow.                                                                                                                                                                                                         |
 
 **Shared model volume.**
 
-The shared model volume is the integration point between the model volume population job or script (writer) and DLSPS (reader). It is materialized differently per target:
+The shared model volume is populated by the deployment operator (via download job on the standard path, or by direct extraction on the air-gap path) and read by DLSPS at pipeline runtime. It is materialized differently per target:
 
 - **Docker Compose.** A named Docker volume mounted into the DLSPS container and into the deployment-time population job/container.
 - **Kubernetes.** A PersistentVolumeClaim mounted into the DLSPS pod(s) and into the population job/pod. Scenescape services do not mount this volume.
 
-The volume holds model files read by DLSPS at pipeline runtime. Scenescape services do not access the volume or enumerate its contents.
+Scenescape services do not access the volume or enumerate its contents.
 
 **Model volume population.**
 
-The deployment operator is responsible for populating the shared model volume before Scenescape starts. Two paths are supported:
-
-- **Standard path (download).** When the exported package contains model identifiers, the operator invokes the model volume population job or script to download models via Model Downloader. The job supports a static model list (predefined in the deployment configuration) and a dynamic model list (extracted from the scene artifact at import time). Scenescape may provide a reference implementation.
-- **Air-gap / offline path (extract).** When the exported package includes a compressed model volume archive, the operator extracts it directly. Model Downloader is not required; no network access is needed.
-
-Both paths produce a populated shared model volume that DLSPS reads at pipeline runtime. The choice of path depends on the deployment scenario and what the exported package contains.
+The deployment operator is responsible for populating the shared model volume before Scenescape starts, using the standard path (download job via Model Downloader) or the air-gap path (extraction job or script from the package). Both paths are described in the _Scene export / import format_ section.
 
 **DLSPS container / Pod creation and scaling.**
 
