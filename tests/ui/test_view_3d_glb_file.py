@@ -6,6 +6,7 @@
 import tests.ui.common_ui_test_utils as common
 import os
 import cv2
+from urllib.parse import urlparse
 from tests.ui.browser import By
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
@@ -64,17 +65,30 @@ def check_3D_scene_asset_in_3D_scene(browser, base_screenshot, file_name, file_p
 
   try:
     map_url = WebDriverWait(browser, timeout_s).until(
-      EC.presence_of_element_located((By.CSS_SELECTOR, "#map-url"))
-    ).get_attribute("value")
+      lambda drv: (
+        drv.find_element(By.CSS_SELECTOR, "#map-url").get_attribute("value") or ""
+      ).strip() or False
+    )
   except TimeoutException:
-    log.error(f"Timed out after {timeout_s}s waiting for #map-url on scene detail page.")
+    log.error(f"Timed out after {timeout_s}s waiting for #map-url to have a non-empty value.")
     return False
 
-  base_name, ext = os.path.splitext(file_name)
-  expected_base_name = base_name.lower()
+  expected_base_name, ext = os.path.splitext(file_name)
+  expected_base_name = expected_base_name.lower()
   expected_ext = ext.lower()
-  map_url_normalized = (map_url or "").lower()
-  if not map_url or expected_ext not in map_url_normalized or expected_base_name not in map_url_normalized:
+  parsed_map_url = urlparse(map_url or "")
+  actual_file_name = os.path.basename(parsed_map_url.path).lower()
+
+  has_expected_ext = actual_file_name.endswith(expected_ext)
+  stem_matches = False
+  if has_expected_ext:
+    actual_stem = actual_file_name[:-len(expected_ext)]
+    stem_matches = (
+      actual_stem == expected_base_name or
+      actual_stem.startswith(f"{expected_base_name}_")
+    )
+
+  if not actual_file_name or not has_expected_ext or not stem_matches:
     log.error(f"Expected a {file_name!r} map URL, got: {map_url!r}")
     return False
 
