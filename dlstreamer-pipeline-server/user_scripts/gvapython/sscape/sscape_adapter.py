@@ -15,6 +15,8 @@ import cv2
 import ntplib
 import numpy as np
 import paho.mqtt.client as mqtt
+import gi
+gi.require_version('Gst', '1.0')
 from gi.repository import Gst
 from gstgva.video_frame import VideoFrame
 from pytz import timezone

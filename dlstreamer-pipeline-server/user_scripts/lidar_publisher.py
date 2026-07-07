@@ -63,7 +63,6 @@ if ADD_TENSOR_DATA not in ("true", "false"):
 
 CAMERA_TOPIC = f"scenescape/data/camera/{SENSOR_ID}"
 FIFO         = "/tmp/lidar_detections.fifo"
-FIFO_CAM     = "/tmp/cam_detections.fifo"
 
 # Optional: mirror raw gvametaconvert output to a second topic.
 PUBLISH_RAW = os.environ.get("LIDAR_PUBLISH_RAW", "false").lower() not in ("0", "false", "no")
@@ -78,6 +77,7 @@ _CAM_STOP_RAW   = os.environ.get("CAM_STOP_INDEX")
 CAM_STOP_INDEX  = (int(_CAM_STOP_RAW.strip()) if _CAM_STOP_RAW and _CAM_STOP_RAW.strip()
                    else (STOP_INDEX if STOP_INDEX is not None else 10949))
 CAM_DEVICE      = os.environ.get("CAM_DEVICE", "CPU").strip().upper()
+CAM_SCORE_THRESHOLD = float(os.environ.get("CAM_SCORE_THRESHOLD", "0.3"))
 CAM_MODEL       = os.environ.get(
     "CAM_MODEL",
     "/home/pipeline-server/models/intel/person-vehicle-bike-detection-crossroad-1016"
@@ -96,8 +96,8 @@ SSCAPE_ADAPTER        = os.environ.get(
 )
 CAM_TOPIC = f"scenescape/data/camera/{CAM_SENSOR_ID}"
 
-# KITTI class index → label name (matches OpenVINO PointPillars training order).
-KITTI_LABELS: dict[int, str] = {0: "Pedestrian", 1: "Cyclist", 2: "Car"}
+# KITTI class index → label name, normalised to match camera model output labels.
+KITTI_LABELS: dict[int, str] = {0: "person", 1: "cyclist", 2: "vehicle"}
 
 # GStreamer monotonic clock → wall-clock offset, anchored on first frame.
 _gst_wall_offset: "float | None" = None
@@ -289,8 +289,15 @@ def safe_publish(client: mqtt.Client, topic: str, payload: str) -> mqtt.Client:
 
 def _build_pipeline() -> str:
   # ── Camera branch ──────────────────────────────────────────────────────────
-  # Runs independently at its own rate; gvametaconvert serialises gvadetect
-  # ROIs + PostDecodeTimestampCapture messages to json-lines in FIFO_CAM.
+  # gvafpsthrottle caps throughput to FRAME_RATE regardless of inference time,
+  # keeping the camera branch in step with g3dlidarparse frame-rate=FRAME_RATE.
+  # PostInferenceDataPublish publishes detections directly to MQTT (proven path
+  # used by retail/queuing pipelines); no FIFO needed for the camera branch.
+  cam_kwarg = json.dumps({
+    "cameraid":           CAM_SENSOR_ID,
+    "metadatagenpolicy":  "detectionPolicy",
+    "detection_labels":   CAM_DETECTION_LABELS,
+  })
   cam = " ".join([
     "multifilesrc",
     f"location={shlex.quote(CAM_DATA_PATH)}",
@@ -301,13 +308,17 @@ def _build_pipeline() -> str:
     "! jpegdec",
     "! videoconvert",
     "! video/x-raw,format=BGR",
+    f"! gvafpsthrottle target-fps={FRAME_RATE}",
     f"! gvapython class=PostDecodeTimestampCapture function=processFrame"
     f" module={shlex.quote(SSCAPE_ADAPTER)} name=timesync",
     f"! gvadetect model={shlex.quote(CAM_MODEL)}"
     f" model-proc={shlex.quote(CAM_MODEL_PROC)}"
-    f" device={shlex.quote(CAM_DEVICE)}",
-    "! gvametaconvert add-tensor-data=false format=json",
-    f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(FIFO_CAM)}",
+    f" device={shlex.quote(CAM_DEVICE)}"
+    f" threshold={CAM_SCORE_THRESHOLD}",
+    "! gvametaconvert add-tensor-data=false name=metaconvert",
+    f"! gvapython class=PostInferenceDataPublish function=processFrame"
+    f" module={shlex.quote(SSCAPE_ADAPTER)} name=datapublisher"
+    f" kwarg={shlex.quote(cam_kwarg)}",
     "! fakesink sync=false",
   ])
 
@@ -343,10 +354,9 @@ def _build_pipeline() -> str:
 # ── FIFO ───────────────────────────────────────────────────────────────────────
 
 def _make_fifo() -> None:
-  for path in (FIFO, FIFO_CAM):
-    if os.path.exists(path):
-      os.remove(path)
-    os.mkfifo(path)
+  if os.path.exists(FIFO):
+    os.remove(FIFO)
+  os.mkfifo(FIFO)
 
 
 def _open_fifo_background(result: list) -> threading.Thread:
@@ -357,59 +367,6 @@ def _open_fifo_background(result: list) -> threading.Thread:
   return t
 
 
-def _cam_worker(fifo_path: str) -> None:
-  """Reads camera detections from FIFO_CAM and publishes to CAM_TOPIC."""
-  cam_client = mqtt.Client(client_id=f"cam-worker-{uuid.uuid4().hex[:8]}")
-  if os.path.exists(ROOT_CA):
-    cam_client.tls_set(ca_certs=ROOT_CA)
-  for attempt in range(10):
-    try:
-      cam_client.connect(BROKER, PORT, keepalive=60)
-      cam_client.loop_start()
-      print(f"[cam-worker] Connected to {BROKER}:{PORT}", flush=True)
-      break
-    except Exception as exc:
-      print(f"[cam-worker] Connect attempt {attempt + 1}/10 failed: {exc}", flush=True)
-      time.sleep(2)
-  else:
-    print("[cam-worker] Could not connect to MQTT broker", flush=True)
-    return
-
-  try:
-    fps = float(FRAME_RATE)
-    last_ts: "float | None" = None
-    published = 0
-    with open(fifo_path, "r") as fifo:
-      for line in fifo:
-        line = line.strip()
-        if not line:
-          continue
-        try:
-          raw = json.loads(line)
-        except json.JSONDecodeError as exc:
-          print(f"[cam-worker] JSON error frame={published}: {exc}", flush=True)
-          continue
-        now = time.time()
-        if last_ts is not None:
-          fps = 0.9 * fps + 0.1 * (1.0 / max(now - last_ts, 0.001))
-        last_ts = now
-        cam_msg = build_cam_message(raw, CAM_SENSOR_ID, fps)
-        if sum(len(v) for v in cam_msg["objects"].values()) > 0:
-          result = cam_client.publish(CAM_TOPIC, json.dumps(cam_msg), qos=0)
-          if result.rc != mqtt.MQTT_ERR_SUCCESS:
-            print(f"[cam-worker] Publish failed rc={result.rc}", flush=True)
-        published += 1
-        if published % 100 == 0:
-          counts = {k: len(v) for k, v in cam_msg["objects"].items()}
-          print(f"[cam-worker] frames={published} fps={fps:.1f} cam={counts}", flush=True)
-  finally:
-    try:
-      cam_client.loop_stop()
-      cam_client.disconnect()
-    except Exception:
-      pass
-
-
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -418,7 +375,8 @@ def main() -> None:
     f"broker={BROKER}:{PORT} "
     f"lidar_topic={CAMERA_TOPIC} cam_topic={CAM_TOPIC} "
     f"lidar_device={DEVICE} cam_device={CAM_DEVICE} fps={FRAME_RATE} "
-    f"score_threshold={SCORE_THRESHOLD} publish_raw={PUBLISH_RAW}",
+    f"score_threshold={SCORE_THRESHOLD} cam_score_threshold={CAM_SCORE_THRESHOLD} "
+    f"publish_raw={PUBLISH_RAW}",
     flush=True,
   )
 
@@ -431,17 +389,23 @@ def main() -> None:
   fifo_result: list = [None]
   fifo_thread = _open_fifo_background(fifo_result)
 
-  # Open the camera FIFO in a background thread (blocks until the GStreamer
-  # pipeline opens the write end, confirming the pipeline is running).
-  cam_fifo_ready: list = [False]
-  def _open_cam_fifo():
-    f = open(FIFO_CAM, "r")
-    f.close()
-    cam_fifo_ready[0] = True
-  cam_fifo_thread = threading.Thread(target=_open_cam_fifo, daemon=True, name="cam-fifo-opener")
-  cam_fifo_thread.start()
-
   client = connect_mqtt()
+
+  # Subscribe to CAM_TOPIC so the main process can log what PostInferenceDataPublish
+  # publishes from inside the GStreamer pipeline.
+  _cam_rx_count = [0]
+  _cam_last_objects: list = [{}]
+
+  def _on_cam_message(_c, _u, msg):
+    try:
+      data = json.loads(msg.payload)
+      _cam_rx_count[0] += 1
+      _cam_last_objects[0] = data.get("objects", {})
+    except Exception:
+      pass
+
+  client.subscribe(CAM_TOPIC)
+  client.on_message = _on_cam_message
 
   @atexit.register
   def _cleanup():
@@ -451,7 +415,7 @@ def main() -> None:
         proc.wait(timeout=5)
       except subprocess.TimeoutExpired:
         proc.kill()
-    for path in (FIFO, FIFO_CAM):
+    for path in (FIFO,):
       try:
         os.remove(path)
       except FileNotFoundError:
@@ -461,16 +425,6 @@ def main() -> None:
   fifo_thread.join(timeout=30.0)
   if fifo_result[0] is None:
     raise RuntimeError("LiDAR FIFO not opened within 30 s — pipeline likely failed to start")
-
-  cam_fifo_thread.join(timeout=30.0)
-  if not cam_fifo_ready[0]:
-    raise RuntimeError("Camera FIFO not opened within 30 s — pipeline likely failed to start")
-
-  # Start camera worker in a daemon thread; it processes FIFO_CAM independently.
-  cam_thread = threading.Thread(
-    target=_cam_worker, args=(FIFO_CAM,), daemon=True, name="cam-worker"
-  )
-  cam_thread.start()
 
   published = 0
   fps     = float(FRAME_RATE)
@@ -499,22 +453,19 @@ def main() -> None:
       last_ts = now
 
       lidar_msg = build_lidar_message(raw, SENSOR_ID, fps)
-      cam_msg   = build_cam_message(raw, CAM_SENSOR_ID, fps)
 
       if sum(len(v) for v in lidar_msg["objects"].values()) > 0:
         client = safe_publish(client, CAMERA_TOPIC, json.dumps(lidar_msg))
-      if sum(len(v) for v in cam_msg["objects"].values()) > 0:
-        client = safe_publish(client, CAM_TOPIC, json.dumps(cam_msg))
       if PUBLISH_RAW:
         client = safe_publish(client, RAW_TOPIC, line)
 
       published += 1
       if published % 100 == 0:
         lidar_counts = {k: len(v) for k, v in lidar_msg["objects"].items()}
-        cam_counts   = {k: len(v) for k, v in cam_msg["objects"].items()}
+        cam_counts   = {k: len(v) for k, v in _cam_last_objects[0].items()}
         print(
           f"[lidar-publisher] frames={published} fps={fps:.1f}"
-          f" lidar={lidar_counts} cam={cam_counts}",
+          f" lidar={lidar_counts} cam_rx={_cam_rx_count[0]} cam={cam_counts}",
           flush=True,
         )
 

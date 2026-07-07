@@ -493,6 +493,7 @@ services:
       # - CAM_START_INDEX=10699
       # - CAM_STOP_INDEX=10949
       - CAM_DEVICE=CPU
+      # - CAM_SCORE_THRESHOLD=0.3
       # - CAM_DETECTION_LABELS=vehicle,person
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
