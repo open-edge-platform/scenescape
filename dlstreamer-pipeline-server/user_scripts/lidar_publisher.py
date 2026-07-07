@@ -3,14 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Publishes PointPillars detections in SceneScape camera detection format.
+Dual-stream pipeline: LiDAR (PointPillars) + Camera (person-vehicle-bike detection).
+
+Two parallel GStreamer branches are merged via gvametaaggregate for per-frame
+synchronisation.  The combined JSON is published on two separate MQTT topics:
+  - scenescape/data/camera/<LIDAR_SENSOR_ID>  (3-D LiDAR detections)
+  - scenescape/data/camera/<CAM_SENSOR_ID>    (2-D camera detections)
 
 LiDAR-to-scene coordinate transform: (-y, -x, z) axis swap.
-The SceneScape controller adds the camera pose translation to get the
-final world position.
-
-Optional raw output: set LIDAR_PUBLISH_RAW=true to mirror each raw
-gvametaconvert JSON line to LIDAR_RAW_TOPIC as well.
+Optional raw mirror: set LIDAR_PUBLISH_RAW=true.
 """
 
 import atexit
@@ -66,6 +67,33 @@ FIFO         = "/tmp/lidar_detections.fifo"
 # Optional: mirror raw gvametaconvert output to a second topic.
 PUBLISH_RAW = os.environ.get("LIDAR_PUBLISH_RAW", "false").lower() not in ("0", "false", "no")
 RAW_TOPIC   = os.environ.get("LIDAR_RAW_TOPIC", f"scenescape/data/camera/{SENSOR_ID}-raw")
+
+# ── Camera pipeline ────────────────────────────────────────────────────────────
+CAM_SENSOR_ID   = os.environ.get("CAM_SENSOR_ID", "intersection-cam1")
+CAM_DATA_PATH   = os.environ.get("CAM_DATA_PATH",
+                    "/home/pipeline-server/videos/images/%06d.jpg")
+CAM_START_INDEX = int(os.environ.get("CAM_START_INDEX", str(START_INDEX)))
+_CAM_STOP_RAW   = os.environ.get("CAM_STOP_INDEX")
+CAM_STOP_INDEX  = (int(_CAM_STOP_RAW.strip()) if _CAM_STOP_RAW and _CAM_STOP_RAW.strip()
+                   else (STOP_INDEX if STOP_INDEX is not None else 10949))
+CAM_DEVICE      = os.environ.get("CAM_DEVICE", "CPU").strip().upper()
+CAM_MODEL       = os.environ.get(
+    "CAM_MODEL",
+    "/home/pipeline-server/models/intel/person-vehicle-bike-detection-crossroad-1016"
+    "/FP32/person-vehicle-bike-detection-crossroad-1016.xml",
+)
+CAM_MODEL_PROC  = os.environ.get(
+    "CAM_MODEL_PROC",
+    "/home/pipeline-server/models/object_detection/person-vehicle"
+    "/person-vehicle-bike-detection-crossroad-1016.json",
+)
+_CAM_LABELS_RAW       = os.environ.get("CAM_DETECTION_LABELS", "vehicle,person")
+CAM_DETECTION_LABELS  = [l.strip() for l in _CAM_LABELS_RAW.split(",") if l.strip()]
+SSCAPE_ADAPTER        = os.environ.get(
+    "SSCAPE_ADAPTER",
+    "/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py",
+)
+CAM_TOPIC = f"scenescape/data/camera/{CAM_SENSOR_ID}"
 
 # KITTI class index → label name (matches OpenVINO PointPillars training order).
 KITTI_LABELS: dict[int, str] = {0: "Pedestrian", 1: "Cyclist", 2: "Car"}
@@ -137,8 +165,8 @@ def _make_timestamp(ts: float) -> str:
   return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{ms:03d}Z"
 
 
-def build_camera_message(raw: dict, sensor_id: str, fps: float) -> dict:
-  """Wrap PointPillars detections in SceneScape camera detection format."""
+def build_lidar_message(raw: dict, sensor_id: str, fps: float) -> dict:
+  """Wrap PointPillars 3-D detections in SceneScape camera detection format."""
   gst_ns = raw.get("lidar_frame", {}).get("exit_source_timestamp")
   ts = _make_timestamp(_gst_to_wall(int(gst_ns)) if gst_ns is not None else time.time())
 
@@ -153,15 +181,50 @@ def build_camera_message(raw: dict, sensor_id: str, fps: float) -> dict:
         bbox.get("x", 0.0), bbox.get("y", 0.0), bbox.get("z", 0.0)
       )
       objects.setdefault(label, []).append({
-        "id":      i + 1,
-        "category":  label,
-        "confidence":  obj.get("confidence", 0.0),
+        "id":         i + 1,
+        "category":   label,
+        "confidence": obj.get("confidence", 0.0),
         "translation": [sx, sy, sz],
-        "size":    [bbox.get("l", 0.0), bbox.get("w", 0.0), bbox.get("h", 0.0)],
-        "rotation":  bbox3d_to_quaternion(bbox.get("theta", 0.0)),
+        "size":       [bbox.get("l", 0.0), bbox.get("w", 0.0), bbox.get("h", 0.0)],
+        "rotation":   bbox3d_to_quaternion(bbox.get("theta", 0.0)),
       })
     except (KeyError, TypeError, ValueError):
       continue
+
+  return {"id": sensor_id, "timestamp": ts, "rate": round(fps, 2), "objects": objects}
+
+
+def build_cam_message(raw: dict, sensor_id: str, fps: float) -> dict:
+  """Wrap 2-D camera detections (from gvadetect) in SceneScape detection format."""
+  # PostDecodeTimestampCapture writes 'postdecode_timestamp' as a GVA message
+  # that gvametapublish serialises to the top-level JSON.  Fall back to
+  # the LiDAR wall-clock anchor when the camera message is absent.
+  ts_raw = raw.get("postdecode_timestamp")
+  if ts_raw:
+    ts = ts_raw
+  else:
+    gst_ns = raw.get("lidar_frame", {}).get("exit_source_timestamp")
+    ts = _make_timestamp(_gst_to_wall(int(gst_ns)) if gst_ns is not None else time.time())
+
+  objects: dict = {}
+  for i, obj in enumerate(raw.get("objects", [])):
+    det = obj.get("detection")
+    if not isinstance(det, dict) or "confidence" not in det:
+      continue  # skip LiDAR objects (no 'detection' key)
+    label = det.get("label") or str(det.get("label_id", "unknown"))
+    if CAM_DETECTION_LABELS and label not in CAM_DETECTION_LABELS:
+      continue
+    objects.setdefault(label, []).append({
+      "id":             i + 1,
+      "category":       label,
+      "confidence":     det["confidence"],
+      "bounding_box_px": {
+        "x":      obj.get("x", 0),
+        "y":      obj.get("y", 0),
+        "width":  obj.get("w", 0),
+        "height": obj.get("h", 0),
+      },
+    })
 
   return {"id": sensor_id, "timestamp": ts, "rate": round(fps, 2), "objects": objects}
 
@@ -224,25 +287,62 @@ def safe_publish(client: mqtt.Client, topic: str, payload: str) -> mqtt.Client:
 # ── GStreamer pipeline ─────────────────────────────────────────────────────────
 
 def _build_pipeline() -> str:
-  parts = [
-    "gst-launch-1.0",
-    f"multifilesrc location={shlex.quote(DATA_PATH)} start-index={START_INDEX}",
+  # ── Camera branch (primary – gvametaaggregate sink_0) ─────────────────────
+  # PostDecodeTimestampCapture attaches 'postdecode_timestamp' as a GVA JSON
+  # message that survives through gvametaaggregate (it stays on the primary
+  # camera buffer) and appears as a top-level key in gvametapublish output.
+  cam = " ".join([
+    "multifilesrc",
+    f"location={shlex.quote(CAM_DATA_PATH)}",
+    f"start-index={CAM_START_INDEX}",
+    f"stop-index={CAM_STOP_INDEX}",
+    "loop=true",
+    "caps=image/jpeg",
+    "! jpegdec",
+    "! videoconvert",
+    "! video/x-raw,format=BGR",
+    f"! gvapython class=PostDecodeTimestampCapture function=processFrame"
+    f" module={shlex.quote(SSCAPE_ADAPTER)} name=timesync",
+    f"! gvadetect model={shlex.quote(CAM_MODEL)}"
+    f" model-proc={shlex.quote(CAM_MODEL_PROC)}"
+    f" device={shlex.quote(CAM_DEVICE)}",
+    "! queue max-size-buffers=2 leaky=downstream",
+    "! gvametaaggregate name=agg",
+  ])
+
+  # ── LiDAR branch (secondary – gvametaaggregate sink_1) ────────────────────
+  lidar_parts = [
+    "multifilesrc",
+    f"location={shlex.quote(DATA_PATH)}",
+    f"start-index={START_INDEX}",
   ]
   if STOP_INDEX is not None:
-    parts.append(f"stop-index={STOP_INDEX}")
+    lidar_parts.append(f"stop-index={STOP_INDEX}")
   if LOOP:
-    parts.append("loop=true")
-  parts += [
+    lidar_parts.append("loop=true")
+  lidar_parts += [
     "caps=application/octet-stream",
     f"! g3dlidarparse stride=1 frame-rate={FRAME_RATE}",
     f"! g3dinference config={shlex.quote(MODEL_CONFIG)}"
     f" device={shlex.quote(DEVICE)}"
     f" score-threshold={SCORE_THRESHOLD}",
-    f"! gvametaconvert add-tensor-data={ADD_TENSOR_DATA} format=json",
+    "! queue max-size-buffers=2 leaky=downstream",
+    "! agg.sink_1",
+  ]
+  lidar = " ".join(lidar_parts)
+
+  # ── Aggregated output ──────────────────────────────────────────────────────
+  # gvametaconvert after the aggregator serialises ALL merged GVA metadata:
+  # camera 2-D ROIs (from gvadetect) + LiDAR 3-D ROIs (from g3dinference).
+  # gvametapublish writes one JSON line per aggregated frame to the FIFO.
+  out = " ".join([
+    "agg.",
+    f"! gvametaconvert add-tensor-data=false format=json",
     f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(FIFO)}",
     "! fakesink",
-  ]
-  return " ".join(parts)
+  ])
+
+  return f"gst-launch-1.0 {cam} {lidar} {out}"
 
 
 # ── FIFO ───────────────────────────────────────────────────────────────────────
@@ -265,8 +365,10 @@ def _open_fifo_background(result: list) -> threading.Thread:
 
 def main() -> None:
   print(
-    f"[lidar-publisher] sensor={SENSOR_ID} broker={BROKER}:{PORT} "
-    f"topic={CAMERA_TOPIC} device={DEVICE} fps={FRAME_RATE} "
+    f"[lidar-publisher] lidar_sensor={SENSOR_ID} cam_sensor={CAM_SENSOR_ID} "
+    f"broker={BROKER}:{PORT} "
+    f"lidar_topic={CAMERA_TOPIC} cam_topic={CAM_TOPIC} "
+    f"lidar_device={DEVICE} cam_device={CAM_DEVICE} fps={FRAME_RATE} "
     f"score_threshold={SCORE_THRESHOLD} publish_raw={PUBLISH_RAW}",
     flush=True,
   )
@@ -326,18 +428,23 @@ def main() -> None:
         fps = 0.9 * fps + 0.1 * (1.0 / max(now - last_ts, 0.001))
       last_ts = now
 
-      msg = build_camera_message(raw, SENSOR_ID, fps)
+      lidar_msg = build_lidar_message(raw, SENSOR_ID, fps)
+      cam_msg   = build_cam_message(raw, CAM_SENSOR_ID, fps)
 
-      if sum(len(v) for v in msg["objects"].values()) > 0:
-        client = safe_publish(client, CAMERA_TOPIC, json.dumps(msg))
+      if sum(len(v) for v in lidar_msg["objects"].values()) > 0:
+        client = safe_publish(client, CAMERA_TOPIC, json.dumps(lidar_msg))
+      if sum(len(v) for v in cam_msg["objects"].values()) > 0:
+        client = safe_publish(client, CAM_TOPIC, json.dumps(cam_msg))
       if PUBLISH_RAW:
         client = safe_publish(client, RAW_TOPIC, line)
 
       published += 1
       if published % 100 == 0:
-        counts = {k: len(v) for k, v in msg["objects"].items()}
+        lidar_counts = {k: len(v) for k, v in lidar_msg["objects"].items()}
+        cam_counts   = {k: len(v) for k, v in cam_msg["objects"].items()}
         print(
-          f"[lidar-publisher] frames={published} fps={fps:.1f} objects={counts}",
+          f"[lidar-publisher] frames={published} fps={fps:.1f}"
+          f" lidar={lidar_counts} cam={cam_counts}",
           flush=True,
         )
 
