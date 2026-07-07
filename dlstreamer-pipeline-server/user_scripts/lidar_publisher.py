@@ -34,7 +34,7 @@ PORT    = int(os.environ.get("MQTT_PORT", "1883"))
 ROOT_CA = "/run/secrets/certs/scenescape-ca.pem"
 
 # ── LiDAR pipeline ────────────────────────────────────────────────────────────
-SENSOR_ID       = os.environ.get("LIDAR_SENSOR_ID", "lidar1")
+SENSOR_ID       = os.environ.get("LIDAR_SENSOR_ID", "intersection-lidar1")
 DATA_PATH       = os.environ.get("LIDAR_DATA_PATH", "/home/pipeline-server/videos/velodyne_bin/%06d.bin")
 START_INDEX     = int(os.environ.get("LIDAR_START_INDEX", "010699"))
 _STOP_RAW       = os.environ.get("LIDAR_STOP_INDEX")

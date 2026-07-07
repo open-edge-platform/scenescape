@@ -477,7 +477,7 @@ services:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       # LiDAR pipeline configuration — override as needed:
-      # - LIDAR_SENSOR_ID=lidar1
+      # - LIDAR_SENSOR_ID=intersection-lidar1
       # - LIDAR_DATA_PATH=/home/pipeline-server/videos/velodyne_bin/%06d.bin
       # - LIDAR_START_INDEX=010699
       # - LIDAR_STOP_INDEX=010949

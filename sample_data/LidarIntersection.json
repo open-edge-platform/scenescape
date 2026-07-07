@@ -31,8 +31,8 @@
       "scene": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
     },
     {
-      "uid": "lidar1",
-      "name": "inf-lidar1",
+      "uid": "intersection-lidar1",
+      "name": "intersection-lidar1",
       "intrinsics": {
         "fx": 500.0,
         "fy": 500.0,
