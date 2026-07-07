@@ -196,15 +196,9 @@ class ScenescapeEnv:
     self.docker.compose.execute(
       "web",
       ["sh", "-c",
-       "rm -rf /tmp/restoredb && mkdir -p /tmp/restoredb"
-       " && tar xjf $EXAMPLEDB -C /tmp/restoredb"
-       f" && python {manage} loaddata /tmp/restoredb/data.json"
-       " && MEDIA_DIR=${MEDIA_ROOT:-/workspace/media}"
-       " && mkdir -p \"$MEDIA_DIR\""
-       " && find /tmp/restoredb -maxdepth 1 -type f"
-       "      ! -name data.json ! -name meta.json"
-       "      -exec cp -f {} \"$MEDIA_DIR\"/ \\;"
-       " && rm -rf /tmp/restoredb"],
+       "tar xjf $EXAMPLEDB -C /tmp"
+       f" && python {manage} loaddata /tmp/data.json"
+       " && rm -f /tmp/data.json /tmp/meta.json"],
       tty=False,
     )
     self.docker.compose.execute(
@@ -668,15 +662,22 @@ class _ComposeManager:
     self._current_gen = None  # active _compose_lifecycle generator
     self._failed_profiles = {}  # profile name -> exception message
 
-  def get_env(self, profile):
-    """Return a ScenescapeEnv for *profile*, reusing or restarting as needed."""
+  def get_env(self, profile, fresh=False):
+    """Return a ScenescapeEnv for *profile*, reusing or restarting as needed.
+
+    When *fresh* is True the currently running stack is always torn down and
+    a brand-new stack is started, even if the requested profile matches the
+    active one. This reproduces the pristine single-test condition for tests
+    that are sensitive to resource accumulation in the long-lived shared
+    stack (e.g. WebGL/3D UI tests).
+    """
     if profile.name in self._failed_profiles:
       pytest.fail(
         f"Profile {profile.name!r} already failed to start: "
         f"{self._failed_profiles[profile.name]}"
       )
 
-    if self._current_profile_name == profile.name:
+    if self._current_profile_name == profile.name and not fresh:
       return self._current_env
 
     self._stop_current()
@@ -835,7 +836,10 @@ def scenescape_env(request, _compose_manager, secrets_dir, supass,
       pytest.skip("python-on-whales not installed; run from host venv")
     if _compose_manager is None:
       pytest.skip("Docker Compose manager not available")
-    env = _compose_manager.get_env(spec.profile)
+    # Tests marked @pytest.mark.fresh_stack get a brand-new stack so they run
+    # against a pristine environment rather than a long-lived stack.
+    fresh = request.node.get_closest_marker("fresh_stack") is not None
+    env = _compose_manager.get_env(spec.profile, fresh=fresh)
     _inject_options(request.config, spec, secrets_dir, supass, env=env)
 
   # Track that this test used the environment for cleanup scheduling.
@@ -1039,6 +1043,7 @@ def pytest_runtest_logreport(report):
 def pytest_configure(config):
   config.addinivalue_line("markers", "test_name(name): sets the XML test name attribute")
   config.addinivalue_line("markers", "kubernetes_only: test only runs with --backend=kubernetes or --backend=all")
+  config.addinivalue_line("markers", "fresh_stack: start a brand-new compose stack for this test instead of reusing the shared one")
 
 
 # ---------------------------------------------------------------------------

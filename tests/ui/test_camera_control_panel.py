@@ -5,6 +5,7 @@
 
 import os
 import time
+import pytest
 import tests.ui.common_ui_test_utils as common
 from tests.utils.log import get_logger
 from tests.ui import UserInterfaceTest
@@ -127,6 +128,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       self.recordTestResult()
     return
 
+@pytest.mark.fresh_stack
 @common.mock_display
 def test_switch_3d_camera_scene_camera(scenescape_env, request, record_xml_attribute):
   """! Test toggle scene camera under 3D camera control.

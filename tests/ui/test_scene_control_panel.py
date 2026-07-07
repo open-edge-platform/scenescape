@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
+import pytest
 from tests.utils.log import get_logger
 import tests.ui.common_ui_test_utils as common
 from tests.ui.browser import By, Browser
@@ -23,6 +24,7 @@ def capture_when_rendered(browser):
   common.wait_for_3d_scene_rendered(browser)
   return common.capture_3d_canvas(browser)
 
+@pytest.mark.fresh_stack
 @common.mock_display
 def test_scene_control_panel(params, record_xml_attribute):
   """! Test the Scene Control Panel in the 3D UI.
