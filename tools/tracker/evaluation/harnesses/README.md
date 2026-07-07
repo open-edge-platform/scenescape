@@ -45,10 +45,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from harnesses.scene_controller_harness import SceneControllerHarness
-from datasets.metric_test_dataset import MetricTestDataset
+from datasets.unity_dataset import UnityDataset
 
 # Initialize dataset
-dataset = MetricTestDataset("path/to/dataset")
+dataset = UnityDataset("path/to/dataset")
 dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
 # Initialize harness with container image
@@ -134,9 +134,9 @@ The tracker runs with configurable timing modes:
 
 ```python
 from harnesses.camera_projection_harness import CameraProjectionHarness
-from datasets.metric_test_dataset import MetricTestDataset
+from datasets.unity_dataset import UnityDataset
 
-dataset = MetricTestDataset("path/to/dataset")
+dataset = UnityDataset("path/to/dataset")
 dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
 harness = CameraProjectionHarness(container_image="scenescape-controller:2026.1.0-dev")
@@ -208,9 +208,9 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 
 ```python
 from harnesses.black_box_harness import BlackBoxHarness
-from datasets.metric_test_dataset import MetricTestDataset
+from datasets.unity_dataset import UnityDataset
 
-dataset = MetricTestDataset("path/to/dataset")
+dataset = UnityDataset("path/to/dataset")
 dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
 harness = BlackBoxHarness(container_image="scenescape-controller:2026.1.0-dev")
