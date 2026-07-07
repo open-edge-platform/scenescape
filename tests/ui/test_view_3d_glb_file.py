@@ -89,7 +89,9 @@ def check_3D_scene_asset_in_3D_scene(browser, base_screenshot, file_name, file_p
     )
 
   if not actual_file_name or not has_expected_ext or not stem_matches:
-    log.error(f"Expected a {file_name!r} map URL, got: {map_url!r}")
+    log.error(
+      f"Unexpected map URL {map_url!r}. Expected file named '{expected_base_name}{expected_ext}' or '{expected_base_name}_*{expected_ext}'."
+    )
     return False
 
   scene_3D_params = common.InteractionParams(map_url, file_path, f"/scene/detail/{common.TEST_SCENE_ID}/", "", "", element_location="#map-url", \
