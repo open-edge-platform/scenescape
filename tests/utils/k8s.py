@@ -334,7 +334,7 @@ class K8sManager:
 
     for image_name in _SCENESCAPE_IMAGES:
       old_tag = f"{image_name}:latest"
-      new_tag = f"intel/{image_name}:{version}"
+      new_tag = f"{image_name}:{version}"
 
       if not _image_exists(old_tag):
         raise RuntimeError(
