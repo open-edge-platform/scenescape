@@ -28,7 +28,7 @@ jobs:
         uses: open-edge-platform/orch-ci/.github/actions/bootstrap@14aa8ce3d0a5455574fc7fce7d90b2d18636c68e # 0.1.40
         with:
           bootstrap_tools: "base"
-      - name: "Install npm dependencies"
+      - name: "Install npm dependencies for prettier"
         run: |
           cp .github/resources/package.json package.json
           npm install
@@ -63,7 +63,7 @@ jobs:
       - name: "Install python linters"
         run: |
           pip install -r .github/resources/requirements.txt
-      - name: "Install npm dependencies"
+      - name: "Install npm dependencies for Javascript linter and prettier tool"
         run: |
           cp .github/resources/package.json package.json
           npm install
