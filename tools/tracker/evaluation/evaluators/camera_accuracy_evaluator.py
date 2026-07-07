@@ -28,7 +28,7 @@ Ground truth is expected as a file path (str) to a MOTChallenge 3-D CSV file
 with 8 columns:
   frame, id, x, y, z, conf, class, visibility
 
-This is the same format produced by ``MetricTestDataset.get_ground_truth()``.
+This is the same format produced by ``UnityDataset.get_ground_truth()``.
 
 Metrics returned by ``evaluate_metrics()``
 ------------------------------------------
@@ -76,6 +76,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
+from scipy.spatial.transform import Rotation
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -217,6 +218,12 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     Returns:
       ``(x, y)`` world position, or ``None`` if solvePnP fails.
     """
+    # Prefer explicit extrinsics (canonical camera->world pose) when present.
+    extrinsics = sensor.get("extrinsics")
+    if extrinsics is not None:
+      translation = extrinsics["translation"]
+      return (float(translation[0]), float(translation[1]))
+
     try:
       fx, fy, cx, cy = sensor["intrinsics"]
       K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float64)
@@ -260,6 +267,18 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     Returns:
       Normalized ``(dx, dy)`` direction vector, or ``None`` on failure.
     """
+    # Prefer explicit extrinsics: optical axis +Z in camera space, mapped to
+    # world via the camera->world rotation R_cw = euler_XYZ(rotation).
+    extrinsics = sensor.get("extrinsics")
+    if extrinsics is not None:
+      r_cw = Rotation.from_euler("XYZ", extrinsics["rotation"], degrees=True).as_matrix()
+      world_axis = (r_cw @ np.array([0.0, 0.0, 1.0])).flatten()
+      dx, dy = float(world_axis[0]), float(world_axis[1])
+      norm = (dx ** 2 + dy ** 2) ** 0.5
+      if norm < 1e-9:
+        return None
+      return (dx / norm, dy / norm)
+
     try:
       fx, fy, cx, cy = sensor["intrinsics"]
       K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]], dtype=np.float64)
@@ -301,7 +320,7 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
                        encoded as ``"{camera_id}:{object_id}"``.
       ground_truth: Path to a MOTChallenge 3-D CSV ground-truth file, either
                     as a plain ``str`` (as returned by
-                    ``MetricTestDataset.get_ground_truth()``) or as a
+                    ``UnityDataset.get_ground_truth()``) or as a
                     length-1 ``Iterator[str]`` (for pipeline-engine
                     compatibility with other evaluators).
 
@@ -575,7 +594,7 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
 
     Frame numbers are computed from timestamps using the same centred-rounding
     approach as DiagnosticEvaluator so that frame indices line up with the GT
-    CSV produced by MetricTestDataset.
+    CSV produced by UnityDataset.
 
     Args:
       tracker_outputs: Iterator returned by CameraProjectionHarness.
