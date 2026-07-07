@@ -268,7 +268,85 @@ Automated: yes
 
 1.
 
-## Vision_AI/SSCAPE/API/MAPPING/11: List available models and their status
+## Vision_AI/SSCAPE/API/MAPPING/11: Reject reconstruction request exceeding max image count
+
+Automated: yes
+
+**Affected Versions:**
+
+### Test summary
+
+-
+
+### Test requirements mapping
+
+-
+
+### Test priority
+
+- P2
+
+### Prerequisites
+
+-
+
+### Test steps
+
+1.
+
+## Vision_AI/SSCAPE/API/MAPPING/12: Reject reconstruction request with invalid camera_id format
+
+Automated: yes
+
+**Affected Versions:**
+
+### Test summary
+
+-
+
+### Test requirements mapping
+
+-
+
+### Test priority
+
+- P2
+
+### Prerequisites
+
+-
+
+### Test steps
+
+1.
+
+## Vision_AI/SSCAPE/API/MAPPING/13: Reject status request with malformed request_id
+
+Automated: yes
+
+**Affected Versions:**
+
+### Test summary
+
+-
+
+### Test requirements mapping
+
+-
+
+### Test priority
+
+- P2
+
+### Prerequisites
+
+-
+
+### Test steps
+
+1.
+
+## Vision_AI/SSCAPE/API/MAPPING/14: Return 404 for unknown request_id
 
 Automated: yes
 
