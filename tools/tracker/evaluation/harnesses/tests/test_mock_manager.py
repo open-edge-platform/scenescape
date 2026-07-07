@@ -40,7 +40,7 @@ from harnesses.black_box_harness.mock_manager import (
 
 @pytest.fixture
 def two_camera_scene_config():
-  """Minimal two-camera scene config identical to the metric test dataset."""
+  """Minimal two-camera scene config identical to the Unity dataset."""
   return {
       "name": "TestScene",
       "uid": "test-scene-uid",

@@ -519,6 +519,13 @@ Enable with: `CONTROLLER_ENABLE_METRICS=true`
 - `tracking_associations`: Successful/failed associations
 - `detection_rate`: Detections per second per camera
 
+**Time-chunking counters** (emitted only when `time_chunking_enabled: true`):
+
+- `scenescape_controller_time_chunking_duplicated_cameras`: buffered camera frames overwritten before dispatch
+- `scenescape_controller_time_chunking_unique_cameras`: distinct cameras dispatched per non-empty chunk
+- `scenescape_controller_time_chunking_non_empty_chunks`: dispatch intervals that had buffered data
+- `scenescape_controller_time_chunking_empty_chunks`: dispatch intervals with no buffered data
+
 ### Tracing (OpenTelemetry)
 
 Enable with: `CONTROLLER_ENABLE_TRACING=true`

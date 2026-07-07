@@ -39,9 +39,9 @@ def temp_config_file(temp_output_dir):
       }
     },
     'dataset': {
-      'class': 'datasets.metric_test_dataset.MetricTestDataset',
+      'class': 'datasets.unity_dataset.UnityDataset',
       'config': {
-        'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
+        'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'unity_dataset'),
         'cameras': ['Cam_x1_0', 'Cam_x2_0'],
         'camera_fps': 30,
         'time_start': TEST_TIME_RANGE_START,
@@ -52,7 +52,7 @@ def temp_config_file(temp_output_dir):
       'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
       'config': {
         'container_image': 'scenescape-controller:latest',
-        'tracker_config_path': str(Path(__file__).parent.parent / 'pipeline_configs' / 'black_box' / 'config' / 'controller_immediate.json')
+        'tracker_config_path': str(Path(__file__).parent.parent / 'pipeline_configs' / 'black_box_unity' / 'config' / 'controller_immediate.json')
       }
     },
     'evaluators': [
@@ -85,9 +85,9 @@ def temp_multi_evaluator_config_file(temp_output_dir):
       }
     },
     'dataset': {
-      'class': 'datasets.metric_test_dataset.MetricTestDataset',
+      'class': 'datasets.unity_dataset.UnityDataset',
       'config': {
-        'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
+        'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'unity_dataset'),
         'cameras': ['Cam_x1_0', 'Cam_x2_0'],
         'camera_fps': 30,
         'time_start': TEST_TIME_RANGE_START,
@@ -98,7 +98,7 @@ def temp_multi_evaluator_config_file(temp_output_dir):
       'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
       'config': {
         'container_image': 'scenescape-controller:latest',
-        'tracker_config_path': str(Path(__file__).parent.parent / 'pipeline_configs' / 'black_box' / 'config' / 'controller_immediate.json')
+        'tracker_config_path': str(Path(__file__).parent.parent / 'pipeline_configs' / 'black_box_unity' / 'config' / 'controller_immediate.json')
       }
     },
     'evaluators': [
@@ -184,7 +184,7 @@ class TestLoadConfiguration:
         }
       },
       'dataset': {
-        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'class': 'datasets.unity_dataset.UnityDataset',
         'config': {}
       }
       # Missing harness and evaluators sections
@@ -204,7 +204,7 @@ class TestLoadConfiguration:
     """Test configuration loading with missing pipeline section."""
     config = {
       'dataset': {
-        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'class': 'datasets.unity_dataset.UnityDataset',
         'config': {}
       },
       'harness': {
@@ -237,7 +237,7 @@ class TestLoadConfiguration:
         'output': {}  # Missing 'path'
       },
       'dataset': {
-        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'class': 'datasets.unity_dataset.UnityDataset',
         'config': {}
       },
       'harness': {
@@ -304,7 +304,7 @@ class TestLoadConfiguration:
         }
       },
       'dataset': {
-        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'class': 'datasets.unity_dataset.UnityDataset',
         'config': {}
       },
       'harness': {
@@ -336,7 +336,7 @@ class TestLoadConfiguration:
         }
       },
       'dataset': {
-        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'class': 'datasets.unity_dataset.UnityDataset',
         'config': {}
       },
       'harness': {
@@ -365,9 +365,9 @@ class TestLoadConfiguration:
         }
       },
       'dataset': {
-        'class': 'datasets.metric_test_dataset.MetricTestDataset',
+        'class': 'datasets.unity_dataset.UnityDataset',
         'config': {
-          'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'dataset'),
+          'data_path': str(Path(__file__).parent.parent.parent.parent.parent / 'tests' / 'system' / 'metric' / 'unity_dataset'),
           'cameras': ['Cam_x1_0', 'Cam_x2_0'],
           'camera_fps': 30
         }
@@ -376,7 +376,7 @@ class TestLoadConfiguration:
         'class': 'harnesses.scene_controller_harness.SceneControllerHarness',
         'config': {
           'container_image': 'scenescape-controller:latest',
-          'tracker_config_path': str(Path(__file__).parent.parent / 'pipeline_configs' / 'black_box' / 'config' / 'controller_immediate.json')
+          'tracker_config_path': str(Path(__file__).parent.parent / 'pipeline_configs' / 'black_box_unity' / 'config' / 'controller_immediate.json')
         }
       },
       'evaluators': [
