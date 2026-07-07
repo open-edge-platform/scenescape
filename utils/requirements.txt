@@ -1,0 +1,5 @@
+requests
+urllib3
+marko
+xunitparser
+PyYAML
