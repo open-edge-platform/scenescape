@@ -343,7 +343,13 @@ class VDMSDatabase(ReIDDatabase):
       return {}
 
     # Sort by timestamp descending to get the most recent entry
-    entities_with_persist = [e for e in entities if e.get('persist')]
+    entities_with_persist = [
+      e for e in entities
+      if isinstance(e.get('persist'), str) and
+         e.get('persist').strip() and
+         e.get('persist') != 'Missing property'
+    ]
+
     if not entities_with_persist:
       log.debug(f"[VDMS] getPersistedAttributes: No persist data found for uuid={uuid}")
       return {}
