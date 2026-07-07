@@ -63,7 +63,7 @@ jobs:
       - name: "Install python linters"
         run: |
           pip install -r .github/resources/requirements.txt
-      - name: "Install npm dependencies"
+      - name: "Install npm dependencies for Javascript linter and prettier tool"
         run: |
           cp .github/resources/package.json package.json
           npm install
