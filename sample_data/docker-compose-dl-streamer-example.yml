@@ -419,7 +419,7 @@ services:
   #   pids_limit: 1000
 
   lidar-data-init:
-    image: alpine:3.23
+    image: alpine@sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40
     command: sh -c "mkdir -p /dst/velodyne_bin /dst/images && tar -xzf /src/velodyne_bin_part1.tar.gz --strip-components=1 -C /dst/velodyne_bin/ && tar -xzf /src/velodyne_bin_part2.tar.gz --strip-components=1 -C /dst/velodyne_bin/ && tar -xzf /src/velodyne_bin_part3.tar.gz --strip-components=1 -C /dst/velodyne_bin/ && tar -xzf /src/image_part1.tar.gz --strip-components=1 -C /dst/images/ && tar -xzf /src/image_part2.tar.gz --strip-components=1 -C /dst/images/ && tar -xzf /src/image_part3.tar.gz --strip-components=1 -C /dst/images/ && tar -xzf /src/image_part4.tar.gz --strip-components=1 -C /dst/images/ && echo 'data ready'"
     volumes:
       - ./sample_data/velodyne_bin_part1.tar.gz:/src/velodyne_bin_part1.tar.gz:ro
@@ -506,7 +506,7 @@ services:
 
   # Init container to fix volume permissions for autocalibration
   autocalibration-init:
-    image: alpine:3.23
+    image: alpine@sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40
     command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models

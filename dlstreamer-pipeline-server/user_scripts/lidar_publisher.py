@@ -63,6 +63,7 @@ if ADD_TENSOR_DATA not in ("true", "false"):
 
 CAMERA_TOPIC = f"scenescape/data/camera/{SENSOR_ID}"
 FIFO         = "/tmp/lidar_detections.fifo"
+FIFO_CAM     = "/tmp/cam_detections.fifo"
 
 # Optional: mirror raw gvametaconvert output to a second topic.
 PUBLISH_RAW = os.environ.get("LIDAR_PUBLISH_RAW", "false").lower() not in ("0", "false", "no")
@@ -287,10 +288,9 @@ def safe_publish(client: mqtt.Client, topic: str, payload: str) -> mqtt.Client:
 # ── GStreamer pipeline ─────────────────────────────────────────────────────────
 
 def _build_pipeline() -> str:
-  # ── Camera branch (primary – gvametaaggregate sink_0) ─────────────────────
-  # PostDecodeTimestampCapture attaches 'postdecode_timestamp' as a GVA JSON
-  # message that survives through gvametaaggregate (it stays on the primary
-  # camera buffer) and appears as a top-level key in gvametapublish output.
+  # ── Camera branch ──────────────────────────────────────────────────────────
+  # Runs independently at its own rate; gvametaconvert serialises gvadetect
+  # ROIs + PostDecodeTimestampCapture messages to json-lines in FIFO_CAM.
   cam = " ".join([
     "multifilesrc",
     f"location={shlex.quote(CAM_DATA_PATH)}",
@@ -306,11 +306,16 @@ def _build_pipeline() -> str:
     f"! gvadetect model={shlex.quote(CAM_MODEL)}"
     f" model-proc={shlex.quote(CAM_MODEL_PROC)}"
     f" device={shlex.quote(CAM_DEVICE)}",
-    "! queue max-size-buffers=2 leaky=downstream",
-    "! gvametaaggregate name=agg",
+    "! gvametaconvert add-tensor-data=false format=json",
+    f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(FIFO_CAM)}",
+    "! fakesink sync=false",
   ])
 
-  # ── LiDAR branch (secondary – gvametaaggregate sink_1) ────────────────────
+  # ── LiDAR branch ──────────────────────────────────────────────────────────
+  # gvametaaggregate is NOT used: it requires GST_FORMAT_TIME on all pads but
+  # g3dlidarparse produces application/x-lidar (GST_FORMAT_BYTES).  Both
+  # branches run in the same gst-launch-1.0 process and publish independently
+  # via their own FIFOs; Python reads them in parallel threads.
   lidar_parts = [
     "multifilesrc",
     f"location={shlex.quote(DATA_PATH)}",
@@ -326,31 +331,22 @@ def _build_pipeline() -> str:
     f"! g3dinference config={shlex.quote(MODEL_CONFIG)}"
     f" device={shlex.quote(DEVICE)}"
     f" score-threshold={SCORE_THRESHOLD}",
-    "! queue max-size-buffers=2 leaky=downstream",
-    "! agg.sink_1",
+    f"! gvametaconvert add-tensor-data={ADD_TENSOR_DATA} format=json",
+    f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(FIFO)}",
+    "! fakesink sync=false",
   ]
   lidar = " ".join(lidar_parts)
 
-  # ── Aggregated output ──────────────────────────────────────────────────────
-  # gvametaconvert after the aggregator serialises ALL merged GVA metadata:
-  # camera 2-D ROIs (from gvadetect) + LiDAR 3-D ROIs (from g3dinference).
-  # gvametapublish writes one JSON line per aggregated frame to the FIFO.
-  out = " ".join([
-    "agg.",
-    f"! gvametaconvert add-tensor-data=false format=json",
-    f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(FIFO)}",
-    "! fakesink",
-  ])
-
-  return f"gst-launch-1.0 {cam} {lidar} {out}"
+  return f"gst-launch-1.0 {cam} {lidar}"
 
 
 # ── FIFO ───────────────────────────────────────────────────────────────────────
 
 def _make_fifo() -> None:
-  if os.path.exists(FIFO):
-    os.remove(FIFO)
-  os.mkfifo(FIFO)
+  for path in (FIFO, FIFO_CAM):
+    if os.path.exists(path):
+      os.remove(path)
+    os.mkfifo(path)
 
 
 def _open_fifo_background(result: list) -> threading.Thread:
@@ -359,6 +355,59 @@ def _open_fifo_background(result: list) -> threading.Thread:
   t = threading.Thread(target=_worker, daemon=True, name="fifo-opener")
   t.start()
   return t
+
+
+def _cam_worker(fifo_path: str) -> None:
+  """Reads camera detections from FIFO_CAM and publishes to CAM_TOPIC."""
+  cam_client = mqtt.Client(client_id=f"cam-worker-{uuid.uuid4().hex[:8]}")
+  if os.path.exists(ROOT_CA):
+    cam_client.tls_set(ca_certs=ROOT_CA)
+  for attempt in range(10):
+    try:
+      cam_client.connect(BROKER, PORT, keepalive=60)
+      cam_client.loop_start()
+      print(f"[cam-worker] Connected to {BROKER}:{PORT}", flush=True)
+      break
+    except Exception as exc:
+      print(f"[cam-worker] Connect attempt {attempt + 1}/10 failed: {exc}", flush=True)
+      time.sleep(2)
+  else:
+    print("[cam-worker] Could not connect to MQTT broker", flush=True)
+    return
+
+  try:
+    fps = float(FRAME_RATE)
+    last_ts: "float | None" = None
+    published = 0
+    with open(fifo_path, "r") as fifo:
+      for line in fifo:
+        line = line.strip()
+        if not line:
+          continue
+        try:
+          raw = json.loads(line)
+        except json.JSONDecodeError as exc:
+          print(f"[cam-worker] JSON error frame={published}: {exc}", flush=True)
+          continue
+        now = time.time()
+        if last_ts is not None:
+          fps = 0.9 * fps + 0.1 * (1.0 / max(now - last_ts, 0.001))
+        last_ts = now
+        cam_msg = build_cam_message(raw, CAM_SENSOR_ID, fps)
+        if sum(len(v) for v in cam_msg["objects"].values()) > 0:
+          result = cam_client.publish(CAM_TOPIC, json.dumps(cam_msg), qos=0)
+          if result.rc != mqtt.MQTT_ERR_SUCCESS:
+            print(f"[cam-worker] Publish failed rc={result.rc}", flush=True)
+        published += 1
+        if published % 100 == 0:
+          counts = {k: len(v) for k, v in cam_msg["objects"].items()}
+          print(f"[cam-worker] frames={published} fps={fps:.1f} cam={counts}", flush=True)
+  finally:
+    try:
+      cam_client.loop_stop()
+      cam_client.disconnect()
+    except Exception:
+      pass
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -382,6 +431,16 @@ def main() -> None:
   fifo_result: list = [None]
   fifo_thread = _open_fifo_background(fifo_result)
 
+  # Open the camera FIFO in a background thread (blocks until the GStreamer
+  # pipeline opens the write end, confirming the pipeline is running).
+  cam_fifo_ready: list = [False]
+  def _open_cam_fifo():
+    f = open(FIFO_CAM, "r")
+    f.close()
+    cam_fifo_ready[0] = True
+  cam_fifo_thread = threading.Thread(target=_open_cam_fifo, daemon=True, name="cam-fifo-opener")
+  cam_fifo_thread.start()
+
   client = connect_mqtt()
 
   @atexit.register
@@ -392,15 +451,26 @@ def main() -> None:
         proc.wait(timeout=5)
       except subprocess.TimeoutExpired:
         proc.kill()
-    try:
-      os.remove(FIFO)
-    except FileNotFoundError:
-      pass
+    for path in (FIFO, FIFO_CAM):
+      try:
+        os.remove(path)
+      except FileNotFoundError:
+        pass
     _mqtt_state.shutdown()
 
   fifo_thread.join(timeout=30.0)
   if fifo_result[0] is None:
-    raise RuntimeError("FIFO not opened within 30 s — pipeline likely failed to start")
+    raise RuntimeError("LiDAR FIFO not opened within 30 s — pipeline likely failed to start")
+
+  cam_fifo_thread.join(timeout=30.0)
+  if not cam_fifo_ready[0]:
+    raise RuntimeError("Camera FIFO not opened within 30 s — pipeline likely failed to start")
+
+  # Start camera worker in a daemon thread; it processes FIFO_CAM independently.
+  cam_thread = threading.Thread(
+    target=_cam_worker, args=(FIFO_CAM,), daemon=True, name="cam-worker"
+  )
+  cam_thread.start()
 
   published = 0
   fps     = float(FRAME_RATE)
