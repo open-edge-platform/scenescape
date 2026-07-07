@@ -1,7 +1,7 @@
 {
-  "name": "scenescape-ci",
+  "name": "scenescape-ci-dependencies",
   "version": "0.1.0",
-  "description": "Scenescape CI dependencies",
+  "description": "SceneScape NPM dependencies used in CI",
   "private": true,
   "license": "Apache-2.0",
   "engines": {
