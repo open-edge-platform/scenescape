@@ -10,7 +10,6 @@ from urllib.parse import urlparse
 from tests.ui.browser import By
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
