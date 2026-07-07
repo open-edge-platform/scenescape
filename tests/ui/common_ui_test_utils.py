@@ -1132,117 +1132,29 @@ def click_element_when_ready(browser, element_id, wait_time=1, delay=0):
   browser.find_element(By.ID, element_id).click()
   browser.actionChains().pause(wait_time).perform()
 
-# JavaScript that installs a small buffer to record the failure signals the 3D
-# load pipeline would otherwise only write to the browser console (which
-# geckodriver does not expose to Selenium). It captures the GLTFLoader onError
-# message ("Error loading glTF: ..." in thing/scene.js), uncaught JS errors, and
-# unhandled promise rejections. It is installed right after navigation; the
-# WebGLRenderer is created during page load before this runs, but its absence is
-# still observable via the 'webgl' field of the load-state below. Idempotent.
-_INSTALL_LOAD_CAPTURE_SCRIPT = """
-  if (window.__sceneLoadDiag) { return; }
-  const diag = { consoleErrors: [], jsErrors: [] };
-  window.__sceneLoadDiag = diag;
-  const record = (bucket, msg) => {
-    if (bucket.length < 20) { bucket.push(String(msg)); }
-  };
-  for (const level of ['error', 'warn', 'log']) {
-    const original = console[level].bind(console);
-    console[level] = (...args) => {
-      const text = args.map(String).join(' ');
-      if (/glTF|Error|Failed|Unable/i.test(text)) {
-        record(diag.consoleErrors, level + ': ' + text);
-      }
-      original(...args);
-    };
-  }
-  window.addEventListener('error', (e) =>
-    record(diag.jsErrors, (e.message || '') + ' @ ' + (e.filename || '')));
-  window.addEventListener('unhandledrejection', (e) =>
-    record(diag.jsErrors, 'unhandledrejection: ' + (e.reason && e.reason.message
-      ? e.reason.message : e.reason)));
-"""
-
-# JavaScript that reports the observable state of the 3D scene load pipeline
-_LOAD_STATE_SCRIPT = """
-  const wrapper = document.getElementById('loader-progress-wrapper');
-  const bar = wrapper ? wrapper.querySelector('.progress-bar') : null;
-  const canvas = document.getElementById('scene');
-  let glState = 'no-canvas';
-  if (canvas) {
-    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
-      || canvas.getContext('experimental-webgl');
-    glState = gl ? (gl.isContextLost && gl.isContextLost() ? 'context-lost' : 'ok')
-      : 'no-context';
-  }
-  const diag = window.__sceneLoadDiag || { consoleErrors: [], jsErrors: [] };
-  return {
-    progressDisplay: wrapper ? getComputedStyle(wrapper).display : 'no-wrapper',
-    progressPercent: bar ? bar.getAttribute('aria-valuenow') : null,
-    progressText: bar ? bar.innerText : null,
-    controlPanels: document.querySelectorAll('[id$="-control-panel"]').length,
-    canvasSize: canvas ? (canvas.width + 'x' + canvas.height) : 'no-canvas',
-    webgl: glState,
-    consoleErrors: diag.consoleErrors,
-    jsErrors: diag.jsErrors,
-  };
-"""
-
-def install_3d_load_capture(browser):
-  """! Install the browser-side capture buffer for 3D load failure signals.
-
-  @param    browser                    Object wrapping the Selenium driver.
-  """
-  try:
-    browser.execute_script(_INSTALL_LOAD_CAPTURE_SCRIPT)
-  except Exception:
-    pass  # Diagnostics only; never fail a test because capture could not install.
-
-def capture_3d_load_state(browser):
-  """! Read the observable state of the 3D scene load pipeline for diagnostics.
-
-  @param    browser                    Object wrapping the Selenium driver.
-  @return   dict|None                  Load-state fields, or None if unreadable.
-  """
-  try:
-    return browser.execute_script(_LOAD_STATE_SCRIPT)
-  except Exception as exc:
-    return {"error": str(exc)}
-
 def load_3d_scene_page(browser, scene_path, panel_id="camera1-control-panel",
-                       attempts=3, panel_timeout=120):
-  """! Open a 3D scene page and wait for a camera control panel to be ready.
+                       panel_timeout=120):
+  """! Open a 3D scene page and wait for a camera control panel to be clickable.
+
+  Camera control panels are only created after the scene's map (GLTF or 2D
+  texture) has finished loading and `loadThings()` has run in
+  `manager/static/js/thing/scene.js`. Waiting for the panel to be clickable is
+  therefore a reliable "3D scene fully loaded" gate.
 
   @param    browser                    Object wrapping the Selenium driver.
   @param    scene_path                 Path of the 3D scene detail page.
   @param    panel_id                   DOM id of the camera control panel to await.
-  @param    attempts                   Number of full (re)load attempts.
-  @param    panel_timeout              Seconds to wait for the panel per attempt.
+  @param    panel_timeout              Seconds to wait for the panel.
   @return   bool                       True if the panel became clickable.
   """
-  for attempt in range(1, attempts + 1):
-    if not navigate_directly_to_page(browser, scene_path):
-      print(f"[3d-load] navigation to {scene_path} failed "
-            f"(attempt {attempt}/{attempts})")
-      continue
-    install_3d_load_capture(browser)
-    try:
-      WebDriverWait(browser, panel_timeout).until(
-        EC.element_to_be_clickable((By.ID, panel_id)))
-      return True
-    except TimeoutException:
-      # Sample the state twice to distinguish a stalled/failed load (progress
-      # frozen) from a merely slow one (progress still advancing) before the
-      # reload retry throws the evidence away.
-      first = capture_3d_load_state(browser)
-      time.sleep(3)
-      second = capture_3d_load_state(browser)
-      advancing = (isinstance(first, dict) and isinstance(second, dict)
-                   and first.get("progressPercent") != second.get("progressPercent"))
-      print(f"[3d-load] {panel_id} not ready after {panel_timeout}s "
-            f"(attempt {attempt}/{attempts}); progress_advancing={advancing}; "
-            f"state={second}")
-  return False
+  if not navigate_directly_to_page(browser, scene_path):
+    return False
+  try:
+    WebDriverWait(browser, panel_timeout).until(
+      EC.element_to_be_clickable((By.ID, panel_id)))
+    return True
+  except TimeoutException:
+    return False
 
 def create_orphan_camera(browser, camera_name, camera_id):
   """! Creates camera in a scene then deletes the scene.

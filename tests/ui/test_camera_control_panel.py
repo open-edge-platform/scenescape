@@ -88,8 +88,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       log.info("Navigate to the Scene detail page.")
       scene_path = f"/scene/detail/{common.TEST_SCENE_ID}/"
       assert common.load_3d_scene_page(self.browser, scene_path), \
-        "camera1-control-panel did not appear (3D scene map failed to load); " \
-        "see [3d-load] state logs above for the failing stage"
+        "camera1-control-panel did not appear (3D scene failed to load)"
 
       log.info("Expand camera1 controls")
       # Use camera panel loaded to detect 3D components loaded on page

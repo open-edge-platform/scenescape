@@ -51,8 +51,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Turn off tracked objects and hide stats graph.")
     assert common.load_3d_scene_page(browser, scene_path), \
-      "camera1-control-panel did not appear (3D scene map failed to load); " \
-      "see [3d-load] state logs above for the failing stage"
+      "camera1-control-panel did not appear (3D scene failed to load)"
     common.click_element_when_ready(browser, "camera1-control-panel")
     time.sleep(WAIT_SEC)
     browser.find_element(By.ID, "tracked-objects-button").click()
