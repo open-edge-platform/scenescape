@@ -33,6 +33,7 @@ jobs:
           cp .github/resources/package.json package.json
           npm install
           rm package.json
+          npx  prettier -v
       - name: "Install GHA linter"
         run: |
           bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.7
