@@ -15,6 +15,7 @@ RUNTIME_OS_IMAGE ?= $(shell sed -n 's/^ARG RUNTIME_OS_IMAGE=//p' Dockerfile)
 
 default: build-image
 
+.PHONY: $(BUILD_DIR)
 $(BUILD_DIR):
 	mkdir -p $@/intel
 

@@ -28,13 +28,13 @@ These components communicate using canonical data formats defined by JSON schema
 **System requirements**:
 
 - Docker installed and running on the host machine
-- Scenescape scene controller container image available locally (e.g., `scenescape-controller:2026.0.0-dev`)
+- Scenescape scene controller container image available locally (e.g., `intel/scenescape-controller:2026.0.0-dev`)
 
 To verify Docker is available:
 
 ```bash
 docker --version
-docker images | grep scenescape-controller
+docker images | grep intel/scenescape-controller
 ```
 
 ### Installation
@@ -428,7 +428,7 @@ Verify Docker setup:
 
 ```bash
 docker --version
-docker images | grep scenescape-controller
+docker images | grep intel/scenescape-controller
 ```
 
 ### Expected Test Results

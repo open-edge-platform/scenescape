@@ -32,7 +32,7 @@ Harnesses handle tracker-specific deployment details (containers, processes, API
 **Prerequisites**:
 
 - Docker installed and running
-- Scene controller image available (e.g., `scenescape-controller:2026.0.0-dev`)
+- Scene controller image available (e.g., `intel/scenescape-controller:2026.0.0-dev`)
 - Tracker configuration file
 
 **Configuration**:
@@ -52,7 +52,7 @@ dataset = UnityDataset("path/to/dataset")
 dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
 # Initialize harness with container image
-harness = SceneControllerHarness(container_image='scenescape-controller:2026.0.0-dev')
+harness = SceneControllerHarness(container_image='intel/scenescape-controller:2026.0.0-dev')
 
 # Configure harness
 harness.set_scene_config(dataset.get_scene_config())  # Dataset-specific format
@@ -128,7 +128,7 @@ The tracker runs with configurable timing modes:
 **Prerequisites**:
 
 - Docker installed and running
-- Scenescape controller image available (e.g., `scenescape-controller:2026.1.0-dev`)
+- Scenescape controller image available (e.g., `intel/scenescape-controller:2026.1.0-dev`)
 
 **Configuration**:
 
@@ -139,7 +139,7 @@ from datasets.unity_dataset import UnityDataset
 dataset = UnityDataset("path/to/dataset")
 dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
-harness = CameraProjectionHarness(container_image="scenescape-controller:2026.1.0-dev")
+harness = CameraProjectionHarness(container_image="intel/scenescape-controller:2026.1.0-dev")
 harness.set_scene_config(dataset.get_scene_config())
 
 outputs = list(harness.process_inputs(dataset.get_inputs()))
