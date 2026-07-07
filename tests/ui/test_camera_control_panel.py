@@ -86,13 +86,11 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       assert self.login()
 
       log.info("Navigate to the Scene detail page.")
-      scene_path = f"/scene/detail/{common.TEST_SCENE_ID}/"
-      assert common.load_3d_scene_page(self.browser, scene_path), \
-        "camera1-control-panel did not appear (3D scene failed to load)"
+      common.navigate_directly_to_page(self.browser, f"/scene/detail/{common.TEST_SCENE_ID}/")
 
       log.info("Expand camera1 controls")
       # Use camera panel loaded to detect 3D components loaded on page
-      self.clickOnElement("camera1-control-panel")
+      self.clickOnElement("camera1-control-panel", delay=100)
 
       log.info("Take initial 3D screenshot")
       # Screenshot is taken after camera panel is expanded due to camera control on 3D plane will be highlighted after expanding the specific camera panel

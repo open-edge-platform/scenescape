@@ -6,6 +6,8 @@ import time
 import numpy as np
 from PIL import Image
 from io import BytesIO
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 from tests.diagnostic import Diagnostic
 from .browser import Browser
@@ -64,8 +66,24 @@ class UserInterfaceTest(Diagnostic):
     @param    waitTime        Length of time to wait after performing action
     @param    delay           Length of time to wait for element before performing action
     """
-    common.click_element_when_ready(self.browser, elementId, wait_time=waitTime,
-                                    delay=delay)
+    try:
+      alert = WebDriverWait(self.browser, 2).until(
+        EC.presence_of_element_located((self.By.CLASS_NAME, "alert-success"))
+      )
+      close_button = alert.find_element(self.By.CSS_SELECTOR, "button.close")
+      close_button.click()
+      # Wait for alert to disappear
+      WebDriverWait(self.browser, 2).until(
+        EC.invisibility_of_element(alert)
+      )
+    except Exception:
+      pass  # No alert present or already dismissed
+
+    if delay > 0:
+      WebDriverWait(self.browser, delay).until(
+        EC.element_to_be_clickable((self.By.ID, elementId)))
+    self.browser.find_element(self.By.ID, elementId).click()
+    self.browser.actionChains().pause(waitTime).perform()
 
   def compareImages(self, baseImage, Image, comparisonThreshold=common.DEFAULT_IMAGE_SSIM_THRESHOLD):
     return common.are_images_similar(baseImage, Image, comparisonThreshold)

@@ -45,15 +45,14 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     browser = Browser(webgl=True)
     assert common.check_page_login(browser, params)
+    assert common.check_db_status(browser)
 
     interaction_page = common.InteractWith3DScene(browser)
-    scene_path = f"/scene/detail/{common.TEST_SCENE_ID}/"
+    common.navigate_directly_to_page(browser, f"/scene/detail/{common.TEST_SCENE_ID}/")
 
     log.info("Turn off tracked objects and hide stats graph.")
-    assert common.load_3d_scene_page(browser, scene_path), \
-      "camera1-control-panel did not appear (3D scene failed to load)"
-    common.click_element_when_ready(browser, "camera1-control-panel")
     time.sleep(WAIT_SEC)
+    common.selenium_wait_for_elements(browser, (By.ID, "camera1-control-panel"), 100)
     browser.find_element(By.ID, "tracked-objects-button").click()
     interaction_page.hide_stats()
 

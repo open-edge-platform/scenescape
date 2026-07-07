@@ -24,7 +24,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, replace
 from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 from skimage.metrics import structural_similarity as ssim
 
 from tests.common_test_utils import record_test_result
@@ -1107,54 +1106,6 @@ def selenium_wait_for_elements(browser, search_phrase, timeout=20):
   @returns    bool                     Boolean which is true if element loaded before timeout.
   """
   return WebDriverWait(browser, timeout).until(EC.visibility_of_element_located(search_phrase))
-
-def click_element_when_ready(browser, element_id, wait_time=1, delay=0):
-  """! Dismiss any success toast, wait for an element to be clickable, then click it.
-
-  @param    browser                    Object wrapping the Selenium driver.
-  @param    element_id                 DOM id of the element to click.
-  @param    wait_time                  Seconds to pause after clicking.
-  @param    delay                      Seconds to wait for the element to be clickable
-                                       (0 clicks immediately without waiting).
-  """
-  try:
-    alert = WebDriverWait(browser, 2).until(
-      EC.presence_of_element_located((By.CLASS_NAME, "alert-success")))
-    alert.find_element(By.CSS_SELECTOR, "button.close").click()
-    # Wait for alert to disappear
-    WebDriverWait(browser, 2).until(EC.invisibility_of_element(alert))
-  except Exception:
-    pass  # No alert present or already dismissed
-
-  if delay > 0:
-    WebDriverWait(browser, delay).until(
-      EC.element_to_be_clickable((By.ID, element_id)))
-  browser.find_element(By.ID, element_id).click()
-  browser.actionChains().pause(wait_time).perform()
-
-def load_3d_scene_page(browser, scene_path, panel_id="camera1-control-panel",
-                       panel_timeout=120):
-  """! Open a 3D scene page and wait for a camera control panel to be clickable.
-
-  Camera control panels are only created after the scene's map (GLTF or 2D
-  texture) has finished loading and `loadThings()` has run in
-  `manager/static/js/thing/scene.js`. Waiting for the panel to be clickable is
-  therefore a reliable "3D scene fully loaded" gate.
-
-  @param    browser                    Object wrapping the Selenium driver.
-  @param    scene_path                 Path of the 3D scene detail page.
-  @param    panel_id                   DOM id of the camera control panel to await.
-  @param    panel_timeout              Seconds to wait for the panel.
-  @return   bool                       True if the panel became clickable.
-  """
-  if not navigate_directly_to_page(browser, scene_path):
-    return False
-  try:
-    WebDriverWait(browser, panel_timeout).until(
-      EC.element_to_be_clickable((By.ID, panel_id)))
-    return True
-  except TimeoutException:
-    return False
 
 def create_orphan_camera(browser, camera_name, camera_id):
   """! Creates camera in a scene then deletes the scene.

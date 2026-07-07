@@ -18,26 +18,6 @@ import subprocess
 
 MAX_RETRIES = 5
 RETRY_DELAY = 30
-DRIVER_START_RETRIES = 5
-DRIVER_START_DELAY = 5
-
-def _reap_orphan_geckodrivers():
-  """Kill leftover geckodriver processes (and any Firefox children they spawned). """
-  try:
-    import psutil
-  except Exception:
-    return
-  for proc in psutil.process_iter(["name"]):
-    try:
-      if "geckodriver" in (proc.info.get("name") or "").lower():
-        for child in proc.children(recursive=True):
-          try:
-            child.kill()
-          except psutil.Error:
-            pass
-        proc.kill()
-    except psutil.Error:
-      continue
 
 def _validate_firefox(binary):
   result = subprocess.run([binary, "--version"], capture_output=True, text=True)
@@ -110,14 +90,6 @@ class Browser(Firefox):
     options.add_argument("--width=1080")
     options.add_argument("--height=1920")
     options.set_preference("webgl.disabled", not webgl)
-    if webgl:
-      options.set_preference("webgl.force-enabled", True)
-      # Allow a software (llvmpipe) WebGL context. Firefox otherwise refuses to
-      # create one on GPU-less runners.
-      options.set_preference("webgl.forbid-software", False)
-      options.set_preference("webgl.disable-fail-if-major-performance-caveat", True)
-      options.set_preference("gfx.canvas.accelerated", False)
-      options.set_preference("layers.acceleration.disabled", True)
     options.set_preference("media.hardware-video-decoding.enabled", False)
     options.set_preference("gfx.webrender.software", True)
     options.set_preference("network.proxy.type", 0)
@@ -137,31 +109,8 @@ class Browser(Firefox):
       "vdms.scenescape.intel.com",
     ]
     options.set_preference("network.dns.localDomains", ",".join(_host_aliases))
-    geckodriver_path = _find_geckodriver()
-
-    last_exc = None
-    for attempt in range(1, DRIVER_START_RETRIES + 1):
-      # Use a fresh Service each attempt
-      service = Service(geckodriver_path)
-      try:
-        super().__init__(options=options, service=service)
-        last_exc = None
-        break
-      except WebDriverException as exc:
-        last_exc = exc
-        try:
-          service.stop()
-        except Exception:
-          pass
-        if attempt < DRIVER_START_RETRIES:
-          _reap_orphan_geckodrivers()
-          delay = DRIVER_START_DELAY * attempt
-          print(f"geckodriver failed to start (attempt {attempt}/"
-                f"{DRIVER_START_RETRIES}): {exc}. Retrying in {delay}s...")
-          time.sleep(delay)
-
-    if last_exc is not None:
-      raise last_exc
+    service = Service(_find_geckodriver())
+    super().__init__(options=options, service=service)
 
   def getPage(self, url, expected_title, retries=MAX_RETRIES, delay=RETRY_DELAY):
     '''
