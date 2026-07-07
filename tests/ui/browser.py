@@ -47,7 +47,7 @@ def _find_firefox_binary():
   )
 
 class Browser(Firefox):
-  def __init__(self, headless=True):
+  def __init__(self, headless=True, webgl=False):
     # Remove proxy settings safely
     for key in list(os.environ):
       if 'proxy' in key.lower():
@@ -63,7 +63,7 @@ class Browser(Firefox):
 
     options.add_argument("--width=1080")
     options.add_argument("--height=1920")
-    options.set_preference("webgl.disabled", True)
+    options.set_preference("webgl.disabled", not webgl)
     options.set_preference("media.hardware-video-decoding.enabled", False)
     options.set_preference("gfx.webrender.software", True)
     options.set_preference("network.proxy.type", 0)
@@ -73,7 +73,7 @@ class Browser(Firefox):
     options.binary_location = binary
 
     options.add_argument("--window-size=1080,1920")
-    # Resolve SceneScape service hostnames to loopback inside the Firefox process.
+    # Resolve Scenescape service hostnames to loopback inside the Firefox process.
     # This applies to geckodriver subprocess, which is unaffected by the Python-level
     # socket.getaddrinfo patch in conftest.py.
     _host_aliases = [

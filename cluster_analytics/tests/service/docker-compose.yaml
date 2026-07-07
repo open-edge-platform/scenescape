@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Test environment for cluster analytics service.
+# Uses plain (non-TLS) MQTT with anonymous access so no certificates
+# are required.  The cluster-analytics service skips TLS automatically
+# when the rootcert file is absent.
+
+networks:
+  ca-test:
+
+services:
+  broker:
+    image: eclipse-mosquitto:2.0.22
+    networks:
+      - ca-test
+    ports:
+      - "1883"
+    configs:
+      - source: mosquitto-config
+        target: /mosquitto/config/mosquitto.conf
+    restart: no
+
+  cluster-analytics:
+    image: scenescape-cluster-analytics-test
+    init: true
+    networks:
+      ca-test:
+        aliases:
+          - cluster-analytics
+    depends_on:
+      - broker
+    # --brokerauth "test:test": valid user:password syntax; mosquitto
+    # allows it because allow_anonymous true is set.
+    # --rootcert /nonexistent: file absent → PubSub skips TLS → plain 1883.
+    command: >
+      --broker broker
+      --brokerauth test:test
+      --rootcert /nonexistent
+    restart: no
+
+configs:
+  mosquitto-config:
+    content: |
+      listener 1883
+      allow_anonymous true
+      persistence false
+      log_type error

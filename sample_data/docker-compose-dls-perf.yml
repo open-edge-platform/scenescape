@@ -122,12 +122,12 @@ services:
       retries: 10
       start_period: 10s
     environment:
-      - EXAMPLEDB=/home/scenescape/SceneScape/sample_data/exampledb.tar.bz2
+      - EXAMPLEDB=/home/scenescape/Scenescape/sample_data/exampledb.tar.bz2
       - SUPASS=${SUPASS}
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-sample-data:/home/scenescape/Scenescape/sample_data
       - vol-migrations:/workspace/migrations
     secrets:
       - source: root-cert
@@ -173,12 +173,12 @@ services:
     # mount the trackerconfig file to the container
     configs:
       - source: tracker-config
-        target: /home/scenescape/SceneScape/tracker-config.json
+        target: /home/scenescape/Scenescape/tracker-config.json
       - source: reid-config
-        target: /home/scenescape/SceneScape/reid-config.json
+        target: /home/scenescape/Scenescape/reid-config.json
     volumes:
-      - vol-media:/home/scenescape/SceneScape/media
-      - vol-sample-data:/home/scenescape/SceneScape/sample_data
+      - vol-media:/home/scenescape/Scenescape/media
+      - vol-sample-data:/home/scenescape/Scenescape/sample_data
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -242,7 +242,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.1.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260630-weekly-ubuntu24
     privileged: true
     networks:
       scenescape:
@@ -360,8 +360,8 @@ services:
       - HTTPS_PROXY=${HTTPS_PROXY}
       - NO_PROXY=${NO_PROXY}
     volumes:
-      - vol-media:/home/scenescape/SceneScape/media
-      - vol-datasets:/home/scenescape/SceneScape/datasets
+      - vol-media:/home/scenescape/Scenescape/media
+      - vol-datasets:/home/scenescape/Scenescape/datasets
       - vol-netvlad_models:/usr/local/lib/python3.11/site-packages/third_party/netvlad
     secrets:
       - source: root-cert

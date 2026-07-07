@@ -361,7 +361,12 @@ function main() {
       console.log("MQTT error: " + e);
     });
 
-    assetManager = AssetManager(scene, subscribeToTracking);
+    assetManager = AssetManager(
+      scene,
+      subscribeToTracking,
+      sceneViewCamera,
+      renderer.domElement,
+    );
     assetManager.loadAssets(gltfLoader);
     enableLiveView();
   }
@@ -609,6 +614,7 @@ function main() {
 
     stats.update();
     renderer.render(scene, sceneViewCamera);
+    if (assetManager) assetManager.renderLabels();
     requestAnimationFrame(render);
   }
 
@@ -636,6 +642,7 @@ function main() {
 
     orbitControls.enabled = false;
     sceneViewCamera = orthographicCamera;
+    if (assetManager) assetManager.setCamera(orthographicCamera);
   }
 
   // Set the camera to 3D perspective view
@@ -650,6 +657,7 @@ function main() {
 
     orbitControls.enabled = true;
     sceneViewCamera = perspectiveCamera;
+    if (assetManager) assetManager.setCamera(perspectiveCamera);
   }
 
   // Reset the view to the default position (set with controls.saveState())

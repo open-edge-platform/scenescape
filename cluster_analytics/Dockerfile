@@ -9,7 +9,7 @@ FROM intel/scenescape-common-base AS scenescape-cluster-analytics-builder
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-cluster-analytics-runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape's Scene Cluster Analytics Service"
+LABEL org.opencontainers.image.description="Scenescape's Scene Cluster Analytics Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -19,7 +19,7 @@ ARG USER_ID=1001
 ARG GROUP_ID=1001
 ARG CERTDOMAIN=scenescape.intel.com
 ENV WSUSER=scenescape
-ENV SCENESCAPE_HOME=/home/$WSUSER/SceneScape
+ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -42,10 +42,9 @@ RUN : \
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir --upgrade setuptools wheel
 
-COPY cluster_analytics/requirements-runtime.txt cluster_analytics/tools/webui/requirements-webui.txt /tmp/
+COPY cluster_analytics/requirements-runtime.txt /tmp/
 RUN pip install --no-cache-dir \
         -r /tmp/requirements-runtime.txt \
-        -r /tmp/requirements-webui.txt \
     && rm -rf /tmp/*.txt
 
 # Copy compiled packages from builder (use system site-packages directly)
@@ -61,15 +60,28 @@ COPY --chown=$WSUSER:$WSUSER --from=scenescape-cluster-analytics-builder \
 COPY --chown=$USER_ID:$GROUP_ID --from=scenescape-cluster-analytics-builder \
     /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
 
-# Copy application code, config, and tools
+# Copy application code and config
 COPY --chown=$USER_ID:$GROUP_ID ./cluster_analytics/src /app
 COPY --chown=$USER_ID:$GROUP_ID ./cluster_analytics/config /app/config
-COPY --chown=$USER_ID:$GROUP_ID ./cluster_analytics/tools /app/tools
 
 USER $USER_ID:$GROUP_ID
 HEALTHCHECK CMD true
 
 ENTRYPOINT ["python3", "/app/cluster_analytics.py"]
+
+# ---------- Cluster Analytics Demo Stage ------------------
+# Extends the runtime image with WebUI for visualization demos
+FROM scenescape-cluster-analytics-runtime AS scenescape-cluster-analytics-demo
+
+ARG USER_ID=1001
+ARG GROUP_ID=1001
+
+COPY --chown=$USER_ID:$GROUP_ID cluster_analytics/tools/webui/requirements-webui.txt /tmp/
+
+RUN pip install --no-cache-dir -r /tmp/requirements-webui.txt \
+    && rm -rf /tmp/*.txt
+
+COPY --chown=$USER_ID:$GROUP_ID ./cluster_analytics/tools /app/tools
 
 # ---------- Cluster Analytics Test Stage ------------------
 FROM scenescape-cluster-analytics-runtime AS scenescape-cluster-analytics-test

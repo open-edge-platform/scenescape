@@ -52,6 +52,7 @@ jsm/libs/stats.module.js \
 jsm/libs/zstddec.module.js \
 jsm/loaders/GLTFLoader.js \
 jsm/loaders/FontLoader.js \
+jsm/renderers/CSS2DRenderer.js \
 jsm/utils/BufferGeometryUtils.js \
 jsm/utils/SkeletonUtils.js \
 jsm/utils/WorkerPool.js \

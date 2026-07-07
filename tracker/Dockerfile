@@ -74,7 +74,7 @@ WORKDIR /scenescape
 FROM ${RUNTIME_OS_IMAGE} AS runtime
 
 # Label image with description and metadata
-LABEL org.opencontainers.image.description="Intel® SceneScape Tracker Service"
+LABEL org.opencontainers.image.description="Scenescape Tracker Service"
 LABEL org.opencontainers.image.vendor="Intel Corporation"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.source="https://github.com/open-edge-platform/scenescape"
@@ -96,7 +96,7 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
 CMD ["/scenescape/tracker", "--config", "/scenescape/config/tracker.json", "--schema", "/scenescape/schema/config.schema.json"]
 
 # --- Debug stage (for development with gdbserver) ---
-FROM debian:13-slim@sha256:cedb1ef40439206b673ee8b33a46a03a0c9fa90bf3732f54704f99cb061d2c5a AS debug
+FROM debian:13-slim@sha256:4e401d95de7083948053197a9c3913343cd06b706bf15eb6a0c3ccd26f436a0e AS debug
 
 # hadolint ignore=DL3008
 RUN apt-get update -qq \

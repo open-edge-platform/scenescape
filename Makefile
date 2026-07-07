@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# ================ Makefile for Intel® SceneScape ====================
+# ================ Makefile for Scenescape ====================
 
 # =========================== Variables ==============================
 SHELL := /bin/bash
@@ -76,25 +76,26 @@ build-experimental: build-experimental-images
 .PHONY: help
 help:
 	@echo ""
-	@echo "Intel® SceneScape version $(VERSION)"
+	@echo "Scenescape version $(VERSION)"
 	@echo ""
 	@echo "Available targets:"
 	@echo "  build-core        (default) Build secrets, core images (excluding mapping, cluster_analytics, and tracker), and install models"
 	@echo "  build-all                   Build secrets, all images, and install models"
-	@echo "  build-experimental          Build experimental images only (mapping, cluster_analytics, and tracker)"
+	@echo "  build-experimental          Build experimental images only (mapping and tracker)"
 	@echo "  build-core-images           Build core microservice images (excluding mapping, cluster_analytics, and tracker) in parallel"
 	@echo "  build-all-images            Build all microservice images in parallel"
-	@echo "  build-experimental-images   Build experimental microservice images (mapping, cluster_analytics, and tracker) in parallel"
+	@echo "  build-experimental-images   Build experimental microservice images (mapping and tracker) in parallel"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
-	@echo "  demo                        (default) Start the SceneScape demo with core services using Docker Compose"
-	@echo "  demo-all                    Start the SceneScape demo with all services using Docker Compose"
+	@echo "  demo                        (default) Start the Scenescape demo with core services using Docker Compose"
+	@echo "  demo-all                    Start the Scenescape demo with all services using Docker Compose"
+	@echo "  demo-cluster-analytics      Start the Scenescape demo with cluster analytics service using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
-	@echo "                              as the super user password for logging into Intel® SceneScape)"
-	@echo "  demo-tracker                Start the SceneScape demo with Tracker service + Controller in analytics only mode using Docker Compose"
-	@echo "  demo-close                  Stop the running SceneScape demo and remove all volumes"
-	@echo "  demo-k8s                    Start the SceneScape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
+	@echo "                              as the super user password for logging into Scenescape)"
+	@echo "  demo-tracker                Start the Scenescape demo with Tracker service + Controller in analytics only mode using Docker Compose"
+	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
+	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|all, default: core)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -144,12 +145,12 @@ help:
 	@echo "  add-licensing FILE=<file>   Add licensing headers to a file"
 	@echo ""
 	@echo "Usage:"
-	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Intel® SceneScape and run demo using Docker Compose."
-	@echo "  - Use 'make build-all demo-k8s DEMO_K8S_MODE=all' to build Intel® SceneScape and run demo using Kubernetes with all services."
+	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Scenescape and run demo using Docker Compose."
+	@echo "  - Use 'make build-all demo-k8s DEMO_K8S_MODE=all' to build Scenescape and run demo using Kubernetes with all services."
 	@echo ""
 	@echo "Tips:"
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
-	@echo "  - Use 'make JOBS=N' to build Intel® SceneScape images using N parallel processes."
+	@echo "  - Use 'make JOBS=N' to build Scenescape images using N parallel processes."
 	@echo "  - Use 'make FOLDERS=\"<list of image folders>\"' to build specific image folders."
 	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
 	@echo ""
@@ -198,13 +199,13 @@ build-core-images: $(BUILD_DIR)
 	$(MAKE) -j$(JOBS) $(CORE_IMAGE_FOLDERS)
 	@echo "DONE ==> Parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
 
-# Parallel wrapper for experimental images (mapping, cluster_analytics, and tracker)
+# Parallel wrapper for experimental images (mapping and tracker)
 .PHONY: build-experimental-images
 build-experimental-images: $(BUILD_DIR)
-	@echo "==> Running parallel builds of experimental folders: mapping cluster_analytics tracker"
+	@echo "==> Running parallel builds of experimental folders: mapping tracker"
 	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
-	$(MAKE) -j$(JOBS) mapping cluster_analytics tracker
-	@echo "DONE ==> Parallel builds of experimental folders: mapping cluster_analytics tracker"
+	$(MAKE) -j$(JOBS) mapping tracker
+	@echo "DONE ==> Parallel builds of experimental folders: mapping tracker"
 
 # ===================== Cleaning and Rebuilding =======================
 .PHONY: rebuild-core-images
@@ -661,7 +662,7 @@ define start_demo
 	@$(MAKE) .env
 	@if [ -z "$$SUPASS" ]; then \
 		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
-		echo "The SUPASS environment variable is the super user password for logging into Intel® SceneScape."; \
+		echo "The SUPASS environment variable is the super user password for logging into Scenescape."; \
 		exit 1; \
 	fi
 	@if [ "$$BROKER_PORT" != "" ] && [ "$$BROKER_PORT" != "1883" ]; then \
@@ -675,7 +676,7 @@ define start_demo
 	docker compose $(1) up -d
 	@echo "$(1)" > .scenescape-profile
 	@echo ""
-	@echo "To stop SceneScape, type:"
+	@echo "To stop Scenescape, type:"
 	@echo "    docker compose $(1) down"
 	@echo "Or use: make demo-close"
 endef
@@ -686,7 +687,11 @@ demo: build-core init-sample-data
 
 .PHONY: demo-all
 demo-all: build-all init-sample-data
-	$(call start_demo,--profile controller --profile experimental)
+	$(call start_demo,--profile controller --profile cluster-analytics --profile experimental)
+
+.PHONY: demo-cluster-analytics
+demo-cluster-analytics: build-all init-sample-data
+	$(call start_demo,--profile controller --profile cluster-analytics)
 
 .PHONY: demo-tracker
 demo-tracker: build-all init-sample-data

@@ -6,7 +6,7 @@ These tests check if system runs correctly for 24 hours
 
 ### Stability
 
-Starts Intel® SceneScape and monitors every 30 seconds for a duration of 24 hours.
+Starts Scenescape and monitors every 30 seconds for a duration of 24 hours.
 The test monitors and tracks MQTT published messages, and tracks each of the sensors against each other and against the running average for that sensor.
 The test will also try and log-in to the webserver every 30 seconds.
 The test also samples system memory usage every cycle and checks for sustained growth across the run.
@@ -17,7 +17,7 @@ It also fails when the moving-average memory trend indicates potential leak-like
 
 Note: The scripts will get the user/password combination from controller.auth.
 
-Go to Intel® SceneScape directory, and execute the stability test:
+Go to Scenescape directory, and execute the stability test:
 
 ```bash
 make SUPASS=admin123 -C tests system-stability

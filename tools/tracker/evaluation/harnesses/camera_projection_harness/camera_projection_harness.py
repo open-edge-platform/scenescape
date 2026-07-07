@@ -91,7 +91,7 @@ class CameraProjectionHarness(TrackerHarness):
     """Set scene and camera configuration.
 
     Args:
-      config: Raw scene config dict (e.g. from ``MetricTestDataset.get_scene_config()``).
+      config: Raw scene config dict (e.g. from ``UnityDataset.get_scene_config()``).
               Must contain a ``"sensors"`` key with per-camera calibration data.
 
     Returns:

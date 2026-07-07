@@ -18,6 +18,7 @@ requests==2.33.0
 selenium==4.43.0
 Pillow==12.2.0
 scikit-image==0.26.0
+scikit-learn==1.8.0
 opencv-python==4.13.0.92
 pyvirtualdisplay==3.0
 psutil==5.9.0
@@ -45,7 +46,7 @@ openapi-spec-validator==0.8.5
 # Build dependencies for fast_geometry C++ extension
 pybind11==3.0.4
 
-# SceneScape shared library (installed as editable from repo)
+# Scenescape shared library (installed as editable from repo)
 -e ../scene_common/src
 
 # Tracker black-box evaluation pipeline dependencies (packages not already listed above)

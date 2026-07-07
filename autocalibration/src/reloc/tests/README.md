@@ -35,7 +35,7 @@ tests/
 ├── test_matchers.py             # Custom matchers (LoFTR, QTA-LoFTR, dense matching)
 ├── test_database.py             # COLMAP database operations
 ├── test_workflows.py            # Reconstruction and pipeline workflows
-├── test_localize_scenescape.py  # SceneScape localization pipeline (pose_from_cluster, quaternion utils)
+├── test_localize_scenescape.py  # Scenescape localization pipeline (pose_from_cluster, quaternion utils)
 └── run_tests.sh                 # Test runner script
 ```
 
@@ -123,7 +123,7 @@ python3 test_extraction.py
 ### API Surface Tests (`test_api.py`)
 
 - ✅ Core module imports
-- ✅ Custom module imports (SceneScape additions)
+- ✅ Custom module imports (Scenescape additions)
 - ✅ Function signature verification
 - ✅ Class existence checks
 
@@ -174,12 +174,12 @@ python3 test_extraction.py
 
 - ✅ Reconstruction API verification
 - ✅ Triangulation API verification
-- ✅ SceneScape pipeline checks
+- ✅ Scenescape pipeline checks
 
 **Dependencies**: None (API checks only)
 **Run Time**: < 1 second
 
-### SceneScape Localization (`test_localize_scenescape.py`)
+### Scenescape Localization (`test_localize_scenescape.py`)
 
 - ✅ Quaternion conversion utilities (qxyzw_to_qwxyz, qwxyz_to_qxyzw)
 - ✅ Quaternion inverse with translation (qxyzwtinv)

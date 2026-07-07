@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Unit tests for SceneScape localization pipeline.
-Tests the custom SceneScape-specific functionality in reloc.
+Unit tests for Scenescape localization pipeline.
+Tests the custom Scenescape-specific functionality in reloc.
 """
 
 import numpy as np
@@ -521,7 +521,7 @@ class TestDataValidation:
 
 
 class TestIntegrationSceneScape:
-  """Integration tests for SceneScape pipeline"""
+  """Integration tests for Scenescape pipeline"""
 
   def test_quaternion_workflow(self):
     """Test typical quaternion conversion workflow"""
@@ -546,7 +546,7 @@ class TestIntegrationSceneScape:
 
   def test_coordinate_system_consistency(self):
     """Test coordinate system conventions"""
-    # SceneScape uses right-handed coordinate system
+    # Scenescape uses right-handed coordinate system
     # X: right, Y: down, Z: forward
     # Verify quaternion represents rotation correctly
     from scipy.spatial.transform import Rotation as R

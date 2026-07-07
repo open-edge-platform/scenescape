@@ -241,6 +241,17 @@ Detailed latency breakdown for bottleneck identification:
 
 **Attribute Strategy**: Early-stage metrics (parse, buffer) use `camera_id` since category is not yet determined; late-stage metrics (queue, transform, track, publish) use `category` after detection classification.
 
+##### Time-Chunking Metrics
+
+Performance counters for the time-chunk buffer and scheduler:
+
+| Metric                                     | Type    | Attributes      | Unit      | Description                                        |
+| ------------------------------------------ | ------- | --------------- | --------- | -------------------------------------------------- |
+| `tracker.time_chunking.duplicated_cameras` | counter | scene, category | {message} | Buffered camera frames overwritten before dispatch |
+| `tracker.time_chunking.unique_cameras`     | counter | —               | {camera}  | Distinct cameras dispatched per non-empty chunk    |
+| `tracker.time_chunking.non_empty_chunks`   | counter | —               | {chunk}   | Dispatch intervals that had buffered data          |
+| `tracker.time_chunking.empty_chunks`       | counter | —               | {chunk}   | Dispatch intervals with no buffered data           |
+
 ##### Rejection/Drop Reasons
 
 The `reason` attribute on `tracker.mqtt.messages` and `tracker.mqtt.dropped` uses these values:

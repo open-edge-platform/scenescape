@@ -52,11 +52,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from evaluators.trackeval_evaluator import TrackEvalEvaluator
-from datasets.metric_test_dataset import MetricTestDataset
+from datasets.unity_dataset import UnityDataset
 from harnesses.scene_controller_harness import SceneControllerHarness
 
 # Initialize dataset
-dataset = MetricTestDataset("path/to/dataset")
+dataset = UnityDataset("path/to/dataset")
 dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
 # Initialize and run harness

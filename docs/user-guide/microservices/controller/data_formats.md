@@ -152,13 +152,13 @@ discrete identifier with a presence event.
 
 ### Sensor Message Fields
 
-| Field       | Type                  | Required | Description                                                                  |
-| ----------- | --------------------- | :------: | ---------------------------------------------------------------------------- |
-| `id`        | string                |   Yes    | Sensor identifier; must match the provisioned sensor ID in Intel® SceneScape |
-| `timestamp` | string (ISO 8601 UTC) |   Yes    | Acquisition time of the reading                                              |
-| `value`     | any                   |   Yes    | Sensor reading — numeric scalar, string, boolean, or any JSON value          |
-| `subtype`   | string                |    No    | Sensor subtype hint (e.g. `"temperature"`, `"humidity"`)                     |
-| `rate`      | number ≥ 0            |    No    | Rate at which the sensor is producing readings (readings per second)         |
+| Field       | Type                  | Required | Description                                                           |
+| ----------- | --------------------- | :------: | --------------------------------------------------------------------- |
+| `id`        | string                |   Yes    | Sensor identifier; must match the provisioned sensor ID in Scenescape |
+| `timestamp` | string (ISO 8601 UTC) |   Yes    | Acquisition time of the reading                                       |
+| `value`     | any                   |   Yes    | Sensor reading — numeric scalar, string, boolean, or any JSON value   |
+| `subtype`   | string                |    No    | Sensor subtype hint (e.g. `"temperature"`, `"humidity"`)              |
+| `rate`      | number ≥ 0            |    No    | Rate at which the sensor is producing readings (readings per second)  |
 
 The `id` field must match the last path segment of the MQTT topic:
 `scenescape/data/sensor/{sensor_id}`.

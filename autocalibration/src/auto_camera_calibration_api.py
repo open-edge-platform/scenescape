@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
@@ -84,7 +84,7 @@ class StrategyNotFoundError(CameraCalibrationError):
 
 class CameraCalibrationApi:
   """
-  REST API service for automatic camera calibration in Intel SceneScape.
+  REST API service for automatic camera calibration in Scenescape.
   """
 
   API_VERSION = "1.0.0"

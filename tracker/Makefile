@@ -178,7 +178,7 @@ build-relwithdebinfo: dependencies-relwithdebinfo
 TRACKER_SCHEMA_PATH ?= $(CURDIR)/schema/config.schema.json
 TRACKER_CONFIG_PATH ?= $(CURDIR)/config/tracker.json
 
-# MQTT broker connection - preconfigured for SceneScape demo (docker compose up)
+# MQTT broker connection - preconfigured for Scenescape demo (docker compose up)
 # These variables are exported only in run/run-debug targets to avoid polluting test environment
 TRACKER_MQTT_HOST ?= localhost
 TRACKER_MQTT_PORT ?= $(shell cd test/service && docker compose port broker 1883 2>/dev/null | cut -d: -f2 || echo 1883)

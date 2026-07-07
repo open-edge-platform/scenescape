@@ -326,7 +326,7 @@ The pipeline adopts [TrackEval](https://github.com/JonathonLuiten/TrackEval) as 
 
 TrackEval does not provide native support for 3D ground-truth evaluation. To address this limitation, the implementation includes a custom dataset adapter (`MotChallenge3DPoint`) that extends TrackEval's base dataset class to handle 3D point tracking. This adapter uses Euclidean distance for similarity computation in world coordinates and formats ground-truth and tracker outputs to conform to TrackEval's expected data structures.
 
-The integration maps canonical pipeline formats (JSON-based detection and track outputs) to TrackEval's MOTChallenge-style CSV format through format conversion utilities, enabling seamless evaluation of SceneScape's 3D tracking outputs against industry-standard metrics.
+The integration maps canonical pipeline formats (JSON-based detection and track outputs) to TrackEval's MOTChallenge-style CSV format through format conversion utilities, enabling seamless evaluation of Scenescape's 3D tracking outputs against industry-standard metrics.
 
 ## Open Questions
 

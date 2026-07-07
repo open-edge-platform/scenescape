@@ -3,11 +3,11 @@
 This guide explains how to:
 
 1. Set up and run the License Plate Recognition pipeline using DeepScenario model for 3D Object Detection.
-2. Configure Intel® SceneScape to ingest the pipeline metadata and enable running spatial analytics on the Scene.
+2. Configure Scenescape to ingest the pipeline metadata and enable running spatial analytics on the Scene.
 
 ## Prerequisites
 
-- Successful deployment of a Intel® SceneScape instance using [Get Started](../get-started.md)
+- Successful deployment of a Scenescape instance using [Get Started](../get-started.md)
 - Access to the DeepScenario 3D Object Detection package
 
 ## Setup Steps

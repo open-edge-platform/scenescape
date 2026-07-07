@@ -28,7 +28,7 @@ These components communicate using canonical data formats defined by JSON schema
 **System requirements**:
 
 - Docker installed and running on the host machine
-- SceneScape scene controller container image available locally (e.g., `scenescape-controller:2026.0.0-dev`)
+- Scenescape scene controller container image available locally (e.g., `scenescape-controller:2026.0.0-dev`)
 
 To verify Docker is available:
 
@@ -58,7 +58,7 @@ pipeline:
     path: /tmp/tracker-evaluation # Base output directory
 
 dataset:
-  class: datasets.metric_test_dataset.MetricTestDataset
+  class: datasets.unity_dataset.UnityDataset
   config:
     data_path: /path/to/dataset
     cameras: [Cam_x1_0, Cam_x2_0]
@@ -100,7 +100,7 @@ pipeline:
     path: /tmp/camera-projection-evaluation
 
 dataset:
-  class: datasets.metric_test_dataset.MetricTestDataset
+  class: datasets.unity_dataset.UnityDataset
   config:
     data_path: /path/to/dataset
     cameras: [Cam_x1_0, Cam_x2_0]
@@ -159,7 +159,10 @@ against the same tracker outputs independently.
 ### Black-Box Evaluation Suite
 
 `run_black_box_evaluation.py` runs the complete black-box evaluation across all three
-production container types in a single timestamped session:
+production container types in a single timestamped session. Two config sets are
+available: the legacy Unity dataset (`pipeline_configs/black_box_unity/`, the default)
+and the WILDTRACK dataset (`pipeline_configs/black_box_wildtrack/`, selected with
+`--dataset wildtrack`). Both sets share the same three config filenames:
 
 | Config                                | Container               | Description                                                   |
 | ------------------------------------- | ----------------------- | ------------------------------------------------------------- |
@@ -186,11 +189,12 @@ source .venv/bin/activate
 python -m run_black_box_evaluation
 ```
 
-By default results land under `/home/labrat/tracker-evaluation/black-box-evaluation/<YYYYMMDD_HHMMSS>/`.
-Use `--output` to override:
+By default results land under ` <repo>/tools/tracker/evaluation/output/black-box-evaluation/`.
+Use `--output` to override, and `--dataset` to choose the config set (default `unity`):
 
 ```bash
 python -m run_black_box_evaluation --output /custom/output/path
+python -m run_black_box_evaluation --dataset wildtrack
 ```
 
 **Output structure**:

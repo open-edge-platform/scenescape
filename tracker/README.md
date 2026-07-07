@@ -44,7 +44,7 @@ make build-relwithdebinfo
 
 #### Run
 
-The run targets are preconfigured to work with SceneScape demo. Start SceneScape first:
+The run targets are preconfigured to work with Scenescape demo. Start Scenescape first:
 
 ```bash
 # From repository root

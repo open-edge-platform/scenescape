@@ -1,8 +1,8 @@
 # Generate a Scene Map Using the Mapping Service
 
-This guide provides step-by-step instructions to automatically generate a 3D scene map from camera feeds using Intel® SceneScape's mapping service. By completing this guide, you will:
+This guide provides step-by-step instructions to automatically generate a 3D scene map from camera feeds using Scenescape's mapping service. By completing this guide, you will:
 
-- Build and launch all Intel® SceneScape services including the mapping service
+- Build and launch all Scenescape services including the mapping service
 - Create a new scene with a placeholder map image
 - Add cameras and verify video frames are being processed
 - Generate a 3D mesh reconstruction of the scene
@@ -13,10 +13,10 @@ This guide provides step-by-step instructions to automatically generate a 3D sce
 
 ## Prerequisites
 
-- A system meeting the hardware requirements for Intel® SceneScape
+- A system meeting the hardware requirements for Scenescape
 - Docker and Docker Compose installed
 - Multiple cameras covering the scene from different angles
-- Basic familiarity with the Intel® SceneScape user interface
+- Basic familiarity with the Scenescape user interface
 
 ---
 
@@ -28,7 +28,7 @@ The mapping service uses advanced computer vision techniques to reconstruct a 3D
 
 ## Step 1: Build All Services
 
-Before launching the demo, build all Intel® SceneScape services including the mapping and clustering services:
+Before launching the demo, build all Scenescape services including the mapping and clustering services:
 
 ```bash
 SUPASS=your_password make build-all
@@ -85,7 +85,7 @@ You should see services including `mapping` with a status of `healthy`.
 
 ## Step 3: Create a New Scene with Placeholder Map
 
-1. Open your web browser and navigate to the Intel® SceneScape URL.
+1. Open your web browser and navigate to the Scenescape URL.
 2. Log in using the credentials you configured (username: `admin`, password: your `SUPASS` value)
 3. Click on **Scenes** in the navigation menu
 4. Click **+ New Scene**
@@ -105,7 +105,7 @@ You should see services including `mapping` with a status of `healthy`.
 1. Click on your newly created scene to open it
 2. Add camera by clicking on "+ New Camera" below the scene map, then filling in the camera details as required.
 
-> **Note**: The camera ID _must_ match the `cameraid` set in the config file for DL Streamer Pipeline Server (e.g: dlstreamer-pipeline-server/config.json), or the scene controller will not be able to associate the camera with its instance in Intel® SceneScape.
+> **Note**: The camera ID _must_ match the `cameraid` set in the config file for DL Streamer Pipeline Server (e.g: dlstreamer-pipeline-server/config.json), or the scene controller will not be able to associate the camera with its instance in Scenescape.
 
 Using the above example, the form should look like this for the `video0` camera:
 
@@ -237,7 +237,7 @@ For optimal mesh generation results:
 
 ## Stopping Services
 
-To stop all Intel® SceneScape services:
+To stop all Scenescape services:
 
 ```bash
 docker compose --profile controller --profile experimental down
@@ -289,4 +289,4 @@ If the generated mesh has issues:
 
 - [Create and Configure a New Scene](./create-new-scene.md)
 - [How to Configure DL Streamer Video Pipeline](../../other-topics/how-to-configure-dlstreamer-video-pipeline.md)
-- [Intel® SceneScape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
+- [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)

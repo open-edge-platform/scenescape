@@ -280,7 +280,7 @@
     },
     "singleton": {
       "title": "Sensor Metadata",
-      "description": "Many types of sensors exist for generating data from the physical world. This schema defines the composition of metadata for publishing sensor data into SceneScape.",
+      "description": "Many types of sensors exist for generating data from the physical world. This schema defines the composition of metadata for publishing sensor data into Scenescape.",
       "type": "object",
       "properties": {
         "timestamp": {
@@ -306,7 +306,7 @@
     },
     "detector": {
       "title": "Detector Metadata",
-      "description": "Many types of detectors exist for generating bounding boxes around objects from image-like sources. This schema defines the composition of metadata for publishing object detection results into SceneScape.",
+      "description": "Many types of detectors exist for generating bounding boxes around objects from image-like sources. This schema defines the composition of metadata for publishing object detection results into Scenescape.",
       "type": "object",
       "properties": {
         "timestamp": {

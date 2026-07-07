@@ -15,6 +15,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
+SENSOR_HANDLE_SELECTOR = ".is-handle, [class*='handle']"
+
 def change_sensor_location(browser, sensor_name):
   """! Changes a sensor location randomly.
   @param    browser       Object wrapping the Selenium driver.
@@ -28,7 +30,9 @@ def change_sensor_location(browser, sensor_name):
   if map_canvas is None:
     return retVal
   browser.execute_script("window.scrollTo(0,100);")
-  sensor_draggable = browser.find_elements_with_wait(By.CSS_SELECTOR, ".is-handle")
+  sensor_draggable = WebDriverWait(browser, 20).until(
+    EC.presence_of_all_elements_located((By.CSS_SELECTOR, SENSOR_HANDLE_SELECTOR))
+  )
   assert len(sensor_draggable) > 0, "Sensor location element not found"
   sensor = sensor_draggable[-1]
 
@@ -54,7 +58,9 @@ def verify_sensor_location(browser, sensor_name):
   browser.find_element(By.CSS_SELECTOR, ".navbar-nav > .nav-item:nth-child(3) > .nav-link").click()
   browser.find_element(By.XPATH, "//*[text()='" + sensor_name + "']/parent::tr/td[4]/a").click()
   browser.execute_script("window.scrollTo(0,100);")
-  sensor_coord = browser.find_element(By.CSS_SELECTOR, ".is-handle")
+  sensor_coord = WebDriverWait(browser, 20).until(
+    EC.presence_of_element_located((By.CSS_SELECTOR, SENSOR_HANDLE_SELECTOR))
+  )
   x_value = sensor_coord.get_attribute('x')
   y_value = sensor_coord.get_attribute('y')
   if x_value != old_x_value and y_value != old_y_value:
@@ -74,6 +80,7 @@ def test_sensor_location_main(params, record_xml_attribute):
   TEST_NAME = "NEX-T10400"
   record_xml_attribute("name", TEST_NAME)
   exit_code = 1
+  browser = None
   sensor_id = "test_sensor"
   sensor_name = "Sensor_0"
   scene_name = common.TEST_SCENE_NAME
@@ -89,7 +96,8 @@ def test_sensor_location_main(params, record_xml_attribute):
     assert verify_sensor_location(browser, sensor_name)
     exit_code = 0
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
   return

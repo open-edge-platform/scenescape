@@ -14,4 +14,5 @@
 **/CMakeFiles/
 
 **/tests/api/README.md
-**/tests/system/metric/dataset/*.json
+**/tests/system/metric/unity_dataset/*.json
+**/tests/system/metric/wildtrack_dataset/*.json

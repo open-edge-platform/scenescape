@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Service Overview
 
-The **Mapping** service provides spatial mapping and localization capabilities for Intel® SceneScape using visual SLAM and neural mapping techniques. This experimental microservice enables 3D scene reconstruction, object localization, and map-based queries.
+The **Mapping** service provides spatial mapping and localization capabilities for Scenescape using visual SLAM and neural mapping techniques. This experimental microservice enables 3D scene reconstruction, object localization, and map-based queries.
 
 **Primary Purpose**: Generate 3D maps from camera feeds and provide spatial localization services for objects and cameras within reconstructed environments.
 

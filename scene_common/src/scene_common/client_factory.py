@@ -44,7 +44,7 @@ def create_scenescape_clients(
     include_mapping=True,
     service_src_dirs=None,
     strict_imports=False):
-  """Create a composed set of SceneScape clients.
+  """Create a composed set of Scenescape clients.
 
   This composes service-specific clients, but endpoint methods remain defined
   only in each service folder's client module.

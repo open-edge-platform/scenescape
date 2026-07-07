@@ -1,4 +1,4 @@
-# Running tests for Intel® SceneScape
+# Running tests for Scenescape
 
 Tests support two deployment backends controlled by the `--backend` flag:
 
@@ -44,12 +44,12 @@ and available on `PATH`:
 | --------- | ------------------------------ |
 | `kind`    | Creates the local KinD cluster |
 | `kubectl` | Manages Kubernetes resources   |
-| `helm`    | Deploys the SceneScape chart   |
+| `helm`    | Deploys the Scenescape chart   |
 
 The Python dependencies are installed automatically by `make setup-pytest`.
 
 The Kubernetes backend creates a fully self-contained KinD cluster, deploys
-SceneScape via the Helm chart, and tears the cluster down at the end of the
+Scenescape via the Helm chart, and tears the cluster down at the end of the
 test session.
 
 ## Running tests

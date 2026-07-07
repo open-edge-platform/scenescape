@@ -113,7 +113,7 @@ class PipelineRunner:
     """
     docker = DockerClient()
     envs = {
-      "PYTHONPATH": "/home/scenescape/SceneScape/",
+      "PYTHONPATH": "/home/scenescape/Scenescape/",
     }
     if self.dump_dls_metadata:
       envs["METADATA_OUTPUT_FILE"] = (

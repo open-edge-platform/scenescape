@@ -1,12 +1,12 @@
-# Autocalibrate Cameras using AprilTags in Intel® SceneScape
+# Autocalibrate Cameras using AprilTags in Scenescape
 
-This guide provides a step-by-step process for calibrating cameras in Intel® SceneScape using fiducial markers (AprilTags). This method ensures accurate tracking by estimating camera poses based on known marker positions.
+This guide provides a step-by-step process for calibrating cameras in Scenescape using fiducial markers (AprilTags). This method ensures accurate tracking by estimating camera poses based on known marker positions.
 
 By following this guide, you will:
 
 - Select and place AprilTags correctly.
 - Generate a scene floor plan with markers visible.
-- Configure Intel® SceneScape to auto-calibrate using AprilTags.
+- Configure Scenescape to auto-calibrate using AprilTags.
 - (Optionally) Add a 3D map for scene visualization.
 
 This calibration method is ideal for fixed camera setups requiring precise positional accuracy.
@@ -18,8 +18,8 @@ This calibration method is ideal for fixed camera setups requiring precise posit
 Before You Begin, ensure the following:
 
 - **Camera Setup**: Cameras placed with a clear view of the scene.
-- **Scene Created**: Add cameras in Intel® SceneScape and set the detection model to `-m apriltag`.
-- **SceneScape Installation**: Installed and running.
+- **Scene Created**: Add cameras in Scenescape and set the detection model to `-m apriltag`.
+- **Scenescape Installation**: Installed and running.
 
 > **Note**: To switch from the default person detection model, replace `retail` with `apriltag` in `docker-compose.yml`.
 
@@ -80,7 +80,7 @@ _Figure 2: Export top-down orthographic scene view._
 
 ### 5. Configure Scene and Calibrate
 
-1. Open Intel® SceneScape and edit the scene.
+1. Open Scenescape and edit the scene.
 2. Upload the orthographic image and enter the scale (pixels-per-meter).
 3. Set Calibration Type to `Apriltag`.
 4. Enter the physical size of the tags.
@@ -102,7 +102,7 @@ autocalibration:
   # Refer to one of the sample docker-compose yaml files on how to configure the rest
 ```
 
-6. Restart Intel® SceneScape (see [Docker Compose Profiles](../../get-started.md#docker-compose-profiles) for details on choosing profiles):
+6. Restart Scenescape (see [Docker Compose Profiles](../../get-started.md#docker-compose-profiles) for details on choosing profiles):
 
 ```bash
 docker compose --profile controller down

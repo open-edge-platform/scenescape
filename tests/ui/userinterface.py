@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import time
@@ -18,9 +18,13 @@ import tests.ui.common_ui_test_utils as common
 class UserInterfaceTest(Diagnostic):
   from selenium.webdriver.common.by import By
 
+  # Subclasses can override to enable WebGL (e.g. for the 3D viewport on the
+  # camera-calibration page). Disabled by default for CI stability.
+  BROWSER_WEBGL = False
+
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
-    self.browser = Browser()
+    self.browser = Browser(webgl=self.BROWSER_WEBGL)
     return
 
   def buildArgparser(self):
@@ -53,7 +57,8 @@ class UserInterfaceTest(Diagnostic):
     return common.check_page_login(self.browser, log_params)
 
   def checkDbStatus(self):
-    return common.check_db_status(self.browser)
+    scene_name = self.params.get('scene', common.TEST_SCENE_NAME)
+    return common.check_db_status(self.browser, scene_name)
 
   def clickOnElement(self, elementId: str, waitTime: int = 1, delay: int = 0) -> None:
     """! Toggles the specified slider in the 3D UI control panel
@@ -94,6 +99,17 @@ class UserInterfaceTest(Diagnostic):
     # drop alpha channel, bgr to rbg
     img_array = img_array[:, :, 0:3]
     return img_array[:, :, ::-1]
+
+  def getCanvasScreenshot(self, canvas_id: str = "scene") -> np.ndarray:
+    return common.get_canvas_screenshot(self.browser, canvas_id)
+
+  def waitFor3dSceneRendered(self, timeout: float = 60.0,
+                             min_unique_colors: int = 50,
+                             poll_interval: float = 0.5,
+                             canvas_id: str = "scene") -> bool:
+    return common.wait_for_3d_scene_rendered(self.browser, timeout,
+                                             min_unique_colors,
+                                             poll_interval, canvas_id)
 
   def navigateDirectlyToPage(self, pagePath):
     return common.navigate_directly_to_page(self.browser, pagePath)

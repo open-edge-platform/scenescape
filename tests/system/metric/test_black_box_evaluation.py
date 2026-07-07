@@ -27,34 +27,34 @@ _VERSION_FILE = _REPO_ROOT / "version.txt"
 
 _TRACKEVAL_MIN: dict[str, dict[str, float]] = {
   "black_box_controller_immediate": {
-    "HOTA": 0.454,
-    "MOTA": 0.882,
-    "IDF1": 0.402,
+    "HOTA": 0.7,
+    "MOTA": 0.9,
+    "IDF1": 0.9,
   },
   "black_box_controller_tc": {
-    "HOTA": 0.637,
-    "MOTA": 0.425,
-    "IDF1": 0.708,
+    "HOTA": 0.6,
+    "MOTA": 0.45,
+    "IDF1": 0.7,
   },
   "black_box_tracker_service": {
-    "HOTA": 0.594,
-    "MOTA": 0.398,
-    "IDF1": 0.679,
+    "HOTA": 0.6,
+    "MOTA": 0.8,
+    "IDF1": 0.85,
   },
 }
 
 _JITTER_MAX: dict[str, dict[str, float]] = {
   "black_box_controller_immediate": {
-    "rms_jerk_ratio": 38.2,
-    "acceleration_variance_ratio": 522.0,
+    "rms_jerk_ratio": 3.0,
+    "acceleration_variance_ratio": 6.0,
   },
   "black_box_controller_tc": {
-    "rms_jerk_ratio": 9.63,
-    "acceleration_variance_ratio": 79.3,
+    "rms_jerk_ratio": 6.0,
+    "acceleration_variance_ratio": 12.0,
   },
   "black_box_tracker_service": {
-    "rms_jerk_ratio": 39.1,
-    "acceleration_variance_ratio": 656.0,
+    "rms_jerk_ratio": 6.0,
+    "acceleration_variance_ratio": 12.0,
   },
 }
 
