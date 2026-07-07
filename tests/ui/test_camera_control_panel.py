@@ -148,7 +148,6 @@ def test_switch_3d_camera_scene_camera(scenescape_env, request, record_xml_attri
       browser.quit()
 
   assert test.exitCode == 0
-  return test.exitCode
 
 def main():
   return test_switch_3d_camera_scene_camera(None, None)
