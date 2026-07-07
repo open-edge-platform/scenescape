@@ -96,3 +96,198 @@ jobs:
       - name: Cleanup
         if: always()
         uses: ./.github/actions/cleanup
+
+  run_non_functional_tests:
+    runs-on: [all]
+    name: "Non-Functional Tests"
+    permissions:
+      packages: write # For using GHCR as cache registry
+    timeout-minutes: 60
+    steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
+      - name: Checkout Repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+
+      - name: "Log in to DockerHub"
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          username: scenescape
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
+        with:
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Non Functional Tests
+        run: |
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/non_functional --junitxml=reports/non_functional_results.xml --log-level=ERROR
+
+      - name: Upload Test Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: non-functional-report
+          path: |
+            **/reports/*.xml
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup
+
+  run_metric_tests:
+    runs-on: [all]
+    name: "Metric Tests"
+    permissions:
+      packages: write # For using GHCR as cache registry
+    timeout-minutes: 90
+    steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
+      - name: Checkout Repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+
+      - name: "Remove all Docker images"
+        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
+
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
+        with:
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Metric Tests
+        run: |
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/system/metric --junitxml=reports/metric_results.xml --log-level=ERROR
+
+      - name: Upload Test Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: metric-report
+          path: |
+            **/reports/*.xml
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup
+
+  run_ui_tests:
+    runs-on: [all]
+    name: "UI Tests"
+    permissions:
+      packages: write # For using GHCR as cache registry
+    timeout-minutes: 300
+    steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
+      - name: Checkout Repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+
+      - name: "Remove all Docker images"
+        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
+
+      - name: Setup Tests Environment
+        id: setup-test-env
+        uses: ./.github/actions/setup-tests
+        with:
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run UI Tests
+        run: |
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/ui --junitxml=reports/ui_results.xml --log-level=ERROR
+
+      - name: Upload Test Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: ui-report
+          path: |
+            **/reports/*.xml
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup
+
+  run_unit_tests:
+    runs-on: [all]
+    name: "Unit Tests"
+    permissions:
+      packages: write # For using GHCR as cache registry
+    timeout-minutes: 70
+    steps:
+      - name: Remove test_data folder
+        run: |
+          sudo rm -rf test_data || true
+
+      - name: Checkout Repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+
+      - name: "Remove all Docker images"
+        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
+        uses: ./.github/actions/cleanup
+        with:
+          system-prune: "true"
+
+      - name: Setup Tests Environment
+        uses: ./.github/actions/setup-tests
+        with:
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Run Unit Tests"
+        run: |
+          source tests/.venv/bin/activate
+          mkdir -p reports
+          pytest tests/sscape_tests --junitxml=reports/unit_results.xml --log-level=ERROR
+
+      - name: Upload Test Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: unit-report
+          path: |
+            **/reports/*.xml
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup
