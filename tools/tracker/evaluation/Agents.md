@@ -14,7 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - Phase 1 constraints:
   - only batch mode is supported (read/process/write all data at once), although class interfaces and I/O utilities may use streaming API underneath
-  - the only supported dataset is Metric Test Dataset
+  - the only supported dataset is Unity dataset
 
 ## Quick Links
 
@@ -24,7 +24,7 @@ SPDX-License-Identifier: Apache-2.0
 - Example configurations:
   - Full tracker evaluation: [pipeline_configs/metric_test_evaluation.yaml](pipeline_configs/metric_test_evaluation.yaml)
   - Camera projection accuracy: [pipeline_configs/camera_projection_evaluation.yaml](pipeline_configs/camera_projection_evaluation.yaml)
-  - Black-box suite configs: [pipeline_configs/black_box/](pipeline_configs/black_box/)
+  - Black-box suite configs (default Unity dataset): [pipeline_configs/black_box_unity/](pipeline_configs/black_box_unity/); Wildtrack variant: [pipeline_configs/black_box_wildtrack/](pipeline_configs/black_box_wildtrack/)
 
 ## Folders structure
 
@@ -42,8 +42,8 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Datasets
 
-- **MetricTestDataset**: `datasets/metric_test_dataset.py`
-  - dataset location in the repository: `../../../tests/system/metric/dataset/`
+- **UnityDataset**: `datasets/unity_dataset.py`
+  - dataset location in the repository: `../../../tests/system/metric/unity_dataset/`
     It contains:
     - ground-truth file
     - scene configuration in non-canonical format (however accepted by SceneControllerHarness implementation)
@@ -75,8 +75,11 @@ Check `datasets/README.md` for more details
     - `drain_timeout` (default `5.0`): seconds to wait for final tracker outputs after the last frame.
     - `startup_wait_s` (default `2.0`): seconds to wait after container starts before publishing frames.
     - `scene_id`: overrides the scene UID derived from `set_scene_config()`.
+    - `enable_metrics` (default `false`): run an OTEL Collector sidecar to capture OTLP metrics. Requires `metrics_collector_image` (e.g. `"otel/opentelemetry-collector-contrib:0.155.0"`); optional `metrics_export_interval_s` (default `2`) and `metrics_otlp_port` (default `4317`).
+  - **Observability (optional)**: when `enable_metrics` is set, an OTEL Collector container is added to the run network. The controller (via `CONTROLLER_ENABLE_METRICS`/`CONTROLLER_METRICS_ENDPOINT` env) or tracker service (via `observability.metrics` + `infrastructure.otlp` config) push OTLP/gRPC metrics to it; the collector's `file` exporter writes them out, and `metrics_recorder.py` aggregates them into `metrics_summary.txt` (histograms: count/avg/min/max; counters: total + per-export delta stats; gauges: avg/min/max/median). It then verifies dropped frames (`scenescape_controller_mqtt_messages_dropped` + `tracker.mqtt.dropped`) and warns when the dropped/output-frame ratio exceeds 1%.
   - After the run, writes `inputs.json` and `outputs.json` to the output folder (if `set_output_folder()` was called), creating the directory automatically if it does not exist.
-  - Pair this harness with any evaluator (TrackEval, Diagnostic, Jitter) and configs under `pipeline_configs/black_box/`.
+  - Also copies the source tracker configuration file into `<output_folder>/config/` (both container types), preserving the original filename. For the Tracker Service the effective `config.json` is derived from this file by the harness (MQTT/Manager endpoints, `max_lag_s=1e15`, optional OTLP/metrics), so the copy captures the source config, not the fully-resolved runtime config.
+  - Pair this harness with any evaluator (TrackEval, Diagnostic, Jitter) and configs under `pipeline_configs/black_box_unity/` (default) or `pipeline_configs/black_box_wildtrack/`.
 
 - **CameraProjectionHarness**: `harnesses/camera_projection_harness/camera_projection_harness.py`
   - Bypasses the full tracker and only applies camera-pose projection to isolate per-camera calibration error.
@@ -120,6 +123,7 @@ Check `evaluators/README.md` for more details
 
 - **Black-box evaluation suite**: [run_black_box_evaluation.py](run_black_box_evaluation.py) — runs all three black-box configs (Controller-NO-TC, Controller-TC, Tracker-Service) in a single timestamped session. Usage: `python -m run_black_box_evaluation [--output <path>]`. Results land under `<output>/<YYYYMMDD_HHMMSS>/`; see [README.md](README.md) for full output structure.
 - **Mock Manager REST API**: [harnesses/black_box_harness/mock_manager.py](harnesses/black_box_harness/mock_manager.py) — minimal Manager REST server (`/api/v1/auth`, `/api/v1/scenes`, `/api/v1/camera/<uid>`) started by BlackBoxHarness on the Docker host. Computes camera extrinsics with production-identical math from `PointCorrespondenceTransform`.
+- **Metrics recorder**: [harnesses/black_box_harness/metrics_recorder.py](harnesses/black_box_harness/metrics_recorder.py) — parses the OTEL Collector `file` exporter output and writes `metrics_summary.txt` (per-metric min/max/avg, plus median for counters/gauges). Exposes `collect_metric_values()` (structured per-metric values) and `check_dropped_frames()` (dropped-frame count + ratio check).
 - **Pipeline orchestration**: [pipeline_engine.py](pipeline_engine.py) (methods `load_configuration()`, `run()`, `evaluate()`, CLI via `python -m pipeline_engine <config>`).
   - `_configure_harness()` forwards `object_classes` from the YAML `harness.config` block to the harness via `set_custom_config({'object_classes': ...})`.
   - `_configure_evaluators()` calls `set_scene_config(scene_config)` on each evaluator that exposes the method (checked via `hasattr`), passing the scene config returned by `dataset.get_scene_config()`.
