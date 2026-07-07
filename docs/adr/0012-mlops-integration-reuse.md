@@ -44,20 +44,22 @@ Scenescape will **delegate** model management, visual pipeline building, and vid
 
 - Adopt a **uniform dynamic API-based approach** to pipeline configuration and management for both Docker Compose and Kubernetes deployments, replacing today's split implementation (manual static configuration for Docker Compose; custom pipeline generation with K8s config maps for Kubernetes).
 - **Exported scenes embed pipeline definitions by value** so that deployment is possible without ViPPET.
-- **Exported scenes reference models by identifier** (not by value). Model Downloader is therefore required at deployment time to materialize the referenced models on a model volume shared with DLSPS.
-- **Scenescape does not call Model Downloader's download endpoint.** Model download is handled out-of-band:
+- **Exported scenes support two model deployment paths**, selectable by the deployment operator based on the scenario:
+  - **Models referenced by identifier** (standard path): a job or script downloads them via Model Downloader at deployment time; Model Downloader is required.
+  - **Models embedded as a compressed volume** (air-gap / offline path): the operator extracts the embedded volume; Model Downloader is not required.
 
-  - at deployment time or scene import by an **external job or script**, or
-  - during pipeline development by the user via the **ViPPET UI**, into a volume shared with Scenescape.
-
-  Scenescape's runtime interaction with the Model Downloader is limited to the **listing endpoint**. This allows users to view available models when defining a pipeline. This direct call is a temporary measure that will be removed once the transition to ViPPET-based pipeline authoring is complete, as ViPPET will then handle model selection.
+  In both cases, populating the shared model volume before Scenescape starts is the deployment operator's responsibility.
+- **Scenescape does not call Model Downloader's download or listing endpoints at runtime.** Model volume population is out-of-band:
+  - via an **external job or script** that downloads models through Model Downloader (standard path), or
+  - by the **deployment operator** extracting the embedded model volume from the exported package (air-gap path), or
+  - during pipeline development, by the user via the **ViPPET UI** into a volume shared with Scenescape.
 
 - **Backwards compatibility:** existing static JSON pipeline configurations (Docker bind-mount and Kubernetes config maps) and the custom dynamic pipeline configuration on Kubernetes remain supported until feature parity with the ViPPET-based flow is achieved.
 
 **Phased rollout**:
 
 - _Foundation_ (current) — ADR and design baseline.
-- _Model Management Delegation_ — adopt the shared model volume populated by Model Downloader; add a deployment-time job for downloading models; use the Model Downloader listing endpoint to enumerate installed models in the existing Kubernetes dynamic pipeline configuration flow.
+- _Model Management Delegation_ — adopt the shared model volume populated by Model Downloader; add a deployment-time model volume population job (download path); optionally include a compressed model volume in the exported package (air-gap / offline path).
 - _Pipeline Building Delegation & Stream Manager Adoption_ — Stream Manager consumption; scene-level pipeline-to-source mapping; extend scene export/import to support externally downloaded models and embedded pipeline definitions.
 - _Pipeline Building Delegation & Stream Manager Adoption – Part 2_ — full ViPPET pipeline-definition consumption; evolved DLSPS runtime integration; deprecate the custom dynamic pipeline configuration in favor of the uniform API-based dynamic pipeline configuration.
 
@@ -76,14 +78,13 @@ Scenescape will **delegate** model management, visual pipeline building, and vid
 - Smaller Scenescape surface area: the custom model installer and pipeline generator are removed over time.
 - Clear separation of concerns aligned with the OEP architecture.
 - Scenescape team focus shifts to core spatial-awareness value (sensor fusion, tracking, scene state).
-- Deployments remain operable without ViPPET (self-contained exported scenes) and without Stream Manager (optional dependency).
+- Deployments remain operable without ViPPET (self-contained exported scenes), without Stream Manager (optional dependency), and without Model Downloader (when models are embedded in the exported package).
 - A staged transition preserves existing deployments throughout the rollout.
 
 ### Negative
 
-- Cross-component dependency on Model Downloader availability, ViPPET delivery, DLSPS evolution, and Stream Manager delivery timelines.
+- Cross-component dependency on ViPPET delivery, DLSPS evolution, and Stream Manager delivery timelines. Model Downloader is required only on the standard (non-air-gap) deployment path.
 - Temporary duality: both the legacy flow (static JSON configurations plus custom dynamic pipeline configuration on Kubernetes) and the new ViPPET-based flow coexist until parity.
-- A new runtime call from Scenescape to the Model Downloader's listing endpoint adds a small integration surface, but this is a temporary measure required only until the ViPPET-based flow achieves feature parity.
 - When ViPPET is deployed with its own Model Downloader instance, providing efficient model sharing between the Scenescape and ViPPET deployments — without maintaining redundant downloads or copies — may be complex from a technical or UX perspective.
 
 ## References
