@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
 networks:
   scenescape-test:
 
@@ -8,20 +9,22 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
 
 services:
-  queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260623-weekly-ubuntu24
+  retail-video:
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260630-weekly-ubuntu24
     networks:
       scenescape-test:
     tty: true
     entrypoint: ["./run.sh"]
     ports:
-      - "8081:8080"
+      - "8080:8080"
     devices:
       - "/dev/dri:/dev/dri"
     depends_on:
       broker:
         condition: service_started
-      queuing-cams:
+      ntpserv:
+        condition: service_started
+      retail-cams:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
@@ -45,28 +48,29 @@ services:
       - NO_PROXY=mediaserver,${NO_PROXY}
       - no_proxy=mediaserver,${no_proxy}
     configs:
-      - source: queuing-config
+      - source: retail-config
         target: /home/pipeline-server/config.json
     volumes:
       - ./:/workspace
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
-      - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+    restart: on-failure
 
 configs:
-  queuing-config:
-    file: ./dlstreamer-pipeline-server/queuing-config-no-ntp.json
+  retail-config:
+    file: ./dlstreamer-pipeline-server/retail-config-reid.json
 
 volumes:
   vol-models:
     external: true
     name: scenescape_vol-models
   vol-sample-data:
-  vol-dlstreamer-pipeline-server-pipeline-root-queuing:
+  vol-dlstreamer-pipeline-server-pipeline-root-retail:
     driver: local
     driver_opts:
       type: tmpfs

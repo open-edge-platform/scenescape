@@ -122,23 +122,9 @@ def check_api_health(client: MappingClient):
     health = client.healthCheckEndpoint()
     if health:
       print(f"✅ API is healthy")
-      print(f"   Device: {health['device']}")
-      print(f"   Model: {health.get('model', 'unknown')}")
-      print(f"   Model loaded: {health.get('model_loaded', False)}")
     else:
       print(f"❌ Health check failed: {health.status_code}, {health.errors}")
       return False
-
-    models = client.listModels()
-    if models:
-      print("📋 Model information:")
-      model_info = models.get('model_info')
-      if model_info:
-        status = "✅ Loaded" if model_info.get('loaded') else "❌ Not loaded"
-        print(f"   - {models.get('model', 'unknown')}: {status}")
-        print(f"   {model_info.get('description', 'No description')}")
-        print(f"   Native output: {model_info.get('native_output', 'unknown')}")
-        print(f"   Supported outputs: {model_info.get('supported_outputs', [])}")
 
     return True
 
