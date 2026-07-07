@@ -7,9 +7,9 @@ pipeline:
     path: ./output/black-box-evaluation
 
 dataset:
-  class: datasets.metric_test_dataset.MetricTestDataset
+  class: datasets.unity_dataset.UnityDataset
   config:
-    data_path: ../../../tests/system/metric/dataset
+    data_path: ../../../tests/system/metric/unity_dataset
     cameras: [Cam_x1_0, Cam_x2_0]
     camera_fps: 10
 
@@ -19,7 +19,7 @@ harness:
     broker_image: eclipse-mosquitto:2.0.22
     container_type: controller
     container_image: scenescape-controller:latest
-    tracker_config_path: pipeline_configs/black_box/config/controller_immediate.json
+    tracker_config_path: pipeline_configs/black_box_unity/config/controller_immediate.json
     # startup_wait_s: 2.0
     # drain_timeout: 5.0
     # Optional observability: capture OTLP metrics via an OTEL Collector sidecar

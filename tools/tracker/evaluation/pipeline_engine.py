@@ -36,7 +36,7 @@ class PipelineEngine:
         path: /tmp/tracker-evaluation
 
     dataset:
-      class: datasets.metric_test_dataset.MetricTestDataset
+      class: datasets.unity_dataset.UnityDataset
       config:
         data_path: /path/to/dataset
         cameras: [x1, x2]
