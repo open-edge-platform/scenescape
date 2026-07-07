@@ -479,12 +479,3 @@ Controller role.
 | 5        | Positioning Service rollout                                                                                                                                              | Calibration-to-pose parity for cameras, sensors, and mobile platforms, with pose contract consumed by projection path | Retains temporary pose adapter and non-migrated sensor handling                                                        |
 | 6        | Dedicated hierarchy migration phase                                                                                                                                      | Recursive sub-scene hierarchy parity using shared scene interfaces and first-assigned global UUID persistence rules   | Legacy hierarchy path remains read-only fallback until validation gates pass                                           |
 | 7        | Feedback Loop decision (if adopted) and monolith retirement                                                                                                              | Final parity closure, optional feedback contract integration, and complete service-path operation                     | Retired after parity, performance, and reliability gates are satisfied                                                 |
-
-Shared Scene Graph evolution is staged across phases:
-
-1. Phase 1 defines graph schema, ownership boundaries, and compatibility
-   contracts.
-2. Phases 2-4 integrate projection, persistence/Re-ID, and positioning against
-   the shared graph incrementally.
-3. Phase 6 consumes the mature graph for dedicated hierarchy migration rather
-   than coupling hierarchy delivery to positioning rollout.
