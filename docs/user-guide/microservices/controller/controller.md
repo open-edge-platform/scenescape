@@ -1,9 +1,9 @@
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/controller">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/release-2026.1.0/controller">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/controller/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/controller/README.md">
      Readme
   </a>
 </div>
@@ -46,13 +46,13 @@ To deploy the scene controller service, refer to the [Get Started](./get-started
 
 When `similarity_metric` is `L2` (default), Re-ID vectors follow distance-style matching semantics (lower values are better). When `similarity_metric` is `COSINE`, Re-ID vectors are normalized before write/query and SceneScape uses VDMS `IP` internally; similarity scores are expected in `[-1, 1]`.
 
-`--schema_file`: Specifies the path to the JSON file that contains the metadata schema. By default, it uses [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json). This schema outlines the structure and format of the messages processed by the service.
+`--schema_file`: Specifies the path to the JSON file that contains the metadata schema. By default, it uses [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/controller/src/schema/metadata.schema.json). This schema outlines the structure and format of the messages processed by the service.
 
 `--visibility_topic`: Specifies the topic for publishing visibility information, which includes the visibility of objects in cameras. Options are `unregulated`, `regulated`, or `none`.
 
 `--analytics-only`: Enables analytics-only mode (experimental feature). In this mode, the Scene Controller consumes tracked objects from a separate Tracker service via MQTT instead of performing tracking internally. The tracker is not initialized, and camera/scene data processing is skipped. Child scenes are not supported. Note: `--pose-adjustment` has no effect in this mode, since pose adjustment is applied during camera data processing which is skipped in analytics-only mode. This mode can also be enabled via the `CONTROLLER_ENABLE_ANALYTICS_ONLY` environment variable set to `true`.
 
-`--pose-adjustment`: Enables pose-based bounding box adjustment before world projection. When enabled, the controller uses pose keypoints (e.g. from a `yolo11n-pose` model) to refine the bounding box used for projecting detections into world coordinates. This is disabled by default. Not supported in `--analytics-only` mode. Cannot be used together with Extended ReID (VDMS-based cross-camera re-identification); see [Extended Re-ID](./Extended-ReID.md) for details. Can also be enabled via the `CONTROLLER_ENABLE_POSE_ADJUSTMENT` environment variable set to `true`. Requires the DL Streamer video pipeline to use a pose estimation model that provides keypoint data. See the [DL Streamer Pipeline Server documentation](../../../dlstreamer-pipeline-server/README.md#enable-pose-estimation) for pipeline setup.
+`--pose-adjustment`: Enables pose-based bounding box adjustment before world projection. When enabled, the controller uses pose keypoints (e.g. from a `yolo11n-pose` model) to refine the bounding box used for projecting detections into world coordinates. This is disabled by default. Not supported in `--analytics-only` mode. Cannot be used together with Extended ReID (VDMS-based cross-camera re-identification); see [Extended Re-ID](./Extended-ReID.md) for details. Can also be enabled via the `CONTROLLER_ENABLE_POSE_ADJUSTMENT` environment variable set to `true`. Requires the DL Streamer video pipeline to use a pose estimation model that provides keypoint data. See the [DL Streamer Pipeline Server documentation](https://github.com/open-edge-platform/scenescape/blob/release-2026.1.0/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for pipeline setup.
 
 `--pose_adjustment_config_file`: JSON file that defines pose-adjustment label routing. The default file is `pose-adjustment-route.json` next to the controller executable. Use this file to map each registered pose-adjustment strategy label to the incoming labels that should dispatch to it.
 

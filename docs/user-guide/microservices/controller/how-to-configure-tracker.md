@@ -11,7 +11,7 @@ during Intel® SceneScape deployment.
 
 ### Enabling Time-Based Parameters
 
-A `tracker-config.json` file is pre-stored in the [`config` directory](https://github.com/open-edge-platform/scenescape/tree/main/controller/config) in the repository.
+A `tracker-config.json` file is pre-stored in the [`config` directory](https://github.com/open-edge-platform/scenescape/tree/release-2026.1.0/controller/config) in the repository.
 The only change required is to mount this file to the Docker container in the `scene` service.
 The `scene` service in the `docker-compose.yml` file should look as follows. Note the `configs`
 section.

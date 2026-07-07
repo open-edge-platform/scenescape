@@ -16,7 +16,7 @@ Before configuring VS Code, set up the project environment:
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/open-edge-platform/scenescape.git
+   git clone https://github.com/open-edge-platform/scenescape.git -b release-2026.1.0
    cd scenescape
    ```
 
