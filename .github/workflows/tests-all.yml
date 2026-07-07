@@ -1,15 +1,22 @@
+---
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Tests] All Tests"
+run-name: "[Tests] All Tests"
+
 on:
   workflow_dispatch:
     inputs:
       cleanup:
-        description: "Cleanup before running selected tests"
+        description: "Cleanup before running ALL tests"
         required: false
         default: false
         type: boolean
   workflow_call:
     inputs:
       ref:
-        description: "SceneScape ref to test against"
+        description: "Scenescape ref to test against"
         required: false
         default: ""
         type: string
@@ -19,10 +26,14 @@ on:
         default: true
         type: boolean
       cleanup:
-        description: "Cleanup before running selected tests"
+        description: "Cleanup before running ALL tests"
         required: false
         default: false
         type: boolean
+  push:
+    branches:
+      - main
+      - release-*
 
 # Only run at most 1 workflow concurrently per pushed commit
 concurrency:
@@ -32,32 +43,14 @@ concurrency:
 env:
   DOCKER_BUILDKIT: 1
   SUPASS: demo
-  # Edit this list to add or remove tests from the Selected Tests run.
-  SELECTED_TESTS: |
-    tests/functional/test_add_delete_3d_object_api.py
-    tests/functional/test_add_orphaned_cameras.py
-    tests/functional/test_api_large_strings.py
-    tests/functional/test_authentication.py
-    tests/functional/test_calibrate_all_sensor_types_api.py
-    tests/functional/test_camera_deletion_api.py
-    tests/functional/test_camera_intrinsics_api.py
-    tests/functional/test_child_scene_event_propagation.py
-    tests/functional/test_child_scenes.py
-    tests/functional/test_controller_standalone_mqtt_event.py
-    tests/functional/test_delete_roi_mqtt.py
-    tests/functional/test_delete_sensor_mqtt_api.py
-    tests/functional/test_delete_sensor_scene_api.py
-    tests/functional/test_delete_sensors_api.py
-    tests/functional/test_different_formats_maps_api.py
-    tests/functional/test_geospatial_ingest_publish.py
 
 permissions:
   contents: read
 
 jobs:
-  run_selected_tests:
+  run_functional_tests:
     runs-on: [all]
-    name: "Selected Tests"
+    name: "Functional Tests"
     permissions:
       packages: write # For using GHCR as cache registry
     timeout-minutes: 300
@@ -74,7 +67,7 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: "Remove all Docker images"
-        if: ${{ github.event.inputs.cleanup == 'true' || inputs.cleanup == true }}
+        if: ${{ github.event_name == 'push' || github.event.inputs.cleanup == 'true' }}
         uses: ./.github/actions/cleanup
         with:
           system-prune: "true"
@@ -86,39 +79,19 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run Selected Tests
+      - name: Run Functional Tests
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          # Collect non-empty, non-comment lines from SELECTED_TESTS into an array
-          mapfile -t targets < <(printf '%s\n' "${SELECTED_TESTS}" \
-            | sed 's/#.*$//' \
-            | awk 'NF')
-          if [ "${#targets[@]}" -eq 0 ]; then
-            echo "No tests selected in SELECTED_TESTS." >&2
-            exit 1
-          fi
-          echo "Running selected tests:"
-          printf '  %s\n' "${targets[@]}"
-          pytest "${targets[@]}" \
-            --collect-container-logs all \
-            --junitxml=reports/selected_results.xml --log-level=ERROR
+          pytest tests/functional --junitxml=reports/functional_results.xml --log-level=ERROR
 
       - name: Upload Test Report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
-          name: selected-report
+          name: functional-report
           path: |
             **/reports/*.xml
-
-      - name: Upload Container Logs
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
-        with:
-          name: selected-container-logs
-          path: |
-            tests/test_logs/**
 
       - name: Cleanup
         if: always()
