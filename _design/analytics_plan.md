@@ -281,6 +281,26 @@ Tracker
 
 ---
 
+# Input/Output Consumer/Producer MQTT topics
+
+                           +------------------+
+                           | Analytics        |
+                           +------------------+
+
+Consumes:
+----------
+scenescape/data/scene/*
+scenescape/data/sensor/*
+scene configuration
+
+Produces:
+----------
+scenescape/regulated/scene/*
+scenescape/data/region/*
+scenescape/event/region/*
+scenescape/event/tripwire/*
+scenescape/event/sensor/*
+
 # Recommended First Implementation Task
 
 1. Create `AnalyticsObject` and `AnalyticsFrame`.
