@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # -------------- Common Base Stage --------------
-FROM python:3.11-slim-bookworm@sha256:ee710afcfb733f4a750d9be683cf054b5cd247b6c5f5237a6849ea568b90ab15 AS scenescape-common-base
+FROM python:3.11-slim-bookworm@sha256:721dc13fd1be0a771e54b72097634291d628d0007dee9da777e2ce676a9c998f AS scenescape-common-base
 
 # We use root for runtime init. The command in ENTRYPOINT will drop to an unprivileged user.
 # hadolint ignore=DL3002
