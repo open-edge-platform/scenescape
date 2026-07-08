@@ -30,9 +30,9 @@ class YAMLValidator:
   }
 
   images = {
-    'scenescape-manager',
-    'scenescape-controller',
-    'scenescape-autocalibration',
+    'intel/scenescape-manager',
+    'intel/scenescape-controller',
+    'intel/scenescape-autocalibration',
     'eclipse-mosquitto',
     'dockurr/chrony'
     }

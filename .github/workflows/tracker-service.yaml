@@ -253,7 +253,7 @@ jobs:
           target: runtime
           push: false
           load: true
-          tags: scenescape-tracker:latest
+          tags: intel/scenescape-tracker:latest
           build-args: |
             GIT_COMMIT=${{ github.sha }}
             BUILD_TYPE=Release

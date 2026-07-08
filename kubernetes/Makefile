@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-MANAGERIMAGE=scenescape-manager
-CAMCALIBIMAGE=scenescape-autocalibration
-CONTROLLERIMAGE=scenescape-controller
-CLUSTERANALYTICSIMAGE=scenescape-cluster-analytics
-MAPPINGIMAGE=scenescape-mapping
+MANAGERIMAGE=intel/scenescape-manager
+CAMCALIBIMAGE=intel/scenescape-autocalibration
+CONTROLLERIMAGE=intel/scenescape-controller
+CLUSTERANALYTICSIMAGE=intel/scenescape-cluster-analytics
+MAPPINGIMAGE=intel/scenescape-mapping
 
 # Image groupings for flexible builds
 CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE)

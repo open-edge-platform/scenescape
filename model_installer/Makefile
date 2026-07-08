@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-IMAGE := scenescape-model-installer
+IMAGE := intel/scenescape-model-installer
 TARGET := scenescape-model-installer-runtime
 
 include ../common.mk
