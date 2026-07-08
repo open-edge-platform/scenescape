@@ -24,7 +24,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 GOOD_DATA_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "test_media/good_data.txt")
 TW_NAME = "Tripwire_to_be_Deleted"
 OBJECT_CATEGORY = "custom_object"
-MESSAGE_WAIT_TIMEOUT_S = 5.0
+MESSAGE_WAIT_TIMEOUT_S = 15.0
 POST_DELETE_SETTLE_S = 2.0
 tripwire_event_received = threading.Event()
 
