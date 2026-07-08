@@ -9,7 +9,7 @@ Two parallel GStreamer branches run inside a single gst-launch-1.0 process:
   - LiDAR branch: multifilesrc → g3dlidarparse → g3dinference → gvametaconvert
                   → gvametapublish (FIFO) → Python reads and publishes to MQTT
   - Camera branch: multifilesrc → gvafpsthrottle → gvadetect
-                   → gvametaconvert → PostInferenceDataPublish (direct MQTT)
+                   → gvametaconvert → gvametapublish (FIFO) → PostInferenceDataPublish (MQTT)
 
 MQTT topics:
   - scenescape/data/camera/<LIDAR_SENSOR_ID>  (3-D LiDAR detections)
@@ -263,8 +263,9 @@ def _build_pipeline() -> str:
   # ── Camera branch ──────────────────────────────────────────────────────────
   # gvafpsthrottle caps throughput to FRAME_RATE regardless of inference time,
   # keeping the camera branch in step with g3dlidarparse frame-rate=FRAME_RATE.
-  # PostInferenceDataPublish publishes detections directly to MQTT (proven path
-  # used by retail/queuing pipelines); no FIFO needed for the camera branch.
+  # gvametapublish writes detections to CAM_FIFO so the main loop can count
+  # camera frames and read object labels in sync with the LiDAR frames.
+  # PostInferenceDataPublish also publishes detections directly to MQTT.
   cam_kwarg = json.dumps({
     "cameraid":           CAM_SENSOR_ID,
     "metadatagenpolicy":  "detectionPolicy",
@@ -292,11 +293,11 @@ def _build_pipeline() -> str:
     f" device={shlex.quote(CAM_DEVICE)}"
     f" threshold={CAM_SCORE_THRESHOLD}",
     "! gvametaconvert add-tensor-data=true name=metaconvert",
+    f"! gvametapublish method=file file-format=json-lines"
+    f" file-path={shlex.quote(CAM_FIFO)}",
     f"! gvapython class=PostInferenceDataPublish function=processFrame"
     f" module={shlex.quote(SSCAPE_ADAPTER)} name=datapublisher"
     f" kwarg={shlex.quote(cam_kwarg)}",
-    f"! gvametapublish method=file file-format=json-lines"
-    f" file-path={shlex.quote(CAM_FIFO)}",
     "! fakesink sync=false",
   ]
   cam = " ".join(cam_parts)
@@ -374,8 +375,19 @@ def main() -> None:
 
   client = connect_mqtt()
 
+  _cam_queue: queue.Queue = queue.Queue()
   _cam_frame_count = [0]
   _cam_last_objects: list = [{}]
+
+  def _on_cam_message(_c, _u, msg):
+    try:
+      data = json.loads(msg.payload)
+      _cam_last_objects[0] = data.get("objects", {})
+    except Exception:
+      pass
+
+  client.subscribe(CAM_TOPIC)
+  client.on_message = _on_cam_message
 
   @atexit.register
   def _cleanup():
@@ -405,19 +417,8 @@ def main() -> None:
       with cam_fifo_result[0] as cf:
         for line in cf:
           line = line.strip()
-          if not line:
-            continue
-          try:
-            raw = json.loads(line)
-            _cam_frame_count[0] += 1
-            objs: dict = {}
-            for o in raw.get("objects", []):
-              lbl = o.get("label") or "object"
-              objs.setdefault(lbl, []).append(o)
-            if objs:
-              _cam_last_objects[0] = objs
-          except Exception:
-            _cam_frame_count[0] += 1
+          if line:
+            _cam_queue.put(line)
     except Exception:
       pass
 
@@ -462,19 +463,8 @@ def main() -> None:
       # Drain all camera FIFO lines available since the last LiDAR frame.
       while True:
         try:
-          cam_line = _cam_queue.get_nowait()
-          try:
-            cam_raw = json.loads(cam_line)
-            _cam_frame_count[0] += 1
-            objs: dict = {}
-            for o in cam_raw.get("objects", []):
-              det = o.get("detection") or {}
-              lbl = o.get("label") or det.get("label") or "object"
-              objs.setdefault(lbl, []).append(o)
-            if objs:
-              _cam_last_objects[0] = objs
-          except Exception:
-            _cam_frame_count[0] += 1
+          _cam_queue.get_nowait()
+          _cam_frame_count[0] += 1
         except queue.Empty:
           break
 
