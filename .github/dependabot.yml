@@ -115,3 +115,16 @@ updates:
       - "saratpoluri"
       - "dmytroye"
       - "tdorauintc"
+
+  # Enable version updates for NPM packages used in CI
+  - package-ecosystem: "npm"
+    directory: "/.github/resources"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "npm"
+    reviewers:
+      - "Irakus"
+      - "saratpoluri"
+      - "dmytroye"
+      - "tdorauintc"
