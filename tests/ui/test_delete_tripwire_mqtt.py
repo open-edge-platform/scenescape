@@ -109,7 +109,8 @@ def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
     print("Logged in")
 
     assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
-    assert common.create_tripwire(browser, TW_NAME)
+    tw_points = common.create_tripwire(browser, TW_NAME)
+    print(f"Tripwire created at points: {tw_points}")
 
     # Subscribe the newly created tripwire
     tw_uid = getTripwireUid(rest, TW_NAME)
@@ -129,6 +130,8 @@ def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
     tw_uid_check = getTripwireUid(rest, TW_NAME)
     assert tw_uid_check == tw_uid, f"The tripwire UUID after the modification doesn't match!" \
       f" Before: {tw_uid} - After: {tw_uid_check}"
+    # Allow the controller to finish reloading the tripwire after modification.
+    time.sleep(3)
     print("Events should be received from the sensor...")
     message_received = verify_message_mqtt(client)
     assert message_received, "The scene hasn't processed any event from the tripwire!"
