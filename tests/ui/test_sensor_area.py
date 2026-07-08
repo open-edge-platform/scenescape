@@ -67,12 +67,7 @@ def validate_polygon_sensor_area(browser):
       EC.presence_of_element_located((By.ID, "svgout")))
   time.sleep(1)
 
-  # Draw a polygon by dispatching mouseup events directly to the SVG at exact
-  # coordinates. The previous ActionChains offset-clicking approach relied on the
-  # mouse physically landing inside the SVG, which intermittently registered
-  # fewer than three vertices under CI load and tripped the "at least 3 vertices"
-  # validation. Driving the Snap.svg mouseup handler with synthetic events at
-  # known coordinates removes that timing dependency entirely.
+  # Draw a polygon by dispatching mouseup events directly to the SVG at exact coordinates.
   vertex_offsets = [(60, 60), (160, 60), (160, 160), (60, 160)]
   draw_polygon_via_events(browser, vertex_offsets)
 
