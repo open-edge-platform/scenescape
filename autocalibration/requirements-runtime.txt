@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # This file is licensed under Apache 2.0 License.
 
+setuptools==81.0.0
+wheel==0.47.0
 addict==2.4.0
-kornia==0.8.2
-kubernetes==35.0.0
+kornia==0.8.3
+kubernetes==36.0.2
 numpy==2.2.6
 open3d-cpu[headless]==0.19.0
 opencv-python-headless==4.13.0.92
@@ -14,15 +16,15 @@ pytz==2026.2
 PyYAML==6.0.3
 scikit-learn==1.9.0
 scipy==1.17.1
-torch==2.11.0+cpu
+torch==2.12.1
 torchvision==0.26.0+cpu
 trimesh==4.11.5
-gdown==5.2.2
-h5py==3.15.1
+gdown==6.1.0
+h5py==3.16.0
 matplotlib==3.11.0
 plotly==6.7.0
-pycolmap==0.6.0
+pycolmap==4.0.4
 tqdm==4.67.3
 Flask==3.1.3
 flask-socketio==5.6.1
-eventlet==0.40.4
+eventlet==0.41.0
