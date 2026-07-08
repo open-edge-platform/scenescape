@@ -95,7 +95,7 @@ CAM_MODEL_PROC  = os.environ.get(
     "/home/pipeline-server/models/object_detection/person-vehicle"
     "/person-vehicle-bike-detection-crossroad-1016.json",
 )
-_CAM_LABELS_RAW       = os.environ.get("CAM_DETECTION_LABELS", "vehicle,bike")
+_CAM_LABELS_RAW       = os.environ.get("CAM_DETECTION_LABELS", "vehicle,cyclist")
 CAM_DETECTION_LABELS  = [l.strip() for l in _CAM_LABELS_RAW.split(",") if l.strip()]
 SSCAPE_ADAPTER        = os.environ.get(
     "SSCAPE_ADAPTER",
@@ -395,10 +395,7 @@ def main() -> None:
     def _on_cam_message(_c, _u, msg):
       try:
         data = json.loads(msg.payload)
-        objs = data.get("objects", {})
-        if "bike" in objs:          # normalise to match LiDAR/PointPillars label
-          objs["cyclist"] = objs.pop("bike")
-        _cam_last_objects[0] = objs
+        _cam_last_objects[0] = data.get("objects", {})
       except Exception:
         pass
 
