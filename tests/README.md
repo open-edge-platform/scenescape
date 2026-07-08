@@ -33,6 +33,7 @@ Firefox **must** be installed as a real binary (not snap), as snap Firefox is in
 **Manual setup**
 
 For Ubuntu 24.04+:
+
 ```bash
 sudo add-apt-repository -y ppa:mozillateam/ppa
 sudo apt-get update && sudo apt-get install -y firefox-esr
@@ -40,6 +41,7 @@ sudo ln -sf /usr/bin/firefox-esr /usr/bin/firefox
 ```
 
 Verify Firefox is installed correctly:
+
 ```bash
 firefox --version  # Should show Mozilla Firefox (not snap)
 ```
@@ -145,13 +147,13 @@ pytest tests/functional --collect-container-logs none
 
 ### Environment variables
 
-| Variable        | Default            | Backend | Description                                 |
-| --------------- | ------------------ | ------- | ------------------------------------------- |
-| `SUPASS`        | random             | both    | Superuser password for the test deployment  |
-| `SECRETSDIR`    | `manager/secrets/` | docker  | Path to the secrets directory               |
-| `IMAGE_VERSION` | `latest`           | docker  | Docker image tag to use for test containers |
-| `FIREFOX_BIN`   | `firefox` (from PATH) | UI tests | Path to Firefox binary for Selenium tests  |
-| `GECKODRIVER_BIN` | `geckodriver` (from PATH) | UI tests | Path to geckodriver binary for Selenium   |
+| Variable          | Default                   | Backend  | Description                                 |
+| ----------------- | ------------------------- | -------- | ------------------------------------------- |
+| `SUPASS`          | random                    | both     | Superuser password for the test deployment  |
+| `SECRETSDIR`      | `manager/secrets/`        | docker   | Path to the secrets directory               |
+| `IMAGE_VERSION`   | `latest`                  | docker   | Docker image tag to use for test containers |
+| `FIREFOX_BIN`     | `firefox` (from PATH)     | UI tests | Path to Firefox binary for Selenium tests   |
+| `GECKODRIVER_BIN` | `geckodriver` (from PATH) | UI tests | Path to geckodriver binary for Selenium     |
 
 ### Log files
 
