@@ -68,12 +68,9 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
     assert self.togglePanel(self.ELEM_3D_CTL_PANEL, True)
     time.sleep(WAIT_SEC)
     if wait_render:
-      # The three.js scene and its async-loaded GLB assets can take several seconds
-      # to paint under software (llvmpipe) rendering; wait until the canvas has
-      # actually rendered content so the baseline screenshot is not a blank canvas.
+      # Wait until the canvas has rendered content so the baseline screenshot is not a blank canvas.
       common.wait_for_3d_scene_rendered(self.browser)
-    # Capture the WebGL canvas directly (toDataURL) rather than via the page
-    # screenshot, which can return a blank canvas under headed Firefox on Xvfb.
+    # Capture the WebGL canvas directly
     cap = common.capture_3d_canvas(self.browser)
 
     # Show 3D control panel again for interaction
