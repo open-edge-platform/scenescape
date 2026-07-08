@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+pipeline:
+  run_name: Controller-Immediate
+  output:
+    path: ./output/black-box-evaluation
+
+dataset:
+  class: datasets.unity_dataset.UnityDataset
+  config:
+    data_path: ../../../tests/system/metric/unity_dataset
+    cameras: [Cam_x1_0, Cam_x2_0]
+    camera_fps: 10
+
+harness:
+  class: harnesses.black_box_harness.BlackBoxHarness
+  config:
+    broker_image: eclipse-mosquitto:2.0.22
+    container_type: controller
+    container_image: scenescape-controller:latest
+    tracker_config_path: pipeline_configs/black_box_unity/config/controller_immediate.json
+    # startup_wait_s: 2.0
+    # drain_timeout: 5.0
+    # Optional observability: capture OTLP metrics via an OTEL Collector sidecar
+    enable_metrics: true
+    metrics_collector_image: otel/opentelemetry-collector-contrib:0.155.0
+    metrics_export_interval_s: 2
+
+evaluators:
+  - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
+    config:
+      metrics: [HOTA, MOTA, IDF1]
+  - class: evaluators.diagnostic_evaluator.DiagnosticEvaluator
+    config:
+      metrics: [LOC_T_X, LOC_T_Y, DIST_T]
+  - class: evaluators.jitter_evaluator.JitterEvaluator
+    config:
+      metrics:
+        [
+          rms_jerk,
+          rms_jerk_gt,
+          rms_jerk_ratio,
+          acceleration_variance,
+          acceleration_variance_gt,
+          acceleration_variance_ratio,
+        ]

@@ -23,10 +23,6 @@ Expected API after refactor:
 
 import pytest
 
-pytestmark = pytest.mark.skip(
-  reason="Pending Phase 1 tracker refactoring — ClusterTracker.update() API not yet implemented"
-)
-
 SCENE = "tracker-test-scene"
 
 
@@ -79,9 +75,13 @@ class TestClusterTrackerUUIDStability:
     uuid_first = tracker.get_clusters(SCENE)[0].uuid
 
     tracker.update(SCENE, [_detection(10.0, 10.0)], timestamp=100.1)
-    uuid_second = tracker.get_clusters(SCENE)[0].uuid
+    clusters = tracker.get_clusters(SCENE)
 
-    assert uuid_first != uuid_second
+    # Both clusters coexist (old one not yet expired); the new one must have a distinct UUID
+    assert len(clusters) == 2
+    uuids = {c.uuid for c in clusters}
+    assert uuid_first in uuids
+    assert len(uuids) == 2, "Detection far beyond max_dist must create a new UUID"
 
   def test_cluster_restored_within_expiry_window(self):
     tracker = self._make_tracker(expiry=10.0)
@@ -141,3 +141,47 @@ class TestClusterTrackerUUIDStability:
     clusters = tracker.get_clusters(SCENE)
     assert len(clusters) == 1
     assert clusters[0].uuid == original_uuid
+
+
+class TestClusterTrackerClearScene:
+
+  def _make_tracker(self, max_dist=2.0, expiry=10.0):
+    from cluster_analytics_tracker import ClusterTracker
+    return ClusterTracker(max_matching_distance=max_dist, expiry_seconds=expiry)
+
+  def test_clear_scene_removes_clusters_immediately(self):
+    tracker = self._make_tracker(expiry=10.0)
+    tracker.update(SCENE, [_detection(1.0, 1.0)], timestamp=100.0)
+    assert len(tracker.get_clusters(SCENE)) == 1
+
+    tracker.clear_scene(SCENE)
+
+    assert len(tracker.get_clusters(SCENE)) == 0
+
+  def test_clear_scene_allows_fresh_uuid_after_settings_change(self):
+    tracker = self._make_tracker(expiry=10.0)
+    tracker.update(SCENE, [_detection(1.0, 1.0)], timestamp=100.0)
+    old_uuid = tracker.get_clusters(SCENE)[0].uuid
+
+    # Simulate settings change — clear, then re-detect at the same location
+    tracker.clear_scene(SCENE)
+    tracker.update(SCENE, [_detection(1.0, 1.0)], timestamp=100.1)
+
+    clusters = tracker.get_clusters(SCENE)
+    assert len(clusters) == 1
+    assert clusters[0].uuid != old_uuid, "A new UUID must be assigned after clear_scene()"
+
+  def test_clear_scene_on_unknown_scene_does_not_raise(self):
+    tracker = self._make_tracker()
+    tracker.clear_scene("nonexistent-scene")  # must not raise
+
+  def test_clear_scene_only_affects_target_scene(self):
+    other_scene = "other-scene"
+    tracker = self._make_tracker(expiry=10.0)
+    tracker.update(SCENE, [_detection(1.0, 1.0)], timestamp=100.0)
+    tracker.update(other_scene, [_detection(2.0, 2.0)], timestamp=100.0)
+
+    tracker.clear_scene(SCENE)
+
+    assert len(tracker.get_clusters(SCENE)) == 0
+    assert len(tracker.get_clusters(other_scene)) == 1

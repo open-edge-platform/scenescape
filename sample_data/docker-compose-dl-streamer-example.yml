@@ -90,7 +90,7 @@ x-controller-base: &controller-base
 
 # Profiles:
 # - Default (no profile): Core services including autocalibration
-# - experimental: All services including mapping and cluster-analytics
+# - experimental: All services including mapping
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
 # - vdms: Enable the VDMS service
@@ -291,7 +291,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260623-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260630-weekly-ubuntu24
     networks:
       scenescape:
     tty: true
@@ -355,7 +355,7 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260623-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260630-weekly-ubuntu24
     networks:
       scenescape:
     tty: true
@@ -548,7 +548,7 @@ services:
       - vol-mapping-hf-cache:/workspace/.cache/huggingface
     environment:
       - MAPPING_CPU_SEC_PER_FRAME=10
-      - GUNICORN_TIMEOUT=300
+      - GUNICORN_TIMEOUT=900
       - PYTHONDONTWRITEBYTECODE=1
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
@@ -573,8 +573,11 @@ services:
     restart: always
 
   cluster-analytics:
+    environment:
+      OPENBLAS_NUM_THREADS: "2"
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
     profiles:
-      - experimental
       - cluster-analytics
     image: scenescape-cluster-analytics:${VERSION:-latest}
     init: true

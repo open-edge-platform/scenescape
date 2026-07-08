@@ -81,15 +81,16 @@ help:
 	@echo "Available targets:"
 	@echo "  build-core        (default) Build secrets, core images (excluding mapping, cluster_analytics, and tracker), and install models"
 	@echo "  build-all                   Build secrets, all images, and install models"
-	@echo "  build-experimental          Build experimental images only (mapping, cluster_analytics, and tracker)"
+	@echo "  build-experimental          Build experimental images only (mapping and tracker)"
 	@echo "  build-core-images           Build core microservice images (excluding mapping, cluster_analytics, and tracker) in parallel"
 	@echo "  build-all-images            Build all microservice images in parallel"
-	@echo "  build-experimental-images   Build experimental microservice images (mapping, cluster_analytics, and tracker) in parallel"
+	@echo "  build-experimental-images   Build experimental microservice images (mapping and tracker) in parallel"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
 	@echo "  demo                        (default) Start the Scenescape demo with core services using Docker Compose"
 	@echo "  demo-all                    Start the Scenescape demo with all services using Docker Compose"
+	@echo "  demo-cluster-analytics      Start the Scenescape demo with cluster analytics service using Docker Compose"
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Scenescape)"
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker service + Controller in analytics only mode using Docker Compose"
@@ -198,13 +199,13 @@ build-core-images: $(BUILD_DIR)
 	$(MAKE) -j$(JOBS) $(CORE_IMAGE_FOLDERS)
 	@echo "DONE ==> Parallel builds of core folders: $(CORE_IMAGE_FOLDERS)"
 
-# Parallel wrapper for experimental images (mapping, cluster_analytics, and tracker)
+# Parallel wrapper for experimental images (mapping and tracker)
 .PHONY: build-experimental-images
 build-experimental-images: $(BUILD_DIR)
-	@echo "==> Running parallel builds of experimental folders: mapping cluster_analytics tracker"
+	@echo "==> Running parallel builds of experimental folders: mapping tracker"
 	@set -e; trap 'grep --color=auto -i -r --include="*.log" "^error" $(BUILD_DIR) || true' EXIT; \
-	$(MAKE) -j$(JOBS) mapping cluster_analytics tracker
-	@echo "DONE ==> Parallel builds of experimental folders: mapping cluster_analytics tracker"
+	$(MAKE) -j$(JOBS) mapping tracker
+	@echo "DONE ==> Parallel builds of experimental folders: mapping tracker"
 
 # ===================== Cleaning and Rebuilding =======================
 .PHONY: rebuild-core-images
@@ -694,7 +695,11 @@ demo: build-core init-sample-data
 
 .PHONY: demo-all
 demo-all: build-all init-sample-data
-	$(call start_demo,--profile controller --profile experimental)
+	$(call start_demo,--profile controller --profile cluster-analytics --profile experimental)
+
+.PHONY: demo-cluster-analytics
+demo-cluster-analytics: build-all init-sample-data
+	$(call start_demo,--profile controller --profile cluster-analytics)
 
 .PHONY: demo-tracker
 demo-tracker: build-all init-sample-data

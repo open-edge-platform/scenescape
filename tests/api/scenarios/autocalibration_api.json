@@ -104,7 +104,7 @@
             "cameraId": "atag-qcam1"
           },
           "body": {
-            "image": "/9j/4AAQSkZJRgABAQAAAQABAAD...",
+            "image": "base64:test_media/atag-calib-demo-map.png",
             "intrinsics": [
               [1000, 0, 640],
               [0, 1000, 360],
