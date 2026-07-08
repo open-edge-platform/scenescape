@@ -18,7 +18,7 @@ section.
 
 ```yaml
 scene:
-  image: scenescape-controller:${VERSION:-latest}
+  image: intel/scenescape-controller:${VERSION:-latest}
   # ...
   # mount the trackerconfig file to the container
   configs:

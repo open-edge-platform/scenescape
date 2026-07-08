@@ -6,7 +6,7 @@
 set -e
 
 # Configuration variables
-scenescape_image=scenescape-manager:1.4.0
+scenescape_image=intel/scenescape-manager:1.4.0
 pg_new_version="17.6"
 dbdir=db
 secretsdir=./manager/secrets
@@ -147,7 +147,7 @@ check_migration_needed() {
             -v scenescape_vol-migrations:/workspace/migrations \
             --privileged \
             -e PYTHONPATH=${appdir} \
-            scenescape-manager:latest \
+            intel/scenescape-manager:latest \
             webserver \
             --dbhost ${db_container} \
             --dbtype postgres \

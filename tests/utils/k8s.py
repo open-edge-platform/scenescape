@@ -44,11 +44,11 @@ _RELEASE_NAME = "scenescape"
 _NAMESPACE = "scenescape"
 
 _SCENESCAPE_IMAGES = [
-  "scenescape-manager",
-  "scenescape-autocalibration",
-  "scenescape-controller",
-  "scenescape-cluster-analytics",
-  "scenescape-mapping-mapanything",
+  "intel/scenescape-manager",
+  "intel/scenescape-autocalibration",
+  "intel/scenescape-controller",
+  "intel/scenescape-cluster-analytics",
+  "intel/scenescape-mapping-mapanything",
 ]
 
 def _run(cmd, **kwargs):
@@ -334,7 +334,7 @@ class K8sManager:
 
     for image_name in _SCENESCAPE_IMAGES:
       old_tag = f"{image_name}:latest"
-      new_tag = f"intel/{image_name}:{version}"
+      new_tag = f"{image_name}:{version}"
 
       if not _image_exists(old_tag):
         raise RuntimeError(

@@ -155,19 +155,19 @@ class TestMetricsCustomConfig:
     }
 
   def test_metrics_disabled_by_default(self, tracker_config_file):
-    harness = BlackBoxHarness("scenescape-controller:test")
+    harness = BlackBoxHarness("intel/scenescape-controller:test")
     harness.set_custom_config(self._base(tracker_config_file))
     assert harness._enable_metrics is False
 
   def test_enable_metrics_requires_collector_image(self, tracker_config_file):
-    harness = BlackBoxHarness("scenescape-controller:test")
+    harness = BlackBoxHarness("intel/scenescape-controller:test")
     cfg = self._base(tracker_config_file)
     cfg["enable_metrics"] = True
     with pytest.raises(ValueError, match="metrics_collector_image"):
       harness.set_custom_config(cfg)
 
   def test_enable_metrics_parses_options(self, tracker_config_file):
-    harness = BlackBoxHarness("scenescape-controller:test")
+    harness = BlackBoxHarness("intel/scenescape-controller:test")
     cfg = self._base(tracker_config_file)
     cfg.update({
         "enable_metrics": True,
