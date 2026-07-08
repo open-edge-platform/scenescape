@@ -46,7 +46,12 @@ SPDX-License-Identifier = "Apache-2.0"
 [[annotations]]
 path = [
   "sample_data/velodyne_bin_part1.tar.gz",
-  "sample_data/velodyne_bin_part2.tar.gz"
+  "sample_data/velodyne_bin_part2.tar.gz",
+  "sample_data/velodyne_bin_part3.tar.gz",
+  "sample_data/image_part1.tar.gz",
+  "sample_data/image_part2.tar.gz",
+  "sample_data/image_part3.tar.gz",
+  "sample_data/image_part4.tar.gz"
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "(C) 2022 Tsinghua University"

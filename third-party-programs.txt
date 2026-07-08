@@ -75395,7 +75395,8 @@ Permission is granted to anyone to use this software for any purpose, including 
 
 
 -------------------------------------------------------------
-158. DAIR-V2X Dataset (sample_data/velodyne_bin_part1.tar.gz, sample_data/velodyne_bin_part2.tar.gz)
+158. DAIR-V2X Dataset (sample_data/velodyne_bin_part1.tar.gz, sample_data/velodyne_bin_part2.tar.gz, sample_data/velodyne_bin_part3.tar.gz,
+                       sample_data/image_part1.tar.gz, sample_data/image_part2.tar.gz, sample_data/image_part3.tar.gz, sample_data/image_part4.tar.gz)
 
     Copyright (C) 2022 Tsinghua University
 
