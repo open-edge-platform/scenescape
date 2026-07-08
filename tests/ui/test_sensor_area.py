@@ -74,12 +74,15 @@ def validate_polygon_sensor_area(browser):
   # validation. Driving the Snap.svg mouseup handler with synthetic events at
   # known coordinates removes that timing dependency entirely.
   vertex_offsets = [(60, 60), (160, 60), (160, 160), (60, 160)]
-  expected_points = draw_polygon_via_events(browser, vertex_offsets)
+  draw_polygon_via_events(browser, vertex_offsets)
 
   polygon_list = browser.find_elements_with_wait(By.TAG_NAME, "polygon")
   polygon_points = polygon_list[-1].get_attribute("points")
   p_list = list(map(float, polygon_points.split(",")))
-  assert len(p_list) >= 6, f"Expected at least 3 vertices, got points: {p_list}"
+  expected_len = len(vertex_offsets) * 2
+  assert len(p_list) == expected_len, (
+    f"Expected {len(vertex_offsets)} vertices ({expected_len} coords), got {p_list}"
+  )
   print(f"POLYGON with {len(p_list) // 2} points created \n{p_list}")
 
   browser.find_element(By.NAME, "save").click()
@@ -102,7 +105,6 @@ def draw_polygon_via_events(browser, vertex_offsets):
 
   @param    browser                 Object wrapping the Selenium driver.
   @param    vertex_offsets          List of (dx, dy) offsets for each vertex.
-  @return   list                    The (dx, dy) offsets that were drawn.
   """
   script = """
     const svg = document.getElementById('svgout');
@@ -119,12 +121,10 @@ def draw_polygon_via_events(browser, vertex_offsets):
       const r = start.getBoundingClientRect();
       fire(start, r.left + r.width / 2, r.top + r.height / 2);
     }
-    return svg.querySelectorAll('.vertex').length;
   """
   browser.execute_script(script, [list(v) for v in vertex_offsets])
   WebDriverWait(browser, 10).until(
       lambda b: len(b.find_elements(By.CLASS_NAME, "vertex")) >= len(vertex_offsets))
-  return vertex_offsets
 
 def validate_circular_sensor_area(browser):
   browser.find_element(By.ID, "id_area_1").click()
