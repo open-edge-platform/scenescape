@@ -7,6 +7,8 @@
 Gunicorn configuration file with post_fork hook to initialize model in each worker
 """
 
+import traceback
+
 from scene_common import log
 
 def on_starting(server):
@@ -46,7 +48,7 @@ def post_fork(server, worker):
       log.info(f"Worker {worker.pid} model already initialized")
 
   except Exception as e:
-    log.error(f"Worker {worker.pid} failed to initialize model: {e}")
+    log.error(f"Worker {worker.pid} failed to initialize model: {e}\n{traceback.format_exc()}")
     # Don't exit here - let Gunicorn handle worker failures
     raise
 
