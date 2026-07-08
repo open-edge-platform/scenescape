@@ -97,7 +97,7 @@ _Figure 4: Enter AprilTag dimensions._
 
 ```yaml
 autocalibration:
-  image: scenescape-autocalibration:${VERSION:-latest}
+  image: intel/scenescape-autocalibration:${VERSION:-latest}
   # ...
   # Refer to one of the sample docker-compose yaml files on how to configure the rest
 ```

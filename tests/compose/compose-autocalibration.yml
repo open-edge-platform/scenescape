@@ -28,7 +28,7 @@ services:
     restart: "no"
 
   autocalibration:
-    image: scenescape-autocalibration:${VERSION:-latest}
+    image: intel/scenescape-autocalibration:${VERSION:-latest}
     init: true
     networks:
       scenescape-test:

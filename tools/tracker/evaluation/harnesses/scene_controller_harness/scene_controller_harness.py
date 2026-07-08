@@ -63,7 +63,7 @@ class SceneControllerHarness(TrackerHarness):
     """Initialize SceneControllerHarness.
 
     Args:
-      container_image: Scene controller Docker image (e.g., 'scenescape-controller:2026.0.0-dev')
+      container_image: Scene controller Docker image (e.g., 'intel/scenescape-controller:2026.0.0-dev')
     """
     self._container_image = container_image
     self._scene_config: Optional[Dict[str, Any]] = None
