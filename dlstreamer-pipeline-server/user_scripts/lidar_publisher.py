@@ -95,7 +95,7 @@ CAM_MODEL_PROC  = os.environ.get(
     "/home/pipeline-server/models/object_detection/person-vehicle"
     "/person-vehicle-bike-detection-crossroad-1016.json",
 )
-_CAM_LABELS_RAW       = os.environ.get("CAM_DETECTION_LABELS", "vehicle,person")
+_CAM_LABELS_RAW       = os.environ.get("CAM_DETECTION_LABELS", "vehicle,bike")
 CAM_DETECTION_LABELS  = [l.strip() for l in _CAM_LABELS_RAW.split(",") if l.strip()]
 SSCAPE_ADAPTER        = os.environ.get(
     "SSCAPE_ADAPTER",
@@ -103,8 +103,14 @@ SSCAPE_ADAPTER        = os.environ.get(
 )
 CAM_TOPIC = f"scenescape/data/camera/{CAM_SENSOR_ID}"
 
-# KITTI class index → label name, normalised to match camera model output labels.
-KITTI_LABELS: dict[int, str] = {0: "person", 1: "cyclist", 2: "vehicle"}
+# ── Stream enable flags ────────────────────────────────────────────────────────
+ENABLE_LIDAR  = os.environ.get("ENABLE_LIDAR",  "true").lower() not in ("0", "false", "no")
+ENABLE_CAMERA = os.environ.get("ENABLE_CAMERA", "true").lower() not in ("0", "false", "no")
+if not ENABLE_LIDAR and not ENABLE_CAMERA:
+  raise ValueError("ENABLE_LIDAR and ENABLE_CAMERA cannot both be false")
+
+# KITTI class index → label name.  Person (index 0) intentionally omitted.
+KITTI_LABELS: dict[int, str] = {1: "cyclist", 2: "vehicle"}
 
 # GStreamer monotonic clock → wall-clock offset, anchored on first frame.
 _gst_wall_offset: "float | None" = None
@@ -185,6 +191,8 @@ def build_lidar_message(raw: dict, sensor_id: str, fps: float) -> dict:
       continue
     try:
       label = _resolve_label(obj)
+      if label not in ("vehicle", "cyclist"):
+        continue
       sx, sy, sz = lidar_to_scene_offset(
         bbox.get("x", 0.0), bbox.get("y", 0.0), bbox.get("z", 0.0)
       )
@@ -328,13 +336,14 @@ def _build_pipeline() -> str:
   ]
   lidar = " ".join(lidar_parts)
 
-  return f"gst-launch-1.0 {cam} {lidar}"
+  branches = ([cam] if ENABLE_CAMERA else []) + ([lidar] if ENABLE_LIDAR else [])
+  return f"gst-launch-1.0 {' '.join(branches)}"
 
 
 # ── FIFO ───────────────────────────────────────────────────────────────────────
 
 def _make_fifo() -> None:
-  for path in (FIFO, CAM_FIFO):
+  for path in ([FIFO] if ENABLE_LIDAR else []) + ([CAM_FIFO] if ENABLE_CAMERA else []):
     if os.path.exists(path):
       os.remove(path)
     os.mkfifo(path)
@@ -357,7 +366,8 @@ def main() -> None:
     f"lidar_topic={CAMERA_TOPIC} cam_topic={CAM_TOPIC} "
     f"lidar_device={DEVICE} cam_device={CAM_DEVICE} fps={FRAME_RATE} "
     f"score_threshold={SCORE_THRESHOLD} cam_score_threshold={CAM_SCORE_THRESHOLD} "
-    f"publish_raw={PUBLISH_RAW}",
+    f"publish_raw={PUBLISH_RAW} "
+    f"enable_lidar={ENABLE_LIDAR} enable_camera={ENABLE_CAMERA}",
     flush=True,
   )
 
@@ -367,11 +377,13 @@ def main() -> None:
   proc = subprocess.Popen(shlex.split(pipeline_cmd), stderr=sys.stderr)
   print(f"[lidar-publisher] Pipeline started (pid={proc.pid})", flush=True)
 
-  fifo_result: list = [None]
-  fifo_thread = _open_fifo_background(FIFO, fifo_result)
+  if ENABLE_LIDAR:
+    fifo_result: list = [None]
+    fifo_thread = _open_fifo_background(FIFO, fifo_result)
 
-  cam_fifo_result: list = [None]
-  cam_fifo_thread = _open_fifo_background(CAM_FIFO, cam_fifo_result)
+  if ENABLE_CAMERA:
+    cam_fifo_result: list = [None]
+    cam_fifo_thread = _open_fifo_background(CAM_FIFO, cam_fifo_result)
 
   client = connect_mqtt()
 
@@ -379,15 +391,19 @@ def main() -> None:
   _cam_frame_count = [0]
   _cam_last_objects: list = [{}]
 
-  def _on_cam_message(_c, _u, msg):
-    try:
-      data = json.loads(msg.payload)
-      _cam_last_objects[0] = data.get("objects", {})
-    except Exception:
-      pass
+  if ENABLE_CAMERA:
+    def _on_cam_message(_c, _u, msg):
+      try:
+        data = json.loads(msg.payload)
+        objs = data.get("objects", {})
+        if "bike" in objs:          # normalise to match LiDAR/PointPillars label
+          objs["cyclist"] = objs.pop("bike")
+        _cam_last_objects[0] = objs
+      except Exception:
+        pass
 
-  client.subscribe(CAM_TOPIC)
-  client.on_message = _on_cam_message
+    client.subscribe(CAM_TOPIC)
+    client.on_message = _on_cam_message
 
   @atexit.register
   def _cleanup():
@@ -397,33 +413,43 @@ def main() -> None:
         proc.wait(timeout=5)
       except subprocess.TimeoutExpired:
         proc.kill()
-    for path in (FIFO, CAM_FIFO):
+    for path in ([FIFO] if ENABLE_LIDAR else []) + ([CAM_FIFO] if ENABLE_CAMERA else []):
       try:
         os.remove(path)
       except FileNotFoundError:
         pass
     _mqtt_state.shutdown()
 
-  fifo_thread.join(timeout=30.0)
-  if fifo_result[0] is None:
-    raise RuntimeError("LiDAR FIFO not opened within 30 s — pipeline likely failed to start")
+  if ENABLE_LIDAR:
+    fifo_thread.join(timeout=30.0)
+    if fifo_result[0] is None:
+      raise RuntimeError("LiDAR FIFO not opened within 30 s — pipeline likely failed to start")
 
-  cam_fifo_thread.join(timeout=30.0)
-  if cam_fifo_result[0] is None:
-    raise RuntimeError("Camera FIFO not opened within 30 s — pipeline likely failed to start")
+  if ENABLE_CAMERA:
+    cam_fifo_thread.join(timeout=30.0)
+    if cam_fifo_result[0] is None:
+      raise RuntimeError("Camera FIFO not opened within 30 s — pipeline likely failed to start")
 
-  def _cam_fifo_reader() -> None:
-    try:
-      with cam_fifo_result[0] as cf:
-        for line in cf:
-          line = line.strip()
-          if line:
-            _cam_queue.put(line)
-    except Exception:
-      pass
+    def _cam_fifo_reader() -> None:
+      try:
+        with cam_fifo_result[0] as cf:
+          for line in cf:
+            line = line.strip()
+            if line:
+              _cam_queue.put(line)
+      except Exception:
+        pass
 
-  cam_reader = threading.Thread(target=_cam_fifo_reader, daemon=True, name="cam-fifo-reader")
-  cam_reader.start()
+    cam_reader = threading.Thread(target=_cam_fifo_reader, daemon=True, name="cam-fifo-reader")
+    cam_reader.start()
+
+  if not ENABLE_LIDAR:
+    # Camera-only mode: PostInferenceDataPublish handles MQTT publishing.
+    # Python just keeps the pipeline alive; Ctrl-C or EOS stops it.
+    print("[lidar-publisher] LiDAR disabled — camera-only mode, pipeline running", flush=True)
+    while proc.poll() is None:
+      time.sleep(5)
+    return
 
   published = 0
   fps     = float(FRAME_RATE)
@@ -437,19 +463,20 @@ def main() -> None:
       # start from the same file index.
       if not _startup_flushed:
         _startup_flushed = True
-        flushed = 0
-        while not _cam_queue.empty():
-          try:
-            _cam_queue.get_nowait()
-            flushed += 1
-          except queue.Empty:
-            break
-        if flushed:
-          print(
-            f"[lidar-publisher] startup flush: discarded {flushed} camera"
-            " head-start frame(s) — GPU init lag",
-            flush=True,
-          )
+        if ENABLE_CAMERA:
+          flushed = 0
+          while not _cam_queue.empty():
+            try:
+              _cam_queue.get_nowait()
+              flushed += 1
+            except queue.Empty:
+              break
+          if flushed:
+            print(
+              f"[lidar-publisher] startup flush: discarded {flushed} camera"
+              " head-start frame(s) — GPU init lag",
+              flush=True,
+            )
 
       rc = proc.poll()
       if rc is not None and rc != 0:
@@ -480,20 +507,25 @@ def main() -> None:
 
       published += 1
 
-      # Drain all camera FIFO lines available since the last LiDAR frame.
-      while True:
-        try:
-          _cam_queue.get_nowait()
-          _cam_frame_count[0] += 1
-        except queue.Empty:
-          break
+      if ENABLE_CAMERA:
+        # Drain all camera FIFO lines available since the last LiDAR frame.
+        while True:
+          try:
+            _cam_queue.get_nowait()
+            _cam_frame_count[0] += 1
+          except queue.Empty:
+            break
 
       if published % 100 == 0:
         lidar_counts = {k: len(v) for k, v in lidar_msg["objects"].items()}
-        cam_counts   = {k: len(v) for k, v in _cam_last_objects[0].items()}
+        if ENABLE_CAMERA:
+          cam_counts = {k: len(v) for k, v in _cam_last_objects[0].items()}
+          cam_info = f" cam={_cam_frame_count[0] + 1} cam_objs={cam_counts}"
+        else:
+          cam_info = ""
         print(
           f"[lidar-publisher] frames={published} fps={fps:.1f}"
-          f" lidar={lidar_counts} cam={_cam_frame_count[0] + 1} cam_objs={cam_counts}",
+          f" lidar={lidar_counts}{cam_info}",
           flush=True,
         )
 
