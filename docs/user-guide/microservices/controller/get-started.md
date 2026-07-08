@@ -34,7 +34,7 @@
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
-  scenescape-controller \
+  intel/scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
   --tracker_config_file /home/scenescape/Scenescape/tracker-config.json \
@@ -84,7 +84,7 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
-  scenescape-controller \
+  intel/scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
   --ntp ntpserv \
@@ -104,7 +104,7 @@ Analytics-only mode allows the Scene Controller to consume tracked objects from 
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
-  scenescape-controller \
+  intel/scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
   --ntp ntpserv
@@ -140,7 +140,7 @@ When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer vide
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
-  scenescape-controller \
+  intel/scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
   --tracker_config_file /home/scenescape/Scenescape/tracker-config.json \
@@ -165,7 +165,7 @@ When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer vide
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/controller.auth:/run/secrets/controller.auth:ro \
   --name scene \
-  scenescape-controller \
+  intel/scenescape-controller \
   controller \
   --broker broker.scenescape.intel.com \
   --tracker_config_file /home/scenescape/Scenescape/tracker-config.json \

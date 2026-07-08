@@ -18,7 +18,7 @@ harness:
   config:
     broker_image: eclipse-mosquitto:2.0.22
     container_type: tracker
-    container_image: scenescape-tracker:latest
+    container_image: intel/scenescape-tracker:latest
     tracker_config_path: pipeline_configs/black_box_unity/config/tracker_service.json
     # startup_wait_s: 5.0
     # drain_timeout: 5.0
