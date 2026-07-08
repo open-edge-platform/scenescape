@@ -226,10 +226,6 @@ def test_scene_control_panel(params, record_xml_attribute):
 
   finally:
     if browser is not None:
-      # quit() (not close()) terminates the geckodriver process and the Firefox
-      # instance. close() only closes the window and leaves geckodriver running,
-      # so the heavy WebGL/Mesa-software Firefox would linger and starve the next
-      # WebGL test's geckodriver of resources ("Can not connect to the Service").
       browser.quit()
     common.record_test_result(TEST_NAME, exit_code)
 
