@@ -3,7 +3,7 @@
 
 ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:65a93d69fa75478d554f4ad27c85c1e69fa184956261b4301ebaf6dbb0a3543d
 
-FROM scenescape-common-base AS scenescape-cluster-analytics-builder
+FROM intel/scenescape-common-base AS scenescape-cluster-analytics-builder
 
 # -------------- Cluster Analytics Runtime Stage --------------
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-cluster-analytics-runtime

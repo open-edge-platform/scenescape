@@ -44,7 +44,7 @@ def dataset(tmp_path):
 @pytest.fixture
 def harness():
   """Create SceneControllerHarness with latest container."""
-  return SceneControllerHarness(container_image='scenescape-controller:latest')
+  return SceneControllerHarness(container_image='intel/scenescape-controller:latest')
 
 
 @pytest.fixture
