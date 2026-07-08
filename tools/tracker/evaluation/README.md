@@ -422,7 +422,7 @@ pytest harnesses/tests/test_scene_controller_harness.py::TestSceneControllerHarn
 Integration tests require:
 
 - Docker installed and running
-- SceneScape controller container image available (e.g., `intel/scenescape-controller:latest`)
+- Scenescape controller container image available (e.g., `intel/scenescape-controller:latest`)
 
 Verify Docker setup:
 
