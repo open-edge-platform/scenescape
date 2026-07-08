@@ -177,8 +177,8 @@ class VDMSDatabase(ReIDDatabase):
 
     if response[0].get('status') == 0:
       log.info(f"{caller}: Created descriptor set '{self.set_name}' "
-               f"({requested_dimensions}D, {expected_metric})")
-      self._writeSchemaMarker(requested_dimensions, expected_metric)
+          f"({requested_dimensions}D, {expected_metric})")
+      self._writeSchemaMarker(requested_dimensions, expected_metric, skip_exists_check=True)
       self.dimensions = requested_dimensions
       return
 
@@ -195,18 +195,24 @@ class VDMSDatabase(ReIDDatabase):
           f"Writing marker with configured values: {requested_dimensions}D, "
           f"{expected_metric}. If this controller's configuration is incorrect, "
           "subsequent verification will be based on this potentially wrong value.")
-      self._writeSchemaMarker(requested_dimensions, expected_metric)
+      self._writeSchemaMarker(requested_dimensions, expected_metric, skip_exists_check=True)
       self.dimensions = requested_dimensions
       return
 
+    if marker_dimensions is None or marker_metric is None:
+      raise RuntimeError(
+          f"{caller}: '{self.set_name}' schema marker returned no dimensions "
+          f"for verification (dimensions={marker_dimensions}, metric={marker_metric}). "
+          "Cannot safely confirm compatibility.")
+
     if str(marker_metric).strip().upper() != expected_metric:
       raise RuntimeError(
-          f"{caller}: '{self.set_name}' was created with metric {marker_metric}, "
+          f"{caller}: '{self.set_name}' uses metric {marker_metric}, "
           f"expected {expected_metric}. "
           "Recreate the descriptor set with matching metric.")
     if marker_dimensions != requested_dimensions:
       raise RuntimeError(
-          f"{caller}: '{self.set_name}' was created with {marker_dimensions} dimensions, "
+          f"{caller}: '{self.set_name}' has {marker_dimensions} dimensions, "
           f"expected {requested_dimensions}. "
           "Recreate the descriptor set with matching dimensions.")
 
@@ -214,7 +220,7 @@ class VDMSDatabase(ReIDDatabase):
              f"against schema marker ({marker_dimensions}D, {marker_metric})")
     self.dimensions = requested_dimensions
 
-  def _writeSchemaMarker(self, dimensions, metric):
+  def _writeSchemaMarker(self, dimensions, metric, skip_exists_check=False):
     """
     Record the descriptor set's dimensions and metric as a regular VDMS entity.
     This sidesteps FindDescriptorSet's unreliable metadata response (VDMS v2.12)
@@ -226,27 +232,23 @@ class VDMSDatabase(ReIDDatabase):
 
     @param  dimensions  Number of dimensions for the descriptor set
     @param  metric      Similarity metric used for the descriptor set
+    @param  skip_exists_check   If True, skip the existence check and write the marker
+                                unconditionally. Callers should only pass True when they
+                                have already established the marker doesn't exist (e.g.
+                                immediately after creating the descriptor set or after a
+                                prior _readSchemaMarker() call came back empty), to avoid
+                                a redundant duplicate query.
     """
-    marker_exists, _, _ = self._readSchemaMarker()
-    if marker_exists:
-      log.debug(f"_writeSchemaMarker: Marker already exists for '{self.set_name}', skipping write")
-      return
-
-    query = [{
-      "AddEntity": {
-        "class": SCHEMA_MARKER_CLASS,
-        "properties": {
-          "set_name": self.set_name,
-          "dimensions": dimensions,
-          "metric": metric
-        }
-      }
-    }]
+    if not skip_exists_check:
+      marker_exists, _, _ = self._readSchemaMarker()
+      if marker_exists:
+        log.debug(f"_writeSchemaMarker: Marker already exists for '{self.set_name}', skipping write")
+        return
+    query = [{"AddEntity": {"class": SCHEMA_MARKER_CLASS,
+              "properties": {"set_name": self.set_name, "dimensions": dimensions, "metric": metric}}}]
     response, _ = self.sendQuery(query)
     if not response or response[0].get('status') != 0:
-      log.warning(f"_writeSchemaMarker: Failed to write schema marker for "
-                  f"'{self.set_name}'. Response: {response}")
-    return
+      log.warning(f"_writeSchemaMarker: Failed to write schema marker for '{self.set_name}'. Response: {response}")
 
   def _readSchemaMarker(self):
     """
@@ -258,28 +260,21 @@ class VDMSDatabase(ReIDDatabase):
     query = [{
       "FindEntity": {
         "class": SCHEMA_MARKER_CLASS,
-        "constraints": {
-          "set_name": ["==", self.set_name]
-        },
-        "results": {
-          "list": ["set_name", "dimensions", "metric"]
-        }
+        "constraints": {"set_name": ["==", self.set_name]},
+        "results": {"list": ["set_name", "dimensions", "metric"]}
       }
     }]
     response, _ = self.sendQuery(query)
     if not response or response[0].get('status') != 0:
       return False, None, None
 
-    entities = response[0].get('entities', [])
-    if not entities:
+    payload = response[0]
+    marker_exists = payload.get('returned', 0) > 0 or bool(payload.get('entities'))
+    if not marker_exists:
       return False, None, None
 
-    entity = entities[0]
-    try:
-      dimensions = int(entity.get('dimensions'))
-    except (TypeError, ValueError):
-      dimensions = None
-    metric = entity.get('metric')
+    dimensions = self._extractSchemaDimensions(payload)
+    metric = self._extractSchemaMetric(payload)
     return True, dimensions, metric
 
   def ensureSchema(self, dimensions):
@@ -422,7 +417,13 @@ class VDMSDatabase(ReIDDatabase):
       return {}
 
     # Sort by timestamp descending to get the most recent entry
-    entities_with_persist = [e for e in entities if e.get('persist')]
+    entities_with_persist = [
+      e for e in entities
+      if isinstance(e.get('persist'), str) and
+         e.get('persist').strip() and
+         e.get('persist') != 'Missing property'
+    ]
+
     if not entities_with_persist:
       log.debug(f"[VDMS] getPersistedAttributes: No persist data found for uuid={uuid}")
       return {}

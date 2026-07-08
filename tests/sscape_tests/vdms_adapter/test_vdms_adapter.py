@@ -149,7 +149,7 @@ class TestSchemaValidation:
 
     assert db._schema_ready is True
     assert db.dimensions == 256
-    assert db.sendQuery.call_count == 1
+    assert db.sendQuery.call_count == 2
     query = db.sendQuery.call_args_list[0][0][0]
     assert 'AddDescriptorSet' in query[0]
 
@@ -249,7 +249,7 @@ class TestSchemaValidation:
     first_query = db.sendQuery.call_args_list[0][0][0]
     second_query = db.sendQuery.call_args_list[1][0][0]
     assert 'AddDescriptorSet' in first_query[0]
-    assert 'FindDescriptorSet' in second_query[0]
+    assert 'FindEntity' in second_query[0]
 
 
 class TestAddEntry:
