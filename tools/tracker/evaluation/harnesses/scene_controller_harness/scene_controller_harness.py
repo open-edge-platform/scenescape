@@ -19,6 +19,28 @@ from base.tracker_harness import TrackerHarness
 from utils.format_converters import write_jsonl, stream_jsonl
 
 
+def _harness_tmp_base() -> Path:
+  """Return a base directory for harness temp workspaces that Docker can mount.
+
+  Snap-packaged Docker daemons are confined and cannot bind-mount paths under
+  ``/tmp`` (the default :func:`tempfile.mkdtemp` location), which makes the
+  harness fail out of the box.  Temp workspaces are therefore created under the
+  user's home cache directory, which Docker can always access on both native
+  and snap installations.  Set ``SCENESCAPE_HARNESS_TMPDIR`` to override.
+  """
+  override = os.environ.get("SCENESCAPE_HARNESS_TMPDIR") or None
+  base = (Path(override).expanduser() if override
+          else Path.home() / ".cache" / "scenescape" / "scene_controller_harness")
+  try:
+    base.mkdir(parents=True, exist_ok=True)
+  except OSError as exc:
+    raise RuntimeError(
+      f"Failed to create harness temp directory {base!s}. "
+      "Set SCENESCAPE_HARNESS_TMPDIR to a writable path."
+    ) from exc
+  return base
+
+
 class SceneControllerHarness(TrackerHarness):
   """Tracker harness for Scenescape Scene Controller.
 
@@ -135,7 +157,7 @@ class SceneControllerHarness(TrackerHarness):
       raise RuntimeError("Tracker config not set. Call set_custom_config() first.")
 
     # Create temporary directory for data exchange with container
-    self._temp_dir = Path(tempfile.mkdtemp(prefix="scenescape_harness_"))
+    self._temp_dir = Path(tempfile.mkdtemp(prefix="scenescape_harness_", dir=_harness_tmp_base()))
     print(f"Created temporary directory: {self._temp_dir}")
 
     try:
