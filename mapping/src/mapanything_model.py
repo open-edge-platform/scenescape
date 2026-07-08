@@ -17,6 +17,8 @@ from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 from PIL import Image
 
+import traceback
+
 from scene_common import log
 
 from model_interface import ReconstructionModel
@@ -60,7 +62,7 @@ class MapAnythingModel(ReconstructionModel):
       log.info("MapAnything model loaded successfully")
 
     except Exception as e:
-      log.error(f"Failed to load MapAnything model: {e}")
+      log.error(f"Failed to load MapAnything model: {e}\n{traceback.format_exc()}")
       raise RuntimeError(f"MapAnything model loading failed: {e}")
 
   def run_inference(self, frames: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -113,7 +115,7 @@ class MapAnythingModel(ReconstructionModel):
       )
 
     except Exception as e:
-      log.error(f"MapAnything inference (frames) failed: {e}")
+      log.error(f"MapAnything inference (frames) failed: {e}\n{traceback.format_exc()}")
       raise RuntimeError(f"MapAnything inference (frames) failed: {e}")
 
   def get_supported_outputs(self) -> List[str]:
