@@ -3,7 +3,7 @@
 # This file is licensed under Apache 2.0 License.
 
 addict==2.4.0
-kornia==0.8.2
+kornia==0.8.3
 kubernetes==35.0.0
 numpy==2.2.6
 open3d-cpu[headless]==0.19.0
