@@ -17,7 +17,7 @@ default: build-image
 
 .PHONY: $(BUILD_DIR)
 $(BUILD_DIR):
-	mkdir -p $@/intel
+	mkdir -p $@ $(dir $@/sbom-$(IMAGE).Dockerfile) $(dir $@/sboms/$(IMAGE).tar)
 
 # ANSI color codes
 RED    := \033[0;31m
