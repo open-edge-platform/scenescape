@@ -6,7 +6,7 @@ This directory contains unit tests for the Scenescape mapping module. The tests 
 
 ```bash
 # 1. Enter the mapping container
-docker run -it --entrypoint bash scenescape-mapping-test
+docker run -it --entrypoint bash intel/scenescape-mapping-test
 
 # 2. Navigate to tests directory
 cd ~/Scenescape/tests
@@ -18,7 +18,7 @@ pytest -v
 ./run_tests.sh
 ```
 
-**Note**: Test dependencies are pre-installed in the `scenescape-mapping-test` container.
+**Note**: Test dependencies are pre-installed in the `intel/scenescape-mapping-test` container.
 
 ## Overview
 

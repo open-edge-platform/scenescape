@@ -11,7 +11,7 @@ DATA_REGULATED messages, and assert on what arrives at ANALYTICS_CLUSTERS.
 
 Requires:
   - Docker available on the host
-  - scenescape-cluster-analytics-test image built (`make test-build`
+  - intel/scenescape-cluster-analytics-test image built (`make test-build`
     in cluster_analytics/)
 """
 

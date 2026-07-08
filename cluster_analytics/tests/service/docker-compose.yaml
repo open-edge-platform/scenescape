@@ -22,7 +22,7 @@ services:
     restart: no
 
   cluster-analytics:
-    image: scenescape-cluster-analytics-test
+    image: intel/scenescape-cluster-analytics-test
     init: true
     networks:
       ca-test:

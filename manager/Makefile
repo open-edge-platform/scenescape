@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-IMAGE = scenescape-manager
+IMAGE = intel/scenescape-manager
+TEST_IMAGE = intel/scenescape-manager-test
 TARGET = scenescape-manager-runtime
+TEST_TARGET = scenescape-manager-test
 USES_SCENE_COMMON = yes
 SHELL = /bin/bash
 CERTDOMAIN = scenescape.intel.com
@@ -23,7 +25,7 @@ build-image: jslibraries jsm-examples remove-symlink Dockerfile
 
 .PHONY: test-build
 test-build: test/geckodriver.tar.gz
-	$(MAKE) IMAGE="scenescape-manager-test" TARGET="scenescape-manager-test" EXTRA_BUILD_ARGS="--build-arg TEST_USER=$(shell id -u)"
+	$(MAKE) IMAGE="$(TEST_IMAGE)" TARGET="$(TEST_TARGET)" EXTRA_BUILD_ARGS="--build-arg TEST_USER=$(shell id -u)"
 
 # The 'remove-symlink' target removes a potentially dangling symlink to prevent build failures.
 remove-symlink:

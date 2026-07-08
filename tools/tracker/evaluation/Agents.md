@@ -66,8 +66,8 @@ Check `datasets/README.md` for more details
   - Frames are published as fast as possible. **Frames always carry original dataset timestamps**; no rewriting occurs. Both the Controller (`--maxlag 1e15`) and Tracker Service (`max_lag_s: 1e15` in config) are configured to accept historical timestamps.
   - Starts a **Mock Manager REST API** (`mock_manager.py`) as a thread on the Docker host. Both container types load scene configuration from it via HTTP on startup. The mock server computes camera extrinsics using the same logic as production (`PointCorrespondenceTransform._calculatePoseMat()` in `scene_common/transform.py`): `cv2.solvePnP` with coplanarity check, full 14-coefficient distortion array, and `_poseMatToPose()` scale extraction.
   - **Supports two container types** (must be specified explicitly via the required `container_type` config key):
-    - `controller` (`scenescape-controller`): Connects to mock Manager via `--resturl`; camera dicts include `camera points`/`map points` so `Camera.__init__` builds a `PointCorrespondenceTransform`. Time-chunking controlled by `time_chunking_enabled` in tracker-config.json.
-    - `tracker` (`scenescape-tracker`): Connects to mock Manager via `scenes.source: api` in config.json; camera extrinsics (translation, XYZ Euler degrees, scale) are served by the mock Manager. Auth file written as `{"user": "harness", "password": "harness"}` (required by `api_scene_loader.cpp`). Time-chunking always active via `time_chunking_rate_fps`.
+    - `controller` (`intel/scenescape-controller`): Connects to mock Manager via `--resturl`; camera dicts include `camera points`/`map points` so `Camera.__init__` builds a `PointCorrespondenceTransform`. Time-chunking controlled by `time_chunking_enabled` in tracker-config.json.
+    - `tracker` (`intel/scenescape-tracker`): Connects to mock Manager via `scenes.source: api` in config.json; camera extrinsics (translation, XYZ Euler degrees, scale) are served by the mock Manager. Auth file written as `{"user": "harness", "password": "harness"}` (required by `api_scene_loader.cpp`). Time-chunking always active via `time_chunking_rate_fps`.
   - `set_custom_config()` accepts:
     - `tracker_config_path` (**required**): path to the tracker config JSON mounted into the container.
     - `broker_image` (**required**): Docker image for the MQTT broker (e.g. `"eclipse-mosquitto:2.0.22"`).
@@ -83,7 +83,7 @@ Check `datasets/README.md` for more details
 
 - **CameraProjectionHarness**: `harnesses/camera_projection_harness/camera_projection_harness.py`
   - Bypasses the full tracker and only applies camera-pose projection to isolate per-camera calibration error.
-  - Runs `run_projection.py` inside the `scenescape-controller` Docker container (requires `scene_common`, OpenCV, open3d).
+  - Runs `run_projection.py` inside the `intel/scenescape-controller` Docker container (requires `scene_common`, OpenCV, open3d).
   - Supports two projection modes per object category via the `object_classes` custom config key:
     - **TYPE_1** (`shift_type: 1`, default): projects bounding-box bottom-centre `(centre_x, bottom_y)` to world XY plane using `CameraPose.cameraPointToWorldPoint()`.
     - **TYPE_2** (`shift_type: 2`): shifts the projection point upward by `(height/2) * (baseAngle/90)` before projecting, using `CameraPose.projectBounds()` to derive the base angle.

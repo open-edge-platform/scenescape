@@ -50,7 +50,7 @@ services:
       - load-test
 
   tracker:
-    image: scenescape-tracker:${VERSION:-latest}
+    image: intel/scenescape-tracker:${VERSION:-latest}
     hostname: tracker
     read_only: true
     cap_drop:
