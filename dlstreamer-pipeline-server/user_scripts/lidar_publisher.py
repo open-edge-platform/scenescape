@@ -428,9 +428,29 @@ def main() -> None:
   published = 0
   fps     = float(FRAME_RATE)
   last_ts: "float | None" = None
+  _startup_flushed = False
 
   with fifo_result[0] as fifo:
     for line in fifo:
+      # On the very first LiDAR frame, GPU init is complete.  Discard any
+      # camera frames that arrived during that warm-up so both counters
+      # start from the same file index.
+      if not _startup_flushed:
+        _startup_flushed = True
+        flushed = 0
+        while not _cam_queue.empty():
+          try:
+            _cam_queue.get_nowait()
+            flushed += 1
+          except queue.Empty:
+            break
+        if flushed:
+          print(
+            f"[lidar-publisher] startup flush: discarded {flushed} camera"
+            " head-start frame(s) — GPU init lag",
+            flush=True,
+          )
+
       rc = proc.poll()
       if rc is not None and rc != 0:
         raise RuntimeError(f"GStreamer pipeline exited with code {rc}")
@@ -473,7 +493,7 @@ def main() -> None:
         cam_counts   = {k: len(v) for k, v in _cam_last_objects[0].items()}
         print(
           f"[lidar-publisher] frames={published} fps={fps:.1f}"
-          f" lidar={lidar_counts} cam={_cam_frame_count[0]} cam_objs={cam_counts}",
+          f" lidar={lidar_counts} cam={_cam_frame_count[0] + 1} cam_objs={cam_counts}",
           flush=True,
         )
 
