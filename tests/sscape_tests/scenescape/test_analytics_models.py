@@ -1,9 +1,16 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from types import SimpleNamespace
+
 import pytest
 
-from controller.analytics.analytics_models import AnalyticsEvent, AnalyticsFrame, AnalyticsObject
+from controller.analytics.analytics_models import (
+  AnalyticsEvent,
+  AnalyticsFrame,
+  AnalyticsObject,
+  moving_object_to_analytics_object,
+)
 from controller.moving_object import ChainData
 from scene_common.geometry import Point
 
@@ -125,3 +132,58 @@ class TestAnalyticsEvent:
   def test_missing_required_field_raises_type_error(self):
     with pytest.raises(TypeError):
       AnalyticsEvent(event_type='tripwire_cross', key='wire-1')
+
+
+class TestMovingObjectToAnalyticsObject:
+  def _source_object(self, **kwargs):
+    defaults = dict(
+      gid='src-1',
+      category='person',
+      frameCount=4,
+      sceneLoc=Point(3.0, 4.0, 0.0),
+      chain_data=ChainData(regions={}, publishedLocations=[], persist={}),
+    )
+    defaults.update(kwargs)
+    return SimpleNamespace(**defaults)
+
+  def test_maps_required_fields(self):
+    src = self._source_object()
+
+    ao = moving_object_to_analytics_object(src)
+
+    assert ao.gid == 'src-1'
+    assert ao.category == 'person'
+    assert ao.frameCount == 4
+    assert ao.sceneLoc is src.sceneLoc
+
+  def test_shares_chain_data_reference(self):
+    src = self._source_object()
+
+    ao = moving_object_to_analytics_object(src)
+    ao.chain_data.regions['z'] = {'entered': '2026-01-01T00:00:00Z'}
+
+    assert 'z' in src.chain_data.regions
+
+  def test_optional_fields_default_to_none_when_absent(self):
+    src = self._source_object()
+
+    ao = moving_object_to_analytics_object(src)
+
+    assert ao.mesh is None
+    assert ao.bbMeters is None
+    assert ao.size is None
+
+  def test_optional_fields_carried_through_when_present(self):
+    sentinel = object()
+    src = self._source_object(mesh=sentinel, bbMeters={'width': 0.5}, size=[0.5, 0.5, 1.8])
+
+    ao = moving_object_to_analytics_object(src)
+
+    assert ao.mesh is sentinel
+    assert ao.bbMeters == {'width': 0.5}
+    assert ao.size == [0.5, 0.5, 1.8]
+
+  def test_returns_analytics_object_instance(self):
+    ao = moving_object_to_analytics_object(self._source_object())
+
+    assert isinstance(ao, AnalyticsObject)

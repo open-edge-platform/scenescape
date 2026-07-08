@@ -16,6 +16,7 @@ from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
+from controller.analytics.analytics_models import moving_object_to_analytics_object
 from controller.controller_mode import ControllerMode
 from controller.moving_object import ChainData
 from controller.pose_adjustment import (PoseAdjustment,
@@ -636,6 +637,7 @@ class Scene(SceneModel):
         curObjects = self.getTrackedObjects(detectionType)
       else:
         curObjects = self.tracker.currentObjects(detectionType) if self.tracker else []
+    curObjects = [moving_object_to_analytics_object(o) for o in curObjects]
     for obj in curObjects:
       obj.chain_data.publishedLocations.insert(0, obj.sceneLoc)
 

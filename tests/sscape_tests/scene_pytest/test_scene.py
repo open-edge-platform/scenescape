@@ -224,11 +224,12 @@ def _make_chain_data():
     publishedLocations=[],
   )
 
-def _make_obj(gid="obj-1", frame_count=4, scene_loc=None, when=1.0):
+def _make_obj(gid="obj-1", frame_count=4, scene_loc=None, when=1.0, category='person'):
   if scene_loc is None:
     scene_loc = Point(0.0, 0.0, 0.0)
   return SimpleNamespace(
     gid=gid,
+    category=category,
     frameCount=frame_count,
     sceneLoc=scene_loc,
     when=when,

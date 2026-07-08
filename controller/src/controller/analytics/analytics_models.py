@@ -8,6 +8,29 @@ from controller.moving_object import ChainData
 from scene_common.geometry import Point
 
 
+def moving_object_to_analytics_object(obj) -> "AnalyticsObject":
+  """Wrap any tracked-object duck type (MovingObject or SimpleNamespace) as AnalyticsObject.
+
+  chain_data is kept as a shared reference so analytics mutations (region entry
+  timestamps, sensor state, published location history) are visible on the
+  source object and persist across frames.
+
+  Optional mesh / bbMeters / size fields are carried through via getattr so the
+  function works identically for MovingObject instances and the lightweight
+  SimpleNamespace wrappers produced by _deserializeTrackedObjects.
+  """
+  return AnalyticsObject(
+    gid=obj.gid,
+    category=obj.category,
+    frameCount=obj.frameCount,
+    sceneLoc=obj.sceneLoc,
+    chain_data=obj.chain_data,
+    mesh=getattr(obj, 'mesh', None),
+    bbMeters=getattr(obj, 'bbMeters', None),
+    size=getattr(obj, 'size', None),
+  )
+
+
 @dataclass
 class AnalyticsObject:
   """Stable analytics contract for a single tracked object.
