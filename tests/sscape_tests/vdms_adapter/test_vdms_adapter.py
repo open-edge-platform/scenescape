@@ -150,9 +150,14 @@ class TestSchemaValidation:
     assert db._schema_ready is True
     assert db.dimensions == 256
     assert db.sendQuery.call_count == 2
-    query = db.sendQuery.call_args_list[0][0][0]
-    assert 'AddDescriptorSet' in query[0]
-
+    first_query = db.sendQuery.call_args_list[0][0][0]
+    second_query = db.sendQuery.call_args_list[1][0][0]
+    assert 'AddDescriptorSet' in first_query[0]
+    assert 'AddEntity' in second_query[0]
+    marker = second_query[0]['AddEntity']
+    assert marker['properties']['set_name'] == SCHEMA_NAME
+    assert marker['properties']['dimensions'] == 256
+    assert marker['properties']['metric'] == 'L2'
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_ensure_schema_raises_on_existing_dimension_mismatch(self, mock_vdms_class):
     """Verify fallback metadata check fails when existing descriptor dimensions differ."""
