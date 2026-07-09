@@ -25,13 +25,13 @@ Four containers run on a private Docker network:
 
 Supported container types
 -------------------------
-* **Controller** (``scenescape-controller``, entrypoint ``controller-cmd``):
+* **Controller** (``intel/scenescape-controller``, entrypoint ``controller-cmd``):
   - Scene config loaded via ``--resturl http://<manager>/api/v1`` exactly as in
     production; the mock manager container serves ``GET /api/v1/scenes`` with
     the dataset camera calibration data (``camera points`` / ``map points``).
   - Time-chunking is controlled by ``time_chunking_enabled`` in tracker-config.json.
 
-* **Tracker service** (``scenescape-tracker``, binary ``/scenescape/tracker``):
+* **Tracker service** (``intel/scenescape-tracker``, binary ``/scenescape/tracker``):
   - Scene config loaded via ``scenes.source: api`` pointing at the same mock
     manager container, matching the production deployment path.
   - ``max_lag_s`` is set to 1e15 so historical dataset timestamps are accepted
@@ -350,7 +350,7 @@ class BlackBoxHarness(TrackerHarness):
 
     Args:
         container_image: Docker image for the tracker/controller
-                         (e.g. ``"scenescape-controller:2026.1.0-dev"``).
+                         (e.g. ``"intel/scenescape-controller:2026.1.0-dev"``).
     """
     self._container_image = container_image
     self._scene_config: Optional[Dict[str, Any]] = None
