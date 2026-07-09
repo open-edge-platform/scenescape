@@ -180,20 +180,10 @@
           "status_code": 200
         },
         "expected_body": {
-          "count": 8,
+          "count": 6,
           "next": null,
           "previous": null,
           "results": [
-            {
-              "uid": "4",
-              "username": "admin",
-              "is_active": true,
-              "is_staff": true,
-              "is_superuser": true,
-              "first_name": "",
-              "last_name": "",
-              "email": "admin@domain.com"
-            },
             {
               "uid": "1",
               "username": "calibration",
@@ -347,6 +337,16 @@
               ]
             },
             {
+              "uid": "4",
+              "username": "admin",
+              "is_active": true,
+              "is_staff": true,
+              "is_superuser": true,
+              "first_name": "",
+              "last_name": "",
+              "email": "admin@domain.com"
+            },
+            {
               "uid": "${USER_ID}",
               "username": "${USER_NAME_MINIMAL}",
               "is_active": true,
@@ -436,6 +436,17 @@
         "method": "deleteUser",
         "request": {
           "username": "${USER_NAME_MINIMAL}"
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      },
+      {
+        "step_name": "Delete full user",
+        "api": "user",
+        "method": "deleteUser",
+        "request": {
+          "username": "${USER_NAME_FULL}"
         },
         "expected_status": {
           "status_code": 200
