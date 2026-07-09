@@ -46,6 +46,22 @@ _DISTORTION_KEYS = (
 _MAX_COPLANAR_DETERMINANT = 0.1
 
 
+def _intrinsics_to_list(intrinsics):
+  """Normalize intrinsics (``[fx, fy, cx, cy]`` list or ``{fx,fy,cx,cy}`` dict).
+
+  Returns a 4-element ``[fx, fy, cx, cy]`` list.
+  """
+  if isinstance(intrinsics, dict):
+    values = [intrinsics.get(k) for k in ("fx", "fy", "cx", "cy")]
+  else:
+    values = list(intrinsics)
+
+  if len(values) != 4 or any(v is None for v in values):
+    raise ValueError(f"Invalid intrinsics (expected [fx, fy, cx, cy]): {intrinsics!r}")
+
+  return [float(v) for v in values]
+
+
 def _distortion_to_array(distortion):
   """Convert distortion (list, dict, or None) to a 14-element float64 array.
 
@@ -163,28 +179,46 @@ def _build_rest_scene(scene_config: dict) -> dict:
 
   cameras = []
   for cam_name, info in scene_config.get("sensors", {}).items():
-    fx, fy, cx, cy = info["intrinsics"]
+    fx, fy, cx, cy = _intrinsics_to_list(info["intrinsics"])
     dist_raw = info.get("distortion")
-    extrinsics = _compute_extrinsics(
-      info.get("camera points", []),
-      info.get("map points", []),
-      info["intrinsics"],
-      dist_raw,
-    )
-    if extrinsics is None:
-      extrinsics = {"translation": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0], "scale": [1.0, 1.0, 1.0]}
+
+    # Prefer explicit extrinsics (canonical camera->world pose) when the dataset
+    # provides them; otherwise derive them from point correspondences via
+    # solvePnP, exactly as the production Manager does.
+    explicit_extrinsics = info.get("extrinsics")
+    if explicit_extrinsics is not None:
+      extrinsics = explicit_extrinsics
+      cam_points: list = []
+      map_points: list = []
+    else:
+      cam_points = info.get("camera points", [])
+      map_points = info.get("map points", [])
+      extrinsics = _compute_extrinsics(cam_points, map_points, [fx, fy, cx, cy], dist_raw)
+      if extrinsics is None:
+        extrinsics = {"translation": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0], "scale": [1.0, 1.0, 1.0]}
+
     dist_dict = dict(zip(_DISTORTION_KEYS, _distortion_to_array(dist_raw).tolist()))
-    cameras.append({
+    camera = {
       "uid": cam_name,
       "name": cam_name,
       "scene": scene_uid,
       "intrinsics": {"fx": fx, "fy": fy, "cx": cx, "cy": cy},
       "distortion": dist_dict,
       "resolution": [int(info["width"]), int(info["height"])],
-      "camera points": info.get("camera points", []),
-      "map points": info.get("map points", []),
       "extrinsics": extrinsics,
-    })
+    }
+    if cam_points and map_points:
+      # Point-correspondence datasets: keep the legacy keys for the Python
+      # controller's Camera.__init__ (PointCorrespondenceTransform).
+      camera["camera points"] = cam_points
+      camera["map points"] = map_points
+    else:
+      # Explicit-extrinsics datasets: expose the flat pose keys the Python
+      # controller's Camera.__init__ accepts, matching the production Manager.
+      camera["translation"] = extrinsics["translation"]
+      camera["rotation"] = extrinsics["rotation"]
+      camera["scale"] = extrinsics["scale"]
+    cameras.append(camera)
 
   return {
     "uid": scene_uid,

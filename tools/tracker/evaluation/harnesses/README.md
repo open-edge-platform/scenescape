@@ -32,7 +32,7 @@ Harnesses handle tracker-specific deployment details (containers, processes, API
 **Prerequisites**:
 
 - Docker installed and running
-- Scene controller image available (e.g., `scenescape-controller:2026.0.0-dev`)
+- Scene controller image available (e.g., `intel/scenescape-controller:2026.0.0-dev`)
 - Tracker configuration file
 
 **Configuration**:
@@ -45,14 +45,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from harnesses.scene_controller_harness import SceneControllerHarness
-from datasets.metric_test_dataset import MetricTestDataset
+from datasets.unity_dataset import UnityDataset
 
 # Initialize dataset
-dataset = MetricTestDataset("path/to/dataset")
+dataset = UnityDataset("path/to/dataset")
 dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
 # Initialize harness with container image
-harness = SceneControllerHarness(container_image='scenescape-controller:2026.0.0-dev')
+harness = SceneControllerHarness(container_image='intel/scenescape-controller:2026.0.0-dev')
 
 # Configure harness
 harness.set_scene_config(dataset.get_scene_config())  # Dataset-specific format
@@ -128,18 +128,18 @@ The tracker runs with configurable timing modes:
 **Prerequisites**:
 
 - Docker installed and running
-- Scenescape controller image available (e.g., `scenescape-controller:2026.1.0-dev`)
+- Scenescape controller image available (e.g., `intel/scenescape-controller:2026.1.0-dev`)
 
 **Configuration**:
 
 ```python
 from harnesses.camera_projection_harness import CameraProjectionHarness
-from datasets.metric_test_dataset import MetricTestDataset
+from datasets.unity_dataset import UnityDataset
 
-dataset = MetricTestDataset("path/to/dataset")
+dataset = UnityDataset("path/to/dataset")
 dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
-harness = CameraProjectionHarness(container_image="scenescape-controller:2026.1.0-dev")
+harness = CameraProjectionHarness(container_image="intel/scenescape-controller:2026.1.0-dev")
 harness.set_scene_config(dataset.get_scene_config())
 
 outputs = list(harness.process_inputs(dataset.get_inputs()))
@@ -194,26 +194,26 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 - Publishes input frames paced by wall-clock delays derived from the data timestamps, reproducing the original capture cadence. `maxlag`/`max_lag_s=1e15` only suppresses lag-rejection in the tracker — it does **not** replace pacing, which is required for the time-chunk scheduler to fire at the correct rate.
 - Persists `inputs.json` and `outputs.json` to the output folder when `set_output_folder()` is called, creating the directory automatically if it does not exist.
 - Copies the source tracker configuration file into a `config/` subfolder of the output folder (for both container types), preserving the original filename, so each run records the config it was given. For the Tracker Service container the effective `config.json` is derived from this file by the harness (injecting MQTT/Manager endpoints, `max_lag_s=1e15`, and optional OTLP/metrics settings), so the copy captures the source configuration rather than the fully-resolved runtime config.
-- Supports both **Controller** (`scenescape-controller`) and **Tracker Service** (`scenescape-tracker`) container types, set explicitly via the required `container_type` config key.
+- Supports both **Controller** (`intel/scenescape-controller`) and **Tracker Service** (`intel/scenescape-tracker`) container types, set explicitly via the required `container_type` config key.
 - Runs a **Mock Manager REST API** (`mock_manager.py`) on the Docker host so both container types can load scene configuration without a real Manager deployment.
 
 **Prerequisites**:
 
 - Docker installed and running
 - `eclipse-mosquitto` image available (or override `broker_image`)
-- Tracker container image available (e.g., `scenescape-controller:2026.1.0-dev` or `scenescape-tracker:2026.1.0-dev`)
+- Tracker container image available (e.g., `intel/scenescape-controller:2026.1.0-dev` or `intel/scenescape-tracker:2026.1.0-dev`)
 - `paho-mqtt>=1.6.1` installed (included in `requirements.txt`)
 
 **Configuration**:
 
 ```python
 from harnesses.black_box_harness import BlackBoxHarness
-from datasets.metric_test_dataset import MetricTestDataset
+from datasets.unity_dataset import UnityDataset
 
-dataset = MetricTestDataset("path/to/dataset")
+dataset = UnityDataset("path/to/dataset")
 dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
 
-harness = BlackBoxHarness(container_image="scenescape-controller:2026.1.0-dev")
+harness = BlackBoxHarness(container_image="intel/scenescape-controller:2026.1.0-dev")
 harness.set_scene_config(dataset.get_scene_config())
 harness.set_custom_config({
     "tracker_config_path": "/path/to/tracker-config.json",

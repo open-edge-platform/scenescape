@@ -25,13 +25,13 @@ Four containers run on a private Docker network:
 
 Supported container types
 -------------------------
-* **Controller** (``scenescape-controller``, entrypoint ``controller-cmd``):
+* **Controller** (``intel/scenescape-controller``, entrypoint ``controller-cmd``):
   - Scene config loaded via ``--resturl http://<manager>/api/v1`` exactly as in
     production; the mock manager container serves ``GET /api/v1/scenes`` with
     the dataset camera calibration data (``camera points`` / ``map points``).
   - Time-chunking is controlled by ``time_chunking_enabled`` in tracker-config.json.
 
-* **Tracker service** (``scenescape-tracker``, binary ``/scenescape/tracker``):
+* **Tracker service** (``intel/scenescape-tracker``, binary ``/scenescape/tracker``):
   - Scene config loaded via ``scenes.source: api`` pointing at the same mock
     manager container, matching the production deployment path.
   - ``max_lag_s`` is set to 1e15 so historical dataset timestamps are accepted
@@ -205,6 +205,27 @@ def _build_tracker_service_config(
 
 
 
+def _harness_tmp_base() -> Path:
+  """Return a base directory for harness temp workspaces that Docker can mount.
+
+  Snap-packaged Docker daemons are confined and cannot bind-mount paths under
+  ``/tmp`` (the default :func:`tempfile.mkdtemp` location), which makes the
+  harness fail out of the box.  Temp workspaces are therefore created under the
+  user's home cache directory, which Docker can always access on both native
+  and snap installations.  Set ``SCENESCAPE_HARNESS_TMPDIR`` to override.
+  """
+  override = os.environ.get("SCENESCAPE_HARNESS_TMPDIR") or None
+  base = (Path(override).expanduser() if override else Path.home() / ".cache" / "scenescape" / "black_box_harness")
+  try:
+    base.mkdir(parents=True, exist_ok=True)
+  except OSError as exc:
+    raise RuntimeError(
+      f"Failed to create harness temp directory {base!s}. "
+      "Set SCENESCAPE_HARNESS_TMPDIR to a writable path."
+    ) from exc
+  return base
+
+
 def _free_port() -> int:
   """Return a free TCP port on localhost."""
   with socket.socket() as s:
@@ -329,7 +350,7 @@ class BlackBoxHarness(TrackerHarness):
 
     Args:
         container_image: Docker image for the tracker/controller
-                         (e.g. ``"scenescape-controller:2026.1.0-dev"``).
+                         (e.g. ``"intel/scenescape-controller:2026.1.0-dev"``).
     """
     self._container_image = container_image
     self._scene_config: Optional[Dict[str, Any]] = None
@@ -466,7 +487,7 @@ class BlackBoxHarness(TrackerHarness):
 
     run_id  = uuid.uuid4().hex[:8]
     net_name = f"black_box_harness_{run_id}"
-    tmp_dir  = Path(tempfile.mkdtemp(prefix="black_box_harness_"))
+    tmp_dir  = Path(tempfile.mkdtemp(prefix="black_box_harness_", dir=_harness_tmp_base()))
     print(f"[BlackBoxHarness] Temporary workspace: {tmp_dir}")
 
     try:

@@ -18,7 +18,7 @@ MANAGER_DIR="/home/scenescape/Scenescape/manager"
 # Where we want to copy migrations to on the host
 HOST_MIGRATIONS_DIR="${PROJECT_ROOT}/manager/src/manager/migrations"
 
-IMAGE="scenescape-manager:latest"
+IMAGE="intel/scenescape-manager:latest"
 
 # Defaults for showmigrations (can be overridden via flags/env)
 DB_NETWORK="${DB_NETWORK:-scenescape_scenescape}"

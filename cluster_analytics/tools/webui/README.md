@@ -3,7 +3,7 @@
 This README explains how to enable the WebUI for Cluster Analytics in the Scenescape demo setup.
 
 > **Note:** The WebUI is not part of the production image. It is shipped in a
-> separate demo image (`scenescape-cluster-analytics-demo`) and is intended for
+> separate demo image (`intel/scenescape-cluster-analytics-demo`) and is intended for
 > development and demo use only.
 
 ## Cluster Analytics WebUI Features
@@ -27,7 +27,7 @@ The WebUI is **disabled by default**. To enable it:
 
    ```yaml
    cluster-analytics:
-     image: scenescape-cluster-analytics-demo:${VERSION:-latest}
+     image: intel/scenescape-cluster-analytics-demo:${VERSION:-latest}
    ```
 
 3. **Follow the enable steps below**, then run:

@@ -36,7 +36,7 @@ class PipelineEngine:
         path: /tmp/tracker-evaluation
 
     dataset:
-      class: datasets.metric_test_dataset.MetricTestDataset
+      class: datasets.unity_dataset.UnityDataset
       config:
         data_path: /path/to/dataset
         cameras: [x1, x2]
@@ -45,7 +45,7 @@ class PipelineEngine:
     harness:
       class: harnesses.scene_controller_harness.SceneControllerHarness
       config:
-        container_image: scenescape-controller:latest
+        container_image: intel/scenescape-controller:latest
         tracker_config_path: /path/to/tracker-config.json
 
     evaluators:
