@@ -123,12 +123,20 @@
             {
               "uid": "${TRIPWIRE_UID_MINIMAL}",
               "name": "tripwire_minimal",
+              "points": [
+                [0.0, 0.0],
+                [1.0, 0.0]
+              ],
               "height": 1.0,
               "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
             },
             {
               "uid": "${TRIPWIRE_UID_FULL}",
               "name": "tripwire_full",
+              "points": [
+                [2.0, 0.0],
+                [1.0, 1.0]
+              ],
               "height": 1.0,
               "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
             }
