@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from tests.ui.browser import Browser, By
@@ -20,11 +20,11 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def click_when_clickable(browser, button_id, timeout_s=10):
-  """Click a button after ensuring it is interactable and not obscured."""
+def click_when_clickable(browser, locator, timeout_s=10):
+  """Click an element after ensuring it is interactable and not obscured."""
   try:
     button = WebDriverWait(browser, timeout_s).until(
-      EC.element_to_be_clickable((By.ID, button_id))
+      EC.element_to_be_clickable(locator)
     )
   except TimeoutException:
     return False
@@ -52,7 +52,9 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
   """
   camera1_element_id = "//a[@href = '/cam/calibrate/1']"
   assert common.wait_for_elements(browser, camera1_element_id)
-  browser.find_element(By.XPATH, camera1_element_id).click()
+  assert click_when_clickable(browser, (By.XPATH, camera1_element_id)), (
+    f"Timed out waiting for camera link {camera1_element_id!r} to become clickable."
+  )
 
   # Enter parameters
   assert common.wait_for_elements(browser, "id_intrinsics_fx", findBy=By.ID)
@@ -67,12 +69,14 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
     value += step
 
   log.info("Saving changes...")
-  assert click_when_clickable(browser, button_id), (
+  assert click_when_clickable(browser, (By.ID, button_id)), (
     f"Timed out waiting for button {button_id!r} to become clickable."
   )
 
   assert common.wait_for_elements(browser, camera1_element_id)
-  browser.find_element(By.XPATH, camera1_element_id ).click()
+  assert click_when_clickable(browser, (By.XPATH, camera1_element_id)), (
+    f"Timed out waiting for camera link {camera1_element_id!r} to become clickable."
+  )
 
   # Validate parameters
   assert common.wait_for_elements(browser, "id_intrinsics_fx", findBy=By.ID)
