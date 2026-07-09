@@ -2050,7 +2050,7 @@ class TestUpdateActiveDictPersistMerge:
     assert obj.chain_data.persist.get('gender') == 'Male'
 
 class TestSchemaMarker:
-  """Unit tests for _writeSchemaMarker and _readSchemaMarker in isolation."""
+  """Unit tests for _writeSchemaMarker and _readSchemaMarker"""
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_read_schema_marker_sends_correct_query(self, mock_vdms_class):
