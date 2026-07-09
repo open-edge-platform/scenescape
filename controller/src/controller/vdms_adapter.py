@@ -148,15 +148,6 @@ class VDMSDatabase(ReIDDatabase):
     attempt AddDescriptorSet first; only probe schema metadata when
     AddDescriptorSet reports the set already exists.
 
-    NOTE: FindDescriptorSet is documented as Experimental and, as of VDMS v2.12,
-    does not reliably return dimension/metric metadata for existing descriptor
-    sets. This breaks schema verification for additional controller instances
-    connecting to a VDMS instance whose descriptor set was already created by
-    a different instance. To work around this, the dimensions/metric are also
-    recorded as a regular entity (not part of descriptor set metadata) when
-    the set is first created, and verified against that entity rather than
-    relying on FindDescriptorSet.
-
     @param   requested_dimensions  Number of dimensions for the descriptor set
     @param   expected_metric       Similarity metric (e.g. 'L2', 'IP')
     @param   caller                Name of the calling method for log messages
