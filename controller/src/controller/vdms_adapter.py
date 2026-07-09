@@ -179,13 +179,24 @@ class VDMSDatabase(ReIDDatabase):
     marker_exists, marker_dimensions, marker_metric = self._readSchemaMarker()
 
     if not marker_exists:
-      # Set exists but no marker (e.g. created by an older version, or marker
-      # write failed). Write one now so future instances can verify reliably.
+      # Backward-compat: descriptor set exists but marker is missing. Use FindDescriptorSet once
+      # (safe here because AddDescriptorSet already indicated the set exists) to verify before
+      # writing a marker that other controllers will treat as authoritative.
+      schema_exists, schema_dimensions, schema_metric = self.findSchemaMetadata(self.set_name)
+      if not schema_exists or schema_dimensions is None or schema_metric is None:
+        raise RuntimeError(
+            f"{caller}: '{self.set_name}' exists but no schema marker found, and descriptor set metadata "
+            "could not be read for verification. Recreate the descriptor set to continue.")
+      if str(schema_metric).strip().upper() != expected_metric:
+        raise RuntimeError(
+            f"{caller}: '{self.set_name}' uses metric {schema_metric}, expected {expected_metric}. "
+            "Recreate the descriptor set with matching metric.")
+      if schema_dimensions != requested_dimensions:
+        raise RuntimeError(
+            f"{caller}: '{self.set_name}' has {schema_dimensions} dimensions, expected {requested_dimensions}. "
+            "Recreate the descriptor set with matching dimensions.")
       log.warning(
-          f"{caller}: '{self.set_name}' exists but no schema marker found. "
-          f"Writing marker with configured values: {requested_dimensions}D, "
-          f"{expected_metric}. If this controller's configuration is incorrect, "
-          "subsequent verification will be based on this potentially wrong value.")
+          f"{caller}: '{self.set_name}' exists but no schema marker found; writing marker for future instances.")
       self._writeSchemaMarker(requested_dimensions, expected_metric, skip_exists_check=True)
       self.dimensions = requested_dimensions
       return
