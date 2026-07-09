@@ -434,7 +434,7 @@ services:
     pids_limit: 1000
 
   lidar-model-init:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260623-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260707-weekly-ubuntu24
     user: root
     entrypoint: ["/bin/bash", "/model_installer/install-pointpillars"]
     environment:
@@ -450,7 +450,7 @@ services:
     pids_limit: 1000
 
   lidar-stream:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260623-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260707-weekly-ubuntu24
     networks:
       scenescape:
     tty: true

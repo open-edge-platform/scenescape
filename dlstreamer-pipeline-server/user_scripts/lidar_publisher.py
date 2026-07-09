@@ -5,11 +5,21 @@
 """
 Dual-stream pipeline: LiDAR (PointPillars) + Camera (person-vehicle-bike detection).
 
-Two parallel GStreamer branches run inside a single gst-launch-1.0 process:
-  - LiDAR branch: multifilesrc → g3dlidarparse → g3dinference → gvametaconvert
-                  → gvametapublish (FIFO) → Python reads and publishes to MQTT
-  - Camera branch: multifilesrc → gvafpsthrottle → gvadetect
-                   → gvametaconvert → gvametapublish (FIFO) → PostInferenceDataPublish (MQTT)
+When both streams are enabled (default), gvastreammux (output-mode=container) multiplexes
+the heterogeneous video/x-raw + application/x-lidar pair into a single frame-synchronised
+batch stream.  gvastreamdemux unpacks each batch back to per-source pads so gvadetect and
+g3dinference process frames that arrived in the same synchronised batch:
+
+  Camera:  multifilesrc → jpegdec → videoconvert → gvafpsthrottle → mux.sink_0
+             demux.src_0 → PostDecodeTimestampCapture → gvadetect
+                         → gvametaconvert → gvametapublish (CAM_FIFO)
+                         → PostInferenceDataPublish (MQTT)
+  LiDAR:   multifilesrc → g3dlidarparse → mux.sink_1
+             demux.src_1 → g3dinference → gvametaconvert
+                         → gvametapublish (FIFO) → Python → MQTT
+
+Single-stream debug modes (ENABLE_LIDAR=false or ENABLE_CAMERA=false) bypass the mux
+and run the active branch as a standalone pipeline.
 
 MQTT topics:
   - scenescape/data/camera/<LIDAR_SENSOR_ID>  (3-D LiDAR detections)
@@ -268,63 +278,141 @@ def safe_publish(client: mqtt.Client, topic: str, payload: str) -> mqtt.Client:
 # ── GStreamer pipeline ─────────────────────────────────────────────────────────
 
 def _build_pipeline() -> str:
-  # ── Camera branch ──────────────────────────────────────────────────────────
-  # gvafpsthrottle caps throughput to FRAME_RATE regardless of inference time,
-  # keeping the camera branch in step with g3dlidarparse frame-rate=FRAME_RATE.
-  # gvametapublish writes detections to CAM_FIFO so the main loop can count
-  # camera frames and read object labels in sync with the LiDAR frames.
-  # PostInferenceDataPublish also publishes detections directly to MQTT.
   cam_kwarg = json.dumps({
     "cameraid":           CAM_SENSOR_ID,
     "metadatagenpolicy":  "detectionPolicy",
     "detection_labels":   CAM_DETECTION_LABELS,
   })
-  cam_parts = [
-    "multifilesrc",
-    f"location={shlex.quote(CAM_DATA_PATH)}",
-    f"start-index={CAM_START_INDEX}",
-  ]
-  if CAM_STOP_INDEX is not None:
-    cam_parts.append(f"stop-index={CAM_STOP_INDEX}")
-  if LOOP:
-    cam_parts.append("loop=true")
-  cam_parts += [
-    "caps=image/jpeg",
-    "! jpegdec",
-    "! videoconvert",
-    "! video/x-raw,format=BGR",
-    f"! gvafpsthrottle target-fps={FRAME_RATE}",
-    f"! gvapython class=PostDecodeTimestampCapture function=processFrame"
-    f" module={shlex.quote(SSCAPE_ADAPTER)} name=timesync",
-    f"! gvadetect model={shlex.quote(CAM_MODEL)}"
-    f" model-proc={shlex.quote(CAM_MODEL_PROC)}"
-    f" device={shlex.quote(CAM_DEVICE)}"
-    f" threshold={CAM_SCORE_THRESHOLD}",
-    "! gvametaconvert add-tensor-data=true name=metaconvert",
-    f"! gvametapublish method=file file-format=json-lines"
-    f" file-path={shlex.quote(CAM_FIFO)}",
-    f"! gvapython class=PostInferenceDataPublish function=processFrame"
-    f" module={shlex.quote(SSCAPE_ADAPTER)} name=datapublisher"
-    f" kwarg={shlex.quote(cam_kwarg)}",
-    "! fakesink sync=false",
-  ]
-  cam = " ".join(cam_parts)
 
-  # ── LiDAR branch ──────────────────────────────────────────────────────────
-  # gvametaaggregate is NOT used: it requires GST_FORMAT_TIME on all pads but
-  # g3dlidarparse produces application/x-lidar (GST_FORMAT_BYTES).  Both
-  # branches run in the same gst-launch-1.0 process and publish independently
-  # via their own FIFOs; Python reads them in parallel threads.
-  lidar_parts = [
+  if ENABLE_LIDAR and ENABLE_CAMERA:
+    # ── Muxed pipeline ─────────────────────────────────────────────────────
+    # gvastreammux in CONTAINER mode handles the heterogeneous
+    # video/x-raw (camera) + application/x-lidar (LiDAR) pair, producing a
+    # single synchronised batch stream keyed to FRAME_RATE on both pads.
+    # gvastreamdemux unpacks each batch so inference runs on aligned frames.
+    # gvafpsthrottle moves BEFORE the mux to assign PTS to camera frames;
+    # g3dlidarparse already produces PTS via its frame-rate property.
+
+    # ── Camera source → mux.sink_0 ───────────────────────────────────
+    cam_src = [
+      "multifilesrc",
+      f"location={shlex.quote(CAM_DATA_PATH)}",
+      f"start-index={CAM_START_INDEX}",
+    ]
+    if CAM_STOP_INDEX is not None:
+      cam_src.append(f"stop-index={CAM_STOP_INDEX}")
+    if LOOP:
+      cam_src.append("loop=true")
+    cam_src += [
+      "caps=image/jpeg",
+      "! jpegdec",
+      "! videoconvert",
+      "! video/x-raw,format=BGR",
+      f"! gvafpsthrottle target-fps={FRAME_RATE}",
+      "! mux.sink_0",
+    ]
+
+    # ── LiDAR source → mux.sink_1 ───────────────────────────────────
+    lidar_src = [
+      "multifilesrc",
+      f"location={shlex.quote(DATA_PATH)}",
+      f"start-index={START_INDEX}",
+    ]
+    if STOP_INDEX is not None:
+      lidar_src.append(f"stop-index={STOP_INDEX}")
+    if LOOP:
+      lidar_src.append("loop=true")
+    lidar_src += [
+      "caps=application/octet-stream",
+      f"! g3dlidarparse stride=1 frame-rate={FRAME_RATE}",
+      "! mux.sink_1",
+    ]
+
+    # ── Camera inference branch (demux.src_0) ────────────────────────
+    cam_infer = " ".join([
+      "demux.src_0 ! queue",
+      f"! gvapython class=PostDecodeTimestampCapture function=processFrame"
+      f" module={shlex.quote(SSCAPE_ADAPTER)} name=timesync",
+      f"! gvadetect model={shlex.quote(CAM_MODEL)}"
+      f" model-proc={shlex.quote(CAM_MODEL_PROC)}"
+      f" device={shlex.quote(CAM_DEVICE)}"
+      f" threshold={CAM_SCORE_THRESHOLD}",
+      "! gvametaconvert add-tensor-data=true name=metaconvert",
+      f"! gvametapublish method=file file-format=json-lines"
+      f" file-path={shlex.quote(CAM_FIFO)}",
+      f"! gvapython class=PostInferenceDataPublish function=processFrame"
+      f" module={shlex.quote(SSCAPE_ADAPTER)} name=datapublisher"
+      f" kwarg={shlex.quote(cam_kwarg)}",
+      "! fakesink sync=false",
+    ])
+
+    # ── LiDAR inference branch (demux.src_1) ────────────────────────
+    lidar_infer = " ".join([
+      "demux.src_1 ! queue",
+      f"! g3dinference config={shlex.quote(MODEL_CONFIG)}"
+      f" device={shlex.quote(DEVICE)}"
+      f" score-threshold={SCORE_THRESHOLD}",
+      f"! gvametaconvert add-tensor-data={ADD_TENSOR_DATA} format=json",
+      f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(FIFO)}",
+      "! fakesink sync=false",
+    ])
+
+    mux_block = (
+      f"gvastreammux name=mux output-mode=container sync-mode=none"
+      f" ! queue ! gvastreamdemux name=demux"
+    )
+    return (
+      f"gst-launch-1.0 {mux_block}"
+      f" {cam_infer}"
+      f" {lidar_infer}"
+      f" {' '.join(cam_src)}"
+      f" {' '.join(lidar_src)}"
+    )
+
+  # ── Single-stream fallback (no mux) ───────────────────────────────────
+  if ENABLE_CAMERA:
+    parts = [
+      "multifilesrc",
+      f"location={shlex.quote(CAM_DATA_PATH)}",
+      f"start-index={CAM_START_INDEX}",
+    ]
+    if CAM_STOP_INDEX is not None:
+      parts.append(f"stop-index={CAM_STOP_INDEX}")
+    if LOOP:
+      parts.append("loop=true")
+    parts += [
+      "caps=image/jpeg",
+      "! jpegdec",
+      "! videoconvert",
+      "! video/x-raw,format=BGR",
+      f"! gvafpsthrottle target-fps={FRAME_RATE}",
+      f"! gvapython class=PostDecodeTimestampCapture function=processFrame"
+      f" module={shlex.quote(SSCAPE_ADAPTER)} name=timesync",
+      f"! gvadetect model={shlex.quote(CAM_MODEL)}"
+      f" model-proc={shlex.quote(CAM_MODEL_PROC)}"
+      f" device={shlex.quote(CAM_DEVICE)}"
+      f" threshold={CAM_SCORE_THRESHOLD}",
+      "! gvametaconvert add-tensor-data=true name=metaconvert",
+      f"! gvametapublish method=file file-format=json-lines"
+      f" file-path={shlex.quote(CAM_FIFO)}",
+      f"! gvapython class=PostInferenceDataPublish function=processFrame"
+      f" module={shlex.quote(SSCAPE_ADAPTER)} name=datapublisher"
+      f" kwarg={shlex.quote(cam_kwarg)}",
+      "! fakesink sync=false",
+    ]
+    return f"gst-launch-1.0 {' '.join(parts)}"
+
+  # ENABLE_LIDAR only
+  parts = [
     "multifilesrc",
     f"location={shlex.quote(DATA_PATH)}",
     f"start-index={START_INDEX}",
   ]
   if STOP_INDEX is not None:
-    lidar_parts.append(f"stop-index={STOP_INDEX}")
+    parts.append(f"stop-index={STOP_INDEX}")
   if LOOP:
-    lidar_parts.append("loop=true")
-  lidar_parts += [
+    parts.append("loop=true")
+  parts += [
     "caps=application/octet-stream",
     f"! g3dlidarparse stride=1 frame-rate={FRAME_RATE}",
     f"! g3dinference config={shlex.quote(MODEL_CONFIG)}"
@@ -334,10 +422,7 @@ def _build_pipeline() -> str:
     f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(FIFO)}",
     "! fakesink sync=false",
   ]
-  lidar = " ".join(lidar_parts)
-
-  branches = ([cam] if ENABLE_CAMERA else []) + ([lidar] if ENABLE_LIDAR else [])
-  return f"gst-launch-1.0 {' '.join(branches)}"
+  return f"gst-launch-1.0 {' '.join(parts)}"
 
 
 # ── FIFO ───────────────────────────────────────────────────────────────────────
@@ -455,9 +540,9 @@ def main() -> None:
 
   with fifo_result[0] as fifo:
     for line in fifo:
-      # On the very first LiDAR frame, GPU init is complete.  Discard any
-      # camera frames that arrived during that warm-up so both counters
-      # start from the same file index.
+      # gvastreammux holds camera frames until the first LiDAR frame arrives,
+      # so the startup offset is already zero in the muxed path.  The drain
+      # below is a safety net for single-stream or unexpected pre-roll.
       if not _startup_flushed:
         _startup_flushed = True
         if ENABLE_CAMERA:
@@ -471,7 +556,7 @@ def main() -> None:
           if flushed:
             print(
               f"[lidar-publisher] startup flush: discarded {flushed} camera"
-              " head-start frame(s) — GPU init lag",
+              " head-start frame(s)",
               flush=True,
             )
 
