@@ -28,6 +28,7 @@ def moving_object_to_analytics_object(obj) -> "AnalyticsObject":
     mesh=getattr(obj, 'mesh', None),
     bbMeters=getattr(obj, 'bbMeters', None),
     size=getattr(obj, 'size', None),
+    raw_obj=obj,
   )
 
 
@@ -55,6 +56,20 @@ class AnalyticsObject:
   mesh: Optional[Any] = None
   bbMeters: Optional[Any] = None
   size: Optional[Any] = None
+  raw_obj: Optional[Any] = None
+
+
+def unwrap_for_publishing(obj):
+  """Return the source object suitable for MQTT event publishing.
+
+  Analytics computation flows through AnalyticsObject (the ACL contract).
+  The Controller's detections_builder requires the full original object
+  interface (velocity, info, reid, …).  This function returns raw_obj when
+  set — i.e. the original MovingObject or SimpleNamespace passed into
+  moving_object_to_analytics_object — and falls back to obj itself for
+  test helpers that construct objects without the converter.
+  """
+  return getattr(obj, 'raw_obj', None) or obj
 
 
 @dataclass

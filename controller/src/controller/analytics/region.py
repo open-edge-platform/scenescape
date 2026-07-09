@@ -5,6 +5,7 @@ from scene_common import log
 from scene_common.geometry import getRegionEvents
 from scene_common.timestamp import get_epoch_time, get_iso_time
 
+from controller.analytics.analytics_models import unwrap_for_publishing
 from controller.analytics.tripwire import DEBOUNCE_DELAY, MIN_FRAMES_FOR_RELIABLE_TRACK
 
 
@@ -101,7 +102,7 @@ def update_region_events(
       entered = []
       for obj in objects:
         if obj.gid in new and key in obj.chain_data.regions:
-          entered.append(obj)
+          entered.append(unwrap_for_publishing(obj))
       if not hasattr(region, 'entered'):
         region.entered = {}
       region.entered[detection_type] = entered
@@ -112,13 +113,13 @@ def update_region_events(
           if key in obj.chain_data.regions:
             entered = get_epoch_time(obj.chain_data.regions[key]['entered'])
             dwell = now - entered
-            exited.append((obj, dwell))
+            exited.append((unwrap_for_publishing(obj), dwell))
 
       if not hasattr(region, 'exited'):
         region.exited = {}
       region.exited[detection_type] = exited
 
-      region.objects[detection_type] = objects
+      region.objects[detection_type] = [unwrap_for_publishing(obj) for obj in objects]
       updated.add(key)
       region.when = now
       if 'objects' not in events:

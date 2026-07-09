@@ -4,6 +4,8 @@
 from scene_common import log
 from scene_common.geometry import getTripwireEvents
 
+from controller.analytics.analytics_models import unwrap_for_publishing
+
 DEBOUNCE_DELAY = 0.5
 MIN_FRAMES_FOR_RELIABLE_TRACK = 3
 
@@ -46,7 +48,7 @@ def update_tripwire_events(detection_type, tripwires, now, cur_objects, events, 
     event_matches = crossing_events.get(key, [])
     previous_objects = tripwire.objects.get(detection_type, [])
     crossed_objects = [
-      TripwireEvent(reliable_objects[obj_idx], direction)
+      TripwireEvent(unwrap_for_publishing(reliable_objects[obj_idx]), direction)
       for obj_idx, direction in event_matches
     ]
 
