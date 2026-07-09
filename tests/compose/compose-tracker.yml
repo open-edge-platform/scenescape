@@ -14,7 +14,7 @@ secrets:
 
 services:
   tracker:
-    image: scenescape-tracker:${VERSION:-latest}
+    image: intel/scenescape-tracker:${VERSION:-latest}
     networks:
       scenescape-test:
         aliases:

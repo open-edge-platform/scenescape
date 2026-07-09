@@ -79,7 +79,7 @@ class ReIDDatabase(ABC):
     return
 
   @abstractmethod
-  def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name, **metadata):
+  def addEntry(self, uuid, rvid, object_type, reid_vectors, set_name, persist=None, **metadata):
     """
     Adds entries to the database for the Re-ID vectors with optional metadata
 
@@ -88,8 +88,20 @@ class ReIDDatabase(ABC):
     @param   object_type  Class of the object (Person, Vehicle, etc.)
     @param   reid_vectors Re-ID embeddings produced by a detection model
     @param   set_name     Name of the set to add the new entry to
+    @param   persist      Optional dict of persistent attributes to store alongside vectors
     @param   metadata     Optional semantic attributes (age, gender, color, etc.)
     @return  None
+    """
+    return
+
+  @abstractmethod
+  def getPersistedAttributes(self, uuid, set_name=None):
+    """
+    Retrieve the most recently stored persist attributes for a given UUID.
+
+    @param   uuid      The object UUID to look up
+    @param   set_name  Optional name of the descriptor set to query
+    @return  dict      Deserialized persist attributes, or empty dict if not found
     """
     return
 
