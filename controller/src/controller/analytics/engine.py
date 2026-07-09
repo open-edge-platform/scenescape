@@ -16,6 +16,7 @@ def process_frame(
     tripwires,
     events,
     use_tracker,
+    state_store,
     is_intersecting_fn=None,
 ):
   """Run all analytics for one frame and write results into events.
@@ -36,6 +37,8 @@ def process_frame(
                        appended here.
     use_tracker:       Controls the frameCount reliability gate across all
                        analytics sub-functions.
+    state_store:       AnalyticsStateStore that owns all analytics state for
+                       this scene.
     is_intersecting_fn: Optional callable(obj, region) -> bool for 3-D mesh
                        intersection fallback in region analytics.
   """
@@ -46,13 +49,13 @@ def process_frame(
 
   update_region_events(
     detection_type, regions, now, now_str, cur_objects, events,
-    use_tracker, is_intersecting_fn,
+    use_tracker, state_store, is_intersecting_fn,
   )
   update_region_events(
     detection_type, sensors, now, now_str, cur_objects, events,
-    use_tracker, is_intersecting_fn,
+    use_tracker, state_store, is_intersecting_fn,
   )
 
   update_tripwire_events(
-    detection_type, tripwires, now, cur_objects, events, use_tracker,
+    detection_type, tripwires, now, cur_objects, events, use_tracker, state_store,
   )

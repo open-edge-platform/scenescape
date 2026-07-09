@@ -11,6 +11,7 @@ from collections import defaultdict
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
+from controller.analytics.state import AnalyticsStateStore
 from controller.scene_controller import SceneController
 
 
@@ -344,6 +345,7 @@ class TestSceneControllerPublishers:
       uid='scene-1',
       name='Test Scene',
       events={'objects': [('roi-1', region)]},
+      analytics_state=AnalyticsStateStore(),
     )
 
     scene_controller._buildAllRegionObjsList = MagicMock(return_value=({}, 0))

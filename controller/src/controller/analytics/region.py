@@ -17,6 +17,7 @@ def update_region_events(
     cur_objects,
     events,
     use_tracker,
+    state_store,
     is_intersecting_fn=None,
 ):
   """Compute region enter/exit events and update per-object chain_data state.
@@ -33,6 +34,7 @@ def update_region_events(
     cur_objects:       List of AnalyticsObject for this frame.
     events:            Mutable dict; region and count events are appended.
     use_tracker:       When True the frameCount reliability gate is applied.
+    state_store:       AnalyticsStateStore that owns per-region analytics state.
     is_intersecting_fn: Optional callable(obj, region) -> bool for 3-D mesh
                        intersection fallback in addition to point-in-region.
 
@@ -57,7 +59,8 @@ def update_region_events(
           matched_indices.add(obj_idx)
 
     objects = [reliable_objects[i] for i in sorted(matched_indices)]
-    regionObjects = region.objects.get(detection_type, [])
+    rstate = state_store.region(key)
+    regionObjects = rstate.objects.get(detection_type, [])
 
     cur = set(x.gid for x in objects)
     prev = set(x.gid for x in regionObjects)
@@ -96,16 +99,14 @@ def update_region_events(
             if key not in obj.chain_data.attr_sensor_events:
               obj.chain_data.attr_sensor_events[key] = []
 
-    emit_region_event = (len(new) or len(old)) and now - region.when > DEBOUNCE_DELAY
+    emit_region_event = (len(new) or len(old)) and now - rstate.when > DEBOUNCE_DELAY
     if emit_region_event:
       log.debug("REGION EVENT", key, now_str, regionObjects, len(objects))
       entered = []
       for obj in objects:
         if obj.gid in new and key in obj.chain_data.regions:
           entered.append(unwrap_for_publishing(obj))
-      if not hasattr(region, 'entered'):
-        region.entered = {}
-      region.entered[detection_type] = entered
+      rstate.entered[detection_type] = entered
 
       exited = []
       for obj in regionObjects:
@@ -115,13 +116,11 @@ def update_region_events(
             dwell = now - entered
             exited.append((unwrap_for_publishing(obj), dwell))
 
-      if not hasattr(region, 'exited'):
-        region.exited = {}
-      region.exited[detection_type] = exited
+      rstate.exited[detection_type] = exited
 
-      region.objects[detection_type] = [unwrap_for_publishing(obj) for obj in objects]
+      rstate.objects[detection_type] = [unwrap_for_publishing(obj) for obj in objects]
       updated.add(key)
-      region.when = now
+      rstate.when = now
       if 'objects' not in events:
         events['objects'] = []
       events['objects'].append((key, region))

@@ -17,7 +17,7 @@ class TripwireEvent:
     return
 
 
-def update_tripwire_events(detection_type, tripwires, now, cur_objects, events, use_tracker):
+def update_tripwire_events(detection_type, tripwires, now, cur_objects, events, use_tracker, state_store):
   """Detect tripwire crossings and append events to the shared events dict.
 
   When use_tracker is False (analytics-only mode) the frameCount reliability
@@ -31,6 +31,7 @@ def update_tripwire_events(detection_type, tripwires, now, cur_objects, events, 
     events:         Mutable dict; crossing events are appended under 'objects'.
     use_tracker:    When True the frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK
                     gate is applied.
+    state_store:    AnalyticsStateStore that owns per-tripwire analytics state.
   """
   reliable_objects = [
     obj for obj in cur_objects
@@ -45,18 +46,19 @@ def update_tripwire_events(detection_type, tripwires, now, cur_objects, events, 
   crossing_events = getTripwireEvents(tripwires, object_locations)
 
   for key, tripwire in tripwires.items():
+    tstate = state_store.tripwire(key)
     event_matches = crossing_events.get(key, [])
-    previous_objects = tripwire.objects.get(detection_type, [])
+    previous_objects = tstate.objects.get(detection_type, [])
     crossed_objects = [
       TripwireEvent(unwrap_for_publishing(reliable_objects[obj_idx]), direction)
       for obj_idx, direction in event_matches
     ]
 
     if len(previous_objects) != len(crossed_objects) \
-       and now - tripwire.when > DEBOUNCE_DELAY:
+       and now - tstate.when > DEBOUNCE_DELAY:
       log.debug("TRIPWIRE EVENT", previous_objects, len(crossed_objects))
-      tripwire.objects[detection_type] = crossed_objects
-      tripwire.when = now
+      tstate.objects[detection_type] = crossed_objects
+      tstate.when = now
       if 'objects' not in events:
         events['objects'] = []
       events['objects'].append((key, tripwire))

@@ -328,18 +328,20 @@ class SceneController:
 
   def publishEvents(self, scene, ts_str):
     for event_type in scene.events:
-      for _, region in scene.events[event_type]:
+      for key, region in scene.events[event_type]:
         etype = None
         metadata = None
 
         if isinstance(region, Tripwire):
           etype = 'tripwire'
           metadata = region.serialize()
+          region_state = scene.analytics_state.tripwire(key)
 
         elif isinstance(region, Region):
           etype = 'region'
           metadata = region.serialize()
           metadata['fromSensor'] = (region.singleton_type != None)
+          region_state = scene.analytics_state.region(key)
 
         event_data = {
           'timestamp': ts_str,
@@ -348,9 +350,9 @@ class SceneController:
           etype + '_id': region.uuid,
           etype + '_name': region.name,
         }
-        detections_dict, num_objects = self._buildAllRegionObjsList(scene, region, event_data)
-        self._buildEnteredObjsList(scene, region, event_data, detections_dict)
-        self._buildExitedObjsList(scene, region, event_data)
+        detections_dict, num_objects = self._buildAllRegionObjsList(scene, region_state, event_data)
+        self._buildEnteredObjsList(scene, region_state, event_data, detections_dict)
+        self._buildExitedObjsList(scene, region_state, event_data)
 
         log.debug("EVENT DATA", event_data)
         if hasattr(region, 'value'):
@@ -370,11 +372,11 @@ class SceneController:
 
     return
 
-  def _buildAllRegionObjsList(self, scene, region, event_data):
+  def _buildAllRegionObjsList(self, scene, region_state, event_data):
     counts = {}
     num_objects = 0
     all_objects = []
-    for otype, objects in region.objects.items():
+    for otype, objects in region_state.objects.items():
       counts[otype] = len(objects)
       num_objects += counts[otype]
       all_objects += objects
@@ -385,8 +387,8 @@ class SceneController:
     event_data['objects'] = list(detections_dict.values())
     return detections_dict, num_objects
 
-  def _buildEnteredObjsList(self, scene, region, event_data, detections_dict):
-    entered = getattr(region, 'entered', {})
+  def _buildEnteredObjsList(self, scene, region_state, event_data, detections_dict):
+    entered = getattr(region_state, 'entered', {})
     event_data['entered'] = []
     missing_objs = []
     for entered_list in entered.values():
@@ -404,8 +406,8 @@ class SceneController:
         include_region_dwell=True, current_time=get_epoch_time(event_data['timestamp']))
       event_data['entered'].extend(entered_objs)
 
-  def _buildExitedObjsList(self, scene, region, event_data):
-    exited = getattr(region, 'exited', {})
+  def _buildExitedObjsList(self, scene, region_state, event_data):
+    exited = getattr(region_state, 'exited', {})
     event_data['exited'] = []
     exited_dict = {}
     for exited_list in exited.values():
@@ -429,9 +431,9 @@ class SceneController:
     the event arrays to prevent stale data from being published in subsequent frames.
     """
     for event_type in scene.events:
-      for region_name, region in scene.events[event_type]:
-        region.exited = {}
-        region.entered = {}
+      for key, region in scene.events[event_type]:
+        if not isinstance(region, Tripwire):
+          scene.analytics_state.region(key).clear_frame_state()
     return
 
   # Message handling

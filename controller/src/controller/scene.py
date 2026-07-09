@@ -23,6 +23,7 @@ from controller.analytics.sensors import (
   update_attribute_sensor_events,
   update_environmental_sensor_readings,
 )
+from controller.analytics.state import AnalyticsStateStore
 from controller.analytics.tripwire import (
   DEBOUNCE_DELAY,
   MIN_FRAMES_FOR_RELIABLE_TRACK,
@@ -101,6 +102,8 @@ class Scene(SceneModel):
 
     # FIXME - only for backwards compatibility
     self.scale = scale
+
+    self.analytics_state = AnalyticsStateStore()
 
     return
 
@@ -601,20 +604,21 @@ class Scene(SceneModel):
     process_frame(
       detectionType, now, curObjects,
       self.regions, self.sensors, self.tripwires,
-      self.events, self.use_tracker, self.isIntersecting,
+      self.events, self.use_tracker, self.analytics_state, self.isIntersecting,
     )
     return
 
   def _updateTripwireEvents(self, detectionType, now, curObjects):
     update_tripwire_events(
       detectionType, self.tripwires, now, curObjects, self.events, self.use_tracker,
+      self.analytics_state,
     )
     return
 
   def _updateRegionEvents(self, detectionType, regions, now, now_str, curObjects):
     return update_region_events(
       detectionType, regions, now, now_str, curObjects, self.events,
-      self.use_tracker, self.isIntersecting,
+      self.use_tracker, self.analytics_state, self.isIntersecting,
     )
 
   def isIntersecting(self, obj, region):
@@ -689,37 +693,23 @@ class Scene(SceneModel):
       if region_uuid in existingRegions:
         region = existingRegions[region_uuid]
 
-        # Preserve sensor cache, event state, and region state before geometry updates
-        # Use sentinel to distinguish missing attributes from None values
+        # Preserve sensor cache before geometry updates
         cached_value = getattr(region, 'value', _NOTSET)
         cached_last_value = getattr(region, 'lastValue', _NOTSET)
         cached_last_when = getattr(region, 'lastWhen', _NOTSET)
-        cached_entered = getattr(region, 'entered', _NOTSET)
-        cached_exited = getattr(region, 'exited', _NOTSET)
-        cached_objects = getattr(region, 'objects', _NOTSET)
-        cached_when = getattr(region, 'when', _NOTSET)
 
         region.updatePoints(regionData)
         region.updateSingletonType(regionData)
         region.updateVolumetricInfo(regionData)
         region.name = region_name
 
-        # Restore sensor cache, event state, and region state after geometry updates
-        # Only restore if attribute existed before (even if value was None)
+        # Restore sensor cache after geometry updates
         if cached_value is not _NOTSET:
           region.value = cached_value
         if cached_last_value is not _NOTSET:
           region.lastValue = cached_last_value
         if cached_last_when is not _NOTSET:
           region.lastWhen = cached_last_when
-        if cached_entered is not _NOTSET:
-          region.entered = cached_entered
-        if cached_exited is not _NOTSET:
-          region.exited = cached_exited
-        if cached_objects is not _NOTSET:
-          region.objects = cached_objects
-        if cached_when is not _NOTSET:
-          region.when = cached_when
       else:
         region = Region(region_uuid, region_name, regionData)
         existingRegions[region_uuid] = region
@@ -729,6 +719,7 @@ class Scene(SceneModel):
     deleted = old - new
     for region_uuid in deleted:
       existingRegions.pop(region_uuid)
+      self.analytics_state.remove_region(region_uuid)
     return
 
   def _updateTripwires(self, newTripwires):
@@ -741,6 +732,7 @@ class Scene(SceneModel):
     deleted = old - new
     for tripwireID in deleted:
       self.tripwires.pop(tripwireID)
+      self.analytics_state.remove_tripwire(tripwireID)
     return
 
   @property
