@@ -10,7 +10,7 @@ secrets:
 
 services:
   mqtt_recorder:
-    image: scenescape-manager:${VERSION:-latest}
+    image: intel/scenescape-manager:${VERSION:-latest}
     init: true
     environment:
       - "SUPASS"
