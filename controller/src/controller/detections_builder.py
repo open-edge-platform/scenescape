@@ -75,7 +75,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
   # Build a fresh top-level dict per serialization so optional fields like
   # sensors do not leak between scene, regulated, and external outputs.
-  obj_dict = dict(aobj.info)
+  obj_dict = dict(aobj.info or {})
   obj_dict.update({
     'id': aobj.gid, # gid is the global ID - computed by Scenescape server.
     'type': otype,

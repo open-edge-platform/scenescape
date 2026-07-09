@@ -15,9 +15,10 @@ def moving_object_to_analytics_object(obj) -> "AnalyticsObject":
   timestamps, sensor state, published location history) are visible on the
   source object and persist across frames.
 
-  Optional mesh / bbMeters / size fields are carried through via getattr so the
-  function works identically for MovingObject instances and the lightweight
-  SimpleNamespace wrappers produced by _deserializeTrackedObjects.
+  Optional fields (mesh, bbMeters, size, velocity, info, rotation, metadata,
+  reid) are carried through via getattr so the function works identically for
+  MovingObject instances and the lightweight SimpleNamespace wrappers produced
+  by SceneDataIngestion.
   """
   return AnalyticsObject(
     gid=obj.gid,
@@ -28,7 +29,11 @@ def moving_object_to_analytics_object(obj) -> "AnalyticsObject":
     mesh=getattr(obj, 'mesh', None),
     bbMeters=getattr(obj, 'bbMeters', None),
     size=getattr(obj, 'size', None),
-    raw_obj=obj,
+    velocity=getattr(obj, 'velocity', None),
+    info=getattr(obj, 'info', None),
+    rotation=getattr(obj, 'rotation', None),
+    metadata=getattr(obj, 'metadata', None),
+    reid=getattr(obj, 'reid', None),
   )
 
 
@@ -43,7 +48,10 @@ class AnalyticsObject:
 
   Required fields reflect the minimum surface accessed by region, tripwire,
   and sensor analytics.  Optional fields (mesh, bbMeters, size) are used only
-  by the 3-D mesh-intersection path and default to None.
+  by the 3-D mesh-intersection path.  Publishing fields (velocity, info,
+  rotation, metadata, reid) are carried through from the source object so that
+  detections_builder can serialise AnalyticsObject instances directly without
+  any unwrapping step.
 
   chain_data is always a shared reference — analytics mutates it in-place to
   record region entry/exit timestamps, sensor state, and location history.
@@ -56,20 +64,13 @@ class AnalyticsObject:
   mesh: Optional[Any] = None
   bbMeters: Optional[Any] = None
   size: Optional[Any] = None
-  raw_obj: Optional[Any] = None
-
-
-def unwrap_for_publishing(obj):
-  """Return the source object suitable for MQTT event publishing.
-
-  Analytics computation flows through AnalyticsObject (the ACL contract).
-  The Controller's detections_builder requires the full original object
-  interface (velocity, info, reid, …).  This function returns raw_obj when
-  set — i.e. the original MovingObject or SimpleNamespace passed into
-  moving_object_to_analytics_object — and falls back to obj itself for
-  test helpers that construct objects without the converter.
-  """
-  return getattr(obj, 'raw_obj', None) or obj
+  # Publishing fields — copied from the source object so AnalyticsObject is
+  # self-contained for serialisation (no unwrapping needed).
+  velocity: Optional[Any] = None
+  info: Optional[Any] = None
+  rotation: Optional[Any] = None
+  metadata: Optional[Any] = None
+  reid: Optional[Any] = None
 
 
 @dataclass

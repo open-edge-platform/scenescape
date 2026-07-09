@@ -56,6 +56,11 @@ class TestAnalyticsObject:
     assert obj.mesh is None
     assert obj.bbMeters is None
     assert obj.size is None
+    assert obj.velocity is None
+    assert obj.info is None
+    assert obj.rotation is None
+    assert obj.metadata is None
+    assert obj.reid is None
 
   def test_optional_fields_accept_arbitrary_values(self):
     sentinel = object()
@@ -172,6 +177,29 @@ class TestMovingObjectToAnalyticsObject:
     assert ao.mesh is None
     assert ao.bbMeters is None
     assert ao.size is None
+    assert ao.velocity is None
+    assert ao.info is None
+    assert ao.rotation is None
+    assert ao.metadata is None
+    assert ao.reid is None
+
+  def test_publishing_fields_carried_through_when_present(self):
+    from scene_common.geometry import Point as _Point
+    src = self._source_object(
+      velocity=_Point(1.0, 0.0, 0.0),
+      info={'category': 'person', 'confidence': 0.9},
+      rotation=[0.0, 0.0, 0.0, 1.0],
+      metadata={'age': 'adult'},
+      reid={'embedding_vector': [0.1, 0.2]},
+    )
+
+    ao = moving_object_to_analytics_object(src)
+
+    assert ao.velocity is src.velocity
+    assert ao.info == {'category': 'person', 'confidence': 0.9}
+    assert ao.rotation == [0.0, 0.0, 0.0, 1.0]
+    assert ao.metadata == {'age': 'adult'}
+    assert ao.reid == {'embedding_vector': [0.1, 0.2]}
 
   def test_optional_fields_carried_through_when_present(self):
     sentinel = object()

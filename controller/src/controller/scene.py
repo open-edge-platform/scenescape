@@ -16,6 +16,7 @@ from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
+from controller.analytics.adapters.ingestion import SceneDataIngestion
 from controller.analytics.analytics_models import moving_object_to_analytics_object
 from controller.analytics.engine import process_frame
 from controller.analytics.region import update_region_events
@@ -78,7 +79,14 @@ class Scene(SceneModel):
     self.trackerType = None
     self.persist_attributes = {}
     self.time_chunking_rate_fps = time_chunking_rate_fps
-    self._analytics_objects = {}
+
+    # Ingestion adapter owns per-object identity and location/timestamp history
+    # for the analytics-only MQTT path.  The two aliases below let legacy code
+    # paths and tests that directly access _analytics_objects / object_history_cache
+    # continue to work — they reference the same underlying dicts.
+    self._ingestion = SceneDataIngestion()
+    self._analytics_objects = self._ingestion._objects
+    self.object_history_cache = self._ingestion._history
 
     if not ControllerMode.isAnalyticsOnly():
       self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
@@ -90,9 +98,6 @@ class Scene(SceneModel):
 
     # Cache for tracked objects from MQTT (for analytics)
     self.tracked_objects_cache = {}
-
-    # Cache for object history (publishedLocations, etc.) to maintain trails across frames
-    self.object_history_cache = {}
 
     self.pose_adjustment = PoseAdjustment.from_env(
       max_entry_age_seconds=self._get_pose_cache_ttl(),
@@ -425,21 +430,7 @@ class Scene(SceneModel):
     for the given detection type: evict stale entries, then deserialize
     and index the incoming objects.
     """
-    current_ids = {obj['id'] for obj in tracked_objects if 'id' in obj}
-
-    # Only remove stale objects belonging to THIS detection type
-    stale = [
-      oid for oid, wrapper in self._analytics_objects.items()
-      if wrapper.category == detection_type and oid not in current_ids
-    ]
-    for oid in stale:
-      del self._analytics_objects[oid]
-
-    # Create or update wrappers — deserialize as a batch for efficiency,
-    # then index results by id so _analytics_objects stays consistent.
-    deserialized = self._deserializeTrackedObjects(tracked_objects)
-    for wrapper in deserialized:
-      self._analytics_objects[wrapper.gid] = wrapper
+    self._ingestion.ingest(detection_type, tracked_objects, self.sensors)
     return
 
   def updateTrackedObjects(self, detection_type, tracked_objects):
@@ -469,127 +460,23 @@ class Scene(SceneModel):
     """
     # If analytics-only mode is enabled, only use MQTT cache (from separate Tracker service)
     if ControllerMode.isAnalyticsOnly():
-      return [obj for obj in self._analytics_objects.values()
-              if obj.category == detection_type]
+      return self._ingestion.get_objects(detection_type)
     if self.tracker is not None:
       return self.tracker.currentObjects(detection_type)
     return []
 
   def _deserializeTrackedObjects(self, serialized_objects):
+    """Convert serialized tracked objects to analytics-ready objects.
+
+    Delegates to ``SceneDataIngestion.deserialize`` so the logic lives in the
+    analytics package.  Kept as a thin wrapper to preserve backward
+    compatibility with call sites that use ``scene._deserializeTrackedObjects``.
     """
-    Convert serialized tracked objects to a format usable by Analytics.
-    This creates lightweight wrappers that mimic MovingObject interface.
-    If objects are already deserialized, returns them as-is.
-
-    Args:
-        serialized_objects: List of serialized object dictionaries or already deserialized objects
-
-    Returns:
-        List of object-like structures with necessary attributes
-    """
-
-    if not serialized_objects or not isinstance(serialized_objects, list):
-      return serialized_objects if serialized_objects else []
-
-    if len(serialized_objects) > 0 and not isinstance(serialized_objects[0], dict):
-      return serialized_objects
-
-    objects = []
-    for obj_data in serialized_objects:
-      if not isinstance(obj_data, dict):
-        continue
-
-      obj_id = obj_data.get('id')
-
-      # Reuse existing object to preserve chain_data, or create a new one
-      if obj_id in self._analytics_objects:
-        obj = self._analytics_objects[obj_id]
-      else:
-        obj = SimpleNamespace()
-        obj.chain_data = ChainData(regions={}, publishedLocations=[], persist={})
-        self._analytics_objects[obj_id] = obj
-
-      obj.gid = obj_id
-      obj.category = obj_data.get('type', obj_data.get('category'))
-      obj.sceneLoc = Point(obj_data.get('translation', [0, 0, 0]))
-      obj.velocity = Point(obj_data.get('velocity', [0, 0, 0])) if obj_data.get('velocity') else None
-      obj.size = obj_data.get('size')
-      obj.confidence = obj_data.get('confidence')
-      obj.frameCount = obj_data.get('frame_count', 0)
-      obj.rotation = obj_data.get('rotation')
-      obj.reid = {}
-      obj.metadata = {}
-      obj.vectors = []
-      obj.boundingBox = None
-      obj.boundingBoxPixels = None
-      obj.intersected = False
-      obj.visibility = obj_data.get('visibility', [])
-      obj.info = {'category': obj.category, 'confidence': obj.confidence}
-
-      # Restore bbMeters from size if available
-      if obj.size and len(obj.size) == 3:
-        _, width, height = obj.size
-        obj.bbMeters = SimpleNamespace(size=Size(width, height), width=width, height=height)
-      else:
-        obj.bbMeters = None
-
-      metadata = obj_data.get('metadata', {})
-      obj.reid = metadata.get('reid') if metadata else {}
-      obj.similarity = obj_data.get('similarity')
-
-      if 'camera_bounds' in obj_data and obj_data['camera_bounds']:
-        obj._camera_bounds = obj_data['camera_bounds']
-      else:
-        obj._camera_bounds = None
-
-      # Timestamps
-      if 'first_seen' in obj_data:
-        obj.first_seen = get_epoch_time(obj_data['first_seen'])
-        obj.when = obj.first_seen
-        self.object_history_cache.setdefault(obj_id, {})['first_seen'] = obj.when
-      elif obj_id in self.object_history_cache and 'first_seen' in self.object_history_cache[obj_id]:
-        obj.first_seen = self.object_history_cache[obj_id]['first_seen']
-        obj.when = obj.first_seen
-      else:
-        current_time = get_epoch_time()
-        obj.first_seen = current_time
-        obj.when = current_time
-        self.object_history_cache.setdefault(obj_id, {})['first_seen'] = current_time
-        log.debug(f"First time seeing object id {obj_id} from MQTT; setting first_seen to current time: {current_time}")
-
-      obj.chain_data.regions = obj_data.get('regions', obj.chain_data.regions)
-      obj.chain_data.persist = obj_data.get('persistent_data', obj.chain_data.persist)
-
-      # Convert serialized sensors into env_sensor_state and attr_sensor_events
-      sensors_data = obj_data.get('sensors', {})
-      for sensor_id, sensor_info in sensors_data.items():
-        values = sensor_info.get('values', [])
-        if not values:
-          continue
-
-        is_environmental = self._isEnvironmentalSensor(sensor_id, values)
-
-        if is_environmental:
-          obj.chain_data.env_sensor_state[sensor_id] = {'readings': values}
-        else:
-          obj.chain_data.attr_sensor_events[sensor_id] = values
-
-      if obj_id in self.object_history_cache:
-        obj.chain_data.publishedLocations = self.object_history_cache[obj_id].get('publishedLocations', [])
-      # Store current object data for next frame
-      self.object_history_cache.setdefault(obj_id, {})['publishedLocations'] = obj.chain_data.publishedLocations
-      self.object_history_cache.setdefault(obj_id, {})['last_seen'] = obj.sceneLoc
-
-      objects.append(obj)
-
-    return objects
+    return self._ingestion.deserialize(serialized_objects, self.sensors)
 
   def _isEnvironmentalSensor(self, sensor_id, values):
-    sensor = self.sensors.get(sensor_id)
-    if sensor is not None and getattr(sensor, 'singleton_type', None) is not None:
-      return sensor.singleton_type == "environmental"
-
-    return True
+    """Delegates to the ingestion adapter's sensor-type resolver."""
+    return SceneDataIngestion._is_environmental_sensor(sensor_id, self.sensors)
 
   def _updateEvents(self, detectionType, now, curObjects=None):
     # Preserve existing events (e.g., sensor 'value' events) instead of clearing

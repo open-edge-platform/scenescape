@@ -5,7 +5,6 @@ from scene_common import log
 from scene_common.geometry import getRegionEvents
 from scene_common.timestamp import get_epoch_time, get_iso_time
 
-from controller.analytics.analytics_models import unwrap_for_publishing
 from controller.analytics.tripwire import DEBOUNCE_DELAY, MIN_FRAMES_FOR_RELIABLE_TRACK
 
 
@@ -105,7 +104,7 @@ def update_region_events(
       entered = []
       for obj in objects:
         if obj.gid in new and key in obj.chain_data.regions:
-          entered.append(unwrap_for_publishing(obj))
+          entered.append(obj)
       rstate.entered[detection_type] = entered
 
       exited = []
@@ -114,11 +113,11 @@ def update_region_events(
           if key in obj.chain_data.regions:
             entered = get_epoch_time(obj.chain_data.regions[key]['entered'])
             dwell = now - entered
-            exited.append((unwrap_for_publishing(obj), dwell))
+            exited.append((obj, dwell))
 
       rstate.exited[detection_type] = exited
 
-      rstate.objects[detection_type] = [unwrap_for_publishing(obj) for obj in objects]
+      rstate.objects[detection_type] = list(objects)
       updated.add(key)
       rstate.when = now
       if 'objects' not in events:
