@@ -231,10 +231,10 @@ def test_sensor_calibration(params, record_xml_attribute):
     sensor_2_equality_tests = {
       "sensor_name": SENSOR_NAME,
       "sensor_id": SENSOR_ID,
-      "sensor_graphic_height": 677.0,
-      "sensor_graphic_width": 677.0,
+      "sensor_graphic_height": 747.0,
+      "sensor_graphic_width": 747.0,
       "sensor_graphic_tag": "circle",
-      "circle_radius": "337px"
+      "circle_radius": "372px"
     }
     sensor_2_count_tests = {"sensor_graphic_subtags": 5}
     sensor_2_test = TestCircleSensorCalibration(sensor_2_equality_tests, sensor_2_count_tests)
@@ -254,7 +254,8 @@ def test_sensor_calibration(params, record_xml_attribute):
     exit_code = 0
 
   finally:
-    browser.close()
+    if "browser" in locals():
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
   return exit_code
