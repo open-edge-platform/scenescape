@@ -10,13 +10,25 @@ import robot_vision as rv
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
-from scene_common.geometry import Point, Region, Size, Tripwire, getRegionEvents, getTripwireEvents
+from scene_common.geometry import Point, Region, Size, Tripwire
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegionMesh, createObjectMesh
 
 from controller.analytics.analytics_models import moving_object_to_analytics_object
+from controller.analytics.engine import process_frame
+from controller.analytics.region import update_region_events
+from controller.analytics.sensors import (
+  update_attribute_sensor_events,
+  update_environmental_sensor_readings,
+)
+from controller.analytics.tripwire import (
+  DEBOUNCE_DELAY,
+  MIN_FRAMES_FOR_RELIABLE_TRACK,
+  TripwireEvent,
+  update_tripwire_events,
+)
 from controller.controller_mode import ControllerMode
 from controller.moving_object import ChainData
 from controller.pose_adjustment import (PoseAdjustment,
@@ -29,16 +41,6 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_STATIC,
                                  EFFECTIVE_OBJECT_UPDATE_RATE,
                                  DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
-
-DEBOUNCE_DELAY = 0.5
-MIN_FRAMES_FOR_RELIABLE_TRACK = 3
-
-
-class TripwireEvent:
-  def __init__(self, object, direction):
-    self.object = object
-    self.direction = direction
-    return
 
 class Scene(SceneModel):
   DEFAULT_TRACKER = "intel_labs"
@@ -409,51 +411,10 @@ class Scene(SceneModel):
     return True
 
   def _updateEnvironmentalSensorReadings(self, objects_in_sensor, sensor_id, cur_value, timestamp_str):
-    try:
-      cur_value_float = float(cur_value)
-    except (ValueError, TypeError):
-      log.error("Invalid sensor value", sensor_id, cur_value)
-      return False
-
-    for obj in objects_in_sensor:
-      with obj.chain_data._lock:
-        if sensor_id in obj.chain_data.env_sensor_state:
-          state = obj.chain_data.env_sensor_state[sensor_id]
-
-          # Update readings array: append if value changed, update timestamp if same
-          if 'readings' not in state:
-            state['readings'] = []
-          if state['readings'] and state['readings'][-1][1] == cur_value_float:
-            # Value unchanged - update timestamp
-            state['readings'][-1] = (timestamp_str, cur_value_float)
-          else:
-            # Value changed - append new reading
-            state['readings'].append((timestamp_str, cur_value_float))
-        else:
-          # First reading - initialize readings array
-          obj.chain_data.env_sensor_state[sensor_id] = {
-            'readings': [(timestamp_str, cur_value_float)]
-          }
-
-    return True
+    return update_environmental_sensor_readings(objects_in_sensor, sensor_id, cur_value, timestamp_str)
 
   def _updateAttributeSensorEvents(self, objects_in_sensor, sensor_id, cur_value, timestamp_str):
-    # Convert to string for consistent type comparison (attributes can be non-numeric)
-    cur_value_str = str(cur_value)
-    for obj in objects_in_sensor:
-      with obj.chain_data._lock:
-        if sensor_id not in obj.chain_data.attr_sensor_events:
-          obj.chain_data.attr_sensor_events[sensor_id] = []
-
-        events = obj.chain_data.attr_sensor_events[sensor_id]
-        if events and events[-1][1] == cur_value_str:
-          # Value unchanged - update timestamp of last event instead of appending
-          events[-1] = (timestamp_str, cur_value_str)
-        else:
-          # Value changed - append new event
-          events.append((timestamp_str, cur_value_str))
-
-    return
+    update_attribute_sensor_events(objects_in_sensor, sensor_id, cur_value, timestamp_str)
 
   def syncAnalyticsObjects(self, detection_type, tracked_objects):
     """
@@ -631,178 +592,30 @@ class Scene(SceneModel):
     # Preserve existing events (e.g., sensor 'value' events) instead of clearing
     if not hasattr(self, 'events') or self.events is None:
       self.events = {}
-    now_str = get_iso_time(now)
     if curObjects is None:
       if ControllerMode.isAnalyticsOnly():
         curObjects = self.getTrackedObjects(detectionType)
       else:
         curObjects = self.tracker.currentObjects(detectionType) if self.tracker else []
     curObjects = [moving_object_to_analytics_object(o) for o in curObjects]
-    for obj in curObjects:
-      obj.chain_data.publishedLocations.insert(0, obj.sceneLoc)
-
-    self._updateRegionEvents(detectionType, self.regions, now, now_str, curObjects)
-    self._updateRegionEvents(detectionType, self.sensors, now, now_str, curObjects)
-
-    self._updateTripwireEvents(detectionType, now, curObjects)
+    process_frame(
+      detectionType, now, curObjects,
+      self.regions, self.sensors, self.tripwires,
+      self.events, self.use_tracker, self.isIntersecting,
+    )
     return
 
   def _updateTripwireEvents(self, detectionType, now, curObjects):
-    # Filter to reliable objects with enough location history for crossing detection.
-    # When tracker is disabled, skip the frameCount check and consider all objects;
-    # otherwise, only consider objects with frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK as reliable.
-    reliable_objects = [
-      obj for obj in curObjects
-      if (obj.frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK or ControllerMode.isAnalyticsOnly())
-      and len(obj.chain_data.publishedLocations) > 1
-    ]
-
-    object_locations = [
-      obj.chain_data.publishedLocations[:2] for obj in reliable_objects
-    ]
-
-    crossing_events = getTripwireEvents(self.tripwires, object_locations)
-
-    for key, tripwire in self.tripwires.items():
-      event_matches = crossing_events.get(key, [])
-      previous_objects = tripwire.objects.get(detectionType, [])
-      crossed_objects = [
-        TripwireEvent(reliable_objects[obj_idx], direction)
-        for obj_idx, direction in event_matches
-      ]
-
-      if len(previous_objects) != len(crossed_objects) \
-         and now - tripwire.when > DEBOUNCE_DELAY:
-        log.debug("TRIPWIRE EVENT", previous_objects, len(crossed_objects))
-        tripwire.objects[detectionType] = crossed_objects
-        tripwire.when = now
-        if 'objects' not in self.events:
-          self.events['objects'] = []
-        self.events['objects'].append((key, tripwire))
+    update_tripwire_events(
+      detectionType, self.tripwires, now, curObjects, self.events, self.use_tracker,
+    )
     return
 
   def _updateRegionEvents(self, detectionType, regions, now, now_str, curObjects):
-    updated = set()
-
-    # Filter to reliable objects.
-    # When tracker is disabled, skip the frameCount check and consider all objects;
-    # otherwise, only consider objects with frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK as reliable.
-    reliable_objects = [
-      obj for obj in curObjects
-      if obj.frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK or ControllerMode.isAnalyticsOnly()
-    ]
-
-    object_locations = [obj.sceneLoc for obj in reliable_objects]
-    objects_within_region = getRegionEvents(regions, object_locations)
-
-    for key, region in regions.items():
-      matched_indices = set(objects_within_region.get(key, []))
-      # Also include objects matched by mesh intersection (requires self)
-      for obj_idx, obj in enumerate(reliable_objects):
-        if obj_idx not in matched_indices and self.isIntersecting(obj, region):
-          matched_indices.add(obj_idx)
-
-      objects = [reliable_objects[i] for i in sorted(matched_indices)]
-      regionObjects = region.objects.get(detectionType, [])
-
-      cur = set(x.gid for x in objects)
-      prev = set(x.gid for x in regionObjects)
-      new = cur - prev
-      old = prev - cur
-      newObjects = [x for x in objects if x.gid in new]
-
-      # Entry initialization for new objects
-      for obj in newObjects:
-        if key not in obj.chain_data.regions:
-          obj.chain_data.regions[key] = {'entered': now_str}
-          updated.add(key)
-
-      # For all singleton sensors, handle entry tracking
-      if region.singleton_type is not None:
-        # Mark sensor as active for new objects
-        for obj in newObjects:
-          obj.chain_data.active_sensors.add(key)
-
-          # Initialize sensor state based on type
-          if region.singleton_type == "environmental":
-
-            # For environmental sensors, initialize state with current value if available
-            with obj.chain_data._lock:
-              if (hasattr(region, 'value') and
-                  hasattr(region, 'lastWhen') and
-                  region.value is not None and
-                  region.lastWhen is not None):
-                # Sensor has cached value - initialize with it
-                ts_str = get_iso_time(region.lastWhen)
-                obj.chain_data.env_sensor_state[key] = {
-                  'readings': [(ts_str, float(region.value))]
-                }
-              else:
-                # No cached value yet
-                obj.chain_data.env_sensor_state[key] = {
-                  'readings': []
-                }
-
-          elif region.singleton_type == "attribute":
-            # Attribute sensors only tag objects present when MQTT arrives
-            # Do NOT initialize with cached values (those belong to other objects)
-            with obj.chain_data._lock:
-              if key not in obj.chain_data.attr_sensor_events:
-                obj.chain_data.attr_sensor_events[key] = []
-
-      emit_region_event = (len(new) or len(old)) and now - region.when > DEBOUNCE_DELAY
-      if emit_region_event:
-        log.debug("REGION EVENT", key, now_str, regionObjects, len(objects))
-        entered = []
-        for obj in objects:
-          if obj.gid in new and key in obj.chain_data.regions:
-            entered.append(obj)
-        if not hasattr(region, 'entered'):
-          region.entered = {}
-        region.entered[detectionType] = entered
-
-        exited = []
-        for obj in regionObjects:
-          if obj.gid in old:
-            if key in obj.chain_data.regions:
-              entered = get_epoch_time(obj.chain_data.regions[key]['entered'])
-              dwell = now - entered
-              exited.append((obj, dwell))
-
-        if not hasattr(region, 'exited'):
-          region.exited = {}
-        region.exited[detectionType] = exited
-
-        region.objects[detectionType] = objects
-        updated.add(key)
-        region.when = now
-        if 'objects' not in self.events:
-          self.events['objects'] = []
-        self.events['objects'].append((key, region))
-        if len(cur) != len(prev):
-          if 'count' not in self.events:
-            self.events['count'] = []
-          self.events['count'].append((key, region))
-
-        # Clean up exited objects only after an exit event can be emitted,
-        # so entered timestamps remain available for dwell-time calculation.
-        for obj in regionObjects:
-          if obj.gid in old:
-            with obj.chain_data._lock:
-              obj.chain_data.regions.pop(key, None)
-
-              # Clean up sensor tracking on exit
-              if region.singleton_type is not None:
-                obj.chain_data.active_sensors.discard(key)
-
-                # Environmental sensors: clear state on exit (data doesn't persist)
-                if region.singleton_type == "environmental":
-                  obj.chain_data.env_sensor_state.pop(key, None)
-
-                # Attribute sensors: keep event history (data persists after exit)
-                # attr_sensor_events[key] intentionally not removed
-
-    return updated
+    return update_region_events(
+      detectionType, regions, now, now_str, curObjects, self.events,
+      self.use_tracker, self.isIntersecting,
+    )
 
   def isIntersecting(self, obj, region):
     if not region.compute_intersection:

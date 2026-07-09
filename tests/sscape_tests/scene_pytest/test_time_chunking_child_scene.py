@@ -6,7 +6,14 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-pytest.importorskip("robot_vision")
+try:
+  import robot_vision as rv
+  _has_rv_tracking = hasattr(rv, 'tracking')
+except ImportError:
+  _has_rv_tracking = False
+
+if not _has_rv_tracking:
+  pytest.skip("robot_vision.tracking not available", allow_module_level=True)
 
 from controller.time_chunking import TimeChunkedIntelLabsTracking
 
