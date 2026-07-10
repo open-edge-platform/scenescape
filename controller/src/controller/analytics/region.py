@@ -5,7 +5,7 @@ from scene_common import log
 from scene_common.geometry import getRegionEvents
 from scene_common.timestamp import get_epoch_time, get_iso_time
 
-from controller.analytics.tripwire import DEBOUNCE_DELAY, MIN_FRAMES_FOR_RELIABLE_TRACK
+from controller.analytics.state import DEBOUNCE_DELAY
 
 
 def update_region_events(
@@ -15,7 +15,6 @@ def update_region_events(
     now_str,
     cur_objects,
     events,
-    use_tracker,
     state_store,
     is_intersecting_fn=None,
 ):
@@ -30,9 +29,10 @@ def update_region_events(
                        scene.sensors.
     now:               Current epoch timestamp (float).
     now_str:           ISO-8601 string of now.
-    cur_objects:       List of AnalyticsObject for this frame.
+    cur_objects:       List of AnalyticsObject for this frame.  The caller
+                       is responsible for pre-filtering by reliability if
+                       needed (e.g. frameCount gate when using a tracker).
     events:            Mutable dict; region and count events are appended.
-    use_tracker:       When True the frameCount reliability gate is applied.
     state_store:       AnalyticsStateStore that owns per-region analytics state.
     is_intersecting_fn: Optional callable(obj, region) -> bool for 3-D mesh
                        intersection fallback in addition to point-in-region.
@@ -42,10 +42,7 @@ def update_region_events(
   """
   updated = set()
 
-  reliable_objects = [
-    obj for obj in cur_objects
-    if obj.frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK or not use_tracker
-  ]
+  reliable_objects = cur_objects
 
   object_locations = [obj.sceneLoc for obj in reliable_objects]
   objects_within_region = getRegionEvents(regions, object_locations)

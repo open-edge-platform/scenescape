@@ -6,9 +6,8 @@ from types import SimpleNamespace
 import pytest
 
 from controller.analytics.analytics_models import AnalyticsObject
-from controller.analytics.state import AnalyticsStateStore
+from controller.analytics.state import AnalyticsStateStore, DEBOUNCE_DELAY
 from controller.analytics.tripwire import (
-  DEBOUNCE_DELAY,
   TripwireEvent,
   update_tripwire_events,
 )
@@ -46,7 +45,7 @@ class TestUpdateTripwireEventsReliabilityGate:
     obj = _obj(frame_count=1)
     events = {}
 
-    update_tripwire_events('person', {'tw': tripwire}, now=2.0, cur_objects=[obj], events=events, use_tracker=True, state_store=state_store)
+    update_tripwire_events('person', {'tw': tripwire}, now=2.0, cur_objects=[obj], events=events, state_store=state_store)
 
     assert 'objects' not in events
 
@@ -56,19 +55,19 @@ class TestUpdateTripwireEventsReliabilityGate:
     obj = _obj(locations=[Point(1.0, 1.0, 0.0)])
     events = {}
 
-    update_tripwire_events('person', {'tw': tripwire}, now=2.0, cur_objects=[obj], events=events, use_tracker=False, state_store=state_store)
+    update_tripwire_events('person', {'tw': tripwire}, now=2.0, cur_objects=[obj], events=events, state_store=state_store)
 
     assert 'objects' not in events
 
-  def test_all_objects_eligible_when_tracker_disabled(self):
+  def test_all_objects_included_regardless_of_frame_count(self):
     state_store = AnalyticsStateStore()
     tripwire = _tripwire()
-    # frame_count=1 would be excluded with use_tracker=True
+    # Analytics library no longer gates on frameCount — caller is responsible
     obj = _obj(frame_count=1)
     events = {}
 
-    # No crossing expected — just verify no frameCount gate exception is raised
-    update_tripwire_events('person', {'tw': tripwire}, now=2.0, cur_objects=[obj], events=events, use_tracker=False, state_store=state_store)
+    # No crossing expected — just verify no frameCount gate blocks this object
+    update_tripwire_events('person', {'tw': tripwire}, now=2.0, cur_objects=[obj], events=events, state_store=state_store)
 
 
 class TestUpdateTripwireEventsDebounce:
@@ -79,7 +78,7 @@ class TestUpdateTripwireEventsDebounce:
     tripwire = _tripwire()
     events = {}
 
-    update_tripwire_events('person', {'tw': tripwire}, now=2.0, cur_objects=[], events=events, use_tracker=True, state_store=state_store)
+    update_tripwire_events('person', {'tw': tripwire}, now=2.0, cur_objects=[], events=events, state_store=state_store)
 
     assert 'objects' not in events
 
@@ -90,7 +89,7 @@ class TestUpdateTripwireEventsDebounce:
     events = {}
 
     # cur_objects is empty → crossed_objects will be [] → count differs
-    update_tripwire_events('person', {'tw': tripwire}, now=2.0, cur_objects=[], events=events, use_tracker=True, state_store=state_store)
+    update_tripwire_events('person', {'tw': tripwire}, now=2.0, cur_objects=[], events=events, state_store=state_store)
 
     assert 'objects' in events
     assert events['objects'][0][0] == 'tw'
@@ -101,7 +100,7 @@ class TestUpdateTripwireEventsDebounce:
     tripwire = _tripwire()
     events = {}
 
-    update_tripwire_events('person', {'tw': tripwire}, now=2.0, cur_objects=[], events=events, use_tracker=True, state_store=state_store)
+    update_tripwire_events('person', {'tw': tripwire}, now=2.0, cur_objects=[], events=events, state_store=state_store)
 
     assert 'objects' not in events
 
@@ -119,7 +118,7 @@ class TestUpdateTripwireEventsEmptyInputs:
   def test_empty_tripwires_produces_no_events(self):
     state_store = AnalyticsStateStore()
     events = {}
-    update_tripwire_events('person', {}, now=1.0, cur_objects=[_obj()], events=events, use_tracker=True, state_store=state_store)
+    update_tripwire_events('person', {}, now=1.0, cur_objects=[_obj()], events=events, state_store=state_store)
     assert events == {}
 
   def test_empty_objects_with_previous_state_emits_exit_event(self):
@@ -128,6 +127,6 @@ class TestUpdateTripwireEventsEmptyInputs:
     tripwire = _tripwire()
     events = {}
 
-    update_tripwire_events('person', {'tw': tripwire}, now=2.0, cur_objects=[], events=events, use_tracker=True, state_store=state_store)
+    update_tripwire_events('person', {'tw': tripwire}, now=2.0, cur_objects=[], events=events, state_store=state_store)
 
     assert 'objects' in events

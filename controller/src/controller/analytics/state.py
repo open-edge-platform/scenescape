@@ -4,6 +4,10 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple
 
+# Minimum time (seconds) between consecutive event emissions for the same
+# region or tripwire.  Guards the ``when`` timestamp on each state object.
+DEBOUNCE_DELAY = 0.5
+
 
 @dataclass
 class RegionAnalyticsState:

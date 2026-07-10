@@ -20,6 +20,12 @@ from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
+from controller.analytics.shadow import (
+  build_event_dicts,
+  compare_events,
+  compare_states,
+  run_shadow,
+)
 from controller.observability import metrics
 from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
                                       MINIMAL_CHUNKING_RATE_FPS,
@@ -312,14 +318,18 @@ class SceneController:
       for obj in objects:
         if rname in obj.chain_data.regions:
           robjects.append(obj)
-      # Region-specific detections: include sensor data
-      jdata['objects'] = buildDetectionsList(
+      # Region-specific detections: include sensor data.
+      # Use a local dict so jdata['objects'] (the full scene-level list set by
+      # publishSceneDetections) is not overwritten — shadow mode reads it afterwards.
+      region_objects = buildDetectionsList(
         robjects, scene, False, include_sensors=True,
         include_region_dwell=True, current_time=current_time)
-      olen = len(jdata['objects'])
+      olen = len(region_objects)
       rid = scene.name + "/" + rname + "/" + otype
       if olen > 0 or rid not in scene.lastPubCount or scene.lastPubCount[rid] > 0:
-        jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
+        region_jdata = dict(jdata)
+        region_jdata['objects'] = region_objects
+        jstr = orjson.dumps(region_jdata, option=orjson.OPT_SERIALIZE_NUMPY)
         new_topic = PubSub.formatTopic(PubSub.DATA_REGION, scene_id=scene.uid,
                                        region_id=rname, thing_type=otype)
         self.pubsub.publish(new_topic, jstr)
@@ -364,11 +374,12 @@ class SceneController:
                                            scene_id=scene.uid, region_id=region.uuid)
           self.pubsub.publish(event_topic, orjson.dumps(event_data, option=orjson.OPT_SERIALIZE_NUMPY))
 
+    self._clearSensorValuesOnExit(scene)
+
     # Clear objects and count events after publishing (but preserve 'value' events for sensors)
     scene.events.pop('objects', None)
     scene.events.pop('count', None)
 
-    self._clearSensorValuesOnExit(scene)
 
     return
 
@@ -550,6 +561,22 @@ class SceneController:
         jdata['unique_detection_count'] = scene.tracker.getUniqueIDCount(detection_type)
         self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
                               msg_when, detection_type, jdata, camera_id)
+        if ControllerMode.isShadowMode() and scene.shadow_ingestion is not None:
+          run_shadow(detection_type, jdata.get('objects', []), scene, msg_when)
+          divergences = compare_states(
+            scene.analytics_state, scene.shadow_state, scene.uid, detection_type,
+            event_cache=scene._shadow_event_cache, now=msg_when,
+          )
+          primary_evts = build_event_dicts(
+            scene.events, scene, scene.analytics_state, jdata['timestamp'], self
+          )
+          shadow_evts = build_event_dicts(
+            scene._shadow_events, scene, scene.shadow_state, jdata['timestamp'], self
+          )
+          divergences += compare_events(primary_evts, shadow_evts, scene.uid,
+                                        event_cache=scene._shadow_event_cache, now=msg_when)
+          if divergences:
+            metrics.inc_shadow_divergence(detection_type, divergences)
         self.publishEvents(scene, jdata['timestamp'])
       return
 

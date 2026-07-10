@@ -4,8 +4,7 @@
 from scene_common import log
 from scene_common.geometry import getTripwireEvents
 
-DEBOUNCE_DELAY = 0.5
-MIN_FRAMES_FOR_RELIABLE_TRACK = 3
+from controller.analytics.state import DEBOUNCE_DELAY
 
 
 class TripwireEvent:
@@ -15,11 +14,12 @@ class TripwireEvent:
     return
 
 
-def update_tripwire_events(detection_type, tripwires, now, cur_objects, events, use_tracker, state_store):
+def update_tripwire_events(detection_type, tripwires, now, cur_objects, events, state_store):
   """Detect tripwire crossings and append events to the shared events dict.
 
-  When use_tracker is False (analytics-only mode) the frameCount reliability
-  gate is skipped and all objects with enough location history are considered.
+  The caller is responsible for pre-filtering *cur_objects* by reliability
+  (e.g. frameCount gate) if needed.  Objects with fewer than two published
+  locations are skipped here as they cannot produce a crossing segment.
 
   Args:
     detection_type: Detection category string (e.g. 'person').
@@ -27,14 +27,11 @@ def update_tripwire_events(detection_type, tripwires, now, cur_objects, events, 
     now:            Current epoch timestamp (float).
     cur_objects:    List of AnalyticsObject for this frame.
     events:         Mutable dict; crossing events are appended under 'objects'.
-    use_tracker:    When True the frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK
-                    gate is applied.
     state_store:    AnalyticsStateStore that owns per-tripwire analytics state.
   """
   reliable_objects = [
     obj for obj in cur_objects
-    if (not use_tracker or obj.frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK)
-    and len(obj.chain_data.publishedLocations) > 1
+    if len(obj.chain_data.publishedLocations) > 1
   ]
 
   object_locations = [

@@ -24,13 +24,13 @@ from controller.analytics.sensors import (
   update_attribute_sensor_events,
   update_environmental_sensor_readings,
 )
-from controller.analytics.state import AnalyticsStateStore
+from controller.analytics.state import AnalyticsStateStore, DEBOUNCE_DELAY
 from controller.analytics.tripwire import (
-  DEBOUNCE_DELAY,
-  MIN_FRAMES_FOR_RELIABLE_TRACK,
   TripwireEvent,
   update_tripwire_events,
 )
+
+MIN_FRAMES_FOR_RELIABLE_TRACK = 3
 from controller.controller_mode import ControllerMode
 from controller.moving_object import ChainData
 from controller.pose_adjustment import (PoseAdjustment,
@@ -87,6 +87,20 @@ class Scene(SceneModel):
     self._ingestion = SceneDataIngestion()
     self._analytics_objects = self._ingestion._objects
     self.object_history_cache = self._ingestion._history
+
+    # Shadow mode: independent ingestion + state for parity validation
+    if ControllerMode.isShadowMode():
+      self.shadow_ingestion = SceneDataIngestion()
+      self.shadow_state = AnalyticsStateStore()
+      self._shadow_events = {}
+      # Cross-frame cache for suppressing debounce-timing divergences in compare_states
+      # and compare_events.  Format: {cache_key: (timestamp, 'primary'|'shadow')}
+      self._shadow_event_cache = {}
+    else:
+      self.shadow_ingestion = None
+      self.shadow_state = None
+      self._shadow_events = None
+      self._shadow_event_cache = None
 
     if not ControllerMode.isAnalyticsOnly():
       self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
@@ -487,25 +501,26 @@ class Scene(SceneModel):
         curObjects = self.getTrackedObjects(detectionType)
       else:
         curObjects = self.tracker.currentObjects(detectionType) if self.tracker else []
+    if self.use_tracker:
+      curObjects = [o for o in curObjects if o.frameCount > MIN_FRAMES_FOR_RELIABLE_TRACK]
     curObjects = [moving_object_to_analytics_object(o) for o in curObjects]
     process_frame(
       detectionType, now, curObjects,
       self.regions, self.sensors, self.tripwires,
-      self.events, self.use_tracker, self.analytics_state, self.isIntersecting,
+      self.events, self.analytics_state, self.isIntersecting,
     )
     return
 
   def _updateTripwireEvents(self, detectionType, now, curObjects):
     update_tripwire_events(
-      detectionType, self.tripwires, now, curObjects, self.events, self.use_tracker,
-      self.analytics_state,
+      detectionType, self.tripwires, now, curObjects, self.events, self.analytics_state,
     )
     return
 
   def _updateRegionEvents(self, detectionType, regions, now, now_str, curObjects):
     return update_region_events(
       detectionType, regions, now, now_str, curObjects, self.events,
-      self.use_tracker, self.analytics_state, self.isIntersecting,
+      self.analytics_state, self.isIntersecting,
     )
 
   def isIntersecting(self, obj, region):

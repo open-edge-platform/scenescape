@@ -124,6 +124,8 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
   if hasattr(aobj, 'chain_data'):
     chain_data = aobj.chain_data
+    if len(chain_data.publishedLocations) > 1:
+      obj_dict['prev_translation'] = chain_data.publishedLocations[1].asCartesianVector
     if len(chain_data.regions):
       if include_region_dwell:
         if current_time is None:
