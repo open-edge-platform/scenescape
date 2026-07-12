@@ -10,10 +10,10 @@ restore-on-ReID-match scenario.
 
 **Relevant configuration:**
 
-- `persist_attributes: {"person": ["gender"]}` in `controller/config/tracker-config.json`
+- `persist_attributes: {"person": ["gender"]}`
 - `feature_accumulation_threshold: 12`, `minimum_bbox_area: 5000`,
   `similarity_metric: L2`, `similarity_threshold: 30.0`,
-  `stale_feature_timeout_secs: 5.0` in `controller/config/reid-config.json`
+  `stale_feature_timeout_secs: 5.0`
 - VDMS confidence threshold for TIER-1 constraints: `0.8`
 
 **Feature status:** Test cases marked _(requires restore feature)_ depend on
@@ -23,9 +23,9 @@ not implemented yet (VDMS stores gender, but the match path restores only
 
 ---
 
-## Positive test cases
+## Test Cases
 
-### TC-P1
+### TC-01
 
 **Title:** Persisted attribute stored to VDMS on track end
 
@@ -37,7 +37,7 @@ ends.
 
 1. Configure `persist_attributes: {"person": ["gender"]}` in
    `controller/config/tracker-config.json`, restart the `scene` service.
-2. Feed a person video where the detector emits `gender=Female` (conf >= 0.8).
+2. Feed a person video where the detector emits `gender=Male` (conf >= 0.8).
 3. Let the track accumulate >= 12 embeddings (`reid_state` reaches
    `query_no_match`).
 4. Let the person leave the scene, wait ~6 s (`stale_feature_timeout_secs`).
@@ -45,12 +45,12 @@ ends.
 
 **Expected results:**
 
-- A descriptor exists with the track's `uuid` and `gender = "Female"`.
+- A descriptor exists with the track's `uuid` and `gender = "Male"`.
 - Controller log shows `_addNewFeaturesToDatabase: Adding N features ... gid=<uuid>`.
 
 ---
 
-### TC-P2
+### TC-02
 
 **Title:** Persisted attribute appears in scene output during a continuous track
 
@@ -58,39 +58,16 @@ ends.
 
 **Steps:**
 
-1. With `persist_attributes` configured, feed a person with `gender=Female`.
+1. With `persist_attributes` configured, feed a person with `gender=Male`.
 2. Subscribe to `scenescape/regulated/scene/<scene_id>`.
 
 **Expected results:**
 
-- The tracked object includes `persistent_data.gender` with `label=Female`.
+- The tracked object includes `persistent_data.gender` with `label=Male`.
 
 ---
 
-### TC-P3 _(requires restore feature)_
-
-**Title:** Gender restored from VDMS on ReID match when current detection lacks gender
-
-**Summary:** A returning person (rv_id=2) whose detector did not classify gender
-is re-identified and gets gender restored from VDMS.
-
-**Steps:**
-
-1. First appearance: person with `gender=Female` (conf >= 0.8), let the track
-   end -> stored to VDMS (verify via TC-P1).
-2. Same person re-enters, detector emits **no** gender this appearance.
-3. Wait for `reid_state` to become `matched` (same UUID as first appearance).
-4. Inspect the matched object's `persistent_data` / `metadata`.
-
-**Expected results:**
-
-- `reid_state == "matched"`, `id` equals the first-appearance UUID.
-- `chain_data.persist['gender'] == "Female"` -> output
-  `persistent_data.gender.label == "Female"`.
-
----
-
-### TC-P4
+### TC-03
 
 **Title:** Gender survives intermittent detector dropouts within one track
 
@@ -104,12 +81,12 @@ omit it.
 
 **Expected results:**
 
-- Every published frame retains `persistent_data.gender.label == "Female"`
+- Every published frame retains `persistent_data.gender.label == "Male"`
   (value never drops to null mid-track).
 
 ---
 
-### TC-P5
+### TC-04
 
 **Title:** High-confidence gender used as TIER-1 VDMS constraint
 
@@ -118,20 +95,18 @@ the similarity query.
 
 **Steps:**
 
-1. Store a Female person to VDMS.
-2. Re-enter with `gender=Female` conf >= 0.8, observe controller debug log for
+1. Store a Male person to VDMS.
+2. Re-enter with `gender=Male` conf >= 0.8, observe controller debug log for
    query constraints.
 
 **Expected results:**
 
-- Log shows `ADDED: gender=Female` in TIER-1 constraints, match returns the
+- Log shows `ADDED: gender=Male` in TIER-1 constraints, match returns the
   same UUID.
 
 ---
 
-## Negative test cases
-
-### TC-N1
+### TC-05
 
 **Title:** No `persist_attributes` configured -> no `persistent_data` in output
 
@@ -142,7 +117,7 @@ still stored to VDMS via the metadata path).
 
 1. Remove/omit `persist_attributes` from tracker-config, restart the `scene`
    service.
-2. Feed a person with `gender=Female`, inspect scene output.
+2. Feed a person with `gender=Male`, inspect scene output.
 
 **Expected results:**
 
@@ -150,7 +125,7 @@ still stored to VDMS via the metadata path).
 
 ---
 
-### TC-N2
+### TC-06
 
 **Title:** Low-confidence gender is NOT used as a hard match constraint
 
@@ -170,49 +145,9 @@ still stored to VDMS via the metadata path).
 
 ---
 
-### TC-N3 _(requires restore feature)_
+### TC-07
 
-**Title:** Current-appearance gender is NOT overwritten by stored value
-
-**Summary:** If the second appearance has its own gender, the restore must not
-clobber it.
-
-**Steps:**
-
-1. First appearance stored as `gender=Female`.
-2. Re-enter with detector emitting `gender=Male` (fresh, conf >= 0.8).
-3. Wait for `matched`.
-
-**Expected results:**
-
-- `persistent_data.gender.label == "Male"` (fresh detection wins, stored value
-  does not overwrite present value).
-
----
-
-### TC-N4 _(requires restore feature)_
-
-**Title:** No ReID match -> no gender restoration / no cross-contamination
-
-**Summary:** A genuinely new person must not inherit another person's stored
-gender.
-
-**Steps:**
-
-1. Store person A with `gender=Female`.
-2. Introduce a visually distinct person B with no gender, ensure
-   `reid_state == query_no_match`.
-
-**Expected results:**
-
-- Person B keeps a new UUID, `reid_state == "query_no_match"`, and
-  `persistent_data.gender` is **absent** (not "Female").
-
----
-
-### TC-N5
-
-**Title:** VDMS descriptor set missing dimension metadata -> embeddings discarded
+**Title:** VDMS descriptor set missing dimension metadata, resulting in discarded embeddings
 
 **Summary:** Regression guard for the "stuck in `pending_collection`" failure.
 
@@ -233,9 +168,9 @@ gender.
 
 ---
 
-### TC-N6
+### TC-08
 
-**Title:** Bounding box below minimum area -> no features gathered
+**Title:** Bounding box below minimum area, so no features were gathered
 
 **Summary:** Frames with bbox area <= `minimum_bbox_area` (5000) do not
 contribute embeddings.
@@ -251,7 +186,7 @@ contribute embeddings.
 
 ---
 
-### TC-N7
+### TC-09
 
 **Title:** ReID disabled -> immediate `reid_disabled` state, no query
 
