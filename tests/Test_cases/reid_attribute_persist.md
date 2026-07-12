@@ -3,10 +3,9 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# ReID Gender Persist/Restore — Test Cases
+# ReID Gender Persist — Test Cases
 
-Test cases for the persistent-attribute (gender) storage-to-VDMS and
-restore-on-ReID-match scenario.
+Test cases for the persistent-attribute (gender) storage-to-VDMS scenario.
 
 **Relevant configuration:**
 
@@ -15,11 +14,6 @@ restore-on-ReID-match scenario.
   `similarity_metric: L2`, `similarity_threshold: 30.0`,
   `stale_feature_timeout_secs: 5.0`
 - VDMS confidence threshold for TIER-1 constraints: `0.8`
-
-**Feature status:** Test cases marked _(requires restore feature)_ depend on
-restoring persisted attributes from VDMS on a ReID match. This restoration is
-not implemented yet (VDMS stores gender, but the match path restores only
-`gid` + `similarity`).
 
 ---
 
