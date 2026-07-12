@@ -2,7 +2,7 @@
 
 - **Author(s)**: [Tomasz Dorau](https://github.com/tdorau)
 - **Date**: 2026-06-11
-- **Status**: `Proposed`
+- **Status**: `Accepted`
 - **Related ADRs**: [ADR-12 — MLOps Integration and Reuse](../adr/0012-mlops-integration-reuse.md)
 
 ---
