@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 SHELL := /bin/bash
-VERSION := $(shell cat ../version.txt)
+VERSION ?= $(shell cat ../version.txt)
 BUILD_DIR ?= $(PWD)/build
 ROOT_DIR := $(PWD)
 LOG_FILE := $(BUILD_DIR)/$(IMAGE).log
