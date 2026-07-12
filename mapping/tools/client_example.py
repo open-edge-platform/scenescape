@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """
@@ -28,13 +28,6 @@ if str(MAPPING_SRC_DIR) not in sys.path:
   sys.path.insert(0, str(MAPPING_SRC_DIR))
 
 from mapping_client import MappingClient
-
-def encode_image_to_base64(image_path: str) -> str:
-  """Encode image file to base64 string"""
-  with open(image_path, "rb") as f:
-    image_data = f.read()
-    encoded = base64.b64encode(image_data).decode('utf-8')
-    return encoded
 
 def send_reconstruction_request(
   client: MappingClient,
@@ -129,23 +122,9 @@ def check_api_health(client: MappingClient):
     health = client.healthCheckEndpoint()
     if health:
       print(f"✅ API is healthy")
-      print(f"   Device: {health['device']}")
-      print(f"   Model: {health.get('model', 'unknown')}")
-      print(f"   Model loaded: {health.get('model_loaded', False)}")
     else:
       print(f"❌ Health check failed: {health.status_code}, {health.errors}")
       return False
-
-    models = client.listModels()
-    if models:
-      print("📋 Model information:")
-      model_info = models.get('model_info')
-      if model_info:
-        status = "✅ Loaded" if model_info.get('loaded') else "❌ Not loaded"
-        print(f"   - {models.get('model', 'unknown')}: {status}")
-        print(f"   {model_info.get('description', 'No description')}")
-        print(f"   Native output: {model_info.get('native_output', 'unknown')}")
-        print(f"   Supported outputs: {model_info.get('supported_outputs', [])}")
 
     return True
 
@@ -233,4 +212,4 @@ def main():
     return 1
 
 if __name__ == "__main__":
-  exit(main())
+  sys.exit(main())

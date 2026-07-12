@@ -1,4 +1,4 @@
-#  SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+#  SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
 openapi: 3.0.3
@@ -42,23 +42,21 @@ paths:
         - reconstruction
       summary: Perform 3D reconstruction from input images
       description: |
-        Reconstructs a 3D model from multiple input images using the model selected at build time.
+        Submits a 3D reconstruction job from images or video. Returns immediately with a
+        `request_id`. Poll `GET /reconstruction/status/{request_id}` until state is
+        `complete` or `failed`.
 
         **Input Requirements:**
-        - At least 2-3 images for best results
-        - Images should be in JPEG or PNG format
-        - Images must be base64 encoded
-        - Maximum request size: 100MB
-
-        **Processing:**
-        - Images are processed to extract camera poses and depth information
-        - 3D point clouds are generated from the depth maps
-        - 3D point cloud can be converted into a textured mesh
-        - Total processing time depends on number of images and model complexity
+        - At least 2-3 images for best results; maximum 50 images per request
+        - Images must be JPEG or PNG; maximum 20 MB per image file
+        - Video files: maximum 50 MB
+        - `camera_ids` values must match pattern `^[a-zA-Z0-9_-]{1,64}$`
+        - Maximum total request size: 100 MB
+        - At least one of `images` or `video` is required
 
         **Output Formats:**
-        - `glb`: Returns base64-encoded GLB file for 3D visualization
-        - `json`: Returns raw reconstruction data (camera poses, intrinsics)
+        - `glb`: Base64-encoded GLB file (available in result via status endpoint)
+        - `json`: Raw reconstruction data (camera poses, intrinsics)
 
         **Note:** The model type is determined at container build time, not at runtime.
 
@@ -71,19 +69,18 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required:
-                - images
               properties:
                 images:
                   type: array
                   items:
                     type: string
                     format: binary
-                  description: Image files for reconstruction (JPEG or PNG)
+                  maxItems: 50
+                  description: Image files for reconstruction (JPEG or PNG; max 20 MB each; max 50 images)
                 video:
                   type: string
                   format: binary
-                  description: Optional video file for reconstruction
+                  description: Video file for reconstruction (max 50 MB; at least one of images or video required)
                 output_format:
                   type: string
                   enum: [glb, json]
@@ -98,34 +95,31 @@ paths:
                   type: boolean
                   default: true
                   description: Whether to use keyframe extraction for video (only applies to video input)
+                camera_ids:
+                  type: array
+                  items:
+                    type: string
+                    pattern: "^[a-zA-Z0-9_-]{1,64}$"
+                  description: Optional camera identifiers, one per image (pattern ^[a-zA-Z0-9_-]{1,64}$)
+                camera_locations:
+                  type: array
+                  items:
+                    type: string
+                  description: Optional camera location metadata as JSON strings, one per image
             encoding:
               images:
                 contentType: image/jpeg, image/png
       responses:
         "200":
-          description: Reconstruction completed successfully
+          description: Reconstruction job accepted and queued
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReconstructionResponse"
-              examples:
-                successful_reconstruction:
-                  summary: Successful GLB reconstruction
-                  value:
-                    success: true
-                    model: "mapanything"
-                    glb_data: "Z2xURjIAAQAAAAAM..."
-                    camera_poses:
-                      - rotation: [0.98, 0.0, 0.15, 0.0]
-                        translation: [0.0, 0.0, 0.0]
-                    intrinsics:
-                      - [
-                          [525.0, 0.0, 320.0],
-                          [0.0, 525.0, 240.0],
-                          [0.0, 0.0, 1.0],
-                        ]
-                    processing_time: 12.34
-                    message: "Successfully processed 2 images with mapanything"
+                $ref: "#/components/schemas/ReconstructionAckResponse"
+              example:
+                success: true
+                request_id: "a3f1c2d4e5b6a7f8c9d0e1f2a3b4c5d6"
+                state: "processing"
         "400":
           description: Bad request - validation error
           content:
@@ -133,14 +127,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
-                missing_field:
-                  summary: Missing required field
+                no_input:
+                  summary: No images or video provided
                   value:
-                    error: "Missing required field: images"
-                invalid_format:
-                  summary: Invalid output format
+                    success: false
+                    error: "Provide images and/or video"
+                too_many_images:
+                  summary: Image count exceeds limit
                   value:
-                    error: "output_format must be 'glb' or 'json'"
+                    success: false
+                    error: "Too many images (max 50)"
+                invalid_camera_id:
+                  summary: Invalid camera_id format
+                  value:
+                    success: false
+                    error: "Invalid camera_id format"
         "413":
           description: Request entity too large
           content:
@@ -148,6 +149,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
+                success: false
                 error: "Request too large"
         "500":
           description: Internal server error
@@ -156,8 +158,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
-                error: "Reconstruction failed: Model inference error"
-                processing_time: 5.67
+                success: false
+                error: "Internal server error"
         "503":
           description: Service unavailable - model not loaded
           content:
@@ -165,7 +167,100 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
-                error: "Model not available"
+                success: false
+                error: "Model mapanything not available"
+
+  /reconstruction/status/{request_id}:
+    get:
+      tags:
+        - reconstruction
+      summary: Get reconstruction job status
+      description: |
+        Polls the status of a previously submitted reconstruction job.
+
+        **States:**
+        - `processing`: Job is queued or running
+        - `complete`: Reconstruction succeeded; `result` contains the full output
+        - `failed`: Reconstruction failed; `error` contains a generic message
+
+        `request_id` must be a 32-character lowercase hex string as returned by
+        `POST /reconstruction`.
+      operationId: getReconstructionStatus
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-f]{32}$"
+          description: The reconstruction job ID returned by POST /reconstruction
+          example: "a3f1c2d4e5b6a7f8c9d0e1f2a3b4c5d6"
+      responses:
+        "200":
+          description: Status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+              examples:
+                processing:
+                  summary: Job still in progress
+                  value:
+                    success: true
+                    request_id: "a3f1c2d4e5b6a7f8c9d0e1f2a3b4c5d6"
+                    state: "processing"
+                    message: "running inference"
+                    processing_time: null
+                complete:
+                  summary: Job completed successfully
+                  value:
+                    success: true
+                    request_id: "a3f1c2d4e5b6a7f8c9d0e1f2a3b4c5d6"
+                    state: "complete"
+                    message: "complete"
+                    processing_time: 12.34
+                    result:
+                      success: true
+                      request_id: "a3f1c2d4e5b6a7f8c9d0e1f2a3b4c5d6"
+                      glb_data: "Z2xURjIAAQAAAAAMAAAA..."
+                      camera_poses:
+                        - rotation: [0.98, 0.0, 0.15, 0.0]
+                          translation: [0.0, 0.0, 0.0]
+                      intrinsics:
+                        - [
+                            [525.0, 0.0, 320.0],
+                            [0.0, 525.0, 240.0],
+                            [0.0, 0.0, 1.0],
+                          ]
+                      processing_time: 12.34
+                      message: "complete"
+                failed:
+                  summary: Job failed
+                  value:
+                    success: true
+                    request_id: "a3f1c2d4e5b6a7f8c9d0e1f2a3b4c5d6"
+                    state: "failed"
+                    message: "failed"
+                    processing_time: null
+                    error: "Reconstruction failed"
+        "400":
+          description: Invalid request_id format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "Invalid request ID"
+        "404":
+          description: Unknown request_id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "unknown request_id"
 
   /health:
     get:
@@ -173,58 +268,33 @@ paths:
         - health
       summary: Health check endpoint
       description: |
-        Returns the health status of the API service and loaded models.
+        Returns the health status of the API service.
 
         Use this endpoint to:
-        - Check if the service is running
-        - Verify which models are loaded and available
-        - Get information about the compute device being used
+        - Check if the service is running and the model is ready
+        - Drive Kubernetes liveness/readiness probes (returns 503 when model not loaded)
       operationId: healthCheck
       responses:
         "200":
-          description: Service is healthy
+          description: Service is healthy and model is loaded
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
               example:
+                success: true
                 status: "healthy"
-                model: "mapanything"
                 model_loaded: true
-                device: "cpu"
-
-  /models:
-    get:
-      tags:
-        - models
-      summary: List available models and their status
-      description: |
-        Returns information about the 3D reconstruction model in this container.
-
-        Provides:
-        - Current model type (determined at build time)
-        - Loading status and model information
-        - Model description and capabilities
-      operationId: listModels
-      responses:
-        "200":
-          description: Models information retrieved successfully
+        "503":
+          description: Service unhealthy - model not loaded
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ModelsResponse"
+                $ref: "#/components/schemas/HealthResponse"
               example:
-                model: "mapanything"
-                model_info:
-                  name: "mapanything"
-                  description: "MapAnything - Apache 2.0 licensed model for metric 3D reconstruction"
-                  loaded: true
-                  native_output: "mesh"
-                  supported_outputs: ["mesh", "pointcloud"]
-                camera_pose_format:
-                  rotation: "quaternion [x, y, z, w]"
-                  translation: "vector [x, y, z]"
-                  coordinate_system: "OpenCV (camera-to-world transformation, standard CV coordinates)"
+                success: false
+                status: "unhealthy"
+                model_loaded: false
 
 components:
   schemas:
@@ -234,8 +304,6 @@ components:
         Multipart form data request for 3D reconstruction.
         Note: This API only accepts multipart/form-data with actual file uploads.
         JSON payloads with base64-encoded images are NOT supported.
-      required:
-        - images
       properties:
         images:
           type: array
@@ -243,11 +311,12 @@ components:
             type: string
             format: binary
           minItems: 1
-          description: Image files for reconstruction (JPEG or PNG format)
+          maxItems: 50
+          description: Image files for reconstruction (JPEG or PNG; max 20 MB each; max 50 images)
         video:
           type: string
           format: binary
-          description: Optional video file for reconstruction
+          description: Video file for reconstruction (max 50 MB; at least one of images or video required)
         output_format:
           type: string
           enum: [glb, json]
@@ -267,23 +336,55 @@ components:
           type: boolean
           default: true
           description: Whether to use keyframe extraction for video (only applies to video input)
+        camera_ids:
+          type: array
+          items:
+            type: string
+            pattern: "^[a-zA-Z0-9_-]{1,64}$"
+          description: Optional camera identifiers, one per image (pattern ^[a-zA-Z0-9_-]{1,64}$)
+        camera_locations:
+          type: array
+          items:
+            type: string
+          description: Optional camera location metadata as JSON strings, one per image
 
-    ReconstructionResponse:
+    ReconstructionAckResponse:
       type: object
+      description: Immediate acknowledgement returned by POST /reconstruction
+      required:
+        - success
+        - request_id
+        - state
       properties:
         success:
           type: boolean
-          description: Whether the reconstruction was successful
+          description: Always true for accepted jobs
           example: true
-        model:
+        request_id:
           type: string
-          description: The model that was used for reconstruction (determined at build time)
-          example: "mapanything"
+          description: Unique job identifier (32-character hex string); use with GET /reconstruction/status/{request_id}
+          example: "a3f1c2d4e5b6a7f8c9d0e1f2a3b4c5d6"
+        state:
+          type: string
+          enum: [processing]
+          description: Initial state; always "processing" on acceptance
+          example: "processing"
+
+    ReconstructionResult:
+      type: object
+      description: Full reconstruction output; present in StatusResponse.result when state is "complete"
+      properties:
+        success:
+          type: boolean
+          example: true
+        request_id:
+          type: string
+          example: "a3f1c2d4e5b6a7f8c9d0e1f2a3b4c5d6"
         glb_data:
           type: string
           format: byte
           nullable: true
-          description: Base64-encoded GLB file data (only when output_format is 'glb')
+          description: Base64-encoded GLB file (only when output_format was 'glb'; null otherwise)
           example: "Z2xURjIAAQAAAAAMAAAA..."
         camera_poses:
           type: array
@@ -302,8 +403,47 @@ components:
           example: 12.34
         message:
           type: string
-          description: Human-readable status message
-          example: "Successfully processed 2 images with mapanything"
+          example: "complete"
+
+    StatusResponse:
+      type: object
+      description: Response from GET /reconstruction/status/{request_id}
+      required:
+        - success
+        - request_id
+        - state
+      properties:
+        success:
+          type: boolean
+          example: true
+        request_id:
+          type: string
+          example: "a3f1c2d4e5b6a7f8c9d0e1f2a3b4c5d6"
+        state:
+          type: string
+          enum: [processing, complete, failed]
+          description: Current job state
+          example: "complete"
+        message:
+          type: string
+          description: Human-readable stage description
+          example: "running inference"
+        processing_time:
+          type: number
+          format: float
+          nullable: true
+          description: Elapsed processing time in seconds; null while job is in progress
+          example: 12.34
+        result:
+          allOf:
+            - $ref: "#/components/schemas/ReconstructionResult"
+          nullable: true
+          description: Full reconstruction output; present only when state is "complete"
+        error:
+          type: string
+          nullable: true
+          description: Generic error message; present only when state is "failed"
+          example: "Reconstruction failed"
 
     CameraPose:
       type: object
@@ -343,86 +483,39 @@ components:
 
     HealthResponse:
       type: object
+      required:
+        - success
+        - status
+        - model_loaded
       properties:
+        success:
+          type: boolean
+          description: True if service is healthy; false if model is not loaded
+          example: true
         status:
           type: string
+          enum: [healthy, unhealthy]
           description: Overall health status
           example: "healthy"
-        model:
-          type: string
-          description: The model available in this container
-          example: "mapanything"
         model_loaded:
           type: boolean
-          description: Whether the model is loaded and ready
+          description: Whether the model is loaded and ready to accept requests
           example: true
-        device:
-          type: string
-          description: Compute device being used (cpu or cuda)
-          example: "cpu"
-
-    ModelsResponse:
-      type: object
-      properties:
-        model:
-          type: string
-          description: The model available in this container
-          example: "mapanything"
-        model_info:
-          $ref: "#/components/schemas/ModelInfo"
-          description: Information about the loaded model
-        camera_pose_format:
-          type: object
-          description: Format description for camera poses
-          properties:
-            rotation:
-              type: string
-              example: "quaternion [x, y, z, w]"
-            translation:
-              type: string
-              example: "vector [x, y, z]"
-            coordinate_system:
-              type: string
-              example: "OpenCV (camera-to-world transformation, standard CV coordinates)"
-
-    ModelInfo:
-      type: object
-      properties:
-        name:
-          type: string
-          description: Model identifier
-          example: "mapanything"
-        description:
-          type: string
-          description: Human-readable description of the model
-          example: "MapAnything - Apache 2.0 licensed model for metric 3D reconstruction"
-        loaded:
-          type: boolean
-          description: Whether the model is currently loaded and available
-          example: true
-        native_output:
-          type: string
-          description: The preferred output format for this model
-          example: "mesh"
-        supported_outputs:
-          type: array
-          items:
-            type: string
-          description: List of supported output formats
-          example: ["mesh", "pointcloud"]
 
     ErrorResponse:
       type: object
+      required:
+        - success
+        - error
       properties:
+        success:
+          type: boolean
+          description: Always false for error responses
+          example: false
         error:
           type: string
           description: Error message describing what went wrong
-          example: "Missing required field: images"
-        processing_time:
-          type: number
-          format: float
-          description: Time spent processing before error occurred (optional)
-          example: 5.67
+          example: "Provide images and/or video"
 
   responses:
     BadRequest:
@@ -431,6 +524,9 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error: "Provide images and/or video"
 
     NotFound:
       description: Endpoint not found
@@ -439,6 +535,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
           example:
+            success: false
             error: "Endpoint not found"
 
     MethodNotAllowed:
@@ -448,6 +545,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
           example:
+            success: false
             error: "Method not allowed"
 
     RequestTooLarge:
@@ -457,6 +555,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
           example:
+            success: false
             error: "Request too large"
 
     InternalServerError:
@@ -466,6 +565,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
           example:
+            success: false
             error: "Internal server error"
 
 # Security schemes (none required for this API)

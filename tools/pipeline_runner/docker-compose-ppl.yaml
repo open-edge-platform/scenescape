@@ -59,7 +59,7 @@ services:
     pids_limit: 1000
 
   mqtt-recorder:
-    image: scenescape-manager:latest
+    image: intel/scenescape-manager:latest
     networks:
       ppl_runner:
     entrypoint: ["python3"]
@@ -88,7 +88,7 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
 
   video-pipeline:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260623-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260707-weekly-ubuntu24
     networks:
       ppl_runner:
     tty: true

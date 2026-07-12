@@ -11,7 +11,7 @@ DATA_REGULATED messages, and assert on what arrives at ANALYTICS_CLUSTERS.
 
 Requires:
   - Docker available on the host
-  - scenescape-cluster-analytics-test image built (`make test-build`
+  - intel/scenescape-cluster-analytics-test image built (`make test-build`
     in cluster_analytics/)
 """
 
@@ -43,11 +43,10 @@ def _publish_detection(client, broker_port, objects, scene_id=SCENE_ID):
   return result
 
 
-# The cluster tracker FSM requires FRAMES_TO_ACTIVATE (=3) consecutive frames
-# before a cluster transitions NEW → ACTIVE and becomes publishable.
-# _warmup_and_publish sends `warmup_frames` "silent" frames (consuming the
-# empty responses) and then one final frame whose response is returned.
-FRAMES_TO_ACTIVATE = 3
+# The centroid tracker publishes clusters from the first frame.
+# _warmup_and_publish sends one "silent" warmup frame to establish the cluster
+# UUID in tracker state, then one final frame whose response is returned.
+FRAMES_TO_ACTIVATE = 1
 
 
 def _warmup_and_publish(client, broker_port, objects, scene_id=SCENE_ID,
