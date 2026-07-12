@@ -22,7 +22,7 @@ secrets:
 
 services:
   web:
-    image: scenescape-manager:${VERSION:-latest}
+    image: intel/scenescape-manager:${VERSION:-latest}
     init: true
     networks:
       scenescape-test:
