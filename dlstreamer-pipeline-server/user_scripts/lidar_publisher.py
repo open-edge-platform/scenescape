@@ -26,6 +26,9 @@ MQTT topics:
 
 LiDAR-to-scene coordinate transform: (-y, -x, z) axis swap.
 Optional raw mirror: set LIDAR_PUBLISH_RAW=true.
+
+Requires DLStreamer >= 2026.2.0-20260707.
+bbox_3d schema: {x, y, z, l, w, h, yaw, pitch, roll, ...}
 """
 
 import atexit
@@ -143,21 +146,22 @@ def lidar_to_scene_offset(x_l: float, y_l: float, z_l: float) -> "tuple[float, f
   return -y_l, -x_l, 0.0
 
 
-def bbox3d_to_quaternion(theta: float) -> "list[float]":
+def bbox3d_to_quaternion(yaw: float) -> "list[float]":
   """
   Convert PointPillars yaw to SceneScape quaternion [qx, qy, qz, qw].
 
-  Two rotations combined:
-    1. Z-axis yaw from theta:  q_yaw   = [0,    0,   qz, qw]
-    2. X-axis 180 deg flip:    q_flip  = [1,    0,    0,  0]
+  Requires DLStreamer >= 2026.2.0-20260707 which emits 'yaw' in bbox_3d.
 
-  Hamilton product q_flip * q_yaw:
-    q_combined = [qw_yaw, -qz_yaw, 0, 0]
+  Two rotations combined:
+    1. Z-axis yaw:   q_yaw  = [0, 0, qz, qw]
+    2. X-axis 180°:  q_flip = [1, 0,  0,  0]
+
+  Hamilton product q_flip * q_yaw → [qw_yaw, -qz_yaw, 0, 0]
 
   This keeps the object XY position unchanged while
   flipping the render orientation so roof faces up.
   """
-  half = (-theta - math.pi) / 2.0
+  half = (-yaw - math.pi) / 2.0
   qz = math.sin(half)
   qw = math.cos(half)
   if qw < 0.0:
@@ -166,7 +170,7 @@ def bbox3d_to_quaternion(theta: float) -> "list[float]":
   # Apply 180 deg X-axis flip: q_flip=[1,0,0,0] * q_yaw=[0,0,qz,qw]
   # Clamp to open interval (-1, 1): the SceneScape controller schema requires
   # strict "< 1" on every component (exclusiveMaximum since the initial commit).
-  # theta=0 yields sin(-π/2)=-1 which would set rotation[1]=1.0 exactly.
+  # yaw=0 yields sin(-π/2)=-1 which would set rotation[1]=1.0 exactly.
   _C = 1.0 - 1e-7
   return [max(-_C, min(_C, qw)), max(-_C, min(_C, -qz)), 0.0, 0.0]
 
@@ -193,7 +197,12 @@ def _make_timestamp(ts: float) -> str:
 
 
 def build_lidar_message(raw: dict, sensor_id: str, fps: float) -> dict:
-  """Wrap PointPillars 3-D detections in SceneScape camera detection format."""
+  """Wrap PointPillars 3-D detections in SceneScape camera detection format.
+
+  Expects DLStreamer >= 2026.2.0-20260707 bbox_3d schema:
+    {x, y, z, l, w, h, yaw, pitch, roll}
+  Raises KeyError if 'yaw' is absent (i.e. older schema with 'theta' was fed in).
+  """
   gst_ns = raw.get("lidar_frame", {}).get("exit_source_timestamp")
   ts = _make_timestamp(_gst_to_wall(int(gst_ns)) if gst_ns is not None else time.time())
 
@@ -203,6 +212,11 @@ def build_lidar_message(raw: dict, sensor_id: str, fps: float) -> dict:
     if not isinstance(bbox, dict):
       continue
     try:
+      if "yaw" not in bbox:
+        raise KeyError(
+          f"bbox_3d missing 'yaw' field in frame {raw.get('lidar_frame', {}).get('frame_id')}; "
+          "this script requires DLStreamer >= 2026.2.0-20260707"
+        )
       label = _resolve_label(obj)
       if label not in ("vehicle", "cyclist"):
         continue
@@ -210,14 +224,16 @@ def build_lidar_message(raw: dict, sensor_id: str, fps: float) -> dict:
         bbox.get("x", 0.0), bbox.get("y", 0.0), bbox.get("z", 0.0)
       )
       objects.setdefault(label, []).append({
-        "id":         i + 1,
-        "category":   label,
-        "confidence": obj.get("confidence", 0.0),
+        "id":          i + 1,
+        "category":    label,
+        "confidence":  obj.get("confidence", 0.0),
         "translation": [sx, sy, sz],
-        "size":       [bbox.get("l", 0.0), bbox.get("w", 0.0), bbox.get("h", 0.0)],
-        "rotation":   bbox3d_to_quaternion(bbox.get("theta", 0.0)),
+        "size":        [bbox.get("l", 0.0), bbox.get("w", 0.0), bbox.get("h", 0.0)],
+        "rotation":    bbox3d_to_quaternion(float(bbox["yaw"])),
       })
-    except (KeyError, TypeError, ValueError):
+    except KeyError:
+      raise
+    except (TypeError, ValueError):
       continue
 
   return {"id": sensor_id, "timestamp": ts, "rate": round(fps, 2), "objects": objects}
@@ -451,7 +467,8 @@ def main() -> None:
     f"lidar_device={DEVICE} cam_device={CAM_DEVICE} fps={FRAME_RATE} "
     f"score_threshold={SCORE_THRESHOLD} cam_score_threshold={CAM_SCORE_THRESHOLD} "
     f"publish_raw={PUBLISH_RAW} "
-    f"enable_lidar={ENABLE_LIDAR} enable_camera={ENABLE_CAMERA}",
+    f"enable_lidar={ENABLE_LIDAR} enable_camera={ENABLE_CAMERA} "
+    f"dlstreamer_schema=2026.2.0-20260707+",
     flush=True,
   )
 

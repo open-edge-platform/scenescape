@@ -434,7 +434,7 @@ services:
     pids_limit: 1000
 
   lidar-model-init:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260623-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260707-weekly-ubuntu24
     user: root
     entrypoint: ["/bin/bash", "/model_installer/install-pointpillars"]
     environment:
@@ -450,7 +450,7 @@ services:
     pids_limit: 1000
 
   lidar-stream:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260623-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-20260707-weekly-ubuntu24
     networks:
       scenescape:
     tty: true
@@ -478,7 +478,7 @@ services:
       - MQTT_PORT=1883
       # Stream enable flags — set to false to run a single stream for debugging:
       - ENABLE_LIDAR=true
-      - ENABLE_CAMERA=false
+      - ENABLE_CAMERA=true
       # LiDAR pipeline configuration — override as needed:
       # - LIDAR_SENSOR_ID=intersection-lidar1
       # - LIDAR_DATA_PATH=/home/pipeline-server/videos/velodyne_bin/%06d.bin
@@ -489,7 +489,7 @@ services:
       - LIDAR_DEVICE=GPU
       - LIDAR_SCORE_THRESHOLD=0.7
       # - LIDAR_MODEL_CONFIG=/home/pipeline-server/models/public/pointpillars/FP16/pointpillars_ov_config.json
-      # - LIDAR_PUBLISH_RAW=true
+      - LIDAR_PUBLISH_RAW=true
       # Camera stream configuration:
       # - CAM_SENSOR_ID=intersection-cam1
       # - CAM_DATA_PATH=/home/pipeline-server/videos/images/%06d.jpg
