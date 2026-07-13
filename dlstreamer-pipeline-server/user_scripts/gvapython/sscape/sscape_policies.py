@@ -69,7 +69,10 @@ def detectionPolicy(pobj, item, fw, fh):
   category = detection.get('label') or str(detection['label_id'])
   pobj.update({
     'category': category,
-    'confidence': detection['confidence']
+    'confidence': detection['confidence'],
+    # Debug aid: lets the UI (and downstream fusion work) tell which sensor
+    # produced this detection before fusion logic is implemented.
+    'source': 'camera',
   })
   pobj.update({
     'bounding_box_px': {'x': item['x'], 'y': item['y'], 'width': item['w'], 'height': item['h']}

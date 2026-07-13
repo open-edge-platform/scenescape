@@ -48,6 +48,14 @@ export default function AssetManager(
     } else {
       updateLabelFields(markObject, { dwell: null });
     }
+
+    // Debug aid: surface which sensor produced this detection (lidar vs
+    // camera) before fusion logic combines them into a single object. Only
+    // shown for pipelines that report obj.source, so other deployments'
+    // labels are unaffected.
+    if (obj.source) {
+      updateLabelFields(markObject, { source: obj.source });
+    }
   }
 
   function addDefaultGeometryToCache(name, color, depth) {

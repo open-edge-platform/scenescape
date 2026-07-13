@@ -264,6 +264,16 @@ polygon {
   fill: #888888;
 }
 
+/* Debug aid: distinguish un-fused lidar vs camera detections by stroke style.
+   Fill color (by object type) and the "L"/"C" text label are unaffected. */
+.source-lidar circle {
+  stroke-dasharray: 4, 3;
+}
+
+.source-camera circle {
+  stroke-dasharray: none;
+}
+
 .sensor {
   fill: #990000;
 }

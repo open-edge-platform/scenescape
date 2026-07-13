@@ -230,6 +230,9 @@ def build_lidar_message(raw: dict, sensor_id: str, fps: float) -> dict:
         "translation": [sx, sy, sz],
         "size":        [bbox.get("l", 0.0), bbox.get("w", 0.0), bbox.get("h", 0.0)],
         "rotation":    bbox3d_to_quaternion(float(bbox["yaw"])),
+        # Debug aid: lets the UI (and downstream fusion work) tell which
+        # sensor produced this detection before fusion logic is implemented.
+        "source":      "lidar",
       })
     except KeyError:
       raise
