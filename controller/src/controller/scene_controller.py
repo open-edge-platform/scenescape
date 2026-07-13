@@ -20,12 +20,6 @@ from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
-from controller.analytics.shadow import (
-  build_event_dicts,
-  compare_events,
-  compare_states,
-  run_shadow,
-)
 from controller.observability import metrics
 from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
                                       MINIMAL_CHUNKING_RATE_FPS,
@@ -561,23 +555,6 @@ class SceneController:
         jdata['unique_detection_count'] = scene.tracker.getUniqueIDCount(detection_type)
         self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
                               msg_when, detection_type, jdata, camera_id)
-        if ControllerMode.isShadowMode() and scene.shadow_ingestion is not None:
-          run_shadow(detection_type, jdata.get('objects', []), scene, msg_when)
-          divergences = compare_states(
-            scene.analytics_state, scene.shadow_state, scene.uid, detection_type,
-            event_cache=scene._shadow_event_cache, now=msg_when,
-          )
-          primary_evts = build_event_dicts(
-            scene.events, scene, scene.analytics_state, jdata['timestamp'], self
-          )
-          shadow_evts = build_event_dicts(
-            scene._shadow_events, scene, scene.shadow_state, jdata['timestamp'], self
-          )
-          divergences += compare_events(primary_evts, shadow_evts, scene.uid,
-                                        event_cache=scene._shadow_event_cache, now=msg_when)
-          if divergences:
-            metrics.inc_shadow_divergence(detection_type, divergences)
-        self.publishEvents(scene, jdata['timestamp'])
       return
 
   def handleSceneDataMessage(self, client, userdata, message):
@@ -607,18 +584,14 @@ class SceneController:
 
     scene.updateTrackedObjects(detection_type, tracked_objects)
 
+    analytics_objects = scene.getTrackedObjects(detection_type)
+    msg_when = get_epoch_time(jdata.get('timestamp'))
+    scene._updateEvents(detection_type, msg_when, analytics_objects)
+
     if ControllerMode.isAnalyticsOnly():
-      analytics_objects = scene.getTrackedObjects(detection_type)
-      log.debug(f"Analytics-only mode - received objects: scene={scene_id}, type={detection_type}, count={len(analytics_objects)}")
-
       scene._updateVisible(analytics_objects)
-
-      msg_when = get_epoch_time(jdata.get('timestamp'))
-
-      scene._updateEvents(detection_type, msg_when, analytics_objects)
-
       self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
-      self.publishEvents(scene, jdata.get('timestamp'))
+    self.publishEvents(scene, jdata.get('timestamp'))
 
     return
 

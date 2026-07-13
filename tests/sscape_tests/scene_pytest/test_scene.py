@@ -425,29 +425,23 @@ def test_processSceneData_splits_retracked_vs_child_objects(scene_obj, monkeypat
 
 def test_finishProcessing_tracks_when_not_analytics_only(scene_obj, monkeypatch):
   update_visible_mock = Mock()
-  update_events_mock = Mock()
   track_mock = Mock()
   monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: False)
   monkeypatch.setattr(scene_obj, '_updateVisible', update_visible_mock)
-  monkeypatch.setattr(scene_obj, '_updateEvents', update_events_mock)
   scene_obj.tracker = SimpleNamespace(trackObjects=track_mock)
 
   scene_obj._finishProcessing('person', 10.0, [], [])
   update_visible_mock.assert_called_once()
   track_mock.assert_called_once()
-  update_events_mock.assert_called_once_with('person', 10.0)
 
 def test_finishProcessing_skips_tracker_in_analytics_only(scene_obj, monkeypatch):
-  update_events_mock = Mock()
   track_mock = Mock()
   monkeypatch.setattr(scene_module.ControllerMode, 'isAnalyticsOnly', lambda: True)
   monkeypatch.setattr(scene_obj, '_updateVisible', lambda objects: None)
-  monkeypatch.setattr(scene_obj, '_updateEvents', update_events_mock)
   scene_obj.tracker = SimpleNamespace(trackObjects=track_mock)
 
   scene_obj._finishProcessing('person', 10.0, [], [])
   track_mock.assert_not_called()
-  update_events_mock.assert_called_once_with('person', 10.0)
 
 def test_processSensorData_unknown_sensor_returns_false(scene_obj):
   assert scene_obj.processSensorData({'id': 'nope', 'value': 1}, when=1.0) is False

@@ -88,20 +88,6 @@ class Scene(SceneModel):
     self._analytics_objects = self._ingestion._objects
     self.object_history_cache = self._ingestion._history
 
-    # Shadow mode: independent ingestion + state for parity validation
-    if ControllerMode.isShadowMode():
-      self.shadow_ingestion = SceneDataIngestion()
-      self.shadow_state = AnalyticsStateStore()
-      self._shadow_events = {}
-      # Cross-frame cache for suppressing debounce-timing divergences in compare_states
-      # and compare_events.  Format: {cache_key: (timestamp, 'primary'|'shadow')}
-      self._shadow_event_cache = {}
-    else:
-      self.shadow_ingestion = None
-      self.shadow_state = None
-      self._shadow_events = None
-      self._shadow_event_cache = None
-
     if not ControllerMode.isAnalyticsOnly():
       self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
     else:
@@ -356,7 +342,6 @@ class Scene(SceneModel):
                                 self.non_measurement_time_dynamic,
                                 self.non_measurement_time_static,
                                 self.use_tracker)
-    self._updateEvents(detectionType, when)
     return
 
   def _isObjectWithinSensor(self, obj, sensor, is_scene_wide):
