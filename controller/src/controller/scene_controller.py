@@ -759,9 +759,8 @@ class SceneController:
         for camera in scene.cameras:
           need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
                               self.handleMovingObjectMessage))
-      else:
-        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
-                            self.handleSceneDataMessage))
+      need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene.uid, thing_type="+"),
+                          self.handleSceneDataMessage))
 
       for sensor in scene.sensors:
         need_subscribe.add((PubSub.formatTopic(PubSub.DATA_SENSOR, sensor_id=sensor),
