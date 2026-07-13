@@ -45,6 +45,13 @@ class VDMSDatabase(ReIDDatabase):
     self.lock = threading.Lock()
     self._schema_lock = threading.Lock()
     self._schema_ready = False
+    # Monotonic count of descriptors this process has successfully written to VDMS.
+    # This is a per-instance attribution counter for the storage-growth metric; it is
+    # NOT a substitute for getDescriptorCount(), which queries the shared VDMS store
+    # directly and is the ground truth across all controller instances.
+    self._descriptors_added_count = 0
+    self._descriptors_added_bytes = 0
+    self._descriptors_added_lock = threading.Lock()
     return
 
   def _usesInnerProductMetric(self):
@@ -341,6 +348,11 @@ class VDMSDatabase(ReIDDatabase):
         # Store as string
         properties[key] = str(value)
 
+    # Measured (not estimated) size of the per-descriptor metadata payload. `properties`
+    # is fixed for every vector added in this call, so this one measurement applies to
+    # each descriptor written below.
+    measured_metadata_bytes = len(json.dumps(properties).encode("utf-8"))
+
     # Convert vectors to JSON-serializable format (float32 -> float) and to bytes
     # VDMS API expects: query([q1, q2, ...], [blob1, blob2, ...])
     # Blobs are consumed sequentially, one per AddDescriptor query (flat list)
@@ -379,9 +391,107 @@ class VDMSDatabase(ReIDDatabase):
         else:
           log.warning(
             f"Failed to add the descriptor to the database. Received response {item}")
+      if success_count:
+        self._recordDescriptorsAdded(success_count, measured_metadata_bytes)
     else:
       log.error(f"addEntry: No response from VDMS when adding {len(add_query)} vectors")
     return
+
+  def _recordDescriptorsAdded(self, count, measured_metadata_bytes):
+    """
+    Update this process's running total of successfully written descriptors and
+    log a structured metric line for the storage-growth chart. This is a
+    per-instance attribution counter, not the source of truth for total DB
+    size -- use getDescriptorCount() for that.
+
+    Bytes are computed from measured, not guessed, quantities: the vector blob
+    size is exact (dimensions * 4 bytes for float32), and the metadata size is
+    the actual serialized length of the properties dict written for this call
+    (see addEntry), which varies with how many semantic/persist attributes are
+    present rather than being a fixed constant.
+
+    @param   count                   Number of descriptors successfully added in this call
+    @param   measured_metadata_bytes Serialized size in bytes of the properties dict
+                                     written for each of these descriptors
+    """
+    vector_bytes_per_descriptor = self.dimensions * 4
+    bytes_added_this_call = count * (vector_bytes_per_descriptor + measured_metadata_bytes)
+    with self._descriptors_added_lock:
+      self._descriptors_added_count += count
+      self._descriptors_added_bytes += bytes_added_this_call
+      running_total = self._descriptors_added_count
+      running_bytes = self._descriptors_added_bytes
+    log.info(
+      "reid_descriptor_metric "
+      f"event=added set={self.set_name} added_now={count} "
+      f"metadata_bytes_this_call={measured_metadata_bytes} "
+      f"instance_running_total={running_total} "
+      f"instance_running_bytes={running_bytes}")
+    return
+
+  def getInstanceRunningBytes(self):
+    """
+    Return this process's running total of bytes successfully written to VDMS
+    via addEntry (measured vector + metadata sizes, accumulated since this
+    VDMSDatabase instance was created). This is per-instance attribution, not
+    the shared store's total size -- use getDescriptorCount() for that.
+
+    @return  int  Running total of bytes written by this instance
+    """
+    with self._descriptors_added_lock:
+      return self._descriptors_added_bytes
+
+  def getDescriptorCount(self, set_name=None, object_type=None):
+    """
+    Ground-truth count of descriptors currently stored in the shared VDMS set.
+    Unlike the per-instance running total, this reflects the actual state of the
+    database regardless of which (or how many) controller instances wrote to it,
+    so it is the correct number to use when charting growth across N instances.
+
+    @param   set_name     Name of the descriptor set to count; defaults to self.set_name
+    @param   object_type  Optional object type ('Person', 'Vehicle', etc.) to filter by.
+                          If None, counts all descriptors in the set.
+    @return  int          The number of matching descriptors, or None if the query failed.
+    """
+    if set_name is None:
+      set_name = self.set_name
+    find_descriptor = {
+      "set": f"{set_name}",
+      "results": {"count": ""}
+    }
+    if object_type:
+      find_descriptor["constraints"] = {"type": ["==", f"{object_type}"]}
+    query = [{"FindDescriptor": find_descriptor}]
+    response, _ = self.sendQuery(query)
+    if not response or response[0].get('status') != 0:
+      log.warning(f"getDescriptorCount: Failed to get descriptor count for set '{set_name}'. Response: {response}")
+      return None
+    return response[0].get('returned', 0)
+
+  def getDescriptorSetVectorBytes(self, set_name=None, object_type=None):
+    """
+    Exact vector-storage bytes for the shared VDMS set: descriptor count times the
+    fixed per-vector size (dimensions * 4 bytes for float32). This is not an
+    estimate -- every descriptor's vector size is fixed by the schema, so this
+    is exact for the vector portion of storage.
+
+    It does NOT include per-descriptor metadata (uuid/rvid/type/persist/semantic
+    attributes), since that varies per entry and isn't cheaply readable back from
+    VDMS for entries written by other controller instances. For a measured
+    (not guessed) metadata contribution, see VDMSDatabase.getInstanceRunningBytes(),
+    which tracks exactly what this instance wrote; summing that across instances
+    (e.g. from your metrics pipeline) gives the metadata total without an extra
+    per-poll VDMS query.
+
+    @param   set_name     Name of the descriptor set; defaults to self.set_name
+    @param   object_type  Optional object type filter, passed through to getDescriptorCount
+    @return  int          Exact vector bytes for the matching descriptors, or None if the
+                          descriptor count could not be retrieved.
+    """
+    descriptor_count = self.getDescriptorCount(set_name=set_name, object_type=object_type)
+    if descriptor_count is None:
+      return None
+    return descriptor_count * self.dimensions * 4
 
   def getPersistedAttributes(self, uuid, set_name=SCHEMA_NAME):
     """

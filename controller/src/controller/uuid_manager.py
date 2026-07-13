@@ -23,6 +23,7 @@ DEFAULT_MAX_QUERY_TIME = 4
 DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED = 10
 DEFAULT_STALE_FEATURE_TIMEOUT_SECS = 5.0
 DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS = 1.0
+DEFAULT_STORAGE_METRIC_INTERVAL_SECS = 60.0
 DEFAULT_SIMILARITY_METRIC = "L2"
 SUPPORTED_SIMILARITY_METRICS = {"COSINE", "L2"}
 # Tolerance applied to the theoretical [-1, 1] IP score bounds to absorb
@@ -103,6 +104,9 @@ class UUIDManager:
     self.reid_enabled = True
     self._applyReidConfig(reid_config_data)
     self._rescheduleStaleFeatureTimer()
+
+    self.storage_metric_timer = None
+    self._startStorageMetricTimer()
     return
 
   def _incrementUniqueIdCount(self):
@@ -144,6 +148,8 @@ class UUIDManager:
       'minimum_bbox_area', DEFAULT_MINIMUM_BBOX_AREA)
     self.feature_slice_size = reid_config_data.get(
       'feature_slice_size', DEFAULT_FEATURE_SLICE_SIZE)
+    self.storage_metric_interval_secs = reid_config_data.get(
+      'storage_metric_interval_secs', DEFAULT_STORAGE_METRIC_INTERVAL_SECS)
     if hasattr(self, 'reid_database') and self.reid_database is not None:
       self.reid_database.similarity_metric = self._resolveDatabaseSimilarityMetric(
         self.similarity_metric)
@@ -165,6 +171,9 @@ class UUIDManager:
     if self.stale_feature_timer is not None:
       self.stale_feature_timer.cancel()
       self.stale_feature_timer = None
+    if getattr(self, 'storage_metric_timer', None) is not None:
+      self.storage_metric_timer.cancel()
+      self.storage_metric_timer = None
     if hasattr(self, 'pool') and self.pool is not None:
       self.pool.shutdown(wait=False)
 
@@ -183,6 +192,46 @@ class UUIDManager:
     self.stale_feature_timer = threading.Timer(self.stale_feature_check_interval_secs, callback)
     self.stale_feature_timer.daemon = True
     self.stale_feature_timer.start()
+
+  def _startStorageMetricTimer(self):
+    """
+    Start a background timer that periodically polls VDMS for the ground-truth
+    descriptor count and logs it. Unlike the per-instance write counter in
+    VDMSDatabase, this queries the shared store directly, so it reflects the
+    combined effect of every controller instance writing to the same set.
+    """
+    def report_and_reschedule():
+      self.pool.submit(self._reportStorageMetric)
+      self.storage_metric_timer = threading.Timer(
+        self.storage_metric_interval_secs, report_and_reschedule)
+      self.storage_metric_timer.daemon = True
+      self.storage_metric_timer.start()
+
+    self.storage_metric_timer = threading.Timer(
+      self.storage_metric_interval_secs, report_and_reschedule)
+    self.storage_metric_timer.daemon = True
+    self.storage_metric_timer.start()
+
+  def _reportStorageMetric(self):
+    """
+    Query the shared descriptor count and exact vector-storage bytes from VDMS
+    and log them for charting. Both are ground truth: the same value regardless
+    of which (or how many) controller instances are polling, since they come
+    directly from the shared VDMS store rather than from local counters.
+    """
+    try:
+      descriptor_count = self.reid_database.getDescriptorCount()
+      shared_vector_bytes = self.reid_database.getDescriptorSetVectorBytes()
+    except Exception as e:
+      log.warning(f"_reportStorageMetric: Failed to query descriptor storage metrics: {e}")
+      return
+    if descriptor_count is None:
+      return
+    log.info(
+      "reid_storage_metric "
+      f"descriptor_count={descriptor_count} "
+      f"shared_vector_bytes={shared_vector_bytes}")
+    return
 
   def _flushStaleFeatures(self):
     """Check for features older than the configured timeout (from reid-config.json) and flush them to VDMS"""
