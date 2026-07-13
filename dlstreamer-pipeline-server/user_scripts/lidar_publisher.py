@@ -155,10 +155,9 @@ def bbox3d_to_quaternion(theta: float) -> "list[float]":
     qz, qw = -qz, -qw
 
   # Apply 180 deg X-axis flip: q_flip=[1,0,0,0] * q_yaw=[0,0,qz,qw]
-  # Clamp to open interval (-1, 1): the SceneScape controller validates each
-  # component with a strict "< 1" check.  theta=0 yields sin(-π/2)=-1 and
-  # theta=π yields cos(0)=1 — both degenerate cases that need clamping.
-  # The 1e-7 margin is imperceptible for 3-D rendering (~0.00001°).
+  # Clamp to open interval (-1, 1): the SceneScape controller requires strict
+  # "< 1" on every component.  theta≈0 yields sin(-π/2)≈-1 which would set
+  # rotation[1]=1.0 exactly — the 1e-7 margin is imperceptible in rendering.
   _C = 1.0 - 1e-7
   return [max(-_C, min(_C, qw)), max(-_C, min(_C, -qz)), 0.0, 0.0]
 

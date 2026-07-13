@@ -256,6 +256,10 @@ polygon {
   fill: #0099ff;
 }
 
+.cyclist circle {
+  fill: #f39c12;
+}
+
 .apriltag circle {
   fill: #888888;
 }

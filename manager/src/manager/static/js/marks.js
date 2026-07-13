@@ -184,6 +184,8 @@ function addNewMark(
     mark_radius = parseInt(scale * 0.3); // Person is about 0.3 meter radius
   } else if (o.type == "vehicle") {
     mark_radius = parseInt(scale * 1.5); // Vehicles are about 1.5 meters "radius" (3 meters across)
+  } else if (o.type == "cyclist") {
+    mark_radius = parseInt(scale * 0.35); // Cyclists are about 0.35 meter radius (~0.65 m wide)
   } else if (o.type == "apriltag") {
     mark_radius = parseInt(scale * 0.15); // Arbitrary AprilTag size (smaller than person)
   } else {
