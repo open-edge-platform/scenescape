@@ -441,7 +441,7 @@ run_ui_tests: setup-tests
 	@echo "DONE ==> Running UI tests"
 
 .PHONY: run_unit_tests
-run_unit_tests: setup-tests
+run_unit_tests: init-secrets setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests..."
 	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
@@ -452,9 +452,7 @@ run_basic_acceptance_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running basic acceptance tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
-		$(PYTEST) $(TESTS_DIR)/functional/ $(TESTS_DIR)/ui/ \
-		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ \
-		$(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Basic acceptance tests failed" && exit 1)
+		$(PYTEST) $(TESTS_DIR) -m basic_acceptance $(PYTEST_FLAGS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
 .PHONY: run_stability_tests
