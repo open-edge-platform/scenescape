@@ -474,8 +474,8 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
   # silently report success in those flows.
   runtime_points_present = False
   try:
-    runtime_points_present = WebDriverWait(browser, 30).until(
-      lambda d: d.execute_script(
+    runtime_points_present = bool(
+      browser.execute_script(
         """
         const calibration = window.camera_calibration;
         if (!calibration || !calibration.camCanvas || !calibration.viewport) {
@@ -492,7 +492,6 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
     )
   except Exception:
     runtime_points_present = False
-
   # Prefer mutating in-memory calibration points when available.
   in_memory_updated = False
   try:
