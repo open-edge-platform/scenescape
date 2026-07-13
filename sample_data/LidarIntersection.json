@@ -24,10 +24,25 @@
         "k3": 0.0
       },
       "transform_type": "euler",
-      "translation": [70.0, 127.0, 0],
-      "rotation": [-180, 0.0, -180],
-      "scale": [1.0, 1.0, 1.0],
-      "resolution": [1920, 1080],
+      "translation": [
+        73.608,
+        126.987,
+        5.593
+      ],
+      "rotation": [
+        96.847185,
+        -22.601503,
+        -177.357768
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "resolution": [
+        1920,
+        1080
+      ],
       "scene": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
     },
     {
@@ -40,10 +55,25 @@
         "cy": 500.0
       },
       "transform_type": "euler",
-      "translation": [70.0, 127.0, 0],
-      "rotation": [-180, 0.0, -180],
-      "scale": [1.0, 1.0, 1.0],
-      "resolution": [1000, 1000],
+      "translation": [
+        70.0,
+        127.0,
+        0
+      ],
+      "rotation": [
+        -180,
+        0.0,
+        -180
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "resolution": [
+        1000,
+        1000
+      ],
       "scene": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
     }
   ]
