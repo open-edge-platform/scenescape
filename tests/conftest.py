@@ -672,8 +672,15 @@ class _ComposeManager:
     self._current_gen = None  # active _compose_lifecycle generator
     self._failed_profiles = {}  # profile name -> exception message
 
-  def get_env(self, profile, visibility_topic="regulated"):
-    """Return a ScenescapeEnv for *profile*, reusing or restarting as needed."""
+  def get_env(self, profile, visibility_topic="regulated", fresh=False):
+    """Return a ScenescapeEnv for *profile*, reusing or restarting as needed.
+
+    When *fresh* is True the currently running stack is always torn down and
+    a brand-new stack is started, even if the requested profile matches the
+    active one. This reproduces the pristine single-test condition for tests
+    that are sensitive to resource accumulation in the long-lived shared
+    stack (e.g. WebGL/3D UI tests).
+    """
     profile_key = f"{profile.name}:{visibility_topic}"
     if profile_key in self._failed_profiles:
       pytest.fail(
@@ -681,7 +688,7 @@ class _ComposeManager:
         f"{self._failed_profiles[profile_key]}"
       )
 
-    if self._current_profile_name == profile_key:
+    if self._current_profile_name == profile_key and not fresh:
       return self._current_env
 
     self._stop_current()
@@ -841,7 +848,11 @@ def scenescape_env(request, _compose_manager, secrets_dir, supass,
       pytest.skip("python-on-whales not installed; run from host venv")
     if _compose_manager is None:
       pytest.skip("Docker Compose manager not available")
-    env = _compose_manager.get_env(spec.profile, _spec_visibility_topic(spec))
+    # Tests marked @pytest.mark.fresh_stack get a brand-new stack so they run
+    # against a pristine environment rather than a long-lived stack.
+    fresh = request.node.get_closest_marker("fresh_stack") is not None
+    env = _compose_manager.get_env(
+      spec.profile, _spec_visibility_topic(spec), fresh=fresh)
     _inject_options(request.config, spec, secrets_dir, supass, env=env)
 
   # If a previous test preserved the database (skipped its post-test restore)
@@ -1077,6 +1088,7 @@ def pytest_runtest_logreport(report):
 def pytest_configure(config):
   config.addinivalue_line("markers", "test_name(name): sets the XML test name attribute")
   config.addinivalue_line("markers", "kubernetes_only: test only runs with --backend=kubernetes or --backend=all")
+  config.addinivalue_line("markers", "fresh_stack: start a brand-new compose stack for this test instead of reusing the shared one")
 
 
 # ---------------------------------------------------------------------------
