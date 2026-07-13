@@ -5,6 +5,7 @@
 
 import os
 import time
+import pytest
 import tests.ui.common_ui_test_utils as common
 from tests.utils.log import get_logger
 from tests.ui import UserInterfaceTest
@@ -25,6 +26,9 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
   ELEM_STATS_PANEL = "panel-stats"
   ELEM_3D_CTL_PANEL = "panel-3d-controls"
   ELEM_SCENE_CTL_PANEL = "scene-controls-3d"
+
+  # This test renders the 3D viewport, so the browser must run with WebGL.
+  BROWSER_WEBGL = True
 
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
@@ -58,12 +62,16 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
 
     return status
 
-  def captureScreenshot(self):
+  def captureScreenshot(self, wait_render: bool = False):
     # Hide control panels and stats box
     assert self.togglePanel(self.ELEM_STATS_PANEL, True)
     assert self.togglePanel(self.ELEM_3D_CTL_PANEL, True)
     time.sleep(WAIT_SEC)
-    cap = self.getPageScreenshot()
+    if wait_render:
+      # Wait until the canvas has rendered content so the baseline screenshot is not a blank canvas.
+      common.wait_for_3d_scene_rendered(self.browser)
+    # Capture the WebGL canvas directly
+    cap = common.capture_3d_canvas(self.browser)
 
     # Show 3D control panel again for interaction
     assert self.togglePanel(self.ELEM_3D_CTL_PANEL, False)
@@ -83,7 +91,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
 
       log.info("Take initial 3D screenshot")
       # Screenshot is taken after camera panel is expanded due to camera control on 3D plane will be highlighted after expanding the specific camera panel
-      screen_3d = self.captureScreenshot()
+      screen_3d = self.captureScreenshot(wait_render=True)
 
       log.info("Toggle camera1 scene camera")
       self.clickOnElement("camera1-scene-camera", delay=10)
@@ -114,6 +122,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       self.recordTestResult()
     return
 
+@pytest.mark.fresh_stack
 @common.mock_display
 def test_switch_3d_camera_scene_camera(scenescape_env, request, record_xml_attribute):
   """! Test toggle scene camera under 3D camera control.
@@ -125,10 +134,14 @@ def test_switch_3d_camera_scene_camera(scenescape_env, request, record_xml_attri
   log.info("Test to switch between 3d scene camera view")
 
   test = Scene3dUserInterfaceTest(TEST_NAME, request, record_xml_attribute)
-  test.checkSceneCameraToggle()
+  try:
+    test.checkSceneCameraToggle()
+  finally:
+    browser = getattr(test, "browser", None)
+    if browser is not None:
+      browser.quit()
 
   assert test.exitCode == 0
-  return test.exitCode
 
 def main():
   return test_switch_3d_camera_scene_camera(None, None)
