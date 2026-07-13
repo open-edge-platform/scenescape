@@ -8,7 +8,14 @@ from unittest.mock import patch
 
 import numpy as np
 
-from controller.moving_object import ChainData, Chronoloc, MovingObject, decodeReIDEmbeddingVector
+from controller.moving_object import (
+  ChainData,
+  Chronoloc,
+  MovingObject,
+  SPEED_THRESHOLD_OFF,
+  SPEED_THRESHOLD_ON,
+  decodeReIDEmbeddingVector,
+)
 from scene_common.geometry import Point, Rectangle
 
 
@@ -133,6 +140,7 @@ class TestMovingObject:
     previous_obj.gid = 'gid-1'
     previous_obj.first_seen = when
     previous_obj.frameCount = 3
+    previous_obj.rotation = [0.0, 0.0, 1.0, 0.0]
 
     current_obj.setPrevious(previous_obj)
 
@@ -140,6 +148,8 @@ class TestMovingObject:
     assert current_obj.frameCount == 4
     assert current_obj.first_seen == when
     assert len(current_obj.location) == 2
+    assert current_obj.rotation == previous_obj.rotation
+    assert current_obj.rotation is not previous_obj.rotation
     assert current_obj.chain_data.persist['attr']['a'] == 'old'
     assert current_obj.chain_data.persist['attr']['b'] == 'old-b'
 
@@ -147,7 +157,7 @@ class TestMovingObject:
     when = datetime.datetime.now(datetime.timezone.utc)
     obj = MovingObject(_base_info(), when, _camera())
     obj.rotation_from_velocity = True
-    obj.velocity = Point(1.0, 0.0, 0.0)
+    obj.velocity = Point(SPEED_THRESHOLD_ON + 0.01, 0.0, 0.0)
 
     with patch('controller.moving_object.rotationToTarget') as mock_rotation_to_target:
       mock_rotation_to_target.return_value = SimpleNamespace(
@@ -163,7 +173,7 @@ class TestMovingObject:
     when = datetime.datetime.now(datetime.timezone.utc)
     obj = MovingObject(_base_info(), when, _camera())
     obj.rotation_from_velocity = True
-    obj.velocity = Point(0.01, 0.0, 0.0)
+    obj.velocity = Point(SPEED_THRESHOLD_OFF / 2.0, 0.0, 0.0)
     original_rotation = list(obj.rotation)
 
     with patch('controller.moving_object.rotationToTarget') as mock_rotation_to_target:
@@ -171,6 +181,44 @@ class TestMovingObject:
 
     mock_rotation_to_target.assert_not_called()
     assert obj.rotation == original_rotation
+
+  def test_infer_rotation_from_velocity_hysteresis_uses_off_threshold_when_active(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    obj = MovingObject(_base_info(), when, _camera())
+    obj.rotation_from_velocity = True
+
+    with patch('controller.moving_object.rotationToTarget') as mock_rotation_to_target:
+      mock_rotation_to_target.return_value = SimpleNamespace(
+        as_quat=lambda: np.array([0.0, 0.0, 0.0, 1.0])
+      )
+
+      obj.velocity = Point(SPEED_THRESHOLD_ON + 0.01, 0.0, 0.0)
+      obj.inferRotationFromVelocity()
+
+      obj.velocity = Point((SPEED_THRESHOLD_ON + SPEED_THRESHOLD_OFF) / 2.0, 0.0, 0.0)
+      obj.inferRotationFromVelocity()
+
+    assert mock_rotation_to_target.call_count == 2
+    assert bool(obj._rotation_from_velocity_active)
+
+  def test_infer_rotation_from_velocity_hysteresis_disables_below_off_threshold(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    obj = MovingObject(_base_info(), when, _camera())
+    obj.rotation_from_velocity = True
+
+    with patch('controller.moving_object.rotationToTarget') as mock_rotation_to_target:
+      mock_rotation_to_target.return_value = SimpleNamespace(
+        as_quat=lambda: np.array([0.0, 0.0, 0.0, 1.0])
+      )
+
+      obj.velocity = Point(SPEED_THRESHOLD_ON + 0.01, 0.0, 0.0)
+      obj.inferRotationFromVelocity()
+
+      obj.velocity = Point(SPEED_THRESHOLD_OFF / 2.0, 0.0, 0.0)
+      obj.inferRotationFromVelocity()
+
+    assert mock_rotation_to_target.call_count == 1
+    assert not bool(obj._rotation_from_velocity_active)
 
 
 class TestDecodeReIDEmbeddingVector:
