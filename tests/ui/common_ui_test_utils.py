@@ -466,17 +466,30 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
   browser.find_element(By.ID,'cam_calibrate_1').click()
   camera_canvas = browser.find_elements(By.ID,"camera_img_canvas")
   map_canvas = browser.find_elements(By.ID,"map_canvas_3D")
-  if camera_canvas and map_canvas == None:
+  if not camera_canvas or not map_canvas:
     return False
 
-  cam_result = browser.execute_script(
-    "return window.camera_calibration.camCanvas.calibrationPoints[0].x = arguments[0];",
-    cam_view_x
+  transforms_value = WebDriverWait(browser, 30).until(
+    lambda d: d.find_element(By.ID, "id_transforms").get_attribute("value")
   )
 
-  map_result = browser.execute_script(
-    "return window.camera_calibration.viewport.children[3].position.x = arguments[0];",
-    map_view_x
+  values = [value.strip() for value in transforms_value.split(",") if value.strip() != ""]
+  if len(values) < 10:
+    return False
+
+  if len(values) % 5 == 0:
+    split_index = (len(values) // 5) * 2
+  elif len(values) % 2 == 0:
+    split_index = len(values) // 2
+  else:
+    return False
+
+  values[0] = str(float(cam_view_x))
+  values[split_index] = str(float(map_view_x))
+  updated_transforms = ",".join(values)
+  browser.execute_script(
+    "document.getElementById('id_transforms').value = arguments[0];",
+    updated_transforms
   )
 
   print("Changed the Camera Perspective")
