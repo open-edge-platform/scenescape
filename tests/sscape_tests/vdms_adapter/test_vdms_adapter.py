@@ -13,7 +13,7 @@ import json
 import numpy as np
 from unittest.mock import Mock, MagicMock, patch
 
-from controller.vdms_adapter import VDMSDatabase, SCHEMA_NAME, DIMENSIONS, K_NEIGHBORS
+from controller.vdms_adapter import VDMSDatabase, SCHEMA_NAME, DIMENSIONS, K_NEIGHBORS, SCHEMA_MARKER_CLASS
 from controller.reid import ReIDDatabase
 
 
@@ -149,10 +149,15 @@ class TestSchemaValidation:
 
     assert db._schema_ready is True
     assert db.dimensions == 256
-    assert db.sendQuery.call_count == 1
-    query = db.sendQuery.call_args_list[0][0][0]
-    assert 'AddDescriptorSet' in query[0]
-
+    assert db.sendQuery.call_count == 2
+    first_query = db.sendQuery.call_args_list[0][0][0]
+    second_query = db.sendQuery.call_args_list[1][0][0]
+    assert 'AddDescriptorSet' in first_query[0]
+    assert 'AddEntity' in second_query[0]
+    marker = second_query[0]['AddEntity']
+    assert marker['properties']['set_name'] == SCHEMA_NAME
+    assert marker['properties']['dimensions'] == 256
+    assert marker['properties']['metric'] == 'L2'
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_ensure_schema_raises_on_existing_dimension_mismatch(self, mock_vdms_class):
     """Verify fallback metadata check fails when existing descriptor dimensions differ."""
@@ -249,7 +254,7 @@ class TestSchemaValidation:
     first_query = db.sendQuery.call_args_list[0][0][0]
     second_query = db.sendQuery.call_args_list[1][0][0]
     assert 'AddDescriptorSet' in first_query[0]
-    assert 'FindDescriptorSet' in second_query[0]
+    assert 'FindEntity' in second_query[0]
 
 
 class TestAddEntry:
@@ -2048,3 +2053,256 @@ class TestUpdateActiveDictPersistMerge:
 
     # Current 'Male' wins, historical 'Female' is ignored
     assert obj.chain_data.persist.get('gender') == 'Male'
+
+class TestSchemaMarker:
+  """Unit tests for _writeSchemaMarker and _readSchemaMarker"""
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_read_schema_marker_sends_correct_query(self, mock_vdms_class):
+    """Verify _readSchemaMarker sends a FindEntity query scoped to this set_name."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase(set_name="custom_set")
+    db.sendQuery = Mock(return_value=([{'status': 0, 'returned': 0, 'entities': []}], []))
+
+    db._readSchemaMarker()
+
+    call_args = db.sendQuery.call_args
+    query = call_args[0][0][0]
+    assert 'FindEntity' in query
+    find_entity = query['FindEntity']
+    assert find_entity['class'] == SCHEMA_MARKER_CLASS
+    assert find_entity['constraints'] == {'set_name': ['==', 'custom_set']}
+    assert find_entity['results']['list'] == ['set_name', 'dimensions', 'metric']
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_read_schema_marker_returns_false_on_no_response(self, mock_vdms_class):
+    """Verify _readSchemaMarker returns (False, None, None) when sendQuery returns nothing."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([], []))
+
+    exists, dimensions, metric = db._readSchemaMarker()
+
+    assert exists is False
+    assert dimensions is None
+    assert metric is None
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_read_schema_marker_returns_false_on_nonzero_status(self, mock_vdms_class):
+    """Verify _readSchemaMarker returns (False, None, None) when VDMS reports a failure status."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{'status': 1}], []))
+
+    exists, dimensions, metric = db._readSchemaMarker()
+
+    assert exists is False
+    assert dimensions is None
+    assert metric is None
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_read_schema_marker_returns_false_when_not_found(self, mock_vdms_class):
+    """Verify _readSchemaMarker returns (False, None, None) when no marker entity exists."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{'status': 0, 'returned': 0, 'entities': []}], []))
+
+    exists, dimensions, metric = db._readSchemaMarker()
+
+    assert exists is False
+    assert dimensions is None
+    assert metric is None
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_read_schema_marker_parses_flat_payload(self, mock_vdms_class):
+    """Verify _readSchemaMarker parses dimensions/metric returned at the top level."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'dimensions': 256,
+      'metric': 'L2'
+    }], []))
+
+    exists, dimensions, metric = db._readSchemaMarker()
+
+    assert exists is True
+    assert dimensions == 256
+    assert metric == 'L2'
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_read_schema_marker_parses_nested_entities_payload(self, mock_vdms_class):
+    """Verify _readSchemaMarker parses dimensions/metric nested under 'entities'."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'entities': [{
+        'set_name': SCHEMA_NAME,
+        'dimensions': 512,
+        'metric': 'IP'
+      }]
+    }], []))
+
+    exists, dimensions, metric = db._readSchemaMarker()
+
+    assert exists is True
+    assert dimensions == 512
+    assert metric == 'IP'
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_read_schema_marker_exists_via_entities_without_returned_count(self, mock_vdms_class):
+    """Verify a non-empty 'entities' list is enough to mark the marker as existing,
+    even if VDMS omits or zeroes the 'returned' count."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'entities': [{'set_name': SCHEMA_NAME, 'dimensions': 256, 'metric': 'L2'}]
+    }], []))
+
+    exists, dimensions, metric = db._readSchemaMarker()
+
+    assert exists is True
+    assert dimensions == 256
+    assert metric == 'L2'
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_read_schema_marker_exists_but_missing_dimensions(self, mock_vdms_class):
+    """Verify a marker that exists but is missing dimensions returns (True, None, metric)."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'metric': 'L2'
+    }], []))
+
+    exists, dimensions, metric = db._readSchemaMarker()
+
+    assert exists is True
+    assert dimensions is None
+    assert metric == 'L2'
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_read_schema_marker_exists_but_missing_metric(self, mock_vdms_class):
+    """Verify a marker that exists but is missing metric returns (True, dimensions, None)."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'dimensions': 256
+    }], []))
+
+    exists, dimensions, metric = db._readSchemaMarker()
+
+    assert exists is True
+    assert dimensions == 256
+    assert metric is None
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_write_schema_marker_skips_existence_check_when_flag_set(self, mock_vdms_class):
+    """Verify skip_exists_check=True writes the marker without querying for it first."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    db._writeSchemaMarker(256, 'L2', skip_exists_check=True)
+
+    assert db.sendQuery.call_count == 1
+    query = db.sendQuery.call_args_list[0][0][0]
+    assert 'AddEntity' in query[0]
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_write_schema_marker_sends_correct_add_entity_query(self, mock_vdms_class):
+    """Verify _writeSchemaMarker's AddEntity query has the expected class and properties."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase(set_name="custom_set")
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    db._writeSchemaMarker(512, 'IP', skip_exists_check=True)
+
+    query = db.sendQuery.call_args_list[0][0][0][0]
+    add_entity = query['AddEntity']
+    assert add_entity['class'] == SCHEMA_MARKER_CLASS
+    assert add_entity['properties'] == {
+      'set_name': 'custom_set',
+      'dimensions': 512,
+      'metric': 'IP'
+    }
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_write_schema_marker_checks_existence_by_default(self, mock_vdms_class):
+    """Verify skip_exists_check=False (default) reads the marker before writing."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(side_effect=[
+      ([{'status': 0, 'returned': 0, 'entities': []}], []),
+      ([{'status': 0}], []),
+    ])
+
+    db._writeSchemaMarker(256, 'L2')
+
+    assert db.sendQuery.call_count == 2
+    first_query = db.sendQuery.call_args_list[0][0][0]
+    second_query = db.sendQuery.call_args_list[1][0][0]
+    assert 'FindEntity' in first_query[0]
+    assert 'AddEntity' in second_query[0]
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_write_schema_marker_skips_write_when_marker_already_exists(self, mock_vdms_class):
+    """Verify _writeSchemaMarker does not write a duplicate marker when one already exists."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{
+      'status': 0,
+      'returned': 1,
+      'dimensions': 256,
+      'metric': 'L2'
+    }], []))
+
+    db._writeSchemaMarker(256, 'L2')
+
+    assert db.sendQuery.call_count == 1
+    query = db.sendQuery.call_args_list[0][0][0]
+    assert 'FindEntity' in query[0]
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_write_schema_marker_logs_warning_on_failed_write(self, mock_vdms_class):
+    """Verify a failed AddEntity write is handled gracefully (no exception raised)."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{'status': 1}], []))
+
+    db._writeSchemaMarker(256, 'L2', skip_exists_check=True)
+
+    assert db.sendQuery.call_count == 1
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_write_schema_marker_logs_warning_on_no_response(self, mock_vdms_class):
+    """Verify a missing response from VDMS on write is handled gracefully (no exception raised)."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([], []))
+
+    db._writeSchemaMarker(256, 'L2', skip_exists_check=True)
+
+    assert db.sendQuery.call_count == 1
