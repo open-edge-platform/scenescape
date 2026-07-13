@@ -120,7 +120,7 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     map_pic_after_revert = common.get_element_screenshot(map_view_after)
     log.info("Screenshot taken after reverting to the previous calibration setting")
 
-    log.info("Validating of difference in screenshots after calibration")
+    log.info("Diagnostic screenshot comparison after calibration (non-blocking)")
 
     if np.array_equal(cam_pic_before, cam_pic_after):
       log.warning("Camera screenshots are identical after calibration update")

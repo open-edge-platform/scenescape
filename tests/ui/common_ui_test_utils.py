@@ -469,28 +469,101 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
   if not camera_canvas or not map_canvas:
     return False
 
-  transforms_value = WebDriverWait(browser, 30).until(
-    lambda d: d.find_element(By.ID, "id_transforms").get_attribute("value")
-  )
+  # Save logic rebuilds id_transforms from runtime points when they exist.
+  # Detect whether runtime points are present up-front so fallback does not
+  # silently report success in those flows.
+  runtime_points_present = False
+  try:
+    runtime_points_present = WebDriverWait(browser, 30).until(
+      lambda d: d.execute_script(
+        """
+        const calibration = window.camera_calibration;
+        if (!calibration || !calibration.camCanvas || !calibration.viewport) {
+          return false;
+        }
 
-  values = [value.strip() for value in transforms_value.split(",") if value.strip() != ""]
-  if len(values) < 10:
+        const camPoints = calibration.camCanvas.calibrationPoints || [];
+        const viewportPoints = (calibration.viewport.children || []).filter(
+          (child) => child && typeof child.name === 'string' && child.name.startsWith('calibrationPoint_')
+        );
+        return Array.isArray(camPoints) && camPoints.length > 0 && viewportPoints.length > 0;
+        """
+      )
+    )
+  except Exception:
+    runtime_points_present = False
+
+  # Prefer mutating in-memory calibration points when available.
+  in_memory_updated = False
+  try:
+    in_memory_updated = WebDriverWait(browser, 30).until(
+      lambda d: d.execute_script(
+        """
+        const calibration = window.camera_calibration;
+        if (!calibration || !calibration.camCanvas || !calibration.viewport) {
+          return false;
+        }
+
+        const camPoints = calibration.camCanvas.calibrationPoints || [];
+        const hasCamPoints = Array.isArray(camPoints) && camPoints.length > 0;
+
+        const viewportPoints = (calibration.viewport.children || []).filter(
+          (child) => child && typeof child.name === 'string' && child.name.startsWith('calibrationPoint_')
+        );
+        const hasViewportPoints = viewportPoints.length > 0;
+
+        if (!hasCamPoints || !hasViewportPoints) {
+          return false;
+        }
+
+        const camPoint = camPoints.find((point) => point && point.name === 'p0') || camPoints[0];
+        const mapPoint = viewportPoints.find((point) => point.name === 'calibrationPoint_p0') || viewportPoints[0];
+
+        if (!camPoint || !mapPoint || !mapPoint.position) {
+          return false;
+        }
+
+        camPoint.x = Number(arguments[0]);
+        mapPoint.position.x = Number(arguments[1]);
+        calibration.camCanvas.calibrationUpdated = true;
+        calibration.viewport.calibrationUpdated = true;
+        return true;
+        """,
+        cam_view_x,
+        map_view_x
+      )
+    )
+  except Exception:
+    in_memory_updated = False
+
+  if runtime_points_present and not in_memory_updated:
+    print("Calibration points are present but runtime update failed")
     return False
 
-  if len(values) % 5 == 0:
-    split_index = (len(values) // 5) * 2
-  elif len(values) % 2 == 0:
-    split_index = len(values) // 2
-  else:
-    return False
+  # Fallback for flows without initialized runtime calibration points.
+  if not in_memory_updated:
+    transforms_value = WebDriverWait(browser, 30).until(
+      lambda d: d.find_element(By.ID, "id_transforms").get_attribute("value")
+    )
 
-  values[0] = str(float(cam_view_x))
-  values[split_index] = str(float(map_view_x))
-  updated_transforms = ",".join(values)
-  browser.execute_script(
-    "document.getElementById('id_transforms').value = arguments[0];",
-    updated_transforms
-  )
+    values = [value.strip() for value in transforms_value.split(",") if value.strip() != ""]
+    if len(values) < 10:
+      return False
+
+    if len(values) % 5 == 0:
+      split_index = (len(values) // 5) * 2
+    elif len(values) % 2 == 0:
+      split_index = len(values) // 2
+    else:
+      return False
+
+    values[0] = str(float(cam_view_x))
+    values[split_index] = str(float(map_view_x))
+    updated_transforms = ",".join(values)
+    browser.execute_script(
+      "document.getElementById('id_transforms').value = arguments[0];",
+      updated_transforms
+    )
 
   print("Changed the Camera Perspective")
   if save_calibration:
