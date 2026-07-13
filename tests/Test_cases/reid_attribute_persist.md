@@ -35,11 +35,11 @@ ends.
 3. Let the track accumulate >= 12 embeddings (`reid_state` reaches
    `query_no_match`).
 4. Let the person leave the scene, wait ~6 s (`stale_feature_timeout_secs`).
-5. Query VDMS: `FindDescriptor` on set `reid_vector`, list `[uuid, gender]`.
+5. Query VDMS: `FindDescriptor` on set `reid_vector`, results list `["uuid", "persist", "persist_timestamp"]`; decode `persist` JSON and verify it contains `gender`.
 
 **Expected results:**
 
-- A descriptor exists with the track's `uuid` and `gender = "Male"`.
+- A descriptor exists with the track's `uuid` and a non-empty `persist` field whose JSON contains `gender` (e.g., `{"label": "Male"}`).
 - Controller log shows `_addNewFeaturesToDatabase: Adding N features ... gid=<uuid>`.
 
 ---
