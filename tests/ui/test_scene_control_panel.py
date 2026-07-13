@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
+import pytest
 from tests.utils.log import get_logger
 import tests.ui.common_ui_test_utils as common
 from tests.ui.browser import By, Browser
@@ -14,6 +15,16 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
+def capture_when_rendered(browser):
+  """! Wait for the 3D scene to finish painting, then capture the WebGL canvas.
+
+  @param    browser                    Object wrapping the Selenium driver.
+  @return   np.ndarray                 The rendered canvas as a BGR image array.
+  """
+  common.wait_for_3d_scene_rendered(browser)
+  return common.capture_3d_canvas(browser)
+
+@pytest.mark.fresh_stack
 @common.mock_display
 def test_scene_control_panel(params, record_xml_attribute):
   """! Test the Scene Control Panel in the 3D UI.
@@ -26,12 +37,13 @@ def test_scene_control_panel(params, record_xml_attribute):
   exit_code = 1
 
   WAIT_SEC = 1
+  browser = None
 
   try:
     log.info("Executing: " + TEST_NAME)
     log.info("Test for scene control panel in 3D UI")
 
-    browser = Browser()
+    browser = Browser(webgl=True)
     assert common.check_page_login(browser, params)
     assert common.check_db_status(browser)
 
@@ -50,7 +62,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take first floor plane screenshot.")
     time.sleep(WAIT_SEC)
-    plane_view_1 = interaction_page.get_page_screenshot()
+    plane_view_1 = capture_when_rendered(browser)
 
     log.info("Unhide 3D panels.")
     time.sleep(WAIT_SEC)
@@ -66,7 +78,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take second floor plane screenshot.")
     time.sleep(WAIT_SEC)
-    plane_view_2 = interaction_page.get_page_screenshot()
+    plane_view_2 = capture_when_rendered(browser)
 
     log.info("AC(1) Check if floor plane screenshots are different.")
     assert not common.are_images_similar(plane_view_1, plane_view_2, 0.7)
@@ -88,7 +100,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take first 3D screenshot.")
     time.sleep(WAIT_SEC)
-    screen_3d_1 = interaction_page.get_page_screenshot()
+    screen_3d_1 = capture_when_rendered(browser)
 
     log.info("AC(1) Check if floor plane screenshot is identical after toggling back on.")
     assert common.are_images_similar(plane_view_1, screen_3d_1)
@@ -107,7 +119,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take second 3D screenshot.")
     time.sleep(WAIT_SEC)
-    screen_3d_2 = interaction_page.get_page_screenshot()
+    screen_3d_2 = capture_when_rendered(browser)
 
     log.info("AC(4) Check if 3D screenshots are different.")
     assert not common.are_images_similar(screen_3d_1, screen_3d_2)
@@ -128,7 +140,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take third 3D screenshot.")
     time.sleep(WAIT_SEC)
-    screen_3d_3 = interaction_page.get_page_screenshot()
+    screen_3d_3 = capture_when_rendered(browser)
 
     log.info("AC(5) Check if 3D screenshots are identical.")
     assert common.are_images_similar(screen_3d_1, screen_3d_3)
@@ -145,7 +157,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take first 2D screenshot.")
     time.sleep(WAIT_SEC)
-    screen_2d_1 = interaction_page.get_page_screenshot()
+    screen_2d_1 = capture_when_rendered(browser)
 
     log.info("Change map perspective.")
     time.sleep(WAIT_SEC)
@@ -153,7 +165,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take second 2D screenshot.")
     time.sleep(WAIT_SEC)
-    screen_2d_2 = interaction_page.get_page_screenshot()
+    screen_2d_2 = capture_when_rendered(browser)
 
     log.info("AC(3) Check if 2D screenshots are identical.")
     assert common.are_images_similar(screen_2d_1, screen_2d_2)
@@ -170,7 +182,7 @@ def test_scene_control_panel(params, record_xml_attribute):
 
     log.info("Take first 2D/3D screenshot.")
     time.sleep(WAIT_SEC)
-    screen_2d_3d_1 = interaction_page.get_page_screenshot()
+    screen_2d_3d_1 = capture_when_rendered(browser)
 
     log.info("Change map perspective.")
     time.sleep(WAIT_SEC)
@@ -194,7 +206,7 @@ def test_scene_control_panel(params, record_xml_attribute):
     log.info("Take second 2D/3D screenshot.")
     time.sleep(WAIT_SEC)
 
-    screen_2d_3d_2 = interaction_page.get_page_screenshot()
+    screen_2d_3d_2 = capture_when_rendered(browser)
 
     log.info("AC(3) Check if 2D and 3D screenshots are similar (2D perspective is slightly different).")
     assert common.are_images_similar(screen_2d_3d_1, screen_2d_3d_2, 0.8)
@@ -213,7 +225,8 @@ def test_scene_control_panel(params, record_xml_attribute):
     exit_code = 0
 
   finally:
-    browser.close()
+    if browser is not None:
+      browser.quit()
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
