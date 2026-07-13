@@ -80,7 +80,7 @@ services:
     restart: no
 
   tracker:
-    image: scenescape-tracker:${VERSION:-latest}
+    image: intel/scenescape-tracker:${VERSION:-latest}
     environment:
       - TRACKER_LOG_LEVEL=${TRACKER_LOG_LEVEL:-debug}
       - TRACKER_HEALTHCHECK_PORT=${TRACKER_HEALTHCHECK_PORT:-8080}
