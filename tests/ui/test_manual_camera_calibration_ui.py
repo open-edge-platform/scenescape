@@ -36,6 +36,7 @@ def test_manual_camera_calibration(params, record_xml_attribute):
   if record_xml_attribute is not None:
     record_xml_attribute("name", TEST_NAME)
   exit_code = 1
+  browser = None
   try:
     log.info("Executing: " + TEST_NAME)
     log.info("Test that camera pose can be be set manually")
@@ -155,7 +156,8 @@ def test_manual_camera_calibration(params, record_xml_attribute):
 
     exit_code = 0
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
   return exit_code
