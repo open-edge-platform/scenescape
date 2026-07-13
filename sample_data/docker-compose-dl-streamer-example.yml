@@ -477,7 +477,7 @@ services:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       # Stream enable flags — set to false to run a single stream for debugging:
-      - ENABLE_LIDAR=false
+      - ENABLE_LIDAR=true
       - ENABLE_CAMERA=true
       # LiDAR pipeline configuration — override as needed:
       # - LIDAR_SENSOR_ID=intersection-lidar1
