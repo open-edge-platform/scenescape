@@ -719,13 +719,20 @@ class BlackBoxHarness(TrackerHarness):
     manager_url = f"http://{manager_name}:{manager_port}/api/v1"
     rest_auth   = f"{_MOCK_MANAGER_USER}:{_MOCK_MANAGER_PASSWORD}"
 
-    envs: Dict[str, str] = {}
+    internal_hosts = [manager_name, broker_name]
     if collector_name:
-      envs = {
+      internal_hosts.append(collector_name)
+    no_proxy = ",".join(internal_hosts)
+    envs: Dict[str, str] = {
+        "NO_PROXY": no_proxy,
+        "no_proxy": no_proxy,
+    }
+    if collector_name:
+      envs.update({
           "CONTROLLER_ENABLE_METRICS": "true",
           "CONTROLLER_METRICS_ENDPOINT": f"{collector_name}:{self._metrics_otlp_port}",
           "CONTROLLER_METRICS_EXPORT_INTERVAL_S": str(self._metrics_export_interval_s),
-      }
+      })
 
     return docker.run(
         self._container_image,
@@ -785,6 +792,11 @@ class BlackBoxHarness(TrackerHarness):
     with open(svc_config_file, "w") as f:
       json.dump(svc_config, f, indent=2)
 
+    internal_hosts = [manager_name, broker_name]
+    if collector_name:
+      internal_hosts.append(collector_name)
+    no_proxy = ",".join(internal_hosts)
+
     return docker.run(
         self._container_image,
         command=[
@@ -795,6 +807,14 @@ class BlackBoxHarness(TrackerHarness):
         name=tracker_name,
         networks=[net_name],
         add_hosts=[(manager_name, host_gateway)],
+        envs={
+            "HTTP_PROXY": "",
+            "HTTPS_PROXY": "",
+            "NO_PROXY": no_proxy,
+            "http_proxy": "",
+            "https_proxy": "",
+            "no_proxy": no_proxy,
+        },
         volumes=[
             (str(svc_config_file), _TRACKER_SVC_CONFIG, "ro"),
             (str(auth_file),       _TRACKER_SVC_AUTH,   "ro"),
