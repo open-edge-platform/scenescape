@@ -298,6 +298,8 @@ if [ -n "$DBTYPE" ]; then
         ./manage.py loaddata "${DBROOT}/media/data.json"
         rm -f "${DBROOT}/media/data.json" "${DBROOT}/media/meta.json"
     fi
+    echo "==> Initializing default Asset3D objects..."
+    ./manage.py init_default_assets
     ./manage.py updatedbstatus --not-ready
 
     if [ -z "${OVERWRITE_USER_AUTH}" ]; then
