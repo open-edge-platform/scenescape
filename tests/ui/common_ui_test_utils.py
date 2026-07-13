@@ -535,10 +535,30 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
   except Exception:
     in_memory_updated = False
 
+  if not in_memory_updated and not runtime_points_present:
+    try:
+      runtime_points_present = bool(
+        browser.execute_script(
+          """
+          const calibration = window.camera_calibration;
+          if (!calibration || !calibration.camCanvas || !calibration.viewport) {
+            return false;
+          }
+
+          const camPoints = calibration.camCanvas.calibrationPoints || [];
+          const viewportPoints = (calibration.viewport.children || []).filter(
+            (child) => child && typeof child.name === 'string' && child.name.startsWith('calibrationPoint_')
+          );
+          return Array.isArray(camPoints) && camPoints.length > 0 && viewportPoints.length > 0;
+          """
+        )
+      )
+    except Exception:
+      runtime_points_present = False
+
   if runtime_points_present and not in_memory_updated:
     print("Calibration points are present but runtime update failed")
     return False
-
   # Fallback for flows without initialized runtime calibration points.
   if not in_memory_updated:
     transforms_value = WebDriverWait(browser, 30).until(
