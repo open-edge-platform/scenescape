@@ -477,13 +477,13 @@ services:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
       # Stream enable flags — set to false to run a single stream for debugging:
-      - ENABLE_LIDAR=true
+      - ENABLE_LIDAR=false
       - ENABLE_CAMERA=true
       # LiDAR pipeline configuration — override as needed:
       # - LIDAR_SENSOR_ID=intersection-lidar1
       # - LIDAR_DATA_PATH=/home/pipeline-server/videos/velodyne_bin/%06d.bin
-      - LIDAR_START_INDEX=010699
-      - LIDAR_STOP_INDEX=010949
+      # - LIDAR_START_INDEX=010699
+      # - LIDAR_STOP_INDEX=010699 # 010949
       # - LIDAR_LOOP=true
       # - LIDAR_FRAME_RATE=10
       - LIDAR_DEVICE=GPU
@@ -493,8 +493,8 @@ services:
       # Camera stream configuration:
       # - CAM_SENSOR_ID=intersection-cam1
       # - CAM_DATA_PATH=/home/pipeline-server/videos/images/%06d.jpg
-      - CAM_START_INDEX=10699
-      - CAM_STOP_INDEX=10949
+      # - CAM_START_INDEX=10699
+      # - CAM_STOP_INDEX=10699 #10949
       - CAM_DEVICE=CPU
       - CAM_SCORE_THRESHOLD=0.3
       # - CAM_DETECTION_LABELS=vehicle,cyclist

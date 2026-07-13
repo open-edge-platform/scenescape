@@ -5,10 +5,9 @@
     {
       "converter": "detection_output",
       "labels": [
-        "background",
-        "person",
+        "cyclist",
         "vehicle",
-        "cyclist"
+        "person"
       ]
     }
   ]
