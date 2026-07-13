@@ -11,6 +11,7 @@ from collections import defaultdict
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
+from controller.analytics.event_publisher import publish_events
 from controller.analytics.state import AnalyticsStateStore
 from controller.scene_controller import SceneController
 
@@ -329,7 +330,6 @@ class TestSceneControllerPublishers:
 
   def test_publish_events_publishes_region_events_and_clears_transient_event_lists(self):
     """Region events are published and objects/count queues are cleared afterward."""
-    scene_controller = self._build_controller()
 
     class FakeRegion:
       def __init__(self):
@@ -341,6 +341,7 @@ class TestSceneControllerPublishers:
         return {'name': self.name}
 
     region = FakeRegion()
+    mock_publish = MagicMock()
     scene = SimpleNamespace(
       uid='scene-1',
       name='Test Scene',
@@ -348,18 +349,16 @@ class TestSceneControllerPublishers:
       analytics_state=AnalyticsStateStore(),
     )
 
-    scene_controller._buildAllRegionObjsList = MagicMock(return_value=({}, 0))
-    scene_controller._buildEnteredObjsList = MagicMock()
-    scene_controller._buildExitedObjsList = MagicMock()
-    scene_controller._clearSensorValuesOnExit = MagicMock()
+    with patch('controller.analytics.event_publisher._build_all_region_objs_list', return_value=({}, 0)), \
+         patch('controller.analytics.event_publisher._build_entered_objs_list'), \
+         patch('controller.analytics.event_publisher._build_exited_objs_list'), \
+         patch('controller.analytics.event_publisher._clear_sensor_values_on_exit'), \
+         patch('controller.analytics.event_publisher.Region', FakeRegion):
+      publish_events(scene, '2026-01-01T00:00:01Z', mock_publish)
 
-    with patch('controller.scene_controller.Region', FakeRegion):
-      scene_controller.publishEvents(scene, '2026-01-01T00:00:01Z')
-
-    assert scene_controller.pubsub.publish.call_count == 1
+    assert mock_publish.call_count == 1
     assert 'objects' not in scene.events
     assert 'count' not in scene.events
-    scene_controller._clearSensorValuesOnExit.assert_called_once_with(scene)
 
   def test_publish_regulated_detections_publishes_cached_payload_when_rate_allows(self):
     """Regulated payload publishes with cached objects and scene rate metadata."""

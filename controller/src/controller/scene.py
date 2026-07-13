@@ -19,6 +19,7 @@ from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, createRegio
 from controller.analytics.adapters.ingestion import SceneDataIngestion
 from controller.analytics.analytics_models import moving_object_to_analytics_object
 from controller.analytics.engine import process_frame
+from controller.analytics.event_publisher import publish_events
 from controller.analytics.region import update_region_events
 from controller.analytics.sensors import (
   update_attribute_sensor_events,
@@ -477,7 +478,7 @@ class Scene(SceneModel):
     """Delegates to the ingestion adapter's sensor-type resolver."""
     return SceneDataIngestion._is_environmental_sensor(sensor_id, self.sensors)
 
-  def _updateEvents(self, detectionType, now, curObjects=None):
+  def _updateEvents(self, detectionType, now, curObjects=None, publish_fn=None):
     # Preserve existing events (e.g., sensor 'value' events) instead of clearing
     if not hasattr(self, 'events') or self.events is None:
       self.events = {}
@@ -494,6 +495,8 @@ class Scene(SceneModel):
       self.regions, self.sensors, self.tripwires,
       self.events, self.analytics_state, self.isIntersecting,
     )
+    if publish_fn is not None:
+      publish_events(self, get_iso_time(now), publish_fn)
     return
 
   def _updateTripwireEvents(self, detectionType, now, curObjects):

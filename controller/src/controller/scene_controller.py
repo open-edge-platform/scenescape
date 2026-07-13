@@ -10,8 +10,8 @@ import ntplib
 from controller.cache_manager import CacheManager
 from controller.child_scene_controller import ChildSceneController
 from controller.controller_mode import ControllerMode
-from controller.detections_builder import (buildDetectionsDict,
-                                           buildDetectionsList,
+from controller.analytics.event_publisher import publish_events
+from controller.detections_builder import (buildDetectionsList,
                                            computeCameraBounds)
 from controller.scene import Scene
 from scene_common import log
@@ -330,117 +330,6 @@ class SceneController:
         scene.lastPubCount[rid] = olen
     return
 
-  def publishEvents(self, scene, ts_str):
-    for event_type in scene.events:
-      for key, region in scene.events[event_type]:
-        etype = None
-        metadata = None
-
-        if isinstance(region, Tripwire):
-          etype = 'tripwire'
-          metadata = region.serialize()
-          region_state = scene.analytics_state.tripwire(key)
-
-        elif isinstance(region, Region):
-          etype = 'region'
-          metadata = region.serialize()
-          metadata['fromSensor'] = (region.singleton_type != None)
-          region_state = scene.analytics_state.region(key)
-
-        event_data = {
-          'timestamp': ts_str,
-          'scene_id': scene.uid,
-          'scene_name': scene.name,
-          etype + '_id': region.uuid,
-          etype + '_name': region.name,
-        }
-        detections_dict, num_objects = self._buildAllRegionObjsList(scene, region_state, event_data)
-        self._buildEnteredObjsList(scene, region_state, event_data, detections_dict)
-        self._buildExitedObjsList(scene, region_state, event_data)
-
-        log.debug("EVENT DATA", event_data)
-        if hasattr(region, 'value'):
-          event_data['value'] = region.value
-        event_data['metadata'] = metadata
-        if not isinstance(region, Tripwire) or num_objects > 0:
-          event_topic = PubSub.formatTopic(PubSub.EVENT,
-                                           region_type=etype, event_type=event_type,
-                                           scene_id=scene.uid, region_id=region.uuid)
-          self.pubsub.publish(event_topic, orjson.dumps(event_data, option=orjson.OPT_SERIALIZE_NUMPY))
-
-    self._clearSensorValuesOnExit(scene)
-
-    # Clear objects and count events after publishing (but preserve 'value' events for sensors)
-    scene.events.pop('objects', None)
-    scene.events.pop('count', None)
-
-
-    return
-
-  def _buildAllRegionObjsList(self, scene, region_state, event_data):
-    counts = {}
-    num_objects = 0
-    all_objects = []
-    for otype, objects in region_state.objects.items():
-      counts[otype] = len(objects)
-      num_objects += counts[otype]
-      all_objects += objects
-    event_data['counts'] = counts
-    detections_dict = buildDetectionsDict(
-      all_objects, scene, include_sensors=True,
-      include_region_dwell=True, current_time=get_epoch_time(event_data['timestamp']))
-    event_data['objects'] = list(detections_dict.values())
-    return detections_dict, num_objects
-
-  def _buildEnteredObjsList(self, scene, region_state, event_data, detections_dict):
-    entered = getattr(region_state, 'entered', {})
-    event_data['entered'] = []
-    missing_objs = []
-    for entered_list in entered.values():
-      for item in entered_list:
-        # For sensor value events, objects may not be in detections_dict
-        if item.gid in detections_dict:
-          event_data['entered'].append(detections_dict[item.gid])
-        else:
-          missing_objs.append(item)
-
-    # Build any objects not in detections_dict (e.g., from sensor events)
-    if missing_objs:
-      entered_objs = buildDetectionsList(
-        missing_objs, scene, False, include_sensors=True,
-        include_region_dwell=True, current_time=get_epoch_time(event_data['timestamp']))
-      event_data['entered'].extend(entered_objs)
-
-  def _buildExitedObjsList(self, scene, region_state, event_data):
-    exited = getattr(region_state, 'exited', {})
-    event_data['exited'] = []
-    exited_dict = {}
-    for exited_list in exited.values():
-      exited_objs = []
-      for exited_obj, dwell in exited_list:
-        exited_dict[exited_obj.gid] = dwell
-        exited_objs.extend([exited_obj])
-      # Exit events: include sensor data (timestamped readings and attribute events)
-      exited_objs = buildDetectionsList(
-        exited_objs, scene, False, include_sensors=True,
-        include_region_dwell=True, current_time=get_epoch_time(event_data['timestamp']))
-      exited_data = [{'object': exited_obj, 'dwell': exited_dict[exited_obj['id']]} for exited_obj in exited_objs]
-      event_data['exited'].extend(exited_data)
-    return
-
-  def _clearSensorValuesOnExit(self, scene):
-    """
-    Clears region entered/exited arrays after events have been published.
-    Note: Sensor state cleanup (readings arrays, etc.) is handled
-    in _updateRegionEvents before this method is called. This method only clears
-    the event arrays to prevent stale data from being published in subsequent frames.
-    """
-    for event_type in scene.events:
-      for key, region in scene.events[event_type]:
-        if not isinstance(region, Tripwire):
-          scene.analytics_state.region(key).clear_frame_state()
-    return
-
   # Message handling
   def handleSensorMessage(self, client, userdata, message):
     """
@@ -478,7 +367,7 @@ class SceneController:
     jdata['scene_id'] = scene.uid
     jdata['scene_name'] = scene.name
 
-    self.publishEvents(scene, jdata['timestamp'])
+    publish_events(scene, jdata['timestamp'], self.pubsub.publish)
     return
 
   def handleMovingObjectMessage(self, client, userdata, message):
@@ -586,12 +475,12 @@ class SceneController:
 
     analytics_objects = scene.getTrackedObjects(detection_type)
     msg_when = get_epoch_time(jdata.get('timestamp'))
-    scene._updateEvents(detection_type, msg_when, analytics_objects)
+    scene._updateEvents(detection_type, msg_when, analytics_objects,
+                        publish_fn=self.pubsub.publish)
 
     if ControllerMode.isAnalyticsOnly():
       scene._updateVisible(analytics_objects)
       self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
-    self.publishEvents(scene, jdata.get('timestamp'))
 
     return
 

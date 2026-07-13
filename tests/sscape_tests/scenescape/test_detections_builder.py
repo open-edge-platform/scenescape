@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 
 from controller.detections_builder import buildDetectionsDict, buildDetectionsList, prepareObjDict
-from controller.scene import TripwireEvent
 from controller.moving_object import ChainData, ReidState
 from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time, get_iso_time
@@ -177,19 +176,6 @@ class TestDetectionsBuilder:
     assert 'sensors' not in without_sensors[0]
     assert 'dwell' not in with_sensors[0]['regions']['region-a']
     assert 'dwell' not in without_sensors[0]['regions']['region-a']
-
-  def test_build_detections_dict_handles_tripwire_and_defaults_missing_velocity(self):
-    obj = _build_object(velocity=None, include_sensor_payload=False)
-    scene = SimpleNamespace(output_lla=False)
-    event = TripwireEvent(obj, 'entering')
-
-    detections = buildDetectionsDict([event], scene)
-
-    assert list(detections.keys()) == ['object-1']
-    detection = detections['object-1']
-    assert detection['velocity'] == [0, 0]
-    assert detection['direction'] == 'entering'
-    assert 'sensors' not in detection
 
   def test_prepare_obj_dict_omits_reid_metadata_when_embedding_is_none(self):
     obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)

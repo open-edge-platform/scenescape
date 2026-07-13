@@ -3,7 +3,6 @@
 
 import numpy as np
 
-from controller.scene import TripwireEvent
 from scene_common import log
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
@@ -61,8 +60,6 @@ def _serializePreviousIdsChain(previous_ids_chain):
 def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
                    include_region_dwell=False, current_time=None):
   aobj = obj
-  if isinstance(obj, TripwireEvent):
-    aobj = obj.object
   otype = aobj.category
 
   scene_loc_vector = aobj.sceneLoc.asCartesianVector
@@ -175,8 +172,6 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
   if hasattr(aobj, 'previous_ids_chain') and aobj.previous_ids_chain:
     obj_dict['previous_ids_chain'] = _serializePreviousIdsChain(aobj.previous_ids_chain)
 
-  if isinstance(obj, TripwireEvent):
-    obj_dict['direction'] = obj.direction
   if hasattr(aobj, 'asset_scale'):
     obj_dict['asset_scale'] = aobj.asset_scale
   if len(aobj.chain_data.persist):
