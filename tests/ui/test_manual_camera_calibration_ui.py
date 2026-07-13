@@ -88,6 +88,11 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     log.info("Change calibration settings")
     assert common.change_cam_calibration(browser, initial_cam_x * 2, initial_map_x * 10)
     log.info("Calibrating Camera...Saving Camera...")
+    log.info(
+      "Verifying calibration changed from baseline: cam p0=%s, map p0=%s",
+      cam_values_init[0],
+      map_values_init[0]
+    )
     assert common.check_cam_calibration(browser, cam_values_init[0], map_values_init[0])
     log.info("Calibration Saved")
 
@@ -106,6 +111,11 @@ def test_manual_camera_calibration(params, record_xml_attribute):
     log.info("Revert to initial calibration settings")
     assert common.change_cam_calibration(browser, initial_cam_x, initial_map_x)
     log.info("Calibrating Camera...Saving Camera...")
+    log.info(
+      "Verifying calibration reverted to baseline: cam p0=%s, map p0=%s",
+      cam_values_init[0],
+      map_values_init[0]
+    )
     assert common.check_calibration_initialization(browser, [cam_values_init[0]], [map_values_init[0]])
     log.info("Calibration Saved")
 
@@ -132,6 +142,13 @@ def test_manual_camera_calibration(params, record_xml_attribute):
 
     ssim_cam = common.get_images_similarity(cropped_cam_before, cropped_cam_after_revert)
     ssim_map = common.get_images_similarity(cropped_map_before, cropped_map_after_revert)
+
+    log.info(
+      "Revert similarity check (threshold=%.2f): cam_ssim=%.5f, map_ssim=%.5f",
+      TEST_SSIM_THRESHOLD,
+      ssim_cam,
+      ssim_map
+    )
 
     assert ssim_cam >= TEST_SSIM_THRESHOLD
     assert ssim_map >= TEST_SSIM_THRESHOLD
