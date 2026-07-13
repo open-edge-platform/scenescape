@@ -24,6 +24,7 @@ SIMILARITY_METRIC = "L2"
 # Tolerance applied to the theoretical [-1, 1] IP score bounds to absorb
 # float32 rounding errors from VDMS normalization and inner-product computation.
 COSINE_SIMILARITY_TOLERANCE = 1e-6
+SCHEMA_MARKER_CLASS = "ReidSchemaMarker"
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
@@ -144,7 +145,7 @@ class VDMSDatabase(ReIDDatabase):
     """
     Core attempt-first schema setup shared by connect() and ensureSchema().
     Avoids FindDescriptorSet on a missing set (triggers a VDMS v2.12 bug):
-    attempt AddDescriptorSet first; only probe with FindDescriptorSet when
+    attempt AddDescriptorSet first; only probe schema metadata when
     AddDescriptorSet reports the set already exists.
 
     @param   requested_dimensions  Number of dimensions for the descriptor set
@@ -167,41 +168,116 @@ class VDMSDatabase(ReIDDatabase):
 
     if response[0].get('status') == 0:
       log.info(f"{caller}: Created descriptor set '{self.set_name}' "
-               f"({requested_dimensions}D, {expected_metric})")
+          f"({requested_dimensions}D, {expected_metric})")
+      self._writeSchemaMarker(requested_dimensions, expected_metric, skip_exists_check=True)
       self.dimensions = requested_dimensions
       return
 
-    # Non-zero: set likely already exists — now safe to probe with FindDescriptorSet
+    # Non-zero: set likely already exists — verify against the schema marker entity
     log.debug(f"{caller}: AddDescriptorSet status={response[0].get('status')}; "
-              f"set may already exist, probing metadata.")
-    schema_exists, schema_dimensions, schema_metric = self.findSchemaMetadata(self.set_name)
+              f"set may already exist, verifying against schema marker.")
+    marker_exists, marker_dimensions, marker_metric = self._readSchemaMarker()
 
-    if not schema_exists:
+    if not marker_exists:
+      # Backward-compat: descriptor set exists but marker is missing. Use FindDescriptorSet once
+      # (safe here because AddDescriptorSet already indicated the set exists) to verify before
+      # writing a marker that other controllers will treat as authoritative.
+      schema_exists, schema_dimensions, schema_metric = self.findSchemaMetadata(self.set_name)
+      if not schema_exists or schema_dimensions is None or schema_metric is None:
+        raise RuntimeError(
+            f"{caller}: '{self.set_name}' exists but no schema marker found, and descriptor set metadata "
+            "could not be read for verification. Recreate the descriptor set to continue.")
+      if str(schema_metric).strip().upper() != expected_metric:
+        raise RuntimeError(
+            f"{caller}: '{self.set_name}' uses metric {schema_metric}, expected {expected_metric}. "
+            "Recreate the descriptor set with matching metric.")
+      if schema_dimensions != requested_dimensions:
+        raise RuntimeError(
+            f"{caller}: '{self.set_name}' has {schema_dimensions} dimensions, expected {requested_dimensions}. "
+            "Recreate the descriptor set with matching dimensions.")
+      log.warning(
+          f"{caller}: '{self.set_name}' exists but no schema marker found; writing marker for future instances.")
+      self._writeSchemaMarker(requested_dimensions, expected_metric, skip_exists_check=True)
+      self.dimensions = requested_dimensions
+      return
+
+    if marker_dimensions is None or marker_metric is None:
       raise RuntimeError(
-          f"{caller}: AddDescriptorSet failed and set not found. "
-          f"Response: {response[0]}")
-    if schema_dimensions is None:
+          f"{caller}: '{self.set_name}' schema marker returned no dimensions "
+          f"for verification (dimensions={marker_dimensions}, metric={marker_metric}). "
+          "Cannot safely confirm compatibility.")
+
+    if str(marker_metric).strip().upper() != expected_metric:
       raise RuntimeError(
-          f"{caller}: '{self.set_name}' exists but returned no dimensions. "
-          "Recreate the descriptor set to continue.")
-    if schema_metric is None:
-      raise RuntimeError(
-          f"{caller}: '{self.set_name}' exists but returned no metric. "
-          "Recreate the descriptor set to continue.")
-    if str(schema_metric).strip().upper() != expected_metric:
-      raise RuntimeError(
-          f"{caller}: '{self.set_name}' uses metric {schema_metric}, "
+          f"{caller}: '{self.set_name}' uses metric {marker_metric}, "
           f"expected {expected_metric}. "
           "Recreate the descriptor set with matching metric.")
-    if schema_dimensions != requested_dimensions:
+    if marker_dimensions != requested_dimensions:
       raise RuntimeError(
-          f"{caller}: '{self.set_name}' has {schema_dimensions} dimensions, "
+          f"{caller}: '{self.set_name}' has {marker_dimensions} dimensions, "
           f"expected {requested_dimensions}. "
           "Recreate the descriptor set with matching dimensions.")
 
     log.info(f"{caller}: Verified existing descriptor set '{self.set_name}' "
-             f"({schema_dimensions}D, {schema_metric})")
+             f"against schema marker ({marker_dimensions}D, {marker_metric})")
     self.dimensions = requested_dimensions
+
+  def _writeSchemaMarker(self, dimensions, metric, skip_exists_check=False):
+    """
+    Record the descriptor set's dimensions and metric as a regular VDMS entity.
+    This sidesteps FindDescriptorSet's unreliable metadata response (VDMS v2.12)
+    by storing schema info through a query path that works reliably.
+
+    Uses a find-then-add pattern since AddEntity does not support an inline
+    "skip if exists" condition. A race between instances is possible but
+    harmless since both would write the same configured values.
+
+    @param  dimensions  Number of dimensions for the descriptor set
+    @param  metric      Similarity metric used for the descriptor set
+    @param  skip_exists_check   If True, skip the existence check and write the marker
+                                unconditionally. Callers should only pass True when they
+                                have already established the marker doesn't exist (e.g.
+                                immediately after creating the descriptor set or after a
+                                prior _readSchemaMarker() call came back empty), to avoid
+                                a redundant duplicate query.
+    """
+    if not skip_exists_check:
+      marker_exists, _, _ = self._readSchemaMarker()
+      if marker_exists:
+        log.debug(f"_writeSchemaMarker: Marker already exists for '{self.set_name}', skipping write")
+        return
+    query = [{"AddEntity": {"class": SCHEMA_MARKER_CLASS,
+              "properties": {"set_name": self.set_name, "dimensions": dimensions, "metric": metric}}}]
+    response, _ = self.sendQuery(query)
+    if not response or response[0].get('status') != 0:
+      log.warning(f"_writeSchemaMarker: Failed to write schema marker for '{self.set_name}'. Response: {response}")
+
+  def _readSchemaMarker(self):
+    """
+    Read the schema marker entity for this descriptor set to verify
+    dimensions/metric reliably, bypassing FindDescriptorSet.
+
+    @return  (exists, dimensions, metric) tuple. (False, None, None) if not found.
+    """
+    query = [{
+      "FindEntity": {
+        "class": SCHEMA_MARKER_CLASS,
+        "constraints": {"set_name": ["==", self.set_name]},
+        "results": {"list": ["set_name", "dimensions", "metric"]}
+      }
+    }]
+    response, _ = self.sendQuery(query)
+    if not response or response[0].get('status') != 0:
+      return False, None, None
+
+    payload = response[0]
+    marker_exists = payload.get('returned', 0) > 0 or bool(payload.get('entities'))
+    if not marker_exists:
+      return False, None, None
+
+    dimensions = self._extractSchemaDimensions(payload)
+    metric = self._extractSchemaMetric(payload)
+    return True, dimensions, metric
 
   def ensureSchema(self, dimensions):
     with self._schema_lock:
