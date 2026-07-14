@@ -11,6 +11,7 @@ import vdms
 
 from controller.reid import ReIDDatabase
 from scene_common import log
+from scene_common.timestamp import get_epoch_time
 
 DEFAULT_HOSTNAME = os.getenv("VDMS_HOSTNAME", "vdms.scenescape.intel.com")
 DEFAULT_CONFIDENCE_THRESHOLD = float(os.getenv("VDMS_CONFIDENCE_THRESHOLD", "0.8"))
@@ -25,13 +26,15 @@ SIMILARITY_METRIC = "L2"
 # float32 rounding errors from VDMS normalization and inner-product computation.
 COSINE_SIMILARITY_TOLERANCE = 1e-6
 SCHEMA_MARKER_CLASS = "ReidSchemaMarker"
+DEFAULT_DESCRIPTOR_TTL_SECS = 60  # 60 seconds
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
                similarity_metric=SIMILARITY_METRIC, dimensions=DIMENSIONS,
                confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD,
                ca_cert=DEFAULT_CA_CERT, client_cert=DEFAULT_CLIENT_CERT,
-               client_key=DEFAULT_CLIENT_KEY):
+               client_key=DEFAULT_CLIENT_KEY,
+               descriptor_ttl_secs=DEFAULT_DESCRIPTOR_TTL_SECS):
     self.db = vdms.vdms(
       use_tls=True,
       ca_cert_file=ca_cert,
@@ -42,6 +45,7 @@ class VDMSDatabase(ReIDDatabase):
     self.similarity_metric = similarity_metric
     self.dimensions = dimensions
     self.confidence_threshold = confidence_threshold
+    self.descriptor_ttl_secs = descriptor_ttl_secs
     self.lock = threading.Lock()
     self._schema_lock = threading.Lock()
     self._schema_ready = False
@@ -316,10 +320,13 @@ class VDMSDatabase(ReIDDatabase):
     @return  None
     """
     # Build properties with standard fields
+    added_at = get_epoch_time()
     properties = {
       "uuid": f"{uuid}",
       "rvid": f"{rvid}",
-      "type": f"{object_type}"
+      "type": f"{object_type}",
+      "added_at": added_at,
+      "_expiration": self.descriptor_ttl_secs
     }
 
     # Store persist attributes as serialized JSON with timestamp
@@ -488,6 +495,11 @@ class VDMSDatabase(ReIDDatabase):
     @return  int          Exact vector bytes for the matching descriptors, or None if the
                           descriptor count could not be retrieved.
     """
+    if self.dimensions is None:
+      log.debug(
+        "getDescriptorSetVectorBytes: dimensions not yet inferred on this instance "
+        "(no ReID vector processed locally); skipping vector-bytes calculation.")
+      return None
     descriptor_count = self.getDescriptorCount(set_name=set_name, object_type=object_type)
     if descriptor_count is None:
       return None
