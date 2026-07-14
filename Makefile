@@ -505,19 +505,52 @@ geometry-conformance:
 GENERATE_JUNITXML = -o junit_logging=all --junitxml tests/reports/test_reports/$@.xml
 
 .PHONY: run_metric_tests
-run_metric_tests: setup-tests setup-pytest tracker
+run_metric_tests: setup-tests setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running metric tests..."
-	$(MAKE) _run_metric_tests SUPASS=$(SUPASS) || (echo "Metric tests failed" && exit 1)
+	$(MAKE) -j $(NPROCS) _run_metric_tests SUPASS=$(SUPASS) || (echo "Metric tests failed" && exit 1)
 	@echo "DONE ==> Running metric tests"
 
 .PHONY: _run_metric_tests
-_run_metric_tests: # NEX-T10463
-	@echo "Running black-box tracker evaluation tests..."
-	$(PYTEST) -s $(GENERATE_JUNITXML) \
-		$(TESTS_DIR)/system/metric/test_black_box_evaluation.py \
-		-o junit_suite_name=black-box-metric $(PYTEST_FLAGS) \
-		|| (echo "Black-box tracker evaluation tests failed" && exit 1)
+_run_metric_tests: idc-error-metric msoce-metric velocity-metric
+
+define metric-recipe =
+	$(eval TEST_SCRIPT=$1)
+	$(eval TEST_SUITE=$2)
+	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
+	@set -ex \
+	  ; echo RUNNING METRIC TEST $@ \
+	  ; if [ -n "$3" ] && [ -n "$4" ] && [ -n "$5" ]; then \
+		METRIC="--metric $3" ; \
+		THRESHOLD="--threshold $4" ; \
+		FRAME_RATE="--camera_frame_rate $5" \
+	  ; fi \
+	  ; mkdir -p $(shell dirname $(LOGFILE)) \
+	  ; $(PYTEST) -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
+			$${METRIC} $${THRESHOLD} $${FRAME_RATE} \
+			-o junit_suite_name=$(TEST_SUITE) | tee -i $(LOGFILE) \
+	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
+	  ; echo END TEST $@
+endef
+
+.PHONY: distance-msoce
+distance-msoce: # NEX-T10524
+	$(call metric-recipe, tests/system/metric/test_distance_thresh.py, distance-threshold)
+
+.PHONY: idc-error-metric
+idc-error-metric: # NEX-T10463
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, idc-metric, idc-error, 0.05, 30)
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, idc-metric, idc-error, 0.05, 10)
+
+.PHONY: msoce-metric
+msoce-metric: # NEX-T10463
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, msoce-metric, msoce, 0.05, 30)
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, msoce-metric, msoce, 0.05, 10)
+
+.PHONY: velocity-metric
+velocity-metric: # NEX-T10463
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, velocity-metric, velocity, 0.15, 30)
+	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, velocity-metric, velocity, 0.15, 10)
 
 # ============================= Lint ==================================
 
