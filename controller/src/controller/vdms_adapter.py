@@ -428,7 +428,7 @@ class VDMSDatabase(ReIDDatabase):
       self._descriptors_added_bytes += bytes_added_this_call
       running_total = self._descriptors_added_count
       running_bytes = self._descriptors_added_bytes
-    log.info(
+    log.debug(
       "reid_descriptor_metric "
       f"event=added set={self.set_name} added_now={count} "
       f"metadata_bytes_this_call={measured_metadata_bytes} "

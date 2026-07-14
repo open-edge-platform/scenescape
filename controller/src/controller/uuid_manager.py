@@ -226,7 +226,7 @@ class UUIDManager:
       return
     if descriptor_count is None:
       return
-    log.info(
+    log.debug(
       "reid_storage_metric "
       f"descriptor_count={descriptor_count} "
       f"shared_vector_bytes={shared_vector_bytes}")
