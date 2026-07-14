@@ -104,7 +104,6 @@ class UUIDManager:
     self.reid_enabled = True
     self._applyReidConfig(reid_config_data)
     self._rescheduleStaleFeatureTimer()
-
     self.storage_metric_timer = None
     self._startStorageMetricTimer()
     return

@@ -246,7 +246,6 @@ services:
       - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
       - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
       - OVERRIDE_autodelete_interval_s=300
-
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
