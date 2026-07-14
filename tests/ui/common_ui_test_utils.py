@@ -7,6 +7,7 @@ import os
 import cv2
 import json
 import time
+import base64
 import random
 import filecmp
 import tempfile
@@ -1253,6 +1254,77 @@ def are_images_similar(base_image: np.ndarray, image: np.ndarray, comparison_thr
   if ssim_value > comparison_threshold:
     return True
   return False
+
+def wait_for_3d_scene_rendered(browser, canvas_id: str = "scene", timeout: float = 30.0,
+                               poll_interval: float = 0.5,
+                               min_content_ratio: float = 0.01) -> bool:
+  """! Poll the WebGL canvas until the 3D scene has actually painted content.
+
+  Requires the renderer to be created with preserveDrawingBuffer: true so the
+  drawing buffer reflects the last rendered frame.
+
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    canvas_id                  DOM id of the WebGL canvas element.
+  @param    timeout                    Maximum seconds to wait for the scene to render.
+  @param    poll_interval              Seconds between successive checks.
+  @param    min_content_ratio          Minimum fraction of non-background canvas pixels
+                                       that indicates the scene has painted.
+  @return   bool                       True if content was detected, False on timeout.
+  """
+  script = """
+    const canvasId = arguments[0];
+    const c = document.getElementById(canvasId);
+    if (!c) return -1;
+    const gl = c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl');
+    if (!gl) return -2;
+    const w = c.width, h = c.height;
+    if (!w || !h) return -3;
+    const px = new Uint8Array(w * h * 4);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    // Use a corner pixel as the background (clear) color reference.
+    const br = px[0], bg = px[1], bb = px[2];
+    let diff = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      if (Math.abs(px[i] - br) > 10 || Math.abs(px[i + 1] - bg) > 10 || Math.abs(px[i + 2] - bb) > 10) {
+        diff++;
+      }
+    }
+    return diff / (w * h);
+  """
+  deadline = time.monotonic() + timeout
+  while time.monotonic() < deadline:
+    try:
+      ratio = browser.execute_script(script, canvas_id)
+    except Exception:
+      ratio = None
+    if isinstance(ratio, (int, float)) and ratio >= min_content_ratio:
+      return True
+    time.sleep(poll_interval)
+  return False
+
+def capture_3d_canvas(browser, canvas_id: str = "scene") -> np.ndarray:
+  """! Capture the WebGL 3D canvas pixels directly via canvas.toDataURL().
+
+  Requires the three.js renderer to be created with preserveDrawingBuffer: true so
+  the drawing buffer reflects the last rendered frame.
+
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    canvas_id                  DOM id of the WebGL canvas element.
+  @return   np.ndarray                 Canvas image as a BGR numpy array (alpha dropped).
+  """
+  data_url = browser.execute_script(
+    "const c = document.getElementById(arguments[0]);"
+    "return c ? c.toDataURL('image/png') : null;",
+    canvas_id,
+  )
+  if not data_url or not data_url.startswith("data:image/png;base64,"):
+    raise RuntimeError(f"Could not capture canvas #{canvas_id} via toDataURL")
+  raw = base64.b64decode(data_url.split(",", 1)[1])
+  img = Image.open(BytesIO(raw), formats=["PNG"])
+  img_array = np.asarray(img)
+  # Drop alpha channel and convert RGB to BGR to match get_page_screenshot().
+  img_array = img_array[:, :, 0:3]
+  return img_array[:, :, ::-1]
 
 def crop_to_common_shape(img1: np.ndarray, img2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
   """
