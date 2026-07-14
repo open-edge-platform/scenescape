@@ -35,6 +35,7 @@ jobs:
             scenescape-manager,
             scenescape-tracker,
             scenescape-mapping,
+            scenescape-mapping-vggt,
             scenescape-cluster-analytics,
             scenescape-sources,
           ]
