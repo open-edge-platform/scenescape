@@ -94,7 +94,7 @@ jobs:
             echo "version.txt not found."
             exit 1
           fi
-          if grep -q "dev" version.txt; then
+          if [[ "${{ github.event.inputs.publish }}" == "true" ]] && grep -q "dev" version.txt; then
             echo "ERROR: version.txt contains 'dev' - publishing dev versions is not allowed."
             exit 1
           fi
