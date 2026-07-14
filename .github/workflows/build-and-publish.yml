@@ -35,7 +35,6 @@ jobs:
             scenescape-manager,
             scenescape-tracker,
             scenescape-mapping,
-            scenescape-mapping-vggt,
             scenescape-cluster-analytics,
             scenescape-sources,
           ]
@@ -72,10 +71,7 @@ jobs:
             make -C tracker
           elif [[ "${{ matrix.images }}" == "scenescape-mapping" ]]; then
             echo "Building ${{ matrix.images }}"
-            make -C mapping
-          elif [[ "${{ matrix.images }}" == "scenescape-mapping-vggt" ]]; then
-            echo "Building ${{ matrix.images }}"
-            make -C mapping vggt
+            make -C mapping build-all
           elif [[ "${{ matrix.images }}" == "scenescape-cluster-analytics" ]]; then
             echo "Building ${{ matrix.images }}"
             make -C cluster_analytics
@@ -116,7 +112,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: "Push images"
-        if: ${{ github.event.inputs.publish == 'true' && matrix.images != 'scenescape-mapping' && matrix.images != 'scenescape-mapping-vggt' }}
+        if: ${{ github.event.inputs.publish == 'true' && matrix.images != 'scenescape-mapping'}}
         run: |
           docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
           if [[ "${{ steps.determine-tag.outputs.is_release }}" == "true" ]]; then
@@ -127,16 +123,11 @@ jobs:
         if: ${{ github.event.inputs.publish == 'true' && matrix.images == 'scenescape-mapping' }}
         run: |
           docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
-          docker tag intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }} intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}-mapanything
           docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}-mapanything
+          docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}-vggt
           if [[ "${{ steps.determine-tag.outputs.is_release }}" == "true" ]]; then
             docker push intel/${{ matrix.images }}:latest
           fi
-
-      - name: "Push images - Mapping(vggt)"
-        if: ${{ github.event.inputs.publish == 'true' && matrix.images == 'scenescape-mapping-vggt' }}
-        run: |
-          docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}-vggt
 
       - name: Install skopeo
         if: ${{ github.event.inputs.publish == 'true' }}
