@@ -6,6 +6,7 @@
 import os
 import time
 import json
+import pytest
 import threading
 import tests.ui.common_ui_test_utils as common
 from tests.ui.browser import Browser, By
@@ -79,6 +80,7 @@ def getTripwireUid(rest, tw_name):
   # Get the uid of the first result
   return res["results"][0]['uid']
 
+@pytest.mark.fresh_stack
 def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
   """! This function creates Trip wire horizontally and the data is published
   such that the object (category ["custom_person"]) moves vertically across the
