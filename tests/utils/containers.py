@@ -27,6 +27,57 @@ def _get_log_dir():
   return getattr(root_logger, "_log_dir", None)
 
 
+# Health statuses reported by check_service_health().
+HEALTH_OK = "ok"                # running and (healthy | starting | no healthcheck)
+HEALTH_UNHEALTHY = "unhealthy"  # Docker healthcheck reports unhealthy
+HEALTH_STOPPED = "stopped"      # container exists but is not running
+HEALTH_MISSING = "missing"      # container does not exist in the compose project
+HEALTH_ERROR = "error"          # inspect raised an exception
+
+
+def check_service_health(docker, project_name, service):
+  """Return a coarse health status for one Compose service.
+
+  Combines Docker container state and healthcheck status so callers get a
+  single OK / not-OK signal without needing to interpret Docker internals.
+
+  Returns:
+    Tuple of (status, detail) where ``status`` is one of the HEALTH_*
+    constants above and ``detail`` is a short human-readable string.
+  """
+  container_name = f"{project_name}-{service}-1"
+  try:
+    inspect = docker.container.inspect(container_name)
+  except Exception as exc:
+    msg = str(exc)
+    if "No such container" in msg or "not found" in msg.lower():
+      return HEALTH_MISSING, "container not present"
+    return HEALTH_ERROR, msg
+
+  state = inspect.state
+  if not state.running:
+    return HEALTH_STOPPED, f"state={state.status}"
+
+  health = getattr(state, "health", None)
+  if health is None:
+    return HEALTH_OK, "running (no healthcheck)"
+  if health.status == "healthy":
+    return HEALTH_OK, "healthy"
+  if health.status == "starting":
+    return HEALTH_OK, "starting"
+  if health.status == "unhealthy":
+    return HEALTH_UNHEALTHY, "unhealthy"
+  return HEALTH_OK, f"health={health.status}"
+
+
+def check_services_health(docker, project_name, services):
+  """Return a mapping of {service: (status, detail)} for each service."""
+  return {
+    svc: check_service_health(docker, project_name, svc)
+    for svc in services
+  }
+
+
 def container_is_ready(docker, project_name, service, log_pattern, since=None):
   """Check if a container's logs contain the readiness pattern.
 

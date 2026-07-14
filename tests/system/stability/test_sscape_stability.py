@@ -12,11 +12,16 @@ from datetime import datetime, timedelta
 from scene_common.mqtt import PubSub
 from tests.ui.browser import Browser
 import tests.common_test_utils as common
+from tests.utils.containers import (
+  HEALTH_OK,
+  HEALTH_MISSING,
+  check_services_health,
+)
 from tests.utils.spec import FuncTestSpec
-from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+from tests.utils.profiles import STABILITY
 
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
+  profile=STABILITY,
   require_password=True,
   extra_args=["--hours", os.environ.get("STABILITY_HOURS", "24")],
 )
@@ -36,6 +41,19 @@ WARMUP_CYCLES = 4
 ### Number of consecutive low-message cycles before declaring failure.
 ### Video files loop periodically causing brief drops — allow this many windows.
 MAX_CONSECUTIVE_LOW_MSG_CYCLES = 3
+
+### Compose services which health is polled every cycle to monitor container status.
+HEALTHCHECK_SERVICES = (
+  "web",                  # Manager
+  "scene",                # Scene Controller
+  "autocalibration",      # Autocalibration
+  "mapping",              # Mapping
+  "controller-analytics", # Cluster Analytics
+)
+
+### Number of consecutive cycles a monitored service is allowed to report an
+### unhealthy/stopped status before the test is declared failed.
+MAX_CONSECUTIVE_UNHEALTHY_CYCLES = 3
 
 ### Maximum difference allowed for the sensor objects (higher vs lower).
 ### This is intended to check all streams are flowing at approx the same rate
@@ -134,6 +152,9 @@ class TestState():
     self.high_variation_cycles = 0
     self.memory_samples = []
     self.memory_growth_detected = False
+    self.unhealthy_cycles = {svc: 0 for svc in HEALTHCHECK_SERVICES}
+    self.service_health_failed = False
+    self.failed_service = None
     return None
 
   def read_memory_usage(self):
@@ -309,6 +330,40 @@ class TestState():
     self.high_variation_cycles = 0
     return False
 
+  def check_service_health(self, docker, project_name):
+    """! Poll Docker health for each monitored service.
+
+    Missing containers are treated as skipped. A service that reports unhealthy
+    or stopped for more than ``MAX_CONSECUTIVE_UNHEALTHY_CYCLES`` consecutive cycles
+    fails the test.
+
+    @param    docker                  python-on-whales DockerClient.
+    @param    project_name            Compose project name (from scenescape_env).
+    @return   check_failed            Bool True if any service exceeded the
+                                      unhealthy cycle threshold, otherwise False.
+    """
+    if docker is None or project_name is None:
+      return False
+    results = check_services_health(docker, project_name, HEALTHCHECK_SERVICES)
+    status_msg = "Service health:"
+    for svc, (status, detail) in results.items():
+      status_msg += " {}={}".format(svc, status)
+      if status == HEALTH_OK or status == HEALTH_MISSING:
+        # Reset streak on OK or when the service isn't part of this deployment.
+        self.unhealthy_cycles[svc] = 0
+        continue
+      self.unhealthy_cycles[svc] += 1
+      print("Service {} unhealthy ({}) — consecutive cycle {}/{}".format(
+        svc, detail, self.unhealthy_cycles[svc], MAX_CONSECUTIVE_UNHEALTHY_CYCLES))
+      if self.unhealthy_cycles[svc] >= MAX_CONSECUTIVE_UNHEALTHY_CYCLES:
+        print("Test failed service health check! {} has been {} for {} cycles".format(
+          svc, detail, self.unhealthy_cycles[svc]))
+        self.service_health_failed = True
+        self.failed_service = svc
+        return True
+    print(status_msg)
+    return False
+
   def check_time_remaining(self):
     """! Checks if the test is finished.
     @return   Bool                    True if time remains, False otherwise.
@@ -473,10 +528,11 @@ def on_message(mqttc, obj, msg):
   objects_detected += 1
   return
 
-def test_sscape_stability(params, record_xml_attribute):
+def test_sscape_stability(params, record_xml_attribute, scenescape_env):
   """! Checks that scenescape performs as expected over a given time period.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    scenescape_env          Fixture providing the Compose stack context.
   @return   result                  Int 0 if test passed otherwise 1.
   """
   global connected
@@ -488,6 +544,8 @@ def test_sscape_stability(params, record_xml_attribute):
   state = TestState(params)
   result = 1
   avg_fps = {}
+  docker = getattr(scenescape_env, "docker", None)
+  project_name = getattr(scenescape_env, "project_name", None)
 
   assert state.get_test_time()
   state.set_start_end_time()
@@ -513,6 +571,8 @@ def test_sscape_stability(params, record_xml_attribute):
       avg_msg = update_avg_msg(avg_fps, state)
 
       if state.enough_messages() or state.stable_messages() or state.login_failed() or state.memory_usage_stable():
+        state.done = True
+      elif state.check_service_health(docker, project_name):
         state.done = True
       else:
         print(avg_msg, " log-in ok")

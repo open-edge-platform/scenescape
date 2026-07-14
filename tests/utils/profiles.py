@@ -256,6 +256,34 @@ FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS = ServiceProfile(
   },
 )
 
+# Full-stack profile used by the long-run stability test.
+STABILITY = ServiceProfile(
+  name="stability",
+  compose_files=(
+    f"{DLS}/compose-broker.yml",
+    f"{COMPOSE}/compose-ntp.yml",
+    f"{COMPOSE}/compose-pgserver.yml",
+    f"{DLS}/compose-retail_video.yml",
+    f"{DLS}/compose-queuing_video.yml",
+    f"{COMPOSE}/compose-scene.yml",
+    f"{COMPOSE}/compose-web_default.yml",
+    f"{COMPOSE}/compose-cams.yml",
+    f"{COMPOSE}/compose-autocalibration.yml",
+    f"{COMPOSE}/compose-mapping.yml",
+    f"{COMPOSE}/compose-controller_analytics.yml",
+  ),
+  wait_for={
+    "broker": _BROKER,
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "queuing-video": WaitConfig(),
+    "retail-video": WaitConfig(),
+    "autocalibration": _AUTOCALIBRATION,
+    "mapping": _MAPPING,
+  },
+)
+
 # Registry: maps profile name -> ServiceProfile for CLI lookup
 PROFILE_REGISTRY: dict = {
   p.name: p
@@ -271,5 +299,6 @@ PROFILE_REGISTRY: dict = {
     SCENE_NO_DB,
     MARKERLESS,
     INFERENCE_PERF,
+    STABILITY,
   ]
 }
