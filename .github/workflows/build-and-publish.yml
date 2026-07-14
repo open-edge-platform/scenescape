@@ -126,6 +126,7 @@ jobs:
         if: ${{ github.event.inputs.publish == 'true' && matrix.images == 'scenescape-mapping' }}
         run: |
           docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}
+          docker tag intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }} intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}-mapanything
           docker push intel/${{ matrix.images }}:${{ steps.determine-tag.outputs.image_tag }}-mapanything
           if [[ "${{ steps.determine-tag.outputs.is_release }}" == "true" ]]; then
             docker push intel/${{ matrix.images }}:latest
