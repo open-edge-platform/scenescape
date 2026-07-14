@@ -328,7 +328,18 @@ class MovingObject:
     return
 
   def inferRotationFromVelocity(self):
-    if not self.has_detection_rotation and self.rotation_from_velocity and self.velocity:
+    if self.has_detection_rotation:
+      # 3D detectors (e.g. LiDAR/PointPillars) regress an oriented bounding
+      # box but often cannot tell an object's front from its back, so the
+      # reported heading can flip ~180 degrees frame-to-frame even though
+      # the object's actual direction of travel barely changes. Use the
+      # track's own velocity direction (which has no such ambiguity) to
+      # resolve it, rather than trusting the raw sensor heading every frame.
+      if self.rotation_from_velocity:
+        self._disambiguateRotationWithVelocity()
+      return
+
+    if self.rotation_from_velocity and self.velocity:
       speed = np.linalg.norm([self.velocity.x, self.velocity.y, self.velocity.z])
       if self._rotation_from_velocity_active:
         self._rotation_from_velocity_active = speed > SPEED_THRESHOLD_OFF
@@ -342,6 +353,26 @@ class MovingObject:
         self.rotation = rotationToTarget(direction, velocity).as_quat().tolist()
     else:
       self._rotation_from_velocity_active = False
+    return
+
+  def _disambiguateRotationWithVelocity(self):
+    """Flip a sensor-reported heading by 180 degrees about Z if it points
+    against the track's direction of travel.
+
+    Only acts once speed is clearly above noise level (reusing
+    SPEED_THRESHOLD_ON), so a stopped/idling object's heading is left alone.
+    """
+    if not self.velocity or not self.rotation:
+      return
+    speed = np.linalg.norm([self.velocity.x, self.velocity.y, self.velocity.z])
+    if speed <= SPEED_THRESHOLD_ON:
+      return
+
+    velocity_dir = normalize(np.array([self.velocity.x, self.velocity.y, 0.0]))
+    forward = Rotation.from_quat(np.array(self.rotation)).apply([1, 0, 0])
+    if np.dot(forward[:2], velocity_dir[:2]) < 0:
+      flip = Rotation.from_euler('z', 180, degrees=True)
+      self.rotation = (flip * Rotation.from_quat(np.array(self.rotation))).as_quat().tolist()
     return
 
   @property

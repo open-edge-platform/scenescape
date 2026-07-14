@@ -275,6 +275,64 @@ class TestMovingObject:
     assert mock_rotation_to_target.call_count == 1
     assert not bool(obj._rotation_from_velocity_active)
 
+  def test_infer_rotation_disambiguates_sensor_heading_opposing_velocity(self):
+    """LiDAR/3D detectors can't always tell an object's front from its back,
+    so the reported heading can flip ~180deg even while velocity direction
+    stays consistent. When rotation_from_velocity is enabled, a sensor
+    heading pointing against the direction of travel should be flipped 180
+    degrees about Z to match the velocity direction."""
+    from scipy.spatial.transform import Rotation
+
+    when = datetime.datetime.now(datetime.timezone.utc)
+    opposing_rotation = Rotation.from_euler('z', 193, degrees=True).as_quat().tolist()
+    obj = MovingObject(_base_info(rotation=opposing_rotation), when, _camera())
+    obj.rotation = opposing_rotation
+    obj.rotation_from_velocity = True
+    obj.velocity = Point(5.46, 1.24, 0.0)
+
+    obj.inferRotationFromVelocity()
+
+    forward = Rotation.from_quat(np.array(obj.rotation)).apply([1, 0, 0])
+    assert np.dot(forward[:2], [5.46, 1.24]) > 0
+
+  def test_infer_rotation_keeps_sensor_heading_already_aligned_with_velocity(self):
+    from scipy.spatial.transform import Rotation
+
+    when = datetime.datetime.now(datetime.timezone.utc)
+    aligned_rotation = Rotation.from_euler('z', 13, degrees=True).as_quat().tolist()
+    obj = MovingObject(_base_info(rotation=aligned_rotation), when, _camera())
+    obj.rotation = aligned_rotation
+    obj.rotation_from_velocity = True
+    obj.velocity = Point(5.46, 1.24, 0.0)
+
+    obj.inferRotationFromVelocity()
+
+    assert obj.rotation == aligned_rotation
+
+  def test_infer_rotation_disambiguation_skipped_below_speed_threshold(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    opposing_rotation = [0.0, 0.0, 0.999, -0.051]
+    obj = MovingObject(_base_info(rotation=opposing_rotation), when, _camera())
+    obj.rotation = opposing_rotation
+    obj.rotation_from_velocity = True
+    obj.velocity = Point(SPEED_THRESHOLD_ON - 0.01, 0.0, 0.0)
+
+    obj.inferRotationFromVelocity()
+
+    assert obj.rotation == opposing_rotation
+
+  def test_infer_rotation_disambiguation_skipped_when_class_disables_rotation_from_velocity(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    opposing_rotation = [0.0, 0.0, 0.999, -0.051]
+    obj = MovingObject(_base_info(rotation=opposing_rotation), when, _camera())
+    obj.rotation = opposing_rotation
+    obj.rotation_from_velocity = False
+    obj.velocity = Point(5.46, 1.24, 0.0)
+
+    obj.inferRotationFromVelocity()
+
+    assert obj.rotation == opposing_rotation
+
 
 class TestDecodeReIDEmbeddingVector:
   """Tests for decodeReIDEmbeddingVector validation and normalization."""
