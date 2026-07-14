@@ -20,16 +20,11 @@ from controller.analytics.adapters.ingestion import SceneDataIngestion
 from controller.analytics.analytics_models import moving_object_to_analytics_object
 from controller.analytics.engine import process_frame
 from controller.analytics.event_publisher import publish_events
-from controller.analytics.region import update_region_events
 from controller.analytics.sensors import (
   update_attribute_sensor_events,
   update_environmental_sensor_readings,
 )
-from controller.analytics.state import AnalyticsStateStore, DEBOUNCE_DELAY
-from controller.analytics.tripwire import (
-  TripwireEvent,
-  update_tripwire_events,
-)
+from controller.analytics.state import AnalyticsStateStore
 
 MIN_FRAMES_FOR_RELIABLE_TRACK = 3
 from controller.controller_mode import ControllerMode
@@ -498,18 +493,6 @@ class Scene(SceneModel):
     if publish_fn is not None:
       publish_events(self, get_iso_time(now), publish_fn)
     return
-
-  def _updateTripwireEvents(self, detectionType, now, curObjects):
-    update_tripwire_events(
-      detectionType, self.tripwires, now, curObjects, self.events, self.analytics_state,
-    )
-    return
-
-  def _updateRegionEvents(self, detectionType, regions, now, now_str, curObjects):
-    return update_region_events(
-      detectionType, regions, now, now_str, curObjects, self.events,
-      self.analytics_state, self.isIntersecting,
-    )
 
   def isIntersecting(self, obj, region):
     if not region.compute_intersection:
