@@ -12,6 +12,7 @@ from scene_common import log
 from scene_common.timestamp import get_epoch_time
 
 REFRESH_TIME = 60
+REFRESH_DIRTY_DEBOUNCE_SEC = 0.1
 
 class CacheManager:
   def __init__(self, data_source=None, rest_url=None, rest_auth=None,
@@ -24,6 +25,9 @@ class CacheManager:
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
     self._refresh_in_progress = False
+    self._refresh_dirty = False
+    self._dirty_since = None
+    self._refresh_debounce_sec = REFRESH_DIRTY_DEBOUNCE_SEC
 
     if rest_url and rest_auth:
       self.data_source = RestSceneDataSource(rest_url, rest_auth, root_cert)
@@ -110,6 +114,8 @@ class CacheManager:
           self._cached_scenes_by_sensorID[sensorID] = scene
         self.cached_scenes_by_uid[scene.uid] = scene
       self._cache_refreshed = get_epoch_time()
+      self._refresh_dirty = False
+      self._dirty_since = None
     return
 
   def _refreshCameras(self, scene_data):
@@ -218,14 +224,29 @@ class CacheManager:
       return True
     return False
 
-  def checkRefresh(self):
+  def markDirty(self):
+    with self._lock:
+      self._refresh_dirty = True
+      self._dirty_since = get_epoch_time()
+
+  def checkRefresh(self, force=False):
     now = get_epoch_time()
     needs_refresh = False
     with self._lock:
-      if (not hasattr(self, 'cached_scenes_by_uid')
+      periodic_refresh_due = (
+          not hasattr(self, 'cached_scenes_by_uid')
           or self.cached_scenes_by_uid is None
           or not hasattr(self, '_cache_refreshed')
-          or now - self._cache_refreshed > REFRESH_TIME):
+          or now - self._cache_refreshed > REFRESH_TIME
+      )
+      dirty_refresh_due = (
+          self._refresh_dirty
+          and (
+              self._dirty_since is None
+              or now - self._dirty_since >= self._refresh_debounce_sec
+          )
+      )
+      if force or periodic_refresh_due or dirty_refresh_due:
         if not self._refresh_in_progress:
           needs_refresh = True
           self._refresh_in_progress = True
@@ -237,8 +258,8 @@ class CacheManager:
           self._refresh_in_progress = False
     return
 
-  def allScenes(self):
-    self.checkRefresh()
+  def allScenes(self, force_refresh=False):
+    self.checkRefresh(force=force_refresh)
     with self._lock:
       return list(self.cached_scenes_by_uid.values())
 

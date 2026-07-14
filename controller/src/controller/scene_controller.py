@@ -1419,6 +1419,7 @@ class SceneController:
     since scene subscriptions and camera updates are managed by the main process."""
     command = str(message.payload.decode("utf-8"))
     if command == "update":
+      self.cache_manager.markDirty()
       threading.Thread(target=self._workerDatabaseUpdateAsync, name="WorkerDBUpdate", daemon=True).start()
     return
 
@@ -1431,7 +1432,7 @@ class SceneController:
     with self._db_update_lock:
       try:
         scene_count_before = len(self.scenes) if hasattr(self, 'scenes') and self.scenes else 0
-        self.scenes = self.cache_manager.allScenes()
+        self.scenes = self.cache_manager.allScenes(force_refresh=True)
         scene_count_after = len(self.scenes)
         self.updateObjectClasses()
         log.info(f"[WORKER_DB_UPDATE] pid={os.getpid()} object_classes refreshed, "
@@ -1442,6 +1443,7 @@ class SceneController:
   def handleDatabaseMessage(self, client, userdata, message):
     command = str(message.payload.decode("utf-8"))
     if command == "update":
+      self.cache_manager.markDirty()
       # Run in background thread to avoid blocking the MQTT callback thread.
       # HTTP calls in updateSubscriptions/updateObjectClasses/etc can take
       # seconds and would block paho's network loop, causing keepalive timeout.

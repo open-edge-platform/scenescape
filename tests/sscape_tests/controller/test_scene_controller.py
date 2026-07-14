@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import unittest
+import threading
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -316,3 +317,47 @@ class TestSceneControllerProcessMessageCore(unittest.TestCase):
     self.assertEqual(jdata["debug_hmo_start_time"], now)
     self.assertEqual(jdata["_profile_handler_start"], t_handler_start)
     self.assertEqual(jdata["_profile_parse_done"], t_parse)
+
+
+class TestSceneControllerDatabaseUpdates(unittest.TestCase):
+
+  def test_handle_database_message_marks_cache_dirty_before_async_update(self):
+    controller = SceneController.__new__(SceneController)
+    controller.cache_manager = Mock()
+
+    message = SimpleNamespace(payload=b"update")
+    started_thread = Mock()
+
+    with patch("controller.scene_controller.threading.Thread", return_value=started_thread) as thread_ctor:
+      controller.handleDatabaseMessage(None, None, message)
+
+    controller.cache_manager.markDirty.assert_called_once_with()
+    thread_ctor.assert_called_once()
+    started_thread.start.assert_called_once_with()
+
+  def test_worker_handle_database_message_marks_cache_dirty_before_async_update(self):
+    controller = SceneController.__new__(SceneController)
+    controller.cache_manager = Mock()
+
+    message = SimpleNamespace(payload=b"update")
+    started_thread = Mock()
+
+    with patch("controller.scene_controller.threading.Thread", return_value=started_thread) as thread_ctor:
+      controller._workerHandleDatabaseMessage(None, None, message)
+
+    controller.cache_manager.markDirty.assert_called_once_with()
+    thread_ctor.assert_called_once()
+    started_thread.start.assert_called_once_with()
+
+  def test_worker_database_update_forces_refresh(self):
+    controller = SceneController.__new__(SceneController)
+    controller._db_update_lock = threading.Lock()
+    controller.cache_manager = Mock()
+    controller.scenes = [Mock()]
+    controller.cache_manager.allScenes.return_value = [Mock()]
+    controller.updateObjectClasses = Mock()
+
+    controller._workerDatabaseUpdateAsync()
+
+    controller.cache_manager.allScenes.assert_called_once_with(force_refresh=True)
+    controller.updateObjectClasses.assert_called_once_with()
