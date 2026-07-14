@@ -84,6 +84,12 @@ def mock_rv_tracking():
   with patch.object(scene_module, 'rv', MagicMock(tracking=mock_tracking)):
     yield
 
+@pytest.fixture(scope='session', autouse=True)
+def mock_ilabs_rv():
+  """Mock robot_vision usage inside controller.ilabs_tracking."""
+  with patch("controller.ilabs_tracking.rv", MagicMock()):
+    yield
+
 def camera_param():
   """!
   Returns predefined Camera object parameter DICT.
