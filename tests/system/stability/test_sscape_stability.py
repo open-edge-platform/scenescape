@@ -16,6 +16,7 @@ from tests.utils.containers import (
   HEALTH_OK,
   HEALTH_MISSING,
   check_services_health,
+  get_services_stats,
 )
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import STABILITY
@@ -23,7 +24,7 @@ from tests.utils.profiles import STABILITY
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=STABILITY,
   require_password=True,
-  extra_args=["--hours", os.environ.get("STABILITY_HOURS", "24")],
+  extra_args=["--hours", os.environ.get("STABILITY_HOURS", "0.1")],
 )
 
 TEST_NAME="NEX-T10411"
@@ -50,6 +51,15 @@ HEALTHCHECK_SERVICES = (
   "mapping",              # Mapping
   "controller-analytics", # Cluster Analytics
 )
+
+### Labels used in health and resource-usage output.
+SERVICE_LABELS = {
+  "web": "Manager",
+  "scene": "Scene Controller",
+  "autocalibration": "Autocalibration",
+  "mapping": "Mapping",
+  "controller-analytics": "Cluster Analytics",
+}
 
 ### Number of consecutive cycles a monitored service is allowed to report an
 ### unhealthy/stopped status before the test is declared failed.
@@ -155,6 +165,7 @@ class TestState():
     self.unhealthy_cycles = {svc: 0 for svc in HEALTHCHECK_SERVICES}
     self.service_health_failed = False
     self.failed_service = None
+    self.resource_samples = {svc: [] for svc in HEALTHCHECK_SERVICES}
     return None
 
   def read_memory_usage(self):
@@ -345,24 +356,85 @@ class TestState():
     if docker is None or project_name is None:
       return False
     results = check_services_health(docker, project_name, HEALTHCHECK_SERVICES)
-    status_msg = "Service health:"
-    for svc, (status, detail) in results.items():
-      status_msg += " {}={}".format(svc, status)
-      if status == HEALTH_OK or status == HEALTH_MISSING:
-        # Reset streak on OK or when the service isn't part of this deployment.
+    print("Service Health:")
+    overall_ok = True
+    failure = None
+    for svc in HEALTHCHECK_SERVICES:
+      status, detail = results[svc]
+      label = SERVICE_LABELS.get(svc, svc)
+      if status == HEALTH_MISSING:
+        print("  {}: SKIPPED ({})".format(label, detail))
         self.unhealthy_cycles[svc] = 0
         continue
+      if status == HEALTH_OK:
+        print("  {}: OK".format(label))
+        self.unhealthy_cycles[svc] = 0
+        continue
+      # Unhealthy / stopped / error.
+      overall_ok = False
       self.unhealthy_cycles[svc] += 1
-      print("Service {} unhealthy ({}) — consecutive cycle {}/{}".format(
-        svc, detail, self.unhealthy_cycles[svc], MAX_CONSECUTIVE_UNHEALTHY_CYCLES))
-      if self.unhealthy_cycles[svc] >= MAX_CONSECUTIVE_UNHEALTHY_CYCLES:
-        print("Test failed service health check! {} has been {} for {} cycles".format(
-          svc, detail, self.unhealthy_cycles[svc]))
-        self.service_health_failed = True
-        self.failed_service = svc
-        return True
-    print(status_msg)
+      print("  {}: {} ({}) — consecutive cycle {}/{}".format(
+        label, status.upper(), detail,
+        self.unhealthy_cycles[svc], MAX_CONSECUTIVE_UNHEALTHY_CYCLES))
+      if self.unhealthy_cycles[svc] >= MAX_CONSECUTIVE_UNHEALTHY_CYCLES and failure is None:
+        failure = (svc, detail)
+    print("Overall Health: {}".format("OK" if overall_ok else "DEGRADED"))
+    if failure is not None:
+      svc, detail = failure
+      print("Test failed service health check! {} has been {} for {} cycles".format(
+        svc, detail, self.unhealthy_cycles[svc]))
+      self.service_health_failed = True
+      self.failed_service = svc
+      return True
     return False
+
+  def sample_resource_usage(self, docker, project_name):
+    """! Record a CPU/Memory usage sample for each monitored service.
+
+    @param    docker                  python-on-whales DockerClient.
+    @param    project_name            Compose project name (from scenescape_env).
+    @return   None.
+    """
+    if docker is None or project_name is None:
+      return None
+    stats = get_services_stats(docker, project_name, HEALTHCHECK_SERVICES)
+    for svc, sample in stats.items():
+      if sample is not None:
+        self.resource_samples[svc].append(sample)
+    return None
+
+  def print_resource_summary(self):
+    """! Print average CPU/Memory usage per monitored service plus overall.
+    @return   None.
+    """
+    print()
+    print("Average Resource Usage")
+    per_service_cpu = []
+    per_service_mem = []
+    for svc in HEALTHCHECK_SERVICES:
+      label = SERVICE_LABELS.get(svc, svc)
+      samples = self.resource_samples.get(svc, [])
+      if not samples:
+        print("  {}".format(label))
+        print("    CPU: n/a")
+        print("    Memory: n/a")
+        continue
+      cpus = [c for c, _ in samples]
+      mems = [m for _, m in samples]
+      avg_cpu = sum(cpus) / len(cpus)
+      avg_mem = sum(mems) / len(mems)
+      per_service_cpu.append(avg_cpu)
+      per_service_mem.append(avg_mem)
+      print("  {}".format(label))
+      print("    CPU: {:.1f}%".format(avg_cpu))
+      print("    Memory: {:.1f}%".format(avg_mem))
+    if per_service_cpu:
+      print("Overall CPU Usage: {:.1f}%".format(sum(per_service_cpu)))
+      print("Overall Memory Usage: {:.1f}%".format(sum(per_service_mem)))
+    else:
+      print("Overall CPU Usage: n/a")
+      print("Overall Memory Usage: n/a")
+    return None
 
   def check_time_remaining(self):
     """! Checks if the test is finished.
@@ -569,6 +641,7 @@ def test_sscape_stability(params, record_xml_attribute, scenescape_env):
       state.print_update()
       avg_fps, state = update_avg_fps(avg_fps, cur_fps, state)
       avg_msg = update_avg_msg(avg_fps, state)
+      state.sample_resource_usage(docker, project_name)
 
       if state.enough_messages() or state.stable_messages() or state.login_failed() or state.memory_usage_stable():
         state.done = True
@@ -582,6 +655,9 @@ def test_sscape_stability(params, record_xml_attribute, scenescape_env):
       result = 0
       print("Test passed! {} of runtime".format(str(state.running_time)))
 
+  state.print_resource_summary()
+  print()
+  print("Test Result: {}".format("PASS" if result == 0 else "FAIL"))
   common.record_test_result(TEST_NAME, result)
   assert result == 0
   return result

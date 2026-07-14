@@ -38,6 +38,8 @@ def _find_firefox_binary():
   candidates = [
     os.environ.get("FIREFOX_BIN"),
     "/snap/firefox/current/usr/lib/firefox/firefox",
+    "/usr/lib/firefox-esr/firefox-esr",
+    "/usr/lib/firefox/firefox",
     "/usr/bin/firefox",
     "/usr/bin/firefox-esr",
     which("firefox"),

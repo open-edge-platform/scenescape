@@ -78,6 +78,32 @@ def check_services_health(docker, project_name, services):
   }
 
 
+def get_services_stats(docker, project_name, services):
+  """Return a mapping of {service: (cpu_pct, mem_pct)} sampled via docker stats.
+
+  Services whose containers are missing or that fail to sample are returned
+  as ``None`` so callers can decide how to handle skipped entries.
+  """
+  result = {svc: None for svc in services}
+  wanted = {f"{project_name}-{svc}-1": svc for svc in services}
+  try:
+    stats = docker.container.stats(containers=list(wanted.keys()))
+  except Exception as exc:  # container missing, docker down, etc.
+    log.debug("docker stats sampling failed: %s", exc)
+    return result
+  for entry in stats:
+    svc = wanted.get(getattr(entry, "container_name", None))
+    if svc is None:
+      continue
+    try:
+      cpu = float(entry.cpu_percentage)
+      mem = float(entry.memory_percentage)
+    except (AttributeError, TypeError, ValueError):
+      continue
+    result[svc] = (cpu, mem)
+  return result
+
+
 def container_is_ready(docker, project_name, service, log_pattern, since=None):
   """Check if a container's logs contain the readiness pattern.
 
