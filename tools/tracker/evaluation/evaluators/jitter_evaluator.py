@@ -13,6 +13,8 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 
 from base.tracker_evaluator import TrackerEvaluator
+
+
 class JitterEvaluator(TrackerEvaluator):
   """Evaluator for tracker smoothness metrics based on position and rotation.
 

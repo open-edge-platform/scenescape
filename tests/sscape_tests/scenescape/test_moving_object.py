@@ -182,6 +182,20 @@ class TestMovingObject:
     mock_rotation_to_target.assert_not_called()
     assert obj.rotation == original_rotation
 
+  def test_infer_rotation_from_velocity_hysteresis_stays_off_between_thresholds_when_inactive(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    obj = MovingObject(_base_info(), when, _camera())
+    obj.rotation_from_velocity = True
+    obj.velocity = Point((SPEED_THRESHOLD_ON + SPEED_THRESHOLD_OFF) / 2.0, 0.0, 0.0)
+    original_rotation = list(obj.rotation)
+
+    with patch('controller.moving_object.rotationToTarget') as mock_rotation_to_target:
+      obj.inferRotationFromVelocity()
+
+    mock_rotation_to_target.assert_not_called()
+    assert obj.rotation == original_rotation
+    assert not bool(obj._rotation_from_velocity_active)
+
   def test_infer_rotation_from_velocity_hysteresis_uses_off_threshold_when_active(self):
     when = datetime.datetime.now(datetime.timezone.utc)
     obj = MovingObject(_base_info(), when, _camera())
