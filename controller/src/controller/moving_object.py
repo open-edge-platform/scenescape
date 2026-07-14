@@ -191,6 +191,7 @@ class MovingObject:
     self.last_seen = None
     self.camera = camera
     self.info = info.copy()
+    self.has_detection_rotation = 'rotation' in self.info
 
     self.category = self.info.get('category', 'object')
     self.boundingBox = None
@@ -315,7 +316,8 @@ class MovingObject:
     self.gid = otherObj.gid
     self.first_seen = otherObj.first_seen
     self.frameCount = otherObj.frameCount + 1
-    self.rotation = list(otherObj.rotation)
+    if self.rotation_from_velocity and not self.has_detection_rotation:
+      self.rotation = list(otherObj.rotation)
     self._rotation_from_velocity_active = getattr(otherObj, '_rotation_from_velocity_active', False)
     self.reid_state = otherObj.reid_state
     self.similarity = otherObj.similarity
@@ -326,7 +328,7 @@ class MovingObject:
     return
 
   def inferRotationFromVelocity(self):
-    if self.rotation_from_velocity and self.velocity:
+    if not self.has_detection_rotation and self.rotation_from_velocity and self.velocity:
       speed = np.linalg.norm([self.velocity.x, self.velocity.y, self.velocity.z])
       if self._rotation_from_velocity_active:
         self._rotation_from_velocity_active = speed > SPEED_THRESHOLD_OFF

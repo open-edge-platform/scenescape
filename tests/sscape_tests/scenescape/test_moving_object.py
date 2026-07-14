@@ -23,7 +23,7 @@ def _camera():
   return SimpleNamespace(cameraID='cam-1')
 
 
-def _base_info(*, object_id='obj-1', metadata=None):
+def _base_info(*, object_id='obj-1', metadata=None, rotation=None):
   info = {
     'id': object_id,
     'category': 'person',
@@ -32,6 +32,8 @@ def _base_info(*, object_id='obj-1', metadata=None):
   }
   if metadata is not None:
     info['metadata'] = metadata
+  if rotation is not None:
+    info['rotation'] = rotation
   return info
 
 
@@ -141,6 +143,7 @@ class TestMovingObject:
     previous_obj.first_seen = when
     previous_obj.frameCount = 3
     previous_obj.rotation = [0.0, 0.0, 1.0, 0.0]
+    current_obj.rotation_from_velocity = True
 
     current_obj.setPrevious(previous_obj)
 
@@ -152,6 +155,44 @@ class TestMovingObject:
     assert current_obj.rotation is not previous_obj.rotation
     assert current_obj.chain_data.persist['attr']['a'] == 'old'
     assert current_obj.chain_data.persist['attr']['b'] == 'old-b'
+
+  def test_set_previous_preserves_detector_rotation_when_velocity_rotation_enabled(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    bounds = Rectangle({'x': 0.0, 'y': 0.0, 'width': 1.0, 'height': 1.0})
+    detector_rotation = [0.0, 0.0, 0.707, 0.707]
+
+    current_obj = MovingObject(
+      _base_info(object_id='obj-current', rotation=detector_rotation), when, _camera()
+    )
+    current_obj.location = [Chronoloc(Point(1.0, 1.0, 0.0), when, bounds)]
+    current_obj.rotation = detector_rotation
+    current_obj.rotation_from_velocity = True
+
+    previous_obj = MovingObject(_base_info(object_id='obj-prev'), when, _camera())
+    previous_obj.location = [Chronoloc(Point(2.0, 2.0, 0.0), when, bounds)]
+    previous_obj.setGID('gid-1')
+    previous_obj.rotation = [0.0, 0.0, 1.0, 0.0]
+
+    current_obj.setPrevious(previous_obj)
+
+    assert current_obj.rotation_from_velocity
+    assert current_obj.has_detection_rotation
+    assert current_obj.rotation == detector_rotation
+
+  def test_infer_rotation_from_velocity_preserves_detector_rotation(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    detector_rotation = [0.0, 0.0, 0.707, 0.707]
+    obj = MovingObject(_base_info(rotation=detector_rotation), when, _camera())
+    obj.rotation = detector_rotation
+    obj.rotation_from_velocity = True
+    obj.velocity = Point(SPEED_THRESHOLD_ON + 0.01, 0.0, 0.0)
+
+    with patch('controller.moving_object.rotationToTarget') as mock_rotation_to_target:
+      obj.inferRotationFromVelocity()
+
+    mock_rotation_to_target.assert_not_called()
+    assert not obj._rotation_from_velocity_active
+    assert obj.rotation == detector_rotation
 
   def test_infer_rotation_from_velocity_applies_quaternion_above_threshold(self):
     when = datetime.datetime.now(datetime.timezone.utc)
