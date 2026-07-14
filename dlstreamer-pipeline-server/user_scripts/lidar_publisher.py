@@ -520,10 +520,15 @@ def main() -> None:
         lidar_counts = {k: len(v) for k, v in lidar_msg["objects"].items()}
         cam_counts = {k: len(v) for k, v in _cam_last_objects[0].items()}
         # cam_frame_count is accumulated the same way published is (both counts
-        # are already incremented for the current frame at this point), so any
-        # gap between the two numbers is real drift between the two independent
-        # gst-launch chains — not a display artifact.
-        cam_info = f" cam={_cam_frame_count[0]} cam_objs={cam_counts}"
+        # are already incremented for the current frame at this point). In
+        # steady state cam trails published by a small, stable lag (typically
+        # 1 frame): the camera branch's gvadetect (CPU) finishes a given frame
+        # index slightly after the LiDAR branch's g3dinference (GPU) does, so
+        # that frame is still in flight when this drain runs. A lag that stays
+        # flat is expected pipeline latency, not drift; a lag that keeps
+        # growing over time would indicate the camera branch is falling behind.
+        cam_lag = published - _cam_frame_count[0]
+        cam_info = f" cam={_cam_frame_count[0]} (lag={cam_lag}) cam_objs={cam_counts}"
         print(
           f"[lidar-publisher] frames={published} fps={fps:.1f}"
           f" lidar={lidar_counts}{cam_info}",
