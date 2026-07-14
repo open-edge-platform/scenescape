@@ -408,7 +408,7 @@ setup-pytest:
 	fi
 
 .PHONY: run_tests
-run_tests: setup-tests setup-pytest
+run_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -418,7 +418,7 @@ run_tests: setup-tests setup-pytest
 	@echo "DONE ==> Running tests"
 
 .PHONY: run_standard_tests
-run_standard_tests: setup-tests setup-pytest
+run_standard_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running standard tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -427,7 +427,7 @@ run_standard_tests: setup-tests setup-pytest
 	@echo "DONE ==> Running standard tests"
 
 .PHONY: run_functional_tests
-run_functional_tests: setup-tests setup-pytest
+run_functional_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running functional tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -441,7 +441,7 @@ run_non_functional_tests: init-secrets .env
 	@echo "DONE ==> Running non-functional tests"
 
 .PHONY: run_ui_tests
-run_ui_tests: setup-tests setup-pytest
+run_ui_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running UI tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
@@ -449,24 +449,22 @@ run_ui_tests: setup-tests setup-pytest
 	@echo "DONE ==> Running UI tests"
 
 .PHONY: run_unit_tests
-run_unit_tests: setup-tests setup-pytest
+run_unit_tests: init-secrets setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests..."
 	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
 	@echo "DONE ==> Running unit tests"
 
 .PHONY: run_basic_acceptance_tests
-run_basic_acceptance_tests: setup-tests setup-pytest
+run_basic_acceptance_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running basic acceptance tests..."
 	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
-		$(PYTEST) $(TESTS_DIR)/functional/ $(TESTS_DIR)/ui/ \
-		$(TESTS_DIR)/security/system/ $(TESTS_DIR)/system/stability/ \
-		$(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Basic acceptance tests failed" && exit 1)
+		$(PYTEST) $(TESTS_DIR) -m basic_acceptance $(PYTEST_FLAGS) || (echo "Basic acceptance tests failed" && exit 1)
 	@echo "DONE ==> Running basic acceptance tests"
 
 .PHONY: run_stability_tests
-run_stability_tests: setup-tests setup-pytest
+run_stability_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	$(eval HOURS ?= 24)
 	@echo "Running stability tests..."
@@ -479,7 +477,7 @@ run_stability_tests: setup-tests setup-pytest
 
 TEST_DATA ?= test_data
 .PHONY: run_performance_tests
-run_performance_tests: setup-tests setup-pytest
+run_performance_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running performance tests..."
 	$(MAKE) _run_performance_tests SUPASS=$(SUPASS) || (echo "Performance tests failed" && exit 1)
@@ -505,7 +503,7 @@ geometry-conformance:
 GENERATE_JUNITXML = -o junit_logging=all --junitxml tests/reports/test_reports/$@.xml
 
 .PHONY: run_metric_tests
-run_metric_tests: setup-tests setup-pytest
+run_metric_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running metric tests..."
 	$(MAKE) -j $(NPROCS) _run_metric_tests SUPASS=$(SUPASS) || (echo "Metric tests failed" && exit 1)
