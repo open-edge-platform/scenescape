@@ -25,6 +25,7 @@ def test_sensor_area_main(params, record_xml_attribute):
   TEST_NAME = "NEX-T10401"
   record_xml_attribute("name", TEST_NAME)
   exit_code = 1
+  browser = None
   try:
     print("Executing: " + TEST_NAME)
     print("Test measurement area configuration for a sensor")
@@ -53,46 +54,34 @@ def test_sensor_area_main(params, record_xml_attribute):
     validate_polygon_sensor_area(browser)
     exit_code = 0
   finally:
-    common.delete_sensor(browser, sensor_name)
-    browser.close()
+    if browser is not None:
+      common.delete_sensor(browser, sensor_name)
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
     assert exit_code == 0
   return
 
 def validate_polygon_sensor_area(browser):
   browser.find_element(By.ID, "id_area_2").click()
-  svg = browser.find_element(By.ID, "svgout")
+  WebDriverWait(browser, 10).until(
+      EC.presence_of_element_located((By.ID, "svgout")))
   time.sleep(1)
-  action = browser.actionChains()
-  action.drag_and_drop_by_offset(svg, 50, -50)
-  action.perform()
-  action.click()
 
-  action2 = browser.actionChains()
-  action2.move_by_offset(70, 50).perform()
-  time.sleep(1)
-  action2.click()
-
-  action2.move_by_offset(0, 80).perform()
-  time.sleep(1)
-  action2.click()
-
-  action2.move_by_offset(50, -80).perform()
-  time.sleep(1)
-  action2.click()
+  # Draw a polygon by dispatching mouseup events directly to the SVG at exact coordinates.
+  vertex_offsets = [(60, 60), (160, 60), (160, 160), (60, 160)]
+  draw_polygon_via_events(browser, vertex_offsets)
 
   polygon_list = browser.find_elements_with_wait(By.TAG_NAME, "polygon")
   polygon_points = polygon_list[-1].get_attribute("points")
   p_list = list(map(float, polygon_points.split(",")))
-  all_points = browser.find_elements_with_wait(By.CLASS_NAME, "vertex")
-  save_polygon = browser.find_element(By.NAME, "save")
-  for point in all_points:
-    if float(point.get_attribute("cx")) == p_list[0] and float(point.get_attribute("cy")) == p_list[1]:
-      point.click()
-      print(f"POLYGON with 3 points created \n{p_list}")
-      save_polygon.click()
-      time.sleep(3)
-      break
+  expected_len = len(vertex_offsets) * 2
+  assert len(p_list) == expected_len, (
+    f"Expected {len(vertex_offsets)} vertices ({expected_len} coords), got {p_list}"
+  )
+  print(f"POLYGON with {len(p_list) // 2} points created \n{p_list}")
+
+  browser.find_element(By.NAME, "save").click()
+  time.sleep(3)
 
   verify_polygon = browser.find_elements_with_wait(By.TAG_NAME, "polygon")
   verify_points = verify_polygon[-1].get_attribute("points")
@@ -100,6 +89,37 @@ def validate_polygon_sensor_area(browser):
   assert p_list == verify_list
   print("POLYGON area configuration persists")
   return
+
+def draw_polygon_via_events(browser, vertex_offsets):
+  """! Draws and closes a polygon on the sensor SVG using synthetic mouseup events.
+
+  Each offset is relative to the top-left of the #svgout element and matches the
+  coordinate the Snap.svg handler records (pageX/pageY minus the SVG offset). The
+  polygon is closed by dispatching a final mouseup on the start-point vertex,
+  which triggers closePolygon() and serializes the ROI into the form for saving.
+
+  @param    browser                 Object wrapping the Selenium driver.
+  @param    vertex_offsets          List of (dx, dy) offsets for each vertex.
+  """
+  script = """
+    const svg = document.getElementById('svgout');
+    const offsets = arguments[0];
+    const rect = svg.getBoundingClientRect();
+    const fire = (el, x, y) => el.dispatchEvent(new MouseEvent('mouseup', {
+      bubbles: true, cancelable: true, view: window, clientX: x, clientY: y,
+    }));
+    for (const [dx, dy] of offsets) {
+      fire(svg, rect.left + dx, rect.top + dy);
+    }
+    const start = svg.querySelector('.start-point');
+    if (start) {
+      const r = start.getBoundingClientRect();
+      fire(start, r.left + r.width / 2, r.top + r.height / 2);
+    }
+  """
+  browser.execute_script(script, [list(v) for v in vertex_offsets])
+  WebDriverWait(browser, 10).until(
+      lambda b: len(b.find_elements(By.CLASS_NAME, "vertex")) >= len(vertex_offsets))
 
 def validate_circular_sensor_area(browser):
   browser.find_element(By.ID, "id_area_1").click()
