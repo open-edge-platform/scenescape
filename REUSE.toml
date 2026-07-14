@@ -7,6 +7,7 @@ version = 1
 path = [
   "docs/doxygen/Doxyfile.common",
   "docs/doxygen/api_docs",
+  "controller/src/controller.egg-info",
   "manager/src/static/site.webmanifest",
   "tests/security/fuzzing/token",
   "**/*.env",
