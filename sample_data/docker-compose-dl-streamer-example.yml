@@ -340,6 +340,7 @@ services:
       - http_proxy=${http_proxy}
       - NO_PROXY=mediaserver,${NO_PROXY}
       - no_proxy=mediaserver,${no_proxy}
+      - GST_PLUGIN_PATH=/home/pipeline-server/user_scripts/gstanalytics/sscape
     configs:
       - source: retail-config
         target: /home/pipeline-server/config.json

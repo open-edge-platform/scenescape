@@ -81,7 +81,9 @@
             "camera_config": {
               "cameraid": "atag-qcam1",
               "metadatagenpolicy": "detectionPolicy",
-              "detection_labels": ["person"]
+              "detection_labels": [
+                "person"
+              ]
             }
           }
         }
@@ -89,7 +91,7 @@
       {
         "name": "qcam2",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam2 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! gvapython class=PostDecodeTimestampCapture function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=timesync ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam2 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/intel/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! gvapython class=PostInferenceDataPublish function=processFrame module=/home/pipeline-server/user_scripts/gvapython/sscape/sscape_adapter.py name=datapublisher ! gvametapublish name=destination ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
@@ -97,29 +99,16 @@
             "ntp_config": {
               "element": {
                 "name": "timesync",
-                "property": "kwarg",
-                "format": "json"
+                "property": "ntp-server"
               },
-              "type": "object",
-              "properties": {
-                "ntpServer": {
-                  "type": "string"
-                }
-              }
+              "type": "string"
             },
             "frame_ntp_config": {
               "element": {
                 "name": "timesync",
-                "property": "kwarg",
-                "format": "json"
+                "property": "use-frame-ntp-timestamp"
               },
-              "type": "object",
-              "properties": {
-                "useFrameNtpTimestamp": {
-                  "type": "boolean",
-                  "description": "When true, use the NTP timestamp embedded in the RTSP frame metadata instead of the post-decode system time."
-                }
-              }
+              "type": "boolean"
             },
             "camera_config": {
               "element": {
@@ -162,7 +151,9 @@
             "camera_config": {
               "cameraid": "atag-qcam2",
               "metadatagenpolicy": "detectionPolicy",
-              "detection_labels": ["person"]
+              "detection_labels": [
+                "person"
+              ]
             }
           }
         }

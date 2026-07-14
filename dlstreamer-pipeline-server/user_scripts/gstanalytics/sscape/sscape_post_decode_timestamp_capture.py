@@ -1,212 +1,258 @@
-# SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+"""SceneScape custom GStreamer element that captures post-decode timestamps.
+
+Ported from the gvapython class ``PostDecodeTimestampCapture`` in
+``sscape_adapter.py``. It attaches a GVA JSON message to each buffer that
+contains:
+
+  * ``postdecode_timestamp`` - UTC ISO 8601 string (from system time,
+    NTP-offset corrected, or from the RTSP frame's NTP reference meta)
+  * ``timestamp_for_next_block`` - float seconds since the epoch
+  * ``fps`` - smoothed frames-per-second estimate
+
+Downstream gvapython / gvametaconvert elements can consume the message
+via the standard GVA JSON meta API.
+"""
 
 import json
 import logging
-import os
 import time
 from datetime import datetime
-from uuid import getnode as get_mac
 from typing import Optional
-
-import ntplib
-from gi.repository import Gst
-from gstgva.video_frame import VideoFrame
-from pytz import timezone
 
 import gi
 
 gi.require_version("Gst", "1.0")
 gi.require_version("GstBase", "1.0")
-gi.require_version("GstAnalytics", "1.0")
 from gi.repository import (  # pylint: disable=no-name-in-module
-    Gst,
-    GstBase,
-    GObject,
-    GLib,
-    GstAnalytics,
+  Gst,
+  GstBase,
+  GObject,
 )
+
+import ntplib
+from pytz import timezone
+from gstgva.video_frame import VideoFrame
 
 Gst.init_python()
 
-ROOT_CA = os.environ.get("ROOT_CA", "/run/secrets/certs/scenescape-ca.pem")
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
 TIMEZONE = "UTC"
-
-class AgeLogger(GstBase.BaseTransform):
-  """DLStreamer custom element to log detected ages from classification metadata."""
-
-    # Age-group labels produced by the fairface age model, e.g. "0-2", "3-9",
-    # "20-29", "more than 70". Used to skip ClsMtd produced by other classifier
-    # stages in the same pipeline (e.g. gender: "Male"/"Female").
-    _AGE_LABEL_RE = re.compile(r"^(\d+-\d+|more than \d+)$")
-
-    __gstmetadata__ = (
-        "GVA Age Logger Python",
-        "Transform",
-        "Log detected ages from classification metadata to a file",
-        "Intel DLStreamer",
-    )
-
-    __gsttemplates__ = (
-        Gst.PadTemplate.new(
-            "src", Gst.PadDirection.SRC, Gst.PadPresence.ALWAYS, Gst.Caps.new_any()
-        ),
-        Gst.PadTemplate.new(
-            "sink", Gst.PadDirection.SINK, Gst.PadPresence.ALWAYS, Gst.Caps.new_any()
-        ),
-    )
-
-    # Element properties: default values and setters/getters
-    _log_file_path = os.path.join(tempfile.gettempdir(), "age_log.txt")
-
-    @GObject.Property(type=str)
-    def log_file_path(self):
-        "Path to the log file for age values."
-        return self._log_file_path
-
-    @log_file_path.setter
-    def log_file_path(self, value):
-        self._log_file_path = value
-
-    def __init__(self):
-        super().__init__()
-        self._log_file = None
-
-    def do_start(self):  # pylint: disable=arguments-differ
-        """Open log file when element starts."""
-        self._log_file = open(  # pylint: disable=consider-using-with
-            self._log_file_path, "a", encoding="utf-8"
-        )
-        return True
-
-    def do_stop(self):  # pylint: disable=arguments-differ
-        """Close log file when element stops."""
-        if self._log_file:
-            self._log_file.close()
-            self._log_file = None
-        return True
-
-    def do_transform_ip(self, buffer):  # pylint: disable=arguments-differ
-        """Read classification metadata and log age values to file."""
-        rmeta = GstAnalytics.buffer_get_analytics_relation_meta(buffer)
-        if not rmeta:
-            return Gst.FlowReturn.OK
-
-        for mtd in rmeta:
-            if isinstance(mtd, GstAnalytics.ClsMtd):
-                # Pick the top-1 class only (highest confidence) to avoid
-                # logging every candidate label for the same ROI.
-                if mtd.get_length() == 0:
-                    continue
-                quark = mtd.get_quark(0)
-                if not quark:
-                    continue
-                label = GLib.quark_to_string(quark)
-                # The fairface age model emits age-group labels such as
-                # "0-2", "3-9", ..., "20-29", "more than 70". Filter out
-                # ClsMtd from other classifier stages (e.g. gender) by
-                # matching the expected age-group format.
-                if label and self._AGE_LABEL_RE.match(label):
-                    self._log_file.write(label + "\n")
-
-        return Gst.FlowReturn.OK
+NTP_RESYNC_INTERVAL_S = 1000
+NTP_CAPS_STRING = "timestamp/x-ntp"
 
 
-GObject.type_register(AgeLogger)
-__gstelementfactory__ = ("sscape_timestamp_capture", Gst.Rank.NONE, AgeLogger)
+class PostDecodeTimestampCapture(GstBase.BaseTransform):
+  """Attach post-decode timestamp and FPS metadata to each buffer."""
 
-class PostDecodeTimestampCapture:
-  def __init__(self, ntpServer=None, useFrameNtpTimestamp=False):
-    self.log = logging.getLogger('SSCAPE_ADAPTER')
-    self.log.setLevel(logging.INFO)
-    self.ntpClient = ntplib.NTPClient()
-    self.ntpServer = ntpServer
-    self.use_frame_ntp_timestamp = useFrameNtpTimestamp
-    self.lastTimeSync = None
-    self.timeOffset = 0
-    self.timestamp_for_next_block = None
-    self.fps = 5.0
-    self.fps_alpha = 0.75 # for weighted average
-    self.last_calculated_fps_ts = None
-    self.fps_calc_interval = 1 # calculate fps every 1s
-    self.frame_cnt = 0
-    self._ntp_caps = Gst.Caps.from_string("timestamp/x-ntp")
+  __gstmetadata__ = (
+    "SceneScape Post-Decode Timestamp Capture",
+    "Filter/Metadata/Video",
+    "Capture post-decode timestamp and FPS; publish as GVA JSON message",
+    "Intel SceneScape",
+  )
+
+  __gsttemplates__ = (
+    Gst.PadTemplate.new(
+      "src", Gst.PadDirection.SRC, Gst.PadPresence.ALWAYS, Gst.Caps.new_any()
+    ),
+    Gst.PadTemplate.new(
+      "sink", Gst.PadDirection.SINK, Gst.PadPresence.ALWAYS, Gst.Caps.new_any()
+    ),
+  )
+
+  __gproperties__ = {
+    "ntp-server": (
+      str,
+      "NTP server host",
+      "Hostname of an NTP server used to periodically recompute the "
+      "system-clock offset. Unset or empty disables NTP correction.",
+      None,
+      GObject.ParamFlags.READWRITE,
+    ),
+    "use-frame-ntp-timestamp": (
+      bool,
+      "Use frame NTP timestamp",
+      "When true, use the NTP timestamp from GstReferenceTimestampMeta "
+      "attached by rtspsrc (add-reference-timestamp-meta=true). If the "
+      "meta is missing, fall back to post-decode system time.",
+      False,
+      GObject.ParamFlags.READWRITE,
+    ),
+    "fps-alpha": (
+      float,
+      "FPS smoothing factor",
+      "Weight for the previous FPS estimate in the running average "
+      "(0.0 = no smoothing, closer to 1.0 = heavier smoothing).",
+      0.0, 1.0, 0.75,
+      GObject.ParamFlags.READWRITE,
+    ),
+    "fps-calc-interval": (
+      float,
+      "FPS calculation interval (seconds)",
+      "Minimum elapsed wall-clock time between FPS recomputations.",
+      0.01, 60.0, 1.0,
+      GObject.ParamFlags.READWRITE,
+    ),
+  }
+
+  def __init__(self):
+    super().__init__()
+    self.set_in_place(True)
+    self.set_passthrough(False)
+
+    self._log = logging.getLogger("SSCAPE_TS_CAPTURE")
+
+    # Properties (defaults)
+    self._ntp_server: Optional[str] = None
+    self._use_frame_ntp: bool = False
+    self._fps_alpha: float = 0.75
+    self._fps_calc_interval: float = 1.0
+
+    # Runtime state
+    self._ntp_client = ntplib.NTPClient()
+    self._last_time_sync: Optional[float] = None
+    self._time_offset: float = 0.0
+
+    self._fps: float = 5.0
+    self._last_calc_ts: Optional[float] = None
+    self._frame_cnt: int = 0
+
+    self._sink_caps: Optional[Gst.Caps] = None
+    self._ntp_caps = Gst.Caps.from_string(NTP_CAPS_STRING)
     if not self._ntp_caps:
-      self.log.error("Failed to create caps for timestamp/x-ntp")
-      return None
+      self._log.error("Failed to build caps for %s", NTP_CAPS_STRING)
 
-  def _extract_ntp_timestamp(self, frame: VideoFrame) -> Optional[str]:
-    """Extract the NTP timestamp embedded in the video frame's GStreamer reference metadata.
+  # ------------------------------------------------------------------
+  # GObject property plumbing
+  # ------------------------------------------------------------------
 
-    Retrieves the NTP reference timestamp attached by rtspsrc (via
-    add-reference-timestamp-meta=true) and converts it to a UTC ISO 8601
-    string. Returns None when the metadata is absent or cannot be parsed,
-    allowing the caller to fall back to an alternative timestamp source.
+  def do_get_property(self, prop):  # pylint: disable=arguments-differ
+    name = prop.name
+    if name == "ntp-server":
+      return self._ntp_server
+    if name == "use-frame-ntp-timestamp":
+      return self._use_frame_ntp
+    if name == "fps-alpha":
+      return self._fps_alpha
+    if name == "fps-calc-interval":
+      return self._fps_calc_interval
+    raise AttributeError(f"Unknown property {name}")
 
-    Args:
-        frame: GVA VideoFrame whose underlying GstBuffer may carry
-               a GstReferenceTimestampMeta with caps matching _NTP_CAPS ("timestamp/x-ntp").
+  def do_set_property(self, prop, value):  # pylint: disable=arguments-differ
+    name = prop.name
+    if name == "ntp-server":
+      self._ntp_server = value or None
+    elif name == "use-frame-ntp-timestamp":
+      self._use_frame_ntp = bool(value)
+    elif name == "fps-alpha":
+      self._fps_alpha = float(value)
+    elif name == "fps-calc-interval":
+      self._fps_calc_interval = float(value)
+    else:
+      raise AttributeError(f"Unknown property {name}")
 
-    Returns:
-        str: UTC ISO 8601 timestamp string (e.g. "2026-05-13T06:35:01.123Z"),
-             or None if the NTP metadata is missing or invalid.
-    """
-    # gstgva.VideoFrame has no public API to retrieve the underlying Gst.Buffer.
-    # The buffer is stored only as the name-mangled private attribute __buffer.
-    # getattr with a None default ensures graceful fallback if the internal name
-    # changes in a future gstgva release.
-    gst_buffer = getattr(frame, "_VideoFrame__buffer", None)
+  # ------------------------------------------------------------------
+  # BaseTransform overrides
+  # ------------------------------------------------------------------
 
-    if not gst_buffer:
-      self.log.debug("No GstBuffer found in frame, using fallback timestamp")
-      return None
-
-    if not self._ntp_caps:
-      return None
-
-    ntp_meta = gst_buffer.get_reference_timestamp_meta(self._ntp_caps)
-    if not ntp_meta:
-      self.log.debug("No NTP timestamp metadata found, using fallback timestamp")
-      return None
-
-    # Convert NTP timestamp (nanoseconds) to system time
-    ntp_timestamp_seconds = ntp_meta.timestamp / 1e9
-    system_timestamp = ntplib.ntp_to_system_time(ntp_timestamp_seconds)
-    ntp_datetime_utc = datetime.fromtimestamp(system_timestamp)
-    ntp_datetime_local = ntp_datetime_utc.astimezone(timezone(TIMEZONE))
-    self.log.debug(f"NTP={ntp_datetime_utc}, delta={time.time() - system_timestamp}, raw_ts={ntp_timestamp_seconds}")
-    return f"{ntp_datetime_local.strftime(DATETIME_FORMAT)[:-3]}Z"
-
-  def processFrame(self, frame: VideoFrame) -> bool:
-    now = time.time()
-    self.frame_cnt += 1
-    if not self.last_calculated_fps_ts:
-      self.last_calculated_fps_ts = now
-    if (now - self.last_calculated_fps_ts) > self.fps_calc_interval:
-      self.fps = self.fps * self.fps_alpha + (1 - self.fps_alpha) * (self.frame_cnt / (now - self.last_calculated_fps_ts))
-      self.last_calculated_fps_ts = now
-      self.frame_cnt = 0
-
-    if self.ntpServer:
-      # if ntpServer is available, check if it is time to recalibrate
-      if not self.lastTimeSync or now - self.lastTimeSync > 1000 :
-        response = self.ntpClient.request(host=self.ntpServer, port=123)
-        self.timeOffset = response.offset
-        self.lastTimeSync = now
-
-    now += self.timeOffset
-    self.timestamp_for_next_block = now
-
-    postdecode_timestamp = f"{datetime.fromtimestamp(now, tz=timezone(TIMEZONE)).strftime(DATETIME_FORMAT)[:-3]}Z"
-    if self.use_frame_ntp_timestamp:
-      extracted_ntp_timestamp = self._extract_ntp_timestamp(frame)
-      if extracted_ntp_timestamp:
-        postdecode_timestamp = extracted_ntp_timestamp
-
-    frame.add_message(json.dumps({
-      'postdecode_timestamp': postdecode_timestamp,
-      'timestamp_for_next_block': now,
-      'fps': self.fps
-    }))
+  def do_set_caps(self, incaps, outcaps):  # pylint: disable=arguments-differ
+    self._sink_caps = incaps
     return True
+
+  def do_transform_ip(self, buffer):  # pylint: disable=arguments-differ
+    try:
+      self._attach_metadata(buffer)
+    except Exception:  # pylint: disable=broad-except
+      self._log.exception("Failed to attach post-decode timestamp metadata")
+    return Gst.FlowReturn.OK
+
+  # ------------------------------------------------------------------
+  # Core logic (mirrors the original gvapython class)
+  # ------------------------------------------------------------------
+
+  def _extract_ntp_timestamp(self, buffer: Gst.Buffer) -> Optional[str]:
+    """Read GstReferenceTimestampMeta with caps=timestamp/x-ntp."""
+    if not self._ntp_caps:
+      return None
+    ntp_meta = buffer.get_reference_timestamp_meta(self._ntp_caps)
+    if not ntp_meta:
+      self._log.debug("No NTP reference-timestamp meta on buffer")
+      return None
+    ntp_seconds = ntp_meta.timestamp / 1e9
+    system_ts = ntplib.ntp_to_system_time(ntp_seconds)
+    dt_utc = datetime.fromtimestamp(system_ts)
+    dt_local = dt_utc.astimezone(timezone(TIMEZONE))
+    self._log.debug(
+      "NTP=%s delta=%s raw=%s",
+      dt_utc, time.time() - system_ts, ntp_seconds,
+    )
+    return f"{dt_local.strftime(DATETIME_FORMAT)[:-3]}Z"
+
+  def _update_fps(self, now: float) -> None:
+    self._frame_cnt += 1
+    if self._last_calc_ts is None:
+      self._last_calc_ts = now
+      return
+    elapsed = now - self._last_calc_ts
+    if elapsed > self._fps_calc_interval:
+      instant = self._frame_cnt / elapsed
+      self._fps = (
+        self._fps * self._fps_alpha
+        + (1.0 - self._fps_alpha) * instant
+      )
+      self._last_calc_ts = now
+      self._frame_cnt = 0
+
+  def _maybe_sync_ntp(self, now: float) -> None:
+    if not self._ntp_server:
+      return
+    if (
+      self._last_time_sync is not None
+      and now - self._last_time_sync <= NTP_RESYNC_INTERVAL_S
+    ):
+      return
+    try:
+      response = self._ntp_client.request(host=self._ntp_server, port=123)
+      self._time_offset = response.offset
+      self._last_time_sync = now
+    except Exception as exc:  # pylint: disable=broad-except
+      self._log.warning(
+        "NTP sync with %s failed: %s", self._ntp_server, exc,
+      )
+
+  def _attach_metadata(self, buffer: Gst.Buffer) -> None:
+    now = time.time()
+    self._update_fps(now)
+    self._maybe_sync_ntp(now)
+
+    adjusted = now + self._time_offset
+    postdecode_ts = (
+      f"{datetime.fromtimestamp(adjusted, tz=timezone(TIMEZONE))"
+      f".strftime(DATETIME_FORMAT)[:-3]}Z"
+    )
+
+    if self._use_frame_ntp:
+      frame_ntp = self._extract_ntp_timestamp(buffer)
+      if frame_ntp:
+        postdecode_ts = frame_ntp
+
+    payload = json.dumps({
+      "postdecode_timestamp": postdecode_ts,
+      "timestamp_for_next_block": adjusted,
+      "fps": self._fps,
+    })
+
+    # Attach as GVA JSON message so downstream gvapython consumers
+    # (PostInferenceDataPublish) can read it via the standard API.
+    frame = VideoFrame(buffer, caps=self._sink_caps)
+    frame.add_message(payload)
+
+
+GObject.type_register(PostDecodeTimestampCapture)
+__gstelementfactory__ = (
+  "sscape_timestamp_capture",
+  Gst.Rank.NONE,
+  PostDecodeTimestampCapture,
+)
