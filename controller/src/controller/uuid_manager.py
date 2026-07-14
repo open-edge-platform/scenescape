@@ -118,11 +118,15 @@ class UUIDManager:
   def updateReidConfig(self, reid_config_data=None):
     """Update runtime ReID configuration without recreating the UUID manager."""
     old_interval = self.stale_feature_check_interval_secs
+    old_storage_metric_interval = getattr(self, 'storage_metric_interval_secs', None)
     self._applyReidConfig(reid_config_data)
 
     # Timer cadence changes require rescheduling the stale feature timer.
     if old_interval != self.stale_feature_check_interval_secs:
       self._rescheduleStaleFeatureTimer()
+
+    if old_storage_metric_interval != self.storage_metric_interval_secs:
+      self._rescheduleStorageMetricTimer()
 
   def _applyReidConfig(self, reid_config_data=None):
     """Apply ReID config values with defaults."""
@@ -191,6 +195,14 @@ class UUIDManager:
     self.stale_feature_timer = threading.Timer(self.stale_feature_check_interval_secs, callback)
     self.stale_feature_timer.daemon = True
     self.stale_feature_timer.start()
+
+  def _rescheduleStorageMetricTimer(self):
+    """Cancel any existing storage-metric timer and start a new one at the current interval."""
+    timer = getattr(self, 'storage_metric_timer', None)
+    if timer is not None:
+      timer.cancel()
+    self.storage_metric_timer = None
+    self._startStorageMetricTimer()
 
   def _startStorageMetricTimer(self):
     """

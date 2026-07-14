@@ -26,7 +26,7 @@ SIMILARITY_METRIC = "L2"
 # float32 rounding errors from VDMS normalization and inner-product computation.
 COSINE_SIMILARITY_TOLERANCE = 1e-6
 SCHEMA_MARKER_CLASS = "ReidSchemaMarker"
-DEFAULT_DESCRIPTOR_TTL_SECS = 60  # 60 seconds
+DEFAULT_DESCRIPTOR_TTL_SECS = int(os.getenv("DEFAULT_DESCRIPTOR_TTL_SECS", "60")) # 60 seconds
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
@@ -406,8 +406,7 @@ class VDMSDatabase(ReIDDatabase):
 
   def _recordDescriptorsAdded(self, count, measured_metadata_bytes):
     """
-    Update this process's running total of successfully written descriptors and
-    log a structured metric line for the storage-growth chart. This is a
+    Update this process's running total of successfully written descriptors. This is a
     per-instance attribution counter, not the source of truth for total DB
     size -- use getDescriptorCount() for that.
 

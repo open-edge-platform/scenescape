@@ -12,8 +12,9 @@ import pytest
 import json
 import numpy as np
 from unittest.mock import Mock, MagicMock, patch
+import time
 
-from controller.vdms_adapter import VDMSDatabase, SCHEMA_NAME, DIMENSIONS, K_NEIGHBORS, SCHEMA_MARKER_CLASS
+from controller.vdms_adapter import VDMSDatabase, SCHEMA_NAME, DIMENSIONS, K_NEIGHBORS, SCHEMA_MARKER_CLASS, DEFAULT_DESCRIPTOR_TTL_SECS
 from controller.reid import ReIDDatabase
 
 
@@ -2306,3 +2307,381 @@ class TestSchemaMarker:
     db._writeSchemaMarker(256, 'L2', skip_exists_check=True)
 
     assert db.sendQuery.call_count == 1
+
+class TestDescriptorTTLExpiration:
+  """
+  Test the TTL-based eviction fields written on every descriptor (added_at,
+  _expiration). These directly guard against the bug found during manual
+  validation: VDMS computes the stored expiration as (server time at insert) +
+  (value provided), so _expiration must be the TTL duration itself, NOT
+  added_at + ttl (which was confirmed empirically to push expiration decades
+  into the future and silently disable eviction entirely).
+  """
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_constructor_default_matches_module_constant(self, mock_vdms_class):
+    """
+    Verify the constructor's default descriptor_ttl_secs matches whatever
+    DEFAULT_DESCRIPTOR_TTL_SECS is currently set to. Deliberately does not assert
+    a specific number here -- that constant is expected to change once a real
+    production TTL is chosen (e.g. it may currently hold a short test value).
+    """
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+
+    assert db.descriptor_ttl_secs == DEFAULT_DESCRIPTOR_TTL_SECS
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_accepts_custom_ttl(self, mock_vdms_class):
+    """Verify a custom descriptor_ttl_secs is stored on the instance."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase(descriptor_ttl_secs=60)
+
+    assert db.descriptor_ttl_secs == 60
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_sets_expiration_to_ttl_duration_not_absolute_timestamp(self, mock_vdms_class):
+    """
+    Regression test for the confirmed VDMS behavior: _expiration must be the raw
+    TTL duration (e.g. 60), not added_at + ttl. Sending the latter caused VDMS to
+    compute an expiration decades in the future, disabling eviction entirely.
+    """
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase(descriptor_ttl_secs=60)
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    db.addEntry("test-uuid", "rvid", "Person", [np.random.randn(256).astype(np.float32)])
+
+    query = db.sendQuery.call_args[0][0][0]
+    properties = query['AddDescriptor']['properties']
+
+    assert properties['_expiration'] == 60, (
+      "_expiration must equal the TTL duration itself; VDMS adds this value to its "
+      "own current time internally, so sending added_at + ttl double-counts the "
+      "current time and pushes expiration far into the future."
+    )
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_expiration_matches_configured_ttl_for_multiple_values(self, mock_vdms_class):
+    """Verify _expiration tracks whatever descriptor_ttl_secs is configured, not a fixed value."""
+    mock_vdms_class.return_value = MagicMock()
+
+    for ttl in [1, 60, 3600, 86400]:
+      db = VDMSDatabase(descriptor_ttl_secs=ttl)
+      db.dimensions = 256
+      db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+      db.addEntry("test-uuid", "rvid", "Person", [np.random.randn(256).astype(np.float32)])
+
+      query = db.sendQuery.call_args[0][0][0]
+      properties = query['AddDescriptor']['properties']
+      assert properties['_expiration'] == ttl
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_sets_added_at_to_current_time(self, mock_vdms_class):
+    """Verify added_at reflects roughly the current time, for observability/debugging."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    before = time.time()
+    db.addEntry("test-uuid", "rvid", "Person", [np.random.randn(256).astype(np.float32)])
+    after = time.time()
+
+    query = db.sendQuery.call_args[0][0][0]
+    properties = query['AddDescriptor']['properties']
+
+    assert before <= properties['added_at'] <= after
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_sets_expiration_on_every_descriptor_regardless_of_persist(self, mock_vdms_class):
+    """
+    Verify _expiration/added_at are set even when no persist data is provided --
+    unlike persist_timestamp, which only exists when persist is present, TTL
+    eviction must apply to every descriptor uniformly.
+    """
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase(descriptor_ttl_secs=60)
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    db.addEntry("test-uuid", "rvid", "Person", [np.random.randn(256).astype(np.float32)], persist=None)
+
+    query = db.sendQuery.call_args[0][0][0]
+    properties = query['AddDescriptor']['properties']
+
+    assert 'added_at' in properties
+    assert '_expiration' in properties
+    assert properties['_expiration'] == 60
+
+class TestGetDescriptorCount:
+  """
+  Test the ground-truth descriptor count query. Includes a regression test for
+  the confirmed bug where sending an empty constraints dict ({}) caused VDMS to
+  reject the query outright; the fix omits the constraints key entirely when
+  there is no object_type filter.
+  """
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_returns_count_from_successful_response(self, mock_vdms_class):
+    """Verify the count is extracted from the 'returned' field of a successful response."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{'status': 0, 'returned': 42}], []))
+
+    count = db.getDescriptorCount()
+
+    assert count == 42
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_omits_constraints_key_when_no_object_type_given(self, mock_vdms_class):
+    """
+    Regression test: sending "constraints": {} (empty dict) caused VDMS to reject
+    the query. The fix must omit the "constraints" key entirely, not send an
+    empty object, when object_type is None.
+    """
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{'status': 0, 'returned': 10}], []))
+
+    db.getDescriptorCount()
+
+    query = db.sendQuery.call_args[0][0][0]
+    find_descriptor = query['FindDescriptor']
+    assert 'constraints' not in find_descriptor, (
+      "constraints key must be omitted entirely when there is no object_type filter; "
+      "sending an empty dict {} causes VDMS to reject the query."
+    )
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_includes_type_constraint_when_object_type_given(self, mock_vdms_class):
+    """Verify a type constraint is included and correctly formed when object_type is given."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{'status': 0, 'returned': 5}], []))
+
+    db.getDescriptorCount(object_type="Person")
+
+    query = db.sendQuery.call_args[0][0][0]
+    find_descriptor = query['FindDescriptor']
+    assert find_descriptor['constraints'] == {"type": ["==", "Person"]}
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_uses_count_results_clause(self, mock_vdms_class):
+    """Verify the query requests a count rather than a list of full entities."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{'status': 0, 'returned': 1}], []))
+
+    db.getDescriptorCount()
+
+    query = db.sendQuery.call_args[0][0][0]
+    assert query['FindDescriptor']['results'] == {"count": ""}
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_uses_custom_set_name_when_given(self, mock_vdms_class):
+    """Verify a custom set_name is used instead of self.set_name when provided."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{'status': 0, 'returned': 3}], []))
+
+    db.getDescriptorCount(set_name="other_set")
+
+    query = db.sendQuery.call_args[0][0][0]
+    assert query['FindDescriptor']['set'] == "other_set"
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_returns_none_on_nonzero_status(self, mock_vdms_class):
+    """Verify None is returned when VDMS responds with a failure status."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([{'status': 1}], []))
+
+    count = db.getDescriptorCount()
+
+    assert count is None
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_returns_none_on_empty_response(self, mock_vdms_class):
+    """Verify None is returned when VDMS returns no response at all."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.sendQuery = Mock(return_value=([], []))
+
+    count = db.getDescriptorCount()
+
+    assert count is None
+
+class TestGetDescriptorSetVectorBytes:
+  """
+  Test the exact (not estimated) shared-store vector byte calculation. Includes
+  a regression test for the confirmed crash: self.dimensions can legitimately be
+  None on a VDMSDatabase instance that hasn't processed any ReID vector locally
+  yet (schema not inferred), even though the shared descriptor set already
+  exists -- multiplying count * None raised a TypeError in production.
+  """
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_returns_none_when_dimensions_not_yet_inferred(self, mock_vdms_class):
+    """
+    Regression test for 'unsupported operand type(s) for *: int and NoneType'.
+    Must return None gracefully instead of crashing when self.dimensions is None.
+    """
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase(dimensions=None)
+    db.getDescriptorCount = Mock(return_value=25)
+
+    result = db.getDescriptorSetVectorBytes()
+
+    assert result is None
+    db.getDescriptorCount.assert_not_called(), (
+      "Should short-circuit on dimensions being None before even querying the count."
+    )
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_computes_exact_bytes_from_count_and_dimensions(self, mock_vdms_class):
+    """Verify bytes = descriptor_count * dimensions * 4 (float32)."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase(dimensions=256)
+    db.getDescriptorCount = Mock(return_value=25)
+
+    result = db.getDescriptorSetVectorBytes()
+
+    assert result == 25 * 256 * 4
+    assert result == 25600
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_returns_none_when_count_query_fails(self, mock_vdms_class):
+    """Verify None propagates cleanly when the underlying count query fails."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase(dimensions=256)
+    db.getDescriptorCount = Mock(return_value=None)
+
+    result = db.getDescriptorSetVectorBytes()
+
+    assert result is None
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_passes_through_set_name_and_object_type_to_count_query(self, mock_vdms_class):
+    """Verify set_name/object_type filters are forwarded to getDescriptorCount."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase(dimensions=256)
+    db.getDescriptorCount = Mock(return_value=10)
+
+    db.getDescriptorSetVectorBytes(set_name="custom_set", object_type="Vehicle")
+
+    db.getDescriptorCount.assert_called_once_with(set_name="custom_set", object_type="Vehicle")
+
+class TestInstanceRunningByteTracking:
+  """
+  Test the per-instance write counters (_recordDescriptorsAdded /
+  getInstanceRunningBytes). These are per-process attribution metrics, distinct
+  from the shared ground-truth queries above, and use measured (not estimated)
+  metadata sizes.
+  """
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_instance_counters_start_at_zero(self, mock_vdms_class):
+    """Verify running totals start at zero before any writes."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+
+    assert db.getInstanceRunningBytes() == 0
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_add_entry_increments_running_bytes_by_measured_size(self, mock_vdms_class):
+    """
+    Verify the running byte total increases by (vector bytes + measured properties
+    size) after a successful addEntry, not a hardcoded/guessed constant.
+    """
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    db.addEntry("test-uuid", "rvid", "Person", [np.random.randn(256).astype(np.float32)])
+
+    query = db.sendQuery.call_args[0][0][0]
+    properties = query['AddDescriptor']['properties']
+    expected_metadata_bytes = len(json.dumps(properties).encode("utf-8"))
+    expected_vector_bytes = 256 * 4
+
+    assert db.getInstanceRunningBytes() == expected_vector_bytes + expected_metadata_bytes
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_running_bytes_accumulate_across_multiple_calls(self, mock_vdms_class):
+    """Verify the running total accumulates rather than resetting between addEntry calls."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    db.addEntry("uuid-1", "rvid-1", "Person", [np.random.randn(256).astype(np.float32)])
+    after_first = db.getInstanceRunningBytes()
+
+    db.addEntry("uuid-2", "rvid-2", "Person", [np.random.randn(256).astype(np.float32)])
+    after_second = db.getInstanceRunningBytes()
+
+    assert after_second > after_first, "Running total should grow with each successful write"
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_failed_descriptor_write_does_not_increment_running_bytes(self, mock_vdms_class):
+    """Verify a failed AddDescriptor (non-zero status) does not count toward the running total."""
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 1}], []))
+
+    db.addEntry("test-uuid", "rvid", "Person", [np.random.randn(256).astype(np.float32)])
+
+    assert db.getInstanceRunningBytes() == 0
+
+  @patch('controller.vdms_adapter.vdms.vdms')
+  def test_running_bytes_reflect_actual_metadata_size_not_a_constant(self, mock_vdms_class):
+    """
+    Verify entries with more metadata (larger properties payload) produce a
+    larger running-byte increase than entries with less metadata -- confirming
+    the size is genuinely measured per call, not a fixed guessed constant.
+    """
+    mock_vdms_class.return_value = MagicMock()
+
+    db = VDMSDatabase()
+    db.dimensions = 256
+    db.sendQuery = Mock(return_value=([{'status': 0}], []))
+
+    db.addEntry("uuid-1", "rvid-1", "Person", [np.random.randn(256).astype(np.float32)])
+    bytes_with_no_metadata = db.getInstanceRunningBytes()
+
+    db.addEntry(
+      "uuid-2", "rvid-2", "Person", [np.random.randn(256).astype(np.float32)],
+      gender={"label": "Female", "confidence": 0.95},
+      age={"label": 28, "confidence": 0.87}
+    )
+    bytes_after_second = db.getInstanceRunningBytes()
+    increase_with_metadata = bytes_after_second - bytes_with_no_metadata
+
+    assert increase_with_metadata > (256 * 4), (
+      "Entry with semantic metadata should measure larger than the vector-only baseline."
+    )

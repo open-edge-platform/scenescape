@@ -887,3 +887,97 @@ class TestDimensionInference:
 
     assert "track_1" in manager.quality_features, "64-dim embedding should be accepted"
     assert "track_2" not in manager.quality_features, "128-dim embedding should be rejected after 64 inferred"
+
+class TestStorageMetricTimer:
+  """
+  Test the periodic storage-metric polling (descriptor_count / shared_vector_bytes),
+  which queries the shared VDMS store directly so it reflects growth across all
+  controller instances, not just this process.
+  """
+
+  def test_storage_metric_timer_starts_on_init(self, mock_vdms_db):
+    """Verify the storage-metric timer is created during initialization."""
+    manager = UUIDManager()
+
+    assert manager.storage_metric_timer is not None
+    manager.shutdown()
+
+  def test_default_storage_metric_interval(self, mock_vdms_db):
+    """Verify the default polling interval matches DEFAULT_STORAGE_METRIC_INTERVAL_SECS."""
+    manager = UUIDManager()
+
+    assert manager.storage_metric_interval_secs == 60.0
+    manager.shutdown()
+
+  def test_custom_storage_metric_interval_from_config(self, mock_vdms_db):
+    """Verify storage_metric_interval_secs is configurable via reid_config_data."""
+    manager = UUIDManager(reid_config_data={'storage_metric_interval_secs': 10})
+
+    assert manager.storage_metric_interval_secs == 10
+    manager.shutdown()
+
+  def test_report_storage_metric_queries_descriptor_count_and_bytes(self, mock_vdms_db):
+    """Verify _reportStorageMetric queries both the count and the vector-bytes methods."""
+    manager = UUIDManager()
+    mock_vdms_db.getDescriptorCount.return_value = 42
+    mock_vdms_db.getDescriptorSetVectorBytes.return_value = 43008
+
+    manager._reportStorageMetric()
+
+    mock_vdms_db.getDescriptorCount.assert_called_once()
+    mock_vdms_db.getDescriptorSetVectorBytes.assert_called_once()
+    manager.shutdown()
+
+  def test_report_storage_metric_skips_cleanly_when_count_is_none(self, mock_vdms_db):
+    """Verify no exception when the shared count query fails and returns None."""
+    manager = UUIDManager()
+    mock_vdms_db.getDescriptorCount.return_value = None
+    mock_vdms_db.getDescriptorSetVectorBytes.return_value = None
+
+    manager._reportStorageMetric()  # should not raise
+
+    manager.shutdown()
+
+  def test_report_storage_metric_handles_exception_gracefully(self, mock_vdms_db):
+    """Verify an exception from the database layer doesn't propagate out of the report call."""
+    manager = UUIDManager()
+    mock_vdms_db.getDescriptorCount.side_effect = Exception("VDMS connection lost")
+
+    manager._reportStorageMetric()  # should not raise
+
+    manager.shutdown()
+
+  def test_shutdown_cancels_storage_metric_timer(self, mock_vdms_db):
+    """Verify shutdown() cancels the storage-metric timer and clears the reference."""
+    manager = UUIDManager()
+    timer = manager.storage_metric_timer
+
+    manager.shutdown()
+
+    assert manager.storage_metric_timer is None
+    # Timer.cancel() synchronously sets the internal 'finished' event; the underlying
+    # thread may take a moment longer to actually terminate, so check the event
+    # rather than is_alive() (which is racy immediately after cancel()).
+    assert timer.finished.is_set()
+
+  def test_update_reid_config_reschedules_timer_when_interval_changes(self, mock_vdms_db):
+    """Verify changing storage_metric_interval_secs via config triggers a reschedule."""
+    manager = UUIDManager(reid_config_data={'storage_metric_interval_secs': 60})
+    original_timer = manager.storage_metric_timer
+
+    manager.updateReidConfig({'storage_metric_interval_secs': 5})
+
+    assert manager.storage_metric_interval_secs == 5
+    assert manager.storage_metric_timer is not original_timer
+    assert original_timer.finished.is_set()
+    manager.shutdown()
+
+  def test_update_reid_config_does_not_reschedule_when_interval_unchanged(self, mock_vdms_db):
+    """Verify the timer is left alone when storage_metric_interval_secs doesn't change."""
+    manager = UUIDManager(reid_config_data={'storage_metric_interval_secs': 60})
+    original_timer = manager.storage_metric_timer
+
+    manager.updateReidConfig({'storage_metric_interval_secs': 60})
+
+    assert manager.storage_metric_timer is original_timer
+    manager.shutdown()
