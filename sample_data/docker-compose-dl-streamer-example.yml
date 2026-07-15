@@ -127,8 +127,8 @@ services:
 
   broker:
     image: eclipse-mosquitto:2.0.22
-    # ports:
-    #  - "1883:1883"
+    ports:
+     - "1883:1883"
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
@@ -340,12 +340,13 @@ services:
       - http_proxy=${http_proxy}
       - NO_PROXY=mediaserver,${NO_PROXY}
       - no_proxy=mediaserver,${no_proxy}
-      - GST_PLUGIN_PATH=/home/pipeline-server/user_scripts/gstanalytics/sscape
+      # - GST_PLUGIN_PATH=/home/pipeline-server/user_scripts/gstanalytics/sscape
     configs:
       - source: retail-config
         target: /home/pipeline-server/config.json
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - ./dlstreamer-pipeline-server/user_scripts/gstanalytics/sscape/sscape_post_decode_timestamp.py:/opt/intel/dlstreamer/gstreamer/lib/sscape_post_decode_timestamp.py
       - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
@@ -405,11 +406,13 @@ services:
       - http_proxy=${http_proxy}
       - NO_PROXY=mediaserver,${NO_PROXY}
       - no_proxy=mediaserver,${no_proxy}
+      # - GST_PLUGIN_PATH=/home/pipeline-server/user_scripts/gstanalytics/sscape
     configs:
       - source: queuing-config
         target: /home/pipeline-server/config.json
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
+      - ./dlstreamer-pipeline-server/user_scripts/gstanalytics/sscape/sscape_post_decode_timestamp.py:/opt/intel/dlstreamer/gstreamer/lib/sscape_post_decode_timestamp.py
       - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
@@ -622,7 +625,7 @@ configs:
   queuing-config:
     # Use this configuration file to run decoding and inference on GPU
     # file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
-    file: ./dlstreamer-pipeline-server/queuing-config.json
+    file: ./dlstreamer-pipeline-server/queuing-config-gst.json
     # Use this configuration file to run inference on NPU
     # file: ./dlstreamer-pipeline-server/queuing-config-npu.json
 

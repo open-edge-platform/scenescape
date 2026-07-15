@@ -229,8 +229,7 @@ class PostDecodeTimestampCapture(GstBase.BaseTransform):
 
     adjusted = now + self._time_offset
     postdecode_ts = (
-      f"{datetime.fromtimestamp(adjusted, tz=timezone(TIMEZONE))"
-      f".strftime(DATETIME_FORMAT)[:-3]}Z"
+      f"{datetime.fromtimestamp(adjusted, tz=timezone(TIMEZONE)).strftime(DATETIME_FORMAT)[:-3]}Z"
     )
 
     if self._use_frame_ntp:
