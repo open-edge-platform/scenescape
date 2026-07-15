@@ -119,7 +119,9 @@ Also during Step 1, ask:
 
 - **No answer / reconstruction (default)**: proceed as documented below — the orchestrator's
   steps 9 and 11–13 capture calibration frames, auto-generate the map, and auto-calibrate camera
-  poses.
+  poses. If the user also has a pre-recorded walk-through video of the space, it can be included
+  at step 11–12 for extra reconstruction coverage (camera auto-calibration is unaffected) — see
+  [reconstruction.md](./references/reconstruction.md#supplementing-with-a-walk-through-video).
 - **Blueprint image, GLB/PLY mesh, or geospatial map**: this skips automatic camera-pose
   estimation, so the user must calibrate cameras **manually** via the web UI afterward — confirm
   they accept that tradeoff, then follow
@@ -261,22 +263,22 @@ changing streams/camera_ids/scene_name.
 Each reference document has one primary step where it should be read; load others only when
 troubleshooting a failure at that step.
 
-| Reference                                                             | Primary step             | Purpose                                                                                |
-| --------------------------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------- |
-| [pipeline-config.md](./references/pipeline-config.md)                 | 6                        | How `adapt_pipeline_config.py` generates per-camera pipelines                          |
-| [mosquitto-config.md](./references/mosquitto-config.md)               | 6                        | Broker TLS listener layout; optional password file generation                          |
-| [docker-compose-template.md](./references/docker-compose-template.md) | 6 (failure only)         | Full compose template; read only to debug a template bug                               |
-| [command-templates.md](./references/command-templates.md)             | 7                        | Reusable RTSP gate check and MQTT pub/sub verification commands                        |
-| [runtime-verification.md](./references/runtime-verification.md)       | 7, 9                     | RTSP/service-health failure diagnosis                                                  |
-| [scene-and-cameras.md](./references/scene-and-cameras.md)             | 11–12 (failure only)     | Manual scene/camera REST calls if reconstruction needs inspection                      |
-| [reconstruction.md](./references/reconstruction.md)                   | 11–12                    | Reconstruction and finalization failure diagnosis                                      |
-| [scene-map-alternatives.md](./references/scene-map-alternatives.md)   | after Step 1 (if chosen) | Blueprint/GLB/geospatial scene creation, pixels-per-meter, manual-calibration handoff  |
-| [verify-tracking.md](./references/verify-tracking.md)                 | 13                       | Tracking verification failure diagnosis                                                |
-| [phase-bootstrap.md](./references/phase-bootstrap.md)                 | 6–8 (standalone)         | Run/resume only the bootstrap phase                                                    |
-| [phase-calibrate.md](./references/phase-calibrate.md)                 | 9–10 (standalone)        | Run/resume only the calibrate phase                                                    |
-| [phase-scene.md](./references/phase-scene.md)                         | 11–13 (standalone)       | Run/resume only the scene phase                                                        |
-| [tuning-tracker.md](./references/tuning-tracker.md)                   | reactive (post-deploy)   | Diagnose reported tracking-quality issues → `tracker-config.json` motion/timing values |
-| [tuning-reid.md](./references/tuning-reid.md)                         | reactive (post-deploy)   | Diagnose reported Re-ID issues → `reid-config.json` re-identification values           |
+| Reference                                                             | Primary step             | Purpose                                                                                    |
+| --------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------ |
+| [pipeline-config.md](./references/pipeline-config.md)                 | 6                        | How `adapt_pipeline_config.py` generates per-camera pipelines                              |
+| [mosquitto-config.md](./references/mosquitto-config.md)               | 6                        | Broker TLS listener layout; optional password file generation                              |
+| [docker-compose-template.md](./references/docker-compose-template.md) | 6 (failure only)         | Full compose template; read only to debug a template bug                                   |
+| [command-templates.md](./references/command-templates.md)             | 7                        | Reusable RTSP gate check and MQTT pub/sub verification commands                            |
+| [runtime-verification.md](./references/runtime-verification.md)       | 7, 9                     | RTSP/service-health failure diagnosis                                                      |
+| [scene-and-cameras.md](./references/scene-and-cameras.md)             | 11–12 (failure only)     | Manual scene/camera REST calls if reconstruction needs inspection                          |
+| [reconstruction.md](./references/reconstruction.md)                   | 11–12                    | Reconstruction and finalization failure diagnosis; supplementing with a walk-through video |
+| [scene-map-alternatives.md](./references/scene-map-alternatives.md)   | after Step 1 (if chosen) | Blueprint/GLB/geospatial scene creation, pixels-per-meter, manual-calibration handoff      |
+| [verify-tracking.md](./references/verify-tracking.md)                 | 13                       | Tracking verification failure diagnosis                                                    |
+| [phase-bootstrap.md](./references/phase-bootstrap.md)                 | 6–8 (standalone)         | Run/resume only the bootstrap phase                                                        |
+| [phase-calibrate.md](./references/phase-calibrate.md)                 | 9–10 (standalone)        | Run/resume only the calibrate phase                                                        |
+| [phase-scene.md](./references/phase-scene.md)                         | 11–13 (standalone)       | Run/resume only the scene phase                                                            |
+| [tuning-tracker.md](./references/tuning-tracker.md)                   | reactive (post-deploy)   | Diagnose reported tracking-quality issues → `tracker-config.json` motion/timing values     |
+| [tuning-reid.md](./references/tuning-reid.md)                         | reactive (post-deploy)   | Diagnose reported Re-ID issues → `reid-config.json` re-identification values               |
 
 ## Assets
 
