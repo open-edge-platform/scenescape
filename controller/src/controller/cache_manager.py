@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from controller.scene import Scene
+# controller.scene imports robot_vision at module level; keep this lazy so that
+# CacheManager (and therefore AnalyticsService) can be imported in the analytics
+# image without requiring the robot_vision C++ extension.
 from controller.data_source import RestSceneDataSource, FileSceneDataSource
 
 from scene_common import log
@@ -20,7 +22,10 @@ class CacheManager:
     self.pose_adjustment_config_data = (
       pose_adjustment_config_data if pose_adjustment_config_data else {}
     )
-    self._scene_cls = scene_cls if scene_cls is not None else Scene
+    self._scene_cls = scene_cls
+    if self._scene_cls is None:
+      from controller.scene import Scene
+      self._scene_cls = Scene
     self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
@@ -70,7 +75,10 @@ class CacheManager:
 
       uid = scene_data['uid']
       if uid not in self.cached_scenes_by_uid:
-        scene_cls = getattr(self, '_scene_cls', Scene)
+        scene_cls = getattr(self, '_scene_cls', None)
+        if scene_cls is None:
+          from controller.scene import Scene
+          scene_cls = Scene
         scene = scene_cls.deserialize(scene_data)
 
         old_scene = self._sensorNeedsRestoring(uid)

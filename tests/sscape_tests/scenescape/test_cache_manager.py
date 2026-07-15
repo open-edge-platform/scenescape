@@ -155,7 +155,7 @@ class TestCacheManagerRefreshScenes:
     cache_mgr.pose_adjustment_config_data = {'person': ['pedestrian']}
     cache_mgr.data_source = mock_data_source
 
-    with patch('controller.cache_manager.Scene.deserialize') as mock_deserialize:
+    with patch('controller.scene.Scene.deserialize') as mock_deserialize:
       scene = MagicMock(spec=Scene)
       scene.uid = 'scene-1'
       scene.cameras = {}
