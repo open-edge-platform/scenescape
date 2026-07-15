@@ -4,8 +4,8 @@
 import pytest
 from unittest.mock import Mock, MagicMock, patch
 
-from controller.cache_manager import CacheManager
-from controller.data_source import FileSceneDataSource, RestSceneDataSource
+from scene_common.cache_manager import CacheManager
+from scene_common.data_source import FileSceneDataSource, RestSceneDataSource
 from controller.scene import Scene
 
 
@@ -31,7 +31,7 @@ class TestCacheManagerInitialization:
 
   def test_init_with_rest_data_source(self, mock_rest_client):
     """Test initialization with REST data source."""
-    with patch('controller.data_source.RESTClient', return_value=mock_rest_client):
+    with patch('scene_common.data_source.RESTClient', return_value=mock_rest_client):
       cache_mgr = CacheManager.__new__(CacheManager)
       cache_mgr.cached_scenes_by_uid = {}
       cache_mgr._cached_scenes_by_cameraID = {}
@@ -106,7 +106,7 @@ class TestCacheManagerRefreshScenes:
     cache_mgr.tracker_config_data = {}
     cache_mgr.data_source = mock_data_source
 
-    with patch('controller.cache_manager.log.error') as mock_log_error:
+    with patch('scene_common.cache_manager.log.error') as mock_log_error:
       # Should not raise, just return without updating cache
       cache_mgr.refreshScenes()
 

@@ -7,7 +7,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from controller.detections_builder import buildDetectionsDict, buildDetectionsList, prepareObjDict
+from scene_common.detections_builder import buildDetectionsDict, buildDetectionsList, prepareObjDict
 from controller.moving_object import ChainData, ReidState
 from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time, get_iso_time
@@ -104,7 +104,7 @@ class TestDetectionsBuilder:
     assert detections[0]['regions']['region-a']['entered'] == '2026-03-31T10:00:00.000Z'
     assert detections[0]['regions']['region-a']['dwell'] == pytest.approx(5.0)
 
-  @patch('controller.detections_builder.get_epoch_time', return_value=10.0)
+  @patch('scene_common.detections_builder.get_epoch_time', return_value=10.0)
   def test_build_detections_list_reuses_cached_entered_epoch(self, mock_get_epoch_time):
     scene = SimpleNamespace(output_lla=False)
     obj = _build_object_with_regions(
@@ -238,8 +238,8 @@ class TestDetectionsBuilder:
     with pytest.raises(AttributeError):
       prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
 
-  @patch('controller.detections_builder.calculateHeading')
-  @patch('controller.detections_builder.convertXYZToLLA')
+  @patch('scene_common.detections_builder.calculateHeading')
+  @patch('scene_common.detections_builder.convertXYZToLLA')
   def test_prepare_obj_dict_adds_lla_output_when_enabled(self, mock_convert_xyz_to_lla, mock_calculate_heading):
     obj = _build_object(velocity=Point(4.0, 5.0, 6.0), include_sensor_payload=False)
     scene = SimpleNamespace(output_lla=True, trs_xyz_to_lla='trs-transform')

@@ -4,7 +4,7 @@
 # controller.scene imports robot_vision at module level; keep this lazy so that
 # CacheManager (and therefore AnalyticsService) can be imported in the analytics
 # image without requiring the robot_vision C++ extension.
-from controller.data_source import RestSceneDataSource, FileSceneDataSource
+from scene_common.data_source import RestSceneDataSource, FileSceneDataSource
 
 from scene_common import log
 from scene_common.timestamp import get_epoch_time

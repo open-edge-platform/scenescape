@@ -7,11 +7,11 @@ from collections import defaultdict
 
 import ntplib
 
-from controller.cache_manager import CacheManager
+from scene_common.cache_manager import CacheManager
 from controller.child_scene_controller import ChildSceneController
 from controller.controller_mode import ControllerMode
 from controller.analytics.event_publisher import publish_events
-from controller.detections_builder import (buildDetectionsList,
+from scene_common.detections_builder import (buildDetectionsList,
                                            computeCameraBounds)
 from controller.scene import Scene
 from scene_common import log
