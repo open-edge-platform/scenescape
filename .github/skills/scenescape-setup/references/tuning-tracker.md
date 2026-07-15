@@ -27,24 +27,24 @@ user just wants a quick demo/default deployment, skip this section entirely and 
 
 ## Questionnaire
 
-| # | Question                                                                                   | Parameters affected                                                            |
-| - | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| 1 | What is the highest FPS among all cameras in this deployment?                              | `time_chunking_rate_fps`                                                        |
-| 2 | Do camera fields of view overlap? If so, how many cameras typically cover the same area?    | `time_chunking_rate_fps` (indirectly), noted as an "experiment" variable        |
-| 3 | Are the tracked objects mostly moving (people, vehicles) or mostly static (parked/idle)?    | `non_measurement_time_dynamic_s`, `non_measurement_time_static_s`               |
-| 4 | How frequent/long are occlusions (columns, shelving, crowd density) expected to be?         | `non_measurement_time_dynamic_s`, `non_measurement_time_static_s`, `suspended_track_timeout_secs` |
-| 5 | Is it acceptable for a tracked object to briefly flicker in/out of the UI, or must it be stable before showing? | `max_unreliable_time_s`                                          |
+| #   | Question                                                                                                        | Parameters affected                                                                               |
+| --- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 1   | What is the highest FPS among all cameras in this deployment?                                                   | `time_chunking_rate_fps`                                                                          |
+| 2   | Do camera fields of view overlap? If so, how many cameras typically cover the same area?                        | `time_chunking_rate_fps` (indirectly), noted as an "experiment" variable                          |
+| 3   | Are the tracked objects mostly moving (people, vehicles) or mostly static (parked/idle)?                        | `non_measurement_time_dynamic_s`, `non_measurement_time_static_s`                                 |
+| 4   | How frequent/long are occlusions (columns, shelving, crowd density) expected to be?                             | `non_measurement_time_dynamic_s`, `non_measurement_time_static_s`, `suspended_track_timeout_secs` |
+| 5   | Is it acceptable for a tracked object to briefly flicker in/out of the UI, or must it be stable before showing? | `max_unreliable_time_s`                                                                           |
 
 ## Parameter reference
 
-| Parameter                         | Default | Meaning                                                                                          |
-| ---------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
-| `max_unreliable_time_s`           | 1.0     | Time to wait before publishing a tracked object to the web UI/MQTT.                              |
-| `non_measurement_time_dynamic_s`  | 0.8     | Time to wait before deleting a dead track that was moving (non-zero velocity) when lost.         |
-| `non_measurement_time_static_s`   | 1.6     | Time to wait before deleting a dead track that was stationary when lost.                          |
-| `time_chunking_enabled`           | true    | Batches detections into fixed-rate time chunks instead of processing every frame immediately.     |
-| `time_chunking_rate_fps`          | 10      | Tracker processing rate (Hz). Rule of thumb: set to the **highest** camera FPS in the deployment. |
-| `suspended_track_timeout_secs`    | 60.0    | *(Not covered in the how-to guide; inferred from `controller/src/controller/tracking.py`.)* Upper bound on how long a track that has stopped receiving detections is retained before it is finally purged — relevant when a long occlusion or camera hand-off might later resolve to the same object. |
+| Parameter                        | Default | Meaning                                                                                                                                                                                                                                                                                               |
+| -------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `max_unreliable_time_s`          | 1.0     | Time to wait before publishing a tracked object to the web UI/MQTT.                                                                                                                                                                                                                                   |
+| `non_measurement_time_dynamic_s` | 0.8     | Time to wait before deleting a dead track that was moving (non-zero velocity) when lost.                                                                                                                                                                                                              |
+| `non_measurement_time_static_s`  | 1.6     | Time to wait before deleting a dead track that was stationary when lost.                                                                                                                                                                                                                              |
+| `time_chunking_enabled`          | true    | Batches detections into fixed-rate time chunks instead of processing every frame immediately.                                                                                                                                                                                                         |
+| `time_chunking_rate_fps`         | 10      | Tracker processing rate (Hz). Rule of thumb: set to the **highest** camera FPS in the deployment.                                                                                                                                                                                                     |
+| `suspended_track_timeout_secs`   | 60.0    | _(Not covered in the how-to guide; inferred from `controller/src/controller/tracking.py`.)_ Upper bound on how long a track that has stopped receiving detections is retained before it is finally purged — relevant when a long occlusion or camera hand-off might later resolve to the same object. |
 
 ## Recommendation logic
 

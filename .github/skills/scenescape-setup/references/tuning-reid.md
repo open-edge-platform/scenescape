@@ -26,23 +26,23 @@ deployment, or has no cross-camera Re-ID need, skip this section entirely and le
 
 ## Questionnaire
 
-| # | Question                                                                                                 | Parameters affected                                                            |
-| - | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| 1 | Do you need to re-identify the same person/vehicle across non-overlapping cameras (cross-camera Re-ID)? | `similarity_metric`, `similarity_threshold`, `feature_accumulation_threshold` |
-| 2 | How close/large do subjects appear in frame (near-field close-up vs. wide/high-mounted overview camera)? | `minimum_bbox_area`                                              |
-| 3 | How many distinct people/vehicles are expected in the scene at once (sparse vs. crowded)?   | `feature_accumulation_threshold`, `VDMS_CONFIDENCE_THRESHOLD` (env var, not in `reid-config.json`) |
+| #   | Question                                                                                                 | Parameters affected                                                                                |
+| --- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 1   | Do you need to re-identify the same person/vehicle across non-overlapping cameras (cross-camera Re-ID)?  | `similarity_metric`, `similarity_threshold`, `feature_accumulation_threshold`                      |
+| 2   | How close/large do subjects appear in frame (near-field close-up vs. wide/high-mounted overview camera)? | `minimum_bbox_area`                                                                                |
+| 3   | How many distinct people/vehicles are expected in the scene at once (sparse vs. crowded)?                | `feature_accumulation_threshold`, `VDMS_CONFIDENCE_THRESHOLD` (env var, not in `reid-config.json`) |
 
 ## Parameter reference
 
-| Parameter                           | Default (metric-dependent)         | Meaning                                                                                     |
-| ------------------------------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `similarity_metric`                 | `L2` (repo default), `COSINE` (this skill's asset) | `L2` = distance, lower is better. `COSINE` = normalized vectors, higher is better, scores in `[-1, 1]`. |
-| `similarity_threshold`              | `40.0` for `L2`, `0.5` for `COSINE` | Match acceptance cutoff, interpreted per the metric above (below for `L2`, above for `COSINE`). |
-| `feature_accumulation_threshold`    | 12                                  | Minimum number of quality embeddings collected before a similarity query is even attempted. Higher = more confident matches, slower first-match latency. |
-| `minimum_bbox_area`                 | 5000 (pixels²)                     | Minimum detection bounding-box area before it contributes an embedding. Too high for a far/high-mounted camera silently disables Re-ID for that camera. |
-| `stale_feature_timeout_secs`        | 5.0                                 | How long embeddings accumulate in memory before being flushed to VDMS for persistence.        |
-| `stale_feature_check_interval_secs` | 1.0                                 | How often the background timer checks for stale features to flush.                             |
-| `feature_slice_size`                | 10                                  | Persist every Nth accumulated embedding to VDMS (reduces database growth).                     |
+| Parameter                           | Default (metric-dependent)                         | Meaning                                                                                                                                                  |
+| ----------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `similarity_metric`                 | `L2` (repo default), `COSINE` (this skill's asset) | `L2` = distance, lower is better. `COSINE` = normalized vectors, higher is better, scores in `[-1, 1]`.                                                  |
+| `similarity_threshold`              | `40.0` for `L2`, `0.5` for `COSINE`                | Match acceptance cutoff, interpreted per the metric above (below for `L2`, above for `COSINE`).                                                          |
+| `feature_accumulation_threshold`    | 12                                                 | Minimum number of quality embeddings collected before a similarity query is even attempted. Higher = more confident matches, slower first-match latency. |
+| `minimum_bbox_area`                 | 5000 (pixels²)                                     | Minimum detection bounding-box area before it contributes an embedding. Too high for a far/high-mounted camera silently disables Re-ID for that camera.  |
+| `stale_feature_timeout_secs`        | 5.0                                                | How long embeddings accumulate in memory before being flushed to VDMS for persistence.                                                                   |
+| `stale_feature_check_interval_secs` | 1.0                                                | How often the background timer checks for stale features to flush.                                                                                       |
+| `feature_slice_size`                | 10                                                 | Persist every Nth accumulated embedding to VDMS (reduces database growth).                                                                               |
 
 `VDMS_CONFIDENCE_THRESHOLD` (default `0.8`) is a controller **environment variable**, not a
 `reid-config.json` field — it controls how strict TIER 1 metadata filtering is (age/gender/etc.)

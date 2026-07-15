@@ -109,22 +109,40 @@ Writes `<deploy_dir>/deploy-inputs.json` — the source of truth for all later s
 Pipeline adaptation reads RTSP URLs from the downloaded template entry per camera; it does not
 hardcode simulator hostnames or camera names.
 
+## Scene source: reconstruction vs. blueprint/GLB vs. geospatial map
+
+Also during Step 1, ask:
+
+> "Do you already have a floor blueprint image or a `.glb`/`.ply` scene mesh, or should
+> SceneScape auto-generate the scene map from camera reconstruction (default)? If you'd rather
+> build the scene from a geospatial (address/GPS-based) map, that's also available."
+
+- **No answer / reconstruction (default)**: proceed as documented below — the orchestrator's
+  steps 9 and 11–13 capture calibration frames, auto-generate the map, and auto-calibrate camera
+  poses.
+- **Blueprint image, GLB/PLY mesh, or geospatial map**: this skips automatic camera-pose
+  estimation, so the user must calibrate cameras **manually** via the web UI afterward — confirm
+  they accept that tradeoff, then follow
+  [scene-map-alternatives.md](./references/scene-map-alternatives.md), which covers running only
+  `--phase bootstrap`/`--phase calibrate`, computing pixels-per-meter for a blueprint, creating the
+  scene via REST, and (for geospatial) setting `output_lla` + `map_corners_lla`.
+
 ## Tuning tracker/Re-ID behavior (reactive only)
 
 Do **not** ask tuning questions upfront during Step 1 — always deploy with the shipped
 `tracker-config.json` / `reid-config.json` defaults first. Only open the relevant questionnaire
 below **after** a deployment is running and the user reports dissatisfaction with tracking
 quality (e.g. "objects flicker/disappear", "IDs keep changing", "it's not re-identifying people
- across cameras", "tracking feels wrong for my scene").
+across cameras", "tracking feels wrong for my scene").
 
 When that happens, ask only the questionnaire matching the reported symptom, then apply the
 resulting values by editing `<deploy_dir>/controller/tracker-config.json` and/or
 `reid-config.json` and restarting the `scene` service (`docker compose up -d --force-recreate
 scene`) to pick up the change:
 
-| Symptom                                                                    | Reference                                          |
-| ----------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Tracks flicker, vanish during occlusion, or IDs change unexpectedly       | [tuning-tracker.md](./references/tuning-tracker.md) |
+| Symptom                                                                  | Reference                                           |
+| ------------------------------------------------------------------------ | --------------------------------------------------- |
+| Tracks flicker, vanish during occlusion, or IDs change unexpectedly      | [tuning-tracker.md](./references/tuning-tracker.md) |
 | Re-identification across cameras is missing or matching the wrong person | [tuning-reid.md](./references/tuning-reid.md)       |
 
 ## Fast Path (repeat or resume deployments)
@@ -243,39 +261,42 @@ changing streams/camera_ids/scene_name.
 Each reference document has one primary step where it should be read; load others only when
 troubleshooting a failure at that step.
 
-| Reference                                                             | Primary step         | Purpose                                                           |
-| --------------------------------------------------------------------- | -------------------- | ----------------------------------------------------------------- |
-| [pipeline-config.md](./references/pipeline-config.md)                 | 6                    | How `adapt_pipeline_config.py` generates per-camera pipelines     |
-| [mosquitto-config.md](./references/mosquitto-config.md)               | 6                    | Broker TLS listener layout; optional password file generation     |
-| [docker-compose-template.md](./references/docker-compose-template.md) | 6 (failure only)     | Full compose template; read only to debug a template bug          |
-| [command-templates.md](./references/command-templates.md)             | 7                    | Reusable RTSP gate check and MQTT pub/sub verification commands   |
-| [runtime-verification.md](./references/runtime-verification.md)       | 7, 9                 | RTSP/service-health failure diagnosis                             |
-| [scene-and-cameras.md](./references/scene-and-cameras.md)             | 11–12 (failure only) | Manual scene/camera REST calls if reconstruction needs inspection |
-| [reconstruction.md](./references/reconstruction.md)                   | 11–12                | Reconstruction and finalization failure diagnosis                 |
-| [verify-tracking.md](./references/verify-tracking.md)                 | 13                   | Tracking verification failure diagnosis                           |
-| [phase-bootstrap.md](./references/phase-bootstrap.md)                 | 6–8 (standalone)     | Run/resume only the bootstrap phase                               |
-| [phase-calibrate.md](./references/phase-calibrate.md)                 | 9–10 (standalone)    | Run/resume only the calibrate phase                               |
-| [phase-scene.md](./references/phase-scene.md)                         | 11–13 (standalone)   | Run/resume only the scene phase                                   |
-| [tuning-tracker.md](./references/tuning-tracker.md)                   | reactive (post-deploy) | Diagnose reported tracking-quality issues → `tracker-config.json` motion/timing values |
-| [tuning-reid.md](./references/tuning-reid.md)                         | reactive (post-deploy) | Diagnose reported Re-ID issues → `reid-config.json` re-identification values |
+| Reference                                                             | Primary step             | Purpose                                                                                |
+| --------------------------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------- |
+| [pipeline-config.md](./references/pipeline-config.md)                 | 6                        | How `adapt_pipeline_config.py` generates per-camera pipelines                          |
+| [mosquitto-config.md](./references/mosquitto-config.md)               | 6                        | Broker TLS listener layout; optional password file generation                          |
+| [docker-compose-template.md](./references/docker-compose-template.md) | 6 (failure only)         | Full compose template; read only to debug a template bug                               |
+| [command-templates.md](./references/command-templates.md)             | 7                        | Reusable RTSP gate check and MQTT pub/sub verification commands                        |
+| [runtime-verification.md](./references/runtime-verification.md)       | 7, 9                     | RTSP/service-health failure diagnosis                                                  |
+| [scene-and-cameras.md](./references/scene-and-cameras.md)             | 11–12 (failure only)     | Manual scene/camera REST calls if reconstruction needs inspection                      |
+| [reconstruction.md](./references/reconstruction.md)                   | 11–12                    | Reconstruction and finalization failure diagnosis                                      |
+| [scene-map-alternatives.md](./references/scene-map-alternatives.md)   | after Step 1 (if chosen) | Blueprint/GLB/geospatial scene creation, pixels-per-meter, manual-calibration handoff  |
+| [verify-tracking.md](./references/verify-tracking.md)                 | 13                       | Tracking verification failure diagnosis                                                |
+| [phase-bootstrap.md](./references/phase-bootstrap.md)                 | 6–8 (standalone)         | Run/resume only the bootstrap phase                                                    |
+| [phase-calibrate.md](./references/phase-calibrate.md)                 | 9–10 (standalone)        | Run/resume only the calibrate phase                                                    |
+| [phase-scene.md](./references/phase-scene.md)                         | 11–13 (standalone)       | Run/resume only the scene phase                                                        |
+| [tuning-tracker.md](./references/tuning-tracker.md)                   | reactive (post-deploy)   | Diagnose reported tracking-quality issues → `tracker-config.json` motion/timing values |
+| [tuning-reid.md](./references/tuning-reid.md)                         | reactive (post-deploy)   | Diagnose reported Re-ID issues → `reid-config.json` re-identification values           |
 
 ## Assets
 
 `assets/` holds files copied verbatim into `<deploy_dir>` by `bootstrap_deploy.py` (step 2) — the
 agent never runs these directly; the generated deployment does.
 
-| Asset                                               | Copied to                  | Purpose                                                      |
-| --------------------------------------------------- | -------------------------- | ------------------------------------------------------------ |
-| [generate_secrets.sh](./assets/generate_secrets.sh) | `<deploy_dir>/secrets/`    | Generates TLS certs and service auth JSON files              |
-| [openssl.cnf](./assets/openssl.cnf)                 | `<deploy_dir>/secrets/`    | Certificate extension template used by `generate_secrets.sh` |
-| [tracker-config.json](./assets/tracker-config.json) | `<deploy_dir>/controller/` | Scene Controller tracker behavior config — tunable if the user reports tracking issues, see [tuning-tracker.md](./references/tuning-tracker.md) |
+| Asset                                               | Copied to                  | Purpose                                                                                                                                                |
+| --------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [generate_secrets.sh](./assets/generate_secrets.sh) | `<deploy_dir>/secrets/`    | Generates TLS certs and service auth JSON files                                                                                                        |
+| [openssl.cnf](./assets/openssl.cnf)                 | `<deploy_dir>/secrets/`    | Certificate extension template used by `generate_secrets.sh`                                                                                           |
+| [tracker-config.json](./assets/tracker-config.json) | `<deploy_dir>/controller/` | Scene Controller tracker behavior config — tunable if the user reports tracking issues, see [tuning-tracker.md](./references/tuning-tracker.md)        |
 | [reid-config.json](./assets/reid-config.json)       | `<deploy_dir>/controller/` | Re-identification model config for multi-camera tracking — tunable if the user reports Re-ID issues, see [tuning-reid.md](./references/tuning-reid.md) |
 
 ## Examples
 
 See [example-prompts](./example-prompts) for ready-to-use prompts covering a multi-camera
 deployment, resuming after a camera/stream change, and reactive tracker/Re-ID tuning after a
-deployment is already running.
+deployment is already running. For deploying from an existing blueprint/GLB mesh or a geospatial
+map instead of auto-reconstruction, see
+[scene-map-alternatives.md](./references/scene-map-alternatives.md).
 
 ## Quality & Evaluation
 
