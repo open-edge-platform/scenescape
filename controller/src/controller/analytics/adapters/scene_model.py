@@ -39,6 +39,8 @@ class AnalyticsScene(SceneModel):
     self.use_tracker = False
     self.persist_attributes = {}
     self.analytics_state = AnalyticsStateStore()
+    self.regulated_rate = 30
+    self.external_update_rate = 30
     return
 
   def _hydrateFromSceneData(self, scene_data):
