@@ -13,7 +13,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def test_add_delete_3d_object(params, record_xml_attribute, repo_root):
+def test_3d_ui_asset_crud(params, record_xml_attribute, repo_root):
   """! Verify the CRUD of object library via GUI.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.
