@@ -19,7 +19,7 @@ from scene_common.geometry import Point, Size
 from scene_common.timestamp import get_epoch_time
 from scene_common import log
 
-from controller.moving_object import ChainData
+from scene_common.chain_data import ChainData
 
 
 class SceneDataIngestion:

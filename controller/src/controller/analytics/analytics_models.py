@@ -4,7 +4,7 @@
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
-from controller.moving_object import ChainData
+from scene_common.chain_data import ChainData
 from scene_common.geometry import Point
 
 
