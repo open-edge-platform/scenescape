@@ -47,6 +47,7 @@ RUN apt update && apt upgrade -y \
     && apt-get install -y --no-install-recommends \
         gosu \
         libgl1 \
+        libgomp1 \
         libpython3.11 \
         netbase \
         python3-pip \

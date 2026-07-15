@@ -95,7 +95,6 @@ x-controller-base: &controller-base
 # - cluster-analytics: Core services + cluster-analytics only
 # - vdms: Enable the VDMS service
 # - controller: Enable the Controller service in Default mode (analytics + tracking)
-# - analytics: Enable the Controller service in Analytics Only mode (without tracking)
 # - tracker: Enable tracker service
 
 services:
@@ -224,12 +223,36 @@ services:
     profiles:
       - controller
 
-  controller-analytics:
-    <<: *controller-base
+  analytics:
+    image: scenescape-analytics:${VERSION:-latest}
+    init: true
+    user: "${UID:-1000}:${GID:-1000}"
+    networks:
+      scenescape:
     profiles:
-      - analytics
+      - controller
+      - tracker
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
     environment:
-      CONTROLLER_ENABLE_ANALYTICS_ONLY: "true"
+      no_proxy: ${no_proxy},.scenescape.intel.com
+      NO_PROXY: ${NO_PROXY},.scenescape.intel.com
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - django
+      - controller.auth
+    restart: always
+    pids_limit: 1000
 
   vdms:
     image: intellabs/vdms:v2.12.0
