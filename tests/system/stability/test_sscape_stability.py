@@ -279,8 +279,6 @@ class TestState():
     print("[{:.02f}% at {}] Runtime elapsed {} remaining {} (ending at {})".format(percentageRun, self.now_time.strftime("%c"), \
           str(self.running_time), str(self.remaining_time), self.end_time.strftime("%c")))
     print("{} Objects detected in last {} seconds (Min {} Max {})".format(objects_detected, TEST_WAIT_TIME, self.min_fps, self.max_fps))
-    if self.memory_samples:
-      print("System memory usage {:.2f}%".format(self.memory_samples[-1]))
     return None
 
   def login_failed(self):
@@ -648,7 +646,8 @@ def test_sscape_stability(params, record_xml_attribute, scenescape_env):
       elif state.check_service_health(docker, project_name):
         state.done = True
       else:
-        print(avg_msg, " log-in ok")
+        if avg_msg:
+          print(avg_msg)
         state.current_cycle += 1
     else:
       state.done = True
@@ -656,8 +655,6 @@ def test_sscape_stability(params, record_xml_attribute, scenescape_env):
       print("Test passed! {} of runtime".format(str(state.running_time)))
 
   state.print_resource_summary()
-  print()
-  print("Test Result: {}".format("PASS" if result == 0 else "FAIL"))
   common.record_test_result(TEST_NAME, result)
   assert result == 0
   return result
