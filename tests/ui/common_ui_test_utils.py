@@ -373,7 +373,34 @@ def modify_tripwire(browser):
   @param    browser                    Object wrapping the Selenium driver.
   @return   bool                       Boolean representing success.
   """
+  def _clamp_drag_x(handle, requested_dx):
+    """Return an in-viewport horizontal drag delta for a tripwire handle."""
+    viewport = browser.execute_script("return [window.innerWidth, window.innerHeight];")
+    viewport_width = int(viewport[0])
+    handle_rect = handle.rect
+    handle_center_x = float(handle_rect["x"]) + (float(handle_rect["width"]) / 2)
+
+    # Keep a small margin from window edges to avoid MoveTargetOutOfBounds.
+    edge_margin = 10.0
+    max_left_dx = edge_margin - handle_center_x
+    max_right_dx = (viewport_width - edge_margin) - handle_center_x
+    safe_dx = max(min(float(requested_dx), max_right_dx), max_left_dx)
+
+    # If there is no room in the requested direction, take a small step opposite.
+    if abs(safe_dx) < 5:
+      if requested_dx >= 0 and max_left_dx <= -5:
+        safe_dx = max(-50.0, max_left_dx)
+      elif requested_dx < 0 and max_right_dx >= 5:
+        safe_dx = min(50.0, max_right_dx)
+
+    return int(round(safe_dx))
+
   try:
+    wait = WebDriverWait(browser, BROWSER_WAIT)
+    wait.until(EC.element_to_be_clickable((By.ID, "tripwires-tab"))).click()
+    wait.until(EC.visibility_of_all_elements_located((By.CLASS_NAME, "point_0")))
+    wait.until(EC.visibility_of_all_elements_located((By.CLASS_NAME, "point_1")))
+
     # creating a long horizontal tripwire
     points_0 = browser.find_elements(By.CLASS_NAME, "point_0")
     points_1 = browser.find_elements(By.CLASS_NAME, "point_1")
@@ -381,8 +408,13 @@ def modify_tripwire(browser):
     point_1 = points_1[-1]
 
     action = browser.actionChains()
-    action.drag_and_drop_by_offset(point_0, -100, 0).perform()
-    action.drag_and_drop_by_offset(point_1, 200, 0).perform()
+    drag_0_x = _clamp_drag_x(point_0, -100)
+    action.drag_and_drop_by_offset(point_0, drag_0_x, 0).perform()
+
+    # Re-fetch handle after first drag to avoid stale geometry/position.
+    point_1 = browser.find_elements(By.CLASS_NAME, "point_1")[-1]
+    drag_1_x = _clamp_drag_x(point_1, 200)
+    action.drag_and_drop_by_offset(point_1, drag_1_x, 0).perform()
     print("Moved the ends of tripwire")
 
     browser.find_element(By.ID,"save-trips").click()
