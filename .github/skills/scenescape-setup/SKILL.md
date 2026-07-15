@@ -109,6 +109,24 @@ Writes `<deploy_dir>/deploy-inputs.json` — the source of truth for all later s
 Pipeline adaptation reads RTSP URLs from the downloaded template entry per camera; it does not
 hardcode simulator hostnames or camera names.
 
+## Tuning tracker/Re-ID behavior (reactive only)
+
+Do **not** ask tuning questions upfront during Step 1 — always deploy with the shipped
+`tracker-config.json` / `reid-config.json` defaults first. Only open the relevant questionnaire
+below **after** a deployment is running and the user reports dissatisfaction with tracking
+quality (e.g. "objects flicker/disappear", "IDs keep changing", "it's not re-identifying people
+ across cameras", "tracking feels wrong for my scene").
+
+When that happens, ask only the questionnaire matching the reported symptom, then apply the
+resulting values by editing `<deploy_dir>/controller/tracker-config.json` and/or
+`reid-config.json` and restarting the `scene` service (`docker compose up -d --force-recreate
+scene`) to pick up the change:
+
+| Symptom                                                                    | Reference                                          |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Tracks flicker, vanish during occlusion, or IDs change unexpectedly       | [tuning-tracker.md](./references/tuning-tracker.md) |
+| Re-identification across cameras is missing or matching the wrong person | [tuning-reid.md](./references/tuning-reid.md)       |
+
 ## Fast Path (repeat or resume deployments)
 
 If `<deploy_dir>/deploy-inputs.json` already exists and the user's new request does not change
@@ -238,6 +256,8 @@ troubleshooting a failure at that step.
 | [phase-bootstrap.md](./references/phase-bootstrap.md)                 | 6–8 (standalone)     | Run/resume only the bootstrap phase                               |
 | [phase-calibrate.md](./references/phase-calibrate.md)                 | 9–10 (standalone)    | Run/resume only the calibrate phase                               |
 | [phase-scene.md](./references/phase-scene.md)                         | 11–13 (standalone)   | Run/resume only the scene phase                                   |
+| [tuning-tracker.md](./references/tuning-tracker.md)                   | reactive (post-deploy) | Diagnose reported tracking-quality issues → `tracker-config.json` motion/timing values |
+| [tuning-reid.md](./references/tuning-reid.md)                         | reactive (post-deploy) | Diagnose reported Re-ID issues → `reid-config.json` re-identification values |
 
 ## Assets
 
@@ -248,13 +268,14 @@ agent never runs these directly; the generated deployment does.
 | --------------------------------------------------- | -------------------------- | ------------------------------------------------------------ |
 | [generate_secrets.sh](./assets/generate_secrets.sh) | `<deploy_dir>/secrets/`    | Generates TLS certs and service auth JSON files              |
 | [openssl.cnf](./assets/openssl.cnf)                 | `<deploy_dir>/secrets/`    | Certificate extension template used by `generate_secrets.sh` |
-| [tracker-config.json](./assets/tracker-config.json) | `<deploy_dir>/controller/` | Scene Controller tracker behavior config                     |
-| [reid-config.json](./assets/reid-config.json)       | `<deploy_dir>/controller/` | Re-identification model config for multi-camera tracking     |
+| [tracker-config.json](./assets/tracker-config.json) | `<deploy_dir>/controller/` | Scene Controller tracker behavior config — tunable if the user reports tracking issues, see [tuning-tracker.md](./references/tuning-tracker.md) |
+| [reid-config.json](./assets/reid-config.json)       | `<deploy_dir>/controller/` | Re-identification model config for multi-camera tracking — tunable if the user reports Re-ID issues, see [tuning-reid.md](./references/tuning-reid.md) |
 
 ## Examples
 
-See [example-prompts](./example-prompts) for ready-to-use prompts covering a single-camera
-deployment, a multi-camera scene, and resuming after a camera/stream change.
+See [example-prompts](./example-prompts) for ready-to-use prompts covering a multi-camera
+deployment, resuming after a camera/stream change, and reactive tracker/Re-ID tuning after a
+deployment is already running.
 
 ## Quality & Evaluation
 

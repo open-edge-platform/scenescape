@@ -17,7 +17,7 @@ against `evals/evals.json`.
 
 ## What has been validated so far (manual review)
 
-- All 4 example prompts in `example-prompts/` were manually walked through against the
+- All 5 example prompts in `example-prompts/` were manually walked through against the
   `SKILL.md` file to confirm the described agent behavior matches the actual step
   numbering, flags, and file layout.
 - Cross-references between `SKILL.md` → `references/` → `scripts/` were checked for

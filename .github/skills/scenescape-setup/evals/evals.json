@@ -3,35 +3,24 @@
   "evals": [
     {
       "id": 1,
-      "prompt_file": "example-prompts/01-single-camera-warehouse.md",
-      "prompt": "Deploy SceneScape in ~/deployments/warehouse-demo with one RTSP camera (cam1) and scene name 'Warehouse Demo'.",
-      "expected_output": "Deployment completes end-to-end (bootstrap, calibrate, scene phases) without asking clarifying questions, and the final response reports DEPLOY COMPLETE with a scene_uid and deployment metrics.",
+      "prompt_file": "example-prompts/01-multi-camera-deployment.md",
+      "prompt": "Deploy SceneScape in ~/deployments/retail-demo with three RTSP cameras and scene name 'Retail Demo'.",
+      "expected_output": "Deployment completes end-to-end (bootstrap, calibrate, scene phases) without asking clarifying questions, validates the camera inputs, deploys all three cameras, and the final response reports DEPLOY COMPLETE with a scene_uid, cross-camera tracking confirmation, and deployment metrics.",
       "should_trigger": true,
       "files": [],
       "assertions": [
         "Does not ask clarifying questions since deploy_dir, streams, camera_ids, and scene_name are all explicit in the prompt",
+        "Validates that the number of streams matches the number of camera_ids (3 == 3) and that camera_ids are unique before proceeding",
         "Persists deploy-inputs.json via the Step 1 tooling before invoking the orchestrator",
-        "Launches the orchestrator script (deploy_scenescape.sh) rather than running steps manually",
+        "Launches the orchestrator script (deploy_scenescape.sh) in an async terminal rather than running steps manually or blocking",
+        "Calibration phase produces one calibration JPEG per camera_id",
+        "Tracking verification (step 13) confirms tracked objects are associated with more than one camera_id",
         "Final response includes the DEPLOY COMPLETE marker and the Post-Task deployment metrics breakdown"
       ]
     },
     {
       "id": 2,
-      "prompt_file": "example-prompts/02-multi-camera-retail.md",
-      "prompt": "Deploy SceneScape in ~/deployments/retail-demo with three RTSP cameras and scene name 'Retail Demo'.",
-      "expected_output": "Deployment validates that streams and camera_ids arrays are the same length, deploys all three cameras, and tracking verification confirms objects observed across more than one camera.",
-      "should_trigger": true,
-      "files": [],
-      "assertions": [
-        "Validates that the number of streams matches the number of camera_ids (3 == 3) before proceeding",
-        "Rejects or asks for correction if camera_ids are not unique",
-        "Calibration phase produces one calibration JPEG per camera_id",
-        "Tracking verification (step 13) confirms tracked objects are associated with more than one camera_id"
-      ]
-    },
-    {
-      "id": 3,
-      "prompt_file": "example-prompts/03-resume-unchanged-deployment.md",
+      "prompt_file": "example-prompts/02-resume-unchanged-deployment.md",
       "prompt": "Continue the SceneScape deployment in ~/deployments/warehouse-demo — it stopped partway through.",
       "expected_output": "Agent detects the existing deploy-inputs.json, uses the Fast Path (skips Step 1 questions), and resumes the orchestrator from the step recorded in .deploy-state.json.",
       "should_trigger": true,
@@ -44,8 +33,8 @@
       ]
     },
     {
-      "id": 4,
-      "prompt_file": "example-prompts/04-redeploy-after-camera-change.md",
+      "id": 3,
+      "prompt_file": "example-prompts/03-redeploy-after-camera-change.md",
       "prompt": "In ~/deployments/warehouse-demo, replace cam1 with a new camera at rtsp://192.168.1.15:8554/cam1-new (ID: cam1-new). Redeploy.",
       "expected_output": "Agent recognizes the camera/stream change invalidates the Fast Path, re-runs Step 1 in full with the new values, and re-invokes the orchestrator with --fresh.",
       "should_trigger": true,
@@ -55,6 +44,36 @@
         "Re-asks/re-confirms all Step 1 inputs (streams, camera_ids, scene_name) rather than merging partial changes silently",
         "Invokes the orchestrator with --fresh so .deploy-state.json and the old deploy-inputs.json are cleared",
         "Re-runs all phases (bootstrap, calibrate, scene) rather than only the calibration step for the changed camera"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt_file": "example-prompts/04-reactive-tracking-tuning.md",
+      "prompt": "The SceneScape deployment in ~/deployments/warehouse-demo is up, but tracked people keep disappearing and getting new IDs whenever they walk behind a shelf. Can you fix this?",
+      "expected_output": "Agent recognizes this as a post-deployment tracking-quality complaint, opens only tuning-tracker.md (not tuning-reid.md), asks its questionnaire, then edits tracker-config.json in the deploy_dir and restarts the scene service.",
+      "should_trigger": true,
+      "files": [],
+      "assertions": [
+        "Does not ask any tuning questions during initial deployment prompts (evals 1-3) — tuning is only triggered by a post-deployment complaint like this one",
+        "Identifies the symptom (ID switching during occlusion) as a tracker motion/timing issue and opens tuning-tracker.md, not tuning-reid.md",
+        "Asks only the tuning-tracker.md questionnaire, not the full original combined set of questions",
+        "Edits the deployed <deploy_dir>/controller/tracker-config.json copy, not the skill's assets/tracker-config.json original",
+        "Restarts only the scene service (docker compose up -d --force-recreate scene) rather than re-running the full orchestrator or redeploying from scratch"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt_file": "example-prompts/05-reactive-reid-tuning.md",
+      "prompt": "The SceneScape deployment in ~/deployments/retail-demo is up, but the same shopper walking from cam1 to cam3 keeps getting a new ID instead of being recognized as the same person. Can you fix this?",
+      "expected_output": "Agent recognizes this as a post-deployment cross-camera Re-ID complaint, opens only tuning-reid.md (not tuning-tracker.md), asks its questionnaire, then edits reid-config.json in the deploy_dir and restarts the scene service.",
+      "should_trigger": true,
+      "files": [],
+      "assertions": [
+        "Does not ask any Re-ID tuning questions during initial deployment prompts (evals 1-3) — tuning is only triggered by a post-deployment complaint like this one",
+        "Identifies the symptom (identity not preserved across non-overlapping cameras) as a Re-ID issue and opens tuning-reid.md, not tuning-tracker.md",
+        "Asks only the tuning-reid.md questionnaire",
+        "Edits the deployed <deploy_dir>/controller/reid-config.json copy, not the skill's assets/reid-config.json original",
+        "Restarts only the scene service (docker compose up -d --force-recreate scene) rather than re-running the full orchestrator or redeploying from scratch"
       ]
     }
   ]
