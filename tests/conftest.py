@@ -1010,16 +1010,7 @@ def pytest_runtest_setup(item):
   test_name = _derive_marker(item)
   log_path = _testlog.setup(test_name, group=group, log_base=_LOG_BASE)
   logger.info("Test log: %s", log_path)
-
-def pytest_runtest_call(item):
-  """Switch file logging from setup log to per-test log for call/teardown."""
-  if not _ORCHESTRATION_AVAILABLE or _testlog is None:
-    return
-  spec = getattr(item, "_scenescape_spec", None)
-  is_k8s_only = item.get_closest_marker("kubernetes_only") is not None
-  if spec is None and not is_k8s_only:
-    return
-  _testlog.begin_test_phase()
+  logger.info("Test: %s", item.nodeid)
 
 def _collect_container_logs_if_configured(item):
   """Collect container logs for an item based on configured mode and outcome.
@@ -1071,6 +1062,16 @@ def pytest_runtest_makereport(item, call):
   setattr(item, f"rep_{rep.when}", rep)
   if rep.when == "teardown":
     _collect_container_logs_if_configured(item)
+    if _testlog is not None:
+      rep_setup = getattr(item, "rep_setup", None)
+      rep_call = getattr(item, "rep_call", None)
+      rep_teardown = getattr(item, "rep_teardown", None)
+      failed = bool(
+        (rep_setup is not None and rep_setup.failed)
+        or (rep_call is not None and rep_call.failed)
+        or (rep_teardown is not None and rep_teardown.failed)
+      )
+      _testlog.finalize(passed=not failed)
 
 def pytest_runtest_logreport(report):
   """Log test phase results to the per-test log file."""
