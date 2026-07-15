@@ -11,7 +11,7 @@ runs:
       shell: bash
       run: |
         set +e
-        find . -type f -path "**/test_data/*.log" | while read -r file; do
+        find . -type f -path '*/test_data/*' -name '*.log' -print0 | while IFS= read -r -d '' file; do
           newfile="$(dirname "$file")/$(basename "$file" | tr ':' '-')"
           if [ "$file" != "$newfile" ]; then
             mv "$file" "$newfile"
